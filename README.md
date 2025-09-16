@@ -1,172 +1,93 @@
-[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://pip.me/sergree)
+# Auralis - Professional Audio Mastering System
 
-![Matchering 2.0](https://raw.githubusercontent.com/sergree/matchering/master/images/logo.png)
+🎵 **A unified audio mastering platform combining the power of Matchering 2.0 with advanced library management and real-time processing.**
 
-[![License](https://img.shields.io/pypi/l/matchering.svg)](https://pypi.python.org/pypi/matchering/)
-[![PyPI Version](https://badge.fury.io/py/matchering.svg)](https://badge.fury.io/py/matchering)
-[![PyPI Python Versions](https://img.shields.io/pypi/pyversions/matchering.svg)](https://pypi.python.org/pypi/matchering/)
-[![Mentioned in Awesome Python](https://awesome.re/mentioned-badge.svg)](https://github.com/vinta/awesome-python)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+## 🚀 Quick Start
 
-## Matching + Mastering = ❤️
+### Installation
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-**[Matchering 2.0]** is a novel **[Containerized Web Application][Docker Image]** and **[Python Library][PyPI]** for audio matching and [mastering].
-
-It follows a *simple idea* - you take TWO audio files and feed them into **Matchering**: 
-- **TARGET** (the track you want to master, you want it to sound like the reference)
-- **REFERENCE** (another track, like some kind of "wet" popular song, you want your target to sound like it)
-
-Our algorithm matches both of these tracks and provides you the mastered **TARGET** track with the same [RMS], [FR], [peak amplitude] and [stereo width] as the **REFERENCE** track has.
-
-You can try out **Matchering** yourself without having to install it, thanks to the hosting provided by **[Songmastr](https://www.songmastr.com/)** and **[Moises](https://moises.ai/)**.
-
-Watch **[the video][Video]**:
-
-[![Matchering 2.0 Promo Video](http://img.youtube.com/vi/8Su5STDYfcA/0.jpg)][Video]
-
-So **Matchering 2.0** will make your song sound the way you want! It opens up a wide range of opportunities:
-- You can make your music instantly sound like your favorite artist's music
-- You can make all the tracks on your new album sound the same very quickly
-- You can find new aspects of your sound in experiments
-- You can do everything as you want! Because of **[Your References, Your Rules.™](https://macprovideo.com/article/audio-software/sound-tools-instant-online-mastering-with-reference-matching-now-in-open-beta)** *(just a little nostalgic note)* 🤭
-
-![Matchering WEB GIF Animation](https://raw.githubusercontent.com/sergree/matchering/master/images/animation.gif "Matchering WEB")
-
-> Differences from the previous major version:
-> - Completely rewritten in [Python 3], based on open source tech stack (no more [MATLAB])
-> - Our own open source [brickwall limiter] was implemented for it
-> - Processing speed and accuracy have been increased
-> - Now it is [the library][PyPI] that can be connected to **everything** in **the Python world**
-
-If you are looking for a **Matchering paper**, you can read **[this Habr article](https://habr.com/ru/post/709120/)**.
-
-# Installation and Usage
-
-If you are a music producer or an audio engineer, choose the **[Docker Image]**. 
-
-If you are a developer, choose the **[Python Library](#python-library---for-developers)**.
-
-# Docker Image - The Easiest Way
-
-**Matchering 2.0** works on all major platforms using **Docker**.
-
-## Choose yours
-
-### [NEW! Try WITHOUT Installation](https://www.youtube.com/watch?v=Aw0nH6QqAck)
-### [Windows](https://github.com/sergree/matchering/blob/master/DOCKER_WINDOWS.md)
-### [macOS](https://github.com/sergree/matchering/blob/master/DOCKER_MACOS.md)
-### [Linux](https://github.com/sergree/matchering/blob/master/DOCKER_LINUX.md)
-
-## Updating
-
-If you need to update the version of the installed **Docker Image**, follow **[these instructions](https://github.com/sergree/matchering/blob/master/DOCKER_UPDATING.md)**.
-
-# Python Library - For Developers
-
-## Installation
-
-**4 GB RAM machine with [Python 3.8.0 or higher][Python 3] is required**
-
-### libsndfile
-
-**Matchering 2.0** depends on the **[SoundFile]** library, which depends on the system library **[libsndfile]**. On Windows and macOS, it installs automatically. On Linux, you need to install **[libsndfile]** using your distribution's package manager, for example:
-
-```sudo apt update && sudo apt -y install libsndfile1```
-
-### python3-pip
-
-On some Linux distributions, **python3-pip** is not installed by default. For example use this command on Ubuntu Linux to fix this:
-
-```sudo apt -y install python3-pip```
-
-### Matchering Python Package
-
-Finally, install our `matchering` package:
-
-```
-# Linux / macOS
-python3 -m pip install -U matchering
-
-# Windows
-python -m pip install -U matchering
+# Install additional GUI dependencies
+pip install customtkinter tkinterdnd2 mutagen psutil
 ```
 
-### *(Optional) FFmpeg*
-
-If you would like to enable *MP3 loading support*, you need to install the **[FFmpeg][FFmpeg]** library. For example use this command on Ubuntu Linux:
-
-```sudo apt -y install ffmpeg```
-
-Or follow these instructions: [Windows][FFmpeg-win], [macOS][FFmpeg-mac].
-
-## Quick Example
-
-```python
-import matchering as mg
-
-# Sending all log messages to the default print function
-# Just delete the following line to work silently
-mg.log(print)
-
-mg.process(
-    # The track you want to master
-    target="my_song.wav",
-    # Some "wet" reference track
-    reference="some_popular_song.wav",
-    # Where and how to save your results
-    results=[
-        mg.pcm16("my_song_master_16bit.wav"),
-        mg.pcm24("my_song_master_24bit.wav"),
-    ],
-)
-
+### Launch Auralis
+```bash
+python auralis_gui.py
 ```
 
-You can find more examples in the **[examples directory]**.
+## ✨ Features
 
-### Or you can use premade **Matchering 2.0 Command Line Application**: **[matchering-cli]**.
+- **🎛️ Professional Audio Mastering** - Advanced DSP with real-time level matching and auto-mastering
+- **📚 Comprehensive Library Management** - SQLite-based music library with metadata extraction
+- **🖱️ Drag-and-Drop Import** - Easy music file import with progress tracking
+- **📁 Intelligent Folder Scanning** - Recursive directory scanning with duplicate detection
+- **📋 Playlist Management** - Create, edit, and manage playlists with full GUI support
+- **📊 Real-time Visualizations** - Professional mastering parameter displays
+- **⚡ High Performance** - 740+ files/second scanning, 8,618 FPS visualizations
 
-## 💓 WhatBPM
+## 🎵 Supported Formats
 
-Looking for the perfect BPM or key for a new EDM track?
+**Audio Input:** MP3, FLAC, WAV, OGG, M4A, AAC, WMA
+**Audio Output:** WAV, FLAC (16-bit/24-bit PCM)
 
-**[Check out WhatBPM!](https://sergree.github.io/whatbpm)**
+## 🧪 Testing
 
-A completely free open-source web service from the author of Matchering.
+```bash
+# Run all tests
+python run_all_tests.py
 
-## A Coffee
+# Run individual test suites
+python tests/auralis/test_auralis_gui.py
+python tests/auralis/test_playlist_manager.py
+python tests/auralis/test_folder_scanner.py
+python tests/auralis/test_drag_drop.py
+```
 
-If our package saved your time or money, you may:
+## 📖 Documentation
 
-[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://pip.me/sergree)
+- **[Technical Documentation](docs/)** - Detailed system documentation
+- **[Development Roadmap](docs/DEVELOPMENT_ROADMAP.md)** - Future development plans
+- **[Performance Benchmarks](docs/PERFORMANCE_BENCHMARKS.md)** - System performance metrics
+- **[Examples](examples/)** - Audio examples and usage demonstrations
 
-**Thank you!**
+## 🏗️ Architecture
 
-## Links
+```
+auralis/                 # Core Auralis system
+├── core/               # Core system components
+├── dsp/                # Digital signal processing
+├── io/                 # Audio input/output
+├── library/            # Music library management
+├── player/             # Audio player components
+└── utils/              # Utility functions
 
-- [Press About Us](https://github.com/sergree/matchering/blob/master/PRESS.md)
-- [Supporters](https://github.com/sergree/matchering/blob/master/SUPPORTERS.md)
-- [Our Limiter Quality Test](https://github.com/sergree/matchering/blob/master/LIMITER_TEST.md)
-- [Log Codes Overview](https://github.com/sergree/matchering/blob/master/LOG_CODES.md)
-- [Our Thoughts](https://github.com/sergree/matchering/blob/master/THOUGHTS.md)
+matchering/             # Legacy Matchering 2.0 core
+tests/                  # Comprehensive test suite
+examples/               # Usage examples and demo files
+docs/                   # Documentation
+```
 
-[Matchering]: https://github.com/sergree/matchering
-[Matchering 2.0]: https://github.com/sergree/matchering
-[Docker Image]: #docker-image---the-easiest-way
-[mastering]: https://en.wikipedia.org/wiki/Audio_mastering
-[RMS]: https://en.wikipedia.org/wiki/Root_mean_square
-[FR]: https://en.wikipedia.org/wiki/Frequency_response
-[peak amplitude]: https://en.wikipedia.org/wiki/Amplitude
-[stereo width]: https://en.wikipedia.org/wiki/Stereo_imaging
-[MATLAB]: https://www.mathworks.com/products/matlab.html
-[Python 3]: https://www.python.org/
-[brickwall limiter]: https://en.wikipedia.org/wiki/Dynamic_range_compression#Limiting
-[PyPI]: https://pypi.org/project/matchering
-[SoundFile]: https://github.com/bastibe/SoundFile#installation
-[libsndfile]: http://www.mega-nerd.com/libsndfile/
-[FFmpeg]: https://www.ffmpeg.org/download.html
-[FFmpeg-win]: https://video.stackexchange.com/questions/20495/how-do-i-set-up-and-use-ffmpeg-in-windows
-[FFmpeg-mac]: https://superuser.com/questions/624561/install-ffmpeg-on-os-x
-[matchering-cli]: https://github.com/sergree/matchering-cli
-[examples directory]: https://github.com/sergree/matchering/tree/master/examples
-[Video]: http://www.youtube.com/watch?v=8Su5STDYfcA "Matchering 2.0 - Open Source Audio Matching and Mastering"
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Original **Matchering 2.0** audio processing algorithms
+- **CustomTkinter** for modern GUI framework
+- All contributors and supporters of the project
+
+---
+
+**🎵 Professional audio mastering made accessible to everyone.**
