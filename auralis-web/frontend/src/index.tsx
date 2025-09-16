@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import './index.css';
-import App from './App';
+import App from './App.tsx';
 
 // Create dark theme for professional audio interface
 const darkTheme = createTheme({
