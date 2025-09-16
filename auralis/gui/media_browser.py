@@ -951,16 +951,32 @@ class EnhancedMediaBrowser(ctk.CTkFrame):
         try:
             stats = self.library_manager.get_library_stats()
             if stats:
-                stats_data = stats.to_dict()
-                stats_text = (f"{stats_data['total_tracks']} songs • "
-                             f"{stats_data['total_albums']} albums • "
-                             f"{stats_data['total_artists']} artists")
+                # Handle both dict and object responses safely
+                if hasattr(stats, 'to_dict') and callable(getattr(stats, 'to_dict')):
+                    stats_data = stats.to_dict()
+                elif isinstance(stats, dict):
+                    stats_data = stats
+                else:
+                    # Convert object attributes to dict
+                    stats_data = {
+                        'total_tracks': getattr(stats, 'total_tracks', 0),
+                        'total_albums': getattr(stats, 'total_albums', 0),
+                        'total_artists': getattr(stats, 'total_artists', 0)
+                    }
+
+                tracks = stats_data.get('total_tracks', 0)
+                albums = stats_data.get('total_albums', 0)
+                artists = stats_data.get('total_artists', 0)
+
+                stats_text = f"{tracks} songs • {albums} albums • {artists} artists"
                 self.stats_label.configure(text=stats_text)
             else:
                 self.stats_label.configure(text="Library empty")
 
         except Exception as e:
-            print(f"Error updating library stats: {e}")
+            # Only print debug info in debug mode
+            if hasattr(self, '_debug') and self._debug:
+                print(f"Library stats error: {e}")
             self.stats_label.configure(text="Stats unavailable")
 
     def set_library_manager(self, library_manager):
