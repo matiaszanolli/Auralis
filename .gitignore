@@ -76,6 +76,25 @@ docs/_build/
 .env.local
 config.local.py
 
+# Node.js and React (Frontend)
+auralis-web/frontend/node_modules/
+auralis-web/frontend/build/
+auralis-web/frontend/dist/
+auralis-web/frontend/.env
+auralis-web/frontend/.env.local
+auralis-web/frontend/.env.development.local
+auralis-web/frontend/.env.test.local
+auralis-web/frontend/.env.production.local
+auralis-web/frontend/npm-debug.log*
+auralis-web/frontend/yarn-debug.log*
+auralis-web/frontend/yarn-error.log*
+
+# Backend specific
+auralis-web/backend/__pycache__/
+auralis-web/backend/*.pyc
+auralis-web/backend/*.log
+auralis-web/backend/.env
+
 # macOS specific
 .AppleDouble
 .LSOverride
