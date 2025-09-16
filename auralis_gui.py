@@ -254,13 +254,11 @@ class EnhancedAuralisGUI(ctk.CTk):
         browser_title.pack(side="left", padx=10, pady=10)
 
         # Quick search
-        self.quick_search = QuickSearchBar(
-            browser_header,
-            search_callback=self._on_quick_search
-        ) if HAS_ENHANCED_GUI else None
-
-        if self.quick_search:
+        if HAS_ENHANCED_GUI:
+            self.quick_search = QuickSearchBar(browser_header)
             self.quick_search.pack(side="right", padx=10, pady=10)
+        else:
+            self.quick_search = None
 
         # Media browser frame
         media_frame = ctk.CTkFrame(main_area)
@@ -405,32 +403,65 @@ class EnhancedAuralisGUI(ctk.CTk):
     def _update_library_stats(self):
         """Update library statistics display"""
         if not self.library_manager:
+            self.stats_label.configure(text="No library manager available")
             return
 
         try:
             stats = self.library_manager.get_library_stats()
 
-            # Handle both dict and object responses
-            if hasattr(stats, 'to_dict'):
+            # Handle both dict and object responses safely
+            if stats is None:
+                stats_data = {}
+            elif hasattr(stats, 'to_dict') and callable(getattr(stats, 'to_dict')):
                 stats_data = stats.to_dict()
-            else:
+            elif isinstance(stats, dict):
                 stats_data = stats
+            else:
+                # Convert object attributes to dict
+                stats_data = {}
+                for attr in ['total_tracks', 'total_artists', 'total_albums', 'total_genres',
+                           'total_playlists', 'total_duration_formatted', 'total_filesize_gb',
+                           'avg_mastering_quality']:
+                    stats_data[attr] = getattr(stats, attr, 0)
 
-            stats_text = f"""Tracks: {stats_data.get('total_tracks', 0):,}
-Artists: {stats_data.get('total_artists', 0):,}
-Albums: {stats_data.get('total_albums', 0):,}
-Genres: {stats_data.get('total_genres', 0):,}
-Playlists: {stats_data.get('total_playlists', 0):,}
+            # Format the statistics text with safe formatting
+            def safe_format(value, default=0, format_spec=""):
+                """Safely format a value with fallback"""
+                if value is None or value == "":
+                    value = default
+                try:
+                    if format_spec:
+                        return f"{value:{format_spec}}"
+                    return str(value)
+                except (ValueError, TypeError):
+                    return str(default)
 
-Duration: {stats_data.get('total_duration_formatted', 'Unknown')}
-Size: {stats_data.get('total_filesize_gb', 0):.1f} GB
+            tracks = safe_format(stats_data.get('total_tracks'), 0, ",")
+            artists = safe_format(stats_data.get('total_artists'), 0, ",")
+            albums = safe_format(stats_data.get('total_albums'), 0, ",")
+            genres = safe_format(stats_data.get('total_genres'), 0, ",")
+            playlists = safe_format(stats_data.get('total_playlists'), 0, ",")
+            duration = stats_data.get('total_duration_formatted', 'Unknown') or 'Unknown'
+            size = safe_format(stats_data.get('total_filesize_gb'), 0, ".1f")
+            quality = safe_format(stats_data.get('avg_mastering_quality'), 0, ".1%")
 
-Avg Quality: {stats_data.get('avg_mastering_quality', 0):.1%}"""
+            stats_text = f"""Tracks: {tracks}
+Artists: {artists}
+Albums: {albums}
+Genres: {genres}
+Playlists: {playlists}
+
+Duration: {duration}
+Size: {size} GB
+
+Avg Quality: {quality}"""
 
             self.stats_label.configure(text=stats_text)
 
         except Exception as e:
-            self.stats_label.configure(text=f"Stats unavailable: {e}")
+            error_msg = f"Stats error: {str(e)}"
+            print(f"Library stats error: {e}")  # Debug output
+            self.stats_label.configure(text="Stats temporarily unavailable")
 
     def _play_track(self, track_id: int):
         """Play a track from the library"""
@@ -458,35 +489,67 @@ Avg Quality: {stats_data.get('avg_mastering_quality', 0):.1%}"""
     def _update_now_playing(self, track):
         """Update now playing display"""
         try:
-            # Convert track to dict if needed
-            if hasattr(track, 'to_dict'):
+            # Convert track to dict if needed safely
+            if track is None:
+                track_data = {}
+            elif hasattr(track, 'to_dict') and callable(getattr(track, 'to_dict')):
                 track_data = track.to_dict()
-            else:
+            elif isinstance(track, dict):
                 track_data = track
+            else:
+                # Convert object attributes to dict
+                track_data = {}
+                for attr in ['title', 'artists', 'album', 'duration', 'format',
+                           'sample_rate', 'channels', 'mastering_quality', 'play_count']:
+                    track_data[attr] = getattr(track, attr, None)
 
             title = track_data.get('title', 'Unknown Title')
             artists = track_data.get('artists', [])
-            artist_text = ', '.join(artists) if artists else 'Unknown Artist'
+
+            # Handle artists list safely
+            if isinstance(artists, list):
+                artist_text = ', '.join(str(a) for a in artists) if artists else 'Unknown Artist'
+            else:
+                artist_text = str(artists) if artists else 'Unknown Artist'
 
             self.track_title_label.configure(text=title)
             self.track_artist_label.configure(text=artist_text)
 
-            # Update track details
+            # Update track details with safe value extraction
+            duration = track_data.get('duration', 0)
+            duration_str = f"{duration:.1f}s" if isinstance(duration, (int, float)) else "Unknown"
+
+            sample_rate = track_data.get('sample_rate', 0)
+            sample_rate_str = f"{sample_rate} Hz" if isinstance(sample_rate, (int, float)) else "Unknown"
+
+            channels = track_data.get('channels', 0)
+            channels_str = str(channels) if isinstance(channels, (int, float)) else "Unknown"
+
+            quality = track_data.get('mastering_quality', 0)
+            quality_str = f"{quality:.1%}" if isinstance(quality, (int, float)) else "Unknown"
+
+            play_count = track_data.get('play_count', 0)
+            play_count_str = str(play_count) if isinstance(play_count, (int, float)) else "0"
+
             details_text = f"""Title: {title}
 Artist: {artist_text}
 Album: {track_data.get('album', 'Unknown')}
-Duration: {track_data.get('duration', 0):.1f}s
+Duration: {duration_str}
 Format: {track_data.get('format', 'Unknown')}
-Sample Rate: {track_data.get('sample_rate', 0)} Hz
-Channels: {track_data.get('channels', 0)}
+Sample Rate: {sample_rate_str}
+Channels: {channels_str}
 
-Quality Score: {track_data.get('mastering_quality', 0):.1%}
-Play Count: {track_data.get('play_count', 0)}"""
+Quality Score: {quality_str}
+Play Count: {play_count_str}"""
 
             self.details_content.configure(text=details_text)
 
         except Exception as e:
             print(f"Error updating now playing: {e}")
+            # Set fallback display
+            self.track_title_label.configure(text="Track information unavailable")
+            self.track_artist_label.configure(text="")
+            self.details_content.configure(text="Unable to load track details")
 
     def _toggle_play(self):
         """Toggle play/pause"""
@@ -541,8 +604,62 @@ Play Count: {track_data.get('play_count', 0)}"""
         folder = filedialog.askdirectory(title="Select Music Folder to Scan")
         if folder and self.library_manager:
             self.status_bar.configure(text=f"Scanning {folder}...")
-            # Note: Implement background scanning
-            messagebox.showinfo("Scan Started", f"Scanning {folder} in background...")
+
+            # Perform actual scan in background thread
+            def scan_worker():
+                try:
+                    from auralis.library.scanner import LibraryScanner
+                    scanner = LibraryScanner(self.library_manager)
+
+                    # Run the scan
+                    result = scanner.scan_single_directory(folder, recursive=True)
+
+                    # Update UI from main thread
+                    self.after(0, lambda: self._scan_completed(result, folder))
+
+                except Exception as e:
+                    self.after(0, lambda: self._scan_failed(str(e), folder))
+
+            # Start scan in background
+            import threading
+            thread = threading.Thread(target=scan_worker, daemon=True)
+            thread.start()
+
+            messagebox.showinfo("Scan Started", f"Scanning {folder}...\nThis may take a moment for large directories.")
+
+    def _scan_completed(self, result, folder):
+        """Handle scan completion"""
+        # Update library stats
+        self._update_library_stats()
+
+        # Update status bar
+        self.status_bar.configure(
+            text=f"✅ Scan complete: {result.files_added} files added from {folder}"
+        )
+
+        # Update media browser if it exists
+        if self.media_browser and hasattr(self.media_browser, '_update_library_stats'):
+            self.media_browser._update_library_stats()
+
+        # Show completion message
+        messagebox.showinfo(
+            "Scan Complete",
+            f"Scan of {folder} completed!\n\n"
+            f"• Files found: {result.files_found}\n"
+            f"• Files added: {result.files_added}\n"
+            f"• Files updated: {result.files_updated}\n"
+            f"• Files skipped: {result.files_skipped}\n"
+            f"• Files failed: {result.files_failed}\n"
+            f"• Scan time: {result.scan_time:.1f} seconds"
+        )
+
+    def _scan_failed(self, error, folder):
+        """Handle scan failure"""
+        self.status_bar.configure(text=f"❌ Scan failed: {error}")
+        messagebox.showerror(
+            "Scan Failed",
+            f"Failed to scan {folder}:\n\n{error}"
+        )
 
     def _show_advanced_search(self):
         """Show advanced search window"""
@@ -550,13 +667,16 @@ Play Count: {track_data.get('play_count', 0)}"""
             messagebox.showinfo("Not Available", "Enhanced search components not loaded")
             return
 
-        if not self.advanced_search:
+        if not self.advanced_search or not self.advanced_search.winfo_exists():
             self.advanced_search = AdvancedSearchWindow(
                 self,
                 library_manager=self.library_manager,
-                result_callback=self._on_search_result
+                callback=self._on_search_result
             )
-        self.advanced_search.show()
+        else:
+            # Bring window to front if it exists
+            self.advanced_search.lift()
+            self.advanced_search.focus()
 
     def _show_playlist_manager(self):
         """Show playlist manager window"""
@@ -564,13 +684,16 @@ Play Count: {track_data.get('play_count', 0)}"""
             messagebox.showinfo("Not Available", "Enhanced playlist components not loaded")
             return
 
-        if not self.playlist_manager:
+        if not self.playlist_manager or not self.playlist_manager.winfo_exists():
             self.playlist_manager = PlaylistManagerWindow(
                 self,
                 library_manager=self.library_manager,
                 player_callback=self._play_track
             )
-        self.playlist_manager.show()
+        else:
+            # Bring window to front if it exists
+            self.playlist_manager.lift()
+            self.playlist_manager.focus()
 
     def _on_quick_search(self, query):
         """Handle quick search"""

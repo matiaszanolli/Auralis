@@ -23,106 +23,79 @@ def test_basic_components():
     """Test that basic GUI components can be imported and created"""
     print("🔧 Testing GUI component imports...")
 
-    try:
-        from auralis.gui.media_browser import EnhancedMediaBrowser, ViewMode, SortOrder
-        print("✅ Media browser components imported successfully")
-    except ImportError as e:
-        print(f"❌ Failed to import media browser: {e}")
-        return False
+    from auralis.gui.media_browser import EnhancedMediaBrowser, ViewMode, SortOrder
+    print("✅ Media browser components imported successfully")
+    assert EnhancedMediaBrowser is not None
+    assert hasattr(ViewMode, 'ARTISTS')
 
-    try:
-        from auralis.gui.playlist_manager import PlaylistManagerWindow, SmartPlaylistBuilder
-        print("✅ Playlist manager components imported successfully")
-    except ImportError as e:
-        print(f"❌ Failed to import playlist manager: {e}")
-        return False
+    from auralis.gui.playlist_manager import PlaylistManagerWindow, SmartPlaylistBuilder
+    print("✅ Playlist manager components imported successfully")
+    assert PlaylistManagerWindow is not None
 
-    try:
-        from auralis.gui.advanced_search import AdvancedSearchWindow, QuickSearchBar
-        print("✅ Advanced search components imported successfully")
-    except ImportError as e:
-        print(f"❌ Failed to import advanced search: {e}")
-        return False
-
-    return True
+    from auralis.gui.advanced_search import AdvancedSearchWindow, QuickSearchBar
+    print("✅ Advanced search components imported successfully")
+    assert AdvancedSearchWindow is not None
 
 def test_media_browser_widget():
     """Test creating media browser widget"""
     print("\n🎵 Testing media browser widget creation...")
 
-    try:
-        from auralis.gui.media_browser import EnhancedMediaBrowser
+    from auralis.gui.media_browser import EnhancedMediaBrowser
 
-        # Create test window
-        root = ctk.CTk()
-        root.withdraw()  # Hide window
+    # Create test window
+    root = ctk.CTk()
+    root.withdraw()  # Hide window
 
-        # Create media browser
-        browser = EnhancedMediaBrowser(root)
-        print("✅ Media browser widget created successfully")
+    # Create media browser
+    browser = EnhancedMediaBrowser(root)
+    print("✅ Media browser widget created successfully")
+    assert browser is not None
 
-        # Test view mode constants
-        from auralis.gui.media_browser import ViewMode
-        assert hasattr(ViewMode, 'ARTISTS')
-        assert hasattr(ViewMode, 'ALBUMS')
-        assert hasattr(ViewMode, 'TRACKS')
-        print("✅ View mode constants available")
+    # Test view mode constants
+    from auralis.gui.media_browser import ViewMode
+    assert hasattr(ViewMode, 'ARTISTS')
+    assert hasattr(ViewMode, 'ALBUMS')
+    assert hasattr(ViewMode, 'TRACKS')
+    print("✅ View mode constants available")
 
-        root.destroy()
-        return True
-
-    except Exception as e:
-        print(f"❌ Failed to create media browser widget: {e}")
-        return False
+    root.destroy()
 
 def test_search_components():
     """Test search components"""
     print("\n🔍 Testing search components...")
 
-    try:
-        from auralis.gui.advanced_search import QuickSearchBar
+    from auralis.gui.advanced_search import QuickSearchBar
 
-        # Create test window
-        root = ctk.CTk()
-        root.withdraw()
+    # Create test window
+    root = ctk.CTk()
+    root.withdraw()
 
-        # Create search bar
-        search_bar = QuickSearchBar(root)
-        print("✅ Quick search bar created successfully")
+    # Create search bar
+    search_bar = QuickSearchBar(root)
+    print("✅ Quick search bar created successfully")
+    assert search_bar is not None
 
-        root.destroy()
-        return True
-
-    except Exception as e:
-        print(f"❌ Failed to create search components: {e}")
-        return False
+    root.destroy()
 
 def test_enhanced_gui():
     """Test the main enhanced GUI"""
     print("\n🖥️  Testing enhanced GUI application...")
 
-    try:
-        from auralis_enhanced_gui import EnhancedAuralisGUI
+    from auralis_gui import EnhancedAuralisGUI
 
-        # Create application instance (but don't run mainloop)
-        app = EnhancedAuralisGUI()
-        app.withdraw()  # Hide window
+    # Create application instance (but don't run mainloop)
+    app = EnhancedAuralisGUI()
+    app.withdraw()  # Hide window
 
-        print("✅ Enhanced GUI application created successfully")
+    print("✅ Enhanced GUI application created successfully")
+    assert app is not None
 
-        # Check that key components exist
-        assert hasattr(app, 'media_browser') or hasattr(app, 'stats_panel')
-        assert hasattr(app, 'now_playing')
-        print("✅ GUI components properly initialized")
+    # Check that key components exist
+    assert hasattr(app, 'media_browser') or hasattr(app, 'stats_label')
+    assert hasattr(app, 'track_title_label')
+    print("✅ GUI components properly initialized")
 
-        app.destroy()
-        return True
-
-    except Exception as e:
-        print(f"❌ Failed to create enhanced GUI: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+    app.destroy()
 
 def main():
     """Run all tests"""
