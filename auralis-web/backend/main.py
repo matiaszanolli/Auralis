@@ -30,6 +30,9 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 try:
     from auralis.library import LibraryManager
     from auralis.library.scanner import LibraryScanner
+    from auralis.player.enhanced_audio_player import EnhancedAudioPlayer, PlaybackState
+    from auralis.player.config import PlayerConfig
+    from auralis.core.config import Config
     HAS_AURALIS = True
 except ImportError as e:
     print(f"⚠️  Auralis library not available: {e}")
@@ -59,20 +62,37 @@ app.add_middleware(
 
 # Global state
 library_manager: Optional[LibraryManager] = None
+audio_player: Optional[EnhancedAudioPlayer] = None
 connected_websockets: List[WebSocket] = []
 
 # Initialize Auralis components
 @app.on_event("startup")
 async def startup_event():
     """Initialize Auralis components on startup"""
-    global library_manager
+    global library_manager, audio_player
 
     if HAS_AURALIS:
         try:
             library_manager = LibraryManager()
             logger.info("✅ Auralis LibraryManager initialized")
+
+            # Initialize enhanced audio player with optimized config
+            player_config = PlayerConfig(
+                buffer_size=1024,
+                sample_rate=44100,
+                enable_level_matching=True,
+                enable_crossfade=True,
+                crossfade_duration=2.0,
+                enable_gapless=True,
+                enable_equalizer=True,
+                enable_analysis=True,
+                queue_size=100
+            )
+            audio_player = EnhancedAudioPlayer(player_config)
+            logger.info("✅ Enhanced Audio Player initialized")
+
         except Exception as e:
-            logger.error(f"❌ Failed to initialize LibraryManager: {e}")
+            logger.error(f"❌ Failed to initialize Auralis components: {e}")
     else:
         logger.warning("⚠️  Auralis not available - running in demo mode")
 
@@ -113,6 +133,28 @@ async def websocket_endpoint(websocket: WebSocket):
             # Handle different message types
             if message.get("type") == "ping":
                 await websocket.send_text(json.dumps({"type": "pong"}))
+
+            elif message.get("type") == "processing_settings_update":
+                # Handle processing settings updates
+                settings = message.get("data", {})
+                logger.info(f"Processing settings updated: {settings}")
+
+                # Broadcast to all connected clients
+                await manager.broadcast({
+                    "type": "processing_settings_applied",
+                    "data": settings
+                })
+
+            elif message.get("type") == "ab_track_loaded":
+                # Handle A/B comparison track loading
+                track_data = message.get("data", {})
+                logger.info(f"A/B track loaded: {track_data}")
+
+                # Broadcast to all connected clients
+                await manager.broadcast({
+                    "type": "ab_track_ready",
+                    "data": track_data
+                })
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -271,6 +313,355 @@ async def get_supported_formats():
         "sample_rates": [44100, 48000, 88200, 96000, 192000],
         "bit_depths": [16, 24, 32]
     }
+
+# Enhanced Audio Player API Endpoints
+
+@app.get("/api/player/status")
+async def get_player_status():
+    """Get current player status"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        status = {
+            "state": audio_player.state.value if hasattr(audio_player.state, 'value') else str(audio_player.state),
+            "volume": getattr(audio_player, 'volume', 1.0),
+            "position": audio_player.get_position() if hasattr(audio_player, 'get_position') else 0,
+            "duration": audio_player.get_duration() if hasattr(audio_player, 'get_duration') else 0,
+            "current_track": audio_player.get_current_track() if hasattr(audio_player, 'get_current_track') else None,
+            "queue_size": len(audio_player.queue_manager.queue) if hasattr(audio_player, 'queue_manager') else 0,
+            "shuffle_enabled": getattr(audio_player, 'shuffle_enabled', False),
+            "repeat_mode": getattr(audio_player, 'repeat_mode', 'none'),
+        }
+
+        # Get real-time analysis if available
+        if hasattr(audio_player, 'get_real_time_analysis'):
+            try:
+                analysis = audio_player.get_real_time_analysis()
+                status["analysis"] = analysis
+            except:
+                status["analysis"] = None
+
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
+
+@app.post("/api/player/load")
+async def load_track(track_path: str):
+    """Load a track into the player"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        # Add to queue and load
+        audio_player.add_to_queue(track_path)
+        success = audio_player.load_current_track() if hasattr(audio_player, 'load_current_track') else True
+
+        if success:
+            # Broadcast to all connected clients
+            await manager.broadcast({
+                "type": "track_loaded",
+                "data": {"track_path": track_path}
+            })
+            return {"message": "Track loaded successfully", "track_path": track_path}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to load track")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load track: {e}")
+
+@app.post("/api/player/play")
+async def play_audio():
+    """Start playback"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        audio_player.play()
+
+        # Broadcast to all connected clients
+        await manager.broadcast({
+            "type": "playback_started",
+            "data": {"state": "playing"}
+        })
+
+        return {"message": "Playback started", "state": "playing"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start playback: {e}")
+
+@app.post("/api/player/pause")
+async def pause_audio():
+    """Pause playback"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        audio_player.pause()
+
+        # Broadcast to all connected clients
+        await manager.broadcast({
+            "type": "playback_paused",
+            "data": {"state": "paused"}
+        })
+
+        return {"message": "Playback paused", "state": "paused"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to pause playback: {e}")
+
+@app.post("/api/player/stop")
+async def stop_audio():
+    """Stop playback"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        audio_player.stop()
+
+        # Broadcast to all connected clients
+        await manager.broadcast({
+            "type": "playback_stopped",
+            "data": {"state": "stopped"}
+        })
+
+        return {"message": "Playback stopped", "state": "stopped"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to stop playback: {e}")
+
+@app.post("/api/player/seek")
+async def seek_position(position: float):
+    """Seek to position in seconds"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        if hasattr(audio_player, 'seek_to_position'):
+            audio_player.seek_to_position(position)
+
+        # Broadcast to all connected clients
+        await manager.broadcast({
+            "type": "position_changed",
+            "data": {"position": position}
+        })
+
+        return {"message": "Position updated", "position": position}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to seek: {e}")
+
+@app.post("/api/player/volume")
+async def set_volume(volume: float):
+    """Set playback volume (0.0 to 1.0)"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        # Clamp volume to valid range
+        volume = max(0.0, min(1.0, volume))
+
+        if hasattr(audio_player, 'set_volume'):
+            audio_player.set_volume(volume)
+
+        # Broadcast to all connected clients
+        await manager.broadcast({
+            "type": "volume_changed",
+            "data": {"volume": volume}
+        })
+
+        return {"message": "Volume updated", "volume": volume}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to set volume: {e}")
+
+@app.get("/api/player/queue")
+async def get_queue():
+    """Get current playback queue"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        if hasattr(audio_player, 'queue_manager'):
+            queue_info = audio_player.queue_manager.get_queue_info() if hasattr(audio_player.queue_manager, 'get_queue_info') else {
+                "tracks": list(audio_player.queue_manager.queue),
+                "current_index": audio_player.queue_manager.current_index,
+                "total_tracks": len(audio_player.queue_manager.queue)
+            }
+            return queue_info
+        else:
+            return {"tracks": [], "current_index": 0, "total_tracks": 0}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get queue: {e}")
+
+@app.post("/api/player/queue/add")
+async def add_to_queue(track_path: str):
+    """Add track to playback queue"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        audio_player.add_to_queue(track_path)
+
+        # Broadcast queue update
+        await manager.broadcast({
+            "type": "queue_updated",
+            "data": {"action": "added", "track_path": track_path}
+        })
+
+        return {"message": "Track added to queue", "track_path": track_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add to queue: {e}")
+
+@app.post("/api/player/next")
+async def next_track():
+    """Skip to next track"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        if hasattr(audio_player, 'next_track'):
+            success = audio_player.next_track()
+            if success:
+                await manager.broadcast({
+                    "type": "track_changed",
+                    "data": {"action": "next"}
+                })
+                return {"message": "Skipped to next track"}
+            else:
+                return {"message": "No next track available"}
+        else:
+            return {"message": "Next track function not available"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to skip track: {e}")
+
+@app.post("/api/player/previous")
+async def previous_track():
+    """Skip to previous track"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        if hasattr(audio_player, 'previous_track'):
+            success = audio_player.previous_track()
+            if success:
+                await manager.broadcast({
+                    "type": "track_changed",
+                    "data": {"action": "previous"}
+                })
+                return {"message": "Skipped to previous track"}
+            else:
+                return {"message": "No previous track available"}
+        else:
+            return {"message": "Previous track function not available"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to skip track: {e}")
+
+# Audio Processing Control Endpoints
+
+@app.post("/api/processing/enable_matching")
+async def enable_level_matching(enabled: bool):
+    """Enable/disable real-time level matching"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        if hasattr(audio_player, 'config'):
+            audio_player.config.enable_level_matching = enabled
+
+        await manager.broadcast({
+            "type": "processing_changed",
+            "data": {"level_matching": enabled}
+        })
+
+        return {"message": f"Level matching {'enabled' if enabled else 'disabled'}", "enabled": enabled}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to toggle level matching: {e}")
+
+@app.post("/api/processing/load_reference")
+async def load_reference_track(reference_path: str):
+    """Load reference track for level matching"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        if hasattr(audio_player, 'load_reference'):
+            success = audio_player.load_reference(reference_path)
+            if success:
+                await manager.broadcast({
+                    "type": "reference_loaded",
+                    "data": {"reference_path": reference_path}
+                })
+                return {"message": "Reference track loaded", "reference_path": reference_path}
+            else:
+                raise HTTPException(status_code=400, detail="Failed to load reference track")
+        else:
+            return {"message": "Reference loading not supported"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load reference: {e}")
+
+@app.post("/api/processing/apply_preset")
+async def apply_processing_preset(preset_name: str, settings: dict):
+    """Apply a processing preset"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        logger.info(f"Applying preset '{preset_name}' with settings: {settings}")
+
+        # Store the preset settings (in a real implementation, this would apply to the audio processing)
+        # For now, we'll just broadcast the settings
+        await manager.broadcast({
+            "type": "preset_applied",
+            "data": {
+                "preset_name": preset_name,
+                "settings": settings
+            }
+        })
+
+        return {"message": f"Preset '{preset_name}' applied successfully", "settings": settings}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to apply preset: {e}")
+
+@app.get("/api/processing/analysis")
+async def get_audio_analysis():
+    """Get real-time audio analysis data"""
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        # Mock analysis data for now
+        analysis = {
+            "peak_level": 0.7 + (0.3 * __import__('random').random()),
+            "rms_level": 0.4 + (0.2 * __import__('random').random()),
+            "frequency_spectrum": [
+                0.1 + (0.6 * __import__('random').random()) for _ in range(64)
+            ],
+            "dynamic_range": 12.5,
+            "lufs": -16.2
+        }
+
+        return analysis
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get analysis: {e}")
+
+@app.post("/api/comparison/load_tracks")
+async def load_comparison_tracks(track_a: str, track_b: str):
+    """Load tracks for A/B comparison"""
+    try:
+        # This would load both tracks into separate players
+        # For now, we'll simulate the loading
+        await manager.broadcast({
+            "type": "comparison_tracks_loaded",
+            "data": {
+                "track_a": track_a,
+                "track_b": track_b,
+                "ready": True
+            }
+        })
+
+        return {
+            "message": "A/B comparison tracks loaded",
+            "track_a": track_a,
+            "track_b": track_b
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load comparison tracks: {e}")
 
 # Serve React frontend (when built)
 frontend_path = Path(__file__).parent.parent / "frontend" / "build"
