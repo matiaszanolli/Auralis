@@ -1,0 +1,45 @@
+{
+  "name": "auralis",
+  "version": "1.0.0",
+  "description": "Auralis Audio Mastering Suite",
+  "main": "desktop/main.js",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "build": "node scripts/build.js",
+    "package": "node scripts/package.js",
+    "package:win": "node scripts/package.js win",
+    "package:mac": "node scripts/package.js mac",
+    "package:linux": "node scripts/package.js linux",
+    "test": "python -m pytest tests/",
+    "test:coverage": "python -m pytest tests/ --cov=auralis --cov-report=html",
+    "install:all": "npm run install:desktop && npm run install:frontend",
+    "install:desktop": "cd desktop && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "clean": "rm -rf dist/ desktop/node_modules/ frontend/node_modules/ frontend/dist/ backend/dist/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matiaszanolli/Auralis.git"
+  },
+  "keywords": [
+    "audio",
+    "mastering",
+    "music",
+    "electron",
+    "python",
+    "react"
+  ],
+  "author": "Auralis Team",
+  "license": "GPLv3",
+  "bugs": {
+    "url": "https://github.com/matiaszanolli/Auralis/issues"
+  },
+  "homepage": "https://github.com/matiaszanolli/Auralis#readme",
+  "engines": {
+    "node": ">=16.0.0",
+    "python": ">=3.8.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
