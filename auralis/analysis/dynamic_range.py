@@ -261,10 +261,16 @@ class DynamicRangeAnalyzer:
     def _estimate_attack_time(self, audio: np.ndarray) -> float:
         """Estimate compressor attack time from transient analysis"""
         # Find sudden level increases (transients)
-        envelope = np.abs(signal.hilbert(audio))
+        # Flatten audio in case it's 2D
+        audio_flat = audio.flatten()
+        envelope = np.abs(signal.hilbert(audio_flat))
 
         # Calculate derivative to find rapid changes
         envelope_diff = np.diff(envelope)
+
+        # Check if we have enough data
+        if len(envelope_diff) == 0:
+            return 0.01  # Default 10ms for too short signals
 
         # Find positive transients
         transient_threshold = np.percentile(envelope_diff, 95)
@@ -300,11 +306,13 @@ class DynamicRangeAnalyzer:
     def _analyze_envelope(self, audio: np.ndarray) -> Dict:
         """Analyze audio envelope characteristics"""
         # Calculate envelope using Hilbert transform
-        envelope = np.abs(signal.hilbert(audio))
+        # Flatten audio in case it's 2D
+        audio_flat = audio.flatten()
+        envelope = np.abs(signal.hilbert(audio_flat))
 
         # Smooth the envelope
         window_size = int(0.01 * self.sample_rate)  # 10ms smoothing
-        if window_size > 0:
+        if window_size > 0 and len(envelope) > window_size * 3:  # filtfilt needs 3x window size
             envelope_smooth = signal.filtfilt(
                 np.ones(window_size)/window_size, [1], envelope
             )

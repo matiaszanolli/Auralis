@@ -52,3 +52,42 @@ def check_equality(target: np.ndarray, reference: np.ndarray):
         raise ModuleError(Code.ERROR_VALIDATION)
 
     debug("Equality check passed")
+
+
+def is_audio_file(filepath: str) -> bool:
+    """
+    Check if a file is an audio file based on its extension.
+
+    Args:
+        filepath: Path to the file
+
+    Returns:
+        bool: True if the file appears to be an audio file
+    """
+    import os
+
+    audio_extensions = {
+        '.wav', '.mp3', '.flac', '.aiff', '.aif', '.m4a', '.ogg',
+        '.wma', '.opus', '.ac3', '.dts', '.mp2', '.ape', '.wv'
+    }
+
+    _, ext = os.path.splitext(filepath.lower())
+    return ext in audio_extensions
+
+
+def check_file_permissions(filepath: str) -> bool:
+    """
+    Check if a file has proper read permissions.
+
+    Args:
+        filepath: Path to the file
+
+    Returns:
+        bool: True if file is readable
+    """
+    import os
+
+    try:
+        return os.path.isfile(filepath) and os.access(filepath, os.R_OK)
+    except (OSError, IOError):
+        return False

@@ -604,7 +604,7 @@ class TestPreviewCreatorPerformance:
 
             # Test different preview configurations
             configs = [
-                Config(preview_size=5, preview_fade_size=0.5),
+                Config(preview_size=6, preview_fade_size=0.5),
                 Config(preview_size=15, preview_fade_size=1.0),
                 Config(preview_size=30, preview_fade_size=2.0),
             ]

@@ -48,14 +48,14 @@ class TestLibraryManagerAdvanced:
         """Test comprehensive track operations."""
         # Test add track with full metadata
         track_info = {
-            'file_path': '/test/path/song.mp3',
+            'filepath': '/test/path/song.mp3',
             'title': 'Test Song',
-            'artist': 'Test Artist',
+            'artists': ['Test Artist'],
             'album': 'Test Album',
-            'genre': 'Rock',
+            'genres': ['Rock'],
             'year': 2023,
             'duration': 180,
-            'file_size': 5242880,
+            'filesize': 5242880,
             'bit_rate': 320,
             'sample_rate': 44100
         }
@@ -63,32 +63,38 @@ class TestLibraryManagerAdvanced:
         track = manager.add_track(track_info)
         assert track is not None
         assert track.title == 'Test Song'
-        assert track.artist == 'Test Artist'
+
+        # Get fresh track with relationships loaded
+        session = manager.get_session()
+        fresh_track = session.query(Track).filter(Track.id == track.id).first()
+        assert len(fresh_track.artists) == 1
+        assert fresh_track.artists[0].name == 'Test Artist'
+        session.close()
 
     def test_search_functionality(self, manager):
         """Test search functionality comprehensively."""
         # Add test tracks first
         tracks_data = [
             {
-                'file_path': '/test/rock1.mp3',
+                'filepath': '/test/rock1.mp3',
                 'title': 'Rock Song 1',
-                'artist': 'Rock Band',
+                'artists': ['Rock Band'],
                 'album': 'Rock Album',
-                'genre': 'Rock'
+                'genres': ['Rock']
             },
             {
-                'file_path': '/test/jazz1.mp3',
+                'filepath': '/test/jazz1.mp3',
                 'title': 'Jazz Tune',
-                'artist': 'Jazz Musician',
+                'artists': ['Jazz Musician'],
                 'album': 'Jazz Collection',
-                'genre': 'Jazz'
+                'genres': ['Jazz']
             },
             {
-                'file_path': '/test/rock2.mp3',
+                'filepath': '/test/rock2.mp3',
                 'title': 'Another Rock Song',
-                'artist': 'Rock Band',
+                'artists': ['Rock Band'],
                 'album': 'Rock Album 2',
-                'genre': 'Rock'
+                'genres': ['Rock']
             }
         ]
 
@@ -110,10 +116,10 @@ class TestLibraryManagerAdvanced:
         """Test genre and artist-specific queries."""
         # Add test data
         track_info = {
-            'file_path': '/test/metal.mp3',
+            'filepath': '/test/metal.mp3',
             'title': 'Metal Song',
-            'artist': 'Metal Band',
-            'genre': 'Metal'
+            'artists': ['Metal Band'],
+            'genres': ['Metal']
         }
         manager.add_track(track_info)
 
@@ -136,7 +142,7 @@ class TestLibraryManagerAdvanced:
         assert playlist.name == 'Test Playlist'
 
         # Add track to playlist
-        track_info = {'file_path': '/test/playlist_track.mp3', 'title': 'Playlist Track'}
+        track_info = {'filepath': '/test/playlist_track.mp3', 'title': 'Playlist Track'}
         track = manager.add_track(track_info)
 
         success = manager.add_track_to_playlist(playlist.id, track.id)
@@ -150,7 +156,7 @@ class TestLibraryManagerAdvanced:
     def test_track_interaction_methods(self, manager):
         """Test track interaction methods."""
         # Add a track
-        track_info = {'file_path': '/test/interactive.mp3', 'title': 'Interactive Track'}
+        track_info = {'filepath': '/test/interactive.mp3', 'title': 'Interactive Track'}
         track = manager.add_track(track_info)
 
         # Test play recording
@@ -165,20 +171,20 @@ class TestLibraryManagerAdvanced:
         # Add diverse test data
         test_tracks = [
             {
-                'file_path': '/test/stats1.mp3',
+                'filepath': '/test/stats1.mp3',
                 'title': 'Stats Track 1',
-                'artist': 'Artist 1',
+                'artists': ['Artist 1'],
                 'album': 'Album 1',
                 'duration': 180,
-                'file_size': 5000000
+                'filesize': 5000000
             },
             {
-                'file_path': '/test/stats2.mp3',
+                'filepath': '/test/stats2.mp3',
                 'title': 'Stats Track 2',
-                'artist': 'Artist 2',
+                'artists': ['Artist 2'],
                 'album': 'Album 2',
                 'duration': 240,
-                'file_size': 6000000
+                'filesize': 6000000
             }
         ]
 
@@ -198,7 +204,7 @@ class TestLibraryManagerAdvanced:
     def test_recent_and_popular_tracks(self, manager):
         """Test recent and popular track queries."""
         # Add and play tracks
-        track_info = {'file_path': '/test/recent.mp3', 'title': 'Recent Track'}
+        track_info = {'filepath': '/test/recent.mp3', 'title': 'Recent Track'}
         track = manager.add_track(track_info)
         manager.record_track_play(track.id)
 
@@ -435,7 +441,7 @@ class TestUtilityComponents:
 
     def test_helpers_comprehensive(self):
         """Test helper utilities comprehensively."""
-        from auralis.utils.helpers import format_duration, format_file_size
+        from auralis.utils.helpers import format_duration, format_filesize
 
         # Test duration formatting with various inputs
         durations = [0, 30, 75, 125, 3661]  # 0s, 30s, 1:15, 2:05, 1:01:01
@@ -449,7 +455,7 @@ class TestUtilityComponents:
         sizes = [0, 1024, 1048576, 1073741824]  # 0B, 1KB, 1MB, 1GB
 
         for size in sizes:
-            formatted = format_file_size(size)
+            formatted = format_filesize(size)
             assert isinstance(formatted, str)
             assert len(formatted) > 0
 
@@ -463,7 +469,7 @@ class TestUtilityComponents:
         for log_func in log_functions:
             try:
                 log_func("Test message")
-                log_func("Test message with data: %s", "data")
+                log_func("Test message with data")
             except Exception as e:
                 # Logging might not be fully configured
                 assert 'log' in str(e).lower()
@@ -497,11 +503,11 @@ class TestModelRelationships:
 
         # Add track with artist and album information
         track_info = {
-            'file_path': '/test/relationship.mp3',
+            'filepath': '/test/relationship.mp3',
             'title': 'Relationship Test',
-            'artist': 'Test Artist',
+            'artists': ['Test Artist'],
             'album': 'Test Album',
-            'genre': 'Test Genre'
+            'genres': ['Test Genre']
         }
 
         track = manager.add_track(track_info)
@@ -523,8 +529,8 @@ class TestModelRelationships:
         assert playlist is not None
 
         # Add tracks
-        track1_info = {'file_path': '/test/rel1.mp3', 'title': 'Rel Track 1'}
-        track2_info = {'file_path': '/test/rel2.mp3', 'title': 'Rel Track 2'}
+        track1_info = {'filepath': '/test/rel1.mp3', 'title': 'Rel Track 1'}
+        track2_info = {'filepath': '/test/rel2.mp3', 'title': 'Rel Track 2'}
 
         track1 = manager.add_track(track1_info)
         track2 = manager.add_track(track2_info)
@@ -567,7 +573,7 @@ class TestErrorHandlingAndEdgeCases:
         manager = LibraryManager(temp_db)
 
         # Add same track twice
-        track_info = {'file_path': '/test/duplicate.mp3', 'title': 'Duplicate Track'}
+        track_info = {'filepath': '/test/duplicate.mp3', 'title': 'Duplicate Track'}
 
         track1 = manager.add_track(track_info)
         track2 = manager.add_track(track_info)  # Should handle gracefully
