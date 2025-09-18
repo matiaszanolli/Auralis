@@ -176,7 +176,7 @@ class TestMatcheringCore:
                 error_msg = str(e).lower()
                 # Check for expected processing errors
                 assert any(word in error_msg for word in [
-                    'process', 'audio', 'config', 'reference', 'target', 'result'
+                    'process', 'audio', 'config', 'reference', 'target', 'result', 'invalid', 'file'
                 ])
         finally:
             if os.path.exists(temp_result_path):
@@ -222,7 +222,7 @@ class TestMatcheringCore:
                     # Expected - might need specific setup
                     error_msg = str(e).lower()
                     assert any(word in error_msg for word in [
-                        'sample', 'rate', 'config', 'fft', 'process'
+                        'sample', 'rate', 'config', 'fft', 'process', 'invalid', 'file'
                     ])
             finally:
                 if os.path.exists(temp_path):

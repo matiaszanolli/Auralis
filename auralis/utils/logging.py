@@ -28,14 +28,28 @@ class ModuleError(Exception):
         super().__init__(f"Module error: {code}")
 
 
-# Global log handler
+# Global log handler and level
 _log_handler = None
+_log_level = "INFO"
 
 
 def set_log_handler(handler):
     """Set the global log handler function"""
     global _log_handler
     _log_handler = handler
+
+
+def set_log_level(level: str):
+    """Set the global log level"""
+    global _log_level
+    valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
+    if level.upper() in valid_levels:
+        _log_level = level.upper()
+
+
+def get_log_level() -> str:
+    """Get the current log level"""
+    return _log_level
 
 
 def debug(message: str):
