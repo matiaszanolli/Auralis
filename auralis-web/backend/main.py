@@ -684,6 +684,7 @@ else:
 
 if __name__ == "__main__":
     print("🚀 Starting Auralis Web Backend...")
+    print("Backend ready", flush=True)  # Signal to Electron that backend is ready
     uvicorn.run(
         "main:app",
         host="127.0.0.1",

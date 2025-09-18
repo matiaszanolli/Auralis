@@ -34,6 +34,15 @@ dist/
 *.msi
 *.exe
 
+# Desktop app distribution artifacts
+dist/win/
+dist/mac/
+dist/linux/
+scripts/node_modules/
+*.AppImage
+*.snap
+*.flatpak
+
 # PyInstaller specific
 *.spec.backup
 *.manifest
@@ -88,6 +97,25 @@ auralis-web/frontend/.env.production.local
 auralis-web/frontend/npm-debug.log*
 auralis-web/frontend/yarn-debug.log*
 auralis-web/frontend/yarn-error.log*
+
+# Electron Desktop App
+desktop/node_modules/
+desktop/dist/
+desktop/build/
+desktop/out/
+desktop/.env
+desktop/.env.local
+desktop/npm-debug.log*
+desktop/yarn-debug.log*
+desktop/yarn-error.log*
+desktop/package-lock.json
+
+# Root Node.js files
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Backend specific
 auralis-web/backend/__pycache__/
