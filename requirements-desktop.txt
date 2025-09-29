@@ -9,9 +9,8 @@ statsmodels>=0.13.2
 # Database and library management
 SQLAlchemy>=2.0.22
 
-# GUI framework
-customtkinter>=5.0.0
-tkinterdnd2>=0.4.0
+# GUI framework (now web-based)
+# Legacy desktop GUI dependencies removed
 
 # Audio metadata
 mutagen>=1.47.0

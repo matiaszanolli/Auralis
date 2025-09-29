@@ -43,3 +43,23 @@ __all__ = [
     "Result", "pcm16", "pcm24",  # Output formats
     "log",              # Logging
 ]
+
+# Unified system imports
+try:
+    from .core.unified_config import UnifiedConfig, create_adaptive_config, create_reference_config
+    from .core.hybrid_processor import HybridProcessor, process_adaptive, process_reference
+    from .analysis.content_analysis import analyze_audio_content
+
+    # Add to exports
+    __all__.extend([
+        "UnifiedConfig",
+        "create_adaptive_config",
+        "create_reference_config",
+        "HybridProcessor",
+        "process_adaptive",
+        "process_reference",
+        "analyze_audio_content"
+    ])
+except ImportError:
+    # Fallback for incomplete installation
+    pass

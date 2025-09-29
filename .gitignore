@@ -34,10 +34,26 @@ dist/
 *.msi
 *.exe
 
+# Desktop app distribution artifacts
+dist/
+dist/win/
+dist/mac/
+dist/linux/
+__appImage-x64/
+linux-unpacked/
+scripts/node_modules/
+*.AppImage
+*.snap
+*.flatpak
+*.yml
+latest-*.yml
+
 # PyInstaller specific
+*.spec
 *.spec.backup
 *.manifest
 *.spec.bak
+auralis-web/backend/dist/
 
 # Audio files
 *.wav
@@ -53,10 +69,12 @@ dist/
 *.log
 *.tmp
 *.temp
+*.pid
 .cache/
 .pytest_cache/
 .coverage
 htmlcov/
+/tmp/
 
 # System files
 Thumbs.db
@@ -76,6 +94,45 @@ docs/_build/
 .env.local
 config.local.py
 
+# Node.js and React (Frontend)
+auralis-web/frontend/node_modules/
+auralis-web/frontend/build/
+auralis-web/frontend/dist/
+auralis-web/frontend/.env
+auralis-web/frontend/.env.local
+auralis-web/frontend/.env.development.local
+auralis-web/frontend/.env.test.local
+auralis-web/frontend/.env.production.local
+auralis-web/frontend/npm-debug.log*
+auralis-web/frontend/yarn-debug.log*
+auralis-web/frontend/yarn-error.log*
+
+# Electron Desktop App
+desktop/node_modules/
+desktop/dist/
+desktop/build/
+desktop/out/
+desktop/resources/
+desktop/.env
+desktop/.env.local
+desktop/npm-debug.log*
+desktop/yarn-debug.log*
+desktop/yarn-error.log*
+desktop/package-lock.json
+
+# Root Node.js files
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Backend specific
+auralis-web/backend/__pycache__/
+auralis-web/backend/*.pyc
+auralis-web/backend/*.log
+auralis-web/backend/.env
+
 # macOS specific
 .AppleDouble
 .LSOverride
@@ -83,6 +140,3 @@ config.local.py
 # Windows specific
 ehthumbs.db
 Desktop.ini
-dist/
-build/
-*.tar.gz

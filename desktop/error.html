@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auralis - Startup Error</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .error-container {
+            max-width: 500px;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        p {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+
+        .suggestions {
+            text-align: left;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .suggestions h3 {
+            margin-top: 0;
+            font-size: 18px;
+        }
+
+        .suggestions ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .suggestions li {
+            margin-bottom: 8px;
+        }
+
+        .retry-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .retry-btn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="logo">🎵 Auralis</div>
+        <h1>Startup Error</h1>
+        <p>We couldn't start the Auralis backend. This usually means there's an issue with the Python environment.</p>
+
+        <div class="suggestions">
+            <h3>Troubleshooting Steps:</h3>
+            <ul>
+                <li>Make sure Python 3.8+ is installed on your system</li>
+                <li>Check that all required dependencies are available</li>
+                <li>Try restarting the application</li>
+                <li>Check the console for detailed error messages</li>
+            </ul>
+        </div>
+
+        <button class="retry-btn" onclick="window.location.reload()">
+            Retry
+        </button>
+
+        <p style="margin-top: 30px; font-size: 14px; opacity: 0.7;">
+            If the problem persists, please check the application logs or contact support.
+        </p>
+    </div>
+</body>
+</html>
