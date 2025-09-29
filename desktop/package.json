@@ -1,0 +1,137 @@
+{
+  "name": "auralis-desktop",
+  "version": "1.0.0",
+  "description": "Auralis Audio Mastering Desktop Application",
+  "main": "main.js",
+  "author": "Auralis Team",
+  "license": "GPLv3",
+  "private": true,
+  "homepage": "https://github.com/matiaszanolli/Auralis",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matiaszanolli/Auralis.git"
+  },
+  "scripts": {
+    "electron": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --publish=never",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "electron-log": "^4.4.8",
+    "electron-updater": "^6.1.4"
+  },
+  "build": {
+    "appId": "com.auralis.desktop",
+    "productName": "Auralis",
+    "copyright": "Copyright © 2024 Auralis Team",
+    "directories": {
+      "output": "../dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "assets/**/*",
+      "error.html"
+    ],
+    "extraResources": [
+      {
+        "from": "../auralis-web/backend/dist/auralis-backend",
+        "to": "backend",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../auralis-web/frontend/build",
+        "to": "frontend",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "publisherName": "Auralis Team",
+      "verifyUpdateCodeSignature": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.music",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "AudioVideo",
+      "maintainer": "Auralis Team"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Auralis"
+    },
+    "dmg": {
+      "title": "Auralis ${version}",
+      "icon": "assets/icon.icns",
+      "iconSize": 100,
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "matiaszanolli",
+      "repo": "Auralis"
+    }
+  }
+}

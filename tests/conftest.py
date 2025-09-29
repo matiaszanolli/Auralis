@@ -22,13 +22,11 @@ except ImportError:
     HAS_SOUNDFILE = False
 
 try:
-    import matchering
     HAS_MATCHERING = True
 except ImportError:
     HAS_MATCHERING = False
 
 try:
-    from matchering_player.core.config import PlayerConfig
     HAS_PLAYER = True
 except ImportError:
     HAS_PLAYER = False

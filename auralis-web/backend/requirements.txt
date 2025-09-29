@@ -1,0 +1,22 @@
+# Auralis Web Backend Dependencies
+# Core web framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# API and data handling
+python-multipart
+aiofiles
+websockets
+
+# Development tools
+python-dotenv
+
+# Audio processing (existing Auralis dependencies)
+numpy
+scipy
+soundfile
+mutagen
+
+# Database (if needed for extended features)
+sqlalchemy
+aiosqlite
