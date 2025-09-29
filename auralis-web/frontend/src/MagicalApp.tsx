@@ -17,7 +17,8 @@ import {
   Equalizer,
   Favorite,
   TrendingUp,
-  MusicNote
+  MusicNote,
+  AutoFixHigh
 } from '@mui/icons-material';
 
 import MagicalMusicPlayer from './components/MagicalMusicPlayer.tsx';
@@ -27,6 +28,7 @@ import EnhancedAudioPlayer from './components/EnhancedAudioPlayer.tsx';
 import RealtimeAudioVisualizer from './components/RealtimeAudioVisualizer.tsx';
 import AudioProcessingControls from './components/AudioProcessingControls.tsx';
 import ABComparisonPlayer from './components/ABComparisonPlayer.tsx';
+import ProcessingInterface from './components/ProcessingInterface.tsx';
 import { useWebSocket } from './hooks/useWebSocket.ts';
 import { useLibraryStats } from './hooks/useLibraryStats.ts';
 
@@ -140,6 +142,7 @@ function MagicalApp() {
 
   const tabsData = [
     { label: 'Your Music', icon: <LibraryMusic /> },
+    { label: 'Master Audio', icon: <AutoFixHigh /> },
     { label: 'Audio Player', icon: <MusicNote /> },
     { label: 'Visualizer', icon: <Equalizer /> },
     { label: 'Favorites', icon: <Favorite /> },
@@ -269,8 +272,35 @@ function MagicalApp() {
           />
         </TabPanel>
 
-        {/* Enhanced Audio Player */}
+        {/* Master Audio - Processing Interface */}
         <TabPanel value={currentTab} index={1}>
+          <Container maxWidth="xl" sx={{ py: 4 }}>
+            <Box sx={{ mb: 4, textAlign: 'center' }}>
+              <Typography
+                variant="h3"
+                component="h2"
+                fontWeight="bold"
+                gutterBottom
+                sx={{
+                  background: 'linear-gradient(45deg, #1976d2, #42a5f5, #90caf9)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                ✨ Master Your Audio
+              </Typography>
+              <Typography variant="subtitle1" color="text.secondary">
+                Professional adaptive audio mastering powered by AI
+              </Typography>
+            </Box>
+
+            <ProcessingInterface />
+          </Container>
+        </TabPanel>
+
+        {/* Enhanced Audio Player */}
+        <TabPanel value={currentTab} index={2}>
           <Container maxWidth="lg" sx={{ py: 4 }}>
             <Box sx={{ mb: 4, textAlign: 'center' }}>
               <Typography variant="h3" component="h2" fontWeight="bold" gutterBottom>
@@ -348,7 +378,7 @@ function MagicalApp() {
         </TabPanel>
 
         {/* Visualizer */}
-        <TabPanel value={currentTab} index={2}>
+        <TabPanel value={currentTab} index={3}>
           <Container maxWidth="lg" sx={{ py: 4 }}>
             <Box sx={{ mb: 4, textAlign: 'center' }}>
               <Typography variant="h3" component="h2" fontWeight="bold" gutterBottom>
@@ -392,7 +422,7 @@ function MagicalApp() {
         </TabPanel>
 
         {/* Favorites */}
-        <TabPanel value={currentTab} index={3}>
+        <TabPanel value={currentTab} index={4}>
           <Container maxWidth="lg" sx={{ py: 4 }}>
             <Box sx={{ textAlign: 'center', py: 8 }}>
               <Favorite sx={{ fontSize: 64, color: '#f44336', mb: 2 }} />
@@ -407,7 +437,7 @@ function MagicalApp() {
         </TabPanel>
 
         {/* Stats */}
-        <TabPanel value={currentTab} index={4}>
+        <TabPanel value={currentTab} index={5}>
           <Container maxWidth="lg" sx={{ py: 4 }}>
             <Typography variant="h3" component="h2" fontWeight="bold" gutterBottom textAlign="center">
               📊 Your Music Journey

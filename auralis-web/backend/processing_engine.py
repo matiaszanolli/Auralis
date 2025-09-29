@@ -314,8 +314,12 @@ class ProcessingEngine:
 
         return False
 
-    def cleanup_old_jobs(self, max_age_hours: int = 24):
-        """Clean up old completed jobs and their files"""
+    def cleanup_old_jobs(self, max_age_hours: int = 24) -> int:
+        """Clean up old completed jobs and their files
+
+        Returns:
+            int: Number of jobs removed
+        """
         now = datetime.now()
         jobs_to_remove = []
 
@@ -332,6 +336,8 @@ class ProcessingEngine:
             del self.jobs[job_id]
             if job_id in self.progress_callbacks:
                 del self.progress_callbacks[job_id]
+
+        return len(jobs_to_remove)
 
     def get_all_jobs(self) -> list[ProcessingJob]:
         """Get all jobs"""
