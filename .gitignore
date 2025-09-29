@@ -35,18 +35,25 @@ dist/
 *.exe
 
 # Desktop app distribution artifacts
+dist/
 dist/win/
 dist/mac/
 dist/linux/
+__appImage-x64/
+linux-unpacked/
 scripts/node_modules/
 *.AppImage
 *.snap
 *.flatpak
+*.yml
+latest-*.yml
 
 # PyInstaller specific
+*.spec
 *.spec.backup
 *.manifest
 *.spec.bak
+auralis-web/backend/dist/
 
 # Audio files
 *.wav
@@ -62,10 +69,12 @@ scripts/node_modules/
 *.log
 *.tmp
 *.temp
+*.pid
 .cache/
 .pytest_cache/
 .coverage
 htmlcov/
+/tmp/
 
 # System files
 Thumbs.db
@@ -103,6 +112,7 @@ desktop/node_modules/
 desktop/dist/
 desktop/build/
 desktop/out/
+desktop/resources/
 desktop/.env
 desktop/.env.local
 desktop/npm-debug.log*
@@ -130,6 +140,3 @@ auralis-web/backend/.env
 # Windows specific
 ehthumbs.db
 Desktop.ini
-dist/
-build/
-*.tar.gz

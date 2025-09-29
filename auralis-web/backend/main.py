@@ -20,6 +20,7 @@ import uvicorn
 import asyncio
 import json
 import sys
+import os
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 import logging
@@ -37,6 +38,15 @@ try:
 except ImportError as e:
     print(f"⚠️  Auralis library not available: {e}")
     HAS_AURALIS = False
+
+# Import processing components
+try:
+    from processing_engine import ProcessingEngine
+    from processing_api import router as processing_router, set_processing_engine
+    HAS_PROCESSING = True
+except ImportError as e:
+    print(f"⚠️  Processing components not available: {e}")
+    HAS_PROCESSING = False
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -60,16 +70,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include processing API routes
+if HAS_PROCESSING:
+    app.include_router(processing_router)
+
 # Global state
 library_manager: Optional[LibraryManager] = None
 audio_player: Optional[EnhancedAudioPlayer] = None
+if HAS_PROCESSING:
+    processing_engine: Optional[ProcessingEngine] = None
+else:
+    processing_engine = None
 connected_websockets: List[WebSocket] = []
 
 # Initialize Auralis components
 @app.on_event("startup")
 async def startup_event():
     """Initialize Auralis components on startup"""
-    global library_manager, audio_player
+    global library_manager, audio_player, processing_engine
 
     if HAS_AURALIS:
         try:
@@ -95,6 +113,19 @@ async def startup_event():
             logger.error(f"❌ Failed to initialize Auralis components: {e}")
     else:
         logger.warning("⚠️  Auralis not available - running in demo mode")
+
+    # Initialize processing engine
+    if HAS_PROCESSING:
+        try:
+            processing_engine = ProcessingEngine(max_concurrent_jobs=2)
+            set_processing_engine(processing_engine)
+            # Start the processing worker
+            asyncio.create_task(processing_engine.start_worker())
+            logger.info("✅ Processing Engine initialized")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Processing Engine: {e}")
+    else:
+        logger.warning("⚠️  Processing engine not available")
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -155,6 +186,22 @@ async def websocket_endpoint(websocket: WebSocket):
                     "type": "ab_track_ready",
                     "data": track_data
                 })
+
+            elif message.get("type") == "subscribe_job_progress":
+                # Subscribe to job progress updates
+                job_id = message.get("job_id")
+                if job_id and processing_engine:
+                    async def progress_callback(job_id, progress, message):
+                        await websocket.send_text(json.dumps({
+                            "type": "job_progress",
+                            "data": {
+                                "job_id": job_id,
+                                "progress": progress,
+                                "message": message
+                            }
+                        }))
+
+                    processing_engine.register_progress_callback(job_id, progress_callback)
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -664,19 +711,34 @@ async def load_comparison_tracks(track_a: str, track_b: str):
         raise HTTPException(status_code=500, detail=f"Failed to load comparison tracks: {e}")
 
 # Serve React frontend (when built)
-frontend_path = Path(__file__).parent.parent / "frontend" / "build"
+# Check if running in Electron (bundled with PyInstaller)
+if os.environ.get('ELECTRON_MODE') == '1':
+    # In Electron, frontend is in ../frontend relative to backend resources
+    import os
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller bundle - look in parent resources dir
+        frontend_path = Path(sys._MEIPASS).parent / "frontend"
+    else:
+        frontend_path = Path(__file__).parent.parent / "frontend" / "build"
+else:
+    # Development/web mode - look in regular location
+    frontend_path = Path(__file__).parent.parent / "frontend" / "build"
+
+logger.info(f"Looking for frontend at: {frontend_path}")
 if frontend_path.exists():
+    logger.info(f"✅ Serving frontend from: {frontend_path}")
     app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
 else:
+    logger.warning(f"⚠️  Frontend not found at {frontend_path}")
     @app.get("/")
     async def root():
-        return HTMLResponse("""
+        return HTMLResponse(f"""
         <html>
             <head><title>Auralis Web</title></head>
             <body>
                 <h1>🎵 Auralis Web Backend</h1>
                 <p>FastAPI backend is running!</p>
-                <p>Frontend not built yet. Build the React app to see the full interface.</p>
+                <p>Frontend not found at: {frontend_path}</p>
                 <p><a href="/api/docs">View API Documentation</a></p>
             </body>
         </html>
