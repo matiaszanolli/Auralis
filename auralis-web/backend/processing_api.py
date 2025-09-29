@@ -229,7 +229,11 @@ async def cancel_job(job_id: str):
 
     success = _processing_engine.cancel_job(job_id)
     if not success:
-        raise HTTPException(status_code=400, detail="Job cannot be cancelled (not found or already completed)")
+        # Check if job exists to provide correct error
+        job = _processing_engine.get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=400, detail="Job cannot be cancelled (already completed)")
 
     return {"message": "Job cancelled successfully", "job_id": job_id}
 
@@ -389,6 +393,9 @@ async def cleanup_old_jobs(max_age_hours: int = 24):
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
 
-    _processing_engine.cleanup_old_jobs(max_age_hours)
+    removed_count = _processing_engine.cleanup_old_jobs(max_age_hours)
 
-    return {"message": f"Cleaned up jobs older than {max_age_hours} hours"}
+    return {
+        "message": f"Cleaned up jobs older than {max_age_hours} hours",
+        "removed": removed_count
+    }
