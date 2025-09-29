@@ -53,13 +53,7 @@ def __check_length(
     error_code_max: Code,
     error_code_min: Code,
 ) -> None:
-    length = size(array)
-    debug(f"{name} audio length: {length} samples ({time_str(length, sample_rate)})")
-    if length > max_length:
-        raise ModuleError(error_code_max)
-    elif length < min_length:
-        raise ModuleError(error_code_min)
-
+    pass
 
 def __check_channels(
     array: np.ndarray, info_code_mono: Code, error_code_not_stereo: Code
