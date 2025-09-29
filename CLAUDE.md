@@ -4,129 +4,227 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Auralis** is a professional adaptive audio mastering system that provides intelligent, content-aware audio processing without requiring reference tracks. The system combines advanced DSP algorithms, machine learning, and real-time processing to deliver studio-quality audio mastering.
+**Auralis** is a professional adaptive audio mastering system with both desktop (Electron) and web (FastAPI + React) interfaces. The system provides intelligent, content-aware audio processing without requiring reference tracks, combining advanced DSP algorithms, machine learning, and real-time processing for studio-quality audio mastering.
 
 ### Key Capabilities
-- **Adaptive Mastering** - Content-aware processing that analyzes audio characteristics and applies optimal mastering
+- **Adaptive Mastering** - Content-aware processing without reference tracks, analyzing audio characteristics for optimal mastering
+- **Dual Interface** - Modern web UI (FastAPI + React) and native Electron desktop application
 - **Real-time Processing** - Ultra-low latency streaming with 52.8x real-time performance
-- **ML-Powered Features** - Genre classification, user preference learning, and content analysis
-- **Professional Analysis** - Spectrum analysis, LUFS metering, phase correlation, dynamic range analysis
+- **ML-Powered Features** - Genre classification, user preference learning, and comprehensive content analysis
+- **Professional Analysis** - ITU-R BS.1770-4 compliant LUFS, spectrum analysis, phase correlation, dynamic range measurement
+- **Library Management** - SQLite-based music library with metadata extraction, intelligent scanning (740+ files/second)
 - **Performance Optimization** - 197x speedup through memory pools, caching, and SIMD acceleration
 
 ## Essential Commands
 
-### Development and Testing
+### Launch Applications
 ```bash
-# Run main adaptive processing tests
-python -m pytest tests/test_adaptive_processing.py -v
+# Web interface (recommended for development and production)
+python launch-auralis-web.py           # Production mode (http://localhost:8000)
+python launch-auralis-web.py --dev     # Development mode with hot reload
 
-# Run focused test suite (clean, no legacy dependencies)
-python -m pytest tests/auralis/ -v
+# Electron desktop application
+npm run dev                            # Development mode (starts backend + frontend + Electron)
+npm run build                          # Build desktop application
 
-# Test with coverage reporting
-python -m pytest --cov=auralis --cov-report=html --cov-report=term-missing tests/ -v
+# Package desktop application for distribution
+npm run package                        # All platforms
+npm run package:win                    # Windows
+npm run package:mac                    # macOS
+npm run package:linux                  # Linux
 
-# Run performance benchmarks
-python test_performance_optimization.py
-
-# Test user preference learning
-python test_preference_learning.py
-
-# Complete system demonstration
-python final_system_demo.py
+# Backend only (for API server mode)
+cd auralis-web/backend && python main.py
 ```
 
-### Core Processing
+### Testing
 ```bash
-# Basic adaptive mastering
-python -c "from auralis.core.hybrid_processor import HybridProcessor; from auralis.core.unified_config import UnifiedConfig; config = UnifiedConfig(); processor = HybridProcessor(config); print('Adaptive mastering system ready')"
+# Main adaptive processing test suite (26 comprehensive tests)
+python -m pytest tests/test_adaptive_processing.py -v
 
-# Test audio loading and analysis
-python -c "from auralis.io.unified_loader import load_audio; from auralis.analysis.content_analysis import ContentAnalyzer; analyzer = ContentAnalyzer(); print('Analysis system ready')"
+# All tests with coverage report
+python -m pytest --cov=auralis --cov-report=html --cov-report=term-missing tests/ -v
+
+# Focused auralis module tests
+python -m pytest tests/auralis/ -v
+
+# Quick test runner
+python run_all_tests.py
+```
+
+### Demonstrations and Benchmarks
+```bash
+# Complete system demonstration
+python final_system_demo.py
+
+# Adaptive mastering demonstration
+python demo_adaptive_mastering.py
+
+# Performance optimization benchmarks (197x speedup)
+python test_performance_optimization.py
+
+# User preference learning demo
+python test_preference_learning.py
+
+# Real-time EQ testing (0.28ms processing time)
+python test_realtime_eq.py
+
+# Advanced dynamics testing
+python test_dynamics.py
 ```
 
 ### Environment Setup
 ```bash
-# Install core dependencies
+# Install Python core dependencies
 pip install -r requirements.txt
 
-# Additional ML dependencies for advanced features
-pip install scikit-learn>=1.3.0 mutagen>=1.47.0
+# Install Electron desktop dependencies
+cd desktop && npm install
 
-# Development and testing tools
-pip install pytest pytest-cov soundfile
+# Install web frontend dependencies (optional, for web UI development)
+cd auralis-web/frontend && npm install
+
+# Install development tools
+pip install pytest pytest-cov soundfile scikit-learn mutagen
 ```
 
 ## Architecture Overview
 
+### Two-Tier Architecture
+The project has two parallel UI implementations sharing the same Python audio processing backend:
+
+1. **Web Stack**: FastAPI backend + React frontend + optional Electron wrapper
+2. **Python Core**: Unified audio processing engine (`auralis/`) used by both interfaces
+
 ### Core Processing Engine (`auralis/core/`)
-- **`hybrid_processor.py`** - Main processing engine supporting adaptive, reference, and hybrid modes
-- **`unified_config.py`** - Comprehensive configuration system with genre profiles and adaptive settings
-- **`processor.py`** - Legacy wrapper maintaining compatibility
+The main audio processing pipeline that handles all mastering operations:
+
+- **`hybrid_processor.py`** - Main processing engine with three modes:
+  - **Adaptive Mode** (primary): Intelligent mastering without reference tracks
+  - **Reference Mode**: Traditional reference-based mastering
+  - **Hybrid Mode**: Combines reference guidance with adaptive intelligence
+- **`unified_config.py`** - Configuration system with genre profiles and adaptive settings
+- **`processor.py`** - Legacy compatibility wrapper
 
 ### Advanced DSP System (`auralis/dsp/`)
-- **`unified.py`** - Core DSP functions (RMS, spectral analysis, adaptive gain calculation)
+Professional-grade digital signal processing components:
+
+- **`unified.py`** - Core DSP functions: RMS, spectral analysis, adaptive gain calculation, loudness units
 - **`psychoacoustic_eq.py`** - 26-band critical band EQ with masking threshold calculations
-- **`realtime_adaptive_eq.py`** - Real-time EQ adaptation with 0.28ms processing time
+- **`realtime_adaptive_eq.py`** - Real-time EQ adaptation (0.28ms processing time)
 - **`advanced_dynamics.py`** - Intelligent compression and limiting with content-aware adaptation
+- **`stages.py`** - Processing stages (EQ, compression, limiting)
+- **`basic.py`** - Basic DSP utilities
 
 ### Analysis Framework (`auralis/analysis/`)
+Comprehensive audio analysis tools for content understanding:
+
 - **`content_analysis.py`** - Comprehensive audio content analysis with 50+ features
 - **`ml_genre_classifier.py`** - Machine learning-based genre classification
-- **`spectrum_analyzer.py`** - Professional FFT analysis with A/C/Z weighting
-- **`loudness_meter.py`** - ITU-R BS.1770-4 compliant LUFS measurement
-- **`phase_correlation.py`** - Stereo analysis and vectorscope functionality
-- **`dynamic_range.py`** - DR calculation and compression detection
+- **`spectrum_analyzer.py`** - Professional FFT analysis with A/C/Z weighting curves
+- **`loudness_meter.py`** - ITU-R BS.1770-4 compliant LUFS measurement with gating
+- **`phase_correlation.py`** - Stereo correlation analysis and vectorscope functionality
+- **`dynamic_range.py`** - EBU R128 dynamic range calculation and compression detection
 - **`quality_metrics.py`** - Comprehensive audio quality assessment
 
-### Learning System (`auralis/learning/`)
-- **`preference_engine.py`** - ML-powered user preference learning with adaptive parameter generation
+### Machine Learning System (`auralis/learning/`)
+- **`preference_engine.py`** - User preference learning engine that adapts processing parameters based on user feedback
 
 ### Performance Optimization (`auralis/optimization/`)
-- **`performance_optimizer.py`** - Memory pools, smart caching, SIMD acceleration, and parallel processing
+- **`performance_optimizer.py`** - Memory pools, smart caching, SIMD acceleration, parallel processing (197x speedup)
 
 ### Audio I/O (`auralis/io/`)
-- **`unified_loader.py`** - Multi-format audio loading (WAV, FLAC, MP3, OGG, M4A, AAC, WMA)
+- **`unified_loader.py`** - Multi-format audio loading: WAV, FLAC, MP3, OGG, M4A, AAC, WMA
 - **`saver.py`** - Audio output in multiple formats
 - **`results.py`** - Processing result containers
+- **`loader.py`** - Legacy loader
 
 ### Library Management (`auralis/library/`)
-- **`manager.py`** - SQLite-based music library with metadata extraction
-- **`scanner.py`** - Intelligent folder scanning with duplicate detection
-- **`models.py`** - Database models for tracks, albums, artists, playlists
+SQLite-based music library system:
 
-### Player Components (`auralis/player/`)
-- **`audio_player.py`** - Core audio playback functionality
+- **`manager.py`** - Library management with metadata extraction (from tags and file info)
+- **`scanner.py`** - Intelligent folder scanning with duplicate detection (740+ files/second)
+- **`models.py`** - SQLAlchemy database models for tracks, albums, artists, playlists
+
+### Audio Player (`auralis/player/`)
+- **`audio_player.py`** - Basic audio playback
 - **`enhanced_audio_player.py`** - Advanced player with real-time processing
 - **`realtime_processor.py`** - Real-time audio processing for playback
+- **`config.py`** - Player configuration
 
-## Key Processing Modes
+### Web Interface (`auralis-web/`)
+Modern web UI with real-time updates:
 
-### Adaptive Mode (Primary)
+- **`backend/`** - FastAPI backend with WebSocket support for live updates
+  - **`main.py`** - Main API server (library, player, processing endpoints)
+  - **`processing_engine.py`** - Job queue system for audio processing (async worker)
+  - **`processing_api.py`** - 10 REST API endpoints for processing operations
+  - REST API for audio processing, library management, real-time playback
+  - Real-time progress updates via WebSockets
+  - API documentation at `/api/docs`
+- **`frontend/`** - React frontend with Material Design
+  - **`ProcessingInterface.tsx`** - Audio processing UI with file upload, job management
+  - **`processingService.ts`** - TypeScript API client with WebSocket support
+  - Smart file browser with grid/list views
+  - Advanced search with multiple filters
+  - Real-time library statistics
+  - Professional audio player with real-time processing controls
+
+### Desktop Application (`desktop/`)
+Electron wrapper for native desktop experience:
+
+- **`main.js`** - Main Electron process that:
+  - Spawns Python backend process
+  - Creates browser window loading React UI
+  - Handles IPC for file/folder selection
+  - Manages application lifecycle
+- **`preload.js`** - Preload script for secure IPC
+- **`package.json`** - Electron dependencies and build configuration
+
+### Build and Development Scripts (`scripts/`)
+- **`dev.js`** - Development environment launcher (starts backend + frontend + Electron)
+- **`quick_build.sh`** - Quick build script
+
+## Key Processing Workflows
+
+### Adaptive Mode (Primary Use Case)
+Intelligent mastering without reference tracks:
+
 ```python
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 
 config = UnifiedConfig()
-config.set_processing_mode("adaptive")
+config.set_processing_mode("adaptive")  # Default mode
 processor = HybridProcessor(config)
 
-# Process audio without reference
+# Process audio - no reference needed
 processed_audio = processor.process(target_audio)
 ```
 
 ### Reference Mode (Legacy Compatibility)
+Traditional reference-based mastering:
+
 ```python
-# Traditional reference-based mastering
 config.set_processing_mode("reference")
 processed_audio = processor.process(target_audio, reference_audio)
 ```
 
 ### Hybrid Mode (Best of Both)
+Combines reference guidance with adaptive intelligence:
+
 ```python
-# Combines reference guidance with adaptive intelligence
 config.set_processing_mode("hybrid")
 processed_audio = processor.process(target_audio, reference_audio)
+```
+
+### Content Analysis and Genre Detection
+```python
+from auralis.analysis.content_analysis import AdvancedContentAnalyzer
+
+analyzer = AdvancedContentAnalyzer()
+analysis = analyzer.analyze(audio, sample_rate)
+# Returns: genre, tempo, energy, mood, spectral features, etc.
 ```
 
 ## Performance Characteristics
@@ -134,63 +232,74 @@ processed_audio = processor.process(target_audio, reference_audio)
 ### Processing Speed
 - **52.8x average real-time factor** for adaptive mastering
 - **197x speedup** with performance optimizations enabled
-- **Sub-20ms latency** for real-time streaming applications
+- **Sub-20ms latency** for real-time streaming
 - **7.4x real-time factor** for streaming chunks
+- **0.28ms processing time** for real-time adaptive EQ
+
+### Library Management
+- **740+ files/second** scanning speed
+- **8,618 FPS** visualization performance
+- SQLite database for efficient queries
 
 ### System Requirements
-- **Python 3.11+** (tested and optimized)
-- **Memory**: 2GB+ RAM for large files
-- **Processing**: Multi-core recommended for parallel processing
-- **Storage**: SQLite for library management
-
-## Advanced Features
-
-### Machine Learning Integration
-- **Genre Classification**: 50+ audio features with ML prediction
-- **User Preference Learning**: Adaptive parameter adjustment based on user feedback
-- **Content Analysis**: Automatic mood detection and processing recommendations
-
-### Real-time Capabilities
-- **Streaming Processing**: Process audio chunks in real-time
-- **Adaptive EQ**: 26 critical bands with instant adaptation
-- **Performance Monitoring**: Built-in profiling and optimization
-
-### Professional Analysis
-- **Spectrum Analysis**: FFT with professional weighting curves
-- **Loudness Metering**: Broadcast-standard LUFS measurement
-- **Quality Assessment**: Comprehensive audio quality metrics
-- **Phase Analysis**: Stereo correlation and vectorscope
+- **Python 3.8+** (Python 3.11+ recommended and optimized)
+- **Node.js 16+** for Electron and web frontend
+- **Memory**: 2GB+ RAM for large audio files
+- **Processing**: Multi-core CPU recommended for parallel processing
+- **Storage**: Minimal (SQLite database for library)
 
 ## Development Workflow
 
 ### Testing Strategy
-- **Core Functionality**: `tests/test_adaptive_processing.py` (26 comprehensive tests)
-- **Component Testing**: `tests/auralis/` (individual module tests)
-- **Performance Testing**: `test_performance_optimization.py`
-- **Integration Testing**: `final_system_demo.py`
+The test suite is comprehensive and focuses on production functionality:
 
-### Code Organization
+- **Core Functionality**: `tests/test_adaptive_processing.py` (26 comprehensive tests covering adaptive mode, genre detection, ML features)
+- **Component Testing**: `tests/auralis/` (individual module tests for DSP, analysis, library, player)
+- **Performance Testing**: `test_performance_optimization.py` (benchmarks memory pools, caching, SIMD)
+- **Integration Testing**: `final_system_demo.py` (end-to-end system demonstration)
+- **59% Test Coverage** focused on essential functionality
+
+### Code Organization Principles
 - **Modular Design**: Each component is self-contained with clear interfaces
-- **Factory Functions**: Use `create_*` functions for component instantiation
-- **Configuration-Driven**: All processing controlled via `UnifiedConfig`
-- **Performance-Optimized**: Built-in caching and optimization throughout
+- **Factory Functions**: Use `create_*` functions for component instantiation (e.g., `create_ml_genre_classifier()`)
+- **Configuration-Driven**: All processing controlled via `UnifiedConfig` class
+- **Performance-Optimized**: Built-in caching and optimization using decorators (`@optimized`, `@cached`)
+- **No Legacy Dependencies**: Fully integrated, no external Matchering dependencies
 
 ### Key Design Patterns
-- **Unified Interface**: Single `HybridProcessor` handles all processing modes
+- **Unified Interface**: Single `HybridProcessor` handles all three processing modes
 - **Content-Aware Processing**: All components adapt based on audio characteristics
 - **Real-time Ready**: All processing designed for streaming applications
 - **ML Integration**: Machine learning seamlessly integrated into processing pipeline
+- **Dual UI Support**: Same Python backend serves both web and desktop UIs
 
-## File Structure Notes
-- **Main Processing**: All core functionality in `auralis/` module
-- **Legacy Removed**: No matchering dependencies (fully integrated)
-- **Clean Tests**: Test suite focused on production code only
-- **Performance Demos**: Standalone demonstration scripts at root level
-- **Configuration**: Runtime settings via `UnifiedConfig` class
+## Web Interface Access Points
 
-## Current Status
-- **Production Ready**: Core adaptive mastering system complete
-- **59% Test Coverage**: Focused on essential functionality
-- **Performance Optimized**: Production-ready with significant speedups
-- **Clean Architecture**: No legacy dependencies, modern Python design
-- **Fully Integrated**: All components work together seamlessly
+When web interface is running:
+
+- **Main UI**: http://localhost:3000 (dev) or http://localhost:8000 (production)
+- **Backend API**: http://localhost:8000/api/
+- **API Documentation**: http://localhost:8000/api/docs (Swagger UI)
+- **Health Check**: http://localhost:8000/api/health
+
+## Important Notes
+
+### Current Branch and Git
+- **Current branch**: `react-gui`
+- **Main branch**: `master` (use this for PRs)
+- **Status**: Clean working directory
+
+### Project Structure
+- **Python Backend**: All audio processing in `auralis/` module
+- **Web Backend**: FastAPI application in `auralis-web/backend/`
+- **Web Frontend**: React application in `auralis-web/frontend/`
+- **Desktop App**: Electron wrapper in `desktop/`
+- **Tests**: Comprehensive test suite in `tests/`
+- **Demos**: Standalone demonstration scripts at root level
+
+### Architecture Migration
+The project has successfully migrated from Tkinter GUI to a modern dual-interface system:
+- **Web interface**: Production-ready, modern, cross-platform
+- **Desktop app**: Electron-based, native-like experience
+- **Legacy Tkinter**: Removed, no longer used
+- **Matchering dependencies**: Fully integrated into Auralis, no external dependencies
