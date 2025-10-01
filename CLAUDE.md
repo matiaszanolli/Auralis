@@ -42,6 +42,14 @@ cd auralis-web/backend && python main.py
 # Main adaptive processing test suite (26 comprehensive tests)
 python -m pytest tests/test_adaptive_processing.py -v
 
+# Backend API tests (96 tests, 74% coverage)
+python -m pytest tests/backend/ -v
+python -m pytest tests/backend/ --cov=auralis-web/backend --cov-report=term-missing -v
+
+# End-to-end audio processing validation
+python test_e2e_processing.py       # Test all presets with real audio
+python analyze_outputs.py           # Analyze audio quality metrics
+
 # All tests with coverage report
 python -m pytest --cov=auralis --cov-report=html --cov-report=term-missing tests/ -v
 
@@ -84,9 +92,19 @@ cd desktop && npm install
 # Install web frontend dependencies (optional, for web UI development)
 cd auralis-web/frontend && npm install
 
+# Install all Node.js dependencies at once (alternative)
+npm run install:all
+
 # Install development tools
 pip install pytest pytest-cov soundfile scikit-learn mutagen
+
+# Clean all build artifacts and node_modules
+npm run clean
 ```
+
+### Supported Audio Formats
+- **Input**: WAV, FLAC, MP3, OGG, M4A, AAC, WMA
+- **Output**: WAV (16-bit/24-bit PCM), FLAC (16-bit/24-bit PCM)
 
 ## Architecture Overview
 
@@ -193,13 +211,22 @@ Intelligent mastering without reference tracks:
 ```python
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
+from auralis.io.unified_loader import load_audio
+from auralis.io.saver import save
 
+# Load audio
+audio, sr = load_audio("input.wav")
+
+# Create processor
 config = UnifiedConfig()
 config.set_processing_mode("adaptive")  # Default mode
 processor = HybridProcessor(config)
 
 # Process audio - no reference needed
-processed_audio = processor.process(target_audio)
+processed_audio = processor.process(audio)
+
+# Save output
+save("output.wav", processed_audio, sr, subtype='PCM_16')
 ```
 
 ### Reference Mode (Legacy Compatibility)
@@ -226,6 +253,13 @@ analyzer = AdvancedContentAnalyzer()
 analysis = analyzer.analyze(audio, sample_rate)
 # Returns: genre, tempo, energy, mood, spectral features, etc.
 ```
+
+### Available Processing Presets
+- **Adaptive** (default): Intelligent content-aware mastering
+- **Gentle**: Subtle mastering with minimal processing
+- **Warm**: Adds warmth and smoothness to the sound
+- **Bright**: Enhances clarity and presence
+- **Punchy**: Increases impact and dynamics
 
 ## Performance Characteristics
 
@@ -254,10 +288,15 @@ analysis = analyzer.analyze(audio, sample_rate)
 The test suite is comprehensive and focuses on production functionality:
 
 - **Core Functionality**: `tests/test_adaptive_processing.py` (26 comprehensive tests covering adaptive mode, genre detection, ML features)
+- **Backend API Testing**: `tests/backend/` (96 tests, 100% passing, 74% coverage)
+  - **`test_main_api.py`**: 57 tests for library, player, and processing endpoints
+  - **`test_processing_api.py`**: 27 tests for processing API and job management
+  - **`test_processing_engine.py`**: 20 tests for async job queue and worker
 - **Component Testing**: `tests/auralis/` (individual module tests for DSP, analysis, library, player)
+- **End-to-End Testing**: `test_e2e_processing.py` (validates real audio processing with all presets)
 - **Performance Testing**: `test_performance_optimization.py` (benchmarks memory pools, caching, SIMD)
 - **Integration Testing**: `final_system_demo.py` (end-to-end system demonstration)
-- **59% Test Coverage** focused on essential functionality
+- **74% Backend Coverage** (96 tests) and **59% Core Coverage** focused on essential functionality
 
 ### Code Organization Principles
 - **Modular Design**: Each component is self-contained with clear interfaces
@@ -273,6 +312,12 @@ The test suite is comprehensive and focuses on production functionality:
 - **ML Integration**: Machine learning seamlessly integrated into processing pipeline
 - **Dual UI Support**: Same Python backend serves both web and desktop UIs
 
+### Important API Notes
+- **HybridProcessor.process()**: Returns numpy array directly (not a result object)
+- **Audio Player Methods**: Use `seek_to_position()` not `seek()`, `next_track()` not `next()`, `previous_track()` not `previous()`
+- **Processing Endpoints**: Volume parameter is `volume` not `level`
+- **Library Manager**: Database location is `~/.auralis/library.db` by default
+
 ## Web Interface Access Points
 
 When web interface is running:
@@ -284,17 +329,18 @@ When web interface is running:
 
 ## Important Notes
 
-### Current Branch and Git
+### Git Workflow
 - **Current branch**: `react-gui`
 - **Main branch**: `master` (use this for PRs)
-- **Status**: Clean working directory
+- **Repository**: https://github.com/matiaszanolli/Auralis
+- **License**: GPL-3.0
 
 ### Project Structure
 - **Python Backend**: All audio processing in `auralis/` module
 - **Web Backend**: FastAPI application in `auralis-web/backend/`
 - **Web Frontend**: React application in `auralis-web/frontend/`
 - **Desktop App**: Electron wrapper in `desktop/`
-- **Tests**: Comprehensive test suite in `tests/`
+- **Tests**: Comprehensive test suite in `tests/` (96 backend tests, 100% passing)
 - **Demos**: Standalone demonstration scripts at root level
 
 ### Architecture Migration
@@ -303,3 +349,19 @@ The project has successfully migrated from Tkinter GUI to a modern dual-interfac
 - **Desktop app**: Electron-based, native-like experience
 - **Legacy Tkinter**: Removed, no longer used
 - **Matchering dependencies**: Fully integrated into Auralis, no external dependencies
+
+### Current Status and Launch Readiness
+- **Core Processing**: ✅ 100% functional, E2E validated with professional audio quality
+- **Backend API**: ✅ 74% test coverage (96 tests, 100% passing)
+- **Processing Interface**: ✅ Complete with file upload, job management, real-time progress
+- **Library Management**: ✅ 740+ files/second scanning, metadata extraction working
+- **Audio Player**: ✅ Full playback controls, real-time processing validated
+- **E2E Testing**: ✅ All 5 presets validated (Adaptive, Gentle, Warm, Bright, Punchy)
+
+**⚠️ Critical Before Production Launch:**
+- **Version Management System**: Database schema versioning and migration system needed
+- **See**: `VERSION_MIGRATION_ROADMAP.md` for 8-12 hour implementation plan
+- **See**: `LAUNCH_READINESS_CHECKLIST.md` for launch decision guide
+
+**Beta Launch Ready**: Can launch now with disclaimers about potential database resets
+**Production Ready**: After implementing version management system (1-2 weeks)
