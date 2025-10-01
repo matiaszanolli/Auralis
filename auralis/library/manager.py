@@ -20,6 +20,7 @@ from sqlalchemy.orm import sessionmaker, Session, selectinload
 from sqlalchemy.exc import IntegrityError
 
 from .models import Base, Track, Album, Artist, Genre, Playlist, LibraryStats
+from .migrations import check_and_migrate_database
 from ..utils.logging import info, warning, error, debug
 
 
@@ -49,10 +50,17 @@ class LibraryManager:
             database_path = str(music_dir / "auralis_library.db")
 
         self.database_path = database_path
+
+        # Check and migrate database before initializing engine
+        info("Checking database version...")
+        if not check_and_migrate_database(database_path, auto_backup=True):
+            error("Database migration failed!")
+            raise Exception("Failed to migrate database to current version")
+
         self.engine = create_engine(f"sqlite:///{database_path}", echo=False)
         self.SessionLocal = sessionmaker(bind=self.engine)
 
-        # Create tables if they don't exist
+        # Create tables if they don't exist (for fresh databases)
         Base.metadata.create_all(self.engine)
 
         info(f"Auralis Library Manager initialized: {database_path}")

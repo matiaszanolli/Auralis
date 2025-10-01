@@ -76,6 +76,14 @@ auralis-web/backend/dist/
 htmlcov/
 /tmp/
 
+# Session documentation and temporary files (kept in git history but ignored for new ones)
+*_SUMMARY.md
+*_ACHIEVEMENT*.md
+*_COMPLETE.md
+*_FIX.md
+CLEANUP_PLAN.md
+REBUILD_NOW.sh
+
 # System files
 Thumbs.db
 .directory

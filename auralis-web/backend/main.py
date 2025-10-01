@@ -217,6 +217,21 @@ async def health_check():
         "library_manager": library_manager is not None
     }
 
+@app.get("/api/version")
+async def get_version():
+    """Get version information"""
+    try:
+        from version import get_version_info
+        return get_version_info()
+    except ImportError:
+        # Fallback if version module not available
+        return {
+            "api_version": "1.0.0",
+            "api_version_info": {"major": 1, "minor": 0, "patch": 0},
+            "db_schema_version": 1,
+            "min_client_version": "1.0.0"
+        }
+
 @app.get("/api/library/stats")
 async def get_library_stats():
     """Get library statistics"""
@@ -716,8 +731,8 @@ if os.environ.get('ELECTRON_MODE') == '1':
     # In Electron, frontend is in ../frontend relative to backend resources
     import os
     if hasattr(sys, '_MEIPASS'):
-        # PyInstaller bundle - look in parent resources dir
-        frontend_path = Path(sys._MEIPASS).parent / "frontend"
+        # PyInstaller bundle - _MEIPASS is the backend dir, go up twice to resources, then to frontend
+        frontend_path = Path(sys._MEIPASS).parent.parent / "frontend"
     else:
         frontend_path = Path(__file__).parent.parent / "frontend" / "build"
 else:
