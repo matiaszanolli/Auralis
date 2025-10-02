@@ -125,25 +125,53 @@ The main audio processing pipeline that handles all mastering operations:
 - **`processor.py`** - Legacy compatibility wrapper
 
 ### Advanced DSP System (`auralis/dsp/`)
-Professional-grade digital signal processing components:
+Professional-grade digital signal processing components with modular architecture:
 
-- **`unified.py`** - Core DSP functions: RMS, spectral analysis, adaptive gain calculation, loudness units
-- **`psychoacoustic_eq.py`** - 26-band critical band EQ with masking threshold calculations
-- **`realtime_adaptive_eq.py`** - Real-time EQ adaptation (0.28ms processing time)
+**Core Modules:**
+- **`basic.py`** - Basic DSP utilities (RMS, normalize, amplify, mid-side processing)
 - **`advanced_dynamics.py`** - Intelligent compression and limiting with content-aware adaptation
-- **`stages.py`** - Processing stages (EQ, compression, limiting)
-- **`basic.py`** - Basic DSP utilities
+- **`realtime_adaptive_eq.py`** - Real-time EQ adaptation (0.28ms processing time)
+- **`stages.py`** - Processing stages orchestration (EQ, compression, limiting)
+
+**Psychoacoustic EQ System (`dsp/eq/`)** - Modular 26-band critical band EQ:
+- **`psychoacoustic_eq.py`** - Main EQ orchestrator with content-aware adaptation
+- **`critical_bands.py`** - Bark scale critical band calculations and frequency mapping
+- **`masking.py`** - Psychoacoustic masking threshold calculations
+- **`filters.py`** - FFT-based EQ filter implementation
+- **`curves.py`** - Genre-specific EQ curves and content adaptation
+
+**DSP Utilities (`dsp/utils/`)** - Organized utility functions:
+- **`audio_info.py`** - Audio metadata (channel count, size, mono/stereo detection)
+- **`conversion.py`** - Format conversions (dB ↔ linear)
+- **`spectral.py`** - Spectral analysis (centroid, rolloff, ZCR, crest factor, tempo)
+- **`adaptive.py`** - Adaptive processing (gain calculation, parameter smoothing, loudness)
+- **`stereo.py`** - Stereo processing (width analysis, mid-side manipulation)
+
+**Legacy Compatibility:**
+- **`unified.py`** - Backward compatibility wrapper (re-exports from `dsp/utils/`)
+- **`psychoacoustic_eq.py`** (root) - Backward compatibility wrapper (re-exports from `dsp/eq/`)
 
 ### Analysis Framework (`auralis/analysis/`)
 Comprehensive audio analysis tools for content understanding:
 
+**Core Analysis Modules:**
 - **`content_analysis.py`** - Comprehensive audio content analysis with 50+ features
 - **`ml_genre_classifier.py`** - Machine learning-based genre classification
 - **`spectrum_analyzer.py`** - Professional FFT analysis with A/C/Z weighting curves
 - **`loudness_meter.py`** - ITU-R BS.1770-4 compliant LUFS measurement with gating
 - **`phase_correlation.py`** - Stereo correlation analysis and vectorscope functionality
 - **`dynamic_range.py`** - EBU R128 dynamic range calculation and compression detection
-- **`quality_metrics.py`** - Comprehensive audio quality assessment
+
+**Quality Assessment System (`analysis/quality/`)** - Modular quality metrics:
+- **`quality_metrics.py`** - Main quality orchestrator (0-100 scoring with sub-metrics)
+- **`frequency_assessment.py`** - Frequency response quality analysis
+- **`dynamic_assessment.py`** - Dynamic range categorization (Excellent/Good/Compressed/Over-compressed)
+- **`stereo_assessment.py`** - Stereo imaging quality (width, correlation, mono compatibility)
+- **`distortion_assessment.py`** - Distortion and noise analysis (THD, clipping, SNR)
+- **`loudness_assessment.py`** - Loudness standards compliance (Spotify, Apple Music, YouTube, EBU R128, ATSC A/85)
+
+**Legacy Compatibility:**
+- **`quality_metrics.py`** (root) - Backward compatibility wrapper (re-exports from `analysis/quality/`)
 
 ### Machine Learning System (`auralis/learning/`)
 - **`preference_engine.py`** - User preference learning engine that adapts processing parameters based on user feedback
@@ -300,10 +328,30 @@ The test suite is comprehensive and focuses on production functionality:
 
 ### Code Organization Principles
 - **Modular Design**: Each component is self-contained with clear interfaces
+  - Large modules (400+ lines) have been refactored into focused sub-modules
+  - Backward compatibility maintained via facade pattern in original files
+  - New code should be organized into modules of 100-200 lines maximum
 - **Factory Functions**: Use `create_*` functions for component instantiation (e.g., `create_ml_genre_classifier()`)
 - **Configuration-Driven**: All processing controlled via `UnifiedConfig` class
 - **Performance-Optimized**: Built-in caching and optimization using decorators (`@optimized`, `@cached`)
 - **No Legacy Dependencies**: Fully integrated, no external Matchering dependencies
+
+### Module Refactoring Pattern
+When refactoring large modules, follow this established pattern:
+
+1. **Create sub-package**: `mkdir auralis/<subsystem>/<module_name>/`
+2. **Split by responsibility**: Create focused modules (e.g., `frequency_assessment.py`, `dynamic_assessment.py`)
+3. **Main orchestrator**: Keep main class in `<module_name>/<module_name>.py`
+4. **Public API**: Export all public classes/functions in `<module_name>/__init__.py`
+5. **Backward compatibility**: Original file becomes re-export wrapper with deprecation notice
+6. **Verify tests**: Ensure all existing tests pass without modification
+
+Example structure (already implemented):
+```
+auralis/dsp/eq/              # Psychoacoustic EQ refactored
+auralis/dsp/utils/           # DSP utilities refactored
+auralis/analysis/quality/    # Quality metrics refactored
+```
 
 ### Key Design Patterns
 - **Unified Interface**: Single `HybridProcessor` handles all three processing modes
@@ -317,6 +365,31 @@ The test suite is comprehensive and focuses on production functionality:
 - **Audio Player Methods**: Use `seek_to_position()` not `seek()`, `next_track()` not `next()`, `previous_track()` not `previous()`
 - **Processing Endpoints**: Volume parameter is `volume` not `level`
 - **Library Manager**: Database location is `~/.auralis/library.db` by default
+
+### Import Patterns
+
+**Recommended imports (new modular structure):**
+```python
+# DSP utilities
+from auralis.dsp.utils import spectral_centroid, to_db, adaptive_gain_calculation
+from auralis.dsp.eq import PsychoacousticEQ, generate_genre_eq_curve
+
+# Quality assessment
+from auralis.analysis.quality import QualityMetrics, FrequencyResponseAssessor
+```
+
+**Legacy imports (still supported via backward compatibility):**
+```python
+# These still work but are deprecated
+from auralis.dsp.unified import spectral_centroid, to_db
+from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ
+from auralis.analysis.quality_metrics import QualityMetrics
+```
+
+**When to use which:**
+- Use new modular imports for new code
+- Legacy imports maintained for backward compatibility only
+- Refactored modules: `dsp/eq/`, `dsp/utils/`, `analysis/quality/`
 
 ## Web Interface Access Points
 
