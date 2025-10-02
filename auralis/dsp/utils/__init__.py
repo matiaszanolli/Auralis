@@ -1,23 +1,16 @@
 # -*- coding: utf-8 -*-
 
 """
-Unified DSP System - Backward Compatibility Wrapper
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+DSP Utility Functions
+~~~~~~~~~~~~~~~~~~~~
 
-This module maintains backward compatibility while the actual implementation
-has been refactored into smaller, focused modules under auralis/dsp/utils/
+Organized DSP utilities for audio processing
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
-
-DEPRECATED: Import from auralis.dsp.utils instead
 """
 
-# Re-export basic functions from basic.py (still needed by other modules)
-from .basic import rms, normalize, amplify, mid_side_encode, mid_side_decode
-
-# Re-export everything from the new modular structure
-from .utils.audio_info import (
+from .audio_info import (
     size,
     channel_count,
     is_mono,
@@ -27,12 +20,12 @@ from .utils.audio_info import (
     clip,
 )
 
-from .utils.conversion import (
+from .conversion import (
     to_db,
     from_db,
 )
 
-from .utils.spectral import (
+from .spectral import (
     spectral_centroid,
     spectral_rolloff,
     zero_crossing_rate,
@@ -41,26 +34,19 @@ from .utils.spectral import (
     tempo_estimate,
 )
 
-from .utils.adaptive import (
+from .adaptive import (
     adaptive_gain_calculation,
     psychoacoustic_weighting,
     smooth_parameter_transition,
     calculate_loudness_units,
 )
 
-from .utils.stereo import (
+from .stereo import (
     stereo_width_analysis,
     adjust_stereo_width,
 )
 
-# Maintain all public exports for backward compatibility
 __all__ = [
-    # Basic DSP (from basic.py)
-    'rms',
-    'normalize',
-    'amplify',
-    'mid_side_encode',
-    'mid_side_decode',
     # Audio info
     'size',
     'channel_count',
