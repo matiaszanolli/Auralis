@@ -2,16 +2,16 @@
 
 """
 Performance Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Configuration for performance optimization
+Configuration dataclass for performance optimization
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
 
-import multiprocessing as mp
 from dataclasses import dataclass
+import multiprocessing as mp
 
 
 @dataclass
