@@ -34,6 +34,7 @@ from ..learning.preference_engine import PreferenceLearningEngine, UserAction, c
 from ..optimization.performance_optimizer import get_performance_optimizer, optimized, cached
 from ..utils.logging import debug, info
 from ..io.results import Result
+from .hybrid import RealtimeEQManager, DynamicsManager, PreferenceManager
 
 
 class HybridProcessor:
@@ -71,7 +72,14 @@ class HybridProcessor:
 
         # Initialize preference learning engine
         self.preference_engine = create_preference_engine()
-        self.current_user_id = None  # Will be set when user is identified
+
+        # Initialize component managers
+        self.realtime_eq_manager = RealtimeEQManager(self.realtime_eq)
+        self.dynamics_manager = DynamicsManager(self.dynamics_processor)
+        self.preference_manager = PreferenceManager(self.preference_engine)
+
+        # Shared state (backwards compatibility)
+        self.current_user_id = None  # Kept for backwards compatibility
 
         # Initialize performance optimizer
         self.performance_optimizer = get_performance_optimizer()
@@ -199,6 +207,7 @@ class HybridProcessor:
 
         # Store content profile for potential user learning
         self.last_content_profile = content_profile
+        self.preference_manager.set_content_profile(content_profile)
 
         processed_audio = self._apply_psychoacoustic_eq(processed_audio, targets, content_profile)
 
@@ -503,116 +512,51 @@ class HybridProcessor:
 
     def get_realtime_eq_info(self) -> Dict[str, Any]:
         """Get real-time EQ status and performance information"""
-        eq_curve = self.realtime_eq.get_current_eq_curve()
-        performance = self.realtime_eq.get_performance_stats()
-
-        return {
-            "eq_curve": eq_curve,
-            "performance": performance,
-            "buffer_size": self.realtime_eq.settings.buffer_size,
-            "target_latency_ms": self.realtime_eq.settings.target_latency_ms,
-            "actual_latency_ms": performance.get("total_latency_ms", 0),
-            "adaptation_rate": self.realtime_eq.settings.adaptation_rate
-        }
+        return self.realtime_eq_manager.get_info()
 
     def set_realtime_eq_parameters(self, **kwargs):
         """Update real-time EQ parameters dynamically"""
-        self.realtime_eq.set_adaptation_parameters(**kwargs)
-        info(f"Updated real-time EQ parameters: {kwargs}")
+        self.realtime_eq_manager.set_parameters(**kwargs)
 
     def reset_realtime_eq(self):
         """Reset real-time EQ state"""
-        self.realtime_eq.reset()
-        info("Real-time EQ state reset")
+        self.realtime_eq_manager.reset()
 
     def get_dynamics_info(self) -> Dict[str, Any]:
         """Get dynamics processing information"""
-        dynamics_info = self.dynamics_processor.get_processing_info()
-
-        # Add recent processing info if available
-        if hasattr(self, 'last_dynamics_info'):
-            dynamics_info['last_processing'] = self.last_dynamics_info
-
-        return dynamics_info
+        return self.dynamics_manager.get_info()
 
     def set_dynamics_mode(self, mode: str):
         """Set dynamics processing mode"""
-        if mode in ['transparent', 'musical', 'broadcast', 'mastering', 'adaptive']:
-            dynamics_mode = DynamicsMode(mode)
-            self.dynamics_processor.set_mode(dynamics_mode)
-            info(f"Dynamics mode set to: {mode}")
-        else:
-            debug(f"Invalid dynamics mode: {mode}")
+        self.dynamics_manager.set_mode(mode)
 
     def reset_dynamics(self):
         """Reset dynamics processing state"""
-        self.dynamics_processor.reset()
-        info("Dynamics processor state reset")
+        self.dynamics_manager.reset()
 
     def set_user(self, user_id: str):
         """Set the current user for preference learning"""
         self.current_user_id = user_id
-        # Ensure user profile exists
-        self.preference_engine.get_or_create_user(user_id)
-        info(f"User set for preference learning: {user_id}")
+        self.preference_manager.set_user(user_id)
 
     def record_user_feedback(self, rating: float,
                            parameters_before: Optional[Dict[str, float]] = None,
                            parameters_after: Optional[Dict[str, float]] = None):
         """Record user feedback for learning"""
-        if not self.current_user_id:
-            debug("No user set for preference learning")
-            return
-
-        if not hasattr(self, 'last_content_profile'):
-            debug("No content profile available for learning")
-            return
-
-        # Create user action record
-        action = UserAction(
-            timestamp=datetime.now(),
-            action_type='rating',
-            audio_features=self.last_content_profile,
-            parameters_before=parameters_before or {},
-            parameters_after=parameters_after or {},
-            user_rating=rating
-        )
-
-        self.preference_engine.record_user_action(self.current_user_id, action)
-        info(f"Recorded user rating: {rating}/5")
+        self.preference_manager.record_feedback(rating, parameters_before, parameters_after)
 
     def record_parameter_adjustment(self, parameter_name: str,
                                   old_value: float, new_value: float):
         """Record user parameter adjustment for learning"""
-        if not self.current_user_id or not hasattr(self, 'last_content_profile'):
-            return
-
-        action = UserAction(
-            timestamp=datetime.now(),
-            action_type='adjustment',
-            audio_features=self.last_content_profile,
-            parameters_before={parameter_name: old_value},
-            parameters_after={parameter_name: new_value}
-        )
-
-        self.preference_engine.record_user_action(self.current_user_id, action)
-        debug(f"Recorded parameter adjustment: {parameter_name} {old_value} -> {new_value}")
+        self.preference_manager.record_adjustment(parameter_name, old_value, new_value)
 
     def get_user_insights(self, user_id: Optional[str] = None) -> Dict[str, Any]:
         """Get user preference insights"""
-        target_user = user_id or self.current_user_id
-        if not target_user:
-            return {}
-
-        return self.preference_engine.get_user_insights(target_user)
+        return self.preference_manager.get_insights(user_id)
 
     def save_user_preferences(self, user_id: Optional[str] = None) -> bool:
         """Save user preferences to storage"""
-        target_user = user_id or self.current_user_id
-        if not target_user:
-            return False
-
-        return self.preference_engine.save_user_profile(target_user)
+        return self.preference_manager.save_preferences(user_id)
 
     def _optimize_processing_methods(self):
         """Apply performance optimizations to processing methods"""
