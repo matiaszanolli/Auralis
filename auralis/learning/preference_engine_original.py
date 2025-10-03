@@ -22,7 +22,179 @@ import threading
 from collections import defaultdict, deque
 
 from ..utils.logging import debug, info
-from .components import UserAction, UserProfile, PreferencePredictor
+
+
+@dataclass
+class UserAction:
+    """Record of user action/preference"""
+    timestamp: datetime
+    action_type: str  # 'adjustment', 'rating', 'preset_selection', 'correction'
+    audio_features: Dict[str, float]  # Audio characteristics when action occurred
+    parameters_before: Dict[str, float]  # Processing parameters before action
+    parameters_after: Dict[str, float]   # Processing parameters after action
+    user_rating: Optional[float] = None  # Optional 1-5 rating
+    genre: Optional[str] = None
+    confidence: float = 1.0  # Confidence in this preference data
+
+
+@dataclass
+class UserProfile:
+    """User preference profile"""
+    user_id: str
+    creation_date: datetime
+    last_updated: datetime
+
+    # Preference statistics
+    total_sessions: int = 0
+    total_adjustments: int = 0
+    average_rating: float = 3.0
+
+    # Genre preferences (normalized weights)
+    genre_preferences: Dict[str, float] = None
+
+    # Parameter preferences (bias adjustments)
+    eq_preferences: Dict[str, float] = None
+    dynamics_preferences: Dict[str, float] = None
+
+    # Content-based preferences
+    brightness_preference: float = 0.0  # -1 to 1 (darker to brighter)
+    warmth_preference: float = 0.0      # -1 to 1 (cooler to warmer)
+    dynamics_preference: float = 0.0    # -1 to 1 (compressed to dynamic)
+    loudness_preference: float = 0.0    # -1 to 1 (quieter to louder)
+
+    # Learning statistics
+    learning_rate: float = 0.1
+    confidence_score: float = 0.0  # 0 to 1
+
+    def __post_init__(self):
+        if self.genre_preferences is None:
+            self.genre_preferences = {}
+        if self.eq_preferences is None:
+            self.eq_preferences = {
+                'bass_boost': 0.0,
+                'midrange_clarity': 0.0,
+                'treble_enhancement': 0.0
+            }
+        if self.dynamics_preferences is None:
+            self.dynamics_preferences = {
+                'compression_threshold': 0.0,
+                'compression_ratio': 0.0,
+                'limiter_threshold': 0.0
+            }
+
+
+class PreferencePredictor:
+    """Predict user preferences using lightweight ML"""
+
+    def __init__(self):
+        # Simple linear model for preference prediction
+        self.feature_weights = {
+            'spectral_centroid': 0.0,
+            'spectral_rolloff': 0.0,
+            'zero_crossing_rate': 0.0,
+            'tempo': 0.0,
+            'dynamic_range': 0.0,
+            'rms_level': 0.0
+        }
+
+        # Parameter prediction weights
+        self.parameter_weights = {
+            'bass_boost': np.zeros(len(self.feature_weights)),
+            'midrange_clarity': np.zeros(len(self.feature_weights)),
+            'treble_enhancement': np.zeros(len(self.feature_weights)),
+            'compression_threshold': np.zeros(len(self.feature_weights)),
+            'compression_ratio': np.zeros(len(self.feature_weights))
+        }
+
+        self.training_data = []
+        self.is_trained = False
+
+    def add_training_sample(self, audio_features: Dict[str, float],
+                          parameter_adjustments: Dict[str, float]):
+        """Add training sample from user action"""
+
+        # Convert features to array
+        feature_array = np.array([
+            audio_features.get('spectral_centroid', 2000) / 1000,  # Normalize
+            audio_features.get('spectral_rolloff', 4000) / 1000,
+            audio_features.get('zero_crossing_rate', 0.1),
+            audio_features.get('tempo', 120) / 60,  # Normalize to ~2
+            audio_features.get('dynamic_range', 15) / 30,  # Normalize to 0.5
+            audio_features.get('rms_level', 0.3)
+        ])
+
+        self.training_data.append((feature_array, parameter_adjustments))
+
+        # Retrain if we have enough samples
+        if len(self.training_data) >= 10:
+            self._retrain_model()
+
+    def _retrain_model(self):
+        """Retrain the preference prediction model"""
+        if len(self.training_data) < 5:
+            return
+
+        debug(f"Retraining preference model with {len(self.training_data)} samples")
+
+        # Prepare training data
+        X = np.array([sample[0] for sample in self.training_data])
+
+        # Train separate model for each parameter
+        for param_name in self.parameter_weights.keys():
+            y = np.array([sample[1].get(param_name, 0.0) for sample in self.training_data])
+
+            # Simple linear regression (normal equation)
+            if len(X) > len(X[0]):  # More samples than features
+                try:
+                    # Add bias term
+                    X_bias = np.column_stack([np.ones(len(X)), X])
+                    weights = np.linalg.lstsq(X_bias, y, rcond=None)[0]
+
+                    # Store weights (excluding bias)
+                    self.parameter_weights[param_name] = weights[1:]
+
+                except np.linalg.LinAlgError:
+                    # Fallback to simple averaging
+                    self.parameter_weights[param_name] = np.zeros(len(self.feature_weights))
+
+        self.is_trained = True
+        debug("Preference model retrained successfully")
+
+    def predict_adjustments(self, audio_features: Dict[str, float]) -> Dict[str, float]:
+        """Predict parameter adjustments based on audio features"""
+
+        if not self.is_trained:
+            return {}  # No predictions until trained
+
+        # Convert features to array
+        feature_array = np.array([
+            audio_features.get('spectral_centroid', 2000) / 1000,
+            audio_features.get('spectral_rolloff', 4000) / 1000,
+            audio_features.get('zero_crossing_rate', 0.1),
+            audio_features.get('tempo', 120) / 60,
+            audio_features.get('dynamic_range', 15) / 30,
+            audio_features.get('rms_level', 0.3)
+        ])
+
+        # Predict adjustments
+        predictions = {}
+        for param_name, weights in self.parameter_weights.items():
+            prediction = np.dot(feature_array, weights)
+            # Clamp predictions to reasonable range
+            predictions[param_name] = np.clip(prediction, -6.0, 6.0)
+
+        return predictions
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get information about the trained model"""
+        return {
+            'is_trained': self.is_trained,
+            'training_samples': len(self.training_data),
+            'feature_importance': {
+                name: float(np.mean(np.abs(weights)))
+                for name, weights in self.parameter_weights.items()
+            }
+        }
 
 
 class PreferenceLearningEngine:
