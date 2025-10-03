@@ -12,12 +12,14 @@ Enhanced audio file loading supporting multiple formats and processing modes
 Unified audio loading system combining Matchering and Auralis capabilities
 """
 
+import os
 import numpy as np
+import soundfile as sf
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import Tuple, Optional, Union, List
 
-from .loaders import load_with_soundfile, load_with_ffmpeg, check_ffmpeg
-from .processing import validate_audio, resample_audio
 from ..utils.logging import debug, info, warning, Code, ModuleError
 
 
@@ -86,16 +88,16 @@ def load_audio(
 
     # Load audio based on format
     if file_ext in FFMPEG_FORMATS:
-        audio_data, sample_rate = load_with_ffmpeg(file_path, temp_folder)
+        audio_data, sample_rate = _load_with_ffmpeg(file_path, temp_folder)
     else:
-        audio_data, sample_rate = load_with_soundfile(file_path)
+        audio_data, sample_rate = _load_with_soundfile(file_path)
 
     # Validate audio data
-    audio_data, sample_rate = validate_audio(audio_data, sample_rate, file_type)
+    audio_data, sample_rate = _validate_audio(audio_data, sample_rate, file_type)
 
     # Apply post-processing options
     if target_sample_rate and target_sample_rate != sample_rate:
-        audio_data = resample_audio(audio_data, sample_rate, target_sample_rate)
+        audio_data = _resample_audio(audio_data, sample_rate, target_sample_rate)
         sample_rate = target_sample_rate
         debug(f"Resampled to {target_sample_rate} Hz")
 
@@ -113,6 +115,193 @@ def load_audio(
          f"{sample_rate} Hz, {audio_data.ndim} channels")
 
     return audio_data, sample_rate
+
+
+def _load_with_soundfile(file_path: Path) -> Tuple[np.ndarray, int]:
+    """Load audio using soundfile library"""
+    try:
+        audio_data, sample_rate = sf.read(str(file_path), always_2d=False)
+
+        # Ensure proper shape
+        if audio_data.ndim == 1:
+            # Mono audio
+            pass
+        elif audio_data.ndim == 2:
+            # Multi-channel audio
+            if audio_data.shape[1] > 2:
+                # Convert to stereo by taking first two channels
+                audio_data = audio_data[:, :2]
+                warning(f"Converted {audio_data.shape[1]} channels to stereo")
+        else:
+            raise ModuleError(f"{Code.ERROR_INVALID_AUDIO}: Invalid audio dimensions")
+
+        return audio_data, int(sample_rate)
+
+    except Exception as e:
+        raise ModuleError(f"{Code.ERROR_LOADING}: {str(e)}")
+
+
+def _load_with_ffmpeg(file_path: Path, temp_folder: Optional[str] = None) -> Tuple[np.ndarray, int]:
+    """Load audio using FFmpeg conversion to WAV"""
+
+    # Check if FFmpeg is available
+    if not _check_ffmpeg():
+        raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFmpeg required for {file_path.suffix}")
+
+    # Create temporary WAV file
+    if temp_folder:
+        temp_dir = Path(temp_folder)
+        temp_dir.mkdir(exist_ok=True)
+    else:
+        temp_dir = Path(tempfile.gettempdir())
+
+    temp_wav = temp_dir / f"auralis_temp_{os.getpid()}_{file_path.stem}.wav"
+
+    try:
+        # Convert to WAV using FFmpeg
+        debug(f"Converting {file_path} to WAV using FFmpeg")
+
+        ffmpeg_cmd = [
+            'ffmpeg',
+            '-i', str(file_path),
+            '-acodec', 'pcm_s16le',  # 16-bit PCM
+            '-ar', '44100',          # 44.1 kHz
+            '-ac', '2',              # Stereo
+            '-y',                    # Overwrite output
+            str(temp_wav)
+        ]
+
+        result = subprocess.run(
+            ffmpeg_cmd,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+
+        if result.returncode != 0:
+            raise ModuleError(f"{Code.ERROR_FFMPEG_CONVERSION}: {result.stderr}")
+
+        # Load the converted WAV file
+        audio_data, sample_rate = _load_with_soundfile(temp_wav)
+
+        return audio_data, sample_rate
+
+    except subprocess.TimeoutExpired:
+        raise ModuleError(f"{Code.ERROR_FFMPEG_TIMEOUT}: Conversion timed out")
+    except Exception as e:
+        raise ModuleError(f"{Code.ERROR_FFMPEG_CONVERSION}: {str(e)}")
+    finally:
+        # Clean up temporary file
+        if temp_wav.exists():
+            try:
+                temp_wav.unlink()
+                debug(f"Cleaned up temporary file: {temp_wav}")
+            except Exception:
+                warning(f"Failed to clean up temporary file: {temp_wav}")
+
+
+def _check_ffmpeg() -> bool:
+    """Check if FFmpeg is available"""
+    try:
+        result = subprocess.run(
+            ['ffmpeg', '-version'],
+            capture_output=True,
+            timeout=10
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+
+
+def _validate_audio(audio_data: np.ndarray, sample_rate: int, file_type: str) -> Tuple[np.ndarray, int]:
+    """Validate loaded audio data"""
+
+    # Check if audio is empty
+    if audio_data.size == 0:
+        raise ModuleError(f"{Code.ERROR_EMPTY_AUDIO}: No audio data found")
+
+    # Check sample rate
+    if sample_rate <= 0:
+        raise ModuleError(f"{Code.ERROR_INVALID_SAMPLE_RATE}: {sample_rate}")
+
+    if sample_rate < 8000:
+        warning(f"Very low sample rate: {sample_rate} Hz")
+    elif sample_rate > 192000:
+        warning(f"Very high sample rate: {sample_rate} Hz")
+
+    # Check audio length
+    duration_seconds = len(audio_data) / sample_rate
+    if duration_seconds < 1.0:
+        warning(f"Very short audio: {duration_seconds:.2f} seconds")
+    elif duration_seconds > 30 * 60:  # 30 minutes
+        warning(f"Very long audio: {duration_seconds/60:.1f} minutes")
+
+    # Check for silence
+    max_amplitude = np.max(np.abs(audio_data))
+    if max_amplitude < 1e-6:
+        warning(f"Audio appears to be silent (peak: {max_amplitude:.2e})")
+
+    # Check for clipping
+    if max_amplitude >= 0.99:
+        clipped_samples = np.sum(np.abs(audio_data) >= 0.99)
+        clipping_percentage = (clipped_samples / audio_data.size) * 100
+        if clipping_percentage > 0.1:
+            warning(f"Audio may be clipped ({clipping_percentage:.2f}% of samples)")
+
+    # Ensure proper data type
+    if audio_data.dtype != np.float32 and audio_data.dtype != np.float64:
+        audio_data = audio_data.astype(np.float32)
+        debug(f"Converted audio to float32")
+
+    return audio_data, sample_rate
+
+
+def _resample_audio(audio_data: np.ndarray, original_rate: int, target_rate: int) -> np.ndarray:
+    """Resample audio to target sample rate"""
+    if original_rate == target_rate:
+        return audio_data
+
+    try:
+        import resampy
+        debug(f"Resampling from {original_rate} Hz to {target_rate} Hz using resampy")
+
+        if audio_data.ndim == 1:
+            return resampy.resample(audio_data, original_rate, target_rate)
+        else:
+            # Resample each channel separately
+            resampled_channels = []
+            for channel in range(audio_data.shape[1]):
+                resampled_channel = resampy.resample(
+                    audio_data[:, channel], original_rate, target_rate
+                )
+                resampled_channels.append(resampled_channel)
+            return np.column_stack(resampled_channels)
+
+    except ImportError:
+        # Fallback to simple linear interpolation (less quality but no dependency)
+        warning("resampy not available, using simple interpolation")
+        return _simple_resample(audio_data, original_rate, target_rate)
+
+
+def _simple_resample(audio_data: np.ndarray, original_rate: int, target_rate: int) -> np.ndarray:
+    """Simple resampling using linear interpolation"""
+    ratio = target_rate / original_rate
+    new_length = int(len(audio_data) * ratio)
+
+    if audio_data.ndim == 1:
+        # Mono audio
+        old_indices = np.linspace(0, len(audio_data) - 1, new_length)
+        return np.interp(old_indices, np.arange(len(audio_data)), audio_data)
+    else:
+        # Multi-channel audio
+        resampled_channels = []
+        for channel in range(audio_data.shape[1]):
+            old_indices = np.linspace(0, len(audio_data) - 1, new_length)
+            resampled_channel = np.interp(
+                old_indices, np.arange(len(audio_data)), audio_data[:, channel]
+            )
+            resampled_channels.append(resampled_channel)
+        return np.column_stack(resampled_channels)
 
 
 def get_audio_info(file_path: Union[str, Path]) -> dict:
@@ -174,7 +363,7 @@ def _get_info_with_soundfile(file_path: Path) -> dict:
 
 def _get_info_with_ffprobe(file_path: Path) -> dict:
     """Get audio info using FFprobe"""
-    if not check_ffmpeg():
+    if not _check_ffmpeg():
         raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFprobe required")
 
     try:
