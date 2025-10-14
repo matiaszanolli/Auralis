@@ -14,23 +14,13 @@ import {
 } from '@mui/material';
 import {
   LibraryMusic,
-  Equalizer,
-  Favorite,
-  TrendingUp,
-  MusicNote,
-  AutoFixHigh
+  Equalizer
 } from '@mui/icons-material';
 
 import MagicalMusicPlayer from './components/MagicalMusicPlayer.tsx';
 import CozyLibraryView from './components/CozyLibraryView.tsx';
 import ClassicVisualizer from './components/ClassicVisualizer.tsx';
-import EnhancedAudioPlayer from './components/EnhancedAudioPlayer.tsx';
-import RealtimeAudioVisualizer from './components/RealtimeAudioVisualizer.tsx';
-import AudioProcessingControls from './components/AudioProcessingControls.tsx';
-import ABComparisonPlayer from './components/ABComparisonPlayer.tsx';
-import ProcessingInterface from './components/ProcessingInterface.tsx';
 import { useWebSocket } from './hooks/useWebSocket.ts';
-import { useLibraryStats } from './hooks/useLibraryStats.ts';
 
 interface Track {
   id: number;
@@ -79,9 +69,6 @@ function MagicalApp() {
 
   // WebSocket connection for real-time updates
   const { connected, lastMessage } = useWebSocket('ws://localhost:8000/ws');
-
-  // Library statistics
-  const { stats, isLoading: statsLoading, error: statsError } = useLibraryStats();
 
   // Handle WebSocket messages
   useEffect(() => {
@@ -142,11 +129,7 @@ function MagicalApp() {
 
   const tabsData = [
     { label: 'Your Music', icon: <LibraryMusic /> },
-    { label: 'Master Audio', icon: <AutoFixHigh /> },
-    { label: 'Audio Player', icon: <MusicNote /> },
-    { label: 'Visualizer', icon: <Equalizer /> },
-    { label: 'Favorites', icon: <Favorite /> },
-    { label: 'Stats', icon: <TrendingUp /> }
+    { label: 'Visualizer', icon: <Equalizer /> }
   ];
 
   return (
@@ -193,7 +176,7 @@ function MagicalApp() {
               fontStyle: 'italic'
             }}
           >
-            Rediscover the magic in your music
+            Your music player with magical audio enhancement
           </Typography>
 
           {/* Connection Status */}
@@ -272,120 +255,15 @@ function MagicalApp() {
           />
         </TabPanel>
 
-        {/* Master Audio - Processing Interface */}
-        <TabPanel value={currentTab} index={1}>
-          <Container maxWidth="xl" sx={{ py: 4 }}>
-            <Box sx={{ mb: 4, textAlign: 'center' }}>
-              <Typography
-                variant="h3"
-                component="h2"
-                fontWeight="bold"
-                gutterBottom
-                sx={{
-                  background: 'linear-gradient(45deg, #1976d2, #42a5f5, #90caf9)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
-              >
-                ✨ Master Your Audio
-              </Typography>
-              <Typography variant="subtitle1" color="text.secondary">
-                Professional adaptive audio mastering powered by AI
-              </Typography>
-            </Box>
-
-            <ProcessingInterface />
-          </Container>
-        </TabPanel>
-
-        {/* Enhanced Audio Player */}
-        <TabPanel value={currentTab} index={2}>
-          <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Box sx={{ mb: 4, textAlign: 'center' }}>
-              <Typography variant="h3" component="h2" fontWeight="bold" gutterBottom>
-                🎵 Enhanced Audio Player
-              </Typography>
-              <Typography variant="subtitle1" color="text.secondary">
-                Real-time audio processing with advanced controls
-              </Typography>
-            </Box>
-
-            <Box sx={{ maxWidth: 800, mx: 'auto', mb: 4 }}>
-              <EnhancedAudioPlayer websocket={connected ? new WebSocket('ws://localhost:8000/ws') : null} />
-            </Box>
-
-            {/* Real-time Audio Visualizer */}
-            <Box sx={{ maxWidth: 900, mx: 'auto', mb: 4 }}>
-              <RealtimeAudioVisualizer websocket={connected ? new WebSocket('ws://localhost:8000/ws') : null} />
-            </Box>
-
-            {/* Advanced Audio Processing Controls */}
-            <Box sx={{ maxWidth: 1000, mx: 'auto', mb: 4 }}>
-              <AudioProcessingControls
-                websocket={connected ? new WebSocket('ws://localhost:8000/ws') : null}
-                onSettingsChange={(settings) => console.log('Processing settings updated:', settings)}
-              />
-            </Box>
-
-            {/* A/B Comparison Player */}
-            <Box sx={{ maxWidth: 1000, mx: 'auto', mb: 4 }}>
-              <ABComparisonPlayer websocket={connected ? new WebSocket('ws://localhost:8000/ws') : null} />
-            </Box>
-
-            <Box sx={{ mt: 4, textAlign: 'center' }}>
-              <Paper
-                elevation={2}
-                sx={{
-                  p: 3,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  backdropFilter: 'blur(10px)',
-                  borderRadius: 3
-                }}
-              >
-                <Typography variant="h6" gutterBottom>
-                  🎛️ Features
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, mt: 2 }}>
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>Real-time Level Matching</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Automatic dynamic range enhancement
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>Queue Management</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Advanced playlist and queue controls
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>Audio Analysis</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Real-time peak and RMS monitoring
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>Processing Controls</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Fine-tune audio enhancement settings
-                    </Typography>
-                  </Box>
-                </Box>
-              </Paper>
-            </Box>
-          </Container>
-        </TabPanel>
-
         {/* Visualizer */}
-        <TabPanel value={currentTab} index={3}>
+        <TabPanel value={currentTab} index={1}>
           <Container maxWidth="lg" sx={{ py: 4 }}>
             <Box sx={{ mb: 4, textAlign: 'center' }}>
               <Typography variant="h3" component="h2" fontWeight="bold" gutterBottom>
-                🎵 Classic Audio Experience
+                🎵 Audio Visualizer
               </Typography>
               <Typography variant="subtitle1" color="text.secondary">
-                Nostalgic visualizations that bring music to life
+                Watch your music come alive
               </Typography>
             </Box>
 
@@ -415,71 +293,6 @@ function MagicalApp() {
                   <Typography variant="body2" color="text.secondary">
                     {currentTrack.album}
                   </Typography>
-                </Paper>
-              </Box>
-            )}
-          </Container>
-        </TabPanel>
-
-        {/* Favorites */}
-        <TabPanel value={currentTab} index={4}>
-          <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Favorite sx={{ fontSize: 64, color: '#f44336', mb: 2 }} />
-              <Typography variant="h4" gutterBottom>
-                Your Favorite Tracks
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Coming soon - heart tracks to build your personal collection
-              </Typography>
-            </Box>
-          </Container>
-        </TabPanel>
-
-        {/* Stats */}
-        <TabPanel value={currentTab} index={5}>
-          <Container maxWidth="lg" sx={{ py: 4 }}>
-            <Typography variant="h3" component="h2" fontWeight="bold" gutterBottom textAlign="center">
-              📊 Your Music Journey
-            </Typography>
-
-            {stats && (
-              <Box sx={{ mt: 4 }}>
-                <Paper
-                  elevation={4}
-                  sx={{
-                    p: 4,
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: 3
-                  }}
-                >
-                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 3 }}>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h2" color="primary" fontWeight="bold">
-                        {stats.total_tracks || 0}
-                      </Typography>
-                      <Typography variant="h6" color="text.secondary">
-                        Magical Tracks
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h2" color="secondary" fontWeight="bold">
-                        {(stats.total_filesize_gb || 0).toFixed(1)}
-                      </Typography>
-                      <Typography variant="h6" color="text.secondary">
-                        GB of Music
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Typography variant="h2" color="success.main" fontWeight="bold">
-                        ✨
-                      </Typography>
-                      <Typography variant="h6" color="text.secondary">
-                        Enhanced Quality
-                      </Typography>
-                    </Box>
-                  </Box>
                 </Paper>
               </Box>
             )}

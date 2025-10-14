@@ -31,7 +31,9 @@ import {
   ViewModule,
   ViewList,
   FilterList,
-  Star
+  Star,
+  FolderOpen,
+  Refresh
 } from '@mui/icons-material';
 
 interface Track {
@@ -61,9 +63,87 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
+  const [scanning, setScanning] = useState(false);
 
-  // Mock data for demonstration (replace with API call)
-  useEffect(() => {
+  // Fetch tracks from API
+  const fetchTracks = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/library/tracks?limit=100');
+      if (response.ok) {
+        const data = await response.json();
+        setTracks(data.tracks || []);
+        console.log('Loaded', data.tracks?.length || 0, 'tracks from library');
+      } else {
+        console.error('Failed to fetch tracks');
+        // Fall back to mock data
+        loadMockData();
+      }
+    } catch (error) {
+      console.error('Error fetching tracks:', error);
+      // Fall back to mock data
+      loadMockData();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Check if running in Electron
+  const isElectron = () => {
+    return !!(window as any).electronAPI;
+  };
+
+  // Handle folder scan
+  const handleScanFolder = async () => {
+    let folderPath: string | undefined;
+
+    // Use native folder picker in Electron
+    if (isElectron()) {
+      try {
+        const result = await (window as any).electronAPI.selectFolder();
+        if (result && result.length > 0) {
+          folderPath = result[0];
+        } else {
+          return; // User cancelled
+        }
+      } catch (error) {
+        console.error('Failed to open folder picker:', error);
+        alert('❌ Failed to open folder picker');
+        return;
+      }
+    } else {
+      // Fallback to prompt in web browser
+      folderPath = prompt('Enter folder path to scan:\n(e.g., /home/user/Music)') || undefined;
+      if (!folderPath) return;
+    }
+
+    setScanning(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/library/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ directory: folderPath })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`✅ Scan complete!\nAdded: ${result.files_added || 0} tracks`);
+        // Refresh the library
+        fetchTracks();
+      } else {
+        const error = await response.json();
+        alert(`❌ Scan failed: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Scan error:', error);
+      alert(`❌ Error scanning folder: ${error}`);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  // Load mock data as fallback
+  const loadMockData = () => {
     const mockTracks: Track[] = [
       {
         id: 1,
@@ -115,11 +195,13 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       }
     ];
 
-    setTimeout(() => {
-      setTracks(mockTracks);
-      setFilteredTracks(mockTracks);
-      setLoading(false);
-    }, 500);
+    setTracks(mockTracks);
+    setFilteredTracks(mockTracks);
+  };
+
+  // Initial load
+  useEffect(() => {
+    fetchTracks();
   }, []);
 
   // Filter tracks based on search
@@ -411,7 +493,26 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
             }}
           />
 
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+            <Tooltip title="Scan Folder">
+              <IconButton
+                color="primary"
+                onClick={handleScanFolder}
+                disabled={scanning}
+              >
+                <FolderOpen />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Refresh Library">
+              <IconButton
+                onClick={fetchTracks}
+                disabled={loading}
+              >
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+
             <Tooltip title="Grid View">
               <IconButton
                 color={viewMode === 'grid' ? 'primary' : 'default'}
@@ -431,7 +532,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
             </Tooltip>
           </Box>
 
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+          <Typography variant="body2" color="text.secondary">
             {filteredTracks.length} songs
           </Typography>
         </Box>
