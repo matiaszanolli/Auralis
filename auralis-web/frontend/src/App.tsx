@@ -1,9 +1,9 @@
 import React from 'react';
 
-import MagicalApp from './MagicalApp.tsx';
+import ComfortableApp from './ComfortableApp.tsx';
 
 function App() {
-  return <MagicalApp />;
+  return <ComfortableApp />;
 }
 
 export default App;

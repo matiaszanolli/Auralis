@@ -136,8 +136,8 @@ function MagicalApp() {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0d1421 100%)',
-        color: 'white',
+        background: 'var(--midnight-blue)',
+        color: 'var(--silver)',
         display: 'flex',
         flexDirection: 'column'
       }}
@@ -147,18 +147,19 @@ function MagicalApp() {
         position="static"
         elevation={0}
         sx={{
-          background: 'rgba(25, 118, 210, 0.1)',
+          background: 'var(--charcoal)',
           backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+          borderBottom: '1px solid rgba(226, 232, 240, 0.1)'
         }}
       >
         <Toolbar>
           <Typography
             variant="h4"
             component="h1"
-            fontWeight="bold"
             sx={{
-              background: 'linear-gradient(45deg, #1976d2, #42a5f5, #90caf9)',
+              fontFamily: 'var(--font-heading)',
+              fontWeight: 600,
+              background: 'var(--aurora-gradient)',
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
@@ -172,6 +173,8 @@ function MagicalApp() {
             variant="subtitle1"
             sx={{
               flexGrow: 1,
+              fontFamily: 'var(--font-body)',
+              color: 'var(--silver)',
               opacity: 0.8,
               fontStyle: 'italic'
             }}
@@ -187,9 +190,9 @@ function MagicalApp() {
               gap: 1,
               px: 2,
               py: 0.5,
-              borderRadius: 2,
-              background: connected ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 152, 0, 0.2)',
-              border: `1px solid ${connected ? '#4caf50' : '#ff9800'}`
+              borderRadius: 'var(--radius-md)',
+              background: connected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+              border: `1px solid ${connected ? 'var(--success)' : 'var(--warning)'}`
             }}
           >
             <Box
@@ -197,7 +200,7 @@ function MagicalApp() {
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
-                background: connected ? '#4caf50' : '#ff9800',
+                background: connected ? 'var(--success)' : 'var(--warning)',
                 animation: connected ? 'pulse 2s infinite' : 'none',
                 '@keyframes pulse': {
                   '0%': { opacity: 1 },
@@ -221,15 +224,17 @@ function MagicalApp() {
           scrollButtons="auto"
           sx={{
             '& .MuiTab-root': {
-              color: 'rgba(255, 255, 255, 0.7)',
+              fontFamily: 'var(--font-heading)',
+              fontWeight: 600,
+              color: 'rgba(226, 232, 240, 0.7)',
               '&.Mui-selected': {
-                color: '#42a5f5'
+                color: 'var(--aurora-violet)'
               }
             },
             '& .MuiTabs-indicator': {
-              background: 'linear-gradient(90deg, #1976d2, #42a5f5)',
+              background: 'var(--aurora-horizontal)',
               height: 3,
-              borderRadius: 2
+              borderRadius: 'var(--radius-sm)'
             }
           }}
         >
@@ -259,10 +264,25 @@ function MagicalApp() {
         <TabPanel value={currentTab} index={1}>
           <Container maxWidth="lg" sx={{ py: 4 }}>
             <Box sx={{ mb: 4, textAlign: 'center' }}>
-              <Typography variant="h3" component="h2" fontWeight="bold" gutterBottom>
+              <Typography
+                variant="h3"
+                component="h2"
+                sx={{
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 600
+                }}
+                gutterBottom
+              >
                 🎵 Audio Visualizer
               </Typography>
-              <Typography variant="subtitle1" color="text.secondary">
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontFamily: 'var(--font-body)',
+                  color: 'var(--silver)',
+                  opacity: 0.7
+                }}
+              >
                 Watch your music come alive
               </Typography>
             </Box>
@@ -279,18 +299,29 @@ function MagicalApp() {
                   elevation={4}
                   sx={{
                     p: 3,
-                    background: 'rgba(255, 255, 255, 0.05)',
+                    background: 'var(--charcoal)',
                     backdropFilter: 'blur(10px)',
-                    borderRadius: 3
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid rgba(226, 232, 240, 0.1)'
                   }}
                 >
-                  <Typography variant="h6" gutterBottom>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontFamily: 'var(--font-heading)', fontWeight: 600 }}
+                    gutterBottom
+                  >
                     Now Playing
                   </Typography>
-                  <Typography variant="body1">
+                  <Typography
+                    variant="body1"
+                    sx={{ fontFamily: 'var(--font-body)', color: 'var(--silver)' }}
+                  >
                     {currentTrack.title} - {currentTrack.artist}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography
+                    variant="body2"
+                    sx={{ fontFamily: 'var(--font-body)', color: 'var(--silver)', opacity: 0.7 }}
+                  >
                     {currentTrack.album}
                   </Typography>
                 </Paper>
@@ -320,14 +351,21 @@ function MagicalApp() {
               top: 100,
               right: 20,
               p: 2,
-              background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+              background: 'var(--aurora-gradient)',
               color: 'white',
-              borderRadius: 3,
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: 'var(--glow-medium)',
               zIndex: 2000,
               minWidth: 250
             }}
           >
-            <Typography variant="body2" fontWeight="bold">
+            <Typography
+              variant="body2"
+              sx={{
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 600
+              }}
+            >
               {notification.message}
             </Typography>
           </Paper>

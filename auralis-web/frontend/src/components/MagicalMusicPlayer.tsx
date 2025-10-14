@@ -102,9 +102,9 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
       // Create classic bar visualizer
       const barWidth = width / 32;
       const gradient = ctx.createLinearGradient(0, height, 0, 0);
-      gradient.addColorStop(0, '#1976d2');
-      gradient.addColorStop(0.5, '#42a5f5');
-      gradient.addColorStop(1, '#90caf9');
+      gradient.addColorStop(0, '#06B6D4'); // Aurora Cyan
+      gradient.addColorStop(0.5, '#7C3AED'); // Aurora Violet
+      gradient.addColorStop(1, '#F472B6'); // Aurora Pink
 
       ctx.fillStyle = gradient;
 
@@ -134,11 +134,18 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
         sx={{
           p: 4,
           textAlign: 'center',
-          background: 'linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%)',
-          color: 'white'
+          background: 'var(--charcoal)',
+          color: 'var(--silver)'
         }}
       >
-        <Typography variant="h6" color="text.secondary">
+        <Typography
+          variant="h6"
+          sx={{
+            fontFamily: 'var(--font-body)',
+            color: 'var(--silver)',
+            opacity: 0.7
+          }}
+        >
           🎵 Select a track to begin your magical music journey
         </Typography>
       </Paper>
@@ -150,9 +157,10 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
       <Card
         elevation={12}
         sx={{
-          background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)',
-          color: 'white',
-          borderRadius: 4,
+          background: 'var(--charcoal)',
+          color: 'var(--silver)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid rgba(226, 232, 240, 0.1)',
           overflow: 'hidden',
           position: 'relative'
         }}
@@ -166,7 +174,7 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
               left: 0,
               right: 0,
               bottom: 0,
-              background: 'radial-gradient(circle, rgba(25,118,210,0.3) 0%, transparent 70%)',
+              background: 'radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, transparent 70%)',
               zIndex: 1,
               pointerEvents: 'none'
             }}
@@ -200,9 +208,11 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
                   position: 'absolute',
                   top: 8,
                   right: 8,
-                  background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                  background: 'var(--aurora-gradient)',
                   color: 'white',
-                  fontWeight: 'bold'
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 600,
+                  boxShadow: 'var(--glow-medium)'
                 }}
               />
             </Zoom>
@@ -212,13 +222,37 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {/* Track Information */}
             <Box sx={{ mb: 2 }}>
-              <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+              <Typography
+                variant="h4"
+                component="h1"
+                sx={{
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 600,
+                  color: 'var(--silver)'
+                }}
+                gutterBottom
+              >
                 {currentTrack.title}
               </Typography>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontFamily: 'var(--font-body)',
+                  color: 'var(--silver)',
+                  opacity: 0.8
+                }}
+                gutterBottom
+              >
                 {currentTrack.artist}
               </Typography>
-              <Typography variant="body1" color="text.secondary">
+              <Typography
+                variant="body1"
+                sx={{
+                  fontFamily: 'var(--font-body)',
+                  color: 'var(--silver)',
+                  opacity: 0.6
+                }}
+              >
                 {currentTrack.album}
               </Typography>
             </Box>
@@ -266,12 +300,12 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
                 onChange={(_, value) => setCurrentTime(value as number)}
                 sx={{
                   '& .MuiSlider-track': {
-                    background: 'linear-gradient(90deg, #1976d2, #42a5f5)'
+                    background: 'var(--aurora-horizontal)'
                   },
                   '& .MuiSlider-thumb': {
-                    background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                    background: 'var(--aurora-violet)',
                     '&:hover': {
-                      boxShadow: '0 0 20px rgba(25,118,210,0.5)'
+                      boxShadow: 'var(--glow-medium)'
                     }
                   }
                 }}
@@ -302,15 +336,14 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
               <IconButton
                 onClick={onPlayPause}
                 sx={{
-                  background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                  background: 'var(--aurora-gradient)',
                   color: 'white',
                   width: 64,
                   height: 64,
                   mx: 2,
                   '&:hover': {
-                    background: 'linear-gradient(45deg, #1565c0, #1976d2)',
                     transform: 'scale(1.05)',
-                    boxShadow: '0 0 30px rgba(25,118,210,0.5)'
+                    boxShadow: 'var(--glow-strong)'
                   }
                 }}
               >
@@ -354,10 +387,10 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
                     onChange={handleEnhancementToggle}
                     sx={{
                       '& .MuiSwitch-switchBase.Mui-checked': {
-                        color: '#42a5f5'
+                        color: 'var(--aurora-violet)'
                       },
                       '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                        backgroundColor: '#1976d2'
+                        backgroundColor: 'var(--aurora-violet)'
                       }
                     }}
                   />
@@ -365,7 +398,15 @@ const MagicalMusicPlayer: React.FC<MagicalMusicPlayerProps> = ({
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <AutoAwesome fontSize="small" />
-                    <Typography variant="body2">Magic</Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontFamily: 'var(--font-heading)',
+                        fontWeight: 600
+                      }}
+                    >
+                      Magic
+                    </Typography>
                   </Box>
                 }
                 labelPlacement="start"

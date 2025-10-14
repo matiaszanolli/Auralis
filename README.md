@@ -1,146 +1,402 @@
-# Auralis - Professional Audio Mastering System
+# 🎵 Auralis - Your Music Player with Magical Audio Enhancement
 
-🎵 **A unified audio mastering platform combining the power of Matchering 2.0 with advanced library management and real-time processing.**
+**A beautiful music player that makes your music sound better - automatically.**
 
-## 🚀 Quick Start
+Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
-### Installation
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Install additional GUI dependencies
-pip install customtkinter tkinterdnd2 mutagen psutil
-```
-
-### Launch Auralis
-```bash
-python auralis_gui.py
-```
-
-## ✨ Features
-
-- **🎛️ Professional Audio Mastering** - Advanced DSP with real-time level matching and auto-mastering
-- **📊 Advanced Audio Analysis** - ITU-R BS.1770-4 compliant loudness measurement, spectrum analysis, phase correlation
-- **📚 Comprehensive Library Management** - SQLite-based music library with metadata extraction
-- **🖱️ Drag-and-Drop Import** - Easy music file import with progress tracking
-- **📁 Intelligent Folder Scanning** - Recursive directory scanning with duplicate detection
-- **📋 Playlist Management** - Create, edit, and manage playlists with full GUI support
-- **📈 Real-time Visualizations** - Professional mastering parameter displays with dynamic range analysis
-- **⚡ High Performance** - 740+ files/second scanning, 8,618 FPS visualizations
-
-## 🎵 Supported Formats
-
-**Audio Input:** MP3, FLAC, WAV, OGG, M4A, AAC, WMA
-**Audio Output:** WAV, FLAC (16-bit/24-bit PCM)
-
-## 📊 Advanced Audio Analysis (Phase 5.1)
-
-Auralis features a comprehensive audio analysis suite with professional-grade algorithms:
-
-### 🔬 Spectrum Analyzer
-- **FFT-based analysis** with configurable window sizes and overlap
-- **Frequency weighting** support (A, C, Z weighting curves)
-- **Logarithmic frequency bins** for professional audio visualization
-- **Real-time smoothing** with configurable time constants
-
-### 📢 Loudness Meter
-- **ITU-R BS.1770-4 compliant** LUFS measurement
-- **K-weighting filters** for accurate loudness perception
-- **Gating algorithms** for integrated and short-term loudness
-- **True peak detection** with oversampling
-- **Loudness range (LRA)** calculation
-
-### 🎭 Phase Correlation Analyzer
-- **Stereo correlation coefficient** calculation
-- **Phase stability analysis** over time
-- **Stereo width measurement** and spatial positioning
-- **Mono compatibility** assessment
-
-### 📈 Dynamic Range Analyzer
-- **EBU R128 dynamic range** measurement
-- **Compression ratio estimation** with attack/release detection
-- **Peak-to-Loudness Ratio (PLR)** calculation
-- **Crest factor analysis** for signal dynamics
-- **Loudness war assessment** metrics
-
-### 🔧 Usage Example
-```python
-from auralis.analysis import SpectrumAnalyzer, LoudnessMeter, PhaseCorrelationAnalyzer, DynamicRangeAnalyzer
-
-# Initialize analyzers
-spectrum = SpectrumAnalyzer()
-loudness = LoudnessMeter(sample_rate=44100)
-phase = PhaseCorrelationAnalyzer()
-dynamics = DynamicRangeAnalyzer()
-
-# Analyze audio
-spectrum_data = spectrum.analyze_spectrum(audio_data)
-loudness_data = loudness.measure_loudness(audio_data)
-phase_data = phase.analyze_correlation(stereo_audio)
-dr_data = dynamics.analyze_dynamic_range(audio_data)
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-python run_all_tests.py
-
-# Run individual test suites
-python tests/auralis/test_auralis_gui.py
-python tests/auralis/test_playlist_manager.py
-python tests/auralis/test_folder_scanner.py
-python tests/auralis/test_drag_drop.py
-```
-
-## 📖 Documentation
-
-- **[Technical Documentation](docs/)** - Detailed system documentation
-- **[Development Roadmap](docs/DEVELOPMENT_ROADMAP.md)** - Future development plans
-- **[Performance Benchmarks](docs/PERFORMANCE_BENCHMARKS.md)** - System performance metrics
-- **[Examples](examples/)** - Audio examples and usage demonstrations
-
-## 🏗️ Architecture
-
-```
-auralis/                 # Core Auralis system
-├── analysis/           # Advanced audio analysis (Phase 5.1)
-│   ├── spectrum_analyzer.py    # FFT-based spectrum analysis with A/C/Z weighting
-│   ├── loudness_meter.py       # ITU-R BS.1770-4 compliant LUFS measurement
-│   ├── phase_correlation.py    # Stereo correlation and spatial analysis
-│   └── dynamic_range.py        # Dynamic range analysis with compression detection
-├── core/               # Core system components
-├── dsp/                # Digital signal processing
-├── io/                 # Audio input/output
-├── library/            # Music library management
-├── player/             # Audio player components
-└── utils/              # Utility functions
-
-matchering/             # Legacy Matchering 2.0 core
-tests/                  # Comprehensive test suite
-examples/               # Usage examples and demo files
-docs/                   # Documentation
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Original **Matchering 2.0** audio processing algorithms
-- **CustomTkinter** for modern GUI framework
-- All contributors and supporters of the project
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
+[![Status](https://img.shields.io/badge/status-Beta-orange.svg)]()
 
 ---
 
-**🎵 Professional audio mastering made accessible to everyone.**
+## ✨ What is Auralis?
+
+Auralis is a **local music player** with professional audio enhancement built-in. Play your music collection with a simple toggle to make it sound better.
+
+**Think:** iTunes meets audio mastering - but simple enough for anyone to use.
+
+### Key Features
+
+- 🎵 **Beautiful Music Player** - Clean, modern interface inspired by Spotify and iTunes
+- ✨ **Magical Audio Enhancement** - One-click toggle for professional audio mastering
+- 📁 **Library Management** - Scan folders, organize your collection, search instantly
+- 🎨 **Audio Visualizer** - Watch your music come alive with real-time visualization
+- 🖥️ **Desktop & Web** - Native Electron app or run in your browser
+- 🔒 **100% Private** - Your music, your computer, no cloud required
+- ⚡ **Blazing Fast** - 52.8x real-time audio processing, 740+ files/second scanning
+
+---
+
+## 🚀 Quick Start
+
+### Option 1: Web Interface (Easiest)
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Launch Auralis
+python launch-auralis-web.py
+
+# 3. Open browser
+http://localhost:8000
+```
+
+### Option 2: Desktop App (Recommended)
+
+```bash
+# 1. Install Python dependencies
+pip install -r requirements.txt
+
+# 2. Install Node.js dependencies
+cd desktop && npm install
+
+# 3. Launch desktop app
+npm run dev
+```
+
+---
+
+## 📸 Screenshots
+
+### Your Music Collection
+Beautiful grid or list view of your library with smart search and filtering.
+
+### Simple Magic Toggle
+Play any song → Toggle "Magic" switch → Hear the difference. That's it!
+
+### Audio Visualizer
+Watch your music with real-time waveform and spectrum visualization.
+
+---
+
+## 🎯 How to Use
+
+### 1. Add Your Music
+
+**Desktop App:**
+- Click the **📁 Scan Folder** button
+- Native folder picker opens
+- Browse to your music folder
+- Click "Select Folder"
+- Done! ✅
+
+**Web Interface:**
+- Click the **📁 Scan Folder** button
+- Type your music folder path (e.g., `/home/user/Music`)
+- Press OK
+- Done! ✅
+
+### 2. Play Music
+
+- Browse your library (grid or list view)
+- Click any track to play
+- Use player controls at bottom
+- That's it!
+
+### 3. Enable Magic Enhancement
+
+- While playing any song
+- Look at bottom-right of player
+- Toggle the **✨ Magic** switch
+- Hear instant audio enhancement!
+
+**No settings, no presets, no complexity. Just better sound.**
+
+---
+
+## 🎛️ What Makes It Different?
+
+### vs. iTunes/Music.app
+- ✅ Works with your local files (no cloud required)
+- ✅ Built-in audio enhancement (no plugins needed)
+- ✅ Cross-platform (Linux, macOS, Windows)
+- ❌ No streaming service (local files only)
+
+### vs. Spotify Desktop
+- ✅ Owns your music (no subscription needed)
+- ✅ Better sound quality (lossless local files)
+- ✅ Audio enhancement built-in
+- ❌ No online streaming (your files only)
+
+### vs. VLC/foobar2000
+- ✅ Modern, beautiful interface
+- ✅ Simple to use (no learning curve)
+- ✅ One-click audio enhancement
+- ❌ Less advanced customization
+
+**Perfect for:** People who care about sound quality but don't want complexity.
+
+---
+
+## 🔧 Supported Audio Formats
+
+### Input (Playback)
+WAV, FLAC, MP3, OGG, M4A, AAC, WMA
+
+### Output (Export)
+WAV (16-bit/24-bit PCM), FLAC (16-bit/24-bit PCM)
+
+---
+
+## 🏗️ Architecture
+
+### Simple Two-Tab Interface
+1. **Your Music** - Library browser with search and grid/list view
+2. **Visualizer** - Real-time audio visualization
+
+### Technology Stack
+
+**Backend (Python):**
+- FastAPI for REST API
+- SQLite for library database
+- Professional DSP algorithms
+- Real-time audio processing
+
+**Frontend (React):**
+- Material-UI components
+- WebSocket for live updates
+- Responsive design
+- Modern UX
+
+**Desktop (Electron):**
+- Native OS integration
+- System tray support
+- Auto-updates ready
+
+```
+auralis/                    # Core audio processing engine
+├── core/                   # Mastering algorithms
+├── dsp/                    # Digital signal processing
+├── analysis/               # Audio analysis tools
+├── library/                # SQLite library management
+├── player/                 # Audio playback engine
+└── io/                     # Multi-format audio I/O
+
+auralis-web/               # Web & Desktop UI
+├── backend/               # FastAPI server
+│   └── main.py           # API endpoints
+└── frontend/              # React app
+    └── src/
+        └── components/
+            ├── CozyLibraryView.tsx      # Library browser
+            ├── MagicalMusicPlayer.tsx   # Music player
+            └── ClassicVisualizer.tsx    # Visualizer
+
+desktop/                   # Electron wrapper
+├── main.js               # Main process
+├── preload.js            # IPC bridge
+└── package.json          # Desktop config
+```
+
+---
+
+## 🧪 Development
+
+### Run Tests
+
+```bash
+# Full stack test (backend + frontend + APIs)
+python test_full_stack.py
+
+# Backend tests (96 tests, 74% coverage)
+python -m pytest tests/backend/ -v
+
+# Core audio processing tests (26 tests)
+python -m pytest tests/test_adaptive_processing.py -v
+
+# All tests with coverage
+python -m pytest --cov=auralis --cov-report=html tests/
+```
+
+### Build Desktop App
+
+```bash
+cd desktop
+
+# Development mode
+npm run dev
+
+# Build for all platforms
+npm run package
+
+# Build for specific platform
+npm run package:linux
+npm run package:win
+npm run package:mac
+```
+
+### Frontend Development
+
+```bash
+cd auralis-web/frontend
+
+# Install dependencies
+npm install
+
+# Development server (hot reload)
+npm start
+
+# Build for production
+npm run build
+```
+
+---
+
+## 📚 Documentation
+
+### Essential Docs
+- **[NEXT_STEPS.md](NEXT_STEPS.md)** - Development roadmap and testing guide
+- **[UI_SIMPLIFICATION.md](UI_SIMPLIFICATION.md)** - UI design philosophy
+- **[LIBRARY_MANAGEMENT_ADDED.md](LIBRARY_MANAGEMENT_ADDED.md)** - Library features
+- **[NATIVE_FOLDER_PICKER.md](NATIVE_FOLDER_PICKER.md)** - Native OS integration
+- **[CRITICAL_FIXES_APPLIED.md](CRITICAL_FIXES_APPLIED.md)** - Recent bug fixes
+
+### Technical Docs
+- **[VERSION_MIGRATION_ROADMAP.md](VERSION_MIGRATION_ROADMAP.md)** - Version management plan
+- **[CLAUDE.md](CLAUDE.md)** - Full technical reference (for developers)
+
+---
+
+## 🎯 Roadmap
+
+### ✅ Completed (v0.9)
+- [x] Simplified UI (2 tabs instead of 6)
+- [x] Library management with folder scanning
+- [x] Native OS folder picker (Electron)
+- [x] Real-time audio enhancement toggle
+- [x] Beautiful music player interface
+- [x] Audio visualizer
+- [x] WebSocket live updates
+
+### 🔄 In Progress
+- [ ] End-to-end testing on clean systems
+- [ ] Version management system
+- [ ] Auto-update for Electron app
+
+### 📋 Planned (v1.0)
+- [ ] Playlist creation and management
+- [ ] Enhancement presets (Warm, Bright, Punchy, etc.)
+- [ ] Drag-and-drop folder import
+- [ ] Simple EQ presets
+- [ ] Queue management
+
+### 🎨 Future Ideas
+- [ ] Album art downloader
+- [ ] Lyrics display
+- [ ] Smart collections (auto-playlists)
+- [ ] Keyboard shortcuts
+- [ ] Dark/light theme toggle
+- [ ] Mini player mode
+
+---
+
+## ❓ FAQ
+
+### Q: Is Auralis free?
+**A:** Yes! Open source under GPL-3.0 license.
+
+### Q: Does it work offline?
+**A:** Yes, 100% local. No internet required after installation.
+
+### Q: What does "Magic" enhancement do?
+**A:** Professional audio mastering - balances levels, enhances dynamics, improves clarity. All automatic.
+
+### Q: Will it modify my original files?
+**A:** No! Enhancement is applied in real-time during playback only. Your files are never changed.
+
+### Q: Can I export enhanced versions?
+**A:** Not yet, but planned for v1.0.
+
+### Q: Why is it called Auralis?
+**A:** "Aura" (atmosphere/feeling) + "Audio" = Auralis. The magical aura of your music.
+
+### Q: How is this different from EQ?
+**A:** Much more sophisticated - dynamic range optimization, frequency balancing, psychoacoustic EQ, intelligent limiting. Think mastering studio, not just treble/bass knobs.
+
+---
+
+## 🐛 Known Issues
+
+### Backend Connection
+**Issue:** "Connecting..." status doesn't turn green
+**Fix:** Make sure backend is running first:
+```bash
+python launch-auralis-web.py
+```
+
+### Blank Screen in Electron
+**Status:** Fixed in latest version
+**If still occurs:** Check DevTools console (F12) for errors
+
+### Large Library Scanning
+**Status:** Works but may be slow for 10,000+ files
+**Workaround:** Scan smaller folders at a time
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how:
+
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
+3. **Commit** your changes: `git commit -m 'Add amazing feature'`
+4. **Push** to the branch: `git push origin feature/amazing-feature`
+5. **Open** a Pull Request
+
+### Development Guidelines
+- Keep it simple (music player first, not a DAW)
+- Maintain the clean 2-tab UI
+- Write tests for new features
+- Update documentation
+
+---
+
+## 📄 License
+
+This project is licensed under the **GPL-3.0 License** - see the [LICENSE](LICENSE) file for details.
+
+### What This Means
+- ✅ Free to use, modify, and distribute
+- ✅ Can use in commercial projects
+- ✅ Must keep source code open if distributed
+- ✅ Must use same license for derivatives
+
+---
+
+## 🙏 Acknowledgments
+
+- **Matchering 2.0** - Original audio processing algorithms
+- **FastAPI** - Modern Python web framework
+- **React & Material-UI** - Beautiful UI components
+- **Electron** - Cross-platform desktop apps
+- **All contributors** - Making Auralis better every day
+
+---
+
+## 💬 Community
+
+- **Issues:** [GitHub Issues](https://github.com/matiaszanolli/Auralis/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/matiaszanolli/Auralis/discussions)
+- **Email:** [Project Maintainer](mailto:matiaszanolli@gmail.com)
+
+---
+
+## 🎵 Philosophy
+
+> **"The best music player is the one you actually enjoy using."**
+
+We believe:
+- Music should sound great without complicated settings
+- Beautiful design matters
+- Privacy is important (your music, your computer)
+- Simple is better than complex
+- Open source builds trust
+
+---
+
+**Made with ❤️ by music lovers, for music lovers.**
+
+**🎵 Rediscover the magic in your music.**
