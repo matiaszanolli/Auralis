@@ -99,12 +99,11 @@ async def startup_event():
                 buffer_size=1024,
                 sample_rate=44100,
                 enable_level_matching=True,
-                enable_crossfade=True,
-                crossfade_duration=2.0,
-                enable_gapless=True,
-                enable_equalizer=True,
-                enable_analysis=True,
-                queue_size=100
+                enable_frequency_matching=False,
+                enable_stereo_width=False,
+                enable_auto_mastering=False,
+                enable_advanced_smoothing=True,
+                max_db_change_per_second=2.0
             )
             audio_player = EnhancedAudioPlayer(player_config)
             logger.info("✅ Enhanced Audio Player initialized")
