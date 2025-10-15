@@ -730,8 +730,11 @@ if os.environ.get('ELECTRON_MODE') == '1':
     # In Electron, frontend is in ../frontend relative to backend resources
     import os
     if hasattr(sys, '_MEIPASS'):
-        # PyInstaller bundle - _MEIPASS is the backend dir, go up twice to resources, then to frontend
-        frontend_path = Path(sys._MEIPASS).parent.parent / "frontend"
+        # PyInstaller bundle - _MEIPASS is the temp extracted location
+        # Resources structure: resources/backend/, resources/frontend/
+        # Go up one level from _MEIPASS (backend) to resources, then to frontend
+        frontend_path = Path(sys._MEIPASS).parent / "frontend"
+        logger.info(f"PyInstaller mode: _MEIPASS={sys._MEIPASS}")
     else:
         frontend_path = Path(__file__).parent.parent / "frontend" / "build"
 else:
