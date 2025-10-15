@@ -10,7 +10,7 @@ import {
 } from '@mui/icons-material';
 
 import Sidebar from './components/Sidebar.tsx';
-import BottomPlayerBar from './components/BottomPlayerBar.tsx';
+import BottomPlayerBarConnected from './components/BottomPlayerBarConnected.tsx';
 import PresetPane from './components/PresetPane.tsx';
 import CozyLibraryView from './components/CozyLibraryView.tsx';
 import { useWebSocket } from './hooks/useWebSocket.ts';
@@ -221,13 +221,8 @@ function ComfortableApp() {
         />
       </Box>
 
-      {/* Bottom Player Bar - Fixed */}
-      <BottomPlayerBar
-        currentTrack={currentTrack || undefined}
-        isPlaying={isPlaying}
-        onPlayPause={handlePlayPause}
-        onEnhancementToggle={handlePlayerEnhancementToggle}
-      />
+      {/* Bottom Player Bar - Fixed - REAL PLAYBACK! */}
+      <BottomPlayerBarConnected />
     </Box>
   );
 }
