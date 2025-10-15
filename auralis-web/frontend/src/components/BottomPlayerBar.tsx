@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import {
   Box,
   IconButton,
-  Slider,
   Typography,
   Switch,
-  Tooltip
+  Tooltip,
+  styled
 } from '@mui/material';
 import {
   PlayArrow,
@@ -18,6 +18,8 @@ import {
   FavoriteOutlined,
   AutoAwesome
 } from '@mui/icons-material';
+import { GradientSlider } from './shared/GradientSlider';
+import { colors, gradients } from '../theme/auralisTheme';
 
 interface Track {
   id: number;
@@ -37,6 +39,48 @@ interface BottomPlayerBarProps {
   onPrevious?: () => void;
   onEnhancementToggle?: (enabled: boolean) => void;
 }
+
+const PlayerContainer = styled(Box)({
+  position: 'fixed',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: '96px',
+  background: colors.background.secondary,
+  borderTop: `1px solid rgba(102, 126, 234, 0.1)`,
+  display: 'flex',
+  flexDirection: 'column',
+  zIndex: 1000,
+  boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.3)',
+});
+
+const PlayButton = styled(IconButton)({
+  background: gradients.aurora,
+  color: '#ffffff',
+  width: '48px',
+  height: '48px',
+  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+  transition: 'all 0.3s ease',
+
+  '&:hover': {
+    background: gradients.aurora,
+    transform: 'scale(1.1)',
+    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+  },
+
+  '&:active': {
+    transform: 'scale(1.05)',
+  },
+});
+
+const AlbumArt = styled(Box)({
+  width: '64px',
+  height: '64px',
+  borderRadius: '6px',
+  flexShrink: 0,
+  objectFit: 'cover',
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+});
 
 const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
   currentTrack,
@@ -78,76 +122,38 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
 
   if (!currentTrack) {
     return (
-      <Box
-        sx={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 90,
-          background: 'var(--charcoal)',
-          borderTop: '1px solid rgba(226, 232, 240, 0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}
-      >
-        <Typography
-          variant="body2"
+      <PlayerContainer>
+        <Box
           sx={{
-            fontFamily: 'var(--font-body)',
-            color: 'var(--silver)',
-            opacity: 0.5
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
           }}
         >
-          No track playing
-        </Typography>
-      </Box>
+          <Typography variant="body2" sx={{ color: colors.text.secondary, opacity: 0.5 }}>
+            No track playing
+          </Typography>
+        </Box>
+      </PlayerContainer>
     );
   }
 
   return (
-    <Box
-      sx={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 90,
-        background: 'var(--charcoal)',
-        borderTop: '1px solid rgba(226, 232, 240, 0.1)',
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 1000
-      }}
-    >
+    <PlayerContainer>
       {/* Progress Bar */}
-      <Slider
+      <GradientSlider
         value={currentTime}
         max={currentTrack.duration}
         onChange={(_, value) => setCurrentTime(value as number)}
         sx={{
           height: 4,
           padding: 0,
-          '& .MuiSlider-track': {
-            background: 'var(--aurora-horizontal)',
-            border: 'none'
-          },
-          '& .MuiSlider-rail': {
-            background: 'rgba(226, 232, 240, 0.2)'
-          },
+          borderRadius: 0,
           '& .MuiSlider-thumb': {
             width: 12,
             height: 12,
-            background: 'var(--aurora-violet)',
-            '&:hover': {
-              boxShadow: 'var(--glow-medium)'
-            },
-            '&.Mui-active': {
-              boxShadow: 'var(--glow-medium)'
-            }
-          }
+          },
         }}
       />
 
@@ -165,16 +171,10 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
         {/* Left: Track Info */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
           {/* Album Art */}
-          <Box
+          <AlbumArt
             component="img"
             src={currentTrack.albumArt || '/placeholder-album.jpg'}
             alt={currentTrack.album}
-            sx={{
-              width: 56,
-              height: 56,
-              borderRadius: 'var(--radius-sm)',
-              flexShrink: 0
-            }}
           />
 
           {/* Track Details */}
@@ -182,12 +182,11 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
             <Typography
               variant="body2"
               sx={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                color: 'var(--silver)',
+                fontWeight: 600,
+                color: colors.text.primary,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
               }}
             >
               {currentTrack.title}
@@ -195,13 +194,11 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
             <Typography
               variant="caption"
               sx={{
-                fontFamily: 'var(--font-body)',
-                color: 'var(--silver)',
-                opacity: 0.7,
+                color: colors.text.secondary,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                display: 'block'
+                display: 'block',
               }}
             >
               {currentTrack.artist}
@@ -213,10 +210,12 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
             size="small"
             onClick={() => setIsLoved(!isLoved)}
             sx={{
-              color: isLoved ? '#F472B6' : 'var(--silver)',
+              color: isLoved ? '#ff6b9d' : colors.text.secondary,
+              transition: 'all 0.2s ease',
               '&:hover': {
-                color: '#F472B6'
-              }
+                color: '#ff6b9d',
+                transform: 'scale(1.1)',
+              },
             }}
           >
             {isLoved ? <Favorite fontSize="small" /> : <FavoriteOutlined fontSize="small" />}
@@ -229,38 +228,30 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
             <IconButton
               onClick={onPrevious}
               sx={{
-                color: 'var(--silver)',
+                color: colors.text.secondary,
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  color: 'white'
-                }
+                  color: colors.text.primary,
+                  transform: 'scale(1.1)',
+                },
               }}
             >
               <SkipPrevious />
             </IconButton>
 
-            <IconButton
-              onClick={onPlayPause}
-              sx={{
-                background: 'var(--aurora-gradient)',
-                color: 'white',
-                width: 40,
-                height: 40,
-                '&:hover': {
-                  transform: 'scale(1.05)',
-                  boxShadow: 'var(--glow-medium)'
-                }
-              }}
-            >
+            <PlayButton onClick={onPlayPause}>
               {isPlaying ? <Pause /> : <PlayArrow />}
-            </IconButton>
+            </PlayButton>
 
             <IconButton
               onClick={onNext}
               sx={{
-                color: 'var(--silver)',
+                color: colors.text.secondary,
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  color: 'white'
-                }
+                  color: colors.text.primary,
+                  transform: 'scale(1.1)',
+                },
               }}
             >
               <SkipNext />
@@ -269,37 +260,13 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
 
           {/* Time Display */}
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Typography
-              variant="caption"
-              sx={{
-                fontFamily: 'var(--font-body)',
-                color: 'var(--silver)',
-                opacity: 0.7,
-                fontSize: 11
-              }}
-            >
+            <Typography variant="caption" sx={{ color: colors.text.secondary, fontSize: 12 }}>
               {formatTime(currentTime)}
             </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                fontFamily: 'var(--font-body)',
-                color: 'var(--silver)',
-                opacity: 0.5,
-                fontSize: 11
-              }}
-            >
+            <Typography variant="caption" sx={{ color: colors.text.disabled, fontSize: 12 }}>
               /
             </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                fontFamily: 'var(--font-body)',
-                color: 'var(--silver)',
-                opacity: 0.7,
-                fontSize: 11
-              }}
-            >
+            <Typography variant="caption" sx={{ color: colors.text.secondary, fontSize: 12 }}>
               {formatTime(currentTrack.duration)}
             </Typography>
           </Box>
@@ -313,23 +280,12 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
               <AutoAwesome
                 fontSize="small"
                 sx={{
-                  color: isEnhanced ? 'var(--aurora-violet)' : 'var(--silver)',
-                  opacity: isEnhanced ? 1 : 0.5
+                  color: isEnhanced ? '#667eea' : colors.text.secondary,
+                  opacity: isEnhanced ? 1 : 0.5,
+                  transition: 'all 0.3s ease',
                 }}
               />
-              <Switch
-                size="small"
-                checked={isEnhanced}
-                onChange={handleEnhancementToggle}
-                sx={{
-                  '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: 'var(--aurora-violet)'
-                  },
-                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: 'var(--aurora-violet)'
-                  }
-                }}
-              />
+              <Switch size="small" checked={isEnhanced} onChange={handleEnhancementToggle} />
             </Box>
           </Tooltip>
 
@@ -339,39 +295,25 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
               size="small"
               onClick={handleMuteToggle}
               sx={{
-                color: 'var(--silver)',
+                color: colors.text.secondary,
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  color: 'white'
-                }
+                  color: colors.text.primary,
+                  transform: 'scale(1.1)',
+                },
               }}
             >
               {isMuted || volume === 0 ? <VolumeOff fontSize="small" /> : <VolumeUp fontSize="small" />}
             </IconButton>
-            <Slider
+            <GradientSlider
               value={isMuted ? 0 : volume}
               onChange={handleVolumeChange}
-              sx={{
-                maxWidth: 100,
-                '& .MuiSlider-track': {
-                  background: 'rgba(226, 232, 240, 0.5)'
-                },
-                '& .MuiSlider-rail': {
-                  background: 'rgba(226, 232, 240, 0.2)'
-                },
-                '& .MuiSlider-thumb': {
-                  width: 10,
-                  height: 10,
-                  background: 'var(--silver)',
-                  '&:hover': {
-                    boxShadow: '0 0 8px rgba(226, 232, 240, 0.5)'
-                  }
-                }
-              }}
+              sx={{ maxWidth: 100 }}
             />
           </Box>
         </Box>
       </Box>
-    </Box>
+    </PlayerContainer>
   );
 };
 
