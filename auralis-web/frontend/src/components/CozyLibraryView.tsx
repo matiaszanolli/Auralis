@@ -33,6 +33,8 @@ import {
   Refresh
 } from '@mui/icons-material';
 import AlbumCard from './library/AlbumCard';
+import { LibraryGridSkeleton, TrackRowSkeleton } from './shared/SkeletonLoader';
+import { useToast } from './shared/Toast';
 
 interface Track {
   id: number;
@@ -62,6 +64,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
   const [scanning, setScanning] = useState(false);
+  const { success, error, info } = useToast();
 
   // Fetch tracks from API
   const fetchTracks = async () => {
@@ -72,13 +75,18 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
         const data = await response.json();
         setTracks(data.tracks || []);
         console.log('Loaded', data.tracks?.length || 0, 'tracks from library');
+        if (data.tracks && data.tracks.length > 0) {
+          success(`Loaded ${data.tracks.length} tracks`);
+        }
       } else {
         console.error('Failed to fetch tracks');
+        error('Failed to load library');
         // Fall back to mock data
         loadMockData();
       }
-    } catch (error) {
-      console.error('Error fetching tracks:', error);
+    } catch (err) {
+      console.error('Error fetching tracks:', err);
+      error('Failed to connect to server');
       // Fall back to mock data
       loadMockData();
     } finally {
@@ -403,7 +411,25 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       </Paper>
 
       {/* Music Grid/List */}
-      {viewMode === 'grid' ? (
+      {loading ? (
+        viewMode === 'grid' ? (
+          <LibraryGridSkeleton count={12} />
+        ) : (
+          <Paper
+            elevation={2}
+            sx={{
+              background: 'rgba(255,255,255,0.05)',
+              borderRadius: 3,
+              overflow: 'hidden',
+              p: 2
+            }}
+          >
+            {Array.from({ length: 8 }).map((_, index) => (
+              <TrackRowSkeleton key={index} />
+            ))}
+          </Paper>
+        )
+      ) : viewMode === 'grid' ? (
         <Grid container spacing={3}>
           {filteredTracks.map((track) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={track.id}>

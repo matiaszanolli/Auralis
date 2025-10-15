@@ -3,8 +3,6 @@ import {
   Box,
   TextField,
   InputAdornment,
-  Fade,
-  Paper,
   Typography
 } from '@mui/material';
 import {
@@ -16,6 +14,7 @@ import BottomPlayerBar from './components/BottomPlayerBar.tsx';
 import PresetPane from './components/PresetPane.tsx';
 import CozyLibraryView from './components/CozyLibraryView.tsx';
 import { useWebSocket } from './hooks/useWebSocket.ts';
+import { useToast } from './components/shared/Toast';
 
 interface Track {
   id: number;
@@ -33,10 +32,12 @@ function ComfortableApp() {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // WebSocket connection for real-time updates
   const { connected } = useWebSocket('ws://localhost:8000/ws');
+
+  // Toast notifications
+  const { success, info } = useToast();
 
   const handleTrackPlay = (track: Track) => {
     setCurrentTrack(track);
@@ -50,15 +51,7 @@ function ComfortableApp() {
 
   const handleEnhancementToggle = (trackId: number, enabled: boolean) => {
     console.log(`Track ${trackId} enhancement ${enabled ? 'enabled' : 'disabled'}`);
-
-    // Show notification
-    setNotification({
-      message: enabled ? '✨ Auralis magic enabled' : 'Enhancement disabled',
-      type: 'info'
-    });
-
-    // Hide notification after 3 seconds
-    setTimeout(() => setNotification(null), 3000);
+    info(enabled ? '✨ Auralis magic enabled' : 'Enhancement disabled');
   };
 
   const handlePlayerEnhancementToggle = (enabled: boolean) => {
@@ -70,20 +63,12 @@ function ComfortableApp() {
 
   const handlePresetChange = (preset: string) => {
     console.log('Preset changed to:', preset);
-    setNotification({
-      message: `Preset changed to ${preset}`,
-      type: 'info'
-    });
-    setTimeout(() => setNotification(null), 3000);
+    info(`Preset changed to ${preset}`);
   };
 
   const handleMasteringToggle = (enabled: boolean) => {
     console.log('Mastering:', enabled ? 'enabled' : 'disabled');
-    setNotification({
-      message: enabled ? '✨ Mastering enabled' : 'Mastering disabled',
-      type: 'info'
-    });
-    setTimeout(() => setNotification(null), 3000);
+    info(enabled ? '✨ Mastering enabled' : 'Mastering disabled');
   };
 
   return (
@@ -243,37 +228,6 @@ function ComfortableApp() {
         onPlayPause={handlePlayPause}
         onEnhancementToggle={handlePlayerEnhancementToggle}
       />
-
-      {/* Notification Toast */}
-      {notification && (
-        <Fade in={true}>
-          <Paper
-            elevation={8}
-            sx={{
-              position: 'fixed',
-              top: 20,
-              right: 20,
-              p: 2,
-              background: 'var(--aurora-gradient)',
-              color: 'white',
-              borderRadius: 'var(--radius-lg)',
-              boxShadow: 'var(--glow-medium)',
-              zIndex: 2000,
-              minWidth: 250
-            }}
-          >
-            <Typography
-              variant="body2"
-              sx={{
-                fontFamily: 'var(--font-heading)',
-                fontWeight: 600
-              }}
-            >
-              {notification.message}
-            </Typography>
-          </Paper>
-        </Fade>
-      )}
     </Box>
   );
 }
