@@ -106,6 +106,180 @@ npm run clean
 - **Input**: WAV, FLAC, MP3, OGG, M4A, AAC, WMA
 - **Output**: WAV (16-bit/24-bit PCM), FLAC (16-bit/24-bit PCM)
 
+## UI/UX Design Philosophy
+
+### Design Aesthetic
+Auralis combines the classic library-based player experience (iTunes, Rhythmbox) with modern touches from Spotify and Cider:
+
+**Visual Style:**
+- **Dark theme** with deep navy/black backgrounds (#0A0E27, #1a1f3a)
+- **Aurora gradient branding** - flowing purple/blue/pink waves (signature visual element)
+- **Neon accents** - Vibrant retro-futuristic elements (neon sunsets, starlight, glowing effects)
+- **Album art grid** - Large, prominent artwork cards with hover effects
+- **Smooth animations** - Subtle transitions, gradient progress bars
+
+**Layout Structure:**
+```
+┌─────────────┬──────────────────────────────┬───────────────┐
+│  Sidebar    │      Main Content Area       │  Remastering  │
+│  (Library)  │                              │     Panel     │
+├─────────────┼──────────────────────────────┴───────────────┤
+│             │           Player Bar                          │
+└─────────────┴───────────────────────────────────────────────┘
+```
+
+**Left Sidebar (240px fixed):**
+- Aurora gradient logo at top
+- Library sections: Artists, Albums, Songs
+- Playlists section (collapsible)
+- Favourites & Recently Played
+- Icons + text navigation
+
+**Main Content Area (flexible):**
+- Search bar at top
+- Album/track grid with large artwork (160x160+)
+- Track list view option
+- Connection status indicator
+- Smooth scrolling
+
+**Right Panel (280-320px, collapsible):**
+- "Remastering" header
+- Preset selector dropdown (Studio, Vinyl, Live, Custom)
+- On/Off toggle
+- Intensity slider (if applicable)
+- Preset description/info
+
+**Bottom Player Bar (80-100px fixed):**
+- Album art thumbnail (60x60)
+- Track info (title, artist)
+- Playback controls (prev, play/pause, next, repeat)
+- Progress bar with gradient fill
+- Current time / total time
+- Volume control
+- Magic toggle (right side)
+
+**Color Palette:**
+- Background: `#0A0E27` (deep navy)
+- Surface: `#1a1f3a` (lighter navy)
+- Accent: Aurora gradient `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`
+- Text primary: `#ffffff`
+- Text secondary: `#8b92b0`
+- Success: `#00d4aa` (turquoise)
+
+**Typography:**
+- Headers: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto
+- Body: Same system font stack
+- Sizes: 24px (headers), 16px (body), 14px (secondary)
+
+**Key UI Patterns:**
+- **Hover states** - Subtle scale transforms, opacity changes
+- **Active states** - Gradient highlights, glow effects
+- **Loading states** - Skeleton screens, shimmer effects
+- **Empty states** - Centered messages with icons
+- **Error states** - Red accents with helpful messages
+
+### Component Implementation Guidelines
+
+**Album/Track Cards:**
+```tsx
+// Visual appearance from screenshot
+- Size: 160x160px minimum for artwork
+- Border radius: 8px
+- Hover effect: scale(1.05), subtle glow
+- Title: Below artwork, white text, 16px
+- Subtitle: Artist/author, gray text (#8b92b0), 14px
+- Spacing: 16-24px gap between cards
+- Grid: 3-4 columns on desktop, responsive
+```
+
+**Track List (Bottom Queue):**
+```tsx
+// As shown in screenshot bottom section
+- Row height: 48px
+- Columns: Track number (40px) | Title (flex) | Duration (60px)
+- Hover: Background color change to #1a1f3a
+- Current track: Highlighted with accent color
+- Font: 14px regular, current track bold
+```
+
+**Player Controls:**
+```tsx
+// Bottom bar controls
+- Play button: Large circular, aurora gradient background
+- Skip buttons: Standard size, white icons
+- Progress bar: Full width, aurora gradient fill
+- Progress text: Both sides (current/total)
+- Album art: 60x60px, rounded corners, left side
+- Volume: Slider on right side
+```
+
+**Navigation Sidebar:**
+```tsx
+// Left sidebar navigation
+- Width: 240px fixed
+- Item height: 40px
+- Icons: 20x20px, left-aligned with 16px padding
+- Active state: Background highlight + accent border-left
+- Hover state: Background color #1a1f3a
+- Text: 14px, 8px padding-left from icon
+```
+
+**Remastering Panel:**
+```tsx
+// Right sidebar panel
+- Width: 280-320px
+- Toggle: Large switch component, accent color when on
+- Dropdown: Custom styled select, dark theme
+- Slider: Gradient track, circular thumb
+- Labels: 12px uppercase, letter-spacing: 0.5px
+```
+
+**Search Bar:**
+```tsx
+// Top of main content area
+- Height: 48px
+- Border radius: 24px (pill shape)
+- Background: Semi-transparent (#1a1f3a80)
+- Icon: Search glass icon, left side, 20x20px
+- Placeholder: "Search" in gray (#8b92b0)
+- Focus: Border glow with accent color
+```
+
+**Empty States:**
+```tsx
+// When library is empty
+- Center-aligned content
+- Large icon (64x64px) in accent color
+- Primary text: "No music yet" (20px)
+- Secondary text: "Scan a folder to get started" (14px, gray)
+- Action button: "Scan Folder" with gradient background
+```
+
+### Interaction Patterns
+
+**Library View Switching:**
+- Grid view (default) - Large album art cards
+- List view (alternative) - Compact rows with small artwork
+- Toggle button in toolbar
+
+**Playlist Management:**
+- Collapsible section in sidebar
+- Expand/collapse arrow animation
+- Create new playlist: "+" button at section header
+- Drag-and-drop to add tracks (future feature)
+
+**Context Menus:**
+- Right-click on tracks/albums
+- Options: Play, Add to queue, Add to playlist, Show info, etc.
+- Dark background with subtle shadow
+- Hover highlights with accent color
+
+**Real-time Feedback:**
+- Progress updates via WebSocket
+- Smooth progress bar animations
+- Loading spinners with gradient colors
+- Success/error toast notifications (top-right)
+
 ## Architecture Overview
 
 ### Two-Tier Architecture
@@ -251,13 +425,25 @@ Modern web UI with real-time updates:
   - REST API for audio processing, library management, real-time playback
   - Real-time progress updates via WebSockets
   - API documentation at `/api/docs`
-- **`frontend/`** - React frontend with Material Design
-  - **`ProcessingInterface.tsx`** - Audio processing UI with file upload, job management
-  - **`processingService.ts`** - TypeScript API client with WebSocket support
-  - Smart file browser with grid/list views
-  - Advanced search with multiple filters
-  - Real-time library statistics
-  - Professional audio player with real-time processing controls
+- **`frontend/`** - React frontend with Material-UI
+  - **Main entry point**: `App.tsx` → `ComfortableApp.tsx` (current active UI)
+  - **Key components**:
+    - `ComfortableApp.tsx` - Main app container with 3-column layout
+    - `Sidebar.tsx` - Left navigation with library sections
+    - `CozyLibraryView.tsx` - Main content area with track/album grid
+    - `PresetPane.tsx` - Right panel for remastering controls
+    - `BottomPlayerBar.tsx` - Bottom player with playback controls
+    - `MagicalMusicPlayer.tsx` - Alternative standalone player UI
+  - **Legacy components**:
+    - `ProcessingInterface.tsx` - Original file upload/processing UI
+    - Various visualization components (Phase5, AnalysisDashboard, etc.)
+  - **Current UI Status**:
+    - ✅ Three-column layout implemented (sidebar, main, preset pane)
+    - ✅ Bottom player bar with controls
+    - ✅ WebSocket connection for real-time updates
+    - 🔄 Album art grid partially implemented
+    - 🔄 Aurora gradient branding in progress
+    - 📋 Need to match screenshot design aesthetic (neon accents, dark theme refinement)
 
 ### Desktop Application (`desktop/`)
 Electron wrapper for native desktop experience:
@@ -477,10 +663,42 @@ When web interface is running:
 - **API Documentation**: http://localhost:8000/api/docs (Swagger UI)
 - **Health Check**: http://localhost:8000/api/health
 
+## Troubleshooting
+
+### Electron Build Issues
+
+**AppImage shows startup error:**
+- Check that port 8000 is not in use: `lsof -ti:8000 | xargs kill -9`
+- Run from terminal to see logs: `./dist/Auralis-1.0.0.AppImage`
+- Look for "Backend ready" and "Frontend loaded" messages
+
+**DEB package installation:**
+```bash
+sudo dpkg -i dist/auralis-desktop_1.0.0_amd64.deb
+sudo apt-get install -f  # Fix dependencies if needed
+```
+
+**Backend can't find frontend (during development):**
+- The frontend path resolution differs between development and PyInstaller mode
+- Check `auralis-web/backend/main.py` for correct path logic:
+  - Development: `../../auralis-web/frontend/build`
+  - PyInstaller: `Path(sys._MEIPASS).parent / "frontend"`
+
+**Port conflicts:**
+```bash
+# Kill process on port 8000
+lsof -ti:8000 | xargs kill -9
+
+# Kill process on port 3000 (frontend dev server)
+lsof -ti:3000 | xargs kill -9
+```
+
+**See also:** `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting
+
 ## Important Notes
 
 ### Git Workflow
-- **Current branch**: `react-gui`
+- **Current branch**: `master`
 - **Main branch**: `master` (use this for PRs)
 - **Repository**: https://github.com/matiaszanolli/Auralis
 - **License**: GPL-3.0
@@ -500,6 +718,14 @@ The project has successfully migrated from Tkinter GUI to a modern dual-interfac
 - **Legacy Tkinter**: Removed, no longer used
 - **Matchering dependencies**: Fully integrated into Auralis, no external dependencies
 
+### Distribution Packages
+Latest builds are production-ready:
+- **AppImage**: `dist/Auralis-1.0.0.AppImage` (~246 MB) - portable, runs anywhere
+- **DEB Package**: `dist/auralis-desktop_1.0.0_amd64.deb` (~176 MB) - for Ubuntu/Debian
+- **Build includes**: Bundled Python backend (25 MB), React frontend (141 KB), all dependencies
+- **Startup time**: ~5-8 seconds from launch to ready
+- **Database location**: `~/.auralis/library.db` (auto-created on first run)
+
 ### Current Status and Launch Readiness
 - **Core Processing**: ✅ 100% functional, E2E validated with professional audio quality
 - **Backend API**: ✅ 74% test coverage (96 tests, 100% passing)
@@ -515,3 +741,51 @@ The project has successfully migrated from Tkinter GUI to a modern dual-interfac
 
 **Beta Launch Ready**: Can launch now with disclaimers about potential database resets
 **Production Ready**: After implementing version management system (1-2 weeks)
+
+### UI Design Implementation Status
+
+**Target Design** (from reference screenshot):
+- Rhythm-based player aesthetic (iTunes/Rhythmbox) with modern touches (Spotify/Cider)
+- Dark navy theme with neon/aurora accents
+- Large album art grid with vibrant artwork
+- Track queue at bottom of main view
+- Three-panel layout: Sidebar | Main | Remastering
+
+**Current Implementation Status:**
+
+✅ **Completed:**
+- Three-column responsive layout
+- Bottom player bar with playback controls
+- WebSocket real-time connection
+- Material-UI component framework
+- Basic library management
+
+🔄 **In Progress:**
+- Aurora gradient branding throughout UI
+- Album art grid with proper sizing (160x160+)
+- Dark navy theme refinement (#0A0E27 backgrounds)
+- Neon accent integration
+- Hover/active state animations
+
+📋 **Needed for Target Design:**
+- Large album art cards with neon/retro artwork style
+- Track queue view below album grid (as shown in screenshot)
+- Aurora gradient progress bar
+- Gradient play button with proper styling
+- Search bar with pill shape and semi-transparent background
+- Sidebar active state with accent border-left
+- Empty states with centered content and icons
+- Album/track detail views with vibrant artwork
+- Context menu on right-click
+- Smooth transitions and micro-interactions
+- Loading states with skeleton screens
+
+**Design Files/References:**
+- Target aesthetic: See screenshot in conversation (Auralis player with neon artwork)
+- Color palette: Defined in UI/UX Design Philosophy section above
+- Component specs: See Component Implementation Guidelines above
+
+**Implementation Roadmaps:**
+- **UI_IMPLEMENTATION_ROADMAP.md** - Complete 6-week implementation plan with phases
+- **QUICK_START_UI_DEVELOPMENT.md** - Get started immediately with Phase 1 components
+- **UI_COMPONENTS_CHECKLIST.md** - Track progress on all 35+ UI components

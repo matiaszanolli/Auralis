@@ -3,9 +3,6 @@ import {
   Box,
   Container,
   Grid,
-  Card,
-  CardMedia,
-  CardContent,
   Typography,
   TextField,
   InputAdornment,
@@ -35,6 +32,7 @@ import {
   FolderOpen,
   Refresh
 } from '@mui/icons-material';
+import AlbumCard from './library/AlbumCard';
 
 interface Track {
   id: number;
@@ -230,141 +228,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
     return '#f44336';
   };
 
-  const AlbumCard: React.FC<{ track: Track }> = ({ track }) => (
-    <Fade in timeout={300}>
-      <Card
-        elevation={4}
-        sx={{
-          height: '100%',
-          background: 'linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%)',
-          color: 'white',
-          borderRadius: 3,
-          overflow: 'hidden',
-          cursor: 'pointer',
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            transform: 'translateY(-8px)',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
-            '& .play-button': {
-              opacity: 1,
-              transform: 'scale(1)'
-            }
-          }
-        }}
-        onClick={() => onTrackPlay?.(track)}
-      >
-        <Box sx={{ position: 'relative' }}>
-          <CardMedia
-            component="img"
-            height="200"
-            image={track.albumArt}
-            alt={track.album}
-            sx={{
-              transition: 'transform 0.3s ease'
-            }}
-          />
-
-          {/* Play Button Overlay */}
-          <IconButton
-            className="play-button"
-            sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%) scale(0.8)',
-              opacity: 0,
-              transition: 'all 0.3s ease',
-              background: 'rgba(25,118,210,0.9)',
-              color: 'white',
-              width: 56,
-              height: 56,
-              '&:hover': {
-                background: 'rgba(25,118,210,1)',
-                transform: 'translate(-50%, -50%) scale(1.1)'
-              }
-            }}
-          >
-            <PlayArrow fontSize="large" />
-          </IconButton>
-
-          {/* Enhancement Badge */}
-          {track.isEnhanced && (
-            <Chip
-              icon={<AutoAwesome />}
-              label="Magic"
-              size="small"
-              sx={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-                color: 'white',
-                fontWeight: 'bold'
-              }}
-            />
-          )}
-
-          {/* Quality Indicator */}
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: 8,
-              left: 8,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              background: 'rgba(0,0,0,0.7)',
-              borderRadius: 1,
-              px: 1,
-              py: 0.5
-            }}
-          >
-            <Star sx={{ fontSize: 12, color: getQualityColor(track.quality || 0) }} />
-            <Typography variant="caption" sx={{ color: 'white' }}>
-              {Math.round((track.quality || 0) * 100)}%
-            </Typography>
-          </Box>
-        </Box>
-
-        <CardContent sx={{ p: 2 }}>
-          <Typography variant="subtitle1" fontWeight="bold" noWrap>
-            {track.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" noWrap>
-            {track.artist}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap>
-            {track.album} • {track.year}
-          </Typography>
-
-          {/* Enhancement Toggle */}
-          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="caption" color="text.secondary">
-              {formatDuration(track.duration)}
-            </Typography>
-            <Tooltip title="Toggle Auralis Magic">
-              <Switch
-                size="small"
-                checked={track.isEnhanced}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  onEnhancementToggle?.(track.id, e.target.checked);
-                }}
-                sx={{
-                  '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: '#42a5f5'
-                  },
-                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    backgroundColor: '#1976d2'
-                  }
-                }}
-              />
-            </Tooltip>
-          </Box>
-        </CardContent>
-      </Card>
-    </Fade>
-  );
+  // Use the new AlbumCard component
 
   const TrackListItem: React.FC<{ track: Track; index: number }> = ({ track, index }) => (
     <ListItem
@@ -543,7 +407,16 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
         <Grid container spacing={3}>
           {filteredTracks.map((track) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={track.id}>
-              <AlbumCard track={track} />
+              <AlbumCard
+                id={track.id}
+                title={track.album || track.title}
+                artist={track.artist}
+                albumArt={track.albumArt}
+                onPlay={(id) => {
+                  const track = filteredTracks.find(t => t.id === id);
+                  if (track) onTrackPlay?.(track);
+                }}
+              />
             </Grid>
           ))}
         </Grid>
