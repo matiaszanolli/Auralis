@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   IconButton,
@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material';
 import { GradientSlider } from './shared/GradientSlider';
 import { colors, gradients } from '../theme/auralisTheme';
+import { useToast } from './shared/Toast';
 
 interface Track {
   id: number;
@@ -95,6 +96,7 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isLoved, setIsLoved] = useState(false);
   const [isEnhanced, setIsEnhanced] = useState(true);
+  const { success, info } = useToast();
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -102,10 +104,75 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          handlePlayPauseClick();
+          break;
+        case 'ArrowRight':
+          if (e.shiftKey) {
+            e.preventDefault();
+            handleNextClick();
+          }
+          break;
+        case 'ArrowLeft':
+          if (e.shiftKey) {
+            e.preventDefault();
+            handlePreviousClick();
+          }
+          break;
+        case 'KeyM':
+          e.preventDefault();
+          handleMuteToggle();
+          break;
+        case 'KeyL':
+          e.preventDefault();
+          handleLoveToggle();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isPlaying, isMuted, isLoved, currentTrack]);
+
+  const handlePlayPauseClick = () => {
+    onPlayPause?.();
+    if (currentTrack) {
+      if (isPlaying) {
+        info('Paused');
+      } else {
+        info(`Playing: ${currentTrack.title}`);
+      }
+    }
+  };
+
+  const handleNextClick = () => {
+    onNext?.();
+    success('Next track');
+  };
+
+  const handlePreviousClick = () => {
+    onPrevious?.();
+    success('Previous track');
+  };
+
   const handleEnhancementToggle = () => {
     const newState = !isEnhanced;
     setIsEnhanced(newState);
     onEnhancementToggle?.(newState);
+    info(newState ? '✨ Auralis Magic enabled' : 'Enhancement disabled');
   };
 
   const handleVolumeChange = (_: Event, value: number | number[]) => {
@@ -114,10 +181,23 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
     if (newVolume > 0 && isMuted) {
       setIsMuted(false);
     }
+    if (newVolume === 0) {
+      info('Muted');
+    }
   };
 
   const handleMuteToggle = () => {
-    setIsMuted(!isMuted);
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    info(newMutedState ? 'Muted' : 'Unmuted');
+  };
+
+  const handleLoveToggle = () => {
+    const newLovedState = !isLoved;
+    setIsLoved(newLovedState);
+    if (currentTrack) {
+      success(newLovedState ? `Added "${currentTrack.title}" to favorites` : 'Removed from favorites');
+    }
   };
 
   if (!currentTrack) {
@@ -206,56 +286,64 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
           </Box>
 
           {/* Love Button */}
-          <IconButton
-            size="small"
-            onClick={() => setIsLoved(!isLoved)}
-            sx={{
-              color: isLoved ? '#ff6b9d' : colors.text.secondary,
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                color: '#ff6b9d',
-                transform: 'scale(1.1)',
-              },
-            }}
-          >
-            {isLoved ? <Favorite fontSize="small" /> : <FavoriteOutlined fontSize="small" />}
-          </IconButton>
+          <Tooltip title="Love (L)" placement="top">
+            <IconButton
+              size="small"
+              onClick={handleLoveToggle}
+              sx={{
+                color: isLoved ? '#ff6b9d' : colors.text.secondary,
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  color: '#ff6b9d',
+                  transform: 'scale(1.1)',
+                },
+              }}
+            >
+              {isLoved ? <Favorite fontSize="small" /> : <FavoriteOutlined fontSize="small" />}
+            </IconButton>
+          </Tooltip>
         </Box>
 
         {/* Center: Playback Controls */}
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton
-              onClick={onPrevious}
-              sx={{
-                color: colors.text.secondary,
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  color: colors.text.primary,
-                  transform: 'scale(1.1)',
-                },
-              }}
-            >
-              <SkipPrevious />
-            </IconButton>
+            <Tooltip title="Previous (Shift + ←)" placement="top">
+              <IconButton
+                onClick={handlePreviousClick}
+                sx={{
+                  color: colors.text.secondary,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    color: colors.text.primary,
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                <SkipPrevious />
+              </IconButton>
+            </Tooltip>
 
-            <PlayButton onClick={onPlayPause}>
-              {isPlaying ? <Pause /> : <PlayArrow />}
-            </PlayButton>
+            <Tooltip title="Play/Pause (Space)" placement="top">
+              <PlayButton onClick={handlePlayPauseClick}>
+                {isPlaying ? <Pause /> : <PlayArrow />}
+              </PlayButton>
+            </Tooltip>
 
-            <IconButton
-              onClick={onNext}
-              sx={{
-                color: colors.text.secondary,
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  color: colors.text.primary,
-                  transform: 'scale(1.1)',
-                },
-              }}
-            >
-              <SkipNext />
-            </IconButton>
+            <Tooltip title="Next (Shift + →)" placement="top">
+              <IconButton
+                onClick={handleNextClick}
+                sx={{
+                  color: colors.text.secondary,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    color: colors.text.primary,
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                <SkipNext />
+              </IconButton>
+            </Tooltip>
           </Box>
 
           {/* Time Display */}
@@ -291,24 +379,27 @@ const BottomPlayerBar: React.FC<BottomPlayerBarProps> = ({
 
           {/* Volume Control */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
-            <IconButton
-              size="small"
-              onClick={handleMuteToggle}
-              sx={{
-                color: colors.text.secondary,
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  color: colors.text.primary,
-                  transform: 'scale(1.1)',
-                },
-              }}
-            >
-              {isMuted || volume === 0 ? <VolumeOff fontSize="small" /> : <VolumeUp fontSize="small" />}
-            </IconButton>
+            <Tooltip title="Mute (M)" placement="top">
+              <IconButton
+                size="small"
+                onClick={handleMuteToggle}
+                sx={{
+                  color: colors.text.secondary,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    color: colors.text.primary,
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                {isMuted || volume === 0 ? <VolumeOff fontSize="small" /> : <VolumeUp fontSize="small" />}
+              </IconButton>
+            </Tooltip>
             <GradientSlider
               value={isMuted ? 0 : volume}
               onChange={handleVolumeChange}
               sx={{ maxWidth: 100 }}
+              aria-label="Volume"
             />
           </Box>
         </Box>

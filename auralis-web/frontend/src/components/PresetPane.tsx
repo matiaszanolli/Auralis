@@ -2,14 +2,12 @@ import React, { useState } from 'react';
 import {
   Box,
   Typography,
-  Select,
-  MenuItem,
   Switch,
   FormControlLabel,
   Divider,
   IconButton,
   Tooltip,
-  Slider
+  Stack
 } from '@mui/material';
 import {
   ChevronRight,
@@ -17,6 +15,9 @@ import {
   AutoAwesome,
   Tune
 } from '@mui/icons-material';
+import GradientButton from './shared/GradientButton';
+import GradientSlider from './shared/GradientSlider';
+import { gradients, colors } from '../theme/auralisTheme';
 
 interface PresetPaneProps {
   collapsed?: boolean;
@@ -31,15 +32,16 @@ const PresetPane: React.FC<PresetPaneProps> = ({
   onPresetChange,
   onMasteringToggle
 }) => {
-  const [selectedPreset, setSelectedPreset] = useState('studio');
+  const [selectedPreset, setSelectedPreset] = useState('adaptive');
   const [masteringEnabled, setMasteringEnabled] = useState(true);
   const [intensity, setIntensity] = useState(50);
 
   const presets = [
-    { value: 'studio', label: 'Studio', description: 'Balanced, professional sound' },
-    { value: 'vinyl', label: 'Vinyl', description: 'Warm, analog character' },
-    { value: 'live', label: 'Live', description: 'Dynamic, energetic presence' },
-    { value: 'custom', label: 'Custom', description: 'Your personalized settings' }
+    { value: 'adaptive', label: 'Adaptive', description: 'Intelligent content-aware mastering' },
+    { value: 'gentle', label: 'Gentle', description: 'Subtle mastering with minimal processing' },
+    { value: 'warm', label: 'Warm', description: 'Adds warmth and smoothness' },
+    { value: 'bright', label: 'Bright', description: 'Enhances clarity and presence' },
+    { value: 'punchy', label: 'Punchy', description: 'Increases impact and dynamics' }
   ];
 
   const handlePresetChange = (value: string) => {
@@ -197,85 +199,84 @@ const PresetPane: React.FC<PresetPaneProps> = ({
         <Box sx={{ mb: 3, opacity: masteringEnabled ? 1 : 0.4 }}>
           <Typography
             variant="caption"
+            className="gradient-text"
             sx={{
               display: 'block',
-              mb: 1.5,
+              mb: 2,
               fontFamily: 'var(--font-body)',
-              color: 'var(--silver)',
-              opacity: 0.7,
+              fontWeight: 600,
               textTransform: 'uppercase',
-              letterSpacing: 1,
-              fontSize: 11
+              letterSpacing: 1.5,
+              fontSize: 12
             }}
           >
-            Preset
+            Presets
           </Typography>
-          <Select
-            fullWidth
-            value={selectedPreset}
-            onChange={(e) => handlePresetChange(e.target.value)}
-            disabled={!masteringEnabled}
-            sx={{
-              fontFamily: 'var(--font-body)',
-              color: 'var(--silver)',
-              borderRadius: 'var(--radius-md)',
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(226, 232, 240, 0.2)'
-              },
-              '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(226, 232, 240, 0.3)'
-              },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'var(--aurora-violet)',
-                borderWidth: 1
-              },
-              '& .MuiSelect-icon': {
-                color: 'var(--silver)'
-              }
-            }}
-          >
+          <Stack spacing={1.5}>
             {presets.map((preset) => (
-              <MenuItem key={preset.value} value={preset.value}>
+              <GradientButton
+                key={preset.value}
+                fullWidth
+                onClick={() => handlePresetChange(preset.value)}
+                disabled={!masteringEnabled}
+                sx={{
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  py: 1.5,
+                  px: 2,
+                  opacity: selectedPreset === preset.value ? 1 : 0.7,
+                  background: selectedPreset === preset.value
+                    ? gradients.aurora
+                    : colors.background.surface,
+                  transform: selectedPreset === preset.value ? 'scale(1.02)' : 'scale(1)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    opacity: 1,
+                    transform: 'scale(1.02)',
+                  },
+                }}
+              >
                 <Box>
                   <Typography
-                    variant="body2"
+                    variant="button"
                     sx={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 500
+                      fontWeight: 600,
+                      color: selectedPreset === preset.value ? '#fff' : colors.text.primary
                     }}
                   >
                     {preset.label}
                   </Typography>
                   <Typography
                     variant="caption"
+                    display="block"
                     sx={{
-                      fontFamily: 'var(--font-body)',
-                      opacity: 0.7,
-                      fontSize: 11
+                      fontSize: 11,
+                      opacity: 0.9,
+                      color: selectedPreset === preset.value ? '#fff' : colors.text.secondary
                     }}
                   >
                     {preset.description}
                   </Typography>
                 </Box>
-              </MenuItem>
+              </GradientButton>
             ))}
-          </Select>
+          </Stack>
         </Box>
 
         <Divider sx={{ borderColor: 'rgba(226, 232, 240, 0.1)', my: 3 }} />
 
         {/* Intensity Slider */}
         <Box sx={{ mb: 3, opacity: masteringEnabled ? 1 : 0.4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
             <Typography
               variant="caption"
+              className="gradient-text"
               sx={{
                 fontFamily: 'var(--font-body)',
-                color: 'var(--silver)',
-                opacity: 0.7,
+                fontWeight: 600,
                 textTransform: 'uppercase',
-                letterSpacing: 1,
-                fontSize: 11
+                letterSpacing: 1.5,
+                fontSize: 12
               }}
             >
               Intensity
@@ -284,41 +285,33 @@ const PresetPane: React.FC<PresetPaneProps> = ({
               variant="caption"
               sx={{
                 fontFamily: 'var(--font-body)',
-                color: 'var(--aurora-violet)',
+                color: colors.text.primary,
                 fontWeight: 600,
-                fontSize: 11
+                fontSize: 12,
+                background: gradients.aurora,
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
               }}
             >
               {intensity}%
             </Typography>
           </Box>
-          <Slider
+          <GradientSlider
             value={intensity}
             onChange={(_, value) => setIntensity(value as number)}
             disabled={!masteringEnabled}
-            sx={{
-              '& .MuiSlider-track': {
-                background: 'var(--aurora-horizontal)',
-                border: 'none'
-              },
-              '& .MuiSlider-rail': {
-                background: 'rgba(226, 232, 240, 0.2)'
-              },
-              '& .MuiSlider-thumb': {
-                background: 'var(--aurora-violet)',
-                '&:hover': {
-                  boxShadow: 'var(--glow-medium)'
-                }
-              }
-            }}
+            min={0}
+            max={100}
+            gradientbg={gradients.aurora}
+            aria-label="Processing Intensity"
           />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
             <Typography
               variant="caption"
               sx={{
                 fontFamily: 'var(--font-body)',
-                color: 'var(--silver)',
-                opacity: 0.5,
+                color: colors.text.disabled,
                 fontSize: 10
               }}
             >
@@ -328,8 +321,7 @@ const PresetPane: React.FC<PresetPaneProps> = ({
               variant="caption"
               sx={{
                 fontFamily: 'var(--font-body)',
-                color: 'var(--silver)',
-                opacity: 0.5,
+                color: colors.text.disabled,
                 fontSize: 10
               }}
             >
@@ -342,29 +334,32 @@ const PresetPane: React.FC<PresetPaneProps> = ({
         <Box
           sx={{
             p: 2,
-            borderRadius: 'var(--radius-md)',
-            background: 'rgba(226, 232, 240, 0.05)',
-            border: '1px solid rgba(226, 232, 240, 0.1)'
+            borderRadius: '8px',
+            background: `linear-gradient(135deg, ${colors.background.surface} 0%, ${colors.background.secondary} 100%)`,
+            border: `1px solid rgba(102, 126, 234, 0.2)`,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
           }}
         >
           <Typography
             variant="caption"
             sx={{
               fontFamily: 'var(--font-body)',
-              color: 'var(--silver)',
-              opacity: 0.7,
+              color: colors.text.secondary,
               fontSize: 11,
-              lineHeight: 1.6
+              lineHeight: 1.6,
+              display: 'block'
             }}
           >
-            {selectedPreset === 'studio' &&
-              'Balanced frequency response with transparent dynamics processing. Perfect for most music.'}
-            {selectedPreset === 'vinyl' &&
-              'Adds warmth and analog character with gentle saturation. Great for classic rock and soul.'}
-            {selectedPreset === 'live' &&
-              'Preserves dynamics with enhanced presence and energy. Ideal for live recordings and energetic genres.'}
-            {selectedPreset === 'custom' &&
-              'Your personalized mastering settings. Adjust parameters to match your taste.'}
+            {selectedPreset === 'adaptive' &&
+              'Intelligent, content-aware mastering that analyzes your audio and applies optimal processing. Best for most use cases.'}
+            {selectedPreset === 'gentle' &&
+              'Subtle enhancement with minimal processing. Preserves the original character while adding professional polish.'}
+            {selectedPreset === 'warm' &&
+              'Adds warmth and smoothness to the sound. Perfect for vocals, acoustic instruments, and classic genres.'}
+            {selectedPreset === 'bright' &&
+              'Enhances clarity and presence in the high frequencies. Ideal for modern pop, electronic, and energetic music.'}
+            {selectedPreset === 'punchy' &&
+              'Increases impact and dynamics for powerful, energetic sound. Great for rock, hip-hop, and EDM.'}
           </Typography>
         </Box>
       </Box>
