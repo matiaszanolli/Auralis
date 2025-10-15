@@ -35,6 +35,7 @@ import {
 import AlbumCard from './library/AlbumCard';
 import { LibraryGridSkeleton, TrackRowSkeleton } from './shared/SkeletonLoader';
 import { useToast } from './shared/Toast';
+import { usePlayerAPI } from '../hooks/usePlayerAPI';
 
 interface Track {
   id: number;
@@ -65,6 +66,9 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
   const [scanning, setScanning] = useState(false);
   const { success, error, info } = useToast();
+
+  // Real player API for playback
+  const { playTrack, setQueue } = usePlayerAPI();
 
   // Fetch tracks from API
   const fetchTracks = async () => {
@@ -241,7 +245,13 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const TrackListItem: React.FC<{ track: Track; index: number }> = ({ track, index }) => (
     <ListItem
       button
-      onClick={() => onTrackPlay?.(track)}
+      onClick={async () => {
+        // Play track using real backend player!
+        await playTrack(track);
+        success(`Now playing: ${track.title}`);
+        // Also call parent callback if provided
+        onTrackPlay?.(track);
+      }}
       sx={{
         borderRadius: 2,
         mb: 1,
@@ -438,9 +448,15 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
                 title={track.album || track.title}
                 artist={track.artist}
                 albumArt={track.albumArt}
-                onPlay={(id) => {
+                onPlay={async (id) => {
                   const track = filteredTracks.find(t => t.id === id);
-                  if (track) onTrackPlay?.(track);
+                  if (track) {
+                    // Play track using real backend player!
+                    await playTrack(track);
+                    success(`Now playing: ${track.title}`);
+                    // Also call parent callback if provided
+                    onTrackPlay?.(track);
+                  }
                 }}
               />
             </Grid>
