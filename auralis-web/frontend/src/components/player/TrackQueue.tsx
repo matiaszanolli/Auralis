@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Typography, List, ListItem, ListItemText, styled } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
+import { useContextMenu, ContextMenu, getTrackContextActions } from '../shared/ContextMenu';
+import { useToast } from '../shared/Toast';
 
 interface Track {
   id: number;
@@ -125,11 +127,52 @@ export const TrackQueue: React.FC<TrackQueueProps> = ({
   onTrackClick,
   title = 'Queue',
 }) => {
+  const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
+  const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
+  const { success, info, warning } = useToast();
+
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const handleTrackContextMenu = (e: React.MouseEvent, track: Track) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedTrackId(track.id);
+    handleContextMenu(e);
+  };
+
+  const selectedTrack = tracks.find(t => t.id === selectedTrackId);
+
+  // Context menu actions
+  const contextActions = selectedTrack ? getTrackContextActions(
+    selectedTrack.id,
+    false, // isLoved - can be extended with user favorites state
+    {
+      onPlay: () => {
+        onTrackClick?.(selectedTrack.id);
+        info(`Now playing: ${selectedTrack.title}`);
+      },
+      onAddToQueue: () => {
+        success(`Added "${selectedTrack.title}" to queue`);
+      },
+      onLove: () => {
+        success(`Added "${selectedTrack.title}" to favorites`);
+      },
+      onAddToPlaylist: () => {
+        info('Select playlist'); // TODO: Show playlist selector modal
+      },
+      onShowInfo: () => {
+        info(`${selectedTrack.title} ${selectedTrack.artist ? `by ${selectedTrack.artist}` : ''}`);
+      },
+      onRemoveFromQueue: () => {
+        warning(`Removed "${selectedTrack.title}" from queue`);
+        // TODO: Implement queue removal
+      },
+    }
+  ) : [];
 
   if (!tracks || tracks.length === 0) {
     return null;
@@ -148,6 +191,7 @@ export const TrackQueue: React.FC<TrackQueueProps> = ({
               key={track.id}
               isactive={isActiveStr}
               onClick={() => onTrackClick?.(track.id)}
+              onContextMenu={(e) => handleTrackContextMenu(e, track)}
             >
               {isActive && <ActiveIndicator />}
               <PlayIndicator className="play-indicator" />
@@ -178,6 +222,13 @@ export const TrackQueue: React.FC<TrackQueueProps> = ({
           );
         })}
       </QueueList>
+
+      <ContextMenu
+        anchorPosition={contextMenuState.mousePosition}
+        open={contextMenuState.isOpen}
+        onClose={handleCloseContextMenu}
+        actions={contextActions}
+      />
     </QueueContainer>
   );
 };
