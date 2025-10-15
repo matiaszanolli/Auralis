@@ -9,7 +9,8 @@ import {
   Divider,
   Typography,
   Collapse,
-  IconButton
+  IconButton,
+  styled
 } from '@mui/material';
 import {
   LibraryMusic,
@@ -24,11 +25,61 @@ import {
   ChevronLeft,
   ChevronRight
 } from '@mui/icons-material';
+import { AuroraLogo } from './navigation/AuroraLogo';
+import { colors, gradients } from '../theme/auralisTheme';
 
 interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }
+
+const SidebarContainer = styled(Box)({
+  width: '240px',
+  height: '100%',
+  background: colors.background.secondary,
+  borderRight: `1px solid rgba(102, 126, 234, 0.1)`,
+  display: 'flex',
+  flexDirection: 'column',
+  transition: 'width 0.3s ease',
+});
+
+const SectionLabel = styled(Typography)({
+  fontSize: '11px',
+  fontWeight: 600,
+  color: colors.text.disabled,
+  textTransform: 'uppercase',
+  letterSpacing: '1px',
+  padding: '16px 24px 8px',
+});
+
+const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }>(({ isactive }) => ({
+  borderRadius: '8px',
+  height: '40px',
+  marginBottom: '4px',
+  position: 'relative',
+  transition: 'all 0.2s ease',
+
+  ...(isactive === 'true' && {
+    background: 'rgba(102, 126, 234, 0.15)',
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: '3px',
+      background: gradients.aurora,
+      borderRadius: '0 2px 2px 0',
+    },
+  }),
+
+  '&:hover': {
+    background: isactive === 'true'
+      ? 'rgba(102, 126, 234, 0.2)'
+      : colors.background.hover,
+    transform: 'translateX(2px)',
+  },
+}));
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }) => {
   const [playlistsOpen, setPlaylistsOpen] = useState(true);
@@ -62,15 +113,15 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
         sx={{
           width: 64,
           height: '100%',
-          background: 'var(--charcoal)',
-          borderRight: '1px solid rgba(226, 232, 240, 0.1)',
+          background: colors.background.secondary,
+          borderRight: `1px solid rgba(102, 126, 234, 0.1)`,
           display: 'flex',
           flexDirection: 'column',
           transition: 'width 0.3s ease'
         }}
       >
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
-          <IconButton onClick={onToggleCollapse} sx={{ color: 'var(--silver)' }}>
+          <IconButton onClick={onToggleCollapse} sx={{ color: colors.text.secondary }}>
             <ChevronRight />
           </IconButton>
         </Box>
@@ -79,18 +130,8 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
   }
 
   return (
-    <Box
-      sx={{
-        width: 240,
-        height: '100%',
-        background: 'var(--charcoal)',
-        borderRight: '1px solid rgba(226, 232, 240, 0.1)',
-        display: 'flex',
-        flexDirection: 'column',
-        transition: 'width 0.3s ease'
-      }}
-    >
-      {/* Header with collapse button */}
+    <SidebarContainer>
+      {/* Header with Aurora Logo */}
       <Box
         sx={{
           p: 2,
@@ -99,205 +140,157 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
           justifyContent: 'space-between'
         }}
       >
-        <Typography
-          variant="h6"
+        <AuroraLogo size="medium" showText animated />
+        <IconButton
+          onClick={onToggleCollapse}
+          size="small"
           sx={{
-            fontFamily: 'var(--font-heading)',
-            fontWeight: 600,
-            background: 'var(--aurora-gradient)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
+            color: colors.text.secondary,
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              color: colors.text.primary,
+              transform: 'scale(1.1)',
+            },
           }}
         >
-          ✨ Auralis
-        </Typography>
-        <IconButton onClick={onToggleCollapse} size="small" sx={{ color: 'var(--silver)' }}>
           <ChevronLeft />
         </IconButton>
       </Box>
 
-      <Divider sx={{ borderColor: 'rgba(226, 232, 240, 0.1)' }} />
+      <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)' }} />
 
       {/* Library Section */}
-      <Box sx={{ flex: 1, overflowY: 'auto' }}>
-        <List sx={{ px: 1, py: 2 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              px: 2,
-              py: 1,
-              display: 'block',
-              fontFamily: 'var(--font-body)',
-              color: 'var(--silver)',
-              opacity: 0.6,
-              textTransform: 'uppercase',
-              letterSpacing: 1
-            }}
-          >
-            Library
-          </Typography>
+      <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        <SectionLabel>Library</SectionLabel>
+        <List sx={{ px: 2 }}>
           {libraryItems.map((item) => (
-            <ListItem key={item.id} disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                selected={selectedItem === item.id}
+            <ListItem key={item.id} disablePadding>
+              <StyledListItemButton
+                isactive={selectedItem === item.id ? 'true' : 'false'}
                 onClick={() => handleItemClick(item.id)}
-                sx={{
-                  borderRadius: 'var(--radius-md)',
-                  '&.Mui-selected': {
-                    background: 'rgba(124, 58, 237, 0.2)',
-                    borderLeft: '4px solid',
-                    borderImage: 'var(--aurora-gradient) 1',
-                    '&:hover': {
-                      background: 'rgba(124, 58, 237, 0.3)'
-                    }
-                  },
-                  '&:hover': {
-                    background: 'rgba(226, 232, 240, 0.05)'
-                  }
-                }}
               >
-                <ListItemIcon sx={{ color: selectedItem === item.id ? 'var(--aurora-violet)' : 'var(--silver)', minWidth: 40 }}>
+                <ListItemIcon
+                  sx={{
+                    color: selectedItem === item.id ? '#667eea' : colors.text.secondary,
+                    minWidth: 36,
+                    transition: 'color 0.2s ease',
+                  }}
+                >
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText
                   primary={item.label}
                   primaryTypographyProps={{
-                    fontFamily: 'var(--font-body)',
                     fontSize: 14,
-                    color: 'var(--silver)'
+                    fontWeight: selectedItem === item.id ? 600 : 400,
+                    color: selectedItem === item.id ? colors.text.primary : colors.text.secondary,
                   }}
                 />
-              </ListItemButton>
+              </StyledListItemButton>
             </ListItem>
           ))}
         </List>
 
-        <Divider sx={{ borderColor: 'rgba(226, 232, 240, 0.1)', my: 1 }} />
+        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 2 }} />
 
         {/* Collections Section */}
-        <List sx={{ px: 1 }}>
+        <List sx={{ px: 2 }}>
           {collectionItems.map((item) => (
-            <ListItem key={item.id} disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                selected={selectedItem === item.id}
+            <ListItem key={item.id} disablePadding>
+              <StyledListItemButton
+                isactive={selectedItem === item.id ? 'true' : 'false'}
                 onClick={() => handleItemClick(item.id)}
-                sx={{
-                  borderRadius: 'var(--radius-md)',
-                  '&.Mui-selected': {
-                    background: 'rgba(124, 58, 237, 0.2)',
-                    borderLeft: '4px solid',
-                    borderImage: 'var(--aurora-gradient) 1'
-                  },
-                  '&:hover': {
-                    background: 'rgba(226, 232, 240, 0.05)'
-                  }
-                }}
               >
-                <ListItemIcon sx={{ color: selectedItem === item.id ? 'var(--aurora-violet)' : 'var(--silver)', minWidth: 40 }}>
+                <ListItemIcon
+                  sx={{
+                    color: selectedItem === item.id ? '#667eea' : colors.text.secondary,
+                    minWidth: 36,
+                    transition: 'color 0.2s ease',
+                  }}
+                >
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText
                   primary={item.label}
                   primaryTypographyProps={{
-                    fontFamily: 'var(--font-body)',
                     fontSize: 14,
-                    color: 'var(--silver)'
+                    fontWeight: selectedItem === item.id ? 600 : 400,
+                    color: selectedItem === item.id ? colors.text.primary : colors.text.secondary,
                   }}
                 />
-              </ListItemButton>
+              </StyledListItemButton>
             </ListItem>
           ))}
         </List>
 
-        <Divider sx={{ borderColor: 'rgba(226, 232, 240, 0.1)', my: 1 }} />
+        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 2 }} />
 
         {/* Playlists Section */}
-        <List sx={{ px: 1 }}>
-          <ListItem disablePadding sx={{ mb: 0.5 }}>
-            <ListItemButton
+        <SectionLabel>Playlists</SectionLabel>
+        <List sx={{ px: 2 }}>
+          <ListItem disablePadding>
+            <StyledListItemButton
               onClick={() => setPlaylistsOpen(!playlistsOpen)}
-              sx={{
-                borderRadius: 'var(--radius-md)',
-                '&:hover': {
-                  background: 'rgba(226, 232, 240, 0.05)'
-                }
-              }}
+              isactive="false"
             >
-              <ListItemIcon sx={{ color: 'var(--silver)', minWidth: 40 }}>
+              <ListItemIcon sx={{ color: colors.text.secondary, minWidth: 36 }}>
                 <PlaylistPlay />
               </ListItemIcon>
               <ListItemText
-                primary="Playlists"
+                primary="All Playlists"
                 primaryTypographyProps={{
-                  fontFamily: 'var(--font-body)',
                   fontSize: 14,
-                  color: 'var(--silver)'
+                  color: colors.text.secondary,
                 }}
               />
-              {playlistsOpen ? <ExpandLess /> : <ExpandMore />}
-            </ListItemButton>
+              <Box sx={{ color: colors.text.secondary, transition: 'transform 0.3s ease', transform: playlistsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                <ExpandMore />
+              </Box>
+            </StyledListItemButton>
           </ListItem>
 
           <Collapse in={playlistsOpen} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
+            <List component="div" disablePadding sx={{ pl: 1 }}>
               {playlists.map((playlist) => (
-                <ListItem key={playlist.id} disablePadding sx={{ mb: 0.5, pl: 2 }}>
-                  <ListItemButton
-                    selected={selectedItem === playlist.id}
+                <ListItem key={playlist.id} disablePadding>
+                  <StyledListItemButton
+                    isactive={selectedItem === playlist.id ? 'true' : 'false'}
                     onClick={() => handleItemClick(playlist.id)}
-                    sx={{
-                      borderRadius: 'var(--radius-md)',
-                      minHeight: 40,
-                      '&.Mui-selected': {
-                        background: 'rgba(124, 58, 237, 0.2)',
-                        borderLeft: '4px solid',
-                        borderImage: 'var(--aurora-gradient) 1'
-                      },
-                      '&:hover': {
-                        background: 'rgba(226, 232, 240, 0.05)'
-                      }
-                    }}
                   >
                     <ListItemText
                       primary={playlist.name}
                       primaryTypographyProps={{
-                        fontFamily: 'var(--font-body)',
                         fontSize: 13,
-                        color: 'var(--silver)'
+                        fontWeight: selectedItem === playlist.id ? 600 : 400,
+                        color: selectedItem === playlist.id ? colors.text.primary : colors.text.secondary,
                       }}
+                      sx={{ pl: 3 }}
                     />
-                  </ListItemButton>
+                  </StyledListItemButton>
                 </ListItem>
               ))}
-              <ListItem disablePadding sx={{ pl: 2, mt: 1 }}>
-                <ListItemButton
-                  sx={{
-                    borderRadius: 'var(--radius-md)',
-                    minHeight: 40,
-                    '&:hover': {
-                      background: 'rgba(226, 232, 240, 0.05)'
-                    }
-                  }}
-                >
-                  <ListItemIcon sx={{ color: 'var(--aurora-violet)', minWidth: 36 }}>
-                    <Add />
+
+              {/* New Playlist Button */}
+              <ListItem disablePadding sx={{ mt: 1 }}>
+                <StyledListItemButton isactive="false">
+                  <ListItemIcon sx={{ color: '#667eea', minWidth: 36, pl: 2 }}>
+                    <Add fontSize="small" />
                   </ListItemIcon>
                   <ListItemText
                     primary="New Playlist"
                     primaryTypographyProps={{
-                      fontFamily: 'var(--font-body)',
                       fontSize: 13,
-                      color: 'var(--aurora-violet)'
+                      color: '#667eea',
+                      fontWeight: 500,
                     }}
                   />
-                </ListItemButton>
+                </StyledListItemButton>
               </ListItem>
             </List>
           </Collapse>
         </List>
       </Box>
-    </Box>
+    </SidebarContainer>
   );
 };
 
