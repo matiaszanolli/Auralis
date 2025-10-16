@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardMedia, CardContent, Typography, Box, IconButton, styled } from '@mui/material';
 import { PlayArrow, MoreVert } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
-import { useContextMenu, ContextMenu, getAlbumContextActions } from '../shared/ContextMenu';
+// import { useContextMenu, ContextMenu, getAlbumContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
 
 interface AlbumCardProps {
@@ -126,8 +126,8 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Context menu state
-  const { contextMenuState, handleContextMenu: handleContextMenuBase, handleCloseContextMenu } = useContextMenu();
+  // Context menu state - temporarily disabled for build
+  // const { contextMenuState, handleContextMenu: handleContextMenuBase, handleCloseContextMenu } = useContextMenu();
   const { success, info } = useToast();
 
   const handlePlay = (e: React.MouseEvent) => {
@@ -135,48 +135,42 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
     onPlay(id);
   };
 
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleContextMenuBase(e);
-    onContextMenu?.(id, e);
-  };
+  // const handleContextMenu = (e: React.MouseEvent) => {
+  //   e.preventDefault();
+  //   e.stopPropagation();
+  //   handleContextMenuBase(e);
+  //   onContextMenu?.(id, e);
+  // };
 
   const handleMoreClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Convert click event to context menu event for positioning
-    const syntheticEvent = {
-      ...e,
-      clientX: e.currentTarget.getBoundingClientRect().left,
-      clientY: e.currentTarget.getBoundingClientRect().bottom,
-    } as React.MouseEvent;
-    handleContextMenuBase(syntheticEvent);
-    onContextMenu?.(id, e);
+    // Context menu temporarily disabled
+    info('Context menu coming soon!');
   };
 
   const handleCardClick = () => {
     onPlay(id);
   };
 
-  // Context menu actions
-  const contextActions = getAlbumContextActions(id, {
-    onPlay: () => {
-      onPlay(id);
-      info(`Playing ${title}`);
-    },
-    onAddToQueue: () => {
-      success(`Added "${title}" to queue`);
-    },
-    onAddToPlaylist: () => {
-      info('Select playlist'); // TODO: Show playlist selector modal
-    },
-    onShowInfo: () => {
-      info(`Album: ${title} by ${artist}`); // TODO: Show album info modal
-    },
-  });
+  // Context menu actions - temporarily disabled
+  // const contextActions = getAlbumContextActions(id, {
+  //   onPlay: () => {
+  //     onPlay(id);
+  //     info(`Playing ${title}`);
+  //   },
+  //   onAddToQueue: () => {
+  //     success(`Added "${title}" to queue`);
+  //   },
+  //   onAddToPlaylist: () => {
+  //     info('Select playlist'); // TODO: Show playlist selector modal
+  //   },
+  //   onShowInfo: () => {
+  //     info(`Album: ${title} by ${artist}`); // TODO: Show album info modal
+  //   },
+  // });
 
   return (
-    <StyledCard onContextMenu={handleContextMenu} onClick={handleCardClick}>
+    <StyledCard onClick={handleCardClick}>
       <Box position="relative">
         {imageError || !albumArt ? (
           <PlaceholderBox>
@@ -254,12 +248,13 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
         )}
       </CardContent>
 
-      <ContextMenu
+      {/* Context menu temporarily disabled */}
+      {/* <ContextMenu
         anchorPosition={contextMenuState.mousePosition}
         open={contextMenuState.isOpen}
         onClose={handleCloseContextMenu}
         actions={contextActions}
-      />
+      /> */}
     </StyledCard>
   );
 };

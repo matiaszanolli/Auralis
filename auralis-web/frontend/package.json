@@ -8,7 +8,6 @@
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.14.0",
     "@mui/material": "^5.14.0",
-    "@types/node": "^18.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@types/wavesurfer.js": "^6.0.0",
@@ -27,9 +26,10 @@
     "web-vitals": "^3.0.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "dev": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -52,7 +52,11 @@
     ]
   },
   "devDependencies": {
-    "@types/react-virtualized": "^9.21.0"
+    "@types/node": "^20.0.0",
+    "@types/react-virtualized": "^9.21.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "vite": "^5.0.8",
+    "vite-tsconfig-paths": "^4.2.1"
   },
   "proxy": "http://localhost:8000"
 }
