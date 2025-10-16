@@ -9,11 +9,11 @@ import {
   Search
 } from '@mui/icons-material';
 
-import Sidebar from './components/Sidebar.tsx';
-import BottomPlayerBarConnected from './components/BottomPlayerBarConnected.tsx';
-import PresetPane from './components/PresetPane.tsx';
-import CozyLibraryView from './components/CozyLibraryView.tsx';
-import { useWebSocket } from './hooks/useWebSocket.ts';
+import Sidebar from './components/Sidebar';
+import BottomPlayerBarConnected from './components/BottomPlayerBarConnected';
+import PresetPane from './components/PresetPane';
+import CozyLibraryView from './components/CozyLibraryView';
+import { useWebSocket } from './hooks/useWebSocket';
 import { useToast } from './components/shared/Toast';
 
 interface Track {
