@@ -43,7 +43,7 @@ import {
   QueueMusic,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
-import AudioProcessingControls from './AudioProcessingControls.tsx';
+import AudioProcessingControls from './AudioProcessingControls';
 import processingService, {
   ProcessingSettings,
   ProcessingJob,

@@ -17,10 +17,10 @@ import {
   Equalizer
 } from '@mui/icons-material';
 
-import MagicalMusicPlayer from './components/MagicalMusicPlayer.tsx';
-import CozyLibraryView from './components/CozyLibraryView.tsx';
-import ClassicVisualizer from './components/ClassicVisualizer.tsx';
-import { useWebSocket } from './hooks/useWebSocket.ts';
+import MagicalMusicPlayer from './components/MagicalMusicPlayer';
+import CozyLibraryView from './components/CozyLibraryView';
+import ClassicVisualizer from './components/ClassicVisualizer';
+import { useWebSocket } from './hooks/useWebSocket';
 
 interface Track {
   id: number;
