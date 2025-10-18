@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Menu, MenuItem, ListItemIcon, ListItemText, Divider, styled } from '@mui/material';
 import {
   PlayArrow,
@@ -67,6 +67,41 @@ const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructiv
     minWidth: 36,
   },
 }));
+
+// Hook for managing context menu state
+export const useContextMenu = () => {
+  const [contextMenuState, setContextMenuState] = useState<{
+    isOpen: boolean;
+    mousePosition: { top: number; left: number } | undefined;
+  }>({
+    isOpen: false,
+    mousePosition: undefined,
+  });
+
+  const handleContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    setContextMenuState({
+      isOpen: true,
+      mousePosition: {
+        top: event.clientY,
+        left: event.clientX,
+      },
+    });
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenuState({
+      isOpen: false,
+      mousePosition: undefined,
+    });
+  };
+
+  return {
+    contextMenuState,
+    handleContextMenu,
+    handleCloseContextMenu,
+  };
+};
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({
   open,

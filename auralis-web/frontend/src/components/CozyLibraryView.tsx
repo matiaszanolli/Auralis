@@ -33,6 +33,10 @@ import {
   Refresh
 } from '@mui/icons-material';
 import AlbumCard from './library/AlbumCard';
+import TrackRow from './library/TrackRow';
+import TrackQueue from './player/TrackQueue';
+import SearchBar from './navigation/SearchBar';
+import ViewToggle, { ViewMode } from './navigation/ViewToggle';
 import { LibraryGridSkeleton, TrackRowSkeleton } from './shared/SkeletonLoader';
 import { useToast } from './shared/Toast';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
@@ -62,9 +66,11 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filteredTracks, setFilteredTracks] = useState<Track[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [currentTrackId, setCurrentTrackId] = useState<number | undefined>(undefined);
+  const [isPlaying, setIsPlaying] = useState(false);
   const { success, error, info } = useToast();
 
   // Real player API for playback
@@ -240,84 +246,14 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
     return '#f44336';
   };
 
-  // Use the new AlbumCard component
-
-  const TrackListItem: React.FC<{ track: Track; index: number }> = ({ track, index }) => (
-    <ListItem
-      button
-      onClick={async () => {
-        // Play track using real backend player!
-        await playTrack(track);
-        success(`Now playing: ${track.title}`);
-        // Also call parent callback if provided
-        onTrackPlay?.(track);
-      }}
-      sx={{
-        borderRadius: 2,
-        mb: 1,
-        background: 'rgba(255,255,255,0.05)',
-        '&:hover': {
-          background: 'rgba(25,118,210,0.1)',
-          transform: 'translateX(4px)'
-        },
-        transition: 'all 0.2s ease'
-      }}
-    >
-      <ListItemAvatar>
-        <Avatar
-          src={track.albumArt}
-          alt={track.album}
-          sx={{ width: 56, height: 56, borderRadius: 2 }}
-        />
-      </ListItemAvatar>
-
-      <ListItemText
-        primary={
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="subtitle1" fontWeight="bold">
-              {track.title}
-            </Typography>
-            {track.isEnhanced && (
-              <Chip
-                icon={<AutoAwesome />}
-                label="Magic"
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
-            )}
-          </Box>
-        }
-        secondary={
-          <Typography variant="body2" color="text.secondary">
-            {track.artist} • {track.album} • {formatDuration(track.duration)}
-          </Typography>
-        }
-      />
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Star sx={{ fontSize: 16, color: getQualityColor(track.quality || 0) }} />
-          <Typography variant="caption">
-            {Math.round((track.quality || 0) * 100)}%
-          </Typography>
-        </Box>
-
-        <Switch
-          size="small"
-          checked={track.isEnhanced}
-          onChange={(e) => {
-            e.stopPropagation();
-            onEnhancementToggle?.(track.id, e.target.checked);
-          }}
-        />
-
-        <IconButton color="primary">
-          <PlayArrow />
-        </IconButton>
-      </Box>
-    </ListItem>
-  );
+  // Handler for playing a track
+  const handlePlayTrack = async (track: Track) => {
+    await playTrack(track);
+    setCurrentTrackId(track.id);
+    setIsPlaying(true);
+    success(`Now playing: ${track.title}`);
+    onTrackPlay?.(track);
+  };
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -354,26 +290,13 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Search your music..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              maxWidth: 400,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2
-              }
-            }}
-          />
+          <Box sx={{ maxWidth: 400, flex: 1 }}>
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search your music..."
+            />
+          </Box>
 
           <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
             <Tooltip title="Scan Folder">
@@ -395,23 +318,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="Grid View">
-              <IconButton
-                color={viewMode === 'grid' ? 'primary' : 'default'}
-                onClick={() => setViewMode('grid')}
-              >
-                <ViewModule />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="List View">
-              <IconButton
-                color={viewMode === 'list' ? 'primary' : 'default'}
-                onClick={() => setViewMode('list')}
-              >
-                <ViewList />
-              </IconButton>
-            </Tooltip>
+            <ViewToggle value={viewMode} onChange={setViewMode} />
           </Box>
 
           <Typography variant="body2" color="text.secondary">
@@ -440,42 +347,72 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
           </Paper>
         )
       ) : viewMode === 'grid' ? (
-        <Grid container spacing={3}>
-          {filteredTracks.map((track) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={track.id}>
-              <AlbumCard
-                id={track.id}
-                title={track.album || track.title}
-                artist={track.artist}
-                albumArt={track.albumArt}
-                onPlay={async (id) => {
-                  const track = filteredTracks.find(t => t.id === id);
-                  if (track) {
-                    // Play track using real backend player!
-                    await playTrack(track);
-                    success(`Now playing: ${track.title}`);
-                    // Also call parent callback if provided
-                    onTrackPlay?.(track);
-                  }
-                }}
-              />
-            </Grid>
-          ))}
-        </Grid>
+        <>
+          <Grid container spacing={3}>
+            {filteredTracks.map((track) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={track.id}>
+                <AlbumCard
+                  id={track.id}
+                  title={track.album || track.title}
+                  artist={track.artist}
+                  albumArt={track.albumArt}
+                  onPlay={async (id) => {
+                    const track = filteredTracks.find(t => t.id === id);
+                    if (track) {
+                      await handlePlayTrack(track);
+                    }
+                  }}
+                />
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* Track Queue - Shows current album/playlist tracks */}
+          {filteredTracks.length > 0 && (
+            <TrackQueue
+              tracks={filteredTracks.map(t => ({
+                id: t.id,
+                title: t.title,
+                artist: t.artist,
+                duration: t.duration
+              }))}
+              currentTrackId={currentTrackId}
+              onTrackClick={(trackId) => {
+                const track = filteredTracks.find(t => t.id === trackId);
+                if (track) {
+                  handlePlayTrack(track);
+                }
+              }}
+              title="Current Queue"
+            />
+          )}
+        </>
       ) : (
         <Paper
           elevation={2}
           sx={{
             background: 'rgba(255,255,255,0.05)',
             borderRadius: 3,
-            overflow: 'hidden'
+            overflow: 'hidden',
+            p: 2
           }}
         >
-          <List sx={{ p: 2 }}>
-            {filteredTracks.map((track, index) => (
-              <TrackListItem key={track.id} track={track} index={index} />
-            ))}
-          </List>
+          {filteredTracks.map((track, index) => (
+            <TrackRow
+              key={track.id}
+              track={track}
+              index={index}
+              isPlaying={isPlaying}
+              isCurrent={currentTrackId === track.id}
+              onPlay={(trackId) => {
+                const track = filteredTracks.find(t => t.id === trackId);
+                if (track) {
+                  handlePlayTrack(track);
+                }
+              }}
+              onPause={() => setIsPlaying(false)}
+            />
+          ))}
         </Paper>
       )}
 
