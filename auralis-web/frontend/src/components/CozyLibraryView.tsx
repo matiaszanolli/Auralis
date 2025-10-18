@@ -349,8 +349,20 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       ) : viewMode === 'grid' ? (
         <>
           <Grid container spacing={3}>
-            {filteredTracks.map((track) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={track.id}>
+            {filteredTracks.map((track, index) => (
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={4}
+                lg={3}
+                key={track.id}
+                className="animate-fade-in-up"
+                sx={{
+                  animationDelay: `${index * 0.05}s`,
+                  animationFillMode: 'both'
+                }}
+              >
                 <AlbumCard
                   id={track.id}
                   title={track.album || track.title}
@@ -398,20 +410,28 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
           }}
         >
           {filteredTracks.map((track, index) => (
-            <TrackRow
+            <Box
               key={track.id}
-              track={track}
-              index={index}
-              isPlaying={isPlaying}
-              isCurrent={currentTrackId === track.id}
-              onPlay={(trackId) => {
-                const track = filteredTracks.find(t => t.id === trackId);
-                if (track) {
-                  handlePlayTrack(track);
-                }
+              className="animate-fade-in-left"
+              sx={{
+                animationDelay: `${index * 0.03}s`,
+                animationFillMode: 'both'
               }}
-              onPause={() => setIsPlaying(false)}
-            />
+            >
+              <TrackRow
+                track={track}
+                index={index}
+                isPlaying={isPlaying}
+                isCurrent={currentTrackId === track.id}
+                onPlay={(trackId) => {
+                  const track = filteredTracks.find(t => t.id === trackId);
+                  if (track) {
+                    handlePlayTrack(track);
+                  }
+                }}
+                onPause={() => setIsPlaying(false)}
+              />
+            </Box>
           ))}
         </Paper>
       )}
