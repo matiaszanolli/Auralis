@@ -725,20 +725,13 @@ async def load_comparison_tracks(track_a: str, track_b: str):
         raise HTTPException(status_code=500, detail=f"Failed to load comparison tracks: {e}")
 
 # Serve React frontend (when built)
-# Check if running in Electron (bundled with PyInstaller)
-if os.environ.get('ELECTRON_MODE') == '1':
-    # In Electron, frontend is in ../frontend relative to backend resources
-    import os
-    if hasattr(sys, '_MEIPASS'):
-        # PyInstaller bundle - _MEIPASS is the temp extracted location
-        # Resources structure: resources/backend/, resources/frontend/
-        # Go up one level from _MEIPASS (backend) to resources, then to frontend
-        frontend_path = Path(sys._MEIPASS).parent / "frontend"
-        logger.info(f"PyInstaller mode: _MEIPASS={sys._MEIPASS}")
-    else:
-        frontend_path = Path(__file__).parent.parent / "frontend" / "build"
+# Check if running from PyInstaller bundle
+if hasattr(sys, '_MEIPASS'):
+    # PyInstaller bundle - frontend is bundled in _MEIPASS/frontend
+    frontend_path = Path(sys._MEIPASS) / "frontend"
+    logger.info(f"PyInstaller mode: _MEIPASS={sys._MEIPASS}")
 else:
-    # Development/web mode - look in regular location
+    # Development mode - look in regular location
     frontend_path = Path(__file__).parent.parent / "frontend" / "build"
 
 logger.info(f"Looking for frontend at: {frontend_path}")
