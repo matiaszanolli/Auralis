@@ -8,6 +8,8 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
 [![Status](https://img.shields.io/badge/status-Beta-orange.svg)]()
 
+📚 **[Complete Documentation](DOCS.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Project Status](PROJECT_STATUS.md)**
+
 ---
 
 ## ✨ What is Auralis?
