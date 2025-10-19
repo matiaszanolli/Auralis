@@ -4,31 +4,12 @@ import {
   Container,
   Grid,
   Typography,
-  TextField,
-  InputAdornment,
-  Chip,
   IconButton,
-  Fade,
   Paper,
-  Avatar,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  Switch,
-  FormControlLabel,
   Tooltip
 } from '@mui/material';
 import {
-  Search,
-  Album,
   MusicNote,
-  PlayArrow,
-  AutoAwesome,
-  ViewModule,
-  ViewList,
-  FilterList,
-  Star,
   FolderOpen,
   Refresh
 } from '@mui/icons-material';
@@ -60,8 +41,7 @@ interface CozyLibraryViewProps {
 }
 
 const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
-  onTrackPlay,
-  onEnhancementToggle
+  onTrackPlay
 }) => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
