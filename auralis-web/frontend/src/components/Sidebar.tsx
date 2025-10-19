@@ -19,7 +19,6 @@ import {
   PlaylistPlay,
   Favorite,
   History,
-  ExpandLess,
   ExpandMore,
   Add,
   ChevronLeft,
