@@ -48,7 +48,7 @@ def check_dependencies():
 
     return True
 
-def start_backend(port=8000):
+def start_backend(port=8765):
     """Start the FastAPI backend"""
     backend_dir = Path(__file__).parent / "auralis-web" / "backend"
 
@@ -96,7 +96,7 @@ def start_frontend_dev():
 def main():
     """Main launcher function"""
     parser = argparse.ArgumentParser(description="Launch Auralis Web Interface")
-    parser.add_argument("--port", type=int, default=8000, help="Backend port (default: 8000)")
+    parser.add_argument("--port", type=int, default=8765, help="Backend port (default: 8765)")
     parser.add_argument("--dev", action="store_true", help="Start in development mode with React dev server")
     parser.add_argument("--no-browser", action="store_true", help="Don't open browser automatically")
 

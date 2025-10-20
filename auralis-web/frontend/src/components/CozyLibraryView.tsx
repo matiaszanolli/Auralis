@@ -60,7 +60,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const fetchTracks = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/library/tracks?limit=100');
+      const response = await fetch('http://localhost:8765/api/library/tracks?limit=100');
       if (response.ok) {
         const data = await response.json();
         setTracks(data.tracks || []);
@@ -115,7 +115,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
 
     setScanning(true);
     try {
-      const response = await fetch('http://localhost:8000/api/library/scan', {
+      const response = await fetch('http://localhost:8765/api/library/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ directory: folderPath })

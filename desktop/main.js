@@ -118,7 +118,7 @@ class AuralisApp {
       const http = require('http');
       const options = {
         hostname: 'localhost',
-        port: 8000,
+        port: 8765,
         path: '/api/health',
         method: 'GET',
         timeout: 5000
@@ -184,7 +184,7 @@ class AuralisApp {
       startUrl = 'http://localhost:3000'; // Try React dev server first
     } else {
       // Production: Backend serves the built React app
-      startUrl = 'http://localhost:8000';
+      startUrl = 'http://localhost:8765';
     }
 
     console.log(`Loading URL: ${startUrl}`);
@@ -217,7 +217,7 @@ class AuralisApp {
       if (this.isDevelopment) {
         console.log('Trying backend URL instead...');
         try {
-          await this.mainWindow.loadURL('http://localhost:8000');
+          await this.mainWindow.loadURL('http://localhost:8765');
           this.mainWindow.show();
         } catch (backendError) {
           // Show error page
