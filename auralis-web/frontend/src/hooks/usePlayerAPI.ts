@@ -45,7 +45,7 @@ interface PlayerState {
   queueIndex: number;
 }
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = 'http://localhost:8765/api';
 
 export const usePlayerAPI = () => {
   const [playerState, setPlayerState] = useState<PlayerState>({
@@ -299,7 +299,7 @@ export const usePlayerAPI = () => {
 
   // WebSocket for real-time updates
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/ws');
+    const ws = new WebSocket('ws://localhost:8765/ws');
 
     ws.onopen = () => {
       console.log('Player WebSocket connected');

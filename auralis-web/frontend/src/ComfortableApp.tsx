@@ -34,7 +34,7 @@ function ComfortableApp() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // WebSocket connection for real-time updates
-  const { connected } = useWebSocket('ws://localhost:8000/ws');
+  const { connected } = useWebSocket('ws://localhost:8765/ws');
 
   // Toast notifications
   const { success, info } = useToast();

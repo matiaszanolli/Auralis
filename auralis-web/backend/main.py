@@ -757,10 +757,15 @@ else:
 if __name__ == "__main__":
     print("🚀 Starting Auralis Web Backend...")
     print("Backend ready", flush=True)  # Signal to Electron that backend is ready
+
+    # Detect if running in PyInstaller bundle (production mode)
+    import sys
+    is_bundled = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+
     uvicorn.run(
         "main:app",
         host="127.0.0.1",
-        port=8000,
-        reload=True,
+        port=8765,
+        reload=False if is_bundled else True,  # Disable reload in production
         log_level="info"
     )

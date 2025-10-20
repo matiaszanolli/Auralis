@@ -2,9 +2,46 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Quick Start for Developers
+
+**First time here? Start with:**
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+cd desktop && npm install
+
+# 2. Run the development environment
+npm run dev                           # Starts backend + frontend + Electron
+
+# 3. Or launch web interface only
+python launch-auralis-web.py --dev   # http://localhost:8765
+```
+
+**Key files to know:**
+- [auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py) - Main audio processing engine
+- [auralis-web/backend/main.py](auralis-web/backend/main.py:1) - Backend API server
+- [auralis-web/frontend/src/components/ComfortableApp.tsx](auralis-web/frontend/src/components/ComfortableApp.tsx:1) - Main UI component
+- [desktop/main.js](desktop/main.js:1) - Electron main process
+
+**Running tests:**
+```bash
+python -m pytest tests/backend/ -v      # Backend tests (96 tests, fastest)
+python -m pytest tests/test_adaptive_processing.py -v  # Core processing tests
+```
+
 ## Project Overview
 
 **Auralis** is a professional adaptive audio mastering system with both desktop (Electron) and web (FastAPI + React) interfaces. The system provides intelligent, content-aware audio processing without requiring reference tracks, combining advanced DSP algorithms, machine learning, and real-time processing for studio-quality audio mastering.
+
+**Target Users:**
+- **End Users**: Music lovers who want a simple, beautiful music player with one-click audio enhancement (use Desktop app)
+- **Developers**: Audio engineers, researchers, or developers integrating audio processing (use Web interface or API)
+
+**What makes it unique:**
+- No reference tracks needed (adaptive processing)
+- Professional-grade audio quality (52.8x real-time processing)
+- Simple UI for end users, powerful API for developers
+- 100% local processing (no cloud, complete privacy)
 
 ### Key Capabilities
 - **Adaptive Mastering** - Content-aware processing without reference tracks, analyzing audio characteristics for optimal mastering
@@ -105,6 +142,35 @@ npm run clean
 ### Supported Audio Formats
 - **Input**: WAV, FLAC, MP3, OGG, M4A, AAC, WMA
 - **Output**: WAV (16-bit/24-bit PCM), FLAC (16-bit/24-bit PCM)
+
+## Frequently Modified Files
+
+When working on common tasks, you'll most likely be editing these files:
+
+### Adding New Audio Processing Features
+- [auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py:1) - Main processing pipeline
+- [auralis/dsp/stages.py](auralis/dsp/stages.py:1) - Processing stages (EQ, compression, limiting)
+- [auralis/core/unified_config.py](auralis/core/unified_config.py:1) - Processing configuration
+
+### Modifying the Web UI
+- [auralis-web/frontend/src/components/ComfortableApp.tsx](auralis-web/frontend/src/components/ComfortableApp.tsx:1) - Main app layout
+- [auralis-web/frontend/src/components/CozyLibraryView.tsx](auralis-web/frontend/src/components/CozyLibraryView.tsx:1) - Library view
+- [auralis-web/frontend/src/components/BottomPlayerBar.tsx](auralis-web/frontend/src/components/BottomPlayerBar.tsx:1) - Player controls
+
+### Adding Backend API Endpoints
+- [auralis-web/backend/main.py](auralis-web/backend/main.py:1) - Main API routes (library, player)
+- [auralis-web/backend/processing_api.py](auralis-web/backend/processing_api.py:1) - Processing endpoints
+- [auralis-web/backend/processing_engine.py](auralis-web/backend/processing_engine.py:1) - Background job queue
+
+### Library Management Changes
+- [auralis/library/manager.py](auralis/library/manager.py:1) - Library manager orchestrator
+- [auralis/library/scanner.py](auralis/library/scanner.py:1) - Folder scanning logic
+- [auralis/library/models.py](auralis/library/models.py:1) - Database schema
+
+### Desktop App Configuration
+- [desktop/main.js](desktop/main.js:1) - Electron main process
+- [desktop/package.json](desktop/package.json:1) - Build configuration
+- [scripts/package.js](scripts/package.js:1) - Packaging script
 
 ## UI/UX Design Philosophy
 
@@ -658,17 +724,101 @@ from auralis.analysis.ml_genre_classifier import MLGenreClassifier
 
 When web interface is running:
 
-- **Main UI**: http://localhost:3000 (dev) or http://localhost:8000 (production)
-- **Backend API**: http://localhost:8000/api/
-- **API Documentation**: http://localhost:8000/api/docs (Swagger UI)
-- **Health Check**: http://localhost:8000/api/health
+- **Main UI**: http://localhost:3000 (dev) or http://localhost:8765 (production)
+- **Backend API**: http://localhost:8765/api/
+- **API Documentation**: http://localhost:8765/api/docs (Swagger UI)
+- **Health Check**: http://localhost:8765/api/health
+
+## Deployment Options
+
+Auralis can be deployed in three different modes:
+
+### 1. Web Application (Recommended for Production)
+```bash
+# Production mode
+python launch-auralis-web.py
+# Access at http://localhost:8765
+
+# Custom port
+python launch-auralis-web.py --port 5000
+
+# Development mode with hot reload
+python launch-auralis-web.py --dev
+```
+
+**Use case:** Multi-user access, web-based deployment, server installation
+
+### 2. Desktop Application (Recommended for End Users)
+```bash
+# Development
+npm run dev
+
+# Build standalone app
+npm run package               # Current platform
+npm run package:linux        # Linux (.AppImage, .deb)
+npm run package:win          # Windows (.exe)
+npm run package:mac          # macOS (.dmg)
+```
+
+**Use case:** Single-user, offline usage, native OS integration
+
+### 3. API Server (Headless)
+```bash
+cd auralis-web/backend
+python main.py
+# API only, no UI
+```
+
+**Use case:** Integration with other systems, CLI workflows, automation
 
 ## Troubleshooting
+
+### Common Development Issues
+
+**"Module not found" errors:**
+```bash
+# Ensure virtual environment is activated and dependencies installed
+pip install -r requirements.txt
+pip install pytest pytest-cov soundfile scikit-learn mutagen
+```
+
+**Frontend build errors:**
+```bash
+# Clean and rebuild
+cd auralis-web/frontend
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
+
+**Database errors (library.db):**
+```bash
+# Reset database (WARNING: deletes all library data)
+rm ~/.auralis/library.db
+# Will be recreated on next launch
+```
+
+**WebSocket connection fails:**
+- Ensure backend is running before loading frontend
+- Check CORS settings in [auralis-web/backend/main.py](auralis-web/backend/main.py:1)
+- Verify port 8765 is not blocked by firewall
+
+**Tests failing:**
+```bash
+# Run tests with verbose output to see specific failures
+python -m pytest tests/ -v --tb=short
+
+# Run specific test file
+python -m pytest tests/backend/test_main_api.py -v
+
+# Run with coverage to identify missing tests
+python -m pytest tests/ --cov=auralis --cov-report=term-missing -v
+```
 
 ### Electron Build Issues
 
 **AppImage shows startup error:**
-- Check that port 8000 is not in use: `lsof -ti:8000 | xargs kill -9`
+- Check that port 8765 is not in use: `lsof -ti:8765 | xargs kill -9`
 - Run from terminal to see logs: `./dist/Auralis-1.0.0.AppImage`
 - Look for "Backend ready" and "Frontend loaded" messages
 
@@ -686,8 +836,8 @@ sudo apt-get install -f  # Fix dependencies if needed
 
 **Port conflicts:**
 ```bash
-# Kill process on port 8000
-lsof -ti:8000 | xargs kill -9
+# Kill process on port 8765 (backend)
+lsof -ti:8765 | xargs kill -9
 
 # Kill process on port 3000 (frontend dev server)
 lsof -ti:3000 | xargs kill -9
@@ -789,3 +939,126 @@ Latest builds are production-ready:
 - **UI_IMPLEMENTATION_ROADMAP.md** - Complete 6-week implementation plan with phases
 - **QUICK_START_UI_DEVELOPMENT.md** - Get started immediately with Phase 1 components
 - **UI_COMPONENTS_CHECKLIST.md** - Track progress on all 35+ UI components
+
+## Code Style and Best Practices
+
+### Python Backend
+- **Type hints**: Use type hints for function parameters and return values
+- **Docstrings**: All public classes and functions should have docstrings
+- **Error handling**: Use appropriate exceptions (ValueError, TypeError, etc.)
+- **NumPy arrays**: Preferred over lists for audio processing
+- **Async/await**: Use for I/O operations in FastAPI endpoints
+
+**Example:**
+```python
+from typing import Optional
+import numpy as np
+
+def process_audio(audio: np.ndarray, sample_rate: int, volume: float = 1.0) -> np.ndarray:
+    """
+    Process audio with adaptive mastering.
+
+    Args:
+        audio: Input audio array (samples, channels)
+        sample_rate: Sample rate in Hz
+        volume: Output volume multiplier (0.0-1.0)
+
+    Returns:
+        Processed audio array with same shape as input
+
+    Raises:
+        ValueError: If audio is empty or sample_rate is invalid
+    """
+    if audio.size == 0:
+        raise ValueError("Audio array cannot be empty")
+    # Processing logic here
+    return processed_audio
+```
+
+### React Frontend
+- **TypeScript**: Always use TypeScript, no plain JavaScript
+- **Functional components**: Use hooks instead of class components
+- **Material-UI**: Use MUI components for consistency
+- **State management**: useState for local, context for global state
+- **API calls**: Use the service layer (e.g., `processingService.ts`)
+
+**Example:**
+```typescript
+import React, { useState, useEffect } from 'react';
+import { Button, CircularProgress } from '@mui/material';
+import { processingService } from '../services/processingService';
+
+interface TrackPlayerProps {
+  trackId: string;
+  onPlaybackChange?: (isPlaying: boolean) => void;
+}
+
+export const TrackPlayer: React.FC<TrackPlayerProps> = ({ trackId, onPlaybackChange }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Component logic here
+};
+```
+
+### Database Operations
+- **Use repositories**: Always use repository pattern for database access
+- **Transactions**: Use context managers for database transactions
+- **Eager loading**: Use `joinedload()` to avoid N+1 queries
+- **Error handling**: Catch SQLAlchemy exceptions and return meaningful errors
+
+**Example:**
+```python
+from auralis.library.repositories import TrackRepository
+
+# Good - uses repository
+track_repo = TrackRepository(session)
+tracks = track_repo.get_by_album(album_id)
+
+# Avoid - direct SQLAlchemy queries in business logic
+tracks = session.query(Track).filter_by(album_id=album_id).all()  # Don't do this
+```
+
+### File Organization
+- **Maximum file size**: Keep modules under 300 lines
+- **One class per file**: Except for related dataclasses
+- **Use `__init__.py`**: Export public API from sub-packages
+- **Avoid circular imports**: Use factory functions or forward references
+
+### Testing
+- **Test file naming**: `test_<module_name>.py`
+- **Test function naming**: `test_<function_name>_<scenario>`
+- **Arrange-Act-Assert**: Structure tests clearly
+- **Fixtures**: Use pytest fixtures for common setup
+- **Mock external dependencies**: Use `unittest.mock` or `pytest-mock`
+
+**Example:**
+```python
+def test_process_audio_with_volume():
+    # Arrange
+    audio = np.random.randn(44100, 2)
+    processor = HybridProcessor()
+
+    # Act
+    result = processor.process(audio, volume=0.5)
+
+    # Assert
+    assert result.shape == audio.shape
+    assert np.max(np.abs(result)) <= 1.0
+```
+
+### Common Pitfalls to Avoid
+- ❌ Don't modify audio files in place (always create new outputs)
+- ❌ Don't use blocking I/O in FastAPI endpoints (use async)
+- ❌ Don't hardcode file paths (use Path objects and configuration)
+- ❌ Don't access database directly from UI components (use API)
+- ❌ Don't commit large audio files to git (use .gitignore)
+- ❌ Don't use `print()` for logging (use Python `logging` module)
+
+### Performance Considerations
+- ✅ Use NumPy vectorized operations instead of loops
+- ✅ Cache expensive computations with `@lru_cache`
+- ✅ Use generators for large datasets
+- ✅ Profile before optimizing (use `cProfile` or `py-spy`)
+- ✅ Use memory pools for repeated array allocations
+- ✅ Batch database operations when possible

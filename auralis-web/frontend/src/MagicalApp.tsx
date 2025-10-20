@@ -68,7 +68,7 @@ function MagicalApp() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // WebSocket connection for real-time updates
-  const { connected, lastMessage } = useWebSocket('ws://localhost:8000/ws');
+  const { connected, lastMessage } = useWebSocket('ws://localhost:8765/ws');
 
   // Handle WebSocket messages
   useEffect(() => {
