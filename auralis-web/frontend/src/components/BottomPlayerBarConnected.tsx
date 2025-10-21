@@ -128,12 +128,10 @@ export const BottomPlayerBarConnected: React.FC = () => {
       // Reset audio time to 0
       setAudioCurrentTime(0);
 
-      // Auto-play if isPlaying is true (from backend state)
-      if (isPlaying) {
-        audioRef.current.play().catch(err => console.error('Auto-play failed:', err));
-      }
+      // Don't auto-play here - let the user control playback with play/pause button
+      // The audio element will be ready to play when user clicks play
     }
-  }, [currentTrack, isPlaying]);
+  }, [currentTrack]); // Only re-run when currentTrack changes, not isPlaying
 
   // Note: Playback is now controlled directly via play/pause button
   // The audio element is the source of truth, not the backend isPlaying state
