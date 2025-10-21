@@ -11,6 +11,7 @@ Track queue management for audio playback
 """
 
 from typing import List, Dict, Any, Optional
+import random
 
 
 class QueueManager:
@@ -69,6 +70,137 @@ class QueueManager:
         """Clear the queue"""
         self.tracks.clear()
         self.current_index = -1
+
+    def remove_track(self, index: int) -> bool:
+        """
+        Remove a track at the specified index
+
+        Args:
+            index: Index of track to remove
+
+        Returns:
+            True if track was removed, False if index was invalid
+        """
+        if 0 <= index < len(self.tracks):
+            self.tracks.pop(index)
+
+            # Adjust current_index if necessary
+            if index < self.current_index:
+                self.current_index -= 1
+            elif index == self.current_index:
+                # If we removed the current track, stay at the same index
+                # (which now points to the next track)
+                if self.current_index >= len(self.tracks):
+                    self.current_index = len(self.tracks) - 1
+
+            return True
+        return False
+
+    def remove_tracks(self, indices: List[int]) -> int:
+        """
+        Remove multiple tracks at specified indices
+
+        Args:
+            indices: List of track indices to remove
+
+        Returns:
+            Number of tracks actually removed
+        """
+        # Sort indices in reverse order to avoid index shifting issues
+        sorted_indices = sorted(set(indices), reverse=True)
+        removed_count = 0
+
+        for index in sorted_indices:
+            if self.remove_track(index):
+                removed_count += 1
+
+        return removed_count
+
+    def reorder_tracks(self, new_order: List[int]) -> bool:
+        """
+        Reorder tracks according to new index order
+
+        Args:
+            new_order: List of indices representing new order
+
+        Returns:
+            True if reordering was successful, False otherwise
+        """
+        if len(new_order) != len(self.tracks):
+            return False
+
+        # Verify all indices are valid
+        if set(new_order) != set(range(len(self.tracks))):
+            return False
+
+        # Find current track ID to maintain playback
+        current_track = self.get_current_track()
+        current_track_id = current_track.get('id') if current_track else None
+
+        # Reorder tracks
+        self.tracks = [self.tracks[i] for i in new_order]
+
+        # Update current_index to point to the same track
+        if current_track_id is not None:
+            for i, track in enumerate(self.tracks):
+                if track.get('id') == current_track_id:
+                    self.current_index = i
+                    break
+
+        return True
+
+    def shuffle(self):
+        """Shuffle the queue, keeping the current track in place"""
+        if len(self.tracks) <= 1:
+            return
+
+        current_track = self.get_current_track()
+        current_track_id = current_track.get('id') if current_track else None
+
+        # Shuffle all tracks
+        random.shuffle(self.tracks)
+
+        # If there was a current track, move it to the front
+        if current_track_id is not None:
+            for i, track in enumerate(self.tracks):
+                if track.get('id') == current_track_id:
+                    # Swap current track to position 0
+                    self.tracks[0], self.tracks[i] = self.tracks[i], self.tracks[0]
+                    self.current_index = 0
+                    break
+
+    def get_queue(self) -> List[Dict[str, Any]]:
+        """
+        Get the entire queue
+
+        Returns:
+            List of track info dictionaries
+        """
+        return self.tracks.copy()
+
+    def get_queue_size(self) -> int:
+        """
+        Get the size of the queue
+
+        Returns:
+            Number of tracks in queue
+        """
+        return len(self.tracks)
+
+    def set_track_by_index(self, index: int) -> Optional[Dict[str, Any]]:
+        """
+        Set current track by index (jump to track in queue)
+
+        Args:
+            index: Index of track to play
+
+        Returns:
+            Track info if valid index, None otherwise
+        """
+        if 0 <= index < len(self.tracks):
+            self.current_index = index
+            return self.get_current_track()
+        return None
 
 
 def create_queue_manager() -> QueueManager:

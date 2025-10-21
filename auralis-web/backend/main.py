@@ -727,6 +727,177 @@ async def add_to_queue(track_path: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to add to queue: {e}")
 
+@app.delete("/api/player/queue/{index}")
+async def remove_from_queue(index: int):
+    """Remove track from queue at specified index"""
+    if not player_state_manager:
+        raise HTTPException(status_code=503, detail="Player not available")
+    if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        raise HTTPException(status_code=503, detail="Queue manager not available")
+
+    try:
+        queue_manager = audio_player.queue_manager
+
+        # Validate index
+        if index < 0 or index >= queue_manager.get_queue_size():
+            raise HTTPException(status_code=400, detail=f"Invalid index: {index}")
+
+        # Remove track from queue
+        success = queue_manager.remove_track(index)
+
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to remove track")
+
+        # Get updated queue
+        updated_queue = queue_manager.get_queue()
+
+        # Broadcast queue update
+        await manager.broadcast({
+            "type": "queue_updated",
+            "data": {
+                "action": "removed",
+                "index": index,
+                "queue_size": len(updated_queue)
+            }
+        })
+
+        return {
+            "message": "Track removed from queue",
+            "index": index,
+            "queue_size": len(updated_queue)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to remove from queue: {e}")
+
+class ReorderQueueRequest(BaseModel):
+    new_order: List[int]  # New order of track indices
+
+@app.put("/api/player/queue/reorder")
+async def reorder_queue(request: ReorderQueueRequest):
+    """Reorder the playback queue"""
+    if not player_state_manager:
+        raise HTTPException(status_code=503, detail="Player not available")
+    if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        raise HTTPException(status_code=503, detail="Queue manager not available")
+
+    try:
+        queue_manager = audio_player.queue_manager
+
+        # Validate new_order
+        queue_size = queue_manager.get_queue_size()
+        if len(request.new_order) != queue_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"new_order length ({len(request.new_order)}) must match queue size ({queue_size})"
+            )
+
+        if set(request.new_order) != set(range(queue_size)):
+            raise HTTPException(
+                status_code=400,
+                detail="new_order must contain all indices from 0 to queue_size-1 exactly once"
+            )
+
+        # Reorder queue
+        success = queue_manager.reorder_tracks(request.new_order)
+
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to reorder queue")
+
+        # Get updated queue
+        updated_queue = queue_manager.get_queue()
+
+        # Broadcast queue update
+        await manager.broadcast({
+            "type": "queue_updated",
+            "data": {
+                "action": "reordered",
+                "queue_size": len(updated_queue)
+            }
+        })
+
+        return {
+            "message": "Queue reordered successfully",
+            "queue_size": len(updated_queue)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reorder queue: {e}")
+
+@app.post("/api/player/queue/clear")
+async def clear_queue():
+    """Clear the entire playback queue"""
+    if not player_state_manager:
+        raise HTTPException(status_code=503, detail="Player not available")
+    if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        raise HTTPException(status_code=503, detail="Queue manager not available")
+
+    try:
+        queue_manager = audio_player.queue_manager
+
+        # Clear queue
+        queue_manager.clear()
+
+        # Stop playback
+        if hasattr(audio_player, 'stop'):
+            audio_player.stop()
+
+        # Update player state
+        await player_state_manager.set_playing(False)
+        await player_state_manager.set_track(None, None)
+
+        # Broadcast queue update
+        await manager.broadcast({
+            "type": "queue_updated",
+            "data": {
+                "action": "cleared",
+                "queue_size": 0
+            }
+        })
+
+        return {"message": "Queue cleared successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear queue: {e}")
+
+@app.post("/api/player/queue/shuffle")
+async def shuffle_queue():
+    """Shuffle the playback queue (keeps current track in place)"""
+    if not player_state_manager:
+        raise HTTPException(status_code=503, detail="Player not available")
+    if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        raise HTTPException(status_code=503, detail="Queue manager not available")
+
+    try:
+        queue_manager = audio_player.queue_manager
+
+        # Shuffle queue
+        queue_manager.shuffle()
+
+        # Get updated queue
+        updated_queue = queue_manager.get_queue()
+
+        # Broadcast queue update
+        await manager.broadcast({
+            "type": "queue_updated",
+            "data": {
+                "action": "shuffled",
+                "queue_size": len(updated_queue)
+            }
+        })
+
+        return {
+            "message": "Queue shuffled successfully",
+            "queue_size": len(updated_queue)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to shuffle queue: {e}")
+
 @app.post("/api/player/next")
 async def next_track():
     """Skip to next track"""

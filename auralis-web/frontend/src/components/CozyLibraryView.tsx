@@ -15,12 +15,13 @@ import {
 } from '@mui/icons-material';
 import AlbumCard from './library/AlbumCard';
 import TrackRow from './library/TrackRow';
-import TrackQueue from './player/TrackQueue';
+import EnhancedTrackQueue from './player/EnhancedTrackQueue';
 import SearchBar from './navigation/SearchBar';
 import ViewToggle, { ViewMode } from './navigation/ViewToggle';
 import { LibraryGridSkeleton, TrackRowSkeleton } from './shared/SkeletonLoader';
 import { useToast } from './shared/Toast';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
+import * as queueService from '../services/queueService';
 
 interface Track {
   id: number;
@@ -374,7 +375,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
 
           {/* Track Queue - Shows current album/playlist tracks */}
           {filteredTracks.length > 0 && (
-            <TrackQueue
+            <EnhancedTrackQueue
               tracks={filteredTracks.map(t => ({
                 id: t.id,
                 title: t.title,
@@ -386,6 +387,46 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
                 const track = filteredTracks.find(t => t.id === trackId);
                 if (track) {
                   handlePlayTrack(track);
+                }
+              }}
+              onRemoveTrack={async (index) => {
+                try {
+                  await queueService.removeTrackFromQueue(index);
+                  info('Track removed from queue');
+                  // Refresh tracks to reflect queue changes
+                  fetchTracks();
+                } catch (err) {
+                  error('Failed to remove track from queue');
+                }
+              }}
+              onReorderQueue={async (newOrder) => {
+                try {
+                  await queueService.reorderQueue(newOrder);
+                  success('Queue reordered');
+                  // Refresh tracks to reflect queue changes
+                  fetchTracks();
+                } catch (err) {
+                  error('Failed to reorder queue');
+                }
+              }}
+              onShuffleQueue={async () => {
+                try {
+                  await queueService.shuffleQueue();
+                  success('Queue shuffled');
+                  // Refresh tracks to reflect queue changes
+                  fetchTracks();
+                } catch (err) {
+                  error('Failed to shuffle queue');
+                }
+              }}
+              onClearQueue={async () => {
+                try {
+                  await queueService.clearQueue();
+                  info('Queue cleared');
+                  // Refresh tracks to reflect queue changes
+                  fetchTracks();
+                } catch (err) {
+                  error('Failed to clear queue');
                 }
               }}
               title="Current Queue"
