@@ -94,6 +94,11 @@ export const BottomPlayerBarConnected: React.FC = () => {
   const [isLoved, setIsLoved] = useState(false);
   const [isEnhanced, setIsEnhanced] = useState(true);
   const [localVolume, setLocalVolume] = useState(apiVolume);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [isFavoriting, setIsFavoriting] = useState(false);
+
+  // HTML5 Audio element ref for actual playback
+  const audioRef = React.useRef<HTMLAudioElement>(null);
 
   const { success, info, error: showError } = useToast();
 
@@ -108,6 +113,37 @@ export const BottomPlayerBarConnected: React.FC = () => {
       showError(error);
     }
   }, [error, showError]);
+
+  // Load new track into audio element when currentTrack changes
+  useEffect(() => {
+    if (currentTrack && audioRef.current) {
+      const streamUrl = `http://localhost:8765/api/player/stream/${currentTrack.id}`;
+      audioRef.current.src = streamUrl;
+      audioRef.current.load();
+      console.log(`Loaded audio stream: ${streamUrl}`);
+
+      // Update favorite status for new track
+      setIsLoved(currentTrack.favorite || false);
+
+      // Reset audio time to 0
+      setAudioCurrentTime(0);
+
+      // Auto-play if isPlaying is true (from backend state)
+      if (isPlaying) {
+        audioRef.current.play().catch(err => console.error('Auto-play failed:', err));
+      }
+    }
+  }, [currentTrack, isPlaying]);
+
+  // Note: Playback is now controlled directly via play/pause button
+  // The audio element is the source of truth, not the backend isPlaying state
+
+  // Sync volume with audio element
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = (isMuted ? 0 : localVolume) / 100;
+    }
+  }, [localVolume, isMuted]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -158,14 +194,19 @@ export const BottomPlayerBarConnected: React.FC = () => {
   }, [isPlaying, isMuted, isLoved, currentTrack]);
 
   const handlePlayPauseClick = async () => {
-    await togglePlayPause();
-    if (currentTrack) {
-      if (!isPlaying) {
-        info(`Playing: ${currentTrack.title}`);
-      } else {
-        info('Paused');
-      }
+    if (!audioRef.current) return;
+
+    // Directly control HTML5 audio element
+    if (audioRef.current.paused) {
+      await audioRef.current.play();
+      info(`Playing: ${currentTrack?.title || ''}`);
+    } else {
+      audioRef.current.pause();
+      info('Paused');
     }
+
+    // Also sync with backend (don't wait for it)
+    togglePlayPause().catch(err => console.error('Backend sync error:', err));
   };
 
   const handleNextClick = async () => {
@@ -211,18 +252,39 @@ export const BottomPlayerBarConnected: React.FC = () => {
     }
   };
 
-  const handleLoveToggle = () => {
+  const handleLoveToggle = async () => {
+    if (!currentTrack || isFavoriting) return;
+
     const newLovedState = !isLoved;
+    setIsFavoriting(true);
     setIsLoved(newLovedState);
-    if (currentTrack) {
+
+    try {
+      const url = `http://localhost:8765/api/library/tracks/${currentTrack.id}/favorite`;
+      const method = newLovedState ? 'POST' : 'DELETE';
+
+      const response = await fetch(url, { method });
+
+      if (!response.ok) {
+        throw new Error('Failed to update favorite');
+      }
+
       success(newLovedState ? `Added "${currentTrack.title}" to favorites` : 'Removed from favorites');
+    } catch (error) {
+      console.error('Failed to update favorite:', error);
+      // Revert the state if API call failed
+      setIsLoved(!newLovedState);
+      showError('Failed to update favorite');
+    } finally {
+      setIsFavoriting(false);
     }
-    // TODO: Send to backend to update favorites
   };
 
   const handleSeek = (_: Event, value: number | number[]) => {
     const newTime = value as number;
-    seek(newTime);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+    }
   };
 
   if (!currentTrack) {
@@ -248,8 +310,8 @@ export const BottomPlayerBarConnected: React.FC = () => {
     <PlayerContainer>
       {/* Progress Bar */}
       <GradientSlider
-        value={currentTime}
-        max={duration || currentTrack.duration}
+        value={audioCurrentTime}
+        max={duration || currentTrack?.duration || 0}
         onChange={handleSeek}
         sx={{
           height: 4,
@@ -376,7 +438,7 @@ export const BottomPlayerBarConnected: React.FC = () => {
           {/* Time Display */}
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Typography variant="caption" sx={{ color: colors.text.secondary, fontSize: 12 }}>
-              {formatTime(currentTime)}
+              {formatTime(audioCurrentTime)}
             </Typography>
             <Typography variant="caption" sx={{ color: colors.text.disabled, fontSize: 12 }}>
               /
@@ -433,6 +495,25 @@ export const BottomPlayerBarConnected: React.FC = () => {
           </Box>
         </Box>
       </Box>
+
+      {/* HTML5 Audio Element - Hidden but provides actual playback */}
+      <audio
+        ref={audioRef}
+        style={{ display: 'none' }}
+        onTimeUpdate={(e) => {
+          // Update local state for progress bar (don't call backend API)
+          const audio = e.currentTarget;
+          setAudioCurrentTime(audio.currentTime);
+        }}
+        onEnded={() => {
+          // Auto-advance to next track
+          next();
+        }}
+        onError={(e) => {
+          console.error('Audio playback error:', e);
+          showError('Audio playback failed');
+        }}
+      />
     </PlayerContainer>
   );
 };

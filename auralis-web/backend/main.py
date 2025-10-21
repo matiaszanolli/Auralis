@@ -15,7 +15,7 @@ Replaces the Tkinter GUI with a professional web interface.
 from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from pydantic import BaseModel
 import uvicorn
 import asyncio
@@ -289,6 +289,57 @@ async def get_tracks(limit: int = 50, offset: int = 0, search: Optional[str] = N
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get tracks: {e}")
 
+@app.get("/api/library/tracks/favorites")
+async def get_favorite_tracks(limit: int = 100):
+    """Get all favorite tracks"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        tracks = library_manager.tracks.get_favorites(limit=limit)
+
+        # Convert to dicts for JSON serialization
+        tracks_data = []
+        for track in tracks:
+            if hasattr(track, 'to_dict'):
+                tracks_data.append(track.to_dict())
+
+        return {
+            "tracks": tracks_data,
+            "total": len(tracks_data)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get favorite tracks: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get favorites: {e}")
+
+@app.post("/api/library/tracks/{track_id}/favorite")
+async def set_track_favorite(track_id: int):
+    """Mark track as favorite"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        library_manager.tracks.set_favorite(track_id, True)
+        logger.info(f"Track {track_id} marked as favorite")
+        return {"message": "Track marked as favorite", "track_id": track_id, "favorite": True}
+    except Exception as e:
+        logger.error(f"Failed to set favorite: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to set favorite: {e}")
+
+@app.delete("/api/library/tracks/{track_id}/favorite")
+async def remove_track_favorite(track_id: int):
+    """Remove track from favorites"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        library_manager.tracks.set_favorite(track_id, False)
+        logger.info(f"Track {track_id} removed from favorites")
+        return {"message": "Track removed from favorites", "track_id": track_id, "favorite": False}
+    except Exception as e:
+        logger.error(f"Failed to remove favorite: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to remove favorite: {e}")
+
 @app.get("/api/library/artists")
 async def get_artists():
     """Get all artists"""
@@ -405,6 +456,54 @@ async def get_player_status():
         return state.model_dump()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
+
+@app.get("/api/player/stream/{track_id}")
+async def stream_audio(track_id: int):
+    """
+    Stream audio file to frontend for playback via HTML5 Audio API
+
+    This endpoint serves the audio file directly, allowing the browser
+    to handle playback using its native audio capabilities.
+    """
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library not available")
+
+    try:
+        # Get track from library
+        track = library_manager.tracks.get_by_id(track_id)
+        if not track:
+            raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
+
+        # Check if file exists
+        if not os.path.exists(track.filepath):
+            raise HTTPException(status_code=404, detail=f"Audio file not found: {track.filepath}")
+
+        # Determine MIME type based on file extension
+        ext = os.path.splitext(track.filepath)[1].lower()
+        mime_types = {
+            '.mp3': 'audio/mpeg',
+            '.flac': 'audio/flac',
+            '.wav': 'audio/wav',
+            '.ogg': 'audio/ogg',
+            '.m4a': 'audio/mp4',
+            '.aac': 'audio/aac'
+        }
+        media_type = mime_types.get(ext, 'audio/mpeg')
+
+        # Return the audio file with proper headers for streaming
+        return FileResponse(
+            track.filepath,
+            media_type=media_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Content-Disposition": f"inline; filename=\"{os.path.basename(track.filepath)}\""
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to stream audio: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to stream audio: {e}")
 
 @app.post("/api/player/load")
 async def load_track(track_path: str):

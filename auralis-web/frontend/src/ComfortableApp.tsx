@@ -32,6 +32,7 @@ function ComfortableApp() {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
 
   // WebSocket connection for real-time updates
   const { connected } = useWebSocket('ws://localhost:8765/ws');
@@ -89,6 +90,7 @@ function ComfortableApp() {
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onNavigate={setCurrentView}
         />
 
         {/* Main Content Area */}
@@ -208,6 +210,7 @@ function ComfortableApp() {
             <CozyLibraryView
               onTrackPlay={handleTrackPlay}
               onEnhancementToggle={handleEnhancementToggle}
+              view={currentView}
             />
           </Box>
         </Box>
