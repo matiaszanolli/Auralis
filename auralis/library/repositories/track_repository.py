@@ -294,7 +294,7 @@ class TrackRepository:
                 session.query(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
                 .filter(Track.favorite == True)
-                .order_by(Track.date_modified.desc())
+                .order_by(Track.title.asc())
                 .limit(limit)
                 .all()
             )

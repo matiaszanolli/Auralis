@@ -30,6 +30,7 @@ import { colors, gradients } from '../theme/auralisTheme';
 interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  onNavigate?: (view: string) => void;
 }
 
 const SidebarContainer = styled(Box)({
@@ -80,7 +81,7 @@ const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }>(({ is
   },
 }));
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }) => {
+const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, onNavigate }) => {
   const [playlistsOpen, setPlaylistsOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState('songs');
 
@@ -104,6 +105,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse }
 
   const handleItemClick = (itemId: string) => {
     setSelectedItem(itemId);
+    if (onNavigate) {
+      onNavigate(itemId);
+    }
   };
 
   if (collapsed) {

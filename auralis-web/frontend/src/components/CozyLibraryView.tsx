@@ -38,10 +38,12 @@ interface Track {
 interface CozyLibraryViewProps {
   onTrackPlay?: (track: Track) => void;
   onEnhancementToggle?: (trackId: number, enabled: boolean) => void;
+  view?: string;
 }
 
 const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
-  onTrackPlay
+  onTrackPlay,
+  view = 'songs'
 }) => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,25 +62,36 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const fetchTracks = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8765/api/library/tracks?limit=100');
+      // Determine which endpoint to use based on view
+      const endpoint = view === 'favourites'
+        ? 'http://localhost:8765/api/library/tracks/favorites'
+        : 'http://localhost:8765/api/library/tracks?limit=100';
+
+      const response = await fetch(endpoint);
       if (response.ok) {
         const data = await response.json();
         setTracks(data.tracks || []);
-        console.log('Loaded', data.tracks?.length || 0, 'tracks from library');
+        console.log('Loaded', data.tracks?.length || 0, view === 'favourites' ? 'favorite tracks' : 'tracks from library');
         if (data.tracks && data.tracks.length > 0) {
-          success(`Loaded ${data.tracks.length} tracks`);
+          success(`Loaded ${data.tracks.length} ${view === 'favourites' ? 'favorites' : 'tracks'}`);
+        } else if (view === 'favourites') {
+          info('No favorites yet. Click the heart icon on tracks to add them!');
         }
       } else {
         console.error('Failed to fetch tracks');
         error('Failed to load library');
-        // Fall back to mock data
-        loadMockData();
+        // Fall back to mock data only for regular view
+        if (view !== 'favourites') {
+          loadMockData();
+        }
       }
     } catch (err) {
       console.error('Error fetching tracks:', err);
       error('Failed to connect to server');
-      // Fall back to mock data
-      loadMockData();
+      // Fall back to mock data only for regular view
+      if (view !== 'favourites') {
+        loadMockData();
+      }
     } finally {
       setLoading(false);
     }
@@ -195,10 +208,10 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
     setFilteredTracks(mockTracks);
   };
 
-  // Initial load
+  // Initial load and reload when view changes
   useEffect(() => {
     fetchTracks();
-  }, []);
+  }, [view]);
 
   // Filter tracks based on search
   useEffect(() => {
@@ -251,10 +264,10 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
             WebkitTextFillColor: 'transparent'
           }}
         >
-          🎵 Your Music Collection
+          {view === 'favourites' ? '❤️ Your Favorites' : '🎵 Your Music Collection'}
         </Typography>
         <Typography variant="subtitle1" color="text.secondary">
-          Rediscover the magic in every song
+          {view === 'favourites' ? 'Your most loved tracks' : 'Rediscover the magic in every song'}
         </Typography>
       </Box>
 
@@ -429,10 +442,14 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
         >
           <MusicNote sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            No music found
+            {view === 'favourites' ? 'No favorites yet' : 'No music found'}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {searchQuery ? 'Try adjusting your search terms' : 'Start by adding some music to your library'}
+            {view === 'favourites'
+              ? 'Click the heart icon on tracks you love to add them to your favorites'
+              : searchQuery
+                ? 'Try adjusting your search terms'
+                : 'Start by adding some music to your library'}
           </Typography>
         </Paper>
       )}
