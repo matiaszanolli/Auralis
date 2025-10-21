@@ -26,17 +26,29 @@ class ArtistRepository:
         return self.session_factory()
 
     def get_by_name(self, name: str) -> Optional[Artist]:
-        """Get artist by name"""
+        """Get artist by name with relationships loaded"""
         session = self.get_session()
         try:
-            return session.query(Artist).filter(Artist.name == name).first()
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Artist)
+                .options(joinedload(Artist.tracks), joinedload(Artist.albums))
+                .filter(Artist.name == name)
+                .first()
+            )
         finally:
             session.close()
 
     def get_all(self) -> List[Artist]:
-        """Get all artists"""
+        """Get all artists with relationships loaded"""
         session = self.get_session()
         try:
-            return session.query(Artist).order_by(Artist.name).all()
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Artist)
+                .options(joinedload(Artist.tracks), joinedload(Artist.albums))
+                .order_by(Artist.name)
+                .all()
+            )
         finally:
             session.close()

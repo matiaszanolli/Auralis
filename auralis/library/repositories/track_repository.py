@@ -124,18 +124,30 @@ class TrackRepository:
             session.close()
 
     def get_by_id(self, track_id: int) -> Optional[Track]:
-        """Get track by ID"""
+        """Get track by ID with relationships loaded"""
         session = self.get_session()
         try:
-            return session.query(Track).filter(Track.id == track_id).first()
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .filter(Track.id == track_id)
+                .first()
+            )
         finally:
             session.close()
 
     def get_by_path(self, filepath: str) -> Optional[Track]:
-        """Get track by file path"""
+        """Get track by file path with relationships loaded"""
         session = self.get_session()
         try:
-            return session.query(Track).filter(Track.filepath == filepath).first()
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .filter(Track.filepath == filepath)
+                .first()
+            )
         finally:
             session.close()
 
@@ -244,26 +256,48 @@ class TrackRepository:
             session.close()
 
     def get_recent(self, limit: int = 50) -> List[Track]:
-        """Get recently added tracks"""
+        """Get recently added tracks with relationships loaded"""
         session = self.get_session()
         try:
-            return session.query(Track).order_by(Track.created_at.desc()).limit(limit).all()
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .order_by(Track.created_at.desc())
+                .limit(limit)
+                .all()
+            )
         finally:
             session.close()
 
     def get_popular(self, limit: int = 50) -> List[Track]:
-        """Get most played tracks"""
+        """Get most played tracks with relationships loaded"""
         session = self.get_session()
         try:
-            return session.query(Track).order_by(Track.play_count.desc()).limit(limit).all()
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .order_by(Track.play_count.desc())
+                .limit(limit)
+                .all()
+            )
         finally:
             session.close()
 
     def get_favorites(self, limit: int = 50) -> List[Track]:
-        """Get favorite tracks"""
+        """Get favorite tracks with relationships loaded"""
         session = self.get_session()
         try:
-            return session.query(Track).filter(Track.favorite == True).order_by(Track.date_modified.desc()).limit(limit).all()
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .filter(Track.favorite == True)
+                .order_by(Track.date_modified.desc())
+                .limit(limit)
+                .all()
+            )
         finally:
             session.close()
 

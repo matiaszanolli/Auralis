@@ -26,17 +26,29 @@ class AlbumRepository:
         return self.session_factory()
 
     def get_by_title(self, title: str) -> Optional[Album]:
-        """Get album by title"""
+        """Get album by title with relationships loaded"""
         session = self.get_session()
         try:
-            return session.query(Album).filter(Album.title == title).first()
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Album)
+                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .filter(Album.title == title)
+                .first()
+            )
         finally:
             session.close()
 
     def get_all(self) -> List[Album]:
-        """Get all albums"""
+        """Get all albums with relationships loaded"""
         session = self.get_session()
         try:
-            return session.query(Album).order_by(Album.title).all()
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Album)
+                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .order_by(Album.title)
+                .all()
+            )
         finally:
             session.close()
