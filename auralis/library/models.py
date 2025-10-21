@@ -172,6 +172,9 @@ class Album(Base, TimestampMixin):
     total_tracks = Column(Integer)
     total_discs = Column(Integer)
 
+    # Album artwork
+    artwork_path = Column(String)  # Path to extracted album artwork
+
     # Album-level analysis
     avg_dr_rating = Column(Float)
     avg_lufs = Column(Float)
@@ -190,6 +193,7 @@ class Album(Base, TimestampMixin):
             'year': self.year,
             'total_tracks': self.total_tracks,
             'total_discs': self.total_discs,
+            'artwork_path': self.artwork_path,
             'avg_dr_rating': self.avg_dr_rating,
             'avg_lufs': self.avg_lufs,
             'mastering_consistency': self.mastering_consistency,

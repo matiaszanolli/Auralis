@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardMedia, CardContent, Typography, Box, IconButton, styled } from '@mui/material';
 import { PlayArrow, MoreVert } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
+import AlbumArt from '../album/AlbumArt';
 // import { useContextMenu, ContextMenu, getAlbumContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
 
@@ -9,6 +10,7 @@ interface AlbumCardProps {
   id: number;
   title: string;
   artist: string;
+  albumId?: number;
   albumArt?: string;
   trackCount?: number;
   onPlay: (id: number) => void;
@@ -118,14 +120,12 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   id,
   title,
   artist,
+  albumId,
   albumArt,
   trackCount,
   onPlay,
   onContextMenu,
 }) => {
-  const [imageError, setImageError] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-
   // Context menu state - temporarily disabled for build
   // const { contextMenuState, handleContextMenu: handleContextMenuBase, handleCloseContextMenu } = useContextMenu();
   const { success, info } = useToast();
@@ -172,37 +172,10 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   return (
     <StyledCard onClick={handleCardClick}>
       <Box position="relative">
-        {imageError || !albumArt ? (
-          <PlaceholderBox>
-            <PlaceholderIcon>♪</PlaceholderIcon>
-          </PlaceholderBox>
-        ) : (
-          <>
-            {!imageLoaded && (
-              <Box
-                sx={{
-                  width: '100%',
-                  paddingTop: '100%',
-                  background: 'linear-gradient(135deg, #252b45 0%, #1a1f3a 100%)',
-                  animation: 'pulse 1.5s ease-in-out infinite',
-                }}
-              />
-            )}
-            <CardMedia
-              component="img"
-              image={albumArt}
-              alt={title}
-              onError={() => setImageError(true)}
-              onLoad={() => setImageLoaded(true)}
-              sx={{
-                width: '100%',
-                aspectRatio: '1/1',
-                objectFit: 'cover',
-                display: imageLoaded ? 'block' : 'none',
-              }}
-            />
-          </>
-        )}
+        {/* Use AlbumArt component for real artwork extraction */}
+        <Box sx={{ width: '100%', aspectRatio: '1/1' }}>
+          <AlbumArt albumId={albumId} size="100%" borderRadius={0} />
+        </Box>
 
         <PlayOverlay className="play-overlay">
           <PlayButton onClick={handlePlay} aria-label="Play">

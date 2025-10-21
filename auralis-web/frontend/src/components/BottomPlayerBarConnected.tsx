@@ -29,6 +29,7 @@ import { GradientSlider } from './shared/GradientSlider';
 import { colors, gradients } from '../theme/auralisTheme';
 import { useToast } from './shared/Toast';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
+import AlbumArtComponent from './album/AlbumArt';
 
 const PlayerContainer = styled(Box)({
   position: 'fixed',
@@ -63,12 +64,12 @@ const PlayButton = styled(IconButton)({
   },
 });
 
-const AlbumArt = styled(Box)({
+const AlbumArtContainer = styled(Box)({
   width: '64px',
   height: '64px',
   borderRadius: '6px',
   flexShrink: 0,
-  objectFit: 'cover',
+  overflow: 'hidden',
   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
 });
 
@@ -336,11 +337,14 @@ export const BottomPlayerBarConnected: React.FC = () => {
         {/* Left: Track Info */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
           {/* Album Art */}
-          <AlbumArt
-            component="img"
-            src={currentTrack.albumArt || '/placeholder-album.jpg'}
-            alt={currentTrack.album}
-          />
+          <AlbumArtContainer>
+            <AlbumArtComponent
+              albumId={currentTrack.album_id}
+              size={64}
+              borderRadius={6}
+              showSkeleton={false}
+            />
+          </AlbumArtContainer>
 
           {/* Track Details */}
           <Box sx={{ minWidth: 0, flex: 1 }}>

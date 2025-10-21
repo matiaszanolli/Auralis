@@ -352,6 +352,363 @@ async def get_artists():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get artists: {e}")
 
+# ============================================================================
+# PLAYLIST MANAGEMENT ENDPOINTS
+# ============================================================================
+
+@app.get("/api/playlists")
+async def get_playlists():
+    """Get all playlists"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        playlists = library_manager.playlists.get_all()
+        return {
+            "playlists": [p.to_dict() for p in playlists],
+            "total": len(playlists)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get playlists: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get playlists: {e}")
+
+@app.get("/api/playlists/{playlist_id}")
+async def get_playlist(playlist_id: int):
+    """Get playlist by ID with all tracks"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        playlist = library_manager.playlists.get_by_id(playlist_id)
+        if not playlist:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+
+        playlist_dict = playlist.to_dict()
+        # Add full track details
+        playlist_dict['tracks'] = [track.to_dict() for track in playlist.tracks]
+
+        return playlist_dict
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get playlist: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get playlist: {e}")
+
+class CreatePlaylistRequest(BaseModel):
+    name: str
+    description: str = ""
+    track_ids: List[int] = []
+
+@app.post("/api/playlists")
+async def create_playlist(request: CreatePlaylistRequest):
+    """Create a new playlist"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        playlist = library_manager.playlists.create(
+            name=request.name,
+            description=request.description,
+            track_ids=request.track_ids if request.track_ids else None
+        )
+
+        if not playlist:
+            raise HTTPException(status_code=400, detail="Failed to create playlist")
+
+        # Broadcast playlist created event
+        await manager.broadcast({
+            "type": "playlist_created",
+            "data": {
+                "playlist_id": playlist.id,
+                "name": playlist.name
+            }
+        })
+
+        return {
+            "message": f"Playlist '{request.name}' created",
+            "playlist": playlist.to_dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create playlist: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create playlist: {e}")
+
+class UpdatePlaylistRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+@app.put("/api/playlists/{playlist_id}")
+async def update_playlist(playlist_id: int, request: UpdatePlaylistRequest):
+    """Update playlist name or description"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        # Build update data dictionary
+        update_data = {}
+        if request.name is not None:
+            update_data['name'] = request.name
+        if request.description is not None:
+            update_data['description'] = request.description
+
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No update data provided")
+
+        success = library_manager.playlists.update(playlist_id, update_data)
+
+        if not success:
+            raise HTTPException(status_code=404, detail="Playlist not found or update failed")
+
+        # Broadcast playlist updated event
+        await manager.broadcast({
+            "type": "playlist_updated",
+            "data": {
+                "playlist_id": playlist_id,
+                "updates": update_data
+            }
+        })
+
+        return {"message": "Playlist updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update playlist: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update playlist: {e}")
+
+@app.delete("/api/playlists/{playlist_id}")
+async def delete_playlist(playlist_id: int):
+    """Delete a playlist"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        success = library_manager.playlists.delete(playlist_id)
+
+        if not success:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+
+        # Broadcast playlist deleted event
+        await manager.broadcast({
+            "type": "playlist_deleted",
+            "data": {
+                "playlist_id": playlist_id
+            }
+        })
+
+        return {"message": "Playlist deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete playlist: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete playlist: {e}")
+
+class AddTracksRequest(BaseModel):
+    track_ids: List[int]
+
+@app.post("/api/playlists/{playlist_id}/tracks")
+async def add_tracks_to_playlist(playlist_id: int, request: AddTracksRequest):
+    """Add tracks to playlist"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        added_count = 0
+        for track_id in request.track_ids:
+            if library_manager.playlists.add_track(playlist_id, track_id):
+                added_count += 1
+
+        if added_count == 0:
+            raise HTTPException(status_code=400, detail="No tracks were added")
+
+        # Broadcast playlist updated event
+        await manager.broadcast({
+            "type": "playlist_tracks_added",
+            "data": {
+                "playlist_id": playlist_id,
+                "added_count": added_count
+            }
+        })
+
+        return {
+            "message": f"Added {added_count} track(s) to playlist",
+            "added_count": added_count
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to add tracks to playlist: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to add tracks: {e}")
+
+@app.delete("/api/playlists/{playlist_id}/tracks/{track_id}")
+async def remove_track_from_playlist(playlist_id: int, track_id: int):
+    """Remove a track from playlist"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        success = library_manager.playlists.remove_track(playlist_id, track_id)
+
+        if not success:
+            raise HTTPException(status_code=404, detail="Playlist or track not found")
+
+        # Broadcast playlist updated event
+        await manager.broadcast({
+            "type": "playlist_track_removed",
+            "data": {
+                "playlist_id": playlist_id,
+                "track_id": track_id
+            }
+        })
+
+        return {"message": "Track removed from playlist"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to remove track from playlist: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to remove track: {e}")
+
+@app.delete("/api/playlists/{playlist_id}/tracks")
+async def clear_playlist(playlist_id: int):
+    """Remove all tracks from playlist"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        success = library_manager.playlists.clear(playlist_id)
+
+        if not success:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+
+        # Broadcast playlist cleared event
+        await manager.broadcast({
+            "type": "playlist_cleared",
+            "data": {
+                "playlist_id": playlist_id
+            }
+        })
+
+        return {"message": "Playlist cleared"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to clear playlist: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear playlist: {e}")
+
+# ============================================================================
+# END PLAYLIST ENDPOINTS
+# ============================================================================
+
+# ============================================================================
+# ALBUM ARTWORK ENDPOINTS
+# ============================================================================
+
+@app.get("/api/albums/{album_id}/artwork")
+async def get_album_artwork(album_id: int):
+    """Get album artwork file"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        # Get album to find artwork path
+        session = library_manager.get_session()
+        try:
+            from auralis.library.models import Album
+            album = session.query(Album).filter(Album.id == album_id).first()
+
+            if not album:
+                raise HTTPException(status_code=404, detail="Album not found")
+
+            if not album.artwork_path or not Path(album.artwork_path).exists():
+                raise HTTPException(status_code=404, detail="Artwork not found")
+
+            # Return artwork file
+            from fastapi.responses import FileResponse
+            return FileResponse(
+                album.artwork_path,
+                media_type="image/jpeg",
+                headers={
+                    "Cache-Control": "public, max-age=31536000",  # Cache for 1 year
+                }
+            )
+
+        finally:
+            session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get artwork: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get artwork: {e}")
+
+
+@app.post("/api/albums/{album_id}/artwork/extract")
+async def extract_album_artwork(album_id: int):
+    """Extract artwork from album tracks"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        artwork_path = library_manager.albums.extract_and_save_artwork(album_id)
+
+        if not artwork_path:
+            raise HTTPException(
+                status_code=404,
+                detail="No artwork found in album tracks"
+            )
+
+        # Broadcast artwork extracted event
+        await manager.broadcast({
+            "type": "artwork_extracted",
+            "data": {
+                "album_id": album_id,
+                "artwork_path": artwork_path
+            }
+        })
+
+        return {
+            "message": "Artwork extracted successfully",
+            "artwork_path": artwork_path,
+            "album_id": album_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to extract artwork: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract artwork: {e}")
+
+
+@app.delete("/api/albums/{album_id}/artwork")
+async def delete_album_artwork(album_id: int):
+    """Delete album artwork"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        success = library_manager.albums.delete_artwork(album_id)
+
+        if not success:
+            raise HTTPException(status_code=404, detail="Artwork not found")
+
+        # Broadcast artwork deleted event
+        await manager.broadcast({
+            "type": "artwork_deleted",
+            "data": {"album_id": album_id}
+        })
+
+        return {"message": "Artwork deleted successfully", "album_id": album_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete artwork: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete artwork: {e}")
+
+# ============================================================================
+# END ARTWORK ENDPOINTS
+# ============================================================================
+
 class ScanRequest(BaseModel):
     directory: str
 

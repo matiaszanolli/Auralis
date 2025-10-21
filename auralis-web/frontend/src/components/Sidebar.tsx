@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import { AuroraLogo } from './navigation/AuroraLogo';
 import { colors, gradients } from '../theme/auralisTheme';
+import PlaylistList from './playlist/PlaylistList';
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -228,70 +229,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
 
         <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 2 }} />
 
-        {/* Playlists Section */}
-        <SectionLabel>Playlists</SectionLabel>
-        <List sx={{ px: 2 }}>
-          <ListItem disablePadding>
-            <StyledListItemButton
-              onClick={() => setPlaylistsOpen(!playlistsOpen)}
-              isactive="false"
-            >
-              <ListItemIcon sx={{ color: colors.text.secondary, minWidth: 36 }}>
-                <PlaylistPlay />
-              </ListItemIcon>
-              <ListItemText
-                primary="All Playlists"
-                primaryTypographyProps={{
-                  fontSize: 14,
-                  color: colors.text.secondary,
-                }}
-              />
-              <Box sx={{ color: colors.text.secondary, transition: 'transform 0.3s ease', transform: playlistsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                <ExpandMore />
-              </Box>
-            </StyledListItemButton>
-          </ListItem>
-
-          <Collapse in={playlistsOpen} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding sx={{ pl: 1 }}>
-              {playlists.map((playlist) => (
-                <ListItem key={playlist.id} disablePadding>
-                  <StyledListItemButton
-                    isactive={selectedItem === playlist.id ? 'true' : 'false'}
-                    onClick={() => handleItemClick(playlist.id)}
-                  >
-                    <ListItemText
-                      primary={playlist.name}
-                      primaryTypographyProps={{
-                        fontSize: 13,
-                        fontWeight: selectedItem === playlist.id ? 600 : 400,
-                        color: selectedItem === playlist.id ? colors.text.primary : colors.text.secondary,
-                      }}
-                      sx={{ pl: 3 }}
-                    />
-                  </StyledListItemButton>
-                </ListItem>
-              ))}
-
-              {/* New Playlist Button */}
-              <ListItem disablePadding sx={{ mt: 1 }}>
-                <StyledListItemButton isactive="false">
-                  <ListItemIcon sx={{ color: '#667eea', minWidth: 36, pl: 2 }}>
-                    <Add fontSize="small" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="New Playlist"
-                    primaryTypographyProps={{
-                      fontSize: 13,
-                      color: '#667eea',
-                      fontWeight: 500,
-                    }}
-                  />
-                </StyledListItemButton>
-              </ListItem>
-            </List>
-          </Collapse>
-        </List>
+        {/* Playlists Section - Using PlaylistList Component */}
+        <PlaylistList
+          selectedPlaylistId={selectedItem.startsWith('playlist-') ? parseInt(selectedItem.replace('playlist-', '')) : undefined}
+          onPlaylistSelect={(playlistId) => handleItemClick(`playlist-${playlistId}`)}
+        />
       </Box>
     </SidebarContainer>
   );

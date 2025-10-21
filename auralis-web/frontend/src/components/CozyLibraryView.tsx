@@ -14,6 +14,7 @@ import {
   Refresh
 } from '@mui/icons-material';
 import AlbumCard from './library/AlbumCard';
+import AlbumArt from './album/AlbumArt';
 import TrackRow from './library/TrackRow';
 import EnhancedTrackQueue from './player/EnhancedTrackQueue';
 import SearchBar from './navigation/SearchBar';
@@ -28,6 +29,7 @@ interface Track {
   title: string;
   artist: string;
   album: string;
+  album_id?: number;
   duration: number;
   albumArt?: string;
   quality?: number;
@@ -361,6 +363,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
                   id={track.id}
                   title={track.album || track.title}
                   artist={track.artist}
+                  albumId={track.album_id}
                   albumArt={track.albumArt}
                   onPlay={async (id) => {
                     const track = filteredTracks.find(t => t.id === id);
