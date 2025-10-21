@@ -247,7 +247,7 @@ class TrackRepository:
         """Get recently added tracks"""
         session = self.get_session()
         try:
-            return session.query(Track).order_by(Track.date_added.desc()).limit(limit).all()
+            return session.query(Track).order_by(Track.created_at.desc()).limit(limit).all()
         finally:
             session.close()
 

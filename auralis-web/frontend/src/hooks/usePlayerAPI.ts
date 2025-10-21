@@ -307,16 +307,31 @@ export const usePlayerAPI = () => {
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const message = JSON.parse(event.data);
 
-        if (data.type === 'player_update') {
+        // Handle unified player state updates (single source of truth)
+        if (message.type === 'player_state') {
+          const state = message.data;
+          setPlayerState({
+            currentTrack: state.current_track || null,
+            isPlaying: state.is_playing || false,
+            currentTime: state.current_time || 0,
+            duration: state.duration || 0,
+            volume: state.volume !== undefined ? state.volume : 80,
+            queue: state.queue || [],
+            queueIndex: state.queue_index || 0
+          });
+          console.log('Player state updated:', state);
+        }
+        // Fallback for legacy messages
+        else if (message.type === 'player_update') {
           setPlayerState(prev => ({
             ...prev,
-            currentTrack: data.current_track || prev.currentTrack,
-            isPlaying: data.is_playing !== undefined ? data.is_playing : prev.isPlaying,
-            currentTime: data.current_time !== undefined ? data.current_time : prev.currentTime,
-            duration: data.duration !== undefined ? data.duration : prev.duration,
-            volume: data.volume !== undefined ? data.volume : prev.volume
+            currentTrack: message.current_track || prev.currentTrack,
+            isPlaying: message.is_playing !== undefined ? message.is_playing : prev.isPlaying,
+            currentTime: message.current_time !== undefined ? message.current_time : prev.currentTime,
+            duration: message.duration !== undefined ? message.duration : prev.duration,
+            volume: message.volume !== undefined ? message.volume : prev.volume
           }));
         }
       } catch (err) {

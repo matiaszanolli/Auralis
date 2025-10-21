@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSock
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 import uvicorn
 import asyncio
 import json
@@ -24,6 +25,10 @@ import os
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 import logging
+
+# Import state management
+from player_state import PlayerState, TrackInfo, create_track_info
+from state_manager import PlayerStateManager
 
 # Add parent directory to path for Auralis imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
@@ -77,6 +82,7 @@ if HAS_PROCESSING:
 # Global state
 library_manager: Optional[LibraryManager] = None
 audio_player: Optional[EnhancedAudioPlayer] = None
+player_state_manager: Optional[PlayerStateManager] = None
 if HAS_PROCESSING:
     processing_engine: Optional[ProcessingEngine] = None
 else:
@@ -107,6 +113,11 @@ async def startup_event():
             )
             audio_player = EnhancedAudioPlayer(player_config)
             logger.info("✅ Enhanced Audio Player initialized")
+
+            # Initialize state manager (must be after manager is created)
+            global player_state_manager
+            player_state_manager = PlayerStateManager(manager)
+            logger.info("✅ Player State Manager initialized")
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize Auralis components: {e}")
@@ -290,11 +301,16 @@ async def get_artists():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get artists: {e}")
 
+class ScanRequest(BaseModel):
+    directory: str
+
 @app.post("/api/library/scan")
-async def scan_directory(directory: str):
+async def scan_directory(request: ScanRequest):
     """Scan directory for audio files"""
     if not library_manager:
         raise HTTPException(status_code=503, detail="Library manager not available")
+
+    directory = request.directory
 
     try:
         scanner = LibraryScanner(library_manager)
@@ -379,31 +395,14 @@ async def get_supported_formats():
 
 @app.get("/api/player/status")
 async def get_player_status():
-    """Get current player status"""
-    if not audio_player:
-        raise HTTPException(status_code=503, detail="Audio player not available")
+    """Get current player status (single source of truth)"""
+    if not player_state_manager:
+        raise HTTPException(status_code=503, detail="Player not available")
 
     try:
-        status = {
-            "state": audio_player.state.value if hasattr(audio_player.state, 'value') else str(audio_player.state),
-            "volume": getattr(audio_player, 'volume', 1.0),
-            "position": audio_player.get_position() if hasattr(audio_player, 'get_position') else 0,
-            "duration": audio_player.get_duration() if hasattr(audio_player, 'get_duration') else 0,
-            "current_track": audio_player.get_current_track() if hasattr(audio_player, 'get_current_track') else None,
-            "queue_size": len(audio_player.queue_manager.queue) if hasattr(audio_player, 'queue_manager') else 0,
-            "shuffle_enabled": getattr(audio_player, 'shuffle_enabled', False),
-            "repeat_mode": getattr(audio_player, 'repeat_mode', 'none'),
-        }
-
-        # Get real-time analysis if available
-        if hasattr(audio_player, 'get_real_time_analysis'):
-            try:
-                analysis = audio_player.get_real_time_analysis()
-                status["analysis"] = analysis
-            except:
-                status["analysis"] = None
-
-        return status
+        # Return current state from state manager
+        state = player_state_manager.get_state()
+        return state.model_dump()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
@@ -433,18 +432,17 @@ async def load_track(track_path: str):
 
 @app.post("/api/player/play")
 async def play_audio():
-    """Start playback"""
+    """Start playback (updates single source of truth)"""
+    if not player_state_manager:
+        raise HTTPException(status_code=503, detail="Player not available")
     if not audio_player:
         raise HTTPException(status_code=503, detail="Audio player not available")
 
     try:
         audio_player.play()
 
-        # Broadcast to all connected clients
-        await manager.broadcast({
-            "type": "playback_started",
-            "data": {"state": "playing"}
-        })
+        # Update state (broadcasts automatically)
+        await player_state_manager.set_playing(True)
 
         return {"message": "Playback started", "state": "playing"}
     except Exception as e:
@@ -452,18 +450,17 @@ async def play_audio():
 
 @app.post("/api/player/pause")
 async def pause_audio():
-    """Pause playback"""
+    """Pause playback (updates single source of truth)"""
+    if not player_state_manager:
+        raise HTTPException(status_code=503, detail="Player not available")
     if not audio_player:
         raise HTTPException(status_code=503, detail="Audio player not available")
 
     try:
         audio_player.pause()
 
-        # Broadcast to all connected clients
-        await manager.broadcast({
-            "type": "playback_paused",
-            "data": {"state": "paused"}
-        })
+        # Update state (broadcasts automatically)
+        await player_state_manager.set_playing(False)
 
         return {"message": "Playback paused", "state": "paused"}
     except Exception as e:
@@ -549,6 +546,68 @@ async def get_queue():
             return {"tracks": [], "current_index": 0, "total_tracks": 0}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get queue: {e}")
+
+class SetQueueRequest(BaseModel):
+    tracks: List[int]  # Track IDs
+    start_index: int = 0
+
+@app.post("/api/player/queue")
+async def set_queue(request: SetQueueRequest):
+    """Set the playback queue (updates single source of truth)"""
+    if not player_state_manager:
+        raise HTTPException(status_code=503, detail="Player not available")
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+    if not audio_player:
+        raise HTTPException(status_code=503, detail="Audio player not available")
+
+    try:
+        # Get tracks from library by IDs
+        db_tracks = []
+        for track_id in request.tracks:
+            track = library_manager.tracks.get_by_id(track_id)
+            if track:
+                db_tracks.append(track)
+
+        if not db_tracks:
+            raise HTTPException(status_code=400, detail="No valid tracks found")
+
+        # Convert to TrackInfo for state
+        track_infos = [create_track_info(t) for t in db_tracks]
+        track_infos = [t for t in track_infos if t is not None]
+
+        # Update state manager (this broadcasts automatically)
+        await player_state_manager.set_queue(track_infos, request.start_index)
+
+        # Set queue in actual player
+        if hasattr(audio_player, 'queue_manager'):
+            audio_player.queue_manager.set_queue([t.filepath for t in db_tracks], request.start_index)
+
+        # Load and start playing if requested
+        if request.start_index >= 0 and request.start_index < len(db_tracks):
+            current_track = db_tracks[request.start_index]
+
+            # Update state with current track
+            await player_state_manager.set_track(current_track, library_manager)
+
+            # Load the track in player
+            audio_player.load_file(current_track.filepath)
+
+            # Start playback
+            audio_player.play()
+
+            # Update playing state
+            await player_state_manager.set_playing(True)
+
+        return {
+            "message": "Queue set successfully",
+            "track_count": len(track_infos),
+            "start_index": request.start_index
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to set queue: {e}")
 
 @app.post("/api/player/queue/add")
 async def add_to_queue(track_path: str):
