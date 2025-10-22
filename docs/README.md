@@ -67,8 +67,17 @@ Comprehensive developer documentation including build guides, architecture docs,
 - [BUILD_QUICK_REFERENCE.md](development/BUILD_QUICK_REFERENCE.md) - Quick command reference
 - [STANDALONE_APP_BUILD_GUIDE.md](development/STANDALONE_APP_BUILD_GUIDE.md) - Complete build guide
 - [TESTING_QUICKSTART.md](development/TESTING_QUICKSTART.md) - Testing guide
+- [AUTOMATED_TESTING_GUIDE.md](development/AUTOMATED_TESTING_GUIDE.md) - Automated testing setup
+- [QUICK_TEST_GUIDE.md](development/QUICK_TEST_GUIDE.md) - Quick testing reference
 - [audio_processing.md](development/audio_processing.md) - Audio processing architecture
 - [player_architecture.md](development/player_architecture.md) - Player architecture
+- [AUDIO_PLAYBACK_FIXES.md](development/AUDIO_PLAYBACK_FIXES.md) - Audio playback troubleshooting
+- [AUDIO_STREAMING_IMPLEMENTATION.md](development/AUDIO_STREAMING_IMPLEMENTATION.md) - Streaming implementation
+- [WEBSOCKET_STATE_MANAGEMENT.md](development/WEBSOCKET_STATE_MANAGEMENT.md) - WebSocket state sync
+- [ALBUM_ART_IMPLEMENTATION.md](development/ALBUM_ART_IMPLEMENTATION.md) - Album art system
+- [FAVORITES_SYSTEM_IMPLEMENTATION.md](development/FAVORITES_SYSTEM_IMPLEMENTATION.md) - Favorites feature
+- [QUEUE_MANAGEMENT_IMPLEMENTATION.md](development/QUEUE_MANAGEMENT_IMPLEMENTATION.md) - Queue management
+- [REPOSITORY_LAZY_LOADING_FIXES.md](development/REPOSITORY_LAZY_LOADING_FIXES.md) - Performance fixes
 
 ---
 
@@ -82,6 +91,8 @@ UI/UX design documentation, component specifications, and implementation roadmap
 - [UI_IMPLEMENTATION_ROADMAP.md](design/UI_IMPLEMENTATION_ROADMAP.md) - 6-week implementation plan
 - [UI_COMPONENTS_CHECKLIST.md](design/UI_COMPONENTS_CHECKLIST.md) - Component tracking
 - [QUICK_START_UI_DEVELOPMENT.md](design/QUICK_START_UI_DEVELOPMENT.md) - Quick start guide
+- [FRONTEND_IMPLEMENTATION_STATUS.md](design/FRONTEND_IMPLEMENTATION_STATUS.md) - Current frontend status
+- [AURALIS_ROADMAP.md](design/AURALIS_ROADMAP.md) - Product roadmap
 
 ---
 
@@ -116,11 +127,19 @@ Deployment guides, version management, and launch checklists.
 Historical documentation from earlier development phases. Preserved for reference but not actively maintained.
 
 **Sub-categories:**
-- [archive/phase-completions/](archive/phase-completions/) - UI development phase reports (1-5)
-- [archive/progress-reports/](archive/progress-reports/) - Daily/weekly progress summaries
+- [archive/phase-completions/](archive/phase-completions/) - UI development phase reports and feature completions
+- [archive/progress-reports/](archive/progress-reports/) - Session summaries and test results
 - [archive/build-milestones/](archive/build-milestones/) - Build completion reports
+- [archive/](archive/) - General implementation summaries and status reports
 
 **Note:** Archive documents are for historical reference only. For current information, see the active documentation categories above.
+
+**Recently Archived:**
+- Phase 1 completion reports (Album art, testing plans)
+- Queue management implementation docs
+- Playlist management completion
+- Testing implementation reports
+- Session progress summaries (October 2025)
 
 ---
 
@@ -173,9 +192,9 @@ Historical documentation from earlier development phases. Preserved for referenc
 
 ## Documentation Statistics
 
-- **Active Documentation:** 30+ files across 5 categories
-- **Archived Documentation:** 30+ historical files
-- **Last Major Reorganization:** October 18, 2025
+- **Active Documentation:** 40+ files across 5 categories
+- **Archived Documentation:** 40+ historical files
+- **Last Major Reorganization:** October 22, 2025
 - **Primary Language:** English
 - **Format:** Markdown
 

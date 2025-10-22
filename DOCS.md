@@ -1,7 +1,7 @@
 # Auralis Documentation
 
-**Last Updated:** October 18, 2025
-**Version:** 1.0.0
+**Last Updated:** October 22, 2025
+**Version:** 2.0.0
 
 Welcome to the Auralis documentation! This guide will help you find the information you need, whether you're a user, developer, or contributor.
 
@@ -11,8 +11,8 @@ Welcome to the Auralis documentation! This guide will help you find the informat
 
 - **New to Auralis?** Start with the [README.md](README.md)
 - **Want to develop?** Check [CLAUDE.md](CLAUDE.md) for architecture overview
-- **Current status?** See [PROJECT_STATUS.md](PROJECT_STATUS.md)
-- **Detailed docs?** Browse organized documentation in [docs/](docs/)
+- **Quick navigation?** See [DOCS_INDEX.md](DOCS_INDEX.md) for all documentation links
+- **Detailed catalog?** Browse organized documentation in [docs/README.md](docs/README.md)
 
 ---
 
@@ -24,8 +24,8 @@ Welcome to the Auralis documentation! This guide will help you find the informat
 
 - [README.md](README.md) - Main project introduction and quick start guide
 - [CLAUDE.md](CLAUDE.md) - Comprehensive project overview, architecture, and development guide
-- [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current status, completed features, and metrics
-- [DOCS_INDEX.md](DOCS_INDEX.md) - Legacy documentation index (being phased out)
+- [DOCS_INDEX.md](DOCS_INDEX.md) - Quick navigation index to all documentation
+- [DOCS.md](DOCS.md) - This file - Documentation overview
 
 ### Organized Documentation (docs/)
 
