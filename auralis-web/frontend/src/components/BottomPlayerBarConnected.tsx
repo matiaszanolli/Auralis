@@ -177,6 +177,13 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
         return;
       }
 
+      // Check if this is the same track (just different enhancement settings)
+      const isSameTrack = lastLoadedTrackId.current === currentTrack.id;
+
+      // Save current position and playing state if changing enhancement on same track
+      const savedPosition = isSameTrack ? audioRef.current.currentTime : 0;
+      const wasPlaying = isSameTrack && !audioRef.current.paused;
+
       audioRef.current.src = streamUrl;
       audioRef.current.load();
       console.log(`Loaded audio stream: ${streamUrl}`, enhancementSettings.enabled ? `(enhanced: ${enhancementSettings.preset})` : '(original)');
@@ -187,8 +194,21 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
       // Update favorite status for new track
       setIsLoved(currentTrack.favorite || false);
 
-      // Reset audio time to 0
-      setAudioCurrentTime(0);
+      // If same track, restore position and playback state after load completes
+      if (isSameTrack && savedPosition > 0) {
+        const restorePlayback = () => {
+          audioRef.current!.currentTime = savedPosition;
+          setAudioCurrentTime(savedPosition);
+          if (wasPlaying) {
+            audioRef.current!.play().catch(e => console.error('Failed to resume playback:', e));
+          }
+          audioRef.current!.removeEventListener('loadedmetadata', restorePlayback);
+        };
+        audioRef.current.addEventListener('loadedmetadata', restorePlayback);
+      } else {
+        // New track - reset to beginning
+        setAudioCurrentTime(0);
+      }
 
       // Don't auto-play here - let the user control playback with play/pause button
       // The audio element will be ready to play when user clicks play
@@ -543,7 +563,7 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
         }}
       >
         {/* Left: Track Info */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: '0 1 300px', maxWidth: 300 }}>
           {/* Album Art */}
           <AlbumArtContainer>
             <AlbumArtComponent

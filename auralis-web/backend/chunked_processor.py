@@ -115,6 +115,9 @@ class ChunkedAudioProcessor:
         """
         Load a single chunk from audio file with optional context.
 
+        Chunks after the first include OVERLAP_DURATION at the start for crossfading.
+        This ensures no audio is lost during crossfade concatenation.
+
         Args:
             chunk_index: Index of chunk to load (0-based)
             with_context: Include context before/after for better processing
@@ -123,8 +126,17 @@ class ChunkedAudioProcessor:
             Tuple of (audio_chunk, chunk_start_time, chunk_end_time)
         """
         # Calculate chunk boundaries
-        chunk_start = chunk_index * CHUNK_DURATION
-        chunk_end = min(chunk_start + CHUNK_DURATION, self.total_duration)
+        # First chunk: 0-30s
+        # Second chunk: 29-60s (includes 1s overlap)
+        # Third chunk: 59-90s (includes 1s overlap)
+        if chunk_index == 0:
+            chunk_start = 0
+        else:
+            # Start 1 second earlier to create overlap
+            chunk_start = chunk_index * CHUNK_DURATION - OVERLAP_DURATION
+
+        chunk_end = min(chunk_start + CHUNK_DURATION + (OVERLAP_DURATION if chunk_index > 0 else 0),
+                       self.total_duration)
 
         # Add context for processing (but trim later)
         if with_context:
@@ -165,7 +177,10 @@ class ChunkedAudioProcessor:
         is_last: bool = False
     ) -> np.ndarray:
         """
-        Apply crossfade at chunk boundaries.
+        No longer applies individual fades - chunks are crossfaded during concatenation.
+
+        This method is kept for compatibility but now just returns the chunk unmodified.
+        Crossfading happens in get_full_processed_audio_path() via apply_crossfade_between_chunks().
 
         Args:
             chunk: Audio chunk to process
@@ -173,24 +188,10 @@ class ChunkedAudioProcessor:
             is_last: Whether this is the last chunk
 
         Returns:
-            Chunk with fade in/out applied
+            Unmodified chunk (crossfading happens during concatenation)
         """
-        overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
-
-        # Apply fade-in at start (except first chunk)
-        if chunk_index > 0 and len(chunk) > overlap_samples:
-            fade_in = np.linspace(0.0, 1.0, overlap_samples)
-            if chunk.ndim == 2:
-                fade_in = fade_in[:, np.newaxis]
-            chunk[:overlap_samples] *= fade_in
-
-        # Apply fade-out at end (except last chunk)
-        if not is_last and len(chunk) > overlap_samples:
-            fade_out = np.linspace(1.0, 0.0, overlap_samples)
-            if chunk.ndim == 2:
-                fade_out = fade_out[:, np.newaxis]
-            chunk[-overlap_samples:] *= fade_out
-
+        # Crossfading is now handled during concatenation for better quality
+        # No individual fades needed
         return chunk
 
     def process_chunk(self, chunk_index: int) -> str:
@@ -304,8 +305,8 @@ class ChunkedAudioProcessor:
         for chunk_idx in range(self.total_chunks):
             self.process_chunk(chunk_idx)
 
-        # Concatenate chunks
-        logger.info("Concatenating all processed chunks")
+        # Concatenate chunks with proper crossfading
+        logger.info("Concatenating all processed chunks with crossfading")
         all_chunks = []
 
         for chunk_idx in range(self.total_chunks):
@@ -313,8 +314,21 @@ class ChunkedAudioProcessor:
             chunk_audio, _ = load_audio(str(chunk_path))
             all_chunks.append(chunk_audio)
 
-        # Concatenate
-        full_audio = np.concatenate(all_chunks, axis=0)
+        # Apply crossfade between consecutive chunks
+        overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
+
+        if len(all_chunks) == 1:
+            # Single chunk, no crossfading needed
+            full_audio = all_chunks[0]
+        else:
+            # Start with first chunk
+            result = all_chunks[0]
+
+            for i in range(1, len(all_chunks)):
+                # Crossfade current result with next chunk
+                result = apply_crossfade_between_chunks(result, all_chunks[i], overlap_samples)
+
+            full_audio = result
 
         # Save full file
         save_audio(str(full_path), full_audio, self.sample_rate, subtype='PCM_16')
@@ -325,7 +339,11 @@ class ChunkedAudioProcessor:
 
 def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overlap_samples: int) -> np.ndarray:
     """
-    Apply crossfade between two audio chunks.
+    Apply crossfade between two audio chunks and return concatenated result.
+
+    Uses overlap-add: the last N samples of chunk1 are mixed with the first N samples
+    of chunk2, then we keep all of chunk1 + the non-overlapping part of chunk2.
+    This preserves total duration without losing audio.
 
     Args:
         chunk1: First audio chunk
@@ -333,22 +351,37 @@ def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overl
         overlap_samples: Number of samples to crossfade
 
     Returns:
-        Crossfaded audio segment
+        Concatenated audio with crossfade applied at boundary (no audio lost)
     """
+    # Ensure we don't try to overlap more than available
+    actual_overlap = min(overlap_samples, len(chunk1), len(chunk2))
+
+    if actual_overlap <= 0:
+        # No overlap possible, just concatenate
+        return np.concatenate([chunk1, chunk2], axis=0)
+
     # Get overlap regions
-    chunk1_tail = chunk1[-overlap_samples:]
-    chunk2_head = chunk2[:overlap_samples]
+    chunk1_tail = chunk1[-actual_overlap:]
+    chunk2_head = chunk2[:actual_overlap]
 
     # Create fade curves
-    fade_out = np.linspace(1.0, 0.0, overlap_samples)
-    fade_in = np.linspace(0.0, 1.0, overlap_samples)
+    fade_out = np.linspace(1.0, 0.0, actual_overlap)
+    fade_in = np.linspace(0.0, 1.0, actual_overlap)
 
     # Handle stereo
     if chunk1_tail.ndim == 2:
         fade_out = fade_out[:, np.newaxis]
         fade_in = fade_in[:, np.newaxis]
 
-    # Apply fades and mix
+    # Apply fades and mix the overlap region
     crossfade = chunk1_tail * fade_out + chunk2_head * fade_in
 
-    return crossfade
+    # IMPORTANT: Don't lose audio!
+    # Result = full chunk1 (except last overlap) + crossfaded overlap + rest of chunk2
+    result = np.concatenate([
+        chunk1[:-actual_overlap],  # Chunk1 without the tail that will be mixed
+        crossfade,                  # The mixed overlap region
+        chunk2[actual_overlap:]     # Chunk2 without the head that was mixed
+    ], axis=0)
+
+    return result
