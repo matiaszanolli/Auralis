@@ -31,6 +31,7 @@ import { colors, gradients } from '../theme/auralisTheme';
 import { useToast } from './shared/Toast';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
 import AlbumArtComponent from './album/AlbumArt';
+import { useEnhancement } from '../contexts/EnhancementContext';
 
 const PlayerContainer = styled(Box)({
   position: 'fixed',
@@ -96,11 +97,12 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
     setVolume: setApiVolume
   } = usePlayerAPI();
 
+  // Get enhancement settings from global context
+  const { settings: enhancementSettings, setEnabled: setEnhancementEnabled, isProcessing } = useEnhancement();
+
   // Local UI state
   const [isMuted, setIsMuted] = useState(false);
   const [isLoved, setIsLoved] = useState(false);
-  const [isEnhanced, setIsEnhanced] = useState(false);
-  const [currentPreset, setCurrentPreset] = useState('adaptive');
   const [localVolume, setLocalVolume] = useState(apiVolume);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [isFavoriting, setIsFavoriting] = useState(false);
@@ -158,12 +160,12 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
   // Load new track into audio element when currentTrack or enhancement settings change
   useEffect(() => {
     if (currentTrack && audioRef.current) {
-      // Build stream URL with enhancement parameters
+      // Build stream URL with enhancement parameters from global context
       const params = new URLSearchParams();
-      if (isEnhanced) {
+      if (enhancementSettings.enabled) {
         params.append('enhanced', 'true');
-        params.append('preset', currentPreset);
-        params.append('intensity', '1.0');
+        params.append('preset', enhancementSettings.preset);
+        params.append('intensity', enhancementSettings.intensity.toString());
       }
 
       const streamUrl = `http://localhost:8765/api/player/stream/${currentTrack.id}${params.toString() ? '?' + params.toString() : ''}`;
@@ -177,7 +179,7 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
 
       audioRef.current.src = streamUrl;
       audioRef.current.load();
-      console.log(`Loaded audio stream: ${streamUrl}`);
+      console.log(`Loaded audio stream: ${streamUrl}`, enhancementSettings.enabled ? `(enhanced: ${enhancementSettings.preset})` : '(original)');
 
       // Update last loaded track ID
       lastLoadedTrackId.current = currentTrack.id;
@@ -191,7 +193,7 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
       // Don't auto-play here - let the user control playback with play/pause button
       // The audio element will be ready to play when user clicks play
     }
-  }, [currentTrack, isEnhanced, currentPreset]); // Re-run when track or enhancement settings change
+  }, [currentTrack, enhancementSettings.enabled, enhancementSettings.preset, enhancementSettings.intensity]); // Re-run when track or enhancement settings change
 
   // Note: Playback is now controlled directly via play/pause button
   // The audio element is the source of truth, not the backend isPlaying state
@@ -255,12 +257,12 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
       if (timeRemaining > 0 && timeRemaining <= preloadThreshold && nextAudioRef.current && !nextAudioRef.current.src) {
         console.log(`Pre-loading next track for ${crossfadeEnabled ? 'crossfade' : 'gapless'} playback:`, nextTrack.title);
 
-        // Build stream URL for next track
+        // Build stream URL for next track (use same enhancement settings)
         const params = new URLSearchParams();
-        if (isEnhanced) {
+        if (enhancementSettings.enabled) {
           params.append('enhanced', 'true');
-          params.append('preset', currentPreset);
-          params.append('intensity', '1.0');
+          params.append('preset', enhancementSettings.preset);
+          params.append('intensity', enhancementSettings.intensity.toString());
         }
 
         const streamUrl = `http://localhost:8765/api/player/stream/${nextTrack.id}${params.toString() ? '?' + params.toString() : ''}`;
@@ -272,7 +274,7 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
     // Check every 500ms during playback
     const intervalId = setInterval(checkPreload, 500);
     return () => clearInterval(intervalId);
-  }, [nextTrack, isEnhanced, currentPreset, gaplessEnabled, crossfadeEnabled, crossfadeDuration]);
+  }, [nextTrack, enhancementSettings.enabled, enhancementSettings.preset, enhancementSettings.intensity, gaplessEnabled, crossfadeEnabled, crossfadeDuration]);
 
   // Crossfade effect: Start fading at the right time
   useEffect(() => {
@@ -422,30 +424,13 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
   };
 
   const handleEnhancementToggle = async () => {
-    const newState = !isEnhanced;
-    setIsEnhanced(newState);
+    const newState = !enhancementSettings.enabled;
 
-    try {
-      // Send to backend to toggle real-time processing
-      const response = await fetch('http://localhost:8765/api/player/enhancement/toggle', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ enabled: newState })
-      });
+    // Update via enhancement context (which calls the API)
+    await setEnhancementEnabled(newState);
 
-      if (response.ok) {
-        info(newState ? '✨ Auralis Magic enabled' : 'Enhancement disabled');
-      } else {
-        throw new Error('Failed to toggle enhancement');
-      }
-    } catch (error) {
-      console.error('Failed to toggle enhancement:', error);
-      // Revert state on error
-      setIsEnhanced(!newState);
-      showError('Failed to toggle enhancement');
-    }
+    // Show user feedback
+    info(newState ? `✨ Auralis Magic enabled (${enhancementSettings.preset})` : 'Enhancement disabled');
   };
 
   const handleVolumeChange = (_: Event, value: number | number[]) => {
@@ -697,17 +682,28 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
           )}
 
           {/* Magic Toggle */}
-          <Tooltip title="Auralis Magic" placement="top">
+          <Tooltip title={enhancementSettings.enabled ? `Auralis Magic (${enhancementSettings.preset})` : "Auralis Magic (Off)"} placement="top">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <AutoAwesome
                 fontSize="small"
                 sx={{
-                  color: isEnhanced ? '#667eea' : colors.text.secondary,
-                  opacity: isEnhanced ? 1 : 0.5,
+                  color: enhancementSettings.enabled ? '#667eea' : colors.text.secondary,
+                  opacity: enhancementSettings.enabled ? 1 : 0.5,
                   transition: 'all 0.3s ease',
+                  animation: isProcessing ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                  '@keyframes pulse': {
+                    '0%': { opacity: 0.5 },
+                    '50%': { opacity: 1 },
+                    '100%': { opacity: 0.5 },
+                  },
                 }}
               />
-              <Switch size="small" checked={isEnhanced} onChange={handleEnhancementToggle} />
+              <Switch
+                size="small"
+                checked={enhancementSettings.enabled}
+                onChange={handleEnhancementToggle}
+                disabled={isProcessing}
+              />
             </Box>
           </Tooltip>
 

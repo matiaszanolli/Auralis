@@ -57,12 +57,13 @@ python -m pytest tests/test_adaptive_processing.py -v  # Core processing tests
 ### Launch Applications
 ```bash
 # Web interface (recommended for development and production)
-python launch-auralis-web.py           # Production mode (http://localhost:8000)
+python launch-auralis-web.py           # Production mode (http://localhost:8765)
 python launch-auralis-web.py --dev     # Development mode with hot reload
+python launch-auralis-web.py --port 5000  # Custom port
 
 # Electron desktop application
 npm run dev                            # Development mode (starts backend + frontend + Electron)
-npm run build                          # Build desktop application
+npm run build                          # Build desktop application (from scripts/build.js)
 
 # Package desktop application for distribution
 npm run package                        # All platforms
@@ -76,6 +77,10 @@ cd auralis-web/backend && python main.py
 
 ### Testing
 ```bash
+# Quick test (using npm script)
+npm test                            # Runs pytest on tests/ directory
+npm run test:coverage               # Runs tests with HTML coverage report
+
 # Main adaptive processing test suite (26 comprehensive tests)
 python -m pytest tests/test_adaptive_processing.py -v
 
@@ -129,14 +134,16 @@ cd desktop && npm install
 # Install web frontend dependencies (optional, for web UI development)
 cd auralis-web/frontend && npm install
 
-# Install all Node.js dependencies at once (alternative)
-npm run install:all
+# Install all Node.js dependencies at once (from root)
+npm run install:all                  # Runs install:desktop + install:frontend
+npm run install:desktop              # Only desktop dependencies
+npm run install:frontend             # Only frontend dependencies
 
 # Install development tools
 pip install pytest pytest-cov soundfile scikit-learn mutagen
 
 # Clean all build artifacts and node_modules
-npm run clean
+npm run clean                        # Removes dist/, node_modules/, frontend builds
 ```
 
 ### Supported Audio Formats
@@ -524,7 +531,8 @@ Electron wrapper for native desktop experience:
 
 ### Build and Development Scripts (`scripts/`)
 - **`dev.js`** - Development environment launcher (starts backend + frontend + Electron)
-- **`quick_build.sh`** - Quick build script
+- **`build.js`** - Build script for production bundles
+- **`package.js`** - Packaging script for distributable applications (AppImage, DEB, etc.)
 
 ## Key Processing Workflows
 
@@ -737,13 +745,14 @@ Auralis can be deployed in three different modes:
 ```bash
 # Production mode
 python launch-auralis-web.py
-# Access at http://localhost:8765
+# Access at http://localhost:8765 (default port)
 
 # Custom port
 python launch-auralis-web.py --port 5000
 
 # Development mode with hot reload
 python launch-auralis-web.py --dev
+# Frontend dev server on http://localhost:3000 (proxies to backend at 8765)
 ```
 
 **Use case:** Multi-user access, web-based deployment, server installation
