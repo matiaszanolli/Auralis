@@ -11,8 +11,11 @@ Single source of truth that broadcasts state changes via WebSocket.
 
 import asyncio
 import threading
+import logging
 from typing import Optional, List, Callable
 from player_state import PlayerState, PlaybackState, TrackInfo, create_track_info
+
+logger = logging.getLogger(__name__)
 
 
 class PlayerStateManager:
