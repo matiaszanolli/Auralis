@@ -60,5 +60,8 @@ global.WebSocket = class WebSocket {
   readyState = 3
 } as any
 
+// Mock Element.scrollTo (used by auto-scroll features)
+Element.prototype.scrollTo = vi.fn()
+
 // Suppress console errors in tests (optional - remove if you want to see errors)
 // vi.spyOn(console, 'error').mockImplementation(() => {})
