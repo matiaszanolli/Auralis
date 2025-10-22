@@ -134,7 +134,28 @@ export async function deletePlaylist(playlistId: number): Promise<void> {
 }
 
 /**
- * Add tracks to playlist
+ * Add a single track to playlist
+ */
+export async function addTrackToPlaylist(
+  playlistId: number,
+  trackId: number
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/playlists/${playlistId}/tracks`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ track_id: trackId }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to add track to playlist');
+  }
+}
+
+/**
+ * Add multiple tracks to playlist
  */
 export async function addTracksToPlaylist(
   playlistId: number,
@@ -194,6 +215,7 @@ export default {
   createPlaylist,
   updatePlaylist,
   deletePlaylist,
+  addTrackToPlaylist,
   addTracksToPlaylist,
   removeTrackFromPlaylist,
   clearPlaylist,

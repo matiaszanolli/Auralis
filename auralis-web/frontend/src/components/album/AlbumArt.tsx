@@ -110,7 +110,7 @@ export const AlbumArt: React.FC<AlbumArtProps> = ({
           }}
         />
       ) : (
-        <PlaceholderIcon />
+        <PlaceholderIcon data-testid="AlbumIcon" />
       )}
     </ArtworkContainer>
   );

@@ -138,7 +138,7 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
   const [expanded, setExpanded] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { success, showError, info } = useToast();
+  const { success, error, info } = useToast();
 
   // Load playlists on mount
   useEffect(() => {
@@ -181,8 +181,8 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
       if (selectedPlaylistId === playlistId && onPlaylistSelect) {
         onPlaylistSelect(-1);
       }
-    } catch (error) {
-      showError(`Failed to delete playlist: ${error}`);
+    } catch (err) {
+      error(`Failed to delete playlist: ${err}`);
     }
   };
 
@@ -194,7 +194,12 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
 
   return (
     <PlaylistSection>
-      <SectionHeader onClick={() => setExpanded(!expanded)}>
+      <SectionHeader
+        onClick={() => setExpanded(!expanded)}
+        role="button"
+        aria-label={expanded ? 'Collapse playlists' : 'Expand playlists'}
+        aria-expanded={expanded}
+      >
         <SectionTitle>
           <QueueMusic sx={{ fontSize: '18px' }} />
           Playlists ({playlists.length})
@@ -243,12 +248,20 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
                   />
                   <PlaylistActions className="playlist-actions">
                     <Tooltip title="Edit playlist">
-                      <ActionButton onClick={(e) => handleEdit(playlist.id, e)}>
+                      <ActionButton
+                        data-testid="edit-playlist-button"
+                        aria-label="Edit playlist"
+                        onClick={(e) => handleEdit(playlist.id, e)}
+                      >
                         <Edit />
                       </ActionButton>
                     </Tooltip>
                     <Tooltip title="Delete playlist">
-                      <ActionButton onClick={(e) => handleDelete(playlist.id, playlist.name, e)}>
+                      <ActionButton
+                        data-testid="delete-playlist-button"
+                        aria-label="Delete playlist"
+                        onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
+                      >
                         <Delete />
                       </ActionButton>
                     </Tooltip>

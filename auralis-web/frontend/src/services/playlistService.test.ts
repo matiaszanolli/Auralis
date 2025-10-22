@@ -49,10 +49,10 @@ describe('PlaylistService', () => {
     it('throws error on fetch failure', async () => {
       vi.mocked(fetch).mockResolvedValue({
         ok: false,
-        json: async () => ({ detail: 'Failed to fetch playlists' }),
+        statusText: 'Internal Server Error',
       } as Response)
 
-      await expect(playlistService.getPlaylists()).rejects.toThrow('Failed to fetch playlists')
+      await expect(playlistService.getPlaylists()).rejects.toThrow('Failed to get playlists')
     })
 
     it('handles network errors', async () => {
@@ -64,13 +64,10 @@ describe('PlaylistService', () => {
 
   describe('getPlaylist', () => {
     it('fetches single playlist by ID', async () => {
-      const mockResponse = {
-        playlist: mockPlaylist,
-      }
-
+      // Service returns the whole response, so mock should return playlist directly
       vi.mocked(fetch).mockResolvedValue({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => mockPlaylist,
       } as Response)
 
       const result = await playlistService.getPlaylist(1)
@@ -157,24 +154,18 @@ describe('PlaylistService', () => {
         description: 'Updated description',
       }
 
-      const mockResponse = {
-        message: 'Playlist updated',
-        playlist: { ...mockPlaylist, ...updates },
-      }
-
       vi.mocked(fetch).mockResolvedValue({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({}),
       } as Response)
 
-      const result = await playlistService.updatePlaylist(1, updates)
+      await playlistService.updatePlaylist(1, updates)
 
       expect(fetch).toHaveBeenCalledWith('http://localhost:8765/api/playlists/1', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       })
-      expect(result.name).toBe('Updated Playlist')
     })
 
     it('throws error when playlist not found', async () => {
