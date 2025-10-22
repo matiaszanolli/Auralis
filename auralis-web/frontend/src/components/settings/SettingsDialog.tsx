@@ -29,7 +29,8 @@ import {
   Folder as FolderIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
-  RestartAlt as ResetIcon
+  RestartAlt as ResetIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { settingsService, UserSettings, SettingsUpdate } from '../../services/settingsService';
@@ -160,8 +161,41 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
     }
   };
 
+  const triggerScan = async (directory: string) => {
+    try {
+      const response = await fetch('http://localhost:8765/api/library/scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ directory })
+      });
+
+      if (response.ok) {
+        console.log(`Scan started for: ${directory}`);
+      }
+    } catch (error) {
+      console.error('Failed to trigger scan:', error);
+    }
+  };
+
   const handleAddScanFolder = async () => {
-    const folder = prompt('Enter folder path:');
+    let folder: string | null = null;
+
+    // Use Electron folder picker if available
+    if ((window as any).electronAPI && (window as any).electronAPI.selectFolder) {
+      try {
+        folder = await (window as any).electronAPI.selectFolder();
+      } catch (error) {
+        console.error('Electron folder picker failed:', error);
+      }
+    }
+
+    // Fallback to prompt for web
+    if (!folder) {
+      folder = prompt('Enter folder path:');
+    }
+
     if (!folder) return;
 
     try {
@@ -170,12 +204,19 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
       if (onSettingsChange) {
         onSettingsChange(result.settings);
       }
+
+      // Trigger scan of the newly added folder
+      await triggerScan(folder);
     } catch (error) {
       console.error('Failed to add scan folder:', error);
     }
   };
 
   const handleRemoveScanFolder = async (folder: string) => {
+    if (!window.confirm(`Remove folder from library?\n\n${folder}\n\nNote: Files will remain on disk.`)) {
+      return;
+    }
+
     try {
       const result = await settingsService.removeScanFolder(folder);
       setSettings(result.settings);
@@ -185,6 +226,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
     } catch (error) {
       console.error('Failed to remove scan folder:', error);
     }
+  };
+
+  const handleRescanFolder = async (folder: string) => {
+    await triggerScan(folder);
   };
 
   const getValue = <K extends keyof UserSettings>(key: K): UserSettings[K] => {
@@ -224,20 +269,60 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
           <Box>
             <SettingSection>
               <SettingLabel>Scan Folders</SettingLabel>
+              <SettingDescription>
+                Folders to scan for music files. Use the native folder picker to select directories.
+              </SettingDescription>
               <List>
+                {getValue('scan_folders').length === 0 && (
+                  <ListItem sx={{ px: 0 }}>
+                    <ListItemText
+                      primary="No folders added yet"
+                      secondary="Click 'Add Folder' below to start building your library"
+                      primaryTypographyProps={{ color: 'text.secondary' }}
+                    />
+                  </ListItem>
+                )}
                 {getValue('scan_folders').map((folder: string, index: number) => (
-                  <ListItem key={index} sx={{ px: 0 }}>
-                    <FolderIcon sx={{ mr: 2, color: 'text.secondary' }} />
-                    <ListItemText primary={folder} />
+                  <ListItem key={index} sx={{ px: 0, py: 1 }}>
+                    <FolderIcon sx={{ mr: 2, color: '#667eea' }} />
+                    <ListItemText
+                      primary={folder}
+                      primaryTypographyProps={{ fontSize: '0.9rem' }}
+                    />
                     <ListItemSecondaryAction>
-                      <IconButton onClick={() => handleRemoveScanFolder(folder)}>
-                        <DeleteIcon />
+                      <IconButton
+                        onClick={() => handleRescanFolder(folder)}
+                        size="small"
+                        sx={{ mr: 1 }}
+                        title="Rescan this folder"
+                      >
+                        <RefreshIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => handleRemoveScanFolder(folder)}
+                        size="small"
+                        color="error"
+                        title="Remove this folder"
+                      >
+                        <DeleteIcon fontSize="small" />
                       </IconButton>
                     </ListItemSecondaryAction>
                   </ListItem>
                 ))}
               </List>
-              <Button startIcon={<AddIcon />} onClick={handleAddScanFolder} variant="outlined">
+              <Button
+                startIcon={<AddIcon />}
+                onClick={handleAddScanFolder}
+                variant="outlined"
+                sx={{
+                  borderColor: '#667eea',
+                  color: '#667eea',
+                  '&:hover': {
+                    borderColor: '#5568d3',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)'
+                  }
+                }}
+              >
                 Add Folder
               </Button>
             </SettingSection>

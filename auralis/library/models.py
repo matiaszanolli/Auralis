@@ -76,6 +76,7 @@ class Track(Base, TimestampMixin):
     disc_number = Column(Integer)
     year = Column(Integer)
     comments = Column(Text)
+    lyrics = Column(Text)  # Plain text or LRC format lyrics
 
     # Playback statistics
     play_count = Column(Integer, default=0)
@@ -133,6 +134,7 @@ class Track(Base, TimestampMixin):
                 'disc_number': self.disc_number,
                 'year': self.year,
                 'comments': self.comments,
+                'lyrics': self.lyrics,
                 'play_count': self.play_count,
                 'last_played': self.last_played.isoformat() if self.last_played else None,
                 'skip_count': self.skip_count,

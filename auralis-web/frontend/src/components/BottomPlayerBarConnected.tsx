@@ -23,7 +23,8 @@ import {
   VolumeOff,
   Favorite,
   FavoriteOutlined,
-  AutoAwesome
+  AutoAwesome,
+  Lyrics as LyricsIcon
 } from '@mui/icons-material';
 import { GradientSlider } from './shared/GradientSlider';
 import { colors, gradients } from '../theme/auralisTheme';
@@ -73,7 +74,12 @@ const AlbumArtContainer = styled(Box)({
   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
 });
 
-export const BottomPlayerBarConnected: React.FC = () => {
+interface BottomPlayerBarConnectedProps {
+  onToggleLyrics?: () => void;
+  onTimeUpdate?: (currentTime: number) => void;
+}
+
+export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> = ({ onToggleLyrics, onTimeUpdate }) => {
   // Real player API hook
   const {
     currentTrack,
@@ -99,13 +105,43 @@ export const BottomPlayerBarConnected: React.FC = () => {
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [isFavoriting, setIsFavoriting] = useState(false);
 
-  // HTML5 Audio element ref for actual playback
+  // HTML5 Audio elements for gapless playback
   const audioRef = React.useRef<HTMLAudioElement>(null);
+  const nextAudioRef = React.useRef<HTMLAudioElement>(null);
 
   // Track the last loaded track ID to prevent redundant reloads
   const lastLoadedTrackId = React.useRef<number | null>(null);
 
+  // Track which audio element is currently playing (for gapless switching)
+  const [activeAudioElement, setActiveAudioElement] = React.useState<'primary' | 'secondary'>('primary');
+
+  // Next track info for pre-loading
+  const [nextTrack, setNextTrack] = React.useState<any | null>(null);
+  const [gaplessEnabled, setGaplessEnabled] = React.useState(true);
+  const [crossfadeEnabled, setCrossfadeEnabled] = React.useState(false);
+  const [crossfadeDuration, setCrossfadeDuration] = React.useState(5.0); // seconds
+
   const { success, info, error: showError } = useToast();
+
+  // Load playback settings from backend
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await fetch('http://localhost:8765/api/settings');
+        if (response.ok) {
+          const settings = await response.json();
+          setGaplessEnabled(settings.gapless_enabled ?? true);
+          setCrossfadeEnabled(settings.crossfade_enabled ?? false);
+          setCrossfadeDuration(settings.crossfade_duration ?? 5.0);
+          console.log('Gapless:', settings.gapless_enabled ? 'enabled' : 'disabled');
+          console.log('Crossfade:', settings.crossfade_enabled ? `enabled (${settings.crossfade_duration}s)` : 'disabled');
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      }
+    };
+    loadSettings();
+  }, []);
 
   // Sync local volume with API volume
   useEffect(() => {
@@ -160,12 +196,156 @@ export const BottomPlayerBarConnected: React.FC = () => {
   // Note: Playback is now controlled directly via play/pause button
   // The audio element is the source of truth, not the backend isPlaying state
 
-  // Sync volume with audio element
+  // Sync volume with both audio elements
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = (isMuted ? 0 : localVolume) / 100;
     }
+    if (nextAudioRef.current) {
+      nextAudioRef.current.volume = (isMuted ? 0 : localVolume) / 100;
+    }
   }, [localVolume, isMuted]);
+
+  // Fetch next track from queue for pre-loading
+  useEffect(() => {
+    const fetchNextTrack = async () => {
+      if (!gaplessEnabled || !currentTrack) {
+        setNextTrack(null);
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:8765/api/player/queue');
+        if (response.ok) {
+          const queueData = await response.json();
+          const currentIndex = queueData.current_index || 0;
+          const tracks = queueData.tracks || [];
+
+          // Get next track
+          if (currentIndex + 1 < tracks.length) {
+            setNextTrack(tracks[currentIndex + 1]);
+          } else {
+            setNextTrack(null);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch next track:', error);
+      }
+    };
+
+    fetchNextTrack();
+  }, [currentTrack, gaplessEnabled, crossfadeEnabled]);
+
+  // Pre-load next track when current track is near the end
+  useEffect(() => {
+    if ((!gaplessEnabled && !crossfadeEnabled) || !nextTrack || !audioRef.current || !nextAudioRef.current) {
+      return;
+    }
+
+    const checkPreload = () => {
+      if (!audioRef.current) return;
+
+      const timeRemaining = audioRef.current.duration - audioRef.current.currentTime;
+
+      // Calculate when to pre-load based on mode:
+      // - Crossfade: Pre-load at crossfade_duration + 1 second buffer
+      // - Gapless: Pre-load at 3 seconds remaining
+      const preloadThreshold = crossfadeEnabled ? crossfadeDuration + 1 : 3;
+
+      if (timeRemaining > 0 && timeRemaining <= preloadThreshold && nextAudioRef.current && !nextAudioRef.current.src) {
+        console.log(`Pre-loading next track for ${crossfadeEnabled ? 'crossfade' : 'gapless'} playback:`, nextTrack.title);
+
+        // Build stream URL for next track
+        const params = new URLSearchParams();
+        if (isEnhanced) {
+          params.append('enhanced', 'true');
+          params.append('preset', currentPreset);
+          params.append('intensity', '1.0');
+        }
+
+        const streamUrl = `http://localhost:8765/api/player/stream/${nextTrack.id}${params.toString() ? '?' + params.toString() : ''}`;
+        nextAudioRef.current.src = streamUrl;
+        nextAudioRef.current.load();
+      }
+    };
+
+    // Check every 500ms during playback
+    const intervalId = setInterval(checkPreload, 500);
+    return () => clearInterval(intervalId);
+  }, [nextTrack, isEnhanced, currentPreset, gaplessEnabled, crossfadeEnabled, crossfadeDuration]);
+
+  // Crossfade effect: Start fading at the right time
+  useEffect(() => {
+    if (!crossfadeEnabled || !nextTrack || !audioRef.current || !nextAudioRef.current) {
+      return;
+    }
+
+    const checkCrossfade = () => {
+      if (!audioRef.current || !nextAudioRef.current) return;
+
+      const timeRemaining = audioRef.current.duration - audioRef.current.currentTime;
+
+      // Start crossfade when time remaining equals crossfade duration
+      if (timeRemaining > 0 && timeRemaining <= crossfadeDuration) {
+        // Only start if next track is loaded and not already playing
+        if (nextAudioRef.current.src && nextAudioRef.current.paused) {
+          console.log(`Starting ${crossfadeDuration}s crossfade`);
+
+          // Start playing the next track (it will fade in)
+          nextAudioRef.current.volume = 0; // Start at 0 volume
+          nextAudioRef.current.play().catch(err => {
+            console.error('Failed to start crossfade:', err);
+          });
+
+          // Perform the crossfade
+          performCrossfade(audioRef.current, nextAudioRef.current, crossfadeDuration);
+        }
+      }
+    };
+
+    const intervalId = setInterval(checkCrossfade, 100); // Check more frequently for smooth fade
+    return () => clearInterval(intervalId);
+  }, [crossfadeEnabled, crossfadeDuration, nextTrack, localVolume, isMuted]);
+
+  // Crossfade function: fade out current, fade in next
+  const performCrossfade = (currentAudio: HTMLAudioElement, nextAudio: HTMLAudioElement, duration: number) => {
+    const startTime = Date.now();
+    const targetVolume = (isMuted ? 0 : localVolume) / 100;
+    const currentStartVolume = currentAudio.volume;
+
+    const fade = () => {
+      const elapsed = (Date.now() - startTime) / 1000; // seconds
+      const progress = Math.min(elapsed / duration, 1); // 0 to 1
+
+      // Ease-in-out curve for smoother transition
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+      // Fade out current track
+      currentAudio.volume = currentStartVolume * (1 - eased);
+
+      // Fade in next track
+      nextAudio.volume = targetVolume * eased;
+
+      if (progress < 1) {
+        requestAnimationFrame(fade);
+      } else {
+        // Crossfade complete
+        currentAudio.volume = 0;
+        nextAudio.volume = targetVolume;
+        currentAudio.pause();
+        currentAudio.src = ''; // Clear the finished track
+
+        // Swap audio element references for next cycle
+        const temp = audioRef.current;
+        audioRef.current = nextAudioRef.current;
+        nextAudioRef.current = temp;
+      }
+    };
+
+    requestAnimationFrame(fade);
+  };
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -496,6 +676,26 @@ export const BottomPlayerBarConnected: React.FC = () => {
 
         {/* Right: Volume & Enhancement */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+          {/* Lyrics Toggle */}
+          {onToggleLyrics && (
+            <Tooltip title="Show Lyrics" placement="top">
+              <IconButton
+                size="small"
+                onClick={onToggleLyrics}
+                sx={{
+                  color: colors.text.secondary,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    color: '#667eea',
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                <LyricsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
           {/* Magic Toggle */}
           <Tooltip title="Auralis Magic" placement="top">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -548,15 +748,77 @@ export const BottomPlayerBarConnected: React.FC = () => {
         onTimeUpdate={(e) => {
           // Update local state for progress bar (don't call backend API)
           const audio = e.currentTarget;
-          setAudioCurrentTime(audio.currentTime);
+          const currentTime = audio.currentTime;
+          setAudioCurrentTime(currentTime);
+
+          // Notify parent component (for lyrics synchronization)
+          if (onTimeUpdate) {
+            onTimeUpdate(currentTime);
+          }
         }}
         onEnded={() => {
-          // Auto-advance to next track
-          next();
+          // Crossfade mode: Track already transitioned via crossfade, just clean up
+          if (crossfadeEnabled && nextAudioRef.current && !nextAudioRef.current.paused) {
+            console.log('Crossfade already in progress, track ended naturally');
+            // The crossfade handler already swapped the audio elements
+            // Just call next() to update backend state
+            next();
+            return;
+          }
+
+          // Gapless playback: seamlessly switch to pre-loaded next track
+          if (gaplessEnabled && nextAudioRef.current && nextAudioRef.current.src) {
+            console.log('Gapless transition to next track');
+            // Start playing the pre-loaded next track immediately
+            nextAudioRef.current.play().catch(err => {
+              console.error('Failed to play next track:', err);
+            });
+            // Clear the current audio source
+            if (audioRef.current) {
+              audioRef.current.src = '';
+            }
+          } else {
+            // Standard mode: call next() to fetch and load the next track
+            next();
+          }
         }}
         onError={(e) => {
           console.error('Audio playback error:', e);
           showError('Audio playback failed');
+        }}
+      />
+
+      {/* Second audio element for gapless pre-loading */}
+      <audio
+        ref={nextAudioRef}
+        style={{ display: 'none' }}
+        onTimeUpdate={(e) => {
+          // This audio element is for pre-loading only during primary playback
+          // When it becomes active, we need to track its time instead
+          if (nextAudioRef.current && nextAudioRef.current.src && !nextAudioRef.current.paused) {
+            const currentTime = e.currentTarget.currentTime;
+            setAudioCurrentTime(currentTime);
+
+            // Notify parent component (for lyrics synchronization)
+            if (onTimeUpdate) {
+              onTimeUpdate(currentTime);
+            }
+          }
+        }}
+        onEnded={() => {
+          // When the pre-loaded track ends, advance to the next one
+          next();
+        }}
+        onPlaying={() => {
+          // When the pre-loaded track starts playing, it becomes the current track
+          console.log('Pre-loaded track is now playing');
+          // Swap references for next pre-load cycle
+          const temp = audioRef.current;
+          audioRef.current = nextAudioRef.current;
+          nextAudioRef.current = temp;
+        }}
+        onError={(e) => {
+          console.error('Next audio playback error:', e);
         }}
       />
     </PlayerContainer>
