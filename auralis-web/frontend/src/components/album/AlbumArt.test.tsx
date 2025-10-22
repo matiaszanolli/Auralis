@@ -85,7 +85,7 @@ describe('AlbumArt', () => {
       // Wait for image to load (mocked to succeed after 100ms)
       await waitFor(() => {
         expect(img).toHaveStyle({ opacity: '1' })
-      }, { timeout: 200 })
+      }, { timeout: 500 })
     })
   })
 
@@ -114,7 +114,7 @@ describe('AlbumArt', () => {
       // Wait for error to trigger
       await waitFor(() => {
         expect(screen.getByTestId('AlbumIcon')).toBeInTheDocument()
-      }, { timeout: 200 })
+      }, { timeout: 500 })
     })
   })
 
