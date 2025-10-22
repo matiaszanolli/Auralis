@@ -29,6 +29,7 @@ import logging
 # Import state management
 from player_state import PlayerState, TrackInfo, create_track_info
 from state_manager import PlayerStateManager
+from proactive_buffer import buffer_presets_for_track
 
 # Add parent directory to path for Auralis imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
@@ -1034,7 +1035,19 @@ async def stream_audio(
                         first_chunk_path = processor.process_chunk(0)
                         logger.info(f"First chunk ready in ~1 second!")
 
-                        # Start background processing of ALL chunks (including first one for full file)
+                        # Start proactive buffering of first 3 chunks for ALL presets
+                        # This enables instant preset switching with zero wait time
+                        if background_tasks:
+                            background_tasks.add_task(
+                                buffer_presets_for_track,
+                                track_id=track_id,
+                                filepath=track.filepath,
+                                intensity=intensity,
+                                total_chunks=processor.total_chunks
+                            )
+                            logger.info(f"🚀 Proactive buffering started: 3 chunks × 5 presets")
+
+                        # Start background processing of remaining chunks for current preset
                         if background_tasks:
                             background_tasks.add_task(processor.process_all_chunks_async)
                             logger.info(f"Background task started to process all {processor.total_chunks} chunks")
