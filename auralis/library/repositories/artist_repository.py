@@ -25,6 +25,20 @@ class ArtistRepository:
     def get_session(self) -> Session:
         return self.session_factory()
 
+    def get_by_id(self, artist_id: int) -> Optional[Artist]:
+        """Get artist by ID with relationships loaded"""
+        session = self.get_session()
+        try:
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Artist)
+                .options(joinedload(Artist.tracks), joinedload(Artist.albums))
+                .filter(Artist.id == artist_id)
+                .first()
+            )
+        finally:
+            session.close()
+
     def get_by_name(self, name: str) -> Optional[Artist]:
         """Get artist by name with relationships loaded"""
         session = self.get_session()

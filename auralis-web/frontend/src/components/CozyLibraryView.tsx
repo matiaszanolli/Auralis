@@ -26,6 +26,7 @@ import * as queueService from '../services/queueService';
 import { CozyAlbumGrid } from './library/CozyAlbumGrid';
 import { CozyArtistList } from './library/CozyArtistList';
 import AlbumDetailView from './library/AlbumDetailView';
+import ArtistDetailView from './library/ArtistDetailView';
 
 interface Track {
   id: number;
@@ -60,6 +61,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const [currentTrackId, setCurrentTrackId] = useState<number | undefined>(undefined);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedAlbumId, setSelectedAlbumId] = useState<number | null>(null);
+  const [selectedArtistId, setSelectedArtistId] = useState<number | null>(null);
+  const [selectedArtistName, setSelectedArtistName] = useState<string>('');
   const { success, error, info } = useToast();
 
   // Real player API for playback
@@ -255,20 +258,27 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
     onTrackPlay?.(track);
   };
 
+  // Show album detail view (can come from albums view or artist view)
+  if (selectedAlbumId !== null) {
+    return (
+      <AlbumDetailView
+        albumId={selectedAlbumId}
+        onBack={() => {
+          setSelectedAlbumId(null);
+          // If we came from artist view, go back to artist detail
+          if (view === 'artists' && selectedArtistId !== null) {
+            // Stay in artist detail view
+          }
+        }}
+        onTrackPlay={handlePlayTrack}
+        currentTrackId={currentTrackId}
+        isPlaying={isPlaying}
+      />
+    );
+  }
+
   // Show album grid view
   if (view === 'albums') {
-    // If an album is selected, show detail view
-    if (selectedAlbumId !== null) {
-      return (
-        <AlbumDetailView
-          albumId={selectedAlbumId}
-          onBack={() => setSelectedAlbumId(null)}
-          onTrackPlay={handlePlayTrack}
-          currentTrackId={currentTrackId}
-          isPlaying={isPlaying}
-        />
-      );
-    }
 
     // Otherwise show album grid
     return (
@@ -299,6 +309,28 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
 
   // Show artist list view
   if (view === 'artists') {
+    // If an artist is selected, show detail view
+    if (selectedArtistId !== null) {
+      return (
+        <ArtistDetailView
+          artistId={selectedArtistId}
+          artistName={selectedArtistName}
+          onBack={() => {
+            setSelectedArtistId(null);
+            setSelectedArtistName('');
+          }}
+          onTrackPlay={handlePlayTrack}
+          onAlbumClick={(albumId) => {
+            // Navigate to album detail view
+            setSelectedAlbumId(albumId);
+          }}
+          currentTrackId={currentTrackId}
+          isPlaying={isPlaying}
+        />
+      );
+    }
+
+    // Otherwise show artist list
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Box sx={{ mb: 4 }}>
@@ -320,7 +352,12 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
             Browse artists in your music library
           </Typography>
         </Box>
-        <CozyArtistList onArtistClick={(artistId, artistName) => console.log('Artist clicked:', artistName)} />
+        <CozyArtistList
+          onArtistClick={(artistId, artistName) => {
+            setSelectedArtistId(artistId);
+            setSelectedArtistName(artistName);
+          }}
+        />
       </Container>
     );
   }
