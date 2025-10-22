@@ -347,6 +347,83 @@ async def remove_track_favorite(track_id: int):
         logger.error(f"Failed to remove favorite: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to remove favorite: {e}")
 
+@app.get("/api/library/tracks/{track_id}/lyrics")
+async def get_track_lyrics(track_id: int):
+    """Get lyrics for a track"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        track = library_manager.tracks.get_by_id(track_id)
+        if not track:
+            raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
+
+        # If lyrics exist in database, return them
+        if track.lyrics:
+            return {
+                "track_id": track_id,
+                "lyrics": track.lyrics,
+                "format": "lrc" if "[" in track.lyrics and "]" in track.lyrics else "plain"
+            }
+
+        # If no lyrics in database, try to extract from file
+        try:
+            import mutagen
+            audio_file = mutagen.File(track.filepath)
+
+            lyrics_text = None
+
+            # Try different lyrics tags
+            if audio_file:
+                # ID3 tags (MP3)
+                if hasattr(audio_file, 'tags') and audio_file.tags:
+                    # USLT frame (Unsynchronized lyrics)
+                    if 'USLT::eng' in audio_file.tags:
+                        lyrics_text = str(audio_file.tags['USLT::eng'])
+                    elif 'USLT' in audio_file.tags:
+                        lyrics_text = str(audio_file.tags['USLT'])
+                    # Alternative text frame
+                    elif 'LYRICS' in audio_file.tags:
+                        lyrics_text = str(audio_file.tags['LYRICS'])
+
+                # Vorbis comments (FLAC, OGG)
+                elif hasattr(audio_file, 'get'):
+                    lyrics_text = audio_file.get('LYRICS', [None])[0] or audio_file.get('UNSYNCEDLYRICS', [None])[0]
+
+                # MP4/M4A tags
+                elif hasattr(audio_file, '__getitem__'):
+                    try:
+                        lyrics_text = audio_file.get('\xa9lyr', [None])[0]
+                    except:
+                        pass
+
+            if lyrics_text:
+                # Save to database for future requests
+                track.lyrics = lyrics_text
+                library_manager.tracks.update(track)
+
+                return {
+                    "track_id": track_id,
+                    "lyrics": lyrics_text,
+                    "format": "lrc" if "[" in lyrics_text and "]" in lyrics_text else "plain"
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to extract lyrics from file: {e}")
+
+        # No lyrics found
+        return {
+            "track_id": track_id,
+            "lyrics": None,
+            "format": None
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get lyrics: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get lyrics: {e}")
+
 @app.get("/api/library/artists")
 async def get_artists():
     """Get all artists"""

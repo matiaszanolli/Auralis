@@ -755,5 +755,553 @@ class TestIntegrationFlows:
         assert response.status_code in [200, 503]
 
 
+class TestLyricsEndpoint:
+    """Test lyrics endpoint"""
+
+    def test_get_lyrics_no_library(self, client):
+        """Test getting lyrics when library not available"""
+        with patch('main.library_manager', None):
+            response = client.get("/api/library/tracks/1/lyrics")
+            assert response.status_code == 503
+
+    def test_get_lyrics_track_not_found(self, client):
+        """Test getting lyrics for non-existent track"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.tracks.get_by_id.return_value = None
+
+            response = client.get("/api/library/tracks/999/lyrics")
+            assert response.status_code == 404
+
+    def test_get_lyrics_from_database(self, client):
+        """Test getting cached lyrics from database"""
+        with patch('main.library_manager') as mock_library:
+            # Mock track with lyrics already in database
+            mock_track = Mock()
+            mock_track.lyrics = "[00:00.00]Test lyrics line 1\n[00:05.00]Test lyrics line 2"
+            mock_track.filepath = "/path/to/track.mp3"
+            mock_library.tracks.get_by_id.return_value = mock_track
+
+            response = client.get("/api/library/tracks/1/lyrics")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["track_id"] == 1
+            assert data["lyrics"] is not None
+            assert data["format"] == "lrc"
+
+    def test_get_lyrics_plain_text(self, client):
+        """Test getting plain text lyrics"""
+        with patch('main.library_manager') as mock_library:
+            mock_track = Mock()
+            mock_track.lyrics = "Plain text lyrics without timestamps"
+            mock_track.filepath = "/path/to/track.mp3"
+            mock_library.tracks.get_by_id.return_value = mock_track
+
+            response = client.get("/api/library/tracks/1/lyrics")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["format"] == "plain"
+
+    def test_get_lyrics_no_lyrics_available(self, client):
+        """Test track with no lyrics"""
+        with patch('main.library_manager') as mock_library:
+            mock_track = Mock()
+            mock_track.lyrics = None
+            mock_track.filepath = "/path/to/track.mp3"
+            mock_library.tracks.get_by_id.return_value = mock_track
+
+            response = client.get("/api/library/tracks/1/lyrics")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["lyrics"] is None
+            assert data["format"] is None
+
+
+class TestFavoritesEndpoints:
+    """Test favorites management endpoints"""
+
+    def test_get_favorites_no_library(self, client):
+        """Test getting favorites when library not available"""
+        with patch('main.library_manager', None):
+            response = client.get("/api/library/tracks/favorites")
+            assert response.status_code == 503
+
+    def test_get_favorites_success(self, client):
+        """Test getting favorite tracks"""
+        with patch('main.library_manager') as mock_library:
+            # Create mock tracks with to_dict() method
+            mock_track1 = Mock()
+            mock_track1.to_dict.return_value = {"id": 1, "title": "Track 1", "favorite": True}
+            mock_track2 = Mock()
+            mock_track2.to_dict.return_value = {"id": 2, "title": "Track 2", "favorite": True}
+
+            mock_library.tracks.get_favorites.return_value = [mock_track1, mock_track2]
+
+            response = client.get("/api/library/tracks/favorites")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "tracks" in data
+            assert len(data["tracks"]) == 2
+
+    def test_add_favorite_success(self, client):
+        """Test adding track to favorites"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.tracks.set_favorite.return_value = None
+
+            response = client.post("/api/library/tracks/1/favorite")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["message"] == "Track marked as favorite"
+            assert data["track_id"] == 1
+            assert data["favorite"] is True
+
+    def test_add_favorite_track_not_found(self, client):
+        """Test adding non-existent track to favorites"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.tracks.set_favorite.side_effect = Exception("Track not found")
+
+            response = client.post("/api/library/tracks/999/favorite")
+            assert response.status_code == 500
+
+    def test_remove_favorite_success(self, client):
+        """Test removing track from favorites"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.tracks.set_favorite.return_value = None
+
+            response = client.delete("/api/library/tracks/1/favorite")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["message"] == "Track removed from favorites"
+            assert data["track_id"] == 1
+            assert data["favorite"] is False
+
+
+class TestSettingsEndpoints:
+    """Test settings management endpoints"""
+
+    def test_get_settings_no_repository(self, client):
+        """Test getting settings when repository not available"""
+        with patch('main.settings_repository', None):
+            response = client.get("/api/settings")
+            assert response.status_code == 503
+
+    def test_get_settings_success(self, client):
+        """Test getting application settings"""
+        with patch('main.settings_repository') as mock_repo:
+            mock_settings = Mock()
+            mock_settings.to_dict.return_value = {
+                "theme": "dark",
+                "volume": 80,
+                "gapless_enabled": True,
+                "crossfade_enabled": False
+            }
+            mock_repo.get_settings.return_value = mock_settings
+
+            response = client.get("/api/settings")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "theme" in data
+            assert "volume" in data
+
+    def test_update_settings_success(self, client):
+        """Test updating application settings"""
+        with patch('main.settings_repository') as mock_repo:
+            mock_settings = Mock()
+            mock_settings.to_dict.return_value = {"theme": "light", "volume": 90}
+            mock_repo.update_settings.return_value = mock_settings
+
+            new_settings = {
+                "theme": "light",
+                "volume": 90
+            }
+
+            response = client.put("/api/settings", json=new_settings)
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "message" in data
+            assert data["message"] == "Settings updated successfully"
+
+    def test_reset_settings_success(self, client):
+        """Test resetting settings to defaults"""
+        with patch('main.settings_repository') as mock_repo:
+            mock_settings = Mock()
+            mock_settings.to_dict.return_value = {}
+            mock_repo.reset_settings.return_value = mock_settings
+
+            response = client.post("/api/settings/reset")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "message" in data
+
+    def test_add_scan_folder_success(self, client):
+        """Test adding scan folder"""
+        with patch('main.settings_repository') as mock_repo:
+            mock_settings = Mock()
+            mock_settings.scan_folders = ["/existing/folder"]
+            mock_settings.to_dict.return_value = {"scan_folders": ["/existing/folder", "/new/folder"]}
+            mock_repo.get_settings.return_value = mock_settings
+
+            response = client.post("/api/settings/scan-folders", json={"path": "/new/folder"})
+
+            assert response.status_code == 200
+
+    def test_remove_scan_folder_success(self, client):
+        """Test removing scan folder"""
+        with patch('main.settings_repository') as mock_repo:
+            mock_settings = Mock()
+            mock_settings.scan_folders = ["/folder1", "/folder2"]
+            mock_settings.to_dict.return_value = {"scan_folders": ["/folder2"]}
+            mock_repo.get_settings.return_value = mock_settings
+
+            response = client.delete("/api/settings/scan-folders", json={"path": "/folder1"})
+
+            assert response.status_code == 200
+
+
+class TestAlbumArtistEndpoints:
+    """Test album and artist detail endpoints"""
+
+    def test_get_artist_detail_success(self, client):
+        """Test getting artist details"""
+        with patch('main.library_manager') as mock_library:
+            mock_artist = Mock()
+            mock_artist.to_dict.return_value = {
+                "id": 1,
+                "name": "Test Artist",
+                "total_plays": 100
+            }
+            mock_library.artists.get_by_id.return_value = mock_artist
+
+            response = client.get("/api/library/artists/1")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["name"] == "Test Artist"
+
+    def test_get_artist_not_found(self, client):
+        """Test getting non-existent artist"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.artists.get_by_id.return_value = None
+
+            response = client.get("/api/library/artists/999")
+            assert response.status_code == 404
+
+    def test_get_album_detail_success(self, client):
+        """Test getting album details"""
+        with patch('main.library_manager') as mock_library:
+            mock_album = Mock()
+            mock_album.to_dict.return_value = {
+                "id": 1,
+                "title": "Test Album",
+                "artist_id": 1
+            }
+            mock_library.albums.get_by_id.return_value = mock_album
+
+            response = client.get("/api/library/albums/1")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["title"] == "Test Album"
+
+    def test_get_album_not_found(self, client):
+        """Test getting non-existent album"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.albums.get_by_id.return_value = None
+
+            response = client.get("/api/library/albums/999")
+            assert response.status_code == 404
+
+    def test_get_albums_list(self, client):
+        """Test getting albums list"""
+        with patch('main.library_manager') as mock_library:
+            # Create mock albums with to_dict() method
+            mock_album1 = Mock()
+            mock_album1.to_dict.return_value = {"id": 1, "title": "Album 1"}
+            mock_album2 = Mock()
+            mock_album2.to_dict.return_value = {"id": 2, "title": "Album 2"}
+
+            mock_library.albums.get_all.return_value = [mock_album1, mock_album2]
+
+            response = client.get("/api/library/albums")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "albums" in data
+            assert len(data["albums"]) == 2
+
+
+class TestVersionEndpoint:
+    """Test version endpoint"""
+
+    def test_get_version(self, client):
+        """Test getting API version"""
+        response = client.get("/api/version")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "api_version" in data
+        assert "db_schema_version" in data
+
+
+class TestPlaylistEndpoints:
+    """Test playlist management endpoints"""
+
+    def test_get_playlists_no_library(self, client):
+        """Test getting playlists when library not available"""
+        with patch('main.library_manager', None):
+            response = client.get("/api/playlists")
+            assert response.status_code == 503
+
+    def test_get_playlists_success(self, client):
+        """Test getting all playlists"""
+        with patch('main.library_manager') as mock_library:
+            mock_playlist1 = Mock()
+            mock_playlist1.to_dict.return_value = {"id": 1, "name": "Playlist 1"}
+            mock_playlist2 = Mock()
+            mock_playlist2.to_dict.return_value = {"id": 2, "name": "Playlist 2"}
+
+            mock_library.playlists.get_all.return_value = [mock_playlist1, mock_playlist2]
+
+            response = client.get("/api/playlists")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "playlists" in data
+            assert len(data["playlists"]) == 2
+
+    def test_get_playlist_by_id_success(self, client):
+        """Test getting playlist by ID"""
+        with patch('main.library_manager') as mock_library:
+            mock_playlist = Mock()
+            mock_playlist.to_dict.return_value = {"id": 1, "name": "My Playlist"}
+            mock_playlist.tracks = []  # Empty tracks list
+            mock_library.playlists.get_by_id.return_value = mock_playlist
+
+            response = client.get("/api/playlists/1")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["name"] == "My Playlist"
+
+    def test_get_playlist_not_found(self, client):
+        """Test getting non-existent playlist"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.playlists.get_by_id.return_value = None
+
+            response = client.get("/api/playlists/999")
+            assert response.status_code == 404
+
+    def test_create_playlist_success(self, client):
+        """Test creating a new playlist"""
+        with patch('main.library_manager') as mock_library:
+            with patch('main.manager') as mock_ws_manager:
+                mock_ws_manager.broadcast = AsyncMock()
+
+                mock_playlist = Mock()
+                mock_playlist.id = 1
+                mock_playlist.name = "New Playlist"
+                mock_playlist.to_dict.return_value = {"id": 1, "name": "New Playlist"}
+                mock_library.playlists.create.return_value = mock_playlist
+
+                response = client.post("/api/playlists", json={"name": "New Playlist"})
+
+                assert response.status_code == 200
+                data = response.json()
+                assert "playlist" in data
+                assert data["playlist"]["id"] == 1
+
+    def test_update_playlist_success(self, client):
+        """Test updating playlist"""
+        with patch('main.library_manager') as mock_library:
+            with patch('main.manager') as mock_ws_manager:
+                mock_ws_manager.broadcast = AsyncMock()
+
+                mock_library.playlists.update.return_value = True
+
+                response = client.put("/api/playlists/1", json={"name": "Updated Playlist"})
+
+                assert response.status_code == 200
+                data = response.json()
+                assert "message" in data
+                assert data["message"] == "Playlist updated successfully"
+
+    def test_delete_playlist_success(self, client):
+        """Test deleting playlist"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.playlists.delete.return_value = True
+
+            response = client.delete("/api/playlists/1")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "message" in data
+
+    def test_add_track_to_playlist_success(self, client):
+        """Test adding track to playlist"""
+        with patch('main.library_manager') as mock_library:
+            with patch('main.manager') as mock_ws_manager:
+                mock_ws_manager.broadcast = AsyncMock()
+
+                mock_library.playlists.add_track.return_value = True
+
+                response = client.post("/api/playlists/1/tracks", json={"track_ids": [5]})
+
+                assert response.status_code == 200
+                data = response.json()
+                assert "added_count" in data
+                assert data["added_count"] == 1
+
+    def test_remove_track_from_playlist_success(self, client):
+        """Test removing track from playlist"""
+        with patch('main.library_manager') as mock_library:
+            response = client.delete("/api/playlists/1/tracks/5")
+
+            assert response.status_code == 200
+
+    def test_clear_playlist_success(self, client):
+        """Test clearing all tracks from playlist"""
+        with patch('main.library_manager') as mock_library:
+            response = client.delete("/api/playlists/1/tracks")
+
+            assert response.status_code == 200
+
+
+class TestPlayerEnhancementEndpoints:
+    """Test player enhancement endpoints"""
+
+    def test_toggle_enhancement_on(self, client):
+        """Test enabling enhancement"""
+        with patch('main.manager') as mock_ws_manager:
+            mock_ws_manager.broadcast = AsyncMock()
+
+            response = client.post("/api/player/enhancement/toggle?enabled=true")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "settings" in data
+
+    def test_toggle_enhancement_off(self, client):
+        """Test disabling enhancement"""
+        with patch('main.manager') as mock_ws_manager:
+            mock_ws_manager.broadcast = AsyncMock()
+
+            response = client.post("/api/player/enhancement/toggle?enabled=false")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "settings" in data
+
+    def test_set_enhancement_preset(self, client):
+        """Test setting enhancement preset"""
+        with patch('main.manager') as mock_ws_manager:
+            mock_ws_manager.broadcast = AsyncMock()
+
+            response = client.post("/api/player/enhancement/preset?preset=warm")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "settings" in data
+
+    def test_set_enhancement_intensity(self, client):
+        """Test setting enhancement intensity"""
+        with patch('main.manager') as mock_ws_manager:
+            mock_ws_manager.broadcast = AsyncMock()
+
+            response = client.post("/api/player/enhancement/intensity?intensity=0.7")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert "settings" in data
+
+    def test_get_enhancement_status(self, client):
+        """Test getting enhancement status"""
+        response = client.get("/api/player/enhancement/status")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "enabled" in data
+
+
+class TestAlbumArtworkEndpoints:
+    """Test album artwork endpoints"""
+
+    def test_get_artwork_no_library(self, client):
+        """Test getting artwork when library not available"""
+        with patch('main.library_manager', None):
+            response = client.get("/api/albums/1/artwork")
+            assert response.status_code == 503
+
+    def test_get_artwork_album_not_found(self, client):
+        """Test getting artwork for non-existent album"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.albums.get_by_id.return_value = None
+
+            response = client.get("/api/albums/999/artwork")
+            assert response.status_code == 404
+
+    def test_get_artwork_no_artwork(self, client):
+        """Test getting artwork when album has no artwork"""
+        with patch('main.library_manager') as mock_library:
+            mock_album = Mock()
+            mock_album.artwork_path = None
+            mock_library.albums.get_by_id.return_value = mock_album
+
+            response = client.get("/api/albums/1/artwork")
+            assert response.status_code == 404
+
+    def test_extract_artwork_success(self, client):
+        """Test extracting artwork from audio file"""
+        with patch('main.library_manager') as mock_library:
+            mock_album = Mock()
+            mock_album.id = 1
+            mock_library.albums.get_by_id.return_value = mock_album
+
+            with patch('main.extract_album_artwork') as mock_extract:
+                mock_extract.return_value = "/path/to/artwork.jpg"
+
+                response = client.post("/api/albums/1/artwork/extract")
+
+                assert response.status_code == 200
+                data = response.json()
+                assert "message" in data
+
+    def test_delete_artwork_success(self, client):
+        """Test deleting album artwork"""
+        with patch('main.library_manager') as mock_library:
+            mock_album = Mock()
+            mock_album.artwork_path = "/path/to/artwork.jpg"
+            mock_library.albums.get_by_id.return_value = mock_album
+
+            response = client.delete("/api/albums/1/artwork")
+
+            assert response.status_code == 200
+
+
+class TestPlayerStreamEndpoint:
+    """Test audio streaming endpoint"""
+
+    def test_stream_track_no_library(self, client):
+        """Test streaming when library not available"""
+        with patch('main.library_manager', None):
+            response = client.get("/api/player/stream/1")
+            assert response.status_code == 503
+
+    def test_stream_track_not_found(self, client):
+        """Test streaming non-existent track"""
+        with patch('main.library_manager') as mock_library:
+            mock_library.tracks.get_by_id.return_value = None
+
+            response = client.get("/api/player/stream/999")
+            assert response.status_code == 404
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

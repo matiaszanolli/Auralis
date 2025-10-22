@@ -15,6 +15,7 @@ import PresetPane from './components/PresetPane';
 import CozyLibraryView from './components/CozyLibraryView';
 import GlobalSearch from './components/library/GlobalSearch';
 import SettingsDialog from './components/settings/SettingsDialog';
+import LyricsPanel from './components/player/LyricsPanel';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useToast } from './components/shared/Toast';
 
@@ -31,12 +32,14 @@ interface Track {
 function ComfortableApp() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [presetPaneCollapsed, setPresetPaneCollapsed] = useState(false);
+  const [lyricsOpen, setLyricsOpen] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
   const [searchResultView, setSearchResultView] = useState<{type: string; id: number} | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [playbackTime, setPlaybackTime] = useState(0);
 
   // WebSocket connection for real-time updates
   const { connected } = useWebSocket('ws://localhost:8765/ws');
@@ -207,10 +210,22 @@ function ComfortableApp() {
           onPresetChange={handlePresetChange}
           onMasteringToggle={handleMasteringToggle}
         />
+
+        {/* Lyrics Panel - Optional */}
+        {lyricsOpen && currentTrack && (
+          <LyricsPanel
+            trackId={currentTrack.id}
+            currentTime={playbackTime}
+            onClose={() => setLyricsOpen(false)}
+          />
+        )}
       </Box>
 
       {/* Bottom Player Bar - Fixed - REAL PLAYBACK! */}
-      <BottomPlayerBarConnected />
+      <BottomPlayerBarConnected
+        onToggleLyrics={() => setLyricsOpen(!lyricsOpen)}
+        onTimeUpdate={(time) => setPlaybackTime(time)}
+      />
 
       {/* Settings Dialog */}
       <SettingsDialog
