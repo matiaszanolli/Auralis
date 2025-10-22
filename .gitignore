@@ -70,6 +70,7 @@ auralis-web/backend/dist/
 *.tmp
 *.temp
 *.pid
+**/coverage
 .cache/
 .pytest_cache/
 .coverage
