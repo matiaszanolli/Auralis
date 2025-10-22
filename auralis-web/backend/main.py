@@ -356,6 +356,24 @@ async def get_artists():
         logger.error(f"Failed to get artists: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get artists: {e}")
 
+@app.get("/api/library/artists/{artist_id}")
+async def get_artist(artist_id: int):
+    """Get artist details by ID with albums and tracks"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        artist = library_manager.artists.get_by_id(artist_id)
+        if not artist:
+            raise HTTPException(status_code=404, detail=f"Artist {artist_id} not found")
+
+        return artist.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get artist {artist_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get artist: {e}")
+
 @app.get("/api/library/albums")
 async def get_albums():
     """Get all albums"""

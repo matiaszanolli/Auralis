@@ -13,6 +13,7 @@ import Sidebar from './components/Sidebar';
 import BottomPlayerBarConnected from './components/BottomPlayerBarConnected';
 import PresetPane from './components/PresetPane';
 import CozyLibraryView from './components/CozyLibraryView';
+import GlobalSearch from './components/library/GlobalSearch';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useToast } from './components/shared/Toast';
 
@@ -33,6 +34,7 @@ function ComfortableApp() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
+  const [searchResultView, setSearchResultView] = useState<{type: string; id: number} | null>(null);
 
   // WebSocket connection for real-time updates
   const { connected } = useWebSocket('ws://localhost:8765/ws');
@@ -70,6 +72,19 @@ function ComfortableApp() {
   const handleMasteringToggle = (enabled: boolean) => {
     console.log('Mastering:', enabled ? 'enabled' : 'disabled');
     info(enabled ? '✨ Mastering enabled' : 'Mastering disabled');
+  };
+
+  const handleSearchResultClick = (result: {type: string; id: number}) => {
+    if (result.type === 'track') {
+      // Play the track directly
+      console.log('Play track from search:', result.id);
+    } else if (result.type === 'album') {
+      setCurrentView('albums');
+      setSearchResultView(result);
+    } else if (result.type === 'artist') {
+      setCurrentView('artists');
+      setSearchResultView(result);
+    }
   };
 
   return (
@@ -163,40 +178,7 @@ function ComfortableApp() {
             </Box>
 
             {/* Search Bar */}
-            <TextField
-              fullWidth
-              placeholder="Search songs, albums, artists..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search sx={{ color: 'var(--silver)', opacity: 0.5 }} />
-                  </InputAdornment>
-                )
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  fontFamily: 'var(--font-body)',
-                  color: 'var(--silver)',
-                  background: 'var(--charcoal)',
-                  borderRadius: 'var(--radius-md)',
-                  '& fieldset': {
-                    borderColor: 'rgba(226, 232, 240, 0.1)'
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'rgba(226, 232, 240, 0.2)'
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'var(--aurora-violet)',
-                    borderWidth: 1
-                  }
-                },
-                '& .MuiOutlinedInput-input': {
-                  padding: '12px 14px'
-                }
-              }}
-            />
+            <GlobalSearch onResultClick={handleSearchResultClick} />
           </Box>
 
           {/* Content Area - Library View */}
