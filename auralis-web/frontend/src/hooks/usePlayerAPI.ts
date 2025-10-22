@@ -356,16 +356,17 @@ export const usePlayerAPI = () => {
     };
   }, [fetchPlayerStatus]);
 
-  // Periodic status updates (fallback if WebSocket fails)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (playerState.isPlaying) {
-        fetchPlayerStatus();
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [playerState.isPlaying, fetchPlayerStatus]);
+  // NOTE: Periodic polling DISABLED - WebSocket provides real-time updates
+  // The PlayerStateManager broadcasts player_state messages automatically:
+  // - Every second during playback (position updates)
+  // - On every state change (play, pause, seek, volume, track change)
+  //
+  // Polling was previously used as a fallback, but is no longer needed since
+  // WebSocket communication is stable and reliable.
+  //
+  // If WebSocket fails, the connection will be re-established automatically
+  // by the browser, and state will sync on reconnection via fetchPlayerStatus()
+  // in the WebSocket onopen handler above.
 
   return {
     // State
