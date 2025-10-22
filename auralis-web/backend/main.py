@@ -347,10 +347,48 @@ async def get_artists():
         raise HTTPException(status_code=503, detail="Library manager not available")
 
     try:
-        # This would need to be implemented in the library manager
-        return {"artists": [], "message": "Artist listing not yet implemented"}
+        artists = library_manager.artists.get_all()
+        return {
+            "artists": [artist.to_dict() for artist in artists],
+            "total": len(artists)
+        }
     except Exception as e:
+        logger.error(f"Failed to get artists: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get artists: {e}")
+
+@app.get("/api/library/albums")
+async def get_albums():
+    """Get all albums"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        albums = library_manager.albums.get_all()
+        return {
+            "albums": [album.to_dict() for album in albums],
+            "total": len(albums)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get albums: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get albums: {e}")
+
+@app.get("/api/library/albums/{album_id}")
+async def get_album(album_id: int):
+    """Get album details by ID with tracks"""
+    if not library_manager:
+        raise HTTPException(status_code=503, detail="Library manager not available")
+
+    try:
+        album = library_manager.albums.get_by_id(album_id)
+        if not album:
+            raise HTTPException(status_code=404, detail=f"Album {album_id} not found")
+
+        return album.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get album {album_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get album: {e}")
 
 # ============================================================================
 # PLAYLIST MANAGEMENT ENDPOINTS

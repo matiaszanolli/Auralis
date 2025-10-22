@@ -23,6 +23,9 @@ import { LibraryGridSkeleton, TrackRowSkeleton } from './shared/SkeletonLoader';
 import { useToast } from './shared/Toast';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
 import * as queueService from '../services/queueService';
+import { CozyAlbumGrid } from './library/CozyAlbumGrid';
+import { CozyArtistList } from './library/CozyArtistList';
+import AlbumDetailView from './library/AlbumDetailView';
 
 interface Track {
   id: number;
@@ -56,6 +59,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const [scanning, setScanning] = useState(false);
   const [currentTrackId, setCurrentTrackId] = useState<number | undefined>(undefined);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [selectedAlbumId, setSelectedAlbumId] = useState<number | null>(null);
   const { success, error, info } = useToast();
 
   // Real player API for playback
@@ -250,6 +254,76 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
     success(`Now playing: ${track.title}`);
     onTrackPlay?.(track);
   };
+
+  // Show album grid view
+  if (view === 'albums') {
+    // If an album is selected, show detail view
+    if (selectedAlbumId !== null) {
+      return (
+        <AlbumDetailView
+          albumId={selectedAlbumId}
+          onBack={() => setSelectedAlbumId(null)}
+          onTrackPlay={handlePlayTrack}
+          currentTrackId={currentTrackId}
+          isPlaying={isPlaying}
+        />
+      );
+    }
+
+    // Otherwise show album grid
+    return (
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Box sx={{ mb: 4 }}>
+          <Typography
+            variant="h3"
+            component="h1"
+            fontWeight="bold"
+            gutterBottom
+            sx={{
+              background: 'linear-gradient(45deg, #667eea, #764ba2)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            📀 Albums
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary">
+            Browse your music collection by album
+          </Typography>
+        </Box>
+        <CozyAlbumGrid onAlbumClick={(albumId) => setSelectedAlbumId(albumId)} />
+      </Container>
+    );
+  }
+
+  // Show artist list view
+  if (view === 'artists') {
+    return (
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Box sx={{ mb: 4 }}>
+          <Typography
+            variant="h3"
+            component="h1"
+            fontWeight="bold"
+            gutterBottom
+            sx={{
+              background: 'linear-gradient(45deg, #667eea, #764ba2)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            🎤 Artists
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary">
+            Browse artists in your music library
+          </Typography>
+        </Box>
+        <CozyArtistList onArtistClick={(artistId, artistName) => console.log('Artist clicked:', artistName)} />
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
