@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
   Typography,
@@ -18,6 +18,7 @@ import {
 import GradientButton from './shared/GradientButton';
 import GradientSlider from './shared/GradientSlider';
 import { gradients, colors } from '../theme/auralisTheme';
+import { useEnhancement } from '../contexts/EnhancementContext';
 
 interface PresetPaneProps {
   collapsed?: boolean;
@@ -32,9 +33,8 @@ const PresetPane: React.FC<PresetPaneProps> = ({
   onPresetChange,
   onMasteringToggle
 }) => {
-  const [selectedPreset, setSelectedPreset] = useState('adaptive');
-  const [masteringEnabled, setMasteringEnabled] = useState(true);
-  const [intensity, setIntensity] = useState(50);
+  // Get enhancement settings from global context
+  const { settings, setEnabled, setPreset, setIntensity, isProcessing } = useEnhancement();
 
   const presets = [
     { value: 'adaptive', label: 'Adaptive', description: 'Intelligent content-aware mastering' },
@@ -44,14 +44,19 @@ const PresetPane: React.FC<PresetPaneProps> = ({
     { value: 'punchy', label: 'Punchy', description: 'Increases impact and dynamics' }
   ];
 
-  const handlePresetChange = (value: string) => {
-    setSelectedPreset(value);
+  const handlePresetChange = async (value: string) => {
+    await setPreset(value);
     onPresetChange?.(value);
   };
 
-  const handleMasteringToggle = (enabled: boolean) => {
-    setMasteringEnabled(enabled);
+  const handleMasteringToggle = async (enabled: boolean) => {
+    await setEnabled(enabled);
     onMasteringToggle?.(enabled);
+  };
+
+  const handleIntensityChange = async (_: Event, value: number | number[]) => {
+    const intensityValue = (value as number) / 100; // Convert 0-100 to 0.0-1.0
+    await setIntensity(intensityValue);
   };
 
   if (collapsed) {
@@ -138,22 +143,24 @@ const PresetPane: React.FC<PresetPaneProps> = ({
             p: 2,
             mb: 3,
             borderRadius: 'var(--radius-md)',
-            background: masteringEnabled
+            background: settings.enabled
               ? 'rgba(124, 58, 237, 0.1)'
               : 'rgba(226, 232, 240, 0.05)',
             border: `1px solid ${
-              masteringEnabled
+              settings.enabled
                 ? 'rgba(124, 58, 237, 0.3)'
                 : 'rgba(226, 232, 240, 0.1)'
             }`,
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            opacity: isProcessing ? 0.7 : 1
           }}
         >
           <FormControlLabel
             control={
               <Switch
-                checked={masteringEnabled}
+                checked={settings.enabled}
                 onChange={(e) => handleMasteringToggle(e.target.checked)}
+                disabled={isProcessing}
                 sx={{
                   '& .MuiSwitch-switchBase.Mui-checked': {
                     color: 'var(--aurora-violet)'
@@ -189,14 +196,14 @@ const PresetPane: React.FC<PresetPaneProps> = ({
               fontSize: 11
             }}
           >
-            {masteringEnabled
-              ? 'Auralis is enhancing your music'
+            {settings.enabled
+              ? `Auralis is enhancing your music (${settings.preset})`
               : 'Original audio quality'}
           </Typography>
         </Box>
 
         {/* Preset Selection */}
-        <Box sx={{ mb: 3, opacity: masteringEnabled ? 1 : 0.4 }}>
+        <Box sx={{ mb: 3, opacity: settings.enabled ? 1 : 0.4 }}>
           <Typography
             variant="caption"
             className="gradient-text"
@@ -218,17 +225,17 @@ const PresetPane: React.FC<PresetPaneProps> = ({
                 key={preset.value}
                 fullWidth
                 onClick={() => handlePresetChange(preset.value)}
-                disabled={!masteringEnabled}
+                disabled={!settings.enabled || isProcessing}
                 sx={{
                   justifyContent: 'flex-start',
                   textAlign: 'left',
                   py: 1.5,
                   px: 2,
-                  opacity: selectedPreset === preset.value ? 1 : 0.7,
-                  background: selectedPreset === preset.value
+                  opacity: settings.preset === preset.value ? 1 : 0.7,
+                  background: settings.preset === preset.value
                     ? gradients.aurora
                     : colors.background.surface,
-                  transform: selectedPreset === preset.value ? 'scale(1.02)' : 'scale(1)',
+                  transform: settings.preset === preset.value ? 'scale(1.02)' : 'scale(1)',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
                     opacity: 1,
@@ -241,7 +248,7 @@ const PresetPane: React.FC<PresetPaneProps> = ({
                     variant="button"
                     sx={{
                       fontWeight: 600,
-                      color: selectedPreset === preset.value ? '#fff' : colors.text.primary
+                      color: settings.preset === preset.value ? '#fff' : colors.text.primary
                     }}
                   >
                     {preset.label}
@@ -252,7 +259,7 @@ const PresetPane: React.FC<PresetPaneProps> = ({
                     sx={{
                       fontSize: 11,
                       opacity: 0.9,
-                      color: selectedPreset === preset.value ? '#fff' : colors.text.secondary
+                      color: settings.preset === preset.value ? '#fff' : colors.text.secondary
                     }}
                   >
                     {preset.description}
@@ -266,7 +273,7 @@ const PresetPane: React.FC<PresetPaneProps> = ({
         <Divider sx={{ borderColor: 'rgba(226, 232, 240, 0.1)', my: 3 }} />
 
         {/* Intensity Slider */}
-        <Box sx={{ mb: 3, opacity: masteringEnabled ? 1 : 0.4 }}>
+        <Box sx={{ mb: 3, opacity: settings.enabled ? 1 : 0.4 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
             <Typography
               variant="caption"
@@ -294,13 +301,13 @@ const PresetPane: React.FC<PresetPaneProps> = ({
                 WebkitTextFillColor: 'transparent'
               }}
             >
-              {intensity}%
+              {Math.round(settings.intensity * 100)}%
             </Typography>
           </Box>
           <GradientSlider
-            value={intensity}
-            onChange={(_, value) => setIntensity(value as number)}
-            disabled={!masteringEnabled}
+            value={Math.round(settings.intensity * 100)}
+            onChange={handleIntensityChange}
+            disabled={!settings.enabled || isProcessing}
             min={0}
             max={100}
             gradientbg={gradients.aurora}
@@ -350,15 +357,15 @@ const PresetPane: React.FC<PresetPaneProps> = ({
               display: 'block'
             }}
           >
-            {selectedPreset === 'adaptive' &&
+            {settings.preset === 'adaptive' &&
               'Intelligent, content-aware mastering that analyzes your audio and applies optimal processing. Best for most use cases.'}
-            {selectedPreset === 'gentle' &&
+            {settings.preset === 'gentle' &&
               'Subtle enhancement with minimal processing. Preserves the original character while adding professional polish.'}
-            {selectedPreset === 'warm' &&
+            {settings.preset === 'warm' &&
               'Adds warmth and smoothness to the sound. Perfect for vocals, acoustic instruments, and classic genres.'}
-            {selectedPreset === 'bright' &&
+            {settings.preset === 'bright' &&
               'Enhances clarity and presence in the high frequencies. Ideal for modern pop, electronic, and energetic music.'}
-            {selectedPreset === 'punchy' &&
+            {settings.preset === 'punchy' &&
               'Increases impact and dynamics for powerful, energetic sound. Great for rock, hip-hop, and EDM.'}
           </Typography>
         </Box>
