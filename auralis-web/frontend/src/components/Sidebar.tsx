@@ -22,7 +22,8 @@ import {
   ExpandMore,
   Add,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Settings
 } from '@mui/icons-material';
 import { AuroraLogo } from './navigation/AuroraLogo';
 import { colors, gradients } from '../theme/auralisTheme';
@@ -32,6 +33,7 @@ interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onNavigate?: (view: string) => void;
+  onOpenSettings?: () => void;
 }
 
 const SidebarContainer = styled(Box)({
@@ -82,7 +84,7 @@ const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }>(({ is
   },
 }));
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, onNavigate, onOpenSettings }) => {
   const [playlistsOpen, setPlaylistsOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState('songs');
 
@@ -234,6 +236,32 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
           selectedPlaylistId={selectedItem.startsWith('playlist-') ? parseInt(selectedItem.replace('playlist-', '')) : undefined}
           onPlaylistSelect={(playlistId) => handleItemClick(`playlist-${playlistId}`)}
         />
+      </Box>
+
+      {/* Settings Button at Bottom */}
+      <Box sx={{ mt: 'auto', p: 2, borderTop: '1px solid rgba(102, 126, 234, 0.1)' }}>
+        <StyledListItemButton
+          onClick={onOpenSettings}
+          isactive="false"
+        >
+          <ListItemIcon
+            sx={{
+              color: colors.text.secondary,
+              minWidth: 36,
+              transition: 'color 0.2s ease',
+            }}
+          >
+            <Settings />
+          </ListItemIcon>
+          <ListItemText
+            primary="Settings"
+            primaryTypographyProps={{
+              fontSize: 14,
+              fontWeight: 400,
+              color: colors.text.secondary,
+            }}
+          />
+        </StyledListItemButton>
       </Box>
     </SidebarContainer>
   );

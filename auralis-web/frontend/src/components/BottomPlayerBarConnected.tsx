@@ -93,13 +93,17 @@ export const BottomPlayerBarConnected: React.FC = () => {
   // Local UI state
   const [isMuted, setIsMuted] = useState(false);
   const [isLoved, setIsLoved] = useState(false);
-  const [isEnhanced, setIsEnhanced] = useState(true);
+  const [isEnhanced, setIsEnhanced] = useState(false);
+  const [currentPreset, setCurrentPreset] = useState('adaptive');
   const [localVolume, setLocalVolume] = useState(apiVolume);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [isFavoriting, setIsFavoriting] = useState(false);
 
   // HTML5 Audio element ref for actual playback
   const audioRef = React.useRef<HTMLAudioElement>(null);
+
+  // Track the last loaded track ID to prevent redundant reloads
+  const lastLoadedTrackId = React.useRef<number | null>(null);
 
   const { success, info, error: showError } = useToast();
 
@@ -115,13 +119,32 @@ export const BottomPlayerBarConnected: React.FC = () => {
     }
   }, [error, showError]);
 
-  // Load new track into audio element when currentTrack changes
+  // Load new track into audio element when currentTrack or enhancement settings change
   useEffect(() => {
     if (currentTrack && audioRef.current) {
-      const streamUrl = `http://localhost:8765/api/player/stream/${currentTrack.id}`;
+      // Build stream URL with enhancement parameters
+      const params = new URLSearchParams();
+      if (isEnhanced) {
+        params.append('enhanced', 'true');
+        params.append('preset', currentPreset);
+        params.append('intensity', '1.0');
+      }
+
+      const streamUrl = `http://localhost:8765/api/player/stream/${currentTrack.id}${params.toString() ? '?' + params.toString() : ''}`;
+
+      // Only reload if it's actually a different track OR enhancement settings changed
+      const currentStreamUrl = audioRef.current.src;
+      if (currentStreamUrl === streamUrl) {
+        console.log(`Stream URL unchanged, skipping reload`);
+        return;
+      }
+
       audioRef.current.src = streamUrl;
       audioRef.current.load();
       console.log(`Loaded audio stream: ${streamUrl}`);
+
+      // Update last loaded track ID
+      lastLoadedTrackId.current = currentTrack.id;
 
       // Update favorite status for new track
       setIsLoved(currentTrack.favorite || false);
@@ -132,7 +155,7 @@ export const BottomPlayerBarConnected: React.FC = () => {
       // Don't auto-play here - let the user control playback with play/pause button
       // The audio element will be ready to play when user clicks play
     }
-  }, [currentTrack]); // Only re-run when currentTrack changes, not isPlaying
+  }, [currentTrack, isEnhanced, currentPreset]); // Re-run when track or enhancement settings change
 
   // Note: Playback is now controlled directly via play/pause button
   // The audio element is the source of truth, not the backend isPlaying state
@@ -218,11 +241,31 @@ export const BottomPlayerBarConnected: React.FC = () => {
     success('Previous track');
   };
 
-  const handleEnhancementToggle = () => {
+  const handleEnhancementToggle = async () => {
     const newState = !isEnhanced;
     setIsEnhanced(newState);
-    info(newState ? '✨ Auralis Magic enabled' : 'Enhancement disabled');
-    // TODO: Send to backend to toggle real-time processing
+
+    try {
+      // Send to backend to toggle real-time processing
+      const response = await fetch('http://localhost:8765/api/player/enhancement/toggle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ enabled: newState })
+      });
+
+      if (response.ok) {
+        info(newState ? '✨ Auralis Magic enabled' : 'Enhancement disabled');
+      } else {
+        throw new Error('Failed to toggle enhancement');
+      }
+    } catch (error) {
+      console.error('Failed to toggle enhancement:', error);
+      // Revert state on error
+      setIsEnhanced(!newState);
+      showError('Failed to toggle enhancement');
+    }
   };
 
   const handleVolumeChange = (_: Event, value: number | number[]) => {
