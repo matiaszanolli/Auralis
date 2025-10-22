@@ -29,12 +29,12 @@ describe('EnhancedTrackQueue', () => {
   describe('Rendering', () => {
     it('renders queue title', () => {
       render(<EnhancedTrackQueue tracks={mockTracks} />)
-      expect(screen.getByText('Queue')).toBeInTheDocument()
+      expect(screen.getByText(/Queue \(3 tracks\)/)).toBeInTheDocument()
     })
 
     it('renders custom title', () => {
       render(<EnhancedTrackQueue tracks={mockTracks} title="My Custom Queue" />)
-      expect(screen.getByText('My Custom Queue')).toBeInTheDocument()
+      expect(screen.getByText(/My Custom Queue \(3 tracks\)/)).toBeInTheDocument()
     })
 
     it('displays all tracks', () => {
@@ -82,18 +82,20 @@ describe('EnhancedTrackQueue', () => {
     it('highlights current track', () => {
       render(<EnhancedTrackQueue tracks={mockTracks} currentTrackId={2} />)
 
-      const track2 = screen.getByText('Track 2').closest('div')
-      expect(track2).toHaveClass('current-track') // or whatever class indicates current track
+      // Check that Track 2 is marked as active via the isactive attribute
+      const trackInfo = screen.getByText('Track 2').closest('[isactive]')
+      expect(trackInfo).toHaveAttribute('isactive', 'true')
     })
 
     it('does not highlight other tracks', () => {
       render(<EnhancedTrackQueue tracks={mockTracks} currentTrackId={2} />)
 
-      const track1 = screen.getByText('Track 1').closest('div')
-      const track3 = screen.getByText('Track 3').closest('div')
+      // Track 1 and 3 should not be active
+      const track1Info = screen.getByText('Track 1').closest('[isactive]')
+      const track3Info = screen.getByText('Track 3').closest('[isactive]')
 
-      expect(track1).not.toHaveClass('current-track')
-      expect(track3).not.toHaveClass('current-track')
+      expect(track1Info).toHaveAttribute('isactive', 'false')
+      expect(track3Info).toHaveAttribute('isactive', 'false')
     })
   })
 
@@ -228,6 +230,7 @@ describe('EnhancedTrackQueue', () => {
     it('calls onClearQueue when clicked', async () => {
       const user = userEvent.setup()
       const handleClear = vi.fn()
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
       render(
         <EnhancedTrackQueue
@@ -239,7 +242,10 @@ describe('EnhancedTrackQueue', () => {
       const clearButton = screen.getByLabelText('Clear queue')
       await user.click(clearButton)
 
+      expect(confirmSpy).toHaveBeenCalledWith('Clear entire queue?')
       expect(handleClear).toHaveBeenCalled()
+
+      confirmSpy.mockRestore()
     })
 
     it('does not show clear button when handler not provided', () => {
@@ -309,7 +315,7 @@ describe('EnhancedTrackQueue', () => {
     it('shows singular "track" when only one track', () => {
       render(<EnhancedTrackQueue tracks={[mockTracks[0]]} />)
 
-      expect(screen.getByText(/1 track$/i)).toBeInTheDocument()
+      expect(screen.getByText(/Queue \(1 track\)/i)).toBeInTheDocument()
     })
   })
 

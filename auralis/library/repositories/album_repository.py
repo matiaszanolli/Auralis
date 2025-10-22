@@ -31,6 +31,20 @@ class AlbumRepository:
     def get_session(self) -> Session:
         return self.session_factory()
 
+    def get_by_id(self, album_id: int) -> Optional[Album]:
+        """Get album by ID with relationships loaded"""
+        session = self.get_session()
+        try:
+            from sqlalchemy.orm import joinedload
+            return (
+                session.query(Album)
+                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .filter(Album.id == album_id)
+                .first()
+            )
+        finally:
+            session.close()
+
     def get_by_title(self, title: str) -> Optional[Album]:
         """Get album by title with relationships loaded"""
         session = self.get_session()
