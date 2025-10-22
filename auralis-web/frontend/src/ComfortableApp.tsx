@@ -14,6 +14,7 @@ import BottomPlayerBarConnected from './components/BottomPlayerBarConnected';
 import PresetPane from './components/PresetPane';
 import CozyLibraryView from './components/CozyLibraryView';
 import GlobalSearch from './components/library/GlobalSearch';
+import SettingsDialog from './components/settings/SettingsDialog';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useToast } from './components/shared/Toast';
 
@@ -35,6 +36,7 @@ function ComfortableApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
   const [searchResultView, setSearchResultView] = useState<{type: string; id: number} | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // WebSocket connection for real-time updates
   const { connected } = useWebSocket('ws://localhost:8765/ws');
@@ -106,6 +108,7 @@ function ComfortableApp() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
           onNavigate={setCurrentView}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
 
         {/* Main Content Area */}
@@ -208,6 +211,16 @@ function ComfortableApp() {
 
       {/* Bottom Player Bar - Fixed - REAL PLAYBACK! */}
       <BottomPlayerBarConnected />
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSettingsChange={(settings) => {
+          console.log('Settings changed:', settings);
+          success('Settings saved successfully');
+        }}
+      />
     </Box>
   );
 }

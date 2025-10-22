@@ -36,6 +36,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 try:
     from auralis.library import LibraryManager
     from auralis.library.scanner import LibraryScanner
+    from auralis.library.repositories.settings_repository import SettingsRepository
     from auralis.player.enhanced_audio_player import EnhancedAudioPlayer, PlaybackState
     from auralis.player.config import PlayerConfig
     from auralis.core.config import Config
@@ -81,7 +82,9 @@ if HAS_PROCESSING:
 
 # Global state
 library_manager: Optional[LibraryManager] = None
+settings_repository: Optional[SettingsRepository] = None
 audio_player: Optional[EnhancedAudioPlayer] = None
+processing_cache: dict = {}  # Cache for processed audio files
 player_state_manager: Optional[PlayerStateManager] = None
 if HAS_PROCESSING:
     processing_engine: Optional[ProcessingEngine] = None
@@ -93,12 +96,16 @@ connected_websockets: List[WebSocket] = []
 @app.on_event("startup")
 async def startup_event():
     """Initialize Auralis components on startup"""
-    global library_manager, audio_player, processing_engine
+    global library_manager, settings_repository, audio_player, processing_engine
 
     if HAS_AURALIS:
         try:
             library_manager = LibraryManager()
             logger.info("✅ Auralis LibraryManager initialized")
+
+            # Initialize settings repository
+            settings_repository = SettingsRepository(library_manager.SessionLocal)
+            logger.info("✅ Settings Repository initialized")
 
             # Initialize enhanced audio player with optimized config
             player_config = PlayerConfig(
@@ -871,9 +878,22 @@ async def get_player_status():
         raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
 @app.get("/api/player/stream/{track_id}")
-async def stream_audio(track_id: int):
+async def stream_audio(
+    track_id: int,
+    enhanced: bool = False,
+    preset: str = "adaptive",
+    intensity: float = 1.0
+):
     """
     Stream audio file to frontend for playback via HTML5 Audio API
+
+    Supports real-time audio enhancement with Auralis processing.
+
+    Args:
+        track_id: Track ID from library
+        enhanced: Enable Auralis processing (default: False)
+        preset: Processing preset - adaptive, gentle, warm, bright, punchy (default: adaptive)
+        intensity: Processing intensity 0.0-1.0 (default: 1.0)
 
     This endpoint serves the audio file directly, allowing the browser
     to handle playback using its native audio capabilities.
@@ -891,8 +911,71 @@ async def stream_audio(track_id: int):
         if not os.path.exists(track.filepath):
             raise HTTPException(status_code=404, detail=f"Audio file not found: {track.filepath}")
 
+        # If enhancement is requested, process audio first
+        if enhanced:
+            # Check cache first
+            cache_key = f"{track_id}_{preset}_{intensity}"
+            cached_file = processing_cache.get(cache_key)
+
+            if cached_file and os.path.exists(cached_file):
+                logger.info(f"Serving cached enhanced audio for track {track_id}")
+                file_to_serve = cached_file
+            else:
+                # Process audio with Auralis
+                logger.info(f"Processing track {track_id} with preset '{preset}' and intensity {intensity}")
+
+                try:
+                    from auralis.core.hybrid_processor import HybridProcessor
+                    from auralis.core.unified_config import UnifiedConfig
+                    from auralis.io.unified_loader import load_audio
+                    from auralis.io.saver import save as save_audio
+                    import tempfile
+
+                    # Load audio
+                    audio, sr = load_audio(track.filepath)
+
+                    # Configure processor with selected preset
+                    config = UnifiedConfig()
+                    config.set_processing_mode("adaptive")
+
+                    # Set preset
+                    valid_presets = ["adaptive", "gentle", "warm", "bright", "punchy"]
+                    if preset.lower() in valid_presets:
+                        config.mastering_profile = preset.lower()
+
+                    # Apply intensity scaling (0.0 = no processing, 1.0 = full processing)
+                    if intensity < 1.0:
+                        # Reduce processing by blending original and processed
+                        processor = HybridProcessor(config)
+                        processed = processor.process(audio)
+                        audio = audio * (1.0 - intensity) + processed * intensity
+                    else:
+                        processor = HybridProcessor(config)
+                        audio = processor.process(audio)
+
+                    # Save to temporary file
+                    temp_dir = Path(tempfile.gettempdir()) / "auralis_enhanced"
+                    temp_dir.mkdir(exist_ok=True)
+
+                    temp_file = temp_dir / f"track_{track_id}_{preset}_{intensity}.wav"
+                    save_audio(str(temp_file), audio, sr, subtype='PCM_16')
+
+                    # Cache the file path
+                    processing_cache[cache_key] = str(temp_file)
+
+                    file_to_serve = str(temp_file)
+                    logger.info(f"Enhanced audio saved to {file_to_serve}")
+
+                except Exception as process_error:
+                    logger.error(f"Failed to process audio: {process_error}")
+                    # Fall back to original file
+                    file_to_serve = track.filepath
+        else:
+            # No enhancement - serve original file
+            file_to_serve = track.filepath
+
         # Determine MIME type based on file extension
-        ext = os.path.splitext(track.filepath)[1].lower()
+        ext = os.path.splitext(file_to_serve)[1].lower()
         mime_types = {
             '.mp3': 'audio/mpeg',
             '.flac': 'audio/flac',
@@ -901,15 +984,17 @@ async def stream_audio(track_id: int):
             '.m4a': 'audio/mp4',
             '.aac': 'audio/aac'
         }
-        media_type = mime_types.get(ext, 'audio/mpeg')
+        media_type = mime_types.get(ext, 'audio/wav')
 
         # Return the audio file with proper headers for streaming
         return FileResponse(
-            track.filepath,
+            file_to_serve,
             media_type=media_type,
             headers={
                 "Accept-Ranges": "bytes",
-                "Content-Disposition": f"inline; filename=\"{os.path.basename(track.filepath)}\""
+                "Content-Disposition": f"inline; filename=\"{os.path.basename(file_to_serve)}\"",
+                "X-Enhanced": "true" if enhanced else "false",
+                "X-Preset": preset if enhanced else "none"
             }
         )
     except HTTPException:
@@ -917,6 +1002,112 @@ async def stream_audio(track_id: int):
     except Exception as e:
         logger.error(f"Failed to stream audio: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to stream audio: {e}")
+
+# ============================================================================
+# ENHANCEMENT API ENDPOINTS
+# ============================================================================
+
+# Global enhancement state
+enhancement_settings = {
+    "enabled": False,
+    "preset": "adaptive",
+    "intensity": 1.0
+}
+
+@app.post("/api/player/enhancement/toggle")
+async def toggle_enhancement(enabled: bool):
+    """Enable or disable real-time audio enhancement"""
+    try:
+        enhancement_settings["enabled"] = enabled
+
+        # Broadcast to all clients
+        await manager.broadcast({
+            "type": "enhancement_toggled",
+            "data": {
+                "enabled": enabled,
+                "preset": enhancement_settings["preset"],
+                "intensity": enhancement_settings["intensity"]
+            }
+        })
+
+        logger.info(f"Enhancement {'enabled' if enabled else 'disabled'}")
+        return {
+            "message": f"Enhancement {'enabled' if enabled else 'disabled'}",
+            "settings": enhancement_settings
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to toggle enhancement: {e}")
+
+@app.post("/api/player/enhancement/preset")
+async def set_enhancement_preset(preset: str):
+    """Change the enhancement preset"""
+    valid_presets = ["adaptive", "gentle", "warm", "bright", "punchy"]
+
+    if preset.lower() not in valid_presets:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid preset. Must be one of: {', '.join(valid_presets)}"
+        )
+
+    try:
+        enhancement_settings["preset"] = preset.lower()
+
+        # Broadcast to all clients
+        await manager.broadcast({
+            "type": "enhancement_preset_changed",
+            "data": {
+                "preset": preset.lower(),
+                "enabled": enhancement_settings["enabled"],
+                "intensity": enhancement_settings["intensity"]
+            }
+        })
+
+        logger.info(f"Enhancement preset changed to: {preset}")
+        return {
+            "message": f"Preset changed to {preset}",
+            "settings": enhancement_settings
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to change preset: {e}")
+
+@app.post("/api/player/enhancement/intensity")
+async def set_enhancement_intensity(intensity: float):
+    """Adjust the enhancement intensity (0.0 - 1.0)"""
+    if not 0.0 <= intensity <= 1.0:
+        raise HTTPException(
+            status_code=400,
+            detail="Intensity must be between 0.0 and 1.0"
+        )
+
+    try:
+        enhancement_settings["intensity"] = intensity
+
+        # Broadcast to all clients
+        await manager.broadcast({
+            "type": "enhancement_intensity_changed",
+            "data": {
+                "intensity": intensity,
+                "enabled": enhancement_settings["enabled"],
+                "preset": enhancement_settings["preset"]
+            }
+        })
+
+        logger.info(f"Enhancement intensity changed to: {intensity}")
+        return {
+            "message": f"Intensity set to {intensity}",
+            "settings": enhancement_settings
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to set intensity: {e}")
+
+@app.get("/api/player/enhancement/status")
+async def get_enhancement_status():
+    """Get current enhancement settings"""
+    return enhancement_settings
+
+# ============================================================================
+# PLAYER CONTROL ENDPOINTS
+# ============================================================================
 
 @app.post("/api/player/load")
 async def load_track(track_path: str):
@@ -1465,6 +1656,166 @@ async def load_comparison_tracks(track_a: str, track_b: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load comparison tracks: {e}")
+
+
+# ========================================
+# SETTINGS API ENDPOINTS
+# ========================================
+
+@app.get("/api/settings")
+async def get_settings():
+    """Get current user settings"""
+    if not settings_repository:
+        raise HTTPException(status_code=503, detail="Settings not available")
+
+    try:
+        settings = settings_repository.get_settings()
+        return settings.to_dict()
+    except Exception as e:
+        logger.error(f"Failed to get settings: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get settings: {e}")
+
+
+class SettingsUpdate(BaseModel):
+    """Pydantic model for settings updates"""
+    # Library
+    scan_folders: Optional[List[str]] = None
+    file_types: Optional[List[str]] = None
+    auto_scan: Optional[bool] = None
+    scan_interval: Optional[int] = None
+
+    # Playback
+    crossfade_enabled: Optional[bool] = None
+    crossfade_duration: Optional[float] = None
+    gapless_enabled: Optional[bool] = None
+    replay_gain_enabled: Optional[bool] = None
+    volume: Optional[float] = None
+
+    # Audio
+    output_device: Optional[str] = None
+    bit_depth: Optional[int] = None
+    sample_rate: Optional[int] = None
+
+    # Interface
+    theme: Optional[str] = None
+    language: Optional[str] = None
+    show_visualizations: Optional[bool] = None
+    mini_player_on_close: Optional[bool] = None
+
+    # Enhancement
+    default_preset: Optional[str] = None
+    auto_enhance: Optional[bool] = None
+    enhancement_intensity: Optional[float] = None
+
+    # Advanced
+    cache_size: Optional[int] = None
+    max_concurrent_scans: Optional[int] = None
+    enable_analytics: Optional[bool] = None
+    debug_mode: Optional[bool] = None
+
+
+@app.put("/api/settings")
+async def update_settings(updates: SettingsUpdate):
+    """Update user settings"""
+    if not settings_repository:
+        raise HTTPException(status_code=503, detail="Settings not available")
+
+    try:
+        # Convert to dictionary and remove None values
+        updates_dict = {k: v for k, v in updates.dict().items() if v is not None}
+
+        # Update settings
+        settings = settings_repository.update_settings(updates_dict)
+
+        # Broadcast settings changed event
+        await manager.broadcast({
+            "type": "settings_changed",
+            "data": settings.to_dict()
+        })
+
+        return {
+            "message": "Settings updated successfully",
+            "settings": settings.to_dict()
+        }
+    except Exception as e:
+        logger.error(f"Failed to update settings: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update settings: {e}")
+
+
+@app.post("/api/settings/reset")
+async def reset_settings():
+    """Reset all settings to defaults"""
+    if not settings_repository:
+        raise HTTPException(status_code=503, detail="Settings not available")
+
+    try:
+        settings = settings_repository.reset_to_defaults()
+
+        # Broadcast settings reset event
+        await manager.broadcast({
+            "type": "settings_reset",
+            "data": settings.to_dict()
+        })
+
+        return {
+            "message": "Settings reset to defaults",
+            "settings": settings.to_dict()
+        }
+    except Exception as e:
+        logger.error(f"Failed to reset settings: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to reset settings: {e}")
+
+
+class ScanFolderRequest(BaseModel):
+    """Request to add a scan folder"""
+    folder: str
+
+
+@app.post("/api/settings/scan-folders")
+async def add_scan_folder(request: ScanFolderRequest):
+    """Add a new folder to scan list"""
+    if not settings_repository:
+        raise HTTPException(status_code=503, detail="Settings not available")
+
+    try:
+        settings = settings_repository.add_scan_folder(request.folder)
+
+        await manager.broadcast({
+            "type": "scan_folder_added",
+            "data": {"folder": request.folder}
+        })
+
+        return {
+            "message": f"Added scan folder: {request.folder}",
+            "settings": settings.to_dict()
+        }
+    except Exception as e:
+        logger.error(f"Failed to add scan folder: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to add scan folder: {e}")
+
+
+@app.delete("/api/settings/scan-folders")
+async def remove_scan_folder(request: ScanFolderRequest):
+    """Remove a folder from scan list"""
+    if not settings_repository:
+        raise HTTPException(status_code=503, detail="Settings not available")
+
+    try:
+        settings = settings_repository.remove_scan_folder(request.folder)
+
+        await manager.broadcast({
+            "type": "scan_folder_removed",
+            "data": {"folder": request.folder}
+        })
+
+        return {
+            "message": f"Removed scan folder: {request.folder}",
+            "settings": settings.to_dict()
+        }
+    except Exception as e:
+        logger.error(f"Failed to remove scan folder: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to remove scan folder: {e}")
+
 
 # Serve React frontend (when built)
 # Check if running from PyInstaller bundle
