@@ -170,7 +170,7 @@ class TestLibraryEndpoints:
             mock_scanner = Mock()
             mock_scanner_class.return_value = mock_scanner
 
-            response = client.post("/api/library/scan?directory=/test/path")
+            response = client.post("/api/library/scan", json={"directory": "/test/path"})
 
             assert response.status_code == 200
             data = response.json()
@@ -180,7 +180,7 @@ class TestLibraryEndpoints:
     def test_scan_directory_no_library(self, client):
         """Test scan when library manager not available"""
         with patch('main.library_manager', None):
-            response = client.post("/api/library/scan?directory=/test/path")
+            response = client.post("/api/library/scan", json={"directory": "/test/path"})
 
             assert response.status_code == 503
 
@@ -948,8 +948,9 @@ class TestSettingsEndpoints:
             mock_settings.scan_folders = ["/existing/folder"]
             mock_settings.to_dict.return_value = {"scan_folders": ["/existing/folder", "/new/folder"]}
             mock_repo.get_settings.return_value = mock_settings
+            mock_repo.add_scan_folder.return_value = mock_settings
 
-            response = client.post("/api/settings/scan-folders", json={"path": "/new/folder"})
+            response = client.post("/api/settings/scan-folders", json={"folder": "/new/folder"})
 
             assert response.status_code == 200
 
@@ -960,8 +961,14 @@ class TestSettingsEndpoints:
             mock_settings.scan_folders = ["/folder1", "/folder2"]
             mock_settings.to_dict.return_value = {"scan_folders": ["/folder2"]}
             mock_repo.get_settings.return_value = mock_settings
+            mock_repo.remove_scan_folder.return_value = mock_settings
 
-            response = client.delete("/api/settings/scan-folders", json={"path": "/folder1"})
+            # Use request.request for DELETE with body
+            response = client.request(
+                "DELETE",
+                "/api/settings/scan-folders",
+                json={"folder": "/folder1"}
+            )
 
             assert response.status_code == 200
 
@@ -1263,15 +1270,13 @@ class TestAlbumArtworkEndpoints:
             mock_album = Mock()
             mock_album.id = 1
             mock_library.albums.get_by_id.return_value = mock_album
+            mock_library.albums.extract_and_save_artwork.return_value = "/path/to/artwork.jpg"
 
-            with patch('main.extract_album_artwork') as mock_extract:
-                mock_extract.return_value = "/path/to/artwork.jpg"
+            response = client.post("/api/albums/1/artwork/extract")
 
-                response = client.post("/api/albums/1/artwork/extract")
-
-                assert response.status_code == 200
-                data = response.json()
-                assert "message" in data
+            assert response.status_code == 200
+            data = response.json()
+            assert "message" in data
 
     def test_delete_artwork_success(self, client):
         """Test deleting album artwork"""
