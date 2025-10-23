@@ -23,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
 import { useToast } from '../shared/Toast';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import * as playlistService from '../../services/playlistService';
 import EditPlaylistDialog from './EditPlaylistDialog';
 
@@ -173,8 +173,8 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { success, showError } = useToast();
 
-  // WebSocket connection for real-time updates
-  const { lastMessage } = useWebSocket('ws://localhost:8765/ws');
+  // WebSocket connection for real-time updates (using shared WebSocketContext)
+  const { subscribe } = useWebSocketContext();
 
   // Load playlist when ID changes
   useEffect(() => {
@@ -185,25 +185,63 @@ export const PlaylistView: React.FC<PlaylistViewProps> = ({
 
   // Handle WebSocket messages for real-time updates
   useEffect(() => {
-    if (!lastMessage || !playlistId) return;
+    if (!playlistId) return;
 
-    try {
-      const message = JSON.parse(lastMessage);
+    console.log('📝 PlaylistView: Setting up WebSocket subscriptions for playlist', playlistId);
 
-      if (
-        message.type === 'playlist_updated' ||
-        message.type === 'playlist_tracks_added' ||
-        message.type === 'playlist_track_removed' ||
-        message.type === 'playlist_cleared'
-      ) {
+    // Subscribe to playlist_updated
+    const unsubscribeUpdated = subscribe('playlist_updated', (message: any) => {
+      try {
         if (message.data.playlist_id === playlistId) {
           fetchPlaylist();
         }
+      } catch (err) {
+        console.error('Error handling playlist_updated:', err);
       }
-    } catch (err) {
-      console.error('Error parsing WebSocket message:', err);
-    }
-  }, [lastMessage, playlistId]);
+    });
+
+    // Subscribe to playlist_tracks_added
+    const unsubscribeTracksAdded = subscribe('playlist_tracks_added', (message: any) => {
+      try {
+        if (message.data.playlist_id === playlistId) {
+          fetchPlaylist();
+        }
+      } catch (err) {
+        console.error('Error handling playlist_tracks_added:', err);
+      }
+    });
+
+    // Subscribe to playlist_track_removed
+    const unsubscribeTrackRemoved = subscribe('playlist_track_removed', (message: any) => {
+      try {
+        if (message.data.playlist_id === playlistId) {
+          fetchPlaylist();
+        }
+      } catch (err) {
+        console.error('Error handling playlist_track_removed:', err);
+      }
+    });
+
+    // Subscribe to playlist_cleared
+    const unsubscribeCleared = subscribe('playlist_cleared', (message: any) => {
+      try {
+        if (message.data.playlist_id === playlistId) {
+          fetchPlaylist();
+        }
+      } catch (err) {
+        console.error('Error handling playlist_cleared:', err);
+      }
+    });
+
+    // Cleanup: unsubscribe from all message types
+    return () => {
+      console.log('📝 PlaylistView: Cleaning up WebSocket subscriptions');
+      unsubscribeUpdated();
+      unsubscribeTracksAdded();
+      unsubscribeTrackRemoved();
+      unsubscribeCleared();
+    };
+  }, [subscribe, playlistId]);
 
   const fetchPlaylist = async () => {
     if (!playlistId) return;

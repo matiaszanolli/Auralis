@@ -24,6 +24,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useWebSocketContext } from '../contexts/WebSocketContext';
 
 interface Track {
   id: number;
@@ -304,64 +305,57 @@ export const usePlayerAPI = () => {
     await setQueue([track], 0);
   }, [setQueue, playerState]);
 
-  // WebSocket for real-time updates
+  // WebSocket for real-time updates (using shared WebSocketContext)
+  const { subscribe } = useWebSocketContext();
+
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8765/ws');
+    console.log('🎵 usePlayerAPI: Setting up WebSocket subscriptions');
 
-    ws.onopen = () => {
-      console.log('Player WebSocket connected');
-    };
-
-    ws.onmessage = (event) => {
+    // Subscribe to player_state messages
+    const unsubscribePlayerState = subscribe('player_state', (message: any) => {
       try {
-        const message = JSON.parse(event.data);
-
-        // Handle unified player state updates (single source of truth)
-        if (message.type === 'player_state') {
-          const state = message.data;
-          setPlayerState({
-            currentTrack: state.current_track || null,
-            isPlaying: state.is_playing || false,
-            currentTime: state.current_time || 0,
-            duration: state.duration || 0,
-            volume: state.volume !== undefined ? state.volume : 80,
-            queue: state.queue || [],
-            queueIndex: state.queue_index || 0
-          });
-          console.log('Player state updated:', state);
-        }
-        // Fallback for legacy messages
-        else if (message.type === 'player_update') {
-          setPlayerState(prev => ({
-            ...prev,
-            currentTrack: message.current_track || prev.currentTrack,
-            isPlaying: message.is_playing !== undefined ? message.is_playing : prev.isPlaying,
-            currentTime: message.current_time !== undefined ? message.current_time : prev.currentTime,
-            duration: message.duration !== undefined ? message.duration : prev.duration,
-            volume: message.volume !== undefined ? message.volume : prev.volume
-          }));
-        }
+        const state = message.data;
+        setPlayerState({
+          currentTrack: state.current_track || null,
+          isPlaying: state.is_playing || false,
+          currentTime: state.current_time || 0,
+          duration: state.duration || 0,
+          volume: state.volume !== undefined ? state.volume : 80,
+          queue: state.queue || [],
+          queueIndex: state.queue_index || 0
+        });
+        console.log('Player state updated:', state);
       } catch (err) {
-        console.error('WebSocket message error:', err);
+        console.error('Error handling player_state message:', err);
       }
-    };
+    });
 
-    ws.onerror = (err) => {
-      console.error('Player WebSocket error:', err);
-    };
-
-    ws.onclose = () => {
-      console.log('Player WebSocket disconnected');
-    };
+    // Subscribe to legacy player_update messages (fallback)
+    const unsubscribePlayerUpdate = subscribe('player_update', (message: any) => {
+      try {
+        setPlayerState(prev => ({
+          ...prev,
+          currentTrack: message.current_track || prev.currentTrack,
+          isPlaying: message.is_playing !== undefined ? message.is_playing : prev.isPlaying,
+          currentTime: message.current_time !== undefined ? message.current_time : prev.currentTime,
+          duration: message.duration !== undefined ? message.duration : prev.duration,
+          volume: message.volume !== undefined ? message.volume : prev.volume
+        }));
+      } catch (err) {
+        console.error('Error handling player_update message:', err);
+      }
+    });
 
     // Fetch initial player status
     fetchPlayerStatus();
 
-    // Cleanup
+    // Cleanup: unsubscribe from both message types
     return () => {
-      ws.close();
+      console.log('🎵 usePlayerAPI: Cleaning up WebSocket subscriptions');
+      unsubscribePlayerState();
+      unsubscribePlayerUpdate();
     };
-  }, [fetchPlayerStatus]);
+  }, [subscribe, fetchPlayerStatus]);
 
   // NOTE: Periodic polling DISABLED - WebSocket provides real-time updates
   // The PlayerStateManager broadcasts player_state messages automatically:
