@@ -24,7 +24,7 @@ const ArtworkContainer = styled(Box)<{ size: number | string; clickable?: boolea
     height: size,
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: colors.background.hover,
+    background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -46,9 +46,9 @@ const ArtworkImage = styled('img')({
 });
 
 const PlaceholderIcon = styled(AlbumIcon)(({ theme }) => ({
-  fontSize: '40%',
-  color: colors.text.disabled,
-  opacity: 0.3,
+  fontSize: '60%',
+  color: 'rgba(255, 255, 255, 0.4)',
+  opacity: 0.6,
 }));
 
 export const AlbumArt: React.FC<AlbumArtProps> = ({

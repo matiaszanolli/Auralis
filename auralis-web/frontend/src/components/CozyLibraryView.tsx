@@ -473,7 +473,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
               >
                 <AlbumCard
                   id={track.id}
-                  title={track.album || track.title}
+                  title={track.title}
                   artist={track.artist}
                   albumId={track.album_id}
                   albumArt={track.albumArt}
