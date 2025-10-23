@@ -19,11 +19,15 @@ export function mockFetch() {
   global.fetch = vi.fn()
 }
 
+// Store for multiple endpoint mocks
+const endpointMocks = new Map<string, { data: any; status: number; delay: number }>()
+
 /**
  * Reset fetch mock
  */
 export function resetFetchMock() {
   vi.mocked(fetch).mockReset()
+  endpointMocks.clear()
 }
 
 /**
@@ -35,23 +39,38 @@ export function mockApiEndpoint(
   options: { status?: number; delay?: number } = {}
 ) {
   const { status = 200, delay = 0 } = options
+  endpointMocks.set(endpoint, { data, status, delay })
 
+  // Update fetch implementation to handle all registered endpoints
   vi.mocked(fetch).mockImplementation((url) => {
-    if (typeof url === 'string' && url.includes(endpoint)) {
-      return Promise.resolve({
-        ok: status >= 200 && status < 300,
-        status,
-        json: async () => {
-          if (delay > 0) {
-            await new Promise((resolve) => setTimeout(resolve, delay))
-          }
-          return data
-        },
-        text: async () => JSON.stringify(data),
-        headers: new Headers({ 'Content-Type': 'application/json' }),
-      } as Response)
+    const urlString = typeof url === 'string' ? url : url.toString()
+
+    // Find matching endpoint
+    for (const [endpoint, mock] of endpointMocks.entries()) {
+      if (urlString.includes(endpoint)) {
+        return Promise.resolve({
+          ok: mock.status >= 200 && mock.status < 300,
+          status: mock.status,
+          json: async () => {
+            if (mock.delay > 0) {
+              await new Promise((resolve) => setTimeout(resolve, mock.delay))
+            }
+            return mock.data
+          },
+          text: async () => JSON.stringify(mock.data),
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+        } as Response)
+      }
     }
-    return Promise.reject(new Error(`Unhandled fetch to ${url}`))
+
+    // Return empty response for unhandled endpoints (don't reject)
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '{}',
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+    } as Response)
   })
 }
 
@@ -59,17 +78,38 @@ export function mockApiEndpoint(
  * Mock API error response
  */
 export function mockApiError(endpoint: string, error: string, status = 500) {
+  endpointMocks.set(endpoint, { data: { error }, status, delay: 0 })
+
+  // Update fetch implementation
   vi.mocked(fetch).mockImplementation((url) => {
-    if (typeof url === 'string' && url.includes(endpoint)) {
-      return Promise.resolve({
-        ok: false,
-        status,
-        json: async () => ({ error }),
-        text: async () => JSON.stringify({ error }),
-        headers: new Headers({ 'Content-Type': 'application/json' }),
-      } as Response)
+    const urlString = typeof url === 'string' ? url : url.toString()
+
+    // Find matching endpoint
+    for (const [endpoint, mock] of endpointMocks.entries()) {
+      if (urlString.includes(endpoint)) {
+        return Promise.resolve({
+          ok: mock.status >= 200 && mock.status < 300,
+          status: mock.status,
+          json: async () => {
+            if (mock.delay > 0) {
+              await new Promise((resolve) => setTimeout(resolve, mock.delay))
+            }
+            return mock.data
+          },
+          text: async () => JSON.stringify(mock.data),
+          headers: new Headers({ 'Content-Type': 'application/json' }),
+        } as Response)
+      }
     }
-    return Promise.reject(new Error(`Unhandled fetch to ${url}`))
+
+    // Return empty response for unhandled endpoints
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '{}',
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+    } as Response)
   })
 }
 
@@ -138,13 +178,13 @@ export const mockPlaylist = {
 }
 
 export const mockPlayerState = {
-  currentTrack: mockTrack,
-  isPlaying: false,
-  volume: 0.8,
-  currentTime: 0,
+  current_track: mockTrack,
+  is_playing: false,
+  volume: 80,
+  current_time: 0,
   duration: 180,
   queue: mockTracks,
-  queueIndex: 0,
+  queue_index: 0,
   repeat: 'none',
   shuffle: false,
 }

@@ -35,25 +35,25 @@ describe('usePlayerAPI', () => {
     const { result } = renderHook(() => usePlayerAPI())
 
     await waitFor(() => {
-      expect(result.current.currentTrack).toEqual(mockPlayerState.currentTrack)
-      expect(result.current.isPlaying).toBe(mockPlayerState.isPlaying)
+      expect(result.current.currentTrack).toEqual(mockPlayerState.current_track)
+      expect(result.current.isPlaying).toBe(mockPlayerState.is_playing)
     })
   })
 
   it('plays a track', async () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
-    mockApiEndpoint('/api/player/play', { success: true })
+    mockApiEndpoint('/api/player/queue', { success: true, queue: [mockTrack], queue_index: 0 })
 
     const { result } = renderHook(() => usePlayerAPI())
 
     await waitFor(() => {
-      expect(result.current.play).toBeDefined()
+      expect(result.current.playTrack).toBeDefined()
     })
 
-    await result.current.play(mockTrack)
+    await result.current.playTrack(mockTrack)
 
     expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/player/play'),
+      expect.stringContaining('/api/player/queue'),
       expect.objectContaining({
         method: 'POST',
         body: expect.stringContaining(String(mockTrack.id)),
@@ -62,7 +62,7 @@ describe('usePlayerAPI', () => {
   })
 
   it('pauses playback', async () => {
-    mockApiEndpoint('/api/player/status', { ...mockPlayerState, isPlaying: true })
+    mockApiEndpoint('/api/player/status', { ...mockPlayerState, is_playing: true })
     mockApiEndpoint('/api/player/pause', { success: true })
 
     const { result } = renderHook(() => usePlayerAPI())
@@ -83,18 +83,18 @@ describe('usePlayerAPI', () => {
 
   it('resumes playback', async () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
-    mockApiEndpoint('/api/player/resume', { success: true })
+    mockApiEndpoint('/api/player/play', { success: true })
 
     const { result } = renderHook(() => usePlayerAPI())
 
     await waitFor(() => {
-      expect(result.current.resume).toBeDefined()
+      expect(result.current.play).toBeDefined()
     })
 
-    await result.current.resume()
+    await result.current.play()
 
     expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/player/resume'),
+      expect.stringContaining('/api/player/play'),
       expect.objectContaining({
         method: 'POST',
       })
@@ -186,18 +186,9 @@ describe('usePlayerAPI', () => {
   })
 
   it('handles API errors gracefully', async () => {
-    mockApiEndpoint('/api/player/status', { error: 'Failed to fetch' }, { status: 500 })
-
-    const { result } = renderHook(() => usePlayerAPI())
-
-    await waitFor(() => {
-      expect(result.current.error).toBeTruthy()
-    })
-  })
-
-  it('sets loading state during API calls', async () => {
-    mockApiEndpoint('/api/player/status', mockPlayerState, { delay: 100 })
-    mockApiEndpoint('/api/player/play', { success: true }, { delay: 100 })
+    // Mock a successful status call first, then an error on play
+    mockApiEndpoint('/api/player/status', mockPlayerState)
+    mockApiEndpoint('/api/player/play', { detail: 'Playback failed' }, { status: 500 })
 
     const { result } = renderHook(() => usePlayerAPI())
 
@@ -205,12 +196,35 @@ describe('usePlayerAPI', () => {
       expect(result.current.play).toBeDefined()
     })
 
-    result.current.play(mockTrack)
+    // Call play which should fail and set error state
+    await result.current.play()
 
-    // Loading should be true immediately after calling play
-    expect(result.current.loading).toBe(true)
+    await waitFor(() => {
+      expect(result.current.error).toBeTruthy()
+      expect(result.current.error).toContain('Playback failed')
+    })
+  })
+
+  it('sets loading state during API calls', async () => {
+    mockApiEndpoint('/api/player/status', mockPlayerState, { delay: 100 })
+    mockApiEndpoint('/api/player/queue', { success: true, queue: [mockTrack], queue_index: 0 }, { delay: 100 })
+
+    const { result } = renderHook(() => usePlayerAPI())
+
+    await waitFor(() => {
+      expect(result.current.playTrack).toBeDefined()
+    })
+
+    // Call playTrack without awaiting to check loading state
+    const playPromise = result.current.playTrack(mockTrack)
+
+    // Loading should be true immediately after calling playTrack
+    await waitFor(() => {
+      expect(result.current.loading).toBe(true)
+    })
 
     // Wait for API call to complete
+    await playPromise
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
     })
