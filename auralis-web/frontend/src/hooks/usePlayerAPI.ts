@@ -294,8 +294,15 @@ export const usePlayerAPI = () => {
 
   // Play specific track (convenience method)
   const playTrack = useCallback(async (track: Track) => {
+    // Guard: Don't restart if same track is already playing
+    if (playerState.currentTrack?.id === track.id && playerState.isPlaying) {
+      console.log('✋ Already playing this track, ignoring duplicate play request');
+      return;
+    }
+
+    console.log('▶️ Playing track:', track.title);
     await setQueue([track], 0);
-  }, [setQueue]);
+  }, [setQueue, playerState]);
 
   // WebSocket for real-time updates
   useEffect(() => {

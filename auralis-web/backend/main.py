@@ -108,7 +108,11 @@ connected_websockets: List[WebSocket] = []
 @app.on_event("startup")
 async def startup_event():
     """Initialize Auralis components on startup"""
-    global library_manager, settings_repository, audio_player, processing_engine
+    global library_manager, settings_repository, audio_player, processing_engine, processing_cache
+
+    # Clear processing cache on startup to avoid serving stale processed audio
+    processing_cache.clear()
+    logger.info("🧹 Processing cache cleared on startup")
 
     if HAS_AURALIS:
         try:
@@ -196,10 +200,11 @@ files_router = create_files_router(
 )
 app.include_router(files_router)
 
-# Create and include enhancement router (toggle, preset, intensity, status)
+# Create and include enhancement router (toggle, preset, intensity, status, cache clear)
 enhancement_router = create_enhancement_router(
     get_enhancement_settings=lambda: enhancement_settings,
-    connection_manager=manager
+    connection_manager=manager,
+    get_processing_cache=lambda: processing_cache
 )
 app.include_router(enhancement_router)
 

@@ -1,6 +1,6 @@
 # Auralis Development Roadmap
 
-**Last Updated**: October 22, 2025
+**Last Updated**: October 23, 2025
 **Current Version**: 1.0.0
 **Status**: Core functionality complete, critical architecture fixes needed
 
@@ -17,6 +17,7 @@ Auralis is a professional adaptive audio mastering system with a beautiful, mode
 - [x] Single source of truth player state management
 - [x] Library scanning (740+ files/second)
 - [x] Metadata extraction from audio files
+- [x] Database schema versioning and migrations (v1 → v2)
 
 ### Audio Processing Engine
 - [x] Adaptive mastering algorithm (no reference needed)
@@ -36,6 +37,8 @@ Auralis is a professional adaptive audio mastering system with a beautiful, mode
 - [x] Queue management and display
 - [x] Real-time position updates
 - [x] Cross-platform audio support
+- [x] **Playback restart loop fix** (October 23, 2025) - Duplicate stream load prevention
+- [x] **Stream reload guards** - Prevents audio interruptions from WebSocket updates
 
 ### User Interface
 - [x] Modern dark theme with aurora gradient branding
@@ -49,9 +52,72 @@ Auralis is a professional adaptive audio mastering system with a beautiful, mode
 
 ### Technical Excellence
 - [x] Repository lazy-loading fixes (9 methods fixed)
+- [x] Playlist eager loading fix (October 23, 2025)
 - [x] Comprehensive test suite (96 backend tests, 100% passing)
 - [x] Build system (AppImage + DEB packages)
 - [x] Documentation (CLAUDE.md, multiple technical docs)
+- [x] Playback stability fixes and guards
+
+---
+
+## 🔧 Recent Fixes & Updates (October 23, 2025)
+
+### Critical Playback Fix ✅
+**Issue**: Songs were playing for ~1 second and restarting repeatedly in an infinite loop.
+
+**Root Cause**: Audio stream was being loaded multiple times due to WebSocket state updates triggering React re-renders, which reloaded the audio element and interrupted `play()` requests.
+
+**Fixes Applied**:
+1. **Guard in `playTrack`** ([usePlayerAPI.ts:296-305](../../auralis-web/frontend/src/hooks/usePlayerAPI.ts#L296-L305))
+   - Prevents duplicate play requests for tracks already playing
+   - Logs ignored duplicate requests for debugging
+
+2. **Enhanced Stream Reload Protection** ([BottomPlayerBarConnected.tsx:180-188](../../auralis-web/frontend/src/components/BottomPlayerBarConnected.tsx#L180-L188))
+   - Additional guard prevents audio element reload when same track/settings already loaded
+   - Checks both URL match and track ID match
+
+**Result**:
+- ✅ Playback is now stable and continuous
+- ✅ No more audio restart loops
+- ✅ Graceful handling of duplicate click attempts
+- ✅ Console shows clear debug messages
+
+**Documentation**: [PLAYBACK_FIX_APPLIED.md](../../PLAYBACK_FIX_APPLIED.md)
+
+---
+
+### Playlist Repository Fix ✅
+**Issue**: SQLAlchemy session error when fetching playlists: "Parent instance is not bound to a Session; lazy load operation cannot proceed"
+
+**Fix**: Added eager loading in `PlaylistRepository.get_all()` using `selectinload(Playlist.tracks)` to load tracks relationship within the session.
+
+**File**: [auralis/library/repositories/playlist_repository.py:96-108](../../auralis/library/repositories/playlist_repository.py#L96-L108)
+
+**Result**: Playlists now load correctly without session errors.
+
+---
+
+### Database Schema Migration ✅
+**Status**: Automatic migration from v1 to v2 working correctly
+
+**What Changed**:
+- Database version tracking implemented
+- Automatic backup before migration (`.backup_YYYYMMDD_HHMMSS.db`)
+- Migration script execution (`migration_v001_to_v002.sql`)
+- Version recorded in `schema_migrations` table
+
+**Observed**: Backend correctly detected v1 database, created backup, and migrated to v2 on startup (October 23, 2025 at 13:25:29).
+
+---
+
+### Roadmap Additions ✅
+Added three new features to Phase 4 and Phase 5:
+
+1. **Phase 4.1**: Track Metadata Editing (HIGH PRIORITY) - 4-5 days
+2. **Phase 4.2**: Smart Chunk Shaping (MEDIUM PRIORITY) - 5-7 days
+3. **Phase 5.1**: Mastering Algorithm Performance Review (LOW-MEDIUM PRIORITY) - 7-10 days
+
+**Documentation**: [ROADMAP_UPDATES_OCT23.md](../../ROADMAP_UPDATES_OCT23.md)
 
 ---
 
@@ -592,13 +658,171 @@ Auralis is a professional adaptive audio mastering system with a beautiful, mode
 
 ---
 
-## 🎵 Phase 4: Advanced Playback Features (Low Priority)
+## 🎵 Phase 4: Advanced Playback Features (Medium Priority)
 
 **Goal**: Polish the music listening experience
-**Timeline**: 2-3 weeks
+**Timeline**: 3-4 weeks
 **Dependencies**: Phase 1-3 completion
 
-### 4.1 Gapless Playback (3-4 days)
+### 4.1 Track Metadata Editing & Management (HIGH PRIORITY) (4-5 days)
+
+**Goal**: Allow users to edit and manage track metadata directly in the app
+
+**Backend**:
+- [ ] Create metadata editing API:
+  - [ ] `PUT /api/library/tracks/:id/metadata` - Update track metadata
+  - [ ] `GET /api/library/tracks/:id/metadata/formats` - Get available format-specific tags
+  - [ ] `POST /api/library/tracks/batch/metadata` - Batch metadata update
+  - [ ] Support for common metadata fields:
+    - [ ] Title, Artist, Album, Album Artist
+    - [ ] Track Number, Disc Number
+    - [ ] Year, Genre, BPM
+    - [ ] Comments, Lyrics
+    - [ ] Custom tags (format-dependent)
+
+- [ ] Implement metadata writing:
+  - [ ] Use mutagen to write metadata back to files
+  - [ ] Support all library formats (MP3, FLAC, M4A, OGG, WAV)
+  - [ ] Preserve existing tags when updating
+  - [ ] Create backup before editing (optional setting)
+  - [ ] Validate metadata before writing
+  - [ ] Handle read-only files gracefully
+
+- [ ] Batch operations:
+  - [ ] Update multiple tracks at once
+  - [ ] Apply metadata template to selection
+  - [ ] Auto-populate from filename patterns
+  - [ ] Fetch metadata from online databases (MusicBrainz, Discogs)
+
+- [ ] WebSocket broadcasting:
+  - [ ] Notify all clients when metadata changes
+  - [ ] Update library view in real-time
+  - [ ] Refresh album/artist aggregations
+
+**Frontend**:
+- [ ] Create EditMetadataDialog component:
+  - [ ] Form fields for all metadata properties
+  - [ ] File format indicator (shows available tags)
+  - [ ] Preview changes before saving
+  - [ ] Validation feedback
+  - [ ] Undo/revert capability
+
+- [ ] Batch editing interface:
+  - [ ] Select multiple tracks
+  - [ ] Edit common fields
+  - [ ] Apply to all selected
+  - [ ] Show diff/changes summary
+
+- [ ] Context menu integration:
+  - [ ] Right-click track → "Edit Metadata"
+  - [ ] Right-click selection → "Edit Selected Metadata"
+  - [ ] Show keyboard shortcut (e.g., Ctrl+E)
+
+- [ ] Track detail view:
+  - [ ] Show all metadata fields
+  - [ ] Inline editing for quick changes
+  - [ ] Format-specific tags in expandable section
+  - [ ] File info (codec, bitrate, sample rate)
+
+- [ ] Advanced features:
+  - [ ] Fetch from MusicBrainz/Discogs
+  - [ ] Auto-populate from filename
+  - [ ] Apply naming patterns
+  - [ ] Tag cleanup tools (trim whitespace, fix capitalization)
+
+**Acceptance Criteria**:
+- [ ] Users can edit individual track metadata
+- [ ] Batch editing works for multiple tracks
+- [ ] Changes persist to audio files
+- [ ] Library updates automatically after edits
+- [ ] All supported formats can be edited
+- [ ] No data loss during editing
+- [ ] Validation prevents invalid metadata
+
+**Time**: 4-5 days
+**Priority**: 🔴 HIGH - Essential for music library management
+**Impact**: Allows users to maintain clean, organized metadata without external tools
+
+---
+
+### 4.2 Smart Chunk Shaping (MEDIUM PRIORITY) (5-7 days)
+
+**Goal**: Improve chunked streaming by using intelligent chunk boundaries based on audio content rather than fixed time intervals
+
+**Backend**:
+- [ ] Implement intelligent chunk boundary detection:
+  - [ ] Analyze audio waveform for natural break points
+  - [ ] Detect silent sections (below -60dB threshold)
+  - [ ] Identify mood/energy transitions using RMS and spectral changes
+  - [ ] Detect tempo changes and beat boundaries
+  - [ ] Use onset detection for rhythmic content
+
+- [ ] Create AdaptiveChunkShaper module:
+  - [ ] `analyze_chunk_points(audio, sr, min_chunk=15s, max_chunk=45s)` - Find optimal boundaries
+  - [ ] `detect_mood_changes(audio, sr)` - Identify mood/energy shifts
+  - [ ] `find_silent_regions(audio, sr, threshold=-60dB)` - Locate silence
+  - [ ] `align_to_beats(audio, sr, boundaries)` - Snap to beat grid (optional)
+
+- [ ] Integrate with ChunkedAudioProcessor:
+  - [ ] Replace fixed 30s chunks with adaptive boundaries
+  - [ ] Ensure min chunk size (15s) for streaming efficiency
+  - [ ] Ensure max chunk size (45s) to avoid memory issues
+  - [ ] Maintain crossfade compatibility at boundaries
+
+- [ ] Caching strategy:
+  - [ ] Cache chunk boundaries per track (avoid re-analysis)
+  - [ ] Store boundary metadata in database
+  - [ ] Invalidate cache if file changes
+
+- [ ] Fallback behavior:
+  - [ ] Use fixed 30s chunks if analysis fails
+  - [ ] Use fixed chunks for very short tracks (<90s)
+  - [ ] Configurable via settings (enable/disable smart chunking)
+
+**Frontend**:
+- [ ] Settings toggle for smart chunking (on by default)
+- [ ] Display chunk boundaries in waveform view (optional)
+- [ ] Performance metrics in debug mode (chunk analysis time)
+
+**Technical Approach**:
+```python
+# Pseudocode example
+def find_adaptive_chunk_boundaries(audio, sr, min_chunk=15, max_chunk=45):
+    # 1. Calculate energy profile (RMS over time)
+    energy = calculate_rms_envelope(audio, window_size=2048)
+
+    # 2. Find mood transitions (significant energy changes)
+    transitions = detect_energy_transitions(energy, threshold=6dB)
+
+    # 3. Find silent regions
+    silent_regions = detect_silence(audio, sr, threshold=-60dB, min_duration=0.5)
+
+    # 4. Combine into candidate boundaries
+    candidates = merge_candidates(transitions, silent_regions)
+
+    # 5. Optimize chunk sizes (min/max constraints)
+    boundaries = optimize_chunks(candidates, min_chunk, max_chunk)
+
+    return boundaries
+```
+
+**Acceptance Criteria**:
+- [ ] Chunks split at musically/contextually appropriate points
+- [ ] No splits in the middle of vocals or prominent sounds
+- [ ] Chunk sizes stay within min/max bounds (15-45s)
+- [ ] Analysis completes in <1s per track
+- [ ] Crossfades still work seamlessly at new boundaries
+- [ ] Performance impact is minimal (<10% overhead)
+- [ ] Fallback to fixed chunks if analysis fails
+
+**Time**: 5-7 days
+**Priority**: ⚠️ MEDIUM - Nice UX improvement but not essential
+**Impact**: More natural listening experience, fewer audible crossfade artifacts
+**Dependencies**: Requires ChunkedAudioProcessor (already implemented in Phase 1.5)
+
+---
+
+### 4.3 Gapless Playback (3-4 days)
 
 **Implementation**:
 - [ ] Pre-load next track in hidden audio element
@@ -647,7 +871,44 @@ Auralis is a professional adaptive audio mastering system with a beautiful, mode
 - Custom settings persist
 - Visual feedback shows changes
 
-### 4.4 Lyrics Display (Optional) (3-5 days)
+### 4.4 Crossfade (Already Implemented) ✅
+
+**Status**: Already implemented in BottomPlayerBarConnected.tsx
+- [x] Dual audio element approach
+- [x] Fade out current track
+- [x] Fade in next track simultaneously
+- [x] Configurable crossfade duration (0-10s)
+- [x] Settings toggle and duration slider
+
+**Note**: Renumbered existing items since Crossfade (4.2) is already complete
+
+---
+
+### 4.5 Equalizer (5-7 days)
+
+**Backend**:
+- [ ] Implement real-time EQ using Web Audio API
+- [ ] Support common EQ presets:
+  - [ ] Flat, Rock, Pop, Jazz, Classical, Bass Boost, etc.
+- [ ] Save custom EQ settings
+- [ ] Per-track EQ settings (optional)
+
+**Frontend**:
+- [ ] Visual EQ component with sliders
+- [ ] 10-band or parametric EQ
+- [ ] Preset selector
+- [ ] Save/load custom presets
+- [ ] Real-time frequency visualization
+
+**Acceptance Criteria**:
+- EQ adjusts audio in real-time
+- Presets work correctly
+- Custom settings persist
+- Visual feedback shows changes
+
+---
+
+### 4.6 Lyrics Display (Optional) (3-5 days)
 
 **Backend**:
 - [ ] Extract lyrics from metadata
@@ -670,11 +931,139 @@ Auralis is a professional adaptive audio mastering system with a beautiful, mode
 
 ## 📊 Phase 5: Professional Audio Features (Auralis-Specific)
 
-**Goal**: Leverage Auralis' audio processing capabilities
-**Timeline**: 3-4 weeks
+**Goal**: Leverage Auralis' audio processing capabilities and optimize core algorithms
+**Timeline**: 4-5 weeks
 **Dependencies**: Phase 1-4 completion
 
-### 5.1 Real-Time Audio Analysis (4-5 days)
+### 5.1 Mastering Algorithm Performance Review (LOW-MEDIUM PRIORITY) (7-10 days)
+
+**Goal**: Conduct comprehensive review of the adaptive mastering algorithm to identify performance bottlenecks and optimization opportunities
+
+**Phase 1: Profiling & Analysis (3-4 days)**
+
+- [ ] Comprehensive profiling of entire processing pipeline:
+  - [ ] Profile HybridProcessor.process() end-to-end
+  - [ ] Profile each DSP stage individually (EQ, dynamics, limiting)
+  - [ ] Profile content analysis and target generation
+  - [ ] Profile I/O operations (loading, saving)
+  - [ ] Use cProfile, line_profiler, and py-spy for detailed insights
+
+- [ ] Memory profiling:
+  - [ ] Identify memory-intensive operations
+  - [ ] Track NumPy array allocations
+  - [ ] Check for memory leaks in long processing sessions
+  - [ ] Profile memory usage per preset
+
+- [ ] Identify hotspots:
+  - [ ] Which functions consume most CPU time?
+  - [ ] Which operations are slowest? (FFT, convolution, filtering)
+  - [ ] Which parts are already optimized?
+  - [ ] Which parts have low-hanging fruit?
+
+- [ ] Benchmark current performance:
+  - [ ] Processing time per file size (1min, 5min, 10min tracks)
+  - [ ] Processing time per format (WAV, FLAC, MP3)
+  - [ ] Processing time per preset (Adaptive, Gentle, Warm, Bright, Punchy)
+  - [ ] Real-time factor breakdown by stage
+  - [ ] Memory usage per track length
+
+**Phase 2: Algorithm Review (2-3 days)**
+
+- [ ] Review adaptive mastering algorithm logic:
+  - [ ] ContentAnalyzer efficiency (spectral, temporal, genre analysis)
+  - [ ] AdaptiveTargetGenerator complexity
+  - [ ] Genre classification overhead (ML model inference)
+  - [ ] Psychoacoustic EQ calculations (26 critical bands)
+  - [ ] Dynamics processing (envelope followers, compression, limiting)
+
+- [ ] Review DSP implementations:
+  - [ ] FFT operations - are we using optimal sizes?
+  - [ ] Filter implementations - IIR vs FIR trade-offs
+  - [ ] Resampling overhead - can we avoid it?
+  - [ ] Stereo processing - mid-side conversions efficient?
+
+- [ ] Compare with reference implementations:
+  - [ ] librosa for spectral features
+  - [ ] scipy.signal for filtering
+  - [ ] pydub for format handling
+  - [ ] Check if we're duplicating work
+
+**Phase 3: Optimization Implementation (2-3 days)**
+
+**Potential optimizations to investigate**:
+
+- [ ] **NumPy/SciPy optimizations**:
+  - [ ] Use in-place operations where possible (reduce copies)
+  - [ ] Vectorize remaining loops
+  - [ ] Use NumPy's optimized functions (np.dot, np.einsum)
+  - [ ] Leverage SciPy's Cython-based functions
+
+- [ ] **FFT optimizations**:
+  - [ ] Use FFTW via pyfftw (faster than NumPy's FFT)
+  - [ ] Cache FFT plans for repeated operations
+  - [ ] Use optimal FFT sizes (powers of 2)
+  - [ ] Parallelize FFT operations for stereo
+
+- [ ] **Caching improvements**:
+  - [ ] Cache content analysis results per track
+  - [ ] Cache genre classification results
+  - [ ] Cache FFT intermediate results
+  - [ ] Implement smarter cache invalidation
+
+- [ ] **Parallel processing**:
+  - [ ] Parallelize stereo channel processing
+  - [ ] Use multiprocessing for batch operations
+  - [ ] Parallelize chunk processing in ChunkedAudioProcessor
+  - [ ] Investigate Numba JIT compilation for hotspots
+
+- [ ] **Algorithm simplifications**:
+  - [ ] Reduce psychoacoustic EQ from 26 to 18 bands (still perceptually accurate)
+  - [ ] Simplify genre classification (faster heuristics for real-time)
+  - [ ] Optimize envelope follower (reduce oversampling if possible)
+  - [ ] Skip analysis steps for low-intensity processing
+
+- [ ] **Memory optimizations**:
+  - [ ] Use memory pools more aggressively (already have PerformanceOptimizer)
+  - [ ] Stream large files in chunks (already done for enhancement)
+  - [ ] Use float32 instead of float64 where precision allows
+  - [ ] Release intermediate arrays sooner
+
+**Phase 4: Testing & Validation (1-2 days)**
+
+- [ ] Benchmark optimizations:
+  - [ ] Measure speedup per optimization
+  - [ ] Ensure audio quality is maintained (PESQ, VISQOL scores)
+  - [ ] A/B test original vs optimized output (should be identical or imperceptibly different)
+  - [ ] Verify no regressions in test suite
+
+- [ ] Document findings:
+  - [ ] Create MASTERING_ALGORITHM_PERFORMANCE.md report:
+    - [ ] Profiling results (before/after)
+    - [ ] Identified bottlenecks
+    - [ ] Implemented optimizations
+    - [ ] Performance improvements achieved
+    - [ ] Recommendations for future work
+  - [ ] Update CLAUDE.md with new performance characteristics
+
+**Acceptance Criteria**:
+- [ ] Comprehensive profiling report completed
+- [ ] At least 3 significant bottlenecks identified
+- [ ] At least 2 optimizations implemented and tested
+- [ ] Performance improvement of 10-20% on common use cases
+- [ ] Audio quality maintained (verified by objective metrics)
+- [ ] No regressions in existing test suite
+- [ ] Documentation updated with findings
+
+**Time**: 7-10 days
+**Priority**: 📊 LOW-MEDIUM - Important for long-term performance but not blocking users
+**Impact**: Faster processing, lower CPU usage, better battery life on laptops
+**Risk**: Medium - Requires careful testing to ensure audio quality is maintained
+
+**Note**: Current performance is already excellent (52.8x real-time, 197x with optimizations), so this is about finding additional gains and ensuring we haven't missed easy optimizations.
+
+---
+
+### 5.2 Real-Time Audio Analysis (4-5 days)
 
 **Implementation**:
 - [ ] Connect Web Audio API to visualizations
@@ -988,5 +1377,5 @@ This roadmap is a living document. Priorities may shift based on:
 - Resource availability
 - Strategic decisions
 
-**Last Reviewed**: October 21, 2025
-**Next Review**: After Phase 1 completion
+**Last Reviewed**: October 23, 2025
+**Next Review**: After Phase 0 completion (WebSocket/REST fixes)

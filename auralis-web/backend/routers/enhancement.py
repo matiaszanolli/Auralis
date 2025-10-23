@@ -24,13 +24,14 @@ router = APIRouter(tags=["enhancement"])
 VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
 
 
-def create_enhancement_router(get_enhancement_settings, connection_manager):
+def create_enhancement_router(get_enhancement_settings, connection_manager, get_processing_cache=None):
     """
     Factory function to create enhancement router with dependencies.
 
     Args:
         get_enhancement_settings: Callable that returns enhancement settings dict
         connection_manager: WebSocket connection manager for broadcasts
+        get_processing_cache: Optional callable that returns processing cache dict
 
     Returns:
         APIRouter: Configured router instance
@@ -168,5 +169,31 @@ def create_enhancement_router(get_enhancement_settings, connection_manager):
             dict: Current enhancement settings (enabled, preset, intensity)
         """
         return get_enhancement_settings()
+
+    @router.post("/api/player/enhancement/cache/clear")
+    async def clear_processing_cache():
+        """
+        Clear the processing cache (all cached enhanced audio files).
+        Useful when testing or when cache becomes stale.
+
+        Returns:
+            dict: Status message with number of items cleared
+        """
+        if get_processing_cache is None:
+            raise HTTPException(status_code=501, detail="Cache management not available")
+
+        try:
+            cache = get_processing_cache()
+            cache_size = len(cache)
+            cache.clear()
+
+            logger.info(f"🧹 Processing cache cleared ({cache_size} items removed)")
+            return {
+                "message": "Processing cache cleared",
+                "items_cleared": cache_size
+            }
+        except Exception as e:
+            logger.error(f"Failed to clear cache: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to clear cache: {e}")
 
     return router

@@ -94,10 +94,12 @@ class PlaylistRepository:
             session.close()
 
     def get_all(self) -> List[Playlist]:
-        """Get all playlists"""
+        """Get all playlists with eager loading"""
         session = self.get_session()
         try:
-            playlists = session.query(Playlist).order_by(Playlist.name).all()
+            playlists = session.query(Playlist).options(
+                selectinload(Playlist.tracks)
+            ).order_by(Playlist.name).all()
             # Expunge all playlists to avoid DetachedInstanceError
             for playlist in playlists:
                 session.expunge(playlist)
