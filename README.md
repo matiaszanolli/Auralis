@@ -278,19 +278,20 @@ npm run build
 - [ ] Auto-update for Electron app
 
 ### 📋 Planned (v1.0)
-- [ ] Playlist creation and management
-- [ ] Enhancement presets (Warm, Bright, Punchy, etc.)
+- [ ] Playlist creation and management UI (backend complete)
+- [ ] Enhancement presets UI (backend complete: Adaptive, Gentle, Warm, Bright, Punchy)
+- [ ] Album art downloader (automatic artwork fetching)
+- [ ] Dark/light theme toggle
 - [ ] Drag-and-drop folder import
-- [ ] Simple EQ presets
-- [ ] Queue management
+- [ ] Queue management UI (backend complete)
 
 ### 🎨 Future Ideas
-- [ ] Album art downloader
 - [ ] Lyrics display
 - [ ] Smart collections (auto-playlists)
 - [ ] Keyboard shortcuts
-- [ ] Dark/light theme toggle
 - [ ] Mini player mode
+- [ ] Crossfade between tracks
+- [ ] Gapless playback
 
 ---
 
