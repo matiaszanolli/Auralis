@@ -88,6 +88,8 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
     currentTime,
     duration,
     volume: apiVolume,
+    queue,
+    queueIndex,
     loading,
     error,
     togglePlayPause,
@@ -253,35 +255,21 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
     }
   }, [localVolume, isMuted]);
 
-  // Fetch next track from queue for pre-loading
+  // Get next track from queue for pre-loading (using WebSocket queue data)
   useEffect(() => {
-    const fetchNextTrack = async () => {
-      if (!gaplessEnabled || !currentTrack) {
-        setNextTrack(null);
-        return;
-      }
+    if (!gaplessEnabled || !currentTrack || !queue || queue.length === 0) {
+      setNextTrack(null);
+      return;
+    }
 
-      try {
-        const response = await fetch('http://localhost:8765/api/player/queue');
-        if (response.ok) {
-          const queueData = await response.json();
-          const currentIndex = queueData.current_index || 0;
-          const tracks = queueData.tracks || [];
-
-          // Get next track
-          if (currentIndex + 1 < tracks.length) {
-            setNextTrack(tracks[currentIndex + 1]);
-          } else {
-            setNextTrack(null);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch next track:', error);
-      }
-    };
-
-    fetchNextTrack();
-  }, [currentTrack, gaplessEnabled, crossfadeEnabled]);
+    // Get next track from queue (queue is updated via WebSocket)
+    const currentIndex = queueIndex || 0;
+    if (currentIndex + 1 < queue.length) {
+      setNextTrack(queue[currentIndex + 1]);
+    } else {
+      setNextTrack(null);
+    }
+  }, [currentTrack, gaplessEnabled, crossfadeEnabled, queue, queueIndex]);
 
   // Pre-load next track when current track is near the end
   useEffect(() => {

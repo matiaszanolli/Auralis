@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { useWebSocket } from '../hooks/useWebSocket';
+import { useWebSocketContext } from './WebSocketContext';
 
 export interface EnhancementSettings {
   enabled: boolean;
@@ -44,53 +44,63 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
   });
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // WebSocket for real-time sync
-  const wsUrl = `ws://${window.location.hostname}:8765/ws`;
-  const { lastMessage } = useWebSocket(wsUrl);
+  // WebSocket for real-time sync (using shared WebSocketContext)
+  const { subscribe } = useWebSocketContext();
 
   // Listen for WebSocket updates from backend
   useEffect(() => {
-    if (!lastMessage) return;
+    console.log('🎨 EnhancementContext: Setting up WebSocket subscriptions');
 
-    try {
-      const message = JSON.parse(lastMessage);
-
-      switch (message.type) {
-        case 'enhancement_toggled':
-          setSettings(prev => ({
-            ...prev,
-            enabled: message.data.enabled,
-            preset: message.data.preset,
-            intensity: message.data.intensity,
-          }));
-          break;
-
-        case 'enhancement_preset_changed':
-          setSettings(prev => ({
-            ...prev,
-            preset: message.data.preset,
-            enabled: message.data.enabled,
-            intensity: message.data.intensity,
-          }));
-          break;
-
-        case 'enhancement_intensity_changed':
-          setSettings(prev => ({
-            ...prev,
-            intensity: message.data.intensity,
-            enabled: message.data.enabled,
-            preset: message.data.preset,
-          }));
-          break;
-
-        default:
-          // Ignore other message types
-          break;
+    // Subscribe to enhancement_toggled
+    const unsubscribeToggled = subscribe('enhancement_toggled', (message: any) => {
+      try {
+        setSettings(prev => ({
+          ...prev,
+          enabled: message.data.enabled,
+          preset: message.data.preset,
+          intensity: message.data.intensity,
+        }));
+      } catch (error) {
+        console.error('Error handling enhancement_toggled:', error);
       }
-    } catch (error) {
-      console.error('Failed to parse WebSocket message:', error);
-    }
-  }, [lastMessage]);
+    });
+
+    // Subscribe to enhancement_preset_changed
+    const unsubscribePreset = subscribe('enhancement_preset_changed', (message: any) => {
+      try {
+        setSettings(prev => ({
+          ...prev,
+          preset: message.data.preset,
+          enabled: message.data.enabled,
+          intensity: message.data.intensity,
+        }));
+      } catch (error) {
+        console.error('Error handling enhancement_preset_changed:', error);
+      }
+    });
+
+    // Subscribe to enhancement_intensity_changed
+    const unsubscribeIntensity = subscribe('enhancement_intensity_changed', (message: any) => {
+      try {
+        setSettings(prev => ({
+          ...prev,
+          intensity: message.data.intensity,
+          enabled: message.data.enabled,
+          preset: message.data.preset,
+        }));
+      } catch (error) {
+        console.error('Error handling enhancement_intensity_changed:', error);
+      }
+    });
+
+    // Cleanup: unsubscribe from all message types
+    return () => {
+      console.log('🎨 EnhancementContext: Cleaning up WebSocket subscriptions');
+      unsubscribeToggled();
+      unsubscribePreset();
+      unsubscribeIntensity();
+    };
+  }, [subscribe]);
 
   // Set enabled state via REST API
   const setEnabled = useCallback(async (enabled: boolean) => {

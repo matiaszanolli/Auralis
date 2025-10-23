@@ -1,5 +1,29 @@
 import { useState, useEffect, useRef } from 'react';
 
+/**
+ * @deprecated This hook is deprecated. Please use useWebSocketContext from contexts/WebSocketContext instead.
+ *
+ * The new WebSocketContext provides:
+ * - Single shared WebSocket connection (no duplication)
+ * - Subscription-based message handling
+ * - Automatic reconnection with exponential backoff
+ * - Message queueing during disconnection
+ *
+ * Migration example:
+ * ```ts
+ * // OLD:
+ * const { connected, lastMessage } = useWebSocket('ws://localhost:8765/ws');
+ *
+ * // NEW:
+ * const { isConnected, subscribe } = useWebSocketContext();
+ * useEffect(() => {
+ *   const unsubscribe = subscribe('player_state', (message) => {
+ *     console.log(message.data);
+ *   });
+ *   return unsubscribe;
+ * }, [subscribe]);
+ * ```
+ */
 interface UseWebSocketReturn {
   connected: boolean;
   lastMessage: string | null;

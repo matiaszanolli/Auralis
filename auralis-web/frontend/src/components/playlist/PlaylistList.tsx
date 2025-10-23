@@ -21,7 +21,7 @@ import {
 } from '@mui/icons-material';
 import { colors } from '../../theme/auralisTheme';
 import { useToast } from '../shared/Toast';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import * as playlistService from '../../services/playlistService';
 import CreatePlaylistDialog from './CreatePlaylistDialog';
 import EditPlaylistDialog from './EditPlaylistDialog';
@@ -144,8 +144,8 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
   const [loading, setLoading] = useState(false);
   const { success, error, info } = useToast();
 
-  // WebSocket connection for real-time updates
-  const { connected, lastMessage } = useWebSocket('ws://localhost:8765/ws');
+  // WebSocket connection for real-time updates (using shared WebSocketContext)
+  const { subscribe } = useWebSocketContext();
 
   // Load playlists on mount
   useEffect(() => {
@@ -154,46 +154,65 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
 
   // Handle WebSocket messages for real-time playlist updates
   useEffect(() => {
-    if (!lastMessage) return;
+    console.log('📝 PlaylistList: Setting up WebSocket subscriptions');
 
-    try {
-      const message = JSON.parse(lastMessage);
+    // Subscribe to playlist_created
+    const unsubscribeCreated = subscribe('playlist_created', () => {
+      fetchPlaylists();
+    });
 
-      switch (message.type) {
-        case 'playlist_created':
-          // Refresh playlists when a new one is created
-          fetchPlaylists();
-          break;
-
-        case 'playlist_updated':
-          // Update the specific playlist
-          setPlaylists((prev) =>
-            prev.map((p) =>
-              p.id === message.data.playlist_id
-                ? { ...p, ...message.data.updates }
-                : p
-            )
-          );
-          break;
-
-        case 'playlist_deleted':
-          // Remove deleted playlist
-          setPlaylists((prev) =>
-            prev.filter((p) => p.id !== message.data.playlist_id)
-          );
-          break;
-
-        case 'playlist_tracks_added':
-        case 'playlist_track_removed':
-        case 'playlist_cleared':
-          // Refresh playlists to get updated track counts
-          fetchPlaylists();
-          break;
+    // Subscribe to playlist_updated
+    const unsubscribeUpdated = subscribe('playlist_updated', (message: any) => {
+      try {
+        setPlaylists((prev) =>
+          prev.map((p) =>
+            p.id === message.data.playlist_id
+              ? { ...p, ...message.data.updates }
+              : p
+          )
+        );
+      } catch (err) {
+        console.error('Error handling playlist_updated:', err);
       }
-    } catch (err) {
-      console.error('Error parsing WebSocket message:', err);
-    }
-  }, [lastMessage]);
+    });
+
+    // Subscribe to playlist_deleted
+    const unsubscribeDeleted = subscribe('playlist_deleted', (message: any) => {
+      try {
+        setPlaylists((prev) =>
+          prev.filter((p) => p.id !== message.data.playlist_id)
+        );
+      } catch (err) {
+        console.error('Error handling playlist_deleted:', err);
+      }
+    });
+
+    // Subscribe to playlist_tracks_added
+    const unsubscribeTracksAdded = subscribe('playlist_tracks_added', () => {
+      fetchPlaylists();
+    });
+
+    // Subscribe to playlist_track_removed
+    const unsubscribeTrackRemoved = subscribe('playlist_track_removed', () => {
+      fetchPlaylists();
+    });
+
+    // Subscribe to playlist_cleared
+    const unsubscribeCleared = subscribe('playlist_cleared', () => {
+      fetchPlaylists();
+    });
+
+    // Cleanup: unsubscribe from all message types
+    return () => {
+      console.log('📝 PlaylistList: Cleaning up WebSocket subscriptions');
+      unsubscribeCreated();
+      unsubscribeUpdated();
+      unsubscribeDeleted();
+      unsubscribeTracksAdded();
+      unsubscribeTrackRemoved();
+      unsubscribeCleared();
+    };
+  }, [subscribe]);
 
   const fetchPlaylists = async () => {
     setLoading(true);

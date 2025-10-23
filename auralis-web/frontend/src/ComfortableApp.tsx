@@ -16,7 +16,7 @@ import CozyLibraryView from './components/CozyLibraryView';
 import GlobalSearch from './components/library/GlobalSearch';
 import SettingsDialog from './components/settings/SettingsDialog';
 import LyricsPanel from './components/player/LyricsPanel';
-import { useWebSocket } from './hooks/useWebSocket';
+import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 
 interface Track {
@@ -41,8 +41,8 @@ function ComfortableApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
 
-  // WebSocket connection for real-time updates
-  const { connected } = useWebSocket('ws://localhost:8765/ws');
+  // WebSocket connection for real-time updates (using shared WebSocketContext)
+  const { isConnected } = useWebSocketContext();
 
   // Toast notifications
   const { success, info } = useToast();
@@ -153,8 +153,8 @@ function ComfortableApp() {
                   px: 2,
                   py: 0.5,
                   borderRadius: 'var(--radius-md)',
-                  background: connected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                  border: `1px solid ${connected ? 'var(--success)' : 'var(--warning)'}`
+                  background: isConnected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                  border: `1px solid ${isConnected ? 'var(--success)' : 'var(--warning)'}`
                 }}
               >
                 <Box
@@ -162,8 +162,8 @@ function ComfortableApp() {
                     width: 8,
                     height: 8,
                     borderRadius: '50%',
-                    background: connected ? 'var(--success)' : 'var(--warning)',
-                    animation: connected ? 'pulse 2s infinite' : 'none',
+                    background: isConnected ? 'var(--success)' : 'var(--warning)',
+                    animation: isConnected ? 'pulse 2s infinite' : 'none',
                     '@keyframes pulse': {
                       '0%': { opacity: 1 },
                       '50%': { opacity: 0.5 },
@@ -178,7 +178,7 @@ function ComfortableApp() {
                     fontSize: 12
                   }}
                 >
-                  {connected ? 'Connected' : 'Connecting...'}
+                  {isConnected ? 'Connected' : 'Connecting...'}
                 </Typography>
               </Box>
             </Box>
