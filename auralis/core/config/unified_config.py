@@ -14,6 +14,7 @@ import math
 from typing import Optional, Dict, Any, Literal
 from .settings import LimiterConfig, AdaptiveConfig, GenreProfile
 from .genre_profiles import create_default_genre_profiles, get_genre_profile
+from .preset_profiles import PresetProfile, get_preset_profile, get_available_presets
 from ...utils.logging import debug
 
 
@@ -132,6 +133,9 @@ class UnifiedConfig:
             genre_profiles = create_default_genre_profiles()
         self.genre_profiles = genre_profiles
 
+        # Mastering profile/preset (adaptive, gentle, warm, bright, punchy)
+        self.mastering_profile = "adaptive"
+
         debug(f"Unified config initialized: mode={self.adaptive.mode}, "
               f"SR={self.internal_sample_rate}Hz, FFT={self.fft_size}")
 
@@ -172,6 +176,33 @@ class UnifiedConfig:
     def is_hybrid_mode(self) -> bool:
         """Check if using hybrid processing"""
         return self.adaptive.mode == "hybrid"
+
+    def get_preset_profile(self) -> Optional[PresetProfile]:
+        """
+        Get the current mastering preset profile.
+
+        Returns:
+            PresetProfile object for the current preset, or None if invalid preset name
+        """
+        return get_preset_profile(self.mastering_profile)
+
+    def set_mastering_preset(self, preset_name: str):
+        """
+        Set the mastering preset.
+
+        Args:
+            preset_name: Name of the preset (adaptive, gentle, warm, bright, punchy)
+
+        Raises:
+            ValueError: If preset name is not valid
+        """
+        available = get_available_presets()
+        if preset_name.lower() not in available:
+            raise ValueError(
+                f"Invalid preset '{preset_name}'. Available presets: {', '.join(available)}"
+            )
+        self.mastering_profile = preset_name.lower()
+        debug(f"Mastering preset changed to: {preset_name}")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary for serialization"""

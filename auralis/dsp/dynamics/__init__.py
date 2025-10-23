@@ -16,6 +16,7 @@ from .settings import (
 from .envelope import EnvelopeFollower, create_envelope_follower
 from .compressor import AdaptiveCompressor, create_adaptive_compressor
 from .limiter import AdaptiveLimiter, create_adaptive_limiter
+from .brick_wall_limiter import BrickWallLimiter, BrickWallLimiterSettings, create_brick_wall_limiter
 
 __all__ = [
     # Enums and settings
@@ -23,14 +24,17 @@ __all__ = [
     'CompressorSettings',
     'LimiterSettings',
     'DynamicsSettings',
+    'BrickWallLimiterSettings',
 
     # Processors
     'EnvelopeFollower',
     'AdaptiveCompressor',
     'AdaptiveLimiter',
+    'BrickWallLimiter',
 
     # Factory functions
     'create_envelope_follower',
     'create_adaptive_compressor',
     'create_adaptive_limiter',
+    'create_brick_wall_limiter',
 ]
