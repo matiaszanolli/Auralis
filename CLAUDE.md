@@ -892,6 +892,12 @@ Latest builds are production-ready:
 - **Library Management**: ✅ 740+ files/second scanning, metadata extraction working
 - **Audio Player**: ✅ Full playback controls, real-time processing validated
 - **E2E Testing**: ✅ All 5 presets validated (Adaptive, Gentle, Warm, Bright, Punchy)
+- **Proactive Buffering**: ✅ Instant preset switching with zero wait time (buffering system working)
+
+**⚠️ High Priority Technical Debt:**
+- **Backend Refactoring**: 🔴 MEDIUM-HIGH PRIORITY - main.py has grown to 1,960 lines with 59 endpoints
+- **See**: `BACKEND_REFACTORING_ROADMAP.md` for comprehensive modularization plan (8-12 hours)
+- **Impact**: Maintainability, testability, team collaboration
 
 **⚠️ Critical Before Production Launch:**
 - **Version Management System**: Database schema versioning and migration system needed
@@ -899,7 +905,7 @@ Latest builds are production-ready:
 - **See**: `LAUNCH_READINESS_CHECKLIST.md` for launch decision guide
 
 **Beta Launch Ready**: Can launch now with disclaimers about potential database resets
-**Production Ready**: After implementing version management system (1-2 weeks)
+**Production Ready**: After implementing version management + backend refactoring (2-3 weeks)
 
 ### UI Design Implementation Status
 

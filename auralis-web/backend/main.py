@@ -57,6 +57,12 @@ except ImportError as e:
     HAS_PROCESSING = False
     ChunkedAudioProcessor = None
 
+# Import routers
+from routers.system import create_system_router
+from routers.files import create_files_router
+from routers.enhancement import create_enhancement_router
+from routers.artwork import create_artwork_router
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -171,9 +177,40 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# WebSocket endpoint for real-time updates
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+# Create and include system router (health, version, WebSocket)
+system_router = create_system_router(
+    manager=manager,
+    get_library_manager=lambda: library_manager,
+    get_processing_engine=lambda: processing_engine,
+    HAS_AURALIS=HAS_AURALIS
+)
+app.include_router(system_router)
+
+# Create and include files router (scan, upload, formats)
+files_router = create_files_router(
+    get_library_manager=lambda: library_manager,
+    connection_manager=manager
+)
+app.include_router(files_router)
+
+# Create and include enhancement router (toggle, preset, intensity, status)
+enhancement_router = create_enhancement_router(
+    get_enhancement_settings=lambda: enhancement_settings,
+    connection_manager=manager
+)
+app.include_router(enhancement_router)
+
+# Create and include artwork router (get, extract, delete)
+artwork_router = create_artwork_router(
+    get_library_manager=lambda: library_manager,
+    connection_manager=manager
+)
+app.include_router(artwork_router)
+
+# OLD WebSocket endpoint - KEEPING FOR NOW, WILL REMOVE AFTER TESTING
+# TODO: Remove these old endpoints after verifying router works
+@app.websocket("/ws_old")
+async def websocket_endpoint_old(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
@@ -227,19 +264,21 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 # API Routes
+# OLD system endpoints - KEEPING FOR NOW, WILL REMOVE AFTER TESTING
+# TODO: Remove these after verifying system router works
 
-@app.get("/api/health")
-async def health_check():
-    """Health check endpoint"""
+@app.get("/api/health_old")
+async def health_check_old():
+    """OLD Health check endpoint - use system router instead"""
     return {
         "status": "healthy",
         "auralis_available": HAS_AURALIS,
         "library_manager": library_manager is not None
     }
 
-@app.get("/api/version")
-async def get_version():
-    """Get version information"""
+@app.get("/api/version_old")
+async def get_version_old():
+    """OLD Get version information - use system router instead"""
     try:
         from version import get_version_info
         return get_version_info()
@@ -746,8 +785,8 @@ async def clear_playlist(playlist_id: int):
 # ALBUM ARTWORK ENDPOINTS
 # ============================================================================
 
-@app.get("/api/albums/{album_id}/artwork")
-async def get_album_artwork(album_id: int):
+@app.get("/api/albums/{album_id}/artwork_old")
+async def get_album_artwork_old(album_id: int):
     """Get album artwork file"""
     if not library_manager:
         raise HTTPException(status_code=503, detail="Library manager not available")
@@ -785,8 +824,8 @@ async def get_album_artwork(album_id: int):
         raise HTTPException(status_code=500, detail=f"Failed to get artwork: {e}")
 
 
-@app.post("/api/albums/{album_id}/artwork/extract")
-async def extract_album_artwork(album_id: int):
+@app.post("/api/albums/{album_id}/artwork/extract_old")
+async def extract_album_artwork_old(album_id: int):
     """Extract artwork from album tracks"""
     if not library_manager:
         raise HTTPException(status_code=503, detail="Library manager not available")
@@ -822,8 +861,8 @@ async def extract_album_artwork(album_id: int):
         raise HTTPException(status_code=500, detail=f"Failed to extract artwork: {e}")
 
 
-@app.delete("/api/albums/{album_id}/artwork")
-async def delete_album_artwork(album_id: int):
+@app.delete("/api/albums/{album_id}/artwork_old")
+async def delete_album_artwork_old(album_id: int):
     """Delete album artwork"""
     if not library_manager:
         raise HTTPException(status_code=503, detail="Library manager not available")
@@ -855,8 +894,8 @@ async def delete_album_artwork(album_id: int):
 class ScanRequest(BaseModel):
     directory: str
 
-@app.post("/api/library/scan")
-async def scan_directory(request: ScanRequest):
+@app.post("/api/library/scan_old")
+async def scan_directory_old(request: ScanRequest):
     """Scan directory for audio files"""
     if not library_manager:
         raise HTTPException(status_code=503, detail="Library manager not available")
@@ -898,8 +937,8 @@ async def scan_directory(request: ScanRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start scan: {e}")
 
-@app.post("/api/files/upload")
-async def upload_files(files: List[UploadFile] = File(...)):
+@app.post("/api/files/upload_old")
+async def upload_files_old(files: List[UploadFile] = File(...)):
     """Upload audio files for processing"""
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
@@ -932,8 +971,8 @@ async def upload_files(files: List[UploadFile] = File(...)):
 
     return {"results": results}
 
-@app.get("/api/audio/formats")
-async def get_supported_formats():
+@app.get("/api/audio/formats_old")
+async def get_supported_formats_old():
     """Get supported audio formats"""
     return {
         "input_formats": [".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac"],
@@ -1111,8 +1150,8 @@ enhancement_settings = {
     "intensity": 1.0
 }
 
-@app.post("/api/player/enhancement/toggle")
-async def toggle_enhancement(enabled: bool):
+@app.post("/api/player/enhancement/toggle_old")
+async def toggle_enhancement_old(enabled: bool):
     """Enable or disable real-time audio enhancement"""
     try:
         enhancement_settings["enabled"] = enabled
@@ -1135,8 +1174,8 @@ async def toggle_enhancement(enabled: bool):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to toggle enhancement: {e}")
 
-@app.post("/api/player/enhancement/preset")
-async def set_enhancement_preset(preset: str):
+@app.post("/api/player/enhancement/preset_old")
+async def set_enhancement_preset_old(preset: str):
     """Change the enhancement preset"""
     valid_presets = ["adaptive", "gentle", "warm", "bright", "punchy"]
 
@@ -1167,8 +1206,8 @@ async def set_enhancement_preset(preset: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to change preset: {e}")
 
-@app.post("/api/player/enhancement/intensity")
-async def set_enhancement_intensity(intensity: float):
+@app.post("/api/player/enhancement/intensity_old")
+async def set_enhancement_intensity_old(intensity: float):
     """Adjust the enhancement intensity (0.0 - 1.0)"""
     if not 0.0 <= intensity <= 1.0:
         raise HTTPException(
@@ -1197,8 +1236,8 @@ async def set_enhancement_intensity(intensity: float):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to set intensity: {e}")
 
-@app.get("/api/player/enhancement/status")
-async def get_enhancement_status():
+@app.get("/api/player/enhancement/status_old")
+async def get_enhancement_status_old():
     """Get current enhancement settings"""
     return enhancement_settings
 
@@ -1953,9 +1992,8 @@ if __name__ == "__main__":
     is_bundled = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
 
     uvicorn.run(
-        "main:app",
+        app,  # Pass app directly instead of "main:app" to avoid module duplication
         host="127.0.0.1",
         port=8765,
-        reload=False if is_bundled else True,  # Disable reload in production
         log_level="info"
     )
