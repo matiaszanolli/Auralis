@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@/test/test-utils'
-import GradientButton from '../GradientButton'
+import GradientButton from '../../components/shared/GradientButton'
 
 describe('GradientButton', () => {
   it('renders with children text', () => {
