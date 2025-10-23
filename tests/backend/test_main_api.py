@@ -368,22 +368,24 @@ class TestPlayerEndpoints:
 
     def test_get_player_status_with_mock(self, client):
         """Test player status with mocked player"""
-        with patch('main.audio_player') as mock_player:
-            mock_player.state.value = "stopped"
-            mock_player.volume = 0.8
-            mock_player.get_position.return_value = 45.0
-            mock_player.get_duration.return_value = 180.0
-            mock_player.get_current_track.return_value = "test.mp3"
-            mock_player.queue_manager.queue = []
-            mock_player.shuffle_enabled = False
-            mock_player.repeat_mode = "none"
+        from player_state import PlayerState, PlaybackState
+
+        with patch('main.player_state_manager') as mock_state_manager:
+            # Create mock PlayerState
+            mock_state = PlayerState(
+                state=PlaybackState.STOPPED,
+                volume=80,
+                current_track=None,
+                queue=[]
+            )
+            mock_state_manager.get_state.return_value = mock_state
 
             response = client.get("/api/player/status")
 
             assert response.status_code == 200
             data = response.json()
             assert data["state"] == "stopped"
-            assert data["volume"] == 0.8
+            assert data["volume"] == 80
 
     def test_load_track(self, client):
         """Test loading a track"""
@@ -398,8 +400,10 @@ class TestPlayerEndpoints:
 
     def test_play_audio(self, client):
         """Test starting playback"""
-        with patch('main.audio_player') as mock_player:
+        with patch('main.audio_player') as mock_player, \
+             patch('main.player_state_manager') as mock_state_manager:
             mock_player.play = Mock()
+            mock_state_manager.set_playing = AsyncMock()
 
             response = client.post("/api/player/play")
 
@@ -408,8 +412,10 @@ class TestPlayerEndpoints:
 
     def test_pause_audio(self, client):
         """Test pausing playback"""
-        with patch('main.audio_player') as mock_player:
+        with patch('main.audio_player') as mock_player, \
+             patch('main.player_state_manager') as mock_state_manager:
             mock_player.pause = Mock()
+            mock_state_manager.set_playing = AsyncMock()
 
             response = client.post("/api/player/pause")
 
