@@ -50,7 +50,7 @@ class TestStateManagerInitialization:
 
         assert isinstance(state, PlayerState)
         assert state.state == PlaybackState.STOPPED
-        assert state.volume == 100
+        assert state.volume == 80  # Default volume is 80
         assert state.current_track is None
 
 
@@ -158,9 +158,16 @@ class TestTrackManagement:
         mock_track.id = 1
         mock_track.title = "Test Track"
         mock_track.artist = "Test Artist"
-        mock_track.album = "Test Album"
         mock_track.duration = 180.0
         mock_track.filepath = "/path/to/track.mp3"
+        # Mock the artists relationship (create_track_info tries to subscript it)
+        mock_artist = Mock()
+        mock_artist.name = "Test Artist"
+        mock_track.artists = [mock_artist]
+        # Mock the album relationship (create_track_info tries to access album.title)
+        mock_album = Mock()
+        mock_album.title = "Test Album"
+        mock_track.album = mock_album
 
         await state_manager.set_track(mock_track, None)
 
@@ -178,8 +185,8 @@ class TestQueueManagement:
     async def test_set_queue(self, state_manager, mock_ws_manager):
         """Test setting playback queue"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=0)
@@ -193,8 +200,8 @@ class TestQueueManagement:
     async def test_next_track_in_queue(self, state_manager, mock_ws_manager):
         """Test moving to next track"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=0)
@@ -209,7 +216,7 @@ class TestQueueManagement:
     async def test_next_track_at_end_no_repeat(self, state_manager):
         """Test next track at end of queue without repeat"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=0)
@@ -223,8 +230,8 @@ class TestQueueManagement:
     async def test_next_track_with_repeat_all(self, state_manager):
         """Test next track with repeat all mode"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=1)
@@ -241,8 +248,8 @@ class TestQueueManagement:
     async def test_previous_track_restart_if_past_3_seconds(self, state_manager):
         """Test previous track restarts current if > 3 seconds"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=1)
@@ -259,8 +266,8 @@ class TestQueueManagement:
     async def test_previous_track_goes_back(self, state_manager):
         """Test previous track goes to previous in queue"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
-            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, filepath="/path/2.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
+            TrackInfo(id=2, title="Track 2", artist="Artist 2", album="Album 2", duration=200.0, file_path="/path/2.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=1)
@@ -277,7 +284,7 @@ class TestQueueManagement:
     async def test_previous_track_at_start(self, state_manager):
         """Test previous track at start of queue"""
         tracks = [
-            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, filepath="/path/1.mp3"),
+            TrackInfo(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180.0, file_path="/path/1.mp3"),
         ]
 
         await state_manager.set_queue(tracks, start_index=0)
