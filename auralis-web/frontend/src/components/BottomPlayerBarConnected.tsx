@@ -106,6 +106,7 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
   const [localVolume, setLocalVolume] = useState(apiVolume);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [isFavoriting, setIsFavoriting] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
 
   // HTML5 Audio elements for gapless playback
   const audioRef = React.useRef<HTMLAudioElement>(null);
@@ -177,16 +178,7 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
         return;
       }
 
-      // Additional guard: Don't reload if track ID and enhancement settings haven't changed
-      const isSameTrackAndSettings =
-        lastLoadedTrackId.current === currentTrack.id &&
-        audioRef.current.src.includes(`/stream/${currentTrack.id}`);
-
-      if (isSameTrackAndSettings && currentStreamUrl && !audioRef.current.paused) {
-        console.log(`✅ Same track already loaded and playing, skipping reload`);
-        return;
-      }
-
+      // If we reach here, the URL has changed, so we need to reload
       // Check if this is the same track (just different enhancement settings)
       const isSameTrack = lastLoadedTrackId.current === currentTrack.id;
 
@@ -232,8 +224,24 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
     }
   }, [currentTrack, enhancementSettings.enabled, enhancementSettings.preset, enhancementSettings.intensity]); // Re-run when track or enhancement settings change
 
-  // Note: Playback is now controlled directly via play/pause button
-  // The audio element is the source of truth, not the backend isPlaying state
+  // Sync HTML5 audio element with backend isPlaying state
+  useEffect(() => {
+    if (!audioRef.current || !currentTrack) return;
+
+    // If backend says playing but HTML5 audio is paused, start playback
+    if (isPlaying && audioRef.current.paused && audioRef.current.src) {
+      console.log('🎵 Backend playing but HTML5 paused - starting playback');
+      audioRef.current.play().catch(e => {
+        console.error('Failed to auto-play from backend state:', e);
+      });
+    }
+
+    // If backend says paused but HTML5 audio is playing, pause it
+    if (!isPlaying && !audioRef.current.paused) {
+      console.log('⏸️ Backend paused but HTML5 playing - pausing playback');
+      audioRef.current.pause();
+    }
+  }, [isPlaying, currentTrack]);
 
   // Sync volume with both audio elements
   useEffect(() => {
@@ -671,9 +679,25 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="Play/Pause (Space)" placement="top">
-              <PlayButton onClick={handlePlayPauseClick} disabled={loading}>
-                {isPlaying ? <Pause /> : <PlayArrow />}
+            <Tooltip title={isBuffering ? "Loading..." : "Play/Pause (Space)"} placement="top">
+              <PlayButton onClick={handlePlayPauseClick} disabled={loading || isBuffering}>
+                {isBuffering ? (
+                  <Box
+                    sx={{
+                      animation: 'spin 1s linear infinite',
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  >
+                    ⏳
+                  </Box>
+                ) : isPlaying ? (
+                  <Pause />
+                ) : (
+                  <PlayArrow />
+                )}
               </PlayButton>
             </Tooltip>
 
@@ -791,6 +815,22 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
       <audio
         ref={audioRef}
         style={{ display: 'none' }}
+        onLoadStart={() => {
+          console.log('⏳ Audio loading started');
+          setIsBuffering(true);
+        }}
+        onCanPlay={() => {
+          console.log('✅ Audio can play (buffered enough)');
+          setIsBuffering(false);
+        }}
+        onWaiting={() => {
+          console.log('⏳ Audio waiting for more data');
+          setIsBuffering(true);
+        }}
+        onPlaying={() => {
+          console.log('▶️ Audio is now playing');
+          setIsBuffering(false);
+        }}
         onTimeUpdate={(e) => {
           // Update local state for progress bar (don't call backend API)
           const audio = e.currentTarget;
