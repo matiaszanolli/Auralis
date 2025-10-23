@@ -96,7 +96,17 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
 
         try:
             enhancement_settings = get_enhancement_settings()
+            old_preset = enhancement_settings.get("preset")
             enhancement_settings["preset"] = preset.lower()
+
+            # Clear cache entries for tracks with the old preset to force reprocessing
+            if get_processing_cache is not None and old_preset != preset.lower():
+                cache = get_processing_cache()
+                keys_to_remove = [k for k in cache.keys() if f"_{old_preset}_" in k]
+                for key in keys_to_remove:
+                    del cache[key]
+                if keys_to_remove:
+                    logger.info(f"🧹 Cleared {len(keys_to_remove)} cache entries for old preset '{old_preset}'")
 
             # Broadcast to all clients
             await connection_manager.broadcast({
@@ -139,7 +149,19 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
 
         try:
             enhancement_settings = get_enhancement_settings()
+            old_intensity = enhancement_settings.get("intensity")
             enhancement_settings["intensity"] = intensity
+
+            # Clear cache entries for tracks with the old intensity to force reprocessing
+            if get_processing_cache is not None and old_intensity != intensity:
+                cache = get_processing_cache()
+                # Cache keys include intensity, so we need to clear all entries for current preset
+                preset = enhancement_settings.get("preset", "adaptive")
+                keys_to_remove = [k for k in cache.keys() if f"_{preset}_{old_intensity}_" in k]
+                for key in keys_to_remove:
+                    del cache[key]
+                if keys_to_remove:
+                    logger.info(f"🧹 Cleared {len(keys_to_remove)} cache entries for old intensity {old_intensity}")
 
             # Broadcast to all clients
             await connection_manager.broadcast({

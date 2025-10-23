@@ -114,6 +114,18 @@ async def startup_event():
     processing_cache.clear()
     logger.info("🧹 Processing cache cleared on startup")
 
+    # Clear chunk files from disk to avoid serving stale chunks with old presets
+    import tempfile
+    import shutil
+    chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
+    if chunk_dir.exists():
+        try:
+            shutil.rmtree(chunk_dir)
+            chunk_dir.mkdir(exist_ok=True)
+            logger.info(f"🧹 Cleared chunk directory: {chunk_dir}")
+        except Exception as e:
+            logger.warning(f"Failed to clear chunk directory: {e}")
+
     if HAS_AURALIS:
         try:
             library_manager = LibraryManager()

@@ -71,6 +71,9 @@ class ChunkedAudioProcessor:
         self.intensity = intensity
         self.chunk_cache = chunk_cache if chunk_cache is not None else {}
 
+        # Generate file signature for cache integrity
+        self.file_signature = self._generate_file_signature()
+
         # Load audio metadata
         self.sample_rate = None
         self.total_duration = None
@@ -86,6 +89,30 @@ class ChunkedAudioProcessor:
             f"duration={self.total_duration:.1f}s, chunks={self.total_chunks}, "
             f"preset={preset}, intensity={intensity}"
         )
+
+    def _generate_file_signature(self) -> str:
+        """
+        Generate a unique signature for the audio file based on metadata.
+
+        This ensures cached chunks are invalidated if the file changes.
+        Uses modification time and file size for fast computation.
+
+        Returns:
+            Hex string signature (first 8 chars of hash)
+        """
+        import os
+        import hashlib
+
+        try:
+            stat = os.stat(self.filepath)
+            # Combine mtime and size for unique signature
+            signature_input = f"{stat.st_mtime}_{stat.st_size}_{self.filepath}"
+            signature = hashlib.md5(signature_input.encode()).hexdigest()[:8]
+            return signature
+        except Exception as e:
+            logger.warning(f"Failed to generate file signature: {e}, using fallback")
+            # Fallback: use filepath hash only
+            return hashlib.md5(self.filepath.encode()).hexdigest()[:8]
 
     def _load_metadata(self):
         """Load audio file metadata without loading full audio"""
@@ -104,12 +131,22 @@ class ChunkedAudioProcessor:
             self.total_chunks = int(np.ceil(self.total_duration / CHUNK_DURATION))
 
     def _get_cache_key(self, chunk_index: int) -> str:
-        """Generate cache key for chunk"""
-        return f"{self.track_id}_{self.preset}_{self.intensity}_chunk_{chunk_index}"
+        """
+        Generate cache key for chunk with file signature.
+
+        Includes track_id, file_signature, preset, intensity, and chunk_index.
+        This ensures chunks cannot be misassigned to different tracks or file versions.
+        """
+        return f"{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}"
 
     def _get_chunk_path(self, chunk_index: int) -> Path:
-        """Get file path for chunk"""
-        return self.chunk_dir / f"track_{self.track_id}_{self.preset}_{self.intensity}_chunk_{chunk_index}.wav"
+        """
+        Get file path for chunk with file signature.
+
+        Includes file signature in filename to prevent serving wrong audio
+        if track file is modified or replaced.
+        """
+        return self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.wav"
 
     def load_chunk(self, chunk_index: int, with_context: bool = True) -> Tuple[np.ndarray, float, float]:
         """
@@ -295,7 +332,7 @@ class ChunkedAudioProcessor:
         Returns:
             Path to full concatenated audio file
         """
-        full_path = self.chunk_dir / f"track_{self.track_id}_{self.preset}_{self.intensity}_full.wav"
+        full_path = self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_full.wav"
 
         # Check if already exists
         if full_path.exists():
