@@ -12,9 +12,9 @@
 
 import { ReactElement, ReactNode } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
-import { ThemeProvider } from '@mui/material/styles'
 import { BrowserRouter } from 'react-router-dom'
-import { auralisTheme } from '../theme/auralisTheme'
+import { ThemeProvider } from '../contexts/ThemeContext'
+import { ToastProvider } from '../components/shared/Toast'
 
 /**
  * Wrapper component that provides all necessary context providers
@@ -26,8 +26,10 @@ interface AllProvidersProps {
 export function AllProviders({ children }: AllProvidersProps) {
   return (
     <BrowserRouter>
-      <ThemeProvider theme={auralisTheme}>
-        {children}
+      <ThemeProvider>
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </ThemeProvider>
     </BrowserRouter>
   )

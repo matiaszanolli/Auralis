@@ -28,6 +28,7 @@ import {
 import { AuroraLogo } from './navigation/AuroraLogo';
 import { colors, gradients } from '../theme/auralisTheme';
 import PlaylistList from './playlist/PlaylistList';
+import ThemeToggle from './ThemeToggle';
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -238,30 +239,39 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
         />
       </Box>
 
-      {/* Settings Button at Bottom */}
+      {/* Settings and Theme Toggle at Bottom */}
       <Box sx={{ mt: 'auto', p: 2, borderTop: '1px solid rgba(102, 126, 234, 0.1)' }}>
-        <StyledListItemButton
-          onClick={onOpenSettings}
-          isactive="false"
-        >
-          <ListItemIcon
-            sx={{
-              color: colors.text.secondary,
-              minWidth: 36,
-              transition: 'color 0.2s ease',
-            }}
-          >
-            <Settings />
-          </ListItemIcon>
-          <ListItemText
-            primary="Settings"
-            primaryTypographyProps={{
-              fontSize: 14,
-              fontWeight: 400,
-              color: colors.text.secondary,
-            }}
-          />
-        </StyledListItemButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Box sx={{ flex: 1 }}>
+            <StyledListItemButton
+              onClick={onOpenSettings}
+              isactive="false"
+            >
+              <ListItemIcon
+                sx={{
+                  color: colors.text.secondary,
+                  minWidth: 36,
+                  transition: 'color 0.2s ease',
+                }}
+              >
+                <Settings />
+              </ListItemIcon>
+              <ListItemText
+                primary="Settings"
+                primaryTypographyProps={{
+                  fontSize: 14,
+                  fontWeight: 400,
+                  color: colors.text.secondary,
+                }}
+              />
+            </StyledListItemButton>
+          </Box>
+        </Box>
+
+        {/* Theme Toggle */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+          <ThemeToggle size="medium" />
+        </Box>
       </Box>
     </SidebarContainer>
   );
