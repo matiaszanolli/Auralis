@@ -89,15 +89,45 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 };
 
 // Predefined empty states for common scenarios
-export const EmptyLibrary: React.FC<{ onScanFolder?: () => void }> = ({ onScanFolder }) => (
-  <EmptyState
-    icon="music"
-    title="No music yet"
-    description="Your library is empty. Start by scanning a folder to add your music collection."
-    actionLabel="Scan Folder"
-    onAction={onScanFolder}
-  />
-);
+export const EmptyLibrary: React.FC<{
+  onScanFolder?: () => void;
+  onFolderDrop?: (path: string) => void;
+  scanning?: boolean;
+}> = ({ onScanFolder, onFolderDrop, scanning = false }) => {
+  // Only import DropZone if needed
+  const DropZone = React.lazy(() => import('./DropZone').then(m => ({ default: m.DropZone })));
+
+  return (
+    <Container>
+      {onFolderDrop ? (
+        <React.Suspense fallback={<div>Loading...</div>}>
+          <Box sx={{ width: '100%', maxWidth: 600, mb: 4 }}>
+            <DropZone
+              onFolderDrop={onFolderDrop}
+              onFolderSelect={onScanFolder}
+              scanning={scanning}
+            />
+          </Box>
+        </React.Suspense>
+      ) : (
+        <>
+          <IconContainer>
+            <MusicNote />
+          </IconContainer>
+          <Title>No music yet</Title>
+          <Description>
+            Your library is empty. Start by scanning a folder to add your music collection.
+          </Description>
+          {onScanFolder && (
+            <GradientButton onClick={onScanFolder} size="large">
+              Scan Folder
+            </GradientButton>
+          )}
+        </>
+      )}
+    </Container>
+  );
+};
 
 export const NoSearchResults: React.FC<{ query?: string }> = ({ query }) => (
   <EmptyState

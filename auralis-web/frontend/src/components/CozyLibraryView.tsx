@@ -21,6 +21,7 @@ import SearchBar from './navigation/SearchBar';
 import ViewToggle, { ViewMode } from './navigation/ViewToggle';
 import { LibraryGridSkeleton, TrackRowSkeleton } from './shared/SkeletonLoader';
 import { useToast } from './shared/Toast';
+import { EmptyLibrary } from './shared/EmptyState';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
 import * as queueService from '../services/queueService';
 import { CozyAlbumGrid } from './library/CozyAlbumGrid';
@@ -586,27 +587,51 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
 
       {/* Empty State */}
       {filteredTracks.length === 0 && !loading && (
-        <Paper
-          elevation={2}
-          sx={{
-            p: 6,
-            textAlign: 'center',
-            background: 'rgba(255,255,255,0.05)',
-            borderRadius: 3
-          }}
-        >
-          <MusicNote sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            {view === 'favourites' ? 'No favorites yet' : 'No music found'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {view === 'favourites'
-              ? 'Click the heart icon on tracks you love to add them to your favorites'
-              : searchQuery
-                ? 'Try adjusting your search terms'
-                : 'Start by adding some music to your library'}
-          </Typography>
-        </Paper>
+        <>
+          {view === 'favourites' ? (
+            <Paper
+              elevation={2}
+              sx={{
+                p: 6,
+                textAlign: 'center',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: 3
+              }}
+            >
+              <MusicNote sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No favorites yet
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Click the heart icon on tracks you love to add them to your favorites
+              </Typography>
+            </Paper>
+          ) : searchQuery ? (
+            <Paper
+              elevation={2}
+              sx={{
+                p: 6,
+                textAlign: 'center',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: 3
+              }}
+            >
+              <MusicNote sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No music found
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Try adjusting your search terms
+              </Typography>
+            </Paper>
+          ) : (
+            <EmptyLibrary
+              onScanFolder={handleScanFolder}
+              onFolderDrop={handleScanFolder}
+              scanning={scanning}
+            />
+          )}
+        </>
       )}
     </Container>
   );

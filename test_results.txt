@@ -1,0 +1,38 @@
+
+> auralis@1.0.0 test
+> python -m pytest tests/
+
+============================= test session starts ==============================
+platform linux -- Python 3.11.11, pytest-8.4.2, pluggy-1.6.0
+rootdir: /mnt/data/src/matchering
+configfile: pytest.ini
+plugins: cov-7.0.0, anyio-4.10.0, asyncio-1.2.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 634 items / 2 errors
+
+==================================== ERRORS ====================================
+_________ ERROR collecting tests/auralis/test_realtime_eq_coverage.py __________
+ImportError while importing test module '/mnt/data/src/matchering/tests/auralis/test_realtime_eq_coverage.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/matias/.pyenv/versions/3.11.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/auralis/test_realtime_eq_coverage.py:18: in <module>
+    from auralis.dsp.realtime_adaptive_eq import (
+E   ImportError: cannot import name 'EQBand' from 'auralis.dsp.realtime_adaptive_eq' (/mnt/data/src/matchering/auralis/dsp/realtime_adaptive_eq.py)
+________ ERROR collecting tests/auralis/test_unified_loader_coverage.py ________
+ImportError while importing test module '/mnt/data/src/matchering/tests/auralis/test_unified_loader_coverage.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/home/matias/.pyenv/versions/3.11.11/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/auralis/test_unified_loader_coverage.py:19: in <module>
+    from auralis.io.unified_loader import UnifiedAudioLoader, AudioInfo, LoaderError
+E   ImportError: cannot import name 'UnifiedAudioLoader' from 'auralis.io.unified_loader' (/mnt/data/src/matchering/auralis/io/unified_loader.py)
+=========================== short test summary info ============================
+ERROR tests/auralis/test_realtime_eq_coverage.py
+ERROR tests/auralis/test_unified_loader_coverage.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+============================== 2 errors in 0.81s ===============================
