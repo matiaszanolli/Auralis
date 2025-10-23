@@ -1,0 +1,172 @@
+"""
+Enhancement Router
+~~~~~~~~~~~~~~~~~~
+
+Handles real-time audio enhancement settings for the player.
+
+Endpoints:
+- POST /api/player/enhancement/toggle - Enable/disable enhancement
+- POST /api/player/enhancement/preset - Change enhancement preset
+- POST /api/player/enhancement/intensity - Adjust enhancement intensity
+- GET /api/player/enhancement/status - Get current enhancement settings
+
+:copyright: (C) 2024 Auralis Team
+:license: GPLv3, see LICENSE for more details.
+"""
+
+from fastapi import APIRouter, HTTPException
+import logging
+
+logger = logging.getLogger(__name__)
+router = APIRouter(tags=["enhancement"])
+
+# Valid enhancement presets
+VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
+
+
+def create_enhancement_router(get_enhancement_settings, connection_manager):
+    """
+    Factory function to create enhancement router with dependencies.
+
+    Args:
+        get_enhancement_settings: Callable that returns enhancement settings dict
+        connection_manager: WebSocket connection manager for broadcasts
+
+    Returns:
+        APIRouter: Configured router instance
+    """
+
+    @router.post("/api/player/enhancement/toggle")
+    async def toggle_enhancement(enabled: bool):
+        """
+        Enable or disable real-time audio enhancement.
+
+        Args:
+            enabled: Boolean to enable/disable enhancement
+
+        Returns:
+            dict: Status message and current settings
+
+        Raises:
+            HTTPException: If toggling fails
+        """
+        try:
+            enhancement_settings = get_enhancement_settings()
+            enhancement_settings["enabled"] = enabled
+
+            # Broadcast to all clients
+            await connection_manager.broadcast({
+                "type": "enhancement_toggled",
+                "data": {
+                    "enabled": enabled,
+                    "preset": enhancement_settings["preset"],
+                    "intensity": enhancement_settings["intensity"]
+                }
+            })
+
+            logger.info(f"Enhancement {'enabled' if enabled else 'disabled'}")
+            return {
+                "message": f"Enhancement {'enabled' if enabled else 'disabled'}",
+                "settings": enhancement_settings
+            }
+        except Exception as e:
+            logger.error(f"Failed to toggle enhancement: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to toggle enhancement: {e}")
+
+    @router.post("/api/player/enhancement/preset")
+    async def set_enhancement_preset(preset: str):
+        """
+        Change the enhancement preset.
+
+        Args:
+            preset: Preset name (adaptive, gentle, warm, bright, punchy)
+
+        Returns:
+            dict: Status message and current settings
+
+        Raises:
+            HTTPException: If preset is invalid or change fails
+        """
+        if preset.lower() not in VALID_PRESETS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid preset. Must be one of: {', '.join(VALID_PRESETS)}"
+            )
+
+        try:
+            enhancement_settings = get_enhancement_settings()
+            enhancement_settings["preset"] = preset.lower()
+
+            # Broadcast to all clients
+            await connection_manager.broadcast({
+                "type": "enhancement_preset_changed",
+                "data": {
+                    "preset": preset.lower(),
+                    "enabled": enhancement_settings["enabled"],
+                    "intensity": enhancement_settings["intensity"]
+                }
+            })
+
+            logger.info(f"Enhancement preset changed to: {preset}")
+            return {
+                "message": f"Preset changed to {preset}",
+                "settings": enhancement_settings
+            }
+        except Exception as e:
+            logger.error(f"Failed to change preset: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to change preset: {e}")
+
+    @router.post("/api/player/enhancement/intensity")
+    async def set_enhancement_intensity(intensity: float):
+        """
+        Adjust the enhancement intensity.
+
+        Args:
+            intensity: Intensity value between 0.0 and 1.0
+
+        Returns:
+            dict: Status message and current settings
+
+        Raises:
+            HTTPException: If intensity is out of range or change fails
+        """
+        if not 0.0 <= intensity <= 1.0:
+            raise HTTPException(
+                status_code=400,
+                detail="Intensity must be between 0.0 and 1.0"
+            )
+
+        try:
+            enhancement_settings = get_enhancement_settings()
+            enhancement_settings["intensity"] = intensity
+
+            # Broadcast to all clients
+            await connection_manager.broadcast({
+                "type": "enhancement_intensity_changed",
+                "data": {
+                    "intensity": intensity,
+                    "enabled": enhancement_settings["enabled"],
+                    "preset": enhancement_settings["preset"]
+                }
+            })
+
+            logger.info(f"Enhancement intensity changed to: {intensity}")
+            return {
+                "message": f"Intensity set to {intensity}",
+                "settings": enhancement_settings
+            }
+        except Exception as e:
+            logger.error(f"Failed to set intensity: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to set intensity: {e}")
+
+    @router.get("/api/player/enhancement/status")
+    async def get_enhancement_status():
+        """
+        Get current enhancement settings.
+
+        Returns:
+            dict: Current enhancement settings (enabled, preset, intensity)
+        """
+        return get_enhancement_settings()
+
+    return router
