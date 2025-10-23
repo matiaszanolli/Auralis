@@ -171,4 +171,91 @@ def create_artwork_router(get_library_manager, connection_manager):
             logger.error(f"Failed to delete artwork: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to delete artwork: {e}")
 
+    @router.post("/api/albums/{album_id}/artwork/download")
+    async def download_album_artwork(album_id: int):
+        """
+        Download album artwork from online sources.
+
+        Automatically searches and downloads artwork from MusicBrainz and iTunes.
+
+        Args:
+            album_id: Album ID
+
+        Returns:
+            dict: Success message and artwork path
+
+        Raises:
+            HTTPException: If library manager not available or download fails
+        """
+        library_manager = get_library_manager()
+        if not library_manager:
+            raise HTTPException(status_code=503, detail="Library manager not available")
+
+        try:
+            # Get album info
+            session = library_manager.get_session()
+            try:
+                from auralis.library.models import Album
+                album = session.query(Album).filter(Album.id == album_id).first()
+
+                if not album:
+                    raise HTTPException(status_code=404, detail="Album not found")
+
+                # Get artist name (from first track if available)
+                artist_name = album.artist.name if album.artist else "Unknown Artist"
+                album_name = album.title
+
+            finally:
+                session.close()
+
+            # Download artwork using the artwork downloader service
+            from ..services.artwork_downloader import get_artwork_downloader
+            downloader = get_artwork_downloader()
+
+            artwork_path = await downloader.download_artwork(
+                artist=artist_name,
+                album=album_name,
+                album_id=album_id
+            )
+
+            if not artwork_path:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No artwork found online for '{album_name}' by '{artist_name}'"
+                )
+
+            # Save artwork path to database
+            session = library_manager.get_session()
+            try:
+                album = session.query(Album).filter(Album.id == album_id).first()
+                album.artwork_path = artwork_path
+                session.commit()
+            finally:
+                session.close()
+
+            # Broadcast artwork downloaded event
+            await connection_manager.broadcast({
+                "type": "artwork_downloaded",
+                "data": {
+                    "album_id": album_id,
+                    "artwork_path": artwork_path,
+                    "artist": artist_name,
+                    "album": album_name
+                }
+            })
+
+            return {
+                "message": "Artwork downloaded successfully",
+                "artwork_path": artwork_path,
+                "album_id": album_id,
+                "artist": artist_name,
+                "album": album_name
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to download artwork: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to download artwork: {e}")
+
     return router

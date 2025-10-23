@@ -15,6 +15,7 @@ import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { ToastProvider } from '../components/shared/Toast'
+import { EnhancementProvider } from '../contexts/EnhancementContext'
 
 /**
  * Wrapper component that provides all necessary context providers
@@ -27,9 +28,11 @@ export function AllProviders({ children }: AllProvidersProps) {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <EnhancementProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </EnhancementProvider>
       </ThemeProvider>
     </BrowserRouter>
   )

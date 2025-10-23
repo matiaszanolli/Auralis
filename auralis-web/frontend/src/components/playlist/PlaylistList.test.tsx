@@ -18,14 +18,18 @@ vi.mock('@/services/playlistService', () => ({
   deletePlaylist: vi.fn(),
 }))
 
-// Mock toast notifications
-vi.mock('@/components/shared/Toast', () => ({
-  useToast: () => ({
-    success: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  }),
-}))
+// Mock toast notifications while preserving ToastProvider
+vi.mock('@/components/shared/Toast', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/shared/Toast')>()
+  return {
+    ...actual,
+    useToast: () => ({
+      success: vi.fn(),
+      error: vi.fn(),
+      info: vi.fn(),
+    }),
+  }
+})
 
 const mockPlaylists = [
   {
