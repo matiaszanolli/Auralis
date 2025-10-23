@@ -21,8 +21,10 @@ import {
 } from '@mui/icons-material';
 import { colors } from '../../theme/auralisTheme';
 import { useToast } from '../shared/Toast';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import * as playlistService from '../../services/playlistService';
 import CreatePlaylistDialog from './CreatePlaylistDialog';
+import EditPlaylistDialog from './EditPlaylistDialog';
 
 interface PlaylistListProps {
   onPlaylistSelect?: (playlistId: number) => void;
@@ -137,13 +139,61 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
   const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
   const [expanded, setExpanded] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingPlaylist, setEditingPlaylist] = useState<playlistService.Playlist | null>(null);
   const [loading, setLoading] = useState(false);
   const { success, error, info } = useToast();
+
+  // WebSocket connection for real-time updates
+  const { connected, lastMessage } = useWebSocket('ws://localhost:8765/ws');
 
   // Load playlists on mount
   useEffect(() => {
     fetchPlaylists();
   }, []);
+
+  // Handle WebSocket messages for real-time playlist updates
+  useEffect(() => {
+    if (!lastMessage) return;
+
+    try {
+      const message = JSON.parse(lastMessage);
+
+      switch (message.type) {
+        case 'playlist_created':
+          // Refresh playlists when a new one is created
+          fetchPlaylists();
+          break;
+
+        case 'playlist_updated':
+          // Update the specific playlist
+          setPlaylists((prev) =>
+            prev.map((p) =>
+              p.id === message.data.playlist_id
+                ? { ...p, ...message.data.updates }
+                : p
+            )
+          );
+          break;
+
+        case 'playlist_deleted':
+          // Remove deleted playlist
+          setPlaylists((prev) =>
+            prev.filter((p) => p.id !== message.data.playlist_id)
+          );
+          break;
+
+        case 'playlist_tracks_added':
+        case 'playlist_track_removed':
+        case 'playlist_cleared':
+          // Refresh playlists to get updated track counts
+          fetchPlaylists();
+          break;
+      }
+    } catch (err) {
+      console.error('Error parsing WebSocket message:', err);
+    }
+  }, [lastMessage]);
 
   const fetchPlaylists = async () => {
     setLoading(true);
@@ -188,8 +238,16 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
 
   const handleEdit = (playlistId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    info('Edit playlist feature coming soon!');
-    // TODO: Open edit dialog
+    const playlist = playlists.find((p) => p.id === playlistId);
+    if (playlist) {
+      setEditingPlaylist(playlist);
+      setEditDialogOpen(true);
+    }
+  };
+
+  const handlePlaylistUpdated = () => {
+    // Refresh playlists to get latest data
+    fetchPlaylists();
   };
 
   return (
@@ -277,6 +335,16 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         onPlaylistCreated={handlePlaylistCreated}
+      />
+
+      <EditPlaylistDialog
+        open={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false);
+          setEditingPlaylist(null);
+        }}
+        playlist={editingPlaylist}
+        onPlaylistUpdated={handlePlaylistUpdated}
       />
     </PlaylistSection>
   );
