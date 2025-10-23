@@ -157,48 +157,63 @@ class DynamicsProcessor:
             return "hybrid"  # Balanced approach
 
     def _adapt_to_content(self, content_info: Dict[str, Any]):
-        """Adapt dynamics settings based on content analysis"""
-        genre_info = content_info.get('genre_info', {})
-        primary_genre = genre_info.get('primary', 'pop')
+        """Adapt dynamics settings based on content analysis and processing targets"""
+        # Check if we have processing targets from AdaptiveTargetGenerator
+        processing_targets = content_info.get('processing_targets', {})
 
-        dynamic_range = content_info.get('dynamic_range', 15.0)
-        energy_level = content_info.get('energy_level', 'medium')
+        # If targets provide compression_ratio, use it; otherwise use genre-based adaptation
+        if 'compression_ratio' in processing_targets:
+            # Use targets from preset-aware adaptive system
+            target_ratio = processing_targets['compression_ratio']
 
-        # Adapt compression threshold based on genre and content
-        if primary_genre == 'classical':
-            # Lighter compression for classical
-            target_threshold = -12.0
-            target_ratio = 2.0
-        elif primary_genre == 'electronic':
-            # More aggressive for electronic
-            target_threshold = -20.0
-            target_ratio = 6.0
-        elif primary_genre in ['rock', 'metal']:
-            # Moderate compression for punch
-            target_threshold = -16.0
-            target_ratio = 4.0
-        elif primary_genre == 'broadcast':
-            # Consistent for broadcast
-            target_threshold = -18.0
-            target_ratio = 8.0
+            # Calculate threshold based on ratio (higher ratio = lower threshold)
+            # Map ratio (1.5-4.0) to threshold (-12 to -20)
+            target_threshold = -12.0 - (target_ratio - 1.5) * 3.2
+
+            debug(f"Using preset targets: ratio={target_ratio:.1f}:1, threshold={target_threshold:.1f}dB")
         else:
-            # Default for pop/other
-            target_threshold = -18.0
-            target_ratio = 4.0
+            # Fall back to genre-based adaptation
+            genre_info = content_info.get('genre_info', {})
+            primary_genre = genre_info.get('primary', 'pop')
 
-        # Adjust based on dynamic range
-        if dynamic_range > 25:  # High DR - be gentler
-            target_threshold -= 3.0
-            target_ratio *= 0.8
-        elif dynamic_range < 10:  # Low DR - be lighter
-            target_threshold += 2.0
-            target_ratio *= 0.7
+            dynamic_range = content_info.get('dynamic_range', 15.0)
+            energy_level = content_info.get('energy_level', 'medium')
 
-        # Adjust based on energy level
-        if energy_level == 'low':
-            target_threshold += 3.0  # Higher threshold for quiet content
-        elif energy_level == 'high':
-            target_threshold -= 2.0  # Lower threshold for loud content
+            # Adapt compression threshold based on genre and content
+            if primary_genre == 'classical':
+                # Lighter compression for classical
+                target_threshold = -12.0
+                target_ratio = 2.0
+            elif primary_genre == 'electronic':
+                # More aggressive for electronic
+                target_threshold = -20.0
+                target_ratio = 6.0
+            elif primary_genre in ['rock', 'metal']:
+                # Moderate compression for punch
+                target_threshold = -16.0
+                target_ratio = 4.0
+            elif primary_genre == 'broadcast':
+                # Consistent for broadcast
+                target_threshold = -18.0
+                target_ratio = 8.0
+            else:
+                # Default for pop/other
+                target_threshold = -18.0
+                target_ratio = 4.0
+
+            # Adjust based on dynamic range
+            if dynamic_range > 25:  # High DR - be gentler
+                target_threshold -= 3.0
+                target_ratio *= 0.8
+            elif dynamic_range < 10:  # Low DR - be lighter
+                target_threshold += 2.0
+                target_ratio *= 0.7
+
+            # Adjust based on energy level
+            if energy_level == 'low':
+                target_threshold += 3.0  # Higher threshold for quiet content
+            elif energy_level == 'high':
+                target_threshold -= 2.0  # Lower threshold for loud content
 
         # Smooth parameter transitions
         if self.compressor:

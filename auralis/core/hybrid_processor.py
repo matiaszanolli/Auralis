@@ -29,6 +29,8 @@ from ..dsp.unified import (
 from ..dsp.psychoacoustic_eq import PsychoacousticEQ, EQSettings
 from ..dsp.realtime_adaptive_eq import RealtimeAdaptiveEQ, create_realtime_adaptive_eq
 from ..dsp.advanced_dynamics import DynamicsProcessor, DynamicsMode, create_dynamics_processor
+from ..dsp.dynamics import create_brick_wall_limiter
+from ..dsp.dynamics.soft_clipper import soft_clip
 from ..analysis.ml_genre_classifier import MLGenreClassifier, create_ml_genre_classifier
 from ..learning.preference_engine import PreferenceLearningEngine, UserAction, create_preference_engine
 from ..optimization.performance_optimizer import get_performance_optimizer, optimized, cached
@@ -68,6 +70,19 @@ class HybridProcessor:
             mode=DynamicsMode.ADAPTIVE,
             sample_rate=config.internal_sample_rate,
             target_lufs=-14.0  # Modern mastering standard
+        )
+        # Temporarily disable ALL dynamics processing - they reduce loudness without makeup gain
+        # TODO: Add automatic makeup gain calculation, then re-enable
+        self.dynamics_processor.settings.enable_gate = False
+        self.dynamics_processor.settings.enable_compressor = False
+        self.dynamics_processor.settings.enable_limiter = False
+
+        # Initialize brick-wall limiter for final peak control
+        self.brick_wall_limiter = create_brick_wall_limiter(
+            threshold_db=-0.3,      # -0.3 dBFS ceiling (safe for most DACs)
+            lookahead_ms=2.0,       # 2ms look-ahead for transparent limiting
+            release_ms=50.0,        # 50ms release for natural sound
+            sample_rate=config.internal_sample_rate
         )
 
         # Initialize preference learning engine
@@ -192,29 +207,33 @@ class HybridProcessor:
 
         processed_audio = target_audio.copy()
 
-        # Apply loudness adjustment
-        current_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-        target_lufs = targets["target_lufs"]
-
-        if abs(current_lufs - target_lufs) > 1.0:  # Only adjust if significant difference
-            lufs_gain_db = target_lufs - current_lufs
-            # Limit gain adjustment
-            lufs_gain_db = np.clip(lufs_gain_db, -12, 12)
-            processed_audio = amplify(processed_audio, lufs_gain_db)
-
-        # Apply psychoacoustic EQ adjustments with content awareness
+        # Analyze content first
         content_profile = self.content_analyzer.analyze_content(processed_audio)
 
         # Store content profile for potential user learning
         self.last_content_profile = content_profile
         self.preference_manager.set_content_profile(content_profile)
 
+        # Debug: Track loudness through each stage
+        before_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+        print(f"[STAGE 1] Before EQ: {before_eq_lufs:.2f} LUFS")
+
+        # Apply psychoacoustic EQ adjustments with content awareness
         processed_audio = self._apply_psychoacoustic_eq(processed_audio, targets, content_profile)
 
-        # Apply advanced dynamics processing
-        processed_audio, dynamics_info = self.dynamics_processor.process(
-            processed_audio, content_profile
-        )
+        after_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+        print(f"[STAGE 2] After EQ: {after_eq_lufs:.2f} LUFS (change: {after_eq_lufs - before_eq_lufs:+.2f} dB)")
+
+        # TEMP: Skip dynamics processing entirely to isolate the issue
+        # Apply advanced dynamics processing with targets
+        # Pass targets via content_profile for dynamics adaptation
+        # content_profile_with_targets = content_profile.copy()
+        # content_profile_with_targets['processing_targets'] = targets
+        # processed_audio, dynamics_info = self.dynamics_processor.process(
+        #     processed_audio, content_profile_with_targets
+        # )
+        print(f"[STAGE 3] Dynamics processing SKIPPED (temporary)")
+        dynamics_info = {}
 
         # Apply stereo width adjustment
         if processed_audio.ndim == 2 and processed_audio.shape[1] == 2:
@@ -227,8 +246,29 @@ class HybridProcessor:
         if hasattr(self, 'last_dynamics_info'):
             self.last_dynamics_info = dynamics_info
 
-        # Apply gentle normalization (reduced since we have limiting)
-        return normalize(processed_audio, 0.99)
+        # Apply final LUFS normalization AFTER all processing
+        # This ensures preset-based loudness differences are preserved
+        current_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+        target_lufs = targets["target_lufs"]
+
+        if abs(current_lufs - target_lufs) > 0.5:  # Apply if there's a difference
+            lufs_gain_db = target_lufs - current_lufs
+            # Allow full range - limiter will handle peak control
+            print(f"[PRESET DEBUG] Before LUFS adjust: {current_lufs:.2f} LUFS, Target: {target_lufs:.2f}, Gain: {lufs_gain_db:+.2f}dB")
+            processed_audio = amplify(processed_audio, lufs_gain_db)
+            final_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+            print(f"[PRESET DEBUG] After applying {lufs_gain_db:+.2f}dB gain: {final_lufs:.2f} LUFS")
+            debug(f"Final LUFS adjustment: {current_lufs:.1f} → {target_lufs:.1f} ({lufs_gain_db:+.1f}dB)")
+
+        # Apply soft clipping to prevent hard clipping while preserving loudness differences
+        # Uses tanh saturation which is more musical and preserves more dynamics
+        peak_before = np.max(np.abs(processed_audio))
+        if peak_before > 0.8:  # Only clip if we're approaching clipping
+            processed_audio = soft_clip(processed_audio, threshold=0.8, ceiling=0.99)
+            peak_after = np.max(np.abs(processed_audio))
+            print(f"[SOFT CLIP] Peak reduced from {peak_before:.2f} to {peak_after:.2f}")
+
+        return processed_audio
 
     def _apply_hybrid_processing(self, target_audio: np.ndarray,
                                 reference_audio: np.ndarray,
@@ -281,14 +321,14 @@ class HybridProcessor:
             # Bass frequencies (20-250 Hz)
             'bass_boost': targets.get("bass_boost_db", 0.0),
 
-            # Low-midrange (250-500 Hz)
-            'low_mid_boost': targets.get("bass_boost_db", 0.0) * 0.5,
+            # Low-midrange (250-500 Hz) - Use preset-specific if available
+            'low_mid_boost': targets.get("preset_low_mid_gain", targets.get("bass_boost_db", 0.0) * 0.5),
 
             # Midrange (500-2000 Hz)
             'mid_boost': targets.get("midrange_clarity_db", 0.0),
 
-            # High-midrange (2000-4000 Hz)
-            'high_mid_boost': targets.get("midrange_clarity_db", 0.0) * 0.7,
+            # High-midrange (2000-4000 Hz) - Use preset-specific if available
+            'high_mid_boost': targets.get("preset_high_mid_gain", targets.get("midrange_clarity_db", 0.0) * 0.7),
 
             # Treble (4000+ Hz)
             'treble_boost': targets.get("treble_enhancement_db", 0.0),
