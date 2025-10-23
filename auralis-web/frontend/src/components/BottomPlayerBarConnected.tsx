@@ -170,10 +170,20 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
 
       const streamUrl = `http://localhost:8765/api/player/stream/${currentTrack.id}${params.toString() ? '?' + params.toString() : ''}`;
 
-      // Only reload if it's actually a different track OR enhancement settings changed
+      // Only reload if it's actually a different stream URL
       const currentStreamUrl = audioRef.current.src;
       if (currentStreamUrl === streamUrl) {
-        console.log(`Stream URL unchanged, skipping reload`);
+        console.log(`✅ Stream URL unchanged (${streamUrl}), skipping reload`);
+        return;
+      }
+
+      // Additional guard: Don't reload if track ID and enhancement settings haven't changed
+      const isSameTrackAndSettings =
+        lastLoadedTrackId.current === currentTrack.id &&
+        audioRef.current.src.includes(`/stream/${currentTrack.id}`);
+
+      if (isSameTrackAndSettings && currentStreamUrl && !audioRef.current.paused) {
+        console.log(`✅ Same track already loaded and playing, skipping reload`);
         return;
       }
 
@@ -183,6 +193,13 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
       // Save current position and playing state if changing enhancement on same track
       const savedPosition = isSameTrack ? audioRef.current.currentTime : 0;
       const wasPlaying = isSameTrack && !audioRef.current.paused;
+
+      // Abort any pending load operation first
+      if (audioRef.current.src) {
+        audioRef.current.pause();
+        audioRef.current.removeAttribute('src');
+        audioRef.current.load(); // This aborts any pending network requests
+      }
 
       audioRef.current.src = streamUrl;
       audioRef.current.load();
@@ -422,8 +439,21 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
 
     // Directly control HTML5 audio element
     if (audioRef.current.paused) {
-      await audioRef.current.play();
-      info(`Playing: ${currentTrack?.title || ''}`);
+      try {
+        await audioRef.current.play();
+        info(`Playing: ${currentTrack?.title || ''}`);
+      } catch (error) {
+        console.error('Play failed:', error);
+        // Try reloading the stream if play fails
+        if (currentTrack && audioRef.current) {
+          console.log('Retrying playback after error...');
+          audioRef.current.load();
+          // Try playing again after a brief delay
+          setTimeout(() => {
+            audioRef.current?.play().catch(e => console.error('Retry failed:', e));
+          }, 100);
+        }
+      }
     } else {
       audioRef.current.pause();
       info('Paused');
