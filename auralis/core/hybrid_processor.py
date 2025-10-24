@@ -260,23 +260,206 @@ class HybridProcessor:
         print(f"[After EQ] Peak: {peak_after_eq_db:.2f} dB")
         debug(f"[STAGE 2] After EQ: {after_eq_lufs:.2f} LUFS (change: {after_eq_lufs - before_eq_lufs:+.2f} dB)")
 
-        # TEMPORARILY DISABLED: Dynamics processor is too aggressive
-        # TODO: Fix dynamics processor to respect spectrum_params.compression_amount
-        # For now, skip dynamics processing and rely on spectrum-based RMS targeting
+        # SPECTRUM-AWARE DYNAMICS PROCESSING
+        # Apply compression based on spectrum_params.compression_amount
+        # Skip if compression_amount is 0.0 (loud+compressed material)
 
-        # Apply advanced dynamics processing with automatic makeup gain
-        # Pass targets via content_profile for dynamics adaptation
-        # content_profile_with_targets = content_profile.copy()
-        # content_profile_with_targets['processing_targets'] = targets
-        # before_dynamics_lufs = after_eq_lufs
-        # processed_audio, dynamics_info = self.dynamics_processor.process(
-        #     processed_audio, content_profile_with_targets
-        # )
-        # after_dynamics_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-        # debug(f"[STAGE 3] After Dynamics: {after_dynamics_lufs:.2f} LUFS (change: {after_dynamics_lufs - before_dynamics_lufs:+.2f} dB)")
+        # TEMPORARY: Disable complex dynamics processor, use simple DIY approach
+        if False and spectrum_params.compression_amount > 0.1:
+            # Create spectrum-aware dynamics settings
+            from ..dsp.dynamics.settings import DynamicsSettings, CompressorSettings, LimiterSettings, DynamicsMode
 
-        dynamics_info = {}  # Empty dynamics info for now
-        print("[Dynamics] SKIPPED - using spectrum-based RMS targeting instead")
+            # Calculate compression parameters from spectrum
+            comp_ratio = spectrum_params.compression_ratio
+            comp_threshold = spectrum_params.compression_threshold
+            comp_intensity = spectrum_params.compression_amount  # 0.0-1.0
+
+            # Create compressor settings
+            # GOAL: Reduce crest factor by compressing peaks
+            # Strategy: Set threshold based on current RMS, compress everything above that
+
+            # Measure current RMS to set appropriate threshold
+            from ..dsp.basic import rms as calculate_rms
+            current_rms = calculate_rms(processed_audio)
+            current_rms_db = 20 * np.log10(current_rms) if current_rms > 0 else -np.inf
+
+            # Set threshold slightly above current RMS
+            # This way we compress the dynamic peaks while preserving average level
+            adjusted_threshold = current_rms_db + 3.0  # 3 dB above RMS
+
+            # Use higher ratio for extreme dynamics
+            adjusted_ratio = max(comp_ratio, 4.0) if comp_intensity > 0.75 else comp_ratio
+
+            compressor_settings = CompressorSettings(
+                threshold_db=adjusted_threshold,
+                ratio=adjusted_ratio,
+                attack_ms=2.0,  # Fast attack to catch all peaks
+                release_ms=50.0,  # Faster release to preserve transients
+                knee_db=2.0,  # Narrow knee for focused peak control
+                makeup_gain_db=0.0,  # No makeup gain
+                enable_lookahead=True,
+                lookahead_ms=5.0
+            )
+
+            print(f"[Compressor Setup] RMS: {current_rms_db:.2f} dB, Threshold: {adjusted_threshold:.2f} dB")
+
+            # Create limiter settings (currently disabled)
+            limiter_settings = LimiterSettings(
+                threshold_db=-0.5,
+                release_ms=60.0,
+                lookahead_ms=5.0,
+                isr_enabled=True,
+                oversampling=2
+            )
+
+            # Create dynamics settings
+            # GOAL: Reduce crest factor (bring peaks closer to RMS)
+            # NOT: Increase RMS (that's done in final normalization)
+            dynamics_settings = DynamicsSettings(
+                mode=DynamicsMode.ADAPTIVE,
+                sample_rate=self.config.internal_sample_rate,
+                enable_gate=False,  # No gate
+                enable_compressor=True,
+                compressor=compressor_settings,
+                enable_limiter=False,  # Limiter destroys RMS, disable for now
+                limiter=limiter_settings
+            )
+
+            # Create processor instance
+            from ..dsp.advanced_dynamics import DynamicsProcessor
+            dynamics_proc = DynamicsProcessor(dynamics_settings)
+
+            print(f"[Dynamics] Compression {adjusted_ratio:.1f}:1 @ {adjusted_threshold:.1f}dB, intensity {comp_intensity:.2f}")
+
+            from ..dsp.basic import rms as calculate_rms
+
+            # Measure before dynamics
+            before_dynamics_peak = np.max(np.abs(processed_audio))
+            before_dynamics_peak_db = 20 * np.log10(before_dynamics_peak) if before_dynamics_peak > 0 else -np.inf
+            before_dynamics_rms = calculate_rms(processed_audio)
+            before_dynamics_rms_db = 20 * np.log10(before_dynamics_rms) if before_dynamics_rms > 0 else -np.inf
+            before_dynamics_crest = before_dynamics_peak_db - before_dynamics_rms_db
+
+            # Process
+            processed_audio, dynamics_info = dynamics_proc.process(processed_audio, content_profile)
+
+            # Measure after dynamics
+            after_dynamics_peak = np.max(np.abs(processed_audio))
+            after_dynamics_peak_db = 20 * np.log10(after_dynamics_peak) if after_dynamics_peak > 0 else -np.inf
+            after_dynamics_rms = calculate_rms(processed_audio)
+            after_dynamics_rms_db = 20 * np.log10(after_dynamics_rms) if after_dynamics_rms > 0 else -np.inf
+            after_dynamics_crest = after_dynamics_peak_db - after_dynamics_rms_db
+
+            print(f"[Dynamics] Peak: {before_dynamics_peak_db:.2f} → {after_dynamics_peak_db:.2f} dB (Δ {after_dynamics_peak_db - before_dynamics_peak_db:+.2f} dB)")
+            print(f"[Dynamics] RMS: {before_dynamics_rms_db:.2f} → {after_dynamics_rms_db:.2f} dB (Δ {after_dynamics_rms_db - before_dynamics_rms_db:+.2f} dB)")
+            print(f"[Dynamics] Crest: {before_dynamics_crest:.2f} → {after_dynamics_crest:.2f} dB (Δ {after_dynamics_crest - before_dynamics_crest:+.2f} dB)")
+        else:
+            dynamics_info = {}
+            print(f"[Dynamics] SKIPPED - compression_amount={spectrum_params.compression_amount:.2f} (preserving dynamics)")
+
+        # SIMPLE DIY COMPRESSOR - Direct crest factor reduction
+        # Goal: Reduce crest factor by compressing peaks
+        if spectrum_params.compression_amount > 0.1:
+            from ..dsp.basic import rms as calculate_rms
+
+            # Measure current state
+            before_comp_peak = np.max(np.abs(processed_audio))
+            before_comp_peak_db = 20 * np.log10(before_comp_peak) if before_comp_peak > 0 else -np.inf
+            before_comp_rms = calculate_rms(processed_audio)
+            before_comp_rms_db = 20 * np.log10(before_comp_rms) if before_comp_rms > 0 else -np.inf
+            before_comp_crest = before_comp_peak_db - before_comp_rms_db
+
+            # Calculate target crest reduction based on compression amount
+            # compression_amount = 0.85 means reduce crest by ~3 dB (from Matchering data)
+            # Use higher multiplier to account for stereo expansion adding peaks back
+            target_crest_reduction = spectrum_params.compression_amount * 4.5  # Max ~3.8 dB reduction
+
+            # Simple soft clipping approach: reduce peaks while preserving RMS
+            # Calculate soft clip threshold based on desired crest reduction
+            target_crest = before_comp_crest - target_crest_reduction
+            clip_threshold_db = before_comp_rms_db + target_crest
+            clip_threshold_linear = 10 ** (clip_threshold_db / 20)
+
+            # Apply soft clipping
+            # For samples above threshold, apply compression
+            audio_abs = np.abs(processed_audio)
+            over_threshold = audio_abs > clip_threshold_linear
+
+            if np.any(over_threshold):
+                # Soft knee compression for samples over threshold
+                # Use adaptive ratio based on compression intensity
+                compression_ratio = 3.0 + spectrum_params.compression_amount * 4.0  # 3:1 to 7:1
+                excess = audio_abs[over_threshold] - clip_threshold_linear
+                compressed_excess = excess / compression_ratio
+                new_amplitude = clip_threshold_linear + compressed_excess
+
+                # Apply compression while preserving sign
+                processed_audio[over_threshold] = np.sign(processed_audio[over_threshold]) * new_amplitude
+
+            # Measure result
+            after_comp_peak = np.max(np.abs(processed_audio))
+            after_comp_peak_db = 20 * np.log10(after_comp_peak) if after_comp_peak > 0 else -np.inf
+            after_comp_rms = calculate_rms(processed_audio)
+            after_comp_rms_db = 20 * np.log10(after_comp_rms) if after_comp_rms > 0 else -np.inf
+            after_comp_crest = after_comp_peak_db - after_comp_rms_db
+
+            print(f"[DIY Compressor] Peak: {before_comp_peak_db:.2f} → {after_comp_peak_db:.2f} dB (Δ {after_comp_peak_db - before_comp_peak_db:+.2f} dB)")
+            print(f"[DIY Compressor] RMS: {before_comp_rms_db:.2f} → {after_comp_rms_db:.2f} dB (Δ {after_comp_rms_db - before_comp_rms_db:+.2f} dB)")
+            print(f"[DIY Compressor] Crest: {before_comp_crest:.2f} → {after_comp_crest:.2f} dB (Δ {after_comp_crest - before_comp_crest:+.2f} dB, target: {-target_crest_reduction:.2f} dB)")
+
+        # SIMPLE DIY EXPANDER - Direct crest factor expansion (de-mastering)
+        # Goal: Increase crest factor by expanding peaks relative to RMS
+        # This restores dynamics to over-compressed material (loudness war casualties)
+        if spectrum_params.expansion_amount > 0.1:
+            from ..dsp.basic import rms as calculate_rms
+
+            # Measure current state
+            before_exp_peak = np.max(np.abs(processed_audio))
+            before_exp_peak_db = 20 * np.log10(before_exp_peak) if before_exp_peak > 0 else -np.inf
+            before_exp_rms = calculate_rms(processed_audio)
+            before_exp_rms_db = 20 * np.log10(before_exp_rms) if before_exp_rms > 0 else -np.inf
+            before_exp_crest = before_exp_peak_db - before_exp_rms_db
+
+            # Calculate target crest expansion based on expansion amount
+            # expansion_amount = 0.7 means expand crest by ~4-6 dB (Pantera/Motörhead cases)
+            # expansion_amount = 0.4 means expand crest by ~2-3 dB (Soda Stereo case)
+            target_crest_expansion = spectrum_params.expansion_amount * 6.0  # Max ~4.2 dB expansion
+
+            # Expansion approach: Enhance peaks while preserving RMS
+            # We want to make loud samples louder (above RMS) to increase dynamic contrast
+            expansion_threshold_db = before_exp_rms_db + 3.0  # Start expanding 3 dB above RMS
+            expansion_threshold_linear = 10 ** (expansion_threshold_db / 20)
+
+            # Apply expansion
+            audio_abs = np.abs(processed_audio)
+            above_threshold = audio_abs > expansion_threshold_linear
+
+            if np.any(above_threshold):
+                # Expansion: boost samples above threshold
+                # expansion_ratio: 1:2 means for every 1 dB above threshold, add 2 dB
+                expansion_ratio = 1.0 + spectrum_params.expansion_amount  # 1.1 to 1.7
+                excess = audio_abs[above_threshold] - expansion_threshold_linear
+
+                # Convert to dB, apply expansion, convert back
+                excess_db = 20 * np.log10(excess / expansion_threshold_linear + 1.0)
+                expanded_excess_db = excess_db * expansion_ratio
+                expanded_excess_linear = (10 ** (expanded_excess_db / 20) - 1.0) * expansion_threshold_linear
+
+                new_amplitude = expansion_threshold_linear + expanded_excess_linear
+
+                # Apply expansion while preserving sign
+                processed_audio[above_threshold] = np.sign(processed_audio[above_threshold]) * new_amplitude
+
+            # Measure result
+            after_exp_peak = np.max(np.abs(processed_audio))
+            after_exp_peak_db = 20 * np.log10(after_exp_peak) if after_exp_peak > 0 else -np.inf
+            after_exp_rms = calculate_rms(processed_audio)
+            after_exp_rms_db = 20 * np.log10(after_exp_rms) if after_exp_rms > 0 else -np.inf
+            after_exp_crest = after_exp_peak_db - after_exp_rms_db
+
+            print(f"[DIY Expander] Peak: {before_exp_peak_db:.2f} → {after_exp_peak_db:.2f} dB (Δ {after_exp_peak_db - before_exp_peak_db:+.2f} dB)")
+            print(f"[DIY Expander] RMS: {before_exp_rms_db:.2f} → {after_exp_rms_db:.2f} dB (Δ {after_exp_rms_db - before_exp_rms_db:+.2f} dB)")
+            print(f"[DIY Expander] Crest: {before_exp_crest:.2f} → {after_exp_crest:.2f} dB (Δ {after_exp_crest - before_exp_crest:+.2f} dB, target: +{target_crest_expansion:.2f} dB)")
 
         # Apply stereo width adjustment
         if processed_audio.ndim == 2 and processed_audio.shape[1] == 2:
@@ -286,13 +469,18 @@ class HybridProcessor:
             current_width = stereo_width_analysis(processed_audio)
             target_width = targets["stereo_width"]
 
-            # CRITICAL: For already-loud material, reduce stereo width expansion to prevent peak boost
-            # Stereo width expansion can increase peaks dramatically
+            # CRITICAL: Prevent stereo width expansion from creating excessive peaks
+            # Strategy 1: Limit expansion for already-loud material
             if spectrum_position.input_level > 0.8 and target_width > current_width:
-                # Limit width expansion for loud material
                 max_width_increase = 0.3  # Only allow +0.3 increase
                 target_width = min(target_width, current_width + max_width_increase)
                 print(f"[Stereo Width] Limited expansion for loud material: target reduced to {target_width:.2f}")
+
+            # Strategy 2: Skip expansion if current peak is already high (> 3 dB)
+            # This prevents stereo expansion from undoing dynamics work
+            if peak_before_stereo_db > 3.0 and target_width > current_width:
+                print(f"[Stereo Width] SKIPPED expansion due to high peak ({peak_before_stereo_db:.2f} dB) - preserving dynamics")
+                target_width = current_width  # Keep current width
 
             if abs(current_width - target_width) > 0.1:
                 processed_audio = adjust_stereo_width(processed_audio, target_width)
@@ -300,9 +488,6 @@ class HybridProcessor:
                 peak_after_stereo = np.max(np.abs(processed_audio))
                 peak_after_stereo_db = 20 * np.log10(peak_after_stereo) if peak_after_stereo > 0 else -np.inf
                 print(f"[Stereo Width] Peak: {peak_before_stereo_db:.2f} → {peak_after_stereo_db:.2f} dB (width: {current_width:.2f} → {target_width:.2f})")
-
-        # NOTE: Soft limiting was too aggressive, removed in favor of final peak normalization
-        # The limited stereo width expansion for loud material (above) prevents excessive peaks
 
         # Store dynamics info for monitoring
         if hasattr(self, 'last_dynamics_info'):
