@@ -19,6 +19,7 @@ from datetime import datetime
 
 from .unified_config import UnifiedConfig, GenreProfile
 from .analysis import ContentAnalyzer, AdaptiveTargetGenerator
+from .analysis.spectrum_mapper import SpectrumMapper
 from .processors import apply_reference_matching
 from ..dsp.unified import (
     rms, normalize, amplify, spectral_centroid, spectral_rolloff,
@@ -48,6 +49,7 @@ class HybridProcessor:
         self.config = config
         self.content_analyzer = ContentAnalyzer(config.internal_sample_rate)
         self.target_generator = AdaptiveTargetGenerator(config, self)
+        self.spectrum_mapper = SpectrumMapper()  # NEW: Spectrum-based parameter calculation
 
         # Initialize psychoacoustic EQ
         eq_settings = EQSettings(
@@ -201,8 +203,8 @@ class HybridProcessor:
 
     def _apply_adaptive_processing(self, target_audio: np.ndarray,
                                   targets: Dict[str, Any]) -> np.ndarray:
-        """Apply adaptive processing based on generated targets"""
-        debug("Applying adaptive processing")
+        """Apply spectrum-based adaptive processing"""
+        debug("Applying spectrum-based adaptive processing")
 
         processed_audio = target_audio.copy()
 
@@ -213,6 +215,38 @@ class HybridProcessor:
         self.last_content_profile = content_profile
         self.preference_manager.set_content_profile(content_profile)
 
+        # NEW: Analyze input level and add to content profile
+        input_level_info = self.content_analyzer.analyze_input_level(processed_audio)
+        content_profile['input_level_info'] = input_level_info
+
+        # SPECTRUM-BASED PROCESSING: Get position on spectrum
+        spectrum_position = self.spectrum_mapper.analyze_to_spectrum_position(content_profile)
+
+        # Get user's preset as a hint (not a rigid rule)
+        preset_profile = self.config.get_preset_profile()
+        preset_hint = preset_profile.name.lower() if preset_profile else 'adaptive'
+
+        # Calculate processing parameters from spectrum position
+        spectrum_params = self.spectrum_mapper.calculate_processing_parameters(
+            spectrum_position,
+            user_preset_hint=preset_hint
+        )
+
+        print(f"[Spectrum Position] Level:{spectrum_position.input_level:.2f} "
+              f"Dynamics:{spectrum_position.dynamic_range:.2f} "
+              f"Balance:{spectrum_position.spectral_balance:.2f} "
+              f"Energy:{spectrum_position.energy:.2f}")
+
+        print(f"[Spectrum Params] Compression:{spectrum_params.compression_ratio:.2f}@{spectrum_params.compression_amount:.2f} "
+              f"InputGain:{spectrum_params.input_gain:+.1f}dB "
+              f"TargetRMS:{spectrum_params.output_target_rms:.1f}dB")
+
+        # Apply input gain from spectrum calculation
+        if abs(spectrum_params.input_gain) > 0.5:
+            from ..dsp.basic import amplify
+            processed_audio = amplify(processed_audio, spectrum_params.input_gain)
+            debug(f"[Spectrum Gain Staging] Applied {spectrum_params.input_gain:+.2f} dB input gain")
+
         # Track loudness through each processing stage
         before_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
         debug(f"[STAGE 1] Before EQ: {before_eq_lufs:.2f} LUFS")
@@ -221,50 +255,120 @@ class HybridProcessor:
         processed_audio = self._apply_psychoacoustic_eq(processed_audio, targets, content_profile)
 
         after_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+        peak_after_eq = np.max(np.abs(processed_audio))
+        peak_after_eq_db = 20 * np.log10(peak_after_eq) if peak_after_eq > 0 else -np.inf
+        print(f"[After EQ] Peak: {peak_after_eq_db:.2f} dB")
         debug(f"[STAGE 2] After EQ: {after_eq_lufs:.2f} LUFS (change: {after_eq_lufs - before_eq_lufs:+.2f} dB)")
+
+        # TEMPORARILY DISABLED: Dynamics processor is too aggressive
+        # TODO: Fix dynamics processor to respect spectrum_params.compression_amount
+        # For now, skip dynamics processing and rely on spectrum-based RMS targeting
 
         # Apply advanced dynamics processing with automatic makeup gain
         # Pass targets via content_profile for dynamics adaptation
-        content_profile_with_targets = content_profile.copy()
-        content_profile_with_targets['processing_targets'] = targets
-        before_dynamics_lufs = after_eq_lufs
-        processed_audio, dynamics_info = self.dynamics_processor.process(
-            processed_audio, content_profile_with_targets
-        )
-        after_dynamics_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-        debug(f"[STAGE 3] After Dynamics: {after_dynamics_lufs:.2f} LUFS (change: {after_dynamics_lufs - before_dynamics_lufs:+.2f} dB)")
+        # content_profile_with_targets = content_profile.copy()
+        # content_profile_with_targets['processing_targets'] = targets
+        # before_dynamics_lufs = after_eq_lufs
+        # processed_audio, dynamics_info = self.dynamics_processor.process(
+        #     processed_audio, content_profile_with_targets
+        # )
+        # after_dynamics_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+        # debug(f"[STAGE 3] After Dynamics: {after_dynamics_lufs:.2f} LUFS (change: {after_dynamics_lufs - before_dynamics_lufs:+.2f} dB)")
+
+        dynamics_info = {}  # Empty dynamics info for now
+        print("[Dynamics] SKIPPED - using spectrum-based RMS targeting instead")
 
         # Apply stereo width adjustment
         if processed_audio.ndim == 2 and processed_audio.shape[1] == 2:
+            peak_before_stereo = np.max(np.abs(processed_audio))
+            peak_before_stereo_db = 20 * np.log10(peak_before_stereo) if peak_before_stereo > 0 else -np.inf
+
             current_width = stereo_width_analysis(processed_audio)
             target_width = targets["stereo_width"]
+
+            # CRITICAL: For already-loud material, reduce stereo width expansion to prevent peak boost
+            # Stereo width expansion can increase peaks dramatically
+            if spectrum_position.input_level > 0.8 and target_width > current_width:
+                # Limit width expansion for loud material
+                max_width_increase = 0.3  # Only allow +0.3 increase
+                target_width = min(target_width, current_width + max_width_increase)
+                print(f"[Stereo Width] Limited expansion for loud material: target reduced to {target_width:.2f}")
+
             if abs(current_width - target_width) > 0.1:
                 processed_audio = adjust_stereo_width(processed_audio, target_width)
+
+                peak_after_stereo = np.max(np.abs(processed_audio))
+                peak_after_stereo_db = 20 * np.log10(peak_after_stereo) if peak_after_stereo > 0 else -np.inf
+                print(f"[Stereo Width] Peak: {peak_before_stereo_db:.2f} → {peak_after_stereo_db:.2f} dB (width: {current_width:.2f} → {target_width:.2f})")
+
+        # NOTE: Soft limiting was too aggressive, removed in favor of final peak normalization
+        # The limited stereo width expansion for loud material (above) prevents excessive peaks
 
         # Store dynamics info for monitoring
         if hasattr(self, 'last_dynamics_info'):
             self.last_dynamics_info = dynamics_info
 
-        # Apply final LUFS normalization AFTER all processing
-        # This ensures preset-based loudness differences are preserved
-        current_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-        target_lufs = targets["target_lufs"]
+        # SPECTRUM-BASED FINAL NORMALIZATION
+        # Strategy: Balance RMS target with peak limit constraint
+        # We can't have both high RMS AND low peak - they're linked by crest factor
 
-        if abs(current_lufs - target_lufs) > 0.5:  # Apply if there's a difference
-            lufs_gain_db = target_lufs - current_lufs
-            # Allow full range - soft clipper will handle peak control
-            debug(f"[LUFS Normalization] Before: {current_lufs:.2f} LUFS, Target: {target_lufs:.2f}, Gain: {lufs_gain_db:+.2f}dB")
-            processed_audio = amplify(processed_audio, lufs_gain_db)
-            final_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-            debug(f"[LUFS Normalization] After applying {lufs_gain_db:+.2f}dB gain: {final_lufs:.2f} LUFS")
+        from ..dsp.basic import rms as calculate_rms
 
-        # Apply soft clipping to prevent hard clipping while preserving loudness differences
-        # Uses tanh saturation which is more musical and preserves more dynamics
-        peak_before = np.max(np.abs(processed_audio))
-        if peak_before > 0.8:  # Only clip if we're approaching clipping
-            processed_audio = soft_clip(processed_audio, threshold=0.8, ceiling=0.99)
-            peak_after = np.max(np.abs(processed_audio))
-            debug(f"[Soft Clipper] Peak reduced from {peak_before:.2f} to {peak_after:.2f}")
+        peak = np.max(np.abs(processed_audio))
+        peak_db = 20 * np.log10(peak) if peak > 0 else -np.inf
+        current_rms = calculate_rms(processed_audio)
+        current_rms_db = 20 * np.log10(current_rms) if current_rms > 0 else -np.inf
+        current_crest = peak_db - current_rms_db
+
+        print(f"[Pre-Final] Peak: {peak_db:.2f} dB, RMS: {current_rms_db:.2f} dB, Crest: {current_crest:.2f} dB")
+
+        # Calculate target RMS from spectrum
+        target_rms_db = spectrum_params.output_target_rms
+
+        # IMPORTANT: Apply RMS gain BEFORE peak normalization to preserve dynamics
+        # For under-leveled material OR loud material needing energy boost
+        rms_diff_from_target = target_rms_db - current_rms_db
+
+        if rms_diff_from_target > 0.5:  # Need to boost RMS
+            # Apply gain to reach target RMS first
+            rms_boost = np.clip(rms_diff_from_target, 0.0, 12.0)  # Cap at +12 dB
+
+            from ..dsp.basic import amplify
+            processed_audio = amplify(processed_audio, rms_boost)
+            print(f"[RMS Boost] Applied {rms_boost:+.2f} dB (target: {target_rms_db:.1f} dB)")
+
+            # Recalculate after boost
+            peak = np.max(np.abs(processed_audio))
+            peak_db = 20 * np.log10(peak) if peak > 0 else -np.inf
+            current_rms = calculate_rms(processed_audio)
+            current_rms_db = 20 * np.log10(current_rms) if current_rms > 0 else -np.inf
+
+        # Now apply peak normalization to -0.1 dB
+        target_peak_db = -0.1
+        target_peak = 0.9886  # -0.1 dB in linear
+
+        if peak > 0.001:  # Avoid division by zero
+            peak_change_db = target_peak_db - peak_db
+            processed_audio = processed_audio * (target_peak / peak)
+            print(f"[Peak Normalization] {peak_db:.2f} → {target_peak_db:.2f} dB (change: {peak_change_db:+.2f} dB)")
+
+            # Recalculate final metrics
+            current_rms = calculate_rms(processed_audio)
+            current_rms_db = 20 * np.log10(current_rms) if current_rms > 0 else -np.inf
+            peak = np.max(np.abs(processed_audio))
+            peak_db = 20 * np.log10(peak) if peak > 0 else -np.inf
+            current_crest = peak_db - current_rms_db
+
+            print(f"[Final] Peak: {peak_db:.2f} dB, RMS: {current_rms_db:.2f} dB, Crest: {current_crest:.2f} dB")
+
+        # Final metrics
+        final_rms = calculate_rms(processed_audio)
+        final_rms_db = 20 * np.log10(final_rms) if final_rms > 0 else -np.inf
+        final_peak = np.max(np.abs(processed_audio))
+        final_peak_db = 20 * np.log10(final_peak) if final_peak > 0 else -np.inf
+        final_crest = final_peak_db - final_rms_db
+
+        debug(f"[Final Result] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, Crest: {final_crest:.2f} dB")
 
         return processed_audio
 
@@ -290,7 +394,8 @@ class HybridProcessor:
         blended_audio = (reference_matched * (1 - adaptation_strength) +
                         adaptive_processed * adaptation_strength)
 
-        return normalize(blended_audio, 0.98)
+        # Normalize to -0.1 dB peak (matching Matchering behavior)
+        return normalize(blended_audio, 0.9886)
 
     def _apply_psychoacoustic_eq(self, audio: np.ndarray, targets: Dict[str, Any],
                                 content_profile: Optional[Dict[str, Any]] = None) -> np.ndarray:

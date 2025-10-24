@@ -144,7 +144,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
   const setPreset = useCallback(async (preset: string) => {
     try {
       setIsProcessing(true);
-      const response = await fetch(`/api/player/enhancement/preset?preset=${preset}`, {
+      const response = await fetch(`http://localhost:8765/api/player/enhancement/preset?preset=${preset}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +176,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
 
     try {
       setIsProcessing(true);
-      const response = await fetch(`/api/player/enhancement/intensity?intensity=${clampedIntensity}`, {
+      const response = await fetch(`http://localhost:8765/api/player/enhancement/intensity?intensity=${clampedIntensity}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

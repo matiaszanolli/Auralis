@@ -127,6 +127,101 @@ class ContentAnalyzer:
 
         return content_profile
 
+    def analyze_input_level(self, audio: np.ndarray) -> Dict[str, Any]:
+        """
+        Analyze input level characteristics to determine processing strategy.
+        Based on Matchering analysis showing adaptive behavior:
+        - Under-leveled (quiet) material: Apply significant gain (+3 to +7 dB)
+        - Well-leveled material: Conservative enhancement
+        - Over-leveled (hot) material: Apply control/limiting
+
+        Args:
+            audio: Audio signal to analyze
+
+        Returns:
+            Dictionary with level category and processing recommendations
+        """
+        # Calculate basic level metrics
+        peak = np.max(np.abs(audio))
+        peak_db = 20 * np.log10(peak) if peak > 0 else -np.inf
+
+        rms_value = rms(audio)
+        rms_db = 20 * np.log10(rms_value) if rms_value > 0 else -np.inf
+
+        crest_db = peak_db - rms_db
+
+        # Determine level category based on Matchering analysis
+        # KEY INSIGHT: Crest factor is crucial - high crest indicates dynamic material needing compression
+        level_category = "well_leveled"  # Default
+        processing_strategy = "conservative"
+        target_gain_db = 0.0
+
+        # Under-leveled: RMS < -18 dB or Peak < -3 dB
+        # Example: Static-X Wisconsin Death Trip (RMS -21.92 dB, Peak -8.65 dB)
+        if rms_db < -18.0 or peak_db < -3.0:
+            level_category = "under_leveled"
+            processing_strategy = "loudness_boost"
+
+            # Calculate gain needed to bring to target range
+            target_rms = -15.0  # Target RMS for under-leveled material
+            target_gain_db = target_rms - rms_db
+            # Cap gain at reasonable maximum
+            target_gain_db = min(target_gain_db, 12.0)
+
+            debug(f"[Input Level] Under-leveled: RMS {rms_db:.1f} dB, Peak {peak_db:.1f} dB, "
+                  f"Suggested gain: +{target_gain_db:.1f} dB")
+
+        # Live/Dynamic material: High crest factor (>12 dB) with moderate RMS indicates dynamic range
+        # Example: Testament Live (Peak 0.0 dB, RMS -12.7 dB, Crest 12.7 dB)
+        # Matchering applies +2 to +4 dB RMS increase despite hot peaks
+        elif crest_db > 12.0 and rms_db < -12.0:
+            level_category = "live_dynamic"
+            processing_strategy = "dynamic_control"
+            target_gain_db = 0.0  # No pregain - let dynamics processor increase loudness
+
+            debug(f"[Input Level] Live/Dynamic: RMS {rms_db:.1f} dB, Peak {peak_db:.1f} dB, Crest {crest_db:.1f} dB")
+
+        # Over-leveled with low crest: Peak > -0.3 dB AND Crest < 12 dB (compressed mix with clipping risk)
+        # Example: Over-compressed modern mixes
+        elif peak_db > -0.3 and crest_db < 12.0:
+            level_category = "over_leveled"
+            processing_strategy = "peak_control"
+            target_gain_db = -0.5 - peak_db  # Reduce to -0.5 dB
+
+            debug(f"[Input Level] Over-leveled: Peak {peak_db:.1f} dB, Crest {crest_db:.1f} dB, "
+                  f"Suggested reduction: {target_gain_db:.1f} dB")
+
+        # Hot RMS but acceptable peak: RMS > -12 dB, Peak < -0.5 dB
+        # Example: Loud modern mixes
+        elif rms_db > -12.0 and peak_db < -0.5:
+            level_category = "hot_mix"
+            processing_strategy = "gentle_control"
+            target_gain_db = 0.0  # No pregain needed
+
+            debug(f"[Input Level] Hot mix: RMS {rms_db:.1f} dB, Peak {peak_db:.1f} dB")
+
+        # Well-leveled: -18 dB < RMS < -12 dB, Peak reasonable
+        # Example: Iron Maiden Powerslave, Soda Stereo
+        else:
+            level_category = "well_leveled"
+            processing_strategy = "conservative"
+            target_gain_db = 0.0
+
+            debug(f"[Input Level] Well-leveled: RMS {rms_db:.1f} dB, Peak {peak_db:.1f} dB")
+
+        return {
+            'category': level_category,
+            'strategy': processing_strategy,
+            'peak_db': peak_db,
+            'rms_db': rms_db,
+            'crest_db': crest_db,
+            'suggested_pregain_db': target_gain_db,
+            'metrics': {
+                'peak': float(peak),
+                'rms': float(rms_value),
+            }
+        }
+
     def _classify_genre_advanced(self, audio: np.ndarray) -> Dict[str, Any]:
         """Advanced genre classification using ML or rule-based fallback"""
 
