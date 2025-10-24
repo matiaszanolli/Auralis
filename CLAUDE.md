@@ -19,16 +19,24 @@ python launch-auralis-web.py --dev   # http://localhost:8765
 
 **Key files to know:**
 - [auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py) - Main audio processing engine
-- [auralis-web/backend/main.py](auralis-web/backend/main.py) - Backend API server (⚠️ 1,960 lines, needs refactoring)
+- [auralis-web/backend/main.py](auralis-web/backend/main.py) - Backend API server (614 lines, modular routers)
+- [auralis-web/backend/routers/](auralis-web/backend/routers/) - API endpoint routers (player, library, enhancement, etc.)
 - [auralis-web/frontend/src/components/ComfortableApp.tsx](auralis-web/frontend/src/components/ComfortableApp.tsx) - Main UI component
 - [desktop/main.js](desktop/main.js) - Electron main process
 
 **Running tests:**
 ```bash
+# Backend Python tests
 python -m pytest tests/backend/ -v      # Backend tests (96 tests, 74% coverage, fastest)
 python -m pytest tests/test_adaptive_processing.py -v  # Core processing tests (26 tests)
-npm test                                 # Runs pytest via npm script
+npm test                                 # Runs pytest via npm script (root)
 npm run test:coverage                   # Generate HTML coverage report
+
+# Frontend tests (from auralis-web/frontend/)
+cd auralis-web/frontend
+npm test                                 # Interactive Vitest
+npm run test:run                         # Single run
+npm run test:coverage                   # Coverage report
 ```
 
 ## Project Overview
@@ -155,8 +163,10 @@ Professional-grade digital signal processing with modular architecture:
 - Memory pools, smart caching, SIMD acceleration (197x speedup)
 
 **Web Interface (`auralis-web/`):**
-- `backend/main.py` - FastAPI server (⚠️ 1,960 lines with 59 endpoints - needs refactoring)
+- `backend/main.py` - FastAPI server (614 lines, refactored with modular routers)
+- `backend/routers/` - Modular API routers (player, library, enhancement, playlists, files, artwork, system)
 - `backend/processing_engine.py` - Background job queue for async audio processing
+- `backend/WEBSOCKET_API.md` - WebSocket message documentation
 - `frontend/` - React app with Material-UI components
 
 **Desktop Application (`desktop/`):**
@@ -176,9 +186,27 @@ Professional-grade digital signal processing with modular architecture:
 - [auralis-web/frontend/src/components/BottomPlayerBar.tsx](auralis-web/frontend/src/components/BottomPlayerBar.tsx) - Player controls
 
 ### Adding Backend API Endpoints
-- [auralis-web/backend/main.py](auralis-web/backend/main.py) - Main API routes (⚠️ See BACKEND_REFACTORING_ROADMAP.md)
-- [auralis-web/backend/processing_api.py](auralis-web/backend/processing_api.py) - Processing endpoints
+
+The backend uses a **modular router architecture** (FastAPI best practice):
+
+- [auralis-web/backend/main.py](auralis-web/backend/main.py) - Main FastAPI app and startup (614 lines)
+- [auralis-web/backend/routers/](auralis-web/backend/routers/) - Modular endpoint routers:
+  - `player.py` - Playback control (play, pause, seek, queue, volume)
+  - `library.py` - Library management (tracks, albums, artists)
+  - `enhancement.py` - Audio enhancement settings
+  - `playlists.py` - Playlist CRUD operations
+  - `files.py` - File upload and format handling
+  - `artwork.py` - Album artwork management
+  - `system.py` - Health checks, version info
 - [auralis-web/backend/processing_engine.py](auralis-web/backend/processing_engine.py) - Background job queue
+- [auralis-web/backend/WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md) - WebSocket message types
+
+**When adding new endpoints:**
+1. Identify the appropriate router (or create a new one if needed)
+2. Add endpoint to the router file
+3. Router is automatically included in main.py
+4. Use dependency injection for shared state (player, library manager)
+5. Follow async/await pattern for I/O operations
 
 ### Library Management Changes
 - [auralis/library/manager.py](auralis/library/manager.py) - Library manager orchestrator
@@ -353,10 +381,13 @@ See original CLAUDE.md for detailed component implementation guidelines.
 ## Web Interface Access Points
 
 When web interface is running:
-- **Main UI**: http://localhost:3000 (dev) or http://localhost:8765 (production)
+- **Main UI**: http://localhost:3000 (dev mode) or http://localhost:8765 (production)
 - **Backend API**: http://localhost:8765/api/
 - **API Documentation**: http://localhost:8765/api/docs (Swagger UI)
+- **WebSocket**: ws://localhost:8765/ws (real-time updates)
 - **Health Check**: http://localhost:8765/api/health
+
+**Note**: Default backend port is **8765** (not 8000). Frontend dev server uses port **3000**.
 
 ## Troubleshooting
 
@@ -379,7 +410,10 @@ npm run build
 **Database errors:**
 ```bash
 # Reset database (WARNING: deletes all library data)
-rm ~/.auralis/library.db  # Will be recreated on next launch
+./RESET_DATABASE.sh              # Uses provided script
+# OR manually:
+rm ~/.auralis/library.db         # Will be recreated on next launch
+rm ~/.auralis/auralis_library.db # Alternative location
 ```
 
 **WebSocket connection fails:**
@@ -420,12 +454,14 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 ### Project Status
 - **Core Processing**: ✅ Production-ready (52.8x real-time speed, E2E validated)
 - **Backend API**: ✅ 74% test coverage (96 tests, 100% passing)
+- **Backend Refactoring**: ✅ COMPLETE - Modular router architecture (614 lines main.py, down from 1,960)
 - **Library Management**: ✅ 740+ files/second scanning
 - **Audio Player**: ✅ Full playback with real-time processing
+- **WebSocket API**: ✅ Real-time player state updates
 
 **Technical Debt:**
-- Backend refactoring needed (main.py at 1,960 lines) - See `BACKEND_REFACTORING_ROADMAP.md`
 - Version management system needed before production launch - See `VERSION_MIGRATION_ROADMAP.md`
+- Frontend test coverage needs expansion
 
 ### Additional Documentation
 - `README.md` - User-facing documentation
@@ -434,4 +470,7 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - `LIBRARY_MANAGEMENT_ADDED.md` - Library features
 - `NATIVE_FOLDER_PICKER.md` - Native OS integration
 - `VERSION_MIGRATION_ROADMAP.md` - Version management plan
-- `BACKEND_REFACTORING_ROADMAP.md` - Backend modularization plan
+- `BACKEND_REFACTORING_ROADMAP.md` - Backend modularization plan (✅ Phase 1 complete)
+- `auralis-web/backend/WEBSOCKET_API.md` - WebSocket message types and protocol
+- `TECHNICAL_DEBT_RESOLUTION.md` - Recent technical improvements
+- `PRESET_ARCHITECTURE_RESEARCH.md` - Audio preset system design

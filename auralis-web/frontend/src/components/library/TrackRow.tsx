@@ -22,6 +22,7 @@ interface TrackRowProps {
   onPlay: (trackId: number) => void;
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
+  onEditMetadata?: (trackId: number) => void;
 }
 
 const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
@@ -193,6 +194,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
   onPlay,
   onPause,
   onDoubleClick,
+  onEditMetadata,
 }) => {
   const [imageError, setImageError] = useState(false);
   const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
@@ -250,6 +252,9 @@ export const TrackRow: React.FC<TrackRowProps> = ({
       onAddToPlaylist: () => {
         info('Select playlist'); // TODO: Show playlist selector modal
       },
+      onEditMetadata: onEditMetadata ? () => {
+        onEditMetadata(track.id);
+      } : undefined,
       onShowAlbum: () => {
         info(`Album: ${track.album || 'Unknown'}`);
       },

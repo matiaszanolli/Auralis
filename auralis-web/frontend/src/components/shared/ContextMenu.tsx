@@ -166,6 +166,7 @@ export const getTrackContextActions = (
     onAddToQueue?: () => void;
     onAddToPlaylist?: () => void;
     onToggleLove?: () => void;
+    onEditMetadata?: () => void;
     onShowAlbum?: () => void;
     onShowArtist?: () => void;
     onShowInfo?: () => void;
@@ -215,8 +216,18 @@ export const getTrackContextActions = (
     label: 'Track Info',
     icon: <Info fontSize="small" />,
     onClick: callbacks.onShowInfo || (() => {}),
-    divider: callbacks.onDelete ? true : false,
   },
+  ...(callbacks.onEditMetadata
+    ? [
+        {
+          id: 'edit-metadata',
+          label: 'Edit Metadata',
+          icon: <Edit fontSize="small" />,
+          onClick: callbacks.onEditMetadata,
+          divider: callbacks.onDelete ? true : false,
+        },
+      ]
+    : []),
   ...(callbacks.onDelete
     ? [
         {

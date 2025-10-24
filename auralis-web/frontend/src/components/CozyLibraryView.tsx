@@ -28,6 +28,7 @@ import { CozyAlbumGrid } from './library/CozyAlbumGrid';
 import { CozyArtistList } from './library/CozyArtistList';
 import AlbumDetailView from './library/AlbumDetailView';
 import ArtistDetailView from './library/ArtistDetailView';
+import EditMetadataDialog from './library/EditMetadataDialog';
 
 interface Track {
   id: number;
@@ -64,6 +65,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const [selectedAlbumId, setSelectedAlbumId] = useState<number | null>(null);
   const [selectedArtistId, setSelectedArtistId] = useState<number | null>(null);
   const [selectedArtistName, setSelectedArtistName] = useState<string>('');
+  const [editMetadataDialogOpen, setEditMetadataDialogOpen] = useState(false);
+  const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
   const { success, error, info } = useToast();
 
   // Real player API for playback
@@ -257,6 +260,12 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
     setIsPlaying(true);
     success(`Now playing: ${track.title}`);
     onTrackPlay?.(track);
+  };
+
+  // Handler for editing track metadata
+  const handleEditMetadata = (trackId: number) => {
+    setEditingTrackId(trackId);
+    setEditMetadataDialogOpen(true);
   };
 
   // Show album detail view (can come from albums view or artist view)
@@ -579,6 +588,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
                   }
                 }}
                 onPause={() => setIsPlaying(false)}
+                onEditMetadata={handleEditMetadata}
               />
             </Box>
           ))}
@@ -632,6 +642,23 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
             />
           )}
         </>
+      )}
+
+      {/* Edit Metadata Dialog */}
+      {editingTrackId && (
+        <EditMetadataDialog
+          open={editMetadataDialogOpen}
+          trackId={editingTrackId}
+          onClose={() => {
+            setEditMetadataDialogOpen(false);
+            setEditingTrackId(null);
+          }}
+          onSave={(trackId, metadata) => {
+            success('Metadata updated successfully');
+            // Refresh tracks to show updated metadata
+            fetchTracks();
+          }}
+        />
       )}
     </Container>
   );

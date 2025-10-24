@@ -311,6 +311,12 @@ def create_player_router(
             # Update state (broadcasts automatically)
             await player_state_manager.set_playing(True)
 
+            # Broadcast playback_started event
+            await connection_manager.broadcast({
+                "type": "playback_started",
+                "data": {"state": "playing"}
+            })
+
             return {"message": "Playback started", "state": "playing"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to start playback: {e}")
@@ -339,6 +345,12 @@ def create_player_router(
 
             # Update state (broadcasts automatically)
             await player_state_manager.set_playing(False)
+
+            # Broadcast playback_paused event
+            await connection_manager.broadcast({
+                "type": "playback_paused",
+                "data": {"state": "paused"}
+            })
 
             return {"message": "Playback paused", "state": "paused"}
         except Exception as e:
