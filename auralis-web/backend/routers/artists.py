@@ -115,17 +115,22 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
             artist_responses = []
             for artist in artists:
                 # Get unique genres from artist's tracks
-                genres = list(set(
-                    track.genre for track in artist.tracks
-                    if track.genre
-                ))
+                # Note: Track has many-to-many relationship with genres
+                genres = set()
+                for track in artist.tracks:
+                    if hasattr(track, 'genres') and track.genres:
+                        for genre in track.genres:
+                            if hasattr(genre, 'name'):
+                                genres.add(genre.name)
+
+                genres_list = list(genres) if genres else None
 
                 artist_responses.append(ArtistResponse(
                     id=artist.id,
                     name=artist.name,
                     album_count=len(artist.albums) if artist.albums else 0,
                     track_count=len(artist.tracks) if artist.tracks else 0,
-                    genres=genres if genres else None
+                    genres=genres_list
                 ))
 
             has_more = (offset + limit) < total

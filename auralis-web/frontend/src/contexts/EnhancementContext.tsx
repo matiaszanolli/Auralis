@@ -106,7 +106,7 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
   const setEnabled = useCallback(async (enabled: boolean) => {
     try {
       setIsProcessing(true);
-      const url = `/api/player/enhancement/toggle?enabled=${enabled}`;
+      const url = `http://localhost:8765/api/player/enhancement/toggle?enabled=${enabled}`;
       console.log('Calling enhancement toggle API:', url);
 
       const response = await fetch(url, {

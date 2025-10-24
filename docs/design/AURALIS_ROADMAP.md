@@ -1,6 +1,6 @@
 # Auralis Development Roadmap
 
-**Last Updated**: October 23, 2025
+**Last Updated**: October 24, 2025
 **Current Version**: 1.0.0
 **Status**: Core functionality complete, critical architecture fixes needed
 
@@ -713,63 +713,117 @@ Added four new features to Phase 1, Phase 4, and Phase 5:
 
 ---
 
-## 🎨 Phase 2: Enhanced Navigation & Views (Medium Priority)
+## 🎨 Phase 2: Enhanced Navigation & Views (Medium Priority) - 67% Complete
 
 **Goal**: Improve library navigation with dedicated views
 **Timeline**: 2-3 weeks
 **Dependencies**: Phase 1 completion
+**Status**: Albums & Artists views ✅ COMPLETE (October 24, 2025)
 
-### 2.1 Albums View (3-4 days)
-
-**Backend**:
-- [ ] Create album API endpoints:
-  - [ ] `GET /api/albums` - List all albums
-  - [ ] `GET /api/albums/:id` - Get album details with tracks
-  - [ ] `GET /api/albums/:id/tracks` - Get album tracks
-  - [ ] `GET /api/albums/recent` - Recently added albums
-  - [ ] `GET /api/albums/search?q=` - Search albums
-
-**Frontend**:
-- [ ] Create Albums view component
-- [ ] Album grid with large artwork
-- [ ] Album detail view with track list
-- [ ] Click album to view details
-- [ ] Play entire album from detail view
-- [ ] Sort albums (by name, artist, year)
-- [ ] Filter albums (by artist, year, genre)
-
-**Acceptance Criteria**:
-- Albums view shows all albums with artwork
-- Album detail shows all tracks
-- Users can play entire album
-- Albums are sortable and filterable
-
-### 2.2 Artists View (3-4 days)
+### 2.1 Albums View ✅ COMPLETE (3-4 days)
 
 **Backend**:
-- [ ] Create artist API endpoints:
-  - [ ] `GET /api/artists` - List all artists
-  - [ ] `GET /api/artists/:id` - Get artist details
-  - [ ] `GET /api/artists/:id/albums` - Get artist albums
-  - [ ] `GET /api/artists/:id/tracks` - Get artist tracks
-  - [ ] `GET /api/artists/search?q=` - Search artists
+- [x] Create album API endpoints:
+  - [x] `GET /api/albums` - List all albums with pagination
+  - [x] `GET /api/albums/:id` - Get album details with tracks
+  - [x] `GET /api/albums/:id/tracks` - Get album tracks
+  - [x] `GET /api/albums/recent` - Recently added albums (via repository)
+  - [x] `GET /api/albums/search?q=` - Search albums (via repository)
+  - [x] `GET /api/albums/:id/artwork` - Get album artwork
+  - [x] `POST /api/albums/:id/artwork/extract` - Extract artwork from tracks
+  - [x] **Calculate and return `total_duration`** for albums
 
 **Frontend**:
-- [ ] Create Artists view component
-- [ ] Artist grid with names/avatars
-- [ ] Artist detail view with albums and tracks
-- [ ] Click artist to view details
-- [ ] Play all artist tracks
-- [ ] Sort artists (by name, track count)
-- [ ] Search artists
+- [x] Create Albums view component (CozyAlbumGrid)
+- [x] Album grid with large artwork
+- [x] Album detail view with track list (AlbumDetailView)
+- [x] Click album to view details
+- [x] Play entire album from detail view
+- [x] Sort albums (by name, artist, year)
+- [x] Infinite scroll pagination (50 albums per page)
+- [x] Improved placeholder icon visibility
 
 **Acceptance Criteria**:
-- Artists view shows all artists
-- Artist detail shows albums and tracks
-- Users can play all artist content
-- Artists are sortable and searchable
+- ✅ Albums view shows all albums with artwork placeholders
+- ✅ Album detail shows all tracks with durations (13 tracks, 1h 17m)
+- ✅ Users can click to navigate to album detail
+- ✅ Albums display track count and total duration
+- ✅ Pagination works for large libraries
 
-### 2.3 Recently Played (2-3 days)
+**Documentation**: [PHASE_2_ALBUMS_ARTISTS_COMPLETE.md](../completed/PHASE_2_ALBUMS_ARTISTS_COMPLETE.md)
+
+### 2.2 Artists View ✅ COMPLETE (3-4 days)
+
+**Backend**:
+- [x] Create artist API endpoints:
+  - [x] `GET /api/artists` - List all artists with pagination
+  - [x] `GET /api/artists/:id` - Get artist details with albums
+  - [x] `GET /api/artists/:id/tracks` - Get artist tracks
+  - [x] Search artists (via repository)
+  - [x] **Fixed SQLAlchemy eager loading** for track genres and album tracks
+
+**Frontend**:
+- [x] Create Artists view component (ArtistDetailView)
+- [x] Artist list with album/track counts
+- [x] Artist detail view with albums
+- [x] Click artist to view details
+- [x] Navigate from artist → album → tracks
+- [x] Back navigation through views
+- [x] Display artist statistics (albums, tracks, total duration)
+
+**Acceptance Criteria**:
+- ✅ Artists view shows all artists with statistics
+- ✅ Artist detail shows albums with artwork
+- ✅ Users can navigate artist → album → track playback
+- ✅ Artists are sortable and searchable
+- ✅ Nested navigation works correctly
+
+**Documentation**: [PHASE_2_ALBUMS_ARTISTS_COMPLETE.md](../completed/PHASE_2_ALBUMS_ARTISTS_COMPLETE.md)
+
+### 2.3 Album Artwork from Online Sources (NEW - HIGH PRIORITY)
+
+**Goal**: Automatically fetch album artwork from free online sources when not embedded in tracks
+
+**Backend**:
+- [ ] Integrate with free artwork APIs:
+  - [ ] MusicBrainz Cover Art Archive API
+  - [ ] iTunes Search API (fallback)
+  - [ ] Last.fm API (optional, requires key)
+  - [ ] Spotify Web API (optional, requires OAuth)
+
+- [ ] Create artwork download service:
+  - [ ] `POST /api/albums/:id/artwork/download` - Already exists! Just needs implementation
+  - [ ] Search by album title + artist name
+  - [ ] Download and cache artwork locally
+  - [ ] Save to `~/.auralis/artwork/`
+  - [ ] Update album.artwork_path in database
+  - [ ] WebSocket broadcast on success
+
+**Frontend**:
+- [ ] Add "Download Artwork" button to album detail view
+- [ ] Add batch "Download All Artwork" option in settings
+- [ ] Show progress indicator during download
+- [ ] Toast notification on success/failure
+- [ ] Refresh album card artwork after download
+
+**Acceptance Criteria**:
+- Users can download artwork for albums without embedded art
+- Artwork is cached locally and persists across sessions
+- Batch download available for entire library
+- Progress feedback during downloads
+- Graceful handling of API failures
+
+**Technical Notes**:
+- MusicBrainz Cover Art Archive is free, no API key needed
+- iTunes API is free but has rate limits
+- Implement retry logic with exponential backoff
+- Cache negative results to avoid repeated failed requests
+- Support manual artwork upload as fallback
+
+**Timeline**: 2-3 days
+**Priority**: HIGH - Essential for good visual library experience
+
+### 2.4 Recently Played (2-3 days)
 
 **Backend**:
 - [ ] Add play history tracking:

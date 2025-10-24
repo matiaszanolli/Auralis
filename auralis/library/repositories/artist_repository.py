@@ -30,9 +30,13 @@ class ArtistRepository:
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
+            from ..models import Track, Album
             return (
                 session.query(Artist)
-                .options(joinedload(Artist.tracks), joinedload(Artist.albums))
+                .options(
+                    joinedload(Artist.tracks).joinedload(Track.genres),
+                    joinedload(Artist.albums).joinedload(Album.tracks)
+                )
                 .filter(Artist.id == artist_id)
                 .first()
             )
@@ -44,9 +48,13 @@ class ArtistRepository:
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
+            from ..models import Track
             return (
                 session.query(Artist)
-                .options(joinedload(Artist.tracks), joinedload(Artist.albums))
+                .options(
+                    joinedload(Artist.tracks).joinedload(Track.genres),
+                    joinedload(Artist.albums)
+                )
                 .filter(Artist.name == name)
                 .first()
             )
@@ -68,6 +76,7 @@ class ArtistRepository:
         try:
             from sqlalchemy.orm import joinedload
             from sqlalchemy import func, desc
+            from ..models import Track
 
             # Get total count
             total = session.query(Artist).count()
@@ -94,10 +103,13 @@ class ArtistRepository:
             else:  # Default to name
                 order_column = Artist.name.asc()
 
-            # Get paginated artists
+            # Get paginated artists with all relationships eagerly loaded
             artists = (
                 session.query(Artist)
-                .options(joinedload(Artist.tracks), joinedload(Artist.albums))
+                .options(
+                    joinedload(Artist.tracks).joinedload(Track.genres),  # Load track genres
+                    joinedload(Artist.albums)
+                )
                 .order_by(order_column)
                 .limit(limit)
                 .offset(offset)
@@ -122,9 +134,13 @@ class ArtistRepository:
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
+            from ..models import Track
             return (
                 session.query(Artist)
-                .options(joinedload(Artist.tracks), joinedload(Artist.albums))
+                .options(
+                    joinedload(Artist.tracks).joinedload(Track.genres),
+                    joinedload(Artist.albums)
+                )
                 .filter(Artist.name.ilike(f'%{query}%'))
                 .order_by(Artist.name)
                 .limit(limit)
