@@ -28,6 +28,7 @@ from .repositories import (
     PlaylistRepository,
     StatsRepository
 )
+from .cache import cached_query, invalidate_cache, get_cache_stats
 from ..utils.logging import info, warning, error
 
 
@@ -106,32 +107,39 @@ class LibraryManager:
         """Update track by filepath"""
         return self.tracks.update_by_filepath(filepath, track_info)
 
+    @cached_query(ttl=60)  # Cache for 1 minute (search results change frequently)
     def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> List[Track]:
         """Search tracks by title, artist, album, or genre"""
         return self.tracks.search(query, limit, offset)
 
+    @cached_query(ttl=300)  # Cache for 5 minutes
     def get_tracks_by_genre(self, genre_name: str, limit: int = 100) -> List[Track]:
         """Get tracks by genre"""
         return self.tracks.get_by_genre(genre_name, limit)
 
+    @cached_query(ttl=300)  # Cache for 5 minutes
     def get_tracks_by_artist(self, artist_name: str, limit: int = 100) -> List[Track]:
         """Get tracks by artist"""
         return self.tracks.get_by_artist(artist_name, limit)
 
+    @cached_query(ttl=180)  # Cache for 3 minutes (recent tracks don't change often)
     def get_recent_tracks(self, limit: int = 50, offset: int = 0) -> List[Track]:
-        """Get recently added tracks"""
+        """Get recently added tracks (cached for 3 minutes)"""
         return self.tracks.get_recent(limit, offset)
 
+    @cached_query(ttl=120)  # Cache for 2 minutes (play counts change more frequently)
     def get_popular_tracks(self, limit: int = 50, offset: int = 0) -> List[Track]:
-        """Get most played tracks"""
+        """Get most played tracks (cached for 2 minutes)"""
         return self.tracks.get_popular(limit, offset)
 
+    @cached_query(ttl=180)  # Cache for 3 minutes
     def get_favorite_tracks(self, limit: int = 50, offset: int = 0) -> List[Track]:
-        """Get favorite tracks"""
+        """Get favorite tracks (cached for 3 minutes)"""
         return self.tracks.get_favorites(limit, offset)
 
+    @cached_query(ttl=300)  # Cache for 5 minutes
     def get_all_tracks(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[List[Track], int]:
-        """Get all tracks with pagination
+        """Get all tracks with pagination (cached for 5 minutes)
 
         Args:
             limit: Maximum number of tracks to return
@@ -146,10 +154,14 @@ class LibraryManager:
     def record_track_play(self, track_id: int):
         """Record that a track was played"""
         self.tracks.record_play(track_id)
+        # Invalidate popular tracks cache since play count changed
+        invalidate_cache('get_popular_tracks')
 
     def set_track_favorite(self, track_id: int, favorite: bool = True):
         """Set track favorite status"""
         self.tracks.set_favorite(track_id, favorite)
+        # Invalidate favorites cache since favorite status changed
+        invalidate_cache('get_favorite_tracks')
 
     def find_reference_tracks(self, track: Track, limit: int = 5) -> List[Track]:
         """Find similar tracks for reference"""
@@ -233,3 +245,24 @@ class LibraryManager:
         """Get track recommendations based on listening history"""
         # Simplified recommendation - just return similar tracks
         return self.tracks.find_similar(track, limit)
+
+    # Cache management
+    def get_cache_stats(self) -> dict:
+        """
+        Get cache statistics for performance monitoring.
+
+        Returns:
+            Dictionary with cache stats including hits, misses, size, hit_rate
+        """
+        return get_cache_stats()
+
+    def clear_cache(self):
+        """Clear all cached query results"""
+        invalidate_cache()
+        info("Cache cleared")
+
+    def invalidate_track_caches(self):
+        """Invalidate all track-related caches (after adding/removing tracks)"""
+        invalidate_cache('get_recent_tracks')
+        invalidate_cache('get_all_tracks')
+        invalidate_cache('search_tracks')
