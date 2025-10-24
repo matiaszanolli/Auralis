@@ -230,6 +230,14 @@ class DynamicsProcessor:
             self.compressor.settings.threshold_db = new_threshold
             self.compressor.settings.ratio = new_ratio
 
+            # Calculate automatic makeup gain
+            # Standard formula: makeup_gain = |threshold| * (1 - 1/ratio)
+            # This compensates for the gain reduction caused by compression
+            auto_makeup_gain = abs(new_threshold) * (1 - 1/new_ratio)
+            self.compressor.settings.makeup_gain_db = auto_makeup_gain
+
+            debug(f"Auto makeup gain: {auto_makeup_gain:.2f}dB (threshold={new_threshold:.1f}dB, ratio={new_ratio:.1f}:1)")
+
     def _update_adaptation_state(self, processed_audio: np.ndarray,
                                 content_info: Optional[Dict[str, Any]]):
         """Update adaptation state with processed audio"""
