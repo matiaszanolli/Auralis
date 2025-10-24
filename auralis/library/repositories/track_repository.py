@@ -207,13 +207,14 @@ class TrackRepository:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50) -> List[Track]:
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> List[Track]:
         """
         Search tracks by title, artist, album, or genre
 
         Args:
             query: Search query string
             limit: Maximum number of results
+            offset: Number of results to skip (for pagination)
 
         Returns:
             List of matching tracks
@@ -227,7 +228,7 @@ class TrackRepository:
                     Artist.name.ilike(search_term),
                     Album.title.ilike(search_term)
                 )
-            ).limit(limit).all()
+            ).limit(limit).offset(offset).all()
 
             return results
         finally:
@@ -255,8 +256,16 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_recent(self, limit: int = 50) -> List[Track]:
-        """Get recently added tracks with relationships loaded"""
+    def get_recent(self, limit: int = 50, offset: int = 0) -> List[Track]:
+        """Get recently added tracks with relationships loaded
+
+        Args:
+            limit: Maximum number of tracks to return
+            offset: Number of tracks to skip (for pagination)
+
+        Returns:
+            List of Track objects
+        """
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
@@ -265,13 +274,22 @@ class TrackRepository:
                 .options(joinedload(Track.artists), joinedload(Track.album))
                 .order_by(Track.created_at.desc())
                 .limit(limit)
+                .offset(offset)
                 .all()
             )
         finally:
             session.close()
 
-    def get_popular(self, limit: int = 50) -> List[Track]:
-        """Get most played tracks with relationships loaded"""
+    def get_popular(self, limit: int = 50, offset: int = 0) -> List[Track]:
+        """Get most played tracks with relationships loaded
+
+        Args:
+            limit: Maximum number of tracks to return
+            offset: Number of tracks to skip (for pagination)
+
+        Returns:
+            List of Track objects
+        """
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
@@ -280,13 +298,22 @@ class TrackRepository:
                 .options(joinedload(Track.artists), joinedload(Track.album))
                 .order_by(Track.play_count.desc())
                 .limit(limit)
+                .offset(offset)
                 .all()
             )
         finally:
             session.close()
 
-    def get_favorites(self, limit: int = 50) -> List[Track]:
-        """Get favorite tracks with relationships loaded"""
+    def get_favorites(self, limit: int = 50, offset: int = 0) -> List[Track]:
+        """Get favorite tracks with relationships loaded
+
+        Args:
+            limit: Maximum number of tracks to return
+            offset: Number of tracks to skip (for pagination)
+
+        Returns:
+            List of Track objects
+        """
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
@@ -296,8 +323,42 @@ class TrackRepository:
                 .filter(Track.favorite == True)
                 .order_by(Track.title.asc())
                 .limit(limit)
+                .offset(offset)
                 .all()
             )
+        finally:
+            session.close()
+
+    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[List[Track], int]:
+        """Get all tracks with pagination and total count
+
+        Args:
+            limit: Maximum number of tracks to return
+            offset: Number of tracks to skip (for pagination)
+            order_by: Column name to order by ('title', 'created_at', 'play_count', etc.)
+
+        Returns:
+            Tuple of (list of Track objects, total count)
+        """
+        session = self.get_session()
+        try:
+            from sqlalchemy.orm import joinedload
+
+            # Get total count
+            total = session.query(Track).count()
+
+            # Get tracks for current page
+            order_column = getattr(Track, order_by, Track.title)
+            tracks = (
+                session.query(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .order_by(order_column.asc())
+                .limit(limit)
+                .offset(offset)
+                .all()
+            )
+
+            return tracks, total
         finally:
             session.close()
 

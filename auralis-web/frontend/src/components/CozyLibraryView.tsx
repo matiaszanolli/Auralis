@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -67,35 +67,65 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const [selectedArtistName, setSelectedArtistName] = useState<string>('');
   const [editMetadataDialogOpen, setEditMetadataDialogOpen] = useState(false);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
+
+  // Pagination state
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalTracks, setTotalTracks] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const { success, error, info } = useToast();
 
   // Real player API for playback
   const { playTrack, setQueue } = usePlayerAPI();
 
-  // Fetch tracks from API
-  const fetchTracks = async () => {
+  // Ref for infinite scroll observer
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Fetch tracks from API with pagination
+  const fetchTracks = async (resetPagination = true) => {
     setLoading(true);
+    if (resetPagination) {
+      setOffset(0);
+      setTracks([]);
+    }
+
     try {
+      const limit = 50;
+      const currentOffset = resetPagination ? 0 : offset;
+
       // Determine which endpoint to use based on view
       const endpoint = view === 'favourites'
-        ? 'http://localhost:8765/api/library/tracks/favorites'
-        : 'http://localhost:8765/api/library/tracks?limit=100';
+        ? `http://localhost:8765/api/library/tracks/favorites?limit=${limit}&offset=${currentOffset}`
+        : `http://localhost:8765/api/library/tracks?limit=${limit}&offset=${currentOffset}`;
 
       const response = await fetch(endpoint);
       if (response.ok) {
         const data = await response.json();
-        setTracks(data.tracks || []);
+
+        // Update state with pagination info
+        setHasMore(data.has_more || false);
+        setTotalTracks(data.total || 0);
+
+        if (resetPagination) {
+          setTracks(data.tracks || []);
+        } else {
+          setTracks(prev => [...prev, ...(data.tracks || [])]);
+        }
+
         console.log('Loaded', data.tracks?.length || 0, view === 'favourites' ? 'favorite tracks' : 'tracks from library');
-        if (data.tracks && data.tracks.length > 0) {
-          success(`Loaded ${data.tracks.length} ${view === 'favourites' ? 'favorites' : 'tracks'}`);
-        } else if (view === 'favourites') {
+        console.log(`Pagination: ${currentOffset + (data.tracks?.length || 0)}/${data.total || 0}, has_more: ${data.has_more}`);
+
+        if (resetPagination && data.tracks && data.tracks.length > 0) {
+          success(`Loaded ${data.tracks.length} of ${data.total} ${view === 'favourites' ? 'favorites' : 'tracks'}`);
+        } else if (resetPagination && view === 'favourites') {
           info('No favorites yet. Click the heart icon on tracks to add them!');
         }
       } else {
         console.error('Failed to fetch tracks');
         error('Failed to load library');
         // Fall back to mock data only for regular view
-        if (view !== 'favourites') {
+        if (view !== 'favourites' && resetPagination) {
           loadMockData();
         }
       }
@@ -108,6 +138,40 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load more tracks (for infinite scroll)
+  const loadMore = async () => {
+    if (isLoadingMore || !hasMore) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    try {
+      const limit = 50;
+      const newOffset = offset + limit;
+      setOffset(newOffset);
+
+      const endpoint = view === 'favourites'
+        ? `http://localhost:8765/api/library/tracks/favorites?limit=${limit}&offset=${newOffset}`
+        : `http://localhost:8765/api/library/tracks?limit=${limit}&offset=${newOffset}`;
+
+      const response = await fetch(endpoint);
+      if (response.ok) {
+        const data = await response.json();
+
+        // Append new tracks
+        setTracks(prev => [...prev, ...(data.tracks || [])]);
+        setHasMore(data.has_more || false);
+        setTotalTracks(data.total || 0);
+
+        console.log(`Loaded more: ${newOffset + (data.tracks?.length || 0)}/${data.total || 0}`);
+      }
+    } catch (err) {
+      console.error('Error loading more tracks:', err);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -240,6 +304,24 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       setFilteredTracks(filtered);
     }
   }, [searchQuery, tracks]);
+
+  // Infinite scroll with Intersection Observer
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, loading]);
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -592,6 +674,53 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
               />
             </Box>
           ))}
+
+          {/* Infinite scroll loading indicator */}
+          {hasMore && !loading && (
+            <Box
+              ref={loadMoreRef}
+              sx={{
+                p: 3,
+                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 2
+              }}
+            >
+              {isLoadingMore && (
+                <>
+                  <Box
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      border: '2px solid',
+                      borderColor: 'primary.main',
+                      borderRightColor: 'transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' }
+                      }
+                    }}
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    Loading more tracks... ({tracks.length}/{totalTracks})
+                  </Typography>
+                </>
+              )}
+            </Box>
+          )}
+
+          {/* End of list indicator */}
+          {!hasMore && tracks.length > 0 && (
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                Showing all {totalTracks} tracks
+              </Typography>
+            </Box>
+          )}
         </Paper>
       )}
 
