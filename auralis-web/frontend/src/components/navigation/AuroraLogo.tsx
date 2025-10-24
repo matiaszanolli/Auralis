@@ -26,7 +26,9 @@ const shimmer = keyframes`
   }
 `;
 
-const LogoContainer = styled(Box)<{ animated?: boolean }>(({ animated }) => ({
+const LogoContainer = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'animated'
+})<{ animated?: boolean }>(({ animated }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: '12px',
@@ -65,7 +67,9 @@ const WaveIcon = styled('svg')<{ size: number }>(({ size }) => ({
   zIndex: 1,
 }));
 
-const LogoText = styled(Typography)<{ size: string; animated?: boolean }>(({ size, animated }) => {
+const LogoText = styled(Typography, {
+  shouldForwardProp: (prop) => prop !== 'animated'
+})<{ size: string; animated?: boolean }>(({ size, animated }) => {
   const fontSize = {
     small: '16px',
     medium: '20px',

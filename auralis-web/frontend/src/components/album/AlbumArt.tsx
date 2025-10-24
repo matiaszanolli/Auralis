@@ -18,7 +18,9 @@ interface AlbumArtProps {
   showSkeleton?: boolean;
 }
 
-const ArtworkContainer = styled(Box)<{ size: number | string; clickable?: boolean }>(
+const ArtworkContainer = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'clickable' && prop !== 'size'
+})<{ size: number | string; clickable?: boolean }>(
   ({ size, clickable }) => ({
     width: size,
     height: size,
@@ -46,9 +48,9 @@ const ArtworkImage = styled('img')({
 });
 
 const PlaceholderIcon = styled(AlbumIcon)(({ theme }) => ({
-  fontSize: '60%',
-  color: 'rgba(255, 255, 255, 0.4)',
-  opacity: 0.6,
+  fontSize: '48px',
+  color: 'rgba(255, 255, 255, 0.7)',
+  opacity: 0.9,
 }));
 
 export const AlbumArt: React.FC<AlbumArtProps> = ({

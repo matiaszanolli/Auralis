@@ -13,6 +13,7 @@ Documentation of completed features, optimizations, and major implementations:
 
 - [BACKEND_REFACTORING_ROADMAP.md](completed/BACKEND_REFACTORING_ROADMAP.md) - Backend modularization (✅ Complete)
 - [LARGE_LIBRARY_OPTIMIZATION.md](completed/LARGE_LIBRARY_OPTIMIZATION.md) - Performance optimization for large libraries (✅ Complete)
+- [PHASE_2_ALBUMS_ARTISTS_COMPLETE.md](completed/PHASE_2_ALBUMS_ARTISTS_COMPLETE.md) - Album & Artist detail views (✅ Complete)
 - [PHASE_4_1_COMPLETE.md](completed/PHASE_4_1_COMPLETE.md) - Track metadata editing implementation
 - [TECHNICAL_DEBT_RESOLUTION.md](completed/TECHNICAL_DEBT_RESOLUTION.md) - Recent technical improvements
 - [PLAYBACK_FIX_APPLIED.md](completed/PLAYBACK_FIX_APPLIED.md) - Audio playback fixes
@@ -77,9 +78,9 @@ Historical session summaries and cleanup logs:
 
 ## 📊 Documentation Stats
 
-- **Total documents**: 33 markdown files organized
+- **Total documents**: 34 markdown files organized
 - **Root files**: 2 (README.md, CLAUDE.md)
-- **Completed work**: 8 documents
+- **Completed work**: 9 documents
 - **Implementation guides**: 8 documents
 - **Troubleshooting**: 5 documents
 - **Archived sessions**: 7 documents
@@ -88,4 +89,4 @@ Historical session summaries and cleanup logs:
 ---
 
 **Last Updated**: October 24, 2025
-**Documentation Version**: 3.0 (Reorganized and categorized)
+**Documentation Version**: 3.1 (Added Phase 2 completion)
