@@ -59,14 +59,11 @@ def mock_broadcast_manager():
     return manager
 
 
-@pytest.fixture
-def client(mock_library_manager, mock_broadcast_manager):
-    """Create test client with mocked dependencies"""
-    from fastapi.testclient import TestClient
-    from fastapi import FastAPI
-
-    # Mock MetadataEditor before importing the router
+@pytest.fixture(scope="function")
+def mock_metadata_editor():
+    """Create a fresh mock metadata editor for each test"""
     mock_editor = MagicMock()
+    # Set default return values
     mock_editor.get_editable_fields.return_value = [
         'title', 'artist', 'album', 'year', 'genre', 'track', 'disc'
     ]
@@ -89,22 +86,28 @@ def client(mock_library_manager, mock_broadcast_manager):
             {'track_id': 2, 'success': True, 'updates': {'artist': 'New Artist'}}
         ]
     }
+    return mock_editor
 
-    # Patch MetadataEditor at import time
-    with patch('auralis.library.metadata_editor.MetadataEditor', return_value=mock_editor):
-        # Now import and create the router (it will use mocked editor)
-        from routers.metadata import create_metadata_router
 
-        app = FastAPI()
-        router = create_metadata_router(
-            get_library_manager=lambda: mock_library_manager,
-            broadcast_manager=mock_broadcast_manager
-        )
-        app.include_router(router)
+@pytest.fixture(scope="function")
+def client(mock_library_manager, mock_broadcast_manager, mock_metadata_editor):
+    """Create test client with mocked dependencies"""
+    from fastapi.testclient import TestClient
+    from fastapi import FastAPI
+    from routers.metadata import create_metadata_router
 
-        client = TestClient(app)
-        # Return client, broadcast_manager, and mock_editor for assertions
-        yield client, mock_broadcast_manager, mock_editor
+    # Create router with mocked editor passed directly
+    app = FastAPI()
+    router = create_metadata_router(
+        get_library_manager=lambda: mock_library_manager,
+        broadcast_manager=mock_broadcast_manager,
+        metadata_editor=mock_metadata_editor  # Pass mock directly
+    )
+    app.include_router(router)
+
+    client = TestClient(app)
+    # Return client, broadcast_manager, and mock_editor for assertions
+    return client, mock_broadcast_manager, mock_metadata_editor
 
 
 class TestGetEditableFields:

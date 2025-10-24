@@ -106,9 +106,9 @@ class LibraryManager:
         """Update track by filepath"""
         return self.tracks.update_by_filepath(filepath, track_info)
 
-    def search_tracks(self, query: str, limit: int = 50) -> List[Track]:
+    def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> List[Track]:
         """Search tracks by title, artist, album, or genre"""
-        return self.tracks.search(query, limit)
+        return self.tracks.search(query, limit, offset)
 
     def get_tracks_by_genre(self, genre_name: str, limit: int = 100) -> List[Track]:
         """Get tracks by genre"""
@@ -118,17 +118,30 @@ class LibraryManager:
         """Get tracks by artist"""
         return self.tracks.get_by_artist(artist_name, limit)
 
-    def get_recent_tracks(self, limit: int = 50) -> List[Track]:
+    def get_recent_tracks(self, limit: int = 50, offset: int = 0) -> List[Track]:
         """Get recently added tracks"""
-        return self.tracks.get_recent(limit)
+        return self.tracks.get_recent(limit, offset)
 
-    def get_popular_tracks(self, limit: int = 50) -> List[Track]:
+    def get_popular_tracks(self, limit: int = 50, offset: int = 0) -> List[Track]:
         """Get most played tracks"""
-        return self.tracks.get_popular(limit)
+        return self.tracks.get_popular(limit, offset)
 
-    def get_favorite_tracks(self, limit: int = 50) -> List[Track]:
+    def get_favorite_tracks(self, limit: int = 50, offset: int = 0) -> List[Track]:
         """Get favorite tracks"""
-        return self.tracks.get_favorites(limit)
+        return self.tracks.get_favorites(limit, offset)
+
+    def get_all_tracks(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[List[Track], int]:
+        """Get all tracks with pagination
+
+        Args:
+            limit: Maximum number of tracks to return
+            offset: Number of tracks to skip
+            order_by: Column to order by
+
+        Returns:
+            Tuple of (tracks list, total count)
+        """
+        return self.tracks.get_all(limit, offset, order_by)
 
     def record_track_play(self, track_id: int):
         """Record that a track was played"""

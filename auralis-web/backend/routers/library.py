@@ -61,7 +61,12 @@ def create_library_router(get_library_manager):
             raise HTTPException(status_code=500, detail=f"Failed to get stats: {e}")
 
     @router.get("/api/library/tracks")
-    async def get_tracks(limit: int = 50, offset: int = 0, search: Optional[str] = None):
+    async def get_tracks(
+        limit: int = 50,
+        offset: int = 0,
+        search: Optional[str] = None,
+        order_by: str = 'created_at'
+    ):
         """
         Get tracks from library with optional search and pagination.
 
@@ -69,9 +74,15 @@ def create_library_router(get_library_manager):
             limit: Maximum number of tracks to return (default: 50)
             offset: Number of tracks to skip (default: 0)
             search: Optional search query
+            order_by: Column to order by (default: 'created_at')
 
         Returns:
-            dict: List of tracks with pagination info
+            dict: List of tracks with pagination info including:
+                - tracks: List of track objects
+                - total: Total number of tracks in library
+                - limit: Requested limit
+                - offset: Current offset
+                - has_more: Boolean indicating if more tracks are available
 
         Raises:
             HTTPException: If library manager not available or query fails
@@ -81,10 +92,15 @@ def create_library_router(get_library_manager):
             raise HTTPException(status_code=503, detail="Library manager not available")
 
         try:
+            # Get tracks with pagination
             if search:
-                tracks = library_manager.search_tracks(search, limit=limit)
+                tracks = library_manager.search_tracks(search, limit=limit, offset=offset)
+                # For search, we don't have total count yet, so estimate
+                total = len(tracks) + offset
+                has_more = len(tracks) >= limit
             else:
-                tracks = library_manager.get_recent_tracks(limit=limit)
+                tracks, total = library_manager.get_all_tracks(limit=limit, offset=offset, order_by=order_by)
+                has_more = (offset + len(tracks)) < total
 
             # Convert to dicts for JSON serialization
             tracks_data = []
@@ -102,23 +118,25 @@ def create_library_router(get_library_manager):
 
             return {
                 "tracks": tracks_data,
-                "total": len(tracks_data),
+                "total": total,
                 "offset": offset,
-                "limit": limit
+                "limit": limit,
+                "has_more": has_more
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get tracks: {e}")
 
     @router.get("/api/library/tracks/favorites")
-    async def get_favorite_tracks(limit: int = 100):
+    async def get_favorite_tracks(limit: int = 50, offset: int = 0):
         """
-        Get all favorite tracks.
+        Get all favorite tracks with pagination.
 
         Args:
-            limit: Maximum number of tracks to return (default: 100)
+            limit: Maximum number of tracks to return (default: 50)
+            offset: Number of tracks to skip (default: 0)
 
         Returns:
-            dict: List of favorite tracks
+            dict: List of favorite tracks with pagination info
 
         Raises:
             HTTPException: If library manager not available or query fails
@@ -128,7 +146,7 @@ def create_library_router(get_library_manager):
             raise HTTPException(status_code=503, detail="Library manager not available")
 
         try:
-            tracks = library_manager.tracks.get_favorites(limit=limit)
+            tracks = library_manager.get_favorite_tracks(limit=limit, offset=offset)
 
             # Convert to dicts for JSON serialization
             tracks_data = []
@@ -136,9 +154,15 @@ def create_library_router(get_library_manager):
                 if hasattr(track, 'to_dict'):
                     tracks_data.append(track.to_dict())
 
+            # Calculate has_more (we don't have total count for favorites, so estimate)
+            has_more = len(tracks) >= limit
+
             return {
                 "tracks": tracks_data,
-                "total": len(tracks_data)
+                "total": len(tracks_data) + offset,
+                "limit": limit,
+                "offset": offset,
+                "has_more": has_more
             }
         except Exception as e:
             logger.error(f"Failed to get favorite tracks: {e}")

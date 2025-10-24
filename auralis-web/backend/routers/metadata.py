@@ -58,20 +58,22 @@ class BatchMetadataRequest(BaseModel):
     backup: bool = Field(True, description="Create backup before modification")
 
 
-def create_metadata_router(get_library_manager, broadcast_manager):
+def create_metadata_router(get_library_manager, broadcast_manager, metadata_editor=None):
     """
     Factory function to create metadata router with dependencies.
 
     Args:
         get_library_manager: Callable that returns LibraryManager instance
         broadcast_manager: WebSocket broadcast manager
+        metadata_editor: Optional MetadataEditor instance (for testing)
 
     Returns:
         APIRouter: Configured router instance
     """
 
-    # Initialize metadata editor (shared instance)
-    metadata_editor = MetadataEditor()
+    # Initialize metadata editor (shared instance) or use provided one
+    if metadata_editor is None:
+        metadata_editor = MetadataEditor()
 
     @router.get("/api/metadata/tracks/{track_id}/fields")
     async def get_editable_fields(track_id: int):
