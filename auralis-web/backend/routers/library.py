@@ -421,4 +421,66 @@ def create_library_router(get_library_manager):
             logger.error(f"Failed to get album {album_id}: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to get album: {e}")
 
+    @router.post("/api/library/scan")
+    async def scan_library(
+        directories: List[str],
+        recursive: bool = True,
+        skip_existing: bool = True
+    ):
+        """
+        Scan directories for audio files and add them to the library.
+
+        This endpoint scans the specified directories for audio files and imports them
+        into the library. Progress updates are sent via WebSocket (see WEBSOCKET_API.md).
+
+        Args:
+            directories: List of directory paths to scan
+            recursive: Whether to scan subdirectories (default: True)
+            skip_existing: Skip files already in library (default: True)
+
+        Returns:
+            dict: Scan result with statistics:
+                - files_found: Number of audio files discovered
+                - files_added: Number of new files added to library
+                - files_skipped: Number of existing files skipped
+                - files_failed: Number of files that failed to import
+                - scan_time: Total scan duration in seconds
+                -
+        Raises:
+            HTTPException: If library manager not available or scan fails
+        """
+        library_manager = get_library_manager()
+        if not library_manager:
+            raise HTTPException(status_code=503, detail="Library manager not available")
+
+        try:
+            from auralis.library.scanner import LibraryScanner
+
+            # Create scanner with progress callback
+            scanner = LibraryScanner(library_manager)
+
+            # TODO: Connect progress callback to WebSocket broadcast
+            # For now, just scan without live progress
+
+            result = scanner.scan_directories(
+                directories=directories,
+                recursive=recursive,
+                skip_existing=skip_existing,
+                check_modifications=True
+            )
+
+            return {
+                "files_found": result.files_found,
+                "files_added": result.files_added,
+                "files_updated": result.files_updated,
+                "files_skipped": result.files_skipped,
+                "files_failed": result.files_failed,
+                "scan_time": result.scan_time,
+                "directories_scanned": result.directories_scanned
+            }
+
+        except Exception as e:
+            logger.error(f"Library scan failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Scan failed: {e}")
+
     return router
