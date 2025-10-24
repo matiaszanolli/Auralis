@@ -1,206 +1,91 @@
-# Auralis Documentation Directory
+# Auralis Documentation Index
 
-This directory contains organized documentation for the Auralis project.
+This directory contains all project documentation, organized by category.
 
-**For the main documentation index, see:** [DOCS.md](../DOCS.md) in the root directory.
+## 📂 Documentation Structure
 
----
+### Root Directory
+- [README.md](../README.md) - User-facing documentation and quick start guide
+- [CLAUDE.md](../CLAUDE.md) - Developer documentation for AI assistants and contributors
 
-## Directory Structure
+### Completed Work (`completed/`)
+Documentation of completed features, optimizations, and major implementations:
 
-```
-docs/
-├── README.md                     # This file
-├── getting-started/              # User-facing documentation
-├── development/                  # Developer guides and architecture
-├── design/                       # UI/UX design documentation
-├── api/                          # API documentation and integration guides
-├── deployment/                   # Deployment and release documentation
-└── archive/                      # Historical and obsolete documentation
-    ├── phase-completions/        # UI phase completion reports
-    ├── progress-reports/         # Daily/weekly progress summaries
-    └── build-milestones/         # Build completion and fix reports
-```
+- [BACKEND_REFACTORING_ROADMAP.md](completed/BACKEND_REFACTORING_ROADMAP.md) - Backend modularization (✅ Complete)
+- [LARGE_LIBRARY_OPTIMIZATION.md](completed/LARGE_LIBRARY_OPTIMIZATION.md) - Performance optimization for large libraries (✅ Complete)
+- [PHASE_4_1_COMPLETE.md](completed/PHASE_4_1_COMPLETE.md) - Track metadata editing implementation
+- [TECHNICAL_DEBT_RESOLUTION.md](completed/TECHNICAL_DEBT_RESOLUTION.md) - Recent technical improvements
+- [PLAYBACK_FIX_APPLIED.md](completed/PLAYBACK_FIX_APPLIED.md) - Audio playback fixes
+- [QUICK_WINS_COMPLETED.md](completed/QUICK_WINS_COMPLETED.md) - Quick improvement implementations
+- [REBUILD_COMPLETE.md](completed/REBUILD_COMPLETE.md) - System rebuild summary
+- [BUILD_AND_TEST_SUMMARY.md](completed/BUILD_AND_TEST_SUMMARY.md) - Build and testing results
 
----
+### Implementation Guides (`guides/`)
+Technical guides for implementing specific features and systems:
 
-## Quick Navigation
+- [PRESET_ARCHITECTURE_RESEARCH.md](guides/PRESET_ARCHITECTURE_RESEARCH.md) - Audio preset system design
+- [PRESET_INTEGRATION_FINDINGS.md](guides/PRESET_INTEGRATION_FINDINGS.md) - Preset integration analysis
+- [REAL_TIME_ENHANCEMENT_IMPLEMENTATION.md](guides/REAL_TIME_ENHANCEMENT_IMPLEMENTATION.md) - Real-time audio enhancement
+- [CHUNKED_STREAMING_DESIGN.md](guides/CHUNKED_STREAMING_DESIGN.md) - Chunked audio streaming architecture
+- [MSE_PROGRESSIVE_STREAMING_PLAN.md](guides/MSE_PROGRESSIVE_STREAMING_PLAN.md) - Media Source Extensions streaming
+- [REFACTORING_QUICK_START.md](guides/REFACTORING_QUICK_START.md) - Code refactoring guidelines
+- [WEBSOCKET_CONSOLIDATION_PLAN.md](guides/WEBSOCKET_CONSOLIDATION_PLAN.md) - WebSocket architecture
+- [WEBSOCKET_REST_ANALYSIS.md](guides/WEBSOCKET_REST_ANALYSIS.md) - WebSocket vs REST analysis
 
-### For Users
-- **Getting Started:** [getting-started/](getting-started/) (coming soon)
-- **Main README:** [../README.md](../README.md)
+### Troubleshooting (`troubleshooting/`)
+Debug guides and issue resolutions:
 
-### For Developers
-- **Architecture:** [../CLAUDE.md](../CLAUDE.md) (comprehensive overview)
-- **Build Guides:** [development/](development/)
-- **Testing:** [development/TESTING_QUICKSTART.md](development/TESTING_QUICKSTART.md)
-- **API Docs:** [api/](api/)
+- [DEBUG_PLAYBACK.md](troubleshooting/DEBUG_PLAYBACK.md) - Playback debugging guide
+- [PLAYBACK_RESTART_ISSUE.md](troubleshooting/PLAYBACK_RESTART_ISSUE.md) - Playback restart troubleshooting
+- [QUICK_FIX_PLAYBACK.md](troubleshooting/QUICK_FIX_PLAYBACK.md) - Quick playback fixes
+- [ISSUE_FIX_DATABASE_VERSION.md](troubleshooting/ISSUE_FIX_DATABASE_VERSION.md) - Database version issues
+- [CHUNKED_STREAMING_TEST_RESULTS.md](troubleshooting/CHUNKED_STREAMING_TEST_RESULTS.md) - Streaming test results
 
-### For Designers
-- **Design Guidelines:** [design/DESIGN_GUIDELINES.md](design/DESIGN_GUIDELINES.md)
-- **UI Roadmap:** [design/UI_IMPLEMENTATION_ROADMAP.md](design/UI_IMPLEMENTATION_ROADMAP.md)
-- **Component Checklist:** [design/UI_COMPONENTS_CHECKLIST.md](design/UI_COMPONENTS_CHECKLIST.md)
+### Roadmaps (`roadmaps/`)
+Feature roadmaps and planning documents:
 
-### For Deployers
-- **Launch Checklist:** [deployment/LAUNCH_READINESS_CHECKLIST.md](deployment/LAUNCH_READINESS_CHECKLIST.md)
-- **Version Management:** [deployment/VERSION_SYSTEM_IMPLEMENTATION.md](deployment/VERSION_SYSTEM_IMPLEMENTATION.md)
+- [ROADMAP_UPDATES_OCT23.md](roadmaps/ROADMAP_UPDATES_OCT23.md) - October 2023 roadmap updates
 
----
+### Archived Sessions (`archive/`)
+Historical session summaries and cleanup logs:
 
-## Documentation Categories
+- [SESSION_SUMMARY_OCT23.md](archive/SESSION_SUMMARY_OCT23.md)
+- [SESSION_SUMMARY_OCT24.md](archive/SESSION_SUMMARY_OCT24.md)
+- [SESSION_SUMMARY_CURRENT.md](archive/SESSION_SUMMARY_CURRENT.md)
+- [DOCUMENTATION_CLEANUP_OCT22.md](archive/DOCUMENTATION_CLEANUP_OCT22.md)
+- [REFACTORING_SESSION_STATUS.md](archive/REFACTORING_SESSION_STATUS.md)
+- [PHASE_0_COMPLETION_SUMMARY.md](archive/PHASE_0_COMPLETION_SUMMARY.md)
+- [PHASE_4_1_SUMMARY.md](archive/PHASE_4_1_SUMMARY.md)
 
-### 📖 Getting Started
-*Location: [getting-started/](getting-started/)*
+## 🔍 Quick Reference
 
-User-facing documentation for installation, setup, and basic usage.
+### For New Developers
+1. Start with [README.md](../README.md) for project overview
+2. Read [CLAUDE.md](../CLAUDE.md) for development guidelines
+3. Check [completed/](completed/) for implemented features
+4. Review [guides/](guides/) for implementation patterns
 
-**Status:** Directory created, content coming soon. For now, see [../README.md](../README.md)
+### For Feature Implementation
+1. Check [guides/](guides/) for relevant implementation guides
+2. Review [completed/](completed/) for similar completed work
+3. Consult [CLAUDE.md](../CLAUDE.md) for code organization principles
 
----
+### For Debugging
+1. Check [troubleshooting/](troubleshooting/) for known issues
+2. Review related documentation in [guides/](guides/)
+3. Search [archive/](archive/) for historical context
 
-### 🛠️ Development
-*Location: [development/](development/)*
+## 📊 Documentation Stats
 
-Comprehensive developer documentation including build guides, architecture docs, and Docker setup.
-
-**Key Documents:**
-- [BUILD_QUICK_REFERENCE.md](development/BUILD_QUICK_REFERENCE.md) - Quick command reference
-- [STANDALONE_APP_BUILD_GUIDE.md](development/STANDALONE_APP_BUILD_GUIDE.md) - Complete build guide
-- [TESTING_QUICKSTART.md](development/TESTING_QUICKSTART.md) - Testing guide
-- [AUTOMATED_TESTING_GUIDE.md](development/AUTOMATED_TESTING_GUIDE.md) - Automated testing setup
-- [QUICK_TEST_GUIDE.md](development/QUICK_TEST_GUIDE.md) - Quick testing reference
-- [audio_processing.md](development/audio_processing.md) - Audio processing architecture
-- [player_architecture.md](development/player_architecture.md) - Player architecture
-- [AUDIO_PLAYBACK_FIXES.md](development/AUDIO_PLAYBACK_FIXES.md) - Audio playback troubleshooting
-- [AUDIO_STREAMING_IMPLEMENTATION.md](development/AUDIO_STREAMING_IMPLEMENTATION.md) - Streaming implementation
-- [WEBSOCKET_STATE_MANAGEMENT.md](development/WEBSOCKET_STATE_MANAGEMENT.md) - WebSocket state sync
-- [ALBUM_ART_IMPLEMENTATION.md](development/ALBUM_ART_IMPLEMENTATION.md) - Album art system
-- [FAVORITES_SYSTEM_IMPLEMENTATION.md](development/FAVORITES_SYSTEM_IMPLEMENTATION.md) - Favorites feature
-- [QUEUE_MANAGEMENT_IMPLEMENTATION.md](development/QUEUE_MANAGEMENT_IMPLEMENTATION.md) - Queue management
-- [REPOSITORY_LAZY_LOADING_FIXES.md](development/REPOSITORY_LAZY_LOADING_FIXES.md) - Performance fixes
-
----
-
-### 🎨 Design
-*Location: [design/](design/)*
-
-UI/UX design documentation, component specifications, and implementation roadmaps.
-
-**Key Documents:**
-- [DESIGN_GUIDELINES.md](design/DESIGN_GUIDELINES.md) - Complete design guidelines
-- [UI_IMPLEMENTATION_ROADMAP.md](design/UI_IMPLEMENTATION_ROADMAP.md) - 6-week implementation plan
-- [UI_COMPONENTS_CHECKLIST.md](design/UI_COMPONENTS_CHECKLIST.md) - Component tracking
-- [QUICK_START_UI_DEVELOPMENT.md](design/QUICK_START_UI_DEVELOPMENT.md) - Quick start guide
-- [FRONTEND_IMPLEMENTATION_STATUS.md](design/FRONTEND_IMPLEMENTATION_STATUS.md) - Current frontend status
-- [AURALIS_ROADMAP.md](design/AURALIS_ROADMAP.md) - Product roadmap
+- **Total documents**: 33 markdown files organized
+- **Root files**: 2 (README.md, CLAUDE.md)
+- **Completed work**: 8 documents
+- **Implementation guides**: 8 documents
+- **Troubleshooting**: 5 documents
+- **Archived sessions**: 7 documents
+- **Roadmaps**: 1 document
 
 ---
 
-### 🔌 API
-*Location: [api/](api/)*
-
-API documentation and integration guides for backend services and analyzers.
-
-**Key Documents:**
-- [BACKEND_INTEGRATION_PLAN.md](api/BACKEND_INTEGRATION_PLAN.md) - Integration planning
-- [BACKEND_INTEGRATION_STATUS.md](api/BACKEND_INTEGRATION_STATUS.md) - Integration status
-- [analyzer_api.md](api/analyzer_api.md) - Analyzer API reference
-- [frequency_analyzer.md](api/frequency_analyzer.md) - Frequency analyzer API
-
----
-
-### 🚀 Deployment
-*Location: [deployment/](deployment/)*
-
-Deployment guides, version management, and launch checklists.
-
-**Key Documents:**
-- [LAUNCH_READINESS_CHECKLIST.md](deployment/LAUNCH_READINESS_CHECKLIST.md) - Pre-launch checklist
-- [VERSION_SYSTEM_IMPLEMENTATION.md](deployment/VERSION_SYSTEM_IMPLEMENTATION.md) - Version management
-- [VERSION_MIGRATION_ROADMAP.md](deployment/VERSION_MIGRATION_ROADMAP.md) - Migration strategy
-
----
-
-### 📦 Archive
-*Location: [archive/](archive/)*
-
-Historical documentation from earlier development phases. Preserved for reference but not actively maintained.
-
-**Sub-categories:**
-- [archive/phase-completions/](archive/phase-completions/) - UI development phase reports and feature completions
-- [archive/progress-reports/](archive/progress-reports/) - Session summaries and test results
-- [archive/build-milestones/](archive/build-milestones/) - Build completion reports
-- [archive/](archive/) - General implementation summaries and status reports
-
-**Note:** Archive documents are for historical reference only. For current information, see the active documentation categories above.
-
-**Recently Archived:**
-- Phase 1 completion reports (Album art, testing plans)
-- Queue management implementation docs
-- Playlist management completion
-- Testing implementation reports
-- Session progress summaries (October 2025)
-
----
-
-## Contributing to Documentation
-
-### Adding New Documentation
-
-1. **Determine the category** - Choose the appropriate directory based on content
-2. **Create the document** - Use Markdown format, follow existing naming conventions
-3. **Update this README** - Add a link to your new document in the appropriate section
-4. **Update DOCS.md** - Add entry to the main documentation index in the root directory
-
-### Archiving Old Documentation
-
-1. **Move to archive/** - Place in appropriate sub-category (phase-completions, progress-reports, etc.)
-2. **Update references** - Remove from active documentation indexes
-3. **Preserve links** - Update any references to archived documents
-
-### Documentation Standards
-
-- **Format:** Markdown (.md files)
-- **Naming:** Use descriptive names with underscores or hyphens (e.g., `BUILD_QUICK_REFERENCE.md`)
-- **Headers:** Use clear, hierarchical headers (##, ###, etc.)
-- **Links:** Use relative links to other documentation
-- **Status:** Include status badges or date stamps where appropriate
-
----
-
-## Finding Information
-
-### By Topic
-
-- **Installation & Setup** → [getting-started/](getting-started/) or [../README.md](../README.md)
-- **Building & Testing** → [development/](development/)
-- **Architecture** → [../CLAUDE.md](../CLAUDE.md) or [development/](development/)
-- **UI Design** → [design/](design/)
-- **API Integration** → [api/](api/)
-- **Deployment** → [deployment/](deployment/)
-- **Historical Info** → [archive/](archive/)
-
-### By Role
-
-- **New User** → Start with [../README.md](../README.md)
-- **Developer** → See [../CLAUDE.md](../CLAUDE.md) then [development/](development/)
-- **Designer** → See [design/](design/)
-- **DevOps** → See [deployment/](deployment/) and [development/DOCKER.md](development/DOCKER.md)
-- **Contributor** → See [../CLAUDE.md](../CLAUDE.md) and [../PROJECT_STATUS.md](../PROJECT_STATUS.md)
-
----
-
-## Documentation Statistics
-
-- **Active Documentation:** 40+ files across 5 categories
-- **Archived Documentation:** 40+ historical files
-- **Last Major Reorganization:** October 22, 2025
-- **Primary Language:** English
-- **Format:** Markdown
-
----
-
-**Need help?** Open an issue on [GitHub](https://github.com/matiaszanolli/Auralis/issues) or check the main [DOCS.md](../DOCS.md) index.
-
-**Maintained by:** Auralis Team
-**Last Updated:** October 18, 2025
+**Last Updated**: October 24, 2025
+**Documentation Version**: 3.0 (Reorganized and categorized)

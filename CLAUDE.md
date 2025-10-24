@@ -153,7 +153,10 @@ Professional-grade digital signal processing with modular architecture:
 **Library Management (`auralis/library/`):**
 - Repository pattern for data access (track, album, artist, playlist repositories)
 - Intelligent folder scanning (740+ files/second)
-- SQLite database with SQLAlchemy models
+- SQLite database with SQLAlchemy models (schema v3 with performance indexes)
+- **Query result caching** with 136x speedup on cache hits
+- **Pagination support** for large libraries (10k+ tracks)
+- Database migration system for schema versioning
 
 **Audio Player (`auralis/player/`):**
 - Enhanced player with real-time processing
@@ -192,7 +195,8 @@ The backend uses a **modular router architecture** (FastAPI best practice):
 - [auralis-web/backend/main.py](auralis-web/backend/main.py) - Main FastAPI app and startup (614 lines)
 - [auralis-web/backend/routers/](auralis-web/backend/routers/) - Modular endpoint routers:
   - `player.py` - Playback control (play, pause, seek, queue, volume)
-  - `library.py` - Library management (tracks, albums, artists)
+  - `library.py` - Library management (tracks, albums, artists) with **pagination support**
+  - `metadata.py` - Track metadata editing (14 editable fields)
   - `enhancement.py` - Audio enhancement settings
   - `playlists.py` - Playlist CRUD operations
   - `files.py` - File upload and format handling
@@ -209,9 +213,12 @@ The backend uses a **modular router architecture** (FastAPI best practice):
 5. Follow async/await pattern for I/O operations
 
 ### Library Management Changes
-- [auralis/library/manager.py](auralis/library/manager.py) - Library manager orchestrator
+- [auralis/library/manager.py](auralis/library/manager.py) - Library manager orchestrator with caching
+- [auralis/library/cache.py](auralis/library/cache.py) - Query result caching system (136x speedup)
 - [auralis/library/scanner.py](auralis/library/scanner.py) - Folder scanning logic
-- [auralis/library/repositories/](auralis/library/repositories/) - Repository pattern data access
+- [auralis/library/repositories/](auralis/library/repositories/) - Repository pattern data access with pagination
+- [auralis/library/migrations/](auralis/library/migrations/) - Database schema migrations
+- [auralis/library/metadata_editor.py](auralis/library/metadata_editor.py) - Track metadata editing (Mutagen)
 
 ## Key Processing Workflows
 
@@ -245,6 +252,55 @@ save("output.wav", processed_audio, sr, subtype='PCM_16')
 - **Warm**: Adds warmth and smoothness
 - **Bright**: Enhances clarity and presence
 - **Punchy**: Increases impact and dynamics
+
+## Large Library Performance Optimization
+
+Auralis is optimized for handling large music libraries (10k+ tracks) with 4-layer performance architecture:
+
+### 1. Pagination System
+- **Backend**: Offset-based pagination in all repository methods
+- **Frontend**: Infinite scroll with Intersection Observer (50 tracks per page)
+- **API**: `GET /api/library/tracks?limit=50&offset=0` returns `{tracks, total, has_more}`
+- **Impact**: Initial load only fetches 50 tracks (~100ms)
+
+### 2. Database Indexes (Schema v3)
+- **12 performance indexes** on frequently queried columns
+- Indexed columns: `created_at`, `title`, `play_count`, `favorite`, `last_played`, `album_id`, `year`
+- Composite index for favorite tracks ordered by title
+- Related tables: `artists.name`, `albums.title`, `genres.name`
+- **Impact**: Faster ORDER BY and WHERE queries on large datasets
+
+### 3. Query Result Caching
+- **LRU cache** with TTL expiration (256 entries, configurable)
+- Cache durations:
+  - Recent tracks: 3 minutes
+  - Popular tracks: 2 minutes
+  - Favorites: 3 minutes
+  - All tracks: 5 minutes
+  - Search: 1 minute
+- **Automatic invalidation** on data changes (play count, favorites, library scanning)
+- **Impact**: 136x speedup on cache hits (6ms → 0.04ms)
+
+### 4. Cache Management API
+```python
+from auralis.library.manager import LibraryManager
+
+manager = LibraryManager()
+
+# Get cache statistics
+stats = manager.get_cache_stats()
+# Returns: {size, max_size, hits, misses, hit_rate, total_requests}
+
+# Clear all caches
+manager.clear_cache()
+
+# Invalidate specific caches after batch operations
+manager.invalidate_track_caches()
+```
+
+**Combined Performance**: Initial load fast, subsequent queries 136x faster, supports 50k+ track libraries
+
+**Documentation**: See [LARGE_LIBRARY_OPTIMIZATION.md](LARGE_LIBRARY_OPTIMIZATION.md) for implementation details
 
 ## Development Workflow
 
@@ -455,22 +511,41 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **Core Processing**: ✅ Production-ready (52.8x real-time speed, E2E validated)
 - **Backend API**: ✅ 74% test coverage (96 tests, 100% passing)
 - **Backend Refactoring**: ✅ COMPLETE - Modular router architecture (614 lines main.py, down from 1,960)
-- **Library Management**: ✅ 740+ files/second scanning
+- **Library Management**: ✅ 740+ files/second scanning, **pagination support**, **query caching (136x speedup)**
+- **Database**: ✅ Schema v3 with 12 performance indexes for large libraries
+- **Track Metadata Editing**: ✅ Full CRUD with 14 editable fields (Mutagen integration)
 - **Audio Player**: ✅ Full playback with real-time processing
 - **WebSocket API**: ✅ Real-time player state updates
+- **Large Library Support**: ✅ Optimized for 50k+ tracks (infinite scroll, caching, indexes)
 
 **Technical Debt:**
 - Version management system needed before production launch - See `VERSION_MIGRATION_ROADMAP.md`
 - Frontend test coverage needs expansion
 
 ### Additional Documentation
-- `README.md` - User-facing documentation
-- `NEXT_STEPS.md` - Development roadmap
-- `UI_SIMPLIFICATION.md` - UI design philosophy
-- `LIBRARY_MANAGEMENT_ADDED.md` - Library features
-- `NATIVE_FOLDER_PICKER.md` - Native OS integration
-- `VERSION_MIGRATION_ROADMAP.md` - Version management plan
-- `BACKEND_REFACTORING_ROADMAP.md` - Backend modularization plan (✅ Phase 1 complete)
+
+**See [docs/README.md](docs/README.md) for the complete documentation index**
+
+All technical documentation has been organized into categorized directories:
+
+**📂 docs/completed/** - Completed features and optimizations
+- [BACKEND_REFACTORING_ROADMAP.md](docs/completed/BACKEND_REFACTORING_ROADMAP.md) - ✅ Backend modularization
+- [LARGE_LIBRARY_OPTIMIZATION.md](docs/completed/LARGE_LIBRARY_OPTIMIZATION.md) - ✅ Performance optimization
+- [PHASE_4_1_COMPLETE.md](docs/completed/PHASE_4_1_COMPLETE.md) - ✅ Metadata editing
+- [TECHNICAL_DEBT_RESOLUTION.md](docs/completed/TECHNICAL_DEBT_RESOLUTION.md) - ✅ Technical improvements
+
+**📂 docs/guides/** - Implementation guides and technical designs
+- [PRESET_ARCHITECTURE_RESEARCH.md](docs/guides/PRESET_ARCHITECTURE_RESEARCH.md) - Preset system design
+- [WEBSOCKET_CONSOLIDATION_PLAN.md](docs/guides/WEBSOCKET_CONSOLIDATION_PLAN.md) - WebSocket architecture
+- [CHUNKED_STREAMING_DESIGN.md](docs/guides/CHUNKED_STREAMING_DESIGN.md) - Audio streaming design
+- [REFACTORING_QUICK_START.md](docs/guides/REFACTORING_QUICK_START.md) - Code refactoring guide
+
+**📂 docs/troubleshooting/** - Debug guides and issue resolutions
+
+**📂 docs/roadmaps/** - Feature roadmaps and planning
+
+**📂 docs/archive/** - Historical session summaries
+
+**Other key documentation:**
+- `README.md` - User-facing documentation and quick start
 - `auralis-web/backend/WEBSOCKET_API.md` - WebSocket message types and protocol
-- `TECHNICAL_DEBT_RESOLUTION.md` - Recent technical improvements
-- `PRESET_ARCHITECTURE_RESEARCH.md` - Audio preset system design
