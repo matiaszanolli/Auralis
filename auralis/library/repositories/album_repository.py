@@ -59,17 +59,91 @@ class AlbumRepository:
         finally:
             session.close()
 
-    def get_all(self) -> List[Album]:
-        """Get all albums with relationships loaded"""
+    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[List[Album], int]:
+        """
+        Get all albums with pagination and total count
+
+        Args:
+            limit: Maximum number of albums to return
+            offset: Number of albums to skip
+            order_by: Column to order by ('title', 'year', 'created_at')
+
+        Returns:
+            Tuple of (albums list, total count)
+        """
+        session = self.get_session()
+        try:
+            from sqlalchemy.orm import joinedload
+
+            # Get total count
+            total = session.query(Album).count()
+
+            # Get albums for current page
+            order_column = getattr(Album, order_by, Album.title)
+            albums = (
+                session.query(Album)
+                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .order_by(order_column.asc())
+                .limit(limit)
+                .offset(offset)
+                .all()
+            )
+
+            return albums, total
+        finally:
+            session.close()
+
+    def get_recent(self, limit: int = 50, offset: int = 0) -> List[Album]:
+        """Get recently added albums with pagination"""
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
             return (
                 session.query(Album)
                 .options(joinedload(Album.artist), joinedload(Album.tracks))
-                .order_by(Album.title)
+                .order_by(Album.created_at.desc())
+                .limit(limit)
+                .offset(offset)
                 .all()
             )
+        finally:
+            session.close()
+
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> List[Album]:
+        """
+        Search albums by title or artist name
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            List of matching albums
+        """
+        session = self.get_session()
+        try:
+            from sqlalchemy.orm import joinedload
+            from sqlalchemy import or_
+            from ..models import Artist
+
+            search_term = f"%{query}%"
+            results = (
+                session.query(Album)
+                .join(Album.artist, isouter=True)
+                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .filter(
+                    or_(
+                        Album.title.ilike(search_term),
+                        Artist.name.ilike(search_term)
+                    )
+                )
+                .limit(limit)
+                .offset(offset)
+                .all()
+            )
+
+            return results
         finally:
             session.close()
 
