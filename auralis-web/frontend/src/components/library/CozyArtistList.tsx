@@ -5,7 +5,7 @@
  * Follows the Auralis dark theme aesthetic.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   List,
@@ -123,29 +123,87 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalArtists, setTotalArtists] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Ref for infinite scroll observer
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchArtists();
+    fetchArtists(true);
   }, []);
 
-  const fetchArtists = async () => {
-    setLoading(true);
+  // Infinite scroll with Intersection Observer
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, loading]);
+
+  const fetchArtists = async (resetPagination = false) => {
+    if (resetPagination) {
+      setLoading(true);
+      setOffset(0);
+      setArtists([]);
+    } else {
+      setIsLoadingMore(true);
+    }
+
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8765/api/library/artists');
+      const limit = 50;
+      const currentOffset = resetPagination ? 0 : offset;
+
+      const response = await fetch(`http://localhost:8765/api/artists?limit=${limit}&offset=${currentOffset}`);
       if (!response.ok) {
         throw new Error('Failed to fetch artists');
       }
 
       const data = await response.json();
-      setArtists(data.artists || []);
+
+      // Update state with pagination info
+      setHasMore(data.has_more || false);
+      setTotalArtists(data.total || 0);
+
+      if (resetPagination) {
+        setArtists(data.artists || []);
+      } else {
+        setArtists(prev => [...prev, ...(data.artists || [])]);
+      }
+
+      console.log(`Loaded ${data.artists?.length || 0} artists, ${currentOffset + (data.artists?.length || 0)}/${data.total || 0}`);
     } catch (err) {
       console.error('Error fetching artists:', err);
       setError(err instanceof Error ? err.message : 'Failed to load artists');
     } finally {
       setLoading(false);
+      setIsLoadingMore(false);
     }
+  };
+
+  const loadMore = async () => {
+    if (isLoadingMore || !hasMore) {
+      return;
+    }
+
+    const limit = 50;
+    const newOffset = offset + limit;
+    setOffset(newOffset);
+    await fetchArtists(false);
   };
 
   const handleArtistClick = (artist: Artist) => {
@@ -215,7 +273,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
     <ListContainer>
       <SectionHeader>
         <Typography variant="body2" color="text.secondary">
-          {artists.length} artists in your library
+          {artists.length} {artists.length !== totalArtists ? `of ${totalArtists}` : ''} artists in your library
         </Typography>
       </SectionHeader>
 
@@ -253,6 +311,53 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
           </Box>
         ))}
       </List>
+
+      {/* Infinite scroll loading indicator */}
+      {hasMore && !loading && (
+        <Box
+          ref={loadMoreRef}
+          sx={{
+            p: 3,
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2
+          }}
+        >
+          {isLoadingMore && (
+            <>
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                  borderRightColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' }
+                  }
+                }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                Loading more artists... ({artists.length}/{totalArtists})
+              </Typography>
+            </>
+          )}
+        </Box>
+      )}
+
+      {/* End of list indicator */}
+      {!hasMore && artists.length > 0 && (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Showing all {totalArtists} artists
+          </Typography>
+        </Box>
+      )}
     </ListContainer>
   );
 };

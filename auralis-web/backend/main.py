@@ -65,6 +65,7 @@ from routers.artwork import create_artwork_router
 from routers.playlists import create_playlists_router
 from routers.library import create_library_router
 from routers.albums import create_albums_router
+from routers.artists import create_artists_router
 from routers.player import create_player_router
 from routers.metadata import create_metadata_router
 
@@ -254,6 +255,12 @@ albums_router = create_albums_router(
     get_library_manager=lambda: library_manager
 )
 app.include_router(albums_router)
+
+# Create and include artists router (artist browsing and management)
+artists_router = create_artists_router(
+    get_library_manager=lambda: library_manager
+)
+app.include_router(artists_router)
 
 # Create and include player router (playback control, streaming, queue management)
 player_router = create_player_router(
