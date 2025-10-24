@@ -65,16 +65,15 @@ class HybridProcessor:
             adaptation_rate=config.adaptive.adaptation_strength
         )
 
-        # Initialize advanced dynamics processor
+        # Initialize advanced dynamics processor with automatic makeup gain
         self.dynamics_processor = create_dynamics_processor(
             mode=DynamicsMode.ADAPTIVE,
             sample_rate=config.internal_sample_rate,
             target_lufs=-14.0  # Modern mastering standard
         )
-        # Temporarily disable ALL dynamics processing - they reduce loudness without makeup gain
-        # TODO: Add automatic makeup gain calculation, then re-enable
+        # Enable only compressor with auto makeup gain, keep gate and limiter disabled for now
         self.dynamics_processor.settings.enable_gate = False
-        self.dynamics_processor.settings.enable_compressor = False
+        self.dynamics_processor.settings.enable_compressor = True
         self.dynamics_processor.settings.enable_limiter = False
 
         # Initialize brick-wall limiter for final peak control
@@ -214,26 +213,26 @@ class HybridProcessor:
         self.last_content_profile = content_profile
         self.preference_manager.set_content_profile(content_profile)
 
-        # Debug: Track loudness through each stage
+        # Track loudness through each processing stage
         before_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-        print(f"[STAGE 1] Before EQ: {before_eq_lufs:.2f} LUFS")
+        debug(f"[STAGE 1] Before EQ: {before_eq_lufs:.2f} LUFS")
 
         # Apply psychoacoustic EQ adjustments with content awareness
         processed_audio = self._apply_psychoacoustic_eq(processed_audio, targets, content_profile)
 
         after_eq_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-        print(f"[STAGE 2] After EQ: {after_eq_lufs:.2f} LUFS (change: {after_eq_lufs - before_eq_lufs:+.2f} dB)")
+        debug(f"[STAGE 2] After EQ: {after_eq_lufs:.2f} LUFS (change: {after_eq_lufs - before_eq_lufs:+.2f} dB)")
 
-        # TEMP: Skip dynamics processing entirely to isolate the issue
-        # Apply advanced dynamics processing with targets
+        # Apply advanced dynamics processing with automatic makeup gain
         # Pass targets via content_profile for dynamics adaptation
-        # content_profile_with_targets = content_profile.copy()
-        # content_profile_with_targets['processing_targets'] = targets
-        # processed_audio, dynamics_info = self.dynamics_processor.process(
-        #     processed_audio, content_profile_with_targets
-        # )
-        print(f"[STAGE 3] Dynamics processing SKIPPED (temporary)")
-        dynamics_info = {}
+        content_profile_with_targets = content_profile.copy()
+        content_profile_with_targets['processing_targets'] = targets
+        before_dynamics_lufs = after_eq_lufs
+        processed_audio, dynamics_info = self.dynamics_processor.process(
+            processed_audio, content_profile_with_targets
+        )
+        after_dynamics_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
+        debug(f"[STAGE 3] After Dynamics: {after_dynamics_lufs:.2f} LUFS (change: {after_dynamics_lufs - before_dynamics_lufs:+.2f} dB)")
 
         # Apply stereo width adjustment
         if processed_audio.ndim == 2 and processed_audio.shape[1] == 2:
@@ -253,12 +252,11 @@ class HybridProcessor:
 
         if abs(current_lufs - target_lufs) > 0.5:  # Apply if there's a difference
             lufs_gain_db = target_lufs - current_lufs
-            # Allow full range - limiter will handle peak control
-            print(f"[PRESET DEBUG] Before LUFS adjust: {current_lufs:.2f} LUFS, Target: {target_lufs:.2f}, Gain: {lufs_gain_db:+.2f}dB")
+            # Allow full range - soft clipper will handle peak control
+            debug(f"[LUFS Normalization] Before: {current_lufs:.2f} LUFS, Target: {target_lufs:.2f}, Gain: {lufs_gain_db:+.2f}dB")
             processed_audio = amplify(processed_audio, lufs_gain_db)
             final_lufs = calculate_loudness_units(processed_audio, self.config.internal_sample_rate)
-            print(f"[PRESET DEBUG] After applying {lufs_gain_db:+.2f}dB gain: {final_lufs:.2f} LUFS")
-            debug(f"Final LUFS adjustment: {current_lufs:.1f} → {target_lufs:.1f} ({lufs_gain_db:+.1f}dB)")
+            debug(f"[LUFS Normalization] After applying {lufs_gain_db:+.2f}dB gain: {final_lufs:.2f} LUFS")
 
         # Apply soft clipping to prevent hard clipping while preserving loudness differences
         # Uses tanh saturation which is more musical and preserves more dynamics
@@ -266,7 +264,7 @@ class HybridProcessor:
         if peak_before > 0.8:  # Only clip if we're approaching clipping
             processed_audio = soft_clip(processed_audio, threshold=0.8, ceiling=0.99)
             peak_after = np.max(np.abs(processed_audio))
-            print(f"[SOFT CLIP] Peak reduced from {peak_before:.2f} to {peak_after:.2f}")
+            debug(f"[Soft Clipper] Peak reduced from {peak_before:.2f} to {peak_after:.2f}")
 
         return processed_audio
 

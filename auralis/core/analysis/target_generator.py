@@ -202,16 +202,29 @@ class AdaptiveTargetGenerator:
         )
 
         # Target loudness (LUFS) - blend towards preset target
-        # But respect content characteristics (don't over-compress quiet material)
+        # But respect content characteristics (don't over-compress material)
         adaptive_lufs = modified_targets.get("target_lufs", -14.0)
         preset_lufs = preset_profile.target_lufs
 
-        # If content is already quiet/compressed, be more conservative
+        # Get estimated input loudness from content analysis
+        estimated_lufs = content_profile.get("estimated_lufs", -20.0)
         dynamic_range = content_profile.get("dynamic_range", 15.0)
-        if dynamic_range < 10:  # Already compressed
-            # Don't push it as loud as the preset wants
+
+        # Content-aware loudness adjustment based on input characteristics
+        if dynamic_range < 8:
+            # Very compressed (loudness wars era) - be very conservative
+            lufs_blend = dynamics_blend * 0.3
+            debug(f"Very compressed material (DR<8): using conservative blend {lufs_blend:.2f}")
+        elif dynamic_range < 10:
+            # Moderately compressed - be conservative
             lufs_blend = dynamics_blend * 0.5
+            debug(f"Compressed material (DR<10): using moderate blend {lufs_blend:.2f}")
+        elif estimated_lufs > -12:
+            # Already loud (modern/loudness wars) - be conservative even if DR is good
+            lufs_blend = dynamics_blend * 0.4
+            debug(f"Already loud material (>{estimated_lufs:.1f} LUFS): using conservative blend {lufs_blend:.2f}")
         else:
+            # Normal dynamic material - use standard blend
             lufs_blend = dynamics_blend * 0.8
 
         modified_targets["target_lufs"] = (
