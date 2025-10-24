@@ -511,10 +511,18 @@ class HybridProcessor:
         target_rms_db = spectrum_params.output_target_rms
 
         # IMPORTANT: Apply RMS gain BEFORE peak normalization to preserve dynamics
-        # For under-leveled material OR loud material needing energy boost
+        # But ONLY for under-leveled material - NOT for already-loud material
         rms_diff_from_target = target_rms_db - current_rms_db
 
-        if rms_diff_from_target > 0.5:  # Need to boost RMS
+        # Only boost RMS if material is significantly under-leveled
+        # AND we're not in expansion mode (expansion should REDUCE RMS)
+        should_boost_rms = (
+            rms_diff_from_target > 0.5 and  # Need significant boost
+            current_rms_db < -15.0 and  # Material is actually quiet
+            spectrum_params.expansion_amount < 0.1  # NOT expanding dynamics
+        )
+
+        if should_boost_rms:
             # Apply gain to reach target RMS first
             rms_boost = np.clip(rms_diff_from_target, 0.0, 12.0)  # Cap at +12 dB
 
@@ -527,6 +535,9 @@ class HybridProcessor:
             peak_db = 20 * np.log10(peak) if peak > 0 else -np.inf
             current_rms = calculate_rms(processed_audio)
             current_rms_db = 20 * np.log10(current_rms) if current_rms > 0 else -np.inf
+        else:
+            if rms_diff_from_target > 0.5:
+                print(f"[RMS Boost] SKIPPED - Material already loud (RMS: {current_rms_db:.2f} dB, target: {target_rms_db:.2f} dB)")
 
         # Now apply peak normalization to -0.1 dB
         target_peak_db = -0.1
