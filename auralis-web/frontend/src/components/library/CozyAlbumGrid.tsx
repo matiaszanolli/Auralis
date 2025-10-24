@@ -5,7 +5,7 @@
  * following the Auralis dark theme aesthetic with aurora gradients.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Grid,
@@ -103,29 +103,87 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalAlbums, setTotalAlbums] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Ref for infinite scroll observer
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchAlbums();
+    fetchAlbums(true);
   }, []);
 
-  const fetchAlbums = async () => {
-    setLoading(true);
+  // Infinite scroll with Intersection Observer
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, loading]);
+
+  const fetchAlbums = async (resetPagination = false) => {
+    if (resetPagination) {
+      setLoading(true);
+      setOffset(0);
+      setAlbums([]);
+    } else {
+      setIsLoadingMore(true);
+    }
+
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8765/api/library/albums');
+      const limit = 50;
+      const currentOffset = resetPagination ? 0 : offset;
+
+      const response = await fetch(`http://localhost:8765/api/albums?limit=${limit}&offset=${currentOffset}`);
       if (!response.ok) {
         throw new Error('Failed to fetch albums');
       }
 
       const data = await response.json();
-      setAlbums(data.albums || []);
+
+      // Update state with pagination info
+      setHasMore(data.has_more || false);
+      setTotalAlbums(data.total || 0);
+
+      if (resetPagination) {
+        setAlbums(data.albums || []);
+      } else {
+        setAlbums(prev => [...prev, ...(data.albums || [])]);
+      }
+
+      console.log(`Loaded ${data.albums?.length || 0} albums, ${currentOffset + (data.albums?.length || 0)}/${data.total || 0}`);
     } catch (err) {
       console.error('Error fetching albums:', err);
       setError(err instanceof Error ? err.message : 'Failed to load albums');
     } finally {
       setLoading(false);
+      setIsLoadingMore(false);
     }
+  };
+
+  const loadMore = async () => {
+    if (isLoadingMore || !hasMore) {
+      return;
+    }
+
+    const limit = 50;
+    const newOffset = offset + limit;
+    setOffset(newOffset);
+    await fetchAlbums(false);
   };
 
   const handleAlbumClick = (albumId: number) => {
@@ -213,6 +271,53 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
           </Grid>
         ))}
       </Grid>
+
+      {/* Infinite scroll loading indicator */}
+      {hasMore && !loading && (
+        <Box
+          ref={loadMoreRef}
+          sx={{
+            p: 3,
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2
+          }}
+        >
+          {isLoadingMore && (
+            <>
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                  borderRightColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' }
+                  }
+                }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                Loading more albums... ({albums.length}/{totalAlbums})
+              </Typography>
+            </>
+          )}
+        </Box>
+      )}
+
+      {/* End of list indicator */}
+      {!hasMore && albums.length > 0 && (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Showing all {totalAlbums} albums
+          </Typography>
+        </Box>
+      )}
     </GridContainer>
   );
 };
