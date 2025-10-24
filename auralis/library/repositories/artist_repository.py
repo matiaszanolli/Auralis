@@ -53,15 +53,82 @@ class ArtistRepository:
         finally:
             session.close()
 
-    def get_all(self) -> List[Artist]:
-        """Get all artists with relationships loaded"""
+    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[List[Artist], int]:
+        """Get all artists with pagination and relationships loaded
+
+        Args:
+            limit: Maximum number of artists to return
+            offset: Number of artists to skip
+            order_by: Field to sort by ('name', 'album_count', 'track_count')
+
+        Returns:
+            Tuple of (artists list, total count)
+        """
+        session = self.get_session()
+        try:
+            from sqlalchemy.orm import joinedload
+            from sqlalchemy import func, desc
+
+            # Get total count
+            total = session.query(Artist).count()
+
+            # Determine sort column
+            if order_by == 'album_count':
+                # Subquery to count albums per artist
+                album_count_query = (
+                    session.query(Artist.id, func.count(Artist.albums).label('album_count'))
+                    .join(Artist.albums)
+                    .group_by(Artist.id)
+                    .subquery()
+                )
+                order_column = desc(album_count_query.c.album_count)
+            elif order_by == 'track_count':
+                # Subquery to count tracks per artist
+                track_count_query = (
+                    session.query(Artist.id, func.count(Artist.tracks).label('track_count'))
+                    .join(Artist.tracks)
+                    .group_by(Artist.id)
+                    .subquery()
+                )
+                order_column = desc(track_count_query.c.track_count)
+            else:  # Default to name
+                order_column = Artist.name.asc()
+
+            # Get paginated artists
+            artists = (
+                session.query(Artist)
+                .options(joinedload(Artist.tracks), joinedload(Artist.albums))
+                .order_by(order_column)
+                .limit(limit)
+                .offset(offset)
+                .all()
+            )
+
+            return artists, total
+        finally:
+            session.close()
+
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> List[Artist]:
+        """Search artists by name with pagination
+
+        Args:
+            query: Search string to match against artist name
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            List of matching artists
+        """
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
             return (
                 session.query(Artist)
                 .options(joinedload(Artist.tracks), joinedload(Artist.albums))
+                .filter(Artist.name.ilike(f'%{query}%'))
                 .order_by(Artist.name)
+                .limit(limit)
+                .offset(offset)
                 .all()
             )
         finally:

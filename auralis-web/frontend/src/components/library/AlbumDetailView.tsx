@@ -179,13 +179,27 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:8765/api/library/albums/${albumId}`);
+      // Use new REST API endpoint for album tracks
+      const response = await fetch(`http://localhost:8765/api/albums/${albumId}/tracks`);
       if (!response.ok) {
         throw new Error('Failed to fetch album details');
       }
 
       const data = await response.json();
-      setAlbum(data);
+
+      // Transform API response to match Album interface
+      const albumData: Album = {
+        id: data.album_id,
+        title: data.album_title,
+        artist: data.artist,
+        artist_name: data.artist,
+        year: data.year,
+        track_count: data.total_tracks,
+        total_duration: data.tracks?.reduce((sum: number, t: Track) => sum + (t.duration || 0), 0) || 0,
+        tracks: data.tracks || []
+      };
+
+      setAlbum(albumData);
     } catch (err) {
       console.error('Error fetching album details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load album details');

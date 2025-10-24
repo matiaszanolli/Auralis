@@ -244,13 +244,25 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:8765/api/library/artists/${artistId}`);
+      // Use new REST API endpoint for artist details
+      const response = await fetch(`http://localhost:8765/api/artists/${artistId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch artist details');
       }
 
       const data = await response.json();
-      setArtist(data);
+
+      // Transform API response to match Artist interface
+      const artistData: Artist = {
+        id: data.artist_id,
+        name: data.artist_name,
+        album_count: data.total_albums,
+        track_count: data.total_tracks,
+        albums: data.albums || [],
+        tracks: [] // Tracks loaded separately if needed
+      };
+
+      setArtist(artistData);
     } catch (err) {
       console.error('Error fetching artist details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load artist details');

@@ -1,0 +1,233 @@
+# -*- coding: utf-8 -*-
+
+"""
+Artists API Router
+~~~~~~~~~~~~~~~~~~
+
+REST API endpoints for artist browsing and management
+
+:copyright: (C) 2024 Auralis Team
+:license: GPLv3, see LICENSE for more details.
+"""
+
+from typing import Optional, Callable
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
+
+
+# Response models
+class ArtistResponse(BaseModel):
+    """Artist information response"""
+    id: int
+    name: str
+    album_count: int
+    track_count: int
+    genres: Optional[list[str]] = None
+
+
+class ArtistsListResponse(BaseModel):
+    """Paginated artists list response"""
+    artists: list[ArtistResponse]
+    total: int
+    offset: int
+    limit: int
+    has_more: bool
+
+
+class TrackInArtist(BaseModel):
+    """Track information in artist context"""
+    id: int
+    title: str
+    album: str
+    album_id: int
+    duration: float
+    track_number: Optional[int] = None
+    disc_number: Optional[int] = None
+
+
+class AlbumInArtist(BaseModel):
+    """Album information in artist context"""
+    id: int
+    title: str
+    year: Optional[int] = None
+    track_count: int
+    total_duration: float
+
+
+class ArtistDetailResponse(BaseModel):
+    """Detailed artist information with albums and tracks"""
+    artist_id: int
+    artist_name: str
+    albums: list[AlbumInArtist]
+    total_albums: int
+    total_tracks: int
+
+
+class ArtistTracksResponse(BaseModel):
+    """Artist's tracks response"""
+    artist_id: int
+    artist_name: str
+    tracks: list[TrackInArtist]
+    total_tracks: int
+
+
+def create_artists_router(get_library_manager: Callable) -> APIRouter:
+    """Create and configure the artists API router
+
+    Args:
+        get_library_manager: Callable that returns the LibraryManager instance
+
+    Returns:
+        Configured APIRouter instance
+    """
+    router = APIRouter()
+
+    @router.get("/api/artists", response_model=ArtistsListResponse)
+    async def get_artists(
+        limit: int = Query(50, ge=1, le=200, description="Number of artists to return"),
+        offset: int = Query(0, ge=0, description="Number of artists to skip"),
+        search: Optional[str] = Query(None, description="Search query for artist name"),
+        order_by: str = Query('name', description="Sort by: name, album_count, track_count")
+    ):
+        """Get paginated list of artists
+
+        Returns artists with album and track counts, supporting pagination,
+        search, and multiple sort options.
+        """
+        try:
+            manager = get_library_manager()
+
+            if search:
+                # Search artists by name
+                artists = manager.artists.search(search, limit=limit, offset=offset)
+                # For search, we need to count total results
+                all_search_results = manager.artists.search(search, limit=10000, offset=0)
+                total = len(all_search_results)
+            else:
+                # Get paginated artists
+                artists, total = manager.artists.get_all(
+                    limit=limit,
+                    offset=offset,
+                    order_by=order_by
+                )
+
+            # Transform to response format
+            artist_responses = []
+            for artist in artists:
+                # Get unique genres from artist's tracks
+                genres = list(set(
+                    track.genre for track in artist.tracks
+                    if track.genre
+                ))
+
+                artist_responses.append(ArtistResponse(
+                    id=artist.id,
+                    name=artist.name,
+                    album_count=len(artist.albums) if artist.albums else 0,
+                    track_count=len(artist.tracks) if artist.tracks else 0,
+                    genres=genres if genres else None
+                ))
+
+            has_more = (offset + limit) < total
+
+            return ArtistsListResponse(
+                artists=artist_responses,
+                total=total,
+                offset=offset,
+                limit=limit,
+                has_more=has_more
+            )
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch artists: {str(e)}")
+
+    @router.get("/api/artists/{artist_id}", response_model=ArtistDetailResponse)
+    async def get_artist(artist_id: int):
+        """Get detailed information about a specific artist
+
+        Returns artist information with all their albums.
+        """
+        try:
+            manager = get_library_manager()
+            artist = manager.artists.get_by_id(artist_id)
+
+            if not artist:
+                raise HTTPException(status_code=404, detail="Artist not found")
+
+            # Transform albums to response format
+            albums = []
+            for album in (artist.albums or []):
+                total_duration = sum(
+                    track.duration for track in album.tracks if track.duration
+                ) if album.tracks else 0
+
+                albums.append(AlbumInArtist(
+                    id=album.id,
+                    title=album.title,
+                    year=album.year,
+                    track_count=len(album.tracks) if album.tracks else 0,
+                    total_duration=total_duration
+                ))
+
+            # Sort albums by year (newest first), then by title
+            albums.sort(key=lambda a: (-(a.year or 0), a.title))
+
+            return ArtistDetailResponse(
+                artist_id=artist.id,
+                artist_name=artist.name,
+                albums=albums,
+                total_albums=len(albums),
+                total_tracks=len(artist.tracks) if artist.tracks else 0
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch artist: {str(e)}")
+
+    @router.get("/api/artists/{artist_id}/tracks", response_model=ArtistTracksResponse)
+    async def get_artist_tracks(artist_id: int):
+        """Get all tracks for a specific artist
+
+        Returns all tracks by the artist, sorted by album and track number.
+        """
+        try:
+            manager = get_library_manager()
+            artist = manager.artists.get_by_id(artist_id)
+
+            if not artist:
+                raise HTTPException(status_code=404, detail="Artist not found")
+
+            # Transform tracks to response format
+            tracks = []
+            for track in (artist.tracks or []):
+                tracks.append(TrackInArtist(
+                    id=track.id,
+                    title=track.title,
+                    album=track.album.title if track.album else "Unknown Album",
+                    album_id=track.album.id if track.album else 0,
+                    duration=track.duration or 0,
+                    track_number=track.track_number,
+                    disc_number=track.disc_number
+                ))
+
+            # Sort tracks by album, disc number, then track number
+            tracks.sort(key=lambda t: (
+                t.album,
+                t.disc_number or 1,
+                t.track_number or 999
+            ))
+
+            return ArtistTracksResponse(
+                artist_id=artist.id,
+                artist_name=artist.name,
+                tracks=tracks,
+                total_tracks=len(tracks)
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch artist tracks: {str(e)}")
+
+    return router
