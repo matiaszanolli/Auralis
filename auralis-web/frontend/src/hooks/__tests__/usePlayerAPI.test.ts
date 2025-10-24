@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { usePlayerAPI } from '../usePlayerAPI'
 import { mockFetch, mockApiEndpoint, mockTrack, mockPlayerState, resetFetchMock } from '@/test/mocks/api'
+import { TestProviders } from '@/test/utils/TestProviders'
 
 describe('usePlayerAPI', () => {
   beforeEach(() => {
@@ -19,7 +20,7 @@ describe('usePlayerAPI', () => {
   it('initializes with default state', () => {
     mockApiEndpoint('/api/player/status', {})
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     expect(result.current.currentTrack).toBeNull()
     expect(result.current.isPlaying).toBe(false)
@@ -32,7 +33,7 @@ describe('usePlayerAPI', () => {
   it('fetches player status on mount', async () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.currentTrack).toEqual(mockPlayerState.current_track)
@@ -44,7 +45,7 @@ describe('usePlayerAPI', () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
     mockApiEndpoint('/api/player/queue', { success: true, queue: [mockTrack], queue_index: 0 })
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.playTrack).toBeDefined()
@@ -65,7 +66,7 @@ describe('usePlayerAPI', () => {
     mockApiEndpoint('/api/player/status', { ...mockPlayerState, is_playing: true })
     mockApiEndpoint('/api/player/pause', { success: true })
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.pause).toBeDefined()
@@ -85,7 +86,7 @@ describe('usePlayerAPI', () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
     mockApiEndpoint('/api/player/play', { success: true })
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.play).toBeDefined()
@@ -105,7 +106,7 @@ describe('usePlayerAPI', () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
     mockApiEndpoint('/api/player/next', { success: true })
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.next).toBeDefined()
@@ -125,7 +126,7 @@ describe('usePlayerAPI', () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
     mockApiEndpoint('/api/player/previous', { success: true })
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.previous).toBeDefined()
@@ -145,7 +146,7 @@ describe('usePlayerAPI', () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
     mockApiEndpoint('/api/player/seek', { success: true })
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.seek).toBeDefined()
@@ -167,7 +168,7 @@ describe('usePlayerAPI', () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
     mockApiEndpoint('/api/player/volume', { success: true })
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.setVolume).toBeDefined()
@@ -190,7 +191,7 @@ describe('usePlayerAPI', () => {
     mockApiEndpoint('/api/player/status', mockPlayerState)
     mockApiEndpoint('/api/player/play', { detail: 'Playback failed' }, { status: 500 })
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.play).toBeDefined()
@@ -209,7 +210,7 @@ describe('usePlayerAPI', () => {
     mockApiEndpoint('/api/player/status', mockPlayerState, { delay: 100 })
     mockApiEndpoint('/api/player/queue', { success: true, queue: [mockTrack], queue_index: 0 }, { delay: 100 })
 
-    const { result } = renderHook(() => usePlayerAPI())
+    const { result } = renderHook(() => usePlayerAPI(), { wrapper: TestProviders })
 
     await waitFor(() => {
       expect(result.current.playTrack).toBeDefined()
