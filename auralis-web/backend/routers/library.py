@@ -21,7 +21,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException
-from typing import Optional
+from typing import Optional, List
 import logging
 
 logger = logging.getLogger(__name__)
