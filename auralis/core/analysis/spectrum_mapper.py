@@ -55,7 +55,9 @@ class ProcessingParameters:
     # Dynamics parameters
     compression_ratio: float
     compression_threshold: float
-    compression_amount: float  # 0.0-1.0 blend
+    compression_amount: float  # 0.0-1.0 blend (0 = no compression)
+
+    expansion_amount: float  # 0.0-1.0 blend (0 = no expansion, for dynamics restoration)
 
     limiter_threshold: float
     limiter_amount: float  # 0.0-1.0 blend
@@ -102,6 +104,7 @@ class SpectrumMapper:
                     compression_ratio=1.8,
                     compression_threshold=-20.0,
                     compression_amount=0.5,
+                    expansion_amount=0.0,
                     limiter_threshold=-2.0,
                     limiter_amount=0.5,
                     input_gain=0.0,
@@ -128,6 +131,7 @@ class SpectrumMapper:
                     compression_ratio=2.5,
                     compression_threshold=-18.0,
                     compression_amount=0.65,
+                    expansion_amount=0.0,
                     limiter_threshold=-2.0,
                     limiter_amount=0.65,
                     input_gain=0.0,
@@ -154,6 +158,7 @@ class SpectrumMapper:
                     compression_ratio=1.8,
                     compression_threshold=-22.0,
                     compression_amount=0.4,
+                    expansion_amount=0.0,
                     limiter_threshold=-3.5,
                     limiter_amount=0.4,
                     input_gain=0.0,
@@ -180,6 +185,7 @@ class SpectrumMapper:
                     compression_ratio=1.5,
                     compression_threshold=-26.0,
                     compression_amount=0.25,
+                    expansion_amount=0.0,
                     limiter_threshold=-4.0,
                     limiter_amount=0.25,
                     input_gain=0.0,
@@ -293,6 +299,7 @@ class SpectrumMapper:
             compression_ratio=0.0,
             compression_threshold=0.0,
             compression_amount=0.0,
+            expansion_amount=0.0,
             limiter_threshold=0.0,
             limiter_amount=0.0,
             input_gain=0.0,
@@ -312,6 +319,7 @@ class SpectrumMapper:
             result.compression_ratio += anchor_params.compression_ratio * weight
             result.compression_threshold += anchor_params.compression_threshold * weight
             result.compression_amount += anchor_params.compression_amount * weight
+            result.expansion_amount += anchor_params.expansion_amount * weight
             result.limiter_threshold += anchor_params.limiter_threshold * weight
             result.limiter_amount += anchor_params.limiter_amount * weight
             result.input_gain += anchor_params.input_gain * weight
@@ -331,9 +339,29 @@ class SpectrumMapper:
         Apply content-specific modifiers to interpolated parameters.
         These are rules that apply across the spectrum.
         """
-        # Rule 1: Very dynamic material (high crest) needs less compression
+        # Rule 1a: EXTREME dynamics (crest > 17 dB, DR > 0.9) - CRITICAL
+        # Distinguish between:
+        # - Under-leveled + naturally dynamic (classical, 80s rock) → preserve dynamics, just add gain
+        # - Moderate level + extreme peaks (poorly mastered metal) → compress to competitive loudness
+        if position.dynamic_range > 0.9:
+            if position.input_level < 0.45:
+                # Very quiet + extreme dynamics → Classic/natural recording, preserve dynamics
+                # Examples: Seru Giran (Level 0.42, Crest 21.18 dB), classical recordings
+                params.compression_amount = 0.0  # NO compression, just gain
+                params.dynamics_intensity = 0.0
+                params.output_target_rms = -18.0  # Conservative target, preserve headroom
+                print(f"[Content Rule] NATURALLY dynamic classic recording (Level:{position.input_level:.2f}, DR:{position.dynamic_range:.2f}) → Preserve dynamics, add gain only")
+            else:
+                # Moderate level + extreme dynamics → Poorly mastered, needs compression
+                # Example: Slayer (Level 0.50, Crest 18.98 dB)
+                params.compression_amount = 0.85  # Heavy compression
+                params.dynamics_intensity = 0.85
+                params.output_target_rms = -15.0  # More aggressive target
+                print(f"[Content Rule] EXTREME dynamics needing correction (Level:{position.input_level:.2f}, DR:{position.dynamic_range:.2f}) → Heavy compression for competitive loudness")
+
+        # Rule 1b: Very dynamic material (high crest) needs careful handling
         # BUT: High-energy dynamic material (metal) can still handle processing
-        if position.dynamic_range > 0.75:
+        elif position.dynamic_range > 0.75:
             if position.energy < 0.6:
                 # Low energy + high dynamics (classical/jazz) - very gentle
                 params.compression_amount *= 0.5
@@ -364,16 +392,46 @@ class SpectrumMapper:
             params.eq_intensity *= 1.1
 
         # Rule 6: Adjust output target based on input level and dynamics
-        # Quiet + dynamic = conservative boost
-        # Loud + compressed = gentle control
+        # GOAL: Better audio experience - good RMS, broader range, less compression on heavy material
+
+        # Check for problematic combinations first
         if position.input_level < 0.4 and position.dynamic_range > 0.6:
-            # Quiet but dynamic (like classical) - moderate boost
+            # Quiet but dynamic (like classical) - moderate boost, preserve dynamics
             params.output_target_rms = -16.0
-        elif position.input_level > 0.8:
-            # CRITICAL: Very loud material (like Testament) - needs energy boost
-            # Despite already being loud, these need RMS increase for competitive loudness
-            params.output_target_rms = -11.0  # INCREASED from -11.5 to account for peak normalization loss
-            print(f"[Content Rule] Very Loud detected (Level:{position.input_level:.2f}) → Target RMS -11.0 dB")
+
+        elif position.input_level > 0.8 and position.dynamic_range < 0.45:
+            # LOUD + COMPRESSED (crest < ~13 dB) → EXPAND DYNAMICS (de-mastering)
+            # Loudness war casualties - restore natural dynamics
+            # Examples: Pantera (DR 0.35, crest 11.30), Motörhead (DR 0.37, crest 11.57), Soda Stereo (DR 0.73, crest 15.14)
+            params.output_target_rms = -17.0  # Reduce RMS to create headroom
+            params.compression_amount = 0.0  # NO compression
+            params.expansion_amount = 0.7  # EXPAND dynamics (higher = more expansion)
+            params.dynamics_intensity = 0.0
+            print(f"[Content Rule] LOUD+COMPRESSED (Level:{position.input_level:.2f}, DR:{position.dynamic_range:.2f}) → EXPAND dynamics for restoration")
+
+        elif position.input_level > 0.85 and position.dynamic_range >= 0.45 and position.dynamic_range < 0.6:
+            # VERY LOUD + MODERATE DYNAMICS → LIGHT COMPRESSION
+            # Examples: Testament (Level 0.88, DR 0.52, crest 12.55)
+            # Already loud but could be tighter
+            params.output_target_rms = -12.5  # Moderate boost
+            params.compression_amount = 0.42  # Light compression
+            params.expansion_amount = 0.0  # NO expansion
+            print(f"[Content Rule] VERY LOUD+MODERATE DYNAMICS (Level:{position.input_level:.2f}, DR:{position.dynamic_range:.2f}) → Light compression")
+
+        elif position.input_level > 0.7 and position.input_level <= 0.85 and position.dynamic_range >= 0.6 and position.dynamic_range < 0.8:
+            # MODERATELY LOUD + HIGH DYNAMICS → LIGHT EXPANSION
+            # Examples: Soda Stereo (Level 0.76, DR 0.73, crest 15.14)
+            # These have good dynamics that should be preserved/enhanced
+            params.output_target_rms = -14.0  # Slight RMS reduction
+            params.compression_amount = 0.0  # NO compression
+            params.expansion_amount = 0.4  # Light expansion
+            print(f"[Content Rule] MODERATELY LOUD+HIGH DYNAMICS (Level:{position.input_level:.2f}, DR:{position.dynamic_range:.2f}) → Light dynamics expansion")
+
+        elif position.input_level > 0.8 and position.dynamic_range >= 0.6:
+            # LOUD + VERY GOOD DYNAMICS (crest > ~15 dB) → Preserve excellent balance
+            params.output_target_rms = -12.5  # Moderate target, don't over-compress
+            print(f"[Content Rule] LOUD+VERY DYNAMIC (Level:{position.input_level:.2f}, DR:{position.dynamic_range:.2f}) → Preserve excellent dynamics")
+
         elif position.input_level > 0.7 and position.dynamic_range > 0.4:
             # Loud + some dynamics (like live recordings) - bring up RMS
             params.output_target_rms = -12.0
