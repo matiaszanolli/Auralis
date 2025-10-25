@@ -91,28 +91,44 @@ class AudioContentAnalyzer:
         Returns:
             AudioFeatures with 0.0-1.0 normalized values
         """
-        # Check cache first
-        cache_key = f"{filepath}_{chunk_idx}" if filepath else f"mem_{id(audio_data)}"
-        if cache_key in self.analysis_cache:
-            logger.debug(f"Audio analysis cache hit: {cache_key}")
-            return self.analysis_cache[cache_key]
+        try:
+            # Check cache first
+            cache_key = f"{filepath}_{chunk_idx}" if filepath else f"mem_{id(audio_data)}"
+            if cache_key in self.analysis_cache:
+                logger.debug(f"Audio analysis cache hit: {cache_key}")
+                return self.analysis_cache[cache_key]
 
-        # Load audio if needed
-        if audio_data is None and filepath:
-            audio_data = await self._load_chunk_fast(filepath, chunk_idx)
+            # Load audio if needed
+            if audio_data is None and filepath:
+                audio_data = await self._load_chunk_fast(filepath, chunk_idx)
 
-        if audio_data is None:
-            logger.warning("No audio data provided for analysis")
-            return AudioFeatures(0.5, 0.5, 0.5, 0.5, 0.5)  # Neutral
+            # Validate audio data
+            if audio_data is None or len(audio_data) == 0:
+                logger.warning("No audio data provided for analysis")
+                return self._get_default_features()
 
-        # Extract features
-        features = await self._extract_features(audio_data)
+            # Check for invalid values (NaN, Inf)
+            if not self._validate_audio_data(audio_data):
+                logger.warning(f"Invalid audio data (NaN/Inf) in {filepath}:{chunk_idx}")
+                return self._get_default_features()
 
-        # Cache result
-        if len(self.analysis_cache) < self._cache_max_size:
-            self.analysis_cache[cache_key] = features
+            # Extract features
+            features = await self._extract_features(audio_data)
 
-        return features
+            # Validate extracted features
+            if not self._validate_features(features):
+                logger.warning(f"Invalid features extracted from {filepath}:{chunk_idx}")
+                return self._get_default_features()
+
+            # Cache result
+            if len(self.analysis_cache) < self._cache_max_size:
+                self.analysis_cache[cache_key] = features
+
+            return features
+
+        except Exception as e:
+            logger.error(f"Error analyzing chunk {filepath}:{chunk_idx}: {e}", exc_info=True)
+            return self._get_default_features()
 
     async def _load_chunk_fast(self, filepath: str, chunk_idx: int) -> Optional[np.ndarray]:
         """
@@ -146,6 +162,77 @@ class AudioContentAnalyzer:
         except Exception as e:
             logger.warning(f"Fast chunk load failed: {e}")
             return None
+
+    def _get_default_features(self) -> AudioFeatures:
+        """
+        Return safe default features for broken/corrupt audio.
+
+        Returns neutral values that won't bias predictions.
+        """
+        return AudioFeatures(
+            energy=0.5,
+            brightness=0.5,
+            dynamics=0.5,
+            vocal_presence=0.5,
+            tempo_energy=0.5
+        )
+
+    def _validate_audio_data(self, audio: np.ndarray) -> bool:
+        """
+        Validate audio data for processing.
+
+        Args:
+            audio: Audio data array
+
+        Returns:
+            True if valid, False if corrupt/invalid
+        """
+        try:
+            # Check for NaN or Inf values
+            if np.any(np.isnan(audio)) or np.any(np.isinf(audio)):
+                return False
+
+            # Check for reasonable amplitude range
+            max_amplitude = np.max(np.abs(audio))
+            if max_amplitude > 10.0:  # Unreasonably loud
+                logger.warning(f"Audio amplitude too high: {max_amplitude}")
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error validating audio data: {e}")
+            return False
+
+    def _validate_features(self, features: AudioFeatures) -> bool:
+        """
+        Validate extracted audio features.
+
+        Args:
+            features: AudioFeatures object
+
+        Returns:
+            True if valid, False if invalid
+        """
+        try:
+            # Check all features are in valid range [0.0, 1.0]
+            for value in [
+                features.energy,
+                features.brightness,
+                features.dynamics,
+                features.vocal_presence,
+                features.tempo_energy
+            ]:
+                if not (0.0 <= value <= 1.0):
+                    return False
+                if np.isnan(value) or np.isinf(value):
+                    return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error validating features: {e}")
+            return False
 
     async def _extract_features(self, audio: np.ndarray) -> AudioFeatures:
         """

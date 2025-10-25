@@ -31,6 +31,10 @@ class TestAudioAwarePrediction:
 
         # Record some user behavior
         await manager.update_position(track_id=1, position=0.0, preset="adaptive", intensity=1.0)
+
+        # Wait for debounce period (500ms)
+        await asyncio.sleep(0.6)
+
         await manager.update_position(track_id=1, position=30.0, preset="punchy", intensity=1.0)
 
         # Predict without filepath (should use user behavior only)
@@ -110,8 +114,20 @@ class TestAudioAwarePrediction:
 
         # Record user behavior: adaptive -> punchy
         await manager.update_position(track_id=1, position=0.0, preset="adaptive", intensity=1.0)
+
+        # Wait for debounce period (500ms)
+        await asyncio.sleep(0.6)
+
         await manager.update_position(track_id=1, position=30.0, preset="punchy", intensity=1.0)
+
+        # Wait for debounce period (500ms)
+        await asyncio.sleep(0.6)
+
         await manager.update_position(track_id=1, position=60.0, preset="adaptive", intensity=1.0)
+
+        # Wait for debounce period (500ms)
+        await asyncio.sleep(0.6)
+
         await manager.update_position(track_id=1, position=90.0, preset="punchy", intensity=1.0)
 
         # User behavior should strongly predict punchy
@@ -171,7 +187,14 @@ class TestProactiveBufferIntegration:
         # Establish user pattern: adaptive -> punchy
         for i in range(5):
             await manager.update_position(track_id=1, position=i * 60.0, preset="adaptive", intensity=1.0)
+
+            # Wait for debounce period (500ms)
+            await asyncio.sleep(0.6)
+
             await manager.update_position(track_id=1, position=i * 60.0 + 30.0, preset="punchy", intensity=1.0)
+
+            # Wait for debounce period (500ms)
+            await asyncio.sleep(0.6)
 
         # Now on adaptive, predictions should favor punchy
         predictions = manager.branch_predictor.predict_next_presets("adaptive", top_n=3)
