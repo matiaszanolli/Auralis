@@ -189,17 +189,17 @@ class TestEnhancedAudioPlayerComprehensive:
         # Test with config and library manager
         assert self.player is not None
         assert self.player.config is not None
-        assert self.player.library_manager is not None
-        assert self.player.current_state == PlaybackState.STOPPED
+        assert self.player.library is not None  # Changed from library_manager to library
+        assert self.player.state == PlaybackState.STOPPED  # Changed from current_state to state
 
         # Test without config (should use defaults)
         default_player = EnhancedAudioPlayer()
         assert default_player.config is not None
         del default_player
 
-        # Test without library manager
+        # Test without library manager - library is always created (not None)
         no_lib_player = EnhancedAudioPlayer(config=self.config)
-        assert no_lib_player.library_manager is None
+        assert no_lib_player.library is not None  # Library is always created
         no_lib_player.cleanup()
         del no_lib_player
 
@@ -210,7 +210,7 @@ class TestEnhancedAudioPlayerComprehensive:
         self.setUp()
 
         callback_called = []
-        def test_callback():
+        def test_callback(info):  # Callbacks receive playback_info as parameter
             callback_called.append(True)
 
         # Test add_callback
@@ -221,7 +221,7 @@ class TestEnhancedAudioPlayerComprehensive:
         assert len(callback_called) == 1
 
         # Add multiple callbacks
-        def test_callback2():
+        def test_callback2(info):  # Callbacks receive playback_info as parameter
             callback_called.append(True)
 
         self.player.add_callback(test_callback2)
@@ -237,7 +237,7 @@ class TestEnhancedAudioPlayerComprehensive:
         # Test load_file with valid audio file
         success = self.player.load_file(self.test_file_paths['track1'])
         assert success is True
-        assert self.player.current_state == PlaybackState.STOPPED
+        assert self.player.state == PlaybackState.STOPPED
 
         # Test load_file with invalid file
         invalid_success = self.player.load_file('/nonexistent/file.wav')
@@ -263,17 +263,17 @@ class TestEnhancedAudioPlayerComprehensive:
         # Test play
         play_success = self.player.play()
         if play_success:  # May not work in test environment
-            assert self.player.current_state == PlaybackState.PLAYING
+            assert self.player.state == PlaybackState.PLAYING
 
         # Test pause
         pause_success = self.player.pause()
         if pause_success:
-            assert self.player.current_state == PlaybackState.PAUSED
+            assert self.player.state == PlaybackState.PAUSED
 
         # Test stop
         stop_success = self.player.stop()
         assert stop_success is True
-        assert self.player.current_state == PlaybackState.STOPPED
+        assert self.player.state == PlaybackState.STOPPED
 
         # Test seek
         seek_success = self.player.seek(1.0)  # Seek to 1 second
@@ -312,11 +312,11 @@ class TestEnhancedAudioPlayerComprehensive:
         assert isinstance(queue_info, dict)
         assert 'tracks' in queue_info
         assert 'current_index' in queue_info
-        assert 'total_tracks' in queue_info
-        assert queue_info['total_tracks'] >= 1
+        # track_count is not in queue_info, use len(tracks) instead
+        assert len(queue_info['tracks']) >= 1
 
         # Test search_and_add_to_queue (if library exists)
-        if self.player.library_manager:
+        if self.player.library:
             # Add a track to library first
             library_track_info = {
                 'title': 'Library Track',
@@ -331,7 +331,7 @@ class TestEnhancedAudioPlayerComprehensive:
             self.player.search_and_add_to_queue('Library Track', limit=5)
 
             updated_queue_info = self.player.get_queue_info()
-            assert updated_queue_info['total_tracks'] >= 1
+            assert len(updated_queue_info['tracks']) >= 1  # Use len(tracks) instead of track_count
 
         # Test set_shuffle
         self.player.set_shuffle(True)
@@ -344,7 +344,7 @@ class TestEnhancedAudioPlayerComprehensive:
         # Test clear_queue
         self.player.clear_queue()
         empty_queue_info = self.player.get_queue_info()
-        assert empty_queue_info['total_tracks'] == 0
+        assert len(empty_queue_info['tracks']) == 0  # Use len(tracks) instead of track_count
 
         self.tearDown()
 
@@ -356,15 +356,15 @@ class TestEnhancedAudioPlayerComprehensive:
         info = self.player.get_playback_info()
         assert isinstance(info, dict)
         assert 'state' in info
-        assert 'position' in info
-        assert 'duration' in info
-        assert 'current_track' in info
+        assert 'position_seconds' in info
+        assert 'duration_seconds' in info  # Changed from duration to duration_seconds
+        assert 'current_file' in info  # Changed from current_track to current_file
 
         # Load track and get updated info
         self.player.load_file(self.test_file_paths['track1'])
         loaded_info = self.player.get_playback_info()
-        assert loaded_info['current_track'] is not None
-        assert loaded_info['duration'] > 0
+        assert loaded_info['current_file'] is not None  # Changed from current_track to current_file
+        assert loaded_info['duration_seconds'] > 0  # Changed from duration to duration_seconds
 
         self.tearDown()
 
@@ -442,7 +442,7 @@ class TestEnhancedAudioPlayerComprehensive:
             # Test add_track_to_queue
             self.player.add_track_to_queue(library_tracks[0].id)
             queue_info = self.player.get_queue_info()
-            assert queue_info['total_tracks'] >= 1
+            assert len(queue_info['tracks']) >= 1  # Use len(tracks) instead of track_count
 
             # Test load_playlist (create playlist first)
             playlist = self.library_manager.create_playlist(
@@ -473,7 +473,7 @@ class TestEnhancedAudioPlayerComprehensive:
         assert seek_negative is False
 
         # Test operations with invalid library references
-        if self.player.library_manager:
+        if self.player.library:
             invalid_track_load = self.player.load_track_from_library(-1)
             assert invalid_track_load is False
 
