@@ -40,17 +40,36 @@ def create_system_router(
 
     @router.get("/api/version")
     async def get_version():
-        """Get version information"""
+        """
+        Get version information.
+
+        Returns detailed version info including:
+        - version: Full semantic version
+        - major, minor, patch: Version components
+        - prerelease: Pre-release identifier (e.g., "beta.1")
+        - build_date: Build date
+        - api_version: API version for compatibility
+        - db_schema_version: Database schema version
+        - display: User-friendly version string
+        """
         try:
-            from version import get_version_info
+            from auralis.version import get_version_info
             return get_version_info()
         except ImportError:
+            logger.warning("auralis.version not available, using fallback")
             # Fallback if version module not available
             return {
-                "api_version": "1.0.0",
-                "api_version_info": {"major": 1, "minor": 0, "patch": 0},
-                "db_schema_version": 1,
-                "min_client_version": "1.0.0"
+                "version": "1.0.0-beta.1",
+                "major": 1,
+                "minor": 0,
+                "patch": 0,
+                "prerelease": "beta.1",
+                "build": "",
+                "build_date": "2025-10-24",
+                "git_commit": "",
+                "api_version": "v1",
+                "db_schema_version": 3,
+                "display": "Auralis v1.0.0-beta.1"
             }
 
     @router.websocket("/ws")
