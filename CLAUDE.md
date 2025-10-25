@@ -505,6 +505,38 @@ See original CLAUDE.md for detailed component implementation guidelines.
 - ✅ Use memory pools for repeated array allocations
 - ✅ Batch database operations when possible
 
+## Version Management
+
+Auralis uses **Semantic Versioning 2.0.0** with automated version management.
+
+### Version Commands
+```bash
+# Check current version
+python -c "from auralis.version import get_version; print(get_version())"
+
+# Bump to new version (updates all files)
+python scripts/sync_version.py 1.0.0-alpha.2
+
+# Get detailed version info (JSON)
+python auralis/version.py
+```
+
+### Release Process
+```bash
+# 1. Bump version
+python scripts/sync_version.py 1.0.0-alpha.2
+
+# 2. Update CHANGELOG.md with release notes
+
+# 3. Commit and tag
+git commit -am "chore: bump version to 1.0.0-alpha.2"
+git push origin master
+git tag -a v1.0.0-alpha.2 -m "Release v1.0.0-alpha.2"
+git push origin v1.0.0-alpha.2  # Triggers CI/CD builds
+```
+
+**Documentation**: See [VERSIONING_STRATEGY.md](VERSIONING_STRATEGY.md) and [RELEASE_GUIDE.md](RELEASE_GUIDE.md)
+
 ## Web Interface Access Points
 
 When web interface is running:
@@ -513,6 +545,7 @@ When web interface is running:
 - **API Documentation**: http://localhost:8765/api/docs (Swagger UI)
 - **WebSocket**: ws://localhost:8765/ws (real-time updates)
 - **Health Check**: http://localhost:8765/api/health
+- **Version Info**: http://localhost:8765/api/version
 
 **Note**: Default backend port is **8765** (not 8000). Frontend dev server uses port **3000**.
 
@@ -579,12 +612,18 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **License**: GPL-3.0
 
 ### Project Status
+- **Version**: 1.0.0-alpha.1 (Alpha stage - active development)
 - **Core Processing**: ✅ Production-ready (**36.6x real-time speed** with optimizations, E2E validated)
 - **Performance Optimization**: ✅ COMPLETE - Numba JIT + vectorization (Oct 24, 2025)
   - **40-70x envelope speedup** (Numba JIT compilation)
   - **1.7x EQ speedup** (NumPy vectorization)
   - **2-3x overall pipeline improvement** (real-world validated)
   - Optional Numba dependency, graceful fallbacks, zero breaking changes
+- **Version Management**: ✅ COMPLETE - Semantic versioning system (Oct 24, 2025)
+  - Single source of truth (`auralis/version.py`)
+  - Automated version sync script
+  - API endpoint (`/api/version`)
+  - CI/CD workflow for releases
 - **Dynamics Expansion**: ✅ COMPLETE - All 4 Matchering behaviors working (Oct 24, 2025)
   - Heavy Compression, Light Compression, Preserve Dynamics, **Expand Dynamics (de-mastering)**
   - Average 0.67 dB crest error, 1.30 dB RMS error across all behaviors
