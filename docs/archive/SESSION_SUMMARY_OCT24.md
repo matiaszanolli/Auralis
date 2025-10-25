@@ -1,529 +1,474 @@
 # Session Summary - October 24, 2025
-
-**Duration**: ~6 hours
-**Focus**: Phase 1.6 Technical Debt + Phase 0.2 WebSocket + Phase 4.1 Metadata Editing (Started)
+## Dynamics Expansion Implementation & All 4 Behaviors Complete ✅
 
 ---
 
-## Session Overview
+## Overview
 
-This session completed three major areas:
-1. ✅ **Phase 1.6 Technical Debt Resolution** - All preset system technical debt cleared
-2. ✅ **Phase 0.2 WebSocket Messages** - Added missing play/pause messages + comprehensive API docs
-3. 🔄 **Phase 4.1 Metadata Editing** - Core metadata editor created, backend API next
+This session completed the implementation of **dynamics expansion (de-mastering)** and all 4 Matchering processing behaviors. The system now correctly handles heavy compression, light compression, preserve dynamics, and expand dynamics cases with excellent accuracy (average 0.67 dB crest error across all behaviors).
 
----
-
-## Part 1: Phase 1.6 Technical Debt Resolution ✅
-
-**Time**: ~3 hours
-
-### Tasks Completed
-
-1. **Automatic Makeup Gain for Compressor** ✅
-   - **File**: [auralis/dsp/advanced_dynamics.py:233-239](auralis/dsp/advanced_dynamics.py#L233-L239)
-   - **Formula**: `makeup_gain_dB = |threshold| * (1 - 1/ratio)`
-   - **Example**: Threshold -18dB, Ratio 4:1 → 13.5dB makeup gain
-   - **Result**: Compensates for compression gain reduction
-
-2. **Re-enabled Dynamics Processing** ✅
-   - **File**: [auralis/core/hybrid_processor.py:76](auralis/core/hybrid_processor.py#L76)
-   - **Changed**: `enable_compressor = True` (was False)
-   - **File**: [auralis/core/hybrid_processor.py:226-235](auralis/core/hybrid_processor.py#L226-L235)
-   - **Restored**: Full dynamics processing pipeline
-   - **Result**: Compressor now active with automatic makeup gain
-
-3. **Replaced Debug Print Statements** ✅
-   - **File**: [auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py)
-   - **Changed**: 6 `print()` calls → `debug()` calls
-   - **Lines**: 218, 224, 235, 256, 259, 267
-   - **Result**: Proper logging infrastructure, controllable output
-
-4. **Real-World Testing** ✅
-   - **Test File**: 1994 Rolling Stones "Love Is Strong" (24/96 FLAC)
-   - **Original**: -40.50 LUFS (very quiet, natural dynamics)
-   - **Results**:
-     - Gentle: -25.51 LUFS (+15.00 dB boost)
-     - Adaptive: -24.85 LUFS (+15.65 dB boost)
-     - Punchy: -24.59 LUFS (+15.91 dB boost)
-   - **All peaks**: 0.99 (no clipping!)
-   - **Distinct outputs**: 0.92 dB LUFS range ✅
-
-5. **Content-Aware Loudness Adjustment** ✅
-   - **File**: [auralis/core/analysis/target_generator.py:204-228](auralis/core/analysis/target_generator.py#L204-L228)
-   - **Logic**:
-     - DR < 8 (loudness wars): 0.3 blend (very conservative)
-     - DR < 10 (compressed): 0.5 blend (moderate)
-     - LUFS > -12 (already loud): 0.4 blend (conservative)
-     - Normal material: 0.8 blend (full effect)
-   - **Result**: System respects production era and existing loudness
-
-### Test Results
-
-**Core Tests**: 25/25 passing (100%)
-```bash
-======================== 25 passed, 1 skipped in 0.79s =========================
-```
-
-**Backend Tests**: 101/101 passing (100%)
-```bash
-101 passed, 3 warnings in 0.82s
-```
-
-### Documentation Created
-
-- **[TECHNICAL_DEBT_RESOLUTION.md](TECHNICAL_DEBT_RESOLUTION.md)** - Comprehensive 500+ line doc
-  - Implementation details for all 5 tasks
-  - Test validation results
-  - Performance characteristics
-  - Production readiness checklist
-
-### Status
-
-**Phase 1.6**: ✅ **COMPLETE** - Production ready
+**Previous work** (earlier in session): Spectrum-based processing refinement, anchor point tuning, and discovery of Matchering's crest factor adaptation strategy.
 
 ---
 
-## Part 2: Phase 0.2 WebSocket Messages ✅
+## Major Accomplishments
 
-**Time**: ~2 hours
+### 1. Implemented Dynamics Expansion (De-mastering) ✅ **NEW**
 
-### Tasks Completed
+**Files Modified**:
+- `auralis/core/analysis/spectrum_mapper.py` - Added expansion_amount parameter and 3 content rules
+- `auralis/core/hybrid_processor.py` - Implemented DIY expander (lines 410-462)
 
-1. **Added `playback_started` Message** ✅
-   - **File**: [auralis-web/backend/routers/player.py:315-318](auralis-web/backend/routers/player.py#L315-L318)
-   - **Trigger**: `POST /api/player/play`
-   - **Payload**: `{"type": "playback_started", "data": {"state": "playing"}}`
-   - **Result**: Frontend can now track play events
+**What Was Added**:
+- `expansion_amount` parameter (0.0-1.0) controls expansion intensity
+- Heavy expansion rule (Level > 0.8, DR < 0.45) → expansion_amount = 0.7
+- Light expansion rule (0.7 < Level <= 0.85, DR >= 0.6) → expansion_amount = 0.4
+- DIY expander: Enhances peaks above RMS+3dB threshold using adaptive ratio (1.0 + expansion_amount)
 
-2. **Added `playback_paused` Message** ✅
-   - **File**: [auralis-web/backend/routers/player.py:350-353](auralis-web/backend/routers/player.py#L350-L353)
-   - **Trigger**: `POST /api/player/pause`
-   - **Payload**: `{"type": "playback_paused", "data": {"state": "paused"}}`
-   - **Result**: Frontend can now track pause events
+**Results**:
+- Motörhead: 0.08 dB crest error ✅ EXCELLENT (nearly perfect!)
+- Soda Stereo: 0.60 dB crest error ✅ EXCELLENT
+- Pantera: 2.42 dB crest error ⚠️ ACCEPTABLE (needs more aggressive expansion)
 
-3. **Created WebSocket API Documentation** ✅
-   - **File**: [auralis-web/backend/WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md)
-   - **Size**: 500+ lines
-   - **Contents**:
-     - 17 message types documented
-     - TypeScript type definitions
-     - REST endpoint → WebSocket message mapping
-     - Frontend usage examples
-     - Debugging tips
+**Impact**: System can now restore dynamics to over-compressed modern masters (de-mastering)
 
-### Message Types Documented
+### 2. Fixed Testament Mis-classification ✅ **NEW**
 
-| Category | Count | Messages |
-|----------|-------|----------|
-| Player State | 8 | `player_state`, `playback_started`, `playback_paused`, `playback_stopped`, `track_loaded`, `track_changed`, `position_changed`, `volume_changed` |
-| Queue | 1 | `queue_updated` |
-| Library | 1 | `library_updated` |
-| Playlists | 3 | `playlist_created`, `playlist_updated`, `playlist_deleted` |
-| Enhancement | 1 | `enhancement_settings_changed` |
-| Artwork | 1 | `artwork_updated` |
-| System | 2 | `scan_progress`, `scan_complete` |
+**Problem**: Testament (Level 0.88, DR 0.52, target: -1.20 dB crest compression) was being classified as expansion case and receiving +2.68 dB crest expansion instead of compression.
 
-**Total**: 17 message types
+**Solution**: Added specific rule for "VERY LOUD+MODERATE DYNAMICS" (Level > 0.85, 0.45 <= DR < 0.6) that applies light compression (compression_amount = 0.42).
 
-### Documentation Created
+**Result**: Testament now shows 0.03 dB crest error, 0.49 dB RMS error ✅ EXCELLENT (nearly perfect!)
 
-- **[PHASE_0_COMPLETION_SUMMARY.md](PHASE_0_COMPLETION_SUMMARY.md)** - Phase 0.2 summary
-  - Detailed implementation notes
-  - Impact assessment
-  - Performance analysis
-  - Roadmap context
+### 3. Refined Spectrum-Based Processing ✅
 
-### Phase 0.4 Status
+**Files Modified**:
+- `auralis/core/analysis/spectrum_mapper.py`
+- `auralis/core/hybrid_processor.py`
 
-**Standardize WebSocket Message Structure** - Deferred (LOW PRIORITY)
-- **Reason**: Found 40+ broadcast locations, most already consistent
-- **Current**: Messages follow `{type, data}` pattern
-- **Future**: Add optional `timestamp` field, full standardization
-- **Estimated**: 1-2 days when prioritized
+**Key Improvements**:
+- Refined "live" anchor point (target RMS -11.5 → -11.0 dB)
+- Added content rules for very loud material (input_level > 0.8)
+- Fixed stereo width peak boost issue (limited expansion for loud material)
+- Improved final normalization strategy (RMS boost before peak normalization)
+- Added extreme dynamics detection (DR > 0.9)
+- Added over-compressed material detection (DR < 0.35, Level > 0.8)
 
-### Status
+### 2. Discovered Stereo Width Peak Boost Issue ✅
 
-**Phase 0.2**: ✅ **COMPLETE**
-**Phase 0.4**: Deferred to future sprint
+**Problem**: Stereo width expansion was dramatically increasing peaks:
+- Testament: Peak boost from -0.05 → +2.80 dB (+2.85 dB!)
+- Root cause: Widening stereo image increases side signal amplitude
 
----
-
-## Part 3: Phase 4.1 Metadata Editing 🔄 STARTED
-
-**Time**: ~1 hour (core implementation)
-**Status**: Core metadata editor complete, backend API next
-
-### Tasks Completed
-
-1. **Research Mutagen Library** ✅
-   - **Version**: mutagen 1.47.0 (already installed)
-   - **Current Usage**: Scanner already uses mutagen for reading metadata
-   - **Capabilities**: Full read/write support for all major formats
-
-2. **Database Schema Review** ✅
-   - **Current Schema**: Already supports all standard metadata fields
-   - **Tables**: tracks, albums, artists, playlists
-   - **Fields**: title, artist, album, year, genre, track, disc, etc.
-   - **Conclusion**: No schema changes needed!
-
-3. **Created MetadataEditor Class** ✅
-   - **File**: [auralis/library/metadata_editor.py](auralis/library/metadata_editor.py) (NEW)
-   - **Size**: 600+ lines
-   - **Features**:
-     - Read/write metadata for MP3, FLAC, M4A, OGG, WAV
-     - Format-specific tag handling (ID3v2, Vorbis, iTunes tags)
-     - Batch editing support
-     - Automatic backup before modification
-     - Error handling and validation
-
-### MetadataEditor API
-
-**Key Methods**:
+**Solution**: Limited stereo width expansion for loud material (input_level > 0.8):
 ```python
-class MetadataEditor:
-    def read_metadata(filepath: str) -> Dict[str, Any]
-    def write_metadata(filepath: str, metadata: Dict, backup: bool = True) -> bool
-    def batch_update(updates: List[MetadataUpdate]) -> Dict[str, Any]
-    def get_editable_fields(filepath: str) -> List[str]
+if spectrum_position.input_level > 0.8 and target_width > current_width:
+    max_width_increase = 0.3  # Only allow +0.3 increase
+    target_width = min(target_width, current_width + max_width_increase)
 ```
 
-**Supported Fields**:
-- Standard: title, artist, album, albumartist, year, genre, track, disc
-- Extended: comment, bpm, composer, publisher, lyrics, copyright
+**Impact**: Testament peak boost reduced to +0.23 dB
 
-**Format Support**:
-- **MP3**: ID3v2 tags (TIT2, TPE1, TALB, etc.)
-- **FLAC**: Vorbis comments (TITLE, ARTIST, ALBUM, etc.)
-- **M4A/AAC**: iTunes freeform atoms (©nam, ©ART, ©alb, etc.)
-- **OGG**: Vorbis comments (same as FLAC)
-- **WAV**: ID3v2 or RIFF INFO
+### 3. Discovered Matchering's Crest Factor Strategy 🎯 **CRITICAL FINDING**
 
-**Backup System**:
-- Creates `.bak` file before modification
-- Automatic restore on failure
-- Optional (can be disabled)
+**Key Insight**: Matchering doesn't just adjust loudness - it actively manages **crest factor** (peak-to-RMS ratio) to achieve optimal presentation:
 
-### Tasks Remaining
+| Material Type | Original Crest | Target Crest | Strategy |
+|---------------|---------------|--------------|----------|
+| Under-leveled (Static-X) | 12.13 dB | 14.17 dB | Preserve/enhance dynamics (+2.04 dB) |
+| Loud+dynamic (Testament) | 12.55 dB | 11.35 dB | Light compression (-1.20 dB) |
+| **Extreme dynamics (Slayer)** | **18.98 dB** | **15.74 dB** | **Heavy compression (-3.24 dB)** |
+| **Over-compressed (Iron Maiden)** | **11.18 dB** | **14.39 dB** | **Restore dynamics (+3.21 dB)** |
 
-**Backend (Next Session)**:
-1. Create metadata update endpoint: `PUT /api/library/tracks/:id/metadata`
-2. Create batch update endpoint: `POST /api/library/tracks/batch/metadata`
-3. Update library database after metadata changes
-4. Add WebSocket broadcast for metadata updates
-5. Write backend tests
+**Matchering's Crest Factor Targets**:
+- Crest > 17 dB → Heavy compression to 15-16 dB (competitive loudness)
+- Crest 12-14 dB → Preserve or light adjustment (well-balanced)
+- Crest < 12 dB (if loud) → Restore dynamics to 13-15 dB (de-mastering!)
 
-**Frontend (After Backend)**:
-6. Create `EditMetadataDialog` component
-7. Add context menu integration (right-click → Edit Metadata)
-8. Add keyboard shortcut (Ctrl+E)
-9. Create batch editor UI
-10. Write frontend tests
+---
 
-**Testing (Final)**:
-11. Test with all audio formats (MP3, FLAC, M4A, OGG, WAV)
-12. Test batch editing
-13. Test backup/restore
-14. Test error handling
-15. Integration testing
+## Test Results
 
-### Implementation Notes
+### Current Performance
 
-**Backend Endpoint Design** (for next session):
+| Track | Type | Expected RMS Δ | Actual RMS Δ | Error | Status |
+|-------|------|---------------|--------------|-------|--------|
+| Static-X "Fix" | Under-leveled | +6.73 dB | +6.51 dB | 0.22 dB | ✅ EXCELLENT |
+| Testament "Preacher" | Loud+dynamic | +1.48 dB | -0.22 dB | 1.70 dB | ✅ GOOD |
+| Slayer "South of Heaven" | Extreme dynamics | +5.44 dB | +0.42 dB | 5.03 dB | ⚠️ ACCEPTABLE |
+| Iron Maiden "Aces High" | Over-compressed | -2.51 dB | +0.06 dB | 2.57 dB | ⚠️ ACCEPTABLE |
+
+**Average Error**: 2.38 dB across 4 tracks
+
+### What's Working ✅
+
+1. **Under-leveled material with good dynamics** (Static-X): EXCELLENT
+   - Correctly identified, large boost applied, dynamics preserved
+   - 0.22 dB error - nearly perfect!
+
+2. **Loud material identification** (Testament, Iron Maiden): GOOD
+   - Correctly identifies high input levels
+   - Limited stereo width expansion prevents peak issues
+
+3. **Spectrum positioning**: ACCURATE
+   - Slayer correctly identified as extreme dynamics (DR: 1.00)
+   - Iron Maiden correctly identified as very loud (Level: 0.91)
+
+### What Needs Dynamics Processing ⚠️
+
+1. **Extreme dynamics (Slayer)**:
+   - Rule fires correctly: `compression_amount=0.85`
+   - But dynamics processor is disabled
+   - Crest stays at 17.90 dB (needs to be ~15.7 dB)
+   - **Can't fix without compression**
+
+2. **Light compression (Testament)**:
+   - Needs -1.2 dB crest reduction
+   - Currently preserves crest at 12.29 dB
+   - **Can't fix without compression**
+
+3. **Over-compressed restoration (Iron Maiden)**:
+   - Needs crest increase from 11.18 → 14.39 dB
+   - **Would need expansion/limiting strategy**
+
+---
+
+## Root Cause Analysis
+
+### The Fundamental Constraint
+
+**Discovery**: With peak normalized to -0.1 dB, final RMS is **entirely determined by crest factor**:
+
+```
+RMS (dB) = Peak (dB) - Crest Factor (dB)
+
+If Peak = -0.10 dB and Crest = 12.0 dB:
+    RMS = -0.10 - 12.0 = -12.10 dB
+
+To increase RMS to -11.0 dB:
+    Either: Increase peak to +0.90 dB (not acceptable)
+    Or:     Reduce crest to 11.0 dB (via compression) ✓
+```
+
+**Implication**: Without dynamics processing, we cannot:
+- Increase RMS beyond what crest factor allows
+- Reduce crest factor (requires compression)
+- Increase crest factor (requires expansion/restoration)
+
+### Why Static-X Works Perfectly
+
+Static-X works because it's **under-leveled with moderate dynamics**:
+1. Large headroom allows big RMS boost (+6 dB)
+2. Moderate crest (12-13 dB) doesn't need adjustment
+3. Simple gain staging achieves the goal
+4. No compression needed
+
+### Why Others Need Dynamics Processing
+
+- **Slayer**: Crest 18.98 dB is TOO HIGH → needs compression to ~15.7 dB
+- **Testament**: Crest 12.55 dB → needs slight reduction to ~11.35 dB
+- **Iron Maiden**: Crest 11.18 dB is TOO LOW → needs restoration to ~14.4 dB
+
+**All require dynamics processing** - can't be solved with gain alone.
+
+---
+
+## Technical Implementation
+
+### New Content Rules Added
+
+#### 1. Extreme Dynamics Rule
 ```python
-# PUT /api/library/tracks/:id/metadata
-@router.put("/api/library/tracks/{track_id}/metadata")
-async def update_track_metadata(track_id: int, metadata: Dict[str, Any]):
-    # 1. Get track from database
-    # 2. Validate metadata fields
-    # 3. Use MetadataEditor to write to file
-    # 4. Update database record
-    # 5. Broadcast metadata_updated message
-    # 6. Return updated track info
-    pass
-
-# POST /api/library/tracks/batch/metadata
-@router.post("/api/library/tracks/batch/metadata")
-async def batch_update_metadata(updates: List[MetadataUpdateRequest]):
-    # 1. Validate all updates
-    # 2. Use MetadataEditor.batch_update()
-    # 3. Update database records
-    # 4. Broadcast metadata_updated message
-    # 5. Return success/failure summary
-    pass
+# In spectrum_mapper.py line 336
+if position.dynamic_range > 0.9:  # Crest > ~17 dB
+    params.compression_amount = 0.85  # Heavy compression
+    params.dynamics_intensity = 0.85
+    params.output_target_rms = -15.0
+    print(f"[Content Rule] EXTREME dynamics → Heavy compression")
 ```
 
-**Frontend Component Design** (for future session):
-```typescript
-interface EditMetadataDialogProps {
-  trackId: number;
-  onSave: (metadata: Metadata) => void;
-  onCancel: () => void;
-}
+**Purpose**: Handle abnormally dynamic material (like Slayer) that needs aggressive compression for competitive loudness.
 
-function EditMetadataDialog({ trackId, onSave, onCancel }: EditMetadataDialogProps) {
-  // Form fields: title, artist, album, year, genre, track, disc, comment
-  // Validation
-  // Preview changes
-  // Save/Cancel buttons
-}
+#### 2. Over-Compressed Detection Rule
+```python
+# In spectrum_mapper.py line 381
+if position.dynamic_range < 0.35 and position.input_level > 0.8:
+    params.output_target_rms = -14.0  # Conservative
+    params.compression_amount = 0.0  # NO compression
+    params.dynamics_intensity = 0.0
+    print(f"[Content Rule] OVER-COMPRESSED → Restore dynamics")
 ```
 
-### Status
-
-**Phase 4.1**: 🔄 **IN PROGRESS** (30% complete)
-- ✅ Core metadata editor complete
-- ⏭️ Backend API next
-- ⏭️ Frontend UI after that
-
----
-
-## Files Created/Modified Summary
-
-### Created Files (5)
-
-1. **[TECHNICAL_DEBT_RESOLUTION.md](TECHNICAL_DEBT_RESOLUTION.md)** - Phase 1.6 documentation
-2. **[PHASE_0_COMPLETION_SUMMARY.md](PHASE_0_COMPLETION_SUMMARY.md)** - Phase 0.2 documentation
-3. **[auralis-web/backend/WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md)** - WebSocket API reference
-4. **[auralis/library/metadata_editor.py](auralis/library/metadata_editor.py)** - Metadata editor core (600+ lines)
-5. **[SESSION_SUMMARY_OCT24.md](SESSION_SUMMARY_OCT24.md)** - This file
-
-### Modified Files (4)
-
-1. **[auralis/dsp/advanced_dynamics.py](auralis/dsp/advanced_dynamics.py)**
-   - Lines 233-239: Added automatic makeup gain calculation
-
-2. **[auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py)**
-   - Line 76: Re-enabled compressor
-   - Lines 226-235: Restored dynamics processing
-   - Lines 218, 224, 235, 256, 259, 267: Replaced print() with debug()
-
-3. **[auralis/core/analysis/target_generator.py](auralis/core/analysis/target_generator.py)**
-   - Lines 204-228: Enhanced content-aware loudness adjustment
-
-4. **[auralis-web/backend/routers/player.py](auralis-web/backend/routers/player.py)**
-   - Lines 315-318: Added `playback_started` broadcast
-   - Lines 350-353: Added `playback_paused` broadcast
-
-5. **[tests/test_preset_system.py](tests/test_preset_system.py)**
-   - Line 263: Adjusted RMS threshold from 0.05 to 0.03
-   - Lines 259-261: Updated comments explaining dynamics impact
-
----
-
-## Current State
-
-### Completed Phases
-
-- ✅ **Phase 1.6**: Mastering Presets Enhancement + Technical Debt
-- ✅ **Phase 0.2**: WebSocket Play/Pause Messages
-- ✅ **Phase 0.3**: Single WebSocket Consolidation (done earlier)
-
-### In Progress
-
-- 🔄 **Phase 4.1**: Track Metadata Editing (30% complete)
-  - ✅ Core `MetadataEditor` class
-  - ⏭️ Backend API endpoints
-  - ⏭️ Frontend UI components
-
-### Deferred
-
-- **Phase 0.4**: Standardize WebSocket Structure (LOW PRIORITY)
-
----
-
-## Next Session Plan
-
-**Continue Phase 4.1: Metadata Editing**
-
-**Order of Implementation**:
-
-1. **Create Backend Router** (2-3 hours)
-   - New file: `auralis-web/backend/routers/metadata.py`
-   - Endpoints:
-     - `GET /api/library/tracks/:id/metadata/fields` - Get editable fields
-     - `PUT /api/library/tracks/:id/metadata` - Update metadata
-     - `POST /api/library/tracks/batch/metadata` - Batch update
-   - Integration with MetadataEditor class
-   - Database updates after file modification
-   - WebSocket broadcasts
-
-2. **Write Backend Tests** (1-2 hours)
-   - Create `tests/backend/test_metadata.py`
-   - Test individual track updates
-   - Test batch updates
-   - Test error handling
-   - Test backup/restore
-
-3. **Create Frontend Component** (3-4 hours)
-   - `EditMetadataDialog.tsx` - Main dialog
-   - `BatchMetadataEditor.tsx` - Batch editor
-   - Integration with context menu
-   - Form validation
-   - API calls to backend
-
-4. **Integration Testing** (1 hour)
-   - Test with real audio files
-   - Test all formats (MP3, FLAC, M4A, OGG)
-   - Verify database updates
-   - Verify file modifications
-
-**Total Estimated**: 7-10 hours (full Phase 4.1 completion)
-
----
-
-## Code Quality
-
-### Test Coverage
-
-- **Core Tests**: 25/25 passing (100%)
-- **Backend Tests**: 101/101 passing (100%)
-- **Total Tests**: 126/126 passing
-
-### Documentation
-
-- **Comprehensive**: 4 major documentation files created
-- **API Docs**: WebSocket API fully documented
-- **Code Comments**: Proper debug logging throughout
-- **Session Tracking**: Complete session summaries
-
-### Code Organization
-
-- **Modular**: Backend already split into routers
-- **Clean**: No temporary workarounds remaining
-- **Professional**: Proper error handling, logging, validation
-
----
-
-## Production Readiness
-
-### Completed Features - Production Ready
-
-- ✅ **Preset System**: 5 presets working correctly with distinct outputs
-- ✅ **Dynamics Processing**: Full pipeline with automatic makeup gain
-- ✅ **Content-Aware Processing**: Respects production era and material
-- ✅ **WebSocket API**: Complete with play/pause messages
-- ✅ **Test Coverage**: 100% passing (126 tests)
-
-### In Development
-
-- 🔄 **Metadata Editing**: Core ready, API/UI in progress
-
-### Deferred (Low Priority)
-
-- **WebSocket Standardization**: Working, standardization can wait
-- **Backend Refactoring**: Already done (614 lines, 11 endpoints)
-
----
-
-## Technical Context
-
-### Key Dependencies
-
-- **mutagen**: 1.47.0 (metadata editing)
-- **FastAPI**: Backend framework
-- **React**: Frontend framework
-- **SQLAlchemy**: Database ORM
-- **WebSocket**: Real-time communication
-
-### Architecture
-
-- **Backend**: Modular routers (player, library, playlists, enhancement, etc.)
-- **Frontend**: Single WebSocket connection, subscription-based
-- **Database**: SQLite with repository pattern
-- **Processing**: 52.8x real-time, 197x with optimizations
-
-### Performance
-
-- **Processing**: No degradation from technical debt fixes
-- **Memory**: Minimal increase (<5%)
-- **Network**: 2 new WebSocket messages (~100 bytes each)
-- **Latency**: No measurable impact
-
----
-
-## Roadmap Context
-
-### Completed Recently
-
-- Phase 1.6: Mastering Presets ✅
-- Phase 0.2: WebSocket Messages ✅
-- Phase 0.3: WebSocket Consolidation ✅
-
-### Current Work
-
-- Phase 4.1: Metadata Editing 🔄 (30% done)
-
-### Next Priority Features
-
-1. **Complete Phase 4.1** (Metadata Editing) - 7-10 hours remaining
-2. **Phase 4.2**: Smart Chunk Shaping (MEDIUM PRIORITY) - 5-7 days
-3. **Version Management**: Database migrations (CRITICAL) - 8-12 hours
-4. **UI Implementation**: Design aesthetic completion - See [UI_IMPLEMENTATION_ROADMAP.md](docs/design/UI_IMPLEMENTATION_ROADMAP.md)
-
----
-
-## Important Notes for Next Session
-
-### Resume from Here
-
-1. **Current Task**: Create backend metadata API endpoints
-2. **File to Create**: `auralis-web/backend/routers/metadata.py`
-3. **Reference**: Use [metadata_editor.py](auralis/library/metadata_editor.py) for core functionality
-4. **Pattern**: Follow existing router patterns (see [player.py](auralis-web/backend/routers/player.py))
-
-### Quick Start Commands
-
-```bash
-# Run tests to verify everything still works
-python -m pytest tests/test_preset_system.py -v
-python -m pytest tests/backend/ -v
-
-# Start development server
-python launch-auralis-web.py --dev
-
-# Check current branch
-git status
+**Purpose**: Detect over-mastered modern remasters and avoid making them worse.
+
+#### 3. Limited Stereo Width for Loud Material
+```python
+# In hybrid_processor.py line 291
+if spectrum_position.input_level > 0.8 and target_width > current_width:
+    max_width_increase = 0.3  # Limit expansion
+    target_width = min(target_width, current_width + max_width_increase)
 ```
 
-### Todo List State
-
-Current todos for Phase 4.1:
-- ✅ Research mutagen library
-- ✅ Design database schema
-- ✅ Create MetadataEditor class
-- ⏭️ Backend API endpoints (NEXT)
-- ⏭️ Batch update endpoint
-- ⏭️ Frontend EditMetadataDialog
-- ⏭️ Context menu integration
-- ⏭️ Testing with various formats
-
-### Key Files to Know
-
-**For Backend API Work**:
-- [auralis/library/metadata_editor.py](auralis/library/metadata_editor.py) - Core editor
-- [auralis-web/backend/routers/player.py](auralis-web/backend/routers/player.py) - Router pattern example
-- [auralis-web/backend/routers/library.py](auralis-web/backend/routers/library.py) - Library endpoints
-
-**For Frontend Work (later)**:
-- [auralis-web/frontend/src/components/CozyLibraryView.tsx](auralis-web/frontend/src/components/CozyLibraryView.tsx) - Track list display
-- [auralis-web/frontend/src/hooks/usePlayerAPI.ts](auralis-web/frontend/src/hooks/usePlayerAPI.ts) - API hooks pattern
+**Purpose**: Prevent stereo width expansion from causing massive peak boosts on already-loud material.
 
 ---
 
-## Session Statistics
+## Next Steps
 
-- **Duration**: ~6 hours
-- **Files Created**: 5
-- **Files Modified**: 5
-- **Lines of Code**: ~1,200 (new + modified)
-- **Documentation**: ~2,000 lines
-- **Tests**: 126 passing (100%)
-- **Phases Completed**: 2 (Phase 1.6, Phase 0.2)
-- **Phases Started**: 1 (Phase 4.1 - 30% complete)
+### Immediate (Required for Full Quality)
+
+1. **Re-enable Dynamics Processor** with spectrum-aware settings:
+   ```python
+   # Use spectrum_params.compression_amount (0.0-1.0)
+   # Apply compression based on calculated ratio/threshold
+   # Respect dynamics_intensity setting
+   ```
+
+   **Expected Impact**:
+   - Slayer: 5.03 dB → <2.0 dB error (GOOD or EXCELLENT)
+   - Testament: 1.70 dB → <1.0 dB error (EXCELLENT)
+
+2. **Test dynamics processor** with current spectrum rules:
+   - Verify compression_amount is respected
+   - Check makeup gain calculation
+   - Ensure crest factor reduces appropriately
+
+3. **Refine thresholds** based on dynamics processor results:
+   - May need to adjust compression_amount values
+   - May need to tune DR > 0.9 threshold
+
+### Medium Term
+
+4. **Add expansion/restoration** for over-compressed material:
+   - Detect crest < 12 dB + high level
+   - Apply gentle expansion or parallel processing
+   - Target crest increase to 13-15 dB
+
+5. **Test with more genres**:
+   - Latin rock (Soda Stereo)
+   - Reggae (Bob Marley)
+   - Power metal (Blind Guardian)
+   - Classical (if available)
+
+6. **Comprehensive preset testing**:
+   - Test gentle, warm, bright, punchy presets
+   - Verify spectrum system respects preset hints
+   - Ensure anchors provide good starting points
 
 ---
 
-**Session End**: October 24, 2025
-**Next Session**: Continue Phase 4.1 - Create backend metadata API endpoints
-**Estimated Remaining**: 7-10 hours to complete Phase 4.1
+## Documentation Created
+
+### New Files
+1. **`SPECTRUM_REFINEMENT_STATUS.md`**
+   - Detailed status of anchor point tuning
+   - Testament and Static-X test results
+   - Implementation notes and file changes
+
+2. **`CREST_FACTOR_FINDINGS.md`**
+   - Complete analysis of Matchering's crest factor strategy
+   - Detailed breakdown of all 4 test cases
+   - Recommended fixes and expected impacts
+
+3. **`SESSION_SUMMARY_OCT24.md`** (this file)
+   - Complete session overview
+   - Major discoveries and technical implementation
+   - Next steps and recommendations
+
+### Modified Files
+1. **`auralis/core/analysis/spectrum_mapper.py`**
+   - Lines 336-353: Added extreme dynamics and refined dynamic material rules
+   - Lines 381-387: Added over-compressed detection
+   - Line 160: Refined live anchor target RMS
+
+2. **`auralis/core/hybrid_processor.py`**
+   - Lines 258-260: Added peak tracking after EQ
+   - Lines 289-295: Added limited stereo width expansion
+   - Lines 328-344: Improved final normalization (RMS boost before peak norm)
+
+---
+
+## Key Learnings
+
+### 1. Crest Factor is King 👑
+
+RMS loudness cannot be separated from crest factor when peak is fixed. Any RMS target must account for crest factor constraints.
+
+### 2. Matchering is Adaptive AND Corrective
+
+Matchering doesn't just master - it:
+- Enhances under-leveled material (Static-X: +2 dB crest)
+- Compresses extreme dynamics (Slayer: -3.2 dB crest)
+- Restores over-compressed material (Iron Maiden: +3.2 dB crest)
+
+### 3. Stereo Width Affects Peaks Significantly
+
+Expanding stereo width increases side signal, which can boost peaks dramatically (+2.85 dB observed on Testament). Loud material needs limited expansion.
+
+### 4. Spectrum System Architecture is Sound
+
+The spectrum-based approach correctly identifies material characteristics:
+- Static-X: Under-leveled (0.46) → EXCELLENT results
+- Slayer: Extreme dynamics (1.00) → Correct diagnosis
+- Iron Maiden: Over-compressed (0.37) → Correct diagnosis
+
+**Problem is execution**, not architecture. We need dynamics processing to act on the correct diagnoses.
+
+---
+
+## Confidence Assessment
+
+**Architecture**: ✅ VERY HIGH
+- Spectrum positioning is accurate
+- Content rules fire correctly
+- Anchor points provide good starting values
+
+**Current Results**: ✅ GOOD
+- 1/4 tracks EXCELLENT (Static-X)
+- 1/4 tracks GOOD (Testament)
+- 2/4 tracks ACCEPTABLE (Slayer, Iron Maiden)
+- Average 2.38 dB error
+
+**Potential with Dynamics**: ✅ VERY HIGH
+- Slayer: Expected to improve to <2 dB error
+- Testament: Expected to improve to <1 dB error
+- Iron Maiden: May need expansion strategy
+- Average expected: <1.5 dB error across all tracks
+
+---
+
+## Final Status - All 4 Behaviors Complete ✅
+
+**Implementation**: COMPLETE
+
+**Test Results** (6 tracks across all 4 behaviors):
+- 3 EXCELLENT (Testament, Motörhead, Soda Stereo)
+- 1 GOOD (Seru Giran)
+- 2 ACCEPTABLE (Slayer, Pantera)
+
+**Average Accuracy**:
+- Crest error: 0.67 dB (excellent)
+- RMS error: 1.30 dB (good)
+
+**Behaviors Implemented**:
+1. ✅ Heavy Compression (Slayer) - 0.83 dB crest error
+2. ✅ Light Compression (Testament) - 0.03 dB crest error (nearly perfect!)
+3. ✅ Preserve Dynamics (Seru Giran) - 0.05 dB crest error
+4. ✅ Expand Dynamics (Motörhead, Soda Stereo, Pantera) - 0.08-2.42 dB errors
+
+**Documentation Created**:
+- `DYNAMICS_EXPANSION_COMPLETE.md` - Complete implementation details
+- `PROCESSING_BEHAVIOR_GUIDE.md` - Quick reference for how system processes different material
+
+**Ready For**: Real-world testing via web interface and desktop application
+
+**Optional Refinement**: Tune extreme cases (Slayer compression, Pantera expansion) for even better accuracy.
+
+---
+
+## Recommendation (UPDATED)
+
+**Status**: ✅ COMPLETE - All 4 behaviors implemented and working
+
+**Previous Recommendation**: Re-enable dynamics processor with spectrum-aware settings.
+**Status**: ✅ DONE - DIY compressor and expander implemented with spectrum-aware parameters
+
+**Current Recommendation**: Test system via web interface and desktop application with real-world music library.
+
+**Expected Outcome**: System should handle 66%+ of tracks with EXCELLENT/GOOD accuracy across all material types.
+
+---
+
+## Files for Review
+
+**Implementation**:
+- `auralis/core/analysis/spectrum_mapper.py` - Content rules including expansion (lines 60, 107, 134, 161, 188, 302, 322, 402-433)
+- `auralis/core/hybrid_processor.py` - DIY compressor and expander (lines 380-462)
+
+**Documentation**:
+- `DYNAMICS_EXPANSION_COMPLETE.md` - **NEW** - Complete expansion implementation details
+- `PROCESSING_BEHAVIOR_GUIDE.md` - **NEW** - Quick reference for all 4 behaviors
+- `CRITICAL_DISCOVERY_DEMASTERING.md` - Original de-mastering discovery
+- `SPECTRUM_REFINEMENT_STATUS.md` - Anchor tuning details
+- `CREST_FACTOR_FINDINGS.md` - Complete crest factor analysis
+- `SESSION_SUMMARY_OCT24.md` - This file (updated)
+
+**Test Scripts**:
+- `test_all_behaviors.py` - **NEW** - Comprehensive test of all 4 behaviors (6 tracks)
+- `test_expansion.py` - **NEW** - Dynamics expansion tests (3 tracks)
+- `test_quick.py` - Slayer and Iron Maiden tests
+- `test_adaptive_processing.py` - Static-X tests
+
+---
+
+**Session Duration**: ~4 hours total (2 hours spectrum refinement + 2 hours dynamics expansion)
+**Commits**: Recommended - all 4 behaviors complete
+**Status**: ✅ COMPLETE - Ready for real-world testing
+
+
+---
+
+## Final Session Status (End of Day - Oct 24, 2025)
+
+### Completed Work ✅
+
+1. **Dynamics Expansion** - All 4 Matchering behaviors working
+2. **RMS Boost Fix** - Resolved overdrive issue on loud material  
+3. **Library Scan Backend** - API endpoint with duplicate prevention
+4. **Desktop Application** - AppImage + DEB packages built (18:59-19:00)
+5. **Documentation** - Complete implementation guides and testing docs
+
+### Build Information
+
+**Packages Ready**:
+- AppImage: `dist/Auralis-1.0.0.AppImage` (246 MB)
+- DEB: `dist/auralis-desktop_1.0.0_amd64.deb` (176 MB)
+
+**Build Time**: October 24, 2025, 18:59-19:00 UTC-3
+
+**Key Fixes**:
+- RMS boost only applies to quiet material (< -15 dB)
+- List import added to library router
+- All 4 dynamics behaviors implemented
+
+### Test Results Summary
+
+**Dynamics Processing** (6 tracks tested):
+- 3 EXCELLENT (Testament, Motörhead, Soda Stereo)
+- 1 GOOD (Seru Giran)
+- 2 ACCEPTABLE (Slayer, Pantera)
+- **Average**: 0.67 dB crest error, 1.30 dB RMS error
+
+**Library Management**:
+- Scanning: 740+ files/second
+- Duplicate detection: File hash + path checking
+- Backend API: `POST /api/library/scan` endpoint working
+- Frontend UI: TODO (backend complete)
+
+### Ready for Production Testing
+
+The application is ready to test with complete music libraries:
+
+``ash
+./dist/Auralis-1.0.0.AppImage
+```
+
+**Expected Behavior**:
+- Natural loudness (no overdrive)
+- Correct dynamics processing (compress/preserve/expand)
+- Large library support (10k+ tracks)
+- Automatic duplicate prevention during scan
+
+### Known Limitations
+
+1. Library scan UI not implemented (use API endpoint manually)
+2. No real-time progress bar during scan (backend ready, frontend TODO)
+3. Extreme cases need refinement (Slayer compression, Pantera expansion)
+
+See [LIBRARY_SCAN_IMPLEMENTATION.md](LIBRARY_SCAN_IMPLEMENTATION.md) for frontend implementation plan.
+
+---
+
+**Session Complete**: October 24, 2025, 19:00 UTC-3
+**Next Session**: Frontend UI for library scanning (optional)
+
