@@ -2,11 +2,25 @@
 
 This directory contains all project documentation, organized by category.
 
+## 🚀 Quick Links
+
+**⭐ [DOCUMENTATION_INDEX.md](../DOCUMENTATION_INDEX.md) - Master Documentation Index**
+- Complete navigation guide for all documentation
+- Quick start guides by use case
+- Documentation organized by topic
+- Session summaries and recent updates
+
+**📖 Essential Documentation:**
+- [CLAUDE.md](../CLAUDE.md) - **Developer Guide** - Architecture, setup, best practices
+- [README.md](../README.md) - **User Guide** - What is Auralis, installation, usage
+- [PERFORMANCE_OPTIMIZATION_QUICK_START.md](../PERFORMANCE_OPTIMIZATION_QUICK_START.md) - Performance guide
+
 ## 📂 Documentation Structure
 
 ### Root Directory
 - [README.md](../README.md) - User-facing documentation and quick start guide
 - [CLAUDE.md](../CLAUDE.md) - Developer documentation for AI assistants and contributors
+- [DOCUMENTATION_INDEX.md](../DOCUMENTATION_INDEX.md) - **Master index** (navigation hub)
 
 ### Completed Work (`completed/`)
 Documentation of completed features, optimizations, and major implementations:
@@ -47,6 +61,31 @@ Debug guides and issue resolutions:
 Feature roadmaps and planning documents:
 
 - [ROADMAP_UPDATES_OCT23.md](roadmaps/ROADMAP_UPDATES_OCT23.md) - October 2023 roadmap updates
+- [VERSION_MIGRATION_ROADMAP.md](roadmaps/VERSION_MIGRATION_ROADMAP.md) - Version management roadmap
+
+### Session Documentation (`sessions/`)
+Documentation from specific development sessions:
+
+#### October 25, 2025 - Alpha 1 Release (`sessions/oct25_alpha1_release/`)
+- [SESSION_OCT25_INDEX.md](sessions/oct25_alpha1_release/SESSION_OCT25_INDEX.md) - **Session overview**
+- [ALPHA_1_BUILD_SUMMARY.md](sessions/oct25_alpha1_release/ALPHA_1_BUILD_SUMMARY.md) - Release summary
+- [GAIN_PUMPING_FIX.md](sessions/oct25_alpha1_release/GAIN_PUMPING_FIX.md) - Critical audio bug fix
+- [ELECTRON_WINDOW_FIX.md](sessions/oct25_alpha1_release/ELECTRON_WINDOW_FIX.md) - Linux display fix
+
+#### October 24, 2025 - Performance & Versioning
+See root-level documentation:
+- [README_OCT24_SESSION.md](../README_OCT24_SESSION.md) - Session overview
+- [DOCS_INDEX_OCT24.md](../DOCS_INDEX_OCT24.md) - Complete documentation index
+- [PERFORMANCE_OPTIMIZATION_QUICK_START.md](../PERFORMANCE_OPTIMIZATION_QUICK_START.md)
+
+### Version Management (`versions/`)
+Release and version management documentation:
+
+- [VERSIONING_STRATEGY.md](versions/VERSIONING_STRATEGY.md) - Complete versioning system
+- [VERSIONING_IMPLEMENTATION_COMPLETE.md](versions/VERSIONING_IMPLEMENTATION_COMPLETE.md) - Implementation details
+- [RELEASE_GUIDE.md](versions/RELEASE_GUIDE.md) - Step-by-step release process
+- [CHANGELOG.md](versions/CHANGELOG.md) - Release history (Keep a Changelog format)
+- [ALPHA_RELEASE_READY.md](versions/ALPHA_RELEASE_READY.md) - Alpha 1 preparation
 
 ### Archived Sessions (`archive/`)
 Historical session summaries and cleanup logs:
