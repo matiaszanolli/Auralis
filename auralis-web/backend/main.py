@@ -592,9 +592,21 @@ async def remove_scan_folder(request: ScanFolderRequest):
 
 
 # Serve React frontend (when built)
-# Check if running from PyInstaller bundle
-if hasattr(sys, '_MEIPASS'):
-    # PyInstaller bundle - frontend is bundled in _MEIPASS/frontend
+# Check if running in Electron (packaged app)
+if os.environ.get('ELECTRON_MODE'):
+    # Running in Electron - frontend is in Resources/frontend
+    # Backend is in Resources/backend/auralis-backend
+    # Get Resources directory by going up from executable location
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller bundled - go up from _MEIPASS to Resources
+        resources_path = Path(sys._MEIPASS).parent.parent
+        frontend_path = resources_path / "frontend"
+        logger.info(f"Electron + PyInstaller mode: Resources={resources_path}")
+    else:
+        # Not bundled (shouldn't happen in Electron, but handle it)
+        frontend_path = Path(__file__).parent.parent / "frontend" / "build"
+elif hasattr(sys, '_MEIPASS'):
+    # PyInstaller bundle but not Electron - frontend might be bundled
     frontend_path = Path(sys._MEIPASS) / "frontend"
     logger.info(f"PyInstaller mode: _MEIPASS={sys._MEIPASS}")
 else:
