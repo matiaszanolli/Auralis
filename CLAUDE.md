@@ -612,7 +612,7 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **License**: GPL-3.0
 
 ### Project Status
-- **Version**: 1.0.0-alpha.1 (Alpha stage - active development)
+- **Version**: 1.0.0-alpha.1 (Alpha stage - **Working POC** with rough edges)
 - **Core Processing**: ✅ Production-ready (**36.6x real-time speed** with optimizations, E2E validated)
 - **Performance Optimization**: ✅ COMPLETE - Numba JIT + vectorization (Oct 24, 2025)
   - **40-70x envelope speedup** (Numba JIT compilation)
@@ -628,6 +628,10 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
   - Heavy Compression, Light Compression, Preserve Dynamics, **Expand Dynamics (de-mastering)**
   - Average 0.67 dB crest error, 1.30 dB RMS error across all behaviors
 - **RMS Boost Fix**: ✅ FIXED - No more overdrive on loud material (Oct 24, 2025)
+- **Real-time Processing Fixes**: ✅ CRITICAL BUGS FIXED (Oct 25, 2025)
+  - **Gain pumping bug** - Fixed stateless compression causing audio degradation after 30s
+  - **Soft limiter** - Replaced harsh brick-wall with tanh() saturation
+  - **Electron window** - Fixed window not showing on Linux/Wayland
 - **Backend API**: ✅ 74% test coverage (96 tests, 100% passing)
 - **Library Scan API**: ✅ NEW - `POST /api/library/scan` endpoint with duplicate prevention (Oct 24, 2025)
 - **Backend Refactoring**: ✅ COMPLETE - Modular router architecture (614 lines main.py, down from 1,960)
@@ -637,7 +641,10 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **Audio Player**: ✅ Full playback with real-time processing
 - **WebSocket API**: ✅ Real-time player state updates
 - **Large Library Support**: ✅ Optimized for 50k+ tracks (infinite scroll, caching, indexes)
-- **Desktop Build**: ✅ AppImage + DEB packages ready (Oct 24, 2025 - Build 18:59-19:00)
+- **Desktop Build**: ✅ **Working POC** - AppImage + DEB packages (Oct 25, 2025 - Build 01:58)
+  - Linux desktop app launches and displays UI
+  - Real-time mastering works throughout entire song
+  - Known rough edges in UI/UX (expected for alpha)
 
 **Technical Debt:**
 - Library scan UI not implemented (backend complete, frontend TODO)
