@@ -1,6 +1,6 @@
 {
   "name": "auralis-desktop",
-  "version": "1.0.0",
+  "version": "1.0.0-alpha.1",
   "description": "Auralis Audio Mastering Desktop Application",
   "main": "main.js",
   "author": "Auralis Team",

@@ -49,7 +49,7 @@ npm run test:coverage                   # Coverage report
 
 **What makes it unique:**
 - No reference tracks needed (adaptive processing)
-- Professional-grade audio quality (52.8x real-time processing speed)
+- **High-performance processing** (36.6x real-time, optimized with Numba JIT + vectorization)
 - Simple UI for end users, powerful API for developers
 - 100% local processing (no cloud, complete privacy)
 
@@ -87,6 +87,12 @@ python -m pytest --cov=auralis --cov-report=html tests/ -v
 # End-to-end audio processing validation
 python test_e2e_processing.py       # Test all presets with real audio
 python analyze_outputs.py           # Analyze audio quality metrics
+
+# Performance benchmarks and optimization tests
+python test_integration_quick.py    # Quick optimization validation (~30s)
+python benchmark_performance.py     # Comprehensive performance benchmark (~2-3 min)
+python benchmark_vectorization.py   # Envelope follower benchmark (40-70x speedup)
+python benchmark_eq_parallel.py     # EQ optimization benchmark (1.7x speedup)
 ```
 
 ### Supported Audio Formats
@@ -129,7 +135,9 @@ Professional-grade digital signal processing with modular architecture:
 
 **Modular Subsystems:**
 - `dsp/eq/` - 26-band psychoacoustic EQ system (critical bands, masking, filters, genre curves)
+  - **`parallel_eq_processor.py`** - Vectorized EQ processing (1.7x speedup with NumPy)
 - `dsp/dynamics/` - Dynamics processing (envelope follower, compressor, limiter with ISR/true peak)
+  - **`vectorized_envelope.py`** - Numba JIT envelope follower (40-70x speedup)
 - `dsp/utils/` - Organized utilities (audio info, conversion, spectral analysis, adaptive processing, stereo)
 
 **Legacy Compatibility:**
@@ -147,6 +155,7 @@ Professional-grade digital signal processing with modular architecture:
 - `analysis/content/` - Feature extraction, genre/mood analysis, processing recommendations
 - `analysis/ml/` - Machine learning genre classification (RandomForest with MFCC/chroma/spectral features)
 - `analysis/quality/` - Quality metrics (frequency, dynamic range, stereo, distortion, loudness standards)
+- **`parallel_spectrum_analyzer.py`** - Parallel FFT processing (3.4x speedup for long audio)
 
 ### Other Key Systems
 
@@ -163,7 +172,11 @@ Professional-grade digital signal processing with modular architecture:
 - Queue management with shuffle/repeat support
 
 **Performance Optimization (`auralis/optimization/`):**
-- Memory pools, smart caching, SIMD acceleration (197x speedup)
+- **Numba JIT compilation** - 40-70x envelope speedup (vectorized_envelope.py)
+- **NumPy vectorization** - 1.7x EQ speedup (parallel_eq_processor.py)
+- **Parallel processing framework** - Infrastructure for batch operations (parallel_processor.py)
+- **Real-time factor**: 36.6x on real-world audio (processes 1 hour in ~98 seconds)
+- Memory pools, smart caching, SIMD acceleration
 
 **Web Interface (`auralis-web/`):**
 - `backend/main.py` - FastAPI server (614 lines, refactored with modular routers)
@@ -252,6 +265,64 @@ save("output.wav", processed_audio, sr, subtype='PCM_16')
 - **Warm**: Adds warmth and smoothness
 - **Bright**: Enhances clarity and presence
 - **Punchy**: Increases impact and dynamics
+
+## Performance Optimization
+
+Auralis includes comprehensive performance optimizations for real-time audio processing:
+
+### Core Optimizations (Oct 24, 2025)
+
+**Numba JIT Compilation** (40-70x speedup):
+- Envelope following in dynamics processing
+- Sequential operations with dependencies
+- Automatic activation when Numba is installed
+
+**NumPy Vectorization** (1.7x speedup):
+- Psychoacoustic EQ processing (26-band)
+- Element-wise operations
+- SIMD-optimized array operations
+
+**Parallel Processing** (3.4x for long audio):
+- Spectrum analysis with multiple FFT windows
+- Only beneficial for audio > 60 seconds
+- Automatic threshold-based activation
+
+### Performance Metrics
+
+**Real-World Performance** (Iron Maiden - 232.7s track):
+- Processing time: 6.35 seconds
+- **Real-time factor: 36.6x**
+- Meaning: Process 1 hour of audio in ~98 seconds
+
+**Component Performance**:
+- Dynamics Processing: 150-323x real-time
+- Psychoacoustic EQ: 72-74x real-time
+- Content Analysis: 98-129x real-time
+- Spectrum Analysis: 54-55x real-time
+
+### Installation for Optimal Performance
+
+```bash
+# Standard installation (works, but slower)
+pip install numpy scipy
+
+# Recommended: Install Numba for 2-3x overall speedup
+pip install numpy scipy numba
+```
+
+**Graceful Fallbacks**: All optimizations are optional. Without Numba, the system falls back to standard implementations (still ~18-20x real-time).
+
+### Verification
+
+```bash
+# Quick validation (~30 seconds)
+python test_integration_quick.py
+
+# Comprehensive benchmark (~2-3 minutes)
+python benchmark_performance.py
+```
+
+**Documentation**: See [PERFORMANCE_OPTIMIZATION_QUICK_START.md](PERFORMANCE_OPTIMIZATION_QUICK_START.md) for detailed information.
 
 ## Large Library Performance Optimization
 
@@ -508,7 +579,12 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **License**: GPL-3.0
 
 ### Project Status
-- **Core Processing**: ✅ Production-ready (52.8x real-time speed, E2E validated)
+- **Core Processing**: ✅ Production-ready (**36.6x real-time speed** with optimizations, E2E validated)
+- **Performance Optimization**: ✅ COMPLETE - Numba JIT + vectorization (Oct 24, 2025)
+  - **40-70x envelope speedup** (Numba JIT compilation)
+  - **1.7x EQ speedup** (NumPy vectorization)
+  - **2-3x overall pipeline improvement** (real-world validated)
+  - Optional Numba dependency, graceful fallbacks, zero breaking changes
 - **Dynamics Expansion**: ✅ COMPLETE - All 4 Matchering behaviors working (Oct 24, 2025)
   - Heavy Compression, Light Compression, Preserve Dynamics, **Expand Dynamics (de-mastering)**
   - Average 0.67 dB crest error, 1.30 dB RMS error across all behaviors
@@ -552,6 +628,15 @@ All technical documentation has been organized into categorized directories:
 **📂 docs/roadmaps/** - Feature roadmaps and planning
 
 **📂 docs/archive/** - Historical session summaries
+
+**📂 Performance Optimization Documentation** - Oct 24, 2025 Session
+- **[PERFORMANCE_OPTIMIZATION_QUICK_START.md](PERFORMANCE_OPTIMIZATION_QUICK_START.md)** - **START HERE** - Quick installation and usage
+- **[BENCHMARK_RESULTS_FINAL.md](BENCHMARK_RESULTS_FINAL.md)** - Complete benchmark data and analysis
+- [PERFORMANCE_REVAMP_FINAL_COMPLETE.md](PERFORMANCE_REVAMP_FINAL_COMPLETE.md) - Complete technical story (all 5 phases)
+- [VECTORIZATION_INTEGRATION_COMPLETE.md](VECTORIZATION_INTEGRATION_COMPLETE.md) - Integration details and real-world validation
+- [VECTORIZATION_RESULTS.md](VECTORIZATION_RESULTS.md) - Numba JIT deep dive (40-70x speedup)
+- [PHASE_2_EQ_RESULTS.md](PHASE_2_EQ_RESULTS.md) - Why vectorization beats parallelization
+- [PERFORMANCE_REVAMP_INDEX.md](PERFORMANCE_REVAMP_INDEX.md) - Documentation navigator
 
 **📂 October 24, 2025 Session** - Dynamics Expansion & Library Scan Implementation
 - [README_OCT24_SESSION.md](README_OCT24_SESSION.md) - **START HERE** - Session overview and quick reference
