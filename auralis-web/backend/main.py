@@ -57,6 +57,16 @@ except ImportError as e:
     HAS_PROCESSING = False
     ChunkedAudioProcessor = None
 
+# Import multi-tier buffer system
+try:
+    from multi_tier_buffer import MultiTierBufferManager
+    from multi_tier_worker import MultiTierBufferWorker
+    from routers.cache import create_cache_router
+    HAS_MULTI_TIER = True
+except ImportError as e:
+    print(f"⚠️  Multi-tier buffer not available: {e}")
+    HAS_MULTI_TIER = False
+
 # Import routers
 from routers.system import create_system_router
 from routers.files import create_files_router
@@ -106,6 +116,10 @@ if HAS_PROCESSING:
 else:
     processing_engine = None
 connected_websockets: List[WebSocket] = []
+
+# Multi-tier buffer system
+multi_tier_manager: Optional[MultiTierBufferManager] = None
+multi_tier_worker: Optional[MultiTierBufferWorker] = None
 
 # Initialize Auralis components
 @app.on_event("startup")
@@ -174,6 +188,31 @@ async def startup_event():
             logger.error(f"❌ Failed to initialize Processing Engine: {e}")
     else:
         logger.warning("⚠️  Processing engine not available")
+
+    # Initialize multi-tier buffer system
+    if HAS_MULTI_TIER and library_manager:
+        try:
+            global multi_tier_manager, multi_tier_worker
+
+            multi_tier_manager = MultiTierBufferManager()
+            logger.info("✅ Multi-Tier Buffer Manager initialized")
+
+            multi_tier_worker = MultiTierBufferWorker(
+                buffer_manager=multi_tier_manager,
+                library_manager=library_manager
+            )
+
+            # Start the worker
+            await multi_tier_worker.start()
+            logger.info("✅ Multi-Tier Buffer Worker started")
+
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize multi-tier buffer: {e}")
+    else:
+        if not HAS_MULTI_TIER:
+            logger.warning("⚠️  Multi-tier buffer not available")
+        elif not library_manager:
+            logger.warning("⚠️  Library manager not available - multi-tier buffer disabled")
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -274,6 +313,15 @@ player_router = create_player_router(
     buffer_presets_fn=buffer_presets_for_track
 )
 app.include_router(player_router)
+
+# Include cache management router
+if HAS_MULTI_TIER and multi_tier_manager:
+    cache_router = create_cache_router(
+        buffer_manager=multi_tier_manager,
+        broadcast_manager=manager
+    )
+    app.include_router(cache_router, prefix="/api")
+    logger.info("✅ Cache management router included")
 
 # OLD WebSocket endpoint - KEEPING FOR NOW, WILL REMOVE AFTER TESTING
 # TODO: Remove these old endpoints after verifying router works
