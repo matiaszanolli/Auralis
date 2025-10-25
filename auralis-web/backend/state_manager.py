@@ -120,25 +120,36 @@ class PlayerStateManager:
 
     async def set_queue(self, tracks: List[TrackInfo], start_index: int = 0):
         """Set playback queue"""
+        current_track = tracks[start_index] if tracks and 0 <= start_index < len(tracks) else None
         await self.update_state(
             queue=tracks,
             queue_size=len(tracks),
-            queue_index=start_index
+            queue_index=start_index,
+            current_track=current_track
         )
 
     async def next_track(self):
         """Move to next track in queue"""
+        # Determine next track while holding lock (don't await inside lock)
         with self._lock:
             if self.state.queue_index < len(self.state.queue) - 1:
                 new_index = self.state.queue_index + 1
                 next_track = self.state.queue[new_index]
+                has_next = True
             elif self.state.repeat_mode == "all":
                 new_index = 0
                 next_track = self.state.queue[0] if self.state.queue else None
+                has_next = True
             else:
                 # No next track
-                await self.update_state(state=PlaybackState.STOPPED)
-                return None
+                has_next = False
+                new_index = None
+                next_track = None
+
+        # Update state outside lock to avoid deadlock
+        if not has_next:
+            await self.update_state(state=PlaybackState.STOPPED)
+            return None
 
         await self.update_state(
             queue_index=new_index,
@@ -149,17 +160,24 @@ class PlayerStateManager:
 
     async def previous_track(self):
         """Move to previous track in queue"""
+        # Determine action while holding lock (don't await inside lock)
         with self._lock:
             if self.state.current_time > 3.0:
                 # Restart current track if > 3 seconds
-                await self.set_position(0.0)
-                return self.state.current_track
+                should_restart = True
+                current_track = self.state.current_track
             elif self.state.queue_index > 0:
+                should_restart = False
                 new_index = self.state.queue_index - 1
                 prev_track = self.state.queue[new_index]
             else:
                 # No previous track
                 return None
+
+        # Execute state changes outside lock to avoid deadlock
+        if should_restart:
+            await self.set_position(0.0)
+            return current_track
 
         await self.update_state(
             queue_index=new_index,
