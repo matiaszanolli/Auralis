@@ -22,7 +22,7 @@ import logging
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["metadata"])
+# Note: router is created inside create_metadata_router() for better testability
 
 
 class MetadataUpdateRequest(BaseModel):
@@ -70,6 +70,9 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
     Returns:
         APIRouter: Configured router instance
     """
+
+    # Create a fresh router instance (important for testing - avoids route pollution)
+    router = APIRouter(tags=["metadata"])
 
     # Initialize metadata editor (shared instance) or use provided one
     if metadata_editor is None:

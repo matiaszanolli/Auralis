@@ -67,11 +67,10 @@ def mock_broadcast_manager():
 @pytest.fixture(scope="function")
 def mock_metadata_editor():
     """Create a fresh mock metadata editor for each test"""
-    # Use a regular Mock with explicit reset_mock() to ensure clean state
+    # Create a completely fresh mock for each test
     mock_editor = MagicMock()
-    mock_editor.reset_mock()  # Explicitly reset to clear any state
 
-    # Set default return values
+    # Set default return values (not side_effects)
     mock_editor.get_editable_fields.return_value = [
         'title', 'artist', 'album', 'year', 'genre', 'track', 'disc'
     ]
@@ -94,30 +93,39 @@ def mock_metadata_editor():
             {'track_id': 2, 'success': True, 'updates': {'artist': 'New Artist'}}
         ]
     }
-    yield mock_editor
-    # Clean up after test
-    mock_editor.reset_mock()
+
+    # Clear any side_effects to ensure clean state
+    mock_editor.get_editable_fields.side_effect = None
+    mock_editor.read_metadata.side_effect = None
+    mock_editor.write_metadata.side_effect = None
+    mock_editor.batch_update.side_effect = None
+
+    return mock_editor
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=False)
 def client(mock_library_manager, mock_broadcast_manager, mock_metadata_editor):
-    """Create test client with mocked dependencies"""
+    """Create test client with mocked dependencies
+
+    IMPORTANT: This fixture creates a NEW router for EACH test.
+    This ensures that mock modifications in one test don't affect others.
+    """
     from fastapi.testclient import TestClient
     from fastapi import FastAPI
     from routers.metadata import create_metadata_router
 
-    # Create router with mocked editor passed directly
+    # Create a fresh app and router for this test
     app = FastAPI()
     router = create_metadata_router(
         get_library_manager=lambda: mock_library_manager,
         broadcast_manager=mock_broadcast_manager,
-        metadata_editor=mock_metadata_editor  # Pass mock directly
+        metadata_editor=mock_metadata_editor  # Fresh mock for each test
     )
     app.include_router(router)
 
     client = TestClient(app)
-    # Yield instead of return to keep fixture dependencies active
-    yield client, mock_broadcast_manager, mock_metadata_editor
+    # Return tuple for unpacking in tests
+    return client, mock_broadcast_manager, mock_metadata_editor
 
 
 class TestGetEditableFields:

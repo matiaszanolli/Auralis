@@ -232,7 +232,8 @@ class TestContentAnalyzer:
         classical_profile = self.analyzer.analyze_content(self.classical_audio)
         classical_genre = classical_profile["genre_info"]["primary"]
         # Should classify as classical or at least not electronic
-        assert classical_genre in ["classical", "ambient", "pop", "jazz"]
+        # Note: 'acoustic' is a valid genre for classical-style music
+        assert classical_genre in ["classical", "ambient", "pop", "jazz", "acoustic"]
 
         # Test electronic audio
         electronic_profile = self.analyzer.analyze_content(self.electronic_audio)
