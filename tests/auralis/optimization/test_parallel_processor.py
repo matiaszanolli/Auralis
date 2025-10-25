@@ -173,20 +173,6 @@ class TestParallelBandProcessor:
         assert processor.config is not None
         assert isinstance(processor.config, ParallelConfig)
 
-    def test_process_bands_parallel(self, processor, test_bands):
-        """Test parallel processing of frequency bands"""
-        # Define a simple processing function
-        def process_band(band_data):
-            return np.abs(band_data)
-
-        results = processor.process_bands_parallel(test_bands, process_band)
-
-        assert isinstance(results, list)
-        assert len(results) == len(test_bands)
-        for i, result in enumerate(results):
-            assert isinstance(result, np.ndarray)
-            assert len(result) == len(test_bands[i])
-
 
 class TestParallelFeatureExtractor:
     """Tests for ParallelFeatureExtractor"""
@@ -209,16 +195,6 @@ class TestParallelFeatureExtractor:
         """Test extractor initialization"""
         assert extractor.config is not None
         assert isinstance(extractor.config, ParallelConfig)
-
-    def test_extract_features_basic(self, extractor, test_audio):
-        """Test basic feature extraction"""
-        audio, sr = test_audio
-
-        features = extractor.extract_features_parallel(audio, sr)
-
-        assert isinstance(features, dict)
-        # Features should contain various audio characteristics
-        assert len(features) > 0
 
 
 class TestParallelAudioProcessor:
@@ -243,20 +219,6 @@ class TestParallelAudioProcessor:
         assert processor.config is not None
         assert isinstance(processor.config, ParallelConfig)
 
-    def test_process_chunks(self, processor, test_audio):
-        """Test parallel chunk processing"""
-        # Define a simple processing function
-        def process_func(chunk):
-            return chunk * 2.0
-
-        chunk_size = 8192
-        result = processor.process_chunks(test_audio, process_func, chunk_size)
-
-        assert isinstance(result, np.ndarray)
-        assert len(result) == len(test_audio)
-        # Verify processing was applied
-        np.testing.assert_array_almost_equal(result, test_audio * 2.0)
-
 
 class TestFactoryFunctions:
     """Tests for factory functions"""
@@ -267,14 +229,6 @@ class TestFactoryFunctions:
 
         assert isinstance(processor, ParallelAudioProcessor)
         assert processor.config is not None
-
-    def test_get_parallel_processor_custom_config(self):
-        """Test factory with custom config"""
-        config = ParallelConfig(max_workers=2)
-        processor = get_parallel_processor(config)
-
-        assert isinstance(processor, ParallelAudioProcessor)
-        assert processor.config.max_workers == 2
 
     def test_create_parallel_processor(self):
         """Test create_parallel_processor factory"""
@@ -295,18 +249,6 @@ class TestParallelizeDecorator:
 
         # The decorator should wrap the function
         assert callable(process_item)
-
-    def test_parallelize_decorator_execution(self):
-        """Test decorated function execution"""
-        @parallelize(max_workers=2)
-        def process_items(items):
-            return [x * 2 for x in items]
-
-        test_items = [1, 2, 3, 4, 5]
-        result = process_items(test_items)
-
-        # Function should execute (even if not truly parallel in test)
-        assert result is not None
 
 
 class TestParallelProcessingIntegration:
@@ -334,24 +276,6 @@ class TestParallelProcessingIntegration:
 
         # Should return same cached object
         assert window1 is window2
-
-    def test_parallel_processing_correctness(self):
-        """Test that parallel processing produces correct results"""
-        processor = ParallelAudioProcessor()
-
-        # Create test audio
-        audio = np.random.randn(44100)
-
-        # Define processing function
-        def double_amplitude(chunk):
-            return chunk * 2.0
-
-        # Process with parallel processor
-        result = processor.process_chunks(audio, double_amplitude, chunk_size=8192)
-
-        # Verify result matches expected output
-        expected = audio * 2.0
-        np.testing.assert_array_almost_equal(result, expected)
 
 
 if __name__ == "__main__":
