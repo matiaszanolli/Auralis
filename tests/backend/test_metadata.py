@@ -36,19 +36,24 @@ def mock_track():
     return track
 
 
+@pytest.fixture(autouse=True)
+def patch_track_repository(mock_track):
+    """Auto-patch TrackRepository for all tests in this module"""
+    with patch('auralis.library.repositories.TrackRepository') as MockTrackRepo:
+        repo_instance = Mock()
+        repo_instance.get_by_id.return_value = mock_track
+        MockTrackRepo.return_value = repo_instance
+        yield MockTrackRepo
+
+
 @pytest.fixture
-def mock_library_manager(mock_track):
+def mock_library_manager():
     """Create a mock library manager"""
     manager = Mock()
     manager.session = Mock()
     manager.session.commit = Mock()
     manager.session.rollback = Mock()
-
-    # Mock TrackRepository
-    with patch('auralis.library.repositories.TrackRepository') as MockTrackRepo:
-        repo_instance = MockTrackRepo.return_value
-        repo_instance.get_by_id.return_value = mock_track
-        yield manager
+    return manager
 
 
 @pytest.fixture
@@ -62,7 +67,10 @@ def mock_broadcast_manager():
 @pytest.fixture(scope="function")
 def mock_metadata_editor():
     """Create a fresh mock metadata editor for each test"""
+    # Use a regular Mock with explicit reset_mock() to ensure clean state
     mock_editor = MagicMock()
+    mock_editor.reset_mock()  # Explicitly reset to clear any state
+
     # Set default return values
     mock_editor.get_editable_fields.return_value = [
         'title', 'artist', 'album', 'year', 'genre', 'track', 'disc'
@@ -86,7 +94,9 @@ def mock_metadata_editor():
             {'track_id': 2, 'success': True, 'updates': {'artist': 'New Artist'}}
         ]
     }
-    return mock_editor
+    yield mock_editor
+    # Clean up after test
+    mock_editor.reset_mock()
 
 
 @pytest.fixture(scope="function")
@@ -106,8 +116,8 @@ def client(mock_library_manager, mock_broadcast_manager, mock_metadata_editor):
     app.include_router(router)
 
     client = TestClient(app)
-    # Return client, broadcast_manager, and mock_editor for assertions
-    return client, mock_broadcast_manager, mock_metadata_editor
+    # Yield instead of return to keep fixture dependencies active
+    yield client, mock_broadcast_manager, mock_metadata_editor
 
 
 class TestGetEditableFields:
