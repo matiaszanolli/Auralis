@@ -317,6 +317,59 @@ class BranchPredictor:
             return 0.0
         return self.predictions_correct / self.predictions_made
 
+    async def predict_with_audio_content(
+        self,
+        current_preset: str,
+        filepath: Optional[str] = None,
+        current_chunk: int = 0,
+        top_n: int = 3
+    ) -> List[Tuple[str, float]]:
+        """
+        Enhanced prediction combining user behavior with audio content analysis.
+
+        Args:
+            current_preset: Current preset
+            filepath: Path to audio file (for audio analysis)
+            current_chunk: Current chunk index
+            top_n: Number of predictions to return
+
+        Returns:
+            List of (preset, probability) tuples
+        """
+        # Get user behavior predictions
+        user_predictions = self.predict_next_presets(current_preset, top_n=5)
+
+        # If no filepath, return user predictions only
+        if not filepath:
+            return user_predictions[:top_n]
+
+        try:
+            # Import audio predictor (lazy import to avoid circular dependency)
+            from audio_content_predictor import get_audio_content_predictor
+
+            predictor = get_audio_content_predictor()
+
+            # Analyze next chunk for audio-aware prediction
+            next_chunk = current_chunk + 1
+            audio_scores = await predictor.predict_preset_for_chunk(
+                filepath=filepath,
+                chunk_idx=next_chunk
+            )
+
+            # Combine user behavior (70%) with audio content (30%)
+            combined = predictor.combine_with_user_prediction(
+                user_predictions=user_predictions,
+                audio_scores=audio_scores,
+                user_weight=0.7,
+                audio_weight=0.3
+            )
+
+            return combined[:top_n]
+
+        except Exception as e:
+            logger.warning(f"Audio-aware prediction failed, using user-only: {e}")
+            return user_predictions[:top_n]
+
 
 class MultiTierBufferManager:
     """
