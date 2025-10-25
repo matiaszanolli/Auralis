@@ -90,8 +90,8 @@ class TestDSPBasicComprehensive:
         # Test stereo signal
         assert channel_count(self.stereo_signal) == 2
 
-        # Test single stereo sample
-        assert channel_count(self.single_sample_stereo) == 1  # Single sample in time
+        # Test single stereo sample - shape is (1, 2) so it has 2 channels
+        assert channel_count(self.single_sample_stereo) == 2
 
         # Test multi-channel signals
         multi_channel = np.random.randn(1000, 5)  # 5 channels
@@ -181,8 +181,9 @@ class TestDSPBasicComprehensive:
         assert np.isclose(rms_stereo, manual_rms)
 
         # Test single stereo sample
+        # RMS = sqrt(mean([0.3^2, 0.4^2])) = sqrt((0.09 + 0.16)/2) = sqrt(0.125)
         rms_single_stereo = rms(self.single_sample_stereo)
-        expected_single_stereo = np.sqrt((0.3**2 + 0.4**2))
+        expected_single_stereo = np.sqrt(np.mean([0.3**2, 0.4**2]))
         assert np.isclose(rms_single_stereo, expected_single_stereo)
 
         self.tearDown()
