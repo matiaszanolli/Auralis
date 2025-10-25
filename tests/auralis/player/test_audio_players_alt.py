@@ -527,16 +527,16 @@ class TestPlayerIntegration:
             from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
             from auralis.player.config import PlayerConfig
 
-            with patch('auralis.player.audio_player.AudioPlayer.__init__', return_value=None):
-                with patch('auralis.player.enhanced_audio_player.EnhancedAudioPlayer._init_audio_system'):
-                    config = PlayerConfig()
+            # Just test that player can be created
+            config = PlayerConfig()
 
-                    try:
-                        player = EnhancedAudioPlayer(config)
-                        # Player created successfully with mocked system
-                    except Exception:
-                        # Mocking might not work depending on implementation
-                        pass
+            try:
+                player = EnhancedAudioPlayer(config)
+                # Player created successfully
+                assert player is not None
+            except Exception as e:
+                # May fail if audio system unavailable
+                pytest.skip(f"Audio system not available: {e}")
 
         except ImportError:
             pytest.skip("Enhanced audio player not available")
