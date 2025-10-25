@@ -118,12 +118,12 @@ class TestCacheTier:
 
         await tier.add_entry(entry)
 
-        retrieved = tier.get_entry(entry.key())
+        retrieved = await tier.get_entry(entry.key())
         assert retrieved is not None
         assert retrieved.access_count == 1
 
         # Access again
-        retrieved = tier.get_entry(entry.key())
+        retrieved = await tier.get_entry(entry.key())
         assert retrieved.access_count == 2
 
     @pytest.mark.asyncio
@@ -164,7 +164,7 @@ class TestCacheTier:
         await tier.add_entry(entry)
         assert len(tier.entries) > 0
 
-        tier.clear()
+        await tier.clear()
         assert len(tier.entries) == 0
 
     @pytest.mark.asyncio
@@ -338,6 +338,9 @@ class TestMultiTierBufferManager:
         # Initial position
         await manager.update_position(track_id=1, position=0.0, preset="adaptive", intensity=1.0)
 
+        # Wait for debounce period (500ms)
+        await asyncio.sleep(0.6)
+
         # Switch preset
         await manager.update_position(track_id=1, position=10.0, preset="punchy", intensity=1.0)
 
@@ -355,7 +358,7 @@ class TestMultiTierBufferManager:
         assert len(manager.l1_cache.entries) > 0
 
         # Current chunk (0) for adaptive should be cached
-        is_cached, tier = manager.is_chunk_cached(1, "adaptive", 0, 1.0)
+        is_cached, tier = await manager.is_chunk_cached(1, "adaptive", 0, 1.0)
         assert is_cached is True
 
     @pytest.mark.asyncio
@@ -366,12 +369,12 @@ class TestMultiTierBufferManager:
         await manager.update_position(track_id=1, position=0.0, preset="adaptive", intensity=1.0)
 
         # Check cached chunk (should hit)
-        is_cached, tier = manager.is_chunk_cached(1, "adaptive", 0, 1.0)
+        is_cached, tier = await manager.is_chunk_cached(1, "adaptive", 0, 1.0)
         assert is_cached is True
         assert manager.l1_hits > 0
 
         # Check non-existent chunk (should miss)
-        is_cached, tier = manager.is_chunk_cached(1, "adaptive", 999, 1.0)
+        is_cached, tier = await manager.is_chunk_cached(1, "adaptive", 999, 1.0)
         assert is_cached is False
         assert manager.l1_misses > 0
 
@@ -406,7 +409,7 @@ class TestMultiTierBufferManager:
         initial_l1_count = len(manager.l1_cache.entries)
         assert initial_l1_count > 0
 
-        manager.clear_all_caches()
+        await manager.clear_all_caches()
 
         assert len(manager.l1_cache.entries) == 0
         assert len(manager.l2_cache.entries) == 0
@@ -444,6 +447,9 @@ class TestIntegrationScenarios:
         # Playback advances
         await manager.update_position(track_id=1, position=15.0, preset="adaptive", intensity=1.0)
 
+        # Wait for debounce period (500ms)
+        await asyncio.sleep(0.6)
+
         # User switches preset
         await manager.update_position(track_id=1, position=45.0, preset="punchy", intensity=1.0)
 
@@ -467,8 +473,9 @@ class TestIntegrationScenarios:
                 intensity=1.0
             )
 
-        # Should have recorded multiple switches
-        assert manager.preset_switches_in_session == len(presets_to_try) - 1
+        # Rapid interactions should NOT record switches (debouncing prevents noise)
+        # The user is exploring, not settling on choices
+        assert manager.preset_switches_in_session == 0
 
     @pytest.mark.asyncio
     async def test_settled_mode(self):
@@ -490,6 +497,65 @@ class TestIntegrationScenarios:
         # L3 should have deep buffer for "adaptive"
         stats = manager.get_cache_stats()
         assert stats['l3']['count'] > 0
+
+
+class TestTrackLifecycleManagement:
+    """Tests for track lifecycle management (robustness)"""
+
+    @pytest.mark.asyncio
+    async def test_handle_track_deleted(self):
+        """Test handling track deletion from library"""
+        manager = MultiTierBufferManager()
+
+        # Populate cache with track 1
+        await manager.update_position(track_id=1, position=0.0, preset="adaptive", intensity=1.0)
+
+        # Manually add track 2 entries to L2 cache (to simulate multi-track caching)
+        for chunk_idx in range(3):
+            entry = CacheEntry(
+                track_id=2,
+                preset="punchy",
+                chunk_idx=chunk_idx,
+                intensity=1.0,
+                timestamp=time.time()
+            )
+            await manager.l2_cache.add_entry(entry)
+
+        # Verify both tracks are cached
+        all_entries = list(manager.l1_cache.entries.values()) + list(manager.l2_cache.entries.values())
+        track_1_count = sum(1 for e in all_entries if e.track_id == 1)
+        track_2_count = sum(1 for e in all_entries if e.track_id == 2)
+        assert track_1_count > 0
+        assert track_2_count > 0
+
+        # Delete track 1
+        await manager.handle_track_deleted(track_id=1)
+
+        # Track 1 should be gone, track 2 should remain
+        all_entries = list(manager.l1_cache.entries.values()) + list(manager.l2_cache.entries.values())
+        track_1_count = sum(1 for e in all_entries if e.track_id == 1)
+        track_2_count = sum(1 for e in all_entries if e.track_id == 2)
+        assert track_1_count == 0
+        assert track_2_count > 0
+
+    @pytest.mark.asyncio
+    async def test_handle_track_modified(self):
+        """Test handling track file modification"""
+        manager = MultiTierBufferManager()
+
+        # Populate caches for track 1
+        await manager.update_position(track_id=1, position=0.0, preset="adaptive", intensity=1.0)
+
+        # Verify track 1 is cached
+        track_1_count = sum(1 for e in manager.l1_cache.entries.values() if e.track_id == 1)
+        assert track_1_count > 0
+
+        # Simulate track modification
+        await manager.handle_track_modified(track_id=1, filepath="/fake/path.mp3")
+
+        # Track 1 caches should be invalidated (cleared)
+        track_1_count = sum(1 for e in manager.l1_cache.entries.values() if e.track_id == 1)
+        assert track_1_count == 0
 
 
 if __name__ == "__main__":

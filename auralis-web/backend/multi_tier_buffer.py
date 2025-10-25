@@ -83,14 +83,15 @@ class CacheTier:
         """Calculate current cache size in MB."""
         return sum(entry.size_mb() for entry in self.entries.values())
 
-    def get_entry(self, key: str) -> Optional[CacheEntry]:
-        """Get entry and update access stats."""
-        if key in self.entries:
-            entry = self.entries[key]
-            entry.access_count += 1
-            entry.last_access = time.time()
-            return entry
-        return None
+    async def get_entry(self, key: str) -> Optional[CacheEntry]:
+        """Get entry and update access stats (with locking)."""
+        async with self._lock:
+            if key in self.entries:
+                entry = self.entries[key]
+                entry.access_count += 1
+                entry.last_access = time.time()
+                return entry
+            return None
 
     async def add_entry(self, entry: CacheEntry) -> bool:
         """
@@ -149,9 +150,10 @@ class CacheTier:
 
         return freed_mb >= needed_mb
 
-    def clear(self):
-        """Clear all entries."""
-        self.entries.clear()
+    async def clear(self):
+        """Clear all entries (with locking)."""
+        async with self._lock:
+            self.entries.clear()
 
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""
@@ -408,6 +410,14 @@ class MultiTierBufferManager:
         # Lock for state updates
         self._lock = asyncio.Lock()
 
+        # Throttling and debouncing (robustness)
+        self.last_position_update_time = 0.0
+        self.position_update_throttle_ms = 100  # 100ms minimum between updates
+        self.last_preset_change_time = 0.0
+        self.preset_change_debounce_ms = 500  # 500ms minimum between preset changes
+        self.rapid_interaction_window = []  # Track recent interactions
+        self.rapid_interaction_threshold = 10  # 10 interactions in 1 second = rapid
+
     def _get_current_chunk(self, position: float) -> int:
         """Calculate which chunk contains the given position."""
         return int(position // CHUNK_DURATION)
@@ -428,15 +438,45 @@ class MultiTierBufferManager:
             preset: Current preset
             intensity: Processing intensity (0.0-1.0)
         """
+        current_time = time.time()
+
+        # Check if track changed (bypass throttle for track changes)
+        track_changed = track_id != self.current_track_id
+
+        # Throttle position updates (100ms minimum), but NOT for track changes
+        if not track_changed:
+            if (current_time - self.last_position_update_time) < (self.position_update_throttle_ms / 1000.0):
+                logger.debug("Position update throttled")
+                return
+
+        self.last_position_update_time = current_time
+
+        # Detect rapid interactions (10+ in 1 second)
+        self.rapid_interaction_window.append(current_time)
+        self.rapid_interaction_window = [t for t in self.rapid_interaction_window if current_time - t < 1.0]
+
+        is_rapid_interaction = len(self.rapid_interaction_window) >= self.rapid_interaction_threshold
+        if is_rapid_interaction:
+            logger.warning(f"Rapid interaction detected ({len(self.rapid_interaction_window)} updates in 1s) - user exploring")
+
         async with self._lock:
             # Detect preset switch
             preset_changed = preset != self.current_preset
             if preset_changed and self.current_preset:
-                self.branch_predictor.record_switch(self.current_preset, preset)
-                self.preset_switches_in_session += 1
+                # Debounce preset changes (500ms minimum)
+                if (current_time - self.last_preset_change_time) < (self.preset_change_debounce_ms / 1000.0):
+                    logger.debug("Preset change debounced")
+                    # Don't record this switch for learning (too rapid)
+                else:
+                    # Only record if not rapid interaction
+                    if not is_rapid_interaction:
+                        self.branch_predictor.record_switch(self.current_preset, preset)
+                        self.preset_switches_in_session += 1
+                        self.last_preset_change_time = current_time
+                    else:
+                        logger.debug("Skipping preset switch recording during rapid interaction")
 
-            # Detect track change
-            track_changed = track_id != self.current_track_id
+            # Handle track change (detected earlier to bypass throttling)
             if track_changed:
                 await self._handle_track_change(track_id)
 
@@ -461,9 +501,9 @@ class MultiTierBufferManager:
         logger.info(f"Track changed: {self.current_track_id} -> {new_track_id}")
 
         # Clear all caches (could be optimized to keep some L3 if tracks are related)
-        self.l1_cache.clear()
-        self.l2_cache.clear()
-        self.l3_cache.clear()
+        await self.l1_cache.clear()
+        await self.l2_cache.clear()
+        await self.l3_cache.clear()
 
         logger.info("Cleared all caches for track change")
 
@@ -575,7 +615,7 @@ class MultiTierBufferManager:
             )
             await self.l3_cache.add_entry(entry)
 
-    def is_chunk_cached(
+    async def is_chunk_cached(
         self,
         track_id: int,
         preset: str,
@@ -591,17 +631,17 @@ class MultiTierBufferManager:
         key = f"{track_id}_{preset}_{intensity:.1f}_{chunk_idx}"
 
         # Check L1 first
-        if self.l1_cache.get_entry(key):
+        if await self.l1_cache.get_entry(key):
             self.l1_hits += 1
             return True, "L1"
 
         # Check L2
-        if self.l2_cache.get_entry(key):
+        if await self.l2_cache.get_entry(key):
             self.l2_hits += 1
             return True, "L2"
 
         # Check L3
-        if self.l3_cache.get_entry(key):
+        if await self.l3_cache.get_entry(key):
             self.l3_hits += 1
             return True, "L3"
 
@@ -651,12 +691,73 @@ class MultiTierBufferManager:
             }
         }
 
-    def clear_all_caches(self):
+    async def clear_all_caches(self):
         """Clear all cache tiers."""
-        self.l1_cache.clear()
-        self.l2_cache.clear()
-        self.l3_cache.clear()
+        await self.l1_cache.clear()
+        await self.l2_cache.clear()
+        await self.l3_cache.clear()
         logger.info("Cleared all cache tiers")
+
+    async def handle_track_deleted(self, track_id: int):
+        """
+        Handle track deletion from library.
+
+        Removes all cache entries for the deleted track to prevent stale data.
+
+        Args:
+            track_id: ID of the deleted track
+        """
+        logger.info(f"Track {track_id} deleted - cleaning up caches")
+
+        removed_count = 0
+
+        # Remove all cache entries for this track
+        for tier in [self.l1_cache, self.l2_cache, self.l3_cache]:
+            async with tier._lock:
+                entries_to_remove = [
+                    key for key, entry in tier.entries.items()
+                    if entry.track_id == track_id
+                ]
+                for key in entries_to_remove:
+                    del tier.entries[key]
+                    removed_count += 1
+
+        logger.info(f"Removed {removed_count} cache entries for deleted track {track_id}")
+
+    async def handle_track_modified(self, track_id: int, filepath: str):
+        """
+        Handle track file modification (file changed on disk).
+
+        Invalidates caches for the modified track.
+
+        Args:
+            track_id: ID of the modified track
+            filepath: Path to the modified file
+        """
+        logger.info(f"Track {track_id} modified - invalidating caches")
+
+        # Clear audio content cache for this file
+        try:
+            from audio_content_predictor import get_audio_content_predictor
+            predictor = get_audio_content_predictor()
+
+            # Remove all cached analysis for this file
+            cache_keys_to_remove = [
+                key for key in predictor.analyzer.analysis_cache.keys()
+                if key.startswith(f"{filepath}_")
+            ]
+            for key in cache_keys_to_remove:
+                del predictor.analyzer.analysis_cache[key]
+
+            logger.debug(f"Cleared {len(cache_keys_to_remove)} audio analysis cache entries")
+
+        except Exception as e:
+            logger.warning(f"Could not clear audio analysis cache: {e}")
+
+        # Clear processed chunk caches for this track
+        await self.handle_track_deleted(track_id)
+
+        logger.info(f"Cache invalidation complete for track {track_id}")
 
 
 # Global instance
