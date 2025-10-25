@@ -199,11 +199,26 @@ class AuralisApp {
       await this.mainWindow.loadURL(startUrl);
       console.log('✓ URL loaded successfully');
 
-      // Show window when ready
+      // Show window when ready (with timeout fallback for Linux)
+      let windowShown = false;
+
       this.mainWindow.once('ready-to-show', () => {
-        this.mainWindow.show();
-        console.log('✓ Window shown');
+        if (!windowShown) {
+          windowShown = true;
+          this.mainWindow.show();
+          console.log('✓ Window shown (ready-to-show event)');
+        }
       });
+
+      // Fallback: Force show after 2 seconds if event doesn't fire
+      // This fixes display issues on some Linux window managers
+      setTimeout(() => {
+        if (!windowShown) {
+          windowShown = true;
+          this.mainWindow.show();
+          console.log('✓ Window shown (fallback timeout)');
+        }
+      }, 2000);
 
       // Open DevTools in development
       if (this.isDevelopment) {

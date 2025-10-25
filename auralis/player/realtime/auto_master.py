@@ -14,6 +14,8 @@ import numpy as np
 from typing import Dict, Any
 from ..config import PlayerConfig
 from ...utils.logging import debug, info, warning
+from ...dsp.dynamics import AdaptiveCompressor
+from ...dsp.dynamics.settings import CompressorSettings
 
 
 class AutoMasterProcessor:
@@ -31,6 +33,18 @@ class AutoMasterProcessor:
             "bright": {"low_gain": 0.9, "mid_gain": 1.0, "high_gain": 1.15},
             "punchy": {"low_gain": 1.05, "mid_gain": 1.1, "high_gain": 1.05},
         }
+
+        # Initialize proper stateful compressor to prevent gain pumping
+        comp_settings = CompressorSettings(
+            threshold_db=-18.0,  # Gentle threshold
+            ratio=2.5,           # Moderate compression
+            attack_ms=5.0,       # Fast attack
+            release_ms=100.0,    # Smooth release
+            knee_db=6.0,         # Soft knee
+            makeup_gain_db=0.0,  # No makeup gain
+            enable_lookahead=False  # No lookahead for real-time
+        )
+        self.compressor = AdaptiveCompressor(comp_settings, config.sample_rate)
 
         debug(f"AutoMasterProcessor initialized with profile: {self.profile}")
 
@@ -51,15 +65,11 @@ class AutoMasterProcessor:
         # Get current profile settings
         settings = self.profiles[self.profile]
 
-        # Simple frequency-dependent gain adjustment
-        # This is a simplified version - a full implementation would use proper EQ
         processed = audio.copy()
 
-        # Apply gentle compression-like effect
-        rms = np.sqrt(np.mean(audio ** 2))
-        if rms > 0.1:  # Only compress if signal is strong enough
-            compression_ratio = min(1.0, 0.8 + 0.2 * (0.1 / rms))
-            processed *= compression_ratio
+        # Apply stateful compression with proper envelope tracking
+        # This prevents gain pumping and maintains smooth dynamics
+        processed, comp_stats = self.compressor.process(processed, detection_mode="rms")
 
         # Apply profile-based tonal shaping (simplified)
         # In a full implementation, this would be proper EQ bands
