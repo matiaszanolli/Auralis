@@ -32,8 +32,9 @@ logger = logging.getLogger(__name__)
 
 # Chunk configuration
 CHUNK_DURATION = 30  # seconds
-OVERLAP_DURATION = 1  # seconds for crossfade
+OVERLAP_DURATION = 3  # seconds for crossfade (increased from 1s for smoother transitions)
 CONTEXT_DURATION = 5  # seconds of context for better processing quality
+MAX_LEVEL_CHANGE_DB = 1.5  # maximum allowed level change between chunks in dB
 
 
 class ChunkedAudioProcessor:
@@ -91,6 +92,11 @@ class ChunkedAudioProcessor:
         config.set_processing_mode("adaptive")
         config.mastering_profile = self.preset.lower()
         self.processor = HybridProcessor(config)
+
+        # Processing state tracking for smooth transitions
+        self.chunk_rms_history = []  # Track RMS levels of processed chunks
+        self.chunk_gain_history = []  # Track gain adjustments applied
+        self.previous_chunk_tail = None  # Last samples of previous chunk for analysis
 
         logger.info(
             f"ChunkedAudioProcessor initialized: track_id={track_id}, "
@@ -215,6 +221,79 @@ class ChunkedAudioProcessor:
 
         return audio, chunk_start, chunk_end
 
+    def _calculate_rms(self, audio: np.ndarray) -> float:
+        """Calculate RMS level of audio in dB."""
+        rms = np.sqrt(np.mean(audio ** 2))
+        return 20 * np.log10(rms + 1e-10)  # Add epsilon to avoid log(0)
+
+    def _smooth_level_transition(
+        self,
+        chunk: np.ndarray,
+        chunk_index: int
+    ) -> np.ndarray:
+        """
+        Smooth level transitions between chunks by limiting maximum level changes.
+
+        This prevents volume jumps by ensuring the current chunk's RMS doesn't differ
+        too much from the previous chunk's RMS.
+
+        Args:
+            chunk: Processed audio chunk
+            chunk_index: Index of this chunk
+
+        Returns:
+            Level-smoothed chunk
+        """
+        if chunk_index == 0:
+            # First chunk - establish baseline
+            chunk_rms = self._calculate_rms(chunk)
+            self.chunk_rms_history.append(chunk_rms)
+            self.chunk_gain_history.append(0.0)  # No adjustment for first chunk
+            return chunk
+
+        # Calculate current and previous RMS
+        current_rms = self._calculate_rms(chunk)
+        previous_rms = self.chunk_rms_history[-1]
+
+        # Calculate level difference
+        level_diff_db = current_rms - previous_rms
+
+        # Limit the level change
+        if abs(level_diff_db) > MAX_LEVEL_CHANGE_DB:
+            # Calculate required gain adjustment to stay within limits
+            target_diff = MAX_LEVEL_CHANGE_DB if level_diff_db > 0 else -MAX_LEVEL_CHANGE_DB
+            required_adjustment_db = target_diff - level_diff_db
+
+            # Convert dB to linear gain
+            gain_adjustment = 10 ** (required_adjustment_db / 20)
+
+            # Apply gain adjustment
+            chunk_adjusted = chunk * gain_adjustment
+
+            # Log the adjustment
+            adjusted_rms = self._calculate_rms(chunk_adjusted)
+            logger.info(
+                f"Chunk {chunk_index}: Smoothed level transition "
+                f"(original RMS: {current_rms:.1f} dB, "
+                f"adjusted RMS: {adjusted_rms:.1f} dB, "
+                f"diff from previous: {level_diff_db:.1f} dB -> {target_diff:.1f} dB)"
+            )
+
+            # Store adjusted values
+            self.chunk_rms_history.append(adjusted_rms)
+            self.chunk_gain_history.append(required_adjustment_db)
+
+            return chunk_adjusted
+        else:
+            # Level change is acceptable, no adjustment needed
+            logger.info(
+                f"Chunk {chunk_index}: Level transition OK "
+                f"(RMS: {current_rms:.1f} dB, diff: {level_diff_db:.1f} dB)"
+            )
+            self.chunk_rms_history.append(current_rms)
+            self.chunk_gain_history.append(0.0)
+            return chunk
+
     def apply_crossfade(
         self,
         chunk: np.ndarray,
@@ -289,6 +368,10 @@ class ChunkedAudioProcessor:
                 original_chunk[:min_len] * (1.0 - self.intensity) +
                 processed_chunk[:min_len] * self.intensity
             )
+
+        # CRITICAL FIX: Smooth level transitions between chunks
+        # This prevents volume jumps by limiting maximum RMS changes
+        processed_chunk = self._smooth_level_transition(processed_chunk, chunk_index)
 
         # Apply crossfade
         processed_chunk = self.apply_crossfade(processed_chunk, chunk_index, is_last)
