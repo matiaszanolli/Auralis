@@ -38,6 +38,26 @@ class QueueManager:
             return self.tracks[self.current_index]
         return None
 
+    def peek_next(self) -> Optional[Dict[str, Any]]:
+        """
+        Get the next track without moving the queue position.
+        Used for pre-buffering in gapless playback.
+
+        Returns:
+            Next track info or None if no next track
+        """
+        if not self.tracks:
+            return None
+
+        next_index = self.current_index + 1
+
+        if next_index < len(self.tracks):
+            return self.tracks[next_index]
+        elif self.repeat_enabled:
+            return self.tracks[0]  # Will loop back to start
+        else:
+            return None
+
     def next_track(self) -> Optional[Dict[str, Any]]:
         """Move to next track"""
         if not self.tracks:
