@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Typography, styled } from '@mui/material';
 import { MusicNote, SearchOff, PlaylistPlay, FolderOpen } from '@mui/icons-material';
-import { colors } from '../../theme/auralisTheme';
+import { colors, spacing, transitions } from '../../theme/auralisTheme';
 import { GradientButton } from './GradientButton';
 
 interface EmptyStateProps {
@@ -18,17 +18,17 @@ const Container = styled(Box)({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '64px 32px',
+  padding: `${spacing.xxxl}px ${spacing.xl}px`,
   textAlign: 'center',
   minHeight: '300px',
 });
 
 const IconContainer = styled(Box)({
-  marginBottom: '24px',
+  marginBottom: `${spacing.lg}px`,
   '& .MuiSvgIcon-root': {
     fontSize: '80px',
     color: 'rgba(102, 126, 234, 0.3)',
-    transition: 'all 0.3s ease',
+    transition: `all ${transitions.normal}`,
   },
 
   '&:hover .MuiSvgIcon-root': {
@@ -41,13 +41,13 @@ const Title = styled(Typography)({
   fontSize: '24px',
   fontWeight: 600,
   color: colors.text.primary,
-  marginBottom: '8px',
+  marginBottom: `${spacing.sm}px`,
 });
 
 const Description = styled(Typography)({
   fontSize: '14px',
   color: colors.text.secondary,
-  marginBottom: '24px',
+  marginBottom: `${spacing.lg}px`,
   maxWidth: '400px',
   lineHeight: 1.6,
 });

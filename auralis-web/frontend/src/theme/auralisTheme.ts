@@ -1,5 +1,47 @@
 import { createTheme } from '@mui/material/styles';
 
+// Design System - Spacing Scale
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+  xxxl: 64,
+};
+
+// Design System - Shadows
+export const shadows = {
+  none: 'none',
+  xs: '0 1px 2px rgba(0, 0, 0, 0.08)',
+  sm: '0 2px 4px rgba(0, 0, 0, 0.1)',
+  md: '0 4px 12px rgba(0, 0, 0, 0.15)',
+  lg: '0 8px 24px rgba(0, 0, 0, 0.2)',
+  xl: '0 16px 48px rgba(0, 0, 0, 0.3)',
+  // Glow effects for aurora theme
+  glowPurple: '0 8px 24px rgba(102, 126, 234, 0.3)',
+  glowPink: '0 8px 24px rgba(255, 107, 157, 0.3)',
+  glowBlue: '0 8px 24px rgba(75, 123, 236, 0.3)',
+};
+
+// Design System - Border Radius
+export const borderRadius = {
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  full: 9999,
+};
+
+// Design System - Animation Timings
+export const transitions = {
+  fast: '150ms ease',
+  normal: '250ms ease',
+  slow: '350ms ease',
+  bounce: '350ms cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+};
+
 // Aurora gradient definitions
 export const gradients = {
   aurora: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -16,18 +58,22 @@ export const colors = {
     primary: '#0A0E27',
     secondary: '#1a1f3a',
     surface: '#252b45',
-    hover: '#2a3150',
+    elevated: '#2a3150',
+    hover: '#313858',
   },
   text: {
     primary: '#ffffff',
     secondary: '#8b92b0',
     disabled: '#5a5f7a',
+    hint: '#6b7299',
   },
   accent: {
     success: '#00d4aa',
     error: '#ff4757',
     warning: '#ffa502',
     info: '#4b7bec',
+    purple: '#667eea',
+    pink: '#ff6b9d',
   },
   neon: {
     pink: '#ff6b9d',
@@ -87,37 +133,65 @@ export const auralisTheme = createTheme({
     h1: {
       fontSize: '32px',
       fontWeight: 700,
+      lineHeight: 1.2,
       letterSpacing: '-0.5px',
     },
     h2: {
-      fontSize: '24px',
-      fontWeight: 600,
+      fontSize: '28px',
+      fontWeight: 700,
+      lineHeight: 1.3,
       letterSpacing: '-0.25px',
     },
     h3: {
-      fontSize: '20px',
+      fontSize: '24px',
       fontWeight: 600,
+      lineHeight: 1.4,
     },
     h4: {
+      fontSize: '20px',
+      fontWeight: 600,
+      lineHeight: 1.5,
+    },
+    h5: {
       fontSize: '18px',
       fontWeight: 600,
+      lineHeight: 1.5,
+    },
+    h6: {
+      fontSize: '16px',
+      fontWeight: 600,
+      lineHeight: 1.5,
     },
     body1: {
       fontSize: '16px',
-      lineHeight: 1.5,
+      lineHeight: 1.6,
+      fontWeight: 400,
     },
     body2: {
       fontSize: '14px',
-      lineHeight: 1.5,
+      lineHeight: 1.6,
+      fontWeight: 400,
     },
     caption: {
       fontSize: '12px',
+      lineHeight: 1.4,
       color: colors.text.secondary,
-      letterSpacing: '0.5px',
+      letterSpacing: '0.4px',
+    },
+    subtitle1: {
+      fontSize: '16px',
+      fontWeight: 500,
+      lineHeight: 1.5,
+    },
+    subtitle2: {
+      fontSize: '14px',
+      fontWeight: 500,
+      lineHeight: 1.5,
     },
     button: {
       textTransform: 'none',
       fontWeight: 600,
+      letterSpacing: '0.2px',
     },
   },
   shape: {
@@ -146,7 +220,10 @@ export const auralisTheme = createTheme({
         root: {
           backgroundColor: colors.background.secondary,
           backgroundImage: 'none',
-          transition: 'all 0.3s ease',
+          transition: `all ${transitions.normal}`,
+          '&:hover': {
+            backgroundColor: colors.background.elevated,
+          },
         },
       },
     },
