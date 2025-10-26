@@ -19,6 +19,8 @@ class Code:
     INFO_EXPORTING = "Exporting results..."
     INFO_COMPLETED = "Processing completed successfully"
     ERROR_VALIDATION = "Validation error"
+    ERROR_LOADING = "Error loading audio file"
+    ERROR_INVALID_AUDIO = "Invalid audio file format"
 
 
 class ModuleError(Exception):
