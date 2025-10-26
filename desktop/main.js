@@ -1,7 +1,13 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
 const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+
+// Configure logging for auto-updater
+log.transports.file.level = 'info';
+autoUpdater.logger = log;
 
 class AuralisApp {
   constructor() {
@@ -445,10 +451,105 @@ ipcMain.handle('window-close', () => {
   }
 });
 
+// Configure auto-updater
+autoUpdater.autoDownload = false; // Ask user before downloading
+autoUpdater.autoInstallOnAppQuit = true;
+
+// Auto-updater event handlers
+autoUpdater.on('checking-for-update', () => {
+  log.info('Checking for updates...');
+});
+
+autoUpdater.on('update-available', (info) => {
+  log.info('Update available:', info.version);
+
+  // Show update notification to user
+  if (auralisApp.mainWindow) {
+    dialog.showMessageBox(auralisApp.mainWindow, {
+      type: 'info',
+      title: 'Update Available',
+      message: `A new version (${info.version}) is available!`,
+      detail: 'Would you like to download and install it? The app will restart after installation.',
+      buttons: ['Download Update', 'Later'],
+      defaultId: 0,
+      cancelId: 1
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.downloadUpdate();
+      }
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  log.info('Update not available. Current version:', info.version);
+});
+
+autoUpdater.on('error', (err) => {
+  log.error('Auto-updater error:', err);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  let logMessage = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}%`;
+  logMessage = `${logMessage} (${progressObj.transferred}/${progressObj.total})`;
+  log.info(logMessage);
+
+  // Update UI with progress (could send to renderer via IPC)
+  if (auralisApp.mainWindow) {
+    auralisApp.mainWindow.webContents.send('download-progress', progressObj);
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  log.info('Update downloaded:', info.version);
+
+  // Notify user that update is ready
+  if (auralisApp.mainWindow) {
+    dialog.showMessageBox(auralisApp.mainWindow, {
+      type: 'info',
+      title: 'Update Ready',
+      message: 'Update downloaded successfully!',
+      detail: 'The update will be installed when you quit the application. Restart now?',
+      buttons: ['Restart Now', 'Later'],
+      defaultId: 0,
+      cancelId: 1
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  }
+});
+
+// IPC handler for manual update check
+ipcMain.handle('check-for-updates', async () => {
+  if (!app.isPackaged) {
+    return { available: false, message: 'Updates only available in packaged app' };
+  }
+
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { available: true, version: result?.updateInfo?.version };
+  } catch (error) {
+    log.error('Error checking for updates:', error);
+    return { available: false, error: error.message };
+  }
+});
+
 // App lifecycle events
 app.whenReady().then(() => {
   console.log('Electron app ready');
   auralisApp.initialize();
+
+  // Check for updates on startup (only in production)
+  if (app.isPackaged) {
+    setTimeout(() => {
+      log.info('Checking for updates on startup...');
+      autoUpdater.checkForUpdates().catch(err => {
+        log.error('Failed to check for updates:', err);
+      });
+    }, 3000); // Wait 3 seconds after startup
+  }
 });
 
 app.on('window-all-closed', () => {
