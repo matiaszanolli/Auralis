@@ -669,48 +669,41 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 
 ### Additional Documentation
 
-**See [docs/README.md](docs/README.md) for the complete documentation index**
+**See [docs/README.md](docs/README.md) for the complete documentation index** (55 files, organized and up-to-date)
 
 All technical documentation has been organized into categorized directories:
 
 **📂 docs/completed/** - Completed features and optimizations
+- [MULTI_TIER_PRIORITY1_COMPLETE.md](docs/completed/MULTI_TIER_PRIORITY1_COMPLETE.md) - ✅ Multi-tier buffer system (current)
+- [AUDIO_FUZZ_FIX_OCT25.md](docs/completed/AUDIO_FUZZ_FIX_OCT25.md) - ✅ Audio quality fix (latest)
 - [BACKEND_REFACTORING_ROADMAP.md](docs/completed/BACKEND_REFACTORING_ROADMAP.md) - ✅ Backend modularization
 - [LARGE_LIBRARY_OPTIMIZATION.md](docs/completed/LARGE_LIBRARY_OPTIMIZATION.md) - ✅ Performance optimization
-- [PHASE_4_1_COMPLETE.md](docs/completed/PHASE_4_1_COMPLETE.md) - ✅ Metadata editing
 - [TECHNICAL_DEBT_RESOLUTION.md](docs/completed/TECHNICAL_DEBT_RESOLUTION.md) - ✅ Technical improvements
+- [TESTING_SUMMARY.md](docs/completed/TESTING_SUMMARY.md) - ✅ Complete testing guide
+- [performance/](docs/completed/performance/) - Performance optimization docs (4 files)
 
 **📂 docs/guides/** - Implementation guides and technical designs
 - [PRESET_ARCHITECTURE_RESEARCH.md](docs/guides/PRESET_ARCHITECTURE_RESEARCH.md) - Preset system design
-- [WEBSOCKET_CONSOLIDATION_PLAN.md](docs/guides/WEBSOCKET_CONSOLIDATION_PLAN.md) - WebSocket architecture
-- [CHUNKED_STREAMING_DESIGN.md](docs/guides/CHUNKED_STREAMING_DESIGN.md) - Audio streaming design
+- [MULTI_TIER_BUFFER_ARCHITECTURE.md](docs/guides/MULTI_TIER_BUFFER_ARCHITECTURE.md) - Buffer architecture
 - [REFACTORING_QUICK_START.md](docs/guides/REFACTORING_QUICK_START.md) - Code refactoring guide
+- [UI_QUICK_WINS.md](docs/guides/UI_QUICK_WINS.md) - UI improvement guide
 
-**📂 docs/troubleshooting/** - Debug guides and issue resolutions
+**📂 docs/roadmaps/** - Current roadmaps
+- [MULTI_TIER_ROBUSTNESS_ROADMAP.md](docs/roadmaps/MULTI_TIER_ROBUSTNESS_ROADMAP.md) - Buffer system roadmap
+- [UI_UX_IMPROVEMENT_ROADMAP.md](docs/roadmaps/UI_UX_IMPROVEMENT_ROADMAP.md) - UI/UX improvements
 
-**📂 docs/roadmaps/** - Feature roadmaps and planning
+**📂 docs/versions/** - Version management (5 files)
+- [VERSIONING_STRATEGY.md](docs/versions/VERSIONING_STRATEGY.md) - Semantic versioning
+- [RELEASE_GUIDE.md](docs/versions/RELEASE_GUIDE.md) - Release process
+- [CHANGELOG.md](docs/versions/CHANGELOG.md) - Version history
 
-**📂 docs/archive/** - Historical session summaries
+**📂 docs/sessions/oct25_alpha1_release/** - Latest release (6 files)
 
-**📂 Performance Optimization Documentation** - Oct 24, 2025 Session
-- **[PERFORMANCE_OPTIMIZATION_QUICK_START.md](PERFORMANCE_OPTIMIZATION_QUICK_START.md)** - **START HERE** - Quick installation and usage
-- **[BENCHMARK_RESULTS_FINAL.md](BENCHMARK_RESULTS_FINAL.md)** - Complete benchmark data and analysis
-- [PERFORMANCE_REVAMP_FINAL_COMPLETE.md](PERFORMANCE_REVAMP_FINAL_COMPLETE.md) - Complete technical story (all 5 phases)
-- [VECTORIZATION_INTEGRATION_COMPLETE.md](VECTORIZATION_INTEGRATION_COMPLETE.md) - Integration details and real-world validation
-- [VECTORIZATION_RESULTS.md](VECTORIZATION_RESULTS.md) - Numba JIT deep dive (40-70x speedup)
-- [PHASE_2_EQ_RESULTS.md](PHASE_2_EQ_RESULTS.md) - Why vectorization beats parallelization
-- [PERFORMANCE_REVAMP_INDEX.md](PERFORMANCE_REVAMP_INDEX.md) - Documentation navigator
-
-**📂 October 24, 2025 Session** - Dynamics Expansion & Library Scan Implementation
-- [README_OCT24_SESSION.md](README_OCT24_SESSION.md) - **START HERE** - Session overview and quick reference
-- [DOCS_INDEX_OCT24.md](DOCS_INDEX_OCT24.md) - Complete documentation index for this session
-- [DYNAMICS_EXPANSION_COMPLETE.md](DYNAMICS_EXPANSION_COMPLETE.md) - Complete expansion implementation
-- [PROCESSING_BEHAVIOR_GUIDE.md](PROCESSING_BEHAVIOR_GUIDE.md) - All 4 behaviors explained
-- [RMS_BOOST_FIX.md](RMS_BOOST_FIX.md) - Fixed overdrive issue
-- [LIBRARY_SCAN_IMPLEMENTATION.md](LIBRARY_SCAN_IMPLEMENTATION.md) - Library scan backend + frontend plan
-- [BUILD_COMPLETE_OCT24.md](BUILD_COMPLETE_OCT24.md) - Build summary and testing guide
-- [SESSION_SUMMARY_OCT24.md](SESSION_SUMMARY_OCT24.md) - Complete session summary
-- [IMPORT_FIX.md](IMPORT_FIX.md) - List import fix for library router
+**📂 docs/archive/** - Historical documentation (11 files)
 
 **Other key documentation:**
 - `README.md` - User-facing documentation and quick start
+- `PRIORITY1_QUICK_REFERENCE.md` - Current work status
+- `BUILD_OCT25_AUDIO_FIX.md` - Latest build (v1.0.0-alpha.1)
+- `SESSION_SUMMARY_OCT25_EVENING.md` - Latest session
 - `auralis-web/backend/WEBSOCKET_API.md` - WebSocket message types and protocol
