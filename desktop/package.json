@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "electron": "^27.0.0",
-    "electron-builder": "^24.6.4"
+    "electron-builder": "^24.13.3"
   },
   "dependencies": {
     "electron-log": "^4.4.8",
@@ -48,30 +48,38 @@
       {
         "from": "../auralis-web/backend/dist/auralis-backend",
         "to": "backend",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "../auralis-web/frontend/build",
         "to": "frontend",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico",
-      "publisherName": "Auralis Team",
       "verifyUpdateCodeSignature": false
     },
     "mac": {
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "assets/icon.icns",
@@ -85,11 +93,15 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "deb",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icons/main.png",
