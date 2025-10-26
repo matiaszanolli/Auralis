@@ -1,5 +1,5 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -10,12 +10,89 @@ class AuralisApp {
     this.backendReady = false;
     this.isQuitting = false;
     this.isDevelopment = !app.isPackaged;
+    this.backendPort = 8765;
+  }
+
+  /**
+   * Check if port is in use and kill any process using it
+   * Cross-platform: works on Linux, macOS, and Windows
+   */
+  async cleanupPort() {
+    return new Promise((resolve) => {
+      console.log(`Checking if port ${this.backendPort} is available...`);
+
+      // Platform-specific commands to find process using port
+      const isWindows = process.platform === 'win32';
+      const findCommand = isWindows
+        ? `netstat -ano | findstr :${this.backendPort}`
+        : `lsof -ti:${this.backendPort}`;
+
+      exec(findCommand, (error, stdout, stderr) => {
+        if (error || !stdout.trim()) {
+          // No process found or command failed, port is free
+          console.log(`✓ Port ${this.backendPort} is available`);
+          resolve();
+          return;
+        }
+
+        let pids = [];
+        if (isWindows) {
+          // Parse netstat output: "TCP    0.0.0.0:8765    0.0.0.0:0    LISTENING    12345"
+          const lines = stdout.trim().split('\n');
+          pids = lines
+            .map(line => {
+              const match = line.trim().match(/\s+(\d+)\s*$/);
+              return match ? match[1] : null;
+            })
+            .filter(pid => pid);
+          // Remove duplicates
+          pids = [...new Set(pids)];
+        } else {
+          // lsof output: one PID per line
+          pids = stdout.trim().split('\n').filter(pid => pid);
+        }
+
+        if (pids.length === 0) {
+          console.log(`✓ Port ${this.backendPort} is available`);
+          resolve();
+          return;
+        }
+
+        console.log(`⚠️ Found ${pids.length} process(es) using port ${this.backendPort}: ${pids.join(', ')}`);
+
+        // Kill all processes
+        const killPromises = pids.map(pid => {
+          return new Promise((killResolve) => {
+            const killCommand = isWindows ? `taskkill /F /PID ${pid}` : `kill ${pid}`;
+            exec(killCommand, (killError) => {
+              if (killError) {
+                console.error(`Failed to kill process ${pid}:`, killError.message);
+              } else {
+                console.log(`✓ Killed process ${pid}`);
+              }
+              killResolve();
+            });
+          });
+        });
+
+        Promise.all(killPromises).then(() => {
+          // Wait a bit for processes to fully terminate
+          setTimeout(() => {
+            console.log(`✓ Port ${this.backendPort} cleanup complete`);
+            resolve();
+          }, 1000);
+        });
+      });
+    });
   }
 
   async startPythonBackend() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       console.log('Starting Python backend...');
       console.log('Development mode:', this.isDevelopment);
+
+      // First, ensure port is free
+      await this.cleanupPort();
 
       let pythonCmd, pythonArgs, cwd;
 
