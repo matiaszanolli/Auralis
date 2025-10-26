@@ -248,10 +248,15 @@ class MultiTierBufferWorker:
             preset: Processing preset
             chunk_idx: Chunk index
             intensity: Processing intensity
-            priority: Cache tier priority ("L1", "L2", or "L3")
+            priority: Cache tier priority ("IMMEDIATE", "L1", "L2", or "L3")
         """
         try:
             logger.debug(f"[{priority}] Processing: track={track_id}, preset={preset}, chunk={chunk_idx}")
+
+            # Check if file exists before processing
+            if not Path(track.filepath).exists():
+                logger.error(f"[{priority}] File not found: {track.filepath}")
+                return
 
             # Import here to avoid circular dependency
             from chunked_processor import ChunkedAudioProcessor
@@ -264,8 +269,37 @@ class MultiTierBufferWorker:
                 intensity=intensity
             )
 
-            # Process the chunk
-            chunk_path = processor.process_chunk(chunk_idx)
+            # Process the chunk with timeout
+            # IMMEDIATE: 20s timeout (critical - user is waiting)
+            # L1: 30s timeout (needs to be fast)
+            # L2: 60s timeout (medium priority)
+            # L3: 90s timeout (low priority, can take longer)
+            if priority == "IMMEDIATE":
+                timeout_seconds = 20
+            elif priority == "L1":
+                timeout_seconds = 30
+            elif priority == "L2":
+                timeout_seconds = 60
+            else:  # L3
+                timeout_seconds = 90
+
+            try:
+                chunk_path = await asyncio.wait_for(
+                    asyncio.to_thread(processor.process_chunk, chunk_idx),
+                    timeout=timeout_seconds
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    f"[{priority}] Timeout processing chunk {chunk_idx} for track {track_id} "
+                    f"(exceeded {timeout_seconds}s limit)"
+                )
+                return
+            except FileNotFoundError as e:
+                logger.error(f"[{priority}] File not found during processing: {e}")
+                return
+            except PermissionError as e:
+                logger.error(f"[{priority}] Permission denied accessing file: {e}")
+                return
 
             if chunk_path:
                 # Add to appropriate cache tier based on priority
@@ -278,11 +312,11 @@ class MultiTierBufferWorker:
                     chunk_idx=chunk_idx,
                     intensity=intensity,
                     timestamp=time.time(),
-                    probability=1.0 if priority == "L1" else (0.8 if priority == "L2" else 0.6)
+                    probability=1.0 if priority in ("IMMEDIATE", "L1") else (0.8 if priority == "L2" else 0.6)
                 )
 
                 # Add to appropriate tier
-                if priority == "L1":
+                if priority in ("IMMEDIATE", "L1"):
                     await self.buffer_manager.l1_cache.add_entry(entry)
                 elif priority == "L2":
                     await self.buffer_manager.l2_cache.add_entry(entry)
