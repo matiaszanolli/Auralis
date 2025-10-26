@@ -50,6 +50,7 @@ class AuralisApp {
       this.pythonProcess = spawn(pythonCmd, pythonArgs, {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: cwd,
+        detached: true,  // Create new process group for easy cleanup
         env: {
           ...process.env,
           PYTHONUNBUFFERED: '1',
@@ -296,15 +297,27 @@ class AuralisApp {
 
     if (this.pythonProcess && !this.pythonProcess.killed) {
       console.log('Terminating Python backend...');
+
+      // Try graceful shutdown first
       this.pythonProcess.kill('SIGTERM');
 
-      // Force kill after 5 seconds
+      // Force kill after 2 seconds (reduced from 5)
       setTimeout(() => {
         if (this.pythonProcess && !this.pythonProcess.killed) {
-          console.log('Force killing Python backend...');
+          console.log('Backend still running, sending SIGKILL...');
           this.pythonProcess.kill('SIGKILL');
+
+          // Also try to kill the process tree
+          if (this.pythonProcess.pid) {
+            try {
+              process.kill(-this.pythonProcess.pid, 'SIGKILL');
+              console.log('Killed process tree');
+            } catch (e) {
+              // Ignore errors (process may already be dead)
+            }
+          }
         }
-      }, 5000);
+      }, 2000);
     }
 
     this.pythonProcess = null;
