@@ -84,6 +84,14 @@ class ChunkedAudioProcessor:
         self.chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
         self.chunk_dir.mkdir(exist_ok=True)
 
+        # CRITICAL FIX: Create single shared processor instance to maintain state
+        # across chunks. This prevents audio artifacts from resetting compressor
+        # envelope followers at chunk boundaries.
+        config = UnifiedConfig()
+        config.set_processing_mode("adaptive")
+        config.mastering_profile = self.preset.lower()
+        self.processor = HybridProcessor(config)
+
         logger.info(
             f"ChunkedAudioProcessor initialized: track_id={track_id}, "
             f"duration={self.total_duration:.1f}s, chunks={self.total_chunks}, "
@@ -254,14 +262,10 @@ class ChunkedAudioProcessor:
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
 
-        # Configure processor
-        config = UnifiedConfig()
-        config.set_processing_mode("adaptive")
-        config.mastering_profile = self.preset.lower()
-
-        # Process with HybridProcessor
-        processor = HybridProcessor(config)
-        processed_chunk = processor.process(audio_chunk)
+        # Process with shared HybridProcessor instance
+        # This maintains compressor state (envelope followers, gain reduction)
+        # across chunk boundaries, preventing audio artifacts
+        processed_chunk = self.processor.process(audio_chunk)
 
         # Trim context (keep only the actual chunk)
         context_samples = int(CONTEXT_DURATION * self.sample_rate)

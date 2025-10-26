@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, IconButton, styled } from '@mui/material';
 import { PlayArrow, Pause, MoreVert, MusicNote } from '@mui/icons-material';
-import { colors, gradients } from '../../theme/auralisTheme';
+import { colors, gradients, spacing, borderRadius, transitions } from '../../theme/auralisTheme';
 import { useContextMenu, ContextMenu, getTrackContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
 
@@ -29,14 +29,14 @@ const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
   display: 'flex',
   alignItems: 'center',
   height: '48px',
-  padding: '0 16px',
-  borderRadius: '6px',
+  padding: `0 ${spacing.md}px`,
+  borderRadius: `${borderRadius.xs}px`,
   cursor: 'pointer',
-  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: `all ${transitions.fast}`,
   background: iscurrent === 'true' ? 'rgba(102, 126, 234, 0.12)' : 'transparent',
   border: iscurrent === 'true' ? '1px solid rgba(102, 126, 234, 0.2)' : '1px solid transparent',
   position: 'relative',
-  marginBottom: '2px',
+  marginBottom: `${spacing.xs / 2}px`,
 
   '&:hover': {
     background: iscurrent === 'true'
@@ -65,7 +65,7 @@ const ActiveIndicator = styled(Box)({
   bottom: 0,
   width: '3px',
   background: gradients.aurora,
-  borderRadius: '0 2px 2px 0',
+  borderRadius: `0 ${spacing.xs / 2}px ${spacing.xs / 2}px 0`,
 });
 
 const TrackNumberBox = styled(Box)({
@@ -80,7 +80,7 @@ const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) =
   fontSize: '14px',
   fontWeight: 500,
   color: iscurrent === 'true' ? '#667eea' : colors.text.secondary,
-  transition: 'opacity 0.2s ease',
+  transition: `opacity ${transitions.fast}`,
 }));
 
 const PlayButton = styled(IconButton)({
@@ -88,7 +88,7 @@ const PlayButton = styled(IconButton)({
   width: '32px',
   height: '32px',
   opacity: 0,
-  transition: 'opacity 0.2s ease',
+  transition: `opacity ${transitions.fast}`,
   color: '#667eea',
 
   '&:hover': {
@@ -103,8 +103,8 @@ const PlayButton = styled(IconButton)({
 const AlbumArtThumbnail = styled(Box)({
   width: '40px',
   height: '40px',
-  marginRight: '12px',
-  borderRadius: '4px',
+  marginRight: `${spacing.md / 1.33}px`, // 12px
+  borderRadius: `${borderRadius.xs}px`,
   overflow: 'hidden',
   flexShrink: 0,
   background: gradients.aurora,
@@ -156,7 +156,7 @@ const TrackAlbum = styled(Typography)({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  marginRight: '16px',
+  marginRight: `${spacing.md}px`,
   display: { xs: 'none', md: 'block' },
 });
 
@@ -166,14 +166,14 @@ const TrackDuration = styled(Typography)({
   color: colors.text.disabled,
   minWidth: '50px',
   textAlign: 'right',
-  marginRight: '8px',
+  marginRight: `${spacing.sm}px`,
 });
 
 const MoreButton = styled(IconButton)({
   width: '32px',
   height: '32px',
   opacity: 0,
-  transition: 'opacity 0.2s ease',
+  transition: `opacity ${transitions.fast}`,
   color: colors.text.secondary,
 
   '&:hover': {

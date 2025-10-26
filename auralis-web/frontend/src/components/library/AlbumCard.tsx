@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardMedia, CardContent, Typography, Box, IconButton, styled } from '@mui/material';
 import { PlayArrow, MoreVert } from '@mui/icons-material';
-import { colors, gradients } from '../../theme/auralisTheme';
+import { colors, gradients, shadows, borderRadius, transitions, spacing } from '../../theme/auralisTheme';
 import AlbumArt from '../album/AlbumArt';
 // import { useContextMenu, ContextMenu, getAlbumContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
@@ -20,20 +20,25 @@ interface AlbumCardProps {
 const StyledCard = styled(Card)(({ theme }) => ({
   position: 'relative',
   backgroundColor: colors.background.secondary,
-  borderRadius: '8px',
+  borderRadius: `${borderRadius.sm}px`,
   overflow: 'hidden',
   cursor: 'pointer',
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: `transform ${transitions.normal}, box-shadow ${transitions.normal}, border ${transitions.normal}`,
   border: `1px solid transparent`,
 
   '&:hover': {
     transform: 'translateY(-4px) scale(1.02)',
-    boxShadow: `0 12px 32px rgba(102, 126, 234, 0.25), 0 0 0 1px rgba(102, 126, 234, 0.1)`,
+    boxShadow: shadows.glowPurple,
     border: `1px solid rgba(102, 126, 234, 0.3)`,
+    backgroundColor: colors.background.elevated,
   },
 
   '&:hover .play-overlay': {
     opacity: 1,
+  },
+
+  '&:active': {
+    transform: 'translateY(-2px) scale(1.01)',
   },
 }));
 
@@ -49,7 +54,7 @@ const PlayOverlay = styled(Box)({
   background: 'rgba(0, 0, 0, 0.65)',
   backdropFilter: 'blur(4px)',
   opacity: 0,
-  transition: 'opacity 0.3s ease',
+  transition: `opacity ${transitions.normal}`,
   zIndex: 2,
 });
 
@@ -57,14 +62,14 @@ const PlayButton = styled(IconButton)({
   background: gradients.aurora,
   width: '72px',
   height: '72px',
-  color: '#ffffff',
-  boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)',
-  transition: 'all 0.3s ease',
+  color: colors.text.primary,
+  boxShadow: shadows.glowPurple,
+  transition: `all ${transitions.normal}`,
 
   '&:hover': {
     background: gradients.aurora,
     transform: 'scale(1.15)',
-    boxShadow: '0 12px 32px rgba(102, 126, 234, 0.6)',
+    boxShadow: shadows.xl,
   },
 
   '&:active': {
@@ -78,13 +83,13 @@ const PlayButton = styled(IconButton)({
 
 const MoreButton = styled(IconButton)({
   position: 'absolute',
-  top: '8px',
-  right: '8px',
+  top: `${spacing.sm}px`,
+  right: `${spacing.sm}px`,
   background: 'rgba(0, 0, 0, 0.6)',
   backdropFilter: 'blur(8px)',
-  color: '#ffffff',
+  color: colors.text.primary,
   opacity: 0,
-  transition: 'opacity 0.3s ease',
+  transition: `opacity ${transitions.normal}, background ${transitions.fast}`,
   zIndex: 3,
 
   '&:hover': {
@@ -188,16 +193,15 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
         </MoreButton>
       </Box>
 
-      <CardContent sx={{ p: 2, pb: '16px !important' }}>
+      <CardContent sx={{ p: `${spacing.md}px`, pb: `${spacing.md}px !important` }}>
         <Typography
-          variant="body1"
+          variant="subtitle1"
           sx={{
             color: colors.text.primary,
-            fontWeight: 600,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            mb: 0.5,
+            mb: `${spacing.xs}px`,
           }}
         >
           {title}
@@ -209,13 +213,19 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            mb: trackCount ? 0.5 : 0,
+            mb: trackCount ? `${spacing.xs}px` : 0,
           }}
         >
           {artist}
         </Typography>
         {trackCount && (
-          <Typography variant="caption" sx={{ color: colors.text.disabled }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: colors.text.disabled,
+              display: 'block',
+            }}
+          >
             {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
           </Typography>
         )}
