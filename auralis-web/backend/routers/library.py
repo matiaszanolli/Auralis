@@ -312,12 +312,28 @@ def create_library_router(get_library_manager):
             raise HTTPException(status_code=500, detail=f"Failed to get lyrics: {e}")
 
     @router.get("/api/library/artists")
-    async def get_artists():
+    async def get_artists(
+        limit: int = 50,
+        offset: int = 0,
+        order_by: str = "name"
+    ):
         """
-        Get all artists.
+        Get paginated list of artists.
+
+        Query Parameters:
+            limit: Number of artists to return (default 50, max 200)
+            offset: Number of artists to skip (default 0)
+            order_by: Field to order by - "name", "album_count", or "track_count" (default "name")
 
         Returns:
-            dict: List of artists
+            dict: Paginated artists with metadata
+            {
+                "artists": [...],
+                "total": 2000,
+                "limit": 50,
+                "offset": 0,
+                "has_more": true
+            }
 
         Raises:
             HTTPException: If library manager not available or query fails
@@ -326,11 +342,31 @@ def create_library_router(get_library_manager):
         if not library_manager:
             raise HTTPException(status_code=503, detail="Library manager not available")
 
+        # Validate and limit pagination parameters
+        limit = min(max(limit, 1), 200)  # Between 1-200
+        offset = max(offset, 0)  # Non-negative
+
+        # Validate order_by
+        valid_order_by = ["name", "album_count", "track_count"]
+        if order_by not in valid_order_by:
+            order_by = "name"
+
         try:
-            artists = library_manager.artists.get_all()
+            artists, total = library_manager.artists.get_all(
+                limit=limit,
+                offset=offset,
+                order_by=order_by
+            )
+
+            # Calculate if there are more results
+            has_more = (offset + limit) < total
+
             return {
                 "artists": [artist.to_dict() for artist in artists],
-                "total": len(artists)
+                "total": total,
+                "limit": limit,
+                "offset": offset,
+                "has_more": has_more
             }
         except Exception as e:
             logger.error(f"Failed to get artists: {e}")
