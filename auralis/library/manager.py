@@ -73,9 +73,9 @@ class LibraryManager:
         # Create tables if they don't exist (for fresh databases)
         Base.metadata.create_all(self.engine)
 
-        # Initialize repositories
-        self.tracks = TrackRepository(self.SessionLocal)
+        # Initialize repositories (album repository first for artwork extraction)
         self.albums = AlbumRepository(self.SessionLocal)
+        self.tracks = TrackRepository(self.SessionLocal, album_repository=self.albums)
         self.artists = ArtistRepository(self.SessionLocal)
         self.playlists = PlaylistRepository(self.SessionLocal)
         self.stats = StatsRepository(self.SessionLocal)

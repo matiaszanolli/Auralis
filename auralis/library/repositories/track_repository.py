@@ -21,14 +21,16 @@ from ...utils.logging import info, warning, error, debug
 class TrackRepository:
     """Repository for track database operations"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory, album_repository=None):
         """
         Initialize track repository
 
         Args:
             session_factory: SQLAlchemy session factory
+            album_repository: AlbumRepository instance for artwork extraction
         """
         self.session_factory = session_factory
+        self.album_repository = album_repository
 
     def get_session(self) -> Session:
         """Get a new database session"""
@@ -63,6 +65,7 @@ class TrackRepository:
 
             # Get or create album
             album = None
+            album_is_new = False
             if track_info.get('album'):
                 album = session.query(Album).filter(
                     Album.title == track_info['album'],
@@ -75,6 +78,7 @@ class TrackRepository:
                         year=track_info.get('year')
                     )
                     session.add(album)
+                    album_is_new = True
 
             # Get or create genres
             genres = []
@@ -112,8 +116,25 @@ class TrackRepository:
 
             session.add(track)
             session.commit()
+            session.refresh(track)
+            session.refresh(album) if album else None
 
             info(f"Added track: {track.title}")
+
+            # Extract artwork if album doesn't have artwork yet and album_repository is available
+            if album and self.album_repository and not album.artwork_path:
+                try:
+                    debug(f"Extracting artwork for album: {album.title}")
+                    artwork_path = self.album_repository.artwork_extractor.extract_artwork(
+                        track_info['filepath'], album.id
+                    )
+                    if artwork_path:
+                        album.artwork_path = artwork_path
+                        session.commit()
+                        info(f"Extracted artwork for album: {album.title}")
+                except Exception as artwork_error:
+                    warning(f"Failed to extract artwork for album {album.title}: {artwork_error}")
+
             return track
 
         except Exception as e:
