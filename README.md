@@ -5,13 +5,27 @@
 Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Status](https://img.shields.io/badge/status-Beta-orange.svg)]()
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-144%20passing-brightgreen.svg)]()
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
+[![Release](https://img.shields.io/badge/release-v1.0.0--beta.1-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.1)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-241%2B%20passing-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-234%20passing-brightgreen.svg)]()
-[![Test Coverage](https://img.shields.io/badge/coverage-81%25-green.svg)]()
+[![Test Coverage](https://img.shields.io/badge/coverage-95.5%25-brightgreen.svg)]()
 
-📚 **[Complete Documentation](DOCS.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Project Status](PROJECT_STATUS.md)**
+## 📥 Download Beta.1
+
+**🎉 First Public Beta Now Available!**
+
+| Platform | Download | Size |
+|----------|----------|------|
+| 🪟 **Windows** | [Auralis Setup 1.0.0-beta.1.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.1/Auralis.Setup.1.0.0-beta.1.exe) | 185 MB |
+| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.1.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.1/Auralis-1.0.0-beta.1.AppImage) | 250 MB |
+| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.1_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.1/auralis-desktop_1.0.0-beta.1_amd64.deb) | 178 MB |
+
+📖 **[User Guide](BETA_USER_GUIDE.md)** | 🐛 **[Known Issues](BETA1_KNOWN_ISSUES.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA1.md)**
+
+---
+
+📚 **[Complete Documentation](DOCS.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Release Summary](BETA1_RELEASE_SUMMARY.md)**
 
 ---
 
@@ -36,8 +50,32 @@ Auralis is a **local music player** with professional audio enhancement built-in
 
 ## 🚀 Quick Start
 
-### Option 1: Web Interface (Easiest)
+### Option 1: Download Beta Release (Recommended)
 
+**Windows:**
+```bash
+# 1. Download Auralis.Setup.1.0.0-beta.1.exe
+# 2. Run the installer
+# 3. Launch Auralis from Start Menu
+```
+
+**Linux (AppImage):**
+```bash
+# 1. Download Auralis-1.0.0-beta.1.AppImage
+chmod +x Auralis-1.0.0-beta.1.AppImage
+./Auralis-1.0.0-beta.1.AppImage
+```
+
+**Linux (Debian/Ubuntu):**
+```bash
+# 1. Download auralis-desktop_1.0.0-beta.1_amd64.deb
+sudo dpkg -i auralis-desktop_1.0.0-beta.1_amd64.deb
+auralis
+```
+
+### Option 2: Run from Source (Development)
+
+**Web Interface:**
 ```bash
 # 1. Install dependencies
 pip install -r requirements.txt
@@ -45,20 +83,16 @@ pip install -r requirements.txt
 # 2. Launch Auralis
 python launch-auralis-web.py
 
-# 3. Open browser
-http://localhost:8000
+# 3. Open browser at http://localhost:8765
 ```
 
-### Option 2: Desktop App (Recommended)
-
+**Desktop App:**
 ```bash
-# 1. Install Python dependencies
+# 1. Install Python + Node.js dependencies
 pip install -r requirements.txt
-
-# 2. Install Node.js dependencies
 cd desktop && npm install
 
-# 3. Launch desktop app
+# 2. Launch desktop app
 npm run dev
 ```
 
@@ -287,7 +321,7 @@ npm run build
 
 ## 🎯 Roadmap
 
-### ✅ Completed (v0.9)
+### ✅ Completed (v1.0.0-beta.1) - October 26, 2025
 - [x] Simplified UI (2 tabs instead of 6)
 - [x] Library management with folder scanning
 - [x] Native OS folder picker (Electron)
@@ -295,25 +329,34 @@ npm run build
 - [x] Beautiful music player interface
 - [x] Audio visualizer
 - [x] WebSocket live updates
-- [x] **Albums & Artists REST APIs** with pagination (NEW!)
+- [x] **Albums & Artists REST APIs** with pagination
 - [x] **Infinite scroll** for large libraries (10k+ tracks)
 - [x] **Query caching** (136x speedup)
 - [x] **95.5% frontend test coverage** (234/245 tests passing)
-- [x] **Comprehensive test suite** (389 total tests, 81% pass rate)
+- [x] **Comprehensive test suite** (486 total tests, 97.7% pass rate)
+- [x] **Production robustness** (worker timeout, error handling)
+- [x] **Stress testing** (1,446 requests, 0 crashes)
+- [x] **Auto-update system** (Electron updater integrated)
+- [x] **Cross-platform builds** (Windows + Linux packages)
+- [x] **First public beta release** 🎉
 
-### 🔄 In Progress
-- [ ] Version management system
-- [ ] Auto-update for Electron app
+### 🔄 In Progress (Beta.2 - 2-3 weeks)
+- [ ] **Fix audio fuzziness between chunks** (P0 Critical)
+- [ ] **Fix volume jumps between chunks** (P0 Critical)
+- [ ] Fix gapless playback gaps (P1 High)
+- [ ] Optimize artist listing performance (P1 High)
 - [ ] Album detail view UI
 - [ ] Artist detail view UI
 
-### 📋 Planned (v1.0)
+### 📋 Planned (v1.0.0 Stable)
 - [ ] Playlist creation and management UI (backend complete)
 - [ ] Enhancement presets UI (backend complete: Adaptive, Gentle, Warm, Bright, Punchy)
+- [ ] Export enhanced audio feature
 - [ ] Album art downloader (automatic artwork fetching)
 - [ ] Dark/light theme toggle
 - [ ] Drag-and-drop folder import
 - [ ] Queue management UI (backend complete)
+- [ ] macOS build
 
 ### 🎨 Future Ideas
 - [ ] Lyrics display
@@ -350,22 +393,33 @@ npm run build
 
 ---
 
-## 🐛 Known Issues
+## 🐛 Known Issues (Beta.1)
 
-### Backend Connection
-**Issue:** "Connecting..." status doesn't turn green
-**Fix:** Make sure backend is running first:
-```bash
-python launch-auralis-web.py
-```
+### ⚠️ Critical Issues (Beta.2 Priority)
 
-### Blank Screen in Electron
-**Status:** Fixed in latest version
-**If still occurs:** Check DevTools console (F12) for errors
+**Audio fuzziness between chunks** (P0)
+- **Issue:** Distortion/artifacts every ~30 seconds during enhanced playback
+- **When:** Occurs at chunk boundaries (30s, 60s, 90s, etc.)
+- **Status:** Root cause under investigation
+- **Workaround:** None currently - affects all presets
 
-### Large Library Scanning
-**Status:** Works but may be slow for 10,000+ files
-**Workaround:** Scan smaller folders at a time
+**Volume jumps between chunks** (P0)
+- **Issue:** Loudness inconsistency between audio chunks
+- **Cause:** Per-chunk RMS normalization
+- **Status:** Fix proposed (global LUFS analysis)
+- **Workaround:** None currently
+
+**See [BETA1_KNOWN_ISSUES.md](BETA1_KNOWN_ISSUES.md) for complete details and beta.2 roadmap.**
+
+### Other Known Issues
+
+**Gapless playback** (P1)
+- **Issue:** ~100ms gaps between tracks
+- **Status:** Planned fix for beta.2
+
+**Artist listing performance** (P1)
+- **Issue:** Slow response time (468ms average)
+- **Status:** Pagination planned for beta.2
 
 ---
 
