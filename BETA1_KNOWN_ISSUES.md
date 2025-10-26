@@ -348,3 +348,30 @@ Your feedback is invaluable for making Auralis production-ready. These identifie
 
 *Last Updated: October 26, 2025*
 *Version: 1.0.0-beta.1*
+
+---
+
+## Beta.2 Known Issues
+
+### P2: Preset Switching Requires Buffering
+
+**Status**: Known Limitation - Design Trade-off
+
+**Issue**: When changing enhancement presets during playback (e.g., adaptive → punchy), audio pauses for 2-5 seconds while the new preset loads.
+
+**Root Cause**: Current streaming architecture serves complete processed files rather than progressive chunks. The multi-tier buffer system exists and pre-processes chunks for multiple presets, but cannot be utilized because preset changes require loading a new stream URL.
+
+**Impact**: Medium - UX inconvenience when experimenting with presets
+
+**Workaround**: 
+- Choose your preferred preset before starting playback
+- Pause playback before changing presets
+- Preview presets on short tracks first
+
+**Proper Solution**: Implement MSE (Media Source Extensions) based progressive streaming to enable instant preset switching. This requires architectural changes and is planned for Beta.3 or 1.0 Stable.
+
+**Documentation**: [PRESET_SWITCHING_LIMITATION.md](PRESET_SWITCHING_LIMITATION.md) - Complete technical analysis
+
+---
+
+**Last Updated**: October 26, 2025
