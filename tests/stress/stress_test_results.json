@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-10-26T12:37:13.598611",
+  "summary": {
+    "duration_seconds": 241.33,
+    "total_requests": 1446,
+    "error_count": 1311,
+    "error_rate": "90.66%",
+    "requests_per_second": 5.99,
+    "avg_response_time_ms": 1.67,
+    "p95_response_time_ms": 4.72,
+    "p99_response_time_ms": 5.7,
+    "avg_memory_mb": 39.09,
+    "peak_memory_mb": 39.19,
+    "avg_cpu_percent": 0.0,
+    "peak_cpu_percent": 0.0
+  },
+  "conclusion": "REVIEW_NEEDED"
+}
