@@ -350,13 +350,23 @@ class ChunkedAudioProcessor:
         context_samples = int(CONTEXT_DURATION * self.sample_rate)
         actual_start = chunk_index * CHUNK_DURATION
 
+        # Safety: Ensure we have enough samples to trim
+        chunk_length = len(processed_chunk)
+
         if actual_start > 0:  # Not first chunk, trim start context
-            processed_chunk = processed_chunk[context_samples:]
+            if chunk_length > context_samples:
+                processed_chunk = processed_chunk[context_samples:]
+            else:
+                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {context_samples})")
 
         # Don't trim end context for last chunk
         is_last = chunk_index == self.total_chunks - 1
         if not is_last:
-            processed_chunk = processed_chunk[:-context_samples]
+            chunk_length = len(processed_chunk)  # Update after potential start trim
+            if chunk_length > context_samples:
+                processed_chunk = processed_chunk[:-context_samples]
+            else:
+                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {context_samples})")
 
         # Apply intensity blending
         if self.intensity < 1.0:

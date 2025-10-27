@@ -183,12 +183,11 @@ export const BottomPlayerBarConnectedMSE: React.FC<{
     return <OriginalPlayerBar onToggleLyrics={onToggleLyrics} onTimeUpdate={onTimeUpdate} />;
   }
 
-  // If MSE supported, we still render the original UI but with MSE audio
-  // The audio element from useMSEPlayer is automatically managed
-  // We just need to override the controls to use MSE methods instead
+  // Get MSE audio element to pass to original player
+  const mseAudioElement = msePlayer.getAudioElement();
 
-  // For now, render original player with MSE running in background
-  // TODO: Full UI integration to show MSE status and performance
+  // Render original UI with MSE audio element
+  // The original player will use our MSE audio element instead of creating its own
   return (
     <>
       {/* MSE Status Indicator (development only) */}
@@ -222,8 +221,12 @@ export const BottomPlayerBarConnectedMSE: React.FC<{
         </div>
       )}
 
-      {/* Original Player UI */}
-      <OriginalPlayerBar onToggleLyrics={onToggleLyrics} onTimeUpdate={onTimeUpdate} />
+      {/* Original Player UI with MSE audio element */}
+      <OriginalPlayerBar
+        audioElement={mseAudioElement}
+        onToggleLyrics={onToggleLyrics}
+        onTimeUpdate={onTimeUpdate}
+      />
     </>
   );
 };
