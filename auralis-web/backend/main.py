@@ -79,6 +79,7 @@ from routers.artists import create_artists_router
 from routers.player import create_player_router
 from routers.metadata import create_metadata_router
 from routers.mse_streaming import create_mse_streaming_router
+from routers.unified_streaming import create_unified_streaming_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -338,6 +339,16 @@ mse_router = create_mse_streaming_router(
 )
 app.include_router(mse_router)
 logger.info("✅ MSE streaming router included")
+
+# Include Unified streaming router (MSE + Multi-Tier Buffer integration)
+unified_router = create_unified_streaming_router(
+    get_library_manager=lambda: library_manager,
+    get_multi_tier_buffer=lambda: multi_tier_manager if HAS_MULTI_TIER else None,
+    chunked_processor_class=ChunkedAudioProcessor,
+    chunk_duration=30.0
+)
+app.include_router(unified_router)
+logger.info("✅ Unified streaming router included (MSE + MTB integration)")
 
 # OLD WebSocket endpoint - KEEPING FOR NOW, WILL REMOVE AFTER TESTING
 # TODO: Remove these old endpoints after verifying router works
