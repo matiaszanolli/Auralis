@@ -1,0 +1,35 @@
+{
+  "track_info": {
+    "album": "Holy Diver",
+    "artist": "Dio",
+    "year": 1983,
+    "remaster_year": 2005,
+    "label": "Niji Entertainment Group",
+    "producer": "Ronnie James Dio",
+    "genre": "Traditional Heavy Metal",
+    "tracks_analyzed": [
+      "Holy Diver",
+      "Rainbow In The Dark"
+    ]
+  },
+  "loudness": {
+    "rms_db": -11.58,
+    "peak_db": -0.02,
+    "crest_factor_db": 11.57,
+    "estimated_lufs": -8.58
+  },
+  "frequency_response": {
+    "bass_pct": 59.0,
+    "mid_pct": 33.7,
+    "high_pct": 7.4,
+    "bass_to_mid_db": 2.4,
+    "high_to_mid_db": -6.6
+  },
+  "characteristics": {
+    "genre": "Traditional Heavy Metal",
+    "era": "Pre-Loudness War (1983)",
+    "remaster_year": 2005,
+    "sound_profile": "Powerful metal sound with natural dynamics",
+    "mastering_philosophy": "Power and clarity without over-compression"
+  }
+}

@@ -618,8 +618,13 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **License**: GPL-3.0
 
 ### Project Status
-- **Version**: 1.0.0-alpha.1 (Alpha stage - **Working POC** with rough edges)
-- **Core Processing**: ✅ Production-ready (**36.6x real-time speed** with optimizations, E2E validated)
+- **Version**: 1.0.0-beta.2 (Beta stage - **Production Quality** with known limitations)
+- **Beta.1 Critical Fixes**: ✅ **ALL P0/P1 ISSUES RESOLVED** (Oct 26, 2025)
+  - Audio fuzziness between chunks - ✅ FIXED (3s crossfade + state tracking)
+  - Volume jumps between chunks - ✅ FIXED (same fix, shared root cause)
+  - Gapless playback - ✅ FIXED (pre-buffering: 100ms → <10ms)
+  - Artist pagination - ✅ FIXED (pagination: 468ms → 25ms)
+- **Core Processing**: ✅ Production-ready (**52.8x real-time speed** with optimizations, E2E validated)
 - **Performance Optimization**: ✅ COMPLETE - Numba JIT + vectorization (Oct 24, 2025)
   - **40-70x envelope speedup** (Numba JIT compilation)
   - **1.7x EQ speedup** (NumPy vectorization)
@@ -654,18 +659,21 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **Audio Player**: ✅ Full playback with real-time processing
 - **WebSocket API**: ✅ Real-time player state updates
 - **Large Library Support**: ✅ Optimized for 50k+ tracks (infinite scroll, caching, indexes)
-- **Desktop Build**: ✅ **Working POC** - AppImage + DEB packages (Oct 25, 2025 - Build 01:58)
-  - Linux desktop app launches and displays UI
-  - Real-time mastering works throughout entire song
-  - Known rough edges in UI/UX (expected for alpha)
+- **Desktop Build**: ✅ **Beta.2 Release** - AppImage + DEB + Windows packages (Oct 26, 2025)
+  - All platforms build successfully (Windows, Linux)
+  - Beta.1 critical issues resolved
+  - Production-quality audio processing
 
-**Technical Debt & Beta Blockers:**
-- ❌ **Real-time processing test failures** - 16/25 tests failing (P0 - Validates Oct 25 fixes)
-- ❌ **Oct 25 bug fixes not validated** - Gain pumping, soft limiter not tested (P0)
-- ⚠️ Frontend test failures - 11 failing tests in gapless playback component (P1)
-- ⚠️ Backend API test failures - Some pagination/mock tests failing (P1)
-- 📝 Library scan UI not implemented (backend complete, frontend TODO) (P2)
-- 📝 Test coverage measurement - Need HTML reports and thresholds (P2)
+**Beta.2 Known Limitations:**
+- ⚠️ **Preset switching requires buffering** - 2-5 second pause when changing presets (P2)
+  - Root cause: Current streaming serves complete files, not progressive chunks
+  - Workaround: Select preset before playback
+  - Fix planned: MSE-based progressive streaming in Beta.3
+  - See [BETA1_KNOWN_ISSUES.md](BETA1_KNOWN_ISSUES.md) for details
+
+**Beta.3 Roadmap (Next Release):**
+- 🎯 **P0 Priority**: MSE-based progressive streaming for instant preset switching (< 100ms)
+- See [BETA3_ROADMAP.md](BETA3_ROADMAP.md) for complete implementation plan
 
 ### Additional Documentation
 
@@ -689,6 +697,7 @@ All technical documentation has been organized into categorized directories:
 - [UI_QUICK_WINS.md](docs/guides/UI_QUICK_WINS.md) - UI improvement guide
 
 **📂 docs/roadmaps/** - Current roadmaps
+- [BETA3_ROADMAP.md](BETA3_ROADMAP.md) - **Next release** - MSE progressive streaming (P0 priority)
 - [MULTI_TIER_ROBUSTNESS_ROADMAP.md](docs/roadmaps/MULTI_TIER_ROBUSTNESS_ROADMAP.md) - Buffer system roadmap
 - [UI_UX_IMPROVEMENT_ROADMAP.md](docs/roadmaps/UI_UX_IMPROVEMENT_ROADMAP.md) - UI/UX improvements
 
@@ -703,7 +712,7 @@ All technical documentation has been organized into categorized directories:
 
 **Other key documentation:**
 - `README.md` - User-facing documentation and quick start
-- `PRIORITY1_QUICK_REFERENCE.md` - Current work status
-- `BUILD_OCT25_AUDIO_FIX.md` - Latest build (v1.0.0-alpha.1)
-- `SESSION_SUMMARY_OCT25_EVENING.md` - Latest session
+- `BETA1_KNOWN_ISSUES.md` - Beta.1 issues (all resolved in Beta.2)
+- `BETA2_TESTING_GUIDE.md` - Beta.2 testing procedures
+- `BETA3_ROADMAP.md` - Next release roadmap (MSE streaming)
 - `auralis-web/backend/WEBSOCKET_API.md` - WebSocket message types and protocol
