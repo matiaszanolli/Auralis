@@ -38,7 +38,14 @@ export const BottomPlayerBarConnectedMSE: React.FC<{
 }> = ({ onToggleLyrics, onTimeUpdate }) => {
   // Check MSE support
   const isMSESupported = MSEPlayer.isSupported();
-  const [useMSE, setUseMSE] = useState(isMSESupported);
+
+  // Get enhancement settings (MUST be before using enhancementSettings!)
+  const { settings: enhancementSettings } = useEnhancement();
+
+  // MSE only works with unenhanced playback (for now)
+  // When enhancement is enabled, fall back to HTML5 Audio which supports real-time enhancement
+  const mseCompatible = isMSESupported && !enhancementSettings.enabled;
+  const [useMSE, setUseMSE] = useState(mseCompatible);
 
   // Get player state from API
   const {
@@ -49,9 +56,6 @@ export const BottomPlayerBarConnectedMSE: React.FC<{
     queue,
     queueIndex
   } = usePlayerAPI();
-
-  // Get enhancement settings
-  const { settings: enhancementSettings } = useEnhancement();
 
   // Initialize MSE player if supported
   const msePlayer = useMSEPlayer({
@@ -75,11 +79,10 @@ export const BottomPlayerBarConnectedMSE: React.FC<{
       try {
         console.log('🎵 MSE: Initializing track', currentTrack.id);
         await msePlayer.initialize(currentTrack.id);
+        console.log('✅ MSE: Track initialized successfully');
 
-        // Start playback if backend says we should be playing
-        if (isPlaying) {
-          await msePlayer.play();
-        }
+        // DON'T auto-play here - playback is handled by the sync effect below (lines 129-139)
+        // This avoids browser autoplay restrictions which would cause initialization to fail
       } catch (error) {
         console.error('MSE initialization failed, falling back to HTML5 Audio:', error);
         setUseMSE(false);
@@ -127,15 +130,37 @@ export const BottomPlayerBarConnectedMSE: React.FC<{
 
   // Sync playback state with backend
   useEffect(() => {
-    if (!useMSE || !msePlayer.player || msePlayer.state === 'idle') return;
+    // Don't sync if MSE not active or player not initialized
+    if (!useMSE || !msePlayer.player) return;
 
-    if (isPlaying && msePlayer.state !== 'playing') {
-      console.log('🎵 MSE: Backend playing - starting playback');
-      msePlayer.play();
-    } else if (!isPlaying && msePlayer.state === 'playing') {
-      console.log('⏸️ MSE: Backend paused - pausing playback');
-      msePlayer.pause();
-    }
+    // Wait for player to be ready before syncing playback
+    // States: 'idle' (not initialized), 'loading' (initializing), 'ready' (can play), 'playing', 'paused', 'error'
+    if (msePlayer.state === 'idle' || msePlayer.state === 'loading') return;
+
+    const syncPlayback = async () => {
+      try {
+        if (isPlaying && msePlayer.state !== 'playing') {
+          console.log('🎵 MSE: Backend playing - starting playback');
+          await msePlayer.play();
+        } else if (!isPlaying && msePlayer.state === 'playing') {
+          console.log('⏸️ MSE: Backend paused - pausing playback');
+          msePlayer.pause();
+        }
+      } catch (error) {
+        // Handle autoplay restrictions gracefully
+        if (error instanceof DOMException && error.name === 'NotAllowedError') {
+          console.warn('⚠️ MSE: Autoplay blocked by browser (user interaction required)');
+          // Don't fall back - user just needs to click play button
+        } else {
+          console.error('MSE playback sync failed:', error);
+          // Only fall back for actual errors, not autoplay restrictions
+          setUseMSE(false);
+          info('Falling back to standard player');
+        }
+      }
+    };
+
+    syncPlayback();
   }, [isPlaying, useMSE, msePlayer.state]);
 
   // Update enhancement enabled/disabled
@@ -169,14 +194,42 @@ export const BottomPlayerBarConnectedMSE: React.FC<{
     }
   }, [msePlayer.currentTime, onTimeUpdate, useMSE]);
 
+  // Update MSE state when enhancement settings change
+  useEffect(() => {
+    const shouldUseMSE = isMSESupported && !enhancementSettings.enabled;
+    if (shouldUseMSE !== useMSE) {
+      console.log(`🔄 Switching player mode: MSE=${shouldUseMSE} (enhancement=${enhancementSettings.enabled})`);
+
+      // If switching FROM MSE to HTML5 Audio, destroy the MSE player completely
+      if (useMSE && !shouldUseMSE && msePlayer.player) {
+        console.log('🧹 Destroying MSE player (switching to HTML5 Audio mode)');
+        msePlayer.player.destroy();
+      }
+
+      setUseMSE(shouldUseMSE);
+    }
+  }, [enhancementSettings.enabled, isMSESupported, useMSE, msePlayer]);
+
   // Show MSE status in console
   useEffect(() => {
-    if (isMSESupported) {
-      console.log('✅ MSE Player: Enabled (instant preset switching available)');
-    } else {
+    if (useMSE) {
+      console.log('✅ MSE Player: Enabled (instant preset switching available, unenhanced mode only)');
+    } else if (!isMSESupported) {
       console.log('⚠️ MSE Player: Not supported (falling back to HTML5 Audio)');
+    } else {
+      console.log('📢 MSE Player: Disabled (enhancement enabled - using HTML5 Audio for real-time processing)');
     }
-  }, [isMSESupported]);
+  }, [useMSE, isMSESupported]);
+
+  // Cleanup: Destroy MSE player when component unmounts
+  useEffect(() => {
+    return () => {
+      if (msePlayer.player) {
+        console.log('🧹 Component unmounting - destroying MSE player');
+        msePlayer.player.destroy();
+      }
+    };
+  }, [msePlayer]);
 
   // If MSE not supported or disabled, use original player
   if (!useMSE) {

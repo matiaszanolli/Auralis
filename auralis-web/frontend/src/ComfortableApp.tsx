@@ -10,10 +10,11 @@ import {
 } from '@mui/icons-material';
 
 import Sidebar from './components/Sidebar';
-// MSE Progressive Streaming integration - RE-ENABLED (dual playback bug FIXED!)
-// Fix: BottomPlayerBarConnected now accepts external audio element prop
-// See: docs/sessions/oct27_mse_and_fingerprints/MSE_DUAL_PLAYER_ISSUE.md
-import BottomPlayerBarConnected from './components/BottomPlayerBarConnected.MSE';
+// MSE Progressive Streaming integration - DISABLED (initialization issues + complexity)
+// Issues: SourceBuffer errors, rapid component mounting/unmounting, destroy() method issues
+// Decision: Get multi-tier buffer working solidly first, then reintegrate MSE with proper testing
+// See: docs/sessions/oct27_mse_and_fingerprints/MSE_BUFFER_CONFLICT.md
+import BottomPlayerBarConnected from './components/BottomPlayerBarConnected';
 import PresetPane from './components/PresetPane';
 import CozyLibraryView from './components/CozyLibraryView';
 import GlobalSearch from './components/library/GlobalSearch';
