@@ -112,15 +112,26 @@ class RealtimeProcessor:
             if self.effects_enabled.get('auto_mastering', False) and self.auto_master:
                 processed = self.auto_master.process(processed)
 
-            # Final safety limiting - soft clip to prevent harsh distortion
+            # Final safety limiting - intelligent soft clip to prevent harsh distortion
             # Use tanh() for smooth saturation instead of hard clipping
             max_val = np.max(np.abs(processed))
-            if max_val > 0.9:  # Start soft-limiting earlier
-                # Soft clip using tanh for smooth saturation
-                # Scale to target peak of 0.95 to leave headroom
-                target_peak = 0.95
-                # Apply soft saturation
-                processed = np.tanh(processed / target_peak) * target_peak
+            if max_val > 0.95:  # Only limit if really needed (was 0.9, now 0.95)
+                # Calculate how much we need to reduce
+                target_peak = 0.98  # Leave 2% headroom (was 0.95)
+
+                # Only apply saturation if we're going to clip
+                if max_val > 1.0:
+                    # Scale down first to avoid over-saturation
+                    safety_gain = target_peak / max_val
+                    processed = processed * safety_gain
+
+                    # Then apply very gentle tanh() for anti-aliasing
+                    # Use a gentler curve (multiply by 0.95 before tanh)
+                    processed = np.tanh(processed * 0.95) / 0.95
+                else:
+                    # Just gentle saturation, no gain reduction needed
+                    # Map [0.95, 1.0] -> [0.95, 0.98] smoothly
+                    processed = np.tanh(processed / target_peak) * target_peak
 
         # Record performance
         processing_time = time.perf_counter() - start_time
