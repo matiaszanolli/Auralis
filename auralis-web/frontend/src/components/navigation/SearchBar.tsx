@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TextField, InputAdornment, styled } from '@mui/material';
+import { TextField, InputAdornment, styled, Typography, Box, CircularProgress } from '@mui/material';
 import { Search, Close } from '@mui/icons-material';
 import { colors } from '../../theme/auralisTheme';
 import { IconButton } from '@mui/material';
@@ -10,6 +10,9 @@ interface SearchBarProps {
   placeholder?: string;
   debounceMs?: number;
   autoFocus?: boolean;
+  resultCount?: number;
+  showResultCount?: boolean;
+  isSearching?: boolean;
 }
 
 const StyledSearchField = styled(TextField)(({ theme }) => ({
@@ -66,12 +69,23 @@ const ClearButton = styled(IconButton)({
   },
 });
 
+const ResultCount = styled(Typography)({
+  fontSize: '12px',
+  fontWeight: 500,
+  color: colors.text.secondary,
+  padding: '0 12px',
+  whiteSpace: 'nowrap',
+});
+
 export const SearchBar: React.FC<SearchBarProps> = ({
   value: controlledValue,
   onChange,
-  placeholder = 'Search',
+  placeholder = 'Search tracks, albums, artists...',
   debounceMs = 300,
   autoFocus = false,
+  resultCount,
+  showResultCount = false,
+  isSearching = false,
 }) => {
   const [internalValue, setInternalValue] = useState(controlledValue || '');
   const [debouncedValue, setDebouncedValue] = useState(internalValue);
@@ -111,32 +125,71 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   return (
-    <StyledSearchField
-      fullWidth
-      variant="outlined"
-      placeholder={placeholder}
-      value={internalValue}
-      onChange={handleChange}
-      autoFocus={autoFocus}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <Search sx={{ fontSize: 20 }} />
-          </InputAdornment>
-        ),
-        endAdornment: internalValue && (
-          <InputAdornment position="end">
-            <ClearButton
-              size="small"
-              onClick={handleClear}
-              aria-label="Clear search"
-            >
-              <Close sx={{ fontSize: 18 }} />
-            </ClearButton>
-          </InputAdornment>
-        ),
-      }}
-    />
+    <Box sx={{ width: '100%' }}>
+      <StyledSearchField
+        fullWidth
+        variant="outlined"
+        placeholder={placeholder}
+        value={internalValue}
+        onChange={handleChange}
+        autoFocus={autoFocus}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Search sx={{ fontSize: 20 }} />
+            </InputAdornment>
+          ),
+          endAdornment: (
+            <InputAdornment position="end">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {/* Searching indicator */}
+                {isSearching && (
+                  <CircularProgress
+                    size={16}
+                    sx={{ color: colors.text.secondary }}
+                  />
+                )}
+
+                {/* Result count */}
+                {showResultCount && !isSearching && internalValue && resultCount !== undefined && (
+                  <ResultCount>
+                    {resultCount} {resultCount === 1 ? 'result' : 'results'}
+                  </ResultCount>
+                )}
+
+                {/* Clear button */}
+                {internalValue && (
+                  <ClearButton
+                    size="small"
+                    onClick={handleClear}
+                    aria-label="Clear search"
+                  >
+                    <Close sx={{ fontSize: 18 }} />
+                  </ClearButton>
+                )}
+              </Box>
+            </InputAdornment>
+          ),
+        }}
+      />
+
+      {/* Keyboard shortcut hint */}
+      {!internalValue && !autoFocus && (
+        <Typography
+          variant="caption"
+          sx={{
+            display: 'block',
+            mt: 0.5,
+            ml: 2,
+            color: colors.text.disabled,
+            fontSize: '11px',
+          }}
+        >
+          Press <Box component="span" sx={{ fontWeight: 'bold', color: colors.text.secondary }}>/</Box> or{' '}
+          <Box component="span" sx={{ fontWeight: 'bold', color: colors.text.secondary }}>⌘K</Box> to focus
+        </Typography>
+      )}
+    </Box>
   );
 };
 
