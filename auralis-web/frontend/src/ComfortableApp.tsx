@@ -22,6 +22,7 @@ import SettingsDialog from './components/settings/SettingsDialog';
 import LyricsPanel from './components/player/LyricsPanel';
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 interface Track {
   id: number;
@@ -50,6 +51,53 @@ function ComfortableApp() {
 
   // Toast notifications
   const { success, info } = useToast();
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onPlayPause: handlePlayPause,
+    onNext: () => {
+      // TODO: Implement next track
+      info('Next track');
+    },
+    onPrevious: () => {
+      // TODO: Implement previous track
+      info('Previous track');
+    },
+    onVolumeUp: () => {
+      // TODO: Implement volume up
+      info('Volume up');
+    },
+    onVolumeDown: () => {
+      // TODO: Implement volume down
+      info('Volume down');
+    },
+    onMute: () => {
+      // TODO: Implement mute
+      info('Mute toggled');
+    },
+    onToggleLyrics: () => {
+      setLyricsOpen(!lyricsOpen);
+      info(lyricsOpen ? 'Lyrics hidden' : 'Lyrics shown');
+    },
+    onToggleEnhancement: () => {
+      if (currentTrack) {
+        const newState = !currentTrack.isEnhanced;
+        handlePlayerEnhancementToggle(newState);
+      }
+    },
+    onFocusSearch: () => {
+      // Focus search input
+      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    },
+    onOpenSettings: () => {
+      setSettingsOpen(true);
+    },
+    onPresetChange: handlePresetChange
+  });
 
   const handleTrackPlay = (track: Track) => {
     setCurrentTrack(track);
