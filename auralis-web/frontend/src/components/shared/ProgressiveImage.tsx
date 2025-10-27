@@ -30,6 +30,10 @@ interface ProgressiveImageProps {
   objectFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   showFallback?: boolean;
   lazyLoad?: boolean;
+  fallbackGradient?: string;
+  iconSize?: string | number;
+  retryOnError?: boolean;
+  maxRetries?: number;
   onLoad?: () => void;
   onError?: () => void;
 }
@@ -92,18 +96,24 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   objectFit = 'cover',
   showFallback = true,
   lazyLoad = true,
+  fallbackGradient,
+  iconSize = '3rem',
+  retryOnError = true,
+  maxRetries = 2,
   onLoad,
   onError
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     // Reset states when src changes
     setImageLoaded(false);
     setImageError(false);
     setImageSrc(null);
+    setRetryCount(0);
 
     if (!src) {
       setImageError(true);
@@ -120,18 +130,27 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
     };
 
     img.onerror = () => {
-      setImageError(true);
-      onError?.();
+      // Retry logic
+      if (retryOnError && retryCount < maxRetries) {
+        const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 3000); // Exponential backoff
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+        }, retryDelay);
+      } else {
+        setImageError(true);
+        onError?.();
+      }
     };
 
-    img.src = src;
+    // Add cache busting for retries
+    img.src = retryCount > 0 ? `${src}?retry=${retryCount}` : src;
 
     // Cleanup
     return () => {
       img.onload = null;
       img.onerror = null;
     };
-  }, [src, onLoad, onError]);
+  }, [src, onLoad, onError, retryCount, retryOnError, maxRetries]);
 
   return (
     <ImageContainer
@@ -172,11 +191,12 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
         <FallbackContainer
           sx={{
             borderRadius,
+            background: fallbackGradient || 'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)',
           }}
         >
           <MusicNote
             sx={{
-              fontSize: '3rem',
+              fontSize: iconSize,
               opacity: 0.5,
             }}
           />
