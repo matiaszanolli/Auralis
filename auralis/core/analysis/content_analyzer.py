@@ -18,23 +18,27 @@ from ...dsp.unified import (
     crest_factor, tempo_estimate, calculate_loudness_units, stereo_width_analysis
 )
 from ...analysis.ml_genre_classifier import create_ml_genre_classifier
+from ...analysis.fingerprint import AudioFingerprintAnalyzer
 from ...utils.logging import debug
 
 
 class ContentAnalyzer:
     """Enhanced content analysis for adaptive processing with ML genre classification"""
 
-    def __init__(self, sample_rate: int = 44100, use_ml_classification: bool = True):
+    def __init__(self, sample_rate: int = 44100, use_ml_classification: bool = True,
+                 use_fingerprint_analysis: bool = True):
         """
         Initialize content analyzer
 
         Args:
             sample_rate: Audio sample rate
             use_ml_classification: Whether to use ML-based genre classification
+            use_fingerprint_analysis: Whether to extract 25D audio fingerprints
         """
         self.sample_rate = sample_rate
         self.genre_confidence_threshold = 0.6
         self.use_ml_classification = use_ml_classification
+        self.use_fingerprint_analysis = use_fingerprint_analysis
 
         # Initialize ML genre classifier
         if use_ml_classification:
@@ -47,6 +51,18 @@ class ContentAnalyzer:
                 self.use_ml_classification = False
         else:
             self.ml_classifier = None
+
+        # Initialize 25D audio fingerprint analyzer
+        if use_fingerprint_analysis:
+            try:
+                self.fingerprint_analyzer = AudioFingerprintAnalyzer()
+                debug("Audio fingerprint analyzer (25D) initialized successfully")
+            except Exception as e:
+                debug(f"Failed to initialize fingerprint analyzer: {e}")
+                self.fingerprint_analyzer = None
+                self.use_fingerprint_analysis = False
+        else:
+            self.fingerprint_analyzer = None
 
     def analyze_content(self, audio: np.ndarray) -> Dict[str, Any]:
         """
@@ -120,6 +136,25 @@ class ContentAnalyzer:
             "energy_level": self._categorize_energy_level(rms_value),
             "dynamic_range": self._estimate_dynamic_range(audio)
         }
+
+        # Extract 25D audio fingerprint if enabled
+        if self.use_fingerprint_analysis and self.fingerprint_analyzer is not None:
+            try:
+                fingerprint = self.fingerprint_analyzer.analyze(audio, self.sample_rate)
+                content_profile["fingerprint"] = fingerprint
+
+                # Promote key fingerprint features to top level for backward compatibility
+                # This allows existing code to work while new code can use full fingerprint
+                content_profile["spectral_centroid_normalized"] = fingerprint.get("spectral_centroid", 0.5)
+                content_profile["crest_factor_db"] = fingerprint.get("crest_db", crest_factor_db)
+                content_profile["lufs_fingerprint"] = fingerprint.get("lufs", content_profile["estimated_lufs"])
+
+                debug(f"25D fingerprint extracted: LUFS={fingerprint.get('lufs', 0):.1f}, "
+                      f"Crest={fingerprint.get('crest_db', 0):.1f}dB, "
+                      f"Tempo={fingerprint.get('tempo_bpm', 0):.0f}BPM")
+            except Exception as e:
+                debug(f"Fingerprint extraction failed (non-critical): {e}")
+                content_profile["fingerprint"] = None
 
         debug(f"Content analysis complete: genre={genre_info['primary']}, "
               f"energy={content_profile['energy_level']}, "
