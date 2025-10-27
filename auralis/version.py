@@ -3,8 +3,8 @@ Auralis version information.
 Single source of truth for version across the entire project.
 """
 
-__version__ = "1.0.0-beta.3"
-__version_info__ = (1, 0, 0, "beta", 3)
+__version__ = "1.0.0-beta.4"
+__version_info__ = (1, 0, 0, "beta", 4)
 __build_date__ = "2025-10-27"
 __git_commit__ = ""  # Auto-populated during build
 
@@ -12,7 +12,7 @@ __git_commit__ = ""  # Auto-populated during build
 VERSION_MAJOR = 1
 VERSION_MINOR = 0
 VERSION_PATCH = 0
-VERSION_PRERELEASE = "beta.3"  # Empty string for stable releases
+VERSION_PRERELEASE = "beta.4"  # Empty string for stable releases
 VERSION_BUILD = ""  # Optional build metadata
 
 # Semantic version string
