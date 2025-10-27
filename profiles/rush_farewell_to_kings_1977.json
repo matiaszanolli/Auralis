@@ -1,0 +1,55 @@
+{
+  "track_info": {
+    "artist": "Rush",
+    "album": "A Farewell To Kings",
+    "year": 1977,
+    "genre": "Progressive Rock",
+    "mastering": "Terry Brown (Original Analog Master)",
+    "note": "Averaged from 6 tracks - vintage analog excellence",
+    "era": "Pre-Digital Analog Tape"
+  },
+  "loudness": {
+    "rms_db": -23.3,
+    "peak_db": -3.92,
+    "crest_factor_db": 19.4,
+    "estimated_lufs": -20.3
+  },
+  "frequency_response": {
+    "bass_pct": 48.7,
+    "mid_pct": 49.0,
+    "high_pct": 2.3,
+    "bass_to_mid_db": 0.0,
+    "high_to_mid_db": -8.3
+  },
+  "variation": {
+    "lufs_range": 16.4,
+    "lufs_std": 4.8,
+    "crest_range": 8.1,
+    "crest_std": 2.9,
+    "bass_mid_std": 3.0,
+    "mid_dominant_tracks": 3,
+    "total_tracks": 6,
+    "mid_dominant_ratio": 0.50
+  },
+  "characteristics": {
+    "genre": "Progressive Rock",
+    "era": "1970s Analog",
+    "sound_profile": "Vintage excellence - balanced frequency, exceptional dynamics",
+    "mastering_philosophy": "Natural analog tape compression, musical variation",
+    "quality": "Audiophile tier - better than most modern remasters",
+    "special_notes": [
+      "50% of tracks are mid-dominant (classic 1970s rock sound)",
+      "16.4 dB LUFS variation is intentional progressive rock dynamics",
+      "No loudness-compression correlation (r=+0.156) unlike modern productions",
+      "Inverse LUFS-Bass/Mid relationship: quiet=bass, loud=mids",
+      "19.4 dB crest exceeds most 2000s-2010s remasters"
+    ]
+  },
+  "processing_recommendations": {
+    "preserve_character": 0.92,
+    "target_crest_boost": 0.5,
+    "preserve_lufs_variation": true,
+    "preserve_frequency_balance": true,
+    "era_specific_notes": "Minimal enhancement only - source is already excellent"
+  }
+}

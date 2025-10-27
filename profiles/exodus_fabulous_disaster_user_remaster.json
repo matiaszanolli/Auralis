@@ -1,0 +1,137 @@
+{
+  "track_info": {
+    "artist": "Exodus",
+    "album": "Fabulous Disaster",
+    "year": 1989,
+    "genre": "Thrash Metal",
+    "mastering": "User Remaster (Target Reference)",
+    "note": "User's remaster showing 'sub-bass power enhancement' pattern",
+    "original_vs_remaster": "Comparison of user's enhancement approach"
+  },
+  "loudness": {
+    "rms_db": -25.2,
+    "peak_db": -1.90,
+    "crest_factor_db": 17.3,
+    "estimated_lufs": -22.2
+  },
+  "frequency_response": {
+    "bass_pct": 77.3,
+    "mid_pct": 18.6,
+    "high_pct": 4.1,
+    "bass_to_mid_db": 6.2,
+    "high_to_mid_db": -5.8
+  },
+  "detailed_frequency_breakdown": {
+    "sub_bass_20_80hz": 23.7,
+    "bass_80_250hz": 53.6,
+    "low_mid_250_500hz": 5.6,
+    "mid_500_2000hz": 8.9,
+    "upper_mid_2k_4khz": 4.1,
+    "presence_4k_8khz": 3.0,
+    "air_8k_20khz": 1.2
+  },
+  "enhancement_vector_from_original": {
+    "description": "Position shift in 10D frequency space",
+    "sub_bass_delta": 13.8,
+    "bass_delta": 2.2,
+    "low_mid_delta": -6.7,
+    "mid_delta": -0.1,
+    "upper_mid_delta": -6.9,
+    "presence_delta": -3.2,
+    "air_delta": 0.3,
+    "lufs_delta": 1.3,
+    "crest_delta": -1.3,
+    "bass_mid_ratio_delta": 3.2
+  },
+  "characteristics": {
+    "pattern": "sub_bass_power_enhancement",
+    "user_description": "Fat, heavy guitar, tougher basslines, broader range in drums",
+    "actual_implementation": "Massive sub-bass boost, cut upper-mids, cut low-mids to make room",
+    "key_insight": "Fat/heavy = sub-bass foundation, NOT midrange boost",
+    "genre_agnostic": "This pattern applies to ANY music with weak sub-bass and harsh upper-mids",
+    "special_notes": [
+      "NOT a genre template - it's a position shift in continuous frequency space",
+      "Same enhancement could apply to hip-hop, doom metal, dubstep, reggae",
+      "Detection based on SOURCE characteristics, not genre labels",
+      "Sub-bass boost (+13.8%) is the key differentiator",
+      "Upper-mid cut (-6.9%) reduces harshness, creates warmth",
+      "Low-mid cut (-6.7%) makes room for sub-bass, reduces muddiness"
+    ]
+  },
+  "detection_criteria": {
+    "applies_when": "Source has these MEASURED characteristics",
+    "sub_bass_pct": {"max": 12, "note": "Weak sub-bass foundation"},
+    "upper_mid_pct": {"min": 8, "note": "Harsh/aggressive upper-mids"},
+    "bass_to_mid_db": {"min": 0, "note": "Bass-intended music"},
+    "low_mid_pct": {"min": 10, "note": "Room to make cuts"},
+    "lufs": {"max": -20, "note": "Quiet by modern standards"},
+    "crest_db": {"min": 16, "note": "Reasonable dynamics"}
+  },
+  "processing_recommendations": {
+    "pattern_name": "sub_bass_power_enhancement",
+    "preserve_character": 0.30,
+    "description": "Significant transformation to add sub-bass power and reduce harshness",
+    "techniques": [
+      "Massive sub-bass boost (20-80 Hz): +14%",
+      "Slight bass boost (80-250 Hz): +2%",
+      "Low-mid cut (250-500 Hz): -7% to make room",
+      "Upper-mid cut (2-4 kHz): -7% to reduce harshness",
+      "Presence cut (4-8 kHz): -3% for less brittle sound",
+      "Gentle loudness increase: +1.5 dB LUFS",
+      "Slight compression: -1.5 dB crest for control"
+    ],
+    "expected_result": {
+      "sound_quality": "Fat, heavy, powerful, warm, not harsh",
+      "frequency_character": "Sub-bass dominant, less midrange presence",
+      "dynamics": "Slightly more controlled but still punchy",
+      "overall": "Modern heavy sound without excessive compression"
+    }
+  },
+  "comparison_to_original": {
+    "original_exodus_1989": {
+      "lufs": -23.4,
+      "crest": 18.5,
+      "sub_bass": 9.9,
+      "upper_mid": 11.0,
+      "bass_to_mid_db": 3.0
+    },
+    "user_remaster": {
+      "lufs": -22.2,
+      "crest": 17.3,
+      "sub_bass": 23.7,
+      "upper_mid": 4.1,
+      "bass_to_mid_db": 6.2
+    },
+    "delta": {
+      "lufs": 1.2,
+      "crest": -1.2,
+      "sub_bass": 13.8,
+      "upper_mid": -6.9,
+      "bass_to_mid_db": 3.2
+    }
+  },
+  "pattern_application_examples": {
+    "applies_to": [
+      "Thrash metal (Exodus) - confirmed by user",
+      "Hip-hop with weak sub-bass",
+      "Doom metal with muddy low-mids",
+      "Dubstep/bass music needing power",
+      "Reggae/dub with thin bass",
+      "ANY music with weak sub-bass + harsh upper-mids"
+    ],
+    "does_not_apply_to": [
+      "Already sub-bass heavy music (Steven Wilson)",
+      "Balanced frequency music (Rush Presto) - use perceived loudness instead",
+      "Mid-dominant music (classic rock) - preserve character",
+      "Vintage analog (Rush 1977) - minimal enhancement"
+    ]
+  },
+  "framework_integration": {
+    "reference_type": "target_pattern",
+    "pattern_id": "sub_bass_power_enhancement",
+    "detection_method": "continuous_space_distance",
+    "blending_weight": "distance_based",
+    "preserve_character_default": 0.30,
+    "note": "This is NOT a genre template - it's a TARGET POSITION in 10D frequency space"
+  }
+}
