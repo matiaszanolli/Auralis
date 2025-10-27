@@ -6,26 +6,39 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.0.0--beta.1-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.1)
+[![Release](https://img.shields.io/badge/release-v1.0.0--beta.4-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.4)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-241%2B%20passing-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-234%20passing-brightgreen.svg)]()
 [![Test Coverage](https://img.shields.io/badge/coverage-95.5%25-brightgreen.svg)]()
 
-## 📥 Download Beta.1
+## 📥 Download Beta.4
 
-**🎉 First Public Beta Now Available!**
+**🎉 Latest Release: Unified Streaming Architecture!**
 
 | Platform | Download | Size |
 |----------|----------|------|
-| 🪟 **Windows** | [Auralis Setup 1.0.0-beta.1.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.1/Auralis.Setup.1.0.0-beta.1.exe) | 185 MB |
-| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.1.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.1/Auralis-1.0.0-beta.1.AppImage) | 250 MB |
-| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.1_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.1/auralis-desktop_1.0.0-beta.1_amd64.deb) | 178 MB |
+| 🪟 **Windows** | [Auralis Setup 1.0.0-beta.4.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.4/Auralis.Setup.1.0.0-beta.4.exe) | 185 MB |
+| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.4.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.4/Auralis-1.0.0-beta.4.AppImage) | 250 MB |
+| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.4_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.4/auralis-desktop_1.0.0-beta.4_amd64.deb) | 178 MB |
 
-📖 **[User Guide](BETA_USER_GUIDE.md)** | 🐛 **[Known Issues](BETA1_KNOWN_ISSUES.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA1.md)**
+📖 **[User Guide](BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA4.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
+
+### 🚀 What's New in Beta.4
+
+**Major Architecture Overhaul: Unified Streaming System**
+
+- ⚡ **Progressive Streaming** - WebM/Opus encoding for instant preset switching
+- 🔄 **Unified Player** - Eliminates dual playback conflicts between MSE and Multi-Tier Buffer
+- 📦 **4,518 lines of new code** - Complete rewrite of streaming architecture
+- 🎯 **67% code reduction** - Cleaner, more maintainable player UI (970→320 lines)
+- ✅ **75% test coverage** - 50+ comprehensive tests for new components
+- 🏗️ **Production-ready** - Full documentation and technical specifications
+
+See [RELEASE_NOTES_BETA4.md](RELEASE_NOTES_BETA4.md) for complete technical details.
 
 ---
 
-📚 **[Complete Documentation](DOCS.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Release Summary](BETA1_RELEASE_SUMMARY.md)**
+📚 **[Complete Documentation](DOCS.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Beta.4 Session Summary](docs/sessions/oct27_mse_integration/FINAL_SESSION_SUMMARY.md)**
 
 ---
 
@@ -54,22 +67,22 @@ Auralis is a **local music player** with professional audio enhancement built-in
 
 **Windows:**
 ```bash
-# 1. Download Auralis.Setup.1.0.0-beta.1.exe
+# 1. Download Auralis.Setup.1.0.0-beta.4.exe
 # 2. Run the installer
 # 3. Launch Auralis from Start Menu
 ```
 
 **Linux (AppImage):**
 ```bash
-# 1. Download Auralis-1.0.0-beta.1.AppImage
-chmod +x Auralis-1.0.0-beta.1.AppImage
-./Auralis-1.0.0-beta.1.AppImage
+# 1. Download Auralis-1.0.0-beta.4.AppImage
+chmod +x Auralis-1.0.0-beta.4.AppImage
+./Auralis-1.0.0-beta.4.AppImage
 ```
 
 **Linux (Debian/Ubuntu):**
 ```bash
-# 1. Download auralis-desktop_1.0.0-beta.1_amd64.deb
-sudo dpkg -i auralis-desktop_1.0.0-beta.1_amd64.deb
+# 1. Download auralis-desktop_1.0.0-beta.4_amd64.deb
+sudo dpkg -i auralis-desktop_1.0.0-beta.4_amd64.deb
 auralis
 ```
 
