@@ -21,7 +21,7 @@ import SearchBar from './navigation/SearchBar';
 import ViewToggle, { ViewMode } from './navigation/ViewToggle';
 import { LibraryGridSkeleton, TrackRowSkeleton } from './shared/SkeletonLoader';
 import { useToast } from './shared/Toast';
-import { EmptyLibrary } from './shared/EmptyState';
+import { EmptyLibrary, NoSearchResults, EmptyState } from './shared/EmptyState';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
 import * as queueService from '../services/queueService';
 import { CozyAlbumGrid } from './library/CozyAlbumGrid';
@@ -676,10 +676,33 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
             </Box>
           ))}
 
-          {/* Infinite scroll loading indicator */}
-          {hasMore && !loading && (
+          {/* Virtual spacer for proper scrollbar length */}
+          {hasMore && totalTracks > tracks.length && (
             <Box
-              ref={loadMoreRef}
+              sx={{
+                height: `${(totalTracks - tracks.length) * 72}px`, // 72px avg row height
+                pointerEvents: 'none',
+                position: 'relative'
+              }}
+            >
+              {/* Intersection observer target positioned at the top of spacer */}
+              <Box
+                ref={loadMoreRef}
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '1px',
+                  pointerEvents: 'auto'
+                }}
+              />
+            </Box>
+          )}
+
+          {/* Infinite scroll loading indicator */}
+          {isLoadingMore && (
+            <Box
               sx={{
                 p: 3,
                 textAlign: 'center',
@@ -689,28 +712,24 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
                 gap: 2
               }}
             >
-              {isLoadingMore && (
-                <>
-                  <Box
-                    sx={{
-                      width: 20,
-                      height: 20,
-                      border: '2px solid',
-                      borderColor: 'primary.main',
-                      borderRightColor: 'transparent',
-                      borderRadius: '50%',
-                      animation: 'spin 1s linear infinite',
-                      '@keyframes spin': {
-                        '0%': { transform: 'rotate(0deg)' },
-                        '100%': { transform: 'rotate(360deg)' }
-                      }
-                    }}
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    Loading more tracks... ({tracks.length}/{totalTracks})
-                  </Typography>
-                </>
-              )}
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                  borderRightColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' }
+                  }
+                }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                Loading more tracks... ({tracks.length}/{totalTracks})
+              </Typography>
             </Box>
           )}
 
@@ -729,41 +748,13 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       {filteredTracks.length === 0 && !loading && (
         <>
           {view === 'favourites' ? (
-            <Paper
-              elevation={2}
-              sx={{
-                p: 6,
-                textAlign: 'center',
-                background: 'rgba(255,255,255,0.05)',
-                borderRadius: 3
-              }}
-            >
-              <MusicNote sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                No favorites yet
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Click the heart icon on tracks you love to add them to your favorites
-              </Typography>
-            </Paper>
+            <EmptyState
+              icon="music"
+              title="No favorites yet"
+              description="Click the heart icon on tracks you love to add them to your favorites"
+            />
           ) : searchQuery ? (
-            <Paper
-              elevation={2}
-              sx={{
-                p: 6,
-                textAlign: 'center',
-                background: 'rgba(255,255,255,0.05)',
-                borderRadius: 3
-              }}
-            >
-              <MusicNote sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                No music found
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Try adjusting your search terms
-              </Typography>
-            </Paper>
+            <NoSearchResults query={searchQuery} />
           ) : (
             <EmptyLibrary
               onScanFolder={handleScanFolder}

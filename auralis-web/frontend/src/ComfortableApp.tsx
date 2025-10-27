@@ -7,7 +7,8 @@ import {
   IconButton,
   useMediaQuery,
   useTheme,
-  Drawer
+  Drawer,
+  SwipeableDrawer
 } from '@mui/material';
 import {
   Search,
@@ -28,6 +29,7 @@ import LyricsPanel from './components/player/LyricsPanel';
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { usePlayerAPI } from './hooks/usePlayerAPI';
 
 interface Track {
   id: number;
@@ -62,63 +64,33 @@ function ComfortableApp() {
   // Toast notifications
   const { success, info } = useToast();
 
+  // Player API for real playback control
+  const {
+    currentTrack: apiCurrentTrack,
+    isPlaying: apiIsPlaying,
+    volume: apiVolume,
+    togglePlayPause,
+    next: nextTrack,
+    previous: previousTrack,
+    setVolume: setApiVolume
+  } = usePlayerAPI();
+
   // Auto-collapse sidebar on mobile and hide preset pane on tablet
   useEffect(() => {
     if (isMobile) {
       setSidebarCollapsed(true);
+      setMobileDrawerOpen(false); // Ensure drawer is closed on mobile by default
+    } else {
+      setSidebarCollapsed(false); // Show sidebar on desktop
     }
     if (isTablet) {
       setPresetPaneCollapsed(true);
+    } else {
+      setPresetPaneCollapsed(false); // Show preset pane on large screens
     }
   }, [isMobile, isTablet]);
 
-  // Keyboard shortcuts
-  useKeyboardShortcuts({
-    onPlayPause: handlePlayPause,
-    onNext: () => {
-      // TODO: Implement next track
-      info('Next track');
-    },
-    onPrevious: () => {
-      // TODO: Implement previous track
-      info('Previous track');
-    },
-    onVolumeUp: () => {
-      // TODO: Implement volume up
-      info('Volume up');
-    },
-    onVolumeDown: () => {
-      // TODO: Implement volume down
-      info('Volume down');
-    },
-    onMute: () => {
-      // TODO: Implement mute
-      info('Mute toggled');
-    },
-    onToggleLyrics: () => {
-      setLyricsOpen(!lyricsOpen);
-      info(lyricsOpen ? 'Lyrics hidden' : 'Lyrics shown');
-    },
-    onToggleEnhancement: () => {
-      if (currentTrack) {
-        const newState = !currentTrack.isEnhanced;
-        handlePlayerEnhancementToggle(newState);
-      }
-    },
-    onFocusSearch: () => {
-      // Focus search input
-      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
-      if (searchInput) {
-        searchInput.focus();
-        searchInput.select();
-      }
-    },
-    onOpenSettings: () => {
-      setSettingsOpen(true);
-    },
-    onPresetChange: handlePresetChange
-  });
-
+  // Event handlers - MUST be defined before useKeyboardShortcuts to avoid TDZ errors
   const handleTrackPlay = (track: Track) => {
     setCurrentTrack(track);
     setIsPlaying(true);
@@ -145,6 +117,59 @@ function ComfortableApp() {
     console.log('Preset changed to:', preset);
     info(`Preset changed to ${preset}`);
   };
+
+  // Keyboard shortcuts (handlers must be defined above)
+  useKeyboardShortcuts({
+    onPlayPause: () => {
+      togglePlayPause();
+      info(apiIsPlaying ? 'Paused' : 'Playing');
+    },
+    onNext: () => {
+      nextTrack();
+      info('Next track');
+    },
+    onPrevious: () => {
+      previousTrack();
+      info('Previous track');
+    },
+    onVolumeUp: () => {
+      const newVolume = Math.min(apiVolume + 10, 100);
+      setApiVolume(newVolume);
+      info(`Volume: ${newVolume}%`);
+    },
+    onVolumeDown: () => {
+      const newVolume = Math.max(apiVolume - 10, 0);
+      setApiVolume(newVolume);
+      info(`Volume: ${newVolume}%`);
+    },
+    onMute: () => {
+      const newVolume = apiVolume > 0 ? 0 : 80; // Toggle between 0 and default 80%
+      setApiVolume(newVolume);
+      info(newVolume === 0 ? 'Muted' : 'Unmuted');
+    },
+    onToggleLyrics: () => {
+      setLyricsOpen(!lyricsOpen);
+      info(lyricsOpen ? 'Lyrics hidden' : 'Lyrics shown');
+    },
+    onToggleEnhancement: () => {
+      if (currentTrack) {
+        const newState = !currentTrack.isEnhanced;
+        handlePlayerEnhancementToggle(newState);
+      }
+    },
+    onFocusSearch: () => {
+      // Focus search input
+      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+    },
+    onOpenSettings: () => {
+      setSettingsOpen(true);
+    },
+    onPresetChange: handlePresetChange
+  });
 
   const handleMasteringToggle = (enabled: boolean) => {
     console.log('Mastering:', enabled ? 'enabled' : 'disabled');
@@ -197,12 +222,15 @@ function ComfortableApp() {
           />
         )}
 
-        {/* Mobile Drawer - Shown on mobile */}
+        {/* Mobile Drawer - Swipeable on mobile */}
         {isMobile && (
-          <Drawer
+          <SwipeableDrawer
             anchor="left"
             open={mobileDrawerOpen}
             onClose={() => setMobileDrawerOpen(false)}
+            onOpen={() => setMobileDrawerOpen(true)}
+            disableSwipeToOpen={false}
+            swipeAreaWidth={20}
             ModalProps={{
               keepMounted: true, // Better performance on mobile
             }}
@@ -222,7 +250,7 @@ function ComfortableApp() {
                 setMobileDrawerOpen(false);
               }}
             />
-          </Drawer>
+          </SwipeableDrawer>
         )}
 
         {/* Main Content Area */}
@@ -250,11 +278,17 @@ function ComfortableApp() {
                 {isMobile && (
                   <IconButton
                     onClick={handleMobileMenuToggle}
+                    aria-label="Open navigation menu"
+                    aria-expanded={mobileDrawerOpen}
                     sx={{
                       color: 'var(--silver)',
                       '&:hover': {
                         background: 'rgba(102, 126, 234, 0.1)',
                       },
+                      '&:active': {
+                        background: 'rgba(102, 126, 234, 0.2)',
+                      },
+                      transition: 'all 0.2s ease',
                     }}
                   >
                     <MenuIcon />

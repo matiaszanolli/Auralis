@@ -74,6 +74,16 @@ class AutoMasterProcessor:
         # Apply profile-based tonal shaping (simplified)
         # In a full implementation, this would be proper EQ bands
         profile_gain = (settings["low_gain"] + settings["mid_gain"] + settings["high_gain"]) / 3
+
+        # Apply gain, but check for potential clipping on loud material
+        # If input is already hot (> -6dBFS), reduce profile gain to prevent fuzz
+        input_peak = np.max(np.abs(audio))
+        if input_peak > 0.5:  # -6dBFS threshold
+            # Reduce gain proportionally for loud material
+            # Scale from 1.0 (at 0.5) to 0.8 (at 1.0)
+            hot_reduction = 1.0 - (input_peak - 0.5) * 0.4
+            profile_gain *= max(hot_reduction, 0.8)  # Don't reduce below 80%
+
         processed *= profile_gain
 
         return processed
