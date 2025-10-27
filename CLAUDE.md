@@ -711,16 +711,15 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **License**: GPL-3.0
 
 ### Project Status
-- **Version**: 1.0.0-beta.3 (Beta stage - **Production Quality** with enhanced UX)
-- **Beta.3 Quick Wins**: ✅ **8 UI/UX IMPROVEMENTS SHIPPED** (Oct 27, 2025)
-  - Keyboard shortcuts (16 shortcuts with platform detection)
-  - Volume controls (mouse wheel, dynamic icons, percentage display)
-  - Responsive design (mobile drawer, auto-collapse, touch-friendly)
-  - Progressive image loading (retry logic, varied gradients)
-  - Search enhancements (result counts, loading indicators)
-  - Track hover effects (smooth animations, visual feedback)
-  - Duration format fix (clean display without decimals)
-  - See [docs/sessions/oct27_quick_wins/](docs/sessions/oct27_quick_wins/) for complete details
+- **Version**: 1.0.0-beta.4 (Beta stage - **Production Quality** with unified streaming)
+- **Beta.4 Unified Streaming**: ✅ **MAJOR ARCHITECTURE OVERHAUL** (Oct 27, 2025)
+  - Unified MSE + Multi-Tier Buffer system (eliminates dual playback conflicts)
+  - Progressive WebM/Opus streaming for instant preset switching
+  - 4,518 lines of new code across 15 components
+  - 67% player UI code reduction (970→320 lines)
+  - 75% test coverage on new components (50+ comprehensive tests)
+  - Released: October 27, 2025
+  - See [docs/sessions/oct27_mse_integration/](docs/sessions/oct27_mse_integration/) for complete technical details
 - **Beta.1 Critical Fixes**: ✅ **ALL P0/P1 ISSUES RESOLVED** (Oct 26, 2025)
   - Audio fuzziness between chunks - ✅ FIXED (3s crossfade + state tracking)
   - Volume jumps between chunks - ✅ FIXED (same fix, shared root cause)
