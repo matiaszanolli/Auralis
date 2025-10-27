@@ -31,9 +31,10 @@ python -m pytest tests/backend/ -v                    # API tests (96 tests, 74%
 python -m pytest tests/auralis/ -v                    # Real-time processing tests (24 tests, all passing ✅)
 python -m pytest tests/test_adaptive_processing.py -v  # Core processing (26 tests)
 
-# 25D Fingerprint integration tests ✅ NEW
-python test_fingerprint_integration.py                # Synthetic signals
-python test_fingerprint_integration.py /path/to/audio.flac  # Real audio
+# Validation tests (preset validation, E2E testing)
+python -m pytest tests/validation/ -v                 # All validation tests
+python -m pytest tests/validation/test_preset_integration.py -v  # Preset integration
+python -m pytest tests/auralis/analysis/test_fingerprint_integration.py -v  # 25D fingerprint (4 tests)
 
 # Frontend tests (245 tests, 234 passing, 11 failing)
 # ⚠️ KNOWN ISSUES:
@@ -84,7 +85,15 @@ python -m pytest tests/backend/ -v                     # API endpoint tests (96 
 python -m pytest tests/auralis/ -v                     # Real-time processing (24 tests, all passing ✅)
 python -m pytest tests/test_adaptive_processing.py -v  # Core processing tests (26 tests)
 
+# Validation tests (organized Oct 27, 2025)
+python -m pytest tests/validation/ -v                  # All validation tests
+python -m pytest tests/validation/test_preset_integration.py -v  # Preset integration
+python -m pytest tests/validation/test_comprehensive_presets.py  # Comprehensive preset validation
+python -m pytest tests/validation/test_e2e_processing.py         # End-to-end processing
+python -m pytest tests/auralis/analysis/test_fingerprint_integration.py -v  # 25D fingerprint (4 tests)
+
 # See TEST_FIX_COMPLETE.md for details on fixed real-time processing tests
+# See TEST_ORGANIZATION_COMPLETE.md for test structure details
 # ⚠️ TODO: Add regression tests for Oct 25 bug fixes (gain pumping, soft limiter)
 # ⚠️ TODO: Fix 11 failing frontend tests (gapless playback component)
 
@@ -99,10 +108,10 @@ python -m pytest tests/backend/ --cov=auralis-web/backend --cov-report=html
 python -m pytest tests/auralis/ --cov=auralis/player/realtime --cov-report=html
 
 # Performance benchmarks and optimization tests
-python test_integration_quick.py    # Quick optimization validation (~30s)
-python benchmark_performance.py     # Comprehensive performance benchmark (~2-3 min)
-python benchmark_vectorization.py   # Envelope follower benchmark (40-70x speedup)
-python benchmark_eq_parallel.py     # EQ optimization benchmark (1.7x speedup)
+python tests/validation/test_integration_quick.py    # Quick optimization validation (~30s)
+python benchmark_performance.py                      # Comprehensive performance benchmark (~2-3 min)
+python benchmark_vectorization.py                    # Envelope follower benchmark (40-70x speedup)
+python benchmark_eq_parallel.py                      # EQ optimization benchmark (1.7x speedup)
 ```
 
 ### Supported Audio Formats
