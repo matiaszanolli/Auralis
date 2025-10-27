@@ -19,11 +19,10 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder --publish=never",
-    "postinstall": "electron-builder install-app-deps"
+    "dist": "electron-builder --publish=never"
   },
   "devDependencies": {
-    "electron": "^27.0.0",
+    "electron": "^27.3.11",
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
