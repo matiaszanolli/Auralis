@@ -19,6 +19,7 @@ import logging
 import math
 import time
 from pathlib import Path
+import librosa
 
 logger = logging.getLogger(__name__)
 
@@ -205,13 +206,17 @@ async def _serve_webm_chunk(
         logger.info(f"WebM cache MISS: encoding chunk {chunk_idx}")
 
         start_time = chunk_idx * chunk_duration
-        audio, sr = load_audio(
-            track.file_path,
+        audio, sr = librosa.load(
+            track.filepath,
             sr=None,
             mono=False,
-            start=start_time,
+            offset=start_time,
             duration=chunk_duration
         )
+
+        # Librosa returns (channels, samples) for stereo, but sf.write needs (samples, channels)
+        if audio.ndim == 2:
+            audio = audio.T  # Transpose to (samples, channels)
 
         # Encode to WebM
         webm_path = await encode_audio_to_webm(audio, sr, cache_key)
