@@ -252,6 +252,30 @@ const player = useUnifiedPlayer({
 
 **Integration Pattern**: Shows exactly how to integrate into BottomPlayerBarConnected
 
+### 8. Integration Guide Document ✅
+**File**: `docs/sessions/oct27_mse_integration/INTEGRATION_GUIDE.md`
+**Status**: Complete - Step-by-step integration instructions
+**Date**: October 27, 2025
+
+**Contents**:
+- Complete integration steps
+- State mapping (idle → loading → ready → playing/paused/switching)
+- Code examples for each integration point
+- Testing checklist
+- Migration notes (what to keep vs replace vs remove)
+
+**Key Sections**:
+1. Import and setup
+2. Enhancement toggle connection
+3. Preset selector connection
+4. Playback controls mapping
+5. Track loading logic
+6. Volume control
+7. Loading state indicators
+8. Error handling
+9. Complete working example
+10. Testing checklist
+
 ---
 
 ## ⏳ Pending Tasks
