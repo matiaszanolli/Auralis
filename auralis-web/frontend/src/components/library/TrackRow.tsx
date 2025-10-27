@@ -32,29 +32,46 @@ const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
   padding: `0 ${spacing.md}px`,
   borderRadius: `${borderRadius.xs}px`,
   cursor: 'pointer',
-  transition: `all ${transitions.fast}`,
+  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
   background: iscurrent === 'true' ? 'rgba(102, 126, 234, 0.12)' : 'transparent',
   border: iscurrent === 'true' ? '1px solid rgba(102, 126, 234, 0.2)' : '1px solid transparent',
   position: 'relative',
   marginBottom: `${spacing.xs / 2}px`,
+  boxShadow: iscurrent === 'true' ? '0 0 0 1px rgba(102, 126, 234, 0.1)' : 'none',
 
   '&:hover': {
     background: iscurrent === 'true'
       ? 'rgba(102, 126, 234, 0.18)'
-      : colors.background.hover,
-    transform: 'translateX(4px)',
+      : 'rgba(102, 126, 234, 0.08)',
+    transform: 'translateX(4px) scale(1.005)', // Subtle scale for depth
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
 
     '& .track-number': {
       opacity: 0,
+      transform: 'scale(0.8)',
     },
 
     '& .play-button': {
       opacity: 1,
+      transform: 'scale(1)',
     },
 
     '& .more-button': {
       opacity: 1,
     },
+
+    '& .track-title': {
+      color: '#667eea',
+    },
+
+    '& .album-art': {
+      transform: 'scale(1.05)',
+      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+    },
+  },
+
+  '&:active': {
+    transform: 'translateX(2px) scale(0.995)',
   },
 }));
 
@@ -80,7 +97,7 @@ const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) =
   fontSize: '14px',
   fontWeight: 500,
   color: iscurrent === 'true' ? '#667eea' : colors.text.secondary,
-  transition: `opacity ${transitions.fast}`,
+  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 }));
 
 const PlayButton = styled(IconButton)({
@@ -88,11 +105,13 @@ const PlayButton = styled(IconButton)({
   width: '32px',
   height: '32px',
   opacity: 0,
-  transition: `opacity ${transitions.fast}`,
+  transform: 'scale(0.8)',
+  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
   color: '#667eea',
 
   '&:hover': {
-    background: 'rgba(102, 126, 234, 0.12)',
+    background: 'rgba(102, 126, 234, 0.15)',
+    transform: 'scale(1.1)',
   },
 
   '& .MuiSvgIcon-root': {
@@ -111,11 +130,13 @@ const AlbumArtThumbnail = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 
   '& img': {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
+    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   },
 });
 
@@ -135,6 +156,7 @@ const TrackTitle = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) =>
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   lineHeight: 1.4,
+  transition: 'color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 }));
 
 const TrackArtist = styled(Typography)({
