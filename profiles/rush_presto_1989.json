@@ -1,0 +1,84 @@
+{
+  "track_info": {
+    "artist": "Rush",
+    "album": "Presto",
+    "year": 1989,
+    "genre": "Progressive Rock",
+    "mastering": "Late 1980s CD Era / Early Digital",
+    "note": "Averaged from 11 tracks - vintage digital excellence",
+    "era": "Pre-Loudness War Digital (Conservative CD Mastering)"
+  },
+  "loudness": {
+    "rms_db": -27.4,
+    "peak_db": -1.22,
+    "crest_factor_db": 20.1,
+    "estimated_lufs": -24.4
+  },
+  "frequency_response": {
+    "bass_pct": 48.7,
+    "mid_pct": 44.3,
+    "high_pct": 7.0,
+    "bass_to_mid_db": 0.4,
+    "high_to_mid_db": -5.8
+  },
+  "variation": {
+    "lufs_range": 4.0,
+    "lufs_std": 1.3,
+    "crest_range": 3.6,
+    "crest_std": 1.1,
+    "bass_mid_std": 1.9,
+    "mid_dominant_tracks": 2,
+    "total_tracks": 11,
+    "mid_dominant_ratio": 0.18
+  },
+  "characteristics": {
+    "genre": "Progressive Rock",
+    "era": "Late 1980s CD / Early Digital",
+    "sound_profile": "Vintage digital excellence - exceptional dynamics, very quiet",
+    "mastering_philosophy": "Conservative CD mastering, preserved dynamics, pre-loudness war",
+    "quality": "Excellent dynamics (better than 1977 analog!) but very quiet",
+    "user_perception": "Needs more volume and punch",
+    "actual_diagnosis": "Good dynamics, just quiet - needs perceived loudness enhancement",
+    "special_notes": [
+      "20.1 dB crest exceeds Rush 1977 analog (19.4 dB)",
+      "Very quiet -24.4 LUFS compared to modern -8 to -12 LUFS",
+      "Early CD mastering was conservative (left headroom)",
+      "Tight variation: 4.0 dB LUFS range, 3.6 dB crest range",
+      "Excellent dynamics but lacks presence and warmth of analog",
+      "Perfect case study for 'perceived loudness enhancement' pattern"
+    ]
+  },
+  "processing_recommendations": {
+    "pattern": "perceived_loudness_enhancement",
+    "preserve_character": 0.88,
+    "target_crest": 21.0,
+    "target_lufs": -18.0,
+    "primary_goal": "increase_perceived_loudness_without_crushing_dynamics",
+    "techniques": [
+      "presence_boost (1-3 kHz, +2 dB for punch)",
+      "harmonic_saturation (tape warmth, 3% THD)",
+      "gentle_multiband_compression (1.8:1 ratio, preserve transients)",
+      "transient_enhancement (attack +2 dB, sustain -1.5 dB)",
+      "safety_peak_limiting (only catch outliers)"
+    ],
+    "expected_result": {
+      "loudness_increase": 6.4,
+      "crest_improvement": 0.9,
+      "perceived_punch": "significantly improved",
+      "warmth": "added via saturation",
+      "dynamics": "enhanced (not crushed!)"
+    },
+    "era_specific_notes": "Vintage digital needs PERCEIVED loudness (EQ + saturation), NOT dynamics squashing"
+  },
+  "comparison_to_other_rush": {
+    "1977_analog": {
+      "lufs_diff": -4.1,
+      "crest_diff": 0.7,
+      "note": "1989 has BETTER dynamics but quieter (conservative CD mastering)"
+    },
+    "modern_target": {
+      "lufs_diff": -14.4,
+      "note": "Modern music is 14 dB louder - source of 'weak' perception"
+    }
+  }
+}
