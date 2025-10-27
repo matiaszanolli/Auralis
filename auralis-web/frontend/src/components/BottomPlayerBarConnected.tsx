@@ -78,9 +78,15 @@ const AlbumArtContainer = styled(Box)({
 interface BottomPlayerBarConnectedProps {
   onToggleLyrics?: () => void;
   onTimeUpdate?: (currentTime: number) => void;
+  /** Optional external audio element (for MSE integration) */
+  audioElement?: HTMLAudioElement | null;
 }
 
-export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> = ({ onToggleLyrics, onTimeUpdate }) => {
+export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> = ({
+  onToggleLyrics,
+  onTimeUpdate,
+  audioElement: externalAudioElement
+}) => {
   // Real player API hook
   const {
     currentTrack,
@@ -111,8 +117,18 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
   const [isBuffering, setIsBuffering] = useState(false);
 
   // HTML5 Audio elements for gapless playback
+  // If external audio element provided (MSE mode), use it; otherwise create refs
   const audioRef = React.useRef<HTMLAudioElement>(null);
   const nextAudioRef = React.useRef<HTMLAudioElement>(null);
+
+  // Use external audio element if provided (MSE integration)
+  React.useEffect(() => {
+    if (externalAudioElement) {
+      // MSE mode: use provided audio element
+      (audioRef as React.MutableRefObject<HTMLAudioElement | null>).current = externalAudioElement;
+      console.log('🎵 Using external audio element (MSE mode)');
+    }
+  }, [externalAudioElement]);
 
   // Track the last loaded track ID to prevent redundant reloads
   const lastLoadedTrackId = React.useRef<number | null>(null);
@@ -161,7 +177,13 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
   }, [error, showError]);
 
   // Load new track into audio element when currentTrack or enhancement settings change
+  // SKIP in MSE mode (external audio element manages its own loading)
   useEffect(() => {
+    if (externalAudioElement) {
+      console.log('🎵 MSE mode: Skipping backend stream loading (MSE player manages audio)');
+      return;
+    }
+
     if (currentTrack && audioRef.current) {
       // Build stream URL with enhancement parameters from global context
       const params = new URLSearchParams();

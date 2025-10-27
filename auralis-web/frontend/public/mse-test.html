@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSE Player Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0A0E27;
+            color: #fff;
+        }
+        h1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .controls {
+            margin: 20px 0;
+            padding: 20px;
+            background: #1a1f3a;
+            border-radius: 8px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #1a1f3a;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .preset-button {
+            flex: 1;
+        }
+        .preset-button.active {
+            background: linear-gradient(135deg, #00d4aa 0%, #00aa88 100%);
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat-card {
+            padding: 10px;
+            background: #0A0E27;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: #8b92b0;
+            text-transform: uppercase;
+        }
+        .log {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+            padding: 10px;
+            background: #000;
+            border-radius: 4px;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+        .log-entry {
+            margin: 2px 0;
+        }
+        .log-success { color: #00d4aa; }
+        .log-error { color: #ff6b6b; }
+        .log-info { color: #4ecdc4; }
+        .log-warn { color: #ffe66d; }
+    </style>
+</head>
+<body>
+    <h1>🎵 MSE Progressive Streaming Test</h1>
+
+    <div class="controls">
+        <h3>Playback Controls</h3>
+        <div>
+            <label>Track ID: <input type="number" id="trackId" value="1" min="1" style="width: 60px; padding: 5px;"></label>
+            <button onclick="initializePlayer()">Initialize</button>
+            <button onclick="play()" id="playBtn" disabled>▶️ Play</button>
+            <button onclick="pause()" id="pauseBtn" disabled>⏸️ Pause</button>
+            <button onclick="stop()" id="stopBtn" disabled>⏹️ Stop</button>
+        </div>
+
+        <h3 style="margin-top: 20px;">Preset Switching (Instant!)</h3>
+        <div class="preset-buttons">
+            <button class="preset-button" onclick="switchPreset('adaptive')" id="preset-adaptive">Adaptive</button>
+            <button class="preset-button" onclick="switchPreset('gentle')" id="preset-gentle">Gentle</button>
+            <button class="preset-button" onclick="switchPreset('warm')" id="preset-warm">Warm</button>
+            <button class="preset-button" onclick="switchPreset('bright')" id="preset-bright">Bright</button>
+            <button class="preset-button" onclick="switchPreset('punchy')" id="preset-punchy">Punchy</button>
+        </div>
+
+        <label>
+            <input type="checkbox" id="enhanced" checked> Enable Enhancement
+        </label>
+    </div>
+
+    <div class="status">
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="stateValue">idle</div>
+                <div class="stat-label">Player State</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="timeValue">0:00</div>
+                <div class="stat-label">Current Time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="presetValue">adaptive</div>
+                <div class="stat-label">Current Preset</div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="switchCount">0</div>
+                <div class="stat-label">Preset Switches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgLatency">0ms</div>
+                <div class="stat-label">Avg Switch Latency</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="lastLatency">-</div>
+                <div class="stat-label">Last Switch</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="log" id="log"></div>
+
+    <audio id="audio" style="width: 100%; margin-top: 20px;"></audio>
+
+    <script>
+        // Simple MSE Player implementation
+        let mediaSource = null;
+        let sourceBuffer = null;
+        let currentChunk = 0;
+        let metadata = null;
+        let currentPreset = 'adaptive';
+        let isEnhanced = true;
+        let trackId = 1;
+        let loadedChunks = new Set();
+        let switchStats = { count: 0, totalLatency: 0 };
+
+        const audio = document.getElementById('audio');
+        const CHUNK_BUFFER_AHEAD = 3;
+        const BACKEND_URL = 'http://localhost:8765';
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logEl.insertBefore(entry, logEl.firstChild);
+            console.log(message);
+        }
+
+        function updateStats() {
+            document.getElementById('stateValue').textContent = mediaSource ?
+                (audio.paused ? 'paused' : 'playing') : 'idle';
+            document.getElementById('timeValue').textContent = formatTime(audio.currentTime);
+            document.getElementById('presetValue').textContent = currentPreset;
+            document.getElementById('switchCount').textContent = switchStats.count;
+            if (switchStats.count > 0) {
+                const avg = switchStats.totalLatency / switchStats.count;
+                document.getElementById('avgLatency').textContent = Math.round(avg) + 'ms';
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        async function initializePlayer() {
+            try {
+                trackId = parseInt(document.getElementById('trackId').value);
+                log(`Initializing MSE player for track ${trackId}...`, 'info');
+
+                // Fetch metadata
+                const metaRes = await fetch(`${BACKEND_URL}/api/mse/stream/${trackId}/metadata`);
+                metadata = await metaRes.json();
+                log(`Metadata loaded: ${metadata.total_chunks} chunks, ${metadata.duration.toFixed(1)}s`, 'success');
+
+                // Create MediaSource
+                mediaSource = new MediaSource();
+                audio.src = URL.createObjectURL(mediaSource);
+
+                await new Promise((resolve) => {
+                    mediaSource.addEventListener('sourceopen', resolve, { once: true });
+                });
+
+                // Create SourceBuffer
+                const mimeType = `${metadata.mime_type}; codecs=${metadata.codecs}`;
+                sourceBuffer = mediaSource.addSourceBuffer(mimeType);
+                log(`SourceBuffer created: ${mimeType}`, 'success');
+
+                // Load initial chunks
+                currentChunk = 0;
+                loadedChunks.clear();
+                await loadChunkRange(0, CHUNK_BUFFER_AHEAD);
+
+                document.getElementById('playBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = false;
+
+                log('✅ Player initialized successfully!', 'success');
+                updateStats();
+            } catch (error) {
+                log(`❌ Initialization failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        async function loadChunk(chunkIdx) {
+            if (loadedChunks.has(chunkIdx)) {
+                return; // Already loaded
+            }
+
+            const enhanced = document.getElementById('enhanced').checked;
+            const url = `${BACKEND_URL}/api/mse/stream/${trackId}/chunk/${chunkIdx}?preset=${currentPreset}&enhanced=${enhanced}`;
+
+            log(`Fetching chunk ${chunkIdx}/${metadata.total_chunks - 1} (${currentPreset})...`, 'info');
+            const startTime = performance.now();
+
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+
+            const latency = performance.now() - startTime;
+            const cacheTier = response.headers.get('X-Cache-Tier') || 'UNKNOWN';
+
+            log(`Chunk ${chunkIdx} loaded: ${cacheTier} cache, ${latency.toFixed(1)}ms, ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(2)}MB`,
+                cacheTier === 'MISS' ? 'warn' : 'success');
+
+            // Wait for SourceBuffer to be ready
+            while (sourceBuffer.updating) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+
+            // Append chunk
+            sourceBuffer.appendBuffer(arrayBuffer);
+
+            await new Promise((resolve) => {
+                sourceBuffer.addEventListener('updateend', resolve, { once: true });
+            });
+
+            loadedChunks.add(chunkIdx);
+        }
+
+        async function loadChunkRange(start, count) {
+            const end = Math.min(start + count, metadata.total_chunks);
+            for (let i = start; i < end; i++) {
+                await loadChunk(i);
+            }
+        }
+
+        async function play() {
+            try {
+                await audio.play();
+                log('▶️ Playback started', 'success');
+                updateStats();
+
+                // Continue loading chunks as we play
+                audio.addEventListener('timeupdate', onTimeUpdate);
+            } catch (error) {
+                log(`❌ Playback failed: ${error.message}`, 'error');
+            }
+        }
+
+        function pause() {
+            audio.pause();
+            log('⏸️ Playback paused', 'info');
+            updateStats();
+        }
+
+        function stop() {
+            audio.pause();
+            audio.currentTime = 0;
+            log('⏹️ Playback stopped', 'info');
+            updateStats();
+        }
+
+        function onTimeUpdate() {
+            const currentTime = audio.currentTime;
+            const chunkDuration = metadata.chunk_duration;
+            const newChunk = Math.floor(currentTime / chunkDuration);
+
+            if (newChunk !== currentChunk) {
+                currentChunk = newChunk;
+                // Load next chunks ahead
+                loadChunkRange(currentChunk + 1, CHUNK_BUFFER_AHEAD);
+            }
+
+            updateStats();
+        }
+
+        async function switchPreset(preset) {
+            if (!mediaSource) {
+                log('❌ Player not initialized', 'error');
+                return;
+            }
+
+            if (preset === currentPreset) {
+                return; // Already on this preset
+            }
+
+            try {
+                const startTime = performance.now();
+                log(`🎨 Switching preset: ${currentPreset} → ${preset}...`, 'info');
+
+                const wasPlaying = !audio.paused;
+                const currentTime = audio.currentTime;
+
+                // Clear source buffer
+                const range = sourceBuffer.buffered;
+                for (let i = 0; i < range.length; i++) {
+                    sourceBuffer.remove(range.start(i), range.end(i));
+                }
+
+                await new Promise((resolve) => {
+                    sourceBuffer.addEventListener('updateend', resolve, { once: true });
+                });
+
+                // Update preset
+                currentPreset = preset;
+                loadedChunks.clear();
+                currentChunk = Math.floor(currentTime / metadata.chunk_duration);
+
+                // Reload chunks with new preset
+                await loadChunkRange(currentChunk, CHUNK_BUFFER_AHEAD);
+
+                // Resume playback
+                audio.currentTime = currentTime;
+                if (wasPlaying) {
+                    await audio.play();
+                }
+
+                const latency = performance.now() - startTime;
+                switchStats.count++;
+                switchStats.totalLatency += latency;
+
+                document.getElementById('lastLatency').textContent = Math.round(latency) + 'ms';
+
+                // Update active button
+                document.querySelectorAll('.preset-button').forEach(btn => btn.classList.remove('active'));
+                document.getElementById(`preset-${preset}`).classList.add('active');
+
+                log(`✨ Preset switched in ${latency.toFixed(1)}ms!`, latency < 100 ? 'success' : 'warn');
+                updateStats();
+            } catch (error) {
+                log(`❌ Preset switch failed: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // Initialize
+        document.getElementById('preset-adaptive').classList.add('active');
+        setInterval(updateStats, 100);
+        log('Ready to test MSE progressive streaming!', 'info');
+    </script>
+</body>
+</html>

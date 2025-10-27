@@ -130,7 +130,7 @@ export class MSEPlayer {
    * Check if MSE is supported in the current browser
    */
   static isSupported(): boolean {
-    return 'MediaSource' in window && MediaSource.isTypeSupported('audio/wav; codecs="pcm"');
+    return 'MediaSource' in window && MediaSource.isTypeSupported('audio/webm; codecs=opus');
   }
 
   /**

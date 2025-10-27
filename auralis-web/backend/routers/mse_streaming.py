@@ -27,6 +27,10 @@ import math
 import time
 import numpy as np
 from pathlib import Path
+import soundfile as sf
+
+# Import WebM encoder
+from encoding.webm_encoder import encode_to_webm_opus, WebMEncoderError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["mse-streaming"])
@@ -127,8 +131,8 @@ def create_mse_streaming_router(
                 channels=2,  # Stereo output
                 chunk_duration=chunk_duration,
                 total_chunks=total_chunks,
-                mime_type="audio/wav",
-                codecs="pcm"  # PCM codec for WAV
+                mime_type="audio/webm",
+                codecs="opus"  # Opus codec for WebM
             )
 
             logger.info(f"Stream metadata for track {track_id}: {total_chunks} chunks, {duration:.1f}s")
@@ -258,11 +262,30 @@ def create_mse_streaming_router(
                             detail=f"Chunk processing failed: output file not found"
                         )
 
-                    # Read chunk as bytes
-                    with open(chunk_path, "rb") as f:
-                        audio_bytes = f.read()
+                    # Read WAV chunk and convert to WebM
+                    try:
+                        # Read processed audio from WAV file
+                        audio_data, sample_rate = sf.read(chunk_path, dtype='float32')
 
-                    logger.info(f"Chunk {chunk_idx} processed on-demand: {len(audio_bytes)} bytes")
+                        # Encode to WebM/Opus for MSE compatibility
+                        # Using maximum quality settings to avoid "fuzzy" audio
+                        audio_bytes = encode_to_webm_opus(
+                            audio_data,
+                            sample_rate,
+                            bitrate=320,  # Maximum quality (transparent, no artifacts)
+                            vbr=True,
+                            compression_level=10,
+                            application='audio'
+                        )
+
+                        logger.info(f"Chunk {chunk_idx} processed on-demand: {len(audio_bytes)} bytes WebM")
+
+                    except WebMEncoderError as e:
+                        logger.error(f"WebM encoding failed for chunk {chunk_idx}: {e}")
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Audio encoding failed: {str(e)}"
+                        )
 
             # Calculate latency
             latency_ms = (time.time() - start_time) * 1000
@@ -273,7 +296,7 @@ def create_mse_streaming_router(
             # Return audio chunk with metadata headers
             return Response(
                 content=audio_bytes,
-                media_type="audio/wav",
+                media_type="audio/webm; codecs=opus",
                 headers={
                     "X-Chunk-Index": str(chunk_idx),
                     "X-Cache-Tier": cache_tier,
@@ -301,6 +324,7 @@ def create_mse_streaming_router(
     ) -> bytes:
         """
         Extract a chunk from original audio file without processing.
+        Returns WebM/Opus encoded audio for MSE compatibility.
 
         Args:
             filepath: Path to audio file
@@ -308,7 +332,45 @@ def create_mse_streaming_router(
             chunk_duration: Chunk duration in seconds
 
         Returns:
-            bytes: WAV chunk data
+            bytes: WebM/Opus chunk data
+        """
+        from auralis.io.unified_loader import load_audio
+
+        # Load audio
+        audio, sr = load_audio(filepath)
+
+        # Calculate chunk boundaries
+        start_sample = chunk_idx * chunk_duration * sr
+        end_sample = min((chunk_idx + 1) * chunk_duration * sr, len(audio))
+
+        # Extract chunk
+        chunk_audio = audio[int(start_sample):int(end_sample)]
+
+        # Encode directly to WebM/Opus (no WAV intermediate needed)
+        try:
+            audio_bytes = encode_to_webm_opus(
+                chunk_audio,
+                sr,
+                bitrate=320,  # Maximum quality (transparent)
+                vbr=True,
+                compression_level=10,
+                application='audio'
+            )
+            logger.info(f"Original chunk {chunk_idx} encoded to WebM: {len(audio_bytes)} bytes")
+            return audio_bytes
+
+        except WebMEncoderError as e:
+            logger.error(f"WebM encoding failed for original chunk {chunk_idx}: {e}")
+            raise
+
+    async def _get_original_chunk_old(
+        filepath: str,
+        chunk_idx: int,
+        chunk_duration: int
+    ) -> bytes:
+        """
+        OLD VERSION - Returns WAV (doesn't work with MSE)
+        Kept for reference only.
         """
         from auralis.io.unified_loader import load_audio
         from auralis.io.saver import save
