@@ -21,6 +21,8 @@ import {
   SkipPrevious,
   VolumeUp,
   VolumeOff,
+  VolumeDown,
+  VolumeMute,
   Favorite,
   FavoriteOutlined,
   AutoAwesome,
@@ -527,6 +529,27 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
     }
   };
 
+  // Mouse wheel volume control
+  const handleVolumeWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -5 : 5; // Scroll down = decrease, scroll up = increase
+    const newVolume = Math.max(0, Math.min(100, localVolume + delta));
+    setLocalVolume(newVolume);
+    setApiVolume(newVolume);
+
+    if (newVolume > 0 && isMuted) {
+      setIsMuted(false);
+    }
+  };
+
+  // Get appropriate volume icon based on volume level
+  const getVolumeIcon = () => {
+    if (isMuted || localVolume === 0) return <VolumeMute fontSize="small" />;
+    if (localVolume < 33) return <VolumeDown fontSize="small" />;
+    if (localVolume < 66) return <VolumeUp fontSize="small" />;
+    return <VolumeUp fontSize="small" />;
+  };
+
   const handleLoveToggle = async () => {
     if (!currentTrack || isFavoriting) return;
 
@@ -791,32 +814,55 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
             </Box>
           </Tooltip>
 
-          {/* Volume Control */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 120 }}>
-            <Tooltip title="Mute (M)" placement="top">
+          {/* Volume Control with mouse wheel support */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 160 }}>
+            <Tooltip title={isMuted ? 'Unmute (M)' : 'Mute (M)'} placement="top">
               <IconButton
                 size="small"
                 onClick={handleMuteToggle}
                 sx={{
-                  color: colors.text.secondary,
-                  transition: 'all 0.2s ease',
+                  color: isMuted ? colors.text.disabled : colors.text.secondary,
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
                     color: colors.text.primary,
                     transform: 'scale(1.1)',
                   },
                 }}
               >
-                {isMuted || localVolume === 0 ? <VolumeOff fontSize="small" /> : <VolumeUp fontSize="small" />}
+                {getVolumeIcon()}
               </IconButton>
             </Tooltip>
-            <GradientSlider
-              value={isMuted ? 0 : localVolume}
-              onChange={handleVolumeChange}
-              sx={{ maxWidth: 100 }}
-              aria-label="Volume"
-              min={0}
-              max={100}
-            />
+            <Box
+              onWheel={handleVolumeWheel}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                flex: 1,
+              }}
+            >
+              <GradientSlider
+                value={isMuted ? 0 : localVolume}
+                onChange={handleVolumeChange}
+                sx={{ flex: 1 }}
+                aria-label="Volume"
+                min={0}
+                max={100}
+              />
+              <Typography
+                variant="caption"
+                sx={{
+                  minWidth: 35,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: colors.text.secondary,
+                  opacity: isMuted ? 0.5 : 1,
+                  transition: 'opacity 0.2s ease',
+                }}
+              >
+                {Math.round(isMuted ? 0 : localVolume)}%
+              </Typography>
+            </Box>
           </Box>
         </Box>
       </Box>
