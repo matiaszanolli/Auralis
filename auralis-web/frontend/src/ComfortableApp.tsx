@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
   InputAdornment,
-  Typography
+  Typography,
+  IconButton,
+  useMediaQuery,
+  useTheme,
+  Drawer
 } from '@mui/material';
 import {
-  Search
+  Search,
+  Menu as MenuIcon
 } from '@mui/icons-material';
 
 import Sidebar from './components/Sidebar';
@@ -35,7 +40,12 @@ interface Track {
 }
 
 function ComfortableApp() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md')); // < 900px
+  const isTablet = useMediaQuery(theme.breakpoints.down('lg')); // < 1200px
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [presetPaneCollapsed, setPresetPaneCollapsed] = useState(false);
   const [lyricsOpen, setLyricsOpen] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
@@ -51,6 +61,16 @@ function ComfortableApp() {
 
   // Toast notifications
   const { success, info } = useToast();
+
+  // Auto-collapse sidebar on mobile and hide preset pane on tablet
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarCollapsed(true);
+    }
+    if (isTablet) {
+      setPresetPaneCollapsed(true);
+    }
+  }, [isMobile, isTablet]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -144,6 +164,15 @@ function ComfortableApp() {
     }
   };
 
+  const handleMobileMenuToggle = () => {
+    setMobileDrawerOpen(!mobileDrawerOpen);
+  };
+
+  const handleMobileNavigation = (view: string) => {
+    setCurrentView(view);
+    setMobileDrawerOpen(false); // Close drawer after navigation on mobile
+  };
+
   return (
     <Box
       sx={{
@@ -158,13 +187,43 @@ function ComfortableApp() {
     >
       {/* Main Layout: Sidebar + Content */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* Left Sidebar */}
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          onNavigate={setCurrentView}
-          onOpenSettings={() => setSettingsOpen(true)}
-        />
+        {/* Desktop Sidebar - Hidden on mobile */}
+        {!isMobile && (
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onNavigate={setCurrentView}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
+        )}
+
+        {/* Mobile Drawer - Shown on mobile */}
+        {isMobile && (
+          <Drawer
+            anchor="left"
+            open={mobileDrawerOpen}
+            onClose={() => setMobileDrawerOpen(false)}
+            ModalProps={{
+              keepMounted: true, // Better performance on mobile
+            }}
+            PaperProps={{
+              sx: {
+                width: 240,
+                background: 'var(--midnight-blue)',
+                borderRight: '1px solid rgba(102, 126, 234, 0.1)',
+              }
+            }}
+          >
+            <Sidebar
+              collapsed={false}
+              onNavigate={handleMobileNavigation}
+              onOpenSettings={() => {
+                setSettingsOpen(true);
+                setMobileDrawerOpen(false);
+              }}
+            />
+          </Drawer>
+        )}
 
         {/* Main Content Area */}
         <Box
@@ -185,16 +244,34 @@ function ComfortableApp() {
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-              <Typography
-                variant="h5"
-                sx={{
-                  fontFamily: 'var(--font-heading)',
-                  fontWeight: 600,
-                  color: 'var(--silver)'
-                }}
-              >
-                Your Music
-              </Typography>
+              {/* Left: Mobile Menu + Title */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {/* Mobile Hamburger Menu */}
+                {isMobile && (
+                  <IconButton
+                    onClick={handleMobileMenuToggle}
+                    sx={{
+                      color: 'var(--silver)',
+                      '&:hover': {
+                        background: 'rgba(102, 126, 234, 0.1)',
+                      },
+                    }}
+                  >
+                    <MenuIcon />
+                  </IconButton>
+                )}
+
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontFamily: 'var(--font-heading)',
+                    fontWeight: 600,
+                    color: 'var(--silver)'
+                  }}
+                >
+                  Your Music
+                </Typography>
+              </Box>
 
               {/* Connection Status */}
               <Box
@@ -255,13 +332,15 @@ function ComfortableApp() {
           </Box>
         </Box>
 
-        {/* Right Preset Pane - Optional */}
-        <PresetPane
-          collapsed={presetPaneCollapsed}
-          onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
-          onPresetChange={handlePresetChange}
-          onMasteringToggle={handleMasteringToggle}
-        />
+        {/* Right Preset Pane - Hidden on mobile/tablet */}
+        {!isTablet && (
+          <PresetPane
+            collapsed={presetPaneCollapsed}
+            onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
+            onPresetChange={handlePresetChange}
+            onMasteringToggle={handleMasteringToggle}
+          />
+        )}
 
         {/* Lyrics Panel - Optional */}
         {lyricsOpen && currentTrack && (
