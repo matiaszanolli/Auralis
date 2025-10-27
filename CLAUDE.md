@@ -31,6 +31,10 @@ python -m pytest tests/backend/ -v                    # API tests (96 tests, 74%
 python -m pytest tests/auralis/ -v                    # Real-time processing tests (24 tests, all passing ✅)
 python -m pytest tests/test_adaptive_processing.py -v  # Core processing (26 tests)
 
+# 25D Fingerprint integration tests ✅ NEW
+python test_fingerprint_integration.py                # Synthetic signals
+python test_fingerprint_integration.py /path/to/audio.flac  # Real audio
+
 # Frontend tests (245 tests, 234 passing, 11 failing)
 # ⚠️ KNOWN ISSUES:
 # - Gapless playback: 11 tests failing (needs investigation)
@@ -285,15 +289,40 @@ save("output.wav", processed_audio, sr, subtype='PCM_16')
 - **Bright**: Enhances clarity and presence
 - **Punchy**: Increases impact and dynamics
 
-### Audio Fingerprint Extraction (NEW - Oct 26, 2025)
-Extract 25D acoustic fingerprints for music similarity analysis:
+### Audio Fingerprint-Driven Processing (NEW - Oct 27, 2025)
 
+**Status**: ✅ **INTEGRATED AS CORE COMPONENT** - Phase 1 Complete
+
+The 25D audio fingerprint system is now integrated into the processing pipeline, enabling intelligent, content-aware parameter selection.
+
+**Automatic Usage** (No code changes required):
+```python
+from auralis.core.hybrid_processor import HybridProcessor
+from auralis.core.unified_config import UnifiedConfig
+from auralis.io.unified_loader import load_audio
+
+# Load audio
+audio, sr = load_audio("song.flac")
+
+# Create processor (fingerprint analysis enabled by default)
+config = UnifiedConfig()
+config.set_processing_mode("adaptive")
+processor = HybridProcessor(config)
+
+# Process audio - fingerprint automatically extracted and used!
+processed = processor.process(audio)
+
+# Inspect fingerprint (optional)
+if "fingerprint" in processor.last_content_profile:
+    fp = processor.last_content_profile["fingerprint"]
+    print(f"Bass%: {fp['bass_pct']:.1f}%")
+    print(f"LUFS: {fp['lufs']:.1f}dB")
+    print(f"Crest: {fp['crest_db']:.1f}dB")
+```
+
+**Manual Fingerprint Extraction**:
 ```python
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
-import librosa
-
-# Load audio (can be stereo or mono)
-audio, sr = librosa.load("track.flac", sr=None, mono=False)
 
 # Initialize analyzer
 analyzer = AudioFingerprintAnalyzer()
@@ -301,15 +330,7 @@ analyzer = AudioFingerprintAnalyzer()
 # Extract complete 25D fingerprint
 fingerprint = analyzer.analyze(audio, sr)
 
-# Access dimensions
-print(f"Bass%: {fingerprint['bass_pct']:.1f}%")
-print(f"LUFS: {fingerprint['lufs']:.1f} dB")
-print(f"Crest: {fingerprint['crest_db']:.1f} dB")
-print(f"Tempo: {fingerprint['tempo_bpm']:.0f} BPM")
-print(f"Stereo Width: {fingerprint['stereo_width']:.2f}")
-print(f"Harmonic Ratio: {fingerprint['harmonic_ratio']:.2f}")
-
-# Fingerprint contains 25 dimensions:
+# 25 dimensions available:
 # - Frequency (7D): sub_bass_pct, bass_pct, low_mid_pct, mid_pct, upper_mid_pct, presence_pct, air_pct
 # - Dynamics (3D): lufs, crest_db, bass_mid_ratio
 # - Temporal (4D): tempo_bpm, rhythm_stability, transient_density, silence_ratio
@@ -319,11 +340,30 @@ print(f"Harmonic Ratio: {fingerprint['harmonic_ratio']:.2f}")
 # - Stereo (2D): stereo_width, phase_correlation
 ```
 
-**Use Cases:**
+**Intelligent Processing Enabled**:
+1. **Frequency-aware EQ** (7D): Precise adjustments based on actual bass/mid/treble distribution (not spectral centroid guessing)
+2. **Dynamics-aware compression** (3D): Respects high dynamic range, detects brick-walled material, adapts to loudness
+3. **Temporal-aware processing** (4D): Preserves transients and rhythm stability
+4. **Harmonic-aware intensity** (3D): Gentle on vocals/strings (high harmonic ratio), aggressive on percussion
+5. **Stereo-aware width** (2D): Expands narrow mixes, checks phase correlation for mono compatibility
+6. **Variation-aware dynamics** (3D): Preserves intentional loudness variation (quiet/loud sections)
+
+**Disable Fingerprints** (if needed):
+```python
+from auralis.core.analysis import ContentAnalyzer
+
+# Disable at analyzer level
+analyzer = ContentAnalyzer(use_fingerprint_analysis=False)
+```
+
+**Future Use Cases** (Planned):
 - Cross-genre music discovery based on acoustic similarity
 - "Find songs like this" recommendation system
 - Music similarity graphs and clustering
-- Enhancement pattern matching
+- Continuous enhancement space (interpolate between characteristics)
+- Real-time adaptive processing
+
+**Documentation**: See [docs/completed/FINGERPRINT_CORE_INTEGRATION.md](docs/completed/FINGERPRINT_CORE_INTEGRATION.md)
 
 ## Performance Optimization
 
