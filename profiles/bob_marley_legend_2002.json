@@ -1,0 +1,36 @@
+{
+  "track_info": {
+    "album": "Legend",
+    "artist": "Bob Marley & The Wailers",
+    "year_range": "1971-1980",
+    "compilation_year": 1984,
+    "remaster_year": 2002,
+    "label": "Island Records / Tuff Gong",
+    "genre": "Reggae",
+    "tracks_analyzed": [
+      "Get Up, Stand Up",
+      "Stir It Up",
+      "No Woman, No Cry"
+    ]
+  },
+  "loudness": {
+    "rms_db": -13.95,
+    "peak_db": -1.68,
+    "crest_factor_db": 12.27,
+    "estimated_lufs": -10.95
+  },
+  "frequency_response": {
+    "bass_pct": 58.7,
+    "mid_pct": 36.8,
+    "high_pct": 4.5,
+    "bass_to_mid_db": 2.0,
+    "high_to_mid_db": -9.2
+  },
+  "characteristics": {
+    "genre": "Reggae",
+    "era": "1970s-1980s",
+    "remaster_year": 2002,
+    "sound_profile": "Deep bass fundamentals, spacious mids, natural dynamics",
+    "mastering_philosophy": "Groove-focused, minimal compression, preserves space and dynamics"
+  }
+}

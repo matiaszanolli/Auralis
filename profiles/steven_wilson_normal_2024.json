@@ -1,0 +1,26 @@
+{
+  "track_info": {
+    "title": "Normal",
+    "artist": "Porcupine Tree",
+    "album": "Fear of a Blank Planet (Nil Recurring 2024 Remaster)",
+    "year": 2024,
+    "genre": "Progressive Rock",
+    "engineer": "Steven Wilson",
+    "notes": "Latest Steven Wilson remaster (2024)"
+  },
+  "loudness": {
+    "rms_db": -21.662798001927865,
+    "peak_db": -0.5265704909410699,
+    "crest_factor_db": 21.136227510986796,
+    "estimated_lufs": -20.971798001927866
+  },
+  "frequency_response": {
+    "bass_pct": 74.63143985068344,
+    "mid_pct": 21.269521710608867,
+    "high_pct": 4.099038438707711,
+    "bass_to_mid_db": 5.451640964663261,
+    "high_to_mid_db": -7.1507573306926915,
+    "centroid_hz": 4757.443631365955,
+    "rolloff_hz": 11494.133333333333
+  }
+}

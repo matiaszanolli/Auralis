@@ -1,0 +1,25 @@
+{
+  "track_info": {
+    "title": "Can't Go Back",
+    "artist": "Joe Satriani",
+    "album": "Unstoppable Momentum",
+    "year": 2014,
+    "genre": "Instrumental Rock/Metal",
+    "notes": "Modern professional rock/metal reference"
+  },
+  "loudness": {
+    "rms_db": -11.28435131346853,
+    "peak_db": -0.7962524094960268,
+    "crest_factor_db": 10.488098903972503,
+    "estimated_lufs": -10.59335131346853
+  },
+  "frequency_response": {
+    "bass_pct": 68.66961842506684,
+    "mid_pct": 27.357907802705643,
+    "high_pct": 3.9724737722275014,
+    "bass_to_mid_db": 3.996817525395524,
+    "high_to_mid_db": -8.380218431142687,
+    "centroid_hz": 5413.218696327481,
+    "rolloff_hz": 12969.0
+  }
+}

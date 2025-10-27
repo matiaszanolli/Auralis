@@ -1,0 +1,11 @@
+{
+  "genre": "Power Metal",
+  "source": "Blind Guardian 2018 Remasters",
+  "frequency_balance": {
+    "bass_pct": 65.31911663050032,
+    "mid_pct": 27.255968015155172,
+    "high_pct": 7.424915354344522,
+    "bass_to_mid_db": 3.828871479173344,
+    "high_to_mid_db": -5.822079370486165
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "track_info": {
+    "title": "Highway To Hell",
+    "artist": "AC/DC",
+    "album": "Highway To Hell",
+    "year": 1979,
+    "remaster_year": 2003,
+    "label": "Albert Productions",
+    "original_producer": "Mutt Lange",
+    "remaster_engineer": "George Young",
+    "genre": "Classic Hard Rock"
+  },
+  "loudness": {
+    "rms_db": -18.61,
+    "peak_db": -0.9,
+    "crest_factor_db": 17.71,
+    "estimated_lufs": -15.61
+  },
+  "frequency_response": {
+    "bass_pct": 30.9,
+    "mid_pct": 66.9,
+    "high_pct": 2.2,
+    "bass_to_mid_db": -3.4,
+    "high_to_mid_db": -14.9
+  },
+  "characteristics": {
+    "genre": "Classic Hard Rock",
+    "era": "Pre-Loudness War (1979)",
+    "remaster_year": 2003,
+    "sound_profile": "Natural dynamics, analog warmth, balanced spectrum",
+    "mastering_philosophy": "Quality and energy without over-compression"
+  }
+}
