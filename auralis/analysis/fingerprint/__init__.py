@@ -29,5 +29,16 @@ Usage:
 """
 
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.analysis.fingerprint.normalizer import FingerprintNormalizer, DimensionStats
+from auralis.analysis.fingerprint.distance import FingerprintDistance, DimensionWeights
+from auralis.analysis.fingerprint.similarity import FingerprintSimilarity, SimilarityResult
 
-__all__ = ['AudioFingerprintAnalyzer']
+__all__ = [
+    'AudioFingerprintAnalyzer',
+    'FingerprintNormalizer',
+    'DimensionStats',
+    'FingerprintDistance',
+    'DimensionWeights',
+    'FingerprintSimilarity',
+    'SimilarityResult',
+]
