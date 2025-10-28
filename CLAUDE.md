@@ -36,6 +36,10 @@ python -m pytest tests/validation/ -v                 # All validation tests
 python -m pytest tests/validation/test_preset_integration.py -v  # Preset integration
 python -m pytest tests/auralis/analysis/test_fingerprint_integration.py -v  # 25D fingerprint (4 tests)
 
+# Run all tests (from root directory)
+npm test                                 # Runs Python pytest suite
+npm run test:coverage                    # With coverage report
+
 # Frontend tests (245 tests, 234 passing, 11 failing)
 # ⚠️ KNOWN ISSUES:
 # - Gapless playback: 11 tests failing (needs investigation)
@@ -67,15 +71,17 @@ npm run test:coverage                   # Coverage report
 python launch-auralis-web.py           # Production mode (http://localhost:8765)
 python launch-auralis-web.py --dev     # Development mode with hot reload
 
-# Electron desktop application
-npm run dev                            # Development mode (starts backend + frontend + Electron)
-npm run build                          # Build desktop application
+# Electron desktop application (from desktop/ directory)
+cd desktop && npm run dev              # Development mode (starts backend + frontend + Electron)
+cd desktop && npm run build            # Build desktop application
 
-# Package desktop application for distribution
-npm run package                        # Current platform
-npm run package:linux                  # Linux (.AppImage, .deb)
-npm run package:win                    # Windows
-npm run package:mac                    # macOS
+# Simplified workflow from root directory (requires desktop dependencies installed)
+npm run dev                            # Alias for desktop dev mode (via scripts/dev.js)
+npm run build                          # Alias for desktop build (via scripts/build.js)
+npm run package                        # Package for current platform (via scripts/package.js)
+npm run package:linux                  # Package for Linux (.AppImage, .deb)
+npm run package:win                    # Package for Windows
+npm run package:mac                    # Package for macOS
 ```
 
 ### Testing
@@ -91,6 +97,12 @@ python -m pytest tests/validation/test_preset_integration.py -v  # Preset integr
 python -m pytest tests/validation/test_comprehensive_presets.py  # Comprehensive preset validation
 python -m pytest tests/validation/test_e2e_processing.py         # End-to-end processing
 python -m pytest tests/auralis/analysis/test_fingerprint_integration.py -v  # 25D fingerprint (4 tests)
+
+# Run tests by marker (see pytest.ini for all markers)
+python -m pytest -m unit          # Unit tests only
+python -m pytest -m integration   # Integration tests only
+python -m pytest -m "not slow"    # Skip slow tests
+python -m pytest -m audio         # Audio processing tests only
 
 # See TEST_FIX_COMPLETE.md for details on fixed real-time processing tests
 # See TEST_ORGANIZATION_COMPLETE.md for test structure details
@@ -113,6 +125,14 @@ python benchmark_performance.py                      # Comprehensive performance
 python benchmark_vectorization.py                    # Envelope follower benchmark (40-70x speedup)
 python benchmark_eq_parallel.py                      # EQ optimization benchmark (1.7x speedup)
 ```
+
+**Test Markers** (defined in [pytest.ini](pytest.ini)):
+- `@pytest.mark.unit` - Unit tests for individual components
+- `@pytest.mark.integration` - Integration tests across components
+- `@pytest.mark.slow` - Long-running tests (skip with `-m "not slow"`)
+- `@pytest.mark.audio` - Tests requiring audio processing
+- `@pytest.mark.performance` - Performance benchmarks
+- See [pytest.ini](pytest.ini) for complete list
 
 ### Supported Audio Formats
 - **Input**: WAV, FLAC, MP3, OGG, M4A, AAC, WMA
@@ -189,6 +209,12 @@ Professional-grade digital signal processing with modular architecture:
 - **Use Case**: `from auralis.analysis.fingerprint import AudioFingerprintAnalyzer`
 - **Documentation**: See [docs/sessions/oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/) for complete implementation details
 
+**Research Tools (`research/`):** ✨ NEW (Oct 26-28, 2025)
+- **Analysis scripts** for track fingerprinting and batch processing
+- **Preset validation** tools to verify processing behavior
+- **Album studies** with detailed frequency analysis
+- **Usage**: `python research/scripts/analyze_track.py <audio_file>` outputs JSON fingerprint
+
 ### Other Key Systems
 
 **Library Management (`auralis/library/`):**
@@ -212,10 +238,15 @@ Professional-grade digital signal processing with modular architecture:
 
 **Web Interface (`auralis-web/`):**
 - `backend/main.py` - FastAPI server (614 lines, refactored with modular routers)
-- `backend/routers/` - Modular API routers (player, library, enhancement, playlists, files, artwork, system)
+- `backend/routers/` - Modular API routers (14 routers: player, library, albums, artists, streaming, etc.)
 - `backend/processing_engine.py` - Background job queue for async audio processing
+- `backend/streaming/` - **NEW (Beta.4)** - Unified MSE + Multi-Tier Buffer streaming system
+  - Progressive WebM/Opus encoding for instant preset switching
+  - Combined buffer management for seamless playback
+  - See [docs/sessions/oct27_mse_integration/](docs/sessions/oct27_mse_integration/) for architecture details
 - `backend/WEBSOCKET_API.md` - WebSocket message documentation
 - `frontend/` - React app with Material-UI components
+  - `BottomPlayerBarUnified.tsx` - **NEW (Beta.4)** - Unified player component (67% code reduction)
 
 **Desktop Application (`desktop/`):**
 - Electron wrapper that spawns Python backend and loads React UI
@@ -227,6 +258,15 @@ Professional-grade digital signal processing with modular architecture:
 - [auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py) - Main processing pipeline
 - [auralis/dsp/stages.py](auralis/dsp/stages.py) - Processing stages (EQ, compression, limiting)
 - [auralis/core/unified_config.py](auralis/core/unified_config.py) - Processing configuration
+
+### Research and Analysis
+- [research/scripts/](research/scripts/) - Analysis scripts for audio fingerprinting and preset validation
+  - `analyze_track.py` - Extract fingerprints and analyze individual tracks
+  - `batch_analyze_*.sh` - Batch analysis scripts for albums
+  - `validate_preset_fix.py` - Validate preset processing behavior
+- [research/data/](research/data/) - Analysis results and fingerprint data
+  - `analysis/` - Track-level fingerprint JSON files
+  - `batch/` - Batch analysis results
 
 ### Modifying the Web UI
 - [auralis-web/frontend/src/components/ComfortableApp.tsx](auralis-web/frontend/src/components/ComfortableApp.tsx) - Main app layout
@@ -240,12 +280,17 @@ The backend uses a **modular router architecture** (FastAPI best practice):
 - [auralis-web/backend/main.py](auralis-web/backend/main.py) - Main FastAPI app and startup (614 lines)
 - [auralis-web/backend/routers/](auralis-web/backend/routers/) - Modular endpoint routers:
   - `player.py` - Playback control (play, pause, seek, queue, volume)
-  - `library.py` - Library management (tracks, albums, artists) with **pagination support**
+  - `library.py` - Library management (tracks) with **pagination support**
+  - `albums.py` - Album browsing and management
+  - `artists.py` - Artist browsing and management
   - `metadata.py` - Track metadata editing (14 editable fields)
   - `enhancement.py` - Audio enhancement settings
   - `playlists.py` - Playlist CRUD operations
   - `files.py` - File upload and format handling
   - `artwork.py` - Album artwork management
+  - `cache.py` - Cache management and statistics
+  - `mse_streaming.py` - Media Source Extensions streaming (Beta.4)
+  - `unified_streaming.py` - Unified streaming orchestration (Beta.4)
   - `system.py` - Health checks, version info
 - [auralis-web/backend/processing_engine.py](auralis-web/backend/processing_engine.py) - Background job queue
 - [auralis-web/backend/WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md) - WebSocket message types
@@ -482,6 +527,59 @@ manager.invalidate_track_caches()
 **Documentation**: See [LARGE_LIBRARY_OPTIMIZATION.md](LARGE_LIBRARY_OPTIMIZATION.md) for implementation details
 
 ## Development Workflow
+
+### Common Development Tasks
+
+**Setting up a new development environment:**
+```bash
+# 1. Clone and install dependencies
+git clone https://github.com/matiaszanolli/Auralis.git
+cd Auralis
+pip install -r requirements.txt
+
+# 2. Install frontend and desktop dependencies
+cd auralis-web/frontend && npm install && cd ../..
+cd desktop && npm install && cd ..
+
+# 3. Launch development server
+python launch-auralis-web.py --dev
+# OR for desktop development
+npm run dev
+```
+
+**Making changes to the backend API:**
+```bash
+# 1. Make changes to routers in auralis-web/backend/routers/
+# 2. Test with pytest
+python -m pytest tests/backend/ -v
+
+# 3. Test manually with Swagger UI
+python launch-auralis-web.py --dev
+# Visit http://localhost:8765/api/docs
+```
+
+**Making changes to audio processing:**
+```bash
+# 1. Edit files in auralis/core/ or auralis/dsp/
+# 2. Run core processing tests
+python -m pytest tests/test_adaptive_processing.py -v
+
+# 3. Run validation tests
+python -m pytest tests/validation/ -v
+
+# 4. Benchmark performance if optimization-related
+python benchmark_performance.py
+```
+
+**Analyzing audio with fingerprint system:**
+```bash
+# Analyze a single track
+python research/scripts/analyze_track.py /path/to/track.flac
+
+# Batch analyze an album (creates script first)
+ls "/path/to/album/"*.flac > /tmp/tracklist.txt
+python research/scripts/batch_analyze.py /tmp/tracklist.txt
+```
 
 ### Code Organization Principles
 - **Modular Design**: Large modules (400+ lines) refactored into focused sub-modules

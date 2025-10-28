@@ -21,6 +21,14 @@ import time
 from pathlib import Path
 import librosa
 
+# Import encoder at module level for testability
+try:
+    from webm_encoder import encode_audio_to_webm, get_encoder
+except ImportError:
+    # Graceful fallback if encoder not available
+    encode_audio_to_webm = None
+    get_encoder = None
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["unified-streaming"])
@@ -134,8 +142,6 @@ def create_unified_streaming_router(
     async def get_cache_stats():
         """Get cache statistics for monitoring."""
         try:
-            from webm_encoder import get_encoder
-
             encoder = get_encoder()
             webm_count, webm_size = encoder.get_cache_size()
 
@@ -179,7 +185,6 @@ async def _serve_webm_chunk(
 ):
     """Serve original audio as WebM for MSE."""
     try:
-        from webm_encoder import encode_audio_to_webm, get_encoder
         from auralis.io.unified_loader import load_audio
 
         # Get track

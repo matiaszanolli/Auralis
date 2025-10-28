@@ -1,14 +1,25 @@
 # Auralis Master Roadmap
 
-**Last Updated**: October 27, 2025
-**Current Phase**: Post-Beta.2 Development
-**Next Release**: Beta.3 (Target: TBD)
+**Last Updated**: October 28, 2025
+**Current Phase**: Post-Beta.4 Stabilization
+**Current Version**: 1.0.0-beta.4
+**Next Release**: Beta.5 (Target: Mid-November 2025)
 
 ---
 
-## 🎯 Current State (October 27, 2025)
+## 🎯 Current State (October 28, 2025)
 
 ### ✅ Completed Major Milestones
+
+**Beta.4 Release (October 27, 2025)** - ✨ **MAJOR ARCHITECTURE OVERHAUL**
+- ✅ **Unified MSE + Multi-Tier Buffer streaming** (4,518 lines of new code)
+- ✅ Progressive WebM/Opus encoding for efficient streaming
+- ✅ Instant preset switching capability (infrastructure ready)
+- ✅ 67% player UI code reduction (970→320 lines)
+- ✅ 75% test coverage on new components (50+ tests)
+- ✅ Eliminates dual playback conflicts
+- ✅ Production-ready with comprehensive documentation
+- 📖 See [docs/sessions/oct27_mse_integration/](docs/sessions/oct27_mse_integration/)
 
 **Beta.2 Release (October 26, 2025)** - Production Quality
 - ✅ Audio processing engine (52.8x real-time speed)
@@ -18,99 +29,63 @@
 - ✅ Desktop builds (AppImage, DEB, Windows)
 - ✅ All Beta.1 critical bugs fixed (audio fuzziness, gapless playback, pagination)
 
-**25D Audio Fingerprint System (October 27, 2025)** - ✨ NEW
-- ✅ Core integration complete (Phase 1)
-- ✅ ContentAnalyzer extracts 25D fingerprints
+**25D Audio Fingerprint System (October 26-27, 2025)** - ✨ Core Integration Complete
+- ✅ Phase 1 complete: Core integration into processing pipeline
+- ✅ ContentAnalyzer extracts 25D fingerprints automatically
 - ✅ AdaptiveTargetGenerator uses fingerprints for intelligent processing
-- ✅ Validated on synthetic + real audio
+- ✅ Validated on synthetic + real audio (64+ tracks, 9 albums)
 - ✅ Production-ready, 100% backward compatible
+- 📖 See [docs/sessions/oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/)
 
 ---
 
 ## 🚀 Active Development Tracks
 
-We have three parallel development tracks. Here's the prioritized roadmap:
+We now have two primary development tracks following the Beta.4 release:
 
 ---
 
-## Track 1: MSE Progressive Streaming - 🚨 P0 CRITICAL
+## Track 0: Beta.4 Stabilization - 🔍 CURRENT
 
-**Priority**: **MAXIMUM** - Blocking smooth user experience
-**Status**: 🟡 Planning → Ready for implementation
-**Effort**: 2-3 weeks focused development
-**Impact**: Makes preset switching instant (20-50x faster)
+**Priority**: **P0** - Ensure release quality
+**Status**: 🟢 Active monitoring
+**Effort**: 1-2 weeks
+**Impact**: Production stability and user confidence
 
-### Problem
+### Goals
 
-Current architecture forces 2-5 second pause when changing presets during playback. This severely impacts UX.
+Monitor the newly released Beta.4 unified streaming system for any critical issues:
 
-**Current Behavior**:
-```
-User clicks "Punchy" preset:
-  1. Audio pauses ⏸️
-  2. Backend processes entire track (2-5s) ⏳
-  3. User waits... 😤
-  4. Playback resumes ▶️
-```
+**Monitoring Activities**:
+- 👀 Watch for bug reports from early users
+- 📊 Monitor system performance metrics
+- 🐛 Quick fixes for any critical issues
+- 📝 Document any edge cases discovered
+- ✅ Validate desktop builds work correctly
 
-**Target Behavior**:
-```
-User clicks "Punchy" preset:
-  1. Audio switches instantly ⚡ (<100ms)
-  2. Multi-tier buffer serves pre-processed chunk
-  3. User happy! 😊
-```
+**Success Criteria**:
+- No critical bugs reported in first week
+- Desktop binaries launch successfully
+- Unified streaming performs as expected
+- User feedback is positive
 
-### Implementation Plan
+**Status**: ✅ **COMPLETE** - Beta.4 infrastructure ready
+- Unified MSE + MTB streaming implemented
+- Progressive WebM/Opus encoding working
+- Player UI simplified (67% code reduction)
+- 75% test coverage achieved
+- Documentation comprehensive
 
-**Phase 1: Backend Chunk Streaming API** (2-3 days)
-- New endpoint: `GET /api/player/stream/{track_id}/chunk/{chunk_idx}`
-- Metadata endpoint: `GET /api/player/stream/{track_id}/metadata`
-- Integrate with existing multi-tier buffer
-
-**Phase 2: Frontend MSE Integration** (3-4 days)
-- Replace HTML5 Audio with MSE
-- Implement MSEPlayer class
-- Progressive chunk loading
-- Seamless preset switching
-
-**Phase 3: Multi-Tier Buffer Integration** (1 day)
-- Trigger buffer on playback
-- Ensure L1/L2/L3 caches are utilized
-- Preset prediction for cache warming
-
-**Phase 4: Testing & Optimization** (2-3 days)
-- Browser compatibility (Chrome, Firefox, Edge, Safari)
-- Performance testing (target: <100ms preset switch)
-- Edge cases (seeking, rapid switching, network errors)
-- Fallback for browsers without MSE
-
-### Success Metrics
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Preset switch latency | 2-5s | <100ms | **20-50x** |
-| Initial playback | ~2s | ~500ms | **4x** |
-| Memory usage | High | Low | **60-80%↓** |
-| Cache hit rate | 0% | 80-90% | **∞** |
-
-### Why P0?
-
-- **User Impact**: CRITICAL - Affects core listening experience every session
-- **Technical Readiness**: HIGH - Multi-tier buffer already built, just need MSE glue
-- **Effort**: MEDIUM - 2-3 weeks, well-understood tech
-- **Business Impact**: HIGH - Major UX differentiator
-
-**Reference**: [docs/roadmaps/BETA3_ROADMAP.md](docs/roadmaps/BETA3_ROADMAP.md)
+**Next Step**: Monitor for issues, prepare for fingerprint similarity system
 
 ---
 
-## Track 2: Advanced Fingerprint Features - 🎨 P1 HIGH VALUE
+## Track 1: Advanced Fingerprint Features - 🎨 P1 HIGH VALUE
 
-**Priority**: High value, but can run parallel to MSE work
-**Status**: 🟢 Phase 1 Complete → Phase 2 ready
-**Effort**: 12-18 weeks for full system
-**Impact**: Revolutionary music discovery and adaptive processing
+**Priority**: **NEXT MAJOR FEATURE** - Revolutionary music discovery
+**Status**: 🟢 Phase 1 Complete → Phase 2 ready to start
+**Effort**: 7 weeks for Phase 2 (Similarity System)
+**Impact**: Cross-genre music discovery and intelligent recommendations
 
 ### Completed: Phase 1 - Core Integration ✅
 
@@ -190,12 +165,13 @@ User can:
 
 ---
 
-## Track 3: Architecture Cleanup - 🧹 P1 TECH DEBT
+## Track 2: Architecture Cleanup - 🧹 P2 TECH DEBT
 
 **Priority**: Important for maintainability, not blocking features
 **Status**: 🔴 Identified, not started
 **Effort**: 1-2 weeks
 **Impact**: Cleaner codebase, easier maintenance
+**When**: After Fingerprint Phase 2 is underway
 
 ### Identified Redundancies
 
@@ -238,54 +214,64 @@ Now that 25D fingerprints drive all processing, we have redundant components:
 
 ---
 
-## 🎯 Beta.3 Release Criteria
+## 🎯 Beta.5 Release Criteria
 
-Beta.3 can be released when:
+Beta.5 can be released when Phase 2 (Similarity System) is complete:
 
-1. ✅ MSE-based progressive streaming implemented
-2. ✅ Preset switching < 100ms latency
-3. ✅ Multi-tier buffer fully utilized
-4. ✅ Works on Chrome/Firefox/Edge
-5. ✅ No critical bugs
-6. ✅ All Beta.2 features still working
-7. ✅ Desktop binaries built for all platforms
-8. ✅ Documentation updated
+**Must Have**:
+1. ✅ Database integration (track_fingerprints table)
+2. ✅ Distance calculation API working
+3. ✅ Similarity graph constructed
+4. ✅ `GET /api/tracks/{id}/similar` endpoint
+5. ✅ Frontend "Similar Tracks" UI
+6. ✅ Cross-genre discovery working
+7. ✅ All Beta.4 features still working
+8. ✅ Desktop binaries updated
+9. ✅ Documentation complete
 
-**Target Release**: 2-3 weeks after Beta.2 (mid-November 2025)
+**Target Release**: Mid-November 2025 (7 weeks from now)
 
 ---
 
 ## 📊 Development Timeline
 
-### Immediate Focus (Next 2-3 Weeks)
+### Immediate Focus (Next 1-2 Weeks) - October 28 - November 10
 
-**Primary**: MSE Progressive Streaming (Track 1)
-- Week 1: Backend chunk API + MSE prototyping
-- Week 2: Frontend MSEPlayer + buffer integration
-- Week 3: Testing, optimization, Beta.3 release
+**Primary**: Beta.4 Stabilization
+- Monitor for critical bugs in unified streaming system
+- Quick fixes as needed
+- Validate desktop builds work correctly
+- Gather initial user feedback
 
-**Parallel** (if resources available): Fingerprint Phase 2 planning
-- Database schema design
-- Distance metric research
+**Parallel**: Fingerprint Phase 2 Planning
+- Database schema design for `track_fingerprints`
+- Distance metric research (weighted Euclidean in 25D space)
+- API endpoint design (`/api/tracks/{id}/similar`)
+- UI mockups for similarity features
 
-### Short Term (1-2 Months)
+### Short Term (7 Weeks) - November 11 - December 31
 
-1. ✅ Beta.3 released with MSE streaming
-2. 🎨 Fingerprint similarity graph (Phase 2)
-   - Database integration
-   - Distance calculation
-   - "Find similar tracks" feature
-3. 🧹 Architecture cleanup
-   - Remove redundancies
+**Primary**: Fingerprint Similarity System (Phase 2)
+- Week 1: Database integration
+- Weeks 2-3: Distance calculation implementation
+- Weeks 4-5: Similarity graph construction
+- Week 6: API endpoints
+- Week 7: Frontend UI + testing
+
+**Deliverable**: Beta.5 with "Find Similar Tracks" feature
+
+### Medium Term (3-6 Months) - January - April 2026
+
+1. 🧹 Architecture cleanup (1-2 weeks)
+   - Remove redundant SpectrumMapper
    - Consolidate processing logic
 
-### Medium Term (3-6 Months)
-
-1. 🎨 Continuous enhancement space (Fingerprint Phase 3)
+2. 🎨 Continuous enhancement space (Fingerprint Phase 3, 6-8 weeks)
    - Interpolation between audio characteristics
    - Custom enhancement profiles
-   - Real-time adaptation
-2. 🚀 Beta.4+ planning
+   - Real-time section-aware processing
+
+3. 🚀 Beta.6+ planning
    - User feedback integration
    - Additional features
    - Performance optimization
@@ -314,27 +300,28 @@ Beta.3 can be released when:
 
 ## 📋 Priority Matrix
 
-### P0 - Critical (Must Do Now)
+### P0 - Critical (Current)
 
-1. **MSE Progressive Streaming** - Blocking user experience
+1. **Beta.4 Stabilization** - ✅ Monitor release, fix critical bugs
 
-### P1 - High Priority (Next)
+### P1 - High Priority (Next 7 weeks)
 
-1. **Fingerprint Similarity Graph** - High value, revolutionary feature
-2. **Architecture Cleanup** - Tech debt, improves maintainability
-3. **Desktop Binary Fixes** - Distribution reliability
+1. **Fingerprint Similarity System** - Revolutionary "Find Similar Tracks" feature
+2. **Beta.5 Release** - Complete similarity graph implementation
 
-### P2 - Medium Priority (Soon)
+### P2 - Medium Priority (After Beta.5)
 
-1. **UI/UX Polish** - Artwork, controls, loading states
-2. **Additional Presets** - User-customizable presets
+1. **Architecture Cleanup** - Remove redundant components, tech debt
+2. **UI/UX Polish** - Artwork improvements, controls refinement
 3. **Performance Optimization** - Further speedups
+4. **Desktop Binary Improvements** - Distribution reliability
 
-### P3 - Nice to Have (Later)
+### P3 - Nice to Have (Future)
 
-1. **Advanced Features** - Lyrics, visualizations, smart shuffle
-2. **Documentation** - Expanded user/developer guides
-3. **API Expansion** - Public API for third-party integrations
+1. **Continuous Enhancement Space** (Fingerprint Phase 3) - Infinite preset interpolation
+2. **Advanced Features** - Lyrics, advanced visualizations, smart shuffle
+3. **Documentation** - Expanded user/developer guides
+4. **Public API** - Third-party integrations
 
 ---
 
@@ -371,53 +358,65 @@ Beta.3 can be released when:
 - [docs/sessions/oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/) - Fingerprint research
 
 ### Active Plans
-- [docs/roadmaps/BETA3_ROADMAP.md](docs/roadmaps/BETA3_ROADMAP.md) - MSE streaming plan
-- [docs/guides/FINGERPRINT_SYSTEM_ROADMAP.md](docs/guides/FINGERPRINT_SYSTEM_ROADMAP.md) - Full fingerprint vision
-- [docs/guides/MSE_PROGRESSIVE_STREAMING_PLAN.md](docs/guides/MSE_PROGRESSIVE_STREAMING_PLAN.md) - Technical details
+- [MASTER_ROADMAP.md](MASTER_ROADMAP.md) - This document - overall project roadmap
+- [docs/guides/FINGERPRINT_SYSTEM_ROADMAP.md](docs/guides/FINGERPRINT_SYSTEM_ROADMAP.md) - Full fingerprint vision (18 weeks, 3 phases)
+- Fingerprint Phase 2 Implementation Plan - Coming soon (database, similarity, API)
 
-### Known Issues
-- [BETA1_KNOWN_ISSUES.md](BETA1_KNOWN_ISSUES.md) - Resolved in Beta.2
-- [docs/troubleshooting/PRESET_SWITCHING_LIMITATION.md](docs/troubleshooting/PRESET_SWITCHING_LIMITATION.md) - MSE will fix
+### Completed Work (Recently)
+- [docs/sessions/oct27_mse_integration/](docs/sessions/oct27_mse_integration/) - Beta.4 MSE streaming implementation
+- [docs/completed/FINGERPRINT_CORE_INTEGRATION.md](docs/completed/FINGERPRINT_CORE_INTEGRATION.md) - Phase 1 fingerprint integration
+- [docs/sessions/oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/) - Fingerprint research and validation
+
+### Historical Issues (Resolved)
+- [BETA1_KNOWN_ISSUES.md](BETA1_KNOWN_ISSUES.md) - ✅ Resolved in Beta.2
+- [docs/troubleshooting/PRESET_SWITCHING_LIMITATION.md](docs/troubleshooting/PRESET_SWITCHING_LIMITATION.md) - ✅ Resolved in Beta.4
 
 ---
 
 ## 🎯 Current Action Items
 
-### This Week (October 27 - November 2)
+### This Week (October 28 - November 3)
 
-**Priority 1**: MSE Progressive Streaming
-- [ ] Backend chunk streaming API implementation
-- [ ] Metadata endpoint
-- [ ] MSE research and prototyping
+**Priority 1**: Beta.4 Stabilization
+- [x] Beta.4 released (October 27)
+- [ ] Monitor for critical bugs
+- [ ] Validate desktop builds
+- [ ] Respond to user feedback
+- [x] Update MASTER_ROADMAP.md (October 28)
 
 **Priority 2**: Fingerprint Phase 2 Planning
-- [ ] Database schema design
-- [ ] Distance metric research
-- [ ] API endpoint design
+- [ ] Design database schema for `track_fingerprints` table
+- [ ] Research distance metrics (weighted Euclidean in 25D space)
+- [ ] Design API endpoints (`/api/tracks/{id}/similar`)
+- [ ] Create UI mockups for similarity features
 
 **Parallel**: Documentation
-- [x] Fingerprint integration documentation
-- [ ] Update CLAUDE.md with fingerprint usage
-- [ ] MSE implementation guide
+- [x] Fingerprint integration documentation (October 27)
+- [x] MSE integration documentation (October 27)
+- [x] Update CLAUDE.md with Beta.4 info (October 28)
+- [ ] Create Fingerprint Phase 2 implementation plan
 
-### Next Week (November 3-9)
+### Next Week (November 4-10)
 
-**Priority 1**: MSE Continued
-- [ ] Frontend MSEPlayer implementation
-- [ ] Buffer integration
-- [ ] Initial testing
+**Priority 1**: Begin Fingerprint Phase 2
+- [ ] Implement `track_fingerprints` database table
+- [ ] Create FingerprintRepository
+- [ ] Integrate fingerprint extraction into library scanner
+- [ ] Initial distance calculation implementation
 
 ---
 
 ## 🎊 Recent Wins
 
-- ✅ **25D Fingerprint Integration** (Oct 27) - Revolutionary content-aware processing
+- ✅ **Beta.4 Unified Streaming** (Oct 27) - MAJOR architecture overhaul, 4,518 lines of new code
+- ✅ **67% Player UI Code Reduction** (Oct 27) - Cleaner, more maintainable (970→320 lines)
+- ✅ **25D Fingerprint Integration** (Oct 26-27) - Revolutionary content-aware processing
 - ✅ **Beta.2 Release** (Oct 26) - All critical bugs fixed, production quality
 - ✅ **Performance Optimization** (Oct 24) - 52.8x real-time speed with Numba+vectorization
 - ✅ **Multi-Tier Buffer** (Oct 25) - L1/L2/L3 caching system working
 
 ---
 
-**Status**: Three active tracks, clear priorities, ready to execute
-**Next Milestone**: Beta.3 with MSE streaming (2-3 weeks)
-**Long-Term Vision**: Revolutionary music discovery powered by 25D fingerprints
+**Status**: 🎉 Beta.4 complete! Entering stabilization and planning phase
+**Next Milestone**: Beta.5 with Fingerprint Similarity System (7 weeks)
+**Long-Term Vision**: Revolutionary music discovery powered by 25D acoustic fingerprints
