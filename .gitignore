@@ -149,3 +149,6 @@ auralis-web/backend/.env
 # Windows specific
 ehthumbs.db
 Desktop.ini
+
+# MY stuff - hands out, you evil creature
+research/

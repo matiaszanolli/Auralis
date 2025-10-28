@@ -961,15 +961,28 @@ export function BottomPlayerBarUnified() {
 
 ## 5. Results and Performance
 
+**Hardware Attribution**:
+All performance measurements reported in this section were conducted on the following hardware:
+
+- **Processor**: AMD Ryzen 9 7950X @ 5.88 GHz (16 cores, 32 threads with SMT)
+- **Architecture**: Zen 4 (Raphael, 5nm process)
+- **RAM**: 32 GB DDR5
+- **OS**: Ubuntu 25.10 Oracular Oriole (Linux kernel 6.17.0-5-generic)
+- **Python**: 3.10.12 with NumPy 1.24.3 (MKL optimizations), Numba 0.57.1
+- **Storage**: NVMe SSD
+
+⚠️ **Important**: Performance measurements are hardware-dependent. The reported metrics represent **high-end enthusiast hardware** (AMD Ryzen 9 7950X, 16-core Zen 4, circa 2023) and are **not representative of average consumer systems**. Low-end (Raspberry Pi 4) and mid-end (Intel i5-8250U laptop) validation is planned to establish realistic performance bounds for typical users. See [research/data/HARDWARE_SPECS.md](../data/HARDWARE_SPECS.md) for complete hardware specifications.
+
 ### 5.1 Preset Switching Latency
 
 The primary metric of success is preset switching latency during playback.
 
 **Measurement methodology**:
-- Track: 232.7-second music file (Iron Maiden)
+- Track: 232.7-second music file (Iron Maiden - Fear of the Dark)
 - Starting preset: Adaptive
 - Switch to: Punchy (after 30s playback)
 - Measure time from button click to audible change
+- Hardware: AMD Ryzen 9 7950X @ 5.88 GHz (16 cores, 32 threads)
 
 **Results**:
 
