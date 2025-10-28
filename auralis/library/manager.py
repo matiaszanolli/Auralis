@@ -26,7 +26,8 @@ from .repositories import (
     AlbumRepository,
     ArtistRepository,
     PlaylistRepository,
-    StatsRepository
+    StatsRepository,
+    FingerprintRepository
 )
 from .cache import cached_query, invalidate_cache, get_cache_stats
 from ..utils.logging import info, warning, error
@@ -79,6 +80,7 @@ class LibraryManager:
         self.artists = ArtistRepository(self.SessionLocal)
         self.playlists = PlaylistRepository(self.SessionLocal)
         self.stats = StatsRepository(self.SessionLocal)
+        self.fingerprints = FingerprintRepository(self.SessionLocal)
 
         info(f"Auralis Library Manager initialized: {database_path}")
 
