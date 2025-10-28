@@ -48,6 +48,7 @@ class PresetProfile:
 
     # Target levels
     target_lufs: float       # Target loudness in LUFS (-14 for streaming, -8 for club)
+    peak_target_db: float = -0.35  # Peak normalization target in dBFS (default -0.35 dB)
 
 
 def create_preset_profiles() -> Dict[str, PresetProfile]:
@@ -85,6 +86,9 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
 
             # Conservative loudness target - preserve dynamics
             target_lufs=-18.0,
+
+            # Significant headroom (quieter output) for dynamic preservation
+            peak_target_db=-1.50,
         ),
 
 
@@ -142,6 +146,9 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
 
             # Lower target loudness
             target_lufs=-16.0,
+
+            # Moderate headroom (louder than Adaptive by 1 dB)
+            peak_target_db=-0.50,
         ),
 
         "warm": PresetProfile(
@@ -171,6 +178,9 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
 
             # Moderate loudness
             target_lufs=-13.0,
+
+            # Balanced headroom
+            peak_target_db=-0.35,
         ),
 
         "bright": PresetProfile(
@@ -200,6 +210,9 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
 
             # Higher target loudness
             target_lufs=-12.0,
+
+            # Less headroom (louder output)
+            peak_target_db=-0.30,
         ),
 
         "punchy": PresetProfile(
@@ -232,6 +245,9 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
 
             # Target RMS: -14 dB (heavy music Matchering average)
             target_lufs=-14.0,
+
+            # Least headroom (loudest output for heavy music)
+            peak_target_db=-0.20,
         ),
 
         "live": PresetProfile(
@@ -263,6 +279,9 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
 
             # Target RMS: -13.5 dB
             target_lufs=-13.5,
+
+            # Balanced headroom for live material
+            peak_target_db=-0.30,
         ),
     }
 
