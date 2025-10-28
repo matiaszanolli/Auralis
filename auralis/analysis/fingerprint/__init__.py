@@ -32,6 +32,7 @@ from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerp
 from auralis.analysis.fingerprint.normalizer import FingerprintNormalizer, DimensionStats
 from auralis.analysis.fingerprint.distance import FingerprintDistance, DimensionWeights
 from auralis.analysis.fingerprint.similarity import FingerprintSimilarity, SimilarityResult
+from auralis.analysis.fingerprint.knn_graph import KNNGraphBuilder, GraphStats
 
 __all__ = [
     'AudioFingerprintAnalyzer',
@@ -41,4 +42,6 @@ __all__ = [
     'DimensionWeights',
     'FingerprintSimilarity',
     'SimilarityResult',
+    'KNNGraphBuilder',
+    'GraphStats',
 ]

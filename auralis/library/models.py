@@ -601,6 +601,39 @@ class TrackFingerprint(Base, TimestampMixin):
         ]
 
 
+class SimilarityGraph(Base, TimestampMixin):
+    """Model for K-nearest neighbors similarity graph.
+
+    Stores pre-computed similarity relationships for fast queries.
+    Each row represents an edge in the similarity graph.
+    """
+    __tablename__ = 'similarity_graph'
+
+    id = Column(Integer, primary_key=True)
+    track_id = Column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False)
+    similar_track_id = Column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False)
+    distance = Column(Float, nullable=False)
+    similarity_score = Column(Float, nullable=False)
+    rank = Column(Integer, nullable=False)  # 1=most similar, 2=second most, etc.
+
+    # Relationships
+    track = relationship("Track", foreign_keys=[track_id], backref="similar_tracks")
+    similar_track = relationship("Track", foreign_keys=[similar_track_id])
+
+    def to_dict(self) -> dict:
+        """Convert similarity edge to dictionary"""
+        return {
+            'id': self.id,
+            'track_id': self.track_id,
+            'similar_track_id': self.similar_track_id,
+            'distance': self.distance,
+            'similarity_score': self.similarity_score,
+            'rank': self.rank,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class SchemaVersion(Base):
     """Model for tracking database schema versions."""
     __tablename__ = 'schema_version'
