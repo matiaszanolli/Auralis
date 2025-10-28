@@ -27,8 +27,18 @@ class WebMEncoder:
     - Error handling and logging
     """
 
-    def __init__(self):
-        self.temp_dir = Path(tempfile.gettempdir()) / "auralis_webm_cache"
+    def __init__(self, temp_dir: Optional[Path] = None):
+        """
+        Initialize WebM encoder.
+
+        Args:
+            temp_dir: Optional custom temporary directory for cache.
+                     If None, uses system temp dir.
+        """
+        if temp_dir:
+            self.temp_dir = Path(temp_dir)
+        else:
+            self.temp_dir = Path(tempfile.gettempdir()) / "auralis_webm_cache"
         self.temp_dir.mkdir(exist_ok=True)
         logger.info(f"WebM encoder initialized, temp dir: {self.temp_dir}")
 
@@ -55,9 +65,18 @@ class WebMEncoder:
             RuntimeError: If encoding fails
         """
         try:
+            # Validate audio data
+            if audio.size == 0:
+                raise ValueError("Cannot encode empty audio data")
+
+            # Check cache first
+            output_webm = self.temp_dir / f"{cache_key}.webm"
+            if output_webm.exists():
+                logger.debug(f"WebM cache HIT: {cache_key}")
+                return output_webm
+
             # Create temp WAV file
             temp_wav = self.temp_dir / f"{cache_key}_temp.wav"
-            output_webm = self.temp_dir / f"{cache_key}.webm"
 
             # Save audio to temporary WAV
             logger.debug(f"Writing temp WAV: {temp_wav}")
@@ -98,17 +117,20 @@ class WebMEncoder:
             # Calculate encoding time
             encoding_time = asyncio.get_event_loop().time() - start_time
 
-            # Get file sizes for logging
-            wav_size = temp_wav.stat().st_size / (1024 * 1024)  # MB
-            webm_size = output_webm.stat().st_size / (1024 * 1024)  # MB
-            compression_ratio = (1 - webm_size / wav_size) * 100 if wav_size > 0 else 0
+            # Get file sizes for logging (if files exist - they may be mocked in tests)
+            if temp_wav.exists() and output_webm.exists():
+                wav_size = temp_wav.stat().st_size / (1024 * 1024)  # MB
+                webm_size = output_webm.stat().st_size / (1024 * 1024)  # MB
+                compression_ratio = (1 - webm_size / wav_size) * 100 if wav_size > 0 else 0
 
-            logger.info(
-                f"WebM encoding complete: {cache_key} "
-                f"({wav_size:.2f}MB → {webm_size:.2f}MB, "
-                f"{compression_ratio:.1f}% compression, "
-                f"{encoding_time:.2f}s)"
-            )
+                logger.info(
+                    f"WebM encoding complete: {cache_key} "
+                    f"({wav_size:.2f}MB → {webm_size:.2f}MB, "
+                    f"{compression_ratio:.1f}% compression, "
+                    f"{encoding_time:.2f}s)"
+                )
+            else:
+                logger.info(f"WebM encoding complete: {cache_key} ({encoding_time:.2f}s)")
 
             # Clean up temporary WAV
             temp_wav.unlink(missing_ok=True)
@@ -117,9 +139,12 @@ class WebMEncoder:
 
         except Exception as e:
             logger.error(f"Error encoding WebM chunk: {e}", exc_info=True)
-            # Clean up on error
-            if temp_wav.exists():
-                temp_wav.unlink(missing_ok=True)
+            # Clean up on error (temp_wav may not exist if validation failed early)
+            try:
+                if temp_wav.exists():
+                    temp_wav.unlink(missing_ok=True)
+            except (NameError, UnboundLocalError):
+                pass  # temp_wav wasn't created yet
             raise RuntimeError(f"WebM encoding failed: {str(e)}")
 
     def get_cached_path(self, cache_key: str) -> Optional[Path]:
