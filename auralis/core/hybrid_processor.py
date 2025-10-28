@@ -18,6 +18,7 @@ from pathlib import Path
 from datetime import datetime
 
 from .unified_config import UnifiedConfig, GenreProfile
+from .config.preset_profiles import get_preset_profile
 from .analysis import ContentAnalyzer, AdaptiveTargetGenerator
 from .analysis.spectrum_mapper import SpectrumMapper
 from .processors import apply_reference_matching
@@ -539,9 +540,13 @@ class HybridProcessor:
             if rms_diff_from_target > 0.5:
                 print(f"[RMS Boost] SKIPPED - Material already loud (RMS: {current_rms_db:.2f} dB, target: {target_rms_db:.2f} dB)")
 
-        # Now apply peak normalization to -0.1 dB
-        target_peak_db = -0.1
-        target_peak = 0.9886  # -0.1 dB in linear
+        # Get preset-specific peak target
+        preset_name = self.config.mastering_profile
+        preset_profile = get_preset_profile(preset_name)
+        target_peak_db = preset_profile.peak_target_db if preset_profile else -1.00
+        target_peak = 10 ** (target_peak_db / 20)  # Convert dB to linear
+
+        print(f"[Peak Normalization] Preset: {preset_name}, Target: {target_peak_db:.2f} dB")
 
         if peak > 0.001:  # Avoid division by zero
             peak_change_db = target_peak_db - peak_db
@@ -557,11 +562,22 @@ class HybridProcessor:
 
             print(f"[Final] Peak: {peak_db:.2f} dB, RMS: {current_rms_db:.2f} dB, Crest: {current_crest:.2f} dB")
 
+        # Safety limiter (only if exceeds safety threshold)
+        safety_threshold = -0.01  # dBFS
+        final_peak = np.max(np.abs(processed_audio))
+        final_peak_db = 20 * np.log10(final_peak) if final_peak > 0 else -np.inf
+
+        if final_peak_db > safety_threshold:
+            print(f"[Safety Limiter] Peak {final_peak_db:.2f} dB exceeds threshold {safety_threshold:.2f} dB")
+            # Apply gentle soft clipping to prevent hard clipping
+            processed_audio = soft_clip(processed_audio, threshold=0.99)
+            final_peak = np.max(np.abs(processed_audio))
+            final_peak_db = 20 * np.log10(final_peak) if final_peak > 0 else -np.inf
+            print(f"[Safety Limiter] Peak reduced to {final_peak_db:.2f} dB")
+
         # Final metrics
         final_rms = calculate_rms(processed_audio)
         final_rms_db = 20 * np.log10(final_rms) if final_rms > 0 else -np.inf
-        final_peak = np.max(np.abs(processed_audio))
-        final_peak_db = 20 * np.log10(final_peak) if final_peak > 0 else -np.inf
         final_crest = final_peak_db - final_rms_db
 
         debug(f"[Final Result] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, Crest: {final_crest:.2f} dB")
