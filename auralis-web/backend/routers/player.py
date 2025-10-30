@@ -49,6 +49,18 @@ class ReorderQueueRequest(BaseModel):
     new_order: List[int]  # New order of track indices
 
 
+class MoveQueueTrackRequest(BaseModel):
+    """Request model for moving a track within the queue (drag-and-drop)"""
+    from_index: int
+    to_index: int
+
+
+class AddTrackToQueueRequest(BaseModel):
+    """Request model for adding a track to queue with position"""
+    track_id: int
+    position: Optional[int] = None  # None = append to end
+
+
 def create_player_router(
     get_library_manager,
     get_audio_player,
@@ -754,6 +766,135 @@ def create_player_router(
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to clear queue: {e}")
+
+    @router.post("/api/player/queue/add-track")
+    async def add_track_to_queue(request: AddTrackToQueueRequest):
+        """
+        Add a track to queue at specific position (for drag-and-drop).
+
+        Args:
+            request: Track ID and optional position
+
+        Returns:
+            dict: Success message
+
+        Raises:
+            HTTPException: If player/library not available or track not found
+        """
+        player_state_manager = get_player_state_manager()
+        library_manager = get_library_manager()
+        audio_player = get_audio_player()
+
+        if not player_state_manager:
+            raise HTTPException(status_code=503, detail="Player not available")
+        if not library_manager:
+            raise HTTPException(status_code=503, detail="Library manager not available")
+        if not audio_player or not hasattr(audio_player, 'queue_manager'):
+            raise HTTPException(status_code=503, detail="Queue manager not available")
+
+        try:
+            # Get track from library
+            track = library_manager.tracks.get_by_id(request.track_id)
+            if not track:
+                raise HTTPException(status_code=404, detail="Track not found")
+
+            queue_manager = audio_player.queue_manager
+
+            # Add to queue at position
+            if request.position is not None:
+                # Insert at specific position
+                current_queue = queue_manager.get_queue()
+                current_queue.insert(request.position, track.filepath)
+                queue_manager.set_queue(current_queue, queue_manager.current_index)
+            else:
+                # Append to end
+                queue_manager.add_to_queue(track.filepath)
+
+            # Get updated queue for broadcasting
+            updated_queue = queue_manager.get_queue()
+
+            # Broadcast queue update
+            await connection_manager.broadcast({
+                "type": "queue_updated",
+                "data": {
+                    "action": "added",
+                    "track_id": request.track_id,
+                    "position": request.position,
+                    "queue_size": len(updated_queue)
+                }
+            })
+
+            return {
+                "message": "Track added to queue",
+                "track_id": request.track_id,
+                "position": request.position,
+                "queue_size": len(updated_queue)
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to add track to queue: {e}")
+
+    @router.put("/api/player/queue/move")
+    async def move_queue_track(request: MoveQueueTrackRequest):
+        """
+        Move a track within the queue (for drag-and-drop).
+
+        Args:
+            request: From and to indices
+
+        Returns:
+            dict: Success message
+
+        Raises:
+            HTTPException: If player not available, invalid indices, or operation fails
+        """
+        player_state_manager = get_player_state_manager()
+        audio_player = get_audio_player()
+
+        if not player_state_manager:
+            raise HTTPException(status_code=503, detail="Player not available")
+        if not audio_player or not hasattr(audio_player, 'queue_manager'):
+            raise HTTPException(status_code=503, detail="Queue manager not available")
+
+        try:
+            queue_manager = audio_player.queue_manager
+            current_queue = queue_manager.get_queue()
+
+            # Validate indices
+            if request.from_index < 0 or request.from_index >= len(current_queue):
+                raise HTTPException(status_code=400, detail=f"Invalid from_index: {request.from_index}")
+            if request.to_index < 0 or request.to_index >= len(current_queue):
+                raise HTTPException(status_code=400, detail=f"Invalid to_index: {request.to_index}")
+
+            # Move track
+            track = current_queue.pop(request.from_index)
+            current_queue.insert(request.to_index, track)
+
+            # Update queue
+            queue_manager.set_queue(current_queue, queue_manager.current_index)
+
+            # Broadcast queue update
+            await connection_manager.broadcast({
+                "type": "queue_updated",
+                "data": {
+                    "action": "moved",
+                    "from_index": request.from_index,
+                    "to_index": request.to_index,
+                    "queue_size": len(current_queue)
+                }
+            })
+
+            return {
+                "message": "Track moved successfully",
+                "from_index": request.from_index,
+                "to_index": request.to_index,
+                "queue_size": len(current_queue)
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to move track: {e}")
 
     @router.post("/api/player/queue/shuffle")
     async def shuffle_queue():
