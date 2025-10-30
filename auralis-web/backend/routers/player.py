@@ -69,7 +69,9 @@ def create_player_router(
     connection_manager,
     chunked_audio_processor_class,
     create_track_info_fn,
-    buffer_presets_fn
+    buffer_presets_fn,
+    get_multi_tier_buffer=None,
+    get_enhancement_settings=None
 ):
     """
     Factory function to create player router with dependencies.
@@ -83,6 +85,7 @@ def create_player_router(
         chunked_audio_processor_class: ChunkedAudioProcessor class (or None if not available)
         create_track_info_fn: Function to create TrackInfo from database track
         buffer_presets_fn: Function for proactive preset buffering
+        get_multi_tier_buffer: Callable that returns MultiTierBufferManager (optional)
 
     Returns:
         APIRouter: Configured router instance
@@ -158,76 +161,50 @@ def create_player_router(
 
             # If enhancement is requested, use chunked processing
             if enhanced:
-                processing_cache = get_processing_cache()
+                # OPTIMIZATION: Check if full file already exists FIRST
+                # This enables instant preset switching if chunks were pre-buffered
+                if chunked_audio_processor_class is None:
+                    raise HTTPException(status_code=503, detail="Chunked processing not available")
 
-                # Check if full processed file is cached
-                cache_key = f"{track_id}_{preset}_{intensity}"
-                cached_file = processing_cache.get(cache_key)
+                # Create processor to check for cached full file
+                processor = chunked_audio_processor_class(
+                    track_id=track_id,
+                    filepath=track.filepath,
+                    preset=preset,
+                    intensity=intensity,
+                    chunk_cache=get_processing_cache()
+                )
 
-                if cached_file and os.path.exists(cached_file):
-                    logger.info(f"Serving cached enhanced audio for track {track_id}")
-                    file_to_serve = cached_file
+                # Check if we have a cached full file
+                full_path = processor.chunk_dir / f"track_{track_id}_{processor.config_hash}_{preset}_{intensity}_full.wav"
+
+                if full_path.exists():
+                    # INSTANT! Fully processed file exists from previous playback or proactive buffering
+                    logger.info(f"⚡ INSTANT: Serving cached full file for preset '{preset}'")
+                    file_to_serve = str(full_path)
                 else:
-                    # Use chunked processing for fast start
-                    logger.info(f"Starting chunked processing for track {track_id} (preset: {preset}, intensity: {intensity})")
+                    # Need to process - log which preset and how many chunks
+                    logger.info(f"Processing track {track_id} (preset: {preset}, {processor.total_chunks} chunks)")
 
-                    try:
-                        if chunked_audio_processor_class is None:
-                            raise ImportError("ChunkedAudioProcessor not available")
+                    # Process all chunks and concatenate
+                    # This is needed because HTML5 Audio API requires complete files
+                    file_to_serve = processor.get_full_processed_audio_path()
 
-                        # Create chunked processor
-                        processor = chunked_audio_processor_class(
+                    # Start proactive buffering of OTHER presets in background
+                    if background_tasks and buffer_presets_fn:
+                        background_tasks.add_task(
+                            buffer_presets_fn,
                             track_id=track_id,
                             filepath=track.filepath,
-                            preset=preset,
                             intensity=intensity,
-                            chunk_cache=processing_cache  # Share cache
+                            total_chunks=processor.total_chunks
                         )
+                        logger.info(f"🚀 Proactive buffering started for other presets")
 
-                        # Check if we have a cached full file
-                        full_path = processor.chunk_dir / f"track_{track_id}_{preset}_{intensity}_full.wav"
-
-                        if full_path.exists():
-                            # Fully processed file exists from previous playback
-                            logger.info(f"Serving cached full processed file")
-                            file_to_serve = str(full_path)
-                        else:
-                            # Process first chunk only (fast - ~1 second)
-                            logger.info(f"Processing first chunk (0/{processor.total_chunks}) - this will be quick!")
-                            first_chunk_path = processor.process_chunk(0)
-                            logger.info(f"First chunk ready in ~1 second!")
-
-                            # Start proactive buffering of first 3 chunks for ALL presets
-                            # This enables instant preset switching with zero wait time
-                            if background_tasks and buffer_presets_fn:
-                                background_tasks.add_task(
-                                    buffer_presets_fn,
-                                    track_id=track_id,
-                                    filepath=track.filepath,
-                                    intensity=intensity,
-                                    total_chunks=processor.total_chunks
-                                )
-                                logger.info(f"🚀 Proactive buffering started: 3 chunks × 5 presets")
-
-                            # Start background processing of remaining chunks for current preset
-                            if background_tasks:
-                                background_tasks.add_task(processor.process_all_chunks_async)
-                                logger.info(f"Background task started to process all {processor.total_chunks} chunks")
-
-                            # For now, fall back to processing all chunks to create full file
-                            # TODO: Implement true progressive streaming in future
-                            logger.info(f"Creating full processed audio (all chunks)...")
-                            file_to_serve = processor.get_full_processed_audio_path()
-
-                            logger.info(f"Full audio ready at {file_to_serve}")
-
-                        # Cache the full file
-                        processing_cache[cache_key] = file_to_serve
-
-                    except Exception as process_error:
-                        logger.error(f"Chunked processing failed: {process_error}")
-                        # Fall back to original file
-                        file_to_serve = track.filepath
+                # Cache the full file path
+                processing_cache = get_processing_cache()
+                cache_key = f"{track_id}_{preset}_{intensity}"
+                processing_cache[cache_key] = file_to_serve
             else:
                 # No enhancement - serve original file
                 file_to_serve = track.filepath
@@ -411,12 +388,30 @@ def create_player_router(
             HTTPException: If audio player not available or seek fails
         """
         audio_player = get_audio_player()
+        player_state_manager = get_player_state_manager()
+
         if not audio_player:
             raise HTTPException(status_code=503, detail="Audio player not available")
 
         try:
             if hasattr(audio_player, 'seek_to_position'):
                 audio_player.seek_to_position(position)
+
+            # Update multi-tier buffer with new position (for branch prediction)
+            if get_multi_tier_buffer and get_enhancement_settings and player_state_manager:
+                buffer_manager = get_multi_tier_buffer()
+                if buffer_manager:
+                    state = player_state_manager.get_state()
+                    # Only update if we have a current track
+                    if state.current_track:
+                        settings = get_enhancement_settings()
+                        await buffer_manager.update_position(
+                            track_id=state.current_track.id,
+                            position=position,
+                            preset=settings.get("preset", "adaptive"),
+                            intensity=settings.get("intensity", 1.0)
+                        )
+                        logger.debug(f"Buffer manager updated: track={state.current_track.id}, position={position:.1f}s")
 
             # Broadcast to all connected clients
             await connection_manager.broadcast({

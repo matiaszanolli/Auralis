@@ -18,6 +18,7 @@ from pydantic import BaseModel
 import logging
 import math
 import time
+import asyncio
 from pathlib import Path
 import librosa
 
@@ -164,19 +165,114 @@ async def _serve_enhanced_chunk(
 ):
     """Serve enhanced chunk via multi-tier buffer."""
     try:
-        # For now, return a simple response
-        # TODO: Integrate with actual multi-tier buffer
-        logger.info(f"Enhanced chunk requested: {track_id}/{chunk_idx}")
+        buffer_manager = get_multi_tier_buffer()
 
-        raise HTTPException(
-            501,
-            "Enhanced streaming not yet implemented - use existing player endpoint"
+        if not buffer_manager:
+            raise HTTPException(503, "Multi-tier buffer not available")
+
+        # Check cache tiers (L1 -> L2 -> L3)
+        is_cached, tier = await buffer_manager.is_chunk_cached(
+            track_id, preset, chunk_idx, intensity
         )
+
+        if is_cached:
+            # Cache HIT - retrieve chunk from ChunkedAudioProcessor cache
+            logger.info(f"Cache {tier} HIT: track={track_id}, chunk={chunk_idx}, preset={preset}")
+
+            # Get chunk from processor's cache
+            # The ChunkedAudioProcessor manages the actual file storage
+            from auralis.library.manager import LibraryManager
+            library_manager = LibraryManager()
+            track = library_manager.tracks.get_by_id(track_id)
+
+            if not track:
+                raise HTTPException(404, f"Track {track_id} not found")
+
+            # Create processor to access cached chunk
+            processor = chunked_processor_class(
+                track_id=track_id,
+                filepath=track.filepath,
+                preset=preset,
+                intensity=intensity
+            )
+
+            # Get chunk path (from cache or process if needed)
+            chunk_path = processor.process_chunk(chunk_idx)
+
+            if not Path(chunk_path).exists():
+                raise HTTPException(404, f"Chunk file not found: {chunk_path}")
+
+            # Return chunk with cache tier header
+            return StreamingResponse(
+                open(chunk_path, 'rb'),
+                media_type="audio/wav",
+                headers={
+                    "X-Cache-Tier": tier,
+                    "X-Preset": preset,
+                    "X-Intensity": str(intensity)
+                }
+            )
+
+        else:
+            # Cache MISS - trigger immediate processing
+            logger.info(f"Cache MISS: track={track_id}, chunk={chunk_idx}, preset={preset}")
+
+            # Get multi-tier worker to process immediately
+            from multi_tier_worker import multi_tier_worker
+
+            if multi_tier_worker:
+                # Trigger immediate processing (bypasses normal priority queue)
+                success = await multi_tier_worker.trigger_immediate_processing(
+                    track_id, preset, chunk_idx, intensity
+                )
+
+                if success:
+                    logger.info(f"Immediate processing succeeded for chunk {chunk_idx}")
+                else:
+                    logger.warning(f"Immediate processing failed for chunk {chunk_idx}, falling back to direct processing")
+
+            # Process chunk directly (fallback or if worker not available)
+            from auralis.library.manager import LibraryManager
+            library_manager = LibraryManager()
+            track = library_manager.tracks.get_by_id(track_id)
+
+            if not track:
+                raise HTTPException(404, f"Track {track_id} not found")
+
+            processor = chunked_processor_class(
+                track_id=track_id,
+                filepath=track.filepath,
+                preset=preset,
+                intensity=intensity
+            )
+
+            # Process with timeout (20s for immediate playback)
+            try:
+                chunk_path = await asyncio.wait_for(
+                    asyncio.to_thread(processor.process_chunk, chunk_idx),
+                    timeout=20.0
+                )
+            except asyncio.TimeoutError:
+                raise HTTPException(504, f"Chunk processing timeout after 20s")
+
+            if not Path(chunk_path).exists():
+                raise HTTPException(500, f"Chunk processing failed: no output file")
+
+            # Return chunk with MISS header
+            return StreamingResponse(
+                open(chunk_path, 'rb'),
+                media_type="audio/wav",
+                headers={
+                    "X-Cache-Tier": "MISS",
+                    "X-Preset": preset,
+                    "X-Intensity": str(intensity)
+                }
+            )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Enhanced chunk error: {e}")
+        logger.error(f"Enhanced chunk error: {e}", exc_info=True)
         raise HTTPException(500, str(e))
 
 
