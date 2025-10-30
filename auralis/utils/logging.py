@@ -21,6 +21,7 @@ class Code:
     ERROR_VALIDATION = "Validation error"
     ERROR_LOADING = "Error loading audio file"
     ERROR_INVALID_AUDIO = "Invalid audio file format"
+    ERROR_FILE_NOT_FOUND = "File not found"
 
 
 class ModuleError(Exception):

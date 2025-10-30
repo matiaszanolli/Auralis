@@ -101,8 +101,8 @@ export const AlbumArt: React.FC<AlbumArtProps> = ({
         lazyLoad={true}
         fallbackGradient={getGradientForAlbum(albumId)}
         iconSize={getIconSize(size)}
-        retryOnError={true}
-        maxRetries={2}
+        retryOnError={false}
+        maxRetries={0}
       />
     </ArtworkContainer>
   );
