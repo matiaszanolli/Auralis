@@ -1,198 +1,441 @@
 /**
- * Keyboard Shortcuts Hook
- * ~~~~~~~~~~~~~~~~~~~~~~~
+ * useKeyboardShortcuts Hook
  *
- * Provides global keyboard shortcuts for player controls and navigation.
+ * Provides global keyboard shortcut handling for the application.
+ * Supports playback controls, navigation, library actions, and more.
  *
- * Supported shortcuts:
- * - Space: Play/Pause
- * - →: Next track
- * - ←: Previous track
- * - /: Focus search
- * - L: Toggle lyrics
- * - M: Toggle enhancement
- * - 1-5: Switch presets
- * - Cmd/Ctrl + ,: Settings
- * - Cmd/Ctrl + K: Quick search
+ * Usage:
+ * ```tsx
+ * const shortcuts = useKeyboardShortcuts({
+ *   onPlayPause: () => player.togglePlayPause(),
+ *   onNext: () => player.next(),
+ *   // ... other handlers
+ * });
+ * ```
  *
- * @copyright (C) 2024 Auralis Team
- * @license GPLv3
+ * Features:
+ * - Prevents conflicts with input fields (automatically disabled when typing)
+ * - Supports modifier keys (Ctrl/Cmd, Shift, Alt)
+ * - Cross-platform (handles Cmd on Mac, Ctrl on Windows/Linux)
+ * - Customizable shortcuts
+ * - Help dialog with all shortcuts
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 
-export interface KeyboardShortcutHandlers {
+// Keyboard shortcut configuration
+export interface KeyboardShortcut {
+  key: string;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+  meta?: boolean; // Cmd on Mac
+  description: string;
+  category: 'Playback' | 'Navigation' | 'Library' | 'Queue' | 'Global';
+  handler: () => void;
+}
+
+export interface KeyboardShortcutsConfig {
+  // Playback controls
   onPlayPause?: () => void;
   onNext?: () => void;
   onPrevious?: () => void;
+  onSeekForward?: () => void;
+  onSeekBackward?: () => void;
   onVolumeUp?: () => void;
   onVolumeDown?: () => void;
   onMute?: () => void;
-  onToggleLyrics?: () => void;
-  onToggleEnhancement?: () => void;
+
+  // Navigation
+  onShowSongs?: () => void;
+  onShowAlbums?: () => void;
+  onShowArtists?: () => void;
+  onShowPlaylists?: () => void;
   onFocusSearch?: () => void;
+  onEscape?: () => void;
+
+  // Library actions (require track selection)
+  onPlaySelected?: () => void;
+  onToggleFavorite?: () => void;
+  onAddToPlaylist?: () => void;
+  onAddToQueue?: () => void;
+  onShowInfo?: () => void;
+  onDelete?: () => void;
+
+  // Queue management
+  onClearQueue?: () => void;
+  onShuffleQueue?: () => void;
+
+  // Global
+  onShowHelp?: () => void;
   onOpenSettings?: () => void;
-  onPresetChange?: (preset: string) => void;
+
+  // Configuration
+  enabled?: boolean; // Default: true
+  debug?: boolean; // Log shortcut triggers
 }
 
-const PRESET_MAP: Record<string, string> = {
-  '1': 'adaptive',
-  '2': 'gentle',
-  '3': 'warm',
-  '4': 'bright',
-  '5': 'punchy'
+export interface UseKeyboardShortcutsReturn {
+  shortcuts: KeyboardShortcut[];
+  isHelpOpen: boolean;
+  openHelp: () => void;
+  closeHelp: () => void;
+  isEnabled: boolean;
+  setEnabled: (enabled: boolean) => void;
+}
+
+/**
+ * Check if the target element is an input field where we should ignore shortcuts
+ */
+const isInputElement = (target: EventTarget | null): boolean => {
+  if (!target || !(target instanceof HTMLElement)) return false;
+
+  const tagName = target.tagName.toLowerCase();
+  const isInput = tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+  const isContentEditable = target.contentEditable === 'true';
+
+  return isInput || isContentEditable;
 };
 
 /**
- * Hook for global keyboard shortcuts
+ * Check if modifier keys match
  */
-export const useKeyboardShortcuts = (handlers: KeyboardShortcutHandlers) => {
-  const handleKeyPress = useCallback((event: KeyboardEvent) => {
-    // Don't trigger shortcuts when typing in input fields
-    const target = event.target as HTMLElement;
-    const isInputField =
-      target.tagName === 'INPUT' ||
-      target.tagName === 'TEXTAREA' ||
-      target.contentEditable === 'true';
+const matchesModifiers = (
+  event: KeyboardEvent,
+  shortcut: { ctrl?: boolean; shift?: boolean; alt?: boolean; meta?: boolean }
+): boolean => {
+  const ctrlOrMeta = shortcut.ctrl || shortcut.meta;
+  const eventCtrlOrMeta = event.ctrlKey || event.metaKey;
 
-    // Allow '/' to focus search even from input fields (like GitHub)
-    if (event.key === '/' && !event.metaKey && !event.ctrlKey) {
-      if (!isInputField || target.id === 'global-search') {
+  // Check Ctrl/Cmd
+  if (ctrlOrMeta && !eventCtrlOrMeta) return false;
+  if (!ctrlOrMeta && eventCtrlOrMeta) return false;
+
+  // Check Shift
+  if (shortcut.shift && !event.shiftKey) return false;
+  if (!shortcut.shift && event.shiftKey) return false;
+
+  // Check Alt
+  if (shortcut.alt && !event.altKey) return false;
+  if (!shortcut.alt && event.altKey) return false;
+
+  return true;
+};
+
+/**
+ * Format shortcut key for display
+ */
+export const formatShortcut = (shortcut: KeyboardShortcut): string => {
+  const parts: string[] = [];
+
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+  if (shortcut.ctrl || shortcut.meta) {
+    parts.push(isMac ? '⌘' : 'Ctrl');
+  }
+  if (shortcut.shift) {
+    parts.push(isMac ? '⇧' : 'Shift');
+  }
+  if (shortcut.alt) {
+    parts.push(isMac ? '⌥' : 'Alt');
+  }
+
+  // Format key display
+  let keyDisplay = shortcut.key;
+  const keyMap: Record<string, string> = {
+    ' ': 'Space',
+    'ArrowUp': '↑',
+    'ArrowDown': '↓',
+    'ArrowLeft': '←',
+    'ArrowRight': '→',
+    'Enter': '↵',
+    'Escape': 'Esc',
+    'Delete': 'Del',
+    '/': '/',
+    '?': '?',
+    ',': ',',
+  };
+
+  if (keyMap[shortcut.key]) {
+    keyDisplay = keyMap[shortcut.key];
+  } else {
+    keyDisplay = shortcut.key.toUpperCase();
+  }
+
+  parts.push(keyDisplay);
+
+  return parts.join(isMac ? '' : '+');
+};
+
+/**
+ * Main keyboard shortcuts hook
+ */
+export const useKeyboardShortcuts = (config: KeyboardShortcutsConfig = {}): UseKeyboardShortcutsReturn => {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isEnabled, setIsEnabled] = useState(config.enabled !== false);
+
+  // Build shortcuts array
+  const shortcuts: KeyboardShortcut[] = [];
+
+  // Playback controls
+  if (config.onPlayPause) {
+    shortcuts.push({
+      key: ' ',
+      description: 'Play/Pause',
+      category: 'Playback',
+      handler: config.onPlayPause,
+    });
+  }
+  if (config.onNext) {
+    shortcuts.push({
+      key: 'ArrowRight',
+      description: 'Next track',
+      category: 'Playback',
+      handler: config.onNext,
+    });
+  }
+  if (config.onPrevious) {
+    shortcuts.push({
+      key: 'ArrowLeft',
+      description: 'Previous track',
+      category: 'Playback',
+      handler: config.onPrevious,
+    });
+  }
+  if (config.onSeekForward) {
+    shortcuts.push({
+      key: 'ArrowRight',
+      shift: true,
+      description: 'Seek forward 10s',
+      category: 'Playback',
+      handler: config.onSeekForward,
+    });
+  }
+  if (config.onSeekBackward) {
+    shortcuts.push({
+      key: 'ArrowLeft',
+      shift: true,
+      description: 'Seek backward 10s',
+      category: 'Playback',
+      handler: config.onSeekBackward,
+    });
+  }
+  if (config.onVolumeUp) {
+    shortcuts.push({
+      key: 'ArrowUp',
+      description: 'Volume up',
+      category: 'Playback',
+      handler: config.onVolumeUp,
+    });
+  }
+  if (config.onVolumeDown) {
+    shortcuts.push({
+      key: 'ArrowDown',
+      description: 'Volume down',
+      category: 'Playback',
+      handler: config.onVolumeDown,
+    });
+  }
+  if (config.onMute) {
+    shortcuts.push({
+      key: 'm',
+      description: 'Mute/Unmute',
+      category: 'Playback',
+      handler: config.onMute,
+    });
+  }
+
+  // Navigation
+  if (config.onShowSongs) {
+    shortcuts.push({
+      key: '1',
+      description: 'Show Songs',
+      category: 'Navigation',
+      handler: config.onShowSongs,
+    });
+  }
+  if (config.onShowAlbums) {
+    shortcuts.push({
+      key: '2',
+      description: 'Show Albums',
+      category: 'Navigation',
+      handler: config.onShowAlbums,
+    });
+  }
+  if (config.onShowArtists) {
+    shortcuts.push({
+      key: '3',
+      description: 'Show Artists',
+      category: 'Navigation',
+      handler: config.onShowArtists,
+    });
+  }
+  if (config.onShowPlaylists) {
+    shortcuts.push({
+      key: '4',
+      description: 'Show Playlists',
+      category: 'Navigation',
+      handler: config.onShowPlaylists,
+    });
+  }
+  if (config.onFocusSearch) {
+    shortcuts.push({
+      key: '/',
+      description: 'Focus search',
+      category: 'Navigation',
+      handler: config.onFocusSearch,
+    });
+  }
+  if (config.onEscape) {
+    shortcuts.push({
+      key: 'Escape',
+      description: 'Clear search / Close dialogs',
+      category: 'Navigation',
+      handler: config.onEscape,
+    });
+  }
+
+  // Library actions
+  if (config.onPlaySelected) {
+    shortcuts.push({
+      key: 'Enter',
+      description: 'Play selected track',
+      category: 'Library',
+      handler: config.onPlaySelected,
+    });
+  }
+  if (config.onToggleFavorite) {
+    shortcuts.push({
+      key: 'l',
+      description: 'Like/Unlike track',
+      category: 'Library',
+      handler: config.onToggleFavorite,
+    });
+  }
+  if (config.onAddToPlaylist) {
+    shortcuts.push({
+      key: 'p',
+      description: 'Add to playlist',
+      category: 'Library',
+      handler: config.onAddToPlaylist,
+    });
+  }
+  if (config.onAddToQueue) {
+    shortcuts.push({
+      key: 'q',
+      description: 'Add to queue',
+      category: 'Library',
+      handler: config.onAddToQueue,
+    });
+  }
+  if (config.onShowInfo) {
+    shortcuts.push({
+      key: 'i',
+      description: 'Show track info',
+      category: 'Library',
+      handler: config.onShowInfo,
+    });
+  }
+  if (config.onDelete) {
+    shortcuts.push({
+      key: 'Delete',
+      description: 'Remove from playlist/queue',
+      category: 'Library',
+      handler: config.onDelete,
+    });
+  }
+
+  // Queue management
+  if (config.onClearQueue) {
+    shortcuts.push({
+      key: 'c',
+      ctrl: true,
+      shift: true,
+      description: 'Clear queue',
+      category: 'Queue',
+      handler: config.onClearQueue,
+    });
+  }
+  if (config.onShuffleQueue) {
+    shortcuts.push({
+      key: 's',
+      ctrl: true,
+      shift: true,
+      description: 'Shuffle queue',
+      category: 'Queue',
+      handler: config.onShuffleQueue,
+    });
+  }
+
+  // Global
+  if (config.onShowHelp) {
+    shortcuts.push({
+      key: '?',
+      description: 'Show keyboard shortcuts',
+      category: 'Global',
+      handler: config.onShowHelp,
+    });
+  }
+  if (config.onOpenSettings) {
+    shortcuts.push({
+      key: ',',
+      ctrl: true,
+      description: 'Open settings',
+      category: 'Global',
+      handler: config.onOpenSettings,
+    });
+  }
+
+  // Keyboard event handler
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      // Don't handle if disabled
+      if (!isEnabled) return;
+
+      // Don't handle if typing in input field
+      if (isInputElement(event.target)) return;
+
+      // Special case: ? requires Shift+/ on US keyboards
+      const key = event.key === '?' ? '?' : event.key;
+
+      // Find matching shortcut
+      const matchingShortcut = shortcuts.find(
+        (shortcut) =>
+          shortcut.key.toLowerCase() === key.toLowerCase() &&
+          matchesModifiers(event, shortcut)
+      );
+
+      if (matchingShortcut) {
         event.preventDefault();
-        handlers.onFocusSearch?.();
-        return;
+        event.stopPropagation();
+
+        if (config.debug) {
+          console.log('[Keyboard Shortcut]', formatShortcut(matchingShortcut), matchingShortcut.description);
+        }
+
+        matchingShortcut.handler();
       }
-    }
+    },
+    [shortcuts, isEnabled, config.debug]
+  );
 
-    // Don't handle other shortcuts in input fields
-    if (isInputField && event.key !== '/') {
-      return;
-    }
-
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    const modifierKey = isMac ? event.metaKey : event.ctrlKey;
-
-    // Cmd/Ctrl + K: Quick search
-    if ((event.key === 'k' || event.key === 'K') && modifierKey) {
-      event.preventDefault();
-      handlers.onFocusSearch?.();
-      return;
-    }
-
-    // Cmd/Ctrl + ,: Settings
-    if (event.key === ',' && modifierKey) {
-      event.preventDefault();
-      handlers.onOpenSettings?.();
-      return;
-    }
-
-    // Space: Play/Pause (only if no modifier keys)
-    if (event.code === 'Space' && !modifierKey && !event.shiftKey && !event.altKey) {
-      event.preventDefault();
-      handlers.onPlayPause?.();
-      return;
-    }
-
-    // Arrow keys: Previous/Next track
-    if (event.key === 'ArrowRight' && !modifierKey) {
-      event.preventDefault();
-      handlers.onNext?.();
-      return;
-    }
-
-    if (event.key === 'ArrowLeft' && !modifierKey) {
-      event.preventDefault();
-      handlers.onPrevious?.();
-      return;
-    }
-
-    // Arrow keys with Shift: Volume control
-    if (event.key === 'ArrowUp' && event.shiftKey && !modifierKey) {
-      event.preventDefault();
-      handlers.onVolumeUp?.();
-      return;
-    }
-
-    if (event.key === 'ArrowDown' && event.shiftKey && !modifierKey) {
-      event.preventDefault();
-      handlers.onVolumeDown?.();
-      return;
-    }
-
-    // M: Toggle enhancement
-    if ((event.key === 'm' || event.key === 'M') && !modifierKey) {
-      event.preventDefault();
-      handlers.onToggleEnhancement?.();
-      return;
-    }
-
-    // L: Toggle lyrics
-    if ((event.key === 'l' || event.key === 'L') && !modifierKey) {
-      event.preventDefault();
-      handlers.onToggleLyrics?.();
-      return;
-    }
-
-    // Number keys 1-5: Preset selection
-    if (event.key >= '1' && event.key <= '5' && !modifierKey) {
-      event.preventDefault();
-      const preset = PRESET_MAP[event.key];
-      if (preset) {
-        handlers.onPresetChange?.(preset);
-      }
-      return;
-    }
-
-    // 0 or M: Mute/unmute
-    if ((event.key === '0' || (event.key === 'm' && modifierKey))) {
-      event.preventDefault();
-      handlers.onMute?.();
-      return;
-    }
-
-  }, [handlers]);
-
+  // Register global keyboard listener
   useEffect(() => {
-    // Add event listener
-    document.addEventListener('keydown', handleKeyPress);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
-    // Cleanup
-    return () => {
-      document.removeEventListener('keydown', handleKeyPress);
-    };
-  }, [handleKeyPress]);
+  const openHelp = useCallback(() => setIsHelpOpen(true), []);
+  const closeHelp = useCallback(() => setIsHelpOpen(false), []);
+
+  return {
+    shortcuts,
+    isHelpOpen,
+    openHelp,
+    closeHelp,
+    isEnabled,
+    setEnabled,
+  };
 };
 
-/**
- * Get keyboard shortcut display string for current platform
- */
-export const getShortcutString = (shortcut: string): string => {
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  const modifierKey = isMac ? '⌘' : 'Ctrl';
-
-  return shortcut
-    .replace('Cmd', modifierKey)
-    .replace('Ctrl', modifierKey);
-};
-
-/**
- * List of all available shortcuts for help/settings display
- */
-export const KEYBOARD_SHORTCUTS = [
-  { key: 'Space', action: 'Play/Pause', category: 'Playback' },
-  { key: '→', action: 'Next track', category: 'Playback' },
-  { key: '←', action: 'Previous track', category: 'Playback' },
-  { key: 'Shift + ↑', action: 'Volume up', category: 'Playback' },
-  { key: 'Shift + ↓', action: 'Volume down', category: 'Playback' },
-  { key: '0', action: 'Mute/Unmute', category: 'Playback' },
-  { key: '/', action: 'Focus search', category: 'Navigation' },
-  { key: 'Cmd/Ctrl + K', action: 'Quick search', category: 'Navigation' },
-  { key: 'Cmd/Ctrl + ,', action: 'Open settings', category: 'Navigation' },
-  { key: 'M', action: 'Toggle enhancement', category: 'Processing' },
-  { key: 'L', action: 'Toggle lyrics', category: 'Display' },
-  { key: '1', action: 'Adaptive preset', category: 'Presets' },
-  { key: '2', action: 'Gentle preset', category: 'Presets' },
-  { key: '3', action: 'Warm preset', category: 'Presets' },
-  { key: '4', action: 'Bright preset', category: 'Presets' },
-  { key: '5', action: 'Punchy preset', category: 'Presets' }
-];
+export default useKeyboardShortcuts;

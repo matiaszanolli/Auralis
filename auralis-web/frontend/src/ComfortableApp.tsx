@@ -27,6 +27,7 @@ import CozyLibraryView from './components/CozyLibraryView';
 import GlobalSearch from './components/library/GlobalSearch';
 import SettingsDialog from './components/settings/SettingsDialog';
 import LyricsPanel from './components/player/LyricsPanel';
+import KeyboardShortcutsHelp from './components/shared/KeyboardShortcutsHelp';
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -120,7 +121,13 @@ function ComfortableApp() {
   };
 
   // Keyboard shortcuts (handlers must be defined above)
-  useKeyboardShortcuts({
+  const {
+    shortcuts,
+    isHelpOpen,
+    openHelp,
+    closeHelp
+  } = useKeyboardShortcuts({
+    // Playback controls
     onPlayPause: () => {
       togglePlayPause();
       info(apiIsPlaying ? 'Paused' : 'Playing');
@@ -148,15 +155,23 @@ function ComfortableApp() {
       setApiVolume(newVolume);
       info(newVolume === 0 ? 'Muted' : 'Unmuted');
     },
-    onToggleLyrics: () => {
-      setLyricsOpen(!lyricsOpen);
-      info(lyricsOpen ? 'Lyrics hidden' : 'Lyrics shown');
+
+    // Navigation shortcuts
+    onShowSongs: () => {
+      setCurrentView('songs');
+      info('Songs view');
     },
-    onToggleEnhancement: () => {
-      if (currentTrack) {
-        const newState = !currentTrack.isEnhanced;
-        handlePlayerEnhancementToggle(newState);
-      }
+    onShowAlbums: () => {
+      setCurrentView('albums');
+      info('Albums view');
+    },
+    onShowArtists: () => {
+      setCurrentView('artists');
+      info('Artists view');
+    },
+    onShowPlaylists: () => {
+      setCurrentView('playlists');
+      info('Playlists view');
     },
     onFocusSearch: () => {
       // Focus search input
@@ -166,10 +181,26 @@ function ComfortableApp() {
         searchInput.select();
       }
     },
+    onEscape: () => {
+      // Clear search or close dialogs
+      if (searchQuery) {
+        setSearchQuery('');
+        info('Search cleared');
+      } else if (settingsOpen) {
+        setSettingsOpen(false);
+      } else if (lyricsOpen) {
+        setLyricsOpen(false);
+      }
+    },
+
+    // Global shortcuts
+    onShowHelp: openHelp,
     onOpenSettings: () => {
       setSettingsOpen(true);
     },
-    onPresetChange: handlePresetChange
+
+    // Debug mode (optional)
+    debug: false
   });
 
   const handleMasteringToggle = (enabled: boolean) => {
@@ -500,6 +531,13 @@ function ComfortableApp() {
             console.log('Settings changed:', settings);
             success('Settings saved successfully');
           }}
+        />
+
+        {/* Keyboard Shortcuts Help Dialog */}
+        <KeyboardShortcutsHelp
+          open={isHelpOpen}
+          shortcuts={shortcuts}
+          onClose={closeHelp}
         />
       </Box>
     </DragDropContext>
