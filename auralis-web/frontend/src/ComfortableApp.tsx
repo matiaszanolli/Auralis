@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -14,6 +14,7 @@ import {
   Search,
   Menu as MenuIcon
 } from '@mui/icons-material';
+import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 
 import Sidebar from './components/Sidebar';
 // MSE Progressive Streaming integration - DISABLED (initialization issues + complexity)
@@ -198,20 +199,61 @@ function ComfortableApp() {
     setMobileDrawerOpen(false); // Close drawer after navigation on mobile
   };
 
+  // Drag and drop handler
+  const handleDragEnd = useCallback((result: DropResult) => {
+    const { source, destination, draggableId } = result;
+
+    // Dropped outside a valid droppable area
+    if (!destination) {
+      return;
+    }
+
+    // Dropped in the same position
+    if (
+      source.droppableId === destination.droppableId &&
+      source.index === destination.index
+    ) {
+      return;
+    }
+
+    // Extract track ID from draggableId (format: "track-123")
+    const trackId = parseInt(draggableId.replace('track-', ''), 10);
+
+    // Handle different drop targets
+    if (destination.droppableId === 'queue') {
+      // Add to queue
+      info(`Added track to queue at position ${destination.index + 1}`);
+      // TODO: Implement actual queue API call
+      console.log('Add to queue:', { trackId, position: destination.index });
+    } else if (destination.droppableId.startsWith('playlist-')) {
+      // Add to playlist
+      const playlistId = parseInt(destination.droppableId.replace('playlist-', ''), 10);
+      info(`Added track to playlist`);
+      // TODO: Implement actual playlist API call
+      console.log('Add to playlist:', { trackId, playlistId, position: destination.index });
+    } else if (destination.droppableId === source.droppableId) {
+      // Reorder within the same list
+      info('Track reordered');
+      // TODO: Implement reorder logic
+      console.log('Reorder:', { trackId, from: source.index, to: destination.index });
+    }
+  }, [info]);
+
   return (
-    <Box
-      sx={{
-        width: '100vw',
-        height: '100vh',
-        background: 'var(--midnight-blue)',
-        color: 'var(--silver)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}
-    >
-      {/* Main Layout: Sidebar + Content */}
-      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <Box
+        sx={{
+          width: '100vw',
+          height: '100vh',
+          background: 'var(--midnight-blue)',
+          color: 'var(--silver)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Main Layout: Sidebar + Content */}
+        <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Desktop Sidebar - Hidden on mobile */}
         {!isMobile && (
           <Sidebar
@@ -392,16 +434,17 @@ function ComfortableApp() {
         onTimeUpdate={(time) => setPlaybackTime(time)}
       />
 
-      {/* Settings Dialog */}
-      <SettingsDialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onSettingsChange={(settings) => {
-          console.log('Settings changed:', settings);
-          success('Settings saved successfully');
-        }}
-      />
-    </Box>
+        {/* Settings Dialog */}
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          onSettingsChange={(settings) => {
+            console.log('Settings changed:', settings);
+            success('Settings saved successfully');
+          }}
+        />
+      </Box>
+    </DragDropContext>
   );
 }
 
