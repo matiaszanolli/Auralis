@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Card, CardMedia, CardContent, Typography, Box, IconButton, styled } from '@mui/material';
+import { Card, CardMedia, CardContent, Typography, Box, IconButton, styled, ButtonBase, alpha } from '@mui/material';
 import { PlayArrow, MoreVert } from '@mui/icons-material';
 import { colors, gradients, shadows, borderRadius, transitions, spacing } from '../../theme/auralisTheme';
 import AlbumArt from '../album/AlbumArt';
-// import { useContextMenu, ContextMenu, getAlbumContextActions } from '../shared/ContextMenu';
+import { useContextMenu, ContextMenu, getAlbumContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
 
 interface AlbumCardProps {
@@ -21,24 +21,40 @@ const StyledCard = styled(Card)(({ theme }) => ({
   position: 'relative',
   backgroundColor: colors.background.secondary,
   borderRadius: `${borderRadius.sm}px`,
-  overflow: 'hidden',
+  overflow: 'visible', // Changed to visible for shadow to show properly
   cursor: 'pointer',
-  transition: `transform ${transitions.normal}, box-shadow ${transitions.normal}, border ${transitions.normal}`,
+  transition: `all ${transitions.normal}`,
   border: `1px solid transparent`,
+  willChange: 'transform', // Performance optimization for animations
 
   '&:hover': {
-    transform: 'translateY(-4px) scale(1.02)',
-    boxShadow: shadows.glowPurple,
-    border: `1px solid rgba(102, 126, 234, 0.3)`,
+    transform: 'translateY(-6px)',
+    boxShadow: `${shadows.glowPurple}, ${shadows.lg}`,
+    border: `1px solid ${alpha('#667eea', 0.4)}`,
     backgroundColor: colors.background.elevated,
-  },
 
-  '&:hover .play-overlay': {
-    opacity: 1,
+    '& .play-overlay': {
+      opacity: 1,
+    },
+
+    '& .album-title': {
+      color: '#667eea',
+    },
+
+    '& .more-button': {
+      opacity: 1,
+    },
   },
 
   '&:active': {
-    transform: 'translateY(-2px) scale(1.01)',
+    transform: 'translateY(-3px)',
+    transition: `all ${transitions.fast}`,
+  },
+
+  // Focus visible for keyboard navigation
+  '&:focus-visible': {
+    outline: 'none',
+    boxShadow: `0 0 0 3px ${alpha('#667eea', 0.5)}`,
   },
 }));
 
@@ -89,15 +105,17 @@ const MoreButton = styled(IconButton)({
   backdropFilter: 'blur(8px)',
   color: colors.text.primary,
   opacity: 0,
-  transition: `opacity ${transitions.normal}, background ${transitions.fast}`,
+  transition: `all ${transitions.normal}`,
   zIndex: 3,
 
   '&:hover': {
     background: 'rgba(0, 0, 0, 0.8)',
+    transform: 'scale(1.1)',
+    boxShadow: shadows.md,
   },
 
-  '.MuiCard-root:hover &': {
-    opacity: 1,
+  '&:active': {
+    transform: 'scale(0.95)',
   },
 });
 
@@ -131,8 +149,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   onPlay,
   onContextMenu,
 }) => {
-  // Context menu state - temporarily disabled for build
-  // const { contextMenuState, handleContextMenu: handleContextMenuBase, handleCloseContextMenu } = useContextMenu();
+  const { contextMenuState, handleContextMenu: handleContextMenuBase, handleCloseContextMenu } = useContextMenu();
   const { success, info } = useToast();
 
   const handlePlay = (e: React.MouseEvent) => {
@@ -140,61 +157,83 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
     onPlay(id);
   };
 
-  // const handleContextMenu = (e: React.MouseEvent) => {
-  //   e.preventDefault();
-  //   e.stopPropagation();
-  //   handleContextMenuBase(e);
-  //   onContextMenu?.(id, e);
-  // };
+  const handleContextMenuOpen = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleContextMenuBase(e);
+    onContextMenu?.(id, e);
+  };
 
   const handleMoreClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Context menu temporarily disabled
-    info('Context menu coming soon!');
+    // Simulate context menu at button position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const syntheticEvent = {
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      clientX: rect.right,
+      clientY: rect.bottom,
+    } as React.MouseEvent;
+    handleContextMenuBase(syntheticEvent);
   };
 
   const handleCardClick = () => {
     onPlay(id);
   };
 
-  // Context menu actions - temporarily disabled
-  // const contextActions = getAlbumContextActions(id, {
-  //   onPlay: () => {
-  //     onPlay(id);
-  //     info(`Playing ${title}`);
-  //   },
-  //   onAddToQueue: () => {
-  //     success(`Added "${title}" to queue`);
-  //   },
-  //   onAddToPlaylist: () => {
-  //     info('Select playlist'); // TODO: Show playlist selector modal
-  //   },
-  //   onShowInfo: () => {
-  //     info(`Album: ${title} by ${artist}`); // TODO: Show album info modal
-  //   },
-  // });
+  // Context menu actions
+  const contextActions = getAlbumContextActions(id, {
+    onPlay: () => {
+      onPlay(id);
+      success(`Playing "${title}"`);
+    },
+    onAddToQueue: () => {
+      success(`Added "${title}" to queue`);
+      // TODO: Implement actual queue functionality
+    },
+    onShowArtist: () => {
+      info(`Showing artist: ${artist}`);
+      // TODO: Navigate to artist view
+    },
+    onEdit: () => {
+      info(`Edit album: ${title}`);
+      // TODO: Open album edit dialog
+    },
+  });
 
   return (
-    <StyledCard onClick={handleCardClick}>
-      <Box position="relative">
-        {/* Use AlbumArt component for real artwork extraction */}
-        <Box sx={{ width: '100%', aspectRatio: '1/1' }}>
-          <AlbumArt albumId={albumId} size="100%" borderRadius={0} />
+    <>
+      <StyledCard
+        onClick={handleCardClick}
+        onContextMenu={handleContextMenuOpen}
+        tabIndex={0}
+        component="div"
+      >
+        <Box position="relative" sx={{ overflow: 'hidden', borderRadius: `${borderRadius.sm}px` }}>
+          {/* Use AlbumArt component for real artwork extraction */}
+          <Box sx={{ width: '100%', aspectRatio: '1/1' }}>
+            <AlbumArt albumId={albumId} size="100%" borderRadius={0} />
+          </Box>
+
+          <PlayOverlay className="play-overlay">
+            <PlayButton onClick={handlePlay} aria-label="Play album" disableRipple={false}>
+              <PlayArrow />
+            </PlayButton>
+          </PlayOverlay>
+
+          <MoreButton
+            className="more-button"
+            onClick={handleMoreClick}
+            aria-label="More options"
+            size="small"
+          >
+            <MoreVert fontSize="small" />
+          </MoreButton>
         </Box>
-
-        <PlayOverlay className="play-overlay">
-          <PlayButton onClick={handlePlay} aria-label="Play">
-            <PlayArrow />
-          </PlayButton>
-        </PlayOverlay>
-
-        <MoreButton onClick={handleMoreClick} aria-label="More options" size="small">
-          <MoreVert fontSize="small" />
-        </MoreButton>
-      </Box>
 
       <CardContent sx={{ p: `${spacing.md}px`, pb: `${spacing.md}px !important` }}>
         <Typography
+          className="album-title"
           variant="subtitle1"
           sx={{
             color: colors.text.primary,
@@ -202,6 +241,8 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             mb: `${spacing.xs}px`,
+            transition: `color ${transitions.fast}`,
+            fontWeight: 600,
           }}
         >
           {title}
@@ -230,15 +271,16 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
           </Typography>
         )}
       </CardContent>
+      </StyledCard>
 
-      {/* Context menu temporarily disabled */}
-      {/* <ContextMenu
+      {/* Context menu */}
+      <ContextMenu
         anchorPosition={contextMenuState.mousePosition}
         open={contextMenuState.isOpen}
         onClose={handleCloseContextMenu}
         actions={contextActions}
-      /> */}
-    </StyledCard>
+      />
+    </>
   );
 };
 

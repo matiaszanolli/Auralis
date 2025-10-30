@@ -19,6 +19,8 @@ import {
 } from '@mui/material';
 import { Person, MusicNote } from '@mui/icons-material';
 import { colors } from '../../theme/auralisTheme';
+import { useContextMenu, ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
+import { useToast } from '../shared/Toast';
 
 interface Artist {
   id: number;
@@ -127,9 +129,14 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
   const [hasMore, setHasMore] = useState(true);
   const [totalArtists, setTotalArtists] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [contextMenuArtist, setContextMenuArtist] = useState<Artist | null>(null);
 
   // Ref for infinite scroll observer
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Context menu state
+  const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
+  const { success, info } = useToast();
 
   useEffect(() => {
     fetchArtists(true);
@@ -212,6 +219,42 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
     }
   };
 
+  const handleContextMenuOpen = (e: React.MouseEvent, artist: Artist) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenuArtist(artist);
+    handleContextMenu(e);
+  };
+
+  const handleContextMenuClose = () => {
+    setContextMenuArtist(null);
+    handleCloseContextMenu();
+  };
+
+  // Context menu actions
+  const contextActions = contextMenuArtist
+    ? getArtistContextActions(contextMenuArtist.id, {
+        onPlayAll: () => {
+          success(`Playing all songs by ${contextMenuArtist.name}`);
+          // TODO: Implement play all artist tracks
+        },
+        onAddToQueue: () => {
+          success(`Added ${contextMenuArtist.name} to queue`);
+          // TODO: Implement add artist to queue
+        },
+        onShowAlbums: () => {
+          info(`Showing albums by ${contextMenuArtist.name}`);
+          if (onArtistClick) {
+            onArtistClick(contextMenuArtist.id, contextMenuArtist.name);
+          }
+        },
+        onShowInfo: () => {
+          info(`Artist: ${contextMenuArtist.name}\n${contextMenuArtist.album_count} albums • ${contextMenuArtist.track_count} tracks`);
+          // TODO: Show artist info modal
+        },
+      })
+    : [];
+
   const getArtistInitial = (name: string): string => {
     return name.charAt(0).toUpperCase();
   };
@@ -283,7 +326,10 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
             <AlphabetDivider>{letter}</AlphabetDivider>
             {groupedArtists[letter].map((artist) => (
               <StyledListItem key={artist.id}>
-                <StyledListItemButton onClick={() => handleArtistClick(artist)}>
+                <StyledListItemButton
+                  onClick={() => handleArtistClick(artist)}
+                  onContextMenu={(e) => handleContextMenuOpen(e, artist)}
+                >
                   <ArtistAvatar>
                     {getArtistInitial(artist.name)}
                   </ArtistAvatar>
@@ -358,6 +404,14 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
           </Typography>
         </Box>
       )}
+
+      {/* Context menu */}
+      <ContextMenu
+        anchorPosition={contextMenuState.mousePosition}
+        open={contextMenuState.isOpen}
+        onClose={handleContextMenuClose}
+        actions={contextActions}
+      />
     </ListContainer>
   );
 };

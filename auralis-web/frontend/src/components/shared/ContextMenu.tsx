@@ -277,6 +277,42 @@ export const getAlbumContextActions = (
   },
 ];
 
+export const getArtistContextActions = (
+  artistId: number,
+  callbacks: {
+    onPlayAll?: () => void;
+    onAddToQueue?: () => void;
+    onShowAlbums?: () => void;
+    onShowInfo?: () => void;
+  }
+): ContextMenuAction[] => [
+  {
+    id: 'play-all',
+    label: 'Play All Songs',
+    icon: <PlayArrow fontSize="small" />,
+    onClick: callbacks.onPlayAll || (() => {}),
+  },
+  {
+    id: 'queue',
+    label: 'Add All to Queue',
+    icon: <QueueMusic fontSize="small" />,
+    onClick: callbacks.onAddToQueue || (() => {}),
+    divider: true,
+  },
+  {
+    id: 'albums',
+    label: 'Show Albums',
+    icon: <AlbumIcon fontSize="small" />,
+    onClick: callbacks.onShowAlbums || (() => {}),
+  },
+  {
+    id: 'info',
+    label: 'Artist Info',
+    icon: <Info fontSize="small" />,
+    onClick: callbacks.onShowInfo || (() => {}),
+  },
+];
+
 export const getPlaylistContextActions = (
   playlistId: string,
   callbacks: {
