@@ -6,45 +6,45 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.0.0--beta.5-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.5)
+[![Release](https://img.shields.io/badge/release-v1.0.0--beta.6-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.6)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-430%2B%20passing-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-234%20passing-brightgreen.svg)]()
 [![Test Coverage](https://img.shields.io/badge/coverage-91.9%25-brightgreen.svg)]()
 
-## 📥 Download Beta.5
+## 📥 Download Beta.6
 
-**🎉 Latest Release: Audio Fingerprint Similarity System!**
+**🎉 Latest Release: Enhanced Interactions & Polish!**
 
 | Platform | Download | Size |
 |----------|----------|------|
-| 🪟 **Windows** | Coming Soon | - |
-| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.5.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.5/Auralis-1.0.0-beta.5.AppImage) | 275 MB |
-| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.5_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.5/auralis-desktop_1.0.0-beta.5_amd64.deb) | 195 MB |
+| 🪟 **Windows** | [Auralis-Setup-1.0.0-beta.6.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.6/Auralis-Setup-1.0.0-beta.6.exe) | 205 MB |
+| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.6.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.6/Auralis-1.0.0-beta.6.AppImage) | 276 MB |
+| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.6_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.6/auralis-desktop_1.0.0-beta.6_amd64.deb) | 195 MB |
 
-📖 **[User Guide](BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA5.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
+📖 **[User Guide](BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA6.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
 
-### 🚀 What's New in Beta.5
+### 🚀 What's New in Beta.6
 
-**Revolutionary Music Discovery: 25D Audio Fingerprints**
+**Complete Phase 2: Enhanced Interactions**
 
-- 🎵 **Cross-Genre Discovery** - Find similar tracks based on acoustic characteristics, not just metadata
-- 🎯 **25-Dimensional Analysis** - Frequency, dynamics, tempo, spectral, harmonic, variation, and stereo characteristics
-- ⚡ **500x Performance** - K-NN graph for instant similarity queries
-- 📊 **6 REST API Endpoints** - Complete similarity search system
-- 🔍 **Smart Recommendations** - Discover hidden gems in your library
-- 🧪 **98 Comprehensive Tests** - Full test coverage with 95% pass rate
-- 🏗️ **Production-ready** - Complete documentation and technical specifications
+- 🎨 **Drag-and-Drop** - Intuitive playlist and queue management (724 lines of code)
+- ⌨️ **Keyboard Shortcuts** - 15+ shortcuts (⚠️ temporarily disabled due to minification issue)
+- ✅ **Batch Operations** - Multi-select with bulk actions (589 lines of code)
+- 🐛 **Bug Fixes** - Backend imports, deprecations, frontend artwork retry
+- 📚 **Complete Documentation** - 1,500+ lines of new documentation
 
-**Plus Previous Features from Beta.4:**
-- Progressive streaming with WebM/Opus encoding
-- Unified player architecture (67% code reduction)
-- 50+ streaming component tests
+**Phase 2 Total: 2,037 lines of new feature code**
 
-See [RELEASE_NOTES_BETA5.md](RELEASE_NOTES_BETA5.md) for complete technical details.
+**Plus Previous Features:**
+- Beta.5: 25D Audio Fingerprint Similarity System
+- Beta.4: Progressive streaming with WebM/Opus encoding
+- Beta.4: Unified player architecture (67% code reduction)
+
+See [RELEASE_NOTES_BETA6.md](RELEASE_NOTES_BETA6.md) for complete technical details.
 
 ---
 
-📚 **[Complete Documentation](DOCS.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Beta.4 Session Summary](docs/sessions/oct27_mse_integration/FINAL_SESSION_SUMMARY.md)**
+📚 **[Complete Documentation](DOCS.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Beta.6 Release Notes](RELEASE_NOTES_BETA6.md)**
 
 ---
 
@@ -73,23 +73,23 @@ Auralis is a **local music player** with professional audio enhancement built-in
 
 **Windows:**
 ```bash
-# 1. Download Auralis.Setup.1.0.0-beta.4.exe
+# 1. Download Auralis-Setup-1.0.0-beta.6.exe
 # 2. Run the installer
 # 3. Launch Auralis from Start Menu
 ```
 
 **Linux (AppImage):**
 ```bash
-# 1. Download Auralis-1.0.0-beta.4.AppImage
-chmod +x Auralis-1.0.0-beta.4.AppImage
-./Auralis-1.0.0-beta.4.AppImage
+# 1. Download Auralis-1.0.0-beta.6.AppImage
+chmod +x Auralis-1.0.0-beta.6.AppImage
+./Auralis-1.0.0-beta.6.AppImage
 ```
 
 **Linux (Debian/Ubuntu):**
 ```bash
-# 1. Download auralis-desktop_1.0.0-beta.4_amd64.deb
-sudo dpkg -i auralis-desktop_1.0.0-beta.4_amd64.deb
-auralis
+# 1. Download auralis-desktop_1.0.0-beta.6_amd64.deb
+sudo dpkg -i auralis-desktop_1.0.0-beta.6_amd64.deb
+auralis-desktop
 ```
 
 ### Option 2: Run from Source (Development)
@@ -340,7 +340,25 @@ npm run build
 
 ## 🎯 Roadmap
 
-### ✅ Completed (v1.0.0-beta.1) - October 26, 2025
+### ✅ Completed (v1.0.0-beta.6) - October 30, 2025
+
+**Beta.6 - Enhanced Interactions** (October 30, 2025):
+- [x] **Drag-and-drop system** - Playlist and queue management
+- [x] **Keyboard shortcuts** - 15+ shortcuts (temporarily disabled)
+- [x] **Batch operations** - Multi-select with bulk actions
+- [x] **Bug fixes** - Backend imports, deprecations, frontend artwork
+
+**Beta.5 - Audio Fingerprints** (October 28, 2025):
+- [x] **25D Audio Fingerprint System** - Cross-genre discovery
+- [x] **6 REST API Endpoints** - Similarity search
+- [x] **500x Performance** - K-NN graph optimization
+
+**Beta.4 - Unified Streaming** (October 27, 2025):
+- [x] **MSE + Multi-Tier Buffer** - Progressive streaming
+- [x] **Unified player architecture** - 67% code reduction
+- [x] **WebM/Opus encoding** - Efficient streaming
+
+**Beta.1-3 - Foundation** (October 25-26, 2025):
 - [x] Simplified UI (2 tabs instead of 6)
 - [x] Library management with folder scanning
 - [x] Native OS folder picker (Electron)
@@ -348,42 +366,32 @@ npm run build
 - [x] Beautiful music player interface
 - [x] Audio visualizer
 - [x] WebSocket live updates
-- [x] **Albums & Artists REST APIs** with pagination
-- [x] **Infinite scroll** for large libraries (10k+ tracks)
-- [x] **Query caching** (136x speedup)
-- [x] **95.5% frontend test coverage** (234/245 tests passing)
-- [x] **Comprehensive test suite** (486 total tests, 97.7% pass rate)
-- [x] **Production robustness** (worker timeout, error handling)
-- [x] **Stress testing** (1,446 requests, 0 crashes)
-- [x] **Auto-update system** (Electron updater integrated)
-- [x] **Cross-platform builds** (Windows + Linux packages)
-- [x] **First public beta release** 🎉
+- [x] Albums & Artists REST APIs with pagination
+- [x] Infinite scroll for large libraries (10k+ tracks)
+- [x] Query caching (136x speedup)
+- [x] Comprehensive test suite (430+ tests)
+- [x] Cross-platform builds (Windows + Linux)
 
-### 🔄 In Progress (Beta.2 - 2-3 weeks)
-- [ ] **Fix audio fuzziness between chunks** (P0 Critical)
-- [ ] **Fix volume jumps between chunks** (P0 Critical)
-- [ ] Fix gapless playback gaps (P1 High)
-- [ ] Optimize artist listing performance (P1 High)
-- [ ] Album detail view UI
-- [ ] Artist detail view UI
+### 🔄 In Progress (Beta.7)
+- [ ] **Re-enable keyboard shortcuts** (P0 - refactored architecture)
+- [ ] **Smart Playlists** - Based on 25D fingerprint similarity
+- [ ] **Enhanced Queue** - Save queue, history, suggestions
+- [ ] **Playback Polish** - Configurable crossfade, improved gapless
 
 ### 📋 Planned (v1.0.0 Stable)
-- [ ] Playlist creation and management UI (backend complete)
 - [ ] Enhancement presets UI (backend complete: Adaptive, Gentle, Warm, Bright, Punchy)
 - [ ] Export enhanced audio feature
 - [ ] Album art downloader (automatic artwork fetching)
 - [ ] Dark/light theme toggle
-- [ ] Drag-and-drop folder import
-- [ ] Queue management UI (backend complete)
 - [ ] macOS build
+- [ ] Undo system for batch operations
 
 ### 🎨 Future Ideas
 - [ ] Lyrics display
-- [ ] Smart collections (auto-playlists)
-- [ ] Keyboard shortcuts
 - [ ] Mini player mode
-- [ ] Crossfade between tracks
-- [ ] Gapless playback
+- [ ] Advanced crossfade (audio analysis for optimal points)
+- [ ] Music similarity graphs
+- [ ] Batch metadata editor
 
 ---
 
@@ -412,33 +420,39 @@ npm run build
 
 ---
 
-## 🐛 Known Issues (Beta.1)
+## 🐛 Known Issues (Beta.6)
 
-### ⚠️ Critical Issues (Beta.2 Priority)
+### ⚠️ Current Limitations
 
-**Audio fuzziness between chunks** (P0)
-- **Issue:** Distortion/artifacts every ~30 seconds during enhanced playback
-- **When:** Occurs at chunk boundaries (30s, 60s, 90s, etc.)
-- **Status:** Root cause under investigation
-- **Workaround:** None currently - affects all presets
+**Keyboard Shortcuts Temporarily Disabled** (P0)
+- **Issue:** Circular dependency in production build minification
+- **Status:** Feature complete, disabled for Beta.6 release
+- **Fix:** Re-enable in Beta.7 with refactored architecture
+- **Details:** See [BETA6_KEYBOARD_SHORTCUTS_DISABLED.md](BETA6_KEYBOARD_SHORTCUTS_DISABLED.md)
 
-**Volume jumps between chunks** (P0)
-- **Issue:** Loudness inconsistency between audio chunks
-- **Cause:** Per-chunk RMS normalization
-- **Status:** Fix proposed (global LUFS analysis)
-- **Workaround:** None currently
+**Playlist Track Order Persistence**
+- **Issue:** Drag-reordered tracks may not persist across restarts
+- **Status:** Database migration planned for Beta.7
+- **Workaround:** Use queue for temporary ordering
 
-**See [BETA1_KNOWN_ISSUES.md](BETA1_KNOWN_ISSUES.md) for complete details and beta.2 roadmap.**
+**Preset Switching Buffering**
+- **Issue:** 2-5 second pause when changing presets during playback
+- **Status:** Ongoing optimization
+- **Workaround:** Select preset before starting playback
 
-### Other Known Issues
+### ✅ Recently Fixed (Beta.2-6)
 
-**Gapless playback** (P1)
-- **Issue:** ~100ms gaps between tracks
-- **Status:** Planned fix for beta.2
+**Audio fuzziness between chunks** - ✅ FIXED in Beta.2
+- Fixed with 3s crossfade and state tracking
 
-**Artist listing performance** (P1)
-- **Issue:** Slow response time (468ms average)
-- **Status:** Pagination planned for beta.2
+**Volume jumps between chunks** - ✅ FIXED in Beta.2
+- Fixed with global LUFS analysis
+
+**Gapless playback gaps** - ✅ FIXED in Beta.2
+- Pre-buffering reduced gaps from 100ms to <10ms
+
+**Artist listing performance** - ✅ FIXED in Beta.2
+- Pagination reduced response from 468ms to 25ms
 
 ---
 

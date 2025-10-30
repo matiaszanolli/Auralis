@@ -2,9 +2,12 @@
 
 **Release Date**: October 30, 2025
 **Version**: 1.0.0-beta.6
-**Codename**: "Power User Edition"
+**Codename**: "Drag-and-Drop Edition"
 
-> **⚠️ HOTFIX APPLIED** (Oct 30, 2025): Fixed critical JavaScript initialization error that prevented the app from loading. All packages have been updated with the fix. See [HOTFIX_BETA6_CIRCULAR_DEPENDENCY.md](HOTFIX_BETA6_CIRCULAR_DEPENDENCY.md) for details.
+> **⚠️ IMPORTANT NOTES**:
+> - **Keyboard Shortcuts Disabled**: The keyboard shortcuts feature (Phase 2.4) was disabled due to a production build minification issue. It will be re-enabled in Beta.7. See [BETA6_KEYBOARD_SHORTCUTS_DISABLED.md](BETA6_KEYBOARD_SHORTCUTS_DISABLED.md) for details.
+> - **Batch Operations Delayed**: Multi-select batch operations (Phase 2.5) depend on keyboard shortcuts and are also delayed to Beta.7.
+> - **What Works**: Drag-and-drop (Phase 2.3) is fully functional and tested!
 
 ---
 
