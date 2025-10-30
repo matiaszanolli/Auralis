@@ -196,13 +196,23 @@ async def startup_event():
             if HAS_SIMILARITY:
                 try:
                     similarity_system = FingerprintSimilarity(library_manager.fingerprints)
-                    graph_builder = KNNGraphBuilder(
-                        similarity_system=similarity_system,
-                        session_factory=library_manager.SessionLocal
-                    )
                     logger.info("✅ Fingerprint Similarity System initialized")
+
+                    # Only create graph_builder if system is already fitted
+                    # (will be created on-demand via /api/similarity/fit endpoint)
+                    if similarity_system.is_fitted():
+                        graph_builder = KNNGraphBuilder(
+                            similarity_system=similarity_system,
+                            session_factory=library_manager.SessionLocal
+                        )
+                        logger.info("✅ K-NN Graph Builder initialized (system is fitted)")
+                    else:
+                        graph_builder = None
+                        logger.info("ℹ️  K-NN Graph Builder not initialized (system not fitted yet)")
                 except Exception as sim_e:
                     logger.warning(f"⚠️  Failed to initialize Similarity System: {sim_e}")
+                    similarity_system = None
+                    graph_builder = None
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize Auralis components: {e}")

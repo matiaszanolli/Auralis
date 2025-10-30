@@ -116,29 +116,34 @@ def create_similarity_router(
             if use_graph:
                 # Use pre-computed graph (fastest)
                 graph_builder = get_graph_builder()
-                neighbors = graph_builder.get_neighbors(track_id, limit=limit)
 
-                if neighbors:
-                    # Convert to SimilarTrack objects
-                    for neighbor in neighbors:
-                        result = SimilarTrack(
-                            track_id=neighbor['similar_track_id'],
-                            distance=neighbor['distance'],
-                            similarity_score=neighbor['similarity_score'],
-                            rank=neighbor['rank']
-                        )
-
-                        if include_details:
-                            similar_track = library.get_track(neighbor['similar_track_id'])
-                            if similar_track:
-                                result.title = similar_track.title
-                                result.artist = similar_track.artists[0].name if similar_track.artists else None
-                                result.album = similar_track.album.title if similar_track.album else None
-
-                        results.append(result)
-                else:
-                    # Graph not built yet, fall back to real-time calculation
+                # Check if graph_builder exists (may be None if not fitted)
+                if graph_builder is None:
                     use_graph = False
+                else:
+                    neighbors = graph_builder.get_neighbors(track_id, limit=limit)
+
+                    if neighbors:
+                        # Convert to SimilarTrack objects
+                        for neighbor in neighbors:
+                            result = SimilarTrack(
+                                track_id=neighbor['similar_track_id'],
+                                distance=neighbor['distance'],
+                                similarity_score=neighbor['similarity_score'],
+                                rank=neighbor['rank']
+                            )
+
+                            if include_details:
+                                similar_track = library.get_track(neighbor['similar_track_id'])
+                                if similar_track:
+                                    result.title = similar_track.title
+                                    result.artist = similar_track.artists[0].name if similar_track.artists else None
+                                    result.album = similar_track.album.title if similar_track.album else None
+
+                            results.append(result)
+                    else:
+                        # Graph not built yet, fall back to real-time calculation
+                        use_graph = False
 
             if not use_graph:
                 # Real-time calculation (slower but always available)
@@ -271,6 +276,61 @@ def create_similarity_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error explaining similarity: {str(e)}")
 
+    @router.post("/fit")
+    async def fit_similarity_system(
+        min_samples: int = Query(10, ge=5, description="Minimum fingerprints required to fit")
+    ) -> Dict[str, Any]:
+        """
+        Fit the similarity system with current fingerprints
+
+        The similarity system must be fitted before building the K-NN graph
+        or performing similarity searches.
+
+        Args:
+            min_samples: Minimum number of fingerprints required
+
+        Returns:
+            Status and fitted track count
+        """
+        try:
+            library = get_library_manager()
+            similarity = get_similarity_system()
+
+            if similarity is None:
+                raise HTTPException(status_code=503, detail="Similarity system not available")
+
+            # Check if already fitted
+            if similarity.is_fitted():
+                count = similarity.get_fitted_track_count()
+                return {
+                    "fitted": True,
+                    "total_fingerprints": count,
+                    "message": f"Similarity system already fitted with {count} tracks"
+                }
+
+            # Get fingerprint count
+            fingerprint_count = library.fingerprints.get_count()
+
+            if fingerprint_count < min_samples:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient fingerprints: {fingerprint_count} < {min_samples}"
+                )
+
+            # Fit the similarity system
+            similarity.fit()
+
+            return {
+                "fitted": True,
+                "total_fingerprints": fingerprint_count,
+                "message": f"Successfully fitted similarity system with {fingerprint_count} tracks"
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fitting similarity system: {str(e)}")
+
     @router.post("/graph/build")
     async def build_similarity_graph(
         k: int = Query(10, ge=1, le=50, description="Number of neighbors per track"),
@@ -292,10 +352,18 @@ def create_similarity_router(
         try:
             graph_builder = get_graph_builder()
 
+            if graph_builder is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Similarity system not fitted. Please fit the system first using POST /api/similarity/fit"
+                )
+
             stats = graph_builder.build_graph(k=k, clear_existing=clear_existing)
 
             return GraphStatsResponse(**stats.to_dict())
 
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error building graph: {str(e)}")
 
@@ -309,6 +377,10 @@ def create_similarity_router(
         """
         try:
             graph_builder = get_graph_builder()
+
+            if graph_builder is None:
+                return None
+
             stats = graph_builder.get_graph_stats()
 
             if stats:
@@ -329,6 +401,10 @@ def create_similarity_router(
         """
         try:
             graph_builder = get_graph_builder()
+
+            if graph_builder is None:
+                return {"edges_deleted": 0}
+
             count = graph_builder.clear_graph()
 
             return {"edges_deleted": count}
