@@ -21,7 +21,7 @@
  * - Help dialog with all shortcuts
  */
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useMemo } from 'react';
 
 // Keyboard shortcut configuration
 export interface KeyboardShortcut {
@@ -174,217 +174,246 @@ export const useKeyboardShortcuts = (config: KeyboardShortcutsConfig = {}): UseK
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isEnabled, setIsEnabled] = useState(config.enabled !== false);
 
-  // Build shortcuts array
-  const shortcuts: KeyboardShortcut[] = [];
+  // Build shortcuts array (memoized to prevent circular dependencies)
+  const shortcuts = useMemo(() => {
+    const result: KeyboardShortcut[] = [];
 
-  // Playback controls
-  if (config.onPlayPause) {
-    shortcuts.push({
-      key: ' ',
-      description: 'Play/Pause',
-      category: 'Playback',
-      handler: config.onPlayPause,
-    });
-  }
-  if (config.onNext) {
-    shortcuts.push({
-      key: 'ArrowRight',
-      description: 'Next track',
-      category: 'Playback',
-      handler: config.onNext,
-    });
-  }
-  if (config.onPrevious) {
-    shortcuts.push({
-      key: 'ArrowLeft',
-      description: 'Previous track',
-      category: 'Playback',
-      handler: config.onPrevious,
-    });
-  }
-  if (config.onSeekForward) {
-    shortcuts.push({
-      key: 'ArrowRight',
-      shift: true,
-      description: 'Seek forward 10s',
-      category: 'Playback',
-      handler: config.onSeekForward,
-    });
-  }
-  if (config.onSeekBackward) {
-    shortcuts.push({
-      key: 'ArrowLeft',
-      shift: true,
-      description: 'Seek backward 10s',
-      category: 'Playback',
-      handler: config.onSeekBackward,
-    });
-  }
-  if (config.onVolumeUp) {
-    shortcuts.push({
-      key: 'ArrowUp',
-      description: 'Volume up',
-      category: 'Playback',
-      handler: config.onVolumeUp,
-    });
-  }
-  if (config.onVolumeDown) {
-    shortcuts.push({
-      key: 'ArrowDown',
-      description: 'Volume down',
-      category: 'Playback',
-      handler: config.onVolumeDown,
-    });
-  }
-  if (config.onMute) {
-    shortcuts.push({
-      key: 'm',
-      description: 'Mute/Unmute',
-      category: 'Playback',
-      handler: config.onMute,
-    });
-  }
+    // Playback controls
+    if (config.onPlayPause) {
+      result.push({
+        key: ' ',
+        description: 'Play/Pause',
+        category: 'Playback',
+        handler: config.onPlayPause,
+      });
+    }
+    if (config.onNext) {
+      result.push({
+        key: 'ArrowRight',
+        description: 'Next track',
+        category: 'Playback',
+        handler: config.onNext,
+      });
+    }
+    if (config.onPrevious) {
+      result.push({
+        key: 'ArrowLeft',
+        description: 'Previous track',
+        category: 'Playback',
+        handler: config.onPrevious,
+      });
+    }
+    if (config.onSeekForward) {
+      result.push({
+        key: 'ArrowRight',
+        shift: true,
+        description: 'Seek forward 10s',
+        category: 'Playback',
+        handler: config.onSeekForward,
+      });
+    }
+    if (config.onSeekBackward) {
+      result.push({
+        key: 'ArrowLeft',
+        shift: true,
+        description: 'Seek backward 10s',
+        category: 'Playback',
+        handler: config.onSeekBackward,
+      });
+    }
+    if (config.onVolumeUp) {
+      result.push({
+        key: 'ArrowUp',
+        description: 'Volume up',
+        category: 'Playback',
+        handler: config.onVolumeUp,
+      });
+    }
+    if (config.onVolumeDown) {
+      result.push({
+        key: 'ArrowDown',
+        description: 'Volume down',
+        category: 'Playback',
+        handler: config.onVolumeDown,
+      });
+    }
+    if (config.onMute) {
+      result.push({
+        key: 'm',
+        description: 'Mute/Unmute',
+        category: 'Playback',
+        handler: config.onMute,
+      });
+    }
 
-  // Navigation
-  if (config.onShowSongs) {
-    shortcuts.push({
-      key: '1',
-      description: 'Show Songs',
-      category: 'Navigation',
-      handler: config.onShowSongs,
-    });
-  }
-  if (config.onShowAlbums) {
-    shortcuts.push({
-      key: '2',
-      description: 'Show Albums',
-      category: 'Navigation',
-      handler: config.onShowAlbums,
-    });
-  }
-  if (config.onShowArtists) {
-    shortcuts.push({
-      key: '3',
-      description: 'Show Artists',
-      category: 'Navigation',
-      handler: config.onShowArtists,
-    });
-  }
-  if (config.onShowPlaylists) {
-    shortcuts.push({
-      key: '4',
-      description: 'Show Playlists',
-      category: 'Navigation',
-      handler: config.onShowPlaylists,
-    });
-  }
-  if (config.onFocusSearch) {
-    shortcuts.push({
-      key: '/',
-      description: 'Focus search',
-      category: 'Navigation',
-      handler: config.onFocusSearch,
-    });
-  }
-  if (config.onEscape) {
-    shortcuts.push({
-      key: 'Escape',
-      description: 'Clear search / Close dialogs',
-      category: 'Navigation',
-      handler: config.onEscape,
-    });
-  }
+    // Navigation
+    if (config.onShowSongs) {
+      result.push({
+        key: '1',
+        description: 'Show Songs',
+        category: 'Navigation',
+        handler: config.onShowSongs,
+      });
+    }
+    if (config.onShowAlbums) {
+      result.push({
+        key: '2',
+        description: 'Show Albums',
+        category: 'Navigation',
+        handler: config.onShowAlbums,
+      });
+    }
+    if (config.onShowArtists) {
+      result.push({
+        key: '3',
+        description: 'Show Artists',
+        category: 'Navigation',
+        handler: config.onShowArtists,
+      });
+    }
+    if (config.onShowPlaylists) {
+      result.push({
+        key: '4',
+        description: 'Show Playlists',
+        category: 'Navigation',
+        handler: config.onShowPlaylists,
+      });
+    }
+    if (config.onFocusSearch) {
+      result.push({
+        key: '/',
+        description: 'Focus search',
+        category: 'Navigation',
+        handler: config.onFocusSearch,
+      });
+    }
+    if (config.onEscape) {
+      result.push({
+        key: 'Escape',
+        description: 'Clear search / Close dialogs',
+        category: 'Navigation',
+        handler: config.onEscape,
+      });
+    }
 
-  // Library actions
-  if (config.onPlaySelected) {
-    shortcuts.push({
-      key: 'Enter',
-      description: 'Play selected track',
-      category: 'Library',
-      handler: config.onPlaySelected,
-    });
-  }
-  if (config.onToggleFavorite) {
-    shortcuts.push({
-      key: 'l',
-      description: 'Like/Unlike track',
-      category: 'Library',
-      handler: config.onToggleFavorite,
-    });
-  }
-  if (config.onAddToPlaylist) {
-    shortcuts.push({
-      key: 'p',
-      description: 'Add to playlist',
-      category: 'Library',
-      handler: config.onAddToPlaylist,
-    });
-  }
-  if (config.onAddToQueue) {
-    shortcuts.push({
-      key: 'q',
-      description: 'Add to queue',
-      category: 'Library',
-      handler: config.onAddToQueue,
-    });
-  }
-  if (config.onShowInfo) {
-    shortcuts.push({
-      key: 'i',
-      description: 'Show track info',
-      category: 'Library',
-      handler: config.onShowInfo,
-    });
-  }
-  if (config.onDelete) {
-    shortcuts.push({
-      key: 'Delete',
-      description: 'Remove from playlist/queue',
-      category: 'Library',
-      handler: config.onDelete,
-    });
-  }
+    // Library actions
+    if (config.onPlaySelected) {
+      result.push({
+        key: 'Enter',
+        description: 'Play selected track',
+        category: 'Library',
+        handler: config.onPlaySelected,
+      });
+    }
+    if (config.onToggleFavorite) {
+      result.push({
+        key: 'l',
+        description: 'Like/Unlike track',
+        category: 'Library',
+        handler: config.onToggleFavorite,
+      });
+    }
+    if (config.onAddToPlaylist) {
+      result.push({
+        key: 'p',
+        description: 'Add to playlist',
+        category: 'Library',
+        handler: config.onAddToPlaylist,
+      });
+    }
+    if (config.onAddToQueue) {
+      result.push({
+        key: 'q',
+        description: 'Add to queue',
+        category: 'Library',
+        handler: config.onAddToQueue,
+      });
+    }
+    if (config.onShowInfo) {
+      result.push({
+        key: 'i',
+        description: 'Show track info',
+        category: 'Library',
+        handler: config.onShowInfo,
+      });
+    }
+    if (config.onDelete) {
+      result.push({
+        key: 'Delete',
+        description: 'Remove from playlist/queue',
+        category: 'Library',
+        handler: config.onDelete,
+      });
+    }
 
-  // Queue management
-  if (config.onClearQueue) {
-    shortcuts.push({
-      key: 'c',
-      ctrl: true,
-      shift: true,
-      description: 'Clear queue',
-      category: 'Queue',
-      handler: config.onClearQueue,
-    });
-  }
-  if (config.onShuffleQueue) {
-    shortcuts.push({
-      key: 's',
-      ctrl: true,
-      shift: true,
-      description: 'Shuffle queue',
-      category: 'Queue',
-      handler: config.onShuffleQueue,
-    });
-  }
+    // Queue management
+    if (config.onClearQueue) {
+      result.push({
+        key: 'c',
+        ctrl: true,
+        shift: true,
+        description: 'Clear queue',
+        category: 'Queue',
+        handler: config.onClearQueue,
+      });
+    }
+    if (config.onShuffleQueue) {
+      result.push({
+        key: 's',
+        ctrl: true,
+        shift: true,
+        description: 'Shuffle queue',
+        category: 'Queue',
+        handler: config.onShuffleQueue,
+      });
+    }
 
-  // Global
-  if (config.onShowHelp) {
-    shortcuts.push({
-      key: '?',
-      description: 'Show keyboard shortcuts',
-      category: 'Global',
-      handler: config.onShowHelp,
-    });
-  }
-  if (config.onOpenSettings) {
-    shortcuts.push({
-      key: ',',
-      ctrl: true,
-      description: 'Open settings',
-      category: 'Global',
-      handler: config.onOpenSettings,
-    });
-  }
+    // Global
+    if (config.onShowHelp) {
+      result.push({
+        key: '?',
+        description: 'Show keyboard shortcuts',
+        category: 'Global',
+        handler: config.onShowHelp,
+      });
+    }
+    if (config.onOpenSettings) {
+      result.push({
+        key: ',',
+        ctrl: true,
+        description: 'Open settings',
+        category: 'Global',
+        handler: config.onOpenSettings,
+      });
+    }
+
+    return result;
+  }, [
+    config.onPlayPause,
+    config.onNext,
+    config.onPrevious,
+    config.onSeekForward,
+    config.onSeekBackward,
+    config.onVolumeUp,
+    config.onVolumeDown,
+    config.onMute,
+    config.onShowSongs,
+    config.onShowAlbums,
+    config.onShowArtists,
+    config.onShowPlaylists,
+    config.onFocusSearch,
+    config.onEscape,
+    config.onPlaySelected,
+    config.onToggleFavorite,
+    config.onAddToPlaylist,
+    config.onAddToQueue,
+    config.onShowInfo,
+    config.onDelete,
+    config.onClearQueue,
+    config.onShuffleQueue,
+    config.onShowHelp,
+    config.onOpenSettings,
+  ]);
 
   // Keyboard event handler
   const handleKeyDown = useCallback(
