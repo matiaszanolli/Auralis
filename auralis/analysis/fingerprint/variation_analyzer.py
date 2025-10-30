@@ -97,7 +97,8 @@ class VariationAnalyzer:
                 if len(frame) > 0:
                     peak = np.max(np.abs(frame))
                     rms_val = rms[i]
-                    if rms_val > 1e-10:
+                    # Avoid division by zero and log(0)
+                    if rms_val > 1e-10 and peak > 1e-10:
                         crest_db = 20 * np.log10(peak / rms_val)
                         crest_per_frame.append(crest_db)
 

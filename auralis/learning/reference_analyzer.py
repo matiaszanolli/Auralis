@@ -17,7 +17,7 @@ import json
 from auralis.io.unified_loader import load_audio
 from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
 from auralis.analysis.loudness_meter import LoudnessMeter
-from auralis.analysis.dynamic_range import calculate_dynamic_range
+from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
 from auralis.analysis.phase_correlation import PhaseCorrelationAnalyzer
 from auralis.learning.reference_library import (
     ReferenceTrack,
@@ -123,7 +123,9 @@ class ReferenceAnalyzer:
 
         # === Dynamic Range Analysis ===
         print("  - Analyzing dynamics...")
-        dynamic_range = calculate_dynamic_range(audio, sr)
+        dr_analyzer = DynamicRangeAnalyzer(sample_rate=sr)
+        dr_result = dr_analyzer.analyze_dynamic_range(audio)
+        dynamic_range = dr_result.get('dr_db', 0.0)
         rms_db = 20 * np.log10(np.sqrt(np.mean(audio ** 2)) + 1e-10)
         peak_db = 20 * np.log10(np.max(np.abs(audio)) + 1e-10)
         crest_factor = peak_db - rms_db
