@@ -24,7 +24,7 @@ router = APIRouter(tags=["enhancement"])
 VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
 
 
-def create_enhancement_router(get_enhancement_settings, connection_manager, get_processing_cache=None):
+def create_enhancement_router(get_enhancement_settings, connection_manager, get_processing_cache=None, get_multi_tier_buffer=None, get_player_state_manager=None):
     """
     Factory function to create enhancement router with dependencies.
 
@@ -32,6 +32,8 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         get_enhancement_settings: Callable that returns enhancement settings dict
         connection_manager: WebSocket connection manager for broadcasts
         get_processing_cache: Optional callable that returns processing cache dict
+        get_multi_tier_buffer: Optional callable that returns MultiTierBufferManager
+        get_player_state_manager: Optional callable that returns PlayerStateManager
 
     Returns:
         APIRouter: Configured router instance
@@ -98,6 +100,22 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
             enhancement_settings = get_enhancement_settings()
             old_preset = enhancement_settings.get("preset")
             enhancement_settings["preset"] = preset.lower()
+
+            # Update multi-tier buffer manager for branch prediction learning
+            if get_multi_tier_buffer and get_player_state_manager and old_preset != preset.lower():
+                buffer_manager = get_multi_tier_buffer()
+                player_state_manager = get_player_state_manager()
+                if buffer_manager and player_state_manager:
+                    state = player_state_manager.get_state()
+                    # Only update if we have a current track
+                    if state.current_track:
+                        await buffer_manager.update_position(
+                            track_id=state.current_track.id,
+                            position=state.current_time,
+                            preset=preset.lower(),
+                            intensity=enhancement_settings["intensity"]
+                        )
+                        logger.info(f"🎯 Buffer manager learned preset switch: {old_preset} → {preset.lower()}")
 
             # Clear cache entries for tracks with the old preset to force reprocessing
             if get_processing_cache is not None and old_preset != preset.lower():
