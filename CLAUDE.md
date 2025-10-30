@@ -272,6 +272,10 @@ Professional-grade digital signal processing with modular architecture:
 - [auralis-web/frontend/src/components/ComfortableApp.tsx](auralis-web/frontend/src/components/ComfortableApp.tsx) - Main app layout
 - [auralis-web/frontend/src/components/CozyLibraryView.tsx](auralis-web/frontend/src/components/CozyLibraryView.tsx) - Library view
 - [auralis-web/frontend/src/components/BottomPlayerBar.tsx](auralis-web/frontend/src/components/BottomPlayerBar.tsx) - Player controls
+- **Beta.6 Interaction Features:**
+  - [auralis-web/frontend/src/components/drag-drop/](auralis-web/frontend/src/components/drag-drop/) - Drag-and-drop system (5 components)
+  - [auralis-web/frontend/src/hooks/useKeyboardShortcuts.tsx](auralis-web/frontend/src/hooks/useKeyboardShortcuts.tsx) - Keyboard shortcuts (⚠️ disabled in Beta.6)
+  - [auralis-web/frontend/src/components/BatchOperationsToolbar.tsx](auralis-web/frontend/src/components/BatchOperationsToolbar.tsx) - Multi-select batch operations
 
 ### Adding Backend API Endpoints
 
@@ -581,6 +585,26 @@ ls "/path/to/album/"*.flac > /tmp/tracklist.txt
 python research/scripts/batch_analyze.py /tmp/tracklist.txt
 ```
 
+**Working with Beta.6 interaction features:**
+```bash
+# Drag-and-drop components (5 components, 724 lines)
+# Location: auralis-web/frontend/src/components/drag-drop/
+# - DraggableTrack.tsx - Individual draggable track
+# - DroppablePlaylist.tsx - Playlist drop target
+# - DroppableQueue.tsx - Queue drop target
+# - DragPreview.tsx - Visual drag feedback
+# - useDragAndDrop.tsx - Drag-and-drop logic hook
+
+# Keyboard shortcuts (⚠️ temporarily disabled in Beta.6)
+# Location: auralis-web/frontend/src/hooks/useKeyboardShortcuts.tsx
+# Status: Complete but disabled due to minification issue
+# Re-enable planned for Beta.7 with refactored architecture
+
+# Batch operations
+# Location: auralis-web/frontend/src/components/BatchOperationsToolbar.tsx
+# Features: Multi-select, bulk add to queue, toggle favorites, remove tracks
+```
+
 ### Code Organization Principles
 - **Modular Design**: Large modules (400+ lines) refactored into focused sub-modules
 - **Facade Pattern**: Original files become re-export wrappers for backward compatibility
@@ -818,14 +842,20 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **License**: GPL-3.0
 
 ### Project Status
-- **Version**: 1.0.0-beta.4 (Beta stage - **Production Quality** with unified streaming)
+- **Version**: 1.0.0-beta.6 (Beta stage - **Production Quality** with enhanced interactions)
+- **Beta.6 Enhanced Interactions**: ✅ **COMPLETE PHASE 2** (Oct 30, 2025)
+  - Drag-and-drop system for playlist and queue management (724 lines)
+  - Keyboard shortcuts (15+ shortcuts, ⚠️ temporarily disabled due to minification issue)
+  - Batch operations with multi-select (589 lines)
+  - 2,037 lines of new feature code
+  - Bug fixes for backend imports, deprecations, and frontend artwork
+  - See [RELEASE_NOTES_BETA6.md](RELEASE_NOTES_BETA6.md) for complete details
 - **Beta.4 Unified Streaming**: ✅ **MAJOR ARCHITECTURE OVERHAUL** (Oct 27, 2025)
   - Unified MSE + Multi-Tier Buffer system (eliminates dual playback conflicts)
   - Progressive WebM/Opus streaming for instant preset switching
   - 4,518 lines of new code across 15 components
   - 67% player UI code reduction (970→320 lines)
   - 75% test coverage on new components (50+ comprehensive tests)
-  - Released: October 27, 2025
   - See [docs/sessions/oct27_mse_integration/](docs/sessions/oct27_mse_integration/) for complete technical details
 - **Beta.1 Critical Fixes**: ✅ **ALL P0/P1 ISSUES RESOLVED** (Oct 26, 2025)
   - Audio fuzziness between chunks - ✅ FIXED (3s crossfade + state tracking)
@@ -879,17 +909,21 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
   - Foundation for cross-genre music discovery and recommendation
   - See [docs/sessions/oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/) for complete details
 
-**Beta.3 Known Limitations:**
-- ⚠️ **Preset switching requires buffering** - 2-5 second pause when changing presets (P2)
-  - Root cause: Current streaming serves complete files, not progressive chunks
-  - Workaround: Select preset before playback
-  - Fix planned: MSE-based progressive streaming in Beta.4
-  - See [BETA1_KNOWN_ISSUES.md](BETA1_KNOWN_ISSUES.md) for details
+**Beta.6 Known Limitations:**
+- ⚠️ **Keyboard shortcuts temporarily disabled** - Production build minification issue
+  - Root cause: Circular dependency in keyboard shortcut hook
+  - Status: Feature code complete, disabled for Beta.6 release
+  - Fix planned: Re-enable in Beta.7 with refactored architecture
+  - See [BETA6_KEYBOARD_SHORTCUTS_DISABLED.md](BETA6_KEYBOARD_SHORTCUTS_DISABLED.md) for details
+- **Playlist track order persistence** - May not persist across restarts (database migration planned for Beta.7)
+- **Preset switching buffering** - Still requires 2-5s pause when changing presets (optimization ongoing)
 
-**Beta.4 Roadmap (Future Release):**
-- 🎯 **P0 Priority**: MSE-based progressive streaming for instant preset switching (< 100ms)
-- See [BETA3_ROADMAP.md](BETA3_ROADMAP.md) for implementation plan
-- Consider additional quick wins based on user feedback
+**Beta.7 Roadmap (Planned):**
+- 🎯 **P0 Priority**: Re-enable keyboard shortcuts with refactored architecture
+- **Phase 3.1**: Smart Playlists based on 25D fingerprint similarity
+- **Phase 3.2**: Enhanced Queue (save queue, history, suggestions)
+- **Phase 3.3**: Playback Polish (configurable crossfade, improved gapless)
+- See [RELEASE_NOTES_BETA6.md](RELEASE_NOTES_BETA6.md) for Beta.7 roadmap details
 
 ### Additional Documentation
 
@@ -926,7 +960,12 @@ All technical documentation has been organized into categorized directories:
 - [CHANGELOG.md](docs/versions/CHANGELOG.md) - Version history
 
 **📂 docs/sessions/** - Session-specific work documentation
-- [oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/) - **NEW** - 25D fingerprint system (11 files)
+- [oct30_beta6_release/](docs/sessions/oct30_beta6_release/) - **LATEST** - Beta 6 release session
+  - Phase 2 Enhanced Interactions complete (drag-drop, keyboard shortcuts, batch ops)
+  - Bug fixes and polish session
+  - Keyboard shortcuts hotfix and circular dependency resolution
+- [oct27_mse_integration/](docs/sessions/oct27_mse_integration/) - Beta 4 MSE streaming architecture
+- [oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/) - 25D fingerprint system (11 files)
   - Complete implementation documentation and validation results
   - Album analysis studies (Rush 1977, Rush 1989, Exodus, Steven Wilson)
   - Mathematical framework from 64+ tracks across 9 albums
