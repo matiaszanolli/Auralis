@@ -16,6 +16,8 @@ import {
 import AlbumCard from './library/AlbumCard';
 import AlbumArt from './album/AlbumArt';
 import TrackRow from './library/TrackRow';
+import SelectableTrackRow from './library/SelectableTrackRow';
+import BatchActionsToolbar from './library/BatchActionsToolbar';
 import EnhancedTrackQueue from './player/EnhancedTrackQueue';
 import SearchBar from './navigation/SearchBar';
 import ViewToggle, { ViewMode } from './navigation/ViewToggle';
@@ -23,6 +25,7 @@ import { LibraryGridSkeleton, TrackRowSkeleton } from './shared/SkeletonLoader';
 import { useToast } from './shared/Toast';
 import { EmptyLibrary, NoSearchResults, EmptyState } from './shared/EmptyState';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
+import { useTrackSelection } from '../hooks/useTrackSelection';
 import * as queueService from '../services/queueService';
 import { CozyAlbumGrid } from './library/CozyAlbumGrid';
 import { CozyArtistList } from './library/CozyArtistList';
@@ -78,6 +81,17 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
 
   // Real player API for playback
   const { playTrack, setQueue } = usePlayerAPI();
+
+  // Track selection for batch operations
+  const {
+    selectedTracks,
+    isSelected,
+    toggleTrack,
+    selectAll,
+    clearSelection,
+    selectedCount,
+    hasSelection
+  } = useTrackSelection(filteredTracks);
 
   // Ref for infinite scroll observer
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -291,6 +305,43 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
     fetchTracks();
   }, [view]);
 
+  // Reset selected album/artist when view changes (fixes sidebar navigation from detail views)
+  useEffect(() => {
+    setSelectedAlbumId(null);
+    setSelectedArtistId(null);
+    setSelectedArtistName('');
+  }, [view]);
+
+  // Selection keyboard shortcuts (Ctrl+A, Escape)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't handle if typing in input field
+      const target = event.target as HTMLElement;
+      const isInput = target.tagName.toLowerCase() === 'input' ||
+                     target.tagName.toLowerCase() === 'textarea' ||
+                     target.contentEditable === 'true';
+
+      if (isInput) return;
+
+      // Ctrl/Cmd + A: Select all tracks
+      if ((event.ctrlKey || event.metaKey) && event.key === 'a' && filteredTracks.length > 0) {
+        event.preventDefault();
+        selectAll();
+        info(`Selected all ${filteredTracks.length} tracks`);
+      }
+
+      // Escape: Clear selection (if tracks are selected)
+      if (event.key === 'Escape' && hasSelection) {
+        event.preventDefault();
+        clearSelection();
+        info('Selection cleared');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [filteredTracks, hasSelection, selectAll, clearSelection, info]);
+
   // Filter tracks based on search
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -349,6 +400,73 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const handleEditMetadata = (trackId: number) => {
     setEditingTrackId(trackId);
     setEditMetadataDialogOpen(true);
+  };
+
+  // Batch action handlers
+  const handleBulkAddToQueue = async () => {
+    try {
+      const selectedTrackIds = Array.from(selectedTracks);
+      for (const trackId of selectedTrackIds) {
+        await fetch('http://localhost:8765/api/player/queue/add-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ track_id: trackId })
+        });
+      }
+      success(`Added ${selectedCount} tracks to queue`);
+      clearSelection();
+    } catch (err) {
+      error('Failed to add tracks to queue');
+    }
+  };
+
+  const handleBulkAddToPlaylist = async () => {
+    // TODO: Show playlist selection dialog
+    info('Bulk add to playlist - Coming soon!');
+    // For now, just show a message
+    // Future: Open dialog to select playlist, then bulk add
+  };
+
+  const handleBulkRemove = async () => {
+    if (!confirm(`Remove ${selectedCount} tracks?`)) {
+      return;
+    }
+
+    try {
+      // Context-dependent removal
+      if (view === 'favorites') {
+        // Remove from favorites
+        for (const trackId of selectedTracks) {
+          await fetch(`http://localhost:8765/api/library/tracks/${trackId}/favorite`, {
+            method: 'DELETE'
+          });
+        }
+        success(`Removed ${selectedCount} tracks from favorites`);
+      } else {
+        // Remove from library (requires confirmation)
+        info('Bulk delete from library requires API implementation');
+      }
+
+      clearSelection();
+      fetchTracks(); // Refresh
+    } catch (err) {
+      error('Failed to remove tracks');
+    }
+  };
+
+  const handleBulkToggleFavorite = async () => {
+    try {
+      for (const trackId of selectedTracks) {
+        await fetch(`http://localhost:8765/api/library/tracks/${trackId}/favorite`, {
+          method: 'POST'
+        });
+      }
+      success(`Toggled favorite for ${selectedCount} tracks`);
+      clearSelection();
+      fetchTracks(); // Refresh
+    } catch (err) {
+      error('Failed to toggle favorites');
+    }
   };
 
   // Show album detail view (can come from albums view or artist view)
@@ -456,9 +574,23 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
+    <>
+      {/* Batch Actions Toolbar - Appears when tracks selected */}
+      {hasSelection && (
+        <BatchActionsToolbar
+          selectedCount={selectedCount}
+          onAddToQueue={handleBulkAddToQueue}
+          onAddToPlaylist={handleBulkAddToPlaylist}
+          onRemove={handleBulkRemove}
+          onToggleFavorite={handleBulkToggleFavorite}
+          onClearSelection={clearSelection}
+          context={view === 'favourites' ? 'favorites' : 'library'}
+        />
+      )}
+
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* Header */}
+        <Box sx={{ mb: 4 }}>
         <Typography
           variant="h3"
           component="h1"
@@ -659,9 +791,11 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
                 animationFillMode: 'both'
               }}
             >
-              <TrackRow
+              <SelectableTrackRow
                 track={track}
                 index={index}
+                isSelected={isSelected(track.id)}
+                onToggleSelect={(e) => toggleTrack(track.id, e)}
                 isPlaying={isPlaying}
                 isCurrent={currentTrackId === track.id}
                 onPlay={(trackId) => {
@@ -782,6 +916,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
         />
       )}
     </Container>
+    </>
   );
 };
 
