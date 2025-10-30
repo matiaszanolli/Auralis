@@ -22,6 +22,7 @@ import {
 import { colors } from '../../theme/auralisTheme';
 import { useToast } from '../shared/Toast';
 import { useWebSocketContext } from '../../contexts/WebSocketContext';
+import { useContextMenu, ContextMenu, getPlaylistContextActions } from '../shared/ContextMenu';
 import * as playlistService from '../../services/playlistService';
 import CreatePlaylistDialog from './CreatePlaylistDialog';
 import EditPlaylistDialog from './EditPlaylistDialog';
@@ -141,11 +142,15 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingPlaylist, setEditingPlaylist] = useState<playlistService.Playlist | null>(null);
+  const [contextMenuPlaylist, setContextMenuPlaylist] = useState<playlistService.Playlist | null>(null);
   const [loading, setLoading] = useState(false);
   const { success, error, info } = useToast();
 
   // WebSocket connection for real-time updates (using shared WebSocketContext)
   const { subscribe } = useWebSocketContext();
+
+  // Context menu state
+  const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
 
   // Load playlists on mount
   useEffect(() => {
@@ -269,6 +274,38 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
     fetchPlaylists();
   };
 
+  const handleContextMenuOpen = (e: React.MouseEvent, playlist: playlistService.Playlist) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenuPlaylist(playlist);
+    handleContextMenu(e);
+  };
+
+  const handleContextMenuClose = () => {
+    setContextMenuPlaylist(null);
+    handleCloseContextMenu();
+  };
+
+  // Context menu actions
+  const contextActions = contextMenuPlaylist
+    ? getPlaylistContextActions(contextMenuPlaylist.id.toString(), {
+        onPlay: () => {
+          info(`Playing playlist: ${contextMenuPlaylist.name}`);
+          if (onPlaylistSelect) {
+            onPlaylistSelect(contextMenuPlaylist.id);
+          }
+          // TODO: Implement play playlist
+        },
+        onEdit: () => {
+          setEditingPlaylist(contextMenuPlaylist);
+          setEditDialogOpen(true);
+        },
+        onDelete: () => {
+          handleDelete(contextMenuPlaylist.id, contextMenuPlaylist.name, new MouseEvent('click') as any);
+        },
+      })
+    : [];
+
   return (
     <PlaylistSection>
       <SectionHeader
@@ -312,6 +349,7 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
                 <StyledListItemButton
                   selected={selectedPlaylistId === playlist.id}
                   onClick={() => onPlaylistSelect && onPlaylistSelect(playlist.id)}
+                  onContextMenu={(e) => handleContextMenuOpen(e, playlist)}
                 >
                   <ListItemText
                     primary={playlist.name}
@@ -349,6 +387,14 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
           )}
         </List>
       </Collapse>
+
+      {/* Context menu */}
+      <ContextMenu
+        anchorPosition={contextMenuState.mousePosition}
+        open={contextMenuState.isOpen}
+        onClose={handleContextMenuClose}
+        actions={contextActions}
+      />
 
       <CreatePlaylistDialog
         open={createDialogOpen}

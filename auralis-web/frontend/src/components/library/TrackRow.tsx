@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Typography, IconButton, styled } from '@mui/material';
 import { PlayArrow, Pause, MoreVert, MusicNote } from '@mui/icons-material';
 import { colors, gradients, spacing, borderRadius, transitions } from '../../theme/auralisTheme';
-import { useContextMenu, ContextMenu, getTrackContextActions } from '../shared/ContextMenu';
+import { TrackContextMenu } from '../shared/TrackContextMenu';
 import { useToast } from '../shared/Toast';
 
 export interface Track {
@@ -10,8 +10,10 @@ export interface Track {
   title: string;
   artist: string;
   album?: string;
+  album_id?: number;
   duration: number;
   albumArt?: string;
+  favorite?: boolean;
 }
 
 interface TrackRowProps {
@@ -23,6 +25,11 @@ interface TrackRowProps {
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
   onEditMetadata?: (trackId: number) => void;
+  onToggleFavorite?: (trackId: number) => void;
+  onShowAlbum?: (albumId: number) => void;
+  onShowArtist?: (artistName: string) => void;
+  onShowInfo?: (trackId: number) => void;
+  onDelete?: (trackId: number) => void;
 }
 
 const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
@@ -217,9 +224,14 @@ export const TrackRow: React.FC<TrackRowProps> = ({
   onPause,
   onDoubleClick,
   onEditMetadata,
+  onToggleFavorite,
+  onShowAlbum,
+  onShowArtist,
+  onShowInfo,
+  onDelete,
 }) => {
   const [imageError, setImageError] = useState(false);
-  const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
+  const [contextMenuPosition, setContextMenuPosition] = useState<{top: number, left: number} | null>(null);
   const { success, info } = useToast();
 
   const formatDuration = (seconds: number): string => {
@@ -247,47 +259,18 @@ export const TrackRow: React.FC<TrackRowProps> = ({
 
   const handleMoreClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    handleContextMenu(e);
+    setContextMenuPosition({ top: e.clientY, left: e.clientX });
   };
 
   const handleTrackContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    handleContextMenu(e);
+    setContextMenuPosition({ top: e.clientY, left: e.clientX });
   };
 
-  // Context menu actions
-  const contextActions = getTrackContextActions(
-    track.id,
-    false, // isLoved - can be extended with user favorites state
-    {
-      onPlay: () => {
-        onPlay(track.id);
-        info(`Now playing: ${track.title}`);
-      },
-      onAddToQueue: () => {
-        success(`Added "${track.title}" to queue`);
-      },
-      onLove: () => {
-        success(`Added "${track.title}" to favorites`);
-      },
-      onAddToPlaylist: () => {
-        info('Select playlist'); // TODO: Show playlist selector modal
-      },
-      onEditMetadata: onEditMetadata ? () => {
-        onEditMetadata(track.id);
-      } : undefined,
-      onShowAlbum: () => {
-        info(`Album: ${track.album || 'Unknown'}`);
-      },
-      onShowArtist: () => {
-        info(`Artist: ${track.artist}`);
-      },
-      onShowInfo: () => {
-        info(`${track.title} by ${track.artist}`);
-      },
-    }
-  );
+  const handleCloseContextMenu = () => {
+    setContextMenuPosition(null);
+  };
 
   const isCurrentStr = isCurrent ? 'true' : 'false';
 
@@ -362,12 +345,42 @@ export const TrackRow: React.FC<TrackRowProps> = ({
         </MoreButton>
       </RowContainer>
 
-      {/* Context Menu */}
-      <ContextMenu
-        anchorPosition={contextMenuState.mousePosition}
-        open={contextMenuState.isOpen}
+      {/* Enhanced Track Context Menu */}
+      <TrackContextMenu
+        trackId={track.id}
+        trackTitle={track.title}
+        trackAlbumId={track.album_id}
+        trackArtistName={track.artist}
+        isFavorite={track.favorite || false}
+        anchorPosition={contextMenuPosition}
         onClose={handleCloseContextMenu}
-        actions={contextActions}
+        onPlay={() => {
+          onPlay(track.id);
+          info(`Now playing: ${track.title}`);
+        }}
+        onAddToQueue={() => {
+          success(`Added "${track.title}" to queue`);
+          // TODO: Implement actual queue functionality
+        }}
+        onToggleFavorite={onToggleFavorite ? () => {
+          onToggleFavorite(track.id);
+          success(track.favorite ? `Removed "${track.title}" from favorites` : `Added "${track.title}" to favorites`);
+        } : undefined}
+        onShowAlbum={onShowAlbum && track.album_id ? () => {
+          onShowAlbum(track.album_id!);
+        } : undefined}
+        onShowArtist={onShowArtist ? () => {
+          onShowArtist(track.artist);
+        } : undefined}
+        onShowInfo={onShowInfo ? () => {
+          onShowInfo(track.id);
+        } : undefined}
+        onEditMetadata={onEditMetadata ? () => {
+          onEditMetadata(track.id);
+        } : undefined}
+        onDelete={onDelete ? () => {
+          onDelete(track.id);
+        } : undefined}
       />
     </>
   );

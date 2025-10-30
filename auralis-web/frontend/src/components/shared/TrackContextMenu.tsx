@@ -15,8 +15,13 @@ import {
   Info,
   QueueMusic,
   Add,
+  PlayArrow,
+  Album as AlbumIcon,
+  Person,
+  Edit,
+  Delete,
 } from '@mui/icons-material';
-import { colors } from '../../theme/auralisTheme';
+import { colors, borderRadius, spacing, transitions } from '../../theme/auralisTheme';
 import { useToast } from './Toast';
 import * as playlistService from '../../services/playlistService';
 import CreatePlaylistDialog from '../playlist/CreatePlaylistDialog';
@@ -24,38 +29,53 @@ import CreatePlaylistDialog from '../playlist/CreatePlaylistDialog';
 interface TrackContextMenuProps {
   trackId: number | null;
   trackTitle: string;
+  trackAlbumId?: number;
+  trackArtistName?: string;
   isFavorite: boolean;
   anchorPosition: { top: number; left: number } | null;
   onClose: () => void;
+  onPlay?: () => void;
   onToggleFavorite?: () => void;
   onShowInfo?: () => void;
   onAddToQueue?: () => void;
+  onShowAlbum?: () => void;
+  onShowArtist?: () => void;
+  onEditMetadata?: () => void;
+  onDelete?: () => void;
 }
 
 const StyledMenu = styled(Menu)({
   '& .MuiPaper-root': {
     background: colors.background.secondary,
     border: `1px solid rgba(102, 126, 234, 0.2)`,
-    borderRadius: '8px',
-    minWidth: '220px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+    borderRadius: `${borderRadius.sm}px`,
+    minWidth: '240px',
+    boxShadow: '0 12px 48px rgba(0, 0, 0, 0.5)',
+    backdropFilter: 'blur(12px)',
+    padding: `${spacing.xs}px`,
   },
 });
 
-const StyledMenuItem = styled(MenuItem)({
+const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructive }) => ({
   fontSize: '14px',
-  color: colors.text.primary,
-  padding: '10px 16px',
-  transition: 'all 0.2s ease',
+  color: destructive ? '#ff4757' : colors.text.primary,
+  padding: `${spacing.sm + 2}px ${spacing.md - 4}px`,
+  borderRadius: `${borderRadius.xs}px`,
+  margin: `${spacing.xxs}px 0`,
+  transition: `all ${transitions.fast}`,
   '&:hover': {
-    background: 'rgba(102, 126, 234, 0.15)',
+    background: destructive ? 'rgba(255, 71, 87, 0.12)' : 'rgba(102, 126, 234, 0.15)',
     transform: 'translateX(2px)',
   },
   '& .MuiListItemIcon-root': {
-    color: colors.text.secondary,
+    color: destructive ? '#ff4757' : colors.text.secondary,
     minWidth: 36,
+    transition: `color ${transitions.fast}`,
   },
-});
+  '&:hover .MuiListItemIcon-root': {
+    color: destructive ? '#ff4757' : '#667eea',
+  },
+}));
 
 const PlaylistMenuItem = styled(MenuItem)({
   fontSize: '13px',
@@ -93,12 +113,19 @@ const SectionLabel = styled(Box)({
 export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
   trackId,
   trackTitle,
+  trackAlbumId,
+  trackArtistName,
   isFavorite,
   anchorPosition,
   onClose,
+  onPlay,
   onToggleFavorite,
   onShowInfo,
   onAddToQueue,
+  onShowAlbum,
+  onShowArtist,
+  onEditMetadata,
+  onDelete,
 }) => {
   const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -157,18 +184,28 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
         anchorReference="anchorPosition"
         anchorPosition={anchorPosition || undefined}
       >
-        {onAddToQueue && (
-          <>
-            <StyledMenuItem onClick={() => { onAddToQueue(); onClose(); }}>
-              <ListItemIcon>
-                <QueueMusic />
-              </ListItemIcon>
-              <ListItemText>Add to Queue</ListItemText>
-            </StyledMenuItem>
-            <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)' }} />
-          </>
+        {/* Primary actions */}
+        {onPlay && (
+          <StyledMenuItem onClick={() => { onPlay(); onClose(); }}>
+            <ListItemIcon>
+              <PlayArrow />
+            </ListItemIcon>
+            <ListItemText>Play Now</ListItemText>
+          </StyledMenuItem>
         )}
 
+        {onAddToQueue && (
+          <StyledMenuItem onClick={() => { onAddToQueue(); onClose(); }}>
+            <ListItemIcon>
+              <QueueMusic />
+            </ListItemIcon>
+            <ListItemText>Add to Queue</ListItemText>
+          </StyledMenuItem>
+        )}
+
+        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 1 }} />
+
+        {/* Playlist actions */}
         <StyledMenuItem>
           <ListItemIcon>
             <PlaylistAdd />
@@ -197,6 +234,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
 
         <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 1 }} />
 
+        {/* Favorite toggle */}
         {onToggleFavorite && (
           <StyledMenuItem onClick={() => { onToggleFavorite(); onClose(); }}>
             <ListItemIcon>
@@ -208,12 +246,56 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
           </StyledMenuItem>
         )}
 
+        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 1 }} />
+
+        {/* Navigation actions */}
+        {onShowAlbum && trackAlbumId && (
+          <StyledMenuItem onClick={() => { onShowAlbum(); onClose(); }}>
+            <ListItemIcon>
+              <AlbumIcon />
+            </ListItemIcon>
+            <ListItemText>Go to Album</ListItemText>
+          </StyledMenuItem>
+        )}
+
+        {onShowArtist && trackArtistName && (
+          <StyledMenuItem onClick={() => { onShowArtist(); onClose(); }}>
+            <ListItemIcon>
+              <Person />
+            </ListItemIcon>
+            <ListItemText>Go to Artist</ListItemText>
+          </StyledMenuItem>
+        )}
+
         {onShowInfo && (
           <StyledMenuItem onClick={() => { onShowInfo(); onClose(); }}>
             <ListItemIcon>
               <Info />
             </ListItemIcon>
             <ListItemText>Track Info</ListItemText>
+          </StyledMenuItem>
+        )}
+
+        {/* Edit/Delete actions */}
+        {(onEditMetadata || onDelete) && (
+          <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 1 }} />
+        )}
+
+        {onEditMetadata && (
+          <StyledMenuItem onClick={() => { onEditMetadata(); onClose(); }}>
+            <ListItemIcon>
+              <Edit />
+            </ListItemIcon>
+            <ListItemText>Edit Metadata</ListItemText>
+          </StyledMenuItem>
+        )}
+
+        {onDelete && (
+          <StyledMenuItem destructive onClick={() => { onDelete(); onClose(); }}>
+            <ListItemIcon>
+              <Delete />
+            </ListItemIcon>
+            <ListItemText>Remove from Library</ListItemText>
           </StyledMenuItem>
         )}
       </StyledMenu>
