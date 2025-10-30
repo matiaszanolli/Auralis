@@ -1,8 +1,10 @@
 # Auralis Beta.6 - Enhanced Interactions & Polish
 
-**Release Date**: October 30, 2025  
-**Version**: 1.0.0-beta.6  
+**Release Date**: October 30, 2025
+**Version**: 1.0.0-beta.6
 **Codename**: "Power User Edition"
+
+> **⚠️ HOTFIX APPLIED** (Oct 30, 2025): Fixed critical JavaScript initialization error that prevented the app from loading. All packages have been updated with the fix. See [HOTFIX_BETA6_CIRCULAR_DEPENDENCY.md](HOTFIX_BETA6_CIRCULAR_DEPENDENCY.md) for details.
 
 ---
 
