@@ -26,6 +26,7 @@ import { useContextMenu, ContextMenu, getPlaylistContextActions } from '../share
 import * as playlistService from '../../services/playlistService';
 import CreatePlaylistDialog from './CreatePlaylistDialog';
 import EditPlaylistDialog from './EditPlaylistDialog';
+import { DroppablePlaylist } from './DroppablePlaylist';
 
 interface PlaylistListProps {
   onPlaylistSelect?: (playlistId: number) => void;
@@ -345,44 +346,16 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
             </EmptyState>
           ) : (
             playlists.map((playlist) => (
-              <StyledListItem key={playlist.id}>
-                <StyledListItemButton
+              <Box key={playlist.id} sx={{ px: 1 }}>
+                <DroppablePlaylist
+                  playlistId={playlist.id}
+                  playlistName={playlist.name}
+                  trackCount={playlist.track_count}
                   selected={selectedPlaylistId === playlist.id}
                   onClick={() => onPlaylistSelect && onPlaylistSelect(playlist.id)}
                   onContextMenu={(e) => handleContextMenuOpen(e, playlist)}
-                >
-                  <ListItemText
-                    primary={playlist.name}
-                    secondary={`${playlist.track_count} tracks`}
-                    secondaryTypographyProps={{
-                      sx: {
-                        fontSize: '12px',
-                        color: colors.text.disabled,
-                      },
-                    }}
-                  />
-                  <PlaylistActions className="playlist-actions">
-                    <Tooltip title="Edit playlist">
-                      <ActionButton
-                        data-testid="edit-playlist-button"
-                        aria-label="Edit playlist"
-                        onClick={(e) => handleEdit(playlist.id, e)}
-                      >
-                        <Edit />
-                      </ActionButton>
-                    </Tooltip>
-                    <Tooltip title="Delete playlist">
-                      <ActionButton
-                        data-testid="delete-playlist-button"
-                        aria-label="Delete playlist"
-                        onClick={(e) => handleDelete(playlist.id, playlist.name, e)}
-                      >
-                        <Delete />
-                      </ActionButton>
-                    </Tooltip>
-                  </PlaylistActions>
-                </StyledListItemButton>
-              </StyledListItem>
+                />
+              </Box>
             ))
           )}
         </List>
