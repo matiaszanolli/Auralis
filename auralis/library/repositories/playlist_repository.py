@@ -168,8 +168,18 @@ class PlaylistRepository:
         finally:
             session.close()
 
-    def add_track(self, playlist_id: int, track_id: int) -> bool:
-        """Add track to playlist"""
+    def add_track(self, playlist_id: int, track_id: int, position: Optional[int] = None) -> bool:
+        """
+        Add track to playlist at specific position
+
+        Args:
+            playlist_id: ID of playlist
+            track_id: ID of track to add
+            position: Optional position to insert at (None = append)
+
+        Returns:
+            True if successful, False otherwise
+        """
         session = self.get_session()
         try:
             playlist = session.query(Playlist).filter(Playlist.id == playlist_id).first()
@@ -178,10 +188,18 @@ class PlaylistRepository:
             if not playlist or not track:
                 return False
 
-            if track not in playlist.tracks:
+            # Remove if already in playlist
+            if track in playlist.tracks:
+                playlist.tracks.remove(track)
+
+            # Add at specific position or append
+            if position is not None and 0 <= position <= len(playlist.tracks):
+                playlist.tracks.insert(position, track)
+            else:
                 playlist.tracks.append(track)
-                session.commit()
-                debug(f"Added track to playlist: {playlist.name}")
+
+            session.commit()
+            debug(f"Added track to playlist: {playlist.name} at position {position}")
 
             return True
 
@@ -232,6 +250,47 @@ class PlaylistRepository:
         except Exception as e:
             session.rollback()
             error(f"Failed to clear playlist: {e}")
+            return False
+        finally:
+            session.close()
+
+    def reorder_track(self, playlist_id: int, from_index: int, to_index: int) -> bool:
+        """
+        Reorder track within playlist
+
+        Args:
+            playlist_id: ID of playlist
+            from_index: Current position of track
+            to_index: Target position for track
+
+        Returns:
+            True if successful, False otherwise
+        """
+        session = self.get_session()
+        try:
+            playlist = session.query(Playlist).filter(Playlist.id == playlist_id).first()
+            if not playlist:
+                return False
+
+            # Validate indices
+            if from_index < 0 or from_index >= len(playlist.tracks):
+                error(f"Invalid from_index: {from_index}")
+                return False
+            if to_index < 0 or to_index >= len(playlist.tracks):
+                error(f"Invalid to_index: {to_index}")
+                return False
+
+            # Reorder tracks
+            track = playlist.tracks.pop(from_index)
+            playlist.tracks.insert(to_index, track)
+
+            session.commit()
+            debug(f"Reordered track in playlist: {playlist.name} from {from_index} to {to_index}")
+            return True
+
+        except Exception as e:
+            session.rollback()
+            error(f"Failed to reorder track in playlist: {e}")
             return False
         finally:
             session.close()
