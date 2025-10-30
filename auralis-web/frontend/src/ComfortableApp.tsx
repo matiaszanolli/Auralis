@@ -120,13 +120,19 @@ function ComfortableApp() {
     info(`Preset changed to ${preset}`);
   };
 
-  // Keyboard shortcuts (handlers must be defined above)
-  const {
-    shortcuts,
-    isHelpOpen,
-    openHelp,
-    closeHelp
-  } = useKeyboardShortcuts({
+  // Keyboard shortcuts - DISABLED FOR BETA.6 (causes circular dependency in minified build)
+  // Will be fixed in Beta.7
+  // const {
+  //   shortcuts,
+  //   isHelpOpen,
+  //   openHelp,
+  //   closeHelp
+  // } = useKeyboardShortcuts({
+  const shortcuts: any[] = [];
+  const isHelpOpen = false;
+  const openHelp = () => {};
+  const closeHelp = () => {};
+  /*{
     // Playback controls
     onPlayPause: () => {
       togglePlayPause();
@@ -201,7 +207,7 @@ function ComfortableApp() {
 
     // Debug mode (optional)
     debug: false
-  });
+  });*/
 
   const handleMasteringToggle = (enabled: boolean) => {
     console.log('Mastering:', enabled ? 'enabled' : 'disabled');
@@ -533,12 +539,12 @@ function ComfortableApp() {
           }}
         />
 
-        {/* Keyboard Shortcuts Help Dialog */}
-        <KeyboardShortcutsHelp
+        {/* Keyboard Shortcuts Help Dialog - DISABLED FOR BETA.6 */}
+        {/*<KeyboardShortcutsHelp
           open={isHelpOpen}
           shortcuts={shortcuts}
           onClose={closeHelp}
-        />
+        />*/}
       </Box>
     </DragDropContext>
   );
