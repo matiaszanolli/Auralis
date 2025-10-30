@@ -94,6 +94,52 @@ def sample_audio_long():
     return audio_stereo, sample_rate
 
 
+@pytest.fixture
+def client():
+    """
+    FastAPI test client for API endpoint testing.
+
+    Returns:
+        TestClient: Configured test client with all routes
+    """
+    from fastapi.testclient import TestClient
+    import sys
+    from pathlib import Path
+
+    # Import main app
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'))
+    from main import app
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def sample_track_ids(client, mock_track):
+    """
+    Create sample tracks in the database for testing.
+
+    Returns:
+        list: List of track IDs [1, 2, 3]
+    """
+    # For now, return mock track IDs
+    # In a real implementation, this would create tracks in test database
+    return [1, 2, 3]
+
+
+@pytest.fixture
+def fingerprint_count():
+    """
+    Return the number of fingerprints in test database.
+
+    Returns:
+        int: Number of fingerprints (mock value for testing)
+    """
+    # For now, return a mock value
+    # In a real implementation, this would query the test database
+    return 100
+
+
 # Configure pytest-asyncio
 def pytest_configure(config):
     """Configure pytest with asyncio settings"""
