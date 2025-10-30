@@ -80,6 +80,7 @@ from routers.player import create_player_router
 from routers.metadata import create_metadata_router
 from routers.mse_streaming import create_mse_streaming_router
 from routers.unified_streaming import create_unified_streaming_router
+from routers.similarity import create_similarity_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -128,11 +129,24 @@ connected_websockets: List[WebSocket] = []
 multi_tier_manager: Optional[MultiTierBufferManager] = None
 multi_tier_worker: Optional[MultiTierBufferWorker] = None
 
+# Similarity system (fingerprint-based music similarity)
+try:
+    from auralis.analysis.fingerprint import FingerprintSimilarity, KNNGraphBuilder
+    similarity_system: Optional[FingerprintSimilarity] = None
+    graph_builder: Optional[KNNGraphBuilder] = None
+    HAS_SIMILARITY = True
+except ImportError as e:
+    logger.warning(f"⚠️  Similarity system not available: {e}")
+    similarity_system = None
+    graph_builder = None
+    HAS_SIMILARITY = False
+
 # Initialize Auralis components
 @app.on_event("startup")
 async def startup_event():
     """Initialize Auralis components on startup"""
     global library_manager, settings_repository, audio_player, processing_engine, processing_cache
+    global similarity_system, graph_builder
 
     # Clear processing cache on startup to avoid serving stale processed audio
     processing_cache.clear()
@@ -177,6 +191,18 @@ async def startup_event():
             global player_state_manager
             player_state_manager = PlayerStateManager(manager)
             logger.info("✅ Player State Manager initialized")
+
+            # Initialize similarity system
+            if HAS_SIMILARITY:
+                try:
+                    similarity_system = FingerprintSimilarity(library_manager.fingerprints)
+                    graph_builder = KNNGraphBuilder(
+                        similarity_system=similarity_system,
+                        session_factory=library_manager.SessionLocal
+                    )
+                    logger.info("✅ Fingerprint Similarity System initialized")
+                except Exception as sim_e:
+                    logger.warning(f"⚠️  Failed to initialize Similarity System: {sim_e}")
 
         except Exception as e:
             logger.error(f"❌ Failed to initialize Auralis components: {e}")
@@ -349,6 +375,18 @@ unified_router = create_unified_streaming_router(
 )
 app.include_router(unified_router)
 logger.info("✅ Unified streaming router included (MSE + MTB integration)")
+
+# Create and include similarity router (fingerprint-based music similarity)
+if HAS_SIMILARITY:
+    similarity_router = create_similarity_router(
+        get_library_manager=lambda: library_manager,
+        get_similarity_system=lambda: similarity_system,
+        get_graph_builder=lambda: graph_builder
+    )
+    app.include_router(similarity_router)
+    logger.info("✅ Similarity router included (25D fingerprint similarity)")
+else:
+    logger.warning("⚠️  Similarity router not available (missing dependencies)")
 
 # OLD WebSocket endpoint - KEEPING FOR NOW, WILL REMOVE AFTER TESTING
 # TODO: Remove these old endpoints after verifying router works

@@ -17,6 +17,7 @@ from pathlib import Path
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..io.unified_loader import load_audio
 from ..utils.logging import info, warning, error, debug
+from .sidecar_manager import SidecarManager
 
 
 class FingerprintExtractor:
@@ -25,21 +26,35 @@ class FingerprintExtractor:
 
     Integrates with library scanner to automatically generate fingerprints
     during the scanning process.
+
+    Features .25d sidecar file support for fast caching:
+    - Checks for valid .25d file before analyzing audio
+    - Loads fingerprint from .25d file if available (instant)
+    - Writes .25d file after extraction (for future speedup)
     """
 
-    def __init__(self, fingerprint_repository):
+    def __init__(self, fingerprint_repository, use_sidecar_files: bool = True):
         """
         Initialize fingerprint extractor
 
         Args:
             fingerprint_repository: FingerprintRepository instance
+            use_sidecar_files: Enable .25d sidecar file caching (default: True)
         """
         self.fingerprint_repo = fingerprint_repository
         self.analyzer = AudioFingerprintAnalyzer()
+        self.use_sidecar_files = use_sidecar_files
+        self.sidecar_manager = SidecarManager() if use_sidecar_files else None
 
     def extract_and_store(self, track_id: int, filepath: str) -> bool:
         """
         Extract fingerprint from audio file and store in database
+
+        Workflow:
+        1. Check for valid .25d sidecar file (if enabled)
+        2. If valid: Load fingerprint from .25d (instant, ~1ms)
+        3. If invalid/missing: Analyze audio (slow, ~75s)
+        4. Store in database + write .25d file
 
         Args:
             track_id: ID of the track in the database
@@ -49,19 +64,42 @@ class FingerprintExtractor:
             True if successful, False otherwise
         """
         try:
-            # Load audio
-            debug(f"Loading audio for fingerprint: {filepath}")
-            audio, sr = load_audio(filepath)
+            filepath_obj = Path(filepath)
+            fingerprint = None
+            cached = False
 
-            # Extract fingerprint
-            debug(f"Extracting fingerprint for track {track_id}")
-            fingerprint = self.analyzer.analyze(audio, sr)
+            # Try to load from .25d sidecar file (fast path)
+            if self.use_sidecar_files and self.sidecar_manager:
+                if self.sidecar_manager.is_valid(filepath_obj):
+                    fingerprint = self.sidecar_manager.get_fingerprint(filepath_obj)
+                    if fingerprint and len(fingerprint) == 25:
+                        info(f"Loaded fingerprint from .25d file for track {track_id}")
+                        cached = True
+                    else:
+                        warning(f"Invalid fingerprint in .25d file, will re-analyze")
+                        fingerprint = None
+
+            # Slow path: Analyze audio if no valid cache
+            if not fingerprint:
+                debug(f"Loading audio for fingerprint: {filepath}")
+                audio, sr = load_audio(filepath)
+
+                debug(f"Extracting fingerprint for track {track_id}")
+                fingerprint = self.analyzer.analyze(audio, sr)
 
             # Store in database
             result = self.fingerprint_repo.upsert(track_id, fingerprint)
 
             if result:
-                info(f"Fingerprint extracted and stored for track {track_id}")
+                # Write .25d sidecar file (if not cached and feature enabled)
+                if not cached and self.use_sidecar_files and self.sidecar_manager:
+                    sidecar_data = {
+                        'fingerprint': fingerprint,
+                        'metadata': {}  # TODO: Extract track metadata
+                    }
+                    self.sidecar_manager.write(filepath_obj, sidecar_data)
+
+                info(f"Fingerprint {'loaded from cache' if cached else 'extracted'} and stored for track {track_id}")
                 return True
             else:
                 error(f"Failed to store fingerprint for track {track_id}")
@@ -80,23 +118,30 @@ class FingerprintExtractor:
             max_failures: Maximum consecutive failures before stopping
 
         Returns:
-            Dictionary with counts: {'success': N, 'failed': M, 'skipped': K}
+            Dictionary with counts: {'success': N, 'failed': M, 'skipped': K, 'cached': L}
         """
-        stats = {'success': 0, 'failed': 0, 'skipped': 0}
+        stats = {'success': 0, 'failed': 0, 'skipped': 0, 'cached': 0}
         consecutive_failures = 0
 
         for track_id, filepath in track_ids_paths:
-            # Check if fingerprint already exists
+            # Check if fingerprint already exists in database
             if self.fingerprint_repo.exists(track_id):
                 debug(f"Fingerprint already exists for track {track_id}, skipping")
                 stats['skipped'] += 1
                 continue
+
+            # Check if .25d sidecar file exists (for stats)
+            has_sidecar = False
+            if self.use_sidecar_files and self.sidecar_manager:
+                has_sidecar = self.sidecar_manager.is_valid(Path(filepath))
 
             # Extract and store
             success = self.extract_and_store(track_id, filepath)
 
             if success:
                 stats['success'] += 1
+                if has_sidecar:
+                    stats['cached'] += 1
                 consecutive_failures = 0
             else:
                 stats['failed'] += 1

@@ -132,6 +132,12 @@ class AudioFingerprintAnalyzer:
             stereo_features = self.stereo_analyzer.analyze(audio, sr)
             fingerprint.update(stereo_features)
 
+            # Sanitize NaN values (replace with 0.0)
+            for key, value in fingerprint.items():
+                if np.isnan(value) or np.isinf(value):
+                    logger.warning(f"Fingerprint dimension '{key}' contains NaN/Inf, replacing with 0.0")
+                    fingerprint[key] = 0.0
+
             return fingerprint
 
         except Exception as e:
