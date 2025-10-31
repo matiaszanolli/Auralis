@@ -56,15 +56,19 @@ export function useMSEController() {
   useEffect(() => {
     const isSupported = 'MediaSource' in window && MediaSource.isTypeSupported(MIME_TYPE);
 
+    console.log(`🔍 MSE Support Check: MediaSource in window = ${'MediaSource' in window}, MIME type supported = ${MediaSource.isTypeSupported(MIME_TYPE)}`);
+    console.log(`🔍 Checking MIME type: ${MIME_TYPE}`);
+
     if (!isSupported) {
       setState(prev => ({
         ...prev,
         isSupported: false,
         error: 'MediaSource Extensions not supported in this browser. Please use Chrome, Firefox, or Edge.',
       }));
-      console.warn('MSE not supported, falling back to HTML5 audio');
+      console.warn('❌ MSE not supported, falling back to HTML5 audio');
     } else {
       setState(prev => ({ ...prev, isSupported: true }));
+      console.log('✅ MSE is supported in this browser');
     }
   }, []);
 
@@ -194,7 +198,7 @@ export function useMSEController() {
       console.log(`📦 Loading chunk ${chunkIndex} (preset: ${preset})`);
 
       const response = await fetch(
-        `/api/mse_streaming/chunk/${trackId}/${chunkIndex}?preset=${preset}&intensity=${intensity}`,
+        `/api/mse/stream/${trackId}/chunk/${chunkIndex}?preset=${preset}&intensity=${intensity}`,
         {
           headers: {
             'Accept': 'audio/webm',

@@ -252,35 +252,24 @@ def create_mse_streaming_router(
                         chunk_cache={}  # Use empty cache, let multi-tier buffer handle caching
                     )
 
-                    # Process single chunk
-                    chunk_path = processor.process_chunk(chunk_idx)
+                    # Get WebM/Opus chunk (this will process WAV first, then convert)
+                    webm_chunk_path = processor.get_webm_chunk_path(chunk_idx)
 
                     # Read chunk data
-                    if not os.path.exists(chunk_path):
+                    if not os.path.exists(webm_chunk_path):
                         raise HTTPException(
                             status_code=500,
-                            detail=f"Chunk processing failed: output file not found"
+                            detail=f"Chunk processing failed: WebM output file not found"
                         )
 
-                    # Read WAV chunk and convert to WebM
+                    # Read WebM/Opus chunk bytes
                     try:
-                        # Read processed audio from WAV file
-                        audio_data, sample_rate = sf.read(chunk_path, dtype='float32')
+                        with open(webm_chunk_path, 'rb') as f:
+                            audio_bytes = f.read()
 
-                        # Encode to WebM/Opus for MSE compatibility
-                        # Using maximum quality settings to avoid "fuzzy" audio
-                        audio_bytes = encode_to_webm_opus(
-                            audio_data,
-                            sample_rate,
-                            bitrate=320,  # Maximum quality (transparent, no artifacts)
-                            vbr=True,
-                            compression_level=10,
-                            application='audio'
-                        )
+                        logger.info(f"Chunk {chunk_idx} processed on-demand: {len(audio_bytes)} bytes WebM/Opus")
 
-                        logger.info(f"Chunk {chunk_idx} processed on-demand: {len(audio_bytes)} bytes WebM")
-
-                    except WebMEncoderError as e:
+                    except Exception as e:
                         logger.error(f"WebM encoding failed for chunk {chunk_idx}: {e}")
                         raise HTTPException(
                             status_code=500,

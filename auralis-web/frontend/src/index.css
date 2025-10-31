@@ -160,17 +160,20 @@ code {
    ======================================== */
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
   background: var(--midnight-blue);
+  border-radius: var(--radius-sm);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--charcoal);
+  background: rgba(124, 58, 237, 0.4);
   border-radius: var(--radius-sm);
+  border: 2px solid var(--midnight-blue);
+  transition: all var(--transition-normal);
 }
 
 ::-webkit-scrollbar-thumb:hover {

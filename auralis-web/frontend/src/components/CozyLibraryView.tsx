@@ -366,13 +366,13 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
           loadMore();
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.1 } // Lower threshold to trigger earlier
     );
 
     observer.observe(loadMoreRef.current);
 
     return () => observer.disconnect();
-  }, [hasMore, isLoadingMore, loading]);
+  }, [hasMore, isLoadingMore, loading, loadMore]);
 
   const formatDuration = (seconds: number): string => {
     const totalSeconds = Math.floor(seconds); // Round to integer first
@@ -712,6 +712,28 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
             ))}
           </Grid>
 
+          {/* Intersection observer trigger for infinite scroll */}
+          {hasMore && (
+            <Box
+              ref={loadMoreRef}
+              sx={{
+                height: '1px',
+                width: '100%',
+                pointerEvents: 'auto'
+              }}
+            />
+          )}
+
+          {/* Virtual spacer for proper scrollbar length in grid view */}
+          {hasMore && totalTracks > tracks.length && (
+            <Box
+              sx={{
+                height: `${Math.ceil((totalTracks - tracks.length) / 4) * 240}px`, // 4 cols (lg), ~240px per row
+                pointerEvents: 'none'
+              }}
+            />
+          )}
+
           {/* Track Queue - Shows current album/playlist tracks */}
           {filteredTracks.length > 0 && (
             <EnhancedTrackQueue
@@ -810,28 +832,26 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
             </Box>
           ))}
 
+          {/* Intersection observer trigger for infinite scroll */}
+          {hasMore && (
+            <Box
+              ref={loadMoreRef}
+              sx={{
+                height: '1px',
+                width: '100%',
+                pointerEvents: 'auto'
+              }}
+            />
+          )}
+
           {/* Virtual spacer for proper scrollbar length */}
           {hasMore && totalTracks > tracks.length && (
             <Box
               sx={{
                 height: `${(totalTracks - tracks.length) * 72}px`, // 72px avg row height
-                pointerEvents: 'none',
-                position: 'relative'
+                pointerEvents: 'none'
               }}
-            >
-              {/* Intersection observer target positioned at the top of spacer */}
-              <Box
-                ref={loadMoreRef}
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: '1px',
-                  pointerEvents: 'auto'
-                }}
-              />
-            </Box>
+            />
           )}
 
           {/* Infinite scroll loading indicator */}
