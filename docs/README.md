@@ -1,8 +1,8 @@
 # Auralis Documentation Index
 
-**Last Updated**: October 28, 2025
-**Current Version**: v1.0.0-beta.5
-**Total Documentation Files**: 180+ files (reorganized and optimized)
+**Last Updated**: October 31, 2025
+**Current Version**: v1.0.0-beta.6
+**Total Documentation Files**: 185+ files (reorganized and optimized)
 
 This directory contains all technical documentation for the Auralis project. Documentation is organized by category for easy navigation.
 
@@ -15,10 +15,11 @@ This directory contains all technical documentation for the Auralis project. Doc
 - [CLAUDE.md](../CLAUDE.md) - Development guidelines and architecture
 - [RELEASE_NOTES_BETA5.md](../RELEASE_NOTES_BETA5.md) - Latest release (Beta.5)
 
-**Latest Work** (October 28, 2025):
-- **[Fingerprint Phase 2](sessions/oct28_fingerprint_phase2/)** - 25D Audio Fingerprint Similarity System
-- **[BUILD_BETA5_COMPLETE.md](../BUILD_BETA5_COMPLETE.md)** - Fresh Beta.5 build summary
-- **[FINGERPRINT_PHASE2_FINAL_STATUS.md](../FINGERPRINT_PHASE2_FINAL_STATUS.md)** - Phase 2 consolidated summary
+**Latest Work** (October 31, 2025):
+- **[MSE Migration](sessions/oct30_beta7_mse_migration/)** - MSE progressive streaming activation (Beta.7)
+- **[Beta.6 Phase 2 Interactions](sessions/oct30_beta6_phase2_interactions/)** - Drag-drop, keyboard shortcuts, batch ops
+- **[RELEASE_NOTES_BETA6.md](../RELEASE_NOTES_BETA6.md)** - Latest release (Beta.6)
+- **[BETA8_P0_PRIORITIES.md](../BETA8_P0_PRIORITIES.md)** - Current priorities roadmap
 
 ---
 
@@ -36,10 +37,16 @@ docs/
 │   └── *.md                        # Feature completions
 │
 ├── sessions/                       # Development sessions
-│   ├── oct28_fingerprint_phase2/   # ⭐ NEW: Fingerprint similarity system (5 files)
-│   ├── oct27_mse_integration/      # MSE + Multi-Tier Buffer (8 files)
-│   ├── oct27_beta4_ui_improvements/# Beta.4 UI work (7 files)
-│   └── (other sessions...)
+│   ├── oct30_beta7_mse_migration/   # ⭐ LATEST: MSE progressive streaming (Beta.7)
+│   ├── oct30_beta6_phase2_interactions/ # ⭐ NEW: Enhanced interactions (8 files)
+│   ├── oct30_beta6_hotfix/          # Beta.6 hotfix (circular dependency)
+│   ├── oct29_tests_and_25d/         # Test improvements (2 files)
+│   ├── oct28_beta5_release/         # Beta.5 release (5 files)
+│   ├── oct28_beta4_tests/           # Beta.4 test fixes (5 files)
+│   ├── oct28_fingerprint_phase2/    # Fingerprint similarity system (8 files)
+│   ├── oct27_mse_integration/       # MSE + Multi-Tier Buffer (8 files)
+│   ├── oct27_beta4_ui_improvements/ # Beta.4 UI work (7 files)
+│   └── (earlier sessions...)
 │
 ├── guides/                         # Implementation guides (6 files)
 │   └── SIMILARITY_UI_INTEGRATION_GUIDE.md  # ⭐ NEW: UI integration
