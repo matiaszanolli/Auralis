@@ -175,7 +175,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
       const limit = 50;
       const currentOffset = resetPagination ? 0 : offset;
 
-      const response = await fetch(`http://localhost:8765/api/artists?limit=${limit}&offset=${currentOffset}`);
+      const response = await fetch(`/api/artists?limit=${limit}&offset=${currentOffset}`);
       if (!response.ok) {
         throw new Error('Failed to fetch artists');
       }

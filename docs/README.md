@@ -19,7 +19,7 @@ This directory contains all technical documentation for the Auralis project. Doc
 - **[MSE Migration](sessions/oct30_beta7_mse_migration/)** - MSE progressive streaming activation (Beta.7)
 - **[Beta.6 Phase 2 Interactions](sessions/oct30_beta6_phase2_interactions/)** - Drag-drop, keyboard shortcuts, batch ops
 - **[RELEASE_NOTES_BETA6.md](../RELEASE_NOTES_BETA6.md)** - Latest release (Beta.6)
-- **[BETA8_P0_PRIORITIES.md](../BETA8_P0_PRIORITIES.md)** - Current priorities roadmap
+- **[BETA7_ROADMAP.md](../BETA7_ROADMAP.md)** - Beta.7 & Beta.8 roadmap
 
 ---
 

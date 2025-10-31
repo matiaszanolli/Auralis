@@ -245,7 +245,7 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
 
     try {
       // Use new REST API endpoint for artist details
-      const response = await fetch(`http://localhost:8765/api/artists/${artistId}`);
+      const response = await fetch(`/api/artists/${artistId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch artist details');
       }

@@ -12,7 +12,7 @@
  * - Manage similarity system state
  */
 
-const API_BASE = 'http://localhost:8765/api/similarity';
+const API_BASE = '/api/similarity';
 
 export interface SimilarTrack {
   track_id: number;

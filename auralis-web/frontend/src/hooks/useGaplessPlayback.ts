@@ -91,7 +91,7 @@ export function useGaplessPlayback(options: UseGaplessPlaybackOptions): UseGaple
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const response = await fetch('http://localhost:8765/api/settings');
+        const response = await fetch('/api/settings');
         if (response.ok) {
           const settings = await response.json();
           setGaplessEnabled(settings.gapless_enabled ?? true);
@@ -136,7 +136,7 @@ export function useGaplessPlayback(options: UseGaplessPlaybackOptions): UseGaple
       params.append('preset', enhancementSettings.preset);
       params.append('intensity', enhancementSettings.intensity.toString());
     }
-    return `http://localhost:8765/api/player/stream/${trackId}${params.toString() ? '?' + params.toString() : ''}`;
+    return `/api/player/stream/${trackId}${params.toString() ? '?' + params.toString() : ''}`;
   }, [enhancementSettings]);
 
   /**

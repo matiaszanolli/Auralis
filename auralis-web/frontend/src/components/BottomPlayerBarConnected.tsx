@@ -209,7 +209,7 @@ export const BottomPlayerBarConnected: React.FC<BottomPlayerBarConnectedProps> =
     const newLovedState = !isLoved;
 
     try {
-      const response = await fetch(`http://localhost:8765/api/library/tracks/${currentTrack.id}/favorite`, {
+      const response = await fetch(`/api/library/tracks/${currentTrack.id}/favorite`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ favorite: newLovedState }),

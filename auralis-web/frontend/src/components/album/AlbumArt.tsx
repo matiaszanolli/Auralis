@@ -81,7 +81,7 @@ export const AlbumArt: React.FC<AlbumArtProps> = ({
   showSkeleton = true,
 }) => {
   // Construct artwork URL
-  const artworkUrl = albumId ? `http://localhost:8765/api/albums/${albumId}/artwork` : '';
+  const artworkUrl = albumId ? `/api/albums/${albumId}/artwork` : '';
 
   return (
     <ArtworkContainer

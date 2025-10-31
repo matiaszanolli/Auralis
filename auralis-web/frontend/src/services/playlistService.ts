@@ -7,7 +7,7 @@
  * - Get playlist details
  */
 
-const API_BASE = 'http://localhost:8765/api';
+const API_BASE = '/api';
 
 export interface Playlist {
   id: number;

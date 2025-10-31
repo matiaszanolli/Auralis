@@ -163,7 +163,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
 
   const triggerScan = async (directory: string) => {
     try {
-      const response = await fetch('http://localhost:8765/api/library/scan', {
+      const response = await fetch('/api/library/scan', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -65,7 +65,7 @@ describe('QueueService', () => {
 
       const result = await getQueue();
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/player/queue');
+      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue');
       expect(result).toEqual(mockQueueResponse);
       expect(result.tracks).toHaveLength(3);
       expect(result.current_index).toBe(0);
@@ -143,7 +143,7 @@ describe('QueueService', () => {
 
       await removeTrackFromQueue(0);
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/player/queue/0', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue/0', {
         method: 'DELETE',
       });
     });
@@ -158,7 +158,7 @@ describe('QueueService', () => {
         await removeTrackFromQueue(index);
 
         expect(global.fetch).toHaveBeenCalledWith(
-          `http://localhost:8765/api/player/queue/${index}`,
+          `/api/player/queue/${index}`,
           { method: 'DELETE' }
         );
       }
@@ -209,7 +209,7 @@ describe('QueueService', () => {
 
       await reorderQueue(newOrder);
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/player/queue/reorder', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue/reorder', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +298,7 @@ describe('QueueService', () => {
 
       await shuffleQueue();
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/player/queue/shuffle', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue/shuffle', {
         method: 'POST',
       });
     });
@@ -349,7 +349,7 @@ describe('QueueService', () => {
 
       await clearQueue();
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/player/queue/clear', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue/clear', {
         method: 'POST',
       });
     });
@@ -402,7 +402,7 @@ describe('QueueService', () => {
 
       await setQueue(trackIds);
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/player/queue', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

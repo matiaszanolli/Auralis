@@ -148,7 +148,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
       const limit = 50;
       const currentOffset = resetPagination ? 0 : offset;
 
-      const response = await fetch(`http://localhost:8765/api/albums?limit=${limit}&offset=${currentOffset}`);
+      const response = await fetch(`/api/albums?limit=${limit}&offset=${currentOffset}`);
       if (!response.ok) {
         throw new Error('Failed to fetch albums');
       }

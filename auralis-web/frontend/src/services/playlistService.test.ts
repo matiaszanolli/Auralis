@@ -42,7 +42,7 @@ describe('PlaylistService', () => {
 
       const result = await playlistService.getPlaylists()
 
-      expect(fetch).toHaveBeenCalledWith('http://localhost:8765/api/playlists')
+      expect(fetch).toHaveBeenCalledWith('/api/playlists')
       expect(result).toEqual(mockResponse)
     })
 
@@ -72,7 +72,7 @@ describe('PlaylistService', () => {
 
       const result = await playlistService.getPlaylist(1)
 
-      expect(fetch).toHaveBeenCalledWith('http://localhost:8765/api/playlists/1')
+      expect(fetch).toHaveBeenCalledWith('/api/playlists/1')
       expect(result).toEqual(mockPlaylist)
     })
 
@@ -105,7 +105,7 @@ describe('PlaylistService', () => {
 
       const result = await playlistService.createPlaylist(request)
 
-      expect(fetch).toHaveBeenCalledWith('http://localhost:8765/api/playlists', {
+      expect(fetch).toHaveBeenCalledWith('/api/playlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
@@ -128,7 +128,7 @@ describe('PlaylistService', () => {
       await playlistService.createPlaylist(request)
 
       expect(fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/playlists',
+        '/api/playlists',
         expect.objectContaining({
           body: JSON.stringify(request),
         })
@@ -161,7 +161,7 @@ describe('PlaylistService', () => {
 
       await playlistService.updatePlaylist(1, updates)
 
-      expect(fetch).toHaveBeenCalledWith('http://localhost:8765/api/playlists/1', {
+      expect(fetch).toHaveBeenCalledWith('/api/playlists/1', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -194,7 +194,7 @@ describe('PlaylistService', () => {
 
       await playlistService.deletePlaylist(1)
 
-      expect(fetch).toHaveBeenCalledWith('http://localhost:8765/api/playlists/1', {
+      expect(fetch).toHaveBeenCalledWith('/api/playlists/1', {
         method: 'DELETE',
       })
     })
@@ -224,7 +224,7 @@ describe('PlaylistService', () => {
 
       await playlistService.addTrackToPlaylist(1, 5)
 
-      expect(fetch).toHaveBeenCalledWith('http://localhost:8765/api/playlists/1/tracks', {
+      expect(fetch).toHaveBeenCalledWith('/api/playlists/1/tracks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ track_id: 5 }),
@@ -258,7 +258,7 @@ describe('PlaylistService', () => {
 
       await playlistService.removeTrackFromPlaylist(1, 5)
 
-      expect(fetch).toHaveBeenCalledWith('http://localhost:8765/api/playlists/1/tracks/5', {
+      expect(fetch).toHaveBeenCalledWith('/api/playlists/1/tracks/5', {
         method: 'DELETE',
       })
     })
@@ -289,7 +289,7 @@ describe('PlaylistService', () => {
 
       await playlistService.clearPlaylist(1)
 
-      expect(fetch).toHaveBeenCalledWith('http://localhost:8765/api/playlists/1/tracks', {
+      expect(fetch).toHaveBeenCalledWith('/api/playlists/1/tracks', {
         method: 'DELETE',
       })
     })

@@ -40,7 +40,7 @@ describe('ArtworkService', () => {
       const result = await extractArtwork(1);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/albums/1/artwork/extract',
+        '/api/albums/1/artwork/extract',
         { method: 'POST' }
       );
       expect(result).toEqual(mockResponse);
@@ -85,7 +85,7 @@ describe('ArtworkService', () => {
       await extractArtwork(999);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/albums/999/artwork/extract',
+        '/api/albums/999/artwork/extract',
         { method: 'POST' }
       );
     });
@@ -109,7 +109,7 @@ describe('ArtworkService', () => {
       const result = await downloadArtwork(1);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/albums/1/artwork/download',
+        '/api/albums/1/artwork/download',
         { method: 'POST' }
       );
       expect(result).toEqual(mockResponse);
@@ -153,7 +153,7 @@ describe('ArtworkService', () => {
         await downloadArtwork(albumId);
 
         expect(global.fetch).toHaveBeenCalledWith(
-          `http://localhost:8765/api/albums/${albumId}/artwork/download`,
+          `/api/albums/${albumId}/artwork/download`,
           { method: 'POST' }
         );
       }
@@ -175,7 +175,7 @@ describe('ArtworkService', () => {
       const result = await deleteArtwork(1);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/albums/1/artwork',
+        '/api/albums/1/artwork',
         { method: 'DELETE' }
       );
       expect(result).toEqual(mockResponse);
@@ -218,7 +218,7 @@ describe('ArtworkService', () => {
         await deleteArtwork(albumId);
 
         expect(global.fetch).toHaveBeenCalledWith(
-          `http://localhost:8765/api/albums/${albumId}/artwork`,
+          `/api/albums/${albumId}/artwork`,
           { method: 'DELETE' }
         );
       }
@@ -239,8 +239,8 @@ describe('ArtworkService', () => {
       const url2 = getArtworkUrl(1);
 
       // Both should be valid URLs
-      expect(url1).toContain('http://localhost:8765/api/albums/1/artwork?t=');
-      expect(url2).toContain('http://localhost:8765/api/albums/1/artwork?t=');
+      expect(url1).toContain('/api/albums/1/artwork?t=');
+      expect(url2).toContain('/api/albums/1/artwork?t=');
     });
 
     it('should generate URLs for different album IDs', () => {

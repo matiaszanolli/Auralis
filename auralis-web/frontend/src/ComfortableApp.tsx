@@ -260,7 +260,7 @@ function ComfortableApp() {
       // Handle different drop targets
       if (destination.droppableId === 'queue') {
         // Add to queue
-        const response = await fetch('http://localhost:8765/api/player/queue/add-track', {
+        const response = await fetch('/api/player/queue/add-track', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -277,7 +277,7 @@ function ComfortableApp() {
       } else if (destination.droppableId.startsWith('playlist-')) {
         // Add to playlist
         const playlistId = parseInt(destination.droppableId.replace('playlist-', ''), 10);
-        const response = await fetch(`http://localhost:8765/api/playlists/${playlistId}/tracks/add`, {
+        const response = await fetch(`/api/playlists/${playlistId}/tracks/add`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -295,7 +295,7 @@ function ComfortableApp() {
         // Reorder within the same list
         if (source.droppableId === 'queue') {
           // Reorder queue
-          const response = await fetch('http://localhost:8765/api/player/queue/move', {
+          const response = await fetch('/api/player/queue/move', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -312,7 +312,7 @@ function ComfortableApp() {
         } else if (source.droppableId.startsWith('playlist-')) {
           // Reorder within playlist
           const playlistId = parseInt(source.droppableId.replace('playlist-', ''), 10);
-          const response = await fetch(`http://localhost:8765/api/playlists/${playlistId}/tracks/reorder`, {
+          const response = await fetch(`/api/playlists/${playlistId}/tracks/reorder`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

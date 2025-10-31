@@ -113,7 +113,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({ trackId, currentTime, 
     const fetchLyrics = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`http://localhost:8765/api/library/tracks/${trackId}/lyrics`);
+        const response = await fetch(`/api/library/tracks/${trackId}/lyrics`);
         if (response.ok) {
           const data = await response.json();
           setLyrics(data.lyrics);

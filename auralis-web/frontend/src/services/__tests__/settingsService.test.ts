@@ -61,7 +61,7 @@ describe('SettingsService', () => {
 
       const result = await settingsService.getSettings();
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/settings');
+      expect(global.fetch).toHaveBeenCalledWith('/api/settings');
       expect(result).toEqual(mockSettings);
     });
 
@@ -116,7 +116,7 @@ describe('SettingsService', () => {
 
       const result = await settingsService.updateSettings(updates);
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/settings', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -137,7 +137,7 @@ describe('SettingsService', () => {
       await settingsService.updateSettings(updates);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/settings',
+        '/api/settings',
         expect.objectContaining({
           body: JSON.stringify({ volume: 0.5 }),
         })
@@ -263,7 +263,7 @@ describe('SettingsService', () => {
 
       const result = await settingsService.resetSettings();
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/settings/reset', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/settings/reset', {
         method: 'POST',
       });
       expect(result).toEqual(defaultSettings);
@@ -305,7 +305,7 @@ describe('SettingsService', () => {
 
       const result = await settingsService.addScanFolder(folder);
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/settings/scan-folders', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/settings/scan-folders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -398,7 +398,7 @@ describe('SettingsService', () => {
 
       const result = await settingsService.removeScanFolder(folder);
 
-      expect(global.fetch).toHaveBeenCalledWith('http://localhost:8765/api/settings/scan-folders', {
+      expect(global.fetch).toHaveBeenCalledWith('/api/settings/scan-folders', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
