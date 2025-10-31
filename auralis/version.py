@@ -5,7 +5,7 @@ Single source of truth for version across the entire project.
 
 __version__ = "1.0.0-beta.7"
 __version_info__ = (1, 0, 0, "beta", 7)
-__build_date__ = "2025-10-30"
+__build_date__ = "2025-10-31"
 __git_commit__ = ""  # Auto-populated during build
 
 # Version components for programmatic access
