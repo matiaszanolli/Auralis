@@ -402,52 +402,12 @@ if HAS_SIMILARITY:
 else:
     logger.warning("⚠️  Similarity router not available (missing dependencies)")
 
-# OLD WebSocket endpoint - KEEPING FOR NOW, WILL REMOVE AFTER TESTING
-# TODO: Remove these old endpoints after verifying router works
-# ============================================================================
-
-class CreatePlaylistRequest(BaseModel):
-    name: str
-    description: str = ""
-    track_ids: List[int] = []
-
-class UpdatePlaylistRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-
-class AddTracksRequest(BaseModel):
-    track_ids: List[int]
-
-# ============================================================================
-# END PLAYLIST ENDPOINTS
-
-# ============================================================================
-# ALBUM ARTWORK ENDPOINTS
-
-# ============================================================================
-# END ARTWORK ENDPOINTS
-# ============================================================================
-
-class ScanRequest(BaseModel):
-    directory: str
-
-# ============================================================================
-
 # Global enhancement state
 enhancement_settings = {
     "enabled": False,
     "preset": "adaptive",
     "intensity": 1.0
 }
-
-# ============================================================================
-
-class SetQueueRequest(BaseModel):
-    tracks: List[int]  # Track IDs
-    start_index: int = 0
-
-class ReorderQueueRequest(BaseModel):
-    new_order: List[int]  # New order of track indices
 
 @app.post("/api/processing/enable_matching")
 async def enable_level_matching(enabled: bool):
