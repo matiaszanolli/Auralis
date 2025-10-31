@@ -470,6 +470,67 @@ class ChunkedAudioProcessor:
 
         return str(full_path)
 
+    def get_webm_chunk_path(self, chunk_index: int) -> str:
+        """
+        Get WebM/Opus chunk for MSE streaming.
+
+        Args:
+            chunk_index: Index of chunk to retrieve
+
+        Returns:
+            Path to WebM/Opus chunk file
+        """
+        # Check cache first
+        cache_key = f"{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_webm_{chunk_index}"
+        if cache_key in self.chunk_cache:
+            cached_path = Path(self.chunk_cache[cache_key])
+            if cached_path.exists():
+                logger.info(f"Serving cached WebM chunk {chunk_index}")
+                return str(cached_path)
+
+        # Process chunk as WAV first (triggers full processing pipeline if not cached)
+        # This ensures crossfade, state tracking, and all audio processing is applied
+        wav_chunk_path = self.process_chunk(chunk_index)
+
+        # Convert WAV to WebM/Opus using ffmpeg
+        webm_chunk_path = self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.webm"
+
+        if not webm_chunk_path.exists():
+            _convert_to_webm_opus(str(wav_chunk_path), str(webm_chunk_path))
+            logger.info(f"Converted chunk {chunk_index} to WebM/Opus")
+
+        # Cache the WebM path
+        self.chunk_cache[cache_key] = str(webm_chunk_path)
+
+        return str(webm_chunk_path)
+
+
+def _convert_to_webm_opus(input_wav: str, output_webm: str, bitrate: str = "128k") -> None:
+    """
+    Convert WAV audio to WebM/Opus format using ffmpeg.
+
+    Args:
+        input_wav: Path to input WAV file
+        output_webm: Path to output WebM file
+        bitrate: Opus bitrate (default: 128k for good quality)
+    """
+    import subprocess
+
+    try:
+        subprocess.run([
+            'ffmpeg',
+            '-i', input_wav,
+            '-c:a', 'libopus',
+            '-b:a', bitrate,
+            '-vbr', 'on',  # Variable bitrate for better quality
+            '-compression_level', '10',  # Maximum compression
+            '-y',  # Overwrite output file
+            output_webm
+        ], check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"FFmpeg conversion failed: {e.stderr}")
+        raise RuntimeError(f"Failed to convert WAV to WebM/Opus: {e.stderr}")
+
 
 def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overlap_samples: int) -> np.ndarray:
     """

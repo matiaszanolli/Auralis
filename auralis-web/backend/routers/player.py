@@ -176,7 +176,7 @@ def create_player_router(
                 )
 
                 # Check if we have a cached full file
-                full_path = processor.chunk_dir / f"track_{track_id}_{processor.config_hash}_{preset}_{intensity}_full.wav"
+                full_path = processor.chunk_dir / f"track_{track_id}_{processor.file_signature}_{preset}_{intensity}_full.wav"
 
                 if full_path.exists():
                     # INSTANT! Fully processed file exists from previous playback or proactive buffering

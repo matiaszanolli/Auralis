@@ -157,7 +157,7 @@ class MultiTierBufferWorker:
         for chunk_offset in [0, 1]:
             chunk_idx = current_chunk + chunk_offset
             for cache_preset in top_presets:
-                is_cached, _ = self.buffer_manager.is_chunk_cached(
+                is_cached, _ = await self.buffer_manager.is_chunk_cached(
                     track_id, cache_preset, chunk_idx, intensity
                 )
 
@@ -190,7 +190,7 @@ class MultiTierBufferWorker:
 
         for branch in branches:
             for chunk_idx in list(branch.chunk_range)[:3]:  # Limit to first 3 chunks per branch
-                is_cached, _ = self.buffer_manager.is_chunk_cached(
+                is_cached, _ = await self.buffer_manager.is_chunk_cached(
                     track_id, branch.preset, chunk_idx, intensity
                 )
 
@@ -219,7 +219,7 @@ class MultiTierBufferWorker:
         # Buffer 5-10 chunks ahead for current preset only
         for offset in range(2, 10):
             chunk_idx = current_chunk + offset
-            is_cached, _ = self.buffer_manager.is_chunk_cached(
+            is_cached, _ = await self.buffer_manager.is_chunk_cached(
                 track_id, preset, chunk_idx, intensity
             )
 

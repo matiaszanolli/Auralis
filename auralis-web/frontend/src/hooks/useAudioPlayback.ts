@@ -108,16 +108,37 @@ export function useAudioPlayback(options: UseAudioPlaybackOptions): UseAudioPlay
    * Initialize MSE on mount (if enabled)
    */
   useEffect(() => {
-    if (!useMSE || !mse.isSupported) {
+    console.log(`🔍 MSE Init Effect: useMSE=${useMSE}, isSupported=${mse.isSupported}, audioRef=${!!audioRef.current}`);
+
+    if (!useMSE) {
+      console.log('⏭️ MSE disabled, skipping initialization');
       return;
     }
 
-    const objectUrl = mse.initializeMSE();
-    if (objectUrl && audioRef.current) {
-      audioRef.current.src = objectUrl;
-      console.log('✅ MSE initialized for audio playback');
-    }
-  }, [useMSE, mse.isSupported]);
+    // Give MSE controller time to initialize (race condition fix)
+    const initTimer = setTimeout(() => {
+      if (!mse.isSupported) {
+        console.log('⏭️ MSE not supported after waiting, skipping initialization');
+        return;
+      }
+
+      if (!audioRef.current) {
+        console.log('⚠️ Audio element not ready, will retry when available');
+        return;
+      }
+
+      console.log('🚀 Initializing MSE...');
+      const objectUrl = mse.initializeMSE();
+      if (objectUrl) {
+        audioRef.current.src = objectUrl;
+        console.log(`✅ MSE initialized for audio playback, object URL: ${objectUrl}`);
+      } else {
+        console.error('❌ Failed to get MSE object URL');
+      }
+    }, 100); // Wait 100ms for MSE controller to initialize
+
+    return () => clearTimeout(initTimer);
+  }, [useMSE, mse.isSupported]); // Removed mse.initializeMSE from deps to prevent re-runs
 
   /**
    * Load track into audio element
@@ -135,8 +156,12 @@ export function useAudioPlayback(options: UseAudioPlaybackOptions): UseAudioPlay
     try {
       setIsBuffering(true);
 
+      // Debug: Log MSE status
+      console.log(`🔍 MSE Status: useMSE=${useMSE}, isSupported=${mse.isSupported}, isReady=${mse.isReady}`);
+
       if (useMSE && mse.isReady) {
         // MSE Mode: Load first chunk
+        console.log('✅ MSE: Using progressive streaming');
         console.log(`🎵 MSE: Loading first chunk for track ${trackId}`);
 
         // Clear previous buffer
