@@ -180,7 +180,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
 
     try {
       // Use new REST API endpoint for album tracks
-      const response = await fetch(`http://localhost:8765/api/albums/${albumId}/tracks`);
+      const response = await fetch(`/api/albums/${albumId}/tracks`);
       if (!response.ok) {
         throw new Error('Failed to fetch album details');
       }

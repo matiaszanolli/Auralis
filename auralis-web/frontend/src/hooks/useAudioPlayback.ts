@@ -101,44 +101,55 @@ export function useAudioPlayback(options: UseAudioPlaybackOptions): UseAudioPlay
       params.append('preset', preset);
       params.append('intensity', intensity.toString());
     }
-    return `http://localhost:8765/api/player/stream/${trackId}${params.toString() ? '?' + params.toString() : ''}`;
+    return `/api/player/stream/${trackId}${params.toString() ? '?' + params.toString() : ''}`;
   }, []);
 
   /**
    * Initialize MSE on mount (if enabled)
+   *
+   * This effect runs when:
+   * - useMSE flag changes
+   * - mse.isSupported changes (from false -> true when support check completes)
+   * - audioRef.current becomes available
+   *
+   * This ensures MSE is initialized even if support check completes after mount.
    */
   useEffect(() => {
-    console.log(`🔍 MSE Init Effect: useMSE=${useMSE}, isSupported=${mse.isSupported}, audioRef=${!!audioRef.current}`);
+    console.log(`🔍 MSE Init Effect: useMSE=${useMSE}, isSupported=${mse.isSupported}, audioRef=${!!audioRef.current}, mseReady=${mse.isReady}`);
 
+    // Skip if MSE disabled
     if (!useMSE) {
       console.log('⏭️ MSE disabled, skipping initialization');
       return;
     }
 
-    // Give MSE controller time to initialize (race condition fix)
-    const initTimer = setTimeout(() => {
-      if (!mse.isSupported) {
-        console.log('⏭️ MSE not supported after waiting, skipping initialization');
-        return;
-      }
+    // Skip if not supported
+    if (!mse.isSupported) {
+      console.log('⏭️ MSE not supported, skipping initialization');
+      return;
+    }
 
-      if (!audioRef.current) {
-        console.log('⚠️ Audio element not ready, will retry when available');
-        return;
-      }
+    // Skip if audio element not ready
+    if (!audioRef.current) {
+      console.log('⚠️ Audio element not ready, will retry when available');
+      return;
+    }
 
-      console.log('🚀 Initializing MSE...');
-      const objectUrl = mse.initializeMSE();
-      if (objectUrl) {
-        audioRef.current.src = objectUrl;
-        console.log(`✅ MSE initialized for audio playback, object URL: ${objectUrl}`);
-      } else {
-        console.error('❌ Failed to get MSE object URL');
-      }
-    }, 100); // Wait 100ms for MSE controller to initialize
+    // Skip if already initialized
+    if (mse.isReady) {
+      console.log('✅ MSE already initialized, skipping');
+      return;
+    }
 
-    return () => clearTimeout(initTimer);
-  }, [useMSE, mse.isSupported]); // Removed mse.initializeMSE from deps to prevent re-runs
+    console.log('🚀 Initializing MSE...');
+    const objectUrl = mse.initializeMSE();
+    if (objectUrl) {
+      audioRef.current.src = objectUrl;
+      console.log(`✅ MSE initialized for audio playback, object URL: ${objectUrl}`);
+    } else {
+      console.error('❌ Failed to get MSE object URL');
+    }
+  }, [useMSE, mse.isSupported, mse.isReady, mse.initializeMSE]); // Re-run when MSE support is detected or audio element becomes available
 
   /**
    * Load track into audio element
@@ -344,7 +355,8 @@ export function useAudioPlayback(options: UseAudioPlaybackOptions): UseAudioPlay
     ).catch(error => {
       console.error('Failed to load track on change:', error);
     });
-  }, [currentTrack, enhancementSettings.preset, enhancementSettings.intensity, loadTrack]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack, enhancementSettings.preset, enhancementSettings.intensity]); // loadTrack intentionally excluded to prevent infinite loop
 
   /**
    * Sync HTML5 audio element with backend isPlaying state

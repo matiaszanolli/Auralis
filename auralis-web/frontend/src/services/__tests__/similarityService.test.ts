@@ -55,7 +55,7 @@ describe('SimilarityService', () => {
       const result = await similarityService.findSimilar(1);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/tracks/1/similar?limit=10&use_graph=true'
+        '/api/similarity/tracks/1/similar?limit=10&use_graph=true'
       );
       expect(result).toEqual(mockResponse);
       expect(result[0].track_id).toBe(2);
@@ -73,7 +73,7 @@ describe('SimilarityService', () => {
       await similarityService.findSimilar(1, 5);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/tracks/1/similar?limit=5&use_graph=true'
+        '/api/similarity/tracks/1/similar?limit=5&use_graph=true'
       );
     });
 
@@ -88,7 +88,7 @@ describe('SimilarityService', () => {
       await similarityService.findSimilar(1, 10, false);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/tracks/1/similar?limit=10&use_graph=false'
+        '/api/similarity/tracks/1/similar?limit=10&use_graph=false'
       );
     });
 
@@ -128,7 +128,7 @@ describe('SimilarityService', () => {
       const result = await similarityService.compareTracks(1, 2);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/tracks/1/compare/2'
+        '/api/similarity/tracks/1/compare/2'
       );
       expect(result).toEqual(mockResponse);
       expect(result.track_id1).toBe(1);
@@ -196,7 +196,7 @@ describe('SimilarityService', () => {
       const result = await similarityService.explainSimilarity(1, 2, 5);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/tracks/1/explain/2?top_n=5'
+        '/api/similarity/tracks/1/explain/2?top_n=5'
       );
       expect(result).toEqual(mockResponse);
       expect(result.top_differences).toHaveLength(1);
@@ -221,7 +221,7 @@ describe('SimilarityService', () => {
       await similarityService.explainSimilarity(1, 2);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/tracks/1/explain/2?top_n=5'
+        '/api/similarity/tracks/1/explain/2?top_n=5'
       );
     });
   });
@@ -244,7 +244,7 @@ describe('SimilarityService', () => {
       const result = await similarityService.buildGraph();
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/graph/build?k=10',
+        '/api/similarity/graph/build?k=10',
         { method: 'POST' }
       );
       expect(result).toEqual(mockResponse);
@@ -268,7 +268,7 @@ describe('SimilarityService', () => {
       await similarityService.buildGraph(5);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/graph/build?k=5',
+        '/api/similarity/graph/build?k=5',
         { method: 'POST' }
       );
     });
@@ -302,7 +302,7 @@ describe('SimilarityService', () => {
       const result = await similarityService.getGraphStats();
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/graph/stats'
+        '/api/similarity/graph/stats'
       );
       expect(result).toEqual(mockResponse);
     });
@@ -335,7 +335,7 @@ describe('SimilarityService', () => {
       const result = await similarityService.fit();
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/fit?min_samples=10',
+        '/api/similarity/fit?min_samples=10',
         { method: 'POST' }
       );
       expect(result).toEqual(mockResponse);
@@ -356,7 +356,7 @@ describe('SimilarityService', () => {
       await similarityService.fit(20);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8765/api/similarity/fit?min_samples=20',
+        '/api/similarity/fit?min_samples=20',
         { method: 'POST' }
       );
     });

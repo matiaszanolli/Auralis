@@ -75,7 +75,7 @@ describe('AlbumArt', () => {
     it('constructs correct artwork URL', () => {
       render(<AlbumArt albumId={42} />)
       const img = screen.getByAltText('Album artwork')
-      expect(img).toHaveAttribute('src', 'http://localhost:8765/api/albums/42/artwork')
+      expect(img).toHaveAttribute('src', '/api/albums/42/artwork')
     })
 
     it('displays image after successful load', () => {
@@ -83,7 +83,7 @@ describe('AlbumArt', () => {
 
       const img = screen.getByAltText('Album artwork')
       // Image should be in the DOM with correct src
-      expect(img).toHaveAttribute('src', 'http://localhost:8765/api/albums/1/artwork')
+      expect(img).toHaveAttribute('src', '/api/albums/1/artwork')
     })
   })
 
@@ -177,14 +177,14 @@ describe('AlbumArt', () => {
     it('updates when albumId changes', () => {
       const { rerender } = render(<AlbumArt albumId={1} />)
       let img = screen.getByAltText('Album artwork')
-      expect(img).toHaveAttribute('src', 'http://localhost:8765/api/albums/1/artwork')
+      expect(img).toHaveAttribute('src', '/api/albums/1/artwork')
 
       // Change albumId
       rerender(<AlbumArt albumId={2} />)
 
       // Should update URL
       img = screen.getByAltText('Album artwork')
-      expect(img).toHaveAttribute('src', 'http://localhost:8765/api/albums/2/artwork')
+      expect(img).toHaveAttribute('src', '/api/albums/2/artwork')
     })
   })
 })

@@ -69,7 +69,7 @@ const EditMetadataDialog: React.FC<EditMetadataDialogProps> = ({
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:8765/api/metadata/tracks/${trackId}`);
+      const response = await fetch(`/api/metadata/tracks/${trackId}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch metadata');
@@ -120,7 +120,7 @@ const EditMetadataDialog: React.FC<EditMetadataDialogProps> = ({
         return;
       }
 
-      const response = await fetch(`http://localhost:8765/api/metadata/tracks/${trackId}`, {
+      const response = await fetch(`/api/metadata/tracks/${trackId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

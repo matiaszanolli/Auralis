@@ -109,9 +109,10 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       const currentOffset = resetPagination ? 0 : offset;
 
       // Determine which endpoint to use based on view
+      // Use relative URLs to leverage Vite proxy (avoids CORS issues)
       const endpoint = view === 'favourites'
-        ? `http://localhost:8765/api/library/tracks/favorites?limit=${limit}&offset=${currentOffset}`
-        : `http://localhost:8765/api/library/tracks?limit=${limit}&offset=${currentOffset}`;
+        ? `/api/library/tracks/favorites?limit=${limit}&offset=${currentOffset}`
+        : `/api/library/tracks?limit=${limit}&offset=${currentOffset}`;
 
       const response = await fetch(endpoint);
       if (response.ok) {
@@ -167,9 +168,10 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       const newOffset = offset + limit;
       setOffset(newOffset);
 
+      // Use relative URLs to leverage Vite proxy (avoids CORS issues)
       const endpoint = view === 'favourites'
-        ? `http://localhost:8765/api/library/tracks/favorites?limit=${limit}&offset=${newOffset}`
-        : `http://localhost:8765/api/library/tracks?limit=${limit}&offset=${newOffset}`;
+        ? `/api/library/tracks/favorites?limit=${limit}&offset=${newOffset}`
+        : `/api/library/tracks?limit=${limit}&offset=${newOffset}`;
 
       const response = await fetch(endpoint);
       if (response.ok) {
@@ -220,7 +222,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
 
     setScanning(true);
     try {
-      const response = await fetch('http://localhost:8765/api/library/scan', {
+      const response = await fetch('/api/library/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ directory: folderPath })
@@ -360,18 +362,30 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   useEffect(() => {
     if (!loadMoreRef.current) return;
 
+    // Debounce flag to prevent multiple simultaneous loads
+    let isObserverLoading = false;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
-          loadMore();
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading && !isObserverLoading) {
+          isObserverLoading = true;
+          loadMore().finally(() => {
+            // Reset after a delay to prevent rapid refiring
+            setTimeout(() => {
+              isObserverLoading = false;
+            }, 500);
+          });
         }
       },
-      { threshold: 0.1 } // Lower threshold to trigger earlier
+      { threshold: 0.1, rootMargin: '100px' } // Load when 100px away from trigger
     );
 
     observer.observe(loadMoreRef.current);
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      isObserverLoading = false;
+    };
   }, [hasMore, isLoadingMore, loading, loadMore]);
 
   const formatDuration = (seconds: number): string => {
@@ -407,7 +421,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
     try {
       const selectedTrackIds = Array.from(selectedTracks);
       for (const trackId of selectedTrackIds) {
-        await fetch('http://localhost:8765/api/player/queue/add-track', {
+        await fetch('/api/player/queue/add-track', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ track_id: trackId })
@@ -437,7 +451,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       if (view === 'favorites') {
         // Remove from favorites
         for (const trackId of selectedTracks) {
-          await fetch(`http://localhost:8765/api/library/tracks/${trackId}/favorite`, {
+          await fetch(`/api/library/tracks/${trackId}/favorite`, {
             method: 'DELETE'
           });
         }
@@ -457,7 +471,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   const handleBulkToggleFavorite = async () => {
     try {
       for (const trackId of selectedTracks) {
-        await fetch(`http://localhost:8765/api/library/tracks/${trackId}/favorite`, {
+        await fetch(`/api/library/tracks/${trackId}/favorite`, {
           method: 'POST'
         });
       }

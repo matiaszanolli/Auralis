@@ -197,7 +197,8 @@ async def _serve_enhanced_chunk(
             )
 
             # Get chunk path (from cache or process if needed)
-            chunk_path = processor.process_chunk(chunk_idx)
+            # Enable fast-start for first chunk to skip expensive fingerprint analysis
+            chunk_path = processor.process_chunk(chunk_idx, fast_start=(chunk_idx == 0))
 
             if not Path(chunk_path).exists():
                 raise HTTPException(404, f"Chunk file not found: {chunk_path}")
@@ -247,9 +248,10 @@ async def _serve_enhanced_chunk(
             )
 
             # Process with timeout (20s for immediate playback)
+            # Enable fast-start for first chunk to skip expensive fingerprint analysis
             try:
                 chunk_path = await asyncio.wait_for(
-                    asyncio.to_thread(processor.process_chunk, chunk_idx),
+                    asyncio.to_thread(processor.process_chunk, chunk_idx, chunk_idx == 0),
                     timeout=20.0
                 )
             except asyncio.TimeoutError:

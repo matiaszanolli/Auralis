@@ -163,7 +163,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
     try {
       // Search tracks
       const tracksResponse = await fetch(
-        `http://localhost:8765/api/library/tracks?limit=100`
+        `/api/library/tracks?limit=100`
       );
       if (tracksResponse.ok) {
         const tracksData = await tracksResponse.json();
@@ -184,7 +184,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
       }
 
       // Search albums
-      const albumsResponse = await fetch('http://localhost:8765/api/library/albums');
+      const albumsResponse = await fetch('/api/library/albums');
       if (albumsResponse.ok) {
         const albumsData = await albumsResponse.json();
         const matchingAlbums = albumsData.albums
@@ -204,7 +204,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
       }
 
       // Search artists
-      const artistsResponse = await fetch('http://localhost:8765/api/library/artists');
+      const artistsResponse = await fetch('/api/library/artists');
       if (artistsResponse.ok) {
         const artistsData = await artistsResponse.json();
         const matchingArtists = artistsData.artists

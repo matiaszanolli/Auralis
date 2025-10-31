@@ -8,7 +8,7 @@
  * - Clear queue
  */
 
-const API_BASE = 'http://localhost:8765/api';
+const API_BASE = '/api';
 
 export interface QueueTrack {
   id: number;

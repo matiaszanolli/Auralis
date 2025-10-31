@@ -5,7 +5,7 @@
  * API service for user settings management
  */
 
-const API_BASE = 'http://localhost:8765/api';
+const API_BASE = '/api';
 
 export interface UserSettings {
   id: number;

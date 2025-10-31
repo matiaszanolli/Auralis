@@ -25,6 +25,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWebSocketContext } from '../contexts/WebSocketContext';
+import { getApiUrl } from '../config/api';
 
 interface Track {
   id: number;
@@ -46,7 +47,7 @@ interface PlayerState {
   queueIndex: number;
 }
 
-const API_BASE = 'http://localhost:8765/api';
+// API_BASE removed - using getApiUrl() from config/api.ts for proper dev/prod handling
 
 export const usePlayerAPI = () => {
   const [playerState, setPlayerState] = useState<PlayerState>({
@@ -65,7 +66,7 @@ export const usePlayerAPI = () => {
   // Fetch current player status
   const fetchPlayerStatus = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/player/status`);
+      const response = await fetch(`/api/player/status`);
       if (response.ok) {
         const data = await response.json();
         setPlayerState(prev => ({
@@ -90,7 +91,7 @@ export const usePlayerAPI = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/player/play`, {
+      const response = await fetch(`/api/player/play`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -120,7 +121,7 @@ export const usePlayerAPI = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/player/pause`, {
+      const response = await fetch(`/api/player/pause`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -157,7 +158,7 @@ export const usePlayerAPI = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/player/next`, {
+      const response = await fetch(`/api/player/next`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -188,7 +189,7 @@ export const usePlayerAPI = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/player/previous`, {
+      const response = await fetch(`/api/player/previous`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -216,7 +217,7 @@ export const usePlayerAPI = () => {
   // Seek to position
   const seek = useCallback(async (position: number) => {
     try {
-      const response = await fetch(`${API_BASE}/player/seek`, {
+      const response = await fetch(`/api/player/seek`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ position })
@@ -236,7 +237,7 @@ export const usePlayerAPI = () => {
   // Set volume
   const setVolume = useCallback(async (volume: number) => {
     try {
-      const response = await fetch(`${API_BASE}/player/volume`, {
+      const response = await fetch(`/api/player/volume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ volume })
@@ -259,7 +260,7 @@ export const usePlayerAPI = () => {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/player/queue`, {
+      const response = await fetch(`/api/player/queue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -85,7 +85,7 @@ describe('LyricsPanel', () => {
 
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
-          'http://localhost:8765/api/library/tracks/1/lyrics'
+          '/api/library/tracks/1/lyrics'
         )
       })
     })
