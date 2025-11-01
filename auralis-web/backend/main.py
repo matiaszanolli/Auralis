@@ -78,8 +78,7 @@ from routers.albums import create_albums_router
 from routers.artists import create_artists_router
 from routers.player import create_player_router
 from routers.metadata import create_metadata_router
-from routers.mse_streaming import create_mse_streaming_router
-from routers.unified_streaming import create_unified_streaming_router
+from routers.webm_streaming import create_webm_streaming_router  # NEW unified architecture
 from routers.similarity import create_similarity_router
 
 # Configure logging
@@ -96,11 +95,18 @@ app = FastAPI(
 )
 
 # CORS middleware for cross-origin requests
+# Allow multiple dev server ports since Vite auto-increments if port is in use
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",      # React dev server
+        "http://localhost:3000",      # React dev server (default)
         "http://127.0.0.1:3000",
+        "http://localhost:3001",      # React dev server (alt ports)
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "http://localhost:3004",
+        "http://localhost:3005",
+        "http://localhost:3006",
         "http://localhost:8765",      # Production (same-origin but explicit)
         "http://127.0.0.1:8765",
     ],
@@ -370,25 +376,16 @@ if HAS_MULTI_TIER and multi_tier_manager:
     app.include_router(cache_router, prefix="/api")
     logger.info("✅ Cache management router included")
 
-# Include MSE streaming router
-mse_router = create_mse_streaming_router(
+# Include WebM streaming router (Unified Architecture - always WebM/Opus)
+# Replaces old MSE and Unified routers with single simplified endpoint
+webm_router = create_webm_streaming_router(
     get_library_manager=lambda: library_manager,
     get_multi_tier_buffer=lambda: multi_tier_manager if HAS_MULTI_TIER else None,
     chunked_audio_processor_class=ChunkedAudioProcessor,
     chunk_duration=30
 )
-app.include_router(mse_router)
-logger.info("✅ MSE streaming router included")
-
-# Include Unified streaming router (MSE + Multi-Tier Buffer integration)
-unified_router = create_unified_streaming_router(
-    get_library_manager=lambda: library_manager,
-    get_multi_tier_buffer=lambda: multi_tier_manager if HAS_MULTI_TIER else None,
-    chunked_processor_class=ChunkedAudioProcessor,
-    chunk_duration=30.0
-)
-app.include_router(unified_router)
-logger.info("✅ Unified streaming router included (MSE + MTB integration)")
+app.include_router(webm_router)
+logger.info("✅ WebM streaming router included (NEW unified architecture - always WebM/Opus)")
 
 # Create and include similarity router (fingerprint-based music similarity)
 if HAS_SIMILARITY:

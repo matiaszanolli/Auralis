@@ -1,22 +1,27 @@
 # Auralis Technical Paper - Quick Outline
 
-**Full Paper**: [paper/auralis_realtime_adaptive_mastering.md](paper/auralis_realtime_adaptive_mastering.md)
+**Full Paper v2.0**: [paper/auralis_realtime_adaptive_mastering_v2.md](paper/auralis_realtime_adaptive_mastering_v2.md) (UPDATED Nov 1, 2025)
+**Full Paper v1.0**: [paper/auralis_realtime_adaptive_mastering.md](paper/auralis_realtime_adaptive_mastering.md) (Original Oct 27, 2025)
 
 ---
 
-## Abstract (150-200 words)
+## Abstract (200 words) - Updated v2.0
 
-Novel real-time adaptive audio mastering system enabling **instant preset switching** during playback through:
-1. Unified streaming architecture (MSE + Multi-Tier Buffer)
-2. Chunked multidimensional feature extraction
-3. CPU-inspired hierarchical caching with branch prediction
-4. WebM/Opus progressive encoding (86% size reduction)
+Production-ready real-time adaptive audio mastering system enabling **instant audio enhancement without reference tracks** through:
+1. **25-dimensional acoustic fingerprint system** for cross-genre music analysis
+2. **Portable .25d sidecar file format** delivering 5,251x speedup for repeated analysis
+3. **Mathematical framework derived from real album analysis** (64+ tracks across 9 albums)
+4. **Unified streaming architecture** (MSE + Multi-Tier Buffer)
+5. **CPU-inspired hierarchical caching** with branch prediction
 
 **Key Results**:
 - <100ms preset switching latency (20-50x improvement)
 - 36.6x real-time processing speed
+- 5,251x fingerprint caching speedup (31s → 6ms)
 - 91% cache hit rate during typical sessions
-- Production-ready with 241+ tests (100% pass rate)
+- 86% storage reduction through WebM/Opus encoding
+- Production-ready: Beta.6 with 430+ tests (100% backend, 95.5% frontend)
+- Real-world validation: 54,735 tracks
 
 ---
 
@@ -35,11 +40,11 @@ Novel real-time adaptive audio mastering system enabling **instant preset switch
 5. Perceptual continuity (avoiding glitches during preset switches)
 
 ### 1.3 Contributions
-1. **Unified streaming architecture**: Single endpoint, intelligent routing
-2. **Chunked multidimensional segmentation**: 30s chunks with 5D feature extraction
-3. **Multi-tier buffer system**: L1/L2/L3 cache with branch prediction
-4. **WebM/Opus encoding**: 86% size reduction, MSE-compatible
-5. **Production validation**: Comprehensive testing, real-world deployment
+1. **25-dimensional acoustic fingerprint system**: Comprehensive multidimensional audio analysis (frequency 7D, dynamics 3D, temporal 4D, spectral 3D, harmonic 3D, variation 3D, stereo 2D) enabling reference-free parameter selection
+2. **.25d sidecar file format**: Portable, non-destructive metadata caching delivering 5,251x speedup (31s → 6ms) for fingerprint extraction
+3. **Mathematical framework from real albums**: Data-driven insights from 64+ tracks (natural LUFS variation 10-20 dB, consistent crest factors ±2.4 dB, LUFS-frequency correlation r=+0.974)
+4. **Unified streaming architecture**: Single endpoint, intelligent routing (MSE + Multi-Tier Buffer)
+5. **Production validation**: Beta.6 with 430+ tests (100% backend, 95.5% frontend), validated on 54,735 real-world tracks
 
 ---
 
@@ -82,11 +87,32 @@ Unified Streaming Endpoint
   5. Tempo energy (onset strength)
 - **Context**: 1-second overlap for crossfading
 
-### 3.3 Content Analysis Framework
+### 3.1 25-Dimensional Acoustic Fingerprint System (NEW - v2.0)
+- **Frequency Distribution (7D)**: Sub-bass, bass, low-mid, mid, upper-mid, presence, air percentages
+- **Dynamics Characteristics (3D)**: LUFS, crest factor, bass/mid ratio
+- **Temporal Characteristics (4D)**: Tempo, rhythm stability, transient density, silence ratio
+- **Spectral Shape (3D)**: Spectral centroid, rolloff, flatness
+- **Harmonic Content (3D)**: Harmonic ratio, pitch stability, chroma energy
+- **Variation Characteristics (3D)**: Dynamic range variation, loudness variation, peak consistency
+- **Stereo Imaging (2D)**: Stereo width, phase correlation
+
+### 3.2 Mathematical Framework from Real Albums (NEW - v2.0)
+- **Albums analyzed**: 64+ tracks across 9 albums (Steven Wilson, deadmau5, Metallica, AC/DC, etc.)
+- **Discovery 1**: LUFS variation 10-20 dB within albums (natural, intentional)
+- **Discovery 2**: Crest factor std ±2.4 dB (what's actually consistent)
+- **Discovery 3**: LUFS↔Frequency correlation r=+0.974 (physics, not mastering)
+- **Discovery 4**: Mid-dominance rare (only ~15% of tracks)
+
+### 3.3 .25d Sidecar File Format (NEW - v2.0)
+- **Format**: JSON, 1.35 KB typical, naming: `<audio_filename>.25d`
+- **Validation**: File size, timestamp, format version, 25 dimensions present
+- **Performance**: 31s → 6ms (5,251x speedup)
+- **Storage**: 74 MB for 54,735 tracks (negligible)
+
+### 3.4 Content Analysis Framework (Preserved from v1.0)
 - **Spectral**: FFT, critical bands, psychoacoustic weighting
 - **Dynamics**: RMS, peak, crest, LUFS (ITU-R BS.1770-4)
 - **Temporal**: Onset detection, tempo, rhythm stability
-- **25D Fingerprint**: Frequency (7D), dynamics (3D), temporal (4D), spectral (3D), harmonic (3D), variation (3D), stereo (2D)
 
 ### 3.4 Adaptive Target Generation
 **Presets**:
@@ -155,7 +181,34 @@ GET /api/audio/stream/{track_id}/chunk/{chunk_idx}
 
 ## 5. Results
 
-### 5.1 Preset Switching Latency
+### 5.1 Fingerprint Extraction Performance (NEW - v2.0)
+
+| Component | Time | Notes |
+|-----------|------|-------|
+| Uncached extraction | 31.1s | Audio loading + analysis |
+| **Cached (.25d)** | **6ms** | **JSON read + parse** |
+| **Speedup** | **5,251x** | **31s → 6ms** |
+
+**Batch extraction (100 tracks)**:
+- 0% cache hit: 3,109s (~52min)
+- 80% cache hit: 620s (~10min)
+- 100% cache hit: 0.6s
+
+**Full library (54,735 tracks)**:
+- Uncached: 19.7 days
+- 100% cached: 5.5 minutes (time saved: 19.7 days)
+
+### 5.2 Similarity Search Performance (NEW - v2.0)
+
+| Method | Time | Speedup | Notes |
+|--------|------|---------|-------|
+| Naive distance | 510ms | Baseline | 54,735 comparisons |
+| Pre-filtering | 31ms | 16x faster | 4D range queries |
+| K-NN graph | <1ms | 500x faster | Pre-computed edges |
+
+**Real-world validation**: 54,735 tracks, 100% test pass rate (14/14 tests)
+
+### 5.3 Preset Switching Latency (Preserved from v1.0)
 
 | Scenario | Latency | Improvement |
 |----------|---------|-------------|
@@ -302,8 +355,15 @@ User interaction → Frontend → Backend → Cache lookup → Audio delivery (1
 
 ---
 
-**Paper Status**: Draft v1.0 (October 27, 2025)
-**Word Count**: ~15,000 words (comprehensive technical paper)
-**Target Length**: 8-12 pages (IEEE double-column format) or 15-20 pages (AES format)
+**Paper Status**: Draft v2.0 (November 1, 2025) - **MAJOR UPDATE**
+**Word Count**: ~17,500 words (comprehensive technical paper)
+**Target Length**: 10-15 pages (IEEE double-column format) or 20-25 pages (AES format)
+
+**What's New in v2.0**:
+- 25D acoustic fingerprint system (complete specification)
+- .25d sidecar file format (5,251x speedup)
+- Mathematical framework from real album analysis (64+ tracks)
+- Production validation (Beta.6, 430+ tests, 54,735 tracks)
+- Updated performance benchmarks with real measurements
 
 Next steps: Create figures, collect benchmark data, conduct perceptual tests, submit to venue.

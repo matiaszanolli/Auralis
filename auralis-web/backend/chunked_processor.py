@@ -162,6 +162,14 @@ class ChunkedAudioProcessor:
         """
         return self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.wav"
 
+    def _get_webm_chunk_path(self, chunk_index: int) -> Path:
+        """
+        Get file path for WebM/Opus chunk.
+
+        This is the primary output format for the unified architecture.
+        """
+        return self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.webm"
+
     def load_chunk(self, chunk_index: int, with_context: bool = True) -> Tuple[np.ndarray, float, float]:
         """
         Load a single chunk from audio file with optional context.
@@ -523,7 +531,10 @@ class ChunkedAudioProcessor:
 
     def get_webm_chunk_path(self, chunk_index: int) -> str:
         """
-        Get WebM/Opus chunk for MSE streaming.
+        Get WebM/Opus chunk for unified streaming architecture.
+
+        This is the PRIMARY output method for the unified architecture.
+        Process audio and encode directly to WebM/Opus in a single pass.
 
         Args:
             chunk_index: Index of chunk to retrieve
@@ -539,18 +550,97 @@ class ChunkedAudioProcessor:
                 logger.info(f"Serving cached WebM chunk {chunk_index}")
                 return str(cached_path)
 
-        # Process chunk as WAV first (triggers full processing pipeline if not cached)
-        # This ensures crossfade, state tracking, and all audio processing is applied
-        wav_chunk_path = self.process_chunk(chunk_index)
+        # Get WebM output path
+        webm_chunk_path = self._get_webm_chunk_path(chunk_index)
 
-        # Convert WAV to WebM/Opus using ffmpeg
-        webm_chunk_path = self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.webm"
+        # Check if already exists on disk
+        if webm_chunk_path.exists():
+            logger.info(f"WebM chunk {chunk_index} already exists on disk")
+            self.chunk_cache[cache_key] = str(webm_chunk_path)
+            return str(webm_chunk_path)
 
-        if not webm_chunk_path.exists():
-            _convert_to_webm_opus(str(wav_chunk_path), str(webm_chunk_path))
-            logger.info(f"Converted chunk {chunk_index} to WebM/Opus")
+        # Process audio chunk
+        logger.info(f"Processing chunk {chunk_index} directly to WebM/Opus")
 
-        # Cache the WebM path
+        # Load chunk with context
+        audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
+
+        # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
+        # This reduces initial buffering from ~30s to <5s
+        if chunk_index == 0:
+            # Temporarily disable fingerprint analysis
+            original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
+            self.processor.content_analyzer.use_fingerprint_analysis = False
+            logger.info("⚡ Fast-start: Skipping fingerprint analysis for first chunk")
+
+            try:
+                # Process with shared HybridProcessor instance
+                processed_chunk = self.processor.process(audio_chunk)
+            finally:
+                # Restore fingerprint analysis for subsequent chunks
+                self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+        else:
+            # Normal processing with fingerprint analysis
+            processed_chunk = self.processor.process(audio_chunk)
+
+        # Trim context (keep only the actual chunk)
+        context_samples = int(CONTEXT_DURATION * self.sample_rate)
+        actual_start = chunk_index * CHUNK_DURATION
+
+        # Safety: Ensure we have enough samples to trim
+        chunk_length = len(processed_chunk)
+
+        if actual_start > 0:  # Not first chunk, trim start context
+            if chunk_length > context_samples:
+                processed_chunk = processed_chunk[context_samples:]
+            else:
+                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {context_samples})")
+
+        # Don't trim end context for last chunk
+        is_last = chunk_index == self.total_chunks - 1
+        if not is_last:
+            chunk_length = len(processed_chunk)  # Update after potential start trim
+            if chunk_length > context_samples:
+                processed_chunk = processed_chunk[:-context_samples]
+            else:
+                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {context_samples})")
+
+        # Apply intensity blending
+        if self.intensity < 1.0:
+            # Get original chunk without context for blending
+            original_chunk, _, _ = self.load_chunk(chunk_index, with_context=False)
+            # Ensure same length
+            min_len = min(len(original_chunk), len(processed_chunk))
+            processed_chunk = (
+                original_chunk[:min_len] * (1.0 - self.intensity) +
+                processed_chunk[:min_len] * self.intensity
+            )
+
+        # CRITICAL FIX: Smooth level transitions between chunks
+        processed_chunk = self._smooth_level_transition(processed_chunk, chunk_index)
+
+        # Encode directly to WebM/Opus (no WAV intermediate)
+        try:
+            from encoding.webm_encoder import encode_to_webm_opus, WebMEncoderError
+
+            webm_bytes = encode_to_webm_opus(
+                processed_chunk,
+                self.sample_rate,
+                bitrate=192,  # High quality (transparent)
+                vbr=True,
+                compression_level=10,
+                application='audio'
+            )
+
+            # Write WebM file
+            webm_chunk_path.write_bytes(webm_bytes)
+            logger.info(f"Chunk {chunk_index} encoded to WebM/Opus: {len(webm_bytes)} bytes")
+
+        except WebMEncoderError as e:
+            logger.error(f"WebM encoding failed for chunk {chunk_index}: {e}")
+            raise RuntimeError(f"Failed to encode chunk to WebM/Opus: {e}")
+
+        # Cache the path
         self.chunk_cache[cache_key] = str(webm_chunk_path)
 
         return str(webm_chunk_path)

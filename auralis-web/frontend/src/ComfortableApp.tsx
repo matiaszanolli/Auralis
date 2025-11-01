@@ -17,11 +17,10 @@ import {
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 
 import Sidebar from './components/Sidebar';
-// MSE Progressive Streaming integration - DISABLED (initialization issues + complexity)
-// Issues: SourceBuffer errors, rapid component mounting/unmounting, destroy() method issues
-// Decision: Get multi-tier buffer working solidly first, then reintegrate MSE with proper testing
-// See: docs/sessions/oct27_mse_and_fingerprints/MSE_BUFFER_CONFLICT.md
-import BottomPlayerBarConnected from './components/BottomPlayerBarConnected';
+// Phase 3: Using NEW Unified WebM Audio Player (always WebM/Opus)
+// Replaced old dual MSE/HTML5 player with single Web Audio API player
+// See: docs/sessions/nov1_unified_player/
+import BottomPlayerBarUnified from './components/BottomPlayerBarUnified';
 import PresetPane from './components/PresetPane';
 import CozyLibraryView from './components/CozyLibraryView';
 import GlobalSearch from './components/library/GlobalSearch';
@@ -523,11 +522,8 @@ function ComfortableApp() {
         )}
       </Box>
 
-      {/* Bottom Player Bar - Fixed - REAL PLAYBACK! */}
-      <BottomPlayerBarConnected
-        onToggleLyrics={() => setLyricsOpen(!lyricsOpen)}
-        onTimeUpdate={(time) => setPlaybackTime(time)}
-      />
+      {/* Bottom Player Bar - NEW Unified WebM Player */}
+      <BottomPlayerBarUnified />
 
         {/* Settings Dialog */}
         <SettingsDialog
