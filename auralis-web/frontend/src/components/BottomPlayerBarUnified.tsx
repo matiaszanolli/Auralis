@@ -41,7 +41,7 @@ import { GradientSlider } from './shared/GradientSlider';
 import { colors, gradients } from '../theme/auralisTheme';
 import { useToast } from './shared/Toast';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
-import { useUnifiedPlayer } from '../hooks/useUnifiedPlayer';
+import { useUnifiedWebMAudioPlayer } from '../hooks/useUnifiedWebMAudioPlayer';
 import { useEnhancement } from '../contexts/EnhancementContext';
 import AlbumArtComponent from './album/AlbumArt';
 
@@ -104,13 +104,14 @@ export const BottomPlayerBarUnified: React.FC = () => {
     setPreset: setEnhancementPreset
   } = useEnhancement();
 
-  // Unified player
-  const player = useUnifiedPlayer({
+  // NEW Unified WebM Audio Player (Phase 2)
+  const player = useUnifiedWebMAudioPlayer({
     apiBaseUrl: 'http://localhost:8765',
     enhanced: enhancementSettings.enabled,
     preset: enhancementSettings.preset,
     intensity: enhancementSettings.intensity,
-    debug: true
+    debug: true,
+    autoPlay: true
   });
 
   // Local UI state
@@ -300,19 +301,19 @@ export const BottomPlayerBarUnified: React.FC = () => {
 
         {/* Enhancement Controls + Volume */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '0 1 400px', justifyContent: 'flex-end' }}>
-          {/* Mode indicator */}
-          <Tooltip title={`Mode: ${player.mode === 'mse' ? 'Progressive Streaming' : 'Enhanced Processing'}`}>
+          {/* Format indicator */}
+          <Tooltip title="WebM/Opus Streaming (Unified Architecture)">
             <Chip
-              label={player.mode.toUpperCase()}
+              label="WebM"
               size="small"
-              color={player.mode === 'html5' ? 'primary' : 'default'}
+              color="primary"
               sx={{ minWidth: 60 }}
             />
           </Tooltip>
 
           {/* State indicator */}
-          {player.state === 'switching' && (
-            <Tooltip title="Switching mode...">
+          {player.isLoading && (
+            <Tooltip title="Loading...">
               <CircularProgress size={16} />
             </Tooltip>
           )}
@@ -320,7 +321,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
           {/* Enhancement toggle */}
           <Tooltip title="Enable audio enhancement">
             <Switch
-              checked={player.mode === 'html5'}
+              checked={enhancementSettings.enabled}
               onChange={(e) => handleEnhancementToggle(e.target.checked)}
               disabled={player.isLoading}
               size="small"
@@ -332,7 +333,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
             value={enhancementSettings.preset}
             onChange={(e) => handlePresetChange(e.target.value)}
             size="small"
-            disabled={player.mode !== 'html5' || player.isLoading}
+            disabled={!enhancementSettings.enabled || player.isLoading}
             sx={{ minWidth: 120 }}
           >
             <MenuItem value="adaptive">Adaptive</MenuItem>
