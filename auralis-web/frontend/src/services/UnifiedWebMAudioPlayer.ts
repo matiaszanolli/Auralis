@@ -472,7 +472,16 @@ export class UnifiedWebMAudioPlayer {
    */
   getCurrentTime(): number {
     if (this.state === 'playing' && this.currentSource) {
-      return this.audioContext.currentTime - this.startTime;
+      // Get time within current chunk
+      const timeInCurrentChunk = this.audioContext.currentTime - this.startTime;
+
+      // Get accumulated time from all previous chunks
+      const accumulatedTime = this.currentChunkIndex >= 0 && this.chunks[this.currentChunkIndex]
+        ? this.chunks[this.currentChunkIndex].startTime
+        : 0;
+
+      // Return total time (accumulated + current chunk)
+      return accumulatedTime + timeInCurrentChunk;
     }
     return this.pauseTime;
   }

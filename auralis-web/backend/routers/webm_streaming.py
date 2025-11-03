@@ -215,27 +215,13 @@ def create_webm_streaming_router(
                 webm_bytes = await _get_original_webm_chunk(track.filepath, chunk_idx, chunk_duration)
                 cache_tier = "ORIGINAL"
             else:
-                # Try multi-tier buffer first (if available)
-                if multi_tier_buffer:
-                    try:
-                        # Check cache tiers (L1 → L2 → L3)
-                        chunk_data = await multi_tier_buffer.get_chunk(
-                            track_id=track_id,
-                            preset=preset,
-                            chunk_idx=chunk_idx,
-                            intensity=intensity
-                        )
-
-                        if chunk_data:
-                            # Cache hit! 🎉
-                            cache_tier = chunk_data.get("tier", "UNKNOWN")
-                            webm_bytes = chunk_data.get("audio_bytes")
-                            logger.info(f"✅ Cache HIT: {cache_tier} cache for track {track_id}, chunk {chunk_idx}, preset {preset}")
-                    except Exception as e:
-                        logger.warning(f"Multi-tier buffer query failed: {e}")
+                # TODO: Multi-tier buffer cache integration
+                # The get_chunk() method is not yet implemented in MultiTierBufferManager
+                # For now, always process on-demand (cache_tier = "MISS")
+                # Future: Implement multi_tier_buffer.get_chunk() for L1/L2/L3 cache hits
 
                 # Cache miss - process on demand
-                if webm_bytes is None:
+                if True:  # Always process on-demand for now
                     cache_tier = "MISS"
                     logger.info(f"❌ Cache MISS: Processing chunk {chunk_idx} on-demand for track {track_id}, preset {preset}")
 

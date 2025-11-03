@@ -491,7 +491,7 @@ function ComfortableApp() {
             sx={{
               flex: 1,
               overflow: 'auto',
-              pb: '104px' // Space for bottom player bar (80px + 24px margin)
+              pb: '120px' // Space for bottom player bar (80px + 40px margin for better visibility)
             }}
           >
             <CozyLibraryView

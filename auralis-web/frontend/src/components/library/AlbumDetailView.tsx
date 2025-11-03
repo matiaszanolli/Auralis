@@ -110,7 +110,9 @@ const AlbumMetadata = styled(Typography)(({ theme }) => ({
 const ActionButtons = styled(Box)(({ theme }) => ({
   display: 'flex',
   gap: theme.spacing(2),
-  marginTop: theme.spacing(2)
+  marginTop: theme.spacing(2),
+  alignItems: 'center',
+  flexWrap: 'wrap' // Allow wrapping on smaller screens
 }));
 
 const PlayButton = styled(Button)(({ theme }) => ({
