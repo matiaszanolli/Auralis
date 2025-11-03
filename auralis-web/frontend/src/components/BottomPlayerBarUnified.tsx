@@ -50,41 +50,110 @@ const PlayerContainer = styled(Box)({
   bottom: 0,
   left: 0,
   right: 0,
-  height: '96px',
-  background: colors.background.secondary,
-  borderTop: `1px solid rgba(102, 126, 234, 0.1)`,
+  width: '100vw',
+  height: '80px',
+  margin: 0,
+  padding: 0,
+  background: 'linear-gradient(180deg, rgba(10, 14, 39, 0.98) 0%, rgba(10, 14, 39, 0.99) 100%)',
+  backdropFilter: 'blur(20px)',
+  WebkitBackdropFilter: 'blur(20px)', // Safari support
+  borderTop: `1px solid rgba(102, 126, 234, 0.15)`,
   display: 'flex',
   flexDirection: 'column',
-  zIndex: 1000,
-  boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.3)',
+  zIndex: 1300, // Higher than MUI modals (1200)
+  boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.5), 0 -2px 8px rgba(102, 126, 234, 0.15)',
 });
 
 const PlayButton = styled(IconButton)({
   background: gradients.aurora,
   color: '#ffffff',
-  width: '48px',
-  height: '48px',
-  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-  transition: 'all 0.3s ease',
+  width: '56px',
+  height: '56px',
+  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.4), 0 0 24px rgba(102, 126, 234, 0.2)',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
 
   '&:hover': {
     background: gradients.aurora,
-    transform: 'scale(1.1)',
-    boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+    transform: 'scale(1.05)',
+    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.6), 0 0 32px rgba(102, 126, 234, 0.3)',
   },
 
   '&:active': {
-    transform: 'scale(1.05)',
+    transform: 'scale(0.98)',
+  },
+
+  '&:disabled': {
+    background: 'rgba(102, 126, 234, 0.2)',
+    color: 'rgba(255, 255, 255, 0.3)',
   },
 });
 
 const AlbumArtContainer = styled(Box)({
-  width: '64px',
-  height: '64px',
-  borderRadius: '6px',
+  width: '56px',
+  height: '56px',
+  borderRadius: '8px',
   flexShrink: 0,
   overflow: 'hidden',
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+  border: '1px solid rgba(102, 126, 234, 0.2)',
+});
+
+const ControlButton = styled(IconButton)({
+  color: 'rgba(255, 255, 255, 0.7)',
+  transition: 'all 0.2s ease',
+
+  '&:hover': {
+    color: '#ffffff',
+    background: 'rgba(102, 126, 234, 0.1)',
+    transform: 'scale(1.1)',
+  },
+
+  '&:disabled': {
+    color: 'rgba(255, 255, 255, 0.2)',
+  },
+});
+
+const StyledChip = styled(Chip)({
+  background: 'rgba(102, 126, 234, 0.15)',
+  border: '1px solid rgba(102, 126, 234, 0.3)',
+  color: '#667eea',
+  fontWeight: 600,
+  fontSize: '11px',
+  letterSpacing: '0.5px',
+
+  '& .MuiChip-label': {
+    padding: '0 8px',
+  },
+});
+
+const StyledSelect = styled(Select)({
+  borderRadius: '8px',
+  fontSize: '13px',
+  background: 'rgba(26, 31, 58, 0.6)',
+  border: '1px solid rgba(102, 126, 234, 0.2)',
+
+  '& .MuiOutlinedInput-notchedOutline': {
+    border: 'none',
+  },
+
+  '&:hover': {
+    background: 'rgba(26, 31, 58, 0.8)',
+    border: '1px solid rgba(102, 126, 234, 0.4)',
+  },
+
+  '&.Mui-focused': {
+    background: 'rgba(26, 31, 58, 0.9)',
+    border: '1px solid rgba(102, 126, 234, 0.6)',
+  },
+});
+
+const StyledSwitch = styled(Switch)({
+  '& .MuiSwitch-switchBase.Mui-checked': {
+    color: '#667eea',
+  },
+  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+    backgroundColor: '#667eea',
+  },
 });
 
 export const BottomPlayerBarUnified: React.FC = () => {
@@ -227,100 +296,112 @@ export const BottomPlayerBarUnified: React.FC = () => {
 
   return (
     <PlayerContainer>
-      {/* Progress Bar */}
-      <Box sx={{ px: 2, pt: 1 }}>
+      {/* Progress Bar - snapped to top, no padding */}
+      <Box sx={{ px: 3 }}>
         <GradientSlider
           value={player.currentTime}
           max={player.duration || 100}
           onChange={(_, value) => player.seek(value as number)}
           disabled={player.state === 'idle' || player.isLoading}
-          sx={{ height: 4 }}
+          sx={{ height: 3 }}
         />
       </Box>
 
-      {/* Main Controls */}
+      {/* Main Controls - distributed across full width with centered play button */}
       <Box sx={{
         display: 'flex',
         alignItems: 'center',
-        px: 2,
+        px: 3,
         flex: 1,
-        gap: 2
+        justifyContent: 'space-between',
+        gap: 2,
+        position: 'relative'
       }}>
-        {/* Album Art + Track Info */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: '0 1 400px' }}>
+        {/* Left Section: Album Art + Track Info */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: 1 }}>
           <AlbumArtContainer>
             {currentTrack && (
               <AlbumArtComponent
                 albumId={currentTrack.album_id}
-                size={64}
+                size={56}
               />
             )}
           </AlbumArtContainer>
 
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+            <Typography variant="body2" noWrap sx={{ fontWeight: 600, fontSize: '14px' }}>
               {currentTrack?.title || 'No track loaded'}
             </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
+            <Typography variant="caption" noWrap sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>
               {currentTrack?.artist || 'Unknown artist'}
             </Typography>
           </Box>
 
-          <IconButton size="small" onClick={() => setIsLoved(!isLoved)}>
+          <ControlButton size="small" onClick={() => setIsLoved(!isLoved)}>
             {isLoved ? <Favorite sx={{ color: '#ff4081' }} /> : <FavoriteOutlined />}
-          </IconButton>
+          </ControlButton>
         </Box>
 
-        {/* Playback Controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center', flex: '0 1 300px' }}>
-          <IconButton onClick={previousTrack} disabled={!queue.length || queueIndex === 0}>
-            <SkipPrevious />
-          </IconButton>
+        {/* Center Section: Playback Controls (absolutely centered) */}
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          position: 'absolute',
+          left: '50%',
+          transform: 'translateX(-50%)'
+        }}>
+          <ControlButton onClick={previousTrack} disabled={!queue.length || queueIndex === 0}>
+            <SkipPrevious sx={{ fontSize: 28 }} />
+          </ControlButton>
 
           <PlayButton
             onClick={handlePlayPause}
             disabled={player.isLoading || player.state === 'idle'}
           >
             {player.isLoading ? (
-              <CircularProgress size={24} color="inherit" />
+              <CircularProgress size={28} color="inherit" />
             ) : player.isPlaying ? (
-              <Pause />
+              <Pause sx={{ fontSize: 32 }} />
             ) : (
-              <PlayArrow />
+              <PlayArrow sx={{ fontSize: 32 }} />
             )}
           </PlayButton>
 
-          <IconButton onClick={nextTrack} disabled={!queue.length || queueIndex >= queue.length - 1}>
-            <SkipNext />
-          </IconButton>
+          <ControlButton onClick={nextTrack} disabled={!queue.length || queueIndex >= queue.length - 1}>
+            <SkipNext sx={{ fontSize: 28 }} />
+          </ControlButton>
 
-          <Typography variant="caption" sx={{ minWidth: 100, textAlign: 'center' }}>
+          <Typography variant="caption" sx={{
+            minWidth: 90,
+            textAlign: 'center',
+            color: 'rgba(255,255,255,0.6)',
+            fontSize: '12px',
+            fontWeight: 500,
+            letterSpacing: '0.3px'
+          }}>
             {formatTime(player.currentTime)} / {formatTime(player.duration)}
           </Typography>
         </Box>
 
-        {/* Enhancement Controls + Volume */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '0 1 400px', justifyContent: 'flex-end' }}>
+        {/* Right Section: Enhancement Controls + Volume */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, justifyContent: 'flex-end' }}>
           {/* Format indicator */}
-          <Tooltip title="WebM/Opus Streaming (Unified Architecture)">
-            <Chip
+          <Tooltip title="WebM/Opus Streaming (Unified Architecture)" arrow>
+            <StyledChip
               label="WebM"
               size="small"
-              color="primary"
-              sx={{ minWidth: 60 }}
             />
           </Tooltip>
 
           {/* State indicator */}
           {player.isLoading && (
-            <Tooltip title="Loading...">
-              <CircularProgress size={16} />
-            </Tooltip>
+            <CircularProgress size={16} sx={{ color: '#667eea' }} />
           )}
 
           {/* Enhancement toggle */}
-          <Tooltip title="Enable audio enhancement">
-            <Switch
+          <Tooltip title="Enable audio enhancement" arrow>
+            <StyledSwitch
               checked={enhancementSettings.enabled}
               onChange={(e) => handleEnhancementToggle(e.target.checked)}
               disabled={player.isLoading}
@@ -329,35 +410,41 @@ export const BottomPlayerBarUnified: React.FC = () => {
           </Tooltip>
 
           {/* Preset selector */}
-          <Select
+          <StyledSelect
             value={enhancementSettings.preset}
             onChange={(e) => handlePresetChange(e.target.value)}
             size="small"
             disabled={!enhancementSettings.enabled || player.isLoading}
-            sx={{ minWidth: 120 }}
+            sx={{ minWidth: 110, fontSize: '13px' }}
           >
             <MenuItem value="adaptive">Adaptive</MenuItem>
             <MenuItem value="warm">Warm</MenuItem>
             <MenuItem value="bright">Bright</MenuItem>
             <MenuItem value="punchy">Punchy</MenuItem>
             <MenuItem value="gentle">Gentle</MenuItem>
-          </Select>
+          </StyledSelect>
 
           {/* Volume */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 150 }}>
-            <IconButton size="small" onClick={handleMuteToggle}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 140 }}>
+            <ControlButton size="small" onClick={handleMuteToggle}>
               {getVolumeIcon()}
-            </IconButton>
+            </ControlButton>
             <Box sx={{ flex: 1 }} onWheel={handleVolumeWheel}>
               <GradientSlider
                 value={isMuted ? 0 : localVolume}
                 onChange={handleVolumeChange}
                 min={0}
                 max={100}
-                sx={{ height: 4 }}
+                sx={{ height: 3 }}
               />
             </Box>
-            <Typography variant="caption" sx={{ minWidth: 35, textAlign: 'right' }}>
+            <Typography variant="caption" sx={{
+              minWidth: 32,
+              textAlign: 'right',
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: '11px',
+              fontWeight: 600
+            }}>
               {Math.round(isMuted ? 0 : localVolume)}%
             </Typography>
           </Box>

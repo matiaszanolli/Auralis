@@ -343,7 +343,7 @@ function ComfortableApp() {
           color: 'var(--silver)',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden'
+          // overflow: 'hidden' removed - fixed player is outside this box and needs to be visible
         }}
       >
         {/* Main Layout: Sidebar + Content */}
@@ -491,7 +491,7 @@ function ComfortableApp() {
             sx={{
               flex: 1,
               overflow: 'auto',
-              pb: '100px' // Space for bottom player bar
+              pb: '104px' // Space for bottom player bar (80px + 24px margin)
             }}
           >
             <CozyLibraryView
@@ -522,27 +522,27 @@ function ComfortableApp() {
         )}
       </Box>
 
-      {/* Bottom Player Bar - NEW Unified WebM Player */}
-      <BottomPlayerBarUnified />
+      {/* Settings Dialog */}
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSettingsChange={(settings) => {
+          console.log('Settings changed:', settings);
+          success('Settings saved successfully');
+        }}
+      />
 
-        {/* Settings Dialog */}
-        <SettingsDialog
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          onSettingsChange={(settings) => {
-            console.log('Settings changed:', settings);
-            success('Settings saved successfully');
-          }}
-        />
+      {/* Keyboard Shortcuts Help Dialog - DISABLED FOR BETA.6 */}
+      {/*<KeyboardShortcutsHelp
+        open={isHelpOpen}
+        shortcuts={shortcuts}
+        onClose={closeHelp}
+      />*/}
+    </Box>
 
-        {/* Keyboard Shortcuts Help Dialog - DISABLED FOR BETA.6 */}
-        {/*<KeyboardShortcutsHelp
-          open={isHelpOpen}
-          shortcuts={shortcuts}
-          onClose={closeHelp}
-        />*/}
-      </Box>
-    </DragDropContext>
+    {/* Bottom Player Bar - MOVED OUTSIDE overflow:hidden container */}
+    <BottomPlayerBarUnified />
+  </DragDropContext>
   );
 }
 
