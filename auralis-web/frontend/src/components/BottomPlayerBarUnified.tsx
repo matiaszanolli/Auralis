@@ -213,6 +213,16 @@ export const BottomPlayerBarUnified: React.FC = () => {
     }
   }, [player.error]);
 
+  // Sync enhancement settings with player when they change
+  useEffect(() => {
+    if (player.player) {
+      console.log(`[UnifiedPlayer] Enhancement settings changed: enabled=${enhancementSettings.enabled}, preset=${enhancementSettings.preset}`);
+      player.setEnhanced(enhancementSettings.enabled, enhancementSettings.preset).catch((err) => {
+        console.error('[UnifiedPlayer] Failed to sync enhancement settings:', err);
+      });
+    }
+  }, [enhancementSettings.enabled, enhancementSettings.preset, enhancementSettings.intensity]);
+
   // Handle enhancement toggle
   const handleEnhancementToggle = async (enabled: boolean) => {
     console.log(`[UnifiedPlayer] Enhancement ${enabled ? 'enabled' : 'disabled'}`);

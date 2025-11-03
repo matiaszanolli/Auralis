@@ -78,14 +78,28 @@ class TemporalAnalyzer:
             Tempo in BPM (40-200 range)
         """
         try:
-            # Use librosa's tempo detection (updated for librosa 0.10.0+)
+            # Use librosa's tempo detection
+            # Note: API migration to librosa.feature.rhythm.tempo planned but not yet in 0.11.0
             onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
-            try:
-                # Try new location first (librosa >= 0.10.0)
-                tempo = librosa.feature.rhythm.tempo(onset_envelope=onset_env, sr=sr)[0]
-            except AttributeError:
-                # Fallback to old location (librosa < 0.10.0)
-                tempo = librosa.beat.tempo(onset_envelope=onset_env, sr=sr)[0]
+
+            # Suppress FutureWarning about API migration (we're ready when it happens)
+            import warnings
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=FutureWarning, module="librosa")
+
+                try:
+                    # Try new location first (librosa >= 1.0.0 when released)
+                    tempo_array = librosa.feature.rhythm.tempo(onset_envelope=onset_env, sr=sr)
+                except AttributeError:
+                    # Current location (librosa < 1.0.0, including 0.11.0)
+                    tempo_array = librosa.beat.tempo(onset_envelope=onset_env, sr=sr)
+
+            # Handle empty array (no tempo detected)
+            if len(tempo_array) == 0:
+                logger.debug("Tempo detection returned empty array, using default")
+                return 120.0
+
+            tempo = tempo_array[0]
 
             # Clip to reasonable range
             tempo = np.clip(tempo, 40, 200)

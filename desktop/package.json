@@ -14,12 +14,12 @@
   "scripts": {
     "electron": "electron .",
     "dev": "NODE_ENV=development electron .",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder --publish=never"
+    "build": "npx electron-builder",
+    "build:win": "npx electron-builder --win",
+    "build:mac": "npx electron-builder --mac",
+    "build:linux": "npx electron-builder --linux",
+    "pack": "npx electron-builder --dir",
+    "dist": "npx electron-builder --publish=never"
   },
   "devDependencies": {
     "electron": "^27.3.11",
