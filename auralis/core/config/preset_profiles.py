@@ -63,12 +63,12 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
             name="Adaptive",
             description="Intelligent content-aware mastering that adapts to your audio",
 
-            # Balanced EQ - let adaptive algorithm decide
-            low_shelf_gain=0.0,
-            low_mid_gain=0.0,
-            mid_gain=0.0,
-            high_mid_gain=0.0,
-            high_shelf_gain=0.0,
+            # Enhanced EQ - more bass presence, slight high-end lift
+            low_shelf_gain=2.5,      # Bass boost
+            low_mid_gain=0.5,        # Body
+            mid_gain=0.0,            # Neutral mids
+            high_mid_gain=0.5,       # Presence
+            high_shelf_gain=0.8,     # Air
 
             # Very light compression for maximum transparency
             compression_ratio=1.5,
@@ -76,19 +76,19 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
             compression_attack=25.0,
             compression_release=250.0,
 
-            # Very conservative limiting with plenty of headroom
-            limiter_threshold=-4.0,
-            limiter_release=120.0,
+            # Conservative limiting - balanced headroom
+            limiter_threshold=-2.5,
+            limiter_release=100.0,
 
-            # Much reduced processing strength - subtle enhancement only
-            eq_blend=0.4,
-            dynamics_blend=0.25,
+            # Moderate processing strength for noticeable enhancement
+            eq_blend=0.75,           # Apply more of the EQ curve
+            dynamics_blend=0.4,      # Light compression
 
-            # Conservative loudness target - preserve dynamics
-            target_lufs=-18.0,
+            # Moderate loudness target - noticeable but not overdone
+            target_lufs=-14.0,
 
-            # Significant headroom (quieter output) for dynamic preservation
-            peak_target_db=-1.50,
+            # Balanced headroom (louder output than before)
+            peak_target_db=-0.50,
         ),
 
 

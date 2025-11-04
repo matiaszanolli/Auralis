@@ -259,7 +259,7 @@ class AdaptiveMode:
         # CRITICAL: Prevent stereo width expansion from creating excessive peaks
         # Strategy 1: Limit expansion for already-loud material
         if spectrum_position.input_level > 0.8 and target_width > current_width:
-            max_width_increase = 0.3  # Only allow +0.3 increase
+            max_width_increase = 0.6  # Allow up to +0.6 increase (was 0.3)
             target_width = min(target_width, current_width + max_width_increase)
             print(f"[Stereo Width] Limited expansion for loud material: target reduced to {target_width:.2f}")
 

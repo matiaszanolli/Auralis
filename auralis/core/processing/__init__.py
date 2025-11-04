@@ -14,10 +14,12 @@ from .adaptive_mode import AdaptiveMode
 from .hybrid_mode import HybridMode
 from .eq_processor import EQProcessor
 from .realtime_processor import RealtimeProcessor
+from .continuous_mode import ContinuousMode
 
 __all__ = [
     'AdaptiveMode',
     'HybridMode',
     'EQProcessor',
     'RealtimeProcessor',
+    'ContinuousMode',
 ]

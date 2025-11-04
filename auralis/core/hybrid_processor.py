@@ -19,8 +19,9 @@ from pathlib import Path
 from .unified_config import UnifiedConfig
 from .analysis import ContentAnalyzer, AdaptiveTargetGenerator
 from .analysis.spectrum_mapper import SpectrumMapper
+from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from .processors import apply_reference_matching
-from .processing import AdaptiveMode, HybridMode, EQProcessor, RealtimeProcessor
+from .processing import AdaptiveMode, HybridMode, EQProcessor, RealtimeProcessor, ContinuousMode
 from ..dsp.psychoacoustic_eq import PsychoacousticEQ, EQSettings
 from ..dsp.realtime_adaptive_eq import create_realtime_adaptive_eq
 from ..dsp.advanced_dynamics import create_dynamics_processor, DynamicsMode
@@ -49,6 +50,7 @@ class HybridProcessor:
         self.content_analyzer = ContentAnalyzer(config.internal_sample_rate)
         self.target_generator = AdaptiveTargetGenerator(config, self)
         self.spectrum_mapper = SpectrumMapper()
+        self.fingerprint_analyzer = AudioFingerprintAnalyzer()
 
         # Initialize psychoacoustic EQ
         eq_settings = EQSettings(
@@ -97,6 +99,9 @@ class HybridProcessor:
         self.adaptive_mode = AdaptiveMode(
             config, self.content_analyzer, self.target_generator,
             self.spectrum_mapper
+        )
+        self.continuous_mode = ContinuousMode(
+            config, self.content_analyzer, self.fingerprint_analyzer
         )
         self.hybrid_mode = HybridMode(
             config, self.content_analyzer, self.target_generator,
@@ -177,11 +182,26 @@ class HybridProcessor:
         """Process using adaptive mastering without reference"""
         info("Processing in adaptive mode")
 
-        # Delegate to adaptive mode processor
-        processed = self.adaptive_mode.process(target_audio, self.eq_processor)
+        # Choose processing mode based on config
+        if self.config.use_continuous_space:
+            info("Using continuous parameter space (fingerprint-based)")
+            # Delegate to continuous mode processor
+            processed = self.continuous_mode.process(target_audio, self.eq_processor)
 
-        # Store content profile for user learning
-        self.last_content_profile = self.adaptive_mode.get_last_content_profile()
+            # Store fingerprint and parameters for learning/debugging
+            self.last_content_profile = {
+                'fingerprint': self.continuous_mode.last_fingerprint,
+                'coordinates': self.continuous_mode.last_coordinates,
+                'parameters': self.continuous_mode.last_parameters,
+            }
+        else:
+            info("Using legacy preset-based processing")
+            # Delegate to legacy adaptive mode processor
+            processed = self.adaptive_mode.process(target_audio, self.eq_processor)
+
+            # Store content profile for user learning
+            self.last_content_profile = self.adaptive_mode.get_last_content_profile()
+
         self.preference_manager.set_content_profile(self.last_content_profile)
 
         return processed
