@@ -136,7 +136,13 @@ class UnifiedConfig:
         # Mastering profile/preset (adaptive, gentle, warm, bright, punchy)
         self.mastering_profile = "adaptive"
 
+        # Continuous processing space (NEW - replaces discrete presets)
+        # Set to True to use continuous parameter generation based on fingerprints
+        # Set to False to use legacy preset-based processing
+        self.use_continuous_space = True  # Default: enabled
+
         debug(f"Unified config initialized: mode={self.adaptive.mode}, "
+              f"continuous_space={self.use_continuous_space}, "
               f"SR={self.internal_sample_rate}Hz, FFT={self.fft_size}")
 
     def get_genre_profile(self, genre: str) -> GenreProfile:
