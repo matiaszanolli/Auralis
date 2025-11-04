@@ -55,6 +55,7 @@ function ComfortableApp() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
+  const [viewKey, setViewKey] = useState(0); // Increment to force view reset
   const [searchResultView, setSearchResultView] = useState<{type: string; id: number} | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
@@ -164,18 +165,22 @@ function ComfortableApp() {
     // Navigation shortcuts
     onShowSongs: () => {
       setCurrentView('songs');
+      setViewKey(prev => prev + 1); // Force view reset
       info('Songs view');
     },
     onShowAlbums: () => {
       setCurrentView('albums');
+      setViewKey(prev => prev + 1); // Force view reset
       info('Albums view');
     },
     onShowArtists: () => {
       setCurrentView('artists');
+      setViewKey(prev => prev + 1); // Force view reset
       info('Artists view');
     },
     onShowPlaylists: () => {
       setCurrentView('playlists');
+      setViewKey(prev => prev + 1); // Force view reset
       info('Playlists view');
     },
     onFocusSearch: () => {
@@ -219,9 +224,11 @@ function ComfortableApp() {
       console.log('Play track from search:', result.id);
     } else if (result.type === 'album') {
       setCurrentView('albums');
+      setViewKey(prev => prev + 1); // Force view reset
       setSearchResultView(result);
     } else if (result.type === 'artist') {
       setCurrentView('artists');
+      setViewKey(prev => prev + 1); // Force view reset
       setSearchResultView(result);
     }
   };
@@ -232,7 +239,13 @@ function ComfortableApp() {
 
   const handleMobileNavigation = (view: string) => {
     setCurrentView(view);
+    setViewKey(prev => prev + 1); // Force view reset
     setMobileDrawerOpen(false); // Close drawer after navigation on mobile
+  };
+
+  const handleSidebarNavigation = (view: string) => {
+    setCurrentView(view);
+    setViewKey(prev => prev + 1); // Force view reset
   };
 
   // Drag and drop handler
@@ -353,7 +366,7 @@ function ComfortableApp() {
           <Sidebar
             collapsed={sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-            onNavigate={setCurrentView}
+            onNavigate={handleSidebarNavigation}
             onOpenSettings={() => setSettingsOpen(true)}
           />
         )}
@@ -495,6 +508,7 @@ function ComfortableApp() {
             }}
           >
             <CozyLibraryView
+              key={viewKey}
               onTrackPlay={handleTrackPlay}
               onEnhancementToggle={handleEnhancementToggle}
               view={currentView}
