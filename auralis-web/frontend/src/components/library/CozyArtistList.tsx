@@ -358,10 +358,31 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
         ))}
       </List>
 
-      {/* Infinite scroll loading indicator */}
-      {hasMore && !loading && (
+      {/* Intersection observer trigger for infinite scroll */}
+      {hasMore && (
         <Box
           ref={loadMoreRef}
+          sx={{
+            height: '1px',
+            width: '100%',
+            pointerEvents: 'auto'
+          }}
+        />
+      )}
+
+      {/* Virtual spacer for proper scrollbar length */}
+      {hasMore && totalArtists > artists.length && (
+        <Box
+          sx={{
+            height: `${(totalArtists - artists.length) * 88}px`, // 88px avg artist row height
+            pointerEvents: 'none'
+          }}
+        />
+      )}
+
+      {/* Infinite scroll loading indicator */}
+      {isLoadingMore && (
+        <Box
           sx={{
             p: 3,
             textAlign: 'center',
@@ -371,28 +392,24 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
             gap: 2
           }}
         >
-          {isLoadingMore && (
-            <>
-              <Box
-                sx={{
-                  width: 20,
-                  height: 20,
-                  border: '2px solid',
-                  borderColor: 'primary.main',
-                  borderRightColor: 'transparent',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  '@keyframes spin': {
-                    '0%': { transform: 'rotate(0deg)' },
-                    '100%': { transform: 'rotate(360deg)' }
-                  }
-                }}
-              />
-              <Typography variant="body2" color="text.secondary">
-                Loading more artists... ({artists.length}/{totalArtists})
-              </Typography>
-            </>
-          )}
+          <Box
+            sx={{
+              width: 20,
+              height: 20,
+              border: '2px solid',
+              borderColor: 'primary.main',
+              borderRightColor: 'transparent',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' }
+              }
+            }}
+          />
+          <Typography variant="body2" color="text.secondary">
+            Loading more artists... ({artists.length}/{totalArtists})
+          </Typography>
         </Box>
       )}
 
