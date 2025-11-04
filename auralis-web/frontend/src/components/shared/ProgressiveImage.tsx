@@ -55,6 +55,7 @@ const ImageContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  flexShrink: 0, // Prevent container from collapsing
 });
 
 const StyledImage = styled('img')<{ isloaded: string }>(({ isloaded }) => ({

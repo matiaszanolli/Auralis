@@ -272,10 +272,31 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
         ))}
       </Grid>
 
-      {/* Infinite scroll loading indicator */}
-      {hasMore && !loading && (
+      {/* Intersection observer trigger for infinite scroll */}
+      {hasMore && (
         <Box
           ref={loadMoreRef}
+          sx={{
+            height: '1px',
+            width: '100%',
+            pointerEvents: 'auto'
+          }}
+        />
+      )}
+
+      {/* Virtual spacer for proper scrollbar length */}
+      {hasMore && totalAlbums > albums.length && (
+        <Box
+          sx={{
+            height: `${Math.ceil((totalAlbums - albums.length) / 6) * 280}px`, // 6 cols (xl), ~280px per row
+            pointerEvents: 'none'
+          }}
+        />
+      )}
+
+      {/* Infinite scroll loading indicator */}
+      {isLoadingMore && (
+        <Box
           sx={{
             p: 3,
             textAlign: 'center',
@@ -285,28 +306,24 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
             gap: 2
           }}
         >
-          {isLoadingMore && (
-            <>
-              <Box
-                sx={{
-                  width: 20,
-                  height: 20,
-                  border: '2px solid',
-                  borderColor: 'primary.main',
-                  borderRightColor: 'transparent',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  '@keyframes spin': {
-                    '0%': { transform: 'rotate(0deg)' },
-                    '100%': { transform: 'rotate(360deg)' }
-                  }
-                }}
-              />
-              <Typography variant="body2" color="text.secondary">
-                Loading more albums... ({albums.length}/{totalAlbums})
-              </Typography>
-            </>
-          )}
+          <Box
+            sx={{
+              width: 20,
+              height: 20,
+              border: '2px solid',
+              borderColor: 'primary.main',
+              borderRightColor: 'transparent',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' }
+              }
+            }}
+          />
+          <Typography variant="body2" color="text.secondary">
+            Loading more albums... ({albums.length}/{totalAlbums})
+          </Typography>
         </Box>
       )}
 
