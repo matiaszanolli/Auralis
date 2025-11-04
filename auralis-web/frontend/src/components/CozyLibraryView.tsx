@@ -308,6 +308,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   }, [view]);
 
   // Reset selected album/artist when view changes (fixes sidebar navigation from detail views)
+  // Note: The component is also remounted on every navigation via the key prop in ComfortableApp,
+  // which ensures a complete state reset. This useEffect provides additional protection.
   useEffect(() => {
     setSelectedAlbumId(null);
     setSelectedArtistId(null);
