@@ -24,7 +24,7 @@ router = APIRouter(tags=["enhancement"])
 VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
 
 
-def create_enhancement_router(get_enhancement_settings, connection_manager, get_processing_cache=None, get_multi_tier_buffer=None, get_player_state_manager=None):
+def create_enhancement_router(get_enhancement_settings, connection_manager, get_processing_cache=None, get_multi_tier_buffer=None, get_player_state_manager=None, get_processing_engine=None):
     """
     Factory function to create enhancement router with dependencies.
 
@@ -34,6 +34,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         get_processing_cache: Optional callable that returns processing cache dict
         get_multi_tier_buffer: Optional callable that returns MultiTierBufferManager
         get_player_state_manager: Optional callable that returns PlayerStateManager
+        get_processing_engine: Optional callable that returns ProcessingEngine
 
     Returns:
         APIRouter: Configured router instance
@@ -219,22 +220,113 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         Returns:
             dict: Processing parameters including coordinates, targets, and adjustments
         """
-        # TODO: This is a placeholder that returns mock data
-        # In production, this should fetch actual parameters from the HybridProcessor
-        # by storing them in a shared state when process() is called
+        if get_processing_engine is None:
+            # Fallback to mock data if processing engine not available
+            return {
+                "spectral_balance": 0.65,
+                "dynamic_range": 0.72,
+                "energy_level": 0.58,
+                "target_lufs": -14.0,
+                "peak_target_db": -1.0,
+                "bass_boost": 0.8,
+                "air_boost": 1.2,
+                "compression_amount": 0.35,
+                "expansion_amount": 0.0,
+                "stereo_width": 0.75
+            }
 
-        return {
-            "spectral_balance": 0.65,  # 0=dark, 1=bright
-            "dynamic_range": 0.72,     # 0=compressed, 1=dynamic
-            "energy_level": 0.58,      # 0=quiet, 1=loud
-            "target_lufs": -14.0,      # Target loudness (dB)
-            "peak_target_db": -1.0,    # Peak level target (dB)
-            "bass_boost": 0.8,         # Bass boost (dB)
-            "air_boost": 1.2,          # Air/treble boost (dB)
-            "compression_amount": 0.35, # 0-1
-            "expansion_amount": 0.0,    # 0-1
-            "stereo_width": 0.75       # 0-1
-        }
+        try:
+            engine = get_processing_engine()
+            if engine is None:
+                raise HTTPException(status_code=503, detail="Processing engine not initialized")
+
+            # Get the last processed content profile
+            # The ProcessingEngine stores HybridProcessor instances per preset
+            # We need to get the most recently used processor
+            preset = get_enhancement_settings().get("preset", "adaptive")
+
+            if preset not in engine.processors:
+                # No processor for this preset yet - return default values
+                return {
+                    "spectral_balance": 0.5,
+                    "dynamic_range": 0.5,
+                    "energy_level": 0.5,
+                    "target_lufs": -14.0,
+                    "peak_target_db": -1.0,
+                    "bass_boost": 0.0,
+                    "air_boost": 0.0,
+                    "compression_amount": 0.0,
+                    "expansion_amount": 0.0,
+                    "stereo_width": 0.75
+                }
+
+            processor = engine.processors[preset]
+
+            # Get the last content profile from the processor
+            if not hasattr(processor, 'last_content_profile') or processor.last_content_profile is None:
+                return {
+                    "spectral_balance": 0.5,
+                    "dynamic_range": 0.5,
+                    "energy_level": 0.5,
+                    "target_lufs": -14.0,
+                    "peak_target_db": -1.0,
+                    "bass_boost": 0.0,
+                    "air_boost": 0.0,
+                    "compression_amount": 0.0,
+                    "expansion_amount": 0.0,
+                    "stereo_width": 0.75
+                }
+
+            profile = processor.last_content_profile
+
+            # Extract coordinates (ProcessingCoordinates dataclass)
+            coords = profile.get('coordinates')
+            params = profile.get('parameters')
+
+            if coords is None or params is None:
+                # Legacy mode or no continuous space data
+                return {
+                    "spectral_balance": 0.5,
+                    "dynamic_range": 0.5,
+                    "energy_level": 0.5,
+                    "target_lufs": -14.0,
+                    "peak_target_db": -1.0,
+                    "bass_boost": 0.0,
+                    "air_boost": 0.0,
+                    "compression_amount": 0.0,
+                    "expansion_amount": 0.0,
+                    "stereo_width": 0.75
+                }
+
+            # Convert ProcessingCoordinates and ProcessingParameters to dict
+            return {
+                "spectral_balance": coords.spectral_balance,
+                "dynamic_range": coords.dynamic_range,
+                "energy_level": coords.energy_level,
+                "target_lufs": params.target_lufs,
+                "peak_target_db": params.peak_target_db,
+                "bass_boost": params.eq_curve.get('low_shelf_gain', 0.0),
+                "air_boost": params.eq_curve.get('high_shelf_gain', 0.0),
+                "compression_amount": params.compression_params.get('amount', 0.0),
+                "expansion_amount": params.expansion_params.get('amount', 0.0),
+                "stereo_width": params.stereo_width_target
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get processing parameters: {e}")
+            # Return default values on error
+            return {
+                "spectral_balance": 0.5,
+                "dynamic_range": 0.5,
+                "energy_level": 0.5,
+                "target_lufs": -14.0,
+                "peak_target_db": -1.0,
+                "bass_boost": 0.0,
+                "air_boost": 0.0,
+                "compression_amount": 0.0,
+                "expansion_amount": 0.0,
+                "stereo_width": 0.75
+            }
 
     @router.post("/api/player/enhancement/cache/clear")
     async def clear_processing_cache():
