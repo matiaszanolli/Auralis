@@ -210,6 +210,32 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         """
         return get_enhancement_settings()
 
+    @router.get("/api/processing/parameters")
+    async def get_processing_parameters():
+        """
+        Get current processing parameters from the continuous space system.
+        This shows what the auto-mastering engine is doing in real-time.
+
+        Returns:
+            dict: Processing parameters including coordinates, targets, and adjustments
+        """
+        # TODO: This is a placeholder that returns mock data
+        # In production, this should fetch actual parameters from the HybridProcessor
+        # by storing them in a shared state when process() is called
+
+        return {
+            "spectral_balance": 0.65,  # 0=dark, 1=bright
+            "dynamic_range": 0.72,     # 0=compressed, 1=dynamic
+            "energy_level": 0.58,      # 0=quiet, 1=loud
+            "target_lufs": -14.0,      # Target loudness (dB)
+            "peak_target_db": -1.0,    # Peak level target (dB)
+            "bass_boost": 0.8,         # Bass boost (dB)
+            "air_boost": 1.2,          # Air/treble boost (dB)
+            "compression_amount": 0.35, # 0-1
+            "expansion_amount": 0.0,    # 0-1
+            "stereo_width": 0.75       # 0-1
+        }
+
     @router.post("/api/player/enhancement/cache/clear")
     async def clear_processing_cache():
         """

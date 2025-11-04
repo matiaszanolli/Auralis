@@ -21,7 +21,7 @@ import Sidebar from './components/Sidebar';
 // Replaced old dual MSE/HTML5 player with single Web Audio API player
 // See: docs/sessions/nov1_unified_player/
 import BottomPlayerBarUnified from './components/BottomPlayerBarUnified';
-import PresetPane from './components/PresetPane';
+import AutoMasteringPane from './components/AutoMasteringPane';
 import CozyLibraryView from './components/CozyLibraryView';
 import GlobalSearch from './components/library/GlobalSearch';
 import SettingsDialog from './components/settings/SettingsDialog';
@@ -516,12 +516,11 @@ function ComfortableApp() {
           </Box>
         </Box>
 
-        {/* Right Preset Pane - Hidden on mobile/tablet */}
+        {/* Right Auto-Mastering Pane - Hidden on mobile/tablet */}
         {!isTablet && (
-          <PresetPane
+          <AutoMasteringPane
             collapsed={presetPaneCollapsed}
             onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
-            onPresetChange={handlePresetChange}
             onMasteringToggle={handleMasteringToggle}
           />
         )}
