@@ -5,7 +5,7 @@
 Chunked Audio Processor
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-Processes audio in 30-second chunks for fast streaming start.
+Processes audio in 10-second chunks for fast streaming start and instant toggle.
 Applies crossfade between chunks to avoid audible jumps.
 
 :copyright: (C) 2024 Auralis Team
@@ -35,7 +35,9 @@ logger = logging.getLogger(__name__)
 _last_content_profiles = {}
 
 # Chunk configuration
-CHUNK_DURATION = 30  # seconds
+# NEW (Beta.9): Reduced from 30s → 10s for instant toggle feel
+# Smaller chunks = smaller MediaSource buffer = faster toggle response
+CHUNK_DURATION = 10  # seconds (reduced from 30s for Phase 2)
 OVERLAP_DURATION = 3  # seconds for crossfade (increased from 1s for smoother transitions)
 CONTEXT_DURATION = 5  # seconds of context for better processing quality
 MAX_LEVEL_CHANGE_DB = 1.5  # maximum allowed level change between chunks in dB

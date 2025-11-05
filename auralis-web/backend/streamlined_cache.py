@@ -23,12 +23,13 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Configuration
-CHUNK_DURATION = 30.0  # seconds per chunk
-CHUNK_SIZE_MB = 3.0    # estimated size per chunk (stereo 44.1kHz, float32)
+# NEW (Beta.9): Reduced from 30s → 10s for instant toggle feel
+CHUNK_DURATION = 10.0  # seconds per chunk (reduced from 30s for Phase 2)
+CHUNK_SIZE_MB = 1.0    # estimated size per chunk (stereo 44.1kHz, float32) - reduced from 3.0
 
 # Tier 1: Hot cache (current + next chunk)
 TIER1_MAX_CHUNKS = 2   # Current + next
-TIER1_MAX_SIZE_MB = TIER1_MAX_CHUNKS * CHUNK_SIZE_MB * 2  # × 2 for original + processed = 12 MB
+TIER1_MAX_SIZE_MB = TIER1_MAX_CHUNKS * CHUNK_SIZE_MB * 2  # × 2 for original + processed = 4 MB
 
 # Tier 2: Warm cache (full track)
 TIER2_MAX_TRACKS = 2   # Keep last 2 tracks fully cached

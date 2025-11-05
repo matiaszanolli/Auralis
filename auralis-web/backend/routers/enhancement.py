@@ -26,7 +26,8 @@ router = APIRouter(tags=["enhancement"])
 VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
 
 # Chunk configuration (must match chunked_processor.py)
-CHUNK_DURATION = 30  # seconds per chunk
+# NEW (Beta.9): Reduced from 30s → 10s for instant toggle feel
+CHUNK_DURATION = 10  # seconds per chunk (reduced from 30s for Phase 2)
 
 
 def create_enhancement_router(get_enhancement_settings, connection_manager, get_processing_cache=None, get_multi_tier_buffer=None, get_player_state_manager=None, get_processing_engine=None):
