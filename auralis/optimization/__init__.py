@@ -10,13 +10,13 @@ Performance optimization components for real-time audio processing
 :license: GPLv3, see LICENSE for more details.
 """
 
+from .config import PerformanceConfig
+from .memory import MemoryPool
+from .caching import SmartCache
+from .acceleration import SIMDAccelerator, ParallelProcessor
+from .profiling import PerformanceProfiler
 from .performance_optimizer import (
     PerformanceOptimizer,
-    PerformanceConfig,
-    MemoryPool,
-    SmartCache,
-    SIMDAccelerator,
-    ParallelProcessor,
     get_performance_optimizer,
     create_performance_optimizer,
     optimized,
@@ -24,14 +24,22 @@ from .performance_optimizer import (
 )
 
 __all__ = [
-    'PerformanceOptimizer',
+    # Configuration
     'PerformanceConfig',
+
+    # Core components
+    'PerformanceOptimizer',
     'MemoryPool',
     'SmartCache',
     'SIMDAccelerator',
     'ParallelProcessor',
+    'PerformanceProfiler',
+
+    # Factory functions
     'get_performance_optimizer',
     'create_performance_optimizer',
+
+    # Decorators
     'optimized',
-    'cached'
+    'cached',
 ]
