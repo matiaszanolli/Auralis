@@ -13,6 +13,7 @@
 import { ReactElement, ReactNode } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
+import { DragDropContext, DropResult } from '@hello-pangea/dnd'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { ToastProvider } from '../components/shared/Toast'
 import { EnhancementProvider } from '../contexts/EnhancementContext'
@@ -26,17 +27,24 @@ interface AllProvidersProps {
 }
 
 export function AllProviders({ children }: AllProvidersProps) {
+  // Mock onDragEnd handler for DragDropContext
+  const handleDragEnd = (_result: DropResult) => {
+    // No-op in tests
+  }
+
   return (
     <BrowserRouter>
-      <WebSocketProvider url="ws://localhost:8765/ws" autoConnect={false}>
-        <ThemeProvider>
-          <EnhancementProvider>
-            <ToastProvider>
-              {children}
-            </ToastProvider>
-          </EnhancementProvider>
-        </ThemeProvider>
-      </WebSocketProvider>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <WebSocketProvider url="ws://localhost:8765/ws" autoConnect={false}>
+          <ThemeProvider>
+            <EnhancementProvider>
+              <ToastProvider>
+                {children}
+              </ToastProvider>
+            </EnhancementProvider>
+          </ThemeProvider>
+        </WebSocketProvider>
+      </DragDropContext>
     </BrowserRouter>
   )
 }
