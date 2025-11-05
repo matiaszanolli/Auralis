@@ -57,15 +57,15 @@ except ImportError as e:
     HAS_PROCESSING = False
     ChunkedAudioProcessor = None
 
-# Import multi-tier buffer system
+# Import streamlined cache system (Beta.9)
 try:
-    from multi_tier_buffer import MultiTierBufferManager
-    from multi_tier_worker import MultiTierBufferWorker
-    from routers.cache import create_cache_router
-    HAS_MULTI_TIER = True
+    from streamlined_cache import StreamlinedCacheManager, streamlined_cache_manager
+    from streamlined_worker import StreamlinedCacheWorker
+    from routers.cache_streamlined import create_streamlined_cache_router
+    HAS_STREAMLINED_CACHE = True
 except ImportError as e:
-    print(f"⚠️  Multi-tier buffer not available: {e}")
-    HAS_MULTI_TIER = False
+    print(f"⚠️  Streamlined cache not available: {e}")
+    HAS_STREAMLINED_CACHE = False
 
 # Import routers
 from routers.system import create_system_router
@@ -131,9 +131,9 @@ else:
     processing_engine = None
 connected_websockets: List[WebSocket] = []
 
-# Multi-tier buffer system
-multi_tier_manager: Optional[MultiTierBufferManager] = None
-multi_tier_worker: Optional[MultiTierBufferWorker] = None
+# Streamlined cache system (Beta.9)
+streamlined_cache: Optional[StreamlinedCacheManager] = None
+streamlined_worker: Optional[StreamlinedCacheWorker] = None
 
 # Similarity system (fingerprint-based music similarity)
 try:
@@ -238,30 +238,32 @@ async def startup_event():
     else:
         logger.warning("⚠️  Processing engine not available")
 
-    # Initialize multi-tier buffer system
-    if HAS_MULTI_TIER and library_manager:
+    # Initialize streamlined cache system (Beta.9)
+    if HAS_STREAMLINED_CACHE and library_manager:
         try:
-            global multi_tier_manager, multi_tier_worker
+            global streamlined_cache, streamlined_worker
 
-            multi_tier_manager = MultiTierBufferManager()
-            logger.info("✅ Multi-Tier Buffer Manager initialized")
+            # Use global singleton instance
+            streamlined_cache = streamlined_cache_manager
+            logger.info("✅ Streamlined Cache Manager initialized (12 MB Tier 1)")
 
-            multi_tier_worker = MultiTierBufferWorker(
-                buffer_manager=multi_tier_manager,
+            # Create and start worker
+            streamlined_worker = StreamlinedCacheWorker(
+                cache_manager=streamlined_cache,
                 library_manager=library_manager
             )
 
             # Start the worker
-            await multi_tier_worker.start()
-            logger.info("✅ Multi-Tier Buffer Worker started")
+            await streamlined_worker.start()
+            logger.info("✅ Streamlined Cache Worker started")
 
         except Exception as e:
-            logger.error(f"❌ Failed to initialize multi-tier buffer: {e}")
+            logger.error(f"❌ Failed to initialize streamlined cache: {e}")
     else:
-        if not HAS_MULTI_TIER:
-            logger.warning("⚠️  Multi-tier buffer not available")
+        if not HAS_STREAMLINED_CACHE:
+            logger.warning("⚠️  Streamlined cache not available")
         elif not library_manager:
-            logger.warning("⚠️  Library manager not available - multi-tier buffer disabled")
+            logger.warning("⚠️  Library manager not available - streamlined cache disabled")
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -368,25 +370,25 @@ player_router = create_player_router(
 )
 app.include_router(player_router)
 
-# Include cache management router
-if HAS_MULTI_TIER and multi_tier_manager:
-    cache_router = create_cache_router(
-        buffer_manager=multi_tier_manager,
+# Include cache management router (Streamlined - Beta.9)
+if HAS_STREAMLINED_CACHE and streamlined_cache:
+    cache_router = create_streamlined_cache_router(
+        cache_manager=streamlined_cache,
         broadcast_manager=manager
     )
-    app.include_router(cache_router, prefix="/api")
-    logger.info("✅ Cache management router included")
+    app.include_router(cache_router)
+    logger.info("✅ Streamlined cache router included")
 
 # Include WebM streaming router (Unified Architecture - always WebM/Opus)
 # Replaces old MSE and Unified routers with single simplified endpoint
 webm_router = create_webm_streaming_router(
     get_library_manager=lambda: library_manager,
-    get_multi_tier_buffer=lambda: multi_tier_manager if HAS_MULTI_TIER else None,
+    get_multi_tier_buffer=lambda: streamlined_cache if HAS_STREAMLINED_CACHE else None,
     chunked_audio_processor_class=ChunkedAudioProcessor,
     chunk_duration=30
 )
 app.include_router(webm_router)
-logger.info("✅ WebM streaming router included (NEW unified architecture - always WebM/Opus)")
+logger.info("✅ WebM streaming router included (Streamlined cache integration)")
 
 # Create and include similarity router (fingerprint-based music similarity)
 if HAS_SIMILARITY:
