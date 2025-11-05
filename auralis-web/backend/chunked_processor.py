@@ -655,6 +655,47 @@ class ChunkedAudioProcessor:
         # CRITICAL FIX: Smooth level transitions between chunks
         processed_chunk = self._smooth_level_transition(processed_chunk, chunk_index)
 
+        # CRITICAL FIX: Ensure chunk is EXACTLY the correct duration for seamless concatenation
+        # MSE streaming requires non-overlapping chunks, but load_chunk() loads with overlap
+        # for processing quality. We need to extract the correct 30-second segment.
+
+        is_last = chunk_index == self.total_chunks - 1
+        overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
+
+        if chunk_index == 0:
+            # First chunk: extract [0-30s]
+            expected_samples = int(CHUNK_DURATION * self.sample_rate)
+            processed_chunk = processed_chunk[:expected_samples]
+            logger.debug(f"✅ Chunk 0: extracted samples [0:{expected_samples}] ({expected_samples/self.sample_rate:.2f}s)")
+        elif is_last:
+            # Last chunk: skip overlap, extract remaining duration
+            remaining_duration = self.total_duration - (chunk_index * CHUNK_DURATION)
+            expected_samples = int(remaining_duration * self.sample_rate)
+            # Skip the overlap at the start
+            processed_chunk = processed_chunk[overlap_samples:overlap_samples + expected_samples]
+            logger.debug(f"✅ Chunk {chunk_index} (last): skipped {overlap_samples} overlap samples, extracted {expected_samples} samples ({expected_samples/self.sample_rate:.2f}s)")
+        else:
+            # Regular chunk (not first, not last): skip overlap, extract exactly 30s
+            expected_samples = int(CHUNK_DURATION * self.sample_rate)
+            # Skip the overlap at the start, extract exactly 30 seconds
+            processed_chunk = processed_chunk[overlap_samples:overlap_samples + expected_samples]
+            logger.debug(f"✅ Chunk {chunk_index}: skipped {overlap_samples} overlap samples, extracted {expected_samples} samples ({expected_samples/self.sample_rate:.2f}s)")
+
+        # Verify final length (should never need padding with this logic)
+        current_samples = len(processed_chunk)
+        if current_samples < expected_samples:
+            # Pad with silence if too short (edge case, shouldn't happen)
+            padding_needed = expected_samples - current_samples
+            padding = np.zeros((padding_needed, processed_chunk.shape[1] if processed_chunk.ndim > 1 else 1))
+            if processed_chunk.ndim == 1:
+                padding = padding.flatten()
+            processed_chunk = np.concatenate([processed_chunk, padding])
+            logger.warning(f"⚠️ Chunk {chunk_index} was {padding_needed} samples short, padded with silence")
+        elif current_samples > expected_samples:
+            # This shouldn't happen with the new logic, but trim just in case
+            processed_chunk = processed_chunk[:expected_samples]
+            logger.warning(f"⚠️ Chunk {chunk_index} was {current_samples - expected_samples} samples too long, trimmed")
+
         # Encode directly to WebM/Opus (no WAV intermediate)
         try:
             from encoding.webm_encoder import encode_to_webm_opus, WebMEncoderError
