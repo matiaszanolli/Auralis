@@ -219,11 +219,8 @@ class StreamlinedCacheManager:
             logger.debug(f"Tier 2 HIT: {cache_key}")
             return chunk.chunk_path, "tier2"
 
-        # Cache miss
-        if preset is None:
-            self.tier1_misses += 1
-        else:
-            self.tier2_misses += 1
+        # Cache miss - always increment tier1_misses (total misses)
+        self.tier1_misses += 1
         logger.debug(f"Cache MISS: {cache_key}")
         return None, "miss"
 
