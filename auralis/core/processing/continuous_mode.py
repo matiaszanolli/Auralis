@@ -161,6 +161,10 @@ class ContinuousMode:
     def _apply_compression(self, audio: np.ndarray, comp_params: Dict) -> np.ndarray:
         """Apply simple compression to reduce crest factor"""
 
+        # Validate input - handle empty or very short audio gracefully
+        if len(audio) == 0:
+            return audio  # Return as-is if empty
+
         before_rms = rms(audio)
         before_peak = np.max(np.abs(audio))
         before_crest = 20 * np.log10(before_peak / (before_rms + 1e-10))

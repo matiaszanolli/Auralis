@@ -92,10 +92,14 @@ class ChunkedAudioProcessor:
         # CRITICAL FIX: Create single shared processor instance to maintain state
         # across chunks. This prevents audio artifacts from resetting compressor
         # envelope followers at chunk boundaries.
-        config = UnifiedConfig()
-        config.set_processing_mode("adaptive")
-        config.mastering_profile = self.preset.lower()
-        self.processor = HybridProcessor(config)
+        # NOTE: If preset is None, we're serving original/unprocessed audio (no processor needed)
+        if self.preset is not None:
+            config = UnifiedConfig()
+            config.set_processing_mode("adaptive")
+            config.mastering_profile = self.preset.lower()
+            self.processor = HybridProcessor(config)
+        else:
+            self.processor = None  # No processing for original audio
 
         # Processing state tracking for smooth transitions
         self.chunk_rms_history = []  # Track RMS levels of processed chunks
@@ -229,7 +233,24 @@ class ChunkedAudioProcessor:
             full_audio, _ = load_audio(self.filepath)
             start_sample = int(load_start * self.sample_rate)
             end_sample = int(load_end * self.sample_rate)
-            audio = full_audio[start_sample:end_sample]
+
+            # Ensure we don't try to read beyond the file
+            end_sample = min(end_sample, len(full_audio))
+
+            if start_sample >= len(full_audio):
+                logger.error(f"Chunk {chunk_index} start ({start_sample}) beyond file length ({len(full_audio)})")
+                # Return silence instead of crashing
+                audio = np.zeros((1, full_audio.shape[1] if full_audio.ndim > 1 else 1))
+            else:
+                audio = full_audio[start_sample:end_sample]
+
+        # Validate that we loaded something
+        if len(audio) == 0:
+            logger.error(f"Chunk {chunk_index} resulted in empty audio (start={load_start:.1f}s, end={load_end:.1f}s, duration={self.total_duration:.1f}s)")
+            # Return minimal silence instead of empty array to prevent downstream crashes
+            num_channels = 2  # Default to stereo
+            audio = np.zeros((int(0.1 * self.sample_rate), num_channels))  # 100ms of silence
+            logger.warning(f"Returning 100ms of silence for chunk {chunk_index} to prevent crash")
 
         return audio, chunk_start, chunk_end
 
@@ -354,26 +375,32 @@ class ChunkedAudioProcessor:
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
 
-        # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
-        # This reduces initial buffering from ~30s to <5s by avoiding slow librosa.beat.tempo call
-        # Fingerprint can be extracted later in background for subsequent chunks
-        if fast_start and chunk_index == 0:
-            # Temporarily disable fingerprint analysis
-            original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
-            self.processor.content_analyzer.use_fingerprint_analysis = False
-            logger.info("⚡ Fast-start: Skipping fingerprint analysis for first chunk")
-
-            try:
-                # Process with shared HybridProcessor instance
-                # This maintains compressor state (envelope followers, gain reduction)
-                # across chunk boundaries, preventing audio artifacts
-                processed_chunk = self.processor.process(audio_chunk)
-            finally:
-                # Restore fingerprint analysis for subsequent chunks
-                self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+        # SPECIAL CASE: If preset is None, we're serving original/unprocessed audio
+        # Just trim context and encode without any processing
+        if self.processor is None:
+            logger.info(f"Serving original audio for chunk {chunk_index} (no processing)")
+            processed_chunk = audio_chunk
         else:
-            # Normal processing with fingerprint analysis
-            processed_chunk = self.processor.process(audio_chunk)
+            # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
+            # This reduces initial buffering from ~30s to <5s by avoiding slow librosa.beat.tempo call
+            # Fingerprint can be extracted later in background for subsequent chunks
+            if fast_start and chunk_index == 0:
+                # Temporarily disable fingerprint analysis
+                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
+                self.processor.content_analyzer.use_fingerprint_analysis = False
+                logger.info("⚡ Fast-start: Skipping fingerprint analysis for first chunk")
+
+                try:
+                    # Process with shared HybridProcessor instance
+                    # This maintains compressor state (envelope followers, gain reduction)
+                    # across chunk boundaries, preventing audio artifacts
+                    processed_chunk = self.processor.process(audio_chunk)
+                finally:
+                    # Restore fingerprint analysis for subsequent chunks
+                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+            else:
+                # Normal processing with fingerprint analysis
+                processed_chunk = self.processor.process(audio_chunk)
 
         # Trim context (keep only the actual chunk)
         context_samples = int(CONTEXT_DURATION * self.sample_rate)

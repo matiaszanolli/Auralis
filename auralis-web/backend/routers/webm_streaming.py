@@ -215,14 +215,34 @@ def create_webm_streaming_router(
                 webm_bytes = await _get_original_webm_chunk(track.filepath, chunk_idx, chunk_duration)
                 cache_tier = "ORIGINAL"
             else:
-                # TODO: Multi-tier buffer cache integration
-                # The get_chunk() method is not yet implemented in MultiTierBufferManager
-                # For now, always process on-demand (cache_tier = "MISS")
-                # Future: Implement multi_tier_buffer.get_chunk() for L1/L2/L3 cache hits
+                # Streamlined cache integration (Beta.9)
+                cached_chunk_path = None
+                cache_tier = "MISS"
+
+                # Try to get chunk from streamlined cache
+                if multi_tier_buffer:
+                    try:
+                        cached_chunk_path, tier = await multi_tier_buffer.get_chunk(
+                            track_id=track_id,
+                            chunk_idx=chunk_idx,
+                            preset=preset,
+                            intensity=intensity
+                        )
+                        if cached_chunk_path and os.path.exists(cached_chunk_path):
+                            cache_tier = tier.upper()
+                            logger.info(f"✅ Cache {tier.upper()} HIT: Serving chunk {chunk_idx} from cache")
+
+                            # Read cached chunk
+                            with open(cached_chunk_path, 'rb') as f:
+                                webm_bytes = f.read()
+                        else:
+                            cache_tier = "MISS"
+                    except Exception as e:
+                        logger.warning(f"Cache lookup failed: {e}, falling back to on-demand processing")
+                        cache_tier = "MISS"
 
                 # Cache miss - process on demand
-                if True:  # Always process on-demand for now
-                    cache_tier = "MISS"
+                if cache_tier == "MISS":
                     logger.info(f"❌ Cache MISS: Processing chunk {chunk_idx} on-demand for track {track_id}, preset {preset}")
 
                     if chunked_audio_processor_class is None:
@@ -256,6 +276,36 @@ def create_webm_streaming_router(
                             webm_bytes = f.read()
 
                         logger.info(f"Chunk {chunk_idx} processed on-demand: {len(webm_bytes)} bytes WebM/Opus")
+
+                        # Add to streamlined cache (Tier 1 or Tier 2 auto-detected)
+                        if multi_tier_buffer and webm_chunk_path:
+                            try:
+                                # Get track duration for cache planning
+                                import mutagen
+                                audio_file = mutagen.File(track.filepath)
+                                track_duration = audio_file.info.length if audio_file else None
+
+                                # Update position for cache tier detection
+                                await multi_tier_buffer.update_position(
+                                    track_id=track_id,
+                                    position=chunk_idx * chunk_duration,
+                                    preset=preset,
+                                    intensity=intensity,
+                                    track_duration=track_duration
+                                )
+
+                                # Add chunk to cache (tier auto-detected based on position)
+                                await multi_tier_buffer.add_chunk(
+                                    track_id=track_id,
+                                    chunk_idx=chunk_idx,
+                                    chunk_path=Path(webm_chunk_path),
+                                    preset=preset,
+                                    intensity=intensity,
+                                    tier="auto"  # Auto-detect Tier 1 vs Tier 2
+                                )
+                                logger.debug(f"Added chunk {chunk_idx} to streamlined cache")
+                            except Exception as cache_err:
+                                logger.warning(f"Failed to add chunk to cache: {cache_err}")
 
                     except Exception as e:
                         logger.error(f"WebM chunk read failed for chunk {chunk_idx}: {e}")
