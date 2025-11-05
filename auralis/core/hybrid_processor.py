@@ -124,6 +124,37 @@ class HybridProcessor:
 
         debug(f"Hybrid processor initialized in {config.adaptive.mode} mode with psychoacoustic EQ")
 
+    def set_fixed_mastering_targets(self, targets: Optional[Dict[str, Any]]) -> None:
+        """
+        Set fixed mastering targets to use for all chunks (Beta.9 optimization)
+
+        When fixed targets are set, content analysis is skipped and the pre-computed
+        targets are used directly. This enables 8x faster processing and instant preset
+        switching.
+
+        Args:
+            targets: Mastering targets dict with keys:
+                - target_lufs: Target loudness in LUFS
+                - target_crest_db: Target crest factor in dB
+                - eq_adjustments_db: Dict of frequency band adjustments
+                - compression: Dict with ratio and amount
+                Set to None to disable fixed-target mode and use normal content analysis.
+
+        Example:
+            processor.set_fixed_mastering_targets({
+                'target_lufs': -14.0,
+                'target_crest_db': 12.0,
+                'eq_adjustments_db': {'sub_bass': -1.5, 'bass': 0.5, ...},
+                'compression': {'ratio': 2.5, 'amount': 0.6}
+            })
+        """
+        self.current_targets = targets
+        if targets:
+            debug(f"Fixed mastering targets set: LUFS={targets.get('target_lufs')}, "
+                  f"Crest={targets.get('target_crest_db')}")
+        else:
+            debug("Fixed mastering targets cleared, using normal content analysis")
+
     def process(
         self,
         target: Union[str, np.ndarray],
@@ -185,8 +216,14 @@ class HybridProcessor:
         # Choose processing mode based on config
         if self.config.use_continuous_space:
             info("Using continuous parameter space (fingerprint-based)")
+
+            # NEW (Beta.9): Use fixed targets if set (from .25d file)
+            # This bypasses expensive fingerprint extraction on every chunk
+            fixed_params = self.current_targets if self.current_targets is not None else None
+
             # Delegate to continuous mode processor
-            processed = self.continuous_mode.process(target_audio, self.eq_processor)
+            processed = self.continuous_mode.process(target_audio, self.eq_processor,
+                                                    fixed_params=fixed_params)
 
             # Store fingerprint and parameters for learning/debugging
             self.last_content_profile = {

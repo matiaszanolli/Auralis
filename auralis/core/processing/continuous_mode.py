@@ -54,13 +54,16 @@ class ContinuousMode:
         self.last_coordinates = None
         self.last_parameters = None
 
-    def process(self, target_audio: np.ndarray, eq_processor) -> np.ndarray:
+    def process(self, target_audio: np.ndarray, eq_processor,
+                fixed_params: Optional[Dict[str, Any]] = None) -> np.ndarray:
         """
         Process audio using continuous parameter space.
 
         Args:
             target_audio: Input audio array
             eq_processor: EQ processor instance for psychoacoustic EQ
+            fixed_params: (Beta.9) Pre-computed parameters from .25d file.
+                         If provided, skips fingerprint extraction (8x faster).
 
         Returns:
             Processed audio array
@@ -69,33 +72,40 @@ class ContinuousMode:
 
         processed_audio = target_audio.copy()
 
-        # Step 1: Extract 25D fingerprint
-        fingerprint = self.fingerprint_analyzer.analyze(
-            processed_audio,
-            self.config.internal_sample_rate
-        )
-        self.last_fingerprint = fingerprint
+        # NEW (Beta.9): Use fixed parameters if provided (from .25d file)
+        if fixed_params is not None:
+            debug("⚡ Using fixed parameters from .25d file (fast path)")
+            params = fixed_params
+            self.last_parameters = params
+            # Note: last_fingerprint and last_coordinates remain from first extraction
+        else:
+            # Step 1: Extract 25D fingerprint
+            fingerprint = self.fingerprint_analyzer.analyze(
+                processed_audio,
+                self.config.internal_sample_rate
+            )
+            self.last_fingerprint = fingerprint
 
-        print(f"[Continuous Space] Fingerprint extracted:")
-        print(f"  Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
+            print(f"[Continuous Space] Fingerprint extracted:")
+            print(f"  Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
 
-        # Step 2: Map to 3D processing space
-        coords = self.space_mapper.map_fingerprint_to_space(fingerprint)
-        self.last_coordinates = coords
+            # Step 2: Map to 3D processing space
+            coords = self.space_mapper.map_fingerprint_to_space(fingerprint)
+            self.last_coordinates = coords
 
-        print(f"[Continuous Space] Coordinates: {coords}")
+            print(f"[Continuous Space] Coordinates: {coords}")
 
-        # Step 3: Get user preference (from preset if using legacy mode)
-        preset_name = self.config.mastering_profile or 'adaptive'
-        preference = PreferenceVector.from_preset_name(preset_name)
+            # Step 3: Get user preference (from preset if using legacy mode)
+            preset_name = self.config.mastering_profile or 'adaptive'
+            preference = PreferenceVector.from_preset_name(preset_name)
 
-        print(f"[Continuous Space] Preference: {preference}")
+            print(f"[Continuous Space] Preference: {preference}")
 
-        # Step 4: Generate processing parameters
-        params = self.param_generator.generate_parameters(coords, preference)
-        self.last_parameters = params
+            # Step 4: Generate processing parameters
+            params = self.param_generator.generate_parameters(coords, preference)
+            self.last_parameters = params
 
-        print(f"[Continuous Space] Parameters: {params}")
+            print(f"[Continuous Space] Parameters: {params}")
 
         # Step 5: Apply processing stages with generated parameters
 

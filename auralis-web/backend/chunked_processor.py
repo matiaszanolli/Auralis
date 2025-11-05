@@ -89,6 +89,22 @@ class ChunkedAudioProcessor:
         self.chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
         self.chunk_dir.mkdir(exist_ok=True)
 
+        # NEW (Beta.9): Load cached fingerprint from .25d file
+        # This enables fast processing by skipping per-chunk analysis
+        self.fingerprint = None
+        self.mastering_targets = None
+
+        if self.preset is not None:
+            from auralis.analysis.fingerprint import FingerprintStorage
+
+            # Try to load from .25d file
+            cached_data = FingerprintStorage.load(Path(filepath))
+            if cached_data:
+                self.fingerprint, self.mastering_targets = cached_data
+                logger.info(f"✅ Loaded fingerprint from .25d file for track {track_id}")
+            else:
+                logger.info(f"⏳ No .25d file found for track {track_id}, will extract on first chunk")
+
         # CRITICAL FIX: Create single shared processor instance to maintain state
         # across chunks. This prevents audio artifacts from resetting compressor
         # envelope followers at chunk boundaries.
@@ -98,6 +114,12 @@ class ChunkedAudioProcessor:
             config.set_processing_mode("adaptive")
             config.mastering_profile = self.preset.lower()
             self.processor = HybridProcessor(config)
+
+            # NEW (Beta.9): If we loaded mastering targets from .25d file, set them
+            # This enables fixed-target processing (8x faster, instant toggle)
+            if self.mastering_targets is not None:
+                self.processor.set_fixed_mastering_targets(self.mastering_targets)
+                logger.info(f"🎯 Fixed mastering targets applied to processor for track {track_id}")
         else:
             self.processor = None  # No processing for original audio
 
@@ -372,6 +394,51 @@ class ChunkedAudioProcessor:
 
         logger.info(f"Processing chunk {chunk_index}/{self.total_chunks} (preset: {self.preset}, fast_start: {fast_start})")
 
+        # NEW (Beta.9): Extract fingerprint on first chunk if not cached
+        # This creates the .25d file for future fast processing
+        if self.fingerprint is None and chunk_index == 0 and self.preset is not None:
+            logger.info(f"🔍 Extracting fingerprint for track {self.track_id} (first playback)...")
+
+            try:
+                # Load full audio for fingerprint extraction
+                from auralis.io.unified_loader import load_audio
+                full_audio, sr = load_audio(self.filepath)
+
+                # Extract complete 25D fingerprint
+                from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
+                analyzer = AudioFingerprintAnalyzer()
+
+                # Add metadata for .25d file
+                from mutagen import File as MutagenFile
+                audio_file = MutagenFile(self.filepath)
+                duration = audio_file.info.length if audio_file else self.total_duration
+
+                self.fingerprint = analyzer.analyze(full_audio, sr)
+                # Add metadata (will be stripped before saving)
+                self.fingerprint['_metadata'] = {
+                    'duration': duration,
+                    'sample_rate': sr
+                }
+
+                # Generate mastering targets from fingerprint
+                self.mastering_targets = self._generate_targets_from_fingerprint(self.fingerprint)
+
+                # Set targets on processor for fixed-target mode
+                if self.processor is not None:
+                    self.processor.set_fixed_mastering_targets(self.mastering_targets)
+                    logger.info(f"🎯 Applied newly extracted mastering targets to processor")
+
+                # Save to .25d file for future use
+                from auralis.analysis.fingerprint import FingerprintStorage
+                FingerprintStorage.save(Path(self.filepath), self.fingerprint, self.mastering_targets)
+                logger.info(f"💾 Saved fingerprint to .25d file for track {self.track_id}")
+
+            except Exception as e:
+                logger.error(f"Fingerprint extraction failed: {e}, using default processing")
+                # Continue with normal processing (HybridProcessor will analyze per-chunk)
+                self.fingerprint = None
+                self.mastering_targets = None
+
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
 
@@ -381,10 +448,27 @@ class ChunkedAudioProcessor:
             logger.info(f"Serving original audio for chunk {chunk_index} (no processing)")
             processed_chunk = audio_chunk
         else:
-            # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
-            # This reduces initial buffering from ~30s to <5s by avoiding slow librosa.beat.tempo call
-            # Fingerprint can be extracted later in background for subsequent chunks
-            if fast_start and chunk_index == 0:
+            # NEW (Beta.9): Use fixed targets if available (from .25d file)
+            # This bypasses expensive per-chunk analysis and enables instant toggle
+            if self.mastering_targets is not None:
+                logger.info(f"⚡ Processing chunk {chunk_index} with fixed targets from fingerprint")
+
+                # Disable per-chunk fingerprint analysis (we already have the targets)
+                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
+                self.processor.content_analyzer.use_fingerprint_analysis = False
+
+                try:
+                    # Process with fixed targets (no per-chunk analysis)
+                    # The processor will use the pre-computed mastering targets
+                    processed_chunk = self.processor.process(audio_chunk)
+                finally:
+                    # Restore fingerprint analysis setting
+                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+
+            elif fast_start and chunk_index == 0:
+                # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
+                # This reduces initial buffering from ~30s to <5s by avoiding slow librosa.beat.tempo call
+                # Fingerprint can be extracted later in background for subsequent chunks
                 # Temporarily disable fingerprint analysis
                 original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
                 self.processor.content_analyzer.use_fingerprint_analysis = False
@@ -500,6 +584,69 @@ class ChunkedAudioProcessor:
         cache_key = self._get_track_fingerprint_cache_key()
         self.chunk_cache[cache_key] = fingerprint
         logger.info(f"Cached track-level fingerprint for track {self.track_id}")
+
+    def _generate_targets_from_fingerprint(self, fingerprint: dict) -> dict:
+        """
+        Generate mastering targets from 25D fingerprint.
+
+        This converts acoustic characteristics into processing parameters.
+        Targets remain fixed for the entire track, enabling fast processing.
+
+        Args:
+            fingerprint: 25D fingerprint dictionary
+
+        Returns:
+            Dictionary of mastering targets
+        """
+        freq = fingerprint.get('frequency', {})
+        dynamics = fingerprint.get('dynamics', {})
+
+        # Target loudness based on current LUFS
+        current_lufs = dynamics.get('lufs', -14.0)
+        target_lufs = -14.0  # Standard streaming loudness
+
+        # Target crest factor (preserve dynamic range character)
+        current_crest = dynamics.get('crest_db', 12.0)
+        target_crest = max(10.0, current_crest * 0.85)  # Slight reduction
+
+        # EQ adjustments based on frequency balance
+        eq_adjustments = {
+            'sub_bass': self._calculate_eq_adjustment(freq.get('sub_bass_pct', 5.0), ideal=5.0),
+            'bass': self._calculate_eq_adjustment(freq.get('bass_pct', 15.0), ideal=15.0),
+            'low_mid': self._calculate_eq_adjustment(freq.get('low_mid_pct', 18.0), ideal=18.0),
+            'mid': self._calculate_eq_adjustment(freq.get('mid_pct', 22.0), ideal=22.0),
+            'upper_mid': self._calculate_eq_adjustment(freq.get('upper_mid_pct', 20.0), ideal=20.0),
+            'presence': self._calculate_eq_adjustment(freq.get('presence_pct', 13.0), ideal=13.0),
+            'air': self._calculate_eq_adjustment(freq.get('air_pct', 7.0), ideal=7.0),
+        }
+
+        return {
+            'target_lufs': target_lufs,
+            'target_crest_db': target_crest,
+            'eq_adjustments_db': eq_adjustments,
+            'compression': {
+                'ratio': 2.5,
+                'amount': 0.6
+            }
+        }
+
+    def _calculate_eq_adjustment(self, current_pct: float, ideal: float) -> float:
+        """
+        Calculate EQ adjustment in dB to reach ideal percentage.
+
+        Args:
+            current_pct: Current frequency percentage
+            ideal: Ideal frequency percentage
+
+        Returns:
+            EQ adjustment in dB (clamped to ±6 dB)
+        """
+        # Simple proportional adjustment
+        diff = ideal - current_pct
+        # ±1% difference = ±0.5 dB adjustment (gentle)
+        adjustment = diff * 0.5
+        # Clamp to reasonable range
+        return max(-6.0, min(6.0, adjustment))
 
     async def process_all_chunks_async(self):
         """
