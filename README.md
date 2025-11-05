@@ -6,41 +6,39 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.0.0--beta.6-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.6)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-430%2B%20passing-brightgreen.svg)]()
+[![Release](https://img.shields.io/badge/release-v1.0.0--beta.8-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.8)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-433%2B%20passing-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-234%20passing-brightgreen.svg)]()
-[![Test Coverage](https://img.shields.io/badge/coverage-91.9%25-brightgreen.svg)]()
+[![Test Coverage](https://img.shields.io/badge/coverage-90.3%25-brightgreen.svg)]()
 
-## 📥 Download Beta.6
+## 📥 Download Beta.8
 
-**🎉 Latest Release: Enhanced Interactions & Polish!**
+**🎉 Latest Release: Seamless Playback!**
 
 | Platform | Download | Size |
 |----------|----------|------|
-| 🪟 **Windows** | [Auralis-Setup-1.0.0-beta.6.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.6/Auralis-Setup-1.0.0-beta.6.exe) | 205 MB |
-| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.6.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.6/Auralis-1.0.0-beta.6.AppImage) | 276 MB |
-| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.6_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.6/auralis-desktop_1.0.0-beta.6_amd64.deb) | 195 MB |
+| 🪟 **Windows** | [Auralis Setup 1.0.0-beta.8.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.8/Auralis.Setup.1.0.0-beta.8.exe) | 206 MB |
+| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.8.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.8/Auralis-1.0.0-beta.8.AppImage) | 277 MB |
+| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.8_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.8/auralis-desktop_1.0.0-beta.8_amd64.deb) | 195 MB |
 
-📖 **[User Guide](BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA6.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
+📖 **[User Guide](BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA8.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
 
-### 🚀 What's New in Beta.6
+### 🚀 What's New in Beta.8
 
-**Complete Phase 2: Enhanced Interactions**
+**Seamless Playback & Auto-Mastering Transparency**
 
-- 🎨 **Drag-and-Drop** - Intuitive playlist and queue management (724 lines of code)
-- ⌨️ **Keyboard Shortcuts** - 15+ shortcuts (⚠️ temporarily disabled due to minification issue)
-- ✅ **Batch Operations** - Multi-select with bulk actions (589 lines of code)
-- 🐛 **Bug Fixes** - Backend imports, deprecations, frontend artwork retry
-- 📚 **Complete Documentation** - 1,500+ lines of new documentation
+- ✅ **Perfect Chunk Streaming** - Zero gaps/overlaps at chunk boundaries (sample-accurate)
+- 📊 **Auto-Mastering Visualizer** - See real processing parameters in real-time
+- 🎯 **Mid-Playback Toggle** - Enable/disable enhancement anytime without stopping
+- 🐛 **6 Critical Fixes** - Streaming bugs, UI issues, all resolved
+- 📚 **5,700+ Lines of Documentation** - Complete technical documentation
 
-**Phase 2 Total: 2,037 lines of new feature code**
+**Major Improvements:**
+- Seamless 30-second chunk concatenation (1,323,000 samples @ 44.1kHz precision)
+- Real-time visualizer showing bass boost, compression, dynamic range, EQ
+- Background pre-processing for smooth mid-playback enhancement toggle
 
-**Plus Previous Features:**
-- Beta.5: 25D Audio Fingerprint Similarity System
-- Beta.4: Progressive streaming with WebM/Opus encoding
-- Beta.4: Unified player architecture (67% code reduction)
-
-See [RELEASE_NOTES_BETA6.md](RELEASE_NOTES_BETA6.md) for complete technical details.
+See [RELEASE_NOTES_BETA8.md](RELEASE_NOTES_BETA8.md) for complete technical details.
 
 ---
 
@@ -73,22 +71,22 @@ Auralis is a **local music player** with professional audio enhancement built-in
 
 **Windows:**
 ```bash
-# 1. Download Auralis-Setup-1.0.0-beta.6.exe
+# 1. Download Auralis Setup 1.0.0-beta.8.exe
 # 2. Run the installer
 # 3. Launch Auralis from Start Menu
 ```
 
 **Linux (AppImage):**
 ```bash
-# 1. Download Auralis-1.0.0-beta.6.AppImage
-chmod +x Auralis-1.0.0-beta.6.AppImage
-./Auralis-1.0.0-beta.6.AppImage
+# 1. Download Auralis-1.0.0-beta.8.AppImage
+chmod +x Auralis-1.0.0-beta.8.AppImage
+./Auralis-1.0.0-beta.8.AppImage
 ```
 
 **Linux (Debian/Ubuntu):**
 ```bash
-# 1. Download auralis-desktop_1.0.0-beta.6_amd64.deb
-sudo dpkg -i auralis-desktop_1.0.0-beta.6_amd64.deb
+# 1. Download auralis-desktop_1.0.0-beta.8_amd64.deb
+sudo dpkg -i auralis-desktop_1.0.0-beta.8_amd64.deb
 auralis-desktop
 ```
 

@@ -138,7 +138,78 @@
 
 ## 📊 **P2 - Advanced Features**
 
-### 7. Continuous Enhancement Space
+### 7. Fix Progress Bar Seek Behavior
+**Goal**: Make progress bar seeking robust and reliable
+
+**Current Problem**:
+- Clicking/dragging the progress bar causes playback to break
+- Player state becomes inconsistent after seeking
+- "Everything goes to shit" when user touches the progress bar
+
+**Symptoms**:
+- Playback stops completely
+- Audio doesn't resume after seek
+- Player UI shows playing but no sound
+- Chunk loading breaks after manual seek
+
+**Root Cause (Suspected)**:
+- MSE SourceBuffer not properly handling seek operations
+- Chunk boundaries don't align with seek position
+- Player state not synchronized with actual playback position
+- Backend chunk cache not invalidated on seek
+
+**Solution Requirements**:
+1. Implement proper seek handling in MSE player
+2. Calculate correct chunk index from seek position
+3. Clear/reset SourceBuffer on seek
+4. Synchronize player state with new position
+5. Pre-load chunk at seek target before resuming playback
+6. Handle edge cases (seeking while loading, seeking near end of track)
+
+**Implementation Plan**:
+```typescript
+// BottomPlayerBarConnected.tsx (MSE player)
+async function handleSeek(newPosition: number) {
+  // 1. Pause playback
+  audioElement.pause();
+
+  // 2. Calculate target chunk
+  const targetChunk = Math.floor(newPosition / CHUNK_DURATION);
+
+  // 3. Clear SourceBuffer
+  sourceBuffer.remove(0, Infinity);
+  await waitForUpdateEnd(sourceBuffer);
+
+  // 4. Load target chunk
+  const chunk = await fetchChunk(trackId, targetChunk, preset);
+  sourceBuffer.appendBuffer(chunk);
+  await waitForUpdateEnd(sourceBuffer);
+
+  // 5. Set playback position
+  audioElement.currentTime = newPosition;
+
+  // 6. Resume playback
+  audioElement.play();
+
+  // 7. Pre-load next chunk in background
+  fetchChunk(trackId, targetChunk + 1, preset);
+}
+```
+
+**Testing**:
+- Seek to various positions (beginning, middle, end)
+- Seek while playing, while paused
+- Rapid consecutive seeks
+- Seek with auto-mastering enabled/disabled
+- Seek across chunk boundaries
+
+**Estimated Effort**: 4-6 hours
+**Priority**: P2 (annoying but not blocking)
+**Dependencies**: MSE frontend integration (P0 item #1)
+
+---
+
+### 8. Continuous Enhancement Space
 **Goal**: Interpolate between presets based on fingerprint characteristics
 
 **Concept**:
@@ -150,7 +221,7 @@
 
 ---
 
-### 8. Real-Time Adaptive Processing
+### 9. Real-Time Adaptive Processing
 **Goal**: Adjust processing parameters dynamically during playback
 
 **Features**:
