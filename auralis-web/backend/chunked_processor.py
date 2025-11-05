@@ -30,6 +30,10 @@ from auralis.io.saver import save as save_audio
 
 logger = logging.getLogger(__name__)
 
+# Global cache for last content profiles (used by visualizer API)
+# Maps preset name -> last_content_profile dict
+_last_content_profiles = {}
+
 # Chunk configuration
 CHUNK_DURATION = 30  # seconds
 OVERLAP_DURATION = 3  # seconds for crossfade (increased from 1s for smoother transitions)
@@ -252,8 +256,8 @@ class ChunkedAudioProcessor:
         Returns:
             Level-smoothed chunk
         """
-        if chunk_index == 0:
-            # First chunk - establish baseline
+        # First chunk OR no history (processor was just created) - establish baseline
+        if chunk_index == 0 or len(self.chunk_rms_history) == 0:
             chunk_rms = self._calculate_rms(chunk)
             self.chunk_rms_history.append(chunk_rms)
             self.chunk_gain_history.append(0.0)  # No adjustment for first chunk
@@ -395,12 +399,28 @@ class ChunkedAudioProcessor:
 
         # Apply intensity blending
         if self.intensity < 1.0:
-            # Get original chunk without context for blending
-            original_chunk, _, _ = self.load_chunk(chunk_index, with_context=False)
-            # Ensure same length
-            min_len = min(len(original_chunk), len(processed_chunk))
+            # Load the exact same chunk with context that we processed
+            original_chunk_with_context, _, _ = self.load_chunk(chunk_index, with_context=True)
+
+            # Trim context from original to match processed chunk dimensions
+            context_samples = int(CONTEXT_DURATION * self.sample_rate)
+            actual_start = chunk_index * CHUNK_DURATION
+
+            # Trim start context for non-first chunks
+            if actual_start > 0:
+                if len(original_chunk_with_context) > context_samples:
+                    original_chunk_with_context = original_chunk_with_context[context_samples:]
+
+            # Trim end context for non-last chunks
+            is_last_chunk = chunk_index == self.total_chunks - 1
+            if not is_last_chunk:
+                if len(original_chunk_with_context) > context_samples:
+                    original_chunk_with_context = original_chunk_with_context[:-context_samples]
+
+            # Now both chunks should have the same length
+            min_len = min(len(original_chunk_with_context), len(processed_chunk))
             processed_chunk = (
-                original_chunk[:min_len] * (1.0 - self.intensity) +
+                original_chunk_with_context[:min_len] * (1.0 - self.intensity) +
                 processed_chunk[:min_len] * self.intensity
             )
 
@@ -607,12 +627,28 @@ class ChunkedAudioProcessor:
 
         # Apply intensity blending
         if self.intensity < 1.0:
-            # Get original chunk without context for blending
-            original_chunk, _, _ = self.load_chunk(chunk_index, with_context=False)
-            # Ensure same length
-            min_len = min(len(original_chunk), len(processed_chunk))
+            # Load the exact same chunk with context that we processed
+            original_chunk_with_context, _, _ = self.load_chunk(chunk_index, with_context=True)
+
+            # Trim context from original to match processed chunk dimensions
+            context_samples = int(CONTEXT_DURATION * self.sample_rate)
+            actual_start = chunk_index * CHUNK_DURATION
+
+            # Trim start context for non-first chunks
+            if actual_start > 0:
+                if len(original_chunk_with_context) > context_samples:
+                    original_chunk_with_context = original_chunk_with_context[context_samples:]
+
+            # Trim end context for non-last chunks
+            is_last_chunk = chunk_index == self.total_chunks - 1
+            if not is_last_chunk:
+                if len(original_chunk_with_context) > context_samples:
+                    original_chunk_with_context = original_chunk_with_context[:-context_samples]
+
+            # Now both chunks should have the same length
+            min_len = min(len(original_chunk_with_context), len(processed_chunk))
             processed_chunk = (
-                original_chunk[:min_len] * (1.0 - self.intensity) +
+                original_chunk_with_context[:min_len] * (1.0 - self.intensity) +
                 processed_chunk[:min_len] * self.intensity
             )
 
@@ -642,6 +678,13 @@ class ChunkedAudioProcessor:
 
         # Cache the path
         self.chunk_cache[cache_key] = str(webm_chunk_path)
+
+        # Store last_content_profile globally for visualizer API access
+        # This allows the /api/processing/parameters endpoint to show real processing data
+        global _last_content_profiles
+        if hasattr(self.processor, 'last_content_profile') and self.processor.last_content_profile:
+            _last_content_profiles[self.preset.lower()] = self.processor.last_content_profile
+            logger.debug(f"📊 Stored processing profile for preset '{self.preset}'")
 
         return str(webm_chunk_path)
 
@@ -721,3 +764,18 @@ def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overl
     ], axis=0)
 
     return result
+
+
+def get_last_content_profile(preset: str):
+    """
+    Get the last content profile for a given preset.
+    Used by /api/processing/parameters endpoint to show real processing data.
+
+    Args:
+        preset: Preset name (e.g., "adaptive", "gentle", "warm", etc.)
+
+    Returns:
+        Last content profile dict or None if not available
+    """
+    global _last_content_profiles
+    return _last_content_profiles.get(preset.lower())

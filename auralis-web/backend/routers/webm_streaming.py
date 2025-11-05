@@ -290,8 +290,10 @@ def create_webm_streaming_router(
         except HTTPException:
             raise
         except Exception as e:
+            import traceback
             latency_ms = (time.time() - start_time) * 1000
             logger.error(f"Chunk streaming failed after {latency_ms:.1f}ms: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"Chunk streaming failed: {e}")
 
     async def _get_original_webm_chunk(

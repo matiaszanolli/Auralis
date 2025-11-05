@@ -16,12 +16,17 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException
 import logging
+import asyncio
+import os
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
 
 # Valid enhancement presets
 VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
+
+# Chunk configuration (must match chunked_processor.py)
+CHUNK_DURATION = 30  # seconds per chunk
 
 
 def create_enhancement_router(get_enhancement_settings, connection_manager, get_processing_cache=None, get_multi_tier_buffer=None, get_player_state_manager=None, get_processing_engine=None):
@@ -40,10 +45,77 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         APIRouter: Configured router instance
     """
 
+    async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time: float, preset: str, intensity: float):
+        """
+        Background task to pre-process upcoming chunks when enhancement is enabled mid-playback.
+        This prevents audio stopping while waiting for on-demand processing.
+
+        Args:
+            track_id: Track database ID
+            filepath: Path to audio file
+            current_time: Current playback position in seconds
+            preset: Enhancement preset name
+            intensity: Enhancement intensity (0.0-1.0)
+        """
+        try:
+            # Import here to avoid circular dependencies
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from chunked_processor import ChunkedAudioProcessor
+            import soundfile as sf
+
+            # Calculate current chunk and next 3 chunks to pre-process
+            current_chunk_idx = int(current_time / CHUNK_DURATION)
+            chunks_to_process = [current_chunk_idx + i for i in range(1, 4)]  # Next 3 chunks
+
+            logger.info(f"🎯 Pre-processing chunks {chunks_to_process} for track {track_id} (current chunk: {current_chunk_idx})")
+
+            # Get audio duration to avoid processing non-existent chunks
+            info = sf.info(filepath)
+            total_duration = info.duration
+            total_chunks = int(total_duration / CHUNK_DURATION) + 1
+
+            # Create processor
+            processor = ChunkedAudioProcessor(
+                track_id=track_id,
+                filepath=filepath,
+                preset=preset,
+                intensity=intensity,
+                chunk_cache={}
+            )
+
+            # Process each chunk
+            processed_count = 0
+            for chunk_idx in chunks_to_process:
+                if chunk_idx >= total_chunks:
+                    break  # Don't process chunks beyond the track
+
+                try:
+                    # Process chunk (this will cache the WebM file)
+                    webm_chunk_path = processor.get_webm_chunk_path(chunk_idx)
+
+                    if os.path.exists(webm_chunk_path):
+                        processed_count += 1
+                        logger.info(f"✅ Pre-processed chunk {chunk_idx} ({processed_count}/{len(chunks_to_process)})")
+                    else:
+                        logger.warning(f"⚠️ Pre-processing failed for chunk {chunk_idx}: output file not found")
+
+                except Exception as e:
+                    logger.error(f"❌ Pre-processing failed for chunk {chunk_idx}: {e}")
+                    continue
+
+            logger.info(f"🎯 Pre-processing complete: {processed_count} chunks ready")
+
+        except Exception as e:
+            logger.error(f"❌ Background chunk pre-processing failed: {e}")
+
     @router.post("/api/player/enhancement/toggle")
     async def toggle_enhancement(enabled: bool):
         """
         Enable or disable real-time audio enhancement.
+
+        When enabling mid-playback, automatically pre-processes upcoming chunks
+        in the background to prevent audio stopping.
 
         Args:
             enabled: Boolean to enable/disable enhancement
@@ -57,6 +129,23 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         try:
             enhancement_settings = get_enhancement_settings()
             enhancement_settings["enabled"] = enabled
+
+            # If enabling enhancement mid-playback, pre-process upcoming chunks in background
+            if enabled and get_player_state_manager is not None:
+                player_state_manager = get_player_state_manager()
+                if player_state_manager:
+                    state = player_state_manager.get_state()
+                    # Only pre-process if actively playing
+                    if state.current_track and state.state.value == "playing":
+                        # Launch background task to pre-process next 3 chunks
+                        asyncio.create_task(_preprocess_upcoming_chunks(
+                            track_id=state.current_track.id,
+                            filepath=state.current_track.file_path,
+                            current_time=state.current_time,
+                            preset=enhancement_settings.get("preset", "adaptive"),
+                            intensity=enhancement_settings.get("intensity", 1.0)
+                        ))
+                        logger.info(f"🎯 Launched background pre-processing for track {state.current_track.id} at {state.current_time:.1f}s")
 
             # Broadcast to all clients
             await connection_manager.broadcast({
@@ -217,36 +306,27 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         Get current processing parameters from the continuous space system.
         This shows what the auto-mastering engine is doing in real-time.
 
+        Reads from the global content profile cache populated by ChunkedAudioProcessor
+        during streaming playback.
+
         Returns:
             dict: Processing parameters including coordinates, targets, and adjustments
         """
-        if get_processing_engine is None:
-            # Fallback to mock data if processing engine not available
-            return {
-                "spectral_balance": 0.65,
-                "dynamic_range": 0.72,
-                "energy_level": 0.58,
-                "target_lufs": -14.0,
-                "peak_target_db": -1.0,
-                "bass_boost": 0.8,
-                "air_boost": 1.2,
-                "compression_amount": 0.35,
-                "expansion_amount": 0.0,
-                "stereo_width": 0.75
-            }
-
         try:
-            engine = get_processing_engine()
-            if engine is None:
-                raise HTTPException(status_code=503, detail="Processing engine not initialized")
+            # Import the helper function from chunked_processor
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from chunked_processor import get_last_content_profile
 
-            # Get the last processed content profile
-            # The ProcessingEngine stores HybridProcessor instances per preset
-            # We need to get the most recently used processor
+            # Get current preset
             preset = get_enhancement_settings().get("preset", "adaptive")
 
-            if preset not in engine.processors:
-                # No processor for this preset yet - return default values
+            # Try to get profile from ChunkedAudioProcessor global cache
+            profile = get_last_content_profile(preset)
+
+            if profile is None:
+                # No processing data yet - return default values
+                logger.debug(f"No processing profile found for preset '{preset}' - returning defaults")
                 return {
                     "spectral_balance": 0.5,
                     "dynamic_range": 0.5,
@@ -260,31 +340,13 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
                     "stereo_width": 0.75
                 }
 
-            processor = engine.processors[preset]
-
-            # Get the last content profile from the processor
-            if not hasattr(processor, 'last_content_profile') or processor.last_content_profile is None:
-                return {
-                    "spectral_balance": 0.5,
-                    "dynamic_range": 0.5,
-                    "energy_level": 0.5,
-                    "target_lufs": -14.0,
-                    "peak_target_db": -1.0,
-                    "bass_boost": 0.0,
-                    "air_boost": 0.0,
-                    "compression_amount": 0.0,
-                    "expansion_amount": 0.0,
-                    "stereo_width": 0.75
-                }
-
-            profile = processor.last_content_profile
-
-            # Extract coordinates (ProcessingCoordinates dataclass)
+            # Extract coordinates (ProcessingCoordinates dataclass or dict)
             coords = profile.get('coordinates')
             params = profile.get('parameters')
 
             if coords is None or params is None:
                 # Legacy mode or no continuous space data
+                logger.debug(f"Profile for preset '{preset}' missing coordinates or parameters")
                 return {
                     "spectral_balance": 0.5,
                     "dynamic_range": 0.5,
@@ -298,22 +360,34 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
                     "stereo_width": 0.75
                 }
 
+            # Extract values (handle both dataclass and dict formats)
+            def get_attr(obj, attr, default=0.0):
+                """Get attribute from dataclass or dict"""
+                if isinstance(obj, dict):
+                    return obj.get(attr, default)
+                return getattr(obj, attr, default)
+
             # Convert ProcessingCoordinates and ProcessingParameters to dict
-            return {
-                "spectral_balance": coords.spectral_balance,
-                "dynamic_range": coords.dynamic_range,
-                "energy_level": coords.energy_level,
-                "target_lufs": params.target_lufs,
-                "peak_target_db": params.peak_target_db,
-                "bass_boost": params.eq_curve.get('low_shelf_gain', 0.0),
-                "air_boost": params.eq_curve.get('high_shelf_gain', 0.0),
-                "compression_amount": params.compression_params.get('amount', 0.0),
-                "expansion_amount": params.expansion_params.get('amount', 0.0),
-                "stereo_width": params.stereo_width_target
+            result = {
+                "spectral_balance": get_attr(coords, 'spectral_balance', 0.5),
+                "dynamic_range": get_attr(coords, 'dynamic_range', 0.5),
+                "energy_level": get_attr(coords, 'energy_level', 0.5),
+                "target_lufs": get_attr(params, 'target_lufs', -14.0),
+                "peak_target_db": get_attr(params, 'peak_target_db', -1.0),
+                "bass_boost": get_attr(params, 'eq_curve', {}).get('low_shelf_gain', 0.0),
+                "air_boost": get_attr(params, 'eq_curve', {}).get('high_shelf_gain', 0.0),
+                "compression_amount": get_attr(params, 'compression_params', {}).get('amount', 0.0),
+                "expansion_amount": get_attr(params, 'expansion_params', {}).get('amount', 0.0),
+                "stereo_width": get_attr(params, 'stereo_width_target', 0.75)
             }
+
+            logger.debug(f"📊 Returning processing parameters for preset '{preset}': {result}")
+            return result
 
         except Exception as e:
             logger.error(f"Failed to get processing parameters: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             # Return default values on error
             return {
                 "spectral_balance": 0.5,
