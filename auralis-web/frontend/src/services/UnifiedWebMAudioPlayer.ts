@@ -136,7 +136,7 @@ export class UnifiedWebMAudioPlayer {
   constructor(config: UnifiedWebMAudioPlayerConfig = {}) {
     this.config = {
       apiBaseUrl: config.apiBaseUrl || 'http://localhost:8765',
-      chunkDuration: config.chunkDuration || 30,
+      chunkDuration: config.chunkDuration || 10, // Reduced from 30s → 10s for Beta.9 Phase 2
       enhanced: config.enhanced !== undefined ? config.enhanced : true,
       preset: config.preset || 'adaptive',
       intensity: config.intensity !== undefined ? config.intensity : 1.0,
@@ -431,7 +431,14 @@ export class UnifiedWebMAudioPlayer {
   }
 
   /**
-   * Set enhancement mode (triggers chunk reload)
+   * Set enhancement mode (triggers buffer flush and reload)
+   *
+   * NEW (Beta.9 Phase 2): Improved toggle with instant buffer flush
+   * - Saves playback position
+   * - Stops current playback
+   * - Clears buffer completely
+   * - Reloads from current position with new settings
+   * - Resumes playback if was playing
    */
   async setEnhanced(enabled: boolean, preset?: string): Promise<void> {
     const oldEnhanced = this.config.enhanced;
@@ -440,14 +447,37 @@ export class UnifiedWebMAudioPlayer {
     this.config.enhanced = enabled;
     if (preset) this.config.preset = preset;
 
-    // If settings changed, clear buffer and reload current chunk
+    // If settings changed, flush buffer and reload
     if (oldEnhanced !== enabled || (preset && oldPreset !== preset)) {
       this.debug(`Enhancement changed: ${enabled}, preset: ${preset || this.config.preset}`);
+
+      // NEW (Beta.9): Save playback state
+      const wasPlaying = this.state === 'playing';
+      const currentTime = this.getCurrentTime();
+
+      // Stop current playback (releases audio buffers)
+      if (this.currentSource) {
+        this.currentSource.stop();
+        this.currentSource.disconnect();
+        this.currentSource = null;
+      }
+
+      // Clear buffer completely (releases cached chunks)
       this.buffer.clear();
 
-      // Reload current chunk with new settings
+      this.debug(`Buffer flushed at ${currentTime.toFixed(2)}s, wasPlaying: ${wasPlaying}`);
+
+      // Reload from current position
       if (this.trackId && this.currentChunkIndex < this.chunks.length) {
+        // Preload current chunk with new settings
         await this.preloadChunk(this.currentChunkIndex);
+
+        // Resume playback if was playing
+        if (wasPlaying) {
+          this.debug(`Resuming playback from ${currentTime.toFixed(2)}s with new settings`);
+          await this.seek(currentTime);
+          await this.play();
+        }
       }
     }
   }

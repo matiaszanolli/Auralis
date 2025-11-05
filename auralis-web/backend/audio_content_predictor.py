@@ -140,8 +140,8 @@ class AudioContentAnalyzer:
             # Try soundfile first (fastest)
             import soundfile as sf
 
-            # Calculate chunk position (30 seconds per chunk)
-            chunk_duration = 30.0
+            # Calculate chunk position (10 seconds per chunk - Beta.9)
+            chunk_duration = 10.0
             start_sec = chunk_idx * chunk_duration
 
             # Read just this chunk

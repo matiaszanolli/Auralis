@@ -85,7 +85,7 @@ def encode_to_webm_opus(
 
     Performance:
         Typical encoding speed: 50-100x real-time
-        30-second chunk: ~0.3-0.6 seconds processing time
+        10-second chunk: ~0.1-0.2 seconds processing time
         CPU usage: ~30% single core
     """
     if not HAS_SOUNDFILE:
