@@ -663,7 +663,39 @@ from auralis.analysis.quality_metrics import QualityMetrics
 
 ## UI/UX Design Philosophy
 
-### Design Aesthetic
+### 🚨 MANDATORY: UI Design Guidelines
+
+**ALL UI development MUST follow [docs/guides/UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md)**
+
+These are **strict requirements**, not suggestions. PRs that violate these guidelines will be rejected.
+
+**Key Rules:**
+1. ✅ **One Component Rule** - Only one component per purpose (no duplicates)
+2. ✅ **No "Enhanced" Versions** - Refactor existing, don't create variants
+3. ✅ **Design Tokens Only** - No hardcoded colors, spacing, or typography
+4. ✅ **< 300 Lines** - Extract subcomponents if exceeded
+5. ✅ **Performance Budget** - 60fps, virtual scrolling, code splitting
+
+**Before creating ANY new UI component:**
+- Read [UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md)
+- Check if existing component can be extended
+- Use design system primitives from `src/design-system/`
+
+### Current UI Status (Beta 9.0)
+
+⚠️ **Known Issues:**
+- **92 components, 46k lines** - Too much bloat
+- **Multiple duplicates** - AudioPlayer, EnhancedAudioPlayer, MagicalMusicPlayer...
+- **Bootstrap-clone feel** - Needs professional polish
+
+**Beta 10.0 Target:**
+- **~45 components** (50% reduction)
+- **~20k lines** (56% reduction)
+- **Professional UI** with design system
+- See [docs/roadmaps/UI_OVERHAUL_PLAN.md](docs/roadmaps/UI_OVERHAUL_PLAN.md)
+
+### Design Aesthetic (Target State)
+
 Auralis combines classic library-based player experience (iTunes, Rhythmbox) with modern touches from Spotify and Cider:
 
 **Visual Style:**
@@ -683,21 +715,15 @@ Auralis combines classic library-based player experience (iTunes, Rhythmbox) wit
 └─────────────┴───────────────────────────────────────────────┘
 ```
 
-**Color Palette:**
-- Background: `#0A0E27` (deep navy)
-- Surface: `#1a1f3a` (lighter navy)
-- Accent: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`
-- Text primary: `#ffffff`
-- Text secondary: `#8b92b0`
-- Success: `#00d4aa` (turquoise)
+**Design System Tokens:**
+All components must use tokens from `src/design-system/tokens.ts`:
+- **Colors**: `bg`, `accent`, `text` palettes
+- **Spacing**: `xs`, `sm`, `md`, `lg`, `xl`, `xxl`
+- **Typography**: Font sizes, weights, families
+- **Shadows**: `sm`, `md`, `lg`
+- **Transitions**: `fast`, `normal`, `slow`
 
-**Key UI Components:**
-- Album/Track Cards: 160x160px artwork, 8px border radius, scale(1.05) hover effect
-- Player Controls: Large circular play button with aurora gradient, gradient progress bar
-- Search Bar: 48px height, pill shape (24px border radius), semi-transparent background
-- Navigation Sidebar: 40px item height, accent border-left for active state
-
-See original CLAUDE.md for detailed component implementation guidelines.
+See [UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md) for complete design system specification.
 
 ## Code Style and Best Practices
 
@@ -842,7 +868,9 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **License**: GPL-3.0
 
 ### Project Status
-- **Version**: 1.0.0-beta.6 (Beta stage - **Production Quality** with enhanced interactions)
+- **Version**: 1.0.0-beta.9.0 (Beta stage - Cache & UI polish)
+- **Roadmap**: See [docs/roadmaps/MASTER_ROADMAP.md](docs/roadmaps/MASTER_ROADMAP.md) for complete roadmap
+- **Next Major**: Beta 10.0 (UI Overhaul) - 6 weeks starting after Beta 9.1
 - **Beta.6 Enhanced Interactions**: ✅ **COMPLETE PHASE 2** (Oct 30, 2025)
   - Drag-and-drop system for playlist and queue management (724 lines)
   - Keyboard shortcuts (15+ shortcuts, ⚠️ temporarily disabled due to minification issue)
