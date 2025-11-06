@@ -6,8 +6,8 @@ import { FullscreenOutlined, FullscreenExitOutlined, SettingsOutlined } from '@m
 import AnalysisWaveformDisplay from './AnalysisWaveformDisplay';
 import SpectrumVisualization from './SpectrumVisualization';
 import MeterBridge from './MeterBridge';
-import EnhancedCorrelationDisplay from './EnhancedCorrelationDisplay';
-import EnhancedProcessingActivityView from './EnhancedProcessingActivityView';
+import CorrelationDisplay from './CorrelationDisplay';
+import ProcessingActivityView from './ProcessingActivityView';
 
 // Types for integrated visualization data
 interface VisualizationData {
@@ -336,7 +336,7 @@ export const Phase5VisualizationSuite: React.FC<Phase5VisualizationSuiteProps> =
       id: 'correlation',
       title: 'Phase & Correlation',
       component: (
-        <EnhancedCorrelationDisplay
+        <CorrelationDisplay
           correlationData={currentData.correlation}
           width={fullscreenComponent === 'correlation' ? window.innerWidth - 100 : 400}
           height={fullscreenComponent === 'correlation' ? window.innerHeight - 200 : 400}
@@ -351,7 +351,7 @@ export const Phase5VisualizationSuite: React.FC<Phase5VisualizationSuiteProps> =
       id: 'processing',
       title: 'Processing Activity',
       component: (
-        <EnhancedProcessingActivityView
+        <ProcessingActivityView
           activityData={currentData.processing}
           width={fullscreenComponent === 'processing' ? window.innerWidth - 100 : 800}
           height={fullscreenComponent === 'processing' ? window.innerHeight - 200 : 500}

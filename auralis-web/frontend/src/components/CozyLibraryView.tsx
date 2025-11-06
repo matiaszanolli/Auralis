@@ -13,12 +13,12 @@ import {
   FolderOpen,
   Refresh
 } from '@mui/icons-material';
-import AlbumCard from './library/AlbumCard';
+import AlbumCard from './album/AlbumCard';
 import AlbumArt from './album/AlbumArt';
 import TrackRow from './library/TrackRow';
 import SelectableTrackRow from './library/SelectableTrackRow';
 import BatchActionsToolbar from './library/BatchActionsToolbar';
-import EnhancedTrackQueue from './player/EnhancedTrackQueue';
+import TrackQueue from './player/TrackQueue';
 import SearchBar from './navigation/SearchBar';
 import ViewToggle, { ViewMode } from './navigation/ViewToggle';
 import { LibraryGridSkeleton, TrackRowSkeleton } from './shared/SkeletonLoader';
@@ -752,7 +752,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
 
           {/* Track Queue - Shows current album/playlist tracks */}
           {filteredTracks.length > 0 && (
-            <EnhancedTrackQueue
+            <TrackQueue
               tracks={filteredTracks.map(t => ({
                 id: t.id,
                 title: t.title,
