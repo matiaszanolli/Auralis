@@ -154,14 +154,21 @@ export const useLibraryData = ({
       if (response.ok) {
         const data = await response.json();
 
+        // Transform tracks data to match frontend interface
+        const transformedTracks = (data.tracks || []).map((track: any) => ({
+          ...track,
+          artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists[0] : track.artist || 'Unknown Artist',
+          albumArt: track.album_art || track.albumArt, // Map album_art from backend to albumArt
+        }));
+
         // Update state with pagination info
         setHasMore(data.has_more || false);
         setTotalTracks(data.total || 0);
 
         if (resetPagination) {
-          setTracks(data.tracks || []);
+          setTracks(transformedTracks);
         } else {
-          setTracks(prev => [...prev, ...(data.tracks || [])]);
+          setTracks(prev => [...prev, ...transformedTracks]);
         }
 
         console.log('Loaded', data.tracks?.length || 0, view === 'favourites' ? 'favorite tracks' : 'tracks from library');
@@ -213,12 +220,19 @@ export const useLibraryData = ({
       if (response.ok) {
         const data = await response.json();
 
+        // Transform tracks data to match frontend interface
+        const transformedTracks = (data.tracks || []).map((track: any) => ({
+          ...track,
+          artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists[0] : track.artist || 'Unknown Artist',
+          albumArt: track.album_art || track.albumArt, // Map album_art from backend to albumArt
+        }));
+
         // Append new tracks
-        setTracks(prev => [...prev, ...(data.tracks || [])]);
+        setTracks(prev => [...prev, ...transformedTracks]);
         setHasMore(data.has_more || false);
         setTotalTracks(data.total || 0);
 
-        console.log(`Loaded more: ${newOffset + (data.tracks?.length || 0)}/${data.total || 0}`);
+        console.log(`Loaded more: ${newOffset + transformedTracks.length}/${data.total || 0}`);
       }
     } catch (err) {
       console.error('Error loading more tracks:', err);

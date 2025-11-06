@@ -17,7 +17,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { Box, Grid, Paper, Typography } from '@mui/material';
-import { AlbumCard } from '../album/AlbumCard';
+import { TrackCard } from '../track/TrackCard';
 import SelectableTrackRow from './SelectableTrackRow';
 import TrackQueue from '../player/TrackQueue';
 import { LibraryGridSkeleton, TrackRowSkeleton } from '../shared/SkeletonLoader';
@@ -156,16 +156,18 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
                 animationFillMode: 'both'
               }}
             >
-              <AlbumCard
+              <TrackCard
                 id={track.id}
                 title={track.title}
                 artist={track.artist}
+                album={track.album}
                 albumId={track.album_id}
+                duration={track.duration}
                 albumArt={track.albumArt}
-                onPlay={async (id) => {
+                onPlay={(id) => {
                   const track = tracks.find(t => t.id === id);
                   if (track) {
-                    await onTrackPlay(track);
+                    onTrackPlay(track);
                   }
                 }}
               />

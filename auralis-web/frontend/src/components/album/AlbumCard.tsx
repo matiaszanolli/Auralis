@@ -10,7 +10,6 @@ import React, { useState } from 'react';
 import {
   Box,
   Card,
-  CardMedia,
   CardContent,
   Typography,
   IconButton,
@@ -25,6 +24,7 @@ import {
   ImageSearch,
   Delete,
   Album as AlbumIcon,
+  PlayArrow,
 } from '@mui/icons-material';
 import { AlbumArt } from './AlbumArt';
 import { downloadArtwork, extractArtwork, deleteArtwork } from '../../services/artworkService';
@@ -37,9 +37,21 @@ interface AlbumCardProps {
   artist: string;
   hasArtwork?: boolean;
   trackCount?: number;
+  duration?: number;
+  year?: number;
   onClick?: () => void;
   onArtworkUpdated?: () => void;
 }
+
+// Format duration in hours and minutes
+const formatDuration = (seconds: number): string => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+};
 
 export const AlbumCard: React.FC<AlbumCardProps> = ({
   albumId,
@@ -47,12 +59,15 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   artist,
   hasArtwork = false,
   trackCount = 0,
+  duration,
+  year,
   onClick,
   onArtworkUpdated,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [downloading, setDownloading] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const { success, error: showError } = useToast();
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -122,11 +137,50 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
           border: `1px solid rgba(102, 126, 234, 0.3)`,
         },
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
     >
       {/* Artwork */}
       <Box sx={{ position: 'relative' }}>
         <AlbumArt albumId={albumId} size="100%" borderRadius={0} />
+
+        {/* Play button overlay */}
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: isHovered ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+            backdropFilter: isHovered ? 'blur(4px)' : 'none',
+            transition: 'all 0.3s ease',
+            opacity: isHovered ? 1 : 0,
+            pointerEvents: isHovered ? 'auto' : 'none',
+          }}
+        >
+          <IconButton
+            sx={{
+              width: 56,
+              height: 56,
+              background: gradients.aurora,
+              color: '#fff',
+              transform: isHovered ? 'scale(1)' : 'scale(0.8)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: gradients.electricPurple,
+                transform: 'scale(1.1)',
+              },
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick?.();
+            }}
+          >
+            <PlayArrow sx={{ fontSize: 32 }} />
+          </IconButton>
+        </Box>
 
         {/* Loading overlay */}
         {(downloading || extracting) && (
@@ -237,42 +291,51 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
 
       {/* Album info */}
       <CardContent sx={{ p: 2 }}>
-        <Typography
-          variant="subtitle1"
-          sx={{
-            fontWeight: 600,
-            color: colors.text.primary,
-            mb: 0.5,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {title}
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{
-            color: colors.text.secondary,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {artist}
-        </Typography>
-        {trackCount > 0 && (
+        <Tooltip title={title} placement="top">
           <Typography
-            variant="caption"
+            variant="subtitle1"
             sx={{
-              color: colors.text.disabled,
-              mt: 0.5,
-              display: 'block',
+              fontWeight: 600,
+              color: colors.text.primary,
+              mb: 0.5,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
           >
-            {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
+            {title}
           </Typography>
-        )}
+        </Tooltip>
+
+        <Tooltip title={artist} placement="top">
+          <Typography
+            variant="body2"
+            sx={{
+              color: colors.text.secondary,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              mb: 0.5,
+            }}
+          >
+            {artist}
+          </Typography>
+        </Tooltip>
+
+        {/* Album metadata */}
+        <Typography
+          variant="caption"
+          sx={{
+            color: colors.text.disabled,
+            display: 'block',
+          }}
+        >
+          {trackCount > 0 && `${trackCount} ${trackCount === 1 ? 'track' : 'tracks'}`}
+          {duration && trackCount > 0 && ' • '}
+          {duration && formatDuration(duration)}
+          {year && ' • '}
+          {year}
+        </Typography>
       </CardContent>
     </Card>
   );
