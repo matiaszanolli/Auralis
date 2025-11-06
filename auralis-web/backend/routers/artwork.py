@@ -209,7 +209,7 @@ def create_artwork_router(get_library_manager, connection_manager):
                 session.close()
 
             # Download artwork using the artwork downloader service
-            from ..services.artwork_downloader import get_artwork_downloader
+            from services.artwork_downloader import get_artwork_downloader
             downloader = get_artwork_downloader()
 
             artwork_path = await downloader.download_artwork(

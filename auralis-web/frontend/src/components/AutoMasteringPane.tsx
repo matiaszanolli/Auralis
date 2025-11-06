@@ -80,7 +80,8 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
           setParams(data);
         }
       } catch (err) {
-        console.error('Failed to fetch processing parameters:', err);
+        // Silently ignore network errors (backend not ready yet)
+        // This is normal during initial page load
       } finally {
         setIsAnalyzing(false);
       }

@@ -12,7 +12,7 @@
 
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { Slider } from '../../design-system';
+import { Slider } from '@mui/material';
 
 export interface ProgressBarProps {
   // Time state

@@ -234,35 +234,33 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
   // ============================================================
 
   // Check if we should render a routed view (albums/artists)
-  const routedView = (
-    <LibraryViewRouter
-      view={view}
-      selectedAlbumId={selectedAlbumId}
-      selectedArtistId={selectedArtistId}
-      selectedArtistName={selectedArtistName}
-      currentTrackId={currentTrackId}
-      isPlaying={isPlaying}
-      onBackFromAlbum={() => {
-        setSelectedAlbumId(null);
-        // If we came from artist view, stay in artist detail
-        // (selectedArtistId will still be set)
-      }}
-      onBackFromArtist={() => {
-        setSelectedArtistId(null);
-        setSelectedArtistName('');
-      }}
-      onAlbumClick={setSelectedAlbumId}
-      onArtistClick={(id, name) => {
-        setSelectedArtistId(id);
-        setSelectedArtistName(name);
-      }}
-      onTrackPlay={handlePlayTrack}
-    />
-  );
-
-  // If router returned a view, render it
-  if (routedView) {
-    return <>{routedView}</>;
+  // Only render router for albums/artists views or when navigating album/artist details
+  if (view === 'albums' || view === 'artists' || selectedAlbumId !== null || selectedArtistId !== null) {
+    return (
+      <LibraryViewRouter
+        view={view}
+        selectedAlbumId={selectedAlbumId}
+        selectedArtistId={selectedArtistId}
+        selectedArtistName={selectedArtistName}
+        currentTrackId={currentTrackId}
+        isPlaying={isPlaying}
+        onBackFromAlbum={() => {
+          setSelectedAlbumId(null);
+          // If we came from artist view, stay in artist detail
+          // (selectedArtistId will still be set)
+        }}
+        onBackFromArtist={() => {
+          setSelectedArtistId(null);
+          setSelectedArtistName('');
+        }}
+        onAlbumClick={setSelectedAlbumId}
+        onArtistClick={(id, name) => {
+          setSelectedArtistId(id);
+          setSelectedArtistName(name);
+        }}
+        onTrackPlay={handlePlayTrack}
+      />
+    );
   }
 
   // ============================================================

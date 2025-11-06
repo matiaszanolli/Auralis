@@ -30,7 +30,7 @@ import {
   VolumeMute,
   AutoAwesome
 } from '@mui/icons-material';
-import { Slider } from '../../design-system';
+import { Slider } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 
 const PlayButton = styled(IconButton)({

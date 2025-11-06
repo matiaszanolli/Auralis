@@ -17,7 +17,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { Box, Grid, Paper, Typography } from '@mui/material';
-import AlbumCard from '../album/AlbumCard';
+import { AlbumCard } from '../album/AlbumCard';
 import SelectableTrackRow from './SelectableTrackRow';
 import TrackQueue from '../player/TrackQueue';
 import { LibraryGridSkeleton, TrackRowSkeleton } from '../shared/SkeletonLoader';
