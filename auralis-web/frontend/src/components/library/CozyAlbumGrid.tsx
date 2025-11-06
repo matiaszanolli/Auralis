@@ -10,11 +10,10 @@ import {
   Box,
   Grid,
   Typography,
-  styled,
   Skeleton,
 } from '@mui/material';
 import { colors } from '../../theme/auralisTheme';
-import { AlbumArt } from '../album/AlbumArt';
+import { AlbumCard } from '../album/AlbumCard';
 
 interface Album {
   id: number;
@@ -23,81 +22,53 @@ interface Album {
   track_count: number;
   total_duration: number;
   year?: number;
+  artwork_path?: string;
 }
 
 interface CozyAlbumGridProps {
   onAlbumClick?: (albumId: number) => void;
 }
 
-const GridContainer = styled(Box)({
-  padding: '24px',
-  width: '100%',
-});
+const EmptyState = ({ children }: { children: React.ReactNode }) => (
+  <Box
+    sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '400px',
+      color: colors.text.disabled,
+      textAlign: 'center',
+      padding: '40px',
+    }}
+  >
+    {children}
+  </Box>
+);
 
-const AlbumCard = styled(Box)({
-  cursor: 'pointer',
-  transition: 'all 0.3s ease',
-  borderRadius: '12px',
-  padding: '12px',
+const EmptyStateText = ({ children }: { children: React.ReactNode }) => (
+  <Typography
+    sx={{
+      fontSize: '18px',
+      fontWeight: 500,
+      marginBottom: '8px',
+      color: colors.text.secondary,
+    }}
+  >
+    {children}
+  </Typography>
+);
 
-  '&:hover': {
-    transform: 'translateY(-4px)',
-    backgroundColor: 'rgba(102, 126, 234, 0.05)',
-
-    '& .album-title': {
-      color: '#667eea',
-    },
-  },
-});
-
-const AlbumTitle = styled(Typography)({
-  fontSize: '16px',
-  fontWeight: 600,
-  color: colors.text.primary,
-  marginTop: '12px',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  transition: 'color 0.2s ease',
-});
-
-const AlbumArtist = styled(Typography)({
-  fontSize: '14px',
-  color: colors.text.secondary,
-  marginTop: '4px',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-});
-
-const AlbumInfo = styled(Typography)({
-  fontSize: '12px',
-  color: colors.text.disabled,
-  marginTop: '4px',
-});
-
-const EmptyState = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: '400px',
-  color: colors.text.disabled,
-  textAlign: 'center',
-  padding: '40px',
-});
-
-const EmptyStateText = styled(Typography)({
-  fontSize: '18px',
-  fontWeight: 500,
-  marginBottom: '8px',
-  color: colors.text.secondary,
-});
-
-const EmptyStateSubtext = styled(Typography)({
-  fontSize: '14px',
-  color: colors.text.disabled,
-});
+const EmptyStateSubtext = ({ children }: { children: React.ReactNode }) => (
+  <Typography
+    sx={{
+      fontSize: '14px',
+      color: colors.text.disabled,
+    }}
+  >
+    {children}
+  </Typography>
+);
 
 export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) => {
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -204,10 +175,10 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
 
   if (loading) {
     return (
-      <GridContainer>
+      <Box sx={{ p: 3 }}>
         <Grid container spacing={3}>
           {[...Array(12)].map((_, index) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={index}>
+            <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
               <Box>
                 <Skeleton
                   variant="rectangular"
@@ -217,11 +188,12 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
                 />
                 <Skeleton variant="text" width="80%" />
                 <Skeleton variant="text" width="60%" />
+                <Skeleton variant="text" width="40%" />
               </Box>
             </Grid>
           ))}
         </Grid>
-      </GridContainer>
+      </Box>
     );
   }
 
@@ -246,28 +218,20 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   }
 
   return (
-    <GridContainer>
+    <Box sx={{ p: 3 }}>
       <Grid container spacing={3}>
         {albums.map((album) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={album.id}>
-            <AlbumCard onClick={() => handleAlbumClick(album.id)}>
-              <AlbumArt
-                albumId={album.id}
-                size="100%"
-                borderRadius={8}
-                onClick={() => handleAlbumClick(album.id)}
-              />
-              <AlbumTitle className="album-title">
-                {album.title}
-              </AlbumTitle>
-              <AlbumArtist>
-                {album.artist}
-              </AlbumArtist>
-              <AlbumInfo>
-                {album.track_count} tracks • {formatDuration(album.total_duration)}
-                {album.year && ` • ${album.year}`}
-              </AlbumInfo>
-            </AlbumCard>
+          <Grid item xs={12} sm={6} md={4} lg={3} key={album.id}>
+            <AlbumCard
+              albumId={album.id}
+              title={album.title}
+              artist={album.artist}
+              trackCount={album.track_count}
+              duration={album.total_duration}
+              year={album.year}
+              hasArtwork={!!album.artwork_path}
+              onClick={() => handleAlbumClick(album.id)}
+            />
           </Grid>
         ))}
       </Grid>
@@ -335,7 +299,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
           </Typography>
         </Box>
       )}
-    </GridContainer>
+    </Box>
   );
 };
 

@@ -69,8 +69,10 @@ class Track(Base, TimestampMixin):
             album_title = None
             try:
                 album_title = self.album.title if self.album else None
+                album_artwork = self.album.artwork_path if self.album and hasattr(self.album, 'artwork_path') else None
             except:
                 album_title = None
+                album_artwork = None
 
             artist_names = []
             try:
@@ -112,6 +114,7 @@ class Track(Base, TimestampMixin):
                 'skip_count': self.skip_count,
                 'favorite': self.favorite,
                 'album': album_title,
+                'album_art': album_artwork,
                 'artists': artist_names,
                 'genres': genre_names,
                 'created_at': self.created_at.isoformat() if self.created_at else None,
