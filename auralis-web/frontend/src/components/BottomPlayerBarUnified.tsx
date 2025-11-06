@@ -37,7 +37,7 @@ import {
   Favorite,
   FavoriteOutlined
 } from '@mui/icons-material';
-import { Slider } from '../../design-system';
+import { Slider } from '@mui/material';
 import { colors, gradients } from '../theme/auralisTheme';
 import { useToast } from './shared/Toast';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';

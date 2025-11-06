@@ -47,6 +47,9 @@ class ArtworkExtractor:
         """
         Extract artwork from audio file and save to artwork directory
 
+        Prioritizes embedded artwork in audio files, then falls back to
+        folder.jpg/folder.png if no embedded artwork is found.
+
         Args:
             audio_filepath: Path to audio file
             album_id: Album ID for organizing artwork
@@ -55,37 +58,82 @@ class ArtworkExtractor:
             Path to saved artwork file, or None if no artwork found
         """
         try:
+            # First priority: Extract embedded artwork from audio file
             audio_file = MutagenFile(audio_filepath)
-            if not audio_file:
-                return None
+            if audio_file:
+                # Extract artwork data based on file type
+                artwork_data = None
+                mime_type = None
 
-            # Extract artwork data based on file type
-            artwork_data = None
-            mime_type = None
+                if isinstance(audio_file, ID3) or hasattr(audio_file, 'tags') and isinstance(audio_file.tags, ID3):
+                    # MP3 files with ID3 tags
+                    artwork_data, mime_type = self._extract_from_id3(audio_file)
+                elif isinstance(audio_file, MP4):
+                    # M4A/MP4 files
+                    artwork_data, mime_type = self._extract_from_mp4(audio_file)
+                elif isinstance(audio_file, FLAC):
+                    # FLAC files
+                    artwork_data, mime_type = self._extract_from_flac(audio_file)
+                elif hasattr(audio_file, 'tags') and audio_file.tags:
+                    # OGG and other formats with generic tags
+                    artwork_data, mime_type = self._extract_from_generic(audio_file)
 
-            if isinstance(audio_file, ID3) or hasattr(audio_file, 'tags') and isinstance(audio_file.tags, ID3):
-                # MP3 files with ID3 tags
-                artwork_data, mime_type = self._extract_from_id3(audio_file)
-            elif isinstance(audio_file, MP4):
-                # M4A/MP4 files
-                artwork_data, mime_type = self._extract_from_mp4(audio_file)
-            elif isinstance(audio_file, FLAC):
-                # FLAC files
-                artwork_data, mime_type = self._extract_from_flac(audio_file)
-            elif hasattr(audio_file, 'tags') and audio_file.tags:
-                # OGG and other formats with generic tags
-                artwork_data, mime_type = self._extract_from_generic(audio_file)
+                if artwork_data:
+                    # Save artwork to file
+                    return self._save_artwork(artwork_data, album_id, mime_type)
 
-            if not artwork_data:
-                debug(f"No artwork found in {audio_filepath}")
-                return None
+            # Fallback: Look for folder artwork if no embedded artwork found
+            folder_artwork = self._find_folder_artwork(audio_filepath, album_id)
+            if folder_artwork:
+                return folder_artwork
 
-            # Save artwork to file
-            return self._save_artwork(artwork_data, album_id, mime_type)
+            debug(f"No artwork found in {audio_filepath}")
+            return None
 
         except Exception as e:
             debug(f"Failed to extract artwork from {audio_filepath}: {e}")
             return None
+
+    def _find_folder_artwork(self, audio_filepath: str, album_id: int) -> Optional[str]:
+        """
+        Look for folder.jpg/folder.png or cover.jpg/cover.png in the album directory
+
+        Args:
+            audio_filepath: Path to audio file (to determine album directory)
+            album_id: Album ID for organizing artwork
+
+        Returns:
+            Path to saved artwork file, or None if not found
+        """
+        try:
+            # Get the directory containing the audio file (album folder)
+            album_dir = Path(audio_filepath).parent
+
+            # Check common artwork filenames (case-insensitive)
+            artwork_names = ['folder.jpg', 'folder.png', 'cover.jpg', 'cover.png',
+                           'Folder.jpg', 'Folder.png', 'Cover.jpg', 'Cover.png',
+                           'folder.jpeg', 'cover.jpeg', 'Folder.jpeg', 'Cover.jpeg']
+
+            for artwork_name in artwork_names:
+                artwork_file = album_dir / artwork_name
+                if artwork_file.exists():
+                    # Read the artwork file
+                    with open(artwork_file, 'rb') as f:
+                        artwork_data = f.read()
+
+                    # Determine MIME type from extension
+                    mime_type = 'image/png' if artwork_file.suffix.lower() in ['.png'] else 'image/jpeg'
+
+                    # Save to artwork directory
+                    saved_path = self._save_artwork(artwork_data, album_id, mime_type)
+                    if saved_path:
+                        info(f"Found folder artwork: {artwork_file}")
+                        return saved_path
+
+        except Exception as e:
+            debug(f"Failed to check for folder artwork: {e}")
+
+        return None
 
     def _extract_from_id3(self, audio_file) -> Tuple[Optional[bytes], Optional[str]]:
         """Extract artwork from ID3 tags (MP3)"""
