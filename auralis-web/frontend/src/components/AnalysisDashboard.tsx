@@ -27,8 +27,8 @@ import {
   TrendingUp
 } from '@mui/icons-material';
 
-import EnhancedWaveform from './EnhancedWaveform';
-import ProfessionalMeterBridge from './ProfessionalMeterBridge';
+import AnalysisWaveformDisplay from './AnalysisWaveformDisplay';
+import MeterBridge from './MeterBridge';
 import CorrelationDisplay from './CorrelationDisplay';
 import ProcessingActivityView from './ProcessingActivityView';
 import RealtimeAudioVisualizer from './RealtimeAudioVisualizer';
@@ -281,7 +281,7 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 </IconButton>
               </Box>
               <Collapse in={expandedPanels.has('waveform')}>
-                <EnhancedWaveform
+                <AnalysisWaveformDisplay
                   waveformData={analysisData?.waveform}
                   width={800}
                   height={200}
@@ -308,7 +308,7 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
                 </IconButton>
               </Box>
               <Collapse in={expandedPanels.has('meters')}>
-                <ProfessionalMeterBridge
+                <MeterBridge
                   meterData={analysisData?.meters}
                   width={400}
                   height={500}
@@ -427,7 +427,7 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
 
         <Box sx={{ p: 2 }}>
           {activeTab === 0 && settings.showWaveform && (
-            <EnhancedWaveform
+            <AnalysisWaveformDisplay
               waveformData={analysisData?.waveform}
               width={800}
               height={300}
@@ -435,7 +435,7 @@ export const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({
             />
           )}
           {activeTab === 1 && settings.showMeters && (
-            <ProfessionalMeterBridge
+            <MeterBridge
               meterData={analysisData?.meters}
               width={600}
               height={500}
