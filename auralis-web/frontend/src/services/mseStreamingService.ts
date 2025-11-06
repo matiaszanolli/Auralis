@@ -6,7 +6,7 @@
  */
 
 const API_BASE = '/api/mse_streaming';
-const CHUNK_DURATION = 30; // seconds
+const CHUNK_DURATION = 10; // seconds (reduced from 30s → 10s for Beta.9 Phase 2)
 
 export interface ChunkMetadata {
   trackId: number;

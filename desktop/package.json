@@ -45,14 +45,14 @@
     ],
     "extraResources": [
       {
-        "from": "../auralis-web/backend/dist/auralis-backend",
+        "from": "resources/backend",
         "to": "backend",
         "filter": [
           "**/*"
         ]
       },
       {
-        "from": "../auralis-web/frontend/build",
+        "from": "resources/frontend",
         "to": "frontend",
         "filter": [
           "**/*"
