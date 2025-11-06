@@ -79,30 +79,114 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   const [totalAlbums, setTotalAlbums] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  // Ref for infinite scroll observer
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  // Ref for scroll container
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Ref for load more trigger element
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchAlbums(true);
   }, []);
 
-  // Infinite scroll with Intersection Observer
+  // Infinite scroll with scroll event checking sentinel element visibility
   useEffect(() => {
-    if (!loadMoreRef.current) return;
+    console.log('CozyAlbumGrid: Setting up scroll listener', {
+      hasMore,
+      isLoadingMore,
+      loading,
+      offset,
+      albumsCount: albums.length
+    });
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
-          loadMore();
-        }
-      },
-      { threshold: 0.5 }
-    );
+    const handleScroll = () => {
+      // Log all guard conditions
+      console.log('CozyAlbumGrid: handleScroll called', {
+        hasMore,
+        isLoadingMore,
+        loading,
+        triggerExists: !!loadMoreTriggerRef.current,
+        containerExists: !!containerRef.current
+      });
 
-    observer.observe(loadMoreRef.current);
+      if (!hasMore || isLoadingMore || loading) {
+        console.log('CozyAlbumGrid: Guard condition blocked scroll', {
+          hasMore,
+          isLoadingMore,
+          loading
+        });
+        return;
+      }
 
-    return () => observer.disconnect();
-  }, [hasMore, isLoadingMore, loading]);
+      // Check if load more trigger element is visible in viewport
+      const triggerElement = loadMoreTriggerRef.current;
+      if (!triggerElement) {
+        console.log('CozyAlbumGrid: Trigger element not found');
+        return;
+      }
+
+      const rect = triggerElement.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+
+      console.log('CozyAlbumGrid: Checking trigger visibility', {
+        triggerTop: rect.top,
+        triggerBottom: rect.bottom,
+        viewportHeight,
+        isNearViewport: rect.top < viewportHeight + 2000
+      });
+
+      // Trigger load when sentinel element is within 2000px of viewport
+      // This ensures loading starts before user scrolls all the way to the end
+      const isNearViewport = rect.top < viewportHeight + 2000;
+
+      if (isNearViewport) {
+        console.log('CozyAlbumGrid: Load trigger visible, loading more', {
+          triggerTop: rect.top,
+          viewportHeight,
+          hasMore,
+          isLoadingMore
+        });
+        loadMore();
+      }
+    };
+
+    // Find scrollable parent and attach listener
+    let scrollableParent = containerRef.current?.parentElement;
+    console.log('CozyAlbumGrid: Starting parent search', {
+      containerExists: !!containerRef.current,
+      parentExists: !!scrollableParent
+    });
+
+    while (scrollableParent) {
+      const overflowY = window.getComputedStyle(scrollableParent).overflowY;
+      console.log('CozyAlbumGrid: Checking parent', {
+        tagName: scrollableParent.tagName,
+        className: scrollableParent.className,
+        overflowY
+      });
+
+      if (overflowY === 'auto' || overflowY === 'scroll') {
+        break;
+      }
+      scrollableParent = scrollableParent.parentElement;
+    }
+
+    if (scrollableParent) {
+      console.log('CozyAlbumGrid: Attached scroll listener to', {
+        tagName: scrollableParent.tagName,
+        className: scrollableParent.className
+      });
+      scrollableParent.addEventListener('scroll', handleScroll);
+      // Also check on mount in case content is already visible
+      handleScroll();
+      return () => {
+        console.log('CozyAlbumGrid: Removing scroll listener');
+        scrollableParent.removeEventListener('scroll', handleScroll);
+      };
+    } else {
+      console.warn('CozyAlbumGrid: No scrollable parent found!');
+    }
+  }, [hasMore, isLoadingMore, loading, offset, albums.length]);
 
   const fetchAlbums = async (resetPagination = false) => {
     if (resetPagination) {
@@ -133,7 +217,13 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
       if (resetPagination) {
         setAlbums(data.albums || []);
       } else {
-        setAlbums(prev => [...prev, ...(data.albums || [])]);
+        // Deduplicate albums by ID to prevent duplicate key warnings
+        const newAlbums = data.albums || [];
+        setAlbums(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const uniqueNewAlbums = newAlbums.filter(a => !existingIds.has(a.id));
+          return [...prev, ...uniqueNewAlbums];
+        });
       }
 
       console.log(`Loaded ${data.albums?.length || 0} albums, ${currentOffset + (data.albums?.length || 0)}/${data.total || 0}`);
@@ -218,7 +308,12 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      ref={containerRef}
+      sx={{
+        p: 3
+      }}
+    >
       <Grid container spacing={3}>
         {albums.map((album) => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={album.id}>
@@ -236,38 +331,27 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
         ))}
       </Grid>
 
-      {/* Intersection observer trigger for infinite scroll */}
+      {/* Load more trigger - invisible sentinel element */}
       {hasMore && (
         <Box
-          ref={loadMoreRef}
+          ref={loadMoreTriggerRef}
           sx={{
             height: '1px',
             width: '100%',
-            pointerEvents: 'auto'
           }}
         />
       )}
 
-      {/* Virtual spacer for proper scrollbar length */}
-      {hasMore && totalAlbums > albums.length && (
-        <Box
-          sx={{
-            height: `${Math.ceil((totalAlbums - albums.length) / 6) * 280}px`, // 6 cols (xl), ~280px per row
-            pointerEvents: 'none'
-          }}
-        />
-      )}
-
-      {/* Infinite scroll loading indicator */}
+      {/* Loading indicator */}
       {isLoadingMore && (
         <Box
           sx={{
-            p: 3,
-            textAlign: 'center',
+            height: '100px',
+            width: '100%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 2
+            p: 2
           }}
         >
           <Box
@@ -285,7 +369,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
               }
             }}
           />
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
             Loading more albums... ({albums.length}/{totalAlbums})
           </Typography>
         </Box>

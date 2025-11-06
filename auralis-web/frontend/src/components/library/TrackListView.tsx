@@ -180,21 +180,31 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
           <Box
             ref={loadMoreRef}
             sx={{
-              height: '1px',
+              height: '100px',
               width: '100%',
-              pointerEvents: 'auto'
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-          />
-        )}
-
-        {/* Virtual spacer for proper scrollbar length in grid view */}
-        {hasMore && totalTracks > tracks.length && (
-          <Box
-            sx={{
-              height: `${Math.ceil((totalTracks - tracks.length) / 4) * 240}px`, // 4 cols (lg), ~240px per row
-              pointerEvents: 'none'
-            }}
-          />
+          >
+            {isLoadingMore && (
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                  borderRightColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' }
+                  }
+                }}
+              />
+            )}
+          </Box>
         )}
 
         {/* Track Queue - Shows current album/playlist tracks */}
@@ -296,53 +306,36 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
         <Box
           ref={loadMoreRef}
           sx={{
-            height: '1px',
+            height: '100px',
             width: '100%',
-            pointerEvents: 'auto'
-          }}
-        />
-      )}
-
-      {/* Virtual spacer for proper scrollbar length */}
-      {hasMore && totalTracks > tracks.length && (
-        <Box
-          sx={{
-            height: `${(totalTracks - tracks.length) * 72}px`, // 72px avg row height
-            pointerEvents: 'none'
-          }}
-        />
-      )}
-
-      {/* Infinite scroll loading indicator */}
-      {isLoadingMore && (
-        <Box
-          sx={{
-            p: 3,
-            textAlign: 'center',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 2
+            p: 2
           }}
         >
-          <Box
-            sx={{
-              width: 20,
-              height: 20,
-              border: '2px solid',
-              borderColor: 'primary.main',
-              borderRightColor: 'transparent',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              '@keyframes spin': {
-                '0%': { transform: 'rotate(0deg)' },
-                '100%': { transform: 'rotate(360deg)' }
-              }
-            }}
-          />
-          <Typography variant="body2" color="text.secondary">
-            Loading more tracks... ({tracks.length}/{totalTracks})
-          </Typography>
+          {isLoadingMore && (
+            <>
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                  borderRightColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' }
+                  }
+                }}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                Loading more tracks... ({tracks.length}/{totalTracks})
+              </Typography>
+            </>
+          )}
         </Box>
       )}
 

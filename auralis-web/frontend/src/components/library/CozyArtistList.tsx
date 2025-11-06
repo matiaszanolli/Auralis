@@ -131,8 +131,11 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [contextMenuArtist, setContextMenuArtist] = useState<Artist | null>(null);
 
-  // Ref for infinite scroll observer
-  const loadMoreRef = useRef<HTMLDivElement>(null);
+  // Ref for scroll container
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Ref for load more trigger element
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   // Context menu state
   const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
@@ -142,23 +145,104 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
     fetchArtists(true);
   }, []);
 
-  // Infinite scroll with Intersection Observer
+  // Infinite scroll with scroll event checking sentinel element visibility
   useEffect(() => {
-    if (!loadMoreRef.current) return;
+    console.log('CozyArtistList: Setting up scroll listener', {
+      hasMore,
+      isLoadingMore,
+      loading,
+      offset,
+      artistsCount: artists.length
+    });
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
-          loadMore();
-        }
-      },
-      { threshold: 0.5 }
-    );
+    const handleScroll = () => {
+      // Log all guard conditions
+      console.log('CozyArtistList: handleScroll called', {
+        hasMore,
+        isLoadingMore,
+        loading,
+        triggerExists: !!loadMoreTriggerRef.current,
+        containerExists: !!containerRef.current
+      });
 
-    observer.observe(loadMoreRef.current);
+      if (!hasMore || isLoadingMore || loading) {
+        console.log('CozyArtistList: Guard condition blocked scroll', {
+          hasMore,
+          isLoadingMore,
+          loading
+        });
+        return;
+      }
 
-    return () => observer.disconnect();
-  }, [hasMore, isLoadingMore, loading]);
+      // Check if load more trigger element is visible in viewport
+      const triggerElement = loadMoreTriggerRef.current;
+      if (!triggerElement) {
+        console.log('CozyArtistList: Trigger element not found');
+        return;
+      }
+
+      const rect = triggerElement.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+
+      console.log('CozyArtistList: Checking trigger visibility', {
+        triggerTop: rect.top,
+        triggerBottom: rect.bottom,
+        viewportHeight,
+        isNearViewport: rect.top < viewportHeight + 2000
+      });
+
+      // Trigger load when sentinel element is within 2000px of viewport
+      // This ensures loading starts before user scrolls all the way to the end
+      const isNearViewport = rect.top < viewportHeight + 2000;
+
+      if (isNearViewport) {
+        console.log('CozyArtistList: Load trigger visible, loading more', {
+          triggerTop: rect.top,
+          viewportHeight,
+          hasMore,
+          isLoadingMore
+        });
+        loadMore();
+      }
+    };
+
+    // Find scrollable parent and attach listener
+    let scrollableParent = containerRef.current?.parentElement;
+    console.log('CozyArtistList: Starting parent search', {
+      containerExists: !!containerRef.current,
+      parentExists: !!scrollableParent
+    });
+
+    while (scrollableParent) {
+      const overflowY = window.getComputedStyle(scrollableParent).overflowY;
+      console.log('CozyArtistList: Checking parent', {
+        tagName: scrollableParent.tagName,
+        className: scrollableParent.className,
+        overflowY
+      });
+
+      if (overflowY === 'auto' || overflowY === 'scroll') {
+        break;
+      }
+      scrollableParent = scrollableParent.parentElement;
+    }
+
+    if (scrollableParent) {
+      console.log('CozyArtistList: Attached scroll listener to', {
+        tagName: scrollableParent.tagName,
+        className: scrollableParent.className
+      });
+      scrollableParent.addEventListener('scroll', handleScroll);
+      // Also check on mount in case content is already visible
+      handleScroll();
+      return () => {
+        console.log('CozyArtistList: Removing scroll listener');
+        scrollableParent.removeEventListener('scroll', handleScroll);
+      };
+    } else {
+      console.warn('CozyArtistList: No scrollable parent found!');
+    }
+  }, [hasMore, isLoadingMore, loading, offset, artists.length]);
 
   const fetchArtists = async (resetPagination = false) => {
     if (resetPagination) {
@@ -189,7 +273,13 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
       if (resetPagination) {
         setArtists(data.artists || []);
       } else {
-        setArtists(prev => [...prev, ...(data.artists || [])]);
+        // Deduplicate artists by ID to prevent duplicate key warnings
+        const newArtists = data.artists || [];
+        setArtists(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const uniqueNewArtists = newArtists.filter(a => !existingIds.has(a.id));
+          return [...prev, ...uniqueNewArtists];
+        });
       }
 
       console.log(`Loaded ${data.artists?.length || 0} artists, ${currentOffset + (data.artists?.length || 0)}/${data.total || 0}`);
@@ -313,7 +403,13 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
   }
 
   return (
-    <ListContainer>
+    <Box
+      ref={containerRef}
+      sx={{
+        padding: '24px',
+        width: '100%'
+      }}
+    >
       <SectionHeader>
         <Typography variant="body2" color="text.secondary">
           {artists.length} {artists.length !== totalArtists ? `of ${totalArtists}` : ''} artists in your library
@@ -358,38 +454,27 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
         ))}
       </List>
 
-      {/* Intersection observer trigger for infinite scroll */}
+      {/* Load more trigger - invisible sentinel element */}
       {hasMore && (
         <Box
-          ref={loadMoreRef}
+          ref={loadMoreTriggerRef}
           sx={{
             height: '1px',
             width: '100%',
-            pointerEvents: 'auto'
           }}
         />
       )}
 
-      {/* Virtual spacer for proper scrollbar length */}
-      {hasMore && totalArtists > artists.length && (
-        <Box
-          sx={{
-            height: `${(totalArtists - artists.length) * 88}px`, // 88px avg artist row height
-            pointerEvents: 'none'
-          }}
-        />
-      )}
-
-      {/* Infinite scroll loading indicator */}
+      {/* Loading indicator */}
       {isLoadingMore && (
         <Box
           sx={{
-            p: 3,
-            textAlign: 'center',
+            height: '100px',
+            width: '100%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 2
+            p: 2
           }}
         >
           <Box
@@ -407,7 +492,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
               }
             }}
           />
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
             Loading more artists... ({artists.length}/{totalArtists})
           </Typography>
         </Box>
@@ -429,7 +514,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
         onClose={handleContextMenuClose}
         actions={contextActions}
       />
-    </ListContainer>
+    </Box>
   );
 };
 

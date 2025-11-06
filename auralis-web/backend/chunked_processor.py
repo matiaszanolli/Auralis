@@ -831,30 +831,72 @@ class ChunkedAudioProcessor:
         # CRITICAL FIX: Smooth level transitions between chunks
         processed_chunk = self._smooth_level_transition(processed_chunk, chunk_index)
 
-        # CRITICAL FIX: Ensure chunk is EXACTLY the correct duration for seamless concatenation
-        # MSE streaming requires non-overlapping chunks, but load_chunk() loads with overlap
-        # for processing quality. We need to extract the correct 30-second segment.
+        # CRITICAL FIX: Apply crossfade to eliminate gaps between chunks
+        # MSE concatenates chunks without blending, so we bake crossfades into each chunk
+        # Strategy: fade-out end of each chunk, fade-in start of next chunk
+        # When concatenated, these overlapping fades create smooth transitions
 
         is_last = chunk_index == self.total_chunks - 1
         overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
 
+        # Use shorter crossfade for MSE (100ms is enough, imperceptible but effective)
+        crossfade_samples = int(0.1 * self.sample_rate)  # 100ms crossfade
+
         if chunk_index == 0:
-            # First chunk: extract [0-30s]
+            # First chunk: extract [0-30s], apply fade-out at end
             expected_samples = int(CHUNK_DURATION * self.sample_rate)
             processed_chunk = processed_chunk[:expected_samples]
+
+            # Apply fade-out to last 100ms (will blend with next chunk's fade-in)
+            if not is_last and len(processed_chunk) >= crossfade_samples:
+                fade_out = np.linspace(1.0, 0.0, crossfade_samples)
+                if processed_chunk.ndim == 2:
+                    fade_out = fade_out[:, np.newaxis]
+                processed_chunk[-crossfade_samples:] *= fade_out
+                logger.debug(f"✅ Chunk 0: applied fade-out to last {crossfade_samples} samples")
+
             logger.debug(f"✅ Chunk 0: extracted samples [0:{expected_samples}] ({expected_samples/self.sample_rate:.2f}s)")
+
         elif is_last:
-            # Last chunk: skip overlap, extract remaining duration
+            # Last chunk: skip overlap, extract remaining duration, apply fade-in at start
             remaining_duration = self.total_duration - (chunk_index * CHUNK_DURATION)
             expected_samples = int(remaining_duration * self.sample_rate)
             # Skip the overlap at the start
             processed_chunk = processed_chunk[overlap_samples:overlap_samples + expected_samples]
+
+            # Apply fade-in to first 100ms (blends with previous chunk's fade-out)
+            if len(processed_chunk) >= crossfade_samples:
+                fade_in = np.linspace(0.0, 1.0, crossfade_samples)
+                if processed_chunk.ndim == 2:
+                    fade_in = fade_in[:, np.newaxis]
+                processed_chunk[:crossfade_samples] *= fade_in
+                logger.debug(f"✅ Chunk {chunk_index} (last): applied fade-in to first {crossfade_samples} samples")
+
             logger.debug(f"✅ Chunk {chunk_index} (last): skipped {overlap_samples} overlap samples, extracted {expected_samples} samples ({expected_samples/self.sample_rate:.2f}s)")
+
         else:
             # Regular chunk (not first, not last): skip overlap, extract exactly 30s
+            # Apply fade-in at start AND fade-out at end
             expected_samples = int(CHUNK_DURATION * self.sample_rate)
             # Skip the overlap at the start, extract exactly 30 seconds
             processed_chunk = processed_chunk[overlap_samples:overlap_samples + expected_samples]
+
+            # Apply fade-in to first 100ms (blends with previous chunk's fade-out)
+            if len(processed_chunk) >= crossfade_samples:
+                fade_in = np.linspace(0.0, 1.0, crossfade_samples)
+                if processed_chunk.ndim == 2:
+                    fade_in = fade_in[:, np.newaxis]
+                processed_chunk[:crossfade_samples] *= fade_in
+                logger.debug(f"✅ Chunk {chunk_index}: applied fade-in to first {crossfade_samples} samples")
+
+            # Apply fade-out to last 100ms (will blend with next chunk's fade-in)
+            if len(processed_chunk) >= crossfade_samples:
+                fade_out = np.linspace(1.0, 0.0, crossfade_samples)
+                if processed_chunk.ndim == 2:
+                    fade_out = fade_out[:, np.newaxis]
+                processed_chunk[-crossfade_samples:] *= fade_out
+                logger.debug(f"✅ Chunk {chunk_index}: applied fade-out to last {crossfade_samples} samples")
+
             logger.debug(f"✅ Chunk {chunk_index}: skipped {overlap_samples} overlap samples, extracted {expected_samples} samples ({expected_samples/self.sample_rate:.2f}s)")
 
         # Verify final length (should never need padding with this logic)
