@@ -30,7 +30,7 @@ import {
   VolumeMute,
   AutoAwesome
 } from '@mui/icons-material';
-import { GradientSlider } from '../shared/GradientSlider';
+import { Slider } from '../../design-system';
 import { gradients } from '../../theme/auralisTheme';
 
 const PlayButton = styled(IconButton)({
@@ -204,7 +204,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
         </Tooltip>
 
         {/* Volume slider */}
-        <GradientSlider
+        <Slider variant="gradient"
           value={isMuted ? 0 : volume}
           onChange={handleVolumeChange}
           onWheel={handleVolumeWheel}

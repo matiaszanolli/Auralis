@@ -37,7 +37,7 @@ import {
   Favorite,
   FavoriteOutlined
 } from '@mui/icons-material';
-import { GradientSlider } from './shared/GradientSlider';
+import { Slider } from '../../design-system';
 import { colors, gradients } from '../theme/auralisTheme';
 import { useToast } from './shared/Toast';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
@@ -308,7 +308,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
     <PlayerContainer>
       {/* Progress Bar - snapped to top, no padding */}
       <Box sx={{ px: 3 }}>
-        <GradientSlider
+        <Slider variant="gradient"
           value={player.currentTime}
           max={player.duration || 100}
           onChange={(_, value) => player.seek(value as number)}
@@ -440,7 +440,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
               {getVolumeIcon()}
             </ControlButton>
             <Box sx={{ flex: 1 }} onWheel={handleVolumeWheel}>
-              <GradientSlider
+              <Slider variant="gradient"
                 value={isMuted ? 0 : localVolume}
                 onChange={handleVolumeChange}
                 min={0}

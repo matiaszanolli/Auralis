@@ -23,7 +23,7 @@ import {
   Info,
 } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
-import GradientButton from '../shared/GradientButton';
+import { Button } from '../../design-system';
 
 interface Track {
   id: number;
@@ -291,7 +291,7 @@ export const TrackInfoModal: React.FC<TrackInfoModalProps> = ({
       </DialogContent>
 
       <DialogActions sx={{ p: 3, gap: 1 }}>
-        <GradientButton
+        <Button variant="primary"
           onClick={() => {
             onAddToQueue?.(track);
             onClose();
@@ -299,8 +299,8 @@ export const TrackInfoModal: React.FC<TrackInfoModalProps> = ({
           sx={{ flex: 1 }}
         >
           Add to Queue
-        </GradientButton>
-        <GradientButton
+        </Button>
+        <Button variant="primary"
           onClick={() => {
             onPlay?.(track);
             onClose();
@@ -308,7 +308,7 @@ export const TrackInfoModal: React.FC<TrackInfoModalProps> = ({
           sx={{ flex: 1 }}
         >
           Play Now
-        </GradientButton>
+        </Button>
       </DialogActions>
     </StyledDialog>
   );

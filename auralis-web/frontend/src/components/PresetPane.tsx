@@ -15,8 +15,8 @@ import {
   AutoAwesome,
   Tune
 } from '@mui/icons-material';
-import GradientButton from './shared/GradientButton';
-import GradientSlider from './shared/GradientSlider';
+import { Button } from '../../design-system';
+import { Slider } from '../../design-system';
 import RadialPresetSelector from './RadialPresetSelector';
 import { gradients, colors } from '../theme/auralisTheme';
 import { useEnhancement } from '../contexts/EnhancementContext';
@@ -263,7 +263,7 @@ const PresetPane: React.FC<PresetPaneProps> = ({
               {Math.round(settings.intensity * 100)}%
             </Typography>
           </Box>
-          <GradientSlider
+          <Slider variant="gradient"
             value={Math.round(settings.intensity * 100)}
             onChange={handleIntensityChange}
             disabled={!settings.enabled || isProcessing}

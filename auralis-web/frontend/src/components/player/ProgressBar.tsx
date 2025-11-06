@@ -12,7 +12,7 @@
 
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { GradientSlider } from '../shared/GradientSlider';
+import { Slider } from '../../design-system';
 
 export interface ProgressBarProps {
   // Time state
@@ -64,7 +64,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       }}
     >
       {/* Progress slider */}
-      <GradientSlider
+      <Slider variant="gradient"
         value={currentTime}
         max={duration || 0}
         onChange={handleSeek}

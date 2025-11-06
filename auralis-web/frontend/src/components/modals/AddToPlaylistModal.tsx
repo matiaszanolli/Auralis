@@ -23,7 +23,7 @@ import {
   FolderMusic,
 } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
-import GradientButton from '../shared/GradientButton';
+import { Button } from '../../design-system';
 
 interface Playlist {
   id: string;
@@ -161,13 +161,13 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
                 }}
                 autoFocus
               />
-              <GradientButton
+              <Button variant="primary"
                 onClick={handleCreatePlaylist}
                 disabled={!newPlaylistName.trim()}
                 sx={{ minWidth: '80px' }}
               >
                 <Check />
-              </GradientButton>
+              </Button>
               <IconButton
                 onClick={() => {
                   setIsCreating(false);
@@ -179,14 +179,14 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
               </IconButton>
             </Box>
           ) : (
-            <GradientButton
+            <Button variant="primary"
               fullWidth
               onClick={() => setIsCreating(true)}
               sx={{ justifyContent: 'flex-start', gap: 1 }}
             >
               <Add />
               Create New Playlist
-            </GradientButton>
+            </Button>
           )}
         </Box>
 
@@ -254,9 +254,9 @@ export const AddToPlaylistModal: React.FC<AddToPlaylistModalProps> = ({
       </DialogContent>
 
       <DialogActions sx={{ p: 3 }}>
-        <GradientButton onClick={onClose} sx={{ minWidth: '100px' }}>
+        <Button variant="primary" onClick={onClose} sx={{ minWidth: '100px' }}>
           Cancel
-        </GradientButton>
+        </Button>
       </DialogActions>
     </StyledDialog>
   );
