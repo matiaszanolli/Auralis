@@ -86,8 +86,17 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
   // Albums view - grid of albums
   if (view === 'albums') {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ mb: 4 }}>
+      <Container
+        maxWidth="xl"
+        sx={{
+          py: 4,
+          height: '100%',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <Box sx={{ mb: 4, flexShrink: 0 }}>
           <Typography
             variant="h3"
             component="h1"
@@ -106,7 +115,9 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
             Browse your music collection by album
           </Typography>
         </Box>
-        <CozyAlbumGrid onAlbumClick={onAlbumClick} />
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <CozyAlbumGrid onAlbumClick={onAlbumClick} />
+        </Box>
       </Container>
     );
   }
@@ -130,8 +141,17 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
 
     // Artist list view
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ mb: 4 }}>
+      <Container
+        maxWidth="xl"
+        sx={{
+          py: 4,
+          height: '100%',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <Box sx={{ mb: 4, flexShrink: 0 }}>
           <Typography
             variant="h3"
             component="h1"
@@ -150,7 +170,9 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
             Browse artists in your music library
           </Typography>
         </Box>
-        <CozyArtistList onArtistClick={onArtistClick} />
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <CozyArtistList onArtistClick={onArtistClick} />
+        </Box>
       </Container>
     );
   }
