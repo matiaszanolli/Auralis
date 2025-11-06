@@ -683,12 +683,13 @@ async def remove_scan_folder(request: ScanFolderRequest):
 if os.environ.get('ELECTRON_MODE'):
     # Running in Electron - frontend is in Resources/frontend
     # Backend is in Resources/backend/auralis-backend
-    # Get Resources directory by going up from executable location
+    # Electron sets cwd to resources/backend, so go up one level to resources
     if hasattr(sys, '_MEIPASS'):
-        # PyInstaller bundled - go up from _MEIPASS to Resources
-        resources_path = Path(sys._MEIPASS).parent.parent
+        # PyInstaller bundled - use cwd set by Electron
+        backend_dir = Path(os.getcwd())  # resources/backend (set by Electron)
+        resources_path = backend_dir.parent  # resources
         frontend_path = resources_path / "frontend"
-        logger.info(f"Electron + PyInstaller mode: Resources={resources_path}")
+        logger.info(f"Electron + PyInstaller mode: cwd={backend_dir}, Resources={resources_path}")
     else:
         # Not bundled (shouldn't happen in Electron, but handle it)
         frontend_path = Path(__file__).parent.parent / "frontend" / "build"
