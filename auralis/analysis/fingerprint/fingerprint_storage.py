@@ -4,11 +4,11 @@
 Fingerprint Storage Module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Persistent storage for audio fingerprints using .25d sidecar files.
+Persistent storage for audio fingerprints in centralized cache.
 
 This module provides save/load functionality for 25-dimensional audio fingerprints
-and derived mastering targets. Files are stored alongside music files with the
-.25d extension for easy portability.
+and derived mastering targets. Files are stored in ~/.auralis/fingerprints/
+using content-based hashing for cache keys.
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -26,17 +26,51 @@ class FingerprintStorage:
     """
     Storage and retrieval of audio fingerprints with validation.
 
-    File Format: JSON sidecar files with .25d extension
-    Location: Stored next to source audio file (e.g., track.flac.25d)
+    File Format: JSON files with .25d extension
+    Location: Centralized cache in ~/.auralis/fingerprints/
+    Cache Key: MD5 hash of (file_path + file_signature)
     """
 
     VERSION = "1.0"
     SIGNATURE_READ_SIZE = 1024 * 1024  # Read first 1MB for signature
 
     @staticmethod
+    def _get_cache_dir() -> Path:
+        """Get or create the centralized fingerprint cache directory."""
+        cache_dir = Path.home() / ".auralis" / "fingerprints"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
+
+    @staticmethod
+    def _get_cache_key(audio_path: Path) -> str:
+        """
+        Generate cache key from file path and content signature.
+
+        Args:
+            audio_path: Path to source audio file
+
+        Returns:
+            MD5 hash string to use as cache filename
+        """
+        # Combine absolute path and file signature for unique key
+        abs_path = str(audio_path.resolve())
+
+        # Read first 1MB for signature (fast, detects file changes)
+        try:
+            with open(audio_path, 'rb') as f:
+                signature = hashlib.md5(f.read(FingerprintStorage.SIGNATURE_READ_SIZE)).hexdigest()
+        except Exception:
+            # If can't read file, use mtime as fallback
+            signature = str(audio_path.stat().st_mtime)
+
+        # Combine path + signature for cache key
+        cache_key = hashlib.md5(f"{abs_path}:{signature}".encode()).hexdigest()
+        return cache_key
+
+    @staticmethod
     def save(audio_path: Path, fingerprint: Dict, targets: Dict) -> Path:
         """
-        Save fingerprint and mastering targets to .25d file.
+        Save fingerprint and mastering targets to cache.
 
         Args:
             audio_path: Path to source audio file
@@ -44,20 +78,18 @@ class FingerprintStorage:
             targets: Mastering targets derived from fingerprint
 
         Returns:
-            Path to created .25d file
+            Path to created cache file
 
         Example:
             >>> fingerprint = analyzer.analyze(audio, sr)
             >>> targets = generate_targets(fingerprint)
             >>> FingerprintStorage.save(Path("track.flac"), fingerprint, targets)
-            Path("track.flac.25d")
+            Path("/home/user/.auralis/fingerprints/abc123def456.25d")
         """
-        # Generate .25d file path
-        dot25d_path = Path(str(audio_path) + ".25d")
-
-        # Get audio file metadata
-        stats = os.stat(audio_path)
-        file_signature = FingerprintStorage._generate_signature(audio_path)
+        # Get cache directory and key
+        cache_dir = FingerprintStorage._get_cache_dir()
+        cache_key = FingerprintStorage._get_cache_key(audio_path)
+        cache_path = cache_dir / f"{cache_key}.25d"
 
         # Get duration from fingerprint if available
         # (Could be extracted from audio metadata during analysis)
@@ -70,7 +102,8 @@ class FingerprintStorage:
         # Create .25d file content
         content = {
             "version": FingerprintStorage.VERSION,
-            "file_signature": file_signature,
+            "source_file": str(audio_path.resolve()),  # Store original path for reference
+            "cache_key": cache_key,
             "extracted_at": datetime.utcnow().isoformat() + "Z",
             "duration_seconds": duration,
             "sample_rate": sample_rate,
@@ -78,22 +111,22 @@ class FingerprintStorage:
             "mastering_targets": targets
         }
 
-        # Write to file
-        with open(dot25d_path, 'w', encoding='utf-8') as f:
+        # Write to cache
+        with open(cache_path, 'w', encoding='utf-8') as f:
             json.dump(content, f, indent=2, sort_keys=True)
 
-        return dot25d_path
+        return cache_path
 
     @staticmethod
     def load(audio_path: Path) -> Optional[Tuple[Dict, Dict]]:
         """
-        Load fingerprint and targets from .25d file if valid.
+        Load fingerprint and targets from cache if valid.
 
         Args:
             audio_path: Path to source audio file
 
         Returns:
-            Tuple of (fingerprint, targets) if valid, None otherwise
+            Tuple of (fingerprint, targets) if valid cache exists, None otherwise
 
         Example:
             >>> data = FingerprintStorage.load(Path("track.flac"))
@@ -101,29 +134,28 @@ class FingerprintStorage:
             ...     fingerprint, targets = data
             ...     print(f"Loaded cached fingerprint")
         """
-        dot25d_path = Path(str(audio_path) + ".25d")
+        # Get cache path for this file
+        cache_dir = FingerprintStorage._get_cache_dir()
+        cache_key = FingerprintStorage._get_cache_key(audio_path)
+        cache_path = cache_dir / f"{cache_key}.25d"
 
-        # Check if .25d file exists
-        if not dot25d_path.exists():
+        # Check if cache file exists
+        if not cache_path.exists():
             return None
 
         try:
             # Load content
-            with open(dot25d_path, 'r', encoding='utf-8') as f:
+            with open(cache_path, 'r', encoding='utf-8') as f:
                 content = json.load(f)
 
             # Validate version
             if content.get('version') != FingerprintStorage.VERSION:
                 return None
 
-            # Validate file signature (check if source file changed)
-            stored_signature = content.get('file_signature')
-            if not stored_signature:
-                return None
-
-            current_signature = FingerprintStorage._generate_signature(audio_path)
-            if current_signature != stored_signature:
-                # File changed, .25d is stale
+            # Validate cache key matches (ensures file hasn't changed)
+            stored_key = content.get('cache_key')
+            if stored_key != cache_key:
+                # File changed, cache is stale
                 return None
 
             # Extract fingerprint and targets
@@ -136,19 +168,19 @@ class FingerprintStorage:
             return (fingerprint, targets)
 
         except (json.JSONDecodeError, IOError, KeyError) as e:
-            # Corrupted or invalid .25d file
+            # Corrupted or invalid cache file
             return None
 
     @staticmethod
     def is_valid(audio_path: Path) -> bool:
         """
-        Check if .25d file exists and is valid for this audio file.
+        Check if cached fingerprint exists and is valid for this audio file.
 
         Args:
             audio_path: Path to source audio file
 
         Returns:
-            True if valid .25d file exists, False otherwise
+            True if valid cache exists, False otherwise
 
         Example:
             >>> if FingerprintStorage.is_valid(Path("track.flac")):
@@ -159,23 +191,25 @@ class FingerprintStorage:
     @staticmethod
     def delete(audio_path: Path) -> bool:
         """
-        Delete .25d file if it exists.
+        Delete cached fingerprint for this audio file if it exists.
 
         Args:
             audio_path: Path to source audio file
 
         Returns:
-            True if file was deleted, False if it didn't exist
+            True if cache was deleted, False if it didn't exist
 
         Example:
             >>> FingerprintStorage.delete(Path("track.flac"))
             True
         """
-        dot25d_path = Path(str(audio_path) + ".25d")
+        cache_dir = FingerprintStorage._get_cache_dir()
+        cache_key = FingerprintStorage._get_cache_key(audio_path)
+        cache_path = cache_dir / f"{cache_key}.25d"
 
-        if dot25d_path.exists():
+        if cache_path.exists():
             try:
-                dot25d_path.unlink()
+                cache_path.unlink()
                 return True
             except OSError:
                 return False
@@ -183,83 +217,25 @@ class FingerprintStorage:
         return False
 
     @staticmethod
-    def _generate_signature(audio_path: Path) -> str:
+    def clear_all() -> int:
         """
-        Generate unique signature for file validation.
-
-        Uses:
-        - File size (fast)
-        - Modification time (fast)
-        - MD5 of first 1MB (reasonably fast)
-
-        This detects file changes without reading the entire file.
-
-        Args:
-            audio_path: Path to audio file
+        Clear all cached fingerprints.
 
         Returns:
-            Hex string signature (32 chars)
-        """
-        if not audio_path.exists():
-            return ""
-
-        stats = os.stat(audio_path)
-        size = stats.st_size
-        mtime = stats.st_mtime
-
-        # Create signature from metadata
-        signature_data = f"{size}:{mtime}:"
-
-        # Add hash of first 1MB for content validation
-        try:
-            with open(audio_path, 'rb') as f:
-                chunk = f.read(FingerprintStorage.SIGNATURE_READ_SIZE)
-                content_hash = hashlib.md5(chunk).hexdigest()
-                signature_data += content_hash
-        except IOError:
-            # If can't read file, just use metadata
-            pass
-
-        # Final signature is MD5 of all components
-        return hashlib.md5(signature_data.encode()).hexdigest()
-
-    @staticmethod
-    def get_stats(audio_path: Path) -> Optional[Dict]:
-        """
-        Get statistics about .25d file if it exists.
-
-        Args:
-            audio_path: Path to source audio file
-
-        Returns:
-            Dictionary with stats, or None if file doesn't exist
+            Number of cache files deleted
 
         Example:
-            >>> stats = FingerprintStorage.get_stats(Path("track.flac"))
-            >>> print(f"Extracted: {stats['extracted_at']}")
-            >>> print(f"File size: {stats['file_size_kb']} KB")
+            >>> count = FingerprintStorage.clear_all()
+            >>> print(f"Deleted {count} cached fingerprints")
         """
-        dot25d_path = Path(str(audio_path) + ".25d")
+        cache_dir = FingerprintStorage._get_cache_dir()
+        count = 0
 
-        if not dot25d_path.exists():
-            return None
+        for cache_file in cache_dir.glob("*.25d"):
+            try:
+                cache_file.unlink()
+                count += 1
+            except OSError:
+                pass
 
-        try:
-            stats = os.stat(dot25d_path)
-
-            with open(dot25d_path, 'r', encoding='utf-8') as f:
-                content = json.load(f)
-
-            return {
-                'file_path': str(dot25d_path),
-                'file_size_kb': stats.st_size / 1024,
-                'created_at': datetime.fromtimestamp(stats.st_ctime).isoformat(),
-                'modified_at': datetime.fromtimestamp(stats.st_mtime).isoformat(),
-                'extracted_at': content.get('extracted_at', 'unknown'),
-                'version': content.get('version', 'unknown'),
-                'duration_seconds': content.get('duration_seconds', 0.0),
-                'valid': FingerprintStorage.is_valid(audio_path)
-            }
-
-        except (json.JSONDecodeError, IOError, KeyError):
-            return None
+        return count
