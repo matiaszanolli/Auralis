@@ -385,7 +385,7 @@ webm_router = create_webm_streaming_router(
     get_library_manager=lambda: library_manager,
     get_multi_tier_buffer=lambda: streamlined_cache if HAS_STREAMLINED_CACHE else None,
     chunked_audio_processor_class=ChunkedAudioProcessor,
-    chunk_duration=30
+    chunk_duration=10  # Phase 2: Reduced from 30s for instant toggle (<500ms)
 )
 app.include_router(webm_router)
 logger.info("✅ WebM streaming router included (Streamlined cache integration)")

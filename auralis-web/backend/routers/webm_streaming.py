@@ -57,7 +57,7 @@ def create_webm_streaming_router(
     get_library_manager,
     get_multi_tier_buffer,
     chunked_audio_processor_class,
-    chunk_duration: int = 30
+    chunk_duration: int = 10
 ):
     """
     Factory function to create unified WebM streaming router with dependencies.
@@ -68,7 +68,7 @@ def create_webm_streaming_router(
         get_library_manager: Callable that returns LibraryManager instance
         get_multi_tier_buffer: Callable that returns MultiTierBuffer instance
         chunked_audio_processor_class: ChunkedAudioProcessor class (now outputs WebM)
-        chunk_duration: Duration of each chunk in seconds (default: 30)
+        chunk_duration: Duration of each chunk in seconds (default: 10, reduced from 30s for Phase 2)
 
     Returns:
         APIRouter: Configured router instance

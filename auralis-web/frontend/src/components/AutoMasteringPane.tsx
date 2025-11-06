@@ -14,10 +14,10 @@ import {
   FormControlLabel,
   IconButton,
   Tooltip,
-  LinearProgress,
   Chip,
   Stack,
-  Paper
+  Paper,
+  LinearProgress
 } from '@mui/material';
 import {
   ChevronRight,
@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { colors, gradients } from '../theme/auralisTheme';
 import { useEnhancement } from '../contexts/EnhancementContext';
+import ProcessingToast from './ProcessingToast';
 
 interface ProcessingParams {
   // 3D space coordinates (0-1)
@@ -266,26 +267,8 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
           </Typography>
         </Paper>
 
-        {/* Processing Status */}
-        {settings.enabled && (
-          <>
-            {isAnalyzing && (
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="caption" sx={{ color: colors.text.secondary, mb: 1, display: 'block' }}>
-                  Analyzing audio...
-                </Typography>
-                <LinearProgress
-                  sx={{
-                    backgroundColor: 'rgba(226, 232, 240, 0.1)',
-                    '& .MuiLinearProgress-bar': {
-                      background: gradients.purpleViolet
-                    }
-                  }}
-                />
-              </Box>
-            )}
-
-            {params && !isAnalyzing && (
+        {/* Processing Status - Now shown as subtle toast */}
+        {settings.enabled && params && (
               <Stack spacing={3}>
                 {/* Audio Characteristics */}
                 <Box>
@@ -541,9 +524,9 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                   </Typography>
                 </Paper>
               </Stack>
-            )}
+        )}
 
-            {!params && !isAnalyzing && (
+        {settings.enabled && !params && !isAnalyzing && (
               <Paper
                 elevation={0}
                 sx={{
@@ -559,8 +542,6 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                   Play a track to see auto-mastering parameters
                 </Typography>
               </Paper>
-            )}
-          </>
         )}
 
         {!settings.enabled && (
@@ -584,6 +565,17 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
           </Paper>
         )}
       </Box>
+
+      {/* Subtle processing toast in bottom-right corner */}
+      <ProcessingToast
+        stats={{
+          status: isAnalyzing ? 'analyzing' : 'idle',
+          progress: isAnalyzing ? undefined : 100,
+          cacheHit: false, // TODO: Get from backend
+          processingSpeed: undefined // TODO: Get from backend
+        }}
+        show={isAnalyzing && settings.enabled}
+      />
     </Box>
   );
 };

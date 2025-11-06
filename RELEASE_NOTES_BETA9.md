@@ -137,8 +137,8 @@
 
 | Package | Size | SHA256 Checksum |
 |---------|------|-----------------|
-| **AppImage** | 274 MB | `b5486499787b3c480afc3cefa35c57215a20793ce847cc142e06739442e22db3` |
-| **DEB** | 242 MB | `e54c960034342ebe50334b56033333fdc729d532c53efb7de15f5efbe1898455` |
+| **AppImage** | 274 MB | `858a8114af8922a96a2447364faf726c2c2b84bff7ddc2e4342d8bcfd8c5864b` |
+| **DEB** | 242 MB | `8692bd27aad7a34d58443bb2c198d2a4208b7b9e5a158c3828c430115570bfc5` |
 
 **Note**: Packages are larger than previous beta builds because they now include all required runtime dependencies (SQLAlchemy, Mutagen, FastAPI, scientific libraries).
 
@@ -166,10 +166,10 @@ auralis-desktop
 **Verify Checksums**:
 ```bash
 sha256sum Auralis-1.0.0-beta.8.AppImage
-# Should match: b5486499787b3c480afc3cefa35c57215a20793ce847cc142e06739442e22db3
+# Should match: 858a8114af8922a96a2447364faf726c2c2b84bff7ddc2e4342d8bcfd8c5864b
 
 sha256sum auralis-desktop_1.0.0-beta.8_amd64.deb
-# Should match: e54c960034342ebe50334b56033333fdc729d532c53efb7de15f5efbe1898455
+# Should match: 8692bd27aad7a34d58443bb2c198d2a4208b7b9e5a158c3828c430115570bfc5
 ```
 
 ---

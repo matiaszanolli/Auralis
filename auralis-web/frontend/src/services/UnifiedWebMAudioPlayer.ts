@@ -290,7 +290,8 @@ export class UnifiedWebMAudioPlayer {
 
     // Calculate chunk to play based on current time
     const currentTime = this.pauseTime || 0;
-    const chunkIndex = Math.floor(currentTime / this.config.chunkDuration);
+    const chunkDuration = this.metadata?.chunk_duration || 10; // Fallback only if metadata not loaded
+    const chunkIndex = Math.floor(currentTime / chunkDuration);
 
     // Ensure chunk is loaded
     const chunk = this.chunks[chunkIndex];
@@ -300,7 +301,7 @@ export class UnifiedWebMAudioPlayer {
     }
 
     // Play chunk
-    await this.playChunk(chunkIndex, currentTime % this.config.chunkDuration);
+    await this.playChunk(chunkIndex, currentTime % chunkDuration);
   }
 
   /**
@@ -408,9 +409,10 @@ export class UnifiedWebMAudioPlayer {
       this.currentSource = null;
     }
 
-    // Calculate target chunk
-    const targetChunk = Math.floor(time / this.config.chunkDuration);
-    const offset = time % this.config.chunkDuration;
+    // Calculate target chunk using backend-provided chunk_duration
+    const chunkDuration = this.metadata?.chunk_duration || 10; // Fallback only if metadata not loaded
+    const targetChunk = Math.floor(time / chunkDuration);
+    const offset = time % chunkDuration;
 
     this.debug(`Seeking to ${time.toFixed(2)}s (chunk ${targetChunk}, offset ${offset.toFixed(2)}s)`);
 
