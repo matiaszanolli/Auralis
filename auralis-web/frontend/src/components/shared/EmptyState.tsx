@@ -80,9 +80,9 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       {description && <Description>{description}</Description>}
 
       {actionLabel && onAction && (
-        <GradientButton onClick={onAction} size="large">
+        <Button variant="primary" onClick={onAction} size="large">
           {actionLabel}
-        </GradientButton>
+        </Button>
       )}
     </Container>
   );
@@ -119,9 +119,9 @@ export const EmptyLibrary: React.FC<{
             Your library is empty. Start by scanning a folder to add your music collection.
           </Description>
           {onScanFolder && (
-            <GradientButton onClick={onScanFolder} size="large">
+            <Button variant="primary" onClick={onScanFolder} size="large">
               Scan Folder
-            </GradientButton>
+            </Button>
           )}
         </>
       )}
