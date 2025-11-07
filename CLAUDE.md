@@ -49,6 +49,12 @@ npm run test:run                         # Single run
 npm run test:coverage                   # Coverage report
 ```
 
+**🎯 MANDATORY: Test Quality Guidelines**
+- **Read**: [docs/development/TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **REQUIRED** for all contributors
+- **Roadmap**: [docs/development/TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md)
+- **Key Principle**: Test **behavior** and **invariants**, not implementation details
+- **Coverage ≠ Quality**: 100% coverage doesn't mean tests catch bugs (see overlap bug case study)
+
 ## Project Overview
 
 **Auralis** is a professional adaptive audio mastering system with both desktop (Electron) and web (FastAPI + React) interfaces. The system provides intelligent, content-aware audio processing without requiring reference tracks.
@@ -133,6 +139,45 @@ python benchmark_eq_parallel.py                      # EQ optimization benchmark
 - `@pytest.mark.audio` - Tests requiring audio processing
 - `@pytest.mark.performance` - Performance benchmarks
 - See [pytest.ini](pytest.ini) for complete list
+
+**Critical Invariants to Test** (Examples):
+
+When adding features with chunking, pagination, or streaming, always test these invariants:
+
+```python
+# Chunked Processing Invariants
+def test_overlap_is_appropriate_for_chunk_duration():
+    """Invariant: Overlap < CHUNK_DURATION / 2 prevents duplicate audio"""
+    assert OVERLAP_DURATION < CHUNK_DURATION / 2, \
+        f"Overlap {OVERLAP_DURATION}s too large for {CHUNK_DURATION}s chunks"
+
+def test_chunks_cover_entire_duration_no_gaps():
+    """Invariant: Sum(chunks) = original audio duration"""
+    chunks = [processor.process_chunk(i) for i in range(total_chunks)]
+    concatenated = np.concatenate(chunks)
+    assert len(concatenated) == len(original_audio), "Gap/overlap detected"
+
+# Pagination Invariants
+def test_pagination_returns_all_items_exactly_once():
+    """Invariant: All items returned, no duplicates"""
+    all_ids = set()
+    offset = 0
+    while True:
+        items = get_items(limit=50, offset=offset)
+        if not items: break
+        assert not (all_ids & {i.id for i in items}), "Duplicate found"
+        all_ids.update(i.id for i in items)
+        offset += 50
+    assert len(all_ids) == get_total_count()
+
+# Audio Processing Invariants
+def test_processing_preserves_sample_count():
+    """Invariant: Output sample count == input sample count"""
+    processed = processor.process(audio)
+    assert len(processed) == len(audio), "Sample count changed"
+```
+
+See [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) for complete testing philosophy and case studies.
 
 ### Supported Audio Formats
 - **Input**: WAV, FLAC, MP3, OGG, M4A, AAC, WMA
@@ -238,6 +283,7 @@ Professional-grade digital signal processing with modular architecture:
 
 **Web Interface (`auralis-web/`):**
 - `backend/main.py` - FastAPI server (614 lines, refactored with modular routers)
+- `backend/chunked_processor.py` - Chunked audio streaming processor (30s chunks with overlap handling)
 - `backend/routers/` - Modular API routers (14 routers: player, library, albums, artists, streaming, etc.)
 - `backend/processing_engine.py` - Background job queue for async audio processing
 - `backend/streaming/` - **NEW (Beta.4)** - Unified MSE + Multi-Tier Buffer streaming system
@@ -247,6 +293,7 @@ Professional-grade digital signal processing with modular architecture:
 - `backend/WEBSOCKET_API.md` - WebSocket message documentation
 - `frontend/` - React app with Material-UI components
   - `BottomPlayerBarUnified.tsx` - **NEW (Beta.4)** - Unified player component (67% code reduction)
+  - `CozyLibraryView.tsx` - Main library orchestrator (refactored from 958 lines using extracted hooks)
 
 **Desktop Application (`desktop/`):**
 - Electron wrapper that spawns Python backend and loads React UI
@@ -270,7 +317,10 @@ Professional-grade digital signal processing with modular architecture:
 
 ### Modifying the Web UI
 - [auralis-web/frontend/src/components/ComfortableApp.tsx](auralis-web/frontend/src/components/ComfortableApp.tsx) - Main app layout
-- [auralis-web/frontend/src/components/CozyLibraryView.tsx](auralis-web/frontend/src/components/CozyLibraryView.tsx) - Library view
+- [auralis-web/frontend/src/components/CozyLibraryView.tsx](auralis-web/frontend/src/components/CozyLibraryView.tsx) - Library view orchestrator (407 lines, refactored)
+  - Uses extracted hooks: `useLibraryData`, `useTrackSelection`, `usePlayerAPI`
+  - Delegates to sub-components: `LibraryViewRouter`, `TrackListView`, `LibraryEmptyState`
+  - Handles search/filter, batch operations, keyboard shortcuts
 - [auralis-web/frontend/src/components/BottomPlayerBar.tsx](auralis-web/frontend/src/components/BottomPlayerBar.tsx) - Player controls
 - **Beta.6 Interaction Features:**
   - [auralis-web/frontend/src/components/drag-drop/](auralis-web/frontend/src/components/drag-drop/) - Drag-and-drop system (5 components)
@@ -741,11 +791,26 @@ See [UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md) for complete 
 - **Service layer**: Use for API calls (e.g., `processingService.ts`)
 
 ### Testing
+
+**⚠️ CRITICAL: Read [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) before writing tests**
+
+**Test Quality Principles:**
+- **Coverage ≠ Quality**: 100% coverage doesn't mean tests catch bugs
+- **Test invariants, not implementation**: Focus on properties that must always hold
+- **Test behavior, not code**: What the system does, not how it does it
+- **Integration tests matter**: Unit tests alone won't catch configuration bugs
+
+**Test Structure:**
 - **File naming**: `test_<module_name>.py`
-- **Function naming**: `test_<function_name>_<scenario>`
+- **Function naming**: `test_<function>_<scenario>()` - Be descriptive
 - **Structure**: Arrange-Act-Assert pattern
 - **Fixtures**: Use pytest fixtures for common setup
-- **Mock externals**: Use `unittest.mock` or `pytest-mock`
+- **Mock sparingly**: Prefer real dependencies in integration tests
+
+**Quality Metrics:**
+- **Minimum coverage**: 85% backend, 80% frontend
+- **Mutation score target**: >80% (tests must catch intentional bugs)
+- **Test-to-code ratio**: Target 1.0+ (equal or more test files than source files)
 
 ### Common Pitfalls to Avoid
 - ❌ Don't modify audio files in place (always create new outputs)
@@ -868,9 +933,10 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **License**: GPL-3.0
 
 ### Project Status
-- **Version**: 1.0.0-beta.9.0 (Beta stage - Cache & UI polish)
+- **Version**: 1.0.0-beta.7 (Beta stage - Testing infrastructure improvements)
 - **Roadmap**: See [docs/roadmaps/MASTER_ROADMAP.md](docs/roadmaps/MASTER_ROADMAP.md) for complete roadmap
-- **Next Major**: Beta 10.0 (UI Overhaul) - 6 weeks starting after Beta 9.1
+- **Current Focus**: Test quality improvements, invariant testing implementation
+- **Next Major**: Beta 10.0 (UI Overhaul + 85% test coverage) - Q1 2025
 - **Beta.6 Enhanced Interactions**: ✅ **COMPLETE PHASE 2** (Oct 30, 2025)
   - Drag-and-drop system for playlist and queue management (724 lines)
   - Keyboard shortcuts (15+ shortcuts, ⚠️ temporarily disabled due to minification issue)
@@ -916,7 +982,11 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
     - Core processing: 26 tests
   - Frontend: 245 tests (234 passing, 11 failing - 95.5% pass rate)
     - ⚠️ Known issue: 11 gapless playback tests failing
-  - **TODO**: Add regression tests for Oct 25 bug fixes (gain pumping, soft limiter)
+  - **Test Quality Initiative** (Beta 7 → Beta 10.0):
+    - Phase 1 (Beta 9.1): Add 300 critical invariant tests (target: 745 total)
+    - Phase 2 (Beta 10.0): Reach 1,345 tests with >80% mutation score
+    - See [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md)
+  - **Critical Learning**: Overlap bug had 100% coverage but zero detection - coverage ≠ quality
 - **Library Scan API**: ✅ NEW - `POST /api/library/scan` endpoint with duplicate prevention (Oct 24, 2025)
 - **Backend Refactoring**: ✅ COMPLETE - Modular router architecture (614 lines main.py, down from 1,960)
 - **Library Management**: ✅ 740+ files/second scanning, **pagination support**, **query caching (136x speedup)**
@@ -967,6 +1037,10 @@ All technical documentation has been organized into categorized directories:
 - [TECHNICAL_DEBT_RESOLUTION.md](docs/completed/TECHNICAL_DEBT_RESOLUTION.md) - ✅ Technical improvements
 - [TESTING_SUMMARY.md](docs/completed/TESTING_SUMMARY.md) - ✅ Complete testing guide
 - [performance/](docs/completed/performance/) - Performance optimization docs (4 files)
+
+**📂 docs/development/** - Development guidelines and roadmaps
+- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **🎯 MANDATORY** - Test quality principles
+- [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Testing roadmap (Beta 9.1 → Beta 11.0)
 
 **📂 docs/guides/** - Implementation guides and technical designs
 - [AUDIO_FINGERPRINT_GRAPH_SYSTEM.md](docs/guides/AUDIO_FINGERPRINT_GRAPH_SYSTEM.md) - **NEW** - Complete fingerprint system design
