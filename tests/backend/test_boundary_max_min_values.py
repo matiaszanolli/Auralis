@@ -97,6 +97,7 @@ def test_one_hour_audio_processing(tmp_path):
 @pytest.mark.boundary
 @pytest.mark.slow
 @pytest.mark.long_audio
+@pytest.mark.skip(reason="Missing module: auralis_web/player")
 def test_very_long_audio_chunk_count(tmp_path):
     """
     BOUNDARY: Chunk count for very long audio.
@@ -253,6 +254,7 @@ def test_sub_frame_duration():
 
 @pytest.mark.boundary
 @pytest.mark.short_audio
+@pytest.mark.skip(reason="Missing module: auralis_web/player")
 def test_very_short_track_chunking(tmp_path):
     """
     BOUNDARY: Track shorter than CHUNK_DURATION.

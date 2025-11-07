@@ -91,7 +91,12 @@ class LibraryManager:
     # Track operations (delegate to TrackRepository)
     def add_track(self, track_info: Dict[str, Any]) -> Optional[Track]:
         """Add a track to the library"""
-        return self.tracks.add(track_info)
+        track = self.tracks.add(track_info)
+        if track:
+            # Cache keys are hashed, so pattern matching doesn't work
+            # Clear entire cache to ensure consistency
+            invalidate_cache()  # Clear all
+        return track
 
     def get_track(self, track_id: int) -> Optional[Track]:
         """Get track by ID"""
@@ -156,14 +161,16 @@ class LibraryManager:
     def record_track_play(self, track_id: int):
         """Record that a track was played"""
         self.tracks.record_play(track_id)
-        # Invalidate popular tracks cache since play count changed
-        invalidate_cache('get_popular_tracks')
+        # Cache keys are hashed, so pattern matching doesn't work
+        # Clear entire cache to ensure consistency
+        invalidate_cache()  # Clear all
 
     def set_track_favorite(self, track_id: int, favorite: bool = True):
         """Set track favorite status"""
         self.tracks.set_favorite(track_id, favorite)
-        # Invalidate favorites cache since favorite status changed
-        invalidate_cache('get_favorite_tracks')
+        # Cache keys are hashed, so pattern matching doesn't work
+        # Clear entire cache to ensure consistency
+        invalidate_cache()  # Clear all
 
     def find_reference_tracks(self, track: Track, limit: int = 5) -> List[Track]:
         """Find similar tracks for reference"""
