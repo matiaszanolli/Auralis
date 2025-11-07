@@ -268,3 +268,40 @@ class LibraryManager:
         invalidate_cache('get_recent_tracks')
         invalidate_cache('get_all_tracks')
         invalidate_cache('search_tracks')
+        invalidate_cache('get_favorite_tracks')
+        invalidate_cache('get_popular_tracks')
+
+    def delete_track(self, track_id: int) -> bool:
+        """
+        Delete a track and invalidate caches
+
+        Args:
+            track_id: Track ID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        result = self.tracks.delete(track_id)
+        if result:
+            # Cache keys are hashed, so pattern matching doesn't work
+            # Clear entire cache to ensure consistency
+            invalidate_cache()  # Clear all
+        return result
+
+    def update_track(self, track_id: int, track_info: dict) -> Optional[Track]:
+        """
+        Update a track and invalidate caches
+
+        Args:
+            track_id: Track ID to update
+            track_info: Dictionary with updated track information
+
+        Returns:
+            Updated track or None if not found
+        """
+        track = self.tracks.update(track_id, track_info)
+        if track:
+            # Cache keys are hashed, so pattern matching doesn't work
+            # Clear entire cache to ensure consistency
+            invalidate_cache()  # Clear all
+        return track

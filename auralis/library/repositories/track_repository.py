@@ -472,3 +472,84 @@ class TrackRepository:
                 genre = Genre(name=genre_name)
                 session.add(genre)
             track.genres.append(genre)
+
+    def delete(self, track_id: int) -> bool:
+        """
+        Delete a track by ID
+
+        Args:
+            track_id: Track ID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        session = self.get_session()
+        try:
+            track = session.query(Track).filter(Track.id == track_id).first()
+            if track:
+                session.delete(track)
+                session.commit()
+                debug(f"Deleted track: {track.title}")
+                return True
+            return False
+        except Exception as e:
+            session.rollback()
+            error(f"Failed to delete track: {e}")
+            return False
+        finally:
+            session.close()
+
+    def update(self, track_id: int, track_info: Dict[str, Any]) -> Optional[Track]:
+        """
+        Update a track by ID
+
+        Args:
+            track_id: Track ID to update
+            track_info: Dictionary with updated track information
+
+        Returns:
+            Updated track or None if not found
+        """
+        session = self.get_session()
+        try:
+            track = session.query(Track).filter(Track.id == track_id).first()
+            if not track:
+                return None
+
+            # Update simple fields
+            for field in ['title', 'duration', 'bitrate', 'sample_rate', 'year', 'track_number', 'disc_number']:
+                if field in track_info:
+                    setattr(track, field, track_info[field])
+
+            # Update artists if provided
+            if 'artist' in track_info or 'artists' in track_info:
+                artists = track_info.get('artists', [track_info.get('artist')] if track_info.get('artist') else [])
+                if artists:
+                    self._update_artists(session, track, artists)
+
+            # Update genres if provided
+            if 'genre' in track_info or 'genres' in track_info:
+                genres = track_info.get('genres', [track_info.get('genre')] if track_info.get('genre') else [])
+                if genres:
+                    self._update_genres(session, track, genres)
+
+            # Update album if provided
+            if 'album' in track_info:
+                album_title = track_info['album']
+                if album_title:
+                    album = session.query(Album).filter(Album.title == album_title).first()
+                    if not album:
+                        album = Album(title=album_title)
+                        session.add(album)
+                    track.album = album
+
+            session.commit()
+            session.refresh(track)
+            debug(f"Updated track: {track.title}")
+            return track
+        except Exception as e:
+            session.rollback()
+            error(f"Failed to update track: {e}")
+            return None
+        finally:
+            session.close()
