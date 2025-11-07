@@ -100,7 +100,10 @@ def populated_manager(test_db):
 # Cache Consistency Invariants (P0 Priority)
 # ============================================================================
 
+@pytest.mark.invariant
 @pytest.mark.integration
+@pytest.mark.fast
+@pytest.mark.library
 def test_cache_invalidation_after_add_track(populated_manager):
     """
     CRITICAL INVARIANT: Adding a track must invalidate relevant caches.

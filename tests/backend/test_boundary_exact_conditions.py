@@ -429,6 +429,9 @@ def test_track_id_boundary_values(library_with_100_tracks):
     176400,  # 4x CD
     192000,  # Ultra hi-res
 ])
+@pytest.mark.boundary
+@pytest.mark.exact
+@pytest.mark.fast
 def test_processing_at_standard_sample_rates(tmp_path, sample_rate):
     """
     BOUNDARY: Processing at standard sample rates.

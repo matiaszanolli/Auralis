@@ -49,6 +49,10 @@ from auralis.io.saver import save as save_audio
 # ============================================================================
 
 @pytest.fixture
+@pytest.mark.integration
+@pytest.mark.e2e
+@pytest.mark.player
+@pytest.mark.library
 def test_library():
     """Create temporary library with test tracks."""
     temp_dir = tempfile.mkdtemp()
