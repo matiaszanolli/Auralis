@@ -238,7 +238,7 @@ def test_alternating_read_write_stress(large_library):
         manager.set_track_favorite(track_ids[i % len(track_ids)])
 
         # Read again
-        manager.get_favorites(limit=10)
+        manager.get_favorite_tracks(limit=10)
 
     # Should remain consistent
     tracks, total = manager.get_all_tracks(limit=10)
@@ -324,10 +324,10 @@ def test_repeated_favorite_toggle_stress(large_library):
 
     # Toggle each track 100 times
     for track_id in target_ids:
-        for _ in range(100):
-            manager.set_track_favorite(track_id)
+        for i in range(100):
+            manager.set_track_favorite(track_id, i % 2 == 0)  # Alternate True/False
 
-    # All should end up NOT favorited (100 toggles = even)
+    # All should end up NOT favorited (100 toggles = even, last is False)
     favorites = manager.get_favorite_tracks(limit=20)
     favorite_ids = {f.id for f in favorites}
 
@@ -363,7 +363,7 @@ def test_mixed_operation_workflow(large_library):
         manager.set_track_favorite(track_ids[i])
 
         # Get favorites
-        manager.get_favorites(limit=10)
+        manager.get_favorite_tracks(limit=10)
 
         # Get recent (if implemented)
         # manager.get_recent_tracks(limit=5)
@@ -372,8 +372,8 @@ def test_mixed_operation_workflow(large_library):
     tracks, total = manager.get_all_tracks(limit=10)
     assert total == 200
 
-    favorites, fav_count = manager.get_favorites(limit=50)
-    assert fav_count == 20  # Toggled 20 tracks once each
+    favorites = manager.get_favorite_tracks(limit=50)
+    assert len(favorites) == 20  # Toggled 20 tracks once each
 
 
 # ============================================================================
@@ -478,7 +478,7 @@ def test_performance_with_many_favorites(large_library):
 
     # Measure favorites query time
     def get_favorites():
-        manager.get_favorites(limit=100)
+        manager.get_favorite_tracks(limit=100)
 
     time_taken = timeit.timeit(get_favorites, number=10) / 10
 
@@ -539,7 +539,7 @@ def test_empty_search_results_workflow(large_library):
     assert tracks is not None
     assert isinstance(tracks, list)
     assert len(tracks) == 0
-    assert total == 0
+    # Note: search_tracks doesn't return total
 
     # Should still be able to perform other operations
     tracks, total = manager.get_all_tracks(limit=10)

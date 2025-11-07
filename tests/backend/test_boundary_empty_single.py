@@ -168,7 +168,7 @@ def test_empty_library_get_recent_returns_empty(empty_library):
     """
     manager, _ = empty_library
 
-    recent, count = manager.get_recent(limit=10)
+    recent = manager.get_recent_tracks(limit=10)
 
     assert recent is not None, "Should return list, not None"
     assert len(recent) == 0, "Should return empty list"
@@ -422,7 +422,7 @@ def test_empty_to_single_to_empty_transition(empty_library):
 
     # Start empty
     tracks, count = manager.get_all_tracks(limit=10)
-    assert len(favorites) == 0, "Should start empty"
+    assert count == 0, "Should start empty"
 
     # Add track
     audio_dir = tmp_path / "music"
@@ -441,14 +441,14 @@ def test_empty_to_single_to_empty_transition(empty_library):
 
     # Verify single track
     tracks, count = manager.get_all_tracks(limit=10)
-    assert len(favorites) == 1, "Should have 1 track after add"
+    assert count == 1, "Should have 1 track after add"
 
     # Delete track
     manager.delete_track(track.id)
 
     # Verify empty again
     tracks, count = manager.get_all_tracks(limit=10)
-    assert len(favorites) == 0, "Should return to empty state"
+    assert count == 0, "Should return to empty state"
 
 
 # ============================================================================
