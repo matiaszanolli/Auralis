@@ -55,6 +55,9 @@ def client():
 
 
 @pytest.fixture
+@pytest.mark.integration
+@pytest.mark.api
+@pytest.mark.fast
 def test_library_with_tracks(tmp_path):
     """Create test library with tracks for API testing."""
     # Create audio directory
