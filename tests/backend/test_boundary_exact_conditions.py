@@ -474,7 +474,7 @@ def test_search_single_character(library_with_100_tracks):
     """
     manager, track_ids, _ = library_with_100_tracks
 
-    results = manager.search_tracks("T")
+    results, total = manager.search_tracks("T")
 
     # Should not crash
     assert results is not None, "Should return list"

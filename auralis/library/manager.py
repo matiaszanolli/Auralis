@@ -93,9 +93,8 @@ class LibraryManager:
         """Add a track to the library"""
         track = self.tracks.add(track_info)
         if track:
-            # Cache keys are hashed, so pattern matching doesn't work
-            # Clear entire cache to ensure consistency
-            invalidate_cache()  # Clear all
+            # Invalidate queries that list tracks
+            invalidate_cache('get_all_tracks', 'search_tracks', 'get_recent_tracks')
         return track
 
     def get_track(self, track_id: int) -> Optional[Track]:
@@ -115,8 +114,12 @@ class LibraryManager:
         return self.tracks.update_by_filepath(filepath, track_info)
 
     @cached_query(ttl=60)  # Cache for 1 minute (search results change frequently)
-    def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> List[Track]:
-        """Search tracks by title, artist, album, or genre"""
+    def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+        """Search tracks by title, artist, album, or genre
+
+        Returns:
+            Tuple of (matching tracks, total count)
+        """
         return self.tracks.search(query, limit, offset)
 
     @cached_query(ttl=300)  # Cache for 5 minutes
@@ -130,18 +133,30 @@ class LibraryManager:
         return self.tracks.get_by_artist(artist_name, limit)
 
     @cached_query(ttl=180)  # Cache for 3 minutes (recent tracks don't change often)
-    def get_recent_tracks(self, limit: int = 50, offset: int = 0) -> List[Track]:
-        """Get recently added tracks (cached for 3 minutes)"""
+    def get_recent_tracks(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+        """Get recently added tracks (cached for 3 minutes)
+
+        Returns:
+            Tuple of (track list, total count)
+        """
         return self.tracks.get_recent(limit, offset)
 
     @cached_query(ttl=120)  # Cache for 2 minutes (play counts change more frequently)
-    def get_popular_tracks(self, limit: int = 50, offset: int = 0) -> List[Track]:
-        """Get most played tracks (cached for 2 minutes)"""
+    def get_popular_tracks(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+        """Get most played tracks (cached for 2 minutes)
+
+        Returns:
+            Tuple of (track list, total count)
+        """
         return self.tracks.get_popular(limit, offset)
 
     @cached_query(ttl=180)  # Cache for 3 minutes
-    def get_favorite_tracks(self, limit: int = 50, offset: int = 0) -> List[Track]:
-        """Get favorite tracks (cached for 3 minutes)"""
+    def get_favorite_tracks(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+        """Get favorite tracks (cached for 3 minutes)
+
+        Returns:
+            Tuple of (track list, total count)
+        """
         return self.tracks.get_favorites(limit, offset)
 
     @cached_query(ttl=300)  # Cache for 5 minutes
@@ -161,16 +176,14 @@ class LibraryManager:
     def record_track_play(self, track_id: int):
         """Record that a track was played"""
         self.tracks.record_play(track_id)
-        # Cache keys are hashed, so pattern matching doesn't work
-        # Clear entire cache to ensure consistency
-        invalidate_cache()  # Clear all
+        # Invalidate queries affected by play count/last_played changes
+        invalidate_cache('get_popular_tracks', 'get_recent_tracks', 'get_all_tracks', 'get_track')
 
     def set_track_favorite(self, track_id: int, favorite: bool = True):
         """Set track favorite status"""
         self.tracks.set_favorite(track_id, favorite)
-        # Cache keys are hashed, so pattern matching doesn't work
-        # Clear entire cache to ensure consistency
-        invalidate_cache()  # Clear all
+        # Only invalidate favorite-related queries
+        invalidate_cache('get_favorite_tracks')
 
     def find_reference_tracks(self, track: Track, limit: int = 5) -> List[Track]:
         """Find similar tracks for reference"""
@@ -290,9 +303,9 @@ class LibraryManager:
         """
         result = self.tracks.delete(track_id)
         if result:
-            # Cache keys are hashed, so pattern matching doesn't work
-            # Clear entire cache to ensure consistency
-            invalidate_cache()  # Clear all
+            # Invalidate queries that might include the deleted track
+            invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
+                             'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
         return result
 
     def update_track(self, track_id: int, track_info: dict) -> Optional[Track]:
@@ -308,7 +321,6 @@ class LibraryManager:
         """
         track = self.tracks.update(track_id, track_info)
         if track:
-            # Cache keys are hashed, so pattern matching doesn't work
-            # Clear entire cache to ensure consistency
-            invalidate_cache()  # Clear all
+            # Invalidate queries that might show updated metadata
+            invalidate_cache('get_track', 'search_tracks', 'get_all_tracks')
         return track

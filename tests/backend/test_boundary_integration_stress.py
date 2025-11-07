@@ -208,7 +208,7 @@ def test_repeated_search_operations(large_library):
     # 100 searches
     for i in range(100):
         query = search_queries[i % len(search_queries)]
-        tracks = manager.search_tracks(query)
+        tracks, total = manager.search_tracks(query)
         # Should complete without error
 
 
@@ -328,7 +328,7 @@ def test_repeated_favorite_toggle_stress(large_library):
             manager.set_track_favorite(track_id, i % 2 == 0)  # Alternate True/False
 
     # All should end up NOT favorited (100 toggles = even, last is False)
-    favorites = manager.get_favorite_tracks(limit=20)
+    favorites, total = manager.get_favorite_tracks(limit=20)
     favorite_ids = {f.id for f in favorites}
 
     for track_id in target_ids:
@@ -372,7 +372,7 @@ def test_mixed_operation_workflow(large_library):
     tracks, total = manager.get_all_tracks(limit=10)
     assert total == 200
 
-    favorites = manager.get_favorite_tracks(limit=50)
+    favorites, total = manager.get_favorite_tracks(limit=50)
     assert len(favorites) == 20  # Toggled 20 tracks once each
 
 
@@ -534,7 +534,7 @@ def test_empty_search_results_workflow(large_library):
     manager, track_ids, _ = large_library
 
     # Search for non-existent item
-    tracks = manager.search_tracks("NONEXISTENT_QUERY_12345")
+    tracks, total = manager.search_tracks("NONEXISTENT_QUERY_12345")
 
     assert tracks is not None
     assert isinstance(tracks, list)
@@ -564,7 +564,7 @@ def test_all_tracks_favorited_workflow(large_library):
         manager.set_track_favorite(track_id)
 
     # Get all favorites
-    favorites = manager.get_favorite_tracks(limit=300)
+    favorites, total = manager.get_favorite_tracks(limit=300)
 
     assert len(favorites) == 200
     assert len(favorites) == 200
@@ -594,7 +594,7 @@ def test_rapid_filter_changes(large_library):
 
     # Rapidly change filters
     for filter_str in filters * 10:
-        tracks = manager.search_tracks(filter_str)
+        tracks, total = manager.search_tracks(filter_str)
         assert tracks is not None
 
 

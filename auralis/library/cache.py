@@ -39,7 +39,9 @@ class QueryCache:
         """
         self.max_size = max_size
         self.default_ttl = default_ttl
-        self._cache: Dict[str, Tuple[Any, Optional[datetime]]] = {}
+        # Store: {hash_key: (value, expiry, metadata)}
+        # metadata = {'func': function_name, 'args': args_tuple, 'kwargs': kwargs_dict}
+        self._cache: Dict[str, Tuple[Any, Optional[datetime], Dict[str, Any]]] = {}
         self._hits = 0
         self._misses = 0
 
@@ -78,7 +80,7 @@ class QueryCache:
             self._misses += 1
             return None
 
-        value, expiry = self._cache[key]
+        value, expiry, metadata = self._cache[key]
 
         # Check if expired
         if expiry and datetime.now() > expiry:
@@ -89,7 +91,7 @@ class QueryCache:
         self._hits += 1
         return value
 
-    def set(self, key: str, value: Any, ttl: Optional[int] = None):
+    def set(self, key: str, value: Any, ttl: Optional[int] = None, metadata: Optional[Dict[str, Any]] = None):
         """
         Store value in cache.
 
@@ -97,6 +99,7 @@ class QueryCache:
             key: Cache key
             value: Value to cache
             ttl: Time-to-live in seconds (None = use default, 0 = no expiration)
+            metadata: Optional metadata for pattern matching (func name, args, kwargs)
         """
         if ttl is None:
             ttl = self.default_ttl
@@ -105,30 +108,51 @@ class QueryCache:
         if ttl > 0:
             expiry = datetime.now() + timedelta(seconds=ttl)
 
+        # Default metadata if not provided
+        if metadata is None:
+            metadata = {}
+
         # LRU eviction if cache is full
         if len(self._cache) >= self.max_size and key not in self._cache:
             # Remove oldest item (first inserted)
             oldest_key = next(iter(self._cache))
             del self._cache[oldest_key]
 
-        self._cache[key] = (value, expiry)
+        self._cache[key] = (value, expiry, metadata)
 
-    def invalidate(self, pattern: Optional[str] = None):
+    def invalidate(self, *patterns):
         """
-        Invalidate cache entries.
+        Invalidate cache entries by function name(s).
 
         Args:
-            pattern: Optional pattern to match keys (None = clear all)
+            *patterns: Function name(s) to invalidate (empty = clear all)
+                      Matches exact function names only.
+
+        Examples:
+            invalidate()                                           # Clear all cache
+            invalidate('get_all_tracks')                           # Clear only get_all_tracks
+            invalidate('get_all_tracks', 'get_track', 'search')    # Clear multiple functions
         """
-        if pattern is None:
+        if not patterns:
+            # No patterns = clear all
             self._cache.clear()
-            logger.info("🗑️  Cache cleared")
+            logger.info("🗑️  Cache cleared (full flush)")
         else:
-            # Remove matching keys
-            keys_to_remove = [k for k in self._cache.keys() if pattern in k]
+            # Match exact function names
+            keys_to_remove = []
+            for key, (value, expiry, metadata) in self._cache.items():
+                func_name = metadata.get('func', '')
+                if func_name in patterns:
+                    keys_to_remove.append(key)
+
             for key in keys_to_remove:
                 del self._cache[key]
-            logger.info(f"🗑️  Invalidated {len(keys_to_remove)} cache entries matching '{pattern}'")
+
+            if keys_to_remove:
+                pattern_str = ', '.join(f"'{p}'" for p in patterns)
+                logger.info(f"🗑️  Invalidated {len(keys_to_remove)} cache entries for {pattern_str}")
+            else:
+                logger.debug(f"🔍 No cache entries found for {patterns}")
 
     def get_stats(self) -> dict:
         """
@@ -182,8 +206,13 @@ def cached_query(ttl: Optional[int] = None):
             logger.debug(f"Cache miss: {func.__name__}")
             result = func(*args, **kwargs)
 
-            # Store in cache
-            _global_cache.set(cache_key, result, ttl=ttl)
+            # Store in cache with metadata for pattern matching
+            metadata = {
+                'func': func.__name__,
+                'args': args,
+                'kwargs': kwargs
+            }
+            _global_cache.set(cache_key, result, ttl=ttl, metadata=metadata)
 
             return result
 
@@ -191,21 +220,24 @@ def cached_query(ttl: Optional[int] = None):
     return decorator
 
 
-def invalidate_cache(pattern: Optional[str] = None):
+def invalidate_cache(*patterns):
     """
-    Invalidate cached queries.
+    Invalidate cached queries by function name(s).
 
     Args:
-        pattern: Optional pattern to match function names (None = clear all)
+        *patterns: Function name(s) to invalidate (empty = clear all)
 
     Usage:
         # Clear all cache
         invalidate_cache()
 
-        # Clear specific queries
-        invalidate_cache('get_recent')
+        # Clear specific function
+        invalidate_cache('get_all_tracks')
+
+        # Clear multiple functions
+        invalidate_cache('get_all_tracks', 'get_track', 'search_tracks')
     """
-    _global_cache.invalidate(pattern)
+    _global_cache.invalidate(*patterns)
 
 
 def get_cache_stats() -> dict:

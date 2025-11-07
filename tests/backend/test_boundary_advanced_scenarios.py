@@ -192,7 +192,7 @@ def test_batch_toggle_favorites(test_library_large):
         manager.set_track_favorite(track_id)
 
     # Verify all favorited
-    favorites = manager.get_favorite_tracks(limit=100)
+    favorites, total = manager.get_favorite_tracks(limit=100)
     assert len(favorites) == 50, f"Expected 50 favorites, got {count}"
 
 
@@ -361,7 +361,7 @@ def test_pagination_with_filters(test_library_large):
     manager, track_ids, _ = test_library_large
 
     # Search for specific artist (Artist 0 should have 10 tracks)
-    tracks = manager.search_tracks("Artist 0", limit=5, offset=0)
+    tracks, total = manager.search_tracks("Artist 0", limit=5, offset=0)
 
     # Should get partial results
     assert len(tracks) <= 5, f"Should get at most 5 results, got {len(tracks)}"
@@ -606,7 +606,7 @@ def test_concurrent_search_operations(test_library_large):
 
     def search_operation(query):
         try:
-            tracks = manager.search_tracks(query)
+            tracks, total = manager.search_tracks(query)
             results.append((query, len(tracks)))
         except Exception as e:
             errors.append(e)
