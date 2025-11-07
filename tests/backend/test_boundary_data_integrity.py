@@ -214,7 +214,7 @@ def test_favorite_state_consistency(integrity_library):
     target_id = track_ids[0]
 
     # Initially not favorited
-    favorites = manager.get_favorite_tracks(limit=100)
+    favorites, total = manager.get_favorite_tracks(limit=100)
     initial_favorite_ids = {f.id for f in favorites}
     assert target_id not in initial_favorite_ids
 
@@ -222,7 +222,7 @@ def test_favorite_state_consistency(integrity_library):
     manager.set_track_favorite(target_id, True)
 
     # Should appear in favorites
-    favorites = manager.get_favorite_tracks(limit=100)
+    favorites, total = manager.get_favorite_tracks(limit=100)
     favorite_ids = {f.id for f in favorites}
     assert target_id in favorite_ids, "Track should be in favorites"
 
@@ -230,7 +230,7 @@ def test_favorite_state_consistency(integrity_library):
     manager.set_track_favorite(target_id, False)
 
     # Should not appear in favorites
-    favorites = manager.get_favorite_tracks(limit=100)
+    favorites, total = manager.get_favorite_tracks(limit=100)
     favorite_ids = {f.id for f in favorites}
     assert target_id not in favorite_ids, "Track should not be in favorites"
 
@@ -257,7 +257,7 @@ def test_no_orphaned_records_after_delete(integrity_library):
     manager.delete_track(deleted_id)
 
     # Track should not appear in favorites
-    favorites = manager.get_favorite_tracks(limit=100)
+    favorites, total = manager.get_favorite_tracks(limit=100)
     favorite_ids = {f.id for f in favorites}
     assert deleted_id not in favorite_ids, (
         "Deleted track should not appear in favorites"
@@ -610,7 +610,7 @@ def test_cascading_deletes_consistency(integrity_library):
     track = manager.get_track(target_id)
     assert track is None
 
-    favorites = manager.get_favorite_tracks(limit=100)
+    favorites, total = manager.get_favorite_tracks(limit=100)
     favorite_ids = {f.id for f in favorites}
     assert target_id not in favorite_ids
 
@@ -662,7 +662,7 @@ def test_count_consistency_after_modifications(integrity_library):
     for i in range(10):
         manager.set_track_favorite(track_ids[i])
 
-    favorites = manager.get_favorite_tracks(limit=100)
+    favorites, total = manager.get_favorite_tracks(limit=100)
     assert len(favorites) == 10
 
     # Delete some tracks
@@ -673,7 +673,7 @@ def test_count_consistency_after_modifications(integrity_library):
     assert final_total == initial_total - 5
 
     # Favorites should reflect deletes
-    final_favorites = manager.get_favorite_tracks(limit=100)
+    final_favorites, total = manager.get_favorite_tracks(limit=100)
     assert len(final_favorites) == 5  # 5 deleted, 5 remaining
 
 

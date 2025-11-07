@@ -228,7 +228,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> List[Track]:
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
         """
         Search tracks by title, artist, album, or genre
 
@@ -238,20 +238,28 @@ class TrackRepository:
             offset: Number of results to skip (for pagination)
 
         Returns:
-            List of matching tracks
+            Tuple of (matching tracks, total count)
         """
         session = self.get_session()
         try:
             search_term = f"%{query}%"
-            results = session.query(Track).join(Track.artists).join(Track.album, isouter=True).filter(
+
+            # Build query
+            query_obj = session.query(Track).join(Track.artists).join(Track.album, isouter=True).filter(
                 or_(
                     Track.title.ilike(search_term),
                     Artist.name.ilike(search_term),
                     Album.title.ilike(search_term)
                 )
-            ).limit(limit).offset(offset).all()
+            )
 
-            return results
+            # Get total count
+            total = query_obj.count()
+
+            # Get paginated results
+            results = query_obj.limit(limit).offset(offset).all()
+
+            return results, total
         finally:
             session.close()
 
@@ -277,7 +285,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_recent(self, limit: int = 50, offset: int = 0) -> List[Track]:
+    def get_recent(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
         """Get recently added tracks with relationships loaded
 
         Args:
@@ -285,23 +293,30 @@ class TrackRepository:
             offset: Number of tracks to skip (for pagination)
 
         Returns:
-            List of Track objects
+            Tuple of (track list, total count)
         """
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
-            return (
+
+            # Build query
+            query = (
                 session.query(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
                 .order_by(Track.created_at.desc())
-                .limit(limit)
-                .offset(offset)
-                .all()
             )
+
+            # Get total count
+            total = query.count()
+
+            # Get paginated results
+            results = query.limit(limit).offset(offset).all()
+
+            return results, total
         finally:
             session.close()
 
-    def get_popular(self, limit: int = 50, offset: int = 0) -> List[Track]:
+    def get_popular(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
         """Get most played tracks with relationships loaded
 
         Args:
@@ -309,23 +324,30 @@ class TrackRepository:
             offset: Number of tracks to skip (for pagination)
 
         Returns:
-            List of Track objects
+            Tuple of (track list, total count)
         """
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
-            return (
+
+            # Build query
+            query = (
                 session.query(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
                 .order_by(Track.play_count.desc())
-                .limit(limit)
-                .offset(offset)
-                .all()
             )
+
+            # Get total count
+            total = query.count()
+
+            # Get paginated results
+            results = query.limit(limit).offset(offset).all()
+
+            return results, total
         finally:
             session.close()
 
-    def get_favorites(self, limit: int = 50, offset: int = 0) -> List[Track]:
+    def get_favorites(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
         """Get favorite tracks with relationships loaded
 
         Args:
@@ -333,20 +355,27 @@ class TrackRepository:
             offset: Number of tracks to skip (for pagination)
 
         Returns:
-            List of Track objects
+            Tuple of (track list, total count)
         """
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
-            return (
+
+            # Build query
+            query = (
                 session.query(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
                 .filter(Track.favorite == True)
                 .order_by(Track.title.asc())
-                .limit(limit)
-                .offset(offset)
-                .all()
             )
+
+            # Get total count
+            total = query.count()
+
+            # Get paginated results
+            results = query.limit(limit).offset(offset).all()
+
+            return results, total
         finally:
             session.close()
 

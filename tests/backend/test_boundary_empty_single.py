@@ -140,7 +140,7 @@ def test_empty_library_search_returns_empty(empty_library):
     """
     manager, _ = empty_library
 
-    results = manager.search_tracks("test query")
+    results, total = manager.search_tracks("test query")
 
     assert results is not None, "Should return list, not None"
     assert len(results) == 0, "Should return empty results"
@@ -154,7 +154,7 @@ def test_empty_library_get_favorites_returns_empty(empty_library):
     """
     manager, _ = empty_library
 
-    favorites = manager.get_favorite_tracks(limit=10)
+    favorites, total = manager.get_favorite_tracks(limit=10)
 
     assert favorites is not None, "Should return list, not None"
     assert len(favorites) == 0, "Should return empty list"
@@ -168,7 +168,7 @@ def test_empty_library_get_recent_returns_empty(empty_library):
     """
     manager, _ = empty_library
 
-    recent = manager.get_recent_tracks(limit=10)
+    recent, total = manager.get_recent_tracks(limit=10)
 
     assert recent is not None, "Should return list, not None"
     assert len(recent) == 0, "Should return empty list"
@@ -304,7 +304,7 @@ def test_single_track_search_match_returns_one(single_track_library):
     """
     manager, track_id, _ = single_track_library
 
-    results = manager.search_tracks("Single")
+    results, total = manager.search_tracks("Single")
 
     assert len(results) == 1, "Should return 1 result"
     assert results[0].id == track_id, "Should return correct track"
@@ -318,7 +318,7 @@ def test_single_track_search_no_match_returns_empty(single_track_library):
     """
     manager, track_id, _ = single_track_library
 
-    results = manager.search_tracks("Nonexistent")
+    results, total = manager.search_tracks("Nonexistent")
 
     assert len(results) == 0, "Should return empty list"
 
@@ -334,14 +334,14 @@ def test_single_track_favorite_toggle(single_track_library):
     # Set favorite
     manager.set_track_favorite(track_id, True)
 
-    favorites = manager.get_favorite_tracks(limit=10)
+    favorites, total = manager.get_favorite_tracks(limit=10)
     assert len(favorites) == 1, "Should have 1 favorite"
     assert len(favorites) == 1, "Should return 1 favorite"
 
     # Unset favorite
     manager.set_track_favorite(track_id, False)
 
-    favorites = manager.get_favorite_tracks(limit=10)
+    favorites, total = manager.get_favorite_tracks(limit=10)
     assert len(favorites) == 0, "Should have 0 favorites"
     assert len(favorites) == 0, "Should return empty list"
 
@@ -558,7 +558,7 @@ def test_search_empty_string(single_track_library):
     """
     manager, track_id, _ = single_track_library
 
-    results = manager.search_tracks("")
+    results, total = manager.search_tracks("")
 
     # Should not crash
     assert results is not None, "Should return list, not None"

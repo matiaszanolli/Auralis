@@ -633,7 +633,7 @@ def test_sql_injection_attempt_in_search(tmp_path):
     malicious_query = "'; DROP TABLE tracks; --"
 
     try:
-        results = manager.search_tracks(malicious_query)
+        results, total = manager.search_tracks(malicious_query)
         # Should not crash or execute malicious SQL
         # Should return empty results or sanitized search
     except Exception as e:
