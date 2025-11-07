@@ -6,39 +6,41 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.0.0--beta.8-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.8)
+[![Release](https://img.shields.io/badge/release-v1.0.0--beta.9.1-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.9.1)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-433%2B%20passing-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-234%20passing-brightgreen.svg)]()
 [![Test Coverage](https://img.shields.io/badge/coverage-90.3%25-brightgreen.svg)]()
 
-## 📥 Download Beta.8
+## 📥 Download Beta 9.1
 
-**🎉 Latest Release: Seamless Playback!**
+**🎯 Latest Release: Testing Infrastructure & Documentation**
 
 | Platform | Download | Size |
 |----------|----------|------|
-| 🪟 **Windows** | [Auralis Setup 1.0.0-beta.8.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.8/Auralis.Setup.1.0.0-beta.8.exe) | 206 MB |
-| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.8.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.8/Auralis-1.0.0-beta.8.AppImage) | 277 MB |
-| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.8_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.8/auralis-desktop_1.0.0-beta.8_amd64.deb) | 195 MB |
+| 🪟 **Windows** | [Auralis Setup 1.0.0-beta.9.1.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.9.1/Auralis.Setup.1.0.0-beta.9.1.exe) | 246 MB |
+| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.9.1.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.9.1/Auralis-1.0.0-beta.9.1.AppImage) | 274 MB |
+| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.9.1_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.9.1/auralis-desktop_1.0.0-beta.9.1_amd64.deb) | 242 MB |
 
-📖 **[User Guide](BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA8.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
+📖 **[User Guide](BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA9.1.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
 
-### 🚀 What's New in Beta.8
+### 📚 What's New in Beta 9.1
 
-**Seamless Playback & Auto-Mastering Transparency**
+**Testing Infrastructure & Developer Experience**
 
-- ✅ **Perfect Chunk Streaming** - Zero gaps/overlaps at chunk boundaries (sample-accurate)
-- 📊 **Auto-Mastering Visualizer** - See real processing parameters in real-time
-- 🎯 **Mid-Playback Toggle** - Enable/disable enhancement anytime without stopping
-- 🐛 **6 Critical Fixes** - Streaming bugs, UI issues, all resolved
-- 📚 **5,700+ Lines of Documentation** - Complete technical documentation
+- ✅ **Comprehensive Testing Guidelines** - Mandatory quality standards (1,342 lines)
+- ✅ **Test Implementation Roadmap** - Path from 445 to 2,500+ tests (868 lines)
+- ✅ **Enhanced CLAUDE.md** - Improved developer documentation with testing best practices
+- ✅ **Critical Invariant Examples** - Concrete code examples for testing
+- ✅ **Quality Over Coverage** - New philosophy: coverage ≠ quality
 
-**Major Improvements:**
-- Seamless 30-second chunk concatenation (1,323,000 samples @ 44.1kHz precision)
-- Real-time visualizer showing bass boost, compression, dynamic range, EQ
-- Background pre-processing for smooth mid-playback enhancement toggle
+**Why This Matters:**
+- The overlap bug had 100% coverage but zero detection
+- This release establishes testing standards for all future development
+- Foundation for reaching 85% test coverage by Beta 10.0
 
-See [RELEASE_NOTES_BETA8.md](RELEASE_NOTES_BETA8.md) for complete technical details.
+**Note:** This is a **documentation-only release** with no changes to the application itself. Users on Beta 9.0 may skip this release.
+
+See [RELEASE_NOTES_BETA9.1.md](RELEASE_NOTES_BETA9.1.md) for complete details.
 
 ---
 
