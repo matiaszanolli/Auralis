@@ -110,7 +110,7 @@ def test_empty_library_get_albums(empty_library):
     """
     manager, _ = empty_library
 
-    albums, total = manager.get_all_albums(limit=10)
+    albums, total = manager.albums.get_all(limit=10)
 
     assert albums is not None, "Should return list, not None"
     assert len(albums) == 0, "Should return empty list"
@@ -125,7 +125,7 @@ def test_empty_library_get_artists(empty_library):
     """
     manager, _ = empty_library
 
-    artists, total = manager.get_all_artists(limit=10)
+    artists, total = manager.artists.get_all(limit=10)
 
     assert artists is not None, "Should return list, not None"
     assert len(artists) == 0, "Should return empty list"
@@ -140,11 +140,10 @@ def test_empty_library_search_returns_empty(empty_library):
     """
     manager, _ = empty_library
 
-    results, count = manager.search_tracks("test query")
+    results = manager.search_tracks("test query")
 
     assert results is not None, "Should return list, not None"
     assert len(results) == 0, "Should return empty results"
-    assert count == 0, "Count should be 0"
 
 
 @pytest.mark.boundary
@@ -155,11 +154,10 @@ def test_empty_library_get_favorites_returns_empty(empty_library):
     """
     manager, _ = empty_library
 
-    favorites, count = manager.get_favorites(limit=10)
+    favorites = manager.get_favorite_tracks(limit=10)
 
     assert favorites is not None, "Should return list, not None"
     assert len(favorites) == 0, "Should return empty list"
-    assert count == 0, "Count should be 0"
 
 
 @pytest.mark.boundary
@@ -174,7 +172,6 @@ def test_empty_library_get_recent_returns_empty(empty_library):
 
     assert recent is not None, "Should return list, not None"
     assert len(recent) == 0, "Should return empty list"
-    assert count == 0, "Count should be 0"
 
 
 @pytest.mark.boundary
@@ -307,9 +304,8 @@ def test_single_track_search_match_returns_one(single_track_library):
     """
     manager, track_id, _ = single_track_library
 
-    results, count = manager.search_tracks("Single")
+    results = manager.search_tracks("Single")
 
-    assert count == 1, "Should find 1 track"
     assert len(results) == 1, "Should return 1 result"
     assert results[0].id == track_id, "Should return correct track"
 
@@ -322,9 +318,8 @@ def test_single_track_search_no_match_returns_empty(single_track_library):
     """
     manager, track_id, _ = single_track_library
 
-    results, count = manager.search_tracks("Nonexistent")
+    results = manager.search_tracks("Nonexistent")
 
-    assert count == 0, "Should find 0 tracks"
     assert len(results) == 0, "Should return empty list"
 
 
@@ -337,17 +332,17 @@ def test_single_track_favorite_toggle(single_track_library):
     manager, track_id, _ = single_track_library
 
     # Set favorite
-    manager.set_favorite(track_id, True)
+    manager.set_track_favorite(track_id, True)
 
-    favorites, count = manager.get_favorites(limit=10)
-    assert count == 1, "Should have 1 favorite"
+    favorites = manager.get_favorite_tracks(limit=10)
+    assert len(favorites) == 1, "Should have 1 favorite"
     assert len(favorites) == 1, "Should return 1 favorite"
 
     # Unset favorite
-    manager.set_favorite(track_id, False)
+    manager.set_track_favorite(track_id, False)
 
-    favorites, count = manager.get_favorites(limit=10)
-    assert count == 0, "Should have 0 favorites"
+    favorites = manager.get_favorite_tracks(limit=10)
+    assert len(favorites) == 0, "Should have 0 favorites"
     assert len(favorites) == 0, "Should return empty list"
 
 
@@ -364,7 +359,7 @@ def test_single_track_play_count(single_track_library):
     initial_count = tracks[0].play_count or 0
 
     # Record play
-    manager.record_play(track_id)
+    manager.record_track_play(track_id)
 
     # Check updated count
     tracks, _ = manager.get_all_tracks(limit=1)
@@ -406,7 +401,7 @@ def test_single_track_metadata_update(single_track_library):
 
     # Update title
     new_title = "Updated Single Track"
-    manager.update_track_metadata(track_id, {'title': new_title})
+    manager.update_track(track_id, {'title': new_title})
 
     # Verify update
     tracks, _ = manager.get_all_tracks(limit=1)
@@ -427,7 +422,7 @@ def test_empty_to_single_to_empty_transition(empty_library):
 
     # Start empty
     tracks, count = manager.get_all_tracks(limit=10)
-    assert count == 0, "Should start empty"
+    assert len(favorites) == 0, "Should start empty"
 
     # Add track
     audio_dir = tmp_path / "music"
@@ -446,14 +441,14 @@ def test_empty_to_single_to_empty_transition(empty_library):
 
     # Verify single track
     tracks, count = manager.get_all_tracks(limit=10)
-    assert count == 1, "Should have 1 track after add"
+    assert len(favorites) == 1, "Should have 1 track after add"
 
     # Delete track
     manager.delete_track(track.id)
 
     # Verify empty again
     tracks, count = manager.get_all_tracks(limit=10)
-    assert count == 0, "Should return to empty state"
+    assert len(favorites) == 0, "Should return to empty state"
 
 
 # ============================================================================
@@ -563,7 +558,7 @@ def test_search_empty_string(single_track_library):
     """
     manager, track_id, _ = single_track_library
 
-    results, count = manager.search_tracks("")
+    results = manager.search_tracks("")
 
     # Should not crash
     assert results is not None, "Should return list, not None"

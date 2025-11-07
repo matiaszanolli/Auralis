@@ -358,7 +358,7 @@ def test_position_exactly_duration(tmp_path):
 
     Should go to end, not crash.
     """
-    from auralis.player.enhanced_player import EnhancedPlayer
+    from auralis.player.player import AudioPlayer as EnhancedPlayer
     from auralis.core.unified_config import UnifiedConfig
 
     # Create test audio
@@ -470,7 +470,7 @@ def test_search_single_character(library_with_100_tracks):
     """
     manager, track_ids, _ = library_with_100_tracks
 
-    results, count = manager.search_tracks("T")
+    results = manager.search_tracks("T")
 
     # Should not crash
     assert results is not None, "Should return list"

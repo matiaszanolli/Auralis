@@ -508,7 +508,7 @@ def test_many_albums_query_performance(tmp_path):
 
     # Query albums
     start_time = time.time()
-    albums, total = manager.get_all_albums(limit=500)
+    albums, total = manager.albums.get_all(limit=500)
     query_time = time.time() - start_time
 
     assert total == 500, f"Should have 500 albums, got {total}"
@@ -631,7 +631,7 @@ def test_sql_injection_attempt_in_search(tmp_path):
     malicious_query = "'; DROP TABLE tracks; --"
 
     try:
-        results, count = manager.search_tracks(malicious_query)
+        results = manager.search_tracks(malicious_query)
         # Should not crash or execute malicious SQL
         # Should return empty results or sanitized search
     except Exception as e:
