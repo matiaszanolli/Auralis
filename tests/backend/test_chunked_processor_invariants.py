@@ -200,23 +200,36 @@ def test_chunks_cover_entire_duration_no_gaps(processor):
 @pytest.mark.integration
 def test_chunk_boundaries_are_continuous(processor):
     """
-    INVARIANT: Chunk N end time must equal chunk N+1 start time (accounting for overlap).
+    INVARIANT: Chunk N+1 should start before chunk N ends (accounting for overlap).
 
-    Validates that chunks form a continuous timeline without gaps.
+    Validates that chunks form a continuous timeline with overlap for crossfading.
+
+    Chunk layout:
+    - Chunk 0: [0.0, 10.0]
+    - Chunk 1: [9.9, 19.9] (starts 0.1s before chunk 0 ends for crossfade)
+    - Chunk 2: [19.8, 29.8]
     """
     for chunk_idx in range(processor.total_chunks - 1):
-        _, chunk_end, _ = processor.load_chunk(chunk_idx, with_context=False)
-        _, next_chunk_start, _ = processor.load_chunk(chunk_idx + 1, with_context=False)
+        _, chunk_start, chunk_end = processor.load_chunk(chunk_idx, with_context=False)
+        _, next_chunk_start, next_chunk_end = processor.load_chunk(chunk_idx + 1, with_context=False)
 
-        # The next chunk should start exactly where this chunk ends (minus overlap)
-        expected_next_start = chunk_end - OVERLAP_DURATION if chunk_idx > 0 else chunk_end
+        # For chunk 0, next chunk should start at CHUNK_DURATION - OVERLAP_DURATION
+        # For chunk N>0, next chunk should start at (N+1)*CHUNK_DURATION - OVERLAP_DURATION
+        expected_next_start = (chunk_idx + 1) * CHUNK_DURATION - OVERLAP_DURATION
 
         # Allow 0.01s tolerance for floating point rounding
         assert abs(next_chunk_start - expected_next_start) < 0.01, (
-            f"Discontinuity between chunk {chunk_idx} and {chunk_idx + 1}: "
-            f"chunk {chunk_idx} ends at {chunk_end:.3f}s, "
+            f"Chunk boundary mismatch at chunk {chunk_idx + 1}: "
+            f"chunk {chunk_idx} is [{chunk_start:.3f}, {chunk_end:.3f}]s, "
             f"chunk {chunk_idx + 1} starts at {next_chunk_start:.3f}s "
             f"(expected {expected_next_start:.3f}s)"
+        )
+
+        # Verify there's overlap between chunks (next starts before current ends)
+        assert next_chunk_start < chunk_end, (
+            f"No overlap between chunks {chunk_idx} and {chunk_idx + 1}: "
+            f"chunk {chunk_idx} ends at {chunk_end:.3f}s, "
+            f"chunk {chunk_idx + 1} starts at {next_chunk_start:.3f}s"
         )
 
 
