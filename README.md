@@ -7,9 +7,9 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
 [![Release](https://img.shields.io/badge/release-v1.0.0--beta.9.1-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.9.1)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-433%2B%20passing-brightgreen.svg)]()
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-234%20passing-brightgreen.svg)]()
-[![Test Coverage](https://img.shields.io/badge/coverage-90.3%25-brightgreen.svg)]()
+[![Phase 1](https://img.shields.io/badge/Phase%201%20Week%203-30%2F150%20boundary%20tests-blue.svg)]()
 
 ## 📥 Download Beta 9.1
 
@@ -21,7 +21,7 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 | 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.9.1.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.9.1/Auralis-1.0.0-beta.9.1.AppImage) | 274 MB |
 | 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.9.1_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.9.1/auralis-desktop_1.0.0-beta.9.1_amd64.deb) | 242 MB |
 
-📖 **[User Guide](BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA9.1.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
+📖 **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** | 📝 **[Release Notes](docs/archive/releases/RELEASE_NOTES_BETA9.1.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
 
 ### 📚 What's New in Beta 9.1
 
@@ -40,11 +40,11 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 **Note:** This is a **documentation-only release** with no changes to the application itself. Users on Beta 9.0 may skip this release.
 
-See [RELEASE_NOTES_BETA9.1.md](RELEASE_NOTES_BETA9.1.md) for complete details.
+See [RELEASE_NOTES_BETA9.1.md](docs/archive/releases/RELEASE_NOTES_BETA9.1.md) for complete details.
 
 ---
 
-📚 **[Complete Documentation](DOCS.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Beta.6 Release Notes](RELEASE_NOTES_BETA6.md)**
+📚 **[Master Roadmap](MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 📈 **[Phase 1 Week 3 Progress](docs/development/PHASE1_WEEK3_PROGRESS.md)**
 
 ---
 
@@ -63,7 +63,7 @@ Auralis is a **local music player** with professional audio enhancement built-in
 - 🖥️ **Desktop & Web** - Native Electron app or run in your browser
 - 🔒 **100% Private** - Your music, your computer, no cloud required
 - ⚡ **Blazing Fast** - 52.8x real-time audio processing, 740+ files/second scanning
-- ✅ **Well Tested** - 389 automated tests, 81% overall pass rate, production-ready quality
+- ✅ **Well Tested** - 850+ automated tests, production-ready quality, comprehensive test suite
 
 ---
 
@@ -253,12 +253,22 @@ desktop/                   # Electron wrapper
 
 ## 🧪 Testing & Quality
 
-### Test Coverage (81% overall)
+### Test Coverage (850+ Tests)
+
+**Current Status (Phase 1 Week 3):**
+- **850+ total tests** across comprehensive test suites
+- **30 boundary tests** for chunked processing (100% pass rate)
+- **Critical invariant tests** (305 tests) - Properties that must always hold
+- **Advanced integration tests** (85 tests) - Boundary & integration coverage
+- **API security tests** (67 tests) - SQL injection, XSS, authentication
+- **Production bug discovery** - Boundary tests caught P1 bug on Day 1
 
 **Backend (Python):**
-- **144 tests** across comprehensive test suites
-- **65.5% coverage** of core audio engine
-- **85% pass rate** for REST API endpoints
+- **850+ tests** across all test categories
+- Invariant testing (critical properties verification)
+- Boundary testing (edge cases and limits)
+- Integration testing (cross-component behavior)
+- Security testing (OWASP Top 10 coverage)
 - All critical audio processing paths tested
 
 **Frontend (React/TypeScript):**
@@ -267,14 +277,32 @@ desktop/                   # Electron wrapper
 - Component testing with full provider context
 - WebSocket integration tests
 
+**Testing Philosophy:**
+- **Coverage ≠ Quality** - 100% coverage doesn't mean tests catch bugs
+- **Test invariants, not implementation** - Focus on properties that must always hold
+- **Test behavior, not code** - What the system does, not how it does it
+- See [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) for complete philosophy
+
 ### Run Tests
 
 ```bash
-# Backend tests (144 tests, 65.5% coverage)
+# Phase 1 Week 1: Critical Invariant Tests (305 tests)
+python -m pytest tests/invariants/ -v                  # All critical invariants
+python -m pytest -m invariant -v                       # Run by marker
+
+# Phase 1 Week 2: Integration Tests (85 tests)
+python -m pytest tests/integration/ -v                 # All integration tests
+python -m pytest -m integration -v                     # Run by marker
+
+# Phase 1 Week 3: Boundary Tests (30/150 complete)
+python -m pytest tests/boundaries/ -v                  # All boundary tests
+python -m pytest tests/boundaries/test_chunked_processing_boundaries.py -v  # Chunked processing (30 tests)
+
+# Backend API tests
 python -m pytest tests/backend/ -v
 python -m pytest tests/backend/ --cov=auralis-web/backend --cov-report=html
 
-# Core audio processing tests (26 comprehensive tests)
+# Core audio processing tests
 python -m pytest tests/test_adaptive_processing.py -v
 
 # Frontend tests (245 tests, 95.5% pass rate)
@@ -283,11 +311,20 @@ npm test                    # Interactive watch mode
 npm run test:run           # Single run
 npm run test:coverage      # With coverage report
 
-# Full test suite
-python -m pytest --cov=auralis --cov-report=html tests/ -v
+# Full test suite (850+ tests)
+python -m pytest tests/ -v
+
+# Run tests by type
+python -m pytest -m unit          # Unit tests only
+python -m pytest -m integration   # Integration tests only
+python -m pytest -m boundary      # Boundary tests only
+python -m pytest -m "not slow"    # Skip slow tests
 ```
 
-**Test Plan:** See [docs/TESTING_PLAN.md](docs/TESTING_PLAN.md) for comprehensive testing roadmap
+**Test Roadmap:**
+- [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Path to 2,500+ tests
+- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** quality standards
+- [PHASE1_WEEK3_PROGRESS.md](docs/development/PHASE1_WEEK3_PROGRESS.md) - Current boundary test progress
 
 ### Build Desktop App
 
@@ -326,21 +363,37 @@ npm run build
 ## 📚 Documentation
 
 ### Essential Docs
-- **[NEXT_STEPS.md](NEXT_STEPS.md)** - Development roadmap and testing guide
-- **[UI_SIMPLIFICATION.md](UI_SIMPLIFICATION.md)** - UI design philosophy
-- **[LIBRARY_MANAGEMENT_ADDED.md](LIBRARY_MANAGEMENT_ADDED.md)** - Library features
-- **[NATIVE_FOLDER_PICKER.md](NATIVE_FOLDER_PICKER.md)** - Native OS integration
-- **[CRITICAL_FIXES_APPLIED.md](CRITICAL_FIXES_APPLIED.md)** - Recent bug fixes
-
-### Technical Docs
-- **[VERSION_MIGRATION_ROADMAP.md](VERSION_MIGRATION_ROADMAP.md)** - Version management plan
+- **[MASTER_ROADMAP.md](MASTER_ROADMAP.md)** - Complete project roadmap
 - **[CLAUDE.md](CLAUDE.md)** - Full technical reference (for developers)
+- **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** - Complete user guide
+
+### Testing Documentation
+- **[TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)** - **MANDATORY** - Test quality principles
+- **[TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md)** - Path to 2,500+ tests
+- **[PHASE1_WEEK3_PROGRESS.md](docs/development/PHASE1_WEEK3_PROGRESS.md)** - Current boundary test progress
+
+### Release Notes
+- **[Beta 9.1](docs/archive/releases/RELEASE_NOTES_BETA9.1.md)** - Latest release (Testing Infrastructure)
+- **[Beta 9.0](docs/archive/releases/RELEASE_NOTES_BETA9.0.md)** - Previous release
+- **[All Releases](docs/archive/releases/)** - Complete release history
 
 ---
 
 ## 🎯 Roadmap
 
-### ✅ Completed (v1.0.0-beta.6) - October 30, 2025
+### ✅ Completed
+
+**Beta.9.1 - Testing Infrastructure** (November 8, 2025):
+- [x] **Phase 1 Week 3** - 30/150 boundary tests complete (100% pass rate)
+- [x] **Production bug discovery** - P1 bug found by boundary tests on Day 1
+- [x] **Comprehensive testing guidelines** - 1,342 lines of mandatory standards
+- [x] **Test implementation roadmap** - Path from 445 to 2,500+ tests
+
+**Beta.9.0 - Test Quality Foundation** (November 2025):
+- [x] **Phase 1 Week 1** - 305 critical invariant tests
+- [x] **Phase 1 Week 2** - 85 advanced integration tests
+- [x] **Testing philosophy** - Coverage ≠ Quality
+- [x] **850+ total tests** - Comprehensive test suite
 
 **Beta.6 - Enhanced Interactions** (October 30, 2025):
 - [x] **Drag-and-drop system** - Playlist and queue management
@@ -369,14 +422,14 @@ npm run build
 - [x] Albums & Artists REST APIs with pagination
 - [x] Infinite scroll for large libraries (10k+ tracks)
 - [x] Query caching (136x speedup)
-- [x] Comprehensive test suite (430+ tests)
 - [x] Cross-platform builds (Windows + Linux)
 
-### 🔄 In Progress (Beta.7)
-- [ ] **Re-enable keyboard shortcuts** (P0 - refactored architecture)
-- [ ] **Smart Playlists** - Based on 25D fingerprint similarity
-- [ ] **Enhanced Queue** - Save queue, history, suggestions
-- [ ] **Playback Polish** - Configurable crossfade, improved gapless
+### 🔄 In Progress (Phase 1 Week 3)
+- [x] **Chunked Processing Boundaries** - 30/30 tests (100% passing)
+- [ ] **Pagination Boundaries** - 0/30 tests (next up)
+- [ ] **Audio Processing Boundaries** - 0/30 tests
+- [ ] **Library Operations Boundaries** - 0/30 tests
+- [ ] **String Input Boundaries** - 0/30 tests
 
 ### 📋 Planned (v1.0.0 Stable)
 - [ ] Enhancement presets UI (backend complete: Adaptive, Gentle, Warm, Bright, Punchy)
@@ -428,7 +481,7 @@ npm run build
 - **Issue:** Circular dependency in production build minification
 - **Status:** Feature complete, disabled for Beta.6 release
 - **Fix:** Re-enable in Beta.7 with refactored architecture
-- **Details:** See [BETA6_KEYBOARD_SHORTCUTS_DISABLED.md](BETA6_KEYBOARD_SHORTCUTS_DISABLED.md)
+- **Details:** See [BETA6_KEYBOARD_SHORTCUTS_DISABLED.md](docs/troubleshooting/BETA6_KEYBOARD_SHORTCUTS_DISABLED.md)
 
 **Playlist Track Order Persistence**
 - **Issue:** Drag-reordered tracks may not persist across restarts

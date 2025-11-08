@@ -19,7 +19,7 @@ from ...dsp.unified import (
 )
 from ...dsp.dynamics.soft_clipper import soft_clip
 from ...utils.logging import debug
-from .continuous_space import ProcessingSpaceMapper, PreferenceVector
+from .continuous_space import ProcessingSpaceMapper, PreferenceVector, ProcessingParameters
 from .parameter_generator import ContinuousParameterGenerator
 
 
@@ -54,6 +54,69 @@ class ContinuousMode:
         self.last_coordinates = None
         self.last_parameters = None
 
+    def _convert_targets_to_parameters(self, targets: Dict[str, Any]) -> ProcessingParameters:
+        """
+        Convert dict-based mastering targets to ProcessingParameters object.
+
+        This bridges the gap between chunked processor's dict format and
+        continuous mode's ProcessingParameters dataclass.
+
+        Args:
+            targets: Dict with keys: target_lufs, target_crest_db, eq_adjustments_db, compression
+
+        Returns:
+            ProcessingParameters object
+        """
+        # Build EQ curve from adjustments
+        eq_adjustments = targets.get('eq_adjustments_db', {})
+        eq_curve = {
+            'low_shelf_gain': eq_adjustments.get('sub_bass', 0.0) + eq_adjustments.get('bass', 0.0),
+            'low_mid_gain': eq_adjustments.get('low_mid', 0.0),
+            'mid_gain': eq_adjustments.get('mid', 0.0),
+            'high_mid_gain': eq_adjustments.get('upper_mid', 0.0),
+            'high_shelf_gain': eq_adjustments.get('presence', 0.0) + eq_adjustments.get('air', 0.0),
+        }
+
+        # Build compression parameters
+        compression = targets.get('compression', {})
+        compression_params = {
+            'threshold_db': -20.0,  # Default
+            'ratio': compression.get('ratio', 2.5),
+            'attack_ms': 10.0,
+            'release_ms': 100.0,
+            'knee_db': 6.0,
+            'makeup_db': 0.0,
+            'amount': compression.get('amount', 0.6)  # Compression amount/strength
+        }
+
+        # Build expansion parameters (de-mastering)
+        expansion_params = {
+            'threshold_db': -30.0,
+            'ratio': 1.5,
+            'attack_ms': 5.0,
+            'release_ms': 50.0,
+            'amount': 0.0  # Disabled by default
+        }
+
+        # Build limiter parameters
+        limiter_params = {
+            'threshold_db': -1.0,
+            'attack_ms': 1.0,
+            'release_ms': 100.0
+        }
+
+        return ProcessingParameters(
+            target_lufs=targets.get('target_lufs', -14.0),
+            peak_target_db=-1.0,  # Standard peak target
+            eq_curve=eq_curve,
+            eq_blend=0.7,  # Default blend
+            compression_params=compression_params,
+            expansion_params=expansion_params,
+            dynamics_blend=compression.get('amount', 0.6),
+            limiter_params=limiter_params,
+            stereo_width_target=1.0  # Default: preserve width
+        )
+
     def process(self, target_audio: np.ndarray, eq_processor,
                 fixed_params: Optional[Dict[str, Any]] = None) -> np.ndarray:
         """
@@ -75,7 +138,8 @@ class ContinuousMode:
         # NEW (Beta.9): Use fixed parameters if provided (from .25d file)
         if fixed_params is not None:
             debug("⚡ Using fixed parameters from .25d file (fast path)")
-            params = fixed_params
+            # Convert dict targets to ProcessingParameters object
+            params = self._convert_targets_to_parameters(fixed_params)
             self.last_parameters = params
             # Note: last_fingerprint and last_coordinates remain from first extraction
         else:
