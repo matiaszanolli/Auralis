@@ -623,6 +623,225 @@ def test_recent_tracks_pagination_completeness(populated_db):
 
 
 # ============================================================================
+# Limit Validation Invariants (P1 Priority)
+# ============================================================================
+
+@pytest.mark.integration
+def test_limit_parameter_is_respected(populated_db):
+    """
+    INVARIANT: Pagination must never return more items than the limit parameter.
+    """
+    track_repo = populated_db
+
+    # Test various limit values
+    for limit in [1, 5, 10, 25, 50]:
+        tracks, total = track_repo.get_all(limit=limit, offset=0)
+
+        assert len(tracks) <= limit, (
+            f"Returned {len(tracks)} tracks but limit was {limit}"
+        )
+
+        # If total < limit, should return exactly total items
+        if total < limit:
+            assert len(tracks) == total, (
+                f"Total is {total} but returned {len(tracks)} items (should match total)"
+            )
+
+
+@pytest.mark.integration
+def test_zero_limit_returns_empty_list(populated_db):
+    """
+    INVARIANT: Limit of 0 should return empty list but report correct total.
+
+    Useful for "count only" queries.
+    """
+    track_repo = populated_db
+
+    tracks, total = track_repo.get_all(limit=0, offset=0)
+
+    assert len(tracks) == 0, "Limit=0 should return empty list"
+    assert total > 0, "Total should still be reported correctly"
+
+
+# ============================================================================
+# Offset Validation Invariants (P1 Priority)
+# ============================================================================
+
+@pytest.mark.integration
+def test_offset_beyond_total_returns_empty(populated_db):
+    """
+    INVARIANT: Offset beyond total count should return empty list.
+    """
+    track_repo = populated_db
+
+    _, total = track_repo.get_all(limit=1, offset=0)
+
+    # Query with offset way beyond total
+    tracks, _ = track_repo.get_all(limit=10, offset=total + 100)
+
+    assert len(tracks) == 0, f"Offset beyond total should return empty, got {len(tracks)} tracks"
+
+
+@pytest.mark.integration
+def test_offset_at_last_item_returns_one_item(populated_db):
+    """
+    INVARIANT: Offset at last item (total-1) should return exactly one item.
+    """
+    track_repo = populated_db
+
+    _, total = track_repo.get_all(limit=1, offset=0)
+
+    if total == 0:
+        pytest.skip("No tracks in database")
+
+    # Query at exactly the last item
+    tracks, _ = track_repo.get_all(limit=10, offset=total - 1)
+
+    assert len(tracks) == 1, (
+        f"Offset at last item (total-1={total-1}) should return 1 track, got {len(tracks)}"
+    )
+
+
+# ============================================================================
+# Total Count Accuracy Invariants (P1 Priority)
+# ============================================================================
+
+@pytest.mark.integration
+def test_total_count_is_consistent_across_pages(populated_db):
+    """
+    INVARIANT: Total count must be the same on every page of results.
+
+    The total count should not change between pagination requests.
+    """
+    track_repo = populated_db
+
+    # Get first page
+    _, total_page1 = track_repo.get_all(limit=10, offset=0)
+
+    if total_page1 == 0:
+        pytest.skip("No tracks in database")
+
+    # Get subsequent pages and verify total is always the same
+    for offset in [10, 20, 30, 50, 100]:
+        if offset >= total_page1:
+            break
+
+        _, total_page_n = track_repo.get_all(limit=10, offset=offset)
+
+        assert total_page_n == total_page1, (
+            f"Total count changed: page 1 reported {total_page1}, "
+            f"page at offset {offset} reported {total_page_n}"
+        )
+
+
+@pytest.mark.integration
+def test_total_count_matches_actual_item_count(populated_db):
+    """
+    INVARIANT: Reported total count must match actual number of items retrieved.
+
+    If we paginate through all results, sum should equal total.
+    """
+    track_repo = populated_db
+
+    _, total = track_repo.get_all(limit=1, offset=0)
+
+    if total == 0:
+        pytest.skip("No tracks in database")
+
+    # Paginate through ALL items
+    all_ids = set()
+    page_size = 10
+    offset = 0
+
+    while offset < total:
+        tracks, _ = track_repo.get_all(limit=page_size, offset=offset)
+        all_ids.update(t.id for t in tracks)
+        offset += page_size
+
+    assert len(all_ids) == total, (
+        f"Total count reported {total}, but pagination returned {len(all_ids)} unique items"
+    )
+
+
+# ============================================================================
+# Popular Tracks Pagination Invariants (P1 Priority)
+# ============================================================================
+
+@pytest.mark.integration
+def test_popular_tracks_pagination_completeness(populated_db):
+    """
+    INVARIANT: Popular tracks pagination must return items exactly once.
+    """
+    track_repo = populated_db
+
+    # Record some plays to create popular tracks
+    for i in range(min(30, 100)):
+        tracks, _ = track_repo.get_all(limit=1, offset=i, order_by='id')
+        if tracks:
+            # Record multiple plays for some tracks
+            for _ in range(i % 5):
+                track_repo.record_play(tracks[0].id)
+
+    # Get total popular count
+    _, total = track_repo.get_popular(limit=1, offset=0)
+
+    if total == 0:
+        pytest.skip("No popular tracks to test")
+
+    # Paginate through popular tracks
+    all_popular_ids = set()
+    page_size = 5
+    offset = 0
+
+    while offset < total:
+        popular, _ = track_repo.get_popular(limit=page_size, offset=offset)
+
+        popular_ids_this_page = {t.id for t in popular}
+        duplicates = all_popular_ids & popular_ids_this_page
+
+        assert not duplicates, f"Duplicate popular tracks at offset {offset}"
+
+        all_popular_ids.update(popular_ids_this_page)
+        offset += page_size
+
+    assert len(all_popular_ids) == total, (
+        f"Popular tracks pagination returned {len(all_popular_ids)} unique items, expected {total}"
+    )
+
+
+@pytest.mark.integration
+def test_popular_tracks_ordering_by_play_count(populated_db):
+    """
+    INVARIANT: Popular tracks must be ordered by play count (descending).
+    """
+    track_repo = populated_db
+
+    # Record different play counts for tracks
+    for i in range(min(10, 100)):
+        tracks, _ = track_repo.get_all(limit=1, offset=i, order_by='id')
+        if tracks:
+            # Create ascending play counts
+            for _ in range(i):
+                track_repo.record_play(tracks[0].id)
+
+    # Get popular tracks
+    popular, total = track_repo.get_popular(limit=50, offset=0)
+
+    if len(popular) < 2:
+        pytest.skip("Need at least 2 popular tracks to test ordering")
+
+    # Verify play counts are in descending order
+    play_counts = [t.play_count for t in popular]
+
+    for i in range(len(play_counts) - 1):
+        assert play_counts[i] >= play_counts[i + 1], (
+            f"Popular tracks not ordered by play count: "
+            f"track {i} has {play_counts[i]} plays, "
+            f"track {i+1} has {play_counts[i+1]} plays"
+        )
+
+
+# ============================================================================
 # Edge Cases (P2 Priority)
 # ============================================================================
 
@@ -714,13 +933,19 @@ def test_summary_stats():
     print(f"Artist Pagination: 1 test")
     print(f"Search Pagination: 2 tests")
     print(f"Filtered List Pagination: 2 tests")
+    print(f"Limit Validation Invariants: 2 tests")
+    print(f"Offset Validation Invariants: 2 tests")
+    print(f"Total Count Accuracy Invariants: 2 tests")
+    print(f"Popular Tracks Pagination: 2 tests")
     print(f"Edge Cases: 3 tests")
     print("=" * 80)
-    print(f"TOTAL: 20 pagination invariant tests")
+    print(f"TOTAL: 30 pagination invariant tests")
     print("=" * 80)
     print("\nThese tests validate the fundamental pagination invariants:")
     print("1. Completeness: All items returned exactly once")
     print("2. Consistency: Same items regardless of page size")
     print("3. Ordering: Items maintain sort order across pages")
     print("4. Boundary handling: Edge cases handled correctly")
+    print("5. Limit/offset validation: Parameters respected correctly")
+    print("6. Total count accuracy: Reported totals match actual counts")
     print("=" * 80 + "\n")
