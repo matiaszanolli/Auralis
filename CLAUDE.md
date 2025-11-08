@@ -26,15 +26,35 @@ python launch-auralis-web.py --dev   # http://localhost:8765
 
 **Running tests:**
 ```bash
-# Backend Python tests (241+ tests, all passing ✅)
+# Backend Python tests (850+ tests across all categories)
 python -m pytest tests/backend/ -v                    # API tests (96 tests, 74% coverage)
 python -m pytest tests/auralis/ -v                    # Real-time processing tests (24 tests, all passing ✅)
 python -m pytest tests/test_adaptive_processing.py -v  # Core processing (26 tests)
+
+# Phase 1 Week 1: Critical Invariant Tests (305 tests)
+python -m pytest tests/invariants/ -v                 # All critical invariants
+python -m pytest -m invariant -v                      # Run by marker
+
+# Phase 1 Week 2: Advanced Integration Tests (85 tests)
+python -m pytest tests/integration/ -v                # All integration tests
+python -m pytest -m integration -v                    # Run by marker
+
+# Phase 1 Week 3: Boundary Tests (151/150 complete - 101%)
+python -m pytest tests/boundaries/ -v                 # All boundary tests (151 tests)
+python -m pytest tests/boundaries/test_chunked_processing_boundaries.py -v  # Chunked processing (31 tests)
+python -m pytest tests/boundaries/test_pagination_boundaries.py -v          # Pagination (30 tests)
+python -m pytest tests/boundaries/test_audio_processing_boundaries.py -v    # Audio processing (30 tests)
+python -m pytest tests/boundaries/test_library_operations_boundaries.py -v  # Library operations (30 tests)
+python -m pytest tests/boundaries/test_string_input_boundaries.py -v        # String inputs (30 tests)
 
 # Validation tests (preset validation, E2E testing)
 python -m pytest tests/validation/ -v                 # All validation tests
 python -m pytest tests/validation/test_preset_integration.py -v  # Preset integration
 python -m pytest tests/auralis/analysis/test_fingerprint_integration.py -v  # 25D fingerprint (4 tests)
+
+# Mutation Testing (Beta 9+)
+python -m pytest tests/mutation/ -v                   # Mutation test suite
+mutmut run --paths-to-mutate=auralis/library/cache.py  # Run mutation testing
 
 # Run all tests (from root directory)
 npm test                                 # Runs Python pytest suite
@@ -92,10 +112,26 @@ npm run package:mac                    # Package for macOS
 
 ### Testing
 ```bash
-# Backend tests (241+ tests, all passing ✅)
+# Backend tests (850+ tests across all categories)
 python -m pytest tests/backend/ -v                     # API endpoint tests (96 tests)
 python -m pytest tests/auralis/ -v                     # Real-time processing (24 tests, all passing ✅)
 python -m pytest tests/test_adaptive_processing.py -v  # Core processing tests (26 tests)
+
+# Phase 1 Week 1: Critical Invariant Tests (305 tests)
+python -m pytest tests/invariants/ -v                  # All critical invariants
+python -m pytest -m invariant -v                       # Run by marker
+
+# Phase 1 Week 2: Advanced Integration Tests (85 tests)
+python -m pytest tests/integration/ -v                 # All integration tests
+python -m pytest -m integration -v                     # Run by marker
+
+# Phase 1 Week 3: Boundary Tests (151/150 complete - 101%)
+python -m pytest tests/boundaries/ -v                  # All boundary tests (151 tests)
+python -m pytest tests/boundaries/test_chunked_processing_boundaries.py -v  # Chunked processing (31 tests)
+python -m pytest tests/boundaries/test_pagination_boundaries.py -v          # Pagination (30 tests)
+python -m pytest tests/boundaries/test_audio_processing_boundaries.py -v    # Audio processing (30 tests)
+python -m pytest tests/boundaries/test_library_operations_boundaries.py -v  # Library operations (30 tests)
+python -m pytest tests/boundaries/test_string_input_boundaries.py -v        # String inputs (30 tests)
 
 # Validation tests (organized Oct 27, 2025)
 python -m pytest tests/validation/ -v                  # All validation tests
@@ -104,9 +140,16 @@ python -m pytest tests/validation/test_comprehensive_presets.py  # Comprehensive
 python -m pytest tests/validation/test_e2e_processing.py         # End-to-end processing
 python -m pytest tests/auralis/analysis/test_fingerprint_integration.py -v  # 25D fingerprint (4 tests)
 
+# Mutation Testing (Beta 9+)
+python -m pytest tests/mutation/ -v                    # Mutation test suite
+mutmut run --paths-to-mutate=auralis/library/cache.py  # Run mutation testing
+
 # Run tests by marker (see pytest.ini for all markers)
 python -m pytest -m unit          # Unit tests only
 python -m pytest -m integration   # Integration tests only
+python -m pytest -m invariant     # Critical invariant tests
+python -m pytest -m boundary      # Boundary tests
+python -m pytest -m mutation      # Mutation tests
 python -m pytest -m "not slow"    # Skip slow tests
 python -m pytest -m audio         # Audio processing tests only
 
@@ -135,9 +178,18 @@ python benchmark_eq_parallel.py                      # EQ optimization benchmark
 **Test Markers** (defined in [pytest.ini](pytest.ini)):
 - `@pytest.mark.unit` - Unit tests for individual components
 - `@pytest.mark.integration` - Integration tests across components
+- `@pytest.mark.invariant` - Critical invariant tests (properties that must always hold)
+- `@pytest.mark.boundary` - Boundary tests (edge cases at input domain limits)
+- `@pytest.mark.exact` - Exact boundary tests (at precise limits)
+- `@pytest.mark.empty` - Empty input tests
+- `@pytest.mark.single` - Single item tests
+- `@pytest.mark.mutation` - Mutation tests (validate test effectiveness)
 - `@pytest.mark.slow` - Long-running tests (skip with `-m "not slow"`)
 - `@pytest.mark.audio` - Tests requiring audio processing
 - `@pytest.mark.performance` - Performance benchmarks
+- `@pytest.mark.security` - Security tests (SQL injection, XSS, etc.)
+- `@pytest.mark.load` - Load and stress tests
+- `@pytest.mark.edge_case` - Edge case tests
 - See [pytest.ini](pytest.ini) for complete list
 
 **Critical Invariants to Test** (Examples):
@@ -178,6 +230,58 @@ def test_processing_preserves_sample_count():
 ```
 
 See [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) for complete testing philosophy and case studies.
+
+### Testing Roadmap & Progress
+
+**Current Focus (Phase 1)**: ✅ **COMPLETE** - All 3 weeks finished
+- **Week 1**: ✅ 305 invariant tests (100% passing)
+- **Week 2**: ✅ 85 integration tests (100% passing)
+- **Week 3**: ✅ 151 boundary tests (100% passing)
+- **Total Phase 1**: 541 tests complete
+- **Next**: Phase 2 Week 4 - Performance Tests (100 tests planned)
+
+**Phase 1 Completed**:
+- ✅ Week 1 (305 invariant tests) - Properties that must always hold
+- ✅ Week 2 (85 integration tests) - Cross-component behavior
+- ✅ Week 3 (151 boundary tests) - Edge cases and limits (COMPLETE - 101% of target)
+
+**Testing Documentation**:
+- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** - Test quality principles
+- [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Path to 2,500+ tests
+- [PHASE1_WEEK3_PLAN.md](docs/testing/PHASE1_WEEK3_PLAN.md) - Boundary testing plan (150 tests)
+- [PHASE1_WEEK3_COMPLETE.md](docs/testing/PHASE1_WEEK3_COMPLETE.md) - Boundary testing completion (151 tests, 100% passing)
+- [MUTATION_TESTING_GUIDE.md](docs/testing/MUTATION_TESTING_GUIDE.md) - Mutation testing framework
+- [PHASE3_WEEK9_COMPLETE.md](docs/testing/PHASE3_WEEK9_COMPLETE.md) - Mutation testing results
+
+**Key Learnings**:
+- ✅ **Production bug found**: Boundary tests caught P1 chunked processing bug on Day 1
+- ✅ **Coverage ≠ Quality**: Overlap bug had 100% coverage but zero detection
+- ✅ **Invariants work**: Testing "overlap < chunk_duration/2" would have caught the bug
+
+### Mutation Testing (Beta 9+)
+
+**Purpose**: Validate that tests actually catch bugs by intentionally introducing code mutations.
+
+**Framework**: mutmut + pytest
+
+**Quick Start**:
+```bash
+# Run mutation testing on cache module
+mutmut run --paths-to-mutate=auralis/library/cache.py
+
+# View results
+mutmut results
+
+# Show specific mutant
+mutmut show 1
+```
+
+**Current Results**:
+- **Cache module**: 13/13 mutants killed (100% mutation score)
+- **Iteration 3**: All critical paths validated
+- **Test effectiveness**: ✅ Confirmed (tests catch real bugs)
+
+**Documentation**: See [MUTATION_TESTING_GUIDE.md](docs/testing/MUTATION_TESTING_GUIDE.md)
 
 ### Supported Audio Formats
 - **Input**: WAV, FLAC, MP3, OGG, M4A, AAC, WMA
@@ -933,10 +1037,28 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
 - **License**: GPL-3.0
 
 ### Project Status
-- **Version**: 1.0.0-beta.7 (Beta stage - Testing infrastructure improvements)
+- **Version**: 1.0.0-beta.10 (Beta stage - Mutation testing and quality improvements)
 - **Roadmap**: See [docs/roadmaps/MASTER_ROADMAP.md](docs/roadmaps/MASTER_ROADMAP.md) for complete roadmap
-- **Current Focus**: Test quality improvements, invariant testing implementation
-- **Next Major**: Beta 10.0 (UI Overhaul + 85% test coverage) - Q1 2025
+- **Current Focus**: Boundary testing (30/150 tests), mutation testing framework
+- **Next Major**: Beta 11.0 (Complete Phase 1 testing) - December 2025
+
+**Beta.10 - Mutation Testing** (November 2025):
+- [x] **Mutation testing framework** - mutmut integration for test quality validation
+- [x] **Cache module validation** - 8 cache tests passing mutation testing
+- [x] **Iteration 3 complete** - 13/13 mutants killed (100% mutation score)
+- [x] **Documentation** - Complete mutation testing guide
+
+**Beta.9.1 - Testing Infrastructure** (November 8, 2025):
+- [x] **Comprehensive testing guidelines** - 1,342 lines of mandatory standards
+- [x] **Test implementation roadmap** - Path from 445 to 2,500+ tests (868 lines)
+- [x] **Enhanced CLAUDE.md** - Improved developer documentation
+- [x] **Phase 1 Week 3 plan** - 150 boundary tests specification
+
+**Beta.9.0 - Test Quality Foundation** (November 2025):
+- [x] **Phase 1 Week 1** - 305 critical invariant tests
+- [x] **Phase 1 Week 2** - 85 advanced integration tests
+- [x] **Testing philosophy** - Coverage ≠ Quality
+- [x] **850+ total tests** - Comprehensive test suite
 - **Beta.6 Enhanced Interactions**: ✅ **COMPLETE PHASE 2** (Oct 30, 2025)
   - Drag-and-drop system for playlist and queue management (724 lines)
   - Keyboard shortcuts (15+ shortcuts, ⚠️ temporarily disabled due to minification issue)
@@ -975,16 +1097,25 @@ See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
   - **Gain pumping bug** - Fixed stateless compression causing audio degradation after 30s
   - **Soft limiter** - Replaced harsh brick-wall with tanh() saturation
   - **Electron window** - Fixed window not showing on Linux/Wayland
-- **Testing**: ✅ **Backend tests all passing** - See [TEST_FIX_COMPLETE.md](TEST_FIX_COMPLETE.md)
-  - Backend: 241+ tests, all passing ✅
+- **Testing**: ✅ **850+ comprehensive tests** - See [TEST_FIX_COMPLETE.md](TEST_FIX_COMPLETE.md)
+  - Backend: 850+ tests across all categories
     - API tests: 96 tests, 74% coverage
     - Real-time processing: 24 tests, all passing ✅ (fixed Oct 25)
     - Core processing: 26 tests
+    - Invariant tests: 305 tests (Phase 1 Week 1) ✅
+    - Integration tests: 85 tests (Phase 1 Week 2) ✅
+    - Boundary tests: 151 tests (Phase 1 Week 3 - COMPLETE - 101% of target) ✅
+    - Mutation tests: 13/13 mutants killed (100% score) ✅
+    - **Total Phase 1**: 541 tests complete
   - Frontend: 245 tests (234 passing, 11 failing - 95.5% pass rate)
     - ⚠️ Known issue: 11 gapless playback tests failing
-  - **Test Quality Initiative** (Beta 7 → Beta 10.0):
-    - Phase 1 (Beta 9.1): Add 300 critical invariant tests (target: 745 total)
-    - Phase 2 (Beta 10.0): Reach 1,345 tests with >80% mutation score
+  - **Test Quality Initiative** (Beta 9.0 → Beta 11.0):
+    - Phase 1 Week 1: ✅ 305 critical invariant tests (COMPLETE)
+    - Phase 1 Week 2: ✅ 85 advanced integration tests (COMPLETE)
+    - Phase 1 Week 3: ✅ 151 boundary tests (COMPLETE - 101% of target)
+    - **Phase 1 Total**: ✅ 541 tests complete (100% pass rate)
+    - Mutation testing: ✅ Framework complete, 100% cache module score
+    - **Next**: Phase 2 Week 4 - Performance Tests (100 tests planned)
     - See [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md)
   - **Critical Learning**: Overlap bug had 100% coverage but zero detection - coverage ≠ quality
 - **Library Management Quality Improvements**: ✅ **PHASE 2 COMPLETE** (Nov 7, 2025)
