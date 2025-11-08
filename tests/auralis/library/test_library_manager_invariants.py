@@ -185,7 +185,7 @@ def test_cache_invalidation_after_update_metadata(populated_manager):
 
     # Update metadata
     new_title = "Updated Title"
-    manager.update_track_metadata(first_track.id, {'title': new_title})
+    manager.update_track(first_track.id, {'title': new_title})
 
     # Get track again (should have new title)
     updated_tracks, _ = manager.get_all_tracks(limit=100)
@@ -208,16 +208,16 @@ def test_cache_invalidation_after_toggle_favorite(populated_manager):
     manager, _ = populated_manager
 
     # Get initial favorites count
-    initial_favorites, initial_fav_count = manager.get_favorites(limit=100)
+    initial_favorites, initial_fav_count = manager.get_favorite_tracks(limit=100)
 
     # Get first track and toggle favorite
     tracks, _ = manager.get_all_tracks(limit=1)
     track_id = tracks[0].id
 
-    manager.set_favorite(track_id, True)
+    manager.set_track_favorite(track_id, True)
 
     # Get favorites again
-    new_favorites, new_fav_count = manager.get_favorites(limit=100)
+    new_favorites, new_fav_count = manager.get_favorite_tracks(limit=100)
 
     assert new_fav_count == initial_fav_count + 1, (
         f"Favorites cache not invalidated: "
@@ -267,7 +267,7 @@ def test_album_count_matches_actual_albums(populated_manager):
     reported_count = stats['total_albums']
 
     # Get all albums
-    all_albums, actual_count = manager.get_all_albums(limit=1000)
+    all_albums, actual_count = manager.albums.get_all(limit=1000)
 
     assert reported_count == actual_count, (
         f"Album count mismatch: stats={reported_count}, actual={actual_count}"
@@ -289,7 +289,7 @@ def test_artist_count_matches_actual_artists(populated_manager):
     reported_count = stats['total_artists']
 
     # Get all artists
-    all_artists, actual_count = manager.get_all_artists(limit=1000)
+    all_artists, actual_count = manager.artists.get_all(limit=1000)
 
     assert reported_count == actual_count, (
         f"Artist count mismatch: stats={reported_count}, actual={actual_count}"
@@ -360,11 +360,11 @@ def test_favorites_are_subset_of_all_tracks(populated_manager):
     # Mark some tracks as favorites
     tracks, _ = manager.get_all_tracks(limit=5)
     for track in tracks:
-        manager.set_favorite(track.id, True)
+        manager.set_track_favorite(track.id, True)
 
     # Get all tracks and favorites
     all_tracks, _ = manager.get_all_tracks(limit=1000)
-    favorites, _ = manager.get_favorites(limit=1000)
+    favorites, _ = manager.get_favorite_tracks(limit=1000)
 
     all_track_ids = {t.id for t in all_tracks}
     favorite_ids = {t.id for t in favorites}
@@ -388,11 +388,11 @@ def test_favorite_toggle_is_idempotent(populated_manager):
     track_id = tracks[0].id
 
     # Set favorite twice
-    manager.set_favorite(track_id, True)
-    favorites_after_first, count1 = manager.get_favorites(limit=1000)
+    manager.set_track_favorite(track_id, True)
+    favorites_after_first, count1 = manager.get_favorite_tracks(limit=1000)
 
-    manager.set_favorite(track_id, True)
-    favorites_after_second, count2 = manager.get_favorites(limit=1000)
+    manager.set_track_favorite(track_id, True)
+    favorites_after_second, count2 = manager.get_favorite_tracks(limit=1000)
 
     assert count1 == count2, (
         f"Favorite count changed after second set_favorite(True): "
@@ -411,12 +411,12 @@ def test_unfavorite_removes_from_favorites_list(populated_manager):
     tracks, _ = manager.get_all_tracks(limit=1)
     track_id = tracks[0].id
 
-    manager.set_favorite(track_id, True)
-    favorites_after_add, count_after_add = manager.get_favorites(limit=1000)
+    manager.set_track_favorite(track_id, True)
+    favorites_after_add, count_after_add = manager.get_favorite_tracks(limit=1000)
 
     # Unfavorite it
-    manager.set_favorite(track_id, False)
-    favorites_after_remove, count_after_remove = manager.get_favorites(limit=1000)
+    manager.set_track_favorite(track_id, False)
+    favorites_after_remove, count_after_remove = manager.get_favorite_tracks(limit=1000)
 
     assert count_after_remove == count_after_add - 1, (
         f"Unfavorite didn't reduce count: {count_after_add} → {count_after_remove}"
@@ -445,7 +445,7 @@ def test_play_count_increments_correctly(populated_manager):
     initial_play_count = track.play_count or 0
 
     # Record a play
-    manager.record_play(track.id)
+    manager.record_track_play(track.id)
 
     # Get track again
     updated_tracks, _ = manager.get_all_tracks(limit=1000)
@@ -483,12 +483,12 @@ def test_recent_tracks_ordered_by_last_played(populated_manager):
     # Play some tracks in order
     tracks, _ = manager.get_all_tracks(limit=5)
     for track in tracks:
-        manager.record_play(track.id)
+        manager.record_track_play(track.id)
         import time
         time.sleep(0.01)  # Ensure different timestamps
 
     # Get recent tracks
-    recent, _ = manager.get_recent(limit=100)
+    recent, _ = manager.get_recent_tracks(limit=100)
 
     if len(recent) < 2:
         pytest.skip("Need at least 2 recent tracks to test ordering")
@@ -564,17 +564,17 @@ def test_deleting_track_removes_from_favorites(populated_manager):
     # Favorite a track
     tracks, _ = manager.get_all_tracks(limit=1)
     track_id = tracks[0].id
-    manager.set_favorite(track_id, True)
+    manager.set_track_favorite(track_id, True)
 
     # Verify it's in favorites
-    favorites, fav_count_before = manager.get_favorites(limit=1000)
+    favorites, fav_count_before = manager.get_favorite_tracks(limit=1000)
     assert any(t.id == track_id for t in favorites), "Track not in favorites after set_favorite"
 
     # Delete the track
     manager.delete_track(track_id)
 
     # Verify it's removed from favorites
-    favorites_after, fav_count_after = manager.get_favorites(limit=1000)
+    favorites_after, fav_count_after = manager.get_favorite_tracks(limit=1000)
     assert not any(t.id == track_id for t in favorites_after), (
         "Deleted track still appears in favorites"
     )
@@ -593,17 +593,17 @@ def test_deleting_track_removes_from_recent(populated_manager):
     # Play a track
     tracks, _ = manager.get_all_tracks(limit=1)
     track_id = tracks[0].id
-    manager.record_play(track_id)
+    manager.record_track_play(track_id)
 
     # Verify it's in recent
-    recent, _ = manager.get_recent(limit=1000)
+    recent, _ = manager.get_recent_tracks(limit=1000)
     assert any(t.id == track_id for t in recent), "Track not in recent after play"
 
     # Delete the track
     manager.delete_track(track_id)
 
     # Verify it's removed from recent
-    recent_after, _ = manager.get_recent(limit=1000)
+    recent_after, _ = manager.get_recent_tracks(limit=1000)
     assert not any(t.id == track_id for t in recent_after), (
         "Deleted track still appears in recent tracks"
     )
@@ -625,11 +625,11 @@ def test_operations_on_empty_library(test_db):
     assert len(tracks) == 0
     assert count == 0
 
-    favorites, fav_count = manager.get_favorites(limit=10)
+    favorites, fav_count = manager.get_favorite_tracks(limit=10)
     assert len(favorites) == 0
     assert fav_count == 0
 
-    recent, recent_count = manager.get_recent(limit=10)
+    recent, recent_count = manager.get_recent_tracks(limit=10)
     assert len(recent) == 0
     assert recent_count == 0
 
@@ -655,8 +655,8 @@ def test_operations_on_nonexistent_track_id(populated_manager):
 
     # Should not crash, should return None or False
     try:
-        manager.set_favorite(nonexistent_id, True)
-        manager.record_play(nonexistent_id)
+        manager.set_track_favorite(nonexistent_id, True)
+        manager.record_track_play(nonexistent_id)
         manager.delete_track(nonexistent_id)
         # If we get here, operations handled gracefully
     except Exception as e:

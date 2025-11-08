@@ -568,6 +568,160 @@ def test_file_signature_changes_when_file_modified(test_audio_file, tmp_path):
 
 
 # ============================================================================
+# Sample Alignment Invariant Tests (P1 Priority)
+# ============================================================================
+
+@pytest.mark.integration
+def test_chunk_samples_are_frame_aligned(processor):
+    """
+    INVARIANT: All chunks must be frame-aligned (sample count is multiple of channel count).
+
+    Misaligned chunks cause audio corruption and channel swap.
+    """
+    for chunk_idx in range(processor.total_chunks):
+        audio_chunk, _, _ = processor.load_chunk(chunk_idx, with_context=False)
+
+        # For stereo audio, sample count must be even
+        assert len(audio_chunk) % 2 == 0, (
+            f"Chunk {chunk_idx} has {len(audio_chunk)} samples, "
+            f"not frame-aligned for stereo (should be multiple of 2)"
+        )
+
+
+@pytest.mark.integration
+def test_overlap_samples_are_frame_aligned(processor):
+    """
+    INVARIANT: Overlap region must be frame-aligned.
+
+    Misaligned overlaps cause channel issues during crossfading.
+    """
+    overlap_samples = int(OVERLAP_DURATION * processor.sample_rate)
+
+    # For stereo, overlap samples must be even
+    assert overlap_samples % 2 == 0, (
+        f"Overlap samples {overlap_samples} not frame-aligned for stereo "
+        f"(should be multiple of 2)"
+    )
+
+
+# ============================================================================
+# Chunk Overlap Edge Cases (P1 Priority)
+# ============================================================================
+
+@pytest.mark.integration
+def test_overlap_never_exceeds_chunk_duration(processor):
+    """
+    INVARIANT: Overlap must never equal or exceed chunk duration.
+
+    Overlap >= chunk duration causes chunks to become negative length.
+    """
+    for chunk_idx in range(processor.total_chunks):
+        _, chunk_start, chunk_end = processor.load_chunk(chunk_idx, with_context=False)
+        chunk_duration = chunk_end - chunk_start
+
+        assert OVERLAP_DURATION < chunk_duration, (
+            f"Chunk {chunk_idx} duration {chunk_duration:.2f}s is less than "
+            f"overlap {OVERLAP_DURATION}s - would cause negative chunk length!"
+        )
+
+
+@pytest.mark.integration
+def test_all_chunks_have_consistent_overlap(processor):
+    """
+    INVARIANT: All chunk overlaps should be consistent (except last chunk).
+
+    Inconsistent overlaps cause audible transitions and timing issues.
+    """
+    overlaps = []
+
+    for chunk_idx in range(processor.total_chunks - 1):
+        _, chunk_start, chunk_end = processor.load_chunk(chunk_idx, with_context=False)
+        _, next_chunk_start, _ = processor.load_chunk(chunk_idx + 1, with_context=False)
+
+        # Calculate actual overlap
+        overlap = chunk_end - next_chunk_start
+        overlaps.append(overlap)
+
+    if overlaps:
+        # All overlaps should be within 0.01s of each other
+        min_overlap = min(overlaps)
+        max_overlap = max(overlaps)
+
+        assert abs(max_overlap - min_overlap) < 0.01, (
+            f"Inconsistent overlaps detected: min={min_overlap:.3f}s, "
+            f"max={max_overlap:.3f}s (difference: {abs(max_overlap - min_overlap):.3f}s)"
+        )
+
+
+# ============================================================================
+# Duration Preservation Edge Cases (P1 Priority)
+# ============================================================================
+
+@pytest.mark.integration
+def test_single_chunk_preserves_exact_duration(processor):
+    """
+    INVARIANT: For single-chunk audio, output duration must exactly match input.
+
+    No crossfading occurs with single chunk, so duration must be perfect.
+    """
+    if processor.total_chunks == 1:
+        processor.process_chunk(0)
+
+        from auralis.io.unified_loader import load_audio
+        chunk_path = processor._get_chunk_path(0)
+        processed_chunk, _ = load_audio(str(chunk_path))
+
+        processed_duration = len(processed_chunk) / processor.sample_rate
+
+        # Single chunk should match original duration exactly (within 0.01s)
+        assert abs(processed_duration - processor.total_duration) < 0.01, (
+            f"Single chunk duration mismatch: "
+            f"expected {processor.total_duration:.3f}s, "
+            f"got {processed_duration:.3f}s"
+        )
+    else:
+        pytest.skip("Test only applies to single-chunk audio")
+
+
+@pytest.mark.integration
+def test_multi_chunk_preserves_total_duration_within_tolerance(processor):
+    """
+    INVARIANT: Multi-chunk audio total duration must be within 1% of original.
+
+    Crossfading may introduce minor variations, but should be minimal.
+    """
+    if processor.total_chunks > 1:
+        # Process all chunks
+        for chunk_idx in range(processor.total_chunks):
+            processor.process_chunk(chunk_idx)
+
+        # Load all processed chunks
+        from auralis.io.unified_loader import load_audio
+
+        # Concatenate chunks (simulating playback)
+        all_chunks = []
+        for chunk_idx in range(processor.total_chunks):
+            chunk_path = processor._get_chunk_path(chunk_idx)
+            chunk_audio, _ = load_audio(str(chunk_path))
+            all_chunks.append(chunk_audio)
+
+        # Calculate total duration (accounting for overlaps during streaming)
+        total_duration = sum(len(chunk) for chunk in all_chunks) / processor.sample_rate
+
+        # Allow 1% tolerance for crossfading effects
+        tolerance = processor.total_duration * 0.01
+
+        assert abs(total_duration - processor.total_duration) <= tolerance, (
+            f"Multi-chunk total duration outside 1% tolerance: "
+            f"expected {processor.total_duration:.2f}s, "
+            f"got {total_duration:.2f}s, "
+            f"difference: {abs(total_duration - processor.total_duration):.2f}s"
+        )
+    else:
+        pytest.skip("Test only applies to multi-chunk audio")
+
+
+# ============================================================================
 # Edge Case Tests (P2 Priority)
 # ============================================================================
 
@@ -659,9 +813,12 @@ def test_summary_stats():
     print(f"Cache Invariants: 3 tests")
     print(f"Level Smoothing Invariants: 2 tests")
     print(f"File Signature Invariants: 1 test")
-    print(f"Edge Case Tests: 2 tests")
+    print(f"Sample Alignment Invariants: 2 tests")
+    print(f"Chunk Overlap Edge Cases: 2 tests")
+    print(f"Duration Preservation Edge Cases: 2 tests")
+    print(f"General Edge Case Tests: 2 tests")
     print("=" * 80)
-    print(f"TOTAL: 24 critical invariant tests")
+    print(f"TOTAL: 30 critical invariant tests")
     print("=" * 80)
     print("\nThese tests validate properties that MUST always hold,")
     print("regardless of implementation details.")
