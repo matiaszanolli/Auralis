@@ -77,6 +77,11 @@ auralis-web/backend/dist/
 htmlcov/
 /tmp/
 
+# Mutation testing artifacts
+.mutmut-cache/
+mutants/
+mutation_*.txt
+
 # Session documentation and temporary files (kept in git history but ignored for new ones)
 *_SUMMARY.md
 *_ACHIEVEMENT*.md

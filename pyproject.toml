@@ -77,3 +77,9 @@ addopts = "-ra -q --cov=matchering_player"
 testpaths = [
     "tests",
 ]
+markers = [
+    "mutation: Mutation testing (tests designed to kill specific mutations)",
+    "boundary: Boundary condition and edge case tests",
+    "load: Load testing (large datasets, high volume operations)",
+    "stress: Stress testing (resource limits, extreme conditions)",
+]
