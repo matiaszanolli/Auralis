@@ -54,6 +54,22 @@ class TrackRepository:
                 warning(f"Track already exists: {track_info['filepath']}")
                 return existing
 
+            # Auto-extract basic audio info if not provided
+            if 'format' not in track_info or 'sample_rate' not in track_info or 'channels' not in track_info:
+                try:
+                    import soundfile as sf
+                    sf_info = sf.info(track_info['filepath'])
+                    if 'format' not in track_info:
+                        track_info['format'] = sf_info.format
+                    if 'sample_rate' not in track_info:
+                        track_info['sample_rate'] = sf_info.samplerate
+                    if 'channels' not in track_info:
+                        track_info['channels'] = sf_info.channels
+                    if 'duration' not in track_info:
+                        track_info['duration'] = sf_info.duration
+                except Exception as e:
+                    debug(f"Failed to auto-extract audio info: {e}")
+
             # Get or create artist(s)
             artists = []
             for artist_name in track_info.get('artists', []):
@@ -244,14 +260,14 @@ class TrackRepository:
         try:
             search_term = f"%{query}%"
 
-            # Build query
-            query_obj = session.query(Track).join(Track.artists).join(Track.album, isouter=True).filter(
+            # Build query with outer joins to include tracks without artists/albums
+            query_obj = session.query(Track).join(Track.artists, isouter=True).join(Track.album, isouter=True).filter(
                 or_(
                     Track.title.ilike(search_term),
                     Artist.name.ilike(search_term),
                     Album.title.ilike(search_term)
                 )
-            )
+            ).distinct()  # Use distinct to avoid duplicate results from joins
 
             # Get total count
             total = query_obj.count()
@@ -276,12 +292,23 @@ class TrackRepository:
 
     def get_by_artist(self, artist_name: str, limit: int = 100) -> List[Track]:
         """Get tracks by artist"""
+        from sqlalchemy.orm import joinedload
         session = self.get_session()
         try:
-            artist = session.query(Artist).filter(Artist.name == artist_name).first()
-            if not artist:
-                return []
-            return artist.tracks[:limit]
+            # Use eager loading to load relationships before session closes
+            tracks = session.query(Track).join(Track.artists).filter(
+                Artist.name == artist_name
+            ).options(
+                joinedload(Track.artists),
+                joinedload(Track.album),
+                joinedload(Track.genres)
+            ).limit(limit).all()
+
+            # Expunge from session to make objects persistent across session close
+            for track in tracks:
+                session.expunge(track)
+
+            return tracks
         finally:
             session.close()
 
