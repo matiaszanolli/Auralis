@@ -471,8 +471,13 @@ export class UnifiedWebMAudioPlayer {
 
       // Reload from current position
       if (this.trackId && this.currentChunkIndex < this.chunks.length) {
-        // Preload current chunk with new settings
+        // Preload current chunk AND next chunk with new settings for smooth playback
         await this.preloadChunk(this.currentChunkIndex);
+
+        // Preload next chunk if available (prevents stuttering on resume)
+        if (this.currentChunkIndex + 1 < this.chunks.length) {
+          await this.preloadChunk(this.currentChunkIndex + 1);
+        }
 
         // Resume playback if was playing
         if (wasPlaying) {
