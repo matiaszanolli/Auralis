@@ -27,12 +27,13 @@ import {
   styled
 } from '@mui/material';
 import { Close, Keyboard } from '@mui/icons-material';
-import { KeyboardShortcut, formatShortcut } from '../../hooks/useKeyboardShortcuts';
+import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;
-  shortcuts: KeyboardShortcut[];
+  shortcuts: ShortcutDefinition[];
   onClose: () => void;
+  formatShortcut?: (shortcut: ShortcutDefinition) => string;
 }
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
@@ -112,9 +113,10 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
   open,
   shortcuts,
   onClose,
+  formatShortcut,
 }) => {
   // Group shortcuts by category
-  const groupedShortcuts: Record<string, KeyboardShortcut[]> = {};
+  const groupedShortcuts: Record<string, ShortcutDefinition[]> = {};
   shortcuts.forEach((shortcut) => {
     if (!groupedShortcuts[shortcut.category]) {
       groupedShortcuts[shortcut.category] = [];
@@ -123,7 +125,7 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
   });
 
   // Category order
-  const categoryOrder: Array<KeyboardShortcut['category']> = [
+  const categoryOrder: Array<ShortcutDefinition['category']> = [
     'Playback',
     'Navigation',
     'Library',
@@ -132,13 +134,48 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
   ];
 
   // Category icons
-  const categoryIcons: Record<KeyboardShortcut['category'], string> = {
+  const categoryIcons: Record<ShortcutDefinition['category'], string> = {
     'Playback': '🎵',
     'Navigation': '🧭',
     'Library': '📚',
     'Queue': '📝',
     'Global': '⚙️',
   };
+
+  // Default formatShortcut if not provided
+  const defaultFormatShortcut = (shortcut: ShortcutDefinition): string => {
+    const parts: string[] = [];
+    const isMac = typeof navigator !== 'undefined' &&
+                  navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+    if (shortcut.ctrl || shortcut.meta) {
+      parts.push(isMac ? '⌘' : 'Ctrl');
+    }
+    if (shortcut.shift) {
+      parts.push(isMac ? '⇧' : 'Shift');
+    }
+    if (shortcut.alt) {
+      parts.push(isMac ? '⌥' : 'Alt');
+    }
+
+    const keyMap: Record<string, string> = {
+      ' ': 'Space',
+      'ArrowUp': '↑',
+      'ArrowDown': '↓',
+      'ArrowLeft': '←',
+      'ArrowRight': '→',
+      'Enter': '↵',
+      'Escape': 'Esc',
+      'Delete': 'Del',
+    };
+
+    const keyDisplay = keyMap[shortcut.key] || shortcut.key.toUpperCase();
+    parts.push(keyDisplay);
+
+    return parts.join(isMac ? '' : '+');
+  };
+
+  const formatFn = formatShortcut || defaultFormatShortcut;
 
   return (
     <StyledDialog
@@ -194,7 +231,7 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
                         {shortcut.description}
                       </ShortcutDescription>
                       <ShortcutKey>
-                        {formatShortcut(shortcut)}
+                        {formatFn(shortcut)}
                       </ShortcutKey>
                     </ShortcutRow>
                   ))}
