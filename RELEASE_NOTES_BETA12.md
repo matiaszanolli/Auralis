@@ -103,6 +103,12 @@ Beta 12.0 includes all Beta 11.2 improvements:
 "Auralis Setup 1.0.0-beta.12.exe"
 ```
 
+**Checksums:**
+```
+SHA256: 32f26b82cbc95369ff32841ed24430b6ca18beb78f06cc971b60758af07d5afd
+Size: 246 MB
+```
+
 ### Linux
 
 **AppImage (Universal):**
@@ -112,13 +118,23 @@ chmod +x Auralis-1.0.0-beta.12.AppImage
 ./Auralis-1.0.0-beta.12.AppImage
 ```
 
+**Checksums:**
+```
+SHA256: e2a6f27720d7ce5f6411f8ba36378951d29fcf25b279aa2c72496a45b2f08d8d
+Size: 274 MB
+```
+
 **DEB Package (Debian/Ubuntu):**
 ```bash
 wget https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.12/auralis-desktop_1.0.0-beta.12_amd64.deb
 sudo dpkg -i auralis-desktop_1.0.0-beta.12_amd64.deb
 ```
 
-**Note**: Checksums will be added after build completion.
+**Checksums:**
+```
+SHA256: 9c3477ba7a63a2efd11a954c833a8567eaa2720a3c7389929faca98663530b0c
+Size: 242 MB
+```
 
 ---
 
