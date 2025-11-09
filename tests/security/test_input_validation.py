@@ -291,9 +291,9 @@ class TestFormatStringVulnerabilities:
             "Song %s by %s",  # Legitimate use case
         ]
 
-        for fmt in format_strings:
+        for i, fmt in enumerate(format_strings):
             track_info = {
-                'filepath': '/tmp/format_test.flac',
+                'filepath': f'/tmp/format_test_{i}.flac',  # Unique filepath per test
                 'title': fmt,
                 'artists': ['Artist'],
                 'format': 'FLAC',
@@ -306,7 +306,7 @@ class TestFormatStringVulnerabilities:
 
             if track:
                 # Should store as literal string, not interpret
-                assert track.title == fmt, "Format string was interpreted"
+                assert track.title == fmt, f"Format string was interpreted: expected {fmt}, got {track.title}"
 
 
 @pytest.mark.security

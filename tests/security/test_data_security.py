@@ -20,6 +20,7 @@ import os
 import stat
 import tempfile
 import shutil
+from sqlalchemy import text
 
 from auralis.library.repositories import TrackRepository
 
@@ -260,7 +261,7 @@ class TestDataIntegrity:
         session = temp_db()
 
         # SQLite integrity check
-        result = session.execute("PRAGMA integrity_check").fetchone()
+        result = session.execute(text("PRAGMA integrity_check")).fetchone()
 
         # Should return 'ok'
         assert result[0].lower() == 'ok', "Database should be intact"
