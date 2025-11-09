@@ -471,13 +471,17 @@ export class UnifiedWebMAudioPlayer {
 
       // Reload from current position
       if (this.trackId && this.currentChunkIndex < this.chunks.length) {
-        // Preload current chunk AND next chunk with new settings for smooth playback
-        await this.preloadChunk(this.currentChunkIndex);
+        // Preload current chunk AND next chunk in parallel to avoid blocking
+        // This prevents the event loop from being blocked and keeps backend responsive
+        const preloadPromises = [this.preloadChunk(this.currentChunkIndex)];
 
-        // Preload next chunk if available (prevents stuttering on resume)
         if (this.currentChunkIndex + 1 < this.chunks.length) {
-          await this.preloadChunk(this.currentChunkIndex + 1);
+          preloadPromises.push(this.preloadChunk(this.currentChunkIndex + 1));
         }
+
+        // Wait for both chunks to load in parallel
+        await Promise.all(preloadPromises);
+        this.debug(`Preloaded ${preloadPromises.length} chunk(s) in parallel for smooth enhancement toggle`);
 
         // Resume playback if was playing
         if (wasPlaying) {
