@@ -257,7 +257,7 @@ class TestCacheLatency:
         """
         from auralis.library.manager import LibraryManager
 
-        manager = LibraryManager(db_path=':memory:')
+        manager = LibraryManager(database_path=':memory:')
 
         # Populate
         track_repo = TrackRepository(temp_db)
