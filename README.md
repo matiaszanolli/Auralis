@@ -6,41 +6,46 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.0.0--beta.9.1-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.9.1)
+[![Release](https://img.shields.io/badge/release-v1.0.0--beta.11.1-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.11.1)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-234%20passing-brightgreen.svg)]()
 [![Phase 1](https://img.shields.io/badge/Phase%201%20Week%203-30%2F150%20boundary%20tests-blue.svg)]()
 
-## 📥 Download Beta 9.1
+## 📥 Download Beta 11.1
 
-**🎯 Latest Release: Testing Infrastructure & Documentation**
+**🎯 Latest Release: Keyboard Shortcuts Re-Enabled**
 
 | Platform | Download | Size |
 |----------|----------|------|
-| 🪟 **Windows** | [Auralis Setup 1.0.0-beta.9.1.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.9.1/Auralis.Setup.1.0.0-beta.9.1.exe) | 246 MB |
-| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.9.1.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.9.1/Auralis-1.0.0-beta.9.1.AppImage) | 274 MB |
-| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.9.1_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.9.1/auralis-desktop_1.0.0-beta.9.1_amd64.deb) | 242 MB |
+| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.11.1.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.11.1/Auralis-1.0.0-beta.11.1.AppImage) | 274 MB |
+| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.11.1_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.11.1/auralis-desktop_1.0.0-beta.11.1_amd64.deb) | 242 MB |
 
-📖 **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** | 📝 **[Release Notes](docs/archive/releases/RELEASE_NOTES_BETA9.1.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
+📖 **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA11.1.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
 
-### 📚 What's New in Beta 9.1
+### 📚 What's New in Beta 11.1
 
-**Testing Infrastructure & Developer Experience**
+**⌨️ Keyboard Shortcuts Re-Enabled (P1 Priority)**
 
-- ✅ **Comprehensive Testing Guidelines** - Mandatory quality standards (1,342 lines)
-- ✅ **Test Implementation Roadmap** - Path from 445 to 2,500+ tests (868 lines)
-- ✅ **Enhanced CLAUDE.md** - Improved developer documentation with testing best practices
-- ✅ **Critical Invariant Examples** - Concrete code examples for testing
-- ✅ **Quality Over Coverage** - New philosophy: coverage ≠ quality
+The #1 requested feature is back! Keyboard shortcuts have been completely rewritten and re-enabled after being disabled in Beta 6 due to production build issues.
 
-**Why This Matters:**
-- The overlap bug had 100% coverage but zero detection
-- This release establishes testing standards for all future development
-- Foundation for reaching 85% test coverage by Beta 10.0
+**What's Fixed:**
+- ✅ **Complete Rewrite** - Service-based architecture replaces problematic React hooks
+- ✅ **Production Build Verified** - No more circular dependency errors in minified builds
+- ✅ **14 Keyboard Shortcuts** - Full playback, navigation, and global shortcuts restored
+- ✅ **Zero Breaking Changes** - Same shortcuts as Beta 5, familiar to existing users
+- ✅ **Better Performance** - Single global event listener, no component re-renders
 
-**Note:** This is a **documentation-only release** with no changes to the application itself. Users on Beta 9.0 may skip this release.
+**Available Shortcuts:**
+- **Playback**: Space (play/pause), ← → (prev/next), ↑ ↓ (volume), M (mute)
+- **Navigation**: 1-4 (views), / (search), Esc (clear/close)
+- **Global**: ? (help), Ctrl/Cmd+, (settings)
 
-See [RELEASE_NOTES_BETA9.1.md](docs/archive/releases/RELEASE_NOTES_BETA9.1.md) for complete details.
+**Technical Improvements:**
+- Plain TypeScript service (zero React dependencies)
+- Minification-safe (works with esbuild, Rollup, Terser)
+- Framework-agnostic design (could reuse in other projects)
+
+See [RELEASE_NOTES_BETA11.1.md](RELEASE_NOTES_BETA11.1.md) for complete details.
 
 ---
 
