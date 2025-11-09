@@ -28,19 +28,16 @@ from auralis.library.models import Base
 
 @pytest.fixture
 def temp_db():
-    """Create temporary database for testing."""
+    """Create temporary database for testing. Yields sessionmaker callable."""
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
     temp_file.close()
     db_path = temp_file.name
 
     engine = create_engine(f'sqlite:///{db_path}')
     Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
+    SessionLocal = sessionmaker(bind=engine)
 
-    def get_session():
-        return Session()
-
-    yield get_session
+    yield SessionLocal
 
     # Cleanup
     engine.dispose()
