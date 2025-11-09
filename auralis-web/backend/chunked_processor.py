@@ -521,7 +521,7 @@ class ChunkedAudioProcessor:
 
             # Trim context from original to match processed chunk dimensions
             context_samples = int(CONTEXT_DURATION * self.sample_rate)
-            actual_start = chunk_index * CHUNK_DURATION
+            actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
 
             # Trim start context for non-first chunks
             if actual_start > 0:
@@ -812,7 +812,7 @@ class ChunkedAudioProcessor:
 
             # Trim context from original to match processed chunk dimensions
             context_samples = int(CONTEXT_DURATION * self.sample_rate)
-            actual_start = chunk_index * CHUNK_DURATION
+            actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
 
             # Trim start context for non-first chunks
             if actual_start > 0:
