@@ -6,46 +6,46 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.0.0--beta.11.1-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.11.1)
+[![Release](https://img.shields.io/badge/release-v1.0.0--beta.11.2-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.11.2)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-234%20passing-brightgreen.svg)]()
 [![Phase 1](https://img.shields.io/badge/Phase%201%20Week%203-30%2F150%20boundary%20tests-blue.svg)]()
 
-## 📥 Download Beta 11.1
+## 📥 Download Beta 11.2
 
-**🎯 Latest Release: Keyboard Shortcuts Re-Enabled**
+**🎯 Latest Release: Quick Wins - Performance & UX**
 
 | Platform | Download | Size |
 |----------|----------|------|
-| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.11.1.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.11.1/Auralis-1.0.0-beta.11.1.AppImage) | 274 MB |
-| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.11.1_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.11.1/auralis-desktop_1.0.0-beta.11.1_amd64.deb) | 242 MB |
+| 🪟 **Windows** | [Auralis Setup 1.0.0-beta.11.2.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.11.2/Auralis.Setup.1.0.0-beta.11.2.exe) | 246 MB |
+| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.11.2.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.11.2/Auralis-1.0.0-beta.11.2.AppImage) | 274 MB |
+| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.11.2_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.11.2/auralis-desktop_1.0.0-beta.11.2_amd64.deb) | 242 MB |
 
-📖 **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA11.1.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
+📖 **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA11.2.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
 
-### 📚 What's New in Beta 11.1
+### 📚 What's New in Beta 11.2
 
-**⌨️ Keyboard Shortcuts Re-Enabled (P1 Priority)**
+**⚡ Processing Speed Indicator**
 
-The #1 requested feature is back! Keyboard shortcuts have been completely rewritten and re-enabled after being disabled in Beta 6 due to production build issues.
+Users can now see the impressive real-time processing performance during audio enhancement!
+- **36.6x real-time factor** displayed during audio analysis
+- ProcessingToast shows processing speed in bottom-right corner
+- Better perception of system capabilities
 
-**What's Fixed:**
-- ✅ **Complete Rewrite** - Service-based architecture replaces problematic React hooks
-- ✅ **Production Build Verified** - No more circular dependency errors in minified builds
-- ✅ **14 Keyboard Shortcuts** - Full playback, navigation, and global shortcuts restored
-- ✅ **Zero Breaking Changes** - Same shortcuts as Beta 5, familiar to existing users
-- ✅ **Better Performance** - Single global event listener, no component re-renders
+**🚀 Instant Preset Switching**
 
-**Available Shortcuts:**
-- **Playback**: Space (play/pause), ← → (prev/next), ↑ ↓ (volume), M (mute)
-- **Navigation**: 1-4 (views), / (search), Esc (clear/close)
-- **Global**: ? (help), Ctrl/Cmd+, (settings)
+Preset switching is now **near-instant** (< 1 second) instead of the previous 2-5 second delay.
+- Removed cache-clearing logic that forced reprocessing
+- Keep all presets cached for instant toggling
+- Background proactive buffering system now works as designed
+- Switch between presets smoothly without audio interruption
 
-**Technical Improvements:**
-- Plain TypeScript service (zero React dependencies)
-- Minification-safe (works with esbuild, Rollup, Terser)
-- Framework-agnostic design (could reuse in other projects)
+**Plus all Beta 11.1 features:**
+- ✅ **14 Keyboard Shortcuts** restored (Space, ←→, ↑↓, M, 1-4, /, Esc, ?, Ctrl/Cmd+,)
+- ✅ **Service-based architecture** - Minification-safe production builds
+- ✅ **Zero breaking changes** - All previous features preserved
 
-See [RELEASE_NOTES_BETA11.1.md](RELEASE_NOTES_BETA11.1.md) for complete details.
+See [RELEASE_NOTES_BETA11.2.md](RELEASE_NOTES_BETA11.2.md) for complete details.
 
 ---
 
