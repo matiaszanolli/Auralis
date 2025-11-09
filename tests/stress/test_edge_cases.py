@@ -33,7 +33,7 @@ class TestBoundaryConditions:
         session = manager.Session()
 
         repo = TrackRepository(session)
-        tracks = repo.get_all()
+        tracks, _ = repo.get_all()
 
         assert len(tracks) == 0
         assert repo.count() == 0
@@ -66,7 +66,7 @@ class TestBoundaryConditions:
         from auralis.library.repositories import TrackRepository
         repo = TrackRepository(session)
 
-        all_tracks = repo.get_all()
+        all_tracks, _ = repo.get_all()
         assert len(all_tracks) == 1
         assert all_tracks[0].title == "Solo Track"
 
@@ -135,7 +135,7 @@ class TestBoundaryConditions:
         # Query and verify
         from auralis.library.repositories import TrackRepository
         repo = TrackRepository(session)
-        tracks = repo.get_all()
+        tracks, _ = repo.get_all()
 
         assert len(tracks) == 1
         assert "Rock & Roll" in tracks[0].title
@@ -169,7 +169,7 @@ class TestBoundaryConditions:
         # Query and verify
         from auralis.library.repositories import TrackRepository
         repo = TrackRepository(session)
-        tracks = repo.get_all()
+        tracks, _ = repo.get_all()
 
         assert len(tracks) == 1
         assert len(tracks[0].title) == 10000
@@ -196,7 +196,7 @@ class TestBoundaryConditions:
         # Query and verify
         from auralis.library.repositories import TrackRepository
         repo = TrackRepository(session)
-        tracks = repo.get_all()
+        tracks, _ = repo.get_all()
 
         assert len(tracks) == 1
         assert tracks[0].title is None
@@ -227,7 +227,7 @@ class TestBoundaryConditions:
             # If it succeeds, check if constraint prevents it
             from auralis.library.repositories import TrackRepository
             repo = TrackRepository(session)
-            tracks = repo.get_all()
+            tracks, _ = repo.get_all()
             # May have duplicate or unique constraint
         except Exception:
             # Expected - unique constraint violation
@@ -338,7 +338,7 @@ class TestInvalidInputs:
             # If it allows, query should still work
             from auralis.library.repositories import TrackRepository
             repo = TrackRepository(session)
-            tracks = repo.get_all()
+            tracks, _ = repo.get_all()
             # May have negative duration (no validation) or fail
         except Exception:
             # Expected - validation failed
@@ -370,7 +370,7 @@ class TestInvalidInputs:
         # Should handle gracefully
         from auralis.library.repositories import TrackRepository
         repo = TrackRepository(session)
-        tracks = repo.get_all()
+        tracks, _ = repo.get_all()
         assert len(tracks) == 1
 
         session.close()
@@ -450,7 +450,7 @@ class TestInvalidInputs:
         # Should handle gracefully when artwork is missing
         from auralis.library.repositories import AlbumRepository
         repo = AlbumRepository(session)
-        albums = repo.get_all()
+        albums, _ = repo.get_all()
 
         assert len(albums) == 1
         assert albums[0].artwork_path == "/nonexistent/artwork.jpg"
@@ -473,7 +473,7 @@ class TestInvalidInputs:
 
         # Should be escaped and not execute SQL
         try:
-            results = repo.search(malicious_query)
+            results, _ = repo.search(malicious_query)
             # Should return empty results or error, but not execute DROP
             assert results is not None
 
