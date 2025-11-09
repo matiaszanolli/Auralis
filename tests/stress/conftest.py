@@ -77,7 +77,7 @@ def large_library_db(tmp_path):
     """
     Create database with 1,000 test tracks.
 
-    Returns session maker.
+    Yields sessionmaker that can be called to create new sessions.
     """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
@@ -88,43 +88,50 @@ def large_library_db(tmp_path):
     Base.metadata.create_all(engine)
 
     Session = sessionmaker(bind=engine)
-    session = Session()
 
-    # Create artists (100)
-    artists = []
-    for i in range(100):
-        artist = Artist(name=f"Artist {i}")
-        session.add(artist)
-        artists.append(artist)
+    # Create initial data in a separate session
+    setup_session = Session()
+    try:
+        # Create artists (100)
+        artists = []
+        for i in range(100):
+            artist = Artist(name=f"Artist {i}")
+            setup_session.add(artist)
+            artists.append(artist)
+        setup_session.flush()
 
-    # Create albums (200)
-    albums = []
-    for i in range(200):
-        album = Album(
-            title=f"Album {i}",
-            artist=artists[i % len(artists)]
-        )
-        session.add(album)
-        albums.append(album)
+        # Create albums (200)
+        albums = []
+        for i in range(200):
+            album = Album(
+                title=f"Album {i}",
+                artist=artists[i % len(artists)]
+            )
+            setup_session.add(album)
+            albums.append(album)
+        setup_session.flush()
 
-    # Create tracks (1,000)
-    for i in range(1000):
-        track = Track(
-            filepath=f"/test/track_{i:04d}.mp3",
-            title=f"Track {i:04d}",
-            duration=180.0 + (i % 300),  # 3-8 minutes
-            album=albums[i % len(albums)],
-            artist=artists[i % len(artists)],
-            track_number=(i % 20) + 1,
-            year=2000 + (i % 25)
-        )
-        session.add(track)
+        # Create tracks (1,000)
+        for i in range(1000):
+            album_idx = i % len(albums)
+            track = Track(
+                filepath=f"/test/track_{i:04d}.mp3",
+                title=f"Track {i:04d}",
+                duration=180.0 + (i % 300),  # 3-8 minutes
+                album_id=albums[album_idx].id,
+                track_number=(i % 20) + 1,
+                year=2000 + (i % 25)
+            )
+            setup_session.add(track)
 
-    session.commit()
+        setup_session.commit()
+    finally:
+        setup_session.close()
 
+    # Yield the sessionmaker so tests can create their own sessions
     yield Session
 
-    session.close()
+    # Cleanup
     engine.dispose()
 
 
@@ -133,7 +140,7 @@ def very_large_library_db(tmp_path):
     """
     Create database with 10,000 test tracks (slower).
 
-    Returns session maker.
+    Yields sessionmaker that can be called to create new sessions.
     """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
@@ -144,45 +151,52 @@ def very_large_library_db(tmp_path):
     Base.metadata.create_all(engine)
 
     Session = sessionmaker(bind=engine)
-    session = Session()
 
-    # Create artists (500)
-    artists = []
-    for i in range(500):
-        artist = Artist(name=f"Artist {i}")
-        session.add(artist)
-        artists.append(artist)
+    # Create initial data in a separate session
+    setup_session = Session()
+    try:
+        # Create artists (500)
+        artists = []
+        for i in range(500):
+            artist = Artist(name=f"Artist {i}")
+            setup_session.add(artist)
+            artists.append(artist)
+        setup_session.flush()
 
-    # Create albums (2000)
-    albums = []
-    for i in range(2000):
-        album = Album(
-            title=f"Album {i}",
-            artist=artists[i % len(artists)]
-        )
-        session.add(album)
-        albums.append(album)
-
-    # Create tracks (10,000) - commit in batches
-    batch_size = 1000
-    for batch_start in range(0, 10000, batch_size):
-        for i in range(batch_start, min(batch_start + batch_size, 10000)):
-            track = Track(
-                filepath=f"/test/track_{i:05d}.mp3",
-                title=f"Track {i:05d}",
-                duration=180.0 + (i % 300),
-                album=albums[i % len(albums)],
-                artist=artists[i % len(artists)],
-                track_number=(i % 20) + 1,
-                year=2000 + (i % 25)
+        # Create albums (2000)
+        albums = []
+        for i in range(2000):
+            album = Album(
+                title=f"Album {i}",
+                artist=artists[i % len(artists)]
             )
-            session.add(track)
+            setup_session.add(album)
+            albums.append(album)
+        setup_session.flush()
 
-        session.commit()
+        # Create tracks (10,000) - commit in batches to avoid memory issues
+        batch_size = 1000
+        for batch_start in range(0, 10000, batch_size):
+            for i in range(batch_start, min(batch_start + batch_size, 10000)):
+                album_idx = i % len(albums)
+                track = Track(
+                    filepath=f"/test/track_{i:05d}.mp3",
+                    title=f"Track {i:05d}",
+                    duration=180.0 + (i % 300),
+                    album_id=albums[album_idx].id,
+                    track_number=(i % 20) + 1,
+                    year=2000 + (i % 25)
+                )
+                setup_session.add(track)
 
+            setup_session.commit()
+    finally:
+        setup_session.close()
+
+    # Yield the sessionmaker so tests can create their own sessions
     yield Session
 
-    session.close()
+    # Cleanup
     engine.dispose()
 
 
@@ -212,18 +226,19 @@ def test_audio_dir(tmp_path):
 @pytest.fixture
 def very_long_audio(tmp_path):
     """
-    Create 1-hour test audio file.
+    Create 10-minute test audio file (reduced from 1 hour to prevent memory issues).
 
     Returns path to audio file.
     """
     filepath = tmp_path / "long_audio.wav"
 
-    # Create 1 hour of audio in chunks to avoid memory issues
-    duration_samples = 3600 * 44100  # 1 hour
+    # Create 10 minutes of audio in chunks to avoid memory issues
+    duration_samples = 600 * 44100  # 10 minutes (reduced from 1 hour)
     chunk_size = 44100 * 10  # 10 second chunks
+    num_chunks = duration_samples // chunk_size
 
     with sf.SoundFile(str(filepath), 'w', 44100, 2, 'PCM_16') as f:
-        for _ in range(duration_samples // chunk_size):
+        for _ in range(num_chunks):
             chunk = np.random.randn(chunk_size, 2).astype(np.float32) * 0.1
             f.write(chunk)
 

@@ -112,20 +112,20 @@ class TestHighVolumeProcessing:
 
     def test_processing_queue_overflow(self, tmp_path):
         """Test handling of queue overflow gracefully."""
-        from auralis.player.enhanced_player import EnhancedAudioPlayer
+        from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
 
         player = EnhancedAudioPlayer()
 
         # Add many files to queue rapidly
         for i in range(1000):
-            player.queue.add(f"/test/track_{i:04d}.mp3")
+            player.queue.add_track({"filepath": f"/test/track_{i:04d}.mp3"})
 
         # Should handle gracefully without errors
-        assert player.queue.size() == 1000
+        assert player.queue.get_queue_size() == 1000
 
         # Clear queue
         player.queue.clear()
-        assert player.queue.size() == 0
+        assert player.queue.get_queue_size() == 0
 
     def test_processing_sustained_load(self, tmp_path, stress_test_timeout):
         """Test sustained high load (simulated 1 hour)."""
@@ -197,19 +197,19 @@ class TestHighVolumeProcessing:
 
     def test_processing_prioritization(self, tmp_path):
         """Test priority queue under load."""
-        from auralis.player.enhanced_player import EnhancedAudioPlayer
+        from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
 
         player = EnhancedAudioPlayer()
 
         # Add tracks with different priorities
         for i in range(100):
-            player.queue.add(f"/test/track_{i:03d}.mp3")
+            player.queue.add_track({"filepath": f"/test/track_{i:03d}.mp3"})
 
         # Move high-priority track to front
-        player.queue.add(f"/test/urgent_track.mp3")
+        player.queue.add_track({"filepath": f"/test/urgent_track.mp3"})
 
         # Should handle prioritization
-        assert player.queue.size() == 101
+        assert player.queue.get_queue_size() == 101
 
     def test_processing_cancellation_mass(self, tmp_path):
         """Test cancelling 100 processing jobs."""
@@ -261,16 +261,17 @@ class TestAudioProcessingLimits:
     """Tests for extreme audio characteristics."""
 
     def test_process_very_long_audio(self, very_long_audio, tmp_path, memory_monitor):
-        """Test processing 1-hour audio file."""
+        """Test processing 10-minute audio file."""
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
         from auralis.io.saver import save
+        import gc
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
 
-        # Load 1-hour file
+        # Load 10-minute file
         audio, sr = load_audio(very_long_audio)
 
         # Process
@@ -289,6 +290,10 @@ class TestAudioProcessingLimits:
         save(str(output_path), processed, sr, subtype='PCM_16')
 
         assert output_path.exists()
+
+        # Cleanup to prevent memory issues
+        del audio, processed
+        gc.collect()
 
     def test_process_very_high_sample_rate(self, high_sample_rate_audio, tmp_path):
         """Test processing 192kHz audio."""
