@@ -29,34 +29,36 @@ class TestBoundaryConditions:
         from auralis.library.manager import LibraryManager
         from auralis.library.repositories import TrackRepository
 
-        manager = LibraryManager(db_path=str(tmp_path / "empty.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "empty.db"))
 
-        repo = TrackRepository(session)
-        tracks, _ = repo.get_all()
+        repo = TrackRepository(manager.SessionLocal)
+        tracks, total = repo.get_all()
 
         assert len(tracks) == 0
-        assert repo.count() == 0
-
-        session.close()
+        assert total == 0
 
     def test_single_track_library(self, tmp_path):
         """Test library with exactly 1 track."""
         from auralis.library.manager import LibraryManager
         from auralis.library.models import Track, Artist, Album
 
-        manager = LibraryManager(db_path=str(tmp_path / "single.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "single.db"))
+        session = manager.SessionLocal()
 
         # Add single track
         artist = Artist(name="Solo Artist")
-        album = Album(title="Solo Album", artist=artist)
+        session.add(artist)
+        session.flush()  # Get artist.id
+
+        album = Album(title="Solo Album", artist_id=artist.id)
+        session.add(album)
+        session.flush()  # Get album.id
+
         track = Track(
             filepath="/test/solo.mp3",
             title="Solo Track",
             duration=180.0,
-            artist=artist,
-            album=album
+            album_id=album.id
         )
 
         session.add(track)
@@ -64,7 +66,7 @@ class TestBoundaryConditions:
 
         # Query
         from auralis.library.repositories import TrackRepository
-        repo = TrackRepository(session)
+        repo = TrackRepository(manager.SessionLocal)
 
         all_tracks, _ = repo.get_all()
         assert len(all_tracks) == 1
@@ -115,18 +117,23 @@ class TestBoundaryConditions:
         from auralis.library.manager import LibraryManager
         from auralis.library.models import Track, Artist, Album
 
-        manager = LibraryManager(db_path=str(tmp_path / "special.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "special.db"))
+        session = manager.SessionLocal()
 
         # Create track with special characters
         artist = Artist(name="Artist & Co. <The Best>")
-        album = Album(title="Album: \"Greatest Hits\" [2024]", artist=artist)
+        session.add(artist)
+        session.flush()
+
+        album = Album(title="Album: \"Greatest Hits\" [2024]", artist_id=artist.id)
+        session.add(album)
+        session.flush()
+
         track = Track(
             filepath="/test/special.mp3",
             title="Track #1: Rock & Roll (Live) {Bonus}",
             duration=180.0,
-            artist=artist,
-            album=album
+            album_id=album.id
         )
 
         session.add(track)
@@ -134,7 +141,7 @@ class TestBoundaryConditions:
 
         # Query and verify
         from auralis.library.repositories import TrackRepository
-        repo = TrackRepository(session)
+        repo = TrackRepository(manager.SessionLocal)
         tracks, _ = repo.get_all()
 
         assert len(tracks) == 1
@@ -148,19 +155,24 @@ class TestBoundaryConditions:
         from auralis.library.manager import LibraryManager
         from auralis.library.models import Track, Artist, Album
 
-        manager = LibraryManager(db_path=str(tmp_path / "long_metadata.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "long_metadata.db"))
+        session = manager.SessionLocal()
 
         # Create track with very long title
         long_title = "A" * 10000
         artist = Artist(name="Test Artist")
-        album = Album(title="Test Album", artist=artist)
+        session.add(artist)
+        session.flush()
+
+        album = Album(title="Test Album", artist_id=artist.id)
+        session.add(album)
+        session.flush()
+
         track = Track(
             filepath="/test/long.mp3",
             title=long_title,
             duration=180.0,
-            artist=artist,
-            album=album
+            album_id=album.id
         )
 
         session.add(track)
@@ -168,7 +180,7 @@ class TestBoundaryConditions:
 
         # Query and verify
         from auralis.library.repositories import TrackRepository
-        repo = TrackRepository(session)
+        repo = TrackRepository(manager.SessionLocal)
         tracks, _ = repo.get_all()
 
         assert len(tracks) == 1
@@ -181,12 +193,13 @@ class TestBoundaryConditions:
         from auralis.library.manager import LibraryManager
         from auralis.library.models import Track
 
-        manager = LibraryManager(db_path=str(tmp_path / "empty_meta.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "empty_meta.db"))
+        session = manager.SessionLocal()
 
         # Create track with minimal data
         track = Track(
             filepath="/test/minimal.mp3",
+            title="Minimal Track",  # Track.title is required (nullable=False)
             duration=180.0
         )
 
@@ -195,13 +208,14 @@ class TestBoundaryConditions:
 
         # Query and verify
         from auralis.library.repositories import TrackRepository
-        repo = TrackRepository(session)
+        repo = TrackRepository(manager.SessionLocal)
         tracks, _ = repo.get_all()
 
         assert len(tracks) == 1
-        assert tracks[0].title is None
-        assert tracks[0].artist is None
-        assert tracks[0].album is None
+        # Track has minimal metadata (only required fields)
+        assert tracks[0].title == "Minimal Track"  # Title is required
+        assert len(tracks[0].artists) == 0  # No artists associated
+        assert tracks[0].album is None  # No album
 
         session.close()
 
@@ -210,12 +224,12 @@ class TestBoundaryConditions:
         from auralis.library.manager import LibraryManager
         from auralis.library.models import Track
 
-        manager = LibraryManager(db_path=str(tmp_path / "duplicates.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "duplicates.db"))
+        session = manager.SessionLocal()
 
         # Add same filepath twice
-        track1 = Track(filepath="/test/duplicate.mp3", duration=180.0)
-        track2 = Track(filepath="/test/duplicate.mp3", duration=180.0)
+        track1 = Track(filepath="/test/duplicate.mp3", title="Duplicate", duration=180.0)
+        track2 = Track(filepath="/test/duplicate.mp3", title="Duplicate", duration=180.0)
 
         session.add(track1)
         session.commit()
@@ -226,7 +240,7 @@ class TestBoundaryConditions:
             session.commit()
             # If it succeeds, check if constraint prevents it
             from auralis.library.repositories import TrackRepository
-            repo = TrackRepository(session)
+            repo = TrackRepository(manager.SessionLocal)
             tracks, _ = repo.get_all()
             # May have duplicate or unique constraint
         except Exception:
@@ -326,8 +340,8 @@ class TestInvalidInputs:
         from auralis.library.manager import LibraryManager
         from auralis.library.models import Track
 
-        manager = LibraryManager(db_path=str(tmp_path / "negative.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "negative.db"))
+        session = manager.SessionLocal()
 
         # Try to create track with negative duration
         track = Track(filepath="/test/invalid.mp3", duration=-10.0)
@@ -337,7 +351,7 @@ class TestInvalidInputs:
             session.commit()
             # If it allows, query should still work
             from auralis.library.repositories import TrackRepository
-            repo = TrackRepository(session)
+            repo = TrackRepository(manager.SessionLocal)
             tracks, _ = repo.get_all()
             # May have negative duration (no validation) or fail
         except Exception:
@@ -351,17 +365,23 @@ class TestInvalidInputs:
         from auralis.library.manager import LibraryManager
         from auralis.library.models import Track, Album, Artist
 
-        manager = LibraryManager(db_path=str(tmp_path / "negative_track.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "negative_track.db"))
+        session = manager.SessionLocal()
 
         artist = Artist(name="Test")
-        album = Album(title="Test", artist=artist)
+        session.add(artist)
+        session.flush()
+
+        album = Album(title="Test", artist_id=artist.id)
+        session.add(album)
+        session.flush()
+
         track = Track(
             filepath="/test/invalid.mp3",
+            title="Invalid Track Number",  # Track.title is required
             duration=180.0,
             track_number=-1,
-            album=album,
-            artist=artist
+            album_id=album.id
         )
 
         session.add(track)
@@ -369,7 +389,7 @@ class TestInvalidInputs:
 
         # Should handle gracefully
         from auralis.library.repositories import TrackRepository
-        repo = TrackRepository(session)
+        repo = TrackRepository(manager.SessionLocal)
         tracks, _ = repo.get_all()
         assert len(tracks) == 1
 
@@ -415,8 +435,8 @@ class TestInvalidInputs:
         from auralis.library.manager import LibraryManager
         from auralis.library.models import Playlist
 
-        manager = LibraryManager(db_path=str(tmp_path / "circular.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "circular.db"))
+        session = manager.SessionLocal()
 
         # Create playlist
         playlist = Playlist(name="Circular")
@@ -433,14 +453,17 @@ class TestInvalidInputs:
         from auralis.library.manager import LibraryManager
         from auralis.library.models import Album, Artist
 
-        manager = LibraryManager(db_path=str(tmp_path / "missing_art.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "missing_art.db"))
+        session = manager.SessionLocal()
 
         # Create album with artwork path that doesn't exist
         artist = Artist(name="Test")
+        session.add(artist)
+        session.flush()
+
         album = Album(
             title="Test Album",
-            artist=artist,
+            artist_id=artist.id,
             artwork_path="/nonexistent/artwork.jpg"
         )
 
@@ -449,7 +472,7 @@ class TestInvalidInputs:
 
         # Should handle gracefully when artwork is missing
         from auralis.library.repositories import AlbumRepository
-        repo = AlbumRepository(session)
+        repo = AlbumRepository(manager.SessionLocal)
         albums, _ = repo.get_all()
 
         assert len(albums) == 1
@@ -463,10 +486,9 @@ class TestInvalidInputs:
         from auralis.library.manager import LibraryManager
         from auralis.library.repositories import TrackRepository
 
-        manager = LibraryManager(db_path=str(tmp_path / "injection.db"))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(tmp_path / "injection.db"))
 
-        repo = TrackRepository(session)
+        repo = TrackRepository(manager.SessionLocal)
 
         # Try SQL injection in search
         malicious_query = "'; DROP TABLE tracks; --"
@@ -479,13 +501,14 @@ class TestInvalidInputs:
 
             # Verify table still exists
             from auralis.library.models import Track
-            count = session.query(Track).count()
+            # Get session to verify table exists
+            test_session = repo.get_session()
+            count = test_session.query(Track).count()
+            test_session.close()
             # Table should still exist (count may be 0)
         except Exception:
             # Expected - handled gracefully
             pass
-
-        session.close()
 
 
 @pytest.mark.stress
@@ -500,8 +523,8 @@ class TestErrorRecovery:
         db_path = tmp_path / "corrupt.db"
 
         # Create valid database
-        manager = LibraryManager(db_path=str(db_path))
-        session = manager.Session()
+        manager = LibraryManager(database_path=str(db_path))
+        session = manager.SessionLocal()
         session.close()
 
         # Corrupt database file
@@ -510,8 +533,8 @@ class TestErrorRecovery:
 
         # Try to open corrupted database
         try:
-            manager2 = LibraryManager(db_path=str(db_path))
-            session2 = manager2.Session()
+            manager2 = LibraryManager(database_path=str(db_path))
+            session2 = manager2.SessionLocal()
             session2.close()
         except Exception as e:
             # Expected - corruption detected
@@ -519,8 +542,8 @@ class TestErrorRecovery:
 
             # Recovery: Delete and recreate
             db_path.unlink()
-            manager3 = LibraryManager(db_path=str(db_path))
-            session3 = manager3.Session()
+            manager3 = LibraryManager(database_path=str(db_path))
+            session3 = manager3.SessionLocal()
             session3.close()
             # Should work after recreation
 
@@ -528,7 +551,7 @@ class TestErrorRecovery:
         """Test rebuilding cache after corruption."""
         from auralis.library.manager import LibraryManager
 
-        manager = LibraryManager(db_path=str(tmp_path / "cache_test.db"))
+        manager = LibraryManager(database_path=str(tmp_path / "cache_test.db"))
 
         # Fill cache
         manager.get_recent_tracks(limit=50)
@@ -565,7 +588,7 @@ class TestErrorRecovery:
             filepath = music_dir / f"track_{i:03d}.wav"
             sf.write(str(filepath), audio, 44100)
 
-        manager = LibraryManager(db_path=str(tmp_path / "partial.db"))
+        manager = LibraryManager(database_path=str(tmp_path / "partial.db"))
         scanner = LibraryScanner(manager)
 
         # Partial scan (simulated interruption)
@@ -573,11 +596,11 @@ class TestErrorRecovery:
         # For now, test that rescan works
 
         # First scan
-        results1 = scanner.scan_folder(str(music_dir))
-        assert results1['files_scanned'] == 50
+        results1 = scanner.scan_single_directory(str(music_dir))
+        assert results1.files_found == 50  # ScanResult is object, not dict
 
         # Rescan (should update, not duplicate)
-        results2 = scanner.scan_folder(str(music_dir))
+        results2 = scanner.scan_single_directory(str(music_dir))
 
         # Should handle gracefully
         assert results2 is not None
@@ -616,7 +639,7 @@ class TestErrorRecovery:
         from concurrent.futures import ThreadPoolExecutor
         import threading
 
-        manager = LibraryManager(db_path=str(tmp_path / "shutdown.db"))
+        manager = LibraryManager(database_path=str(tmp_path / "shutdown.db"))
 
         # Start heavy load
         stop_flag = threading.Event()
