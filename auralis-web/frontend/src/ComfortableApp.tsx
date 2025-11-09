@@ -29,7 +29,7 @@ import LyricsPanel from './components/player/LyricsPanel';
 import KeyboardShortcutsHelp from './components/shared/KeyboardShortcutsHelp';
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useKeyboardShortcutsV2, KeyboardShortcut } from './hooks/useKeyboardShortcutsV2';
 import { usePlayerAPI } from './hooks/usePlayerAPI';
 
 interface Track {
@@ -120,98 +120,171 @@ function ComfortableApp() {
     info(`Preset changed to ${preset}`);
   };
 
-  // Keyboard shortcuts - DISABLED FOR BETA.6 (causes circular dependency in minified build)
-  // Will be fixed in Beta.7
-  // const {
-  //   shortcuts,
-  //   isHelpOpen,
-  //   openHelp,
-  //   closeHelp
-  // } = useKeyboardShortcuts({
-  const shortcuts: any[] = [];
-  const isHelpOpen = false;
-  const openHelp = () => {};
-  const closeHelp = () => {};
-  /*{
+  // Keyboard shortcuts - FIXED FOR BETA.11.1
+  // Using new service-based architecture to avoid minification issues
+  const keyboardShortcutsArray: KeyboardShortcut[] = [
     // Playback controls
-    onPlayPause: () => {
-      togglePlayPause();
-      info(apiIsPlaying ? 'Paused' : 'Playing');
+    {
+      key: ' ',
+      description: 'Play/Pause',
+      category: 'Playback',
+      handler: () => {
+        togglePlayPause();
+        info(apiIsPlaying ? 'Paused' : 'Playing');
+      }
     },
-    onNext: () => {
-      nextTrack();
-      info('Next track');
+    {
+      key: 'ArrowRight',
+      description: 'Next track',
+      category: 'Playback',
+      handler: () => {
+        nextTrack();
+        info('Next track');
+      }
     },
-    onPrevious: () => {
-      previousTrack();
-      info('Previous track');
+    {
+      key: 'ArrowLeft',
+      description: 'Previous track',
+      category: 'Playback',
+      handler: () => {
+        previousTrack();
+        info('Previous track');
+      }
     },
-    onVolumeUp: () => {
-      const newVolume = Math.min(apiVolume + 10, 100);
-      setApiVolume(newVolume);
-      info(`Volume: ${newVolume}%`);
+    {
+      key: 'ArrowUp',
+      description: 'Volume up',
+      category: 'Playback',
+      handler: () => {
+        const newVolume = Math.min(apiVolume + 10, 100);
+        setApiVolume(newVolume);
+        info(`Volume: ${newVolume}%`);
+      }
     },
-    onVolumeDown: () => {
-      const newVolume = Math.max(apiVolume - 10, 0);
-      setApiVolume(newVolume);
-      info(`Volume: ${newVolume}%`);
+    {
+      key: 'ArrowDown',
+      description: 'Volume down',
+      category: 'Playback',
+      handler: () => {
+        const newVolume = Math.max(apiVolume - 10, 0);
+        setApiVolume(newVolume);
+        info(`Volume: ${newVolume}%`);
+      }
     },
-    onMute: () => {
-      const newVolume = apiVolume > 0 ? 0 : 80; // Toggle between 0 and default 80%
-      setApiVolume(newVolume);
-      info(newVolume === 0 ? 'Muted' : 'Unmuted');
+    {
+      key: 'm',
+      description: 'Mute/Unmute',
+      category: 'Playback',
+      handler: () => {
+        const newVolume = apiVolume > 0 ? 0 : 80;
+        setApiVolume(newVolume);
+        info(newVolume === 0 ? 'Muted' : 'Unmuted');
+      }
     },
-
     // Navigation shortcuts
-    onShowSongs: () => {
-      setCurrentView('songs');
-      setViewKey(prev => prev + 1); // Force view reset
-      info('Songs view');
-    },
-    onShowAlbums: () => {
-      setCurrentView('albums');
-      setViewKey(prev => prev + 1); // Force view reset
-      info('Albums view');
-    },
-    onShowArtists: () => {
-      setCurrentView('artists');
-      setViewKey(prev => prev + 1); // Force view reset
-      info('Artists view');
-    },
-    onShowPlaylists: () => {
-      setCurrentView('playlists');
-      setViewKey(prev => prev + 1); // Force view reset
-      info('Playlists view');
-    },
-    onFocusSearch: () => {
-      // Focus search input
-      const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
-      if (searchInput) {
-        searchInput.focus();
-        searchInput.select();
+    {
+      key: '1',
+      description: 'Show Songs',
+      category: 'Navigation',
+      handler: () => {
+        setCurrentView('songs');
+        setViewKey(prev => prev + 1);
+        info('Songs view');
       }
     },
-    onEscape: () => {
-      // Clear search or close dialogs
-      if (searchQuery) {
-        setSearchQuery('');
-        info('Search cleared');
-      } else if (settingsOpen) {
-        setSettingsOpen(false);
-      } else if (lyricsOpen) {
-        setLyricsOpen(false);
+    {
+      key: '2',
+      description: 'Show Albums',
+      category: 'Navigation',
+      handler: () => {
+        setCurrentView('albums');
+        setViewKey(prev => prev + 1);
+        info('Albums view');
       }
     },
-
+    {
+      key: '3',
+      description: 'Show Artists',
+      category: 'Navigation',
+      handler: () => {
+        setCurrentView('artists');
+        setViewKey(prev => prev + 1);
+        info('Artists view');
+      }
+    },
+    {
+      key: '4',
+      description: 'Show Playlists',
+      category: 'Navigation',
+      handler: () => {
+        setCurrentView('playlists');
+        setViewKey(prev => prev + 1);
+        info('Playlists view');
+      }
+    },
+    {
+      key: '/',
+      description: 'Focus search',
+      category: 'Navigation',
+      handler: () => {
+        const searchInput = document.querySelector('input[placeholder*="Search"]') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+      }
+    },
+    {
+      key: 'Escape',
+      description: 'Clear search / Close dialogs',
+      category: 'Navigation',
+      handler: () => {
+        if (searchQuery) {
+          setSearchQuery('');
+          info('Search cleared');
+        } else if (settingsOpen) {
+          setSettingsOpen(false);
+        } else if (lyricsOpen) {
+          setLyricsOpen(false);
+        }
+      }
+    },
     // Global shortcuts
-    onShowHelp: openHelp,
-    onOpenSettings: () => {
-      setSettingsOpen(true);
+    {
+      key: '?',
+      description: 'Show keyboard shortcuts',
+      category: 'Global',
+      handler: () => {
+        // Will be set below
+      }
     },
+    {
+      key: ',',
+      ctrl: true,
+      description: 'Open settings',
+      category: 'Global',
+      handler: () => {
+        setSettingsOpen(true);
+      }
+    }
+  ];
 
-    // Debug mode (optional)
-    debug: false
-  });*/
+  // Use V2 hook with service-based architecture
+  const {
+    shortcuts,
+    isHelpOpen,
+    openHelp,
+    closeHelp,
+    formatShortcut
+  } = useKeyboardShortcutsV2(keyboardShortcutsArray);
+
+  // Set the help shortcut handler (needs openHelp from hook)
+  useEffect(() => {
+    const helpShortcut = keyboardShortcutsArray.find(s => s.key === '?');
+    if (helpShortcut) {
+      helpShortcut.handler = openHelp;
+    }
+  }, [openHelp]);
 
   const handleMasteringToggle = (enabled: boolean) => {
     console.log('Mastering:', enabled ? 'enabled' : 'disabled');
@@ -545,12 +618,13 @@ function ComfortableApp() {
         }}
       />
 
-      {/* Keyboard Shortcuts Help Dialog - DISABLED FOR BETA.6 */}
-      {/*<KeyboardShortcutsHelp
+      {/* Keyboard Shortcuts Help Dialog - RE-ENABLED FOR BETA.11.1 */}
+      <KeyboardShortcutsHelp
         open={isHelpOpen}
         shortcuts={shortcuts}
         onClose={closeHelp}
-      />*/}
+        formatShortcut={formatShortcut}
+      />
     </Box>
 
     {/* Bottom Player Bar - MOVED OUTSIDE overflow:hidden container */}

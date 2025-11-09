@@ -2,6 +2,41 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Project-Specific Guidance**: This CLAUDE.md contains Auralis-specific development guidelines. For user-specific preferences across all projects, see `~/.claude/CLAUDE.md`.
+
+**Key Project Principles:**
+- Always prioritize improving existing code rather than duplicating logic
+- Coverage ≠ Quality: Test behavior and invariants, not implementation
+- Modular design: Keep modules under 300 lines, use facade pattern for backward compatibility
+
+## TL;DR - Start Here
+
+**Just want to code? Here's the absolute minimum:**
+
+```bash
+# Install and run
+pip install -r requirements.txt
+python launch-auralis-web.py --dev    # http://localhost:8765
+
+# Before writing ANY tests, READ THIS (MANDATORY):
+cat docs/development/TESTING_GUIDELINES.md
+
+# Run tests
+python -m pytest tests/ -v
+```
+
+**Key files you'll modify most:**
+- Backend API: `auralis-web/backend/routers/*.py`
+- Audio processing: `auralis/core/hybrid_processor.py`, `auralis/dsp/stages.py`
+- Frontend UI: `auralis-web/frontend/src/components/*.tsx`
+
+**Common gotchas:**
+- Backend is on port **8765** (not 8000), frontend dev is on 3000
+- Coverage ≠ Quality: 100% coverage doesn't catch all bugs (see Testing Guidelines)
+- Use new modular imports: `from auralis.dsp.eq import ...` not `from auralis.dsp.unified import ...`
+
+---
+
 ## Quick Start for Developers
 
 **First time here? Start with:**
@@ -111,21 +146,39 @@ npm run package:mac                    # Package for macOS
 ```
 
 ### Testing
+
+**Most common test commands:**
 ```bash
-# Backend tests (850+ tests across all categories)
-python -m pytest tests/backend/ -v                     # API endpoint tests (96 tests)
+# Run all tests
+python -m pytest tests/ -v
+
+# Test what you're working on
+python -m pytest tests/backend/ -v        # Backend API (96 tests)
+python -m pytest tests/auralis/ -v        # Audio processing (24 tests)
+python -m pytest tests/invariants/ -v     # Critical invariants (305 tests)
+python -m pytest tests/integration/ -v    # Integration tests (85 tests)
+python -m pytest tests/boundaries/ -v     # Boundary tests (151 tests)
+
+# Frontend tests
+cd auralis-web/frontend && npm test       # 234/245 passing (11 gapless playback tests failing)
+```
+
+**Full test suite breakdown (850+ tests):**
+```bash
+# Backend tests by category
+python -m pytest tests/backend/ -v                     # API endpoint tests (96 tests, 74% coverage)
 python -m pytest tests/auralis/ -v                     # Real-time processing (24 tests, all passing ✅)
 python -m pytest tests/test_adaptive_processing.py -v  # Core processing tests (26 tests)
 
-# Phase 1 Week 1: Critical Invariant Tests (305 tests)
+# Phase 1 Week 1: Critical Invariant Tests (305 tests) ✅ COMPLETE
 python -m pytest tests/invariants/ -v                  # All critical invariants
 python -m pytest -m invariant -v                       # Run by marker
 
-# Phase 1 Week 2: Advanced Integration Tests (85 tests)
+# Phase 1 Week 2: Advanced Integration Tests (85 tests) ✅ COMPLETE
 python -m pytest tests/integration/ -v                 # All integration tests
 python -m pytest -m integration -v                     # Run by marker
 
-# Phase 1 Week 3: Boundary Tests (151/150 complete - 101%)
+# Phase 1 Week 3: Boundary Tests (151/150 complete - 101%) ✅ COMPLETE
 python -m pytest tests/boundaries/ -v                  # All boundary tests (151 tests)
 python -m pytest tests/boundaries/test_chunked_processing_boundaries.py -v  # Chunked processing (31 tests)
 python -m pytest tests/boundaries/test_pagination_boundaries.py -v          # Pagination (30 tests)
@@ -152,11 +205,6 @@ python -m pytest -m boundary      # Boundary tests
 python -m pytest -m mutation      # Mutation tests
 python -m pytest -m "not slow"    # Skip slow tests
 python -m pytest -m audio         # Audio processing tests only
-
-# See TEST_FIX_COMPLETE.md for details on fixed real-time processing tests
-# See TEST_ORGANIZATION_COMPLETE.md for test structure details
-# ⚠️ TODO: Add regression tests for Oct 25 bug fixes (gain pumping, soft limiter)
-# ⚠️ TODO: Fix 11 failing frontend tests (gapless playback component)
 
 # Frontend tests (245 tests, 234 passing, 11 failing)
 cd auralis-web/frontend
@@ -288,6 +336,35 @@ mutmut show 1
 - **Output**: WAV (16-bit/24-bit PCM), FLAC (16-bit/24-bit PCM)
 
 ## Architecture Overview
+
+### High-Level Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Auralis Architecture                        │
+├─────────────────────────────────────────────────────────────────────┤
+│  Frontend Layer (React/TypeScript)                                  │
+│  ├── auralis-web/frontend/  - Web UI (React + Material-UI)         │
+│  └── desktop/               - Electron wrapper (native desktop)    │
+│                                                                      │
+│  Communication: REST API + WebSocket (port 8765)                    │
+├─────────────────────────────────────────────────────────────────────┤
+│  Backend Layer (FastAPI)                                            │
+│  ├── auralis-web/backend/main.py      - Main app (614 lines)       │
+│  ├── auralis-web/backend/routers/     - 14 modular routers         │
+│  ├── auralis-web/backend/streaming/   - MSE + multi-tier buffers   │
+│  └── auralis-web/backend/processing_engine.py - Job queue          │
+│                                                                      │
+│  Communication: Direct Python imports                               │
+├─────────────────────────────────────────────────────────────────────┤
+│  Core Processing Engine (Python)                                    │
+│  ├── auralis/core/          - Main processor (adaptive mastering)  │
+│  ├── auralis/dsp/           - DSP algorithms (EQ, dynamics)        │
+│  ├── auralis/analysis/      - Audio analysis (25D fingerprint)     │
+│  ├── auralis/library/       - Library management (SQLite)          │
+│  └── auralis/player/        - Audio playback engine                │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ### Two-Tier Architecture
 The project has two parallel UI implementations sharing the same Python audio processing backend:
@@ -930,9 +1007,62 @@ See [UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md) for complete 
 - ✅ Use memory pools for repeated array allocations
 - ✅ Batch database operations when possible
 
+## ⚠️ Common Gotchas for New Contributors
+
+Before you start coding, be aware of these common pitfalls:
+
+### 1. Port Confusion
+- **Backend**: Port **8765** (not 8000)
+- **Frontend dev server**: Port 3000
+- **Full URL**: http://localhost:8765 (production) or http://localhost:3000 (dev mode proxied to 8765)
+
+### 2. Testing Philosophy - READ FIRST
+- **Coverage ≠ Quality**: 100% test coverage doesn't mean your tests catch bugs
+- **Example**: The overlap bug had 100% coverage but zero detection
+- **Solution**: Test **invariants** (properties that must always hold), not implementation details
+- **MANDATORY**: Read [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) before writing any tests
+
+### 3. Import Paths
+**✅ Use these (new modular structure):**
+```python
+from auralis.dsp.eq import PsychoacousticEQ
+from auralis.dsp.utils import spectral_centroid, to_db
+from auralis.analysis.quality import QualityMetrics
+```
+
+**❌ Don't use these (legacy imports, deprecated):**
+```python
+from auralis.dsp.unified import spectral_centroid  # Old
+from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ  # Old
+```
+
+### 4. Audio Processing Rules
+- **Never modify audio in-place**: Always create new output arrays
+- **Use NumPy arrays**: Not Python lists for audio data
+- **Sample count invariant**: `len(output) == len(input)` must always hold
+- **Type hints**: Always use type hints for audio processing functions
+
+### 5. API Method Names
+- ✅ `player.seek_to_position(time)` - NOT `player.seek(time)`
+- ✅ `player.next_track()` - NOT `player.next()`
+- ✅ `player.previous_track()` - NOT `player.previous()`
+- ✅ Volume parameter is `volume` - NOT `level`
+
+### 6. Database Location
+- Default: `~/.auralis/library.db`
+- Alternative: `~/.auralis/auralis_library.db`
+- Will be auto-created on first launch if missing
+
+### 7. Version Management
+- **Source of truth**: `auralis/version.py` (currently 1.0.0-beta.10)
+- **package.json**: Shows beta.3 (for desktop packaging only, not actual version)
+- **Update versions**: Use `python scripts/sync_version.py <version>`
+
 ## Version Management
 
 Auralis uses **Semantic Versioning 2.0.0** with automated version management.
+
+**Note**: The version in `package.json` (beta.3) is for desktop packaging. The actual project version is in [auralis/version.py](auralis/version.py) (currently 1.0.0-beta.10).
 
 ### Version Commands
 ```bash
