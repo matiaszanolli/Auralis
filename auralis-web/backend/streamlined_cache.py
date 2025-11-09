@@ -23,9 +23,10 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Configuration
-# NEW (Beta.9): Reduced from 30s → 10s for instant toggle feel
-CHUNK_DURATION = 10.0  # seconds per chunk (reduced from 30s for Phase 2)
-CHUNK_SIZE_MB = 1.0    # estimated size per chunk (stereo 44.1kHz, float32) - reduced from 3.0
+# NEW (Beta 12.1): 15s chunks with 10s intervals = 5s overlap for natural crossfades
+CHUNK_DURATION = 15.0  # seconds per chunk (actual chunk length)
+CHUNK_INTERVAL = 10.0   # seconds between chunk starts (playback interval)
+CHUNK_SIZE_MB = 1.5    # estimated size per chunk (stereo 44.1kHz, float32) - increased from 1.0 for 15s chunks
 
 # Tier 1: Hot cache (current + next chunk)
 TIER1_MAX_CHUNKS = 2   # Current + next
@@ -128,12 +129,14 @@ class StreamlinedCacheManager:
         logger.info("StreamlinedCacheManager initialized (12 MB Tier 1)")
 
     def _get_current_chunk(self, position: float) -> int:
-        """Calculate chunk index from playback position."""
-        return int(position // CHUNK_DURATION)
+        """Calculate chunk index from playback position.
+        Uses CHUNK_INTERVAL (10s) since chunks start every 10s."""
+        return int(position // CHUNK_INTERVAL)
 
     def _calculate_total_chunks(self, duration: float) -> int:
-        """Calculate total chunks needed for track."""
-        return int(duration // CHUNK_DURATION) + (1 if duration % CHUNK_DURATION > 0 else 0)
+        """Calculate total chunks needed for track.
+        Uses CHUNK_INTERVAL (10s) since chunks start every 10s."""
+        return int(duration // CHUNK_INTERVAL) + (1 if duration % CHUNK_INTERVAL > 0 else 0)
 
     async def update_position(
         self,

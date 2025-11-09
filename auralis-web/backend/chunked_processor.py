@@ -35,10 +35,15 @@ logger = logging.getLogger(__name__)
 _last_content_profiles = {}
 
 # Chunk configuration
-# NEW (Beta.9): Reduced from 30s → 10s for instant toggle feel
-# Smaller chunks = smaller MediaSource buffer = faster toggle response
-CHUNK_DURATION = 10  # seconds (reduced from 30s for Phase 2)
-OVERLAP_DURATION = 0.1  # seconds - minimal overlap for processing context (was 3s, caused gaps!)
+# NEW (Beta 12.1): 15s chunks with 10s intervals = 5s overlap for natural crossfades
+# Benefits:
+# - 5-second overlap provides excellent crossfade material
+# - More natural transitions between chunks
+# - Better audio quality with proper blending
+# - Still fast enough for responsive preset switching
+CHUNK_DURATION = 15  # seconds - actual chunk length
+CHUNK_INTERVAL = 10  # seconds - playback interval (CHUNK_DURATION - OVERLAP_DURATION)
+OVERLAP_DURATION = 5  # seconds - overlap for natural crossfades (was 0.1s)
 CONTEXT_DURATION = 5  # seconds of context for better processing quality
 MAX_LEVEL_CHANGE_DB = 1.5  # maximum allowed level change between chunks in dB
 
@@ -167,14 +172,17 @@ class ChunkedAudioProcessor:
             with sf.SoundFile(self.filepath) as f:
                 self.sample_rate = f.samplerate
                 self.total_duration = len(f) / f.samplerate
-                self.total_chunks = int(np.ceil(self.total_duration / CHUNK_DURATION))
+                # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
+                # This accounts for the 5s overlap between chunks
+                self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
         except Exception as e:
             logger.error(f"Failed to load audio metadata: {e}")
             # Fallback: load entire audio (slower)
             audio, sr = load_audio(self.filepath)
             self.sample_rate = sr
             self.total_duration = len(audio) / sr
-            self.total_chunks = int(np.ceil(self.total_duration / CHUNK_DURATION))
+            # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
+            self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
 
     def _get_cache_key(self, chunk_index: int) -> str:
         """
@@ -216,18 +224,14 @@ class ChunkedAudioProcessor:
         Returns:
             Tuple of (audio_chunk, chunk_start_time, chunk_end_time)
         """
-        # Calculate chunk boundaries
-        # First chunk: 0-30s
-        # Second chunk: 29-60s (includes 1s overlap)
-        # Third chunk: 59-90s (includes 1s overlap)
-        if chunk_index == 0:
-            chunk_start = 0
-        else:
-            # Start 1 second earlier to create overlap
-            chunk_start = chunk_index * CHUNK_DURATION - OVERLAP_DURATION
-
-        chunk_end = min(chunk_start + CHUNK_DURATION + (OVERLAP_DURATION if chunk_index > 0 else 0),
-                       self.total_duration)
+        # Calculate chunk boundaries with 15s/10s model
+        # Chunk 0: 0s-15s (15s duration)
+        # Chunk 1: 10s-25s (15s duration, 5s overlap with chunk 0)
+        # Chunk 2: 20s-35s (15s duration, 5s overlap with chunk 1)
+        # Each chunk is CHUNK_DURATION (15s) long
+        # Each chunk starts CHUNK_INTERVAL (10s) after the previous
+        chunk_start = chunk_index * CHUNK_INTERVAL
+        chunk_end = min(chunk_start + CHUNK_DURATION, self.total_duration)
 
         # Add context for processing (but trim later)
         if with_context:
@@ -490,7 +494,7 @@ class ChunkedAudioProcessor:
 
         # Trim context (keep only the actual chunk)
         context_samples = int(CONTEXT_DURATION * self.sample_rate)
-        actual_start = chunk_index * CHUNK_DURATION
+        actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
 
         # Safety: Ensure we have enough samples to trim
         chunk_length = len(processed_chunk)
@@ -781,7 +785,7 @@ class ChunkedAudioProcessor:
 
         # Trim context (keep only the actual chunk)
         context_samples = int(CONTEXT_DURATION * self.sample_rate)
-        actual_start = chunk_index * CHUNK_DURATION
+        actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
 
         # Safety: Ensure we have enough samples to trim
         chunk_length = len(processed_chunk)
