@@ -208,14 +208,10 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
                         )
                         logger.info(f"🎯 Buffer manager learned preset switch: {old_preset} → {preset.lower()}")
 
-            # Clear cache entries for tracks with the old preset to force reprocessing
-            if get_processing_cache is not None and old_preset != preset.lower():
-                cache = get_processing_cache()
-                keys_to_remove = [k for k in cache.keys() if f"_{old_preset}_" in k]
-                for key in keys_to_remove:
-                    del cache[key]
-                if keys_to_remove:
-                    logger.info(f"🧹 Cleared {len(keys_to_remove)} cache entries for old preset '{old_preset}'")
+            # NOTE: We keep the old preset cached for instant toggling back
+            # Proactive buffering will handle caching the new preset in background
+            # This prevents the 2-5s delay when switching presets
+            logger.info(f"⚡ Preset switched instantly: {old_preset} → {preset.lower()} (cache preserved)")
 
             # Broadcast to all clients
             await connection_manager.broadcast({
