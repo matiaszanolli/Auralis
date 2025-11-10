@@ -54,7 +54,8 @@ export interface StreamMetadata {
   track_id: number;
   duration: number;
   total_chunks: number;
-  chunk_duration: number;
+  chunk_duration: number;  // Actual chunk length in seconds (e.g., 15s)
+  chunk_interval: number;  // Interval between chunk starts in seconds (e.g., 10s)
   mime_type: string;  // "audio/webm"
   codecs: string;  // "opus"
   format_version: string;  // "unified-v1.0"
@@ -181,12 +182,17 @@ export class UnifiedWebMAudioPlayer {
       this.trackId = trackId;
 
       // Initialize chunks
+      // With overlap model (15s chunks, 10s intervals):
+      //   Chunk 0: startTime=0s, endTime=10s (plays audio from 0-15s)
+      //   Chunk 1: startTime=10s, endTime=20s (plays audio from 10-25s)
+      //   Chunk 2: startTime=20s, endTime=30s (plays audio from 20-35s)
+      const chunkInterval = this.metadata.chunk_interval || this.metadata.chunk_duration;
       this.chunks = [];
       for (let i = 0; i < this.metadata.total_chunks; i++) {
         this.chunks.push({
           index: i,
-          startTime: i * this.metadata.chunk_duration,
-          endTime: Math.min((i + 1) * this.metadata.chunk_duration, this.metadata.duration),
+          startTime: i * chunkInterval,  // Use interval, not duration
+          endTime: Math.min((i + 1) * chunkInterval, this.metadata.duration),  // Use interval, not duration
           audioBuffer: null,
           isLoading: false,
           isLoaded: false
@@ -290,8 +296,20 @@ export class UnifiedWebMAudioPlayer {
 
     // Calculate chunk to play based on current time
     const currentTime = this.pauseTime || 0;
-    const chunkDuration = this.metadata?.chunk_duration || 10; // Fallback only if metadata not loaded
-    const chunkIndex = Math.floor(currentTime / chunkDuration);
+    const chunkInterval = this.metadata?.chunk_interval || this.metadata?.chunk_duration || 10; // Use interval for indexing
+    const chunkDuration = this.metadata?.chunk_duration || 10;
+
+    // Calculate which chunk to play (based on INTERVAL, not duration)
+    // With 15s chunks and 10s intervals:
+    //   0-10s: chunk 0 (plays 0-15s of audio, offset 0-10s)
+    //   10-20s: chunk 1 (plays 10-25s of audio, offset 0-10s within chunk)
+    //   20-30s: chunk 2 (plays 20-35s of audio, offset 0-10s within chunk)
+    const chunkIndex = Math.floor(currentTime / chunkInterval);
+
+    // Calculate offset within the chunk
+    // For overlap model: offset is relative to chunk start (chunkIndex * interval)
+    const chunkStartTime = chunkIndex * chunkInterval;
+    const offsetInChunk = currentTime - chunkStartTime;
 
     // Ensure chunk is loaded
     const chunk = this.chunks[chunkIndex];
@@ -300,12 +318,17 @@ export class UnifiedWebMAudioPlayer {
       await this.preloadChunk(chunkIndex);
     }
 
-    // Play chunk
-    await this.playChunk(chunkIndex, currentTime % chunkDuration);
+    // Play chunk with correct offset
+    await this.playChunk(chunkIndex, offsetInChunk);
   }
 
   /**
-   * Play a specific chunk with optional offset
+   * Play a specific chunk with optional offset and crossfade
+   *
+   * With 15s chunks every 10s:
+   * - Chunk plays for INTERVAL duration (10s), not full DURATION (15s)
+   * - Next chunk starts with 5s crossfade during overlap region
+   * - Crossfade uses exponential volume curves for natural transition
    */
   private async playChunk(chunkIndex: number, offset: number = 0): Promise<void> {
     const chunk = this.chunks[chunkIndex];
@@ -313,46 +336,158 @@ export class UnifiedWebMAudioPlayer {
       throw new Error(`Chunk ${chunkIndex} not loaded`);
     }
 
-    // Stop current playback
-    if (this.currentSource) {
+    const chunkInterval = this.metadata?.chunk_interval || this.metadata?.chunk_duration || 10;
+    const chunkDuration = this.metadata?.chunk_duration || 10;
+    const crossfadeDuration = chunkDuration - chunkInterval; // 5s
+
+    // Stop previous source (if not crossfading)
+    if (this.currentSource && offset > 0) {
       this.currentSource.stop();
       this.currentSource.disconnect();
     }
 
-    // Create new buffer source
-    this.currentSource = this.audioContext.createBufferSource();
-    this.currentSource.buffer = chunk.audioBuffer;
-    this.currentSource.connect(this.gainNode);
+    // Create gain node for this chunk (for crossfade control)
+    const chunkGainNode = this.audioContext.createGain();
+    chunkGainNode.connect(this.gainNode);
+    chunkGainNode.gain.value = this.volume;
 
-    // Set volume
-    this.gainNode.gain.value = this.volume;
+    // Create new buffer source
+    const source = this.audioContext.createBufferSource();
+    source.buffer = chunk.audioBuffer;
+    source.connect(chunkGainNode);
 
     // Track when playback started
     this.startTime = this.audioContext.currentTime - offset;
     this.currentChunkIndex = chunkIndex;
 
-    // When chunk ends, play next chunk
-    this.currentSource.onended = () => {
-      if (this.state === 'playing') {
-        const nextIdx = chunkIndex + 1;
-        if (nextIdx < this.chunks.length) {
-          this.playChunk(nextIdx, 0); // Play next chunk from start
-        } else {
-          // Track ended
+    // Calculate when to start next chunk for crossfade
+    // Play current chunk for (interval - offset) seconds
+    const playDuration = chunkInterval - offset;
+    const crossfadeStartTime = this.audioContext.currentTime + playDuration - crossfadeDuration;
+
+    // Schedule crossfade and next chunk
+    if (chunkIndex + 1 < this.chunks.length) {
+      // Ensure next chunk is loaded
+      const nextChunk = this.chunks[chunkIndex + 1];
+      if (!nextChunk.isLoaded) {
+        this.preloadChunk(chunkIndex + 1); // Start loading
+      }
+
+      // Schedule fade out of current chunk
+      setTimeout(async () => {
+        if (this.state === 'playing' && this.currentChunkIndex === chunkIndex) {
+          // Start fade out (exponential curve for natural sound)
+          const now = this.audioContext.currentTime;
+          chunkGainNode.gain.setValueAtTime(this.volume, now);
+          chunkGainNode.gain.exponentialRampToValueAtTime(0.01, now + crossfadeDuration);
+
+          // Start next chunk with fade in
+          await this.playChunkWithCrossfade(chunkIndex + 1);
+        }
+      }, (playDuration - crossfadeDuration) * 1000);
+
+      // When chunk interval ends, current source can stop
+      source.onended = () => {
+        source.disconnect();
+        chunkGainNode.disconnect();
+      };
+    } else {
+      // Last chunk - no crossfade, just end
+      source.onended = () => {
+        source.disconnect();
+        chunkGainNode.disconnect();
+        if (this.state === 'playing') {
           this.setState('idle');
           this.emit('ended');
         }
-      }
-    };
+      };
+    }
 
     // Start playback with offset
-    this.currentSource.start(0, offset);
+    // Play only the interval duration (10s), not full chunk (15s)
+    source.start(0, offset, playDuration);
+
+    // Keep reference to current source
+    this.currentSource = source;
 
     this.setState('playing');
-    this.debug(`Playing chunk ${chunkIndex} from ${offset.toFixed(2)}s`);
+    this.debug(`Playing chunk ${chunkIndex} from ${offset.toFixed(2)}s for ${playDuration.toFixed(2)}s (crossfade in ${(playDuration - crossfadeDuration).toFixed(2)}s)`);
 
     // Start time updates
     this.startTimeUpdates();
+  }
+
+  /**
+   * Play next chunk with fade-in during crossfade
+   */
+  private async playChunkWithCrossfade(chunkIndex: number): Promise<void> {
+    const chunk = this.chunks[chunkIndex];
+
+    // Wait for chunk to load if needed
+    if (!chunk.isLoaded) {
+      await this.preloadChunk(chunkIndex);
+    }
+
+    if (!chunk.audioBuffer) {
+      this.debug(`Warning: Chunk ${chunkIndex} not loaded, skipping crossfade`);
+      return;
+    }
+
+    const chunkInterval = this.metadata?.chunk_interval || this.metadata?.chunk_duration || 10;
+    const chunkDuration = this.metadata?.chunk_duration || 10;
+    const crossfadeDuration = chunkDuration - chunkInterval; // 5s
+
+    // Create gain node for fade in
+    const chunkGainNode = this.audioContext.createGain();
+    chunkGainNode.connect(this.gainNode);
+    chunkGainNode.gain.value = 0.01; // Start silent
+
+    // Create buffer source
+    const source = this.audioContext.createBufferSource();
+    source.buffer = chunk.audioBuffer;
+    source.connect(chunkGainNode);
+
+    // Fade in (exponential curve)
+    const now = this.audioContext.currentTime;
+    chunkGainNode.gain.setValueAtTime(0.01, now);
+    chunkGainNode.gain.exponentialRampToValueAtTime(this.volume, now + crossfadeDuration);
+
+    // Update tracking
+    this.currentChunkIndex = chunkIndex;
+
+    // Calculate play duration (interval duration)
+    const playDuration = chunkInterval;
+
+    // Schedule next chunk if available
+    if (chunkIndex + 1 < this.chunks.length) {
+      setTimeout(async () => {
+        if (this.state === 'playing' && this.currentChunkIndex === chunkIndex) {
+          // Fade out current and start next
+          const fadeNow = this.audioContext.currentTime;
+          chunkGainNode.gain.setValueAtTime(this.volume, fadeNow);
+          chunkGainNode.gain.exponentialRampToValueAtTime(0.01, fadeNow + crossfadeDuration);
+
+          await this.playChunkWithCrossfade(chunkIndex + 1);
+        }
+      }, (playDuration - crossfadeDuration) * 1000);
+    }
+
+    // When chunk ends, disconnect
+    source.onended = () => {
+      source.disconnect();
+      chunkGainNode.disconnect();
+
+      if (chunkIndex + 1 >= this.chunks.length && this.state === 'playing') {
+        // Last chunk ended
+        this.setState('idle');
+        this.emit('ended');
+      }
+    };
+
+    // Start playback from beginning, play for interval duration
+    source.start(0, 0, playDuration);
+
+    this.debug(`Crossfading to chunk ${chunkIndex} (fade in ${crossfadeDuration.toFixed(2)}s, play ${playDuration.toFixed(2)}s)`);
   }
 
   /**
@@ -409,10 +544,13 @@ export class UnifiedWebMAudioPlayer {
       this.currentSource = null;
     }
 
-    // Calculate target chunk using backend-provided chunk_duration
-    const chunkDuration = this.metadata?.chunk_duration || 10; // Fallback only if metadata not loaded
-    const targetChunk = Math.floor(time / chunkDuration);
-    const offset = time % chunkDuration;
+    // Calculate target chunk using chunk_interval (not duration)
+    const chunkInterval = this.metadata?.chunk_interval || this.metadata?.chunk_duration || 10;
+    const targetChunk = Math.floor(time / chunkInterval);
+
+    // Calculate offset within the chunk (relative to chunk start time)
+    const chunkStartTime = targetChunk * chunkInterval;
+    const offset = time - chunkStartTime;
 
     this.debug(`Seeking to ${time.toFixed(2)}s (chunk ${targetChunk}, offset ${offset.toFixed(2)}s)`);
 

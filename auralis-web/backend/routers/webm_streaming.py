@@ -46,7 +46,8 @@ class StreamMetadata(BaseModel):
     duration: float  # Total duration in seconds
     sample_rate: int
     channels: int
-    chunk_duration: int  # Duration of each chunk in seconds
+    chunk_duration: int  # Duration of each chunk in seconds (actual chunk length)
+    chunk_interval: int  # Interval between chunk starts in seconds (for indexing)
     total_chunks: int
     mime_type: str  # Always "audio/webm"
     codecs: str  # Always "opus"
@@ -57,7 +58,8 @@ def create_webm_streaming_router(
     get_library_manager,
     get_multi_tier_buffer,
     chunked_audio_processor_class,
-    chunk_duration: int = 10
+    chunk_duration: int = 10,
+    chunk_interval: int = 10
 ):
     """
     Factory function to create unified WebM streaming router with dependencies.
@@ -69,6 +71,7 @@ def create_webm_streaming_router(
         get_multi_tier_buffer: Callable that returns MultiTierBuffer instance
         chunked_audio_processor_class: ChunkedAudioProcessor class (now outputs WebM)
         chunk_duration: Duration of each chunk in seconds (default: 10, reduced from 30s for Phase 2)
+        chunk_interval: Interval between chunk starts in seconds (default: 10, same as duration for no overlap)
 
     Returns:
         APIRouter: Configured router instance
@@ -119,7 +122,9 @@ def create_webm_streaming_router(
                     logger.error(f"Failed to load audio for duration: {e}")
                     duration = 180  # Default to 3 minutes if loading fails
 
-            total_chunks = math.ceil(duration / chunk_duration)
+            # Calculate total chunks based on interval (not duration) for overlap model
+            # With 15s chunks and 10s intervals: chunks start at 0s, 10s, 20s, etc.
+            total_chunks = math.ceil(duration / chunk_interval)
 
             metadata = StreamMetadata(
                 track_id=track_id,
@@ -127,13 +132,15 @@ def create_webm_streaming_router(
                 sample_rate=44100,  # Standard output sample rate
                 channels=2,  # Stereo output
                 chunk_duration=chunk_duration,
+                chunk_interval=chunk_interval,
                 total_chunks=total_chunks,
                 mime_type="audio/webm",
                 codecs="opus",
                 format_version="unified-v1.0"
             )
 
-            logger.info(f"Stream metadata for track {track_id}: {total_chunks} chunks, {duration:.1f}s, WebM/Opus")
+            logger.info(f"Stream metadata for track {track_id}: {total_chunks} chunks, {duration:.1f}s, "
+                       f"chunk_duration={chunk_duration}s, chunk_interval={chunk_interval}s, WebM/Opus")
             return metadata
 
         except HTTPException:
