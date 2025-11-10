@@ -21,6 +21,7 @@ import {
   TrendingUp
 } from '@mui/icons-material';
 import { colors, gradients } from '../theme/auralisTheme';
+import { tokens } from '@/design-system/tokens';
 
 interface ProcessingStats {
   status: 'analyzing' | 'processing' | 'idle';
@@ -52,9 +53,9 @@ export const ProcessingToast: React.FC<ProcessingToastProps> = ({ stats, show })
   };
 
   const getStatusColor = () => {
-    if (stats.cacheHit) return colors.accent.success;
-    if (stats.status === 'analyzing') return colors.accent.purple;
-    return '#667eea'; // primary purple
+    if (stats.cacheHit) return tokens.colors.accent.success;
+    if (stats.status === 'analyzing') return tokens.colors.accent.purple;
+    return tokens.colors.accent.primary;
   };
 
   return (
@@ -63,24 +64,24 @@ export const ProcessingToast: React.FC<ProcessingToastProps> = ({ stats, show })
         elevation={8}
         sx={{
           position: 'fixed',
-          bottom: 100, // Above player bar
-          right: 24,
-          width: 280,
-          backgroundColor: 'rgba(26, 31, 58, 0.95)',
+          bottom: `calc(${tokens.components.playerBar.height} + ${tokens.spacing.sm})`,
+          right: tokens.spacing.lg,
+          width: '280px',
+          backgroundColor: tokens.components.playerBar.background,
           backdropFilter: 'blur(20px)',
-          borderRadius: '12px',
-          border: '1px solid rgba(139, 146, 176, 0.2)',
+          borderRadius: tokens.borderRadius.lg,
+          border: `1px solid ${tokens.colors.border.light}`,
           overflow: 'hidden',
-          zIndex: 1300,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+          zIndex: tokens.zIndex.toast,
+          boxShadow: tokens.shadows.xl
         }}
       >
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: tokens.spacing.md }}>
           {/* Header with icon */}
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1.5 }}>
+          <Stack direction="row" spacing={tokens.spacing.sm} alignItems="center" sx={{ mb: tokens.spacing.sm }}>
             <AutoAwesome
               sx={{
-                fontSize: 20,
+                fontSize: tokens.typography.fontSize.lg,
                 color: getStatusColor(),
                 animation: stats.status === 'analyzing' ? 'pulse 2s ease-in-out infinite' : 'none',
                 '@keyframes pulse': {
@@ -92,9 +93,9 @@ export const ProcessingToast: React.FC<ProcessingToastProps> = ({ stats, show })
             <Typography
               variant="body2"
               sx={{
-                color: colors.text.primary,
-                fontWeight: 600,
-                fontSize: '13px'
+                color: tokens.colors.text.primary,
+                fontWeight: tokens.typography.fontWeight.semibold,
+                fontSize: tokens.typography.fontSize.sm
               }}
             >
               {getStatusText()}
@@ -102,19 +103,19 @@ export const ProcessingToast: React.FC<ProcessingToastProps> = ({ stats, show })
           </Stack>
 
           {/* Stats chips */}
-          <Stack direction="row" spacing={1} flexWrap="wrap" gap={0.5}>
+          <Stack direction="row" spacing={tokens.spacing.xs} flexWrap="wrap" gap={tokens.spacing.xs}>
             {stats.cacheHit && (
               <Chip
-                icon={<TrendingUp sx={{ fontSize: 14 }} />}
+                icon={<TrendingUp sx={{ fontSize: tokens.typography.fontSize.sm }} />}
                 label="8x faster"
                 size="small"
                 sx={{
-                  height: 22,
-                  backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                  color: colors.accent.success,
-                  fontSize: '11px',
+                  height: '22px',
+                  backgroundColor: `${tokens.colors.accent.success}1A`,
+                  color: tokens.colors.accent.success,
+                  fontSize: tokens.typography.fontSize.xs,
                   '& .MuiChip-icon': {
-                    color: colors.accent.success
+                    color: tokens.colors.accent.success
                   }
                 }}
               />
@@ -122,16 +123,16 @@ export const ProcessingToast: React.FC<ProcessingToastProps> = ({ stats, show })
 
             {stats.processingSpeed && stats.processingSpeed > 1 && (
               <Chip
-                icon={<Speed sx={{ fontSize: 14 }} />}
+                icon={<Speed sx={{ fontSize: tokens.typography.fontSize.sm }} />}
                 label={`${stats.processingSpeed.toFixed(1)}x RT`}
                 size="small"
                 sx={{
-                  height: 22,
-                  backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                  color: colors.accent.purple,
-                  fontSize: '11px',
+                  height: '22px',
+                  backgroundColor: `${tokens.colors.accent.primary}1A`,
+                  color: tokens.colors.accent.purple,
+                  fontSize: tokens.typography.fontSize.xs,
                   '& .MuiChip-icon': {
-                    color: colors.accent.purple
+                    color: tokens.colors.accent.purple
                   }
                 }}
               />
@@ -139,16 +140,16 @@ export const ProcessingToast: React.FC<ProcessingToastProps> = ({ stats, show })
 
             {stats.currentChunk !== undefined && (
               <Chip
-                icon={<Memory sx={{ fontSize: 14 }} />}
+                icon={<Memory sx={{ fontSize: tokens.typography.fontSize.sm }} />}
                 label={`${((stats.currentChunk / (stats.totalChunks || 1)) * 100).toFixed(0)}%`}
                 size="small"
                 sx={{
-                  height: 22,
-                  backgroundColor: 'rgba(139, 146, 176, 0.1)',
-                  color: colors.text.secondary,
-                  fontSize: '11px',
+                  height: '22px',
+                  backgroundColor: `${tokens.colors.text.secondary}1A`,
+                  color: tokens.colors.text.secondary,
+                  fontSize: tokens.typography.fontSize.xs,
                   '& .MuiChip-icon': {
-                    color: colors.text.secondary
+                    color: tokens.colors.text.secondary
                   }
                 }}
               />
