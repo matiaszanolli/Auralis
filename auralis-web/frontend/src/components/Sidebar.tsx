@@ -26,7 +26,7 @@ import {
   Settings
 } from '@mui/icons-material';
 import { AuroraLogo } from './navigation/AuroraLogo';
-import { colors, gradients } from '../theme/auralisTheme';
+import { tokens, withOpacity } from '@/design-system/tokens';
 import PlaylistList from './playlist/PlaylistList';
 import ThemeToggle from './ThemeToggle';
 
@@ -38,33 +38,33 @@ interface SidebarProps {
 }
 
 const SidebarContainer = styled(Box)({
-  width: '240px',
+  width: tokens.components.sidebar.width,
   height: '100%',
-  background: colors.background.secondary,
-  borderRight: `1px solid rgba(102, 126, 234, 0.1)`,
+  background: tokens.colors.bg.secondary,
+  borderRight: `1px solid ${tokens.colors.border.light}`,
   display: 'flex',
   flexDirection: 'column',
-  transition: 'width 0.3s ease',
+  transition: `width ${tokens.transitions.slow}`,
 });
 
 const SectionLabel = styled(Typography)({
-  fontSize: '11px',
-  fontWeight: 600,
-  color: colors.text.disabled,
+  fontSize: tokens.typography.fontSize.xs,
+  fontWeight: tokens.typography.fontWeight.semibold,
+  color: tokens.colors.text.disabled,
   textTransform: 'uppercase',
   letterSpacing: '1px',
-  padding: '16px 24px 8px',
+  padding: `${tokens.spacing.md} ${tokens.spacing.lg} ${tokens.spacing.sm}`,
 });
 
 const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }>(({ isactive }) => ({
-  borderRadius: '8px',
-  height: '40px',
-  marginBottom: '4px',
+  borderRadius: tokens.borderRadius.md,
+  height: `calc(${tokens.spacing.lg} + ${tokens.spacing.md})`, // 40px (24 + 16)
+  marginBottom: tokens.spacing.xs,
   position: 'relative',
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.all,
 
   ...(isactive === 'true' && {
-    background: 'rgba(102, 126, 234, 0.15)',
+    background: withOpacity(tokens.colors.accent.primary, 0.15),
     '&::before': {
       content: '""',
       position: 'absolute',
@@ -72,20 +72,20 @@ const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }>(({ is
       top: 0,
       bottom: 0,
       width: '3px',
-      background: gradients.aurora,
+      background: tokens.gradients.aurora,
       borderRadius: '0 2px 2px 0',
     },
   }),
 
   '&:hover': {
     background: isactive === 'true'
-      ? 'rgba(102, 126, 234, 0.2)'
-      : colors.background.hover,
+      ? withOpacity(tokens.colors.accent.primary, 0.2)
+      : tokens.colors.bg.elevated,
     transform: 'translateX(2px)',
   },
 }));
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, onNavigate, onOpenSettings }) => {
+const SidebarComponent: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, onNavigate, onOpenSettings }) => {
   const [playlistsOpen, setPlaylistsOpen] = useState(true);
   const [selectedItem, setSelectedItem] = useState('songs');
 
@@ -118,17 +118,17 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
     return (
       <Box
         sx={{
-          width: 64,
+          width: tokens.spacing.xxxl, // 64px
           height: '100%',
-          background: colors.background.secondary,
-          borderRight: `1px solid rgba(102, 126, 234, 0.1)`,
+          background: tokens.colors.bg.secondary,
+          borderRight: `1px solid ${tokens.colors.border.light}`,
           display: 'flex',
           flexDirection: 'column',
-          transition: 'width 0.3s ease'
+          transition: `width ${tokens.transitions.slow}`
         }}
       >
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
-          <IconButton onClick={onToggleCollapse} sx={{ color: colors.text.secondary }}>
+        <Box sx={{ p: tokens.spacing.md, display: 'flex', justifyContent: 'center' }}>
+          <IconButton onClick={onToggleCollapse} sx={{ color: tokens.colors.text.secondary }}>
             <ChevronRight />
           </IconButton>
         </Box>
@@ -141,7 +141,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
       {/* Header with Aurora Logo */}
       <Box
         sx={{
-          p: 2,
+          p: tokens.spacing.md,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between'
@@ -152,10 +152,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
           onClick={onToggleCollapse}
           size="small"
           sx={{
-            color: colors.text.secondary,
-            transition: 'all 0.2s ease',
+            color: tokens.colors.text.secondary,
+            transition: tokens.transitions.all,
             '&:hover': {
-              color: colors.text.primary,
+              color: tokens.colors.text.primary,
               transform: 'scale(1.1)',
             },
           }}
@@ -164,12 +164,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
         </IconButton>
       </Box>
 
-      <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)' }} />
+      <Divider sx={{ borderColor: tokens.colors.border.light }} />
 
       {/* Library Section */}
       <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         <SectionLabel>Library</SectionLabel>
-        <List sx={{ px: 2 }}>
+        <List sx={{ px: tokens.spacing.md }}>
           {libraryItems.map((item) => (
             <ListItem key={item.id} disablePadding>
               <StyledListItemButton
@@ -178,9 +178,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
               >
                 <ListItemIcon
                   sx={{
-                    color: selectedItem === item.id ? '#667eea' : colors.text.secondary,
-                    minWidth: 36,
-                    transition: 'color 0.2s ease',
+                    color: selectedItem === item.id ? tokens.colors.accent.primary : tokens.colors.text.secondary,
+                    minWidth: `calc(${tokens.spacing.lg} + ${tokens.spacing.sm})`, // 32px + 4px = 36px
+                    transition: tokens.transitions.color,
                   }}
                 >
                   {item.icon}
@@ -188,9 +188,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
                 <ListItemText
                   primary={item.label}
                   primaryTypographyProps={{
-                    fontSize: 14,
-                    fontWeight: selectedItem === item.id ? 600 : 400,
-                    color: selectedItem === item.id ? colors.text.primary : colors.text.secondary,
+                    fontSize: tokens.typography.fontSize.base,
+                    fontWeight: selectedItem === item.id ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.normal,
+                    color: selectedItem === item.id ? tokens.colors.text.primary : tokens.colors.text.secondary,
                   }}
                 />
               </StyledListItemButton>
@@ -198,10 +198,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
           ))}
         </List>
 
-        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 2 }} />
+        <Divider sx={{ borderColor: tokens.colors.border.light, my: tokens.spacing.md }} />
 
         {/* Collections Section */}
-        <List sx={{ px: 2 }}>
+        <List sx={{ px: tokens.spacing.md }}>
           {collectionItems.map((item) => (
             <ListItem key={item.id} disablePadding>
               <StyledListItemButton
@@ -210,9 +210,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
               >
                 <ListItemIcon
                   sx={{
-                    color: selectedItem === item.id ? '#667eea' : colors.text.secondary,
-                    minWidth: 36,
-                    transition: 'color 0.2s ease',
+                    color: selectedItem === item.id ? tokens.colors.accent.primary : tokens.colors.text.secondary,
+                    minWidth: `calc(${tokens.spacing.lg} + ${tokens.spacing.sm})`, // 36px
+                    transition: tokens.transitions.color,
                   }}
                 >
                   {item.icon}
@@ -220,9 +220,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
                 <ListItemText
                   primary={item.label}
                   primaryTypographyProps={{
-                    fontSize: 14,
-                    fontWeight: selectedItem === item.id ? 600 : 400,
-                    color: selectedItem === item.id ? colors.text.primary : colors.text.secondary,
+                    fontSize: tokens.typography.fontSize.base,
+                    fontWeight: selectedItem === item.id ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.normal,
+                    color: selectedItem === item.id ? tokens.colors.text.primary : tokens.colors.text.secondary,
                   }}
                 />
               </StyledListItemButton>
@@ -230,7 +230,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
           ))}
         </List>
 
-        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 2 }} />
+        <Divider sx={{ borderColor: tokens.colors.border.light, my: tokens.spacing.md }} />
 
         {/* Playlists Section - Using PlaylistList Component */}
         <PlaylistList
@@ -240,8 +240,8 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
       </Box>
 
       {/* Settings and Theme Toggle at Bottom */}
-      <Box sx={{ mt: 'auto', p: 2, borderTop: '1px solid rgba(102, 126, 234, 0.1)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+      <Box sx={{ mt: 'auto', p: tokens.spacing.md, borderTop: `1px solid ${tokens.colors.border.light}` }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm, mb: tokens.spacing.sm }}>
           <Box sx={{ flex: 1 }}>
             <StyledListItemButton
               onClick={onOpenSettings}
@@ -249,9 +249,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
             >
               <ListItemIcon
                 sx={{
-                  color: colors.text.secondary,
-                  minWidth: 36,
-                  transition: 'color 0.2s ease',
+                  color: tokens.colors.text.secondary,
+                  minWidth: `calc(${tokens.spacing.lg} + ${tokens.spacing.sm})`, // 36px
+                  transition: tokens.transitions.color,
                 }}
               >
                 <Settings />
@@ -259,9 +259,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
               <ListItemText
                 primary="Settings"
                 primaryTypographyProps={{
-                  fontSize: 14,
-                  fontWeight: 400,
-                  color: colors.text.secondary,
+                  fontSize: tokens.typography.fontSize.base,
+                  fontWeight: tokens.typography.fontWeight.normal,
+                  color: tokens.colors.text.secondary,
                 }}
               />
             </StyledListItemButton>
@@ -269,12 +269,15 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCollapse, 
         </Box>
 
         {/* Theme Toggle */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: tokens.spacing.md }}>
           <ThemeToggle size="medium" />
         </Box>
       </Box>
     </SidebarContainer>
   );
 };
+
+// Memoize for performance
+const Sidebar = React.memo(SidebarComponent);
 
 export default Sidebar;

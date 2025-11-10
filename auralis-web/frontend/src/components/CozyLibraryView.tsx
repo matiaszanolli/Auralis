@@ -39,13 +39,15 @@ import { useLibraryData, Track } from '../hooks/useLibraryData';
 import { LibraryViewRouter } from './library/LibraryViewRouter';
 import { TrackListView } from './library/TrackListView';
 import { LibraryEmptyState } from './library/LibraryEmptyState';
+import { LibraryHeader } from './library/LibraryHeader';
+import { tokens } from '@/design-system/tokens';
 
 interface CozyLibraryViewProps {
   onTrackPlay?: (track: Track) => void;
   view?: string;
 }
 
-const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
+const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   onTrackPlay,
   view = 'songs'
 }) => {
@@ -282,40 +284,22 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
         />
       )}
 
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth="xl" sx={{ py: tokens.spacing.xl }}>
         {/* Header */}
-        <Box sx={{ mb: 4 }}>
-          <Typography
-            variant="h3"
-            component="h1"
-            fontWeight="bold"
-            gutterBottom
-            sx={{
-              background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}
-          >
-            {view === 'favourites' ? '❤️ Your Favorites' : '🎵 Your Music Collection'}
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            {view === 'favourites' ? 'Your most loved tracks' : 'Rediscover the magic in every song'}
-          </Typography>
-        </Box>
+        <LibraryHeader view={view} />
 
         {/* Search and Controls */}
         <Paper
           elevation={2}
           sx={{
-            p: 3,
-            mb: 4,
-            background: 'rgba(255,255,255,0.05)',
+            p: tokens.spacing.lg,
+            mb: tokens.spacing.xl,
+            background: `${tokens.colors.bg.elevated}80`,
             backdropFilter: 'blur(10px)',
-            borderRadius: 3
+            borderRadius: tokens.borderRadius.lg
           }}
         >
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: tokens.spacing.md, alignItems: 'center', flexWrap: 'wrap' }}>
             <Box sx={{ maxWidth: 400, flex: 1 }}>
               <SearchBar
                 value={searchQuery}
@@ -399,6 +383,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = ({
       </Container>
     </>
   );
-};
+});
+
+CozyLibraryView.displayName = 'CozyLibraryView';
 
 export default CozyLibraryView;
