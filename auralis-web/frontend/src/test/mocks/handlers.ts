@@ -296,19 +296,40 @@ export const handlers = [
     });
   }),
 
-  // GET /api/playlists/:id/tracks - Get playlist tracks
-  http.get(`${API_BASE}/playlists/:id/tracks`, async () => {
-    await delay(100);
-    return HttpResponse.json({ tracks: mockTracks.slice(0, 10) });
+  // GET /api/playlists/:id - Get playlist details
+  http.get(`${API_BASE}/playlists/:id`, async ({ params }) => {
+    await delay(50);
+    const playlistId = parseInt(params.id as string);
+    const playlist = mockPlaylists.find(p => p.id === playlistId);
+    if (playlist) {
+      return HttpResponse.json({
+        ...playlist,
+        total_duration: 1800,
+        is_smart: false,
+        smart_criteria: null,
+        auto_master_enabled: false,
+        mastering_profile: 'adaptive',
+        normalize_levels: false,
+        updated_at: new Date().toISOString(),
+      });
+    }
+    return HttpResponse.json({ error: 'Playlist not found', detail: 'Playlist does not exist' }, { status: 404 });
   }),
 
-  // POST /api/playlists/:id/tracks - Add track to playlist
-  http.post(`${API_BASE}/playlists/:id/tracks`, async ({ request }) => {
+  // PUT /api/playlists/:id - Update playlist (rename, description)
+  http.put(`${API_BASE}/playlists/:id`, async ({ request, params }) => {
     const body = await request.json();
     await delay(100);
+    const playlistId = parseInt(params.id as string);
     return HttpResponse.json({
       success: true,
-      track_id: (body as any).track_id
+      playlist: {
+        id: playlistId,
+        name: (body as any).name || 'Updated Playlist',
+        description: (body as any).description || '',
+        track_count: 10,
+        updated_at: new Date().toISOString(),
+      }
     });
   }),
 
@@ -316,6 +337,61 @@ export const handlers = [
   http.delete(`${API_BASE}/playlists/:id`, async () => {
     await delay(50);
     return HttpResponse.json({ success: true });
+  }),
+
+  // GET /api/playlists/:id/tracks - Get playlist tracks
+  http.get(`${API_BASE}/playlists/:id/tracks`, async ({ params }) => {
+    await delay(100);
+    const playlistId = parseInt(params.id as string);
+    // Return different tracks based on playlist ID for testing
+    const tracks = playlistId === 1 ? mockTracks.slice(0, 10) : mockTracks.slice(10, 20);
+    return HttpResponse.json({ tracks });
+  }),
+
+  // POST /api/playlists/:id/tracks - Add track(s) to playlist
+  http.post(`${API_BASE}/playlists/:id/tracks`, async ({ request }) => {
+    const body = await request.json();
+    await delay(100);
+
+    // Handle both single track_id and multiple track_ids
+    const trackId = (body as any).track_id;
+    const trackIds = (body as any).track_ids;
+
+    if (trackIds && Array.isArray(trackIds)) {
+      return HttpResponse.json({
+        success: true,
+        added_count: trackIds.length
+      });
+    } else if (trackId) {
+      return HttpResponse.json({
+        success: true,
+        track_id: trackId
+      });
+    }
+
+    return HttpResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }),
+
+  // DELETE /api/playlists/:playlistId/tracks/:trackId - Remove track from playlist
+  http.delete(`${API_BASE}/playlists/:playlistId/tracks/:trackId`, async ({ params }) => {
+    await delay(50);
+    return HttpResponse.json({ success: true });
+  }),
+
+  // DELETE /api/playlists/:id/tracks - Clear all tracks from playlist
+  http.delete(`${API_BASE}/playlists/:id/tracks`, async () => {
+    await delay(100);
+    return HttpResponse.json({ success: true });
+  }),
+
+  // PUT /api/playlists/:id/reorder - Reorder tracks in playlist
+  http.put(`${API_BASE}/playlists/:id/reorder`, async ({ request }) => {
+    const body = await request.json();
+    await delay(100);
+    return HttpResponse.json({
+      success: true,
+      new_order: (body as any).track_ids || []
+    });
   }),
 
   // ============================================================
@@ -415,9 +491,229 @@ export const handlers = [
   }),
 
   // ============================================================
+  // METADATA ENDPOINTS
+  // ============================================================
+
+  // GET /api/metadata/tracks/:id/fields - Get editable fields
+  http.get(`${API_BASE}/metadata/tracks/:id/fields`, async ({ params }) => {
+    await delay(100);
+    const trackId = parseInt(params.id as string);
+    const track = mockTracks.find(t => t.id === trackId);
+
+    if (!track) {
+      return HttpResponse.json(
+        { error: 'Track not found' },
+        { status: 404 }
+      );
+    }
+
+    return HttpResponse.json({
+      track_id: trackId,
+      filepath: track.filepath || `/music/${track.title}.flac`,
+      format: track.format || 'FLAC',
+      editable_fields: [
+        'title', 'artist', 'album', 'albumartist', 'year', 'genre',
+        'track', 'disc', 'comment', 'bpm', 'composer', 'publisher',
+        'lyrics', 'copyright'
+      ],
+      current_metadata: {
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        year: track.year || 2020,
+        genre: track.genre || 'Rock',
+        track: track.track_number || 1,
+        disc: track.disc_number || 1
+      }
+    });
+  }),
+
+  // GET /api/metadata/tracks/:id - Get track metadata
+  http.get(`${API_BASE}/metadata/tracks/:id`, async ({ params }) => {
+    await delay(100);
+    const trackId = parseInt(params.id as string);
+    const track = mockTracks.find(t => t.id === trackId);
+
+    if (!track) {
+      return HttpResponse.json(
+        { error: 'Track not found' },
+        { status: 404 }
+      );
+    }
+
+    return HttpResponse.json({
+      track_id: trackId,
+      filepath: track.filepath || `/music/${track.title}.flac`,
+      format: track.format || 'FLAC',
+      metadata: {
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        year: track.year || 2020,
+        genre: track.genre || 'Rock',
+        track: track.track_number || 1,
+        disc: track.disc_number || 1,
+        comment: '',
+        composer: '',
+        publisher: '',
+        lyrics: '',
+        copyright: ''
+      }
+    });
+  }),
+
+  // PUT /api/metadata/tracks/:id - Update track metadata
+  http.put(`${API_BASE}/metadata/tracks/:id`, async ({ params, request }) => {
+    await delay(150);
+    const trackId = parseInt(params.id as string);
+    const body = await request.json();
+    const track = mockTracks.find(t => t.id === trackId);
+
+    if (!track) {
+      return HttpResponse.json(
+        { error: 'Track not found' },
+        { status: 404 }
+      );
+    }
+
+    // Validate metadata
+    const metadata = body as any;
+    if (metadata.title && metadata.title.length > 200) {
+      return HttpResponse.json(
+        { detail: 'Title must be 200 characters or less' },
+        { status: 400 }
+      );
+    }
+    if (metadata.artist && metadata.artist.length > 100) {
+      return HttpResponse.json(
+        { detail: 'Artist must be 100 characters or less' },
+        { status: 400 }
+      );
+    }
+    if (metadata.album && metadata.album.length > 100) {
+      return HttpResponse.json(
+        { detail: 'Album must be 100 characters or less' },
+        { status: 400 }
+      );
+    }
+    if (metadata.year && (metadata.year < 1900 || metadata.year > 2099)) {
+      return HttpResponse.json(
+        { detail: 'Year must be between 1900 and 2099' },
+        { status: 400 }
+      );
+    }
+
+    // Update mock track
+    Object.assign(track, metadata);
+
+    return HttpResponse.json({
+      track_id: trackId,
+      success: true,
+      updated_fields: Object.keys(metadata),
+      metadata: {
+        ...metadata,
+        title: metadata.title || track.title,
+        artist: metadata.artist || track.artist,
+        album: metadata.album || track.album
+      }
+    });
+  }),
+
+  // POST /api/metadata/batch - Batch update metadata
+  http.post(`${API_BASE}/metadata/batch`, async ({ request }) => {
+    await delay(200);
+    const body = await request.json();
+    const { updates } = body as any;
+
+    const results = updates.map((update: any) => {
+      const track = mockTracks.find(t => t.id === update.track_id);
+      if (!track) {
+        return {
+          track_id: update.track_id,
+          success: false,
+          error: 'Track not found'
+        };
+      }
+
+      // Update track
+      Object.assign(track, update.metadata);
+
+      return {
+        track_id: update.track_id,
+        success: true,
+        updates: update.metadata
+      };
+    });
+
+    const successful = results.filter((r: any) => r.success).length;
+    const failed = results.length - successful;
+
+    return HttpResponse.json({
+      success: true,
+      total: results.length,
+      successful,
+      failed,
+      results
+    });
+  }),
+
+  // ============================================================
   // ARTWORK ENDPOINTS
   // ============================================================
 
+  // GET /api/albums/:id/artwork - Get album artwork
+  http.get(`${API_BASE}/albums/:id/artwork`, async ({ params }) => {
+    await delay(100);
+    const albumId = parseInt(params.id as string);
+
+    // Return mock image data (empty ArrayBuffer for testing)
+    const mockImageData = new ArrayBuffer(100);
+    return HttpResponse.arrayBuffer(mockImageData, {
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'Cache-Control': 'public, max-age=31536000'
+      }
+    });
+  }),
+
+  // POST /api/albums/:id/artwork/extract - Extract artwork from tracks
+  http.post(`${API_BASE}/albums/:id/artwork/extract`, async ({ params }) => {
+    await delay(150);
+    const albumId = parseInt(params.id as string);
+
+    return HttpResponse.json({
+      message: 'Artwork extracted successfully',
+      artwork_path: `/artwork/album_${albumId}.jpg`,
+      album_id: albumId
+    });
+  }),
+
+  // DELETE /api/albums/:id/artwork - Delete album artwork
+  http.delete(`${API_BASE}/albums/:id/artwork`, async ({ params }) => {
+    await delay(100);
+    const albumId = parseInt(params.id as string);
+
+    return HttpResponse.json({
+      message: 'Artwork deleted successfully',
+      album_id: albumId
+    });
+  }),
+
+  // POST /api/albums/:id/artwork/download - Download artwork from online sources
+  http.post(`${API_BASE}/albums/:id/artwork/download`, async ({ params }) => {
+    await delay(200);
+    const albumId = parseInt(params.id as string);
+
+    return HttpResponse.json({
+      message: 'Artwork downloaded successfully',
+      artwork_path: `/artwork/album_${albumId}_downloaded.jpg`,
+      album_id: albumId,
+      artist: 'Mock Artist',
+      album: 'Mock Album'
+    });
+  }),
+
+  // Legacy artwork endpoint
   // GET /api/artwork/:id - Get artwork
   http.get(`${API_BASE}/artwork/:id`, async ({ params }) => {
     await delay(100);
@@ -641,6 +937,103 @@ export const handlers = [
     });
   }),
 
+  // Playlist endpoints - relative paths
+  http.get(`${API_RELATIVE}/playlists`, async () => {
+    await delay(100);
+    return HttpResponse.json({ playlists: mockPlaylists, total: mockPlaylists.length });
+  }),
+
+  http.get(`${API_RELATIVE}/playlists/:id`, async ({ params }) => {
+    await delay(50);
+    const playlistId = parseInt(params.id as string);
+    const playlist = mockPlaylists.find(p => p.id === playlistId);
+    if (playlist) {
+      return HttpResponse.json({
+        ...playlist,
+        total_duration: 1800,
+        is_smart: false,
+        smart_criteria: null,
+        auto_master_enabled: false,
+        mastering_profile: 'adaptive',
+        normalize_levels: false,
+        updated_at: new Date().toISOString(),
+      });
+    }
+    return HttpResponse.json({ error: 'Playlist not found' }, { status: 404 });
+  }),
+
+  http.post(`${API_RELATIVE}/playlists`, async ({ request }) => {
+    const body = await request.json();
+    await delay(100);
+    return HttpResponse.json({
+      playlist: {
+        id: mockPlaylists.length + 1,
+        name: (body as any).name,
+        description: (body as any).description || '',
+        track_count: 0,
+        created_at: new Date().toISOString(),
+        is_smart: false,
+        smart_criteria: null,
+        auto_master_enabled: false,
+        mastering_profile: 'adaptive',
+        normalize_levels: false,
+        total_duration: 0,
+        updated_at: new Date().toISOString(),
+      }
+    });
+  }),
+
+  http.put(`${API_RELATIVE}/playlists/:id`, async ({ request, params }) => {
+    const body = await request.json();
+    await delay(100);
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.delete(`${API_RELATIVE}/playlists/:id`, async () => {
+    await delay(50);
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.get(`${API_RELATIVE}/playlists/:id/tracks`, async ({ params }) => {
+    await delay(100);
+    const playlistId = parseInt(params.id as string);
+    const tracks = playlistId === 1 ? mockTracks.slice(0, 10) : mockTracks.slice(10, 20);
+    return HttpResponse.json({ tracks });
+  }),
+
+  http.post(`${API_RELATIVE}/playlists/:id/tracks`, async ({ request }) => {
+    const body = await request.json();
+    await delay(100);
+    const trackId = (body as any).track_id;
+    const trackIds = (body as any).track_ids;
+
+    if (trackIds && Array.isArray(trackIds)) {
+      return HttpResponse.json({ success: true, added_count: trackIds.length });
+    } else if (trackId) {
+      return HttpResponse.json({ success: true, track_id: trackId });
+    }
+    return HttpResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }),
+
+  http.delete(`${API_RELATIVE}/playlists/:playlistId/tracks/:trackId`, async () => {
+    await delay(50);
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.delete(`${API_RELATIVE}/playlists/:id/tracks`, async () => {
+    await delay(100);
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.put(`${API_RELATIVE}/playlists/:id/reorder`, async ({ request }) => {
+    const body = await request.json();
+    await delay(100);
+    return HttpResponse.json({
+      success: true,
+      new_order: (body as any).track_ids || []
+    });
+  }),
+
   // Connection refused (network error)
   http.get(`${API_BASE}/test/connection-refused`, () => {
     return HttpResponse.error();
@@ -717,7 +1110,144 @@ export const handlers = [
     );
   }),
 
-  // Legacy error handlers (for backward compatibility)
+  // ============================================================
+  // STREAMING / MSE ENDPOINTS
+  // ============================================================
+
+  // GET /api/stream/:track_id/metadata - Get stream metadata for MSE initialization
+  http.get(`${API_BASE}/stream/:track_id/metadata`, async ({ params }) => {
+    const trackId = parseInt(params.track_id as string);
+    const track = mockTracks.find(t => t.id === trackId);
+
+    if (!track) {
+      return HttpResponse.json(
+        { error: 'Track not found', detail: `Track ${trackId} not found` },
+        { status: 404 }
+      );
+    }
+
+    await delay(100);
+
+    // Calculate metadata based on track duration
+    const duration = track.duration || 180; // Default 3 minutes
+    const chunkDuration = 10; // 10s chunks
+    const chunkInterval = 10; // 10s intervals
+    const totalChunks = Math.ceil(duration / chunkInterval);
+
+    return HttpResponse.json({
+      track_id: trackId,
+      duration: duration,
+      sample_rate: 44100,
+      channels: 2,
+      chunk_duration: chunkDuration,
+      chunk_interval: chunkInterval,
+      total_chunks: totalChunks,
+      mime_type: 'audio/webm',
+      codecs: 'opus',
+      format_version: 'unified-v1.0'
+    });
+  }),
+
+  // GET /api/stream/:track_id/chunk/:chunk_idx - Get WebM/Opus chunk
+  http.get(`${API_BASE}/stream/:track_id/chunk/:chunk_idx`, async ({ params, request }) => {
+    const trackId = parseInt(params.track_id as string);
+    const chunkIdx = parseInt(params.chunk_idx as string);
+    const url = new URL(request.url);
+    const preset = url.searchParams.get('preset') || 'adaptive';
+    const enhanced = url.searchParams.get('enhanced') !== 'false';
+
+    const track = mockTracks.find(t => t.id === trackId);
+
+    if (!track) {
+      return HttpResponse.json(
+        { error: 'Track not found' },
+        { status: 404 }
+      );
+    }
+
+    await delay(50); // Simulate network latency
+
+    // Create mock WebM/Opus chunk data (ArrayBuffer)
+    const chunkSize = 1024 * 20; // 20KB per chunk (typical for 10s @ 192kbps)
+    const mockChunkData = new Uint8Array(chunkSize);
+    for (let i = 0; i < chunkSize; i++) {
+      mockChunkData[i] = (chunkIdx + i) % 256;
+    }
+
+    // Determine cache tier based on chunk index (simulate caching behavior)
+    let cacheTier = 'MISS';
+    if (chunkIdx === 0) cacheTier = 'L1'; // First chunk always cached
+    else if (chunkIdx <= 2) cacheTier = 'L2'; // Next 2 chunks in L2
+    else if (chunkIdx <= 5) cacheTier = 'L3'; // Next 3 in L3
+
+    return new HttpResponse(mockChunkData.buffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'audio/webm; codecs=opus',
+        'X-Chunk-Index': chunkIdx.toString(),
+        'X-Cache-Tier': cacheTier,
+        'X-Latency-Ms': '50',
+        'X-Enhanced': enhanced ? 'true' : 'false',
+        'X-Preset': preset,
+        'Content-Length': chunkSize.toString(),
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'no-cache',
+      }
+    });
+  }),
+
+  // POST /api/stream/:track_id/switch-preset - Switch preset during playback
+  http.post(`${API_BASE}/stream/:track_id/switch-preset`, async ({ request, params }) => {
+    const trackId = parseInt(params.track_id as string);
+    const body = await request.json();
+    const newPreset = (body as any).preset || 'adaptive';
+
+    await delay(100);
+
+    return HttpResponse.json({
+      success: true,
+      track_id: trackId,
+      preset: newPreset,
+      message: 'Preset switched, buffers cleared'
+    });
+  }),
+
+  // GET /api/streaming/status/:track_id - Get streaming status/health
+  http.get(`${API_BASE}/streaming/status/:track_id`, async ({ params }) => {
+    const trackId = parseInt(params.track_id as string);
+
+    await delay(50);
+
+    return HttpResponse.json({
+      track_id: trackId,
+      status: 'streaming',
+      buffered_chunks: 5,
+      total_chunks: 20,
+      cache_hits: 3,
+      cache_misses: 2,
+      average_latency_ms: 45,
+      preset: 'adaptive',
+      enhanced: true
+    });
+  }),
+
+  // DELETE /api/streaming/cleanup/:track_id - Cleanup streaming resources
+  http.delete(`${API_BASE}/streaming/cleanup/:track_id`, async ({ params }) => {
+    const trackId = parseInt(params.track_id as string);
+
+    await delay(50);
+
+    return HttpResponse.json({
+      success: true,
+      track_id: trackId,
+      message: 'Streaming resources cleaned up'
+    });
+  }),
+
+  // ============================================================
+  // LEGACY ERROR HANDLERS (for backward compatibility)
+  // ============================================================
+
   http.get(`${API_BASE}/not-found`, async () => {
     await delay(50);
     return HttpResponse.json(

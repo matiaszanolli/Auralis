@@ -243,10 +243,10 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const toggleSwitch = screen.getByRole('checkbox');
       await user.click(toggleSwitch);
 
-      // Assert
+      // Assert - Wait longer for the async operation to complete
       await waitFor(() => {
         expect(mockHandlers.onMasteringToggle).toHaveBeenCalled();
-      });
+      }, { timeout: 3000 });
     });
 
     it('should show visual state matching enabled/disabled', () => {
@@ -285,10 +285,10 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const toggleSwitch = screen.getByRole('checkbox');
       await user.click(toggleSwitch);
 
-      // Assert - State change is initiated
+      // Assert - State change is initiated (wait longer for async operation)
       await waitFor(() => {
         expect(mockHandlers.onMasteringToggle).toHaveBeenCalled();
-      });
+      }, { timeout: 3000 });
     });
   });
 

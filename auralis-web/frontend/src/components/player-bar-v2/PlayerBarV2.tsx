@@ -42,7 +42,9 @@ const PlayerContainer = styled(Box)({
   bottom: 0,
   left: 0,
   right: 0,
+  width: '100vw',
   height: tokens.components.playerBar.height,
+  margin: 0,
   background: tokens.components.playerBar.background,
   backdropFilter: 'blur(20px)',
   borderTop: `1px solid ${tokens.colors.border.light}`,
@@ -50,9 +52,9 @@ const PlayerContainer = styled(Box)({
   zIndex: tokens.components.playerBar.zIndex,
   display: 'grid',
   gridTemplateColumns: '1fr auto 1fr',
-  gridTemplateRows: 'auto 1fr',
-  padding: tokens.spacing.md,
-  gap: tokens.spacing.md,
+  gridTemplateRows: '24px 1fr', // Progress bar (24px) + controls (remaining space)
+  padding: `${tokens.spacing.sm} ${tokens.spacing.md} ${tokens.spacing.sm} ${tokens.spacing.md}`, // top right bottom left
+  gap: tokens.spacing.xs,
   transition: tokens.transitions.all,
 });
 

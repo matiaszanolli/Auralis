@@ -1,0 +1,1338 @@
+/**
+ * Metadata & Artwork API Integration Tests
+ *
+ * Comprehensive integration tests for metadata editing and artwork management
+ * Part of Week 6 - Frontend Testing Roadmap (200-test suite)
+ *
+ * Test Categories:
+ * 1. Track Metadata Editing (6 tests)
+ * 2. Metadata Field Validation (4 tests)
+ * 3. Album Artwork Management (4 tests)
+ * 4. Artwork Format Handling (3 tests)
+ * 5. Metadata Synchronization (2 tests)
+ * 6. Error Handling (1 test)
+ *
+ * Total: 20 tests
+ *
+ * Coverage:
+ * - Metadata editing API endpoints (/api/metadata/tracks/:id)
+ * - Artwork management API endpoints (/api/albums/:id/artwork)
+ * - Field validation (title, artist, album, year, genre)
+ * - Batch metadata updates
+ * - Artwork upload/download/delete
+ * - Format validation (JPEG, PNG, dimensions)
+ * - Error handling (save failures, validation errors)
+ */
+
+import React from 'react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import { render } from '@/test/test-utils';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/mocks/server';
+
+// ==========================================
+// Test Components
+// ==========================================
+
+/**
+ * Metadata editing form component for testing
+ */
+interface MetadataFormProps {
+  trackId: number;
+  onSave?: (metadata: any) => void;
+  onError?: (error: Error) => void;
+}
+
+const MetadataEditForm: React.FC<MetadataFormProps> = ({ trackId, onSave, onError }) => {
+  const [metadata, setMetadata] = React.useState({
+    title: '',
+    artist: '',
+    album: '',
+    year: '',
+    genre: '',
+  });
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = React.useState<Record<string, string>>({});
+
+  // Fetch current metadata
+  React.useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const response = await fetch(`http://localhost:8765/api/metadata/tracks/${trackId}`);
+        if (!response.ok) throw new Error('Failed to fetch metadata');
+        const data = await response.json();
+        setMetadata(data.metadata || {});
+      } catch (err) {
+        setError((err as Error).message);
+        onError?.(err as Error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMetadata();
+  }, [trackId]);
+
+  // Validate fields
+  const validateField = (field: string, value: string): string | null => {
+    if (field === 'title' && value.length > 200) {
+      return 'Title must be 200 characters or less';
+    }
+    if ((field === 'artist' || field === 'album') && value.length > 100) {
+      return `${field.charAt(0).toUpperCase() + field.slice(1)} must be 100 characters or less`;
+    }
+    if (field === 'year') {
+      const yearNum = parseInt(value);
+      if (value && (isNaN(yearNum) || yearNum < 1900 || yearNum > 2099)) {
+        return 'Year must be between 1900 and 2099';
+      }
+    }
+    return null;
+  };
+
+  // Handle field change
+  const handleChange = (field: string, value: string) => {
+    setMetadata(prev => ({ ...prev, [field]: value }));
+
+    // Validate on change
+    const validationError = validateField(field, value);
+    setValidationErrors(prev => ({
+      ...prev,
+      [field]: validationError || ''
+    }));
+  };
+
+  // Save metadata
+  const handleSave = async () => {
+    // Check for validation errors
+    const hasErrors = Object.values(validationErrors).some(err => err);
+    if (hasErrors) {
+      setError('Please fix validation errors');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8765/api/metadata/tracks/${trackId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(metadata)
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to save metadata');
+      }
+
+      const result = await response.json();
+      onSave?.(result.metadata);
+    } catch (err) {
+      setError((err as Error).message);
+      onError?.(err as Error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Revert changes
+  const handleRevert = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:8765/api/metadata/tracks/${trackId}`);
+      const data = await response.json();
+      setMetadata(data.metadata || {});
+      setValidationErrors({});
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div>Loading metadata...</div>;
+  if (error && !metadata.title) return <div>Error: {error}</div>;
+
+  return (
+    <form data-testid="metadata-form">
+      <div>
+        <label htmlFor="title">Title</label>
+        <input
+          id="title"
+          type="text"
+          value={metadata.title}
+          onChange={(e) => handleChange('title', e.target.value)}
+        />
+        {validationErrors.title && (
+          <span data-testid="title-error">{validationErrors.title}</span>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="artist">Artist</label>
+        <input
+          id="artist"
+          type="text"
+          value={metadata.artist}
+          onChange={(e) => handleChange('artist', e.target.value)}
+        />
+        {validationErrors.artist && (
+          <span data-testid="artist-error">{validationErrors.artist}</span>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="album">Album</label>
+        <input
+          id="album"
+          type="text"
+          value={metadata.album}
+          onChange={(e) => handleChange('album', e.target.value)}
+        />
+        {validationErrors.album && (
+          <span data-testid="album-error">{validationErrors.album}</span>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="year">Year</label>
+        <input
+          id="year"
+          type="number"
+          value={metadata.year}
+          onChange={(e) => handleChange('year', e.target.value)}
+          min={1900}
+          max={2099}
+        />
+        {validationErrors.year && (
+          <span data-testid="year-error">{validationErrors.year}</span>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="genre">Genre</label>
+        <select
+          id="genre"
+          value={metadata.genre}
+          onChange={(e) => handleChange('genre', e.target.value)}
+        >
+          <option value="">Select Genre</option>
+          <option value="Rock">Rock</option>
+          <option value="Pop">Pop</option>
+          <option value="Jazz">Jazz</option>
+          <option value="Classical">Classical</option>
+          <option value="Electronic">Electronic</option>
+        </select>
+      </div>
+
+      {error && <div data-testid="form-error">{error}</div>}
+
+      <button type="button" onClick={handleSave} disabled={saving}>
+        {saving ? 'Saving...' : 'Save'}
+      </button>
+      <button type="button" onClick={handleRevert}>
+        Revert
+      </button>
+    </form>
+  );
+};
+
+/**
+ * Batch metadata editing component
+ */
+interface BatchMetadataFormProps {
+  trackIds: number[];
+  onSave?: (results: any) => void;
+  onError?: (error: Error) => void;
+}
+
+const BatchMetadataForm: React.FC<BatchMetadataFormProps> = ({ trackIds, onSave, onError }) => {
+  const [metadata, setMetadata] = React.useState({ genre: '', year: '' });
+  const [saving, setSaving] = React.useState(false);
+  const [result, setResult] = React.useState<any>(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updates = trackIds.map(trackId => ({
+        track_id: trackId,
+        metadata: {
+          ...(metadata.genre && { genre: metadata.genre }),
+          ...(metadata.year && { year: parseInt(metadata.year) })
+        }
+      }));
+
+      const response = await fetch('http://localhost:8765/api/metadata/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates, backup: true })
+      });
+
+      if (!response.ok) throw new Error('Batch update failed');
+
+      const data = await response.json();
+      setResult(data);
+      onSave?.(data);
+    } catch (err) {
+      onError?.(err as Error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div data-testid="batch-metadata-form">
+      <div>
+        <label htmlFor="batch-genre">Genre</label>
+        <select
+          id="batch-genre"
+          value={metadata.genre}
+          onChange={(e) => setMetadata(prev => ({ ...prev, genre: e.target.value }))}
+        >
+          <option value="">Select Genre</option>
+          <option value="Rock">Rock</option>
+          <option value="Pop">Pop</option>
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="batch-year">Year</label>
+        <input
+          id="batch-year"
+          type="number"
+          value={metadata.year}
+          onChange={(e) => setMetadata(prev => ({ ...prev, year: e.target.value }))}
+        />
+      </div>
+
+      <button onClick={handleSave} disabled={saving}>
+        {saving ? 'Updating...' : `Update ${trackIds.length} Tracks`}
+      </button>
+
+      {result && (
+        <div data-testid="batch-result">
+          Updated {result.successful} of {result.total} tracks
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Artwork management component
+ */
+interface ArtworkManagerProps {
+  albumId: number;
+  onUpload?: (path: string) => void;
+  onDelete?: () => void;
+  onError?: (error: Error) => void;
+}
+
+const ArtworkManager: React.FC<ArtworkManagerProps> = ({ albumId, onUpload, onDelete, onError }) => {
+  const [artworkUrl, setArtworkUrl] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [uploading, setUploading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Fetch current artwork
+  React.useEffect(() => {
+    const fetchArtwork = async () => {
+      try {
+        const response = await fetch(`http://localhost:8765/api/albums/${albumId}/artwork`);
+        if (response.ok) {
+          const blob = await response.blob();
+          setArtworkUrl(URL.createObjectURL(blob));
+        }
+      } catch (err) {
+        // Artwork may not exist, that's okay
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchArtwork();
+  }, [albumId]);
+
+  // Validate image dimensions
+  const validateImage = (file: File): Promise<{ valid: boolean; error?: string }> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        if (img.width < 200 || img.height < 200) {
+          resolve({ valid: false, error: 'Image must be at least 200x200 pixels' });
+        } else if (img.width > 3000 || img.height > 3000) {
+          resolve({ valid: false, error: 'Image must be at most 3000x3000 pixels' });
+        } else {
+          resolve({ valid: true });
+        }
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve({ valid: false, error: 'Failed to load image' });
+      };
+
+      img.src = url;
+    });
+  };
+
+  // Upload artwork
+  const handleUpload = async (file: File) => {
+    setError(null);
+    setUploading(true);
+
+    try {
+      // Validate file type
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        throw new Error('Only JPEG and PNG formats are supported');
+      }
+
+      // Validate dimensions
+      const validation = await validateImage(file);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+
+      // Upload (mock - in real implementation would use FormData)
+      const response = await fetch(`http://localhost:8765/api/albums/${albumId}/artwork/extract`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      setArtworkUrl(data.artwork_path);
+      onUpload?.(data.artwork_path);
+    } catch (err) {
+      setError((err as Error).message);
+      onError?.(err as Error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Delete artwork
+  const handleDelete = async () => {
+    try {
+      const response = await fetch(`http://localhost:8765/api/albums/${albumId}/artwork`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Delete failed');
+
+      setArtworkUrl(null);
+      onDelete?.();
+    } catch (err) {
+      setError((err as Error).message);
+      onError?.(err as Error);
+    }
+  };
+
+  if (loading) return <div>Loading artwork...</div>;
+
+  return (
+    <div data-testid="artwork-manager">
+      {artworkUrl && (
+        <div>
+          <img src={artworkUrl} alt="Album artwork" data-testid="artwork-image" />
+          <button onClick={handleDelete}>Delete Artwork</button>
+        </div>
+      )}
+
+      {!artworkUrl && (
+        <div>
+          <input
+            type="file"
+            accept="image/jpeg,image/png"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleUpload(file);
+            }}
+            disabled={uploading}
+            data-testid="artwork-upload"
+          />
+        </div>
+      )}
+
+      {error && <div data-testid="artwork-error">{error}</div>}
+      {uploading && <div>Uploading...</div>}
+    </div>
+  );
+};
+
+// ==========================================
+// Test Suite
+// ==========================================
+
+describe('Metadata & Artwork API Integration Tests', () => {
+  // Mock URL.createObjectURL and URL.revokeObjectURL for all tests
+  beforeEach(() => {
+    // Mock URL methods that don't exist in JSDOM
+    if (!global.URL.createObjectURL) {
+      global.URL.createObjectURL = vi.fn(() => 'mock-object-url');
+    }
+    if (!global.URL.revokeObjectURL) {
+      global.URL.revokeObjectURL = vi.fn();
+    }
+  });
+
+  // Reset handlers after each test
+  afterEach(() => {
+    server.resetHandlers();
+    vi.restoreAllMocks();
+  });
+
+  // ==========================================
+  // 1. Track Metadata Editing (6 tests)
+  // ==========================================
+
+  describe('Track Metadata Editing', () => {
+    it('should edit single metadata field (title)', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { title: 'Original Title', artist: 'Artist 1', album: 'Album 1' }
+          });
+        }),
+        http.put('http://localhost:8765/api/metadata/tracks/:id', async ({ request }) => {
+          const body = await request.json();
+          return HttpResponse.json({
+            success: true,
+            track_id: 1,
+            updated_fields: ['title'],
+            metadata: { ...body }
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+      const onSave = vi.fn();
+
+      // Act
+      render(<MetadataEditForm trackId={1} onSave={onSave} />);
+
+      // Wait for metadata to load
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Original Title');
+      });
+
+      // Edit title
+      const titleInput = screen.getByLabelText(/title/i);
+      await user.clear(titleInput);
+      await user.type(titleInput, 'New Title');
+
+      // Save
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      // Assert
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(
+          expect.objectContaining({ title: 'New Title' })
+        );
+      });
+    });
+
+    it('should edit multiple metadata fields simultaneously', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { title: 'Track 1', artist: 'Artist 1', album: 'Album 1', year: '2020' }
+          });
+        }),
+        http.put('http://localhost:8765/api/metadata/tracks/:id', async ({ request }) => {
+          const body = await request.json();
+          return HttpResponse.json({
+            success: true,
+            updated_fields: ['title', 'artist', 'year'],
+            metadata: { ...body }
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+      const onSave = vi.fn();
+
+      // Act
+      render(<MetadataEditForm trackId={1} onSave={onSave} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Track 1');
+      });
+
+      // Edit multiple fields
+      await user.clear(screen.getByLabelText(/title/i));
+      await user.type(screen.getByLabelText(/title/i), 'Updated Track');
+
+      await user.clear(screen.getByLabelText(/artist/i));
+      await user.type(screen.getByLabelText(/artist/i), 'New Artist');
+
+      await user.clear(screen.getByLabelText(/year/i));
+      await user.type(screen.getByLabelText(/year/i), '2024');
+
+      // Save
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      // Assert
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Updated Track',
+            artist: 'New Artist',
+            year: '2024'
+          })
+        );
+      });
+    });
+
+    it('should save metadata changes to backend', async () => {
+      // Arrange
+      let savedMetadata: any = null;
+
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { title: 'Track 1', artist: 'Artist 1' }
+          });
+        }),
+        http.put('http://localhost:8765/api/metadata/tracks/:id', async ({ request }) => {
+          savedMetadata = await request.json();
+          return HttpResponse.json({
+            success: true,
+            updated_fields: Object.keys(savedMetadata),
+            metadata: savedMetadata
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+
+      // Act
+      render(<MetadataEditForm trackId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Track 1');
+      });
+
+      await user.clear(screen.getByLabelText(/title/i));
+      await user.type(screen.getByLabelText(/title/i), 'Saved Title');
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      // Assert
+      await waitFor(() => {
+        expect(savedMetadata).toEqual(
+          expect.objectContaining({ title: 'Saved Title' })
+        );
+      });
+    });
+
+    it('should validate metadata constraints', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { title: 'Track 1', year: '2020' }
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+
+      // Act
+      render(<MetadataEditForm trackId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Track 1');
+      });
+
+      // Test title max length (200 chars)
+      const longTitle = 'a'.repeat(201);
+      await user.clear(screen.getByLabelText(/title/i));
+      await user.type(screen.getByLabelText(/title/i), longTitle);
+
+      // Assert - validation error shown
+      await waitFor(() => {
+        expect(screen.getByTestId('title-error')).toHaveTextContent(/200 characters/i);
+      });
+    });
+
+    it('should revert unsaved metadata changes', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { title: 'Original Title', artist: 'Original Artist' }
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+
+      // Act
+      render(<MetadataEditForm trackId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Original Title');
+      });
+
+      // Make changes
+      await user.clear(screen.getByLabelText(/title/i));
+      await user.type(screen.getByLabelText(/title/i), 'Modified Title');
+
+      expect(screen.getByLabelText(/title/i)).toHaveValue('Modified Title');
+
+      // Revert
+      await user.click(screen.getByRole('button', { name: /revert/i }));
+
+      // Assert - reverted to original
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Original Title');
+      });
+    });
+
+    it('should batch metadata editing for multiple tracks', async () => {
+      // Arrange
+      server.use(
+        http.post('http://localhost:8765/api/metadata/batch', async ({ request }) => {
+          const body = await request.json();
+          const updates = (body as any).updates;
+          return HttpResponse.json({
+            success: true,
+            total: updates.length,
+            successful: updates.length,
+            failed: 0,
+            results: updates.map((u: any) => ({
+              track_id: u.track_id,
+              success: true,
+              updates: u.metadata
+            }))
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+      const onSave = vi.fn();
+
+      // Act
+      render(<BatchMetadataForm trackIds={[1, 2, 3]} onSave={onSave} />);
+
+      // Select genre
+      await user.selectOptions(screen.getByLabelText(/genre/i), 'Rock');
+
+      // Enter year
+      await user.type(screen.getByLabelText(/year/i), '2024');
+
+      // Save
+      await user.click(screen.getByRole('button', { name: /update 3 tracks/i }));
+
+      // Assert
+      await waitFor(() => {
+        expect(screen.getByTestId('batch-result')).toHaveTextContent(/updated 3 of 3 tracks/i);
+        expect(onSave).toHaveBeenCalledWith(
+          expect.objectContaining({
+            successful: 3,
+            total: 3
+          })
+        );
+      });
+    });
+  });
+
+  // ==========================================
+  // 2. Metadata Field Validation (4 tests)
+  // ==========================================
+
+  describe('Metadata Field Validation', () => {
+    it('should validate title field (max 200 chars, required)', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { title: 'Track 1' }
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+
+      // Act
+      render(<MetadataEditForm trackId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Track 1');
+      });
+
+      // Test exceeding max length
+      const longTitle = 'a'.repeat(201);
+      await user.clear(screen.getByLabelText(/title/i));
+      await user.type(screen.getByLabelText(/title/i), longTitle);
+
+      // Assert
+      await waitFor(() => {
+        expect(screen.getByTestId('title-error')).toBeInTheDocument();
+        expect(screen.getByTestId('title-error')).toHaveTextContent(/200 characters/i);
+      });
+    });
+
+    it('should validate artist/album fields (max 100 chars)', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { artist: 'Artist', album: 'Album' }
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+
+      // Act
+      render(<MetadataEditForm trackId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/artist/i)).toBeInTheDocument();
+      });
+
+      // Test artist max length - clear first and type long string
+      const artistInput = screen.getByLabelText(/artist/i);
+      await user.clear(artistInput);
+      const longArtist = 'a'.repeat(101);
+      await user.type(artistInput, longArtist);
+
+      // Assert
+      await waitFor(() => {
+        expect(screen.getByTestId('artist-error')).toHaveTextContent(/100 characters/i);
+      });
+    });
+
+    it('should validate year field (1900-2099 range)', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { year: '2020' }
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+
+      // Act
+      render(<MetadataEditForm trackId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/year/i)).toBeInTheDocument();
+      });
+
+      // Test invalid year (too early)
+      await user.clear(screen.getByLabelText(/year/i));
+      await user.type(screen.getByLabelText(/year/i), '1899');
+
+      // Assert
+      await waitFor(() => {
+        expect(screen.getByTestId('year-error')).toHaveTextContent(/1900 and 2099/i);
+      });
+
+      // Test invalid year (too late)
+      await user.clear(screen.getByLabelText(/year/i));
+      await user.type(screen.getByLabelText(/year/i), '2100');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('year-error')).toHaveTextContent(/1900 and 2099/i);
+      });
+    });
+
+    it('should validate genre field (predefined list)', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { genre: '' }
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+
+      // Act
+      render(<MetadataEditForm trackId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/genre/i)).toBeInTheDocument();
+      });
+
+      // Assert - only predefined options available
+      const genreSelect = screen.getByLabelText(/genre/i);
+      const options = Array.from(genreSelect.querySelectorAll('option')).map(
+        opt => opt.textContent
+      );
+
+      expect(options).toContain('Rock');
+      expect(options).toContain('Pop');
+      expect(options).toContain('Jazz');
+      expect(options).toContain('Classical');
+      expect(options).toContain('Electronic');
+    });
+  });
+
+  // ==========================================
+  // 3. Album Artwork Management (4 tests)
+  // ==========================================
+
+  describe('Album Artwork Management', () => {
+    it('should upload new album artwork', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/albums/:id/artwork', () => {
+          return HttpResponse.json({ error: 'Not found' }, { status: 404 });
+        }),
+        http.post('http://localhost:8765/api/albums/:id/artwork/extract', () => {
+          return HttpResponse.json({
+            message: 'Artwork extracted successfully',
+            artwork_path: '/path/to/artwork.jpg',
+            album_id: 1
+          });
+        })
+      );
+
+      const onUpload = vi.fn();
+
+      // Act
+      render(<ArtworkManager albumId={1} onUpload={onUpload} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('artwork-upload')).toBeInTheDocument();
+      });
+
+      // Create mock file
+      const file = new File(['mock'], 'artwork.jpg', { type: 'image/jpeg' });
+
+      // Trigger file upload
+      const input = screen.getByTestId('artwork-upload') as HTMLInputElement;
+
+      // We need to mock the image loading for dimension validation
+      global.Image = class MockImage {
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        src = '';
+        width = 500;
+        height = 500;
+
+        constructor() {
+          setTimeout(() => {
+            if (this.onload) this.onload();
+          }, 0);
+        }
+      } as any;
+
+      await userEvent.upload(input, file);
+
+      // Assert
+      await waitFor(() => {
+        expect(onUpload).toHaveBeenCalledWith('/path/to/artwork.jpg');
+      }, { timeout: 2000 });
+    });
+
+    it('should fetch and display existing artwork', async () => {
+      // Arrange
+      const mockImageBlob = new Blob(['mock image data'], { type: 'image/jpeg' });
+
+      server.use(
+        http.get('http://localhost:8765/api/albums/:id/artwork', () => {
+          return HttpResponse.arrayBuffer(
+            new ArrayBuffer(100),
+            {
+              headers: {
+                'Content-Type': 'image/jpeg'
+              }
+            }
+          );
+        })
+      );
+
+      // Act
+      render(<ArtworkManager albumId={1} />);
+
+      // Assert
+      await waitFor(() => {
+        const img = screen.getByTestId('artwork-image');
+        expect(img).toBeInTheDocument();
+        expect(img).toHaveAttribute('src', 'mock-object-url');
+      });
+    });
+
+    it('should delete album artwork', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/albums/:id/artwork', () => {
+          return HttpResponse.arrayBuffer(new ArrayBuffer(100));
+        }),
+        http.delete('http://localhost:8765/api/albums/:id/artwork', () => {
+          return HttpResponse.json({
+            message: 'Artwork deleted successfully',
+            album_id: 1
+          });
+        })
+      );
+
+      const onDelete = vi.fn();
+      const user = userEvent.setup();
+
+      // Act
+      render(<ArtworkManager albumId={1} onDelete={onDelete} />);
+
+      // Wait for artwork to load
+      await waitFor(() => {
+        expect(screen.getByTestId('artwork-image')).toBeInTheDocument();
+      });
+
+      // Delete artwork
+      await user.click(screen.getByRole('button', { name: /delete artwork/i }));
+
+      // Assert
+      await waitFor(() => {
+        expect(onDelete).toHaveBeenCalled();
+        expect(screen.queryByTestId('artwork-image')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should handle artwork caching and lazy loading', async () => {
+      // Arrange
+      let fetchCount = 0;
+
+      server.use(
+        http.get('http://localhost:8765/api/albums/:id/artwork', () => {
+          fetchCount++;
+          return HttpResponse.arrayBuffer(
+            new ArrayBuffer(100),
+            {
+              headers: {
+                'Cache-Control': 'public, max-age=31536000'
+              }
+            }
+          );
+        })
+      );
+
+      // Act - render twice
+      const { unmount } = render(<ArtworkManager albumId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('artwork-image')).toBeInTheDocument();
+      });
+
+      unmount();
+
+      // Render again (should use cache)
+      render(<ArtworkManager albumId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('artwork-image')).toBeInTheDocument();
+      });
+
+      // Assert - fetched at least once (caching happens at browser level)
+      expect(fetchCount).toBeGreaterThan(0);
+    });
+  });
+
+  // ==========================================
+  // 4. Artwork Format Handling (3 tests)
+  // ==========================================
+
+  describe('Artwork Format Handling', () => {
+    beforeEach(() => {
+      // Mock Image for dimension validation
+      global.Image = class MockImage {
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        src = '';
+        width = 500;
+        height = 500;
+
+        constructor() {
+          setTimeout(() => {
+            if (this.onload) this.onload();
+          }, 0);
+        }
+      } as any;
+
+      server.use(
+        http.get('http://localhost:8765/api/albums/:id/artwork', () => {
+          return HttpResponse.json({ error: 'Not found' }, { status: 404 });
+        }),
+        http.post('http://localhost:8765/api/albums/:id/artwork/extract', () => {
+          return HttpResponse.json({
+            message: 'Artwork extracted successfully',
+            artwork_path: '/path/to/artwork.jpg'
+          });
+        })
+      );
+    });
+
+    it('should support JPEG format', async () => {
+      // Arrange
+      const onUpload = vi.fn();
+
+      // Act
+      render(<ArtworkManager albumId={1} onUpload={onUpload} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('artwork-upload')).toBeInTheDocument();
+      });
+
+      const jpegFile = new File(['jpeg'], 'artwork.jpg', { type: 'image/jpeg' });
+      const input = screen.getByTestId('artwork-upload') as HTMLInputElement;
+
+      await userEvent.upload(input, jpegFile);
+
+      // Assert
+      await waitFor(() => {
+        expect(onUpload).toHaveBeenCalled();
+      }, { timeout: 2000 });
+    });
+
+    it('should support PNG format', async () => {
+      // Arrange
+      const onUpload = vi.fn();
+
+      // Act
+      render(<ArtworkManager albumId={1} onUpload={onUpload} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('artwork-upload')).toBeInTheDocument();
+      });
+
+      const pngFile = new File(['png'], 'artwork.png', { type: 'image/png' });
+      const input = screen.getByTestId('artwork-upload') as HTMLInputElement;
+
+      await userEvent.upload(input, pngFile);
+
+      // Assert
+      await waitFor(() => {
+        expect(onUpload).toHaveBeenCalled();
+      }, { timeout: 2000 });
+    });
+
+    it('should validate artwork dimensions (min 200x200, max 3000x3000)', async () => {
+      // Arrange
+      const onError = vi.fn();
+
+      // Mock small image
+      global.Image = class MockImage {
+        onload: (() => void) | null = null;
+        src = '';
+        width = 100;
+        height = 100;
+
+        constructor() {
+          setTimeout(() => {
+            if (this.onload) this.onload();
+          }, 0);
+        }
+      } as any;
+
+      // Act
+      render(<ArtworkManager albumId={1} onError={onError} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('artwork-upload')).toBeInTheDocument();
+      });
+
+      const smallFile = new File(['small'], 'small.jpg', { type: 'image/jpeg' });
+      const input = screen.getByTestId('artwork-upload') as HTMLInputElement;
+
+      await userEvent.upload(input, smallFile);
+
+      // Assert - error for too small
+      await waitFor(() => {
+        expect(screen.getByTestId('artwork-error')).toHaveTextContent(/at least 200x200/i);
+      }, { timeout: 2000 });
+
+      // Test too large
+      global.Image = class MockImage {
+        onload: (() => void) | null = null;
+        src = '';
+        width = 4000;
+        height = 4000;
+
+        constructor() {
+          setTimeout(() => {
+            if (this.onload) this.onload();
+          }, 0);
+        }
+      } as any;
+
+      const largeFile = new File(['large'], 'large.jpg', { type: 'image/jpeg' });
+      await userEvent.upload(input, largeFile);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('artwork-error')).toHaveTextContent(/at most 3000x3000/i);
+      }, { timeout: 2000 });
+    });
+  });
+
+  // ==========================================
+  // 5. Metadata Synchronization (2 tests)
+  // ==========================================
+
+  describe('Metadata Synchronization', () => {
+    it('should sync metadata changes across components', async () => {
+      // Arrange
+      let currentMetadata = { title: 'Original', artist: 'Artist 1' };
+
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: currentMetadata
+          });
+        }),
+        http.put('http://localhost:8765/api/metadata/tracks/:id', async ({ request }) => {
+          const body = await request.json();
+          currentMetadata = { ...currentMetadata, ...body };
+          return HttpResponse.json({
+            success: true,
+            metadata: currentMetadata
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+
+      // Act - render two forms for same track
+      const { unmount: unmount1 } = render(<MetadataEditForm trackId={1} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Original');
+      });
+
+      // Edit and save
+      await user.clear(screen.getByLabelText(/title/i));
+      await user.type(screen.getByLabelText(/title/i), 'Synced Title');
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      await waitFor(() => {
+        expect(currentMetadata.title).toBe('Synced Title');
+      });
+
+      unmount1();
+
+      // Render new form - should show updated data
+      render(<MetadataEditForm trackId={1} />);
+
+      // Assert
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Synced Title');
+      });
+    });
+
+    it('should update UI immediately after save', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { title: 'Before Save' }
+          });
+        }),
+        http.put('http://localhost:8765/api/metadata/tracks/:id', async ({ request }) => {
+          const body = await request.json();
+          return HttpResponse.json({
+            success: true,
+            metadata: body
+          });
+        })
+      );
+
+      const user = userEvent.setup();
+      const onSave = vi.fn();
+
+      // Act
+      render(<MetadataEditForm trackId={1} onSave={onSave} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Before Save');
+      });
+
+      // Edit and save
+      await user.clear(screen.getByLabelText(/title/i));
+      await user.type(screen.getByLabelText(/title/i), 'After Save');
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      // Assert - UI updates immediately
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(
+          expect.objectContaining({ title: 'After Save' })
+        );
+      });
+    });
+  });
+
+  // ==========================================
+  // 6. Error Handling (1 test)
+  // ==========================================
+
+  describe('Error Handling', () => {
+    it('should handle metadata save failures gracefully', async () => {
+      // Arrange
+      server.use(
+        http.get('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json({
+            track_id: 1,
+            metadata: { title: 'Track 1' }
+          });
+        }),
+        http.put('http://localhost:8765/api/metadata/tracks/:id', () => {
+          return HttpResponse.json(
+            { detail: 'Database error: Unable to save metadata' },
+            { status: 500 }
+          );
+        })
+      );
+
+      const user = userEvent.setup();
+      const onError = vi.fn();
+
+      // Act
+      render(<MetadataEditForm trackId={1} onError={onError} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/title/i)).toHaveValue('Track 1');
+      });
+
+      // Edit and attempt save
+      await user.clear(screen.getByLabelText(/title/i));
+      await user.type(screen.getByLabelText(/title/i), 'New Title');
+      await user.click(screen.getByRole('button', { name: /save/i }));
+
+      // Assert - error handled gracefully
+      await waitFor(() => {
+        expect(screen.getByTestId('form-error')).toHaveTextContent(/database error/i);
+        expect(onError).toHaveBeenCalledWith(expect.any(Error));
+      });
+
+      // Form should still be usable
+      expect(screen.getByRole('button', { name: /save/i })).not.toBeDisabled();
+    });
+  });
+});

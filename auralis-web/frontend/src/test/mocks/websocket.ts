@@ -16,13 +16,25 @@
 
 import { vi } from 'vitest'
 
+// WebSocket constants (since they may not be available in test environment)
+export const CONNECTING = 0
+export const OPEN = 1
+export const CLOSING = 2
+export const CLOSED = 3
+
 export class MockWebSocket {
   public url: string
-  public readyState: number = WebSocket.CONNECTING
+  public readyState: number = CONNECTING
   public onopen: ((event: Event) => void) | null = null
   public onclose: ((event: CloseEvent) => void) | null = null
   public onerror: ((event: Event) => void) | null = null
   public onmessage: ((event: MessageEvent) => void) | null = null
+
+  // Static constants
+  static CONNECTING = CONNECTING
+  static OPEN = OPEN
+  static CLOSING = CLOSING
+  static CLOSED = CLOSED
 
   private eventListeners: Map<string, Set<EventListenerOrEventListenerObject>> = new Map()
 
@@ -33,13 +45,13 @@ export class MockWebSocket {
   }
 
   send = vi.fn((data: string) => {
-    if (this.readyState !== WebSocket.OPEN) {
+    if (this.readyState !== OPEN) {
       throw new Error('WebSocket is not open')
     }
   })
 
   close = vi.fn((code?: number, reason?: string) => {
-    this.readyState = WebSocket.CLOSING
+    this.readyState = CLOSING
     setTimeout(() => this.simulateClose(code, reason), 0)
   })
 
@@ -74,14 +86,14 @@ export class MockWebSocket {
   // Test helper methods
 
   simulateOpen() {
-    this.readyState = WebSocket.OPEN
+    this.readyState = OPEN
     const event = new Event('open')
     if (this.onopen) this.onopen(event)
     this.dispatchEvent(event)
   }
 
   simulateClose(code = 1000, reason = 'Normal closure') {
-    this.readyState = WebSocket.CLOSED
+    this.readyState = CLOSED
     const event = new CloseEvent('close', { code, reason })
     if (this.onclose) this.onclose(event)
     this.dispatchEvent(event)
@@ -94,7 +106,7 @@ export class MockWebSocket {
   }
 
   simulateMessage(data: any) {
-    if (this.readyState !== WebSocket.OPEN) {
+    if (this.readyState !== OPEN) {
       throw new Error('Cannot send message: WebSocket is not open')
     }
     const event = new MessageEvent('message', {
@@ -189,5 +201,95 @@ export const mockWSMessages = {
       connected,
       timestamp: new Date().toISOString(),
     },
+  }),
+
+  // Player state messages
+  trackChanged: (action: 'next' | 'previous') => ({
+    type: 'track_changed',
+    data: { action },
+  }),
+
+  playbackStarted: () => ({
+    type: 'playback_started',
+    data: { state: 'playing' },
+  }),
+
+  playbackPaused: () => ({
+    type: 'playback_paused',
+    data: { state: 'paused' },
+  }),
+
+  playbackStopped: () => ({
+    type: 'playback_stopped',
+    data: { state: 'stopped' },
+  }),
+
+  positionChanged: (position: number) => ({
+    type: 'position_changed',
+    data: { position },
+  }),
+
+  volumeChanged: (volume: number) => ({
+    type: 'volume_changed',
+    data: { volume },
+  }),
+
+  queueUpdated: (action: string, queueSize: number, trackPath?: string, index?: number) => ({
+    type: 'queue_updated',
+    data: {
+      action,
+      queue_size: queueSize,
+      ...(trackPath && { track_path: trackPath }),
+      ...(index !== undefined && { index }),
+    },
+  }),
+
+  // Enhancement messages
+  enhancementToggled: (enabled: boolean, preset: string, intensity: number) => ({
+    type: 'enhancement_toggled',
+    data: { enabled, preset, intensity },
+  }),
+
+  enhancementPresetChanged: (preset: string, enabled: boolean, intensity: number) => ({
+    type: 'enhancement_preset_changed',
+    data: { preset, enabled, intensity },
+  }),
+
+  enhancementIntensityChanged: (intensity: number, enabled: boolean, preset: string) => ({
+    type: 'enhancement_intensity_changed',
+    data: { intensity, enabled, preset },
+  }),
+
+  // Library messages
+  libraryUpdated: (action: string, trackCount?: number, albumCount?: number, artistCount?: number) => ({
+    type: 'library_updated',
+    data: {
+      action,
+      ...(trackCount && { track_count: trackCount }),
+      ...(albumCount && { album_count: albumCount }),
+      ...(artistCount && { artist_count: artistCount }),
+    },
+  }),
+
+  // Playlist messages
+  playlistCreated: (playlistId: number, name: string) => ({
+    type: 'playlist_created',
+    data: { playlist_id: playlistId, name },
+  }),
+
+  playlistUpdated: (playlistId: number, action: string) => ({
+    type: 'playlist_updated',
+    data: { playlist_id: playlistId, action },
+  }),
+
+  playlistDeleted: (playlistId: number) => ({
+    type: 'playlist_deleted',
+    data: { playlist_id: playlistId },
+  }),
+
+  // Favorite toggle
+  favoriteToggled: (trackId: number, isFavorite: boolean) => ({
+    type: 'favorite_toggled',
+    data: { track_id: trackId, is_favorite: isFavorite },
   }),
 }
