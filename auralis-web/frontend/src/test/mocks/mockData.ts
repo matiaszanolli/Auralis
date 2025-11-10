@@ -163,3 +163,24 @@ export const searchTracks = (query: string) => {
     t.album.toLowerCase().includes(query.toLowerCase())
   );
 };
+
+// Helper function to generate large mock dataset for performance testing
+export const generateLargeMockTracks = (count: number) => {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i + 1,
+    title: `Track ${i + 1}`,
+    artist: `Artist ${(i % 100) + 1}`,
+    album: `Album ${(i % 50) + 1}`,
+    duration: 180 + (i % 300),
+    file_path: `/music/track${i + 1}.flac`,
+    favorite: i % 10 === 0,
+    play_count: Math.floor(Math.random() * 100),
+    year: 2000 + (i % 25),
+    genre: ['Rock', 'Pop', 'Jazz', 'Electronic', 'Classical', 'Metal', 'Hip Hop', 'R&B'][i % 8],
+    created_at: new Date(2020 + (i % 5), i % 12, (i % 28) + 1).toISOString(),
+    last_played: i % 5 === 0 ? new Date(2024, 10, i % 30).toISOString() : null,
+    track_number: (i % 15) + 1,
+    disc_number: 1,
+    format: 'FLAC',
+  }));
+};

@@ -17,10 +17,10 @@ import {
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 
 import Sidebar from './components/Sidebar';
-// Phase 3: Using NEW Unified WebM Audio Player (always WebM/Opus)
-// Replaced old dual MSE/HTML5 player with single Web Audio API player
-// See: docs/sessions/nov1_unified_player/
-import BottomPlayerBarUnified from './components/BottomPlayerBarUnified';
+// Beta 13.0: Using PlayerBarV2 - Complete redesign with design system
+// 100% design token compliance, memoized components, crossfade support
+// Replaces BottomPlayerBarUnified with cleaner architecture
+import PlayerBarV2Connected from './components/player-bar-v2/PlayerBarV2Connected';
 import AutoMasteringPane from './components/AutoMasteringPane';
 import CozyLibraryView from './components/CozyLibraryView';
 import GlobalSearch from './components/library/GlobalSearch';
@@ -627,8 +627,8 @@ function ComfortableApp() {
       />
     </Box>
 
-    {/* Bottom Player Bar - MOVED OUTSIDE overflow:hidden container */}
-    <BottomPlayerBarUnified />
+    {/* Bottom Player Bar - Beta 13.0: PlayerBarV2 with design system */}
+    <PlayerBarV2Connected />
   </DragDropContext>
   );
 }
