@@ -5,7 +5,8 @@
 
 import '@testing-library/jest-dom'
 import { cleanup } from '@testing-library/react'
-import { afterEach, vi } from 'vitest'
+import { afterEach, beforeAll, afterAll, vi } from 'vitest'
+import { server } from './mocks/server'
 
 // Cleanup after each test case (e.g., clearing jsdom)
 afterEach(() => {
@@ -65,3 +66,16 @@ Element.prototype.scrollTo = vi.fn()
 
 // Suppress console errors in tests (optional - remove if you want to see errors)
 // vi.spyOn(console, 'error').mockImplementation(() => {})
+
+// ============================================================
+// MSW Server Lifecycle
+// ============================================================
+
+// Start MSW server before all tests
+beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
+
+// Reset handlers after each test
+afterEach(() => server.resetHandlers())
+
+// Clean up after all tests
+afterAll(() => server.close())

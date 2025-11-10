@@ -45,7 +45,7 @@ const PlayerContainer = styled(Box)({
   height: tokens.components.playerBar.height,
   background: tokens.components.playerBar.background,
   backdropFilter: 'blur(20px)',
-  borderTop: `1px solid ${tokens.border.light}`,
+  borderTop: `1px solid ${tokens.colors.border.light}`,
   boxShadow: tokens.shadows.xl,
   zIndex: tokens.components.playerBar.zIndex,
   display: 'grid',
