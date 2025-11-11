@@ -1,19 +1,26 @@
 /**
  * PlayerBarV2Connected - Connected version of PlayerBarV2
  *
- * Connects PlayerBarV2 to the application state using hooks:
- * - usePlayerAPI for playback control
- * - useUnifiedWebMAudioPlayer for current time/duration
- * - useEnhancement for enhancement state
+ * Unified player bar combining PlayerBarV2 UI with complete functionality.
+ * Replaces BottomPlayerBarUnified with modern design token-based styling.
  *
- * This makes PlayerBarV2 a drop-in replacement for BottomPlayerBarUnified
+ * Features:
+ * - Modern PlayerBarV2 UI with design tokens
+ * - Toast notifications for errors and user feedback
+ * - Volume control with mute and mouse wheel support
+ * - Track loading with proper error handling
+ * - Enhancement settings sync
+ * - Single unified player instance (no duplicates)
+ *
+ * This is the ONLY player bar component - eliminates duplicate player instances.
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { PlayerBarV2 } from './PlayerBarV2';
 import { usePlayerAPI } from '@/hooks/usePlayerAPI';
 import { useUnifiedWebMAudioPlayer } from '@/hooks/useUnifiedWebMAudioPlayer';
 import { useEnhancement } from '@/contexts/EnhancementContext';
+import { useToast } from '@/components/shared/Toast';
 
 const PlayerBarV2Connected: React.FC = () => {
   // Get player state from hooks
@@ -31,8 +38,12 @@ const PlayerBarV2Connected: React.FC = () => {
 
   const {
     settings: enhancementSettings,
-    setEnabled: setEnhancementEnabled
+    setEnabled: setEnhancementEnabled,
+    setPreset: setEnhancementPreset
   } = useEnhancement();
+
+  // Toast notifications
+  const { success, info, error: showError } = useToast();
 
   // Initialize unified player with enhancement config
   const player = useUnifiedWebMAudioPlayer({
@@ -51,12 +62,33 @@ const PlayerBarV2Connected: React.FC = () => {
       player.loadTrack(currentTrack.id)
         .then(() => {
           console.log(`[PlayerBarV2] Track loaded successfully`);
+          return player.play();
         })
         .catch((err) => {
           console.error(`[PlayerBarV2] Failed to load track:`, err);
+          showError(`Playback error: ${err.message}`);
         });
     }
-  }, [currentTrack, player]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack?.id]); // Only depend on track ID, not the entire object or player
+
+  // Show error toast when player encounters errors
+  useEffect(() => {
+    if (player.error) {
+      showError(`Playback error: ${player.error.message}`);
+    }
+  }, [player.error, showError]);
+
+  // Sync enhancement settings with player when they change
+  useEffect(() => {
+    if (player.player) {
+      console.log(`[PlayerBarV2] Enhancement settings changed: enabled=${enhancementSettings.enabled}, preset=${enhancementSettings.preset}`);
+      player.setEnhanced(enhancementSettings.enabled, enhancementSettings.preset).catch((err) => {
+        console.error(`[PlayerBarV2] Failed to sync enhancement settings:`, err);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enhancementSettings.enabled, enhancementSettings.preset, enhancementSettings.intensity]);
 
   // Callbacks - use player instance methods
   const handlePlay = useCallback(() => {
@@ -75,9 +107,17 @@ const PlayerBarV2Connected: React.FC = () => {
     player.setVolume(newVolume);
   }, [player]);
 
-  const handleEnhancementToggle = useCallback(() => {
-    setEnhancementEnabled(!enhancementSettings.enabled);
-  }, [enhancementSettings.enabled, setEnhancementEnabled]);
+  const handleEnhancementToggle = useCallback(async () => {
+    const newEnabled = !enhancementSettings.enabled;
+    console.log(`[PlayerBarV2] Enhancement ${newEnabled ? 'enabled' : 'disabled'}`);
+    try {
+      await player.setEnhanced(newEnabled, enhancementSettings.preset);
+      setEnhancementEnabled(newEnabled);
+      info(newEnabled ? `Enhancement enabled (${enhancementSettings.preset})` : 'Enhancement disabled');
+    } catch (err: any) {
+      showError(`Failed to toggle enhancement: ${err.message}`);
+    }
+  }, [enhancementSettings.enabled, enhancementSettings.preset, player, setEnhancementEnabled, info, showError]);
 
   const handlePrevious = useCallback(() => {
     previous();
@@ -88,9 +128,11 @@ const PlayerBarV2Connected: React.FC = () => {
   }, [next]);
 
   // Prepare player state for PlayerBarV2
+  // IMPORTANT: Use player.isPlaying (unified player state) NOT Redux isPlaying
+  // to avoid desync between play/pause button and actual playback
   const playerState = {
     currentTrack: currentTrack || null,
-    isPlaying,
+    isPlaying: player.isPlaying, // Use unified player's state
     currentTime: player.currentTime || 0,
     duration: player.duration || 0,
     volume: volume || 0.8,

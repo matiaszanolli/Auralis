@@ -455,6 +455,11 @@ export class UnifiedWebMAudioPlayer {
     // Update tracking
     this.currentChunkIndex = chunkIndex;
 
+    // CRITICAL: Update startTime when transitioning to new chunk!
+    // Without this, getCurrentTime() uses stale startTime and causes fast-forwarding
+    // startTime tracks when Web Audio started playing this chunk
+    this.startTime = this.audioContext.currentTime;
+
     // Calculate play duration (interval duration)
     const playDuration = chunkInterval;
 
