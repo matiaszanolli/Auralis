@@ -30,6 +30,12 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: 'build',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Disable automatic chunking to prevent missing chunk errors
+        manualChunks: undefined,
+      },
+    },
   },
   test: {
     globals: true,
