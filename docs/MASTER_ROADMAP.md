@@ -1,90 +1,113 @@
 # Auralis Master Roadmap
 
-**Last Updated**: October 28, 2025
-**Current Phase**: Post-Beta.4 Stabilization
-**Current Version**: 1.0.0-beta.4
-**Next Release**: Beta.5 (Target: Mid-November 2025)
+**Last Updated**: November 11, 2025
+**Current Phase**: Phase 1 Testing Infrastructure (Week 3)
+**Current Version**: 1.0.0-beta.12
+**Next Release**: Beta.13 (Target: Late November 2025)
 
 ---
 
-## 🎯 Current State (October 28, 2025)
+## 🎯 Current State (November 11, 2025)
 
 ### ✅ Completed Major Milestones
 
-**Beta.4 Release (October 27, 2025)** - ✨ **MAJOR ARCHITECTURE OVERHAUL**
+**Beta.12 Release (November 8, 2025)** - ✨ **CRITICAL ASYNC FIX**
+- ✅ **Parallel chunk preloading** - Promise.all() for non-blocking operations
+- ✅ **Responsive backend** - Event loop stays free during chunk loading
+- ✅ **Smooth playback** - Zero stuttering when toggling enhancement
+- ✅ **Faster loading** - Chunks load in parallel instead of sequentially
+- ✅ **Critical bug fix** - Enhancement toggle no longer breaks playback (fixed from Beta.11.2)
+
+**Phase 1 Testing Infrastructure (Week 4)** - November 11, 2025
+- ✅ **Pagination Boundaries** - 30/30 tests (100% passing)
+- ✅ **Comprehensive boundary test suite** - 151 total boundary tests across all categories
+- 📊 See [docs/development/PHASE1_WEEK4_PROGRESS.md](docs/development/PHASE1_WEEK4_PROGRESS.md)
+
+**Phase 1 Testing Infrastructure (Week 3)** - November 6-8, 2025
+- ✅ **Chunked Processing Boundaries** - 31/31 tests (100% passing)
+- ✅ **Comprehensive testing guidelines** - 1,342 lines of mandatory standards
+- ✅ **Test implementation roadmap** - Path from 850 to 2,500+ tests
+- ✅ **Production bug discovery** - Boundary tests caught P1 bug on Day 1
+- 📊 See [docs/development/PHASE1_WEEK3_PROGRESS.md](docs/development/PHASE1_WEEK3_PROGRESS.md)
+
+**Beta.11.2 Release (November 6, 2025)** - Speed & Keyboard Shortcuts
+- ✅ **36.6x real-time** processing speed indicator
+- ✅ **Instant preset switching** (< 1s)
+- ⌨️ **14 Keyboard shortcuts** (Space, ←→, ↑↓, M, 1-4, /, Esc, ?, Ctrl/Cmd+,)
+- ℹ️ **Note**: Enhancement toggle bug introduced, fixed in Beta.12
+
+**Beta.4+ Releases (Oct 27 - Nov 6, 2025)** - ✨ **MAJOR ARCHITECTURE OVERHAUL**
 - ✅ **Unified MSE + Multi-Tier Buffer streaming** (4,518 lines of new code)
 - ✅ Progressive WebM/Opus encoding for efficient streaming
-- ✅ Instant preset switching capability (infrastructure ready)
 - ✅ 67% player UI code reduction (970→320 lines)
-- ✅ 75% test coverage on new components (50+ tests)
-- ✅ Eliminates dual playback conflicts
-- ✅ Production-ready with comprehensive documentation
-- 📖 See [docs/sessions/oct27_mse_integration/](docs/sessions/oct27_mse_integration/)
-
-**Beta.2 Release (October 26, 2025)** - Production Quality
-- ✅ Audio processing engine (52.8x real-time speed)
-- ✅ Performance optimization (Numba JIT + vectorization)
-- ✅ Multi-tier buffer system (L1/L2/L3 caching)
-- ✅ Library management (50k+ tracks, pagination, caching)
 - ✅ Desktop builds (AppImage, DEB, Windows)
-- ✅ All Beta.1 critical bugs fixed (audio fuzziness, gapless playback, pagination)
-
-**25D Audio Fingerprint System (October 26-27, 2025)** - ✨ Core Integration Complete
-- ✅ Phase 1 complete: Core integration into processing pipeline
-- ✅ ContentAnalyzer extracts 25D fingerprints automatically
-- ✅ AdaptiveTargetGenerator uses fingerprints for intelligent processing
-- ✅ Validated on synthetic + real audio (64+ tracks, 9 albums)
-- ✅ Production-ready, 100% backward compatible
-- 📖 See [docs/sessions/oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/)
+- ✅ 25D Audio Fingerprint System fully integrated and production-ready
 
 ---
 
 ## 🚀 Active Development Tracks
 
-We now have two primary development tracks following the Beta.4 release:
+We now have two primary development tracks following the Beta.12 release and Phase 1 Week 3 completion:
 
 ---
 
-## Track 0: Beta.4 Stabilization - 🔍 CURRENT
+## Track 0: Phase 1 Testing Infrastructure - 📊 CURRENT
 
-**Priority**: **P0** - Ensure release quality
-**Status**: 🟢 Active monitoring
-**Effort**: 1-2 weeks
-**Impact**: Production stability and user confidence
+**Priority**: **P0** - Ensure production quality through comprehensive testing
+**Status**: 🟢 Week 3 Complete (Chunked Processing Boundaries)
+**Effort**: 6 weeks (Phase 1 total)
+**Impact**: Production-ready quality, bug detection at development time
 
-### Goals
+### Completed
 
-Monitor the newly released Beta.4 unified streaming system for any critical issues:
+**Week 1: Critical Invariants** ✅
+- 305 critical invariant tests implemented
+- Properties that must always hold: sample count preservation, no data corruption, etc.
 
-**Monitoring Activities**:
-- 👀 Watch for bug reports from early users
-- 📊 Monitor system performance metrics
-- 🐛 Quick fixes for any critical issues
-- 📝 Document any edge cases discovered
-- ✅ Validate desktop builds work correctly
+**Week 2: Advanced Integration** ✅
+- 85 comprehensive integration tests
+- Cross-component behavior validation
+- End-to-end processing pipeline tests
 
-**Success Criteria**:
-- No critical bugs reported in first week
-- Desktop binaries launch successfully
-- Unified streaming performs as expected
-- User feedback is positive
+**Week 3: Chunked Processing Boundaries** ✅
+- **30/30 boundary tests** (100% pass rate)
+- **P1 production bug discovered** on Day 1 of boundary testing
+- Tests validate extreme values, edge cases, and stress conditions
 
-**Status**: ✅ **COMPLETE** - Beta.4 infrastructure ready
-- Unified MSE + MTB streaming implemented
-- Progressive WebM/Opus encoding working
-- Player UI simplified (67% code reduction)
-- 75% test coverage achieved
-- Documentation comprehensive
+### Current Work
 
-**Next Step**: Monitor for issues, prepare for fingerprint similarity system
+**Week 4: Pagination Boundaries** ✅ COMPLETE
+- ✅ Test pagination with extreme values (0 items, millions of items)
+- ✅ Test sort/filter edge cases
+- ✅ Validate library performance with boundary conditions
+- ✅ Result: 30/30 tests passing (100%)
+
+**Week 5: Audio Processing Boundaries** (In Progress)
+- Extreme audio lengths (1 sample, 24+ hours)
+- Processing with unusual parameters
+- Edge cases in DSP algorithms
+
+**Week 6: Integration Testing Completion** (Planned)
+- Final integration test suite
+- Cross-platform validation
+- Performance boundary conditions
+
+### Success Criteria
+
+- ✅ 850+ total tests (currently achieved)
+- 📈 Path to 2,500+ tests planned
+- 🎯 Zero P1 bugs from production use
+- 📊 Testing guidelines documented (1,342 lines)
+
+**Next Step**: Continue Phase 1 Week 4-6, prepare for v1.0.0-stable
 
 ---
 
-## Track 1: Advanced Fingerprint Features - 🎨 P1 HIGH VALUE
+## Track 1: Advanced Fingerprint Features - 🎨 P2 DEPRIORITIZED FOR NOW
 
-**Priority**: **NEXT MAJOR FEATURE** - Revolutionary music discovery
-**Status**: 🟢 Phase 1 Complete → Phase 2 ready to start
-**Effort**: 7 weeks for Phase 2 (Similarity System)
+**Priority**: **NEXT AFTER TESTING** - Revolutionary music discovery (paused for Phase 1 testing)
+**Status**: 🟡 Phase 1 Complete → Phase 2 on hold until Phase 1 testing completes
+**Effort**: 7 weeks for Phase 2 (Similarity System) - will resume after v1.0.0-stable
 **Impact**: Cross-genre music discovery and intelligent recommendations
 
 ### Completed: Phase 1 - Core Integration ✅
@@ -214,56 +237,56 @@ Now that 25D fingerprints drive all processing, we have redundant components:
 
 ---
 
-## 🎯 Beta.5 Release Criteria
+## 🎯 v1.0.0-stable Release Criteria
 
-Beta.5 can be released when Phase 2 (Similarity System) is complete:
+v1.0.0-stable will be released when Phase 1 testing is complete and all P0/P1 bugs are fixed:
 
 **Must Have**:
-1. ✅ Database integration (track_fingerprints table)
-2. ✅ Distance calculation API working
-3. ✅ Similarity graph constructed
-4. ✅ `GET /api/tracks/{id}/similar` endpoint
-5. ✅ Frontend "Similar Tracks" UI
-6. ✅ Cross-genre discovery working
-7. ✅ All Beta.4 features still working
-8. ✅ Desktop binaries updated
-9. ✅ Documentation complete
+1. ✅ Phase 1 Weeks 1-3: 420+ tests complete (100% pass rate)
+2. 📈 Phase 1 Weeks 4-6: Additional boundary tests (in progress)
+3. ✅ All critical invariant tests passing
+4. ✅ All production bugs from boundary testing fixed
+5. ✅ Beta.12 features stable (enhancement toggle, keyboard shortcuts, async fix)
+6. ✅ Desktop binaries updated and tested
+7. ✅ Comprehensive documentation (TESTING_GUIDELINES.md, TEST_IMPLEMENTATION_ROADMAP.md)
+8. ✅ Zero known P0 bugs
 
-**Target Release**: Mid-November 2025 (7 weeks from now)
+**Target Release**: End of November 2025 (after Phase 1 completion)
 
 ---
 
 ## 📊 Development Timeline
 
-### Immediate Focus (Next 1-2 Weeks) - October 28 - November 10
+### Immediate Focus (Current) - November 11 - November 30
 
-**Primary**: Beta.4 Stabilization
-- Monitor for critical bugs in unified streaming system
-- Quick fixes as needed
-- Validate desktop builds work correctly
-- Gather initial user feedback
+**Primary**: Phase 1 Testing Infrastructure Completion
+- Week 4: Pagination boundary tests (in progress)
+- Week 5: Audio processing boundary tests
+- Week 6: Final integration and cross-platform validation
+- All boundary tests targeting 100% pass rate
 
-**Parallel**: Fingerprint Phase 2 Planning
-- Database schema design for `track_fingerprints`
-- Distance metric research (weighted Euclidean in 25D space)
-- API endpoint design (`/api/tracks/{id}/similar`)
-- UI mockups for similarity features
+**Parallel**: Bug Fixes from Boundary Testing
+- Fix any P0/P1 bugs discovered during boundary testing
+- Validate fixes don't introduce regressions
+- Update test coverage accordingly
 
-### Short Term (7 Weeks) - November 11 - December 31
+**Deliverable**: v1.0.0-stable with 600+ comprehensive tests and zero known P0 bugs
 
-**Primary**: Fingerprint Similarity System (Phase 2)
-- Week 1: Database integration
-- Weeks 2-3: Distance calculation implementation
+### Short Term (December - January) - Post v1.0.0-stable
+
+**Primary**: Fingerprint Similarity System (Phase 2) Resume
+- Week 1: Database integration for track_fingerprints
+- Weeks 2-3: Distance calculation implementation (weighted Euclidean in 25D)
 - Weeks 4-5: Similarity graph construction
-- Week 6: API endpoints
+- Week 6: API endpoints `/api/tracks/{id}/similar`
 - Week 7: Frontend UI + testing
 
-**Deliverable**: Beta.5 with "Find Similar Tracks" feature
+**Deliverable**: v1.1.0 with "Find Similar Tracks" feature
 
-### Medium Term (3-6 Months) - January - April 2026
+### Medium Term (2-3 Months) - February - April 2026
 
 1. 🧹 Architecture cleanup (1-2 weeks)
-   - Remove redundant SpectrumMapper
+   - Remove redundant SpectrumMapper if fingerprint system makes it obsolete
    - Consolidate processing logic
 
 2. 🎨 Continuous enhancement space (Fingerprint Phase 3, 6-8 weeks)
@@ -271,7 +294,7 @@ Beta.5 can be released when Phase 2 (Similarity System) is complete:
    - Custom enhancement profiles
    - Real-time section-aware processing
 
-3. 🚀 Beta.6+ planning
+3. 🚀 v1.2+ planning
    - User feedback integration
    - Additional features
    - Performance optimization
@@ -300,20 +323,23 @@ Beta.5 can be released when Phase 2 (Similarity System) is complete:
 
 ## 📋 Priority Matrix
 
-### P0 - Critical (Current)
+### P0 - Critical (Current through November)
 
-1. **Beta.4 Stabilization** - ✅ Monitor release, fix critical bugs
+1. **Phase 1 Testing Infrastructure** - Complete 600+ comprehensive tests
+2. **Bug Fixes** - Address any P0/P1 issues found during boundary testing
+3. **v1.0.0-stable Release** - Production-ready quality milestone
 
-### P1 - High Priority (Next 7 weeks)
+### P1 - High Priority (December - January)
 
-1. **Fingerprint Similarity System** - Revolutionary "Find Similar Tracks" feature
-2. **Beta.5 Release** - Complete similarity graph implementation
+1. **Fingerprint Similarity System Phase 2** - Revolutionary "Find Similar Tracks" feature
+2. **v1.1.0 Release** - Complete similarity graph implementation
+3. **Beta.12 Stability** - Monitor for issues, quick patches as needed
 
-### P2 - Medium Priority (After Beta.5)
+### P2 - Medium Priority (Post v1.0.0-stable)
 
 1. **Architecture Cleanup** - Remove redundant components, tech debt
 2. **UI/UX Polish** - Artwork improvements, controls refinement
-3. **Performance Optimization** - Further speedups
+3. **Performance Optimization** - Further speedups beyond 36.6x real-time
 4. **Desktop Binary Improvements** - Distribution reliability
 
 ### P3 - Nice to Have (Future)
@@ -375,48 +401,60 @@ Beta.5 can be released when Phase 2 (Similarity System) is complete:
 
 ## 🎯 Current Action Items
 
-### This Week (October 28 - November 3)
+### This Week (November 11 - November 17)
 
-**Priority 1**: Beta.4 Stabilization
-- [x] Beta.4 released (October 27)
-- [ ] Monitor for critical bugs
-- [ ] Validate desktop builds
-- [ ] Respond to user feedback
-- [x] Update MASTER_ROADMAP.md (October 28)
+**Priority 1**: Phase 1 Week 4 - Pagination Boundaries ✅ COMPLETE
+- [x] Implement pagination boundary tests (30 tests)
+- [x] Test with 0 items, millions of items
+- [x] Validate sort/filter edge cases
+- [x] Ensure 100% pass rate
+- [x] Result: 30/30 tests passing (100%)
 
-**Priority 2**: Fingerprint Phase 2 Planning
-- [ ] Design database schema for `track_fingerprints` table
-- [ ] Research distance metrics (weighted Euclidean in 25D space)
-- [ ] Design API endpoints (`/api/tracks/{id}/similar`)
-- [ ] Create UI mockups for similarity features
+**Priority 2**: Phase 1 Week 5 - Audio Processing Boundaries
+- [ ] Create audio processing boundary test suite (30 tests)
+- [ ] Test extreme audio lengths (1 sample to 24+ hours)
+- [ ] Test unusual sample rates (8kHz to 192kHz)
+- [ ] Test edge case processing parameters
+- [ ] Achieve 100% pass rate
 
-**Parallel**: Documentation
-- [x] Fingerprint integration documentation (October 27)
-- [x] MSE integration documentation (October 27)
-- [x] Update CLAUDE.md with Beta.4 info (October 28)
-- [ ] Create Fingerprint Phase 2 implementation plan
+**Parallel**: Documentation Updates
+- [x] Update MASTER_ROADMAP.md with Beta.12 info (November 11)
+- [x] Create PHASE1_WEEK4_PROGRESS.md report (November 11)
+- [ ] Update README.md references to reflect current status
+- [ ] Document Phase 1 Week 5 progress (when complete)
 
-### Next Week (November 4-10)
+### Next Week (November 18-24)
 
-**Priority 1**: Begin Fingerprint Phase 2
-- [ ] Implement `track_fingerprints` database table
-- [ ] Create FingerprintRepository
-- [ ] Integrate fingerprint extraction into library scanner
-- [ ] Initial distance calculation implementation
+**Priority 1**: Phase 1 Week 5-6 Final Stretch
+- [ ] Complete audio processing boundary tests
+- [ ] Begin Week 6 final integration tests
+- [ ] Ensure 100% pass rate across all categories
+- [ ] Prepare for v1.0.0-stable release
+
+**Priority 2**: Begin v1.0.0-stable Release Planning
+- [ ] Finalize release criteria checklist
+- [ ] Plan desktop binary updates
+- [ ] Prepare v1.0.0-stable release notes
+- [ ] Create migration guide for users
 
 ---
 
 ## 🎊 Recent Wins
 
-- ✅ **Beta.4 Unified Streaming** (Oct 27) - MAJOR architecture overhaul, 4,518 lines of new code
-- ✅ **67% Player UI Code Reduction** (Oct 27) - Cleaner, more maintainable (970→320 lines)
+- ✅ **Phase 1 Week 4 Complete** (Nov 11) - 30/30 pagination boundary tests (100% pass)
+- ✅ **151 Boundary Tests Total** (Nov 11) - All categories passing, robust edge case coverage
+- ✅ **Beta.12 Critical Async Fix** (Nov 8) - Parallel chunk preloading eliminates playback stuttering
+- ✅ **Phase 1 Week 3 Complete** (Nov 8) - 31/31 chunked processing boundary tests (100% pass)
+- ✅ **P1 Production Bug Discovered** (Nov 6) - Boundary testing caught critical bug on Day 1
+- ✅ **Comprehensive Testing Guidelines** (Nov 6) - 1,342 lines of mandatory test quality standards
+- ✅ **850+ Test Suite** (Nov 6) - Comprehensive coverage across all test categories
+- ✅ **Beta.11.2 Keyboard Shortcuts** (Nov 6) - 14 keyboard shortcuts + 36.6x speed indicator
 - ✅ **25D Fingerprint Integration** (Oct 26-27) - Revolutionary content-aware processing
-- ✅ **Beta.2 Release** (Oct 26) - All critical bugs fixed, production quality
-- ✅ **Performance Optimization** (Oct 24) - 52.8x real-time speed with Numba+vectorization
-- ✅ **Multi-Tier Buffer** (Oct 25) - L1/L2/L3 caching system working
+- ✅ **Beta.4 Unified Streaming** (Oct 27) - MAJOR architecture overhaul, 4,518 lines of new code
 
 ---
 
-**Status**: 🎉 Beta.4 complete! Entering stabilization and planning phase
-**Next Milestone**: Beta.5 with Fingerprint Similarity System (7 weeks)
-**Long-Term Vision**: Revolutionary music discovery powered by 25D acoustic fingerprints
+**Status**: 🎉 Beta.12 stable! Phase 1 Week 4 complete (451/600+ tests done, 75% toward v1.0.0-stable)
+**Next Milestone**: Phase 1 Week 5 Audio Processing Boundaries + Week 6 Final Integration
+**v1.0.0-stable Target**: End of November 2025 with 600+ comprehensive tests
+**Long-Term Vision**: Production-ready quality foundation, then revolutionary music discovery with Phase 2 Fingerprint Similarity System

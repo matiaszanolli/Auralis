@@ -43,7 +43,7 @@ See [RELEASE_NOTES_BETA12.md](RELEASE_NOTES_BETA12.md) for complete details.
 
 ---
 
-📚 **[Master Roadmap](MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 📈 **[Phase 1 Week 3 Progress](docs/development/PHASE1_WEEK3_PROGRESS.md)**
+📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 📈 **[Phase 1 Progress](docs/development/PHASE1_WEEK3_PROGRESS.md)**
 
 ---
 
@@ -362,7 +362,7 @@ npm run build
 ## 📚 Documentation
 
 ### Essential Docs
-- **[MASTER_ROADMAP.md](MASTER_ROADMAP.md)** - Complete project roadmap
+- **[MASTER_ROADMAP.md](docs/MASTER_ROADMAP.md)** - Complete project roadmap
 - **[CLAUDE.md](CLAUDE.md)** - Full technical reference (for developers)
 - **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** - Complete user guide
 
