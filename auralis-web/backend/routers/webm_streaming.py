@@ -219,7 +219,7 @@ def create_webm_streaming_router(
             # If enhancement disabled, serve original audio chunk
             if not enhanced:
                 logger.info(f"Serving original (unenhanced) chunk {chunk_idx} for track {track_id}")
-                webm_bytes = await _get_original_webm_chunk(track.filepath, chunk_idx, chunk_duration)
+                webm_bytes = await _get_original_webm_chunk(track.filepath, chunk_idx, chunk_duration, chunk_interval)
                 cache_tier = "ORIGINAL"
             else:
                 # Streamlined cache integration (Beta.9)
@@ -356,7 +356,8 @@ def create_webm_streaming_router(
     async def _get_original_webm_chunk(
         filepath: str,
         chunk_idx: int,
-        chunk_duration: int
+        chunk_duration: int,
+        chunk_interval: int
     ) -> bytes:
         """
         Extract a chunk from original audio file without processing.
@@ -367,7 +368,8 @@ def create_webm_streaming_router(
         Args:
             filepath: Path to audio file
             chunk_idx: Chunk index
-            chunk_duration: Chunk duration in seconds
+            chunk_duration: Chunk duration in seconds (actual length of chunk)
+            chunk_interval: Interval between chunk starts in seconds (for overlap calculation)
 
         Returns:
             bytes: WebM/Opus chunk data
@@ -380,12 +382,16 @@ def create_webm_streaming_router(
         # Load audio chunk
         audio, sr = load_audio(filepath)
 
-        # Calculate chunk boundaries
-        start_sample = chunk_idx * chunk_duration * sr
-        end_sample = min((chunk_idx + 1) * chunk_duration * sr, len(audio))
+        # Calculate chunk boundaries using chunk_interval for start position (same as chunked_processor)
+        # With 15s chunks and 10s interval: chunk 0 starts at 0s, chunk 1 at 10s, chunk 2 at 20s, etc.
+        chunk_start_time = chunk_idx * chunk_interval
+        chunk_end_time = chunk_start_time + chunk_duration
+
+        start_sample = int(chunk_start_time * sr)
+        end_sample = min(int(chunk_end_time * sr), len(audio))
 
         # Extract chunk
-        chunk_audio = audio[int(start_sample):int(end_sample)]
+        chunk_audio = audio[start_sample:end_sample]
 
         # Encode directly to WebM/Opus
         try:

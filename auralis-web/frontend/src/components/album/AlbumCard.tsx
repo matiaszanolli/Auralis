@@ -131,6 +131,9 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
         transition: 'all 0.3s ease',
         background: colors.background.surface,
         border: `1px solid ${colors.background.hover}`,
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: `0 8px 24px rgba(102, 126, 234, 0.2)`,
@@ -141,49 +144,29 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
     >
-      {/* Artwork */}
-      <Box sx={{ position: 'relative' }}>
-        <AlbumArt albumId={albumId} size="100%" borderRadius={0} />
-
-        {/* Play button overlay */}
+      {/* Artwork - Square aspect ratio container */}
+      <Box
+        sx={{
+          position: 'relative',
+          width: '100%',
+          paddingBottom: '100%', // Creates 1:1 (square) aspect ratio
+          overflow: 'hidden',
+          backgroundColor: '#000',
+          flexShrink: 0,
+        }}
+      >
         <Box
           sx={{
             position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: isHovered ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
-            backdropFilter: isHovered ? 'blur(4px)' : 'none',
-            transition: 'all 0.3s ease',
-            opacity: isHovered ? 1 : 0,
-            pointerEvents: isHovered ? 'auto' : 'none',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
           }}
         >
-          <IconButton
-            sx={{
-              width: 56,
-              height: 56,
-              background: gradients.aurora,
-              color: '#fff',
-              transform: isHovered ? 'scale(1)' : 'scale(0.8)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: gradients.electricPurple,
-                transform: 'scale(1.1)',
-              },
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onClick?.();
-            }}
-          >
-            <PlayArrow sx={{ fontSize: 32 }} />
-          </IconButton>
-        </Box>
+          <AlbumArt albumId={albumId} size="100%" borderRadius={0} />
 
-        {/* Loading overlay */}
-        {(downloading || extracting) && (
+          {/* Play button overlay */}
           <Box
             sx={{
               position: 'absolute',
@@ -191,106 +174,145 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'rgba(0, 0, 0, 0.7)',
-              backdropFilter: 'blur(4px)',
+              background: isHovered ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+              backdropFilter: isHovered ? 'blur(4px)' : 'none',
+              transition: 'all 0.3s ease',
+              opacity: isHovered ? 1 : 0,
+              pointerEvents: isHovered ? 'auto' : 'none',
             }}
           >
-            <CircularProgress size={40} sx={{ color: '#667eea' }} />
+            <IconButton
+              sx={{
+                width: 56,
+                height: 56,
+                background: gradients.aurora,
+                color: '#fff',
+                transform: isHovered ? 'scale(1)' : 'scale(0.8)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: gradients.electricPurple,
+                  transform: 'scale(1.1)',
+                },
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick?.();
+              }}
+            >
+              <PlayArrow sx={{ fontSize: 32 }} />
+            </IconButton>
           </Box>
-        )}
 
-        {/* No artwork overlay */}
-        {!hasArtwork && !downloading && !extracting && (
-          <Box
+          {/* Loading overlay */}
+          {(downloading || extracting) && (
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(0, 0, 0, 0.7)',
+                backdropFilter: 'blur(4px)',
+              }}
+            >
+              <CircularProgress size={40} sx={{ color: '#667eea' }} />
+            </Box>
+          )}
+
+          {/* No artwork overlay */}
+          {!hasArtwork && !downloading && !extracting && (
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                p: 1,
+                background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+                display: 'flex',
+                gap: 0.5,
+                justifyContent: 'center',
+              }}
+            >
+              <Tooltip title="Download from online sources">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownloadArtwork();
+                  }}
+                  sx={{
+                    color: '#fff',
+                    background: gradients.aurora,
+                    '&:hover': { background: gradients.electricPurple },
+                  }}
+                >
+                  <CloudDownload fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Extract from audio files">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleExtractArtwork();
+                  }}
+                  sx={{
+                    color: '#fff',
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    '&:hover': { background: 'rgba(255, 255, 255, 0.3)' },
+                  }}
+                >
+                  <ImageSearch fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+
+          {/* Options menu button */}
+          <IconButton
+            onClick={handleMenuOpen}
             sx={{
               position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              p: 1,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
-              display: 'flex',
-              gap: 0.5,
-              justifyContent: 'center',
+              top: 8,
+              right: 8,
+              color: '#fff',
+              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'blur(10px)',
+              '&:hover': { background: 'rgba(0, 0, 0, 0.7)' },
             }}
           >
-            <Tooltip title="Download from online sources">
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDownloadArtwork();
-                }}
-                sx={{
-                  color: '#fff',
-                  background: gradients.aurora,
-                  '&:hover': { background: gradients.electricPurple },
-                }}
-              >
-                <CloudDownload fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Extract from audio files">
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleExtractArtwork();
-                }}
-                sx={{
-                  color: '#fff',
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  '&:hover': { background: 'rgba(255, 255, 255, 0.3)' },
-                }}
-              >
-                <ImageSearch fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
+            <MoreVert />
+          </IconButton>
 
-        {/* Options menu button */}
-        <IconButton
-          onClick={handleMenuOpen}
-          sx={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            color: '#fff',
-            background: 'rgba(0, 0, 0, 0.5)',
-            backdropFilter: 'blur(10px)',
-            '&:hover': { background: 'rgba(0, 0, 0, 0.7)' },
-          }}
-        >
-          <MoreVert />
-        </IconButton>
-
-        {/* Options menu */}
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <MenuItem onClick={handleDownloadArtwork} disabled={downloading}>
-            <CloudDownload sx={{ mr: 1 }} fontSize="small" />
-            Download Artwork
-          </MenuItem>
-          <MenuItem onClick={handleExtractArtwork} disabled={extracting}>
-            <ImageSearch sx={{ mr: 1 }} fontSize="small" />
-            Extract from Files
-          </MenuItem>
-          {hasArtwork && (
-            <MenuItem onClick={handleDeleteArtwork}>
-              <Delete sx={{ mr: 1 }} fontSize="small" />
-              Delete Artwork
+          {/* Options menu */}
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleMenuClose}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MenuItem onClick={handleDownloadArtwork} disabled={downloading}>
+              <CloudDownload sx={{ mr: 1 }} fontSize="small" />
+              Download Artwork
             </MenuItem>
-          )}
-        </Menu>
+            <MenuItem onClick={handleExtractArtwork} disabled={extracting}>
+              <ImageSearch sx={{ mr: 1 }} fontSize="small" />
+              Extract from Files
+            </MenuItem>
+            {hasArtwork && (
+              <MenuItem onClick={handleDeleteArtwork}>
+                <Delete sx={{ mr: 1 }} fontSize="small" />
+                Delete Artwork
+              </MenuItem>
+            )}
+          </Menu>
+        </Box>
       </Box>
 
       {/* Album info */}
-      <CardContent sx={{ p: 2 }}>
+      <CardContent sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         <Tooltip title={title} placement="top">
           <Typography
             variant="subtitle1"

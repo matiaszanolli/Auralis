@@ -84,7 +84,7 @@ const FavoriteButton = styled(IconButton)({
   transition: tokens.transitions.all,
 
   '&:hover': {
-    color: tokens.colors.status.error,
+    color: tokens.colors.accent.error,
     transform: 'scale(1.2)',
   },
 
