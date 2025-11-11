@@ -85,108 +85,48 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   // Ref for load more trigger element
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
+  // Ref to track if we're currently fetching (prevents duplicate requests from observer)
+  const isFetchingRef = useRef(false);
+
   useEffect(() => {
     fetchAlbums(true);
   }, []);
 
-  // Infinite scroll with scroll event checking sentinel element visibility
+  // Infinite scroll using Intersection Observer for better performance and immediate triggering
   useEffect(() => {
-    console.log('CozyAlbumGrid: Setting up scroll listener', {
-      hasMore,
-      isLoadingMore,
-      loading,
-      offset,
-      albumsCount: albums.length
-    });
+    const triggerElement = loadMoreTriggerRef.current;
+    if (!triggerElement) return;
 
-    const handleScroll = () => {
-      // Log all guard conditions
-      console.log('CozyAlbumGrid: handleScroll called', {
-        hasMore,
-        isLoadingMore,
-        loading,
-        triggerExists: !!loadMoreTriggerRef.current,
-        containerExists: !!containerRef.current
-      });
-
-      if (!hasMore || isLoadingMore || loading) {
-        console.log('CozyAlbumGrid: Guard condition blocked scroll', {
-          hasMore,
-          isLoadingMore,
-          loading
+    // Intersection Observer immediately detects when element comes into view
+    // and loads content without waiting for scroll event
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          // Load more when sentinel element is close to or within viewport
+          // Use a ref to prevent multiple simultaneous requests
+          if ((entry.isIntersecting || entry.boundingClientRect.top < window.innerHeight + 500) &&
+              !isFetchingRef.current &&
+              hasMore) {
+            isFetchingRef.current = true;
+            loadMore().finally(() => {
+              isFetchingRef.current = false;
+            });
+          }
         });
-        return;
+      },
+      {
+        root: null, // Use viewport as root
+        rootMargin: '500px', // Trigger loading 500px before element enters viewport
+        threshold: 0.01 // Low threshold for early detection
       }
+    );
 
-      // Check if load more trigger element is visible in viewport
-      const triggerElement = loadMoreTriggerRef.current;
-      if (!triggerElement) {
-        console.log('CozyAlbumGrid: Trigger element not found');
-        return;
-      }
+    observer.observe(triggerElement);
 
-      const rect = triggerElement.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-
-      console.log('CozyAlbumGrid: Checking trigger visibility', {
-        triggerTop: rect.top,
-        triggerBottom: rect.bottom,
-        viewportHeight,
-        isNearViewport: rect.top < viewportHeight + 2000
-      });
-
-      // Trigger load when sentinel element is within 2000px of viewport
-      // This ensures loading starts before user scrolls all the way to the end
-      const isNearViewport = rect.top < viewportHeight + 2000;
-
-      if (isNearViewport) {
-        console.log('CozyAlbumGrid: Load trigger visible, loading more', {
-          triggerTop: rect.top,
-          viewportHeight,
-          hasMore,
-          isLoadingMore
-        });
-        loadMore();
-      }
+    return () => {
+      observer.unobserve(triggerElement);
     };
-
-    // Find scrollable parent and attach listener
-    let scrollableParent = containerRef.current?.parentElement;
-    console.log('CozyAlbumGrid: Starting parent search', {
-      containerExists: !!containerRef.current,
-      parentExists: !!scrollableParent
-    });
-
-    while (scrollableParent) {
-      const overflowY = window.getComputedStyle(scrollableParent).overflowY;
-      console.log('CozyAlbumGrid: Checking parent', {
-        tagName: scrollableParent.tagName,
-        className: scrollableParent.className,
-        overflowY
-      });
-
-      if (overflowY === 'auto' || overflowY === 'scroll') {
-        break;
-      }
-      scrollableParent = scrollableParent.parentElement;
-    }
-
-    if (scrollableParent) {
-      console.log('CozyAlbumGrid: Attached scroll listener to', {
-        tagName: scrollableParent.tagName,
-        className: scrollableParent.className
-      });
-      scrollableParent.addEventListener('scroll', handleScroll);
-      // Also check on mount in case content is already visible
-      handleScroll();
-      return () => {
-        console.log('CozyAlbumGrid: Removing scroll listener');
-        scrollableParent.removeEventListener('scroll', handleScroll);
-      };
-    } else {
-      console.warn('CozyAlbumGrid: No scrollable parent found!');
-    }
-  }, [hasMore, isLoadingMore, loading, offset, albums.length]);
+  }, [hasMore]);
 
   const fetchAlbums = async (resetPagination = false) => {
     if (resetPagination) {

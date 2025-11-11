@@ -495,24 +495,32 @@ class ChunkedAudioProcessor:
         # Trim context (keep only the actual chunk)
         context_samples = int(CONTEXT_DURATION * self.sample_rate)
         actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
+        is_last = chunk_index == self.total_chunks - 1
 
         # Safety: Ensure we have enough samples to trim
         chunk_length = len(processed_chunk)
 
+        # For the last chunk, be more conservative with trimming
+        # since the audio is much shorter than expected
+        max_trim_samples = chunk_length // 4  # Never trim more than 1/4 of the chunk
+
         if actual_start > 0:  # Not first chunk, trim start context
-            if chunk_length > context_samples:
-                processed_chunk = processed_chunk[context_samples:]
+            trim_start = min(context_samples, max_trim_samples)
+            if chunk_length > trim_start:
+                processed_chunk = processed_chunk[trim_start:]
+                logger.debug(f"Chunk {chunk_index}: trimmed {trim_start/self.sample_rate:.2f}s from start")
             else:
-                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {context_samples})")
+                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {trim_start}). Keeping as-is.")
 
         # Don't trim end context for last chunk
-        is_last = chunk_index == self.total_chunks - 1
         if not is_last:
             chunk_length = len(processed_chunk)  # Update after potential start trim
-            if chunk_length > context_samples:
-                processed_chunk = processed_chunk[:-context_samples]
+            trim_end = min(context_samples, max_trim_samples)
+            if chunk_length > trim_end:
+                processed_chunk = processed_chunk[:-trim_end]
+                logger.debug(f"Chunk {chunk_index}: trimmed {trim_end/self.sample_rate:.2f}s from end")
             else:
-                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {context_samples})")
+                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {trim_end}). Keeping as-is.")
 
         # Apply intensity blending
         if self.intensity < 1.0:
@@ -540,6 +548,12 @@ class ChunkedAudioProcessor:
                 original_chunk_with_context[:min_len] * (1.0 - self.intensity) +
                 processed_chunk[:min_len] * self.intensity
             )
+
+        # Validate chunk is not empty before smooth transitions
+        if len(processed_chunk) == 0:
+            logger.error(f"Chunk {chunk_index} is empty after context trimming. Returning silence.")
+            num_channels = audio_chunk.shape[1] if audio_chunk.ndim > 1 else 2
+            processed_chunk = np.zeros((self.sample_rate // 10, num_channels))  # 100ms silence
 
         # CRITICAL FIX: Smooth level transitions between chunks
         # This prevents volume jumps by limiting maximum RMS changes
@@ -786,24 +800,32 @@ class ChunkedAudioProcessor:
         # Trim context (keep only the actual chunk)
         context_samples = int(CONTEXT_DURATION * self.sample_rate)
         actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
+        is_last = chunk_index == self.total_chunks - 1
 
         # Safety: Ensure we have enough samples to trim
         chunk_length = len(processed_chunk)
 
+        # For the last chunk, be more conservative with trimming
+        # since the audio is much shorter than expected
+        max_trim_samples = chunk_length // 4  # Never trim more than 1/4 of the chunk
+
         if actual_start > 0:  # Not first chunk, trim start context
-            if chunk_length > context_samples:
-                processed_chunk = processed_chunk[context_samples:]
+            trim_start = min(context_samples, max_trim_samples)
+            if chunk_length > trim_start:
+                processed_chunk = processed_chunk[trim_start:]
+                logger.debug(f"Chunk {chunk_index}: trimmed {trim_start/self.sample_rate:.2f}s from start")
             else:
-                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {context_samples})")
+                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {trim_start}). Keeping as-is.")
 
         # Don't trim end context for last chunk
-        is_last = chunk_index == self.total_chunks - 1
         if not is_last:
             chunk_length = len(processed_chunk)  # Update after potential start trim
-            if chunk_length > context_samples:
-                processed_chunk = processed_chunk[:-context_samples]
+            trim_end = min(context_samples, max_trim_samples)
+            if chunk_length > trim_end:
+                processed_chunk = processed_chunk[:-trim_end]
+                logger.debug(f"Chunk {chunk_index}: trimmed {trim_end/self.sample_rate:.2f}s from end")
             else:
-                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {context_samples})")
+                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {trim_end}). Keeping as-is.")
 
         # Apply intensity blending
         if self.intensity < 1.0:
@@ -844,12 +866,14 @@ class ChunkedAudioProcessor:
             logger.debug(f"✅ Chunk 0: extracted [0:{expected_samples}] samples ({expected_samples/self.sample_rate:.2f}s)")
 
         elif is_last:
-            # Last chunk: skip the 3s overlap, extract remaining duration
-            remaining_duration = self.total_duration - (chunk_index * CHUNK_DURATION)
+            # Last chunk: skip the overlap, extract remaining duration
+            # Use CHUNK_INTERVAL (10s) for chunk position, not CHUNK_DURATION (15s)
+            chunk_start_time = chunk_index * CHUNK_INTERVAL
+            remaining_duration = max(0, self.total_duration - chunk_start_time)
             expected_samples = int(remaining_duration * self.sample_rate)
             # Skip the overlap region to avoid duplicate audio
             processed_chunk = processed_chunk[overlap_samples:overlap_samples + expected_samples]
-            logger.debug(f"✅ Chunk {chunk_index} (last): skipped {overlap_samples} overlap, extracted {expected_samples} samples ({expected_samples/self.sample_rate:.2f}s)")
+            logger.debug(f"✅ Chunk {chunk_index} (last): chunk starts at {chunk_start_time:.1f}s, remaining {remaining_duration:.1f}s, extracted {expected_samples} samples")
 
         else:
             # Regular chunk: skip the 3s overlap, extract exactly 30 seconds
