@@ -82,6 +82,9 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   // Ref for scroll container
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Ref for load more trigger element
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+
   // Ref to track if we're currently fetching (prevents duplicate requests)
   const isFetchingRef = useRef(false);
 
