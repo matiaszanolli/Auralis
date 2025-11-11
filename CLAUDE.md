@@ -9,1112 +9,487 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Coverage ≠ Quality: Test behavior and invariants, not implementation
 - Modular design: Keep modules under 300 lines, use facade pattern for backward compatibility
 
-## TL;DR - Start Here
+---
 
-**Just want to code? Here's the absolute minimum:**
+## ⚡ Quick Start (30 seconds)
 
 ```bash
 # Install and run
 pip install -r requirements.txt
 python launch-auralis-web.py --dev    # http://localhost:8765
 
-# Before writing ANY tests, READ THIS (MANDATORY):
-cat docs/development/TESTING_GUIDELINES.md
-
-# Run tests
-python -m pytest tests/ -v
-```
-
-**Key files you'll modify most:**
-- Backend API: `auralis-web/backend/routers/*.py`
-- Audio processing: `auralis/core/hybrid_processor.py`, `auralis/dsp/stages.py`
-- Frontend UI: `auralis-web/frontend/src/components/*.tsx`
-
-**Common gotchas:**
-- Backend is on port **8765** (not 8000), frontend dev is on 3000
-- Coverage ≠ Quality: 100% coverage doesn't catch all bugs (see Testing Guidelines)
-- Use new modular imports: `from auralis.dsp.eq import ...` not `from auralis.dsp.unified import ...`
-
----
-
-## Quick Start for Developers
-
-**First time here? Start with:**
-```bash
-# 1. Install dependencies
-pip install -r requirements.txt
-cd desktop && npm install
-
-# 2. Run the development environment
-npm run dev                           # Starts backend + frontend + Electron
-
-# 3. Or launch web interface only
-python launch-auralis-web.py --dev   # http://localhost:8765
-```
-
-**Key files to know:**
-- [auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py) - Main audio processing engine
-- [auralis-web/backend/main.py](auralis-web/backend/main.py) - Backend API server (614 lines, modular routers)
-- [auralis-web/backend/routers/](auralis-web/backend/routers/) - API endpoint routers (player, library, enhancement, etc.)
-- [auralis-web/frontend/src/components/ComfortableApp.tsx](auralis-web/frontend/src/components/ComfortableApp.tsx) - Main UI component
-- [desktop/main.js](desktop/main.js) - Electron main process
-
-**Running tests:**
-```bash
-# Backend Python tests (850+ tests across all categories)
-python -m pytest tests/backend/ -v                    # API tests (96 tests, 74% coverage)
-python -m pytest tests/auralis/ -v                    # Real-time processing tests (24 tests, all passing ✅)
-python -m pytest tests/test_adaptive_processing.py -v  # Core processing (26 tests)
-
-# Phase 1 Week 1: Critical Invariant Tests (305 tests)
-python -m pytest tests/invariants/ -v                 # All critical invariants
-python -m pytest -m invariant -v                      # Run by marker
-
-# Phase 1 Week 2: Advanced Integration Tests (85 tests)
-python -m pytest tests/integration/ -v                # All integration tests
-python -m pytest -m integration -v                    # Run by marker
-
-# Phase 1 Week 3: Boundary Tests (151/150 complete - 101%)
-python -m pytest tests/boundaries/ -v                 # All boundary tests (151 tests)
-python -m pytest tests/boundaries/test_chunked_processing_boundaries.py -v  # Chunked processing (31 tests)
-python -m pytest tests/boundaries/test_pagination_boundaries.py -v          # Pagination (30 tests)
-python -m pytest tests/boundaries/test_audio_processing_boundaries.py -v    # Audio processing (30 tests)
-python -m pytest tests/boundaries/test_library_operations_boundaries.py -v  # Library operations (30 tests)
-python -m pytest tests/boundaries/test_string_input_boundaries.py -v        # String inputs (30 tests)
-
-# Validation tests (preset validation, E2E testing)
-python -m pytest tests/validation/ -v                 # All validation tests
-python -m pytest tests/validation/test_preset_integration.py -v  # Preset integration
-python -m pytest tests/auralis/analysis/test_fingerprint_integration.py -v  # 25D fingerprint (4 tests)
-
-# Mutation Testing (Beta 9+)
-python -m pytest tests/mutation/ -v                   # Mutation test suite
-mutmut run --paths-to-mutate=auralis/library/cache.py  # Run mutation testing
-
-# Run all tests (from root directory)
-npm test                                 # Runs Python pytest suite
-npm run test:coverage                    # With coverage report
-
-# Frontend tests (245 tests, 234 passing, 11 failing)
-# ⚠️ KNOWN ISSUES:
-# - Gapless playback: 11 tests failing (needs investigation)
-cd auralis-web/frontend
-npm test                                 # Interactive Vitest
-npm run test:run                         # Single run
-npm run test:coverage                   # Coverage report
-```
-
-**🎯 MANDATORY: Test Quality Guidelines**
-- **Read**: [docs/development/TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **REQUIRED** for all contributors
-- **Roadmap**: [docs/development/TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md)
-- **Key Principle**: Test **behavior** and **invariants**, not implementation details
-- **Coverage ≠ Quality**: 100% coverage doesn't mean tests catch bugs (see overlap bug case study)
-
-## Project Overview
-
-**Auralis** is a professional adaptive audio mastering system with both desktop (Electron) and web (FastAPI + React) interfaces. The system provides intelligent, content-aware audio processing without requiring reference tracks.
-
-**Target Users:**
-- **End Users**: Music lovers who want a simple music player with one-click audio enhancement
-- **Developers**: Audio engineers, researchers integrating audio processing APIs
-
-**What makes it unique:**
-- No reference tracks needed (adaptive processing)
-- **High-performance processing** (36.6x real-time, optimized with Numba JIT + vectorization)
-- Simple UI for end users, powerful API for developers
-- 100% local processing (no cloud, complete privacy)
-
-## Essential Commands
-
-### Launch Applications
-```bash
-# Web interface (recommended for development and production)
-python launch-auralis-web.py           # Production mode (http://localhost:8765)
-python launch-auralis-web.py --dev     # Development mode with hot reload
-
-# Electron desktop application (from desktop/ directory)
-cd desktop && npm run dev              # Development mode (starts backend + frontend + Electron)
-cd desktop && npm run build            # Build desktop application
-
-# Simplified workflow from root directory (requires desktop dependencies installed)
-npm run dev                            # Alias for desktop dev mode (via scripts/dev.js)
-npm run build                          # Alias for desktop build (via scripts/build.js)
-npm run package                        # Package for current platform (via scripts/package.js)
-npm run package:linux                  # Package for Linux (.AppImage, .deb)
-npm run package:win                    # Package for Windows
-npm run package:mac                    # Package for macOS
-```
-
-### Testing
-
-**Most common test commands:**
-```bash
 # Run all tests
 python -m pytest tests/ -v
 
-# Test what you're working on
-python -m pytest tests/backend/ -v        # Backend API (96 tests)
-python -m pytest tests/auralis/ -v        # Audio processing (24 tests)
-python -m pytest tests/invariants/ -v     # Critical invariants (305 tests)
-python -m pytest tests/integration/ -v    # Integration tests (85 tests)
-python -m pytest tests/boundaries/ -v     # Boundary tests (151 tests)
-
-# Frontend tests
-cd auralis-web/frontend && npm test       # 234/245 passing (11 gapless playback tests failing)
+# Run specific test suite
+python -m pytest tests/backend/ -v     # API tests
+python -m pytest tests/auralis/ -v     # Core audio processing
+python -m pytest tests/boundaries/ -v  # Edge cases & boundaries
 ```
 
-**Full test suite breakdown (850+ tests):**
+---
+
+## 🎯 Common Development Tasks
+
+### Running the Application
 ```bash
-# Backend tests by category
-python -m pytest tests/backend/ -v                     # API endpoint tests (96 tests, 74% coverage)
-python -m pytest tests/auralis/ -v                     # Real-time processing (24 tests, all passing ✅)
-python -m pytest tests/test_adaptive_processing.py -v  # Core processing tests (26 tests)
+# Web interface (recommended for development)
+python launch-auralis-web.py --dev    # Dev mode, http://localhost:8765
+python launch-auralis-web.py           # Production mode
 
-# Phase 1 Week 1: Critical Invariant Tests (305 tests) ✅ COMPLETE
-python -m pytest tests/invariants/ -v                  # All critical invariants
-python -m pytest -m invariant -v                       # Run by marker
+# Desktop application (from root directory)
+npm run dev                            # Starts backend + frontend + Electron
 
-# Phase 1 Week 2: Advanced Integration Tests (85 tests) ✅ COMPLETE
-python -m pytest tests/integration/ -v                 # All integration tests
-python -m pytest -m integration -v                     # Run by marker
+# Just the backend API server
+cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
+```
 
-# Phase 1 Week 3: Boundary Tests (151/150 complete - 101%) ✅ COMPLETE
-python -m pytest tests/boundaries/ -v                  # All boundary tests (151 tests)
-python -m pytest tests/boundaries/test_chunked_processing_boundaries.py -v  # Chunked processing (31 tests)
-python -m pytest tests/boundaries/test_pagination_boundaries.py -v          # Pagination (30 tests)
-python -m pytest tests/boundaries/test_audio_processing_boundaries.py -v    # Audio processing (30 tests)
-python -m pytest tests/boundaries/test_library_operations_boundaries.py -v  # Library operations (30 tests)
-python -m pytest tests/boundaries/test_string_input_boundaries.py -v        # String inputs (30 tests)
+### Running Tests
+```bash
+# All tests
+python -m pytest tests/ -v
 
-# Validation tests (organized Oct 27, 2025)
-python -m pytest tests/validation/ -v                  # All validation tests
-python -m pytest tests/validation/test_preset_integration.py -v  # Preset integration
-python -m pytest tests/validation/test_comprehensive_presets.py  # Comprehensive preset validation
-python -m pytest tests/validation/test_e2e_processing.py         # End-to-end processing
-python -m pytest tests/auralis/analysis/test_fingerprint_integration.py -v  # 25D fingerprint (4 tests)
+# Specific categories
+python -m pytest tests/backend/ -v                    # API endpoints (96 tests)
+python -m pytest tests/auralis/ -v                    # Audio processing (24 tests)
+python -m pytest tests/boundaries/ -v                 # Boundary conditions (151 tests)
+python -m pytest tests/integration/ -v                # Integration tests (85 tests)
+python -m pytest tests/invariants/ -v                 # Critical invariants (305 tests)
+python -m pytest tests/mutation/ -v                   # Mutation tests (quality validation)
 
-# Mutation Testing (Beta 9+)
-python -m pytest tests/mutation/ -v                    # Mutation test suite
-mutmut run --paths-to-mutate=auralis/library/cache.py  # Run mutation testing
+# Run with coverage
+python -m pytest tests/ --cov=auralis --cov=auralis-web --cov-report=html
 
-# Run tests by marker (see pytest.ini for all markers)
-python -m pytest -m unit          # Unit tests only
-python -m pytest -m integration   # Integration tests only
-python -m pytest -m invariant     # Critical invariant tests
-python -m pytest -m boundary      # Boundary tests
-python -m pytest -m mutation      # Mutation tests
-python -m pytest -m "not slow"    # Skip slow tests
-python -m pytest -m audio         # Audio processing tests only
+# Run single test file
+python -m pytest tests/backend/test_player.py -v
 
-# Frontend tests (245 tests, 234 passing, 11 failing)
+# Run single test
+python -m pytest tests/backend/test_player.py::test_play_track -v
+
+# Run tests matching pattern
+python -m pytest -k "test_enhance" -v
+
+# Run tests by marker
+python -m pytest -m "invariant" -v     # Invariant tests only
+python -m pytest -m "boundary" -v      # Boundary tests only
+python -m pytest -m "not slow" -v      # Skip slow tests
+```
+
+### Making Code Changes
+
+**Backend API (FastAPI):**
+```bash
+# 1. Edit endpoint in auralis-web/backend/routers/*.py
+# 2. Run affected tests
+python -m pytest tests/backend/ -v
+# 3. Test manually at http://localhost:8765/api/docs (Swagger UI)
+# 4. Backend auto-reloads with --reload flag
+```
+
+**Core Audio Processing:**
+```bash
+# 1. Edit in auralis/core/ or auralis/dsp/
+# 2. Run core tests
+python -m pytest tests/auralis/ -v
+# 3. Run validation tests
+python -m pytest tests/validation/ -v
+# 4. Check performance impact
+python benchmark_performance.py
+```
+
+**Frontend (React/TypeScript):**
+```bash
+# 1. Edit in auralis-web/frontend/src/
+# 2. Dev server auto-reloads
 cd auralis-web/frontend
-npm test                    # Interactive Vitest
-npm run test:run            # Single run
-npm run test:coverage       # Generate coverage report
-
-# Coverage reports
-python -m pytest tests/backend/ --cov=auralis-web/backend --cov-report=html
-python -m pytest tests/auralis/ --cov=auralis/player/realtime --cov-report=html
-
-# Performance benchmarks and optimization tests
-python tests/validation/test_integration_quick.py    # Quick optimization validation (~30s)
-python benchmark_performance.py                      # Comprehensive performance benchmark (~2-3 min)
-python benchmark_vectorization.py                    # Envelope follower benchmark (40-70x speedup)
-python benchmark_eq_parallel.py                      # EQ optimization benchmark (1.7x speedup)
+npm test                               # Interactive test mode
+npm run test:run                       # Single test run
+npm run build                          # Production build
 ```
 
-**Test Markers** (defined in [pytest.ini](pytest.ini)):
-- `@pytest.mark.unit` - Unit tests for individual components
-- `@pytest.mark.integration` - Integration tests across components
-- `@pytest.mark.invariant` - Critical invariant tests (properties that must always hold)
-- `@pytest.mark.boundary` - Boundary tests (edge cases at input domain limits)
-- `@pytest.mark.exact` - Exact boundary tests (at precise limits)
-- `@pytest.mark.empty` - Empty input tests
-- `@pytest.mark.single` - Single item tests
-- `@pytest.mark.mutation` - Mutation tests (validate test effectiveness)
-- `@pytest.mark.slow` - Long-running tests (skip with `-m "not slow"`)
-- `@pytest.mark.audio` - Tests requiring audio processing
-- `@pytest.mark.performance` - Performance benchmarks
-- `@pytest.mark.security` - Security tests (SQL injection, XSS, etc.)
-- `@pytest.mark.load` - Load and stress tests
-- `@pytest.mark.edge_case` - Edge case tests
-- See [pytest.ini](pytest.ini) for complete list
-
-**Critical Invariants to Test** (Examples):
-
-When adding features with chunking, pagination, or streaming, always test these invariants:
-
-```python
-# Chunked Processing Invariants
-def test_overlap_is_appropriate_for_chunk_duration():
-    """Invariant: Overlap < CHUNK_DURATION / 2 prevents duplicate audio"""
-    assert OVERLAP_DURATION < CHUNK_DURATION / 2, \
-        f"Overlap {OVERLAP_DURATION}s too large for {CHUNK_DURATION}s chunks"
-
-def test_chunks_cover_entire_duration_no_gaps():
-    """Invariant: Sum(chunks) = original audio duration"""
-    chunks = [processor.process_chunk(i) for i in range(total_chunks)]
-    concatenated = np.concatenate(chunks)
-    assert len(concatenated) == len(original_audio), "Gap/overlap detected"
-
-# Pagination Invariants
-def test_pagination_returns_all_items_exactly_once():
-    """Invariant: All items returned, no duplicates"""
-    all_ids = set()
-    offset = 0
-    while True:
-        items = get_items(limit=50, offset=offset)
-        if not items: break
-        assert not (all_ids & {i.id for i in items}), "Duplicate found"
-        all_ids.update(i.id for i in items)
-        offset += 50
-    assert len(all_ids) == get_total_count()
-
-# Audio Processing Invariants
-def test_processing_preserves_sample_count():
-    """Invariant: Output sample count == input sample count"""
-    processed = processor.process(audio)
-    assert len(processed) == len(audio), "Sample count changed"
-```
-
-See [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) for complete testing philosophy and case studies.
-
-### Testing Roadmap & Progress
-
-**Current Focus (Phase 1)**: ✅ **COMPLETE** - All 3 weeks finished
-- **Week 1**: ✅ 305 invariant tests (100% passing)
-- **Week 2**: ✅ 85 integration tests (100% passing)
-- **Week 3**: ✅ 151 boundary tests (100% passing)
-- **Total Phase 1**: 541 tests complete
-- **Next**: Phase 2 Week 4 - Performance Tests (100 tests planned)
-
-**Phase 1 Completed**:
-- ✅ Week 1 (305 invariant tests) - Properties that must always hold
-- ✅ Week 2 (85 integration tests) - Cross-component behavior
-- ✅ Week 3 (151 boundary tests) - Edge cases and limits (COMPLETE - 101% of target)
-
-**Testing Documentation**:
-- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** - Test quality principles
-- [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Path to 2,500+ tests
-- [PHASE1_WEEK3_PLAN.md](docs/testing/PHASE1_WEEK3_PLAN.md) - Boundary testing plan (150 tests)
-- [PHASE1_WEEK3_COMPLETE.md](docs/testing/PHASE1_WEEK3_COMPLETE.md) - Boundary testing completion (151 tests, 100% passing)
-- [MUTATION_TESTING_GUIDE.md](docs/testing/MUTATION_TESTING_GUIDE.md) - Mutation testing framework
-- [PHASE3_WEEK9_COMPLETE.md](docs/testing/PHASE3_WEEK9_COMPLETE.md) - Mutation testing results
-
-**Key Learnings**:
-- ✅ **Production bug found**: Boundary tests caught P1 chunked processing bug on Day 1
-- ✅ **Coverage ≠ Quality**: Overlap bug had 100% coverage but zero detection
-- ✅ **Invariants work**: Testing "overlap < chunk_duration/2" would have caught the bug
-
-### Mutation Testing (Beta 9+)
-
-**Purpose**: Validate that tests actually catch bugs by intentionally introducing code mutations.
-
-**Framework**: mutmut + pytest
-
-**Quick Start**:
+### Code Quality
 ```bash
-# Run mutation testing on cache module
-mutmut run --paths-to-mutate=auralis/library/cache.py
+# Type checking
+mypy auralis/ auralis-web/backend/
 
-# View results
-mutmut results
+# Linting
+python -m lint auralis/ auralis-web/backend/
 
-# Show specific mutant
-mutmut show 1
+# Code formatting (if set up)
+black auralis/ auralis-web/backend/
 ```
 
-**Current Results**:
-- **Cache module**: 13/13 mutants killed (100% mutation score)
-- **Iteration 3**: All critical paths validated
-- **Test effectiveness**: ✅ Confirmed (tests catch real bugs)
+---
 
-**Documentation**: See [MUTATION_TESTING_GUIDE.md](docs/testing/MUTATION_TESTING_GUIDE.md)
+## 📁 Project Structure
 
-### Supported Audio Formats
-- **Input**: WAV, FLAC, MP3, OGG, M4A, AAC, WMA
-- **Output**: WAV (16-bit/24-bit PCM), FLAC (16-bit/24-bit PCM)
+**Core Audio Engine** (`auralis/`):
+- `core/` - Main processing engine (adaptive mastering, reference mode, hybrid mode)
+- `dsp/` - Digital signal processing modules (EQ, dynamics, filtering)
+  - `eq/` - 26-band psychoacoustic EQ system
+  - `dynamics/` - Compression, limiting, envelope following
+  - `utils/` - Audio utilities (normalization, gain, stereo processing)
+- `analysis/` - Audio analysis framework (spectrum, loudness, quality metrics)
+  - `fingerprint/` - 25D audio fingerprint system (NEW)
+  - `ml/` - Machine learning genre classification
+  - `quality/` - Quality metrics (frequency response, dynamic range, etc.)
+- `library/` - Library management with SQLite backend
+  - `repositories/` - Data access layer with pagination support
+  - `cache.py` - Query result caching (136x speedup on cache hits)
+- `player/` - Audio playback engine with real-time processing
+- `io/` - Audio file I/O and format handling
+- `optimization/` - Performance optimizations (Numba JIT, NumPy vectorization)
 
-## Architecture Overview
+**Web Interface** (`auralis-web/`):
+- `backend/` - FastAPI server (614 lines, modular routers)
+  - `main.py` - FastAPI app initialization and routes
+  - `routers/` - Modular endpoint handlers (player, library, enhancement, etc.)
+  - `chunked_processor.py` - Streaming audio processor (30s chunks)
+  - `streaming/` - MSE + Multi-Tier Buffer streaming system
+- `frontend/` - React/TypeScript UI
+  - `components/` - Main UI components (player, library, enhancement panel)
+  - `hooks/` - Custom React hooks (player logic, library data, etc.)
+  - `services/` - API communication layer
+  - `design-system/` - Design tokens and reusable UI primitives
 
-### High-Level Architecture Diagram
+**Desktop Application** (`desktop/`):
+- `main.js` - Electron main process (spawns backend, loads frontend)
+- `preload.js` - IPC bridge for native file selection
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Auralis Architecture                        │
-├─────────────────────────────────────────────────────────────────────┤
-│  Frontend Layer (React/TypeScript)                                  │
-│  ├── auralis-web/frontend/  - Web UI (React + Material-UI)         │
-│  └── desktop/               - Electron wrapper (native desktop)    │
-│                                                                      │
-│  Communication: REST API + WebSocket (port 8765)                    │
-├─────────────────────────────────────────────────────────────────────┤
-│  Backend Layer (FastAPI)                                            │
-│  ├── auralis-web/backend/main.py      - Main app (614 lines)       │
-│  ├── auralis-web/backend/routers/     - 14 modular routers         │
-│  ├── auralis-web/backend/streaming/   - MSE + multi-tier buffers   │
-│  └── auralis-web/backend/processing_engine.py - Job queue          │
-│                                                                      │
-│  Communication: Direct Python imports                               │
-├─────────────────────────────────────────────────────────────────────┤
-│  Core Processing Engine (Python)                                    │
-│  ├── auralis/core/          - Main processor (adaptive mastering)  │
-│  ├── auralis/dsp/           - DSP algorithms (EQ, dynamics)        │
-│  ├── auralis/analysis/      - Audio analysis (25D fingerprint)     │
-│  ├── auralis/library/       - Library management (SQLite)          │
-│  └── auralis/player/        - Audio playback engine                │
-└─────────────────────────────────────────────────────────────────────┘
-```
+**Tests** (`tests/`):
+- `backend/` - API endpoint tests (96 tests, 74% coverage)
+- `auralis/` - Audio processing tests (24 tests)
+- `boundaries/` - Edge case and boundary tests (151 tests, 101% of target)
+- `integration/` - Cross-component integration tests (85 tests)
+- `invariants/` - Critical invariant tests (305 tests)
+- `mutation/` - Mutation testing for test quality validation
+- `validation/` - End-to-end validation tests
+- `conftest.py` - Pytest fixtures and configuration
 
-### Two-Tier Architecture
-The project has two parallel UI implementations sharing the same Python audio processing backend:
+---
 
-1. **Web Stack**: FastAPI backend + React frontend + optional Electron wrapper
-2. **Python Core**: Unified audio processing engine (`auralis/`) used by both interfaces
+## 🔑 Key Files You'll Modify Most
 
-### Core Processing Engine (`auralis/core/`)
-
-**Main Components:**
-- **`hybrid_processor.py`** - Main processing engine with three modes:
-  - **Adaptive Mode** (primary): Intelligent mastering without reference tracks
-  - **Reference Mode**: Traditional reference-based mastering
-  - **Hybrid Mode**: Combines reference guidance with adaptive intelligence
-- **`unified_config.py`** - Configuration system with genre profiles and adaptive settings
-
-**Analysis Components (`core/analysis/`):**
-- `content_analyzer.py` - ContentAnalyzer for adaptive processing
-- `target_generator.py` - Adaptive parameter generation based on content analysis
-
-**Processing Components (`core/processors/`):**
-- `reference_mode.py` - Traditional reference-based matching algorithm
-
-### Advanced DSP System (`auralis/dsp/`)
-
-Professional-grade digital signal processing with modular architecture:
-
-**Core Modules:**
-- `basic.py` - Basic DSP utilities (RMS, normalize, amplify, mid-side processing)
-- `advanced_dynamics.py` - Dynamics processing orchestrator (facade for modular components)
-- `realtime_adaptive_eq.py` - Real-time EQ adaptation (0.28ms processing time)
-- `stages.py` - Processing stages orchestration (EQ, compression, limiting)
-
-**Modular Subsystems:**
-- `dsp/eq/` - 26-band psychoacoustic EQ system (critical bands, masking, filters, genre curves)
-  - **`parallel_eq_processor.py`** - Vectorized EQ processing (1.7x speedup with NumPy)
-- `dsp/dynamics/` - Dynamics processing (envelope follower, compressor, limiter with ISR/true peak)
-  - **`vectorized_envelope.py`** - Numba JIT envelope follower (40-70x speedup)
-- `dsp/utils/` - Organized utilities (audio info, conversion, spectral analysis, adaptive processing, stereo)
-
-**Legacy Compatibility:**
-- `unified.py` and `psychoacoustic_eq.py` (root) - Backward compatibility wrappers re-exporting from new modular structure
-
-### Analysis Framework (`auralis/analysis/`)
-
-**Core Modules:**
-- `spectrum_analyzer.py` - Professional FFT analysis with A/C/Z weighting
-- `loudness_meter.py` - ITU-R BS.1770-4 compliant LUFS measurement
-- `phase_correlation.py` - Stereo correlation analysis
-- `dynamic_range.py` - EBU R128 dynamic range calculation
-
-**Modular Subsystems:**
-- `analysis/content/` - Feature extraction, genre/mood analysis, processing recommendations
-- `analysis/ml/` - Machine learning genre classification (RandomForest with MFCC/chroma/spectral features)
-- `analysis/quality/` - Quality metrics (frequency, dynamic range, stereo, distortion, loudness standards)
-- **`parallel_spectrum_analyzer.py`** - Parallel FFT processing (3.4x speedup for long audio)
-- **`analysis/fingerprint/`** - 25D audio fingerprint system for music similarity and cross-genre discovery
-
-**Audio Fingerprint System (`auralis/analysis/fingerprint/`):** ✨ NEW (Oct 26, 2025)
-- **`audio_fingerprint_analyzer.py`** - Main 25D fingerprint extraction (combines all analyzers)
-- `temporal_analyzer.py` - Tempo, rhythm stability, transient density, silence ratio (4D)
-- `spectral_analyzer.py` - Spectral centroid, rolloff, flatness (3D)
-- `harmonic_analyzer.py` - Harmonic ratio, pitch stability, chroma energy (3D)
-- `variation_analyzer.py` - Dynamic range variation, loudness variation, peak consistency (3D)
-- `stereo_analyzer.py` - Stereo width, phase correlation (2D)
-- **Purpose**: Extract acoustic fingerprints for cross-genre music discovery, similarity analysis, and recommendation
-- **25 Dimensions**: Frequency (7D), Dynamics (3D), Temporal (4D), Spectral (3D), Harmonic (3D), Variation (3D), Stereo (2D)
-- **Use Case**: `from auralis.analysis.fingerprint import AudioFingerprintAnalyzer`
-- **Documentation**: See [docs/sessions/oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/) for complete implementation details
-
-**Research Tools (`research/`):** ✨ NEW (Oct 26-28, 2025)
-- **Analysis scripts** for track fingerprinting and batch processing
-- **Preset validation** tools to verify processing behavior
-- **Album studies** with detailed frequency analysis
-- **Usage**: `python research/scripts/analyze_track.py <audio_file>` outputs JSON fingerprint
-
-### Other Key Systems
-
-**Library Management (`auralis/library/`):**
-- Repository pattern for data access (track, album, artist, playlist repositories)
-- Intelligent folder scanning (740+ files/second)
-- SQLite database with SQLAlchemy models (schema v3 with performance indexes)
-- **Query result caching** with 136x speedup on cache hits
-- **Pagination support** for large libraries (10k+ tracks)
-- Database migration system for schema versioning
-
-**Audio Player (`auralis/player/`):**
-- Enhanced player with real-time processing
-- Queue management with shuffle/repeat support
-
-**Performance Optimization (`auralis/optimization/`):**
-- **Numba JIT compilation** - 40-70x envelope speedup (vectorized_envelope.py)
-- **NumPy vectorization** - 1.7x EQ speedup (parallel_eq_processor.py)
-- **Parallel processing framework** - Infrastructure for batch operations (parallel_processor.py)
-- **Real-time factor**: 36.6x on real-world audio (processes 1 hour in ~98 seconds)
-- Memory pools, smart caching, SIMD acceleration
-
-**Web Interface (`auralis-web/`):**
-- `backend/main.py` - FastAPI server (614 lines, refactored with modular routers)
-- `backend/chunked_processor.py` - Chunked audio streaming processor (30s chunks with overlap handling)
-- `backend/routers/` - Modular API routers (14 routers: player, library, albums, artists, streaming, etc.)
-- `backend/processing_engine.py` - Background job queue for async audio processing
-- `backend/streaming/` - **NEW (Beta.4)** - Unified MSE + Multi-Tier Buffer streaming system
-  - Progressive WebM/Opus encoding for instant preset switching
-  - Combined buffer management for seamless playback
-  - See [docs/sessions/oct27_mse_integration/](docs/sessions/oct27_mse_integration/) for architecture details
-- `backend/WEBSOCKET_API.md` - WebSocket message documentation
-- `frontend/` - React app with Material-UI components
-  - `BottomPlayerBarUnified.tsx` - **NEW (Beta.4)** - Unified player component (67% code reduction)
-  - `CozyLibraryView.tsx` - Main library orchestrator (refactored from 958 lines using extracted hooks)
-
-**Desktop Application (`desktop/`):**
-- Electron wrapper that spawns Python backend and loads React UI
-- IPC for native file/folder selection
-
-## Frequently Modified Files
-
-### Adding New Audio Processing Features
-- [auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py) - Main processing pipeline
-- [auralis/dsp/stages.py](auralis/dsp/stages.py) - Processing stages (EQ, compression, limiting)
+**Audio Processing:**
+- [auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py) - Main processing orchestrator
+- [auralis/dsp/stages.py](auralis/dsp/stages.py) - Processing pipeline stages
 - [auralis/core/unified_config.py](auralis/core/unified_config.py) - Processing configuration
 
-### Research and Analysis
-- [research/scripts/](research/scripts/) - Analysis scripts for audio fingerprinting and preset validation
-  - `analyze_track.py` - Extract fingerprints and analyze individual tracks
-  - `batch_analyze_*.sh` - Batch analysis scripts for albums
-  - `validate_preset_fix.py` - Validate preset processing behavior
-- [research/data/](research/data/) - Analysis results and fingerprint data
-  - `analysis/` - Track-level fingerprint JSON files
-  - `batch/` - Batch analysis results
+**Backend API:**
+- [auralis-web/backend/main.py](auralis-web/backend/main.py) - FastAPI app and routes (614 lines)
+- [auralis-web/backend/routers/](auralis-web/backend/routers/) - Modular endpoint handlers
+- [auralis-web/backend/chunked_processor.py](auralis-web/backend/chunked_processor.py) - Streaming processor
 
-### Modifying the Web UI
+**Frontend UI:**
 - [auralis-web/frontend/src/components/ComfortableApp.tsx](auralis-web/frontend/src/components/ComfortableApp.tsx) - Main app layout
-- [auralis-web/frontend/src/components/CozyLibraryView.tsx](auralis-web/frontend/src/components/CozyLibraryView.tsx) - Library view orchestrator (407 lines, refactored)
-  - Uses extracted hooks: `useLibraryData`, `useTrackSelection`, `usePlayerAPI`
-  - Delegates to sub-components: `LibraryViewRouter`, `TrackListView`, `LibraryEmptyState`
-  - Handles search/filter, batch operations, keyboard shortcuts
-- [auralis-web/frontend/src/components/BottomPlayerBar.tsx](auralis-web/frontend/src/components/BottomPlayerBar.tsx) - Player controls
-- **Beta.6 Interaction Features:**
-  - [auralis-web/frontend/src/components/drag-drop/](auralis-web/frontend/src/components/drag-drop/) - Drag-and-drop system (5 components)
-  - [auralis-web/frontend/src/hooks/useKeyboardShortcuts.tsx](auralis-web/frontend/src/hooks/useKeyboardShortcuts.tsx) - Keyboard shortcuts (⚠️ disabled in Beta.6)
-  - [auralis-web/frontend/src/components/BatchOperationsToolbar.tsx](auralis-web/frontend/src/components/BatchOperationsToolbar.tsx) - Multi-select batch operations
+- [auralis-web/frontend/src/components/CozyLibraryView.tsx](auralis-web/frontend/src/components/CozyLibraryView.tsx) - Library view (407 lines, refactored)
+- [auralis-web/frontend/src/components/BottomPlayerBarUnified.tsx](auralis-web/frontend/src/components/BottomPlayerBarUnified.tsx) - Player controls
+- [auralis-web/frontend/src/design-system/](auralis-web/frontend/src/design-system/) - Design tokens (required for all new UI)
 
-### Adding Backend API Endpoints
+**Desktop:**
+- [desktop/main.js](desktop/main.js) - Electron process
 
-The backend uses a **modular router architecture** (FastAPI best practice):
+**Database:**
+- [auralis/library/manager.py](auralis/library/manager.py) - Library manager with caching
+- [auralis/library/cache.py](auralis/library/cache.py) - Query result caching (136x speedup)
+- [auralis/library/repositories/](auralis/library/repositories/) - Data access layer with pagination
 
-- [auralis-web/backend/main.py](auralis-web/backend/main.py) - Main FastAPI app and startup (614 lines)
-- [auralis-web/backend/routers/](auralis-web/backend/routers/) - Modular endpoint routers:
-  - `player.py` - Playback control (play, pause, seek, queue, volume)
-  - `library.py` - Library management (tracks) with **pagination support**
-  - `albums.py` - Album browsing and management
-  - `artists.py` - Artist browsing and management
-  - `metadata.py` - Track metadata editing (14 editable fields)
-  - `enhancement.py` - Audio enhancement settings
-  - `playlists.py` - Playlist CRUD operations
-  - `files.py` - File upload and format handling
-  - `artwork.py` - Album artwork management
-  - `cache.py` - Cache management and statistics
-  - `mse_streaming.py` - Media Source Extensions streaming (Beta.4)
-  - `unified_streaming.py` - Unified streaming orchestration (Beta.4)
-  - `system.py` - Health checks, version info
-- [auralis-web/backend/processing_engine.py](auralis-web/backend/processing_engine.py) - Background job queue
-- [auralis-web/backend/WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md) - WebSocket message types
+---
 
-**When adding new endpoints:**
-1. Identify the appropriate router (or create a new one if needed)
-2. Add endpoint to the router file
-3. Router is automatically included in main.py
-4. Use dependency injection for shared state (player, library manager)
-5. Follow async/await pattern for I/O operations
+## ⚠️ Important Gotchas & Common Mistakes
 
-### Library Management Changes
-- [auralis/library/manager.py](auralis/library/manager.py) - Library manager orchestrator with caching
-- [auralis/library/cache.py](auralis/library/cache.py) - Query result caching system (136x speedup)
-- [auralis/library/scanner.py](auralis/library/scanner.py) - Folder scanning logic
-- [auralis/library/repositories/](auralis/library/repositories/) - Repository pattern data access with pagination
-- [auralis/library/migrations/](auralis/library/migrations/) - Database schema migrations
-- [auralis/library/metadata_editor.py](auralis/library/metadata_editor.py) - Track metadata editing (Mutagen)
+### Port Numbers
+- **Backend API**: Port **8765** (NOT 8000)
+- **Frontend dev**: Port 3000 (proxies to backend)
+- Check with `lsof -ti:8765` if port is in use
 
-## Key Processing Workflows
-
-### Adaptive Mode (Primary Use Case)
-Intelligent mastering without reference tracks:
+### Audio Processing Invariants
+These MUST always hold - test them!
 
 ```python
-from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
-from auralis.io.unified_loader import load_audio
-from auralis.io.saver import save
+# Output sample count must equal input sample count
+assert len(output_audio) == len(input_audio), "Sample count changed!"
 
-# Load audio
-audio, sr = load_audio("input.wav")
+# Audio arrays are NumPy, not Python lists
+processed = processor.process(audio)  # Returns np.ndarray
+assert isinstance(processed, np.ndarray)
 
-# Create processor
-config = UnifiedConfig()
-config.set_processing_mode("adaptive")  # Default mode
-processor = HybridProcessor(config)
-
-# Process audio - no reference needed
-processed_audio = processor.process(audio)
-
-# Save output
-save("output.wav", processed_audio, sr, subtype='PCM_16')
+# Never modify audio in-place
+output = audio.copy()  # NOT audio directly
+output *= gain  # Then modify the copy
 ```
 
-### Available Processing Presets
-- **Adaptive** (default): Intelligent content-aware mastering
-- **Gentle**: Subtle mastering with minimal processing
-- **Warm**: Adds warmth and smoothness
-- **Bright**: Enhances clarity and presence
-- **Punchy**: Increases impact and dynamics
+### Testing Philosophy (Read First!)
+- **Coverage ≠ Quality**: 100% coverage doesn't catch all bugs (proven by overlap bug)
+- **Test invariants**: Properties that must always hold
+- **Test behavior**: What the system does, not how it does it
+- **Test edge cases**: Boundary conditions, empty inputs, maximum values
+- **MANDATORY**: Read [docs/development/TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)
 
-### Audio Fingerprint-Driven Processing (NEW - Oct 27, 2025)
+### API Changes
+When adding backend endpoints:
+1. Use the modular router pattern (in `routers/` directory)
+2. Router is automatically included in `main.py`
+3. Use dependency injection for shared state (player, library)
+4. Document in [WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md) if WebSocket
+5. Add tests in `tests/backend/`
 
-**Status**: ✅ **INTEGRATED AS CORE COMPONENT** - Phase 1 Complete
-
-The 25D audio fingerprint system is now integrated into the processing pipeline, enabling intelligent, content-aware parameter selection.
-
-**Automatic Usage** (No code changes required):
+### Import Patterns
+**Use new modular imports:**
 ```python
-from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
-from auralis.io.unified_loader import load_audio
-
-# Load audio
-audio, sr = load_audio("song.flac")
-
-# Create processor (fingerprint analysis enabled by default)
-config = UnifiedConfig()
-config.set_processing_mode("adaptive")
-processor = HybridProcessor(config)
-
-# Process audio - fingerprint automatically extracted and used!
-processed = processor.process(audio)
-
-# Inspect fingerprint (optional)
-if "fingerprint" in processor.last_content_profile:
-    fp = processor.last_content_profile["fingerprint"]
-    print(f"Bass%: {fp['bass_pct']:.1f}%")
-    print(f"LUFS: {fp['lufs']:.1f}dB")
-    print(f"Crest: {fp['crest_db']:.1f}dB")
+from auralis.dsp.eq import PsychoacousticEQ, generate_genre_eq_curve
+from auralis.dsp.utils import spectral_centroid, to_db, adaptive_gain_calculation
+from auralis.dsp.dynamics import AdaptiveCompressor
+from auralis.analysis.quality import QualityMetrics
+from auralis.library.repositories import TrackRepository
 ```
 
-**Manual Fingerprint Extraction**:
+**Legacy imports still work but are deprecated:**
 ```python
-from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
-
-# Initialize analyzer
-analyzer = AudioFingerprintAnalyzer()
-
-# Extract complete 25D fingerprint
-fingerprint = analyzer.analyze(audio, sr)
-
-# 25 dimensions available:
-# - Frequency (7D): sub_bass_pct, bass_pct, low_mid_pct, mid_pct, upper_mid_pct, presence_pct, air_pct
-# - Dynamics (3D): lufs, crest_db, bass_mid_ratio
-# - Temporal (4D): tempo_bpm, rhythm_stability, transient_density, silence_ratio
-# - Spectral (3D): spectral_centroid, spectral_rolloff, spectral_flatness
-# - Harmonic (3D): harmonic_ratio, pitch_stability, chroma_energy
-# - Variation (3D): dynamic_range_variation, loudness_variation_std, peak_consistency
-# - Stereo (2D): stereo_width, phase_correlation
+from auralis.dsp.unified import spectral_centroid  # OLD - don't use
+from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ  # OLD
 ```
 
-**Intelligent Processing Enabled**:
-1. **Frequency-aware EQ** (7D): Precise adjustments based on actual bass/mid/treble distribution (not spectral centroid guessing)
-2. **Dynamics-aware compression** (3D): Respects high dynamic range, detects brick-walled material, adapts to loudness
-3. **Temporal-aware processing** (4D): Preserves transients and rhythm stability
-4. **Harmonic-aware intensity** (3D): Gentle on vocals/strings (high harmonic ratio), aggressive on percussion
-5. **Stereo-aware width** (2D): Expands narrow mixes, checks phase correlation for mono compatibility
-6. **Variation-aware dynamics** (3D): Preserves intentional loudness variation (quiet/loud sections)
+### Database Operations
+- Always use repository pattern (in `auralis/library/repositories/`)
+- Use pagination for large result sets
+- Queries are automatically cached (configure TTL in `LibraryManager`)
+- Default database location: `~/.auralis/library.db`
 
-**Disable Fingerprints** (if needed):
+### Frontend UI Development
+**MANDATORY**: Read [docs/guides/UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md)
+- ✅ Use design system tokens (no hardcoded colors/spacing)
+- ✅ One component per purpose (no duplicates)
+- ✅ Keep components under 300 lines
+- ✅ Extract subcomponents if needed
+- ❌ Don't create "Enhanced" or variant versions of existing components
+
+---
+
+## 🧪 Testing Patterns
+
+### Test Structure (Arrange-Act-Assert)
 ```python
-from auralis.core.analysis import ContentAnalyzer
+def test_processor_preserves_sample_count():
+    """Invariant: Output sample count == input sample count"""
+    # Arrange
+    audio = np.random.randn(44100)
+    processor = AudioProcessor()
 
-# Disable at analyzer level
-analyzer = ContentAnalyzer(use_fingerprint_analysis=False)
+    # Act
+    output = processor.process(audio)
+
+    # Assert
+    assert len(output) == len(audio), "Sample count must be preserved"
 ```
 
-**Future Use Cases** (Planned):
-- Cross-genre music discovery based on acoustic similarity
-- "Find songs like this" recommendation system
-- Music similarity graphs and clustering
-- Continuous enhancement space (interpolate between characteristics)
-- Real-time adaptive processing
+### Test Markers
+```python
+@pytest.mark.boundary
+def test_maximum_audio_duration():
+    """Boundary: Test at extreme values"""
+    pass
 
-**Documentation**: See [docs/completed/FINGERPRINT_CORE_INTEGRATION.md](docs/completed/FINGERPRINT_CORE_INTEGRATION.md)
+@pytest.mark.invariant
+def test_compression_ratio_invariant():
+    """Invariant: Properties that must always hold"""
+    pass
 
-## Performance Optimization
+@pytest.mark.integration
+def test_end_to_end_processing_pipeline():
+    """Integration: Test across components"""
+    pass
 
-Auralis includes comprehensive performance optimizations for real-time audio processing:
+@pytest.mark.mutation
+def test_quality_metric_catches_subtle_bugs():
+    """Mutation: Designed to catch specific code mutations"""
+    pass
 
-### Core Optimizations (Oct 24, 2025)
+@pytest.mark.slow
+def test_large_audio_file_processing():
+    """Slow test: Skip with -m "not slow" """
+    pass
+```
 
-**Numba JIT Compilation** (40-70x speedup):
-- Envelope following in dynamics processing
-- Sequential operations with dependencies
-- Automatic activation when Numba is installed
+### Fixtures for Common Setup
+```python
+# Available in conftest.py:
+@pytest.fixture
+def sample_audio():
+    """16-bit PCM 44.1kHz audio"""
+    pass
 
-**NumPy Vectorization** (1.7x speedup):
-- Psychoacoustic EQ processing (26-band)
-- Element-wise operations
-- SIMD-optimized array operations
+@pytest.fixture
+def test_audio_file():
+    """Path to test WAV file"""
+    pass
 
-**Parallel Processing** (3.4x for long audio):
-- Spectrum analysis with multiple FFT windows
-- Only beneficial for audio > 60 seconds
-- Automatic threshold-based activation
+@pytest.fixture
+def hybrid_processor():
+    """Configured HybridProcessor instance"""
+    pass
+```
+
+See [tests/conftest.py](tests/conftest.py) for all available fixtures.
+
+---
+
+## 📊 Test Organization (850+ tests)
+
+**Phase 1 - Complete (541 tests):**
+- ✅ Week 1: 305 critical invariant tests
+- ✅ Week 2: 85 advanced integration tests
+- ✅ Week 3: 151 boundary tests (101% of target)
+
+**Key Test Files:**
+- `tests/backend/` - API tests (96 tests)
+- `tests/auralis/` - Audio processing (24 tests)
+- `tests/boundaries/` - Edge cases (151 tests)
+- `tests/integration/` - Cross-component (85 tests)
+- `tests/invariants/` - Critical invariants (305 tests)
+- `tests/mutation/` - Test quality validation
+- `tests/validation/` - End-to-end validation
+
+**Running Test Suites:**
+```bash
+python -m pytest tests/boundaries/ -v              # All 151 boundary tests
+python -m pytest tests/boundaries/test_chunked_processing_boundaries.py -v  # Just chunked (31)
+python -m pytest tests/boundaries/test_pagination_boundaries.py -v          # Just pagination (30)
+python -m pytest -m "invariant" -v                  # All invariant tests
+python -m pytest -m "not slow" -v                   # Skip slow tests
+```
+
+---
+
+## 🔧 Performance & Optimization
 
 ### Performance Metrics
+- **Real-time factor**: 36.6x (process 1 hour in ~98 seconds)
+- **Envelope follower**: 40-70x speedup with Numba JIT
+- **EQ processing**: 1.7x speedup with NumPy vectorization
+- **Cache hits**: 136x faster queries with LRU cache
 
-**Real-World Performance** (Iron Maiden - 232.7s track):
-- Processing time: 6.35 seconds
-- **Real-time factor: 36.6x**
-- Meaning: Process 1 hour of audio in ~98 seconds
-
-**Component Performance**:
-- Dynamics Processing: 150-323x real-time
-- Psychoacoustic EQ: 72-74x real-time
-- Content Analysis: 98-129x real-time
-- Spectrum Analysis: 54-55x real-time
-
-### Installation for Optimal Performance
-
+### Optimizations Used
 ```bash
-# Standard installation (works, but slower)
-pip install numpy scipy
+# 1. Numba JIT compilation (optional, ~2-3x overall speedup)
+pip install numba
 
-# Recommended: Install Numba for 2-3x overall speedup
-pip install numpy scipy numba
+# 2. NumPy vectorization (included, 1.7x EQ speedup)
+# 3. Query result caching (included, 136x speedup)
+# 4. Memory pools and SIMD (included)
 ```
 
-**Graceful Fallbacks**: All optimizations are optional. Without Numba, the system falls back to standard implementations (still ~18-20x real-time).
-
-### Verification
-
+### Checking Performance
 ```bash
 # Quick validation (~30 seconds)
-python test_integration_quick.py
+python tests/validation/test_integration_quick.py
 
 # Comprehensive benchmark (~2-3 minutes)
 python benchmark_performance.py
 ```
 
-**Documentation**: See [PERFORMANCE_OPTIMIZATION_QUICK_START.md](PERFORMANCE_OPTIMIZATION_QUICK_START.md) for detailed information.
+---
 
-## Large Library Performance Optimization
+## 🎵 Key Processing Concepts
 
-Auralis is optimized for handling large music libraries (10k+ tracks) with 4-layer performance architecture:
+### Processing Modes
+1. **Adaptive** (default): Intelligent mastering without reference tracks
+2. **Reference**: Traditional reference-based mastering
+3. **Hybrid**: Combines reference guidance with adaptive intelligence
 
-### 1. Pagination System
-- **Backend**: Offset-based pagination in all repository methods
-- **Frontend**: Infinite scroll with Intersection Observer (50 tracks per page)
-- **API**: `GET /api/library/tracks?limit=50&offset=0` returns `{tracks, total, has_more}`
-- **Impact**: Initial load only fetches 50 tracks (~100ms)
+### Processing Presets
+- Adaptive, Gentle, Warm, Bright, Punchy
 
-### 2. Database Indexes (Schema v3)
-- **12 performance indexes** on frequently queried columns
-- Indexed columns: `created_at`, `title`, `play_count`, `favorite`, `last_played`, `album_id`, `year`
-- Composite index for favorite tracks ordered by title
-- Related tables: `artists.name`, `albums.title`, `genres.name`
-- **Impact**: Faster ORDER BY and WHERE queries on large datasets
+### Audio Fingerprint System (NEW)
+25-dimensional acoustic fingerprint for intelligent processing:
+- **Frequency** (7D): Bass, mids, treble distribution
+- **Dynamics** (3D): Loudness, crest factor, compression
+- **Temporal** (4D): Tempo, rhythm, transients
+- **Spectral** (3D): Tonal characteristics
+- **Harmonic** (3D): Vocals vs drums detection
+- **Variation** (3D): Loudness dynamics
+- **Stereo** (2D): Width and phase
 
-### 3. Query Result Caching
-- **LRU cache** with TTL expiration (256 entries, configurable)
-- Cache durations:
-  - Recent tracks: 3 minutes
-  - Popular tracks: 2 minutes
-  - Favorites: 3 minutes
-  - All tracks: 5 minutes
-  - Search: 1 minute
-- **Automatic invalidation** on data changes (play count, favorites, library scanning)
-- **Impact**: 136x speedup on cache hits (6ms → 0.04ms)
+Automatically used by `HybridProcessor` for intelligent parameter selection.
 
-### 4. Cache Management API
-```python
-from auralis.library.manager import LibraryManager
+---
 
-manager = LibraryManager()
+## 📚 Documentation References
 
-# Get cache statistics
-stats = manager.get_cache_stats()
-# Returns: {size, max_size, hits, misses, hit_rate, total_requests}
+**Development Guidelines:**
+- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** test quality
+- [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Testing roadmap
 
-# Clear all caches
-manager.clear_cache()
+**Architecture & Design:**
+- [docs/guides/UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md) - UI requirements
+- [docs/guides/MULTI_TIER_BUFFER_ARCHITECTURE.md](docs/guides/MULTI_TIER_BUFFER_ARCHITECTURE.md) - Streaming architecture
+- [docs/guides/AUDIO_FINGERPRINT_GRAPH_SYSTEM.md](docs/guides/AUDIO_FINGERPRINT_GRAPH_SYSTEM.md) - Fingerprint system
 
-# Invalidate specific caches after batch operations
-manager.invalidate_track_caches()
-```
+**Performance:**
+- [PERFORMANCE_OPTIMIZATION_QUICK_START.md](PERFORMANCE_OPTIMIZATION_QUICK_START.md) - Optimization guide
+- [LARGE_LIBRARY_OPTIMIZATION.md](docs/completed/LARGE_LIBRARY_OPTIMIZATION.md) - Library performance
 
-**Combined Performance**: Initial load fast, subsequent queries 136x faster, supports 50k+ track libraries
+**Complete Index:**
+- [docs/README.md](docs/README.md) - Documentation index (all 55 files)
 
-**Documentation**: See [LARGE_LIBRARY_OPTIMIZATION.md](LARGE_LIBRARY_OPTIMIZATION.md) for implementation details
+---
 
-## Development Workflow
+## 🚀 Release & Version Management
 
-### Common Development Tasks
+**Version File**: [auralis/version.py](auralis/version.py)
 
-**Setting up a new development environment:**
-```bash
-# 1. Clone and install dependencies
-git clone https://github.com/matiaszanolli/Auralis.git
-cd Auralis
-pip install -r requirements.txt
-
-# 2. Install frontend and desktop dependencies
-cd auralis-web/frontend && npm install && cd ../..
-cd desktop && npm install && cd ..
-
-# 3. Launch development server
-python launch-auralis-web.py --dev
-# OR for desktop development
-npm run dev
-```
-
-**Making changes to the backend API:**
-```bash
-# 1. Make changes to routers in auralis-web/backend/routers/
-# 2. Test with pytest
-python -m pytest tests/backend/ -v
-
-# 3. Test manually with Swagger UI
-python launch-auralis-web.py --dev
-# Visit http://localhost:8765/api/docs
-```
-
-**Making changes to audio processing:**
-```bash
-# 1. Edit files in auralis/core/ or auralis/dsp/
-# 2. Run core processing tests
-python -m pytest tests/test_adaptive_processing.py -v
-
-# 3. Run validation tests
-python -m pytest tests/validation/ -v
-
-# 4. Benchmark performance if optimization-related
-python benchmark_performance.py
-```
-
-**Analyzing audio with fingerprint system:**
-```bash
-# Analyze a single track
-python research/scripts/analyze_track.py /path/to/track.flac
-
-# Batch analyze an album (creates script first)
-ls "/path/to/album/"*.flac > /tmp/tracklist.txt
-python research/scripts/batch_analyze.py /tmp/tracklist.txt
-```
-
-**Working with Beta.6 interaction features:**
-```bash
-# Drag-and-drop components (5 components, 724 lines)
-# Location: auralis-web/frontend/src/components/drag-drop/
-# - DraggableTrack.tsx - Individual draggable track
-# - DroppablePlaylist.tsx - Playlist drop target
-# - DroppableQueue.tsx - Queue drop target
-# - DragPreview.tsx - Visual drag feedback
-# - useDragAndDrop.tsx - Drag-and-drop logic hook
-
-# Keyboard shortcuts (⚠️ temporarily disabled in Beta.6)
-# Location: auralis-web/frontend/src/hooks/useKeyboardShortcuts.tsx
-# Status: Complete but disabled due to minification issue
-# Re-enable planned for Beta.7 with refactored architecture
-
-# Batch operations
-# Location: auralis-web/frontend/src/components/BatchOperationsToolbar.tsx
-# Features: Multi-select, bulk add to queue, toggle favorites, remove tracks
-```
-
-### Code Organization Principles
-- **Modular Design**: Large modules (400+ lines) refactored into focused sub-modules
-- **Facade Pattern**: Original files become re-export wrappers for backward compatibility
-- **Repository Pattern**: Data access layer for database operations
-- **Configuration-Driven**: All processing controlled via `UnifiedConfig`
-- **Maximum file size**: Keep modules under 300 lines (guideline, not strict rule)
-
-### Module Refactoring Pattern
-When refactoring large modules, follow this established pattern:
-
-1. **Create sub-package**: `mkdir auralis/<subsystem>/<module_name>/`
-2. **Split by responsibility**: Create focused modules (100-200 lines each)
-3. **Main orchestrator**: Keep main class in `<module_name>/<module_name>.py`
-4. **Public API**: Export all public classes/functions in `<module_name>/__init__.py`
-5. **Backward compatibility**: Original file becomes re-export wrapper
-6. **Verify tests**: Ensure all existing tests pass without modification
-
-**Successfully refactored modules (13 total, 50+ new focused modules):**
-- `auralis/dsp/eq/` - Psychoacoustic EQ (623→123 lines, -80%)
-- `auralis/dsp/utils/` - DSP utilities (1158→150 lines, -87%)
-- `auralis/dsp/dynamics/` - Dynamics processing (718→293 lines, -59%)
-- `auralis/analysis/quality/` - Quality metrics (889→249 lines, -72%)
-- `auralis/analysis/content/` - Content analysis (723→227 lines, -69%)
-- `auralis/analysis/ml/` - ML genre classifier (623→29 lines, -95%)
-- Plus: `core/analysis/`, `core/processors/`, `library/repositories/`, `learning/components/`, `player/components/`
-
-**Results:** Average 60% size reduction, 100% backward compatibility, 100% test pass rate
-
-### Import Patterns
-
-**Recommended imports (new modular structure):**
-```python
-# Use these for new code
-from auralis.dsp.utils import spectral_centroid, to_db, adaptive_gain_calculation
-from auralis.dsp.eq import PsychoacousticEQ, generate_genre_eq_curve
-from auralis.dsp.dynamics import AdaptiveCompressor, AdaptiveLimiter
-from auralis.analysis.quality import QualityMetrics, FrequencyResponseAssessor
-from auralis.analysis.content import FeatureExtractor, GenreAnalyzer
-from auralis.analysis.ml import MLGenreClassifier, extract_ml_features
-from auralis.library.repositories import TrackRepository, AlbumRepository
-```
-
-**Legacy imports (still supported):**
-```python
-# These still work but are deprecated
-from auralis.dsp.unified import spectral_centroid, to_db
-from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ
-from auralis.analysis.quality_metrics import QualityMetrics
-```
-
-### Important API Notes
-- **HybridProcessor.process()**: Returns numpy array directly (not a result object)
-- **Audio Player Methods**: Use `seek_to_position()` not `seek()`, `next_track()` not `next()`, `previous_track()` not `previous()`
-- **Processing Endpoints**: Volume parameter is `volume` not `level`
-- **Library Manager**: Database location is `~/.auralis/library.db` by default
-
-## UI/UX Design Philosophy
-
-### 🚨 MANDATORY: UI Design Guidelines
-
-**ALL UI development MUST follow [docs/guides/UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md)**
-
-These are **strict requirements**, not suggestions. PRs that violate these guidelines will be rejected.
-
-**Key Rules:**
-1. ✅ **One Component Rule** - Only one component per purpose (no duplicates)
-2. ✅ **No "Enhanced" Versions** - Refactor existing, don't create variants
-3. ✅ **Design Tokens Only** - No hardcoded colors, spacing, or typography
-4. ✅ **< 300 Lines** - Extract subcomponents if exceeded
-5. ✅ **Performance Budget** - 60fps, virtual scrolling, code splitting
-
-**Before creating ANY new UI component:**
-- Read [UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md)
-- Check if existing component can be extended
-- Use design system primitives from `src/design-system/`
-
-### Current UI Status (Beta 9.0)
-
-⚠️ **Known Issues:**
-- **92 components, 46k lines** - Too much bloat
-- **Multiple duplicates** - AudioPlayer, EnhancedAudioPlayer, MagicalMusicPlayer...
-- **Bootstrap-clone feel** - Needs professional polish
-
-**Beta 10.0 Target:**
-- **~45 components** (50% reduction)
-- **~20k lines** (56% reduction)
-- **Professional UI** with design system
-- See [docs/roadmaps/UI_OVERHAUL_PLAN.md](docs/roadmaps/UI_OVERHAUL_PLAN.md)
-
-### Design Aesthetic (Target State)
-
-Auralis combines classic library-based player experience (iTunes, Rhythmbox) with modern touches from Spotify and Cider:
-
-**Visual Style:**
-- **Dark theme**: Deep navy/black backgrounds (#0A0E27, #1a1f3a)
-- **Aurora gradient branding**: Flowing purple/blue/pink waves (signature visual element)
-- **Neon accents**: Vibrant retro-futuristic elements
-- **Album art grid**: Large, prominent artwork cards (160x160px minimum)
-- **Smooth animations**: Subtle transitions, gradient progress bars
-
-**Layout Structure:**
-```
-┌─────────────┬──────────────────────────────┬───────────────┐
-│  Sidebar    │      Main Content Area       │  Remastering  │
-│  (240px)    │         (flexible)           │   (280-320px) │
-├─────────────┼──────────────────────────────┴───────────────┤
-│             │        Player Bar (80-100px)                  │
-└─────────────┴───────────────────────────────────────────────┘
-```
-
-**Design System Tokens:**
-All components must use tokens from `src/design-system/tokens.ts`:
-- **Colors**: `bg`, `accent`, `text` palettes
-- **Spacing**: `xs`, `sm`, `md`, `lg`, `xl`, `xxl`
-- **Typography**: Font sizes, weights, families
-- **Shadows**: `sm`, `md`, `lg`
-- **Transitions**: `fast`, `normal`, `slow`
-
-See [UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md) for complete design system specification.
-
-## Code Style and Best Practices
-
-### Python Backend
-- **Type hints**: Use for function parameters and return values
-- **Docstrings**: All public classes and functions
-- **NumPy arrays**: Preferred over lists for audio processing
-- **Async/await**: Use for I/O operations in FastAPI endpoints
-- **Repository pattern**: For all database operations (no direct SQLAlchemy queries in business logic)
-
-### React Frontend
-- **TypeScript**: Always use TypeScript, no plain JavaScript
-- **Functional components**: Use hooks instead of class components
-- **Material-UI**: Use MUI components for consistency
-- **Service layer**: Use for API calls (e.g., `processingService.ts`)
-
-### Testing
-
-**⚠️ CRITICAL: Read [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) before writing tests**
-
-**Test Quality Principles:**
-- **Coverage ≠ Quality**: 100% coverage doesn't mean tests catch bugs
-- **Test invariants, not implementation**: Focus on properties that must always hold
-- **Test behavior, not code**: What the system does, not how it does it
-- **Integration tests matter**: Unit tests alone won't catch configuration bugs
-
-**Test Structure:**
-- **File naming**: `test_<module_name>.py`
-- **Function naming**: `test_<function>_<scenario>()` - Be descriptive
-- **Structure**: Arrange-Act-Assert pattern
-- **Fixtures**: Use pytest fixtures for common setup
-- **Mock sparingly**: Prefer real dependencies in integration tests
-
-**Quality Metrics:**
-- **Minimum coverage**: 85% backend, 80% frontend
-- **Mutation score target**: >80% (tests must catch intentional bugs)
-- **Test-to-code ratio**: Target 1.0+ (equal or more test files than source files)
-
-### Common Pitfalls to Avoid
-- ❌ Don't modify audio files in place (always create new outputs)
-- ❌ Don't use blocking I/O in FastAPI endpoints (use async)
-- ❌ Don't hardcode file paths (use Path objects and configuration)
-- ❌ Don't access database directly from UI components (use API)
-- ❌ Don't use `print()` for logging (use Python `logging` module)
-
-### Performance Considerations
-- ✅ Use NumPy vectorized operations instead of loops
-- ✅ Cache expensive computations with `@lru_cache`
-- ✅ Profile before optimizing (use `cProfile` or `py-spy`)
-- ✅ Use memory pools for repeated array allocations
-- ✅ Batch database operations when possible
-
-## ⚠️ Common Gotchas for New Contributors
-
-Before you start coding, be aware of these common pitfalls:
-
-### 1. Port Confusion
-- **Backend**: Port **8765** (not 8000)
-- **Frontend dev server**: Port 3000
-- **Full URL**: http://localhost:8765 (production) or http://localhost:3000 (dev mode proxied to 8765)
-
-### 2. Testing Philosophy - READ FIRST
-- **Coverage ≠ Quality**: 100% test coverage doesn't mean your tests catch bugs
-- **Example**: The overlap bug had 100% coverage but zero detection
-- **Solution**: Test **invariants** (properties that must always hold), not implementation details
-- **MANDATORY**: Read [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) before writing any tests
-
-### 3. Import Paths
-**✅ Use these (new modular structure):**
-```python
-from auralis.dsp.eq import PsychoacousticEQ
-from auralis.dsp.utils import spectral_centroid, to_db
-from auralis.analysis.quality import QualityMetrics
-```
-
-**❌ Don't use these (legacy imports, deprecated):**
-```python
-from auralis.dsp.unified import spectral_centroid  # Old
-from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ  # Old
-```
-
-### 4. Audio Processing Rules
-- **Never modify audio in-place**: Always create new output arrays
-- **Use NumPy arrays**: Not Python lists for audio data
-- **Sample count invariant**: `len(output) == len(input)` must always hold
-- **Type hints**: Always use type hints for audio processing functions
-
-### 5. API Method Names
-- ✅ `player.seek_to_position(time)` - NOT `player.seek(time)`
-- ✅ `player.next_track()` - NOT `player.next()`
-- ✅ `player.previous_track()` - NOT `player.previous()`
-- ✅ Volume parameter is `volume` - NOT `level`
-
-### 6. Database Location
-- Default: `~/.auralis/library.db`
-- Alternative: `~/.auralis/auralis_library.db`
-- Will be auto-created on first launch if missing
-
-### 7. Version Management
-- **Source of truth**: `auralis/version.py` (currently 1.0.0-beta.10)
-- **package.json**: Shows beta.3 (for desktop packaging only, not actual version)
-- **Update versions**: Use `python scripts/sync_version.py <version>`
-
-## Version Management
-
-Auralis uses **Semantic Versioning 2.0.0** with automated version management.
-
-**Note**: The version in `package.json` (beta.3) is for desktop packaging. The actual project version is in [auralis/version.py](auralis/version.py) (currently 1.0.0-beta.10).
-
-### Version Commands
 ```bash
 # Check current version
 python -c "from auralis.version import get_version; print(get_version())"
 
-# Bump to new version (updates all files)
-python scripts/sync_version.py 1.0.0-alpha.2
+# Bump version (updates all files)
+python scripts/sync_version.py 1.0.0-beta.13
 
-# Get detailed version info (JSON)
-python auralis/version.py
+# Git workflow for releases
+git commit -am "chore: bump version to X.Y.Z"
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin master && git push origin vX.Y.Z
 ```
 
-### Release Process
+**Current Version**: 1.0.0-beta.12 (see README.md for latest)
+
+---
+
+## 🐛 Troubleshooting
+
+### Backend Won't Start
 ```bash
-# 1. Bump version
-python scripts/sync_version.py 1.0.0-alpha.2
+# Check port is free
+lsof -ti:8765 | xargs kill -9
 
-# 2. Update CHANGELOG.md with release notes
-
-# 3. Commit and tag
-git commit -am "chore: bump version to 1.0.0-alpha.2"
-git push origin master
-git tag -a v1.0.0-alpha.2 -m "Release v1.0.0-alpha.2"
-git push origin v1.0.0-alpha.2  # Triggers CI/CD builds
-```
-
-**Documentation**: See [VERSIONING_STRATEGY.md](VERSIONING_STRATEGY.md) and [RELEASE_GUIDE.md](RELEASE_GUIDE.md)
-
-## Web Interface Access Points
-
-When web interface is running:
-- **Main UI**: http://localhost:3000 (dev mode) or http://localhost:8765 (production)
-- **Backend API**: http://localhost:8765/api/
-- **API Documentation**: http://localhost:8765/api/docs (Swagger UI)
-- **WebSocket**: ws://localhost:8765/ws (real-time updates)
-- **Health Check**: http://localhost:8765/api/health
-- **Version Info**: http://localhost:8765/api/version
-
-**Note**: Default backend port is **8765** (not 8000). Frontend dev server uses port **3000**.
-
-## Troubleshooting
-
-### Common Development Issues
-
-**"Module not found" errors:**
-```bash
+# Check dependencies
 pip install -r requirements.txt
-pip install pytest pytest-cov soundfile scikit-learn mutagen
+
+# Run directly to see errors
+cd auralis-web/backend && python -m uvicorn main:app --reload
 ```
 
-**Frontend build errors:**
+### Tests Failing
+```bash
+# Run with verbose output
+python -m pytest tests/ -vv --tb=long
+
+# Check test dependencies
+pip install -r requirements.txt
+pip install pytest pytest-cov pytest-asyncio
+
+# Run single test to isolate issue
+python -m pytest tests/backend/test_player.py::test_play_track -vv
+```
+
+### Audio Files Not Found
+```bash
+# Check test file location
+ls test_files/
+cd tests && python -m pytest test_*.py
+```
+
+### Frontend Won't Build
 ```bash
 cd auralis-web/frontend
 rm -rf node_modules package-lock.json
@@ -1122,233 +497,35 @@ npm install
 npm run build
 ```
 
-**Database errors:**
+### Database Errors
 ```bash
 # Reset database (WARNING: deletes all library data)
-./RESET_DATABASE.sh              # Uses provided script
-# OR manually:
-rm ~/.auralis/library.db         # Will be recreated on next launch
-rm ~/.auralis/auralis_library.db # Alternative location
+rm ~/.auralis/library.db
+# Will be recreated on next app launch
 ```
 
-**WebSocket connection fails:**
-- Ensure backend is running before loading frontend
-- Check CORS settings in [auralis-web/backend/main.py](auralis-web/backend/main.py)
-- Verify port 8765 is not blocked by firewall
+---
 
-**Port conflicts:**
-```bash
-lsof -ti:8765 | xargs kill -9  # Backend
-lsof -ti:3000 | xargs kill -9  # Frontend dev server
-```
+## 💾 Repository Info
 
-### Electron Build Issues
-
-**AppImage startup error:**
-```bash
-lsof -ti:8765 | xargs kill -9           # Kill process on port 8765
-./dist/Auralis-1.0.0.AppImage           # Run from terminal to see logs
-```
-
-**DEB package installation:**
-```bash
-sudo dpkg -i dist/auralis-desktop_1.0.0_amd64.deb
-sudo apt-get install -f  # Fix dependencies if needed
-```
-
-See `ELECTRON_BUILD_FIXED.md` for detailed build troubleshooting.
-
-## Important Notes
-
-### Git Workflow
-- **Current branch**: `master`
-- **Main branch**: `master` (use this for PRs)
-- **Repository**: https://github.com/matiaszanolli/Auralis
+- **Git Status**: Current branch `master`
+- **Main Branch**: `master` (use for PRs)
 - **License**: GPL-3.0
+- **Project Name**: Auralis (matchering-player)
 
-### Project Status
-- **Version**: 1.0.0-beta.10 (Beta stage - Mutation testing and quality improvements)
-- **Roadmap**: See [docs/roadmaps/MASTER_ROADMAP.md](docs/roadmaps/MASTER_ROADMAP.md) for complete roadmap
-- **Current Focus**: Boundary testing (30/150 tests), mutation testing framework
-- **Next Major**: Beta 11.0 (Complete Phase 1 testing) - December 2025
+---
 
-**Beta.10 - Mutation Testing** (November 2025):
-- [x] **Mutation testing framework** - mutmut integration for test quality validation
-- [x] **Cache module validation** - 8 cache tests passing mutation testing
-- [x] **Iteration 3 complete** - 13/13 mutants killed (100% mutation score)
-- [x] **Documentation** - Complete mutation testing guide
+## 🔗 Useful Links
 
-**Beta.9.1 - Testing Infrastructure** (November 8, 2025):
-- [x] **Comprehensive testing guidelines** - 1,342 lines of mandatory standards
-- [x] **Test implementation roadmap** - Path from 445 to 2,500+ tests (868 lines)
-- [x] **Enhanced CLAUDE.md** - Improved developer documentation
-- [x] **Phase 1 Week 3 plan** - 150 boundary tests specification
+- **GitHub**: https://github.com/matiaszanolli/Auralis
+- **API Docs**: http://localhost:8765/api/docs (when running)
+- **WebSocket Protocol**: [auralis-web/backend/WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md)
+- **Release Downloads**: https://github.com/matiaszanolli/Auralis/releases
 
-**Beta.9.0 - Test Quality Foundation** (November 2025):
-- [x] **Phase 1 Week 1** - 305 critical invariant tests
-- [x] **Phase 1 Week 2** - 85 advanced integration tests
-- [x] **Testing philosophy** - Coverage ≠ Quality
-- [x] **850+ total tests** - Comprehensive test suite
-- **Beta.6 Enhanced Interactions**: ✅ **COMPLETE PHASE 2** (Oct 30, 2025)
-  - Drag-and-drop system for playlist and queue management (724 lines)
-  - Keyboard shortcuts (15+ shortcuts, ⚠️ temporarily disabled due to minification issue)
-  - Batch operations with multi-select (589 lines)
-  - 2,037 lines of new feature code
-  - Bug fixes for backend imports, deprecations, and frontend artwork
-  - See [RELEASE_NOTES_BETA6.md](RELEASE_NOTES_BETA6.md) for complete details
-- **Beta.4 Unified Streaming**: ✅ **MAJOR ARCHITECTURE OVERHAUL** (Oct 27, 2025)
-  - Unified MSE + Multi-Tier Buffer system (eliminates dual playback conflicts)
-  - Progressive WebM/Opus streaming for instant preset switching
-  - 4,518 lines of new code across 15 components
-  - 67% player UI code reduction (970→320 lines)
-  - 75% test coverage on new components (50+ comprehensive tests)
-  - See [docs/sessions/oct27_mse_integration/](docs/sessions/oct27_mse_integration/) for complete technical details
-- **Beta.1 Critical Fixes**: ✅ **ALL P0/P1 ISSUES RESOLVED** (Oct 26, 2025)
-  - Audio fuzziness between chunks - ✅ FIXED (3s crossfade + state tracking)
-  - Volume jumps between chunks - ✅ FIXED (same fix, shared root cause)
-  - Gapless playback - ✅ FIXED (pre-buffering: 100ms → <10ms)
-  - Artist pagination - ✅ FIXED (pagination: 468ms → 25ms)
-- **Core Processing**: ✅ Production-ready (**52.8x real-time speed** with optimizations, E2E validated)
-- **Performance Optimization**: ✅ COMPLETE - Numba JIT + vectorization (Oct 24, 2025)
-  - **40-70x envelope speedup** (Numba JIT compilation)
-  - **1.7x EQ speedup** (NumPy vectorization)
-  - **2-3x overall pipeline improvement** (real-world validated)
-  - Optional Numba dependency, graceful fallbacks, zero breaking changes
-- **Version Management**: ✅ COMPLETE - Semantic versioning system (Oct 24, 2025)
-  - Single source of truth (`auralis/version.py`)
-  - Automated version sync script
-  - API endpoint (`/api/version`)
-  - CI/CD workflow for releases
-- **Dynamics Expansion**: ✅ COMPLETE - All 4 Matchering behaviors working (Oct 24, 2025)
-  - Heavy Compression, Light Compression, Preserve Dynamics, **Expand Dynamics (de-mastering)**
-  - Average 0.67 dB crest error, 1.30 dB RMS error across all behaviors
-- **RMS Boost Fix**: ✅ FIXED - No more overdrive on loud material (Oct 24, 2025)
-- **Real-time Processing Fixes**: ✅ CRITICAL BUGS FIXED (Oct 25, 2025)
-  - **Gain pumping bug** - Fixed stateless compression causing audio degradation after 30s
-  - **Soft limiter** - Replaced harsh brick-wall with tanh() saturation
-  - **Electron window** - Fixed window not showing on Linux/Wayland
-- **Testing**: ✅ **850+ comprehensive tests** - See [TEST_FIX_COMPLETE.md](TEST_FIX_COMPLETE.md)
-  - Backend: 850+ tests across all categories
-    - API tests: 96 tests, 74% coverage
-    - Real-time processing: 24 tests, all passing ✅ (fixed Oct 25)
-    - Core processing: 26 tests
-    - Invariant tests: 305 tests (Phase 1 Week 1) ✅
-    - Integration tests: 85 tests (Phase 1 Week 2) ✅
-    - Boundary tests: 151 tests (Phase 1 Week 3 - COMPLETE - 101% of target) ✅
-    - Mutation tests: 13/13 mutants killed (100% score) ✅
-    - **Total Phase 1**: 541 tests complete
-  - Frontend: 245 tests (234 passing, 11 failing - 95.5% pass rate)
-    - ⚠️ Known issue: 11 gapless playback tests failing
-  - **Test Quality Initiative** (Beta 9.0 → Beta 11.0):
-    - Phase 1 Week 1: ✅ 305 critical invariant tests (COMPLETE)
-    - Phase 1 Week 2: ✅ 85 advanced integration tests (COMPLETE)
-    - Phase 1 Week 3: ✅ 151 boundary tests (COMPLETE - 101% of target)
-    - **Phase 1 Total**: ✅ 541 tests complete (100% pass rate)
-    - Mutation testing: ✅ Framework complete, 100% cache module score
-    - **Next**: Phase 2 Week 4 - Performance Tests (100 tests planned)
-    - See [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md)
-  - **Critical Learning**: Overlap bug had 100% coverage but zero detection - coverage ≠ quality
-- **Library Management Quality Improvements**: ✅ **PHASE 2 COMPLETE** (Nov 7, 2025)
-  - **Pattern-based cache invalidation** - 80%+ cache hit rate after mutations (was 0%)
-  - **API standardization** - 100% consistent return types for paginated queries (was 20%)
-  - **Comprehensive documentation** - 9,500+ lines of API design guidelines
-  - **Performance impact** - 70% fewer database queries, 100% type hint coverage
-  - **Test coverage** - 13 comprehensive cache tests, 142 passing tests total (93.3% pass rate)
-  - See [docs/development/PHASE2_COMPLETE_SUMMARY.md](docs/development/PHASE2_COMPLETE_SUMMARY.md) for complete details
-- **Library Scan API**: ✅ NEW - `POST /api/library/scan` endpoint with duplicate prevention (Oct 24, 2025)
-- **Backend Refactoring**: ✅ COMPLETE - Modular router architecture (614 lines main.py, down from 1,960)
-- **Library Management**: ✅ 740+ files/second scanning, **pagination support**, **query caching (136x speedup)**
-- **Database**: ✅ Schema v3 with 12 performance indexes for large libraries
-- **Track Metadata Editing**: ✅ Full CRUD with 14 editable fields (Mutagen integration)
-- **Audio Player**: ✅ Full playback with real-time processing
-- **WebSocket API**: ✅ Real-time player state updates
-- **Large Library Support**: ✅ Optimized for 50k+ tracks (infinite scroll, caching, indexes)
-- **Desktop Build**: ✅ **Beta.3 Release** - AppImage + DEB packages (Oct 27, 2025)
-  - All platforms build successfully (Windows, Linux)
-  - Beta.1 critical issues resolved
-  - Production-quality audio processing
-  - **8 UI/UX quick wins** integrated
-- **Audio Fingerprint System**: ✅ **NEW - Phase 1 COMPLETE** (Oct 26, 2025)
-  - 25-dimensional acoustic fingerprint extraction system
-  - 7 specialized analyzers (~1,147 lines of code)
-  - Validated on real tracks (Exodus, Rush, Steven Wilson) and synthetic signals
-  - Foundation for cross-genre music discovery and recommendation
-  - See [docs/sessions/oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/) for complete details
+---
 
-**Beta.6 Known Limitations:**
-- ⚠️ **Keyboard shortcuts temporarily disabled** - Production build minification issue
-  - Root cause: Circular dependency in keyboard shortcut hook
-  - Status: Feature code complete, disabled for Beta.6 release
-  - Fix planned: Re-enable in Beta.7 with refactored architecture
-  - See [BETA6_KEYBOARD_SHORTCUTS_DISABLED.md](BETA6_KEYBOARD_SHORTCUTS_DISABLED.md) for details
-- **Playlist track order persistence** - May not persist across restarts (database migration planned for Beta.7)
-- **Preset switching buffering** - Still requires 2-5s pause when changing presets (optimization ongoing)
+## Notes from ~/.claude/CLAUDE.md
 
-**Beta.7 Roadmap (Planned):**
-- 🎯 **P0 Priority**: Re-enable keyboard shortcuts with refactored architecture
-- **Phase 3.1**: Smart Playlists based on 25D fingerprint similarity
-- **Phase 3.2**: Enhanced Queue (save queue, history, suggestions)
-- **Phase 3.3**: Playback Polish (configurable crossfade, improved gapless)
-- See [RELEASE_NOTES_BETA6.md](RELEASE_NOTES_BETA6.md) for Beta.7 roadmap details
-
-### Additional Documentation
-
-**See [docs/README.md](docs/README.md) for the complete documentation index** (55 files, organized and up-to-date)
-
-All technical documentation has been organized into categorized directories:
-
-**📂 docs/completed/** - Completed features and optimizations
-- [MULTI_TIER_PRIORITY1_COMPLETE.md](docs/completed/MULTI_TIER_PRIORITY1_COMPLETE.md) - ✅ Multi-tier buffer system (current)
-- [AUDIO_FUZZ_FIX_OCT25.md](docs/completed/AUDIO_FUZZ_FIX_OCT25.md) - ✅ Audio quality fix (latest)
-- [BACKEND_REFACTORING_ROADMAP.md](docs/completed/BACKEND_REFACTORING_ROADMAP.md) - ✅ Backend modularization
-- [LARGE_LIBRARY_OPTIMIZATION.md](docs/completed/LARGE_LIBRARY_OPTIMIZATION.md) - ✅ Performance optimization
-- [TECHNICAL_DEBT_RESOLUTION.md](docs/completed/TECHNICAL_DEBT_RESOLUTION.md) - ✅ Technical improvements
-- [TESTING_SUMMARY.md](docs/completed/TESTING_SUMMARY.md) - ✅ Complete testing guide
-- [performance/](docs/completed/performance/) - Performance optimization docs (4 files)
-
-**📂 docs/development/** - Development guidelines and roadmaps
-- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **🎯 MANDATORY** - Test quality principles
-- [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Testing roadmap (Beta 9.1 → Beta 11.0)
-
-**📂 docs/guides/** - Implementation guides and technical designs
-- [AUDIO_FINGERPRINT_GRAPH_SYSTEM.md](docs/guides/AUDIO_FINGERPRINT_GRAPH_SYSTEM.md) - **NEW** - Complete fingerprint system design
-- [FINGERPRINT_SYSTEM_ROADMAP.md](docs/guides/FINGERPRINT_SYSTEM_ROADMAP.md) - **NEW** - 18-week implementation roadmap
-- [FREQUENCY_SPACE_ENHANCEMENT_PATTERN.md](docs/guides/FREQUENCY_SPACE_ENHANCEMENT_PATTERN.md) - **NEW** - Enhancement patterns in continuous space
-- [PRESET_ARCHITECTURE_RESEARCH.md](docs/guides/PRESET_ARCHITECTURE_RESEARCH.md) - Preset system design
-- [MULTI_TIER_BUFFER_ARCHITECTURE.md](docs/guides/MULTI_TIER_BUFFER_ARCHITECTURE.md) - Buffer architecture
-- [REFACTORING_QUICK_START.md](docs/guides/REFACTORING_QUICK_START.md) - Code refactoring guide
-- [UI_QUICK_WINS.md](docs/guides/UI_QUICK_WINS.md) - UI improvement guide
-
-**📂 docs/roadmaps/** - Current roadmaps
-- [BETA3_ROADMAP.md](BETA3_ROADMAP.md) - **Next release** - MSE progressive streaming (P0 priority)
-- [MULTI_TIER_ROBUSTNESS_ROADMAP.md](docs/roadmaps/MULTI_TIER_ROBUSTNESS_ROADMAP.md) - Buffer system roadmap
-- [UI_UX_IMPROVEMENT_ROADMAP.md](docs/roadmaps/UI_UX_IMPROVEMENT_ROADMAP.md) - UI/UX improvements
-
-**📂 docs/versions/** - Version management (5 files)
-- [VERSIONING_STRATEGY.md](docs/versions/VERSIONING_STRATEGY.md) - Semantic versioning
-- [RELEASE_GUIDE.md](docs/versions/RELEASE_GUIDE.md) - Release process
-- [CHANGELOG.md](docs/versions/CHANGELOG.md) - Version history
-
-**📂 docs/sessions/** - Session-specific work documentation
-- [oct30_beta6_release/](docs/sessions/oct30_beta6_release/) - **LATEST** - Beta 6 release session
-  - Phase 2 Enhanced Interactions complete (drag-drop, keyboard shortcuts, batch ops)
-  - Bug fixes and polish session
-  - Keyboard shortcuts hotfix and circular dependency resolution
-- [oct27_mse_integration/](docs/sessions/oct27_mse_integration/) - Beta 4 MSE streaming architecture
-- [oct26_fingerprint_system/](docs/sessions/oct26_fingerprint_system/) - 25D fingerprint system (11 files)
-  - Complete implementation documentation and validation results
-  - Album analysis studies (Rush 1977, Rush 1989, Exodus, Steven Wilson)
-  - Mathematical framework from 64+ tracks across 9 albums
-  - Enhancement pattern discoveries (sub-bass power, perceived loudness)
-- [oct26_beta2_release/](docs/sessions/oct26_beta2_release/) - Beta 2 release session (10 files)
-- [oct25_alpha1_release/](docs/sessions/oct25_alpha1_release/) - Beta 1 release session (12 files)
-- [oct26_genre_profiles/](docs/sessions/oct26_genre_profiles/) - Genre profile research (5 files)
-
-**📂 docs/archive/** - Historical documentation (14 files)
-
-**Other key documentation:**
-- `README.md` - User-facing documentation and quick start
-- `BETA1_KNOWN_ISSUES.md` - Beta.1 issues (all resolved in Beta.2)
-- `BETA2_TESTING_GUIDE.md` - Beta.2 testing procedures
-- `BETA3_ROADMAP.md` - Next release roadmap (MSE streaming)
-- `auralis-web/backend/WEBSOCKET_API.md` - WebSocket message types and protocol
+- Always prioritize improving existing code rather than duplicating logic
+- In this computer, the worker project lives in ../worker_aithentia relative to this project
+- The backend is properly deployed at https://api.test.aithentia.com:8000/

@@ -1268,4 +1268,132 @@ export const handlers = [
     await delay(30000); // 30s timeout
     return HttpResponse.json({ data: 'too late' });
   }),
+
+  // ============================================================
+  // RELATIVE URL HANDLERS (for test environments)
+  // These mirror the absolute URL handlers but use relative paths
+  // ============================================================
+
+  // POST /api/player/enhancement/toggle - Toggle enhancement (relative URL)
+  http.post('/api/player/enhancement/toggle', async ({ request }) => {
+    const url = new URL(request.url, 'http://localhost');
+    const enabled = url.searchParams.get('enabled') === 'true';
+    await delay(100);
+    return HttpResponse.json({
+      success: true,
+      settings: {
+        enabled: enabled,
+        preset: 'adaptive',
+        intensity: 1.0
+      }
+    });
+  }),
+
+  // POST /api/player/enhancement/preset - Set preset (relative URL)
+  http.post('/api/player/enhancement/preset', async ({ request }) => {
+    const url = new URL(request.url, 'http://localhost');
+    const preset = url.searchParams.get('preset') || 'adaptive';
+    await delay(100);
+    return HttpResponse.json({
+      success: true,
+      settings: {
+        enabled: true,
+        preset: preset,
+        intensity: 1.0
+      }
+    });
+  }),
+
+  // POST /api/player/enhancement/intensity - Set intensity (relative URL)
+  http.post('/api/player/enhancement/intensity', async ({ request }) => {
+    const url = new URL(request.url, 'http://localhost');
+    const intensity = parseFloat(url.searchParams.get('intensity') || '1.0');
+    await delay(100);
+    return HttpResponse.json({
+      success: true,
+      settings: {
+        enabled: true,
+        preset: 'adaptive',
+        intensity: intensity
+      }
+    });
+  }),
+
+  // GET /api/processing/parameters - Get processing parameters (relative URL)
+  http.get('/api/processing/parameters', async () => {
+    await delay(100);
+    return HttpResponse.json({
+      spectral_balance: 0.5,
+      dynamic_range: 0.7,
+      energy_level: 0.8
+    });
+  }),
+
+  // GET /api/player/state - Get player state (relative URL)
+  http.get('/api/player/state', async () => {
+    await delay(50);
+    return HttpResponse.json(mockPlayerState);
+  }),
+
+  // POST /api/player/play - Play track (relative URL)
+  http.post('/api/player/play', async ({ request }) => {
+    const body = await request.json();
+    await delay(100);
+    return HttpResponse.json({
+      success: true,
+      track_id: (body as any).track_id
+    });
+  }),
+
+  // POST /api/player/pause - Pause playback (relative URL)
+  http.post('/api/player/pause', async () => {
+    await delay(50);
+    return HttpResponse.json({ success: true });
+  }),
+
+  // POST /api/player/seek - Seek to position (relative URL)
+  http.post('/api/player/seek', async ({ request }) => {
+    const body = await request.json();
+    await delay(50);
+    return HttpResponse.json({
+      success: true,
+      position: (body as any).position
+    });
+  }),
+
+  // POST /api/player/volume - Set volume (relative URL)
+  http.post('/api/player/volume', async ({ request }) => {
+    const body = await request.json();
+    await delay(50);
+    return HttpResponse.json({
+      success: true,
+      volume: (body as any).volume
+    });
+  }),
+
+  // POST /api/player/next - Next track (relative URL)
+  http.post('/api/player/next', async () => {
+    await delay(50);
+    return HttpResponse.json({ success: true });
+  }),
+
+  // POST /api/player/previous - Previous track (relative URL)
+  http.post('/api/player/previous', async () => {
+    await delay(50);
+    return HttpResponse.json({ success: true });
+  }),
+
+  // GET /api/library/tracks - Get tracks list (relative URL)
+  http.get('/api/library/tracks', async ({ request }) => {
+    const url = new URL(request.url, 'http://localhost');
+    const limit = parseInt(url.searchParams.get('limit') || '50');
+    const offset = parseInt(url.searchParams.get('offset') || '0');
+    await delay(100);
+    return HttpResponse.json({
+      tracks: mockTracks.slice(offset, offset + limit),
+      total: mockTracks.length,
+      limit,
+      offset
+    });
+  }),
 ];

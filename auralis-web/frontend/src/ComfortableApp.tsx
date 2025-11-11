@@ -22,6 +22,9 @@ import Sidebar from './components/Sidebar';
 // Replaces BottomPlayerBarUnified with cleaner architecture
 import PlayerBarV2Connected from './components/player-bar-v2/PlayerBarV2Connected';
 import AutoMasteringPane from './components/AutoMasteringPane';
+// Beta 13.0: EnhancementPaneV2 - Complete redesign with 10 focused components
+// 100% design token compliance, 84% code reduction, drop-in replacement for AutoMasteringPane
+import EnhancementPaneV2 from './components/enhancement-pane-v2';
 import CozyLibraryView from './components/CozyLibraryView';
 import GlobalSearch from './components/library/GlobalSearch';
 import SettingsDialog from './components/settings/SettingsDialog';
@@ -59,6 +62,10 @@ function ComfortableApp() {
   const [searchResultView, setSearchResultView] = useState<{type: string; id: number} | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [playbackTime, setPlaybackTime] = useState(0);
+  // Beta 13.0: Feature flag to toggle between AutoMasteringPane (old) and EnhancementPaneV2 (new)
+  const [useEnhancementPaneV2, setUseEnhancementPaneV2] = useState(
+    process.env.REACT_APP_USE_ENHANCEMENT_PANE_V2 === 'true'
+  );
 
   // WebSocket connection for real-time updates (using shared WebSocketContext)
   const { isConnected } = useWebSocketContext();
@@ -590,7 +597,15 @@ function ComfortableApp() {
         </Box>
 
         {/* Right Auto-Mastering Pane - Hidden on mobile/tablet */}
-        {!isTablet && (
+        {/* Beta 13.0: Toggle between old AutoMasteringPane and new EnhancementPaneV2 */}
+        {!isTablet && useEnhancementPaneV2 && (
+          <EnhancementPaneV2
+            collapsed={presetPaneCollapsed}
+            onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
+            onMasteringToggle={handleMasteringToggle}
+          />
+        )}
+        {!isTablet && !useEnhancementPaneV2 && (
           <AutoMasteringPane
             collapsed={presetPaneCollapsed}
             onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
