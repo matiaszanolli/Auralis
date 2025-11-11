@@ -167,22 +167,56 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
 
   // Load more albums when we're running low on content
   useEffect(() => {
-    // Check if we need to load more content
-    // Load when we have content but are showing less than 60% of total available
+    // Check if we need to load more content based on remaining items
+    const remainingAlbums = totalAlbums - albums.length;
+
     if (albums.length > 0 &&
-        albums.length < totalAlbums &&
+        remainingAlbums > 0 &&
         !isLoadingMore &&
         hasMore &&
-        albums.length < 150) {  // Load more if we have less than 150 albums loaded
+        !isFetchingRef.current &&
+        remainingAlbums < 100) {  // Load more if less than 2 pages remain
 
-      const limit = 50;
-      const newOffset = albums.length;  // Use actual loaded count as offset
+      const newOffset = albums.length;
 
       isFetchingRef.current = true;
       fetchAlbums(false, newOffset).finally(() => {
         isFetchingRef.current = false;
       });
     }
+  }, [albums.length, totalAlbums, isLoadingMore, hasMore, fetchAlbums]);
+
+  // Scroll listener to trigger loading when approaching bottom
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      // Check if user scrolled near the bottom (within 1000px)
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+      const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
+
+      // If close to bottom and not already loading, trigger load
+      if (distanceToBottom < 1000 &&
+          !isLoadingMore &&
+          !isFetchingRef.current &&
+          albums.length > 0 &&
+          albums.length < totalAlbums &&
+          hasMore) {
+
+        const newOffset = albums.length;
+
+        isFetchingRef.current = true;
+        fetchAlbums(false, newOffset).finally(() => {
+          isFetchingRef.current = false;
+        });
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
   }, [albums.length, totalAlbums, isLoadingMore, hasMore, fetchAlbums]);
 
   if (loading) {
