@@ -98,6 +98,12 @@ class ArtworkExtractor:
         """
         Look for folder.jpg/folder.png or cover.jpg/cover.png in the album directory
 
+        Supports multiple naming conventions:
+        - folder.jpg, cover.jpg (standard)
+        - front.jpg (common in digital music collections)
+        - AlbumArtSmall.jpg (Windows Media Player)
+        - Various case variations
+
         Args:
             audio_filepath: Path to audio file (to determine album directory)
             album_id: Album ID for organizing artwork
@@ -109,10 +115,27 @@ class ArtworkExtractor:
             # Get the directory containing the audio file (album folder)
             album_dir = Path(audio_filepath).parent
 
-            # Check common artwork filenames (case-insensitive)
-            artwork_names = ['folder.jpg', 'folder.png', 'cover.jpg', 'cover.png',
-                           'Folder.jpg', 'Folder.png', 'Cover.jpg', 'Cover.png',
-                           'folder.jpeg', 'cover.jpeg', 'Folder.jpeg', 'Cover.jpeg']
+            # Priority order: check most common artwork filenames first
+            # Standard naming (highest priority)
+            artwork_names = [
+                'folder.jpg', 'folder.jpeg', 'folder.png',
+                'Folder.jpg', 'Folder.jpeg', 'Folder.png',
+                'cover.jpg', 'cover.jpeg', 'cover.png',
+                'Cover.jpg', 'Cover.jpeg', 'Cover.png',
+            ]
+
+            # Front artwork (very common in many music libraries)
+            artwork_names.extend([
+                'front.jpg', 'front.jpeg', 'front.png',
+                'Front.jpg', 'Front.jpeg', 'Front.png',
+                'FRONT.jpg', 'FRONT.jpeg', 'FRONT.png',
+            ])
+
+            # Windows Media Player and other naming conventions
+            artwork_names.extend([
+                'AlbumArtSmall.jpg', 'AlbumArt.jpg',
+                'albumart.jpg', 'albumartsmall.jpg',
+            ])
 
             for artwork_name in artwork_names:
                 artwork_file = album_dir / artwork_name
