@@ -128,7 +128,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     };
   }, [hasMore]);
 
-  const fetchAlbums = async (resetPagination = false) => {
+  const fetchAlbums = async (resetPagination = false, overrideOffset?: number) => {
     if (resetPagination) {
       setLoading(true);
       setOffset(0);
@@ -141,7 +141,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
 
     try {
       const limit = 50;
-      const currentOffset = resetPagination ? 0 : offset;
+      const currentOffset = resetPagination ? 0 : (overrideOffset !== undefined ? overrideOffset : offset);
 
       const response = await fetch(`/api/albums?limit=${limit}&offset=${currentOffset}`);
       if (!response.ok) {
@@ -184,7 +184,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     const limit = 50;
     const newOffset = offset + limit;
     setOffset(newOffset);
-    await fetchAlbums(false);
+    await fetchAlbums(false, newOffset);
   };
 
   const handleAlbumClick = (albumId: number) => {
