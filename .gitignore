@@ -74,13 +74,20 @@ auralis-web/backend/dist/
 .cache/
 .pytest_cache/
 .coverage
+coverage.json
 htmlcov/
+htmlcov_*/
 /tmp/
 
 # Mutation testing artifacts
 .mutmut-cache/
 mutants/
 mutation_*.txt
+
+# Analysis and benchmark outputs
+analysis_*.json
+benchmark_results/
+analysis_output/
 
 # Session documentation and temporary files (kept in git history but ignored for new ones)
 *_SUMMARY.md
