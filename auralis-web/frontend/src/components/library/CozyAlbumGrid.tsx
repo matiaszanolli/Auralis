@@ -5,7 +5,7 @@
  * following the Auralis dark theme aesthetic with aurora gradients.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Grid,
@@ -108,7 +108,12 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
               !isFetchingRef.current &&
               hasMore) {
             isFetchingRef.current = true;
-            loadMore().finally(() => {
+
+            // Calculate new offset directly instead of calling loadMore()
+            const limit = 50;
+            const newOffset = offset + limit;
+            setOffset(newOffset);
+            fetchAlbums(false, newOffset).finally(() => {
               isFetchingRef.current = false;
             });
           }
@@ -126,9 +131,9 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     return () => {
       observer.unobserve(triggerElement);
     };
-  }, [hasMore]);
+  }, [hasMore, offset, fetchAlbums]);
 
-  const fetchAlbums = async (resetPagination = false, overrideOffset?: number) => {
+  const fetchAlbums = useCallback(async (resetPagination = false, overrideOffset?: number) => {
     if (resetPagination) {
       setLoading(true);
       setOffset(0);
@@ -174,7 +179,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
       setLoading(false);
       setIsLoadingMore(false);
     }
-  };
+  }, [offset]);
 
   const loadMore = async () => {
     if (isLoadingMore || !hasMore) {
