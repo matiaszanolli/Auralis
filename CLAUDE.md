@@ -42,6 +42,9 @@ npm run dev                            # Starts backend + frontend + Electron
 
 # Just the backend API server
 cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
+
+# Frontend only (requires backend running separately)
+cd auralis-web/frontend && npm start   # Proxies to http://localhost:8765
 ```
 
 ### Running Tests
@@ -119,6 +122,26 @@ python -m lint auralis/ auralis-web/backend/
 black auralis/ auralis-web/backend/
 ```
 
+### Building & Packaging
+```bash
+# Build desktop app for all platforms
+make build                  # Runs tests + builds (see Makefile for details)
+
+# Build without tests (faster)
+make build-fast
+
+# Package only (for distribution)
+make package
+
+# Platform-specific builds
+make build-linux
+make build-windows          # Windows only
+make build-macos            # macOS only
+
+# Clean build artifacts
+make clean
+```
+
 ---
 
 ## 📁 Project Structure
@@ -165,6 +188,37 @@ black auralis/ auralis-web/backend/
 - `mutation/` - Mutation testing for test quality validation
 - `validation/` - End-to-end validation tests
 - `conftest.py` - Pytest fixtures and configuration
+
+---
+
+## 🏗️ Architecture Patterns & Key Interdependencies
+
+### Data Flow: Library → Processor → Player → WebSocket
+1. **LibraryManager** scans folders → SQLite database with caching
+2. **HybridProcessor** loads audio → applies DSP pipeline → returns processed frames
+3. **EnhancedAudioPlayer** queues tracks → plays with real-time processing
+4. **FastAPI backend** exposes REST endpoints + WebSocket for live updates
+
+### Key Classes & Their Relationships
+- **LibraryManager** (`auralis/library/manager.py`): Singleton managing SQLite, caching queries via LRU
+- **HybridProcessor** (`auralis/core/hybrid_processor.py`): Orchestrates DSP pipeline with pluggable stages
+- **ChunkedProcessor** (`auralis-web/backend/chunked_processor.py`): Streams audio in 30s chunks with MSE encoding
+- **PlayerStateManager** (`auralis-web/backend/state_manager.py`): Thread-safe WebSocket state synchronization
+- **PsychoacousticEQ** (`auralis/dsp/eq/`): 26-band EQ with genre-specific curves
+
+### Critical Performance Patterns
+1. **Query Caching**: LibraryManager caches `albums()`, `artists()`, `tracks()` → 136x speedup
+2. **Chunked Processing**: Backend splits audio into 30s chunks, processes in parallel
+3. **NumPy Vectorization**: DSP operations use np.array broadcasting (1.7x EQ speedup)
+4. **Numba JIT** (optional): Envelope follower compilation → 40-70x speedup
+5. **MSE Streaming**: Chunks encoded as WebM/Opus for efficient browser playback
+
+### Backend Router Pattern
+All API endpoints are modular routers in `auralis-web/backend/routers/`:
+- Each router handles a domain (player, library, enhancement, etc.)
+- Routers use FastAPI dependency injection for shared state
+- Automatically included in `main.py` via `app.include_router()`
+- Each router test file mirrors the router directory structure
 
 ---
 
@@ -263,6 +317,14 @@ from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ  # OLD
 - ✅ Keep components under 300 lines
 - ✅ Extract subcomponents if needed
 - ❌ Don't create "Enhanced" or variant versions of existing components
+
+### Common Testing Gotchas
+1. **AsyncIO Tests**: Use `@pytest.mark.asyncio` for async functions; backend tests may need `await` handling
+2. **WebSocket State**: ChunkedProcessor maintains state; tests must initialize PlayerStateManager properly
+3. **Audio Fixtures**: Use fixtures from `conftest.py` (sample_audio, test_audio_file); don't create inline
+4. **Library Transactions**: Tests may need isolation; check if test needs new LibraryManager instance
+5. **Boundary Tests**: When writing boundaries, test both minimum (0, empty, None) and maximum values
+6. **Invariant Tests**: If modifying core processors, update invariant tests in `tests/invariants/`
 
 ---
 
@@ -480,6 +542,9 @@ pip install pytest pytest-cov pytest-asyncio
 
 # Run single test to isolate issue
 python -m pytest tests/backend/test_player.py::test_play_track -vv
+
+# Run only fast tests (skip slow ones)
+python -m pytest -m "not slow" -v
 ```
 
 ### Audio Files Not Found
@@ -502,6 +567,22 @@ npm run build
 # Reset database (WARNING: deletes all library data)
 rm ~/.auralis/library.db
 # Will be recreated on next app launch
+```
+
+### Performance Debugging
+```bash
+# Profile audio processing
+python -m cProfile -s cumtime -o profile.stats auralis/core/hybrid_processor.py
+python -m pstats profile.stats
+
+# Check memory usage during library scan
+watch -n 1 'ps aux | grep python'
+
+# Benchmark specific operation
+python benchmark_performance.py
+
+# Check query cache effectiveness
+python -c "from auralis.library import LibraryManager; m = LibraryManager(); print(m.cache_info())"
 ```
 
 ---
