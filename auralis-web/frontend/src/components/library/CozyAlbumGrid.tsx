@@ -163,10 +163,10 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     return `${minutes}m`;
   };
 
-  // Initial fetch on component mount
+  // Initial fetch on component mount (once only)
   useEffect(() => {
     fetchAlbums(true);
-  }, [fetchAlbums]);
+  }, []);
 
   // Infinite scroll using Intersection Observer for better performance
   useEffect(() => {
