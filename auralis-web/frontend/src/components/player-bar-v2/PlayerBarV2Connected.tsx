@@ -28,6 +28,8 @@ const PlayerBarV2Connected: React.FC = () => {
     currentTrack,
     isPlaying,
     volume,
+    queue,
+    queueIndex,
     play,
     pause,
     next,
@@ -119,13 +121,39 @@ const PlayerBarV2Connected: React.FC = () => {
     }
   }, [enhancementSettings.enabled, enhancementSettings.preset, player, setEnhancementEnabled, info, showError]);
 
-  const handlePrevious = useCallback(() => {
-    previous();
-  }, [previous]);
+  const handlePrevious = useCallback(async () => {
+    // Check if queue exists and current position allows going back
+    if (!queue || queue.length === 0 || queueIndex === 0) {
+      console.log('[PlayerBarV2] Cannot go to previous: at beginning of queue or no queue');
+      return;
+    }
 
-  const handleNext = useCallback(() => {
-    next();
-  }, [next]);
+    try {
+      console.log(`[PlayerBarV2] Navigating to previous track (index ${queueIndex} -> ${queueIndex - 1})`);
+      await previous();
+      info('Previous track');
+    } catch (err: any) {
+      console.error('[PlayerBarV2] Failed to go to previous:', err);
+      showError(`Failed to go to previous: ${err.message}`);
+    }
+  }, [queue, queueIndex, previous, info, showError]);
+
+  const handleNext = useCallback(async () => {
+    // Check if queue exists and current position allows going forward
+    if (!queue || queue.length === 0 || queueIndex >= queue.length - 1) {
+      console.log('[PlayerBarV2] Cannot go to next: at end of queue or no queue');
+      return;
+    }
+
+    try {
+      console.log(`[PlayerBarV2] Navigating to next track (index ${queueIndex} -> ${queueIndex + 1})`);
+      await next();
+      info('Next track');
+    } catch (err: any) {
+      console.error('[PlayerBarV2] Failed to skip to next:', err);
+      showError(`Failed to skip to next: ${err.message}`);
+    }
+  }, [queue, queueIndex, next, info, showError]);
 
   // Prepare player state for PlayerBarV2
   // IMPORTANT: Use player.isPlaying (unified player state) NOT Redux isPlaying
@@ -136,7 +164,9 @@ const PlayerBarV2Connected: React.FC = () => {
     currentTime: player.currentTime || 0,
     duration: player.duration || 0,
     volume: volume || 0.8,
-    isEnhanced: enhancementSettings.enabled
+    isEnhanced: enhancementSettings.enabled,
+    queue: queue || [],
+    queueIndex: queueIndex
   };
 
   return (

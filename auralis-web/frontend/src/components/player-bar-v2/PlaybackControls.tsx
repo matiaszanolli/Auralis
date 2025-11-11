@@ -21,6 +21,8 @@ interface PlaybackControlsProps {
   onPlayPause: () => void;
   onPrevious: () => void;
   onNext: () => void;
+  queueLength?: number;
+  queueIndex?: number;
 }
 
 const ControlsContainer = styled(Box)({
@@ -35,13 +37,19 @@ const ControlButton = styled(IconButton)({
   color: tokens.colors.text.primary,
   transition: tokens.transitions.all,
 
-  '&:hover': {
+  '&:hover:not(:disabled)': {
     transform: 'scale(1.1)',
     backgroundColor: tokens.colors.bg.elevated,
   },
 
-  '&:active': {
+  '&:active:not(:disabled)': {
     transform: 'scale(0.95)',
+  },
+
+  '&:disabled': {
+    color: tokens.colors.text.tertiary,
+    opacity: 0.5,
+    cursor: 'not-allowed',
   },
 
   '& .MuiSvgIcon-root': {
@@ -117,14 +125,21 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = React.memo(({
   onPlayPause,
   onPrevious,
   onNext,
+  queueLength = 0,
+  queueIndex = 0,
 }) => {
+  // Determine if navigation buttons should be disabled
+  const canGoPrevious = queueLength > 0 && queueIndex > 0;
+  const canGoNext = queueLength > 0 && queueIndex < queueLength - 1;
+
   return (
     <ControlsContainer>
       {/* Previous track */}
       <ControlButton
         onClick={onPrevious}
+        disabled={!canGoPrevious}
         aria-label="Previous track"
-        title="Previous track (Ctrl+Left)"
+        title={canGoPrevious ? "Previous track (Ctrl+Left)" : "No previous track"}
       >
         <SkipPreviousIcon />
       </ControlButton>
@@ -141,8 +156,9 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = React.memo(({
       {/* Next track */}
       <ControlButton
         onClick={onNext}
+        disabled={!canGoNext}
         aria-label="Next track"
-        title="Next track (Ctrl+Right)"
+        title={canGoNext ? "Next track (Ctrl+Right)" : "No next track"}
       >
         <SkipNextIcon />
       </ControlButton>
