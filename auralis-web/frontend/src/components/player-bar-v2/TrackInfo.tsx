@@ -4,14 +4,17 @@
  * Features:
  * - Album artwork with fallback
  * - Track title and artist
+ * - Favorite button toggle
  * - Text truncation for long names
  * - Smooth animations
  */
 
-import React from 'react';
-import { Box, Typography, styled } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, IconButton, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 
 interface TrackInfoProps {
   track: {
@@ -64,6 +67,32 @@ const TrackDetails = styled(Box)({
   flex: 1,
 });
 
+const TitleContainer = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: tokens.spacing.sm,
+  minWidth: 0,
+});
+
+const FavoriteButton = styled(IconButton)({
+  color: tokens.colors.text.secondary,
+  padding: 0,
+  minWidth: '24px',
+  width: '24px',
+  height: '24px',
+  flexShrink: 0,
+  transition: tokens.transitions.all,
+
+  '&:hover': {
+    color: tokens.colors.status.error,
+    transform: 'scale(1.2)',
+  },
+
+  '& .MuiSvgIcon-root': {
+    fontSize: '20px',
+  },
+});
+
 const TrackTitle = styled(Typography)({
   fontSize: tokens.typography.fontSize.base,
   fontWeight: tokens.typography.fontWeight.semibold,
@@ -90,6 +119,13 @@ const TrackArtist = styled(Typography)({
 });
 
 export const TrackInfo: React.FC<TrackInfoProps> = React.memo(({ track }) => {
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  const handleFavoriteToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsFavorite(!isFavorite);
+  };
+
   if (!track) {
     return (
       <TrackInfoContainer>
@@ -123,9 +159,19 @@ export const TrackInfo: React.FC<TrackInfoProps> = React.memo(({ track }) => {
       </AlbumArtwork>
 
       <TrackDetails>
-        <TrackTitle title={track.title}>
-          {track.title || 'Unknown Track'}
-        </TrackTitle>
+        <TitleContainer>
+          <TrackTitle title={track.title} sx={{ flex: 1 }}>
+            {track.title || 'Unknown Track'}
+          </TrackTitle>
+          <FavoriteButton
+            onClick={handleFavoriteToggle}
+            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            size="small"
+          >
+            {isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+          </FavoriteButton>
+        </TitleContainer>
         <TrackArtist title={track.artist}>
           {track.artist || 'Unknown Artist'}
         </TrackArtist>

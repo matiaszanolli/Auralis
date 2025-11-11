@@ -27,6 +27,8 @@ interface PlayerBarV2Props {
     duration: number;
     volume: number;
     isEnhanced: boolean;
+    queue?: any[];
+    queueIndex?: number;
   };
   onPlay: () => void;
   onPause: () => void;
@@ -158,6 +160,8 @@ export const PlayerBarV2: React.FC<PlayerBarV2Props> = React.memo(({
           onPlayPause={handlePlayPause}
           onPrevious={onPrevious}
           onNext={onNext}
+          queueLength={player.queue?.length || 0}
+          queueIndex={player.queueIndex || 0}
         />
       </CenterSection>
 
