@@ -134,7 +134,9 @@ export const BottomPlayerBarUnified: React.FC = () => {
     queue,
     queueIndex,
     next: nextTrack,
-    previous: previousTrack
+    previous: previousTrack,
+    play: apiPlay,
+    pause: apiPause
   } = usePlayerAPI();
 
   // Unified WebM Audio Player
@@ -171,18 +173,26 @@ export const BottomPlayerBarUnified: React.FC = () => {
     }
   }, [player.error]);
 
-  // Handle play/pause
+  // Handle play/pause - CRITICAL FIX: Sync both backend and Web Audio API
+  // This ensures play/pause state is consistent across all clients via WebSocket
   const handlePlayPause = useCallback(async () => {
     try {
       if (player.isPlaying) {
-        player.pause();
+        // Pause both Web Audio API and Backend
+        console.log('[Player] Pausing playback (both Web Audio API and Backend)');
+        player.pause();        // Stop Web Audio API immediately
+        await apiPause();      // Update backend state (broadcasts via WebSocket)
       } else {
-        await player.play();
+        // Play both Web Audio API and Backend
+        console.log('[Player] Starting playback (both Web Audio API and Backend)');
+        await player.play();   // Start Web Audio API
+        await apiPlay();       // Update backend state (broadcasts via WebSocket)
       }
     } catch (err: any) {
+      console.error('[Player] Playback error:', err);
       showError(`Playback error: ${err.message}`);
     }
-  }, [player.isPlaying]);
+  }, [player.isPlaying, apiPlay, apiPause]);
 
   // Handle next track (sync with queue)
   const handleNext = useCallback(async () => {
