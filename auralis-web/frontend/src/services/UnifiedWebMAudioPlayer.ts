@@ -220,7 +220,10 @@ export class UnifiedWebMAudioPlayer {
     if (chunkIndex >= this.chunks.length) return;
 
     const chunk = this.chunks[chunkIndex];
-    if (chunk.isLoaded || chunk.isLoading) return;
+    // Only skip if already loaded (with valid audioBuffer)
+    // If loading or previously failed, we should retry
+    if (chunk.isLoaded && chunk.audioBuffer) return;
+    if (chunk.isLoading) return;
 
     chunk.isLoading = true;
     this.debug(`Preloading chunk ${chunkIndex}/${this.chunks.length}`);
@@ -270,12 +273,17 @@ export class UnifiedWebMAudioPlayer {
       for (let i = 1; i <= this.config.preloadChunks; i++) {
         const nextIdx = chunkIndex + i;
         if (nextIdx < this.chunks.length) {
-          this.preloadChunk(nextIdx); // Fire and forget
+          // Fire and forget, but catch errors to prevent breaking the preload chain
+          this.preloadChunk(nextIdx).catch((error: any) => {
+            this.debug(`Error preloading next chunk ${nextIdx}: ${error.message}`);
+            // Don't rethrow - let other chunks continue loading
+          });
         }
       }
 
     } catch (error: any) {
       chunk.isLoading = false;
+      chunk.audioBuffer = null; // Clear any partial state
       this.debug(`Error preloading chunk ${chunkIndex}: ${error.message}`);
       throw error;
     }
@@ -334,7 +342,17 @@ export class UnifiedWebMAudioPlayer {
   private async playChunk(chunkIndex: number, offset: number = 0): Promise<void> {
     const chunk = this.chunks[chunkIndex];
     if (!chunk.audioBuffer) {
-      throw new Error(`Chunk ${chunkIndex} not loaded`);
+      // Instead of throwing immediately, try to reload the chunk
+      this.debug(`Chunk ${chunkIndex} audioBuffer is null, attempting to reload...`);
+      try {
+        await this.preloadChunk(chunkIndex);
+        if (!this.chunks[chunkIndex].audioBuffer) {
+          throw new Error(`Chunk ${chunkIndex} failed to load and has no audio buffer`);
+        }
+      } catch (error: any) {
+        this.debug(`Failed to load chunk ${chunkIndex}: ${error.message}`);
+        throw new Error(`Chunk ${chunkIndex} not loaded: ${error.message}`);
+      }
     }
 
     const chunkInterval = this.metadata?.chunk_interval || this.metadata?.chunk_duration || 10;
