@@ -88,51 +88,6 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   // Ref to track if we're currently fetching (prevents duplicate requests from observer)
   const isFetchingRef = useRef(false);
 
-  useEffect(() => {
-    fetchAlbums(true);
-  }, []);
-
-  // Infinite scroll using Intersection Observer for better performance and immediate triggering
-  useEffect(() => {
-    const triggerElement = loadMoreTriggerRef.current;
-    if (!triggerElement) return;
-
-    // Intersection Observer immediately detects when element comes into view
-    // and loads content without waiting for scroll event
-    const observer = new IntersectionObserver(
-      entries => {
-        entries.forEach(entry => {
-          // Load more when sentinel element is close to or within viewport
-          // Use a ref to prevent multiple simultaneous requests
-          if ((entry.isIntersecting || entry.boundingClientRect.top < window.innerHeight + 500) &&
-              !isFetchingRef.current &&
-              hasMore) {
-            isFetchingRef.current = true;
-
-            // Calculate new offset directly instead of calling loadMore()
-            const limit = 50;
-            const newOffset = offset + limit;
-            setOffset(newOffset);
-            fetchAlbums(false, newOffset).finally(() => {
-              isFetchingRef.current = false;
-            });
-          }
-        });
-      },
-      {
-        root: null, // Use viewport as root
-        rootMargin: '500px', // Trigger loading 500px before element enters viewport
-        threshold: 0.01 // Low threshold for early detection
-      }
-    );
-
-    observer.observe(triggerElement);
-
-    return () => {
-      observer.unobserve(triggerElement);
-    };
-  }, [hasMore, offset, fetchAlbums]);
-
   const fetchAlbums = useCallback(async (resetPagination = false, overrideOffset?: number) => {
     if (resetPagination) {
       setLoading(true);
@@ -207,6 +162,48 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     }
     return `${minutes}m`;
   };
+
+  // Initial fetch on component mount
+  useEffect(() => {
+    fetchAlbums(true);
+  }, [fetchAlbums]);
+
+  // Infinite scroll using Intersection Observer for better performance
+  useEffect(() => {
+    const triggerElement = loadMoreTriggerRef.current;
+    if (!triggerElement) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if ((entry.isIntersecting || entry.boundingClientRect.top < window.innerHeight + 500) &&
+              !isFetchingRef.current &&
+              hasMore) {
+            isFetchingRef.current = true;
+            const limit = 50;
+            const newOffset = offset + limit;
+            setOffset(newOffset);
+            fetchAlbums(false, newOffset).finally(() => {
+              isFetchingRef.current = false;
+            });
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '200px',
+        threshold: 0.01
+      }
+    );
+
+    observer.observe(triggerElement);
+
+    return () => {
+      if (triggerElement) {
+        observer.unobserve(triggerElement);
+      }
+    };
+  }, [hasMore, offset, fetchAlbums]);
 
   if (loading) {
     return (
