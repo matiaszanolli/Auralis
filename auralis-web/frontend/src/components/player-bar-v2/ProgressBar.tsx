@@ -229,6 +229,8 @@ export const ProgressBar: React.FC<ProgressBarProps> = React.memo(({
           onChangeCommitted={handleSeekEnd}
           valueLabelDisplay="auto"
           valueLabelFormat={formatTime}
+          aria-label="Seek"
+          aria-valuetext={`${formatTime(displayTime)} of ${formatTime(duration)}`}
         />
       </SliderContainer>
 
