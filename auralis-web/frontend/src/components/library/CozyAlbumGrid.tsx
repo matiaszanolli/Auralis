@@ -82,10 +82,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   // Ref for scroll container
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Ref for load more trigger element
-  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
-
-  // Ref to track if we're currently fetching (prevents duplicate requests from observer)
+  // Ref to track if we're currently fetching (prevents duplicate requests)
   const isFetchingRef = useRef(false);
 
   const fetchAlbums = useCallback(async (resetPagination = false, overrideOffset?: number) => {
@@ -168,42 +165,25 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     fetchAlbums(true);
   }, []);
 
-  // Infinite scroll using Intersection Observer for better performance
+  // Load more albums when we're running low on content
   useEffect(() => {
-    const triggerElement = loadMoreTriggerRef.current;
-    if (!triggerElement) return;
+    // Check if we need to load more content
+    // Load when we have content but are showing less than 60% of total available
+    if (albums.length > 0 &&
+        albums.length < totalAlbums &&
+        !isLoadingMore &&
+        hasMore &&
+        albums.length < 150) {  // Load more if we have less than 150 albums loaded
 
-    const observer = new IntersectionObserver(
-      entries => {
-        entries.forEach(entry => {
-          if ((entry.isIntersecting || entry.boundingClientRect.top < window.innerHeight + 500) &&
-              !isFetchingRef.current &&
-              hasMore) {
-            isFetchingRef.current = true;
-            const limit = 50;
-            const newOffset = offset + limit;
-            setOffset(newOffset);
-            fetchAlbums(false, newOffset).finally(() => {
-              isFetchingRef.current = false;
-            });
-          }
-        });
-      },
-      {
-        root: null,
-        rootMargin: '200px',
-        threshold: 0.01
-      }
-    );
+      const limit = 50;
+      const newOffset = albums.length;  // Use actual loaded count as offset
 
-    observer.observe(triggerElement);
-
-    return () => {
-      if (triggerElement) {
-        observer.unobserve(triggerElement);
-      }
-    };
-  }, [hasMore, offset, fetchAlbums]);
+      isFetchingRef.current = true;
+      fetchAlbums(false, newOffset).finally(() => {
+        isFetchingRef.current = false;
+      });
+    }
+  }, [albums.length, totalAlbums, isLoadingMore, hasMore, fetchAlbums]);
 
   if (loading) {
     return (
@@ -272,17 +252,6 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
           </Grid>
         ))}
       </Grid>
-
-      {/* Load more trigger - invisible sentinel element */}
-      {hasMore && (
-        <Box
-          ref={loadMoreTriggerRef}
-          sx={{
-            height: '1px',
-            width: '100%',
-          }}
-        />
-      )}
 
       {/* Loading indicator */}
       {isLoadingMore && (
