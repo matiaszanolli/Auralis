@@ -17,7 +17,7 @@ import EnhancementToggle from './EnhancementToggle';
 import AudioCharacteristics from './AudioCharacteristics';
 import ProcessingParameters from './ProcessingParameters';
 import InfoBox from './InfoBox';
-import EmptyState from './EmptyState';
+import { EmptyState } from '../shared/EmptyState';
 import LoadingState from './LoadingState';
 
 interface ProcessingParams {
@@ -214,7 +214,13 @@ const EnhancementPaneV2: React.FC<EnhancementPaneV2Props> = React.memo(({
         {settings.enabled && !params && isAnalyzing && <LoadingState />}
 
         {/* Empty State - when enabled but no track playing */}
-        {settings.enabled && !params && !isAnalyzing && <EmptyState />}
+        {settings.enabled && !params && !isAnalyzing && (
+          <EmptyState
+            icon="music"
+            title="No track playing"
+            description="Play a track to see auto-mastering parameters"
+          />
+        )}
 
         {/* Disabled State */}
         {!settings.enabled && (

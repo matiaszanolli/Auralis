@@ -25,7 +25,8 @@ interface ProcessingParametersProps {
 }
 
 const ProcessingParameters: React.FC<ProcessingParametersProps> = React.memo(({ params }) => {
-  const formatParam = (value: number, decimals: number = 1): string => {
+  const formatParam = (value: number | undefined, decimals: number = 1): string => {
+    if (value === undefined || value === null) return '—';
     return value.toFixed(decimals);
   };
 
@@ -84,7 +85,7 @@ const ProcessingParameters: React.FC<ProcessingParametersProps> = React.memo(({ 
         </Box>
 
         {/* Bass Adjustment (conditional) */}
-        {Math.abs(params.bass_boost) > 0.1 && (
+        {params.bass_boost !== undefined && params.bass_boost !== null && Math.abs(params.bass_boost) > 0.1 && (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
               Bass Adjustment
@@ -103,7 +104,7 @@ const ProcessingParameters: React.FC<ProcessingParametersProps> = React.memo(({ 
         )}
 
         {/* Air Adjustment (conditional) */}
-        {Math.abs(params.air_boost) > 0.1 && (
+        {params.air_boost !== undefined && params.air_boost !== null && Math.abs(params.air_boost) > 0.1 && (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
               Air Adjustment
@@ -122,7 +123,7 @@ const ProcessingParameters: React.FC<ProcessingParametersProps> = React.memo(({ 
         )}
 
         {/* Compression (conditional) */}
-        {params.compression_amount > 0.05 && (
+        {params.compression_amount !== undefined && params.compression_amount !== null && params.compression_amount > 0.05 && (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
               <Compress sx={{ fontSize: tokens.typography.fontSize.sm, mr: tokens.spacing.xs, verticalAlign: 'middle' }} />
@@ -142,7 +143,7 @@ const ProcessingParameters: React.FC<ProcessingParametersProps> = React.memo(({ 
         )}
 
         {/* Expansion (conditional) */}
-        {params.expansion_amount > 0.05 && (
+        {params.expansion_amount !== undefined && params.expansion_amount !== null && params.expansion_amount > 0.05 && (
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
               Expansion
@@ -173,7 +174,7 @@ const ProcessingParameters: React.FC<ProcessingParametersProps> = React.memo(({ 
               fontSize: tokens.typography.fontSize.sm,
             }}
           >
-            {Math.round(params.stereo_width * 100)}%
+            {params.stereo_width !== undefined && params.stereo_width !== null ? Math.round(params.stereo_width * 100) : '—'}%
           </Typography>
         </Box>
       </Stack>
