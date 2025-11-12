@@ -16,11 +16,11 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CozyLibraryView from '../CozyLibraryView';
-import { useLibraryData } from '../../hooks/useLibraryData';
+import { useLibraryWithStats } from '../../hooks/useLibraryWithStats';
 import { usePlayerAPI } from '../../hooks/usePlayerAPI';
 import { auralisTheme } from '../../theme/auralisTheme';
 
-jest.mock('../../hooks/useLibraryData');
+jest.mock('../../hooks/useLibraryWithStats');
 jest.mock('../../hooks/usePlayerAPI');
 jest.mock('../CozyAlbumGrid', () => {
   return function MockGrid({ albums, onAlbumClick }: any) {
@@ -60,21 +60,40 @@ jest.mock('../GlobalSearch', () => {
   };
 });
 
-const mockLibraryData = {
-  albums: [
-    { id: 1, title: 'Album 1', artist: 'Artist 1', tracks: [] },
-    { id: 2, title: 'Album 2', artist: 'Artist 2', tracks: [] },
-  ],
-  artists: [
-    { id: 1, name: 'Artist 1', albums: 5 },
-    { id: 2, name: 'Artist 2', albums: 3 },
-  ],
+const mockLibraryWithStats = {
+  // Data
   tracks: [
-    { id: 1, title: 'Track 1', artist: 'Artist 1' },
-    { id: 2, title: 'Track 2', artist: 'Artist 2' },
+    { id: 1, title: 'Track 1', artist: 'Artist 1', album: 'Album 1', duration: 180 },
+    { id: 2, title: 'Track 2', artist: 'Artist 2', album: 'Album 2', duration: 220 },
   ],
-  isLoading: false,
+  stats: {
+    total_tracks: 100,
+    total_artists: 25,
+    total_albums: 15,
+    total_genres: 8,
+    total_playlists: 3,
+    total_duration: 36000,
+    total_duration_formatted: '10 hours',
+    total_filesize: 5000000000,
+    total_filesize_gb: 5.0
+  },
+
+  // State
+  loading: false,
   error: null,
+  hasMore: true,
+  totalTracks: 100,
+  offset: 0,
+  isLoadingMore: false,
+  scanning: false,
+  statsLoading: false,
+
+  // Methods
+  fetchTracks: jest.fn(),
+  loadMore: jest.fn(),
+  handleScanFolder: jest.fn(),
+  refetchStats: jest.fn(),
+  isElectron: jest.fn(() => false),
 };
 
 const mockPlayerAPI = {
@@ -93,7 +112,7 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 describe('CozyLibraryView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (useLibraryData as jest.Mock).mockReturnValue(mockLibraryData);
+    (useLibraryWithStats as jest.Mock).mockReturnValue(mockLibraryWithStats);
     (usePlayerAPI as jest.Mock).mockReturnValue(mockPlayerAPI);
   });
 
