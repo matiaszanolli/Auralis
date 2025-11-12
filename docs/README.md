@@ -1,8 +1,8 @@
 # Auralis Documentation Index
 
-**Last Updated**: October 31, 2025
-**Current Version**: v1.0.0-beta.6
-**Total Documentation Files**: 185+ files (reorganized and optimized)
+**Last Updated**: November 11, 2025
+**Current Version**: v1.0.0-beta.12
+**Total Documentation Files**: 120 active files (cleaned up from 381)
 
 This directory contains all technical documentation for the Auralis project. Documentation is organized by category for easy navigation.
 
@@ -13,13 +13,12 @@ This directory contains all technical documentation for the Auralis project. Doc
 **New to Auralis?** Start here:
 - [Main README](../README.md) - Project overview and quick start
 - [CLAUDE.md](../CLAUDE.md) - Development guidelines and architecture
-- [RELEASE_NOTES_BETA5.md](../RELEASE_NOTES_BETA5.md) - Latest release (Beta.5)
+- [MASTER_ROADMAP.md](MASTER_ROADMAP.md) - Current development roadmap
 
-**Latest Work** (October 31, 2025):
-- **[MSE Migration](sessions/oct30_beta7_mse_migration/)** - MSE progressive streaming activation (Beta.7)
-- **[Beta.6 Phase 2 Interactions](sessions/oct30_beta6_phase2_interactions/)** - Drag-drop, keyboard shortcuts, batch ops
-- **[RELEASE_NOTES_BETA6.md](../RELEASE_NOTES_BETA6.md)** - Latest release (Beta.6)
-- **[BETA7_ROADMAP.md](../BETA7_ROADMAP.md)** - Beta.7 & Beta.8 roadmap
+**Latest Work** (November 2025):
+- **[nov9 Sessions](sessions/nov9_keyboard_shortcuts_reenabled/)** - Latest improvements
+- **[nov6_design_system](sessions/nov6_design_system/)** - Design system implementation
+- **[nov5_cache_simplification](sessions/nov5_cache_simplification/)** - Cache optimization
 
 ---
 
@@ -28,56 +27,52 @@ This directory contains all technical documentation for the Auralis project. Doc
 ```
 docs/
 ├── README.md (this file)           # Documentation index
-├── TESTING_PLAN.md                 # Testing roadmap
+├── MASTER_ROADMAP.md               # Current development roadmap
 │
-├── completed/                      # Completed features (~25 files)
+├── completed/                      # Completed features (25 files)
 │   ├── performance/                # Performance optimization (4 files)
 │   ├── discoveries/                # Important findings (2 files)
 │   ├── testing/                    # Test summaries (1 file)
 │   └── *.md                        # Feature completions
 │
-├── sessions/                       # Development sessions
-│   ├── oct30_beta7_mse_migration/   # ⭐ LATEST: MSE progressive streaming (Beta.7)
-│   ├── oct30_beta6_phase2_interactions/ # ⭐ NEW: Enhanced interactions (8 files)
-│   ├── oct30_beta6_hotfix/          # Beta.6 hotfix (circular dependency)
-│   ├── oct29_tests_and_25d/         # Test improvements (2 files)
-│   ├── oct28_beta5_release/         # Beta.5 release (5 files)
-│   ├── oct28_beta4_tests/           # Beta.4 test fixes (5 files)
-│   ├── oct28_fingerprint_phase2/    # Fingerprint similarity system (8 files)
-│   ├── oct27_mse_integration/       # MSE + Multi-Tier Buffer (8 files)
-│   ├── oct27_beta4_ui_improvements/ # Beta.4 UI work (7 files)
-│   └── (earlier sessions...)
+├── sessions/                       # Active development sessions (5 recent)
+│   ├── nov9_keyboard_shortcuts_reenabled/  # ⭐ LATEST: Keyboard shortcuts
+│   ├── nov9_quick_wins/            # UI quick wins
+│   ├── nov9_ui_overhaul/           # UI improvements
+│   ├── nov6_design_system/         # Design system
+│   └── nov5_cache_simplification/  # Cache optimization
 │
-├── guides/                         # Implementation guides (6 files)
-│   └── SIMILARITY_UI_INTEGRATION_GUIDE.md  # ⭐ NEW: UI integration
+├── guides/                         # Implementation guides (12 files)
+│   ├── VALIDATION_GUIDE.md         # Mastering quality validation
+│   ├── UI_DESIGN_GUIDELINES.md     # UI rules and patterns
+│   └── *.md                        # Feature-specific guides
 │
-├── roadmaps/                       # Current roadmaps (2 files)
 ├── versions/                       # Version management (5 files)
-├── development/                    # Dev guides (3 files)
+├── development/                    # Dev guides (5 files, testing & architecture)
 ├── deployment/                     # Deployment docs (3 files)
-├── troubleshooting/                # Debug guides (1 file)
-└── archive/                        # Historical docs
-    └── releases/                   # ⭐ NEW: Old release notes
+├── troubleshooting/                # Debug guides (3 files)
+│
+└── archive/                        # Historical documentation (341 files)
+    ├── sessions/                   # Oct-early Nov sessions (24 folders)
+    └── releases/                   # Old release notes
 ```
 
 ---
 
-## 📋 Current Status (October 28, 2025)
+## 📋 Current Status (November 11, 2025)
 
 ### Version
-**v1.0.0-beta.5** - Production-ready with 25D Audio Fingerprint Similarity System
+**v1.0.0-beta.12** - Production-ready with advanced audio processing and UI polish
 
-### Latest Release
-**Status**: ✅ Production Ready
-**Major Feature**: 25D Audio Fingerprint Similarity System
-**New Code**: 4,486 lines (4 sessions)
-**Test Results**: 98 comprehensive tests (95% pass rate)
-**Build**: Fresh clean build with new checksums
+### Latest Session (Nov 9, 2025)
+**Status**: ✅ Keyboard shortcuts re-enabled + UI improvements
+**Work**: Keyboard shortcuts, quick wins, UI overhaul
+**Sessions**: nov9_keyboard_shortcuts_reenabled/, nov9_quick_wins/, nov9_ui_overhaul/
 
-**See**:
-- [RELEASE_NOTES_BETA5.md](../RELEASE_NOTES_BETA5.md) - Complete release notes
-- [BUILD_BETA5_COMPLETE.md](../BUILD_BETA5_COMPLETE.md) - Build summary
-- [sessions/oct28_fingerprint_phase2/](sessions/oct28_fingerprint_phase2/) - Implementation details
+**Documentation**:
+- [MASTER_ROADMAP.md](MASTER_ROADMAP.md) - Current development priorities
+- Latest sessions in [sessions/](sessions/) - Nov 5-9 work
+- [archive/sessions/](archive/sessions/) - Historical Oct-early Nov work (24 folders)
 
 ---
 
@@ -157,7 +152,7 @@ docs/
 - **[guides/PRESET_ARCHITECTURE_RESEARCH.md](guides/PRESET_ARCHITECTURE_RESEARCH.md)** - Preset system design
 - **[guides/MULTI_TIER_BUFFER_ARCHITECTURE.md](guides/MULTI_TIER_BUFFER_ARCHITECTURE.md)** - Buffer architecture
 - **[guides/REFACTORING_QUICK_START.md](guides/REFACTORING_QUICK_START.md)** - Code refactoring guide
-- **[guides/UI_QUICK_WINS.md](guides/UI_QUICK_WINS.md)** - UI improvement guide
+- **[guides/UI_DESIGN_GUIDELINES.md](guides/UI_DESIGN_GUIDELINES.md)** - UI rules and design patterns
 
 #### Version Management
 - **[versions/VERSIONING_STRATEGY.md](versions/VERSIONING_STRATEGY.md)** - Semantic versioning
@@ -229,28 +224,30 @@ docs/
 
 ## 📊 Documentation Statistics
 
-**Current State**:
-- Total markdown files: ~180 files
-- Root directory: 16 files (cleaned from 26)
-- Sessions: 8 active sessions
-- Archive: Historical releases and research
-- Total size: ~2.2 MB
+**Current State** (November 11, 2025):
+- **Total markdown files**: 120 active files (reduced from 381)
+- **Active sessions**: 5 recent (Nov 5-9)
+- **Archive**: 341 historical files (Oct 25 - Nov 4 + old releases)
+- **Total size**: ~1.1 MB (47% reduction)
 
-**Recent Changes** (Oct 28, 2025):
-- ✅ Created oct28_fingerprint_phase2/ session (5 files)
-- ✅ Moved 11 fingerprint files from root → sessions
-- ✅ Archived Beta.3 & Beta.4 release notes
-- ✅ Deleted 3 redundant COMPLETE files
-- ✅ Moved UI integration guide to guides/
-- ✅ 38% reduction in root directory clutter
+**November 11 Cleanup**:
+- ✅ Deleted 32 obsolete files (phase plans, old beta releases, test logs)
+- ✅ Archived 341 session docs (Oct 25 - Nov 4) to docs/archive/sessions/
+- ✅ Consolidated validation docs (3 files → 1 VALIDATION_GUIDE.md)
+- ✅ Consolidated testing guides (12 historical reports deleted)
+- ✅ Consolidated roadmaps (13 files → 1 MASTER_ROADMAP.md)
+- ✅ Consolidated UI design docs (1 outdated guide removed)
+- ✅ Updated README.md references
+- ✅ **Reduced docs from 381 → 120 active files**
 
 ---
 
 ## 🔄 Documentation Maintenance
 
-**Last Reorganization**: October 28, 2025
-**Next Review**: After Beta.6 release
-**Cleanup Needed**: Archive pre-Beta.3 sessions (scheduled)
+**Last Reorganization**: November 11, 2025
+**Previous State**: 381 files (excessive for single-person team)
+**Current State**: 120 active files (recommended: 80-120 for this project size)
+**Status**: ✅ Clean and organized
 
 **Contributing**:
 - Follow existing structure
@@ -274,6 +271,6 @@ docs/
 
 ---
 
-**Last Updated**: October 28, 2025
+**Last Updated**: November 11, 2025
 **Maintained by**: Auralis Development Team
-**Version**: Documentation Index v3.0 (Beta.5 reorganization)
+**Version**: Documentation Index v4.0 (November cleanup: 381 → 120 files)
