@@ -1,6 +1,6 @@
 {
   "name": "auralis-web-frontend",
-  "version": "1.0.0-beta.12",
+  "version": "1.0.0-beta.12.1",
   "description": "Modern web frontend for Auralis audio processing",
   "private": true,
   "dependencies": {
