@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: Phase 1, 2, 3b & 4b Complete | Phase 3a & 4a Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: Phase 1, 2, 3b, 4a & 4b Complete | Phase 3a Ready | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -27,14 +27,22 @@
 - ✅ All 49 tests passing (28 player-bar + 21 enhancement-pane)
 - ✅ Variant pattern established for 'button' and 'switch' UI styles
 
-### Phase 4b: Library Data & Statistics Hook Consolidation (0 net lines - composition)
+### Phase 4a: Player Hook Consolidation (611 new composition hook)
+- ✅ Created `usePlayerWithAudio` composition hook (611 lines)
+- ✅ Unified `usePlayerAPI` (393 lines) + `useUnifiedWebMAudioPlayer` (218 lines) functionality
+- ✅ Updated `BottomPlayerBarUnified` to use new composition hook
+- ✅ Unified loading/error state and automatic track syncing
+- ✅ Updated all tests (25+) with zero failures
+- ✅ Build succeeds with 11643 modules transformed
+
+### Phase 4b: Library Data & Statistics Hook Consolidation (374 new composition hook)
 - ✅ Created `useLibraryWithStats` composition hook (374 lines)
 - ✅ Unified `useLibraryData` (318 lines) + `useLibraryStats` (56 lines) functionality
 - ✅ Updated `CozyLibraryView` to use new composition hook
 - ✅ Optional stats loading for performance optimization
-- ✅ Composition hook pattern established for future consolidations
+- ✅ Composition hook pattern established and reused in Phase 4a
 
-**Cumulative Impact**: ~550 lines reduced + 374 new composition hook, 5 services refactored, 3 patterns unified
+**Cumulative Impact**: ~550 lines reduced + 985 lines of new composition hooks, 5 services refactored, 4 patterns unified, composition hook pattern proven effective
 
 ---
 
@@ -177,6 +185,15 @@ LOW IMPACT + HIGH EFFORT:
 ## 🎯 Recommended Next Steps
 
 ### ✅ Just Completed
+- **Phase 4a - Player Hook Consolidation** (4-5 hours) ⭐ NEW
+  - ✅ Created usePlayerWithAudio composition hook (611 lines)
+  - ✅ Unified usePlayerAPI (393 lines) + useUnifiedWebMAudioPlayer (218 lines)
+  - ✅ Updated BottomPlayerBarUnified with simplified state management
+  - ✅ 25+ tests updated with zero failures
+  - ✅ Build succeeds with zero errors (11643 modules)
+  - ✅ Consolidated error handling (unified playerError + audioError)
+  - ✅ Automatic track syncing between backend and Web Audio API
+
 - **Phase 3b - EnhancementToggle Consolidation** (2-3 hours)
   - ✅ Unified 2 implementations into 1 parametrized component
   - ✅ 96+ lines reduced across wrapper components
@@ -187,27 +204,22 @@ LOW IMPACT + HIGH EFFORT:
   - ✅ Created useLibraryWithStats composition hook (374 lines)
   - ✅ Unified useLibraryData (318 lines) + useLibraryStats (56 lines)
   - ✅ Optional stats loading for performance
-  - ✅ Established composition hook pattern for future work
+  - ✅ Established composition hook pattern (reused in Phase 4a)
 
 ### Immediate (Next Session)
-1. **Phase 4a - Player Hook Consolidation** (4-5 hours)
-   - Consolidate usePlayerAPI (393 lines) + useUnifiedWebMAudioPlayer (218 lines)
-   - Apply composition hook pattern from Phase 4b
-   - Used in BottomPlayerBarUnified (primary consumer)
-
-2. **Phase 3c - Error Handling Extraction** (3-4 hours)
+1. **Phase 3c - Error Handling Extraction** (3-4 hours)
    - Medium effort, improves app robustness
    - Establishes error handling patterns
    - Reduces duplicate logic in complex services
+   - Opportunity to apply lessons from unified error handling in Phase 4a
 
-### Short Term
-3. **Phase 3a - Keyboard Shortcuts** (4-5 hours)
+2. **Phase 3a - Keyboard Shortcuts** (4-5 hours)
    - Higher effort due to test file rewrite requirement
    - V2 consolidation is clean approach
    - Improves keyboard navigation testing
 
-### Long Term
-4. **Phase 5 - Streaming Services** (8-10 hours)
+### Short Term
+3. **Phase 5 - Streaming Services** (8-10 hours)
    - Complex refactoring
    - High impact on real-time features
    - Requires careful testing
