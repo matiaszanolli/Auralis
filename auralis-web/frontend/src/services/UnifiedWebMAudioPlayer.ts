@@ -107,6 +107,108 @@ class MultiTierWebMBuffer {
 }
 
 /**
+ * Priority Queue for Chunk Loading
+ * Ensures critical chunks (needed for playback) are loaded before background chunks
+ *
+ * Priority levels:
+ * 1. CRITICAL (0): Chunk currently being played
+ * 2. IMMEDIATE (1): Next chunk needed for continuous playback
+ * 3. SEEK_TARGET (2): Chunk user just seeked to
+ * 4. ADJACENT (3): Chunks ±1 around current position
+ * 5. BACKGROUND (4): All other chunks
+ */
+class ChunkLoadPriorityQueue {
+  private queue: Array<{ chunkIndex: number; priority: number; timestamp: number }> = [];
+  private isProcessing = false;
+  private activeLoads = new Map<number, Promise<void>>();
+
+  /**
+   * Add or update chunk in queue with given priority
+   * Lower number = higher priority
+   */
+  enqueue(chunkIndex: number, priority: number): void {
+    // Remove existing entry if present
+    this.queue = this.queue.filter(item => item.chunkIndex !== chunkIndex);
+
+    // Add with new priority and current timestamp
+    this.queue.push({
+      chunkIndex,
+      priority,
+      timestamp: Date.now()
+    });
+
+    // Sort by priority (ascending), then by timestamp (descending - newer first)
+    this.queue.sort((a, b) => {
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority; // Lower priority number first
+      }
+      return b.timestamp - a.timestamp; // Newer timestamps first
+    });
+  }
+
+  /**
+   * Get next chunk to load based on priority
+   */
+  dequeue(): { chunkIndex: number; priority: number } | null {
+    if (this.queue.length === 0) return null;
+
+    const item = this.queue.shift();
+    if (!item) return null;
+
+    return {
+      chunkIndex: item.chunkIndex,
+      priority: item.priority
+    };
+  }
+
+  /**
+   * Clear all chunks with given priority or lower (less urgent)
+   */
+  clearLowerPriority(priority: number): void {
+    this.queue = this.queue.filter(item => item.priority <= priority);
+  }
+
+  /**
+   * Clear entire queue
+   */
+  clear(): void {
+    this.queue = [];
+  }
+
+  /**
+   * Check if chunk is already queued or loading
+   */
+  isQueued(chunkIndex: number): boolean {
+    return this.queue.some(item => item.chunkIndex === chunkIndex) ||
+           this.activeLoads.has(chunkIndex);
+  }
+
+  /**
+   * Get current queue size
+   */
+  getSize(): number {
+    return this.queue.length;
+  }
+
+  /**
+   * Mark load as active
+   */
+  markActive(chunkIndex: number, promise: Promise<void>): void {
+    this.activeLoads.set(chunkIndex, promise);
+    promise.finally(() => {
+      this.activeLoads.delete(chunkIndex);
+    });
+  }
+
+  /**
+   * Check if chunk is currently loading
+   */
+  isLoading(chunkIndex: number): boolean {
+    return this.activeLoads.has(chunkIndex);
+  }
+}
+
+/**
  * Unified WebM Audio Player
  * Uses Web Audio API for all playback
  */
@@ -114,6 +216,7 @@ export class UnifiedWebMAudioPlayer {
   private config: Required<UnifiedWebMAudioPlayerConfig>;
   private audioContext: AudioContext;
   private buffer: MultiTierWebMBuffer;
+  private loadQueue: ChunkLoadPriorityQueue;
 
   // Track state
   private trackId: number | null = null;
@@ -134,6 +237,9 @@ export class UnifiedWebMAudioPlayer {
   // Event system
   private listeners: Map<string, Set<EventCallback>> = new Map();
 
+  // Queue processor
+  private queueProcessorRunning = false;
+
   constructor(config: UnifiedWebMAudioPlayerConfig = {}) {
     this.config = {
       apiBaseUrl: config.apiBaseUrl || 'http://localhost:8765',
@@ -152,6 +258,9 @@ export class UnifiedWebMAudioPlayer {
 
     // Initialize buffer
     this.buffer = new MultiTierWebMBuffer();
+
+    // Initialize priority queue
+    this.loadQueue = new ChunkLoadPriorityQueue();
 
     this.debug('UnifiedWebMAudioPlayer initialized');
   }
@@ -215,87 +324,120 @@ export class UnifiedWebMAudioPlayer {
 
   /**
    * Preload a chunk (fetch + decode)
+   * Now integrates with priority queue to respect seek operations
    */
-  private async preloadChunk(chunkIndex: number): Promise<void> {
+  private async preloadChunk(chunkIndex: number, priority: number = 4): Promise<void> {
     if (chunkIndex >= this.chunks.length) return;
 
     const chunk = this.chunks[chunkIndex];
     // Only skip if already loaded (with valid audioBuffer)
     // If loading or previously failed, we should retry
     if (chunk.isLoaded && chunk.audioBuffer) return;
-    if (chunk.isLoading) return;
 
-    chunk.isLoading = true;
-    this.debug(`Preloading chunk ${chunkIndex}/${this.chunks.length}`);
+    // Add to priority queue instead of loading immediately
+    this.loadQueue.enqueue(chunkIndex, priority);
+
+    // Start queue processor if not already running
+    if (!this.queueProcessorRunning) {
+      this.processLoadQueue();
+    }
+  }
+
+  /**
+   * Process the priority queue, loading chunks in order of priority
+   * This ensures seeks are prioritized over background preloads
+   */
+  private async processLoadQueue(): Promise<void> {
+    if (this.queueProcessorRunning) return;
+    this.queueProcessorRunning = true;
 
     try {
-      // Check buffer cache first
-      const cacheKey = this.buffer.getCacheKey(
-        this.trackId!,
-        chunkIndex,
-        this.config.enhanced,
-        this.config.preset
-      );
+      while (this.loadQueue.getSize() > 0) {
+        const nextItem = this.loadQueue.dequeue();
+        if (!nextItem) break;
 
-      let audioBuffer = this.buffer.get(cacheKey);
+        const { chunkIndex, priority } = nextItem;
 
-      if (!audioBuffer) {
-        // Fetch WebM chunk from NEW endpoint
-        const chunkUrl = `${this.config.apiBaseUrl}/api/stream/${this.trackId}/chunk/${chunkIndex}` +
-          `?enhanced=${this.config.enhanced}&preset=${this.config.preset}&intensity=${this.config.intensity}`;
+        // Skip if already loaded or currently loading
+        const chunk = this.chunks[chunkIndex];
+        if (chunk.isLoaded && chunk.audioBuffer) continue;
+        if (chunk.isLoading) continue;
 
-        const response = await fetch(chunkUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch chunk ${chunkIndex}: ${response.statusText}`);
-        }
+        // Mark as loading
+        chunk.isLoading = true;
+        this.debug(`[P${priority}] Loading chunk ${chunkIndex}/${this.chunks.length}`);
 
-        const cacheHeader = response.headers.get('X-Cache-Tier');
-        this.debug(`Chunk ${chunkIndex} cache: ${cacheHeader}`);
-
-        const arrayBuffer = await response.arrayBuffer();
-
-        if (arrayBuffer.byteLength === 0) {
-          throw new Error(`Chunk ${chunkIndex} returned empty data (0 bytes)`);
-        }
-
-        this.debug(`Decoding ${arrayBuffer.byteLength} bytes for chunk ${chunkIndex}...`);
-
-        // Decode WebM/Opus to AudioBuffer using Web Audio API
         try {
-          audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-        } catch (decodeError: any) {
-          throw new Error(`Failed to decode chunk ${chunkIndex}: ${decodeError.message || 'Unknown decode error'}`);
+          // Check buffer cache first
+          const cacheKey = this.buffer.getCacheKey(
+            this.trackId!,
+            chunkIndex,
+            this.config.enhanced,
+            this.config.preset
+          );
+
+          let audioBuffer = this.buffer.get(cacheKey);
+
+          if (!audioBuffer) {
+            // Fetch WebM chunk from endpoint
+            const chunkUrl = `${this.config.apiBaseUrl}/api/stream/${this.trackId}/chunk/${chunkIndex}` +
+              `?enhanced=${this.config.enhanced}&preset=${this.config.preset}&intensity=${this.config.intensity}`;
+
+            const response = await fetch(chunkUrl);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch chunk ${chunkIndex}: ${response.statusText}`);
+            }
+
+            const cacheHeader = response.headers.get('X-Cache-Tier');
+            this.debug(`[P${priority}] Chunk ${chunkIndex} cache: ${cacheHeader}`);
+
+            const arrayBuffer = await response.arrayBuffer();
+
+            if (arrayBuffer.byteLength === 0) {
+              throw new Error(`Chunk ${chunkIndex} returned empty data (0 bytes)`);
+            }
+
+            this.debug(`[P${priority}] Decoding ${arrayBuffer.byteLength} bytes for chunk ${chunkIndex}...`);
+
+            // Decode WebM/Opus to AudioBuffer using Web Audio API
+            try {
+              audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            } catch (decodeError: any) {
+              throw new Error(`Failed to decode chunk ${chunkIndex}: ${decodeError.message || 'Unknown decode error'}`);
+            }
+
+            // Cache decoded buffer
+            this.buffer.set(cacheKey, audioBuffer);
+          } else {
+            this.debug(`[P${priority}] Chunk ${chunkIndex} from buffer cache`);
+          }
+
+          chunk.audioBuffer = audioBuffer;
+          chunk.isLoaded = true;
+          chunk.isLoading = false;
+
+          this.debug(`[P${priority}] Chunk ${chunkIndex} ready (${audioBuffer.duration.toFixed(2)}s)`);
+
+          // Queue next chunks for background preload with lower priority
+          if (priority <= 2) {
+            // If this was a high-priority chunk, queue the next chunks
+            for (let i = 1; i <= this.config.preloadChunks; i++) {
+              const nextIdx = chunkIndex + i;
+              if (nextIdx < this.chunks.length && !this.loadQueue.isQueued(nextIdx)) {
+                this.loadQueue.enqueue(nextIdx, 4); // Background priority
+              }
+            }
+          }
+
+        } catch (error: any) {
+          chunk.isLoading = false;
+          chunk.audioBuffer = null; // Clear any partial state
+          this.debug(`[P${priority}] Error loading chunk ${chunkIndex}: ${error.message}`);
+          // Continue processing next items in queue
         }
-
-        // Cache decoded buffer
-        this.buffer.set(cacheKey, audioBuffer);
-      } else {
-        this.debug(`Chunk ${chunkIndex} from buffer cache`);
       }
-
-      chunk.audioBuffer = audioBuffer;
-      chunk.isLoaded = true;
-      chunk.isLoading = false;
-
-      this.debug(`Chunk ${chunkIndex} ready (${audioBuffer.duration.toFixed(2)}s)`);
-
-      // Preload next chunks
-      for (let i = 1; i <= this.config.preloadChunks; i++) {
-        const nextIdx = chunkIndex + i;
-        if (nextIdx < this.chunks.length) {
-          // Fire and forget, but catch errors to prevent breaking the preload chain
-          this.preloadChunk(nextIdx).catch((error: any) => {
-            this.debug(`Error preloading next chunk ${nextIdx}: ${error.message}`);
-            // Don't rethrow - let other chunks continue loading
-          });
-        }
-      }
-
-    } catch (error: any) {
-      chunk.isLoading = false;
-      chunk.audioBuffer = null; // Clear any partial state
-      this.debug(`Error preloading chunk ${chunkIndex}: ${error.message}`);
-      throw error;
+    } finally {
+      this.queueProcessorRunning = false;
     }
   }
 
@@ -399,11 +541,12 @@ export class UnifiedWebMAudioPlayer {
     // Buffer offset: if seeking within chunk, skip ahead
     const bufferOffset = offset;
 
-    // Preload next chunk if available
+    // Queue next chunk with IMMEDIATE priority for continuous playback
+    // This ensures next chunk loads before playback ends, but after seek targets
     if (chunkIndex + 1 < this.chunks.length) {
       const nextChunk = this.chunks[chunkIndex + 1];
-      if (!nextChunk.isLoaded) {
-        this.preloadChunk(chunkIndex + 1); // Fire and forget
+      if (!nextChunk.isLoaded && !nextChunk.isLoading) {
+        this.preloadChunk(chunkIndex + 1, 1); // IMMEDIATE priority for continuous playback
       }
     }
 
@@ -485,6 +628,7 @@ export class UnifiedWebMAudioPlayer {
 
   /**
    * Seek to specific time
+   * HIGH PRIORITY: SEEK_TARGET (2) ensures target chunk loads before background preloads
    */
   async seek(time: number): Promise<void> {
     if (!this.metadata) throw new Error('No track loaded');
@@ -508,11 +652,33 @@ export class UnifiedWebMAudioPlayer {
 
     this.debug(`Seeking to ${time.toFixed(2)}s (chunk ${targetChunk}, offset ${offset.toFixed(2)}s)`);
 
-    // Ensure chunk is loaded
+    // Queue target chunk with high priority (SEEK_TARGET = 2)
+    // This interrupts background preloads to prioritize the seek position
     const chunk = this.chunks[targetChunk];
     if (!chunk.isLoaded) {
       this.setState('buffering');
-      await this.preloadChunk(targetChunk);
+      this.preloadChunk(targetChunk, 2); // SEEK_TARGET priority
+
+      // Also queue adjacent chunks for smoother playback
+      if (targetChunk > 0) {
+        this.preloadChunk(targetChunk - 1, 3); // ADJACENT priority
+      }
+      if (targetChunk + 1 < this.chunks.length) {
+        this.preloadChunk(targetChunk + 1, 3); // ADJACENT priority
+      }
+
+      // Wait for target chunk to be loaded
+      await new Promise<void>((resolve) => {
+        const checkLoaded = () => {
+          if (chunk.isLoaded && chunk.audioBuffer) {
+            resolve();
+          } else {
+            // Check again in 50ms
+            setTimeout(checkLoaded, 50);
+          }
+        };
+        checkLoaded();
+      });
     }
 
     // Update position
