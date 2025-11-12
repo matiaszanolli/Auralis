@@ -1,0 +1,152 @@
+================================================================================
+FRONTEND CODE DUPLICATION ANALYSIS - QUICK SUMMARY
+================================================================================
+
+Generated: 2025-11-12
+Scope: auralis-web/frontend/src/
+Files Analyzed: 200+
+Total Lines of Code: 25000+
+Estimated Duplicate Code: 1500-2000 lines (20-30% reduction possible)
+
+================================================================================
+TOP 10 DUPLICATE PATTERNS
+================================================================================
+
+1. KEYBOARD SHORTCUTS HOOKS (HIGH) - 2 files, 386 lines total
+   Files: useKeyboardShortcuts.ts (307 lines), useKeyboardShortcutsV2.ts (79)
+   Issue: V1 & V2 both exist with ~200 lines of duplicate if/else logic
+   Action: Consolidate to V2 service-based pattern
+
+2. API ERROR HANDLING (HIGH) - 6+ service files, ~500 lines total
+   Pattern: Repeated 102+ times across services
+   Code: fetch → response.ok check → error.detail extraction → throw
+   Action: Create shared apiRequest() utility function
+
+3. TRACK ROW VARIANTS (HIGH) - 3 files, 658 lines total
+   Files: TrackRow.tsx (389), SelectableTrackRow.tsx (149), DraggableTrackRow.tsx (120)
+   Issue: 389-line base component duplicated in wrappers
+   Action: Improve composition, reduce wrapper boilerplate
+
+4. PROGRESSBAR COMPONENTS (HIGH) - 2 files, 378 lines total
+   Files: player/ProgressBar.tsx (136), player-bar-v2/ProgressBar.tsx (242)
+   Issue: Duplicate formatTime() and basic slider styling
+   Action: Extract shared formatTime() utility + slider styling primitive
+
+5. TRACKINFO COMPONENTS (HIGH) - 2 files, 404 lines total
+   Files: player/TrackInfo.tsx (221), player-bar-v2/TrackInfo.tsx (183)
+   Issue: ~180 lines overlap (artwork, title/artist, favorite button)
+   Action: Create base component with common layout
+
+6. STYLED COMPONENTS PATTERNS (MEDIUM) - 40+ files, ~500 lines total
+   Examples: Container flex centering (40x), text truncation (25x), icons (30x)
+   Issue: Generic patterns repeated instead of using shared primitives
+   Action: Extract to design-system utilities
+
+7. ENHANCEMENT TOGGLE (MEDIUM) - 2 files, 188 lines total
+   Files: player-bar-v2/EnhancementToggle.tsx, enhancement-pane-v2/EnhancementToggle.tsx
+   Issue: Completely different UX patterns for same feature
+   Action: Consolidate to single official pattern
+
+8. API BASE CONFIGURATION (MEDIUM) - 6+ service files, ~100 lines total
+   Issue: 6 different patterns (hardcoded localhost, /api paths, env vars)
+   Action: Centralize in config/api.ts
+
+9. EMPTY STATE COMPONENTS (MEDIUM) - 2 files, 211 lines total
+   Files: shared/EmptyState.tsx (162), enhancement-pane-v2/EmptyState.tsx (49)
+   Issue: enhancement-pane version duplicates shared version
+   Action: Remove enhancement-pane version, use shared
+
+10. FORMAT UTILITIES (LOW) - 4+ files, ~20 lines total
+    Issue: formatTime() reimplemented in TrackRow, 2x ProgressBar, RealTimeAnalysisStream
+    Action: Extract to utils/timeFormat.ts
+
+================================================================================
+IMPLEMENTATION ROADMAP
+================================================================================
+
+PHASE 1 - HIGHEST IMPACT (Weeks 1-2)
+  [x] Analyze current state
+  [ ] API Request Utility - 30-40 lines replaces ~100+ occurrences
+  [ ] Format Utilities - Extract formatTime() & formatDuration()
+  [ ] API Base Configuration - Centralize config/api.ts
+  [ ] Remove enhancement-pane EmptyState
+
+PHASE 2 - HIGH IMPACT (Weeks 3-4)
+  [ ] ProgressBar Consolidation
+  [ ] TrackInfo Refactoring
+  [ ] Keyboard Shortcuts Consolidation
+
+PHASE 3 - MEDIUM IMPACT (Weeks 5-6)
+  [ ] EnhancementToggle Consolidation
+  [ ] TrackRow Composition Improvement
+  [ ] Styled Components Extraction
+
+================================================================================
+KEY FILES TO REFACTOR
+================================================================================
+
+IMMEDIATE ACTION (Highest priority):
+  /src/services/playlistService.ts (223 lines, 19+ fetch patterns)
+  /src/services/queueService.ts (133 lines, 8+ fetch patterns)
+  /src/services/settingsService.ts (164 lines, 5+ fetch patterns)
+  /src/config/api.ts (centralize configuration)
+
+HIGH PRIORITY:
+  /src/components/player-bar-v2/ProgressBar.tsx (242 lines)
+  /src/components/player/ProgressBar.tsx (136 lines)
+  /src/components/player-bar-v2/TrackInfo.tsx (183 lines)
+  /src/components/player/TrackInfo.tsx (221 lines)
+  /src/hooks/useKeyboardShortcuts.ts (307 lines - DEPRECATED)
+  /src/hooks/useKeyboardShortcutsV2.ts (79 lines - new standard)
+
+MEDIUM PRIORITY:
+  /src/components/library/TrackRow.tsx (389 lines)
+  /src/components/library/SelectableTrackRow.tsx (149 lines)
+  /src/components/library/DraggableTrackRow.tsx (120 lines)
+  /src/components/enhancement-pane-v2/EmptyState.tsx (49 lines - DELETE)
+  /src/components/enhancement-pane-v2/EnhancementToggle.tsx (94 lines)
+  /src/components/player-bar-v2/EnhancementToggle.tsx (94 lines)
+
+LOW PRIORITY (Cleanup):
+  Various components with 40+ styled() definitions
+
+================================================================================
+ESTIMATED IMPACT
+================================================================================
+
+Lines Reducible: 1500-2000 lines
+Files Affected: 45+
+Code Duplication Rate: 20-30% (currently)
+Improvement Potential: Reduce to 10-15% duplication
+
+Implementation Effort: 4-6 weeks
+Testing Effort: 2-3 weeks
+Total Project Time: 2 months (including parallel other work)
+
+Quality Improvements:
+  - Easier to maintain (bug fixes apply globally)
+  - Consistent error handling across services
+  - Reduced test maintenance burden
+  - Better code reusability
+  - Clearer component hierarchy
+
+================================================================================
+PREVENTING FUTURE DUPLICATION
+================================================================================
+
+Code Review Checklist:
+  [ ] Check for similar patterns in other files before implementing
+  [ ] Extract duplicated utilities to /utils or design-system
+  [ ] Use design-system tokens/primitives for styling
+  [ ] Centralize API configuration
+  [ ] Reuse existing components via composition
+
+ESLint/Static Analysis:
+  [ ] Rule to flag repeated styled() definitions
+  [ ] Rule to detect similar function implementations
+  [ ] Require use of centralized config/api utilities
+  [ ] Enforce design-system token usage
+
+================================================================================
+
+For detailed analysis, see: DUPLICATE_CODE_ANALYSIS.md

@@ -8,7 +8,8 @@
  * - Clear queue
  */
 
-const API_BASE = '/api';
+import { get, post, put, del } from '../utils/apiRequest';
+import { ENDPOINTS } from '../config/api';
 
 export interface QueueTrack {
   id: number;
@@ -29,27 +30,14 @@ export interface QueueResponse {
  * Get current queue
  */
 export async function getQueue(): Promise<QueueResponse> {
-  const response = await fetch(`${API_BASE}/player/queue`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to get queue: ${response.statusText}`);
-  }
-
-  return response.json();
+  return get(ENDPOINTS.QUEUE);
 }
 
 /**
  * Remove track from queue at specified index
  */
 export async function removeTrackFromQueue(index: number): Promise<void> {
-  const response = await fetch(`${API_BASE}/player/queue/${index}`, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to remove track from queue');
-  }
+  await del(ENDPOINTS.QUEUE_TRACK(index));
 }
 
 /**
@@ -57,46 +45,21 @@ export async function removeTrackFromQueue(index: number): Promise<void> {
  * @param newOrder Array of indices in new order
  */
 export async function reorderQueue(newOrder: number[]): Promise<void> {
-  const response = await fetch(`${API_BASE}/player/queue/reorder`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ new_order: newOrder }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to reorder queue');
-  }
+  await put(ENDPOINTS.QUEUE_REORDER, { new_order: newOrder });
 }
 
 /**
  * Shuffle the queue (keeps current track in place)
  */
 export async function shuffleQueue(): Promise<void> {
-  const response = await fetch(`${API_BASE}/player/queue/shuffle`, {
-    method: 'POST',
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to shuffle queue');
-  }
+  await post(ENDPOINTS.QUEUE_SHUFFLE);
 }
 
 /**
  * Clear the entire queue
  */
 export async function clearQueue(): Promise<void> {
-  const response = await fetch(`${API_BASE}/player/queue/clear`, {
-    method: 'POST',
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to clear queue');
-  }
+  await post(ENDPOINTS.QUEUE_CLEAR);
 }
 
 /**
@@ -105,21 +68,10 @@ export async function clearQueue(): Promise<void> {
  * @param startIndex Index to start playing from (default: 0)
  */
 export async function setQueue(trackIds: number[], startIndex: number = 0): Promise<void> {
-  const response = await fetch(`${API_BASE}/player/queue`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      tracks: trackIds,
-      start_index: startIndex,
-    }),
+  await post(ENDPOINTS.QUEUE, {
+    tracks: trackIds,
+    start_index: startIndex,
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to set queue');
-  }
 }
 
 export default {

@@ -7,7 +7,8 @@
  * - Get playlist details
  */
 
-const API_BASE = '/api';
+import { get, post, put, del } from '../utils/apiRequest';
+import { ENDPOINTS } from '../config/api';
 
 export interface Playlist {
   id: number;
@@ -54,47 +55,21 @@ export interface UpdatePlaylistRequest {
  * Get all playlists
  */
 export async function getPlaylists(): Promise<PlaylistsResponse> {
-  const response = await fetch(`${API_BASE}/playlists`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to get playlists: ${response.statusText}`);
-  }
-
-  return response.json();
+  return get(ENDPOINTS.PLAYLISTS);
 }
 
 /**
  * Get playlist by ID with all tracks
  */
 export async function getPlaylist(playlistId: number): Promise<Playlist> {
-  const response = await fetch(`${API_BASE}/playlists/${playlistId}`);
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to get playlist');
-  }
-
-  return response.json();
+  return get(ENDPOINTS.PLAYLIST(playlistId));
 }
 
 /**
  * Create a new playlist
  */
 export async function createPlaylist(request: CreatePlaylistRequest): Promise<Playlist> {
-  const response = await fetch(`${API_BASE}/playlists`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to create playlist');
-  }
-
-  const data = await response.json();
+  const data = await post(ENDPOINTS.PLAYLISTS, request);
   return data.playlist;
 }
 
@@ -105,32 +80,14 @@ export async function updatePlaylist(
   playlistId: number,
   request: UpdatePlaylistRequest
 ): Promise<void> {
-  const response = await fetch(`${API_BASE}/playlists/${playlistId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to update playlist');
-  }
+  await put(ENDPOINTS.PLAYLIST(playlistId), request);
 }
 
 /**
  * Delete a playlist
  */
 export async function deletePlaylist(playlistId: number): Promise<void> {
-  const response = await fetch(`${API_BASE}/playlists/${playlistId}`, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to delete playlist');
-  }
+  await del(ENDPOINTS.PLAYLIST(playlistId));
 }
 
 /**
@@ -140,18 +97,7 @@ export async function addTrackToPlaylist(
   playlistId: number,
   trackId: number
 ): Promise<void> {
-  const response = await fetch(`${API_BASE}/playlists/${playlistId}/tracks`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ track_id: trackId }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to add track to playlist');
-  }
+  await post(ENDPOINTS.ADD_PLAYLIST_TRACK(playlistId), { track_id: trackId });
 }
 
 /**
@@ -161,20 +107,7 @@ export async function addTracksToPlaylist(
   playlistId: number,
   trackIds: number[]
 ): Promise<number> {
-  const response = await fetch(`${API_BASE}/playlists/${playlistId}/tracks`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ track_ids: trackIds }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to add tracks to playlist');
-  }
-
-  const data = await response.json();
+  const data = await post(ENDPOINTS.ADD_PLAYLIST_TRACK(playlistId), { track_ids: trackIds });
   return data.added_count;
 }
 
@@ -185,28 +118,14 @@ export async function removeTrackFromPlaylist(
   playlistId: number,
   trackId: number
 ): Promise<void> {
-  const response = await fetch(`${API_BASE}/playlists/${playlistId}/tracks/${trackId}`, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to remove track from playlist');
-  }
+  await del(ENDPOINTS.REMOVE_PLAYLIST_TRACK(playlistId, trackId));
 }
 
 /**
  * Clear all tracks from playlist
  */
 export async function clearPlaylist(playlistId: number): Promise<void> {
-  const response = await fetch(`${API_BASE}/playlists/${playlistId}/tracks`, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to clear playlist');
-  }
+  await del(ENDPOINTS.PLAYLIST_TRACKS(playlistId));
 }
 
 export default {
