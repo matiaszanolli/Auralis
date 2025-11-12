@@ -1,6 +1,6 @@
 {
   "name": "auralis",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.12.1",
   "description": "Auralis Audio Mastering Suite",
   "main": "desktop/main.js",
   "scripts": {
