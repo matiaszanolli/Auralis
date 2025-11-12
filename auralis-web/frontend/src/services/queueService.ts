@@ -1,15 +1,17 @@
 /**
- * Queue Management Service
+ * Queue Management Service (Phase 5a)
  *
  * Provides API functions for manipulating the playback queue:
  * - Remove tracks from queue
  * - Reorder queue
  * - Shuffle queue
  * - Clear queue
+ *
+ * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
  */
 
-import { get, post, put, del } from '../utils/apiRequest';
 import { ENDPOINTS } from '../config/api';
+import { createCrudService } from '../utils/serviceFactory';
 
 export interface QueueTrack {
   id: number;
@@ -26,18 +28,35 @@ export interface QueueResponse {
   total_tracks: number;
 }
 
+export interface SetQueueRequest {
+  tracks: number[];
+  start_index?: number;
+}
+
+// Create base CRUD service using factory
+const crudService = createCrudService<QueueResponse, SetQueueRequest>({
+  list: ENDPOINTS.QUEUE,
+  delete: (index) => ENDPOINTS.QUEUE_TRACK(index),
+  custom: {
+    reorder: ENDPOINTS.QUEUE_REORDER,
+    shuffle: ENDPOINTS.QUEUE_SHUFFLE,
+    clear: ENDPOINTS.QUEUE_CLEAR,
+    set: ENDPOINTS.QUEUE,
+  },
+});
+
 /**
  * Get current queue
  */
 export async function getQueue(): Promise<QueueResponse> {
-  return get(ENDPOINTS.QUEUE);
+  return crudService.list() as Promise<QueueResponse>;
 }
 
 /**
  * Remove track from queue at specified index
  */
 export async function removeTrackFromQueue(index: number): Promise<void> {
-  await del(ENDPOINTS.QUEUE_TRACK(index));
+  await crudService.delete(index);
 }
 
 /**
@@ -45,21 +64,21 @@ export async function removeTrackFromQueue(index: number): Promise<void> {
  * @param newOrder Array of indices in new order
  */
 export async function reorderQueue(newOrder: number[]): Promise<void> {
-  await put(ENDPOINTS.QUEUE_REORDER, { new_order: newOrder });
+  await crudService.custom('reorder', 'put', { new_order: newOrder });
 }
 
 /**
  * Shuffle the queue (keeps current track in place)
  */
 export async function shuffleQueue(): Promise<void> {
-  await post(ENDPOINTS.QUEUE_SHUFFLE);
+  await crudService.custom('shuffle', 'post', {});
 }
 
 /**
  * Clear the entire queue
  */
 export async function clearQueue(): Promise<void> {
-  await post(ENDPOINTS.QUEUE_CLEAR);
+  await crudService.custom('clear', 'post', {});
 }
 
 /**
@@ -68,7 +87,7 @@ export async function clearQueue(): Promise<void> {
  * @param startIndex Index to start playing from (default: 0)
  */
 export async function setQueue(trackIds: number[], startIndex: number = 0): Promise<void> {
-  await post(ENDPOINTS.QUEUE, {
+  await crudService.custom('set', 'post', {
     tracks: trackIds,
     start_index: startIndex,
   });

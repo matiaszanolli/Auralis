@@ -1,12 +1,14 @@
 /**
- * Artwork Service
+ * Artwork Service (Phase 5a)
  * ~~~~~~~~~~~~~~~~
  *
  * Service for managing album artwork: extraction, download, and deletion.
+ *
+ * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
  */
 
-import { post, del } from '../utils/apiRequest';
 import { API_BASE_URL } from '../config/api';
+import { createCrudService } from '../utils/serviceFactory';
 
 export interface ArtworkResponse {
   message: string;
@@ -16,25 +18,38 @@ export interface ArtworkResponse {
   album?: string;
 }
 
+export interface ArtworkRequest {
+  // Empty request body for artwork operations
+}
+
+// Create base CRUD service using factory with custom endpoints
+const crudService = createCrudService<ArtworkResponse, ArtworkRequest>({
+  custom: {
+    extract: (albumId) => `/albums/${albumId}/artwork/extract`,
+    download: (albumId) => `/albums/${albumId}/artwork/download`,
+    delete: (albumId) => `/albums/${albumId}/artwork`,
+  },
+});
+
 /**
  * Extract artwork from album's audio files
  */
 export async function extractArtwork(albumId: number): Promise<ArtworkResponse> {
-  return post(`/albums/${albumId}/artwork/extract`, {});
+  return crudService.custom('extract', 'post', { albumId });
 }
 
 /**
  * Download artwork from online sources (MusicBrainz, iTunes)
  */
 export async function downloadArtwork(albumId: number): Promise<ArtworkResponse> {
-  return post(`/albums/${albumId}/artwork/download`, {});
+  return crudService.custom('download', 'post', { albumId });
 }
 
 /**
  * Delete album artwork
  */
 export async function deleteArtwork(albumId: number): Promise<{ message: string; album_id: number }> {
-  return del(`/albums/${albumId}/artwork`);
+  return crudService.custom('delete', 'delete', { albumId });
 }
 
 /**

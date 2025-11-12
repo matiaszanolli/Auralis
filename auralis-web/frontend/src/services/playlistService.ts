@@ -1,14 +1,17 @@
 /**
- * Playlist Management Service
+ * Playlist Management Service (Phase 5a)
  *
  * Provides API functions for playlist operations:
  * - Create/update/delete playlists
  * - Add/remove tracks from playlists
  * - Get playlist details
+ *
+ * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
  */
 
-import { get, post, put, del } from '../utils/apiRequest';
+import { post, del } from '../utils/apiRequest';
 import { ENDPOINTS } from '../config/api';
+import { createCrudService } from '../utils/serviceFactory';
 
 export interface Playlist {
   id: number;
@@ -51,26 +54,36 @@ export interface UpdatePlaylistRequest {
   description?: string;
 }
 
+// Create base CRUD service using factory
+const crudService = createCrudService<Playlist, CreatePlaylistRequest>({
+  list: ENDPOINTS.PLAYLISTS,
+  get: (id) => ENDPOINTS.PLAYLIST(id),
+  create: ENDPOINTS.PLAYLISTS,
+  update: (id) => ENDPOINTS.PLAYLIST(id),
+  delete: (id) => ENDPOINTS.PLAYLIST(id),
+});
+
 /**
  * Get all playlists
  */
 export async function getPlaylists(): Promise<PlaylistsResponse> {
-  return get(ENDPOINTS.PLAYLISTS);
+  const playlists = await crudService.list();
+  return { playlists: Array.isArray(playlists) ? playlists : (playlists as any).playlists, total: playlists.length };
 }
 
 /**
  * Get playlist by ID with all tracks
  */
 export async function getPlaylist(playlistId: number): Promise<Playlist> {
-  return get(ENDPOINTS.PLAYLIST(playlistId));
+  return crudService.getOne(playlistId);
 }
 
 /**
  * Create a new playlist
  */
 export async function createPlaylist(request: CreatePlaylistRequest): Promise<Playlist> {
-  const data = await post(ENDPOINTS.PLAYLISTS, request);
-  return data.playlist;
+  const data = await crudService.create(request);
+  return data.playlist || data;
 }
 
 /**
@@ -80,14 +93,14 @@ export async function updatePlaylist(
   playlistId: number,
   request: UpdatePlaylistRequest
 ): Promise<void> {
-  await put(ENDPOINTS.PLAYLIST(playlistId), request);
+  await crudService.update(playlistId, request);
 }
 
 /**
  * Delete a playlist
  */
 export async function deletePlaylist(playlistId: number): Promise<void> {
-  await del(ENDPOINTS.PLAYLIST(playlistId));
+  await crudService.delete(playlistId);
 }
 
 /**
