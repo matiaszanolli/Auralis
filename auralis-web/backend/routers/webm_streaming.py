@@ -393,6 +393,20 @@ def create_webm_streaming_router(
         # Extract chunk
         chunk_audio = audio[start_sample:end_sample]
 
+        # Validate chunk has audio data
+        if len(chunk_audio) == 0:
+            logger.error(f"Original chunk {chunk_idx} extraction resulted in empty audio")
+            logger.error(f"  Audio length: {len(audio)} samples")
+            logger.error(f"  Chunk bounds: {start_sample}-{end_sample}")
+            logger.error(f"  Time bounds: {chunk_start_time}s-{chunk_end_time}s")
+            logger.error(f"  Sample rate: {sr}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Chunk {chunk_idx} extraction resulted in empty audio"
+            )
+
+        logger.info(f"Original chunk {chunk_idx} extracted: {len(chunk_audio)} samples ({len(chunk_audio)/sr:.2f}s)")
+
         # Encode directly to WebM/Opus
         try:
             webm_bytes = encode_to_webm_opus(
@@ -408,6 +422,7 @@ def create_webm_streaming_router(
 
         except WebMEncoderError as e:
             logger.error(f"WebM encoding failed for original chunk {chunk_idx}: {e}")
+            logger.error(f"Chunk audio shape: {chunk_audio.shape}, dtype: {chunk_audio.dtype}")
             raise HTTPException(
                 status_code=500,
                 detail=f"WebM encoding failed: {str(e)}"
