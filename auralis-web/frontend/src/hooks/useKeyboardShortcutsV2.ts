@@ -1,78 +1,20 @@
 /**
- * useKeyboardShortcutsV2 Hook
+ * useKeyboardShortcutsV2 Hook (DEPRECATED - Phase 3a)
  *
- * Simple wrapper around keyboardShortcutsService.
- * Avoids circular dependency issues by using service pattern.
+ * ⚠️ DEPRECATED: Use `useKeyboardShortcuts` from './useKeyboardShortcuts.ts' instead
  *
- * This is V2 - a complete rewrite that fixes the minification issue
- * that disabled keyboard shortcuts in Beta 6.
+ * This file is maintained for backward compatibility only.
+ * Phase 3a consolidation unified V1 (config-based) and V2 (service-based) patterns
+ * into a single hook that supports both interfaces.
+ *
+ * Migration guide:
+ * - OLD: import { useKeyboardShortcutsV2 } from './useKeyboardShortcutsV2'
+ * - NEW: import { useKeyboardShortcuts } from './useKeyboardShortcuts'
+ *
+ * The unified hook maintains backward compatibility while delegating to the
+ * keyboardShortcutsService, exactly like this V2 implementation.
  */
 
-import { useEffect, useState } from 'react';
-import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '../services/keyboardShortcutsService';
-
-export interface KeyboardShortcut extends ShortcutDefinition {
-  handler: ShortcutHandler;
-}
-
-export interface UseKeyboardShortcutsReturn {
-  shortcuts: ShortcutDefinition[];
-  isHelpOpen: boolean;
-  openHelp: () => void;
-  closeHelp: () => void;
-  enable: () => void;
-  disable: () => void;
-  isEnabled: boolean;
-  formatShortcut: (shortcut: ShortcutDefinition) => string;
-}
-
-/**
- * Register keyboard shortcuts with the service
- * Returns cleanup function and help dialog state
- */
-export const useKeyboardShortcutsV2 = (
-  shortcuts: KeyboardShortcut[],
-  enabled: boolean = true
-): UseKeyboardShortcutsReturn => {
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [isEnabled, setIsEnabled] = useState(enabled);
-
-  // Register/unregister shortcuts
-  useEffect(() => {
-    // Register all shortcuts
-    shortcuts.forEach(({ handler, ...definition }) => {
-      keyboardShortcuts.register(definition, handler);
-    });
-
-    // Start listening
-    keyboardShortcuts.startListening();
-
-    // Cleanup: unregister and stop listening
-    return () => {
-      shortcuts.forEach(({ handler, ...definition }) => {
-        keyboardShortcuts.unregister(definition);
-      });
-      keyboardShortcuts.stopListening();
-    };
-  }, []); // Empty deps - shortcuts are registered once on mount
-
-  // Enable/disable based on prop
-  useEffect(() => {
-    if (isEnabled) {
-      keyboardShortcuts.enable();
-    } else {
-      keyboardShortcuts.disable();
-    }
-  }, [isEnabled]);
-
-  return {
-    shortcuts: keyboardShortcuts.getShortcuts(),
-    isHelpOpen,
-    openHelp: () => setIsHelpOpen(true),
-    closeHelp: () => setIsHelpOpen(false),
-    enable: () => setIsEnabled(true),
-    disable: () => setIsEnabled(false),
-    isEnabled,
-    formatShortcut: (shortcut) => keyboardShortcuts.formatShortcut(shortcut)
-  };
-};
+// Re-export unified hook as V2 for backward compatibility
+export { useKeyboardShortcuts as useKeyboardShortcutsV2 } from './useKeyboardShortcuts';
+export type { UseKeyboardShortcutsReturn, KeyboardShortcut } from './useKeyboardShortcuts';
