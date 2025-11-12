@@ -3,7 +3,12 @@
  *
  * Handles chunk loading, caching, and progressive streaming for MSE playback.
  * Integrates with the backend multi-tier buffer system for intelligent pre-caching.
+ *
+ * Phase 3c Enhancement: Uses centralized error handling utilities for retry logic
+ * and network resilience.
  */
+
+import { retryWithBackoff, isRetryableError } from '../utils/errorHandling';
 
 const API_BASE = '/api/mse_streaming';
 const CHUNK_DURATION = 10; // seconds (reduced from 30s → 10s for Beta.9 Phase 2)
@@ -48,7 +53,7 @@ export function getChunkTimeRange(chunkIndex: number): { start: number; end: num
 }
 
 /**
- * Load a single chunk from the backend
+ * Load a single chunk from the backend with automatic retry on network errors
  */
 export async function loadChunk(
   trackId: number,
@@ -60,15 +65,27 @@ export async function loadChunk(
 
   console.log(`📡 Fetching chunk ${chunkIndex} (preset: ${preset})`);
 
-  const response = await fetch(url, {
-    headers: {
-      'Accept': 'audio/webm',
-    },
-  });
+  // Use retry logic for network resilience
+  const response = await retryWithBackoff(
+    async () => {
+      const res = await fetch(url, {
+        headers: {
+          'Accept': 'audio/webm',
+        },
+      });
 
-  if (!response.ok) {
-    throw new Error(`Failed to load chunk ${chunkIndex}: ${response.status} ${response.statusText}`);
-  }
+      if (!res.ok) {
+        throw new Error(`Failed to load chunk ${chunkIndex}: ${res.status} ${res.statusText}`);
+      }
+
+      return res;
+    },
+    {
+      maxRetries: 3,
+      initialDelayMs: 100,
+      shouldRetry: isRetryableError,
+    }
+  );
 
   const arrayBuffer = await response.arrayBuffer();
   const cacheTier = response.headers.get('X-Cache-Tier') || undefined;
@@ -145,27 +162,4 @@ export function getChunksToPrefetch(
   return chunks;
 }
 
-/**
- * Retry logic with exponential backoff
- */
-export async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  maxRetries: number = 3,
-  baseDelay: number = 100
-): Promise<T> {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      if (attempt === maxRetries - 1) {
-        throw err;
-      }
-
-      const delay = baseDelay * Math.pow(2, attempt);
-      console.warn(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-
-  throw new Error('Retry failed');
-}
+// Retry logic moved to centralized errorHandling utilities (Phase 3c)
