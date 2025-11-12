@@ -1,174 +1,141 @@
 # -*- coding: utf-8 -*-
 
 """
-Enhanced Auralis Audio Player
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Enhanced Auralis Audio Player (Refactored)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Real-time audio player with advanced DSP processing and library integration
 
+Refactored from monolithic design into 5 focused components:
+- PlaybackController: State machine (PLAYING, PAUSED, STOPPED, etc.)
+- AudioFileManager: File I/O and audio data access
+- QueueController: Queue and playlist management
+- GaplessPlaybackEngine: Prebuffering and seamless transitions
+- IntegrationManager: Library, callbacks, statistics
+
+Uses Facade pattern to maintain backward-compatible API.
+
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
-
-Integrates advanced capabilities from Matchering Player POC
 """
 
-import os
 import numpy as np
-import threading
-import time
-from enum import Enum
 from typing import Optional, Dict, Any, List, Callable
 
 from .config import PlayerConfig
 from .realtime_processor import RealtimeProcessor
-from .components import QueueManager
+from .playback_controller import PlaybackController, PlaybackState
+from .audio_file_manager import AudioFileManager
+from .queue_controller import QueueController
+from .gapless_playback_engine import GaplessPlaybackEngine
+from .integration_manager import IntegrationManager
 from ..core.processor import process as core_process
-from ..io.loader import load
 from ..library.manager import LibraryManager
-from ..library.models import Track
 from ..utils.logging import debug, info, warning, error
-
-
-class PlaybackState(Enum):
-    """Playback state enumeration"""
-    STOPPED = "stopped"
-    PLAYING = "playing"
-    PAUSED = "paused"
-    LOADING = "loading"
-    ERROR = "error"
 
 
 class EnhancedAudioPlayer:
     """
-    Enhanced real-time audio player with advanced DSP and library integration
+    Enhanced real-time audio player with advanced DSP and library integration.
+
+    Facade that coordinates 5 specialized components for clean separation of concerns:
+    - PlaybackController: State machine
+    - AudioFileManager: File I/O
+    - QueueController: Queue/playlist
+    - GaplessPlaybackEngine: Prebuffering
+    - IntegrationManager: Library/callbacks
 
     Features:
     - Advanced real-time DSP processing
     - Automatic mastering with multiple profiles
     - Queue management and playlist support
-    - Performance monitoring and adaptive quality
-    - Library integration ready
+    - Gapless playback with prebuffering
+    - Library integration and auto-reference selection
+    - Performance monitoring and statistics
+
+    API compatible with original EnhancedAudioPlayer.
     """
 
-    def __init__(self, config: PlayerConfig = None, library_manager: LibraryManager = None):
+    def __init__(
+        self,
+        config: PlayerConfig = None,
+        library_manager: LibraryManager = None
+    ):
+        """Initialize the enhanced audio player with components"""
         if config is None:
             config = PlayerConfig()
 
         self.config = config
-        self.state = PlaybackState.STOPPED
 
-        # Library integration
-        self.library = library_manager or LibraryManager()
-
-        # Audio data and playback
-        self.current_file = None
-        self.current_track = None  # Current Track object from library
-        self.reference_file = None
-        self.audio_data = None
-        self.reference_data = None
-        self.position = 0
-        self.sample_rate = config.sample_rate
-
-        # Advanced processing
+        # Initialize components
+        self.playback = PlaybackController()
+        self.file_manager = AudioFileManager(config.sample_rate)
+        self.queue = QueueController(library_manager)
         self.processor = RealtimeProcessor(config)
+        self.gapless = GaplessPlaybackEngine(self.file_manager, self.queue)
+        self.integration = IntegrationManager(
+            self.playback,
+            self.file_manager,
+            self.queue,
+            self.processor,
+            library_manager
+        )
 
-        # Queue management
-        self.queue = QueueManager()
-        self.auto_reference_selection = True  # Automatically select reference tracks
+        # Control flags
+        self.auto_advance = True
 
-        # Gapless playback support (P1 fix)
-        self.next_track_buffer = None  # Pre-loaded audio data for next track
-        self.next_track_info = None    # Track info for pre-buffered track
-        self.next_track_sample_rate = None  # Sample rate of pre-buffered track
-        self.prebuffer_enabled = True  # Config option to enable/disable pre-buffering
-        self.prebuffer_thread = None   # Background thread for pre-buffering
+        info("Enhanced AudioPlayer initialized (refactored architecture)")
 
-        # Threading for real-time updates
-        self.update_lock = threading.Lock()
-        self.callbacks: List[Callable] = []
-        self.auto_advance = True  # Auto-advance to next track
+    # ========== Playback Control (delegates to PlaybackController) ==========
 
-        # Statistics
-        self.tracks_played = 0
-        self.total_play_time = 0.0
-        self.session_start_time = time.time()
+    def play(self) -> bool:
+        """Start playback"""
+        if not self.file_manager.is_loaded():
+            warning("No audio file loaded")
+            return False
+        return self.playback.play()
 
-        info("Enhanced AudioPlayer initialized with library integration and advanced DSP capabilities")
+    def pause(self) -> bool:
+        """Pause playback"""
+        return self.playback.pause()
 
-    def add_callback(self, callback: Callable):
-        """Add callback for state updates"""
-        self.callbacks.append(callback)
+    def stop(self) -> bool:
+        """Stop playback"""
+        return self.playback.stop()
 
-    def _notify_callbacks(self):
-        """Notify all callbacks of state changes"""
-        for callback in self.callbacks:
-            try:
-                callback(self.get_playback_info())
-            except Exception as e:
-                debug(f"Callback error: {e}")
-
-    def load_track_from_library(self, track_id: int) -> bool:
+    def seek(self, position_seconds: float) -> bool:
         """
-        Load a track from the library by ID
+        Seek to a position in seconds.
 
         Args:
-            track_id: Database ID of the track to load
+            position_seconds: Target position in seconds
 
         Returns:
             bool: True if successful
         """
-        try:
-            track = self.library.get_track(track_id)
-            if not track:
-                error(f"Track not found in library: {track_id}")
-                return False
+        max_samples = self.file_manager.get_total_samples()
+        position_samples = int(position_seconds * self.file_manager.sample_rate)
+        return self.playback.seek(position_samples, max_samples)
 
-            # Load the audio file
-            success = self.load_file(track.filepath)
-            if success:
-                self.current_track = track
+    @property
+    def state(self) -> PlaybackState:
+        """Get current playback state"""
+        return self.playback.state
 
-                # Record play count
-                self.library.record_track_play(track_id)
+    @state.setter
+    def state(self, value: PlaybackState):
+        """Set playback state (for compatibility)"""
+        self.playback.state = value
 
-                # Auto-select reference if enabled
-                if self.auto_reference_selection:
-                    self._auto_select_reference(track)
+    def is_playing(self) -> bool:
+        """Check if currently playing"""
+        return self.playback.is_playing()
 
-                info(f"Loaded track from library: {track.title}")
-                return True
-
-            return False
-
-        except Exception as e:
-            error(f"Failed to load track from library: {e}")
-            return False
-
-    def _auto_select_reference(self, track: Track):
-        """Automatically select a suitable reference track"""
-        try:
-            if track.recommended_reference and os.path.exists(track.recommended_reference):
-                # Use pre-analyzed recommended reference
-                if self.load_reference(track.recommended_reference):
-                    info(f"Using recommended reference: {track.recommended_reference}")
-                    return
-
-            # Find suitable reference tracks
-            references = self.library.find_reference_tracks(track, limit=3)
-            for ref_track in references:
-                if os.path.exists(ref_track.filepath):
-                    if self.load_reference(ref_track.filepath):
-                        info(f"Auto-selected reference: {ref_track.title} by {ref_track.artists[0].name if ref_track.artists else 'Unknown'}")
-                        return
-
-            warning(f"No suitable reference found for track: {track.title}")
-
-        except Exception as e:
-            warning(f"Auto reference selection failed: {e}")
+    # ========== File Loading (delegates to AudioFileManager) ==========
 
     def load_file(self, file_path: str) -> bool:
         """
-        Load an audio file for playback
+        Load an audio file for playback.
 
         Args:
             file_path: Path to the audio file
@@ -176,37 +143,26 @@ class EnhancedAudioPlayer:
         Returns:
             bool: True if successful
         """
-        try:
-            self.state = PlaybackState.LOADING
-            self._notify_callbacks()
+        self.playback.set_loading()
 
-            # Load audio using Auralis loader
-            self.audio_data, self.sample_rate = load(file_path, "target")
-            self.current_file = file_path
-            self.position = 0
-            self.state = PlaybackState.STOPPED
+        if self.file_manager.load_file(file_path):
+            self.playback.stop()
 
-            info(f"Loaded audio file: {file_path}")
-            info(f"Duration: {len(self.audio_data) / self.sample_rate:.1f}s")
-            info(f"Sample rate: {self.sample_rate} Hz")
-            info(f"Channels: {self.audio_data.shape[1] if len(self.audio_data.shape) > 1 else 1}")
+            # Start prebuffering next track
+            self.gapless.start_prebuffering()
 
-            self._notify_callbacks()
-
-            # Start pre-buffering next track in background (gapless playback)
-            self._start_prebuffering()
-
+            self.integration._notify_callbacks({
+                'action': 'file_loaded',
+                'file': file_path
+            })
             return True
-
-        except Exception as e:
-            error(f"Failed to load file {file_path}: {e}")
-            self.state = PlaybackState.ERROR
-            self._notify_callbacks()
+        else:
+            self.playback.set_error()
             return False
 
     def load_reference(self, file_path: str) -> bool:
         """
-        Load a reference file for real-time mastering
+        Load a reference file for real-time mastering.
 
         Args:
             file_path: Path to the reference audio file
@@ -214,230 +170,55 @@ class EnhancedAudioPlayer:
         Returns:
             bool: True if successful
         """
-        try:
-            # Load reference audio
-            self.reference_data, ref_sample_rate = load(file_path, "reference")
-            self.reference_file = file_path
+        success = self.file_manager.load_reference(file_path)
+        if success:
+            self.processor.set_reference_audio(self.file_manager.reference_data)
+            self.integration._notify_callbacks({
+                'action': 'reference_loaded',
+                'file': file_path
+            })
+        return success
 
-            # Set reference for real-time processor
-            success = self.processor.set_reference_audio(self.reference_data)
-
-            if success:
-                info(f"Reference loaded: {file_path}")
-                info(f"Reference duration: {len(self.reference_data) / ref_sample_rate:.1f}s")
-                self._notify_callbacks()
-                return True
-            else:
-                warning("Failed to set reference in processor")
-                return False
-
-        except Exception as e:
-            error(f"Failed to load reference {file_path}: {e}")
-            return False
-
-    def _prebuffer_next_track(self):
+    def load_track_from_library(self, track_id: int) -> bool:
         """
-        Pre-load and decode the next track in queue for gapless playback.
-
-        This runs in a background thread while current track is playing.
-        Reduces gap from ~100ms to < 10ms on track changes.
-        """
-        if not self.prebuffer_enabled:
-            return
-
-        # Get next track from queue (without removing it)
-        next_track = self.queue.peek_next()
-        if not next_track:
-            info("No next track to pre-buffer")
-            return
-
-        file_path = next_track.get('file_path') or next_track.get('path')
-        if not file_path:
-            warning("Next track has no file path")
-            return
-
-        try:
-            info(f"Pre-buffering next track: {file_path}")
-
-            # Load and decode audio
-            audio_data, sample_rate = load(file_path, "target")
-
-            # Store in buffer
-            with self.update_lock:
-                self.next_track_buffer = audio_data
-                self.next_track_info = next_track
-                self.next_track_sample_rate = sample_rate
-
-            info(f"Pre-buffered next track successfully: {file_path}")
-            info(f"  Duration: {len(audio_data) / sample_rate:.1f}s")
-            info(f"  Sample rate: {sample_rate} Hz")
-
-        except Exception as e:
-            warning(f"Failed to pre-buffer next track: {e}")
-            with self.update_lock:
-                self.next_track_buffer = None
-                self.next_track_info = None
-                self.next_track_sample_rate = None
-
-    def _start_prebuffering(self):
-        """Start pre-buffering next track in background thread"""
-        if not self.prebuffer_enabled:
-            return
-
-        # Only start if not already running
-        if self.prebuffer_thread and self.prebuffer_thread.is_alive():
-            return
-
-        # Start background thread
-        self.prebuffer_thread = threading.Thread(
-            target=self._prebuffer_next_track,
-            daemon=True
-        )
-        self.prebuffer_thread.start()
-
-    def _invalidate_prebuffer(self):
-        """Invalidate pre-buffered track (called when queue changes)"""
-        with self.update_lock:
-            self.next_track_buffer = None
-            self.next_track_info = None
-            self.next_track_sample_rate = None
-        info("Pre-buffer invalidated")
-
-    def play(self) -> bool:
-        """Start playback"""
-        if self.audio_data is None:
-            warning("No audio file loaded")
-            return False
-
-        if self.state == PlaybackState.PAUSED:
-            self.state = PlaybackState.PLAYING
-            info("Playback resumed")
-        else:
-            self.state = PlaybackState.PLAYING
-            info("Playback started")
-
-        self._notify_callbacks()
-        return True
-
-    def pause(self) -> bool:
-        """Pause playback"""
-        if self.state == PlaybackState.PLAYING:
-            self.state = PlaybackState.PAUSED
-            info("Playback paused")
-            self._notify_callbacks()
-            return True
-        return False
-
-    def stop(self) -> bool:
-        """Stop playback"""
-        if self.state in [PlaybackState.PLAYING, PlaybackState.PAUSED]:
-            self.state = PlaybackState.STOPPED
-            self.position = 0
-            info("Playback stopped")
-            self._notify_callbacks()
-            return True
-        return False
-
-    def seek(self, position_seconds: float) -> bool:
-        """
-        Seek to a position in the current track
+        Load a track from the library by ID.
 
         Args:
-            position_seconds: Position in seconds
+            track_id: Database ID of the track
 
         Returns:
             bool: True if successful
         """
-        if self.audio_data is None:
+        self.playback.set_loading()
+
+        if self.integration.load_track_from_library(track_id):
+            self.playback.stop()
+            self.gapless.start_prebuffering()
+            return True
+        else:
+            self.playback.set_error()
             return False
 
-        max_position = len(self.audio_data) / self.sample_rate
-        position_seconds = max(0.0, min(position_seconds, max_position))
-        self.position = int(position_seconds * self.sample_rate)
-
-        debug(f"Seeked to {position_seconds:.1f}s")
-        self._notify_callbacks()
-        return True
+    # ========== Queue Management (delegates to QueueController) ==========
 
     def next_track(self) -> bool:
         """
         Skip to next track in queue with gapless playback support.
 
-        Uses pre-buffered audio if available for instant transitions (< 10ms).
-        Falls back to normal loading if pre-buffer not available (~100ms).
+        Returns:
+            bool: True if advanced, False if no next track
         """
-        next_track = self.queue.next_track()
-        if not next_track:
-            # No next track, stop playback
-            self.stop()
-            return False
+        was_playing = self.playback.is_playing()
 
-        file_path = next_track.get('file_path') or next_track.get('path')
-        if not file_path:
-            return False
+        if self.gapless.advance_with_prebuffer(was_playing):
+            self.integration.record_track_completion()
 
-        # Check if we have pre-buffered this track (gapless!)
-        use_prebuffer = False
-        with self.update_lock:
-            if (self.next_track_buffer is not None and
-                self.next_track_info is not None):
-
-                # Verify it's the correct track
-                prebuffer_path = self.next_track_info.get('file_path') or self.next_track_info.get('path')
-                if prebuffer_path == file_path:
-                    use_prebuffer = True
-
-        if use_prebuffer:
-            # Use pre-buffered audio for instant transition!
-            info(f"Using pre-buffered track (gapless!): {file_path}")
-
-            was_playing = (self.state == PlaybackState.PLAYING)
-
-            # Stop current playback
             if was_playing:
-                self.stop()
+                self.playback.play()
 
-            # Load pre-buffered audio directly
-            with self.update_lock:
-                self.audio_data = self.next_track_buffer
-                self.sample_rate = self.next_track_sample_rate
-                self.current_file = file_path
-                self.position = 0
-                self.state = PlaybackState.STOPPED
-
-                # Clear buffer
-                self.next_track_buffer = None
-                self.next_track_info = None
-                self.next_track_sample_rate = None
-
-            # Start playback immediately if was playing
-            if was_playing:
-                self.play()
-
-            self.tracks_played += 1
-            self._notify_callbacks()
-
-            # Pre-buffer NEXT track in background
-            self._start_prebuffering()
-
-            info(f"Gapless transition complete: {file_path}")
             return True
 
-        else:
-            # Fallback: Load normally (with gap)
-            if self.next_track_buffer is not None:
-                warning(f"Pre-buffer mismatch, loading normally: {file_path}")
-            else:
-                info(f"Pre-buffer not available, loading normally: {file_path}")
-
-            if self.load_file(file_path):
-                if self.state == PlaybackState.PLAYING:
-                    self.play()  # Continue playing
-                self.tracks_played += 1
-                info(f"Advanced to next track: {file_path}")
-                return True
-
-            return False
+        return False
 
     def previous_track(self) -> bool:
         """Skip to previous track in queue"""
@@ -445,255 +226,202 @@ class EnhancedAudioPlayer:
         if prev_track:
             file_path = prev_track.get('file_path') or prev_track.get('path')
             if file_path and self.load_file(file_path):
-                if self.state == PlaybackState.PLAYING:
-                    self.play()  # Continue playing
-                info(f"Moved to previous track: {file_path}")
+                if self.playback.is_playing():
+                    self.playback.play()
                 return True
         return False
-
-    def get_audio_chunk(self, chunk_size: int = None) -> np.ndarray:
-        """
-        Get a chunk of processed audio for playback
-
-        Args:
-            chunk_size: Size of audio chunk to return
-
-        Returns:
-            Processed audio chunk
-        """
-        if chunk_size is None:
-            chunk_size = self.config.buffer_size
-
-        # Return silence if not playing
-        if self.audio_data is None or self.state != PlaybackState.PLAYING:
-            return np.zeros((chunk_size, 2), dtype=np.float32)
-
-        # Get raw audio chunk
-        start = self.position
-        end = min(start + chunk_size, len(self.audio_data))
-
-        if start >= len(self.audio_data):
-            # End of track - handle auto-advance
-            if self.auto_advance and self.queue.tracks:
-                if self.next_track():
-                    return self.get_audio_chunk(chunk_size)
-            else:
-                self.stop()
-            return np.zeros((chunk_size, 2), dtype=np.float32)
-
-        chunk = self.audio_data[start:end].copy()
-
-        # Ensure stereo format
-        if len(chunk.shape) == 1:
-            chunk = np.column_stack([chunk, chunk])
-        elif chunk.shape[1] == 1:
-            chunk = np.column_stack([chunk[:, 0], chunk[:, 0]])
-
-        # Pad if necessary
-        if len(chunk) < chunk_size:
-            padding = np.zeros((chunk_size - len(chunk), 2), dtype=np.float32)
-            chunk = np.vstack([chunk, padding])
-
-        # Apply advanced real-time processing
-        processed_chunk = self.processor.process_chunk(chunk)
-
-        # Update position
-        self.position = end
-
-        # Check for end of track
-        if self.position >= len(self.audio_data):
-            if self.auto_advance and self.queue.tracks:
-                # Auto-advance to next track
-                threading.Thread(target=self._auto_advance_delayed, daemon=True).start()
-
-        return processed_chunk
-
-    def _auto_advance_delayed(self):
-        """Delayed auto-advance to next track"""
-        time.sleep(0.1)  # Small delay to avoid race conditions
-        with self.update_lock:
-            if self.state == PlaybackState.PLAYING:
-                self.next_track()
-
-    def set_effect_enabled(self, effect_name: str, enabled: bool):
-        """Enable/disable specific DSP effects"""
-        self.processor.set_effect_enabled(effect_name, enabled)
-        self._notify_callbacks()
-
-    def set_auto_master_profile(self, profile: str):
-        """Set auto-mastering profile"""
-        self.processor.set_auto_master_profile(profile)
-        self._notify_callbacks()
-
-    def load_playlist(self, playlist_id: int, start_index: int = 0) -> bool:
-        """
-        Load a playlist from the library
-
-        Args:
-            playlist_id: Database ID of the playlist
-            start_index: Index of track to start playing
-
-        Returns:
-            bool: True if successful
-        """
-        try:
-            playlist = self.library.get_playlist(playlist_id)
-            if not playlist:
-                error(f"Playlist not found: {playlist_id}")
-                return False
-
-            # Clear current queue
-            self.queue.clear()
-
-            # Add all playlist tracks to queue
-            for track in playlist.tracks:
-                track_info = track.to_dict()
-                self.queue.add_track(track_info)
-
-            if self.queue.tracks:
-                # Set starting index
-                self.queue.current_index = min(start_index, len(self.queue.tracks) - 1)
-
-                # Load first track
-                first_track = self.queue.get_current_track()
-                if first_track:
-                    track_id = first_track.get('id')
-                    if track_id and self.load_track_from_library(track_id):
-                        info(f"Loaded playlist: {playlist.name} ({len(playlist.tracks)} tracks)")
-                        return True
-
-            warning(f"Failed to load playlist: {playlist.name}")
-            return False
-
-        except Exception as e:
-            error(f"Failed to load playlist: {e}")
-            return False
 
     def add_to_queue(self, track_info: Dict[str, Any]):
         """Add a track to the playback queue"""
         self.queue.add_track(track_info)
 
         # If nothing is loaded, load this track
-        if self.current_file is None:
+        if not self.file_manager.is_loaded():
             file_path = track_info.get('file_path') or track_info.get('filepath')
             track_id = track_info.get('id')
 
             if track_id:
-                # Load from library if we have an ID
-                self.queue.current_index = len(self.queue.tracks) - 1
                 self.load_track_from_library(track_id)
             elif file_path:
-                # Load from file path
-                self.queue.current_index = len(self.queue.tracks) - 1
                 self.load_file(file_path)
 
-    def add_track_to_queue(self, track_id: int):
+    def add_track_to_queue(self, track_id: int) -> bool:
         """Add a track from the library to the queue"""
-        try:
-            track = self.library.get_track(track_id)
-            if track:
-                self.add_to_queue(track.to_dict())
-                return True
-            return False
-        except Exception as e:
-            error(f"Failed to add track to queue: {e}")
-            return False
+        return self.queue.add_track_from_library(track_id)
 
-    def search_and_add_to_queue(self, query: str, limit: int = 10):
+    def search_and_add_to_queue(self, query: str, limit: int = 10) -> int:
         """Search library and add results to queue"""
-        try:
-            tracks = self.library.search_tracks(query, limit)
-            for track in tracks:
-                self.add_to_queue(track.to_dict())
-            info(f"Added {len(tracks)} tracks to queue from search: {query}")
-            return len(tracks)
-        except Exception as e:
-            error(f"Failed to search and add to queue: {e}")
-            return 0
+        return self.queue.search_and_add(query, limit)
+
+    def load_playlist(self, playlist_id: int, start_index: int = 0) -> bool:
+        """Load a playlist from the library"""
+        if self.queue.load_playlist(playlist_id, start_index):
+            current = self.queue.get_current_track()
+            if current:
+                track_id = current.get('id')
+                if track_id:
+                    return self.load_track_from_library(track_id)
+        return False
 
     def clear_queue(self):
         """Clear the playback queue"""
-        self.queue.clear()
+        self.queue.clear_queue()
+        self.gapless.invalidate_prebuffer()
 
-    def get_playback_info(self) -> Dict[str, Any]:
+    # ========== Audio Output (delegates to AudioFileManager + Processor) ==========
+
+    def get_audio_chunk(self, chunk_size: int = None) -> np.ndarray:
         """
-        Get comprehensive playback information
+        Get a chunk of processed audio for playback.
+
+        Args:
+            chunk_size: Size of audio chunk to return
 
         Returns:
-            dict: Complete playback status and statistics
+            Processed audio chunk (stereo, float32)
         """
-        # Basic playback info
-        info = {
-            'state': self.state.value,
-            'position_seconds': self.position / self.sample_rate if self.audio_data is not None else 0.0,
-            'duration_seconds': len(self.audio_data) / self.sample_rate if self.audio_data is not None else 0.0,
-            'current_file': self.current_file,
-            'reference_file': self.reference_file,
-            'is_playing': self.state == PlaybackState.PLAYING,
-        }
+        if chunk_size is None:
+            chunk_size = self.config.buffer_size
 
-        # Queue information
-        current_track = self.queue.get_current_track()
-        info.update({
-            'queue': {
-                'current_track': current_track,
-                'track_count': len(self.queue.tracks),
-                'current_index': self.queue.current_index,
-                'has_next': self.queue.current_index < len(self.queue.tracks) - 1,
-                'has_previous': self.queue.current_index > 0,
-            }
-        })
+        # Return silence if not playing
+        if not self.file_manager.is_loaded() or not self.playback.is_playing():
+            return np.zeros((chunk_size, 2), dtype=np.float32)
 
-        # Library information
-        info.update({
-            'library': {
-                'current_track_data': self.current_track.to_dict() if self.current_track else None,
-                'auto_reference_selection': self.auto_reference_selection,
-                'database_path': self.library.database_path,
-            }
-        })
+        # Get raw audio chunk
+        chunk = self.file_manager.get_audio_chunk(
+            self.playback.position,
+            chunk_size
+        )
 
-        # Processing information
-        processing_info = self.processor.get_processing_info()
-        info.update({
-            'processing': processing_info,
-            'dsp': processing_info  # Compatibility with existing GUI
-        })
+        # Update position
+        self.playback.position += len(chunk)
 
-        # Session statistics
-        session_time = time.time() - self.session_start_time
-        info.update({
-            'session': {
-                'tracks_played': self.tracks_played,
-                'session_duration': session_time,
-                'total_play_time': self.total_play_time,
-            }
-        })
+        # Check for end of track
+        if self.playback.position >= self.file_manager.get_total_samples():
+            if self.auto_advance and not self.queue.is_queue_empty():
+                # Auto-advance in background
+                import threading
+                threading.Thread(
+                    target=self._auto_advance_delayed,
+                    daemon=True
+                ).start()
 
-        return info
+        # Apply advanced real-time processing
+        processed_chunk = self.processor.process_chunk(chunk)
+
+        return processed_chunk
+
+    def _auto_advance_delayed(self):
+        """Delayed auto-advance to next track (background thread)"""
+        import time
+        time.sleep(0.1)  # Small delay to avoid race conditions
+        if self.playback.is_playing():
+            self.next_track()
+
+    # ========== Effects Control (delegates to IntegrationManager) ==========
+
+    def set_effect_enabled(self, effect_name: str, enabled: bool):
+        """Enable/disable specific DSP effects"""
+        self.integration.set_effect_enabled(effect_name, enabled)
+
+    def set_auto_master_profile(self, profile: str):
+        """Set auto-mastering profile"""
+        self.integration.set_auto_master_profile(profile)
+
+    # ========== Callbacks and State (delegates to various components) ==========
+
+    def add_callback(self, callback: Callable):
+        """Add callback for state updates"""
+        self.integration.add_callback(callback)
+        self.playback.add_callback(callback)
+
+    def get_playback_info(self) -> Dict[str, Any]:
+        """Get comprehensive playback information"""
+        return self.integration.get_playback_info()
 
     def get_queue_info(self) -> Dict[str, Any]:
         """Get detailed queue information"""
-        return {
-            'tracks': self.queue.tracks.copy(),
-            'current_index': self.queue.current_index,
-            'shuffle_enabled': self.queue.shuffle_enabled,
-            'repeat_enabled': self.queue.repeat_enabled,
-            'auto_advance': self.auto_advance,
-        }
+        return self.queue.get_queue_info()
+
+    # ========== Shuffle and Repeat (delegates to QueueController) ==========
 
     def set_shuffle(self, enabled: bool):
         """Enable/disable shuffle mode"""
-        self.queue.shuffle_enabled = enabled
-        info(f"Shuffle {'enabled' if enabled else 'disabled'}")
+        self.queue.set_shuffle(enabled)
+        self.integration._notify_callbacks({'action': 'shuffle_changed', 'enabled': enabled})
 
     def set_repeat(self, enabled: bool):
         """Enable/disable repeat mode"""
-        self.queue.repeat_enabled = enabled
-        info(f"Repeat {'enabled' if enabled else 'disabled'}")
+        self.queue.set_repeat(enabled)
+        self.integration._notify_callbacks({'action': 'repeat_changed', 'enabled': enabled})
+
+    # ========== Properties for backward compatibility ==========
+
+    @property
+    def current_file(self) -> Optional[str]:
+        """Get current audio file path"""
+        return self.file_manager.current_file
+
+    @property
+    def current_track(self):
+        """Get current track object from library"""
+        return self.integration.current_track
+
+    @current_track.setter
+    def current_track(self, value):
+        """Set current track (for compatibility)"""
+        self.integration.current_track = value
+
+    @property
+    def reference_file(self) -> Optional[str]:
+        """Get current reference file path"""
+        return self.file_manager.reference_file
+
+    @property
+    def audio_data(self):
+        """Get raw audio data"""
+        return self.file_manager.audio_data
+
+    @audio_data.setter
+    def audio_data(self, value):
+        """Set audio data (for compatibility)"""
+        self.file_manager.audio_data = value
+
+    @property
+    def reference_data(self):
+        """Get raw reference audio data"""
+        return self.file_manager.reference_data
+
+    @reference_data.setter
+    def reference_data(self, value):
+        """Set reference data (for compatibility)"""
+        self.file_manager.reference_data = value
+
+    @property
+    def position(self) -> int:
+        """Get current position in samples"""
+        return self.playback.position
+
+    @position.setter
+    def position(self, value: int):
+        """Set position (for compatibility)"""
+        self.playback.position = value
+
+    @property
+    def sample_rate(self) -> int:
+        """Get current sample rate"""
+        return self.file_manager.sample_rate
+
+    @sample_rate.setter
+    def sample_rate(self, value: int):
+        """Set sample rate (for compatibility)"""
+        self.file_manager.sample_rate = value
+
+    # ========== Cleanup ==========
 
     def cleanup(self):
         """Clean up resources"""
         self.stop()
-        self.processor.reset_all_effects()
+        self.gapless.cleanup()
+        self.integration.cleanup()
         info("AudioPlayer cleanup completed")
