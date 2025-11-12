@@ -1,16 +1,18 @@
 /**
- * WebSocketContext - Unified WebSocket Management
+ * WebSocketContext - Unified WebSocket Management (Phase 4c)
  *
  * Provides a single WebSocket connection shared across the entire application.
  * Features:
  * - Single connection (no duplication)
  * - Subscription system for message types
- * - Automatic reconnection with exponential backoff
+ * - Automatic reconnection with exponential backoff (via WebSocketManager)
  * - Message queueing during disconnection
  * - TypeScript type safety
+ * - Centralized error handling (Phase 3c integration)
  */
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { WebSocketManager } from '../utils/errorHandling';
 
 // ============================================================================
 // TypeScript Types for WebSocket Messages
@@ -173,7 +175,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
   url = 'ws://localhost:8765/ws'
 }) => {
-  const wsRef = useRef<WebSocket | null>(null);
+  const wsManagerRef = useRef<WebSocketManager | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error'>('disconnected');
 
@@ -181,31 +183,15 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const subscriptionsRef = useRef<Map<string, Set<MessageHandler>>>(new Map());
   const globalHandlersRef = useRef<Set<MessageHandler>>(new Set());
 
-  // Reconnection management
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 10;
-  const baseReconnectDelay = 1000; // 1 second
-
   // Message queue for sending during disconnection
   const messageQueueRef = useRef<any[]>([]);
 
   /**
-   * Calculate exponential backoff delay
+   * Connect to WebSocket (Phase 4c: Uses WebSocketManager)
    */
-  const getReconnectDelay = useCallback(() => {
-    const attempt = reconnectAttemptsRef.current;
-    const delay = Math.min(baseReconnectDelay * Math.pow(2, attempt), 30000); // Max 30 seconds
-    return delay;
-  }, []);
-
-  /**
-   * Connect to WebSocket
-   */
-  const connect = useCallback(() => {
-    // Don't create multiple connections
-    if (wsRef.current?.readyState === WebSocket.OPEN ||
-        wsRef.current?.readyState === WebSocket.CONNECTING) {
+  const connect = useCallback(async () => {
+    // Don't create multiple managers
+    if (wsManagerRef.current?.isConnected()) {
       console.log('WebSocket already connected or connecting');
       return;
     }
@@ -214,23 +200,19 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     setConnectionStatus('connecting');
 
     try {
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
+      // Create WebSocketManager with Phase 3c error handling
+      wsManagerRef.current = new WebSocketManager(url, {
+        maxReconnectAttempts: 10,
+        initialReconnectDelayMs: 1000,
+        backoffMultiplier: 2,
+        maxDelayMs: 30000,
+        onReconnectAttempt: (attempt, delay) => {
+          console.log(`🔄 Reconnection attempt ${attempt}/10 (waiting ${delay}ms)`);
+        },
+      });
 
-      ws.onopen = () => {
-        console.log('✅ WebSocket connected');
-        setIsConnected(true);
-        setConnectionStatus('connected');
-        reconnectAttemptsRef.current = 0;
-
-        // Send queued messages
-        while (messageQueueRef.current.length > 0) {
-          const message = messageQueueRef.current.shift();
-          ws.send(JSON.stringify(message));
-        }
-      };
-
-      ws.onmessage = (event) => {
+      // Setup message handler
+      wsManagerRef.current.on('message', (event: MessageEvent) => {
         try {
           const message: AuralisWebSocketMessage = JSON.parse(event.data);
 
@@ -259,38 +241,40 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
         }
-      };
+      });
 
-      ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
+      // Setup open handler
+      wsManagerRef.current.on('open', () => {
+        console.log('✅ WebSocket connected');
+        setIsConnected(true);
+        setConnectionStatus('connected');
+
+        // Send queued messages
+        while (messageQueueRef.current.length > 0) {
+          const message = messageQueueRef.current.shift();
+          wsManagerRef.current?.send(JSON.stringify(message));
+        }
+      });
+
+      // Setup error handler
+      wsManagerRef.current.on('error', (event: Event) => {
+        console.error('❌ WebSocket error:', event);
         setConnectionStatus('error');
-      };
+      });
 
-      ws.onclose = () => {
-        console.log('🔌 WebSocket disconnected');
+      // Setup close handler
+      wsManagerRef.current.on('close', () => {
+        console.log('🔌 WebSocket disconnected (will auto-reconnect)');
         setIsConnected(false);
         setConnectionStatus('disconnected');
-        wsRef.current = null;
+      });
 
-        // Attempt reconnection with exponential backoff
-        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-          const delay = getReconnectDelay();
-          console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttemptsRef.current++;
-            connect();
-          }, delay);
-        } else {
-          console.error('❌ Max reconnection attempts reached');
-          setConnectionStatus('error');
-        }
-      };
+      await wsManagerRef.current.connect();
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
       setConnectionStatus('error');
     }
-  }, [url, getReconnectDelay]);
+  }, [url]);
 
   /**
    * Disconnect from WebSocket
@@ -298,16 +282,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const disconnect = useCallback(() => {
     console.log('Disconnecting WebSocket');
 
-    // Clear reconnection timeout
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
-    // Close WebSocket
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+    // Close WebSocket using WebSocketManager
+    if (wsManagerRef.current) {
+      wsManagerRef.current.close();
+      wsManagerRef.current = null;
     }
 
     setIsConnected(false);
@@ -356,8 +334,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
    * Send message
    */
   const send = useCallback((message: any) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
+    if (wsManagerRef.current?.isConnected()) {
+      wsManagerRef.current.send(JSON.stringify(message));
     } else {
       // Queue message for sending when connected
       console.warn('WebSocket not connected, queueing message');
