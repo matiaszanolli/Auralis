@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: Phase 1, 2 & 3b Complete | Phase 3a Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: Phase 1, 2, 3b & 4b Complete | Phase 3a & 4a Ready | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -27,7 +27,14 @@
 - ✅ All 49 tests passing (28 player-bar + 21 enhancement-pane)
 - ✅ Variant pattern established for 'button' and 'switch' UI styles
 
-**Cumulative Impact**: ~550 lines reduced, 5 services refactored, 2 component patterns unified
+### Phase 4b: Library Data & Statistics Hook Consolidation (0 net lines - composition)
+- ✅ Created `useLibraryWithStats` composition hook (374 lines)
+- ✅ Unified `useLibraryData` (318 lines) + `useLibraryStats` (56 lines) functionality
+- ✅ Updated `CozyLibraryView` to use new composition hook
+- ✅ Optional stats loading for performance optimization
+- ✅ Composition hook pattern established for future consolidations
+
+**Cumulative Impact**: ~550 lines reduced + 374 new composition hook, 5 services refactored, 3 patterns unified
 
 ---
 
@@ -176,22 +183,28 @@ LOW IMPACT + HIGH EFFORT:
   - ✅ All 49 tests passing with zero regressions
   - ✅ Established variant pattern for component reuse
 
+- **Phase 4b - Library Data & Stats Hook Consolidation** (2-3 hours)
+  - ✅ Created useLibraryWithStats composition hook (374 lines)
+  - ✅ Unified useLibraryData (318 lines) + useLibraryStats (56 lines)
+  - ✅ Optional stats loading for performance
+  - ✅ Established composition hook pattern for future work
+
 ### Immediate (Next Session)
-1. **Phase 3c - Error Handling Extraction** (3-4 hours)
+1. **Phase 4a - Player Hook Consolidation** (4-5 hours)
+   - Consolidate usePlayerAPI (393 lines) + useUnifiedWebMAudioPlayer (218 lines)
+   - Apply composition hook pattern from Phase 4b
+   - Used in BottomPlayerBarUnified (primary consumer)
+
+2. **Phase 3c - Error Handling Extraction** (3-4 hours)
    - Medium effort, improves app robustness
    - Establishes error handling patterns
    - Reduces duplicate logic in complex services
 
-2. **Phase 3a - Keyboard Shortcuts** (4-5 hours)
-   - Higher effort due to multiple components
+### Short Term
+3. **Phase 3a - Keyboard Shortcuts** (4-5 hours)
+   - Higher effort due to test file rewrite requirement
    - V2 consolidation is clean approach
    - Improves keyboard navigation testing
-
-### Short Term
-3. **Phase 4 - Hook Utilities** (5-6 hours)
-   - Reduces hook complexity
-   - Better composition patterns
-   - Easier state management
 
 ### Long Term
 4. **Phase 5 - Streaming Services** (8-10 hours)
@@ -301,6 +314,6 @@ Each phase should produce:
 
 ---
 
-**Last Updated**: 2025-11-12 (Phase 3b Complete)
-**Next Review**: After Phase 3a/3c completion
+**Last Updated**: 2025-11-12 (Phase 4b Complete)
+**Next Review**: After Phase 4a or Phase 3a/3c completion
 **Maintained By**: Claude Code
