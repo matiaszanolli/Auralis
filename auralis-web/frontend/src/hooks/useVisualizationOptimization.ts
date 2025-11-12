@@ -1,20 +1,20 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import {
-  RenderOptimizer,
+  PerformanceOptimizer,
   PerformanceConfig,
-  RenderStats,
+  PerformanceMetrics,
   PerformanceMonitor
-} from '../utils/VisualizationOptimizer';
+} from '../utils/performanceOptimizer';
 
 interface OptimizationHookOptions extends Partial<PerformanceConfig> {
   enableMonitoring?: boolean;
   autoAdjustQuality?: boolean;
-  onStatsUpdate?: (stats: RenderStats) => void;
+  onStatsUpdate?: (stats: PerformanceMetrics) => void;
 }
 
 interface OptimizationHookResult {
-  optimizer: RenderOptimizer;
-  stats: RenderStats;
+  optimizer: PerformanceOptimizer;
+  stats: PerformanceMetrics;
   qualityLevel: number;
   shouldRender: () => boolean;
   optimizeData: (data: number[]) => number[];
@@ -34,27 +34,30 @@ export const useVisualizationOptimization = (
     ...optimizerConfig
   } = options;
 
-  const optimizerRef = useRef<RenderOptimizer>();
+  const optimizerRef = useRef<PerformanceOptimizer>();
   const monitorRef = useRef<PerformanceMonitor>();
-  const [stats, setStats] = useState<RenderStats>({
+  const [stats, setStats] = useState<PerformanceMetrics>({
     fps: 0,
     frameTime: 0,
     renderTime: 0,
-    dataPoints: 0,
+    cpuUsage: 0,
     memoryUsage: 0,
-    droppedFrames: 0
+    droppedFrames: 0,
+    adaptiveQuality: 1.0,
+    dataPoints: 0,
+    bufferHealth: 1.0
   });
   const [qualityLevel, setQualityLevel] = useState(1.0);
 
   // Initialize optimizer and monitor
   useEffect(() => {
-    optimizerRef.current = new RenderOptimizer({
+    optimizerRef.current = new PerformanceOptimizer({
       adaptiveQuality: autoAdjustQuality,
       ...optimizerConfig
     });
 
     if (enableMonitoring) {
-      monitorRef.current = new PerformanceMonitor();
+      monitorRef.current = optimizerRef.current.getPerformanceMonitor();
     }
 
     return () => {
@@ -68,7 +71,7 @@ export const useVisualizationOptimization = (
 
     const interval = setInterval(() => {
       if (optimizerRef.current) {
-        const currentStats = optimizerRef.current.getStats();
+        const currentStats = optimizerRef.current.getMetrics();
         const currentQuality = optimizerRef.current.getQualityLevel();
 
         setStats(currentStats);
