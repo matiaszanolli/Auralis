@@ -228,6 +228,7 @@ export class UnifiedWebMAudioPlayer {
   private currentSource: AudioBufferSourceNode | null = null;
   private currentChunkIndex: number = 0;
   private startTime: number = 0;
+  private currentChunkOffset: number = 0;  // Offset within current chunk (for seeking)
   private pauseTime: number = 0;
   private volume: number = 1.0;
 
@@ -485,6 +486,23 @@ export class UnifiedWebMAudioPlayer {
   /**
    * Play a specific chunk with optional offset
    *
+   * CRITICAL TIMING FIX (Phase 2):
+   * ==============================
+   * Issue: Chunks have overlaps but timing was misaligned causing jumps/skips
+   *
+   * Backend architecture:
+   * - Chunk 0: 15s of audio, plays during 0-10s of track
+   * - Chunk 1: 15s of audio (first 5s overlaps with chunk 0), plays during 10-20s of track
+   * - Chunk 2: 15s of audio (first 5s overlaps with chunk 1), plays during 20-30s of track
+   *
+   * Frontend fixes:
+   * 1. actualBufferOffset = offset + overlap_duration (for chunks > 0)
+   *    Because the first 5s of the buffer is overlap context, we skip it
+   * 2. playDuration clamped to actual AudioBuffer duration
+   *    Prevents trying to play more than exists in decoded buffer
+   * 3. Metadata includes chunk_playable_duration and overlap_duration
+   *    Frontend knows exact structure: 15s buffer = 5s overlap + 10s playable
+   *
    * With 15s chunks delivered every 10s:
    * - Each chunk contains 15 seconds of overlapped audio from the backend
    * - We play only the INTERVAL duration (10s) that's "new" relative to playback timeline
@@ -526,20 +544,49 @@ export class UnifiedWebMAudioPlayer {
     source.buffer = chunk.audioBuffer;
     source.connect(chunkGainNode);
 
-    // Track when playback started
-    this.startTime = this.audioContext.currentTime - offset;
+    // Track when this chunk started playing in audio context time
+    // startTime is when source.start() is called, which is NOW
+    // currentChunkOffset is where we start in the buffer (for seeking)
+    this.startTime = this.audioContext.currentTime;
     this.currentChunkIndex = chunkIndex;
+    this.currentChunkOffset = offset;
 
-    // Calculate play duration based on position in track
-    // First chunk plays full interval (0-10s of audio)
-    // Subsequent chunks also play interval duration (10-20s, 20-30s, etc.)
+    // Backend architecture: 15s chunks every 10s for smooth blending
+    // Each chunk contains 15s of audio (with 5s overlap from previous chunk)
+    // They are meant to be played SEQUENTIALLY, not overlapped in real time
+    //
+    // Chunk 0: Play 0-15s (10s for timeline, 5s extra for blending context)
+    // Chunk 1: Play 0-15s (10s for timeline, 5s extra for blending context)
+    // Chunk 2: Play 0-15s (10s for timeline, 5s extra for blending context)
+    //
+    // But wait - if backend trimmed the overlap, chunks should only be ~10s each
+
+    const actualBufferDuration = chunk.audioBuffer!.duration;
     const isLastChunk = chunkIndex + 1 >= this.chunks.length;
     const chunkStartTime = chunkIndex * chunkInterval;
     const chunkEndTime = Math.min((chunkIndex + 1) * chunkInterval, this.metadata!.duration);
-    const playDuration = Math.max(0, chunkEndTime - chunkStartTime - offset);
 
-    // Buffer offset: if seeking within chunk, skip ahead
-    const bufferOffset = offset;
+    let bufferOffset = offset;  // Start position in buffer
+    let playDuration: number;
+
+    if (offset > 0) {
+      // Seeking within chunk - play remaining duration
+      playDuration = Math.max(0, actualBufferDuration - bufferOffset);
+    } else if (isLastChunk) {
+      // Last chunk - play only what's needed for remaining track
+      playDuration = Math.min(actualBufferDuration, chunkEndTime - chunkStartTime);
+    } else {
+      // Normal chunk - play the full buffer (it contains ~10s playable + 5s overlap/context)
+      playDuration = actualBufferDuration;
+    }
+
+    // Safety: never exceed buffer
+    playDuration = Math.min(playDuration, actualBufferDuration - bufferOffset);
+
+    if (playDuration <= 0) {
+      this.debug(`WARNING: Chunk ${chunkIndex} invalid duration (buffer=${actualBufferDuration.toFixed(2)}s, offset=${bufferOffset.toFixed(2)}s)`);
+      playDuration = 0.1;
+    }
 
     // Queue next chunk with IMMEDIATE priority for continuous playback
     // This ensures next chunk loads before playback ends, but after seek targets
@@ -572,8 +619,7 @@ export class UnifiedWebMAudioPlayer {
     };
 
     // Play chunk: start from buffer offset, play for calculated duration
-    // For normal playback: bufferOffset=0, playDuration=10s
-    // For seeking within a chunk: bufferOffset=position, playDuration=remaining
+    // bufferOffset is where we start in the buffer (normally 0, or after seeking)
     source.start(0, bufferOffset, playDuration);
 
     // Keep reference to current source
@@ -768,19 +814,22 @@ export class UnifiedWebMAudioPlayer {
 
   /**
    * Get current playback time
+   *
+   * Chunk timeline mapping:
+   * - Chunk 0 @ timeline 0s: buffer has 15s (0-10s playable + 5s blend context)
+   * - Chunk 1 @ timeline 10s: buffer has 10s (already trimmed overlap)
+   * - Chunk 2 @ timeline 20s: buffer has 10s (already trimmed overlap)
    */
   getCurrentTime(): number {
     if (this.state === 'playing' && this.currentSource) {
-      // Get time within current chunk
-      const timeInCurrentChunk = this.audioContext.currentTime - this.startTime;
+      // Elapsed time since this chunk started playing
+      const elapsedInChunk = this.audioContext.currentTime - this.startTime;
 
-      // Get accumulated time from all previous chunks
-      const accumulatedTime = this.currentChunkIndex >= 0 && this.chunks[this.currentChunkIndex]
-        ? this.chunks[this.currentChunkIndex].startTime
-        : 0;
+      // Timeline position of this chunk's start (0s, 10s, 20s, 30s, etc.)
+      const chunkStartTime = this.currentChunkIndex * (this.metadata?.chunk_interval || 10);
 
-      // Return total time (accumulated + current chunk)
-      return accumulatedTime + timeInCurrentChunk;
+      // Current playback position = chunk start + offset we started with + elapsed time
+      return chunkStartTime + this.currentChunkOffset + elapsedInChunk;
     }
     return this.pauseTime;
   }

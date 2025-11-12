@@ -38,7 +38,7 @@ interface EnhancementProviderProps {
 
 export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ children }) => {
   const [settings, setSettings] = useState<EnhancementSettings>({
-    enabled: false,
+    enabled: true,
     preset: 'adaptive',
     intensity: 1.0,
   });

@@ -405,7 +405,7 @@ else:
 
 # Global enhancement state
 enhancement_settings = {
-    "enabled": False,
+    "enabled": True,
     "preset": "adaptive",
     "intensity": 1.0
 }
