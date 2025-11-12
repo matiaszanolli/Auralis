@@ -254,8 +254,18 @@ export class UnifiedWebMAudioPlayer {
 
         const arrayBuffer = await response.arrayBuffer();
 
+        if (arrayBuffer.byteLength === 0) {
+          throw new Error(`Chunk ${chunkIndex} returned empty data (0 bytes)`);
+        }
+
+        this.debug(`Decoding ${arrayBuffer.byteLength} bytes for chunk ${chunkIndex}...`);
+
         // Decode WebM/Opus to AudioBuffer using Web Audio API
-        audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+        try {
+          audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+        } catch (decodeError: any) {
+          throw new Error(`Failed to decode chunk ${chunkIndex}: ${decodeError.message || 'Unknown decode error'}`);
+        }
 
         // Cache decoded buffer
         this.buffer.set(cacheKey, audioBuffer);
