@@ -32,7 +32,7 @@ import LyricsPanel from './components/player/LyricsPanel';
 import KeyboardShortcutsHelp from './components/shared/KeyboardShortcutsHelp';
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
-import { useKeyboardShortcutsV2, KeyboardShortcut } from './hooks/useKeyboardShortcutsV2';
+import { useKeyboardShortcuts, KeyboardShortcut } from './hooks/useKeyboardShortcuts';
 import { usePlayerAPI } from './hooks/usePlayerAPI';
 
 interface Track {
@@ -283,7 +283,7 @@ function ComfortableApp() {
     openHelp,
     closeHelp,
     formatShortcut
-  } = useKeyboardShortcutsV2(keyboardShortcutsArray);
+  } = useKeyboardShortcuts(keyboardShortcutsArray);
 
   // Set the help shortcut handler (needs openHelp from hook)
   useEffect(() => {

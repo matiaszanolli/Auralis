@@ -1,21 +1,18 @@
 /**
- * useKeyboardShortcuts Hook
+ * useKeyboardShortcuts Hook (Phase 3a - Unified)
  *
- * Simplified version to avoid circular dependency issues.
- * Uses event handlers directly instead of building a shortcuts array.
+ * Consolidated keyboard shortcuts hook supporting both config-based (V1) and
+ * service-based (V2) patterns for backward compatibility.
+ *
+ * Phase 3a consolidation merges V1's flexible config interface with V2's
+ * robust service architecture. Prefers V2 pattern but maintains V1 compatibility.
  */
 
 import { useEffect, useCallback, useState } from 'react';
+import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '../services/keyboardShortcutsService';
 
-export interface KeyboardShortcut {
-  key: string;
-  ctrl?: boolean;
-  shift?: boolean;
-  alt?: boolean;
-  meta?: boolean;
-  description: string;
-  category: 'Playback' | 'Navigation' | 'Library' | 'Queue' | 'Global';
-  handler: () => void;
+export interface KeyboardShortcut extends ShortcutDefinition {
+  handler: ShortcutHandler;
 }
 
 export interface KeyboardShortcutsConfig {
@@ -59,236 +56,317 @@ export interface KeyboardShortcutsConfig {
 }
 
 export interface UseKeyboardShortcutsReturn {
-  shortcuts: KeyboardShortcut[];
+  shortcuts: ShortcutDefinition[];
   isHelpOpen: boolean;
   openHelp: () => void;
   closeHelp: () => void;
   enable: () => void;
   disable: () => void;
   isEnabled: boolean;
+  formatShortcut: (shortcut: ShortcutDefinition) => string;
 }
 
 /**
- * Check if element is an input that should block shortcuts
+ * Convert config-based shortcuts (V1 pattern) to service-based shortcuts (V2 pattern)
+ * Phase 3a: Unified handler that maintains backward compatibility
  */
-const isInputElement = (target: EventTarget | null): boolean => {
-  if (!target || !(target instanceof HTMLElement)) return false;
+const configToServiceShortcuts = (config: KeyboardShortcutsConfig): Array<KeyboardShortcut & { definition: ShortcutDefinition }> => {
+  const shortcuts: Array<KeyboardShortcut & { definition: ShortcutDefinition }> = [];
 
-  const tagName = target.tagName.toLowerCase();
-  const isInput = ['input', 'textarea', 'select'].includes(tagName);
-  const isContentEditable = target.contentEditable === 'true';
+  // Playback controls
+  if (config.onPlayPause) {
+    shortcuts.push({
+      definition: { key: ' ', description: 'Play/Pause', category: 'Playback' },
+      handler: config.onPlayPause,
+      key: ' ',
+      description: 'Play/Pause',
+      category: 'Playback'
+    });
+  }
+  if (config.onNext) {
+    shortcuts.push({
+      definition: { key: 'ArrowRight', description: 'Next track', category: 'Playback' },
+      handler: config.onNext,
+      key: 'ArrowRight',
+      description: 'Next track',
+      category: 'Playback'
+    });
+  }
+  if (config.onPrevious) {
+    shortcuts.push({
+      definition: { key: 'ArrowLeft', description: 'Previous track', category: 'Playback' },
+      handler: config.onPrevious,
+      key: 'ArrowLeft',
+      description: 'Previous track',
+      category: 'Playback'
+    });
+  }
+  if (config.onSeekForward) {
+    shortcuts.push({
+      definition: { key: 'ArrowRight', shift: true, description: 'Seek forward', category: 'Playback' },
+      handler: config.onSeekForward,
+      key: 'ArrowRight',
+      shift: true,
+      description: 'Seek forward',
+      category: 'Playback'
+    });
+  }
+  if (config.onSeekBackward) {
+    shortcuts.push({
+      definition: { key: 'ArrowLeft', shift: true, description: 'Seek backward', category: 'Playback' },
+      handler: config.onSeekBackward,
+      key: 'ArrowLeft',
+      shift: true,
+      description: 'Seek backward',
+      category: 'Playback'
+    });
+  }
+  if (config.onVolumeUp) {
+    shortcuts.push({
+      definition: { key: 'ArrowUp', description: 'Volume up', category: 'Playback' },
+      handler: config.onVolumeUp,
+      key: 'ArrowUp',
+      description: 'Volume up',
+      category: 'Playback'
+    });
+  }
+  if (config.onVolumeDown) {
+    shortcuts.push({
+      definition: { key: 'ArrowDown', description: 'Volume down', category: 'Playback' },
+      handler: config.onVolumeDown,
+      key: 'ArrowDown',
+      description: 'Volume down',
+      category: 'Playback'
+    });
+  }
+  if (config.onMute) {
+    shortcuts.push({
+      definition: { key: 'm', description: 'Mute/Unmute', category: 'Playback' },
+      handler: config.onMute,
+      key: 'm',
+      description: 'Mute/Unmute',
+      category: 'Playback'
+    });
+  }
 
-  return isInput || isContentEditable;
+  // Navigation
+  if (config.onShowSongs) {
+    shortcuts.push({
+      definition: { key: '1', description: 'Show Songs', category: 'Navigation' },
+      handler: config.onShowSongs,
+      key: '1',
+      description: 'Show Songs',
+      category: 'Navigation'
+    });
+  }
+  if (config.onShowAlbums) {
+    shortcuts.push({
+      definition: { key: '2', description: 'Show Albums', category: 'Navigation' },
+      handler: config.onShowAlbums,
+      key: '2',
+      description: 'Show Albums',
+      category: 'Navigation'
+    });
+  }
+  if (config.onShowArtists) {
+    shortcuts.push({
+      definition: { key: '3', description: 'Show Artists', category: 'Navigation' },
+      handler: config.onShowArtists,
+      key: '3',
+      description: 'Show Artists',
+      category: 'Navigation'
+    });
+  }
+  if (config.onShowPlaylists) {
+    shortcuts.push({
+      definition: { key: '4', description: 'Show Playlists', category: 'Navigation' },
+      handler: config.onShowPlaylists,
+      key: '4',
+      description: 'Show Playlists',
+      category: 'Navigation'
+    });
+  }
+  if (config.onFocusSearch) {
+    shortcuts.push({
+      definition: { key: '/', description: 'Focus search', category: 'Navigation' },
+      handler: config.onFocusSearch,
+      key: '/',
+      description: 'Focus search',
+      category: 'Navigation'
+    });
+  }
+  if (config.onEscape) {
+    shortcuts.push({
+      definition: { key: 'Escape', description: 'Clear search / Close dialogs', category: 'Navigation' },
+      handler: config.onEscape,
+      key: 'Escape',
+      description: 'Clear search / Close dialogs',
+      category: 'Navigation'
+    });
+  }
+
+  // Library actions
+  if (config.onPlaySelected) {
+    shortcuts.push({
+      definition: { key: 'Enter', description: 'Play selected', category: 'Library' },
+      handler: config.onPlaySelected,
+      key: 'Enter',
+      description: 'Play selected',
+      category: 'Library'
+    });
+  }
+  if (config.onToggleFavorite) {
+    shortcuts.push({
+      definition: { key: 'l', description: 'Toggle favorite', category: 'Library' },
+      handler: config.onToggleFavorite,
+      key: 'l',
+      description: 'Toggle favorite',
+      category: 'Library'
+    });
+  }
+  if (config.onAddToPlaylist) {
+    shortcuts.push({
+      definition: { key: 'p', description: 'Add to playlist', category: 'Library' },
+      handler: config.onAddToPlaylist,
+      key: 'p',
+      description: 'Add to playlist',
+      category: 'Library'
+    });
+  }
+  if (config.onAddToQueue) {
+    shortcuts.push({
+      definition: { key: 'q', description: 'Add to queue', category: 'Library' },
+      handler: config.onAddToQueue,
+      key: 'q',
+      description: 'Add to queue',
+      category: 'Library'
+    });
+  }
+  if (config.onShowInfo) {
+    shortcuts.push({
+      definition: { key: 'i', description: 'Show info', category: 'Library' },
+      handler: config.onShowInfo,
+      key: 'i',
+      description: 'Show info',
+      category: 'Library'
+    });
+  }
+  if (config.onDelete) {
+    shortcuts.push({
+      definition: { key: 'Delete', description: 'Delete', category: 'Library' },
+      handler: config.onDelete,
+      key: 'Delete',
+      description: 'Delete',
+      category: 'Library'
+    });
+  }
+
+  // Queue management
+  if (config.onClearQueue) {
+    shortcuts.push({
+      definition: { key: 'c', ctrl: true, shift: true, description: 'Clear queue', category: 'Queue' },
+      handler: config.onClearQueue,
+      key: 'c',
+      ctrl: true,
+      shift: true,
+      description: 'Clear queue',
+      category: 'Queue'
+    });
+  }
+  if (config.onShuffleQueue) {
+    shortcuts.push({
+      definition: { key: 's', ctrl: true, shift: true, description: 'Shuffle queue', category: 'Queue' },
+      handler: config.onShuffleQueue,
+      key: 's',
+      ctrl: true,
+      shift: true,
+      description: 'Shuffle queue',
+      category: 'Queue'
+    });
+  }
+
+  // Global
+  if (config.onShowHelp) {
+    shortcuts.push({
+      definition: { key: '?', description: 'Show keyboard shortcuts', category: 'Global' },
+      handler: config.onShowHelp,
+      key: '?',
+      description: 'Show keyboard shortcuts',
+      category: 'Global'
+    });
+  }
+  if (config.onOpenSettings) {
+    shortcuts.push({
+      definition: { key: ',', ctrl: true, description: 'Open settings', category: 'Global' },
+      handler: config.onOpenSettings,
+      key: ',',
+      ctrl: true,
+      description: 'Open settings',
+      category: 'Global'
+    });
+  }
+
+  return shortcuts;
 };
 
 /**
- * Format shortcut key for display
+ * Format shortcut for display (Phase 3a: Unified from service)
  */
-export const formatShortcut = (shortcut: KeyboardShortcut): string => {
-  const parts: string[] = [];
-  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-
-  if (shortcut.ctrl || shortcut.meta) {
-    parts.push(isMac ? '⌘' : 'Ctrl');
-  }
-  if (shortcut.shift) {
-    parts.push(isMac ? '⇧' : 'Shift');
-  }
-  if (shortcut.alt) {
-    parts.push(isMac ? '⌥' : 'Alt');
-  }
-
-  // Format key display
-  const keyMap: Record<string, string> = {
-    ' ': 'Space',
-    'ArrowUp': '↑',
-    'ArrowDown': '↓',
-    'ArrowLeft': '←',
-    'ArrowRight': '→',
-    'Enter': '↵',
-    'Escape': 'Esc',
-    'Delete': 'Del',
-  };
-
-  const keyDisplay = keyMap[shortcut.key] || shortcut.key.toUpperCase();
-  parts.push(keyDisplay);
-
-  return parts.join(isMac ? '' : '+');
+export const formatShortcut = (shortcut: ShortcutDefinition): string => {
+  return keyboardShortcuts.formatShortcut(shortcut);
 };
 
 /**
- * Main keyboard shortcuts hook - SIMPLIFIED VERSION
+ * Main keyboard shortcuts hook - UNIFIED VERSION (Phase 3a)
+ *
+ * Supports both:
+ * - V1 config-based pattern: Pass handlers as config object
+ * - V2 service-based pattern: Pass shortcuts array directly
  */
-export const useKeyboardShortcuts = (config: KeyboardShortcutsConfig = {}): UseKeyboardShortcutsReturn => {
+export const useKeyboardShortcuts = (
+  configOrShortcuts?: KeyboardShortcutsConfig | KeyboardShortcut[]
+): UseKeyboardShortcutsReturn => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const [isEnabled, setIsEnabled] = useState(config.enabled !== false);
-
-  // Keyboard event handler - handles keys directly
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (!isEnabled) return;
-      if (isInputElement(event.target)) return;
-
-      const key = event.key;
-      const ctrl = event.ctrlKey || event.metaKey;
-      const shift = event.shiftKey;
-      const alt = event.altKey;
-
-      // Playback controls
-      if (key === ' ' && !ctrl && !shift && !alt && config.onPlayPause) {
-        event.preventDefault();
-        config.onPlayPause();
-        return;
-      }
-      if (key === 'ArrowRight' && !shift && !ctrl && !alt && config.onNext) {
-        event.preventDefault();
-        config.onNext();
-        return;
-      }
-      if (key === 'ArrowLeft' && !shift && !ctrl && !alt && config.onPrevious) {
-        event.preventDefault();
-        config.onPrevious();
-        return;
-      }
-      if (key === 'ArrowRight' && shift && !ctrl && !alt && config.onSeekForward) {
-        event.preventDefault();
-        config.onSeekForward();
-        return;
-      }
-      if (key === 'ArrowLeft' && shift && !ctrl && !alt && config.onSeekBackward) {
-        event.preventDefault();
-        config.onSeekBackward();
-        return;
-      }
-      if (key === 'ArrowUp' && !shift && !ctrl && !alt && config.onVolumeUp) {
-        event.preventDefault();
-        config.onVolumeUp();
-        return;
-      }
-      if (key === 'ArrowDown' && !shift && !ctrl && !alt && config.onVolumeDown) {
-        event.preventDefault();
-        config.onVolumeDown();
-        return;
-      }
-      if (key === 'm' && !shift && !ctrl && !alt && config.onMute) {
-        event.preventDefault();
-        config.onMute();
-        return;
-      }
-
-      // Navigation
-      if (key === '1' && !shift && !ctrl && !alt && config.onShowSongs) {
-        event.preventDefault();
-        config.onShowSongs();
-        return;
-      }
-      if (key === '2' && !shift && !ctrl && !alt && config.onShowAlbums) {
-        event.preventDefault();
-        config.onShowAlbums();
-        return;
-      }
-      if (key === '3' && !shift && !ctrl && !alt && config.onShowArtists) {
-        event.preventDefault();
-        config.onShowArtists();
-        return;
-      }
-      if (key === '4' && !shift && !ctrl && !alt && config.onShowPlaylists) {
-        event.preventDefault();
-        config.onShowPlaylists();
-        return;
-      }
-      if (key === '/' && !shift && !ctrl && !alt && config.onFocusSearch) {
-        event.preventDefault();
-        config.onFocusSearch();
-        return;
-      }
-      if (key === 'Escape' && !shift && !ctrl && !alt && config.onEscape) {
-        event.preventDefault();
-        config.onEscape();
-        return;
-      }
-
-      // Library actions
-      if (key === 'Enter' && !shift && !ctrl && !alt && config.onPlaySelected) {
-        event.preventDefault();
-        config.onPlaySelected();
-        return;
-      }
-      if (key === 'l' && !shift && !ctrl && !alt && config.onToggleFavorite) {
-        event.preventDefault();
-        config.onToggleFavorite();
-        return;
-      }
-      if (key === 'p' && !shift && !ctrl && !alt && config.onAddToPlaylist) {
-        event.preventDefault();
-        config.onAddToPlaylist();
-        return;
-      }
-      if (key === 'q' && !shift && !ctrl && !alt && config.onAddToQueue) {
-        event.preventDefault();
-        config.onAddToQueue();
-        return;
-      }
-      if (key === 'i' && !shift && !ctrl && !alt && config.onShowInfo) {
-        event.preventDefault();
-        config.onShowInfo();
-        return;
-      }
-      if (key === 'Delete' && !shift && !ctrl && !alt && config.onDelete) {
-        event.preventDefault();
-        config.onDelete();
-        return;
-      }
-
-      // Queue management
-      if (key === 'c' && ctrl && shift && !alt && config.onClearQueue) {
-        event.preventDefault();
-        config.onClearQueue();
-        return;
-      }
-      if (key === 's' && ctrl && shift && !alt && config.onShuffleQueue) {
-        event.preventDefault();
-        config.onShuffleQueue();
-        return;
-      }
-
-      // Global
-      if (key === '?' && !ctrl && !alt && config.onShowHelp) {
-        event.preventDefault();
-        config.onShowHelp();
-        return;
-      }
-      if (key === ',' && ctrl && !shift && !alt && config.onOpenSettings) {
-        event.preventDefault();
-        config.onOpenSettings();
-        return;
-      }
-    },
-    [isEnabled, config]
+  const [isEnabled, setIsEnabled] = useState(
+    Array.isArray(configOrShortcuts)
+      ? true
+      : (configOrShortcuts?.enabled !== false)
   );
 
-  // Register global keyboard listener
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  // Determine input format and convert to service format
+  const shortcutsToRegister = Array.isArray(configOrShortcuts)
+    ? configOrShortcuts
+    : configToServiceShortcuts(configOrShortcuts || {});
 
-  // Build shortcuts array for display only (not used for handling)
-  const shortcuts: KeyboardShortcut[] = [];
-  if (config.onPlayPause) shortcuts.push({ key: ' ', description: 'Play/Pause', category: 'Playback', handler: config.onPlayPause });
-  if (config.onNext) shortcuts.push({ key: 'ArrowRight', description: 'Next track', category: 'Playback', handler: config.onNext });
-  if (config.onPrevious) shortcuts.push({ key: 'ArrowLeft', description: 'Previous track', category: 'Playback', handler: config.onPrevious });
-  if (config.onVolumeUp) shortcuts.push({ key: 'ArrowUp', description: 'Volume up', category: 'Playback', handler: config.onVolumeUp });
-  if (config.onVolumeDown) shortcuts.push({ key: 'ArrowDown', description: 'Volume down', category: 'Playback', handler: config.onVolumeDown });
-  if (config.onMute) shortcuts.push({ key: 'm', description: 'Mute/Unmute', category: 'Playback', handler: config.onMute });
-  if (config.onShowSongs) shortcuts.push({ key: '1', description: 'Show Songs', category: 'Navigation', handler: config.onShowSongs });
-  if (config.onShowAlbums) shortcuts.push({ key: '2', description: 'Show Albums', category: 'Navigation', handler: config.onShowAlbums });
-  if (config.onShowArtists) shortcuts.push({ key: '3', description: 'Show Artists', category: 'Navigation', handler: config.onShowArtists });
-  if (config.onShowPlaylists) shortcuts.push({ key: '4', description: 'Show Playlists', category: 'Navigation', handler: config.onShowPlaylists });
-  if (config.onFocusSearch) shortcuts.push({ key: '/', description: 'Focus search', category: 'Navigation', handler: config.onFocusSearch });
-  if (config.onEscape) shortcuts.push({ key: 'Escape', description: 'Clear search / Close dialogs', category: 'Navigation', handler: config.onEscape });
-  if (config.onShowHelp) shortcuts.push({ key: '?', description: 'Show keyboard shortcuts', category: 'Global', handler: config.onShowHelp });
-  if (config.onOpenSettings) shortcuts.push({ key: ',', ctrl: true, description: 'Open settings', category: 'Global', handler: config.onOpenSettings });
+  // Register shortcuts with service on mount
+  useEffect(() => {
+    // Clear any previous shortcuts
+    keyboardShortcuts.clear();
+
+    // Register all shortcuts
+    shortcutsToRegister.forEach((shortcut) => {
+      const { handler, ...definition } = shortcut;
+      keyboardShortcuts.register(definition, handler);
+    });
+
+    // Start listening
+    keyboardShortcuts.startListening();
+
+    // Cleanup: stop listening and clear on unmount
+    return () => {
+      keyboardShortcuts.stopListening();
+      keyboardShortcuts.clear();
+    };
+  }, [shortcutsToRegister]);
+
+  // Enable/disable based on state
+  useEffect(() => {
+    if (isEnabled) {
+      keyboardShortcuts.enable();
+    } else {
+      keyboardShortcuts.disable();
+    }
+  }, [isEnabled]);
 
   const openHelp = useCallback(() => setIsHelpOpen(true), []);
   const closeHelp = useCallback(() => setIsHelpOpen(false), []);
@@ -296,12 +374,13 @@ export const useKeyboardShortcuts = (config: KeyboardShortcutsConfig = {}): UseK
   const disable = useCallback(() => setIsEnabled(false), []);
 
   return {
-    shortcuts,
+    shortcuts: keyboardShortcuts.getShortcuts(),
     isHelpOpen,
     openHelp,
     closeHelp,
     enable,
     disable,
     isEnabled,
+    formatShortcut: (shortcut) => keyboardShortcuts.formatShortcut(shortcut)
   };
 };
