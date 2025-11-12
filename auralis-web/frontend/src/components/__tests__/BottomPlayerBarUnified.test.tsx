@@ -15,6 +15,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import BottomPlayerBarUnified from '../BottomPlayerBarUnified';
 import { usePlayerAPI } from '../../hooks/usePlayerAPI';
 import { useUnifiedWebMAudioPlayer } from '../../hooks/useUnifiedWebMAudioPlayer';
@@ -24,29 +25,34 @@ import { ToastProvider } from '../shared/Toast';
 import { auralisTheme } from '../../theme/auralisTheme';
 
 // Mock hooks
-jest.mock('../../hooks/usePlayerAPI');
-jest.mock('../../hooks/useUnifiedWebMAudioPlayer');
-jest.mock('../../contexts/EnhancementContext');
-jest.mock('../album/AlbumArt', () => {
-  return function MockAlbumArt() {
-    return <div data-testid="album-art">Album Art</div>;
+vi.mock('../../hooks/usePlayerAPI');
+vi.mock('../../hooks/useUnifiedWebMAudioPlayer');
+vi.mock('../../contexts/EnhancementContext');
+vi.mock('../album/AlbumArt', () => {
+  return {
+    default: function MockAlbumArt() {
+      return <div data-testid="album-art">Album Art</div>;
+    },
   };
 });
-jest.mock('../shared/Toast', () => ({
-  ...jest.requireActual('../shared/Toast'),
-  useToast: () => ({
-    showToast: jest.fn(),
-  }),
-}));
+vi.mock('../shared/Toast', async () => {
+  const actual = await vi.importActual<typeof import('../shared/Toast')>('../shared/Toast');
+  return {
+    ...actual,
+    useToast: () => ({
+      showToast: vi.fn(),
+    }),
+  };
+});
 
 const mockPlayerAPI = {
-  play: jest.fn(),
-  pause: jest.fn(),
-  seek: jest.fn(),
-  setVolume: jest.fn(),
-  nextTrack: jest.fn(),
-  previousTrack: jest.fn(),
-  toggleFavorite: jest.fn(),
+  play: vi.fn(),
+  pause: vi.fn(),
+  seek: vi.fn(),
+  setVolume: vi.fn(),
+  nextTrack: vi.fn(),
+  previousTrack: vi.fn(),
+  toggleFavorite: vi.fn(),
 };
 
 const mockPlayerState = {
@@ -89,18 +95,18 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('BottomPlayerBarUnified', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
-    (usePlayerAPI as jest.Mock).mockReturnValue({
+    vi.mocked(usePlayerAPI).mockReturnValue({
       ...mockPlayerAPI,
       playerState: { ...mockPlayerState },
     });
 
-    (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue(mockPlayerState);
+    vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue(mockPlayerState);
 
-    (useEnhancement as jest.Mock).mockReturnValue({
+    vi.mocked(useEnhancement).mockReturnValue({
       ...mockEnhancement,
-      toggleEnhancement: jest.fn(),
+      toggleEnhancement: vi.fn(),
     });
   });
 
@@ -209,7 +215,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Play/Pause Functionality', () => {
     it('should show pause button when playing', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         isPlaying: true,
       });
@@ -225,7 +231,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show play button when not playing', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         isPlaying: false,
       });
@@ -258,7 +264,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should call pause when pause button clicked', async () => {
       const user = userEvent.setup();
 
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         isPlaying: true,
       });
@@ -318,7 +324,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should disable previous button at queue start', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         queueIndex: 0,
       });
@@ -340,7 +346,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should disable next button at queue end', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         queueIndex: 1,
         queue: [
@@ -368,7 +374,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Volume Control', () => {
     it('should display current volume level', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         volume: 75,
       });
@@ -404,7 +410,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show mute icon when volume is 0', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         volume: 0,
       });
@@ -420,7 +426,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show volume down icon for low volume', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         volume: 25,
       });
@@ -436,7 +442,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show volume up icon for high volume', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         volume: 75,
       });
@@ -454,7 +460,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Progress Bar', () => {
     it('should display current time', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         position: 90, // 1:30
       });
@@ -470,7 +476,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should display total duration', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         duration: 180, // 3:00
       });
@@ -491,7 +497,7 @@ describe('BottomPlayerBarUnified', () => {
         </Wrapper>
       );
 
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         position: 90,
       });
@@ -528,7 +534,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should handle seeking at track end', async () => {
       const user = userEvent.setup();
 
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         duration: 180,
       });
@@ -566,7 +572,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show unfilled heart when not favorited', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         isFavorited: false,
       });
@@ -581,7 +587,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show filled heart when favorited', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         isFavorited: true,
       });
@@ -616,7 +622,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Enhancement Indicator', () => {
     it('should show enhancement status', () => {
-      (useEnhancement as jest.Mock).mockReturnValue({
+      vi.mocked(useEnhancement).mockReturnValue({
         isEnabled: true,
         currentPreset: 'bright',
       });
@@ -632,7 +638,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show when enhancement is disabled', () => {
-      (useEnhancement as jest.Mock).mockReturnValue({
+      vi.mocked(useEnhancement).mockReturnValue({
         isEnabled: false,
         currentPreset: 'adaptive',
       });
@@ -651,7 +657,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Empty State', () => {
     it('should handle no current track', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         currentTrack: null,
       });
@@ -668,7 +674,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should disable playback controls when no track loaded', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         currentTrack: null,
       });

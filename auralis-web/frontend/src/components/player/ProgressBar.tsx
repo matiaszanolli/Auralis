@@ -13,6 +13,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { Slider } from '@mui/material';
+import { formatTime } from '../../utils/timeFormat';
 
 export interface ProgressBarProps {
   // Time state
@@ -25,15 +26,6 @@ export interface ProgressBarProps {
   // Optional customization
   showTime?: boolean;
   height?: number;
-}
-
-/**
- * Format time in MM:SS format
- */
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 /**

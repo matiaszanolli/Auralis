@@ -5,7 +5,8 @@
  * API service for user settings management
  */
 
-const API_BASE = '/api';
+import { get, put, post } from '../utils/apiRequest';
+import { ENDPOINTS } from '../config/api';
 
 export interface UserSettings {
   id: number;
@@ -80,83 +81,35 @@ export const settingsService = {
    * Get current user settings
    */
   async getSettings(): Promise<UserSettings> {
-    const response = await fetch(`${API_BASE}/settings`);
-    if (!response.ok) {
-      throw new Error('Failed to get settings');
-    }
-    return response.json();
+    return get(ENDPOINTS.SETTINGS);
   },
 
   /**
    * Update user settings
    */
   async updateSettings(updates: SettingsUpdate): Promise<{ message: string; settings: UserSettings }> {
-    const response = await fetch(`${API_BASE}/settings`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(updates)
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to update settings');
-    }
-
-    return response.json();
+    return put(ENDPOINTS.SETTINGS, updates);
   },
 
   /**
    * Reset all settings to defaults
    */
   async resetSettings(): Promise<{ message: string; settings: UserSettings }> {
-    const response = await fetch(`${API_BASE}/settings/reset`, {
-      method: 'POST'
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to reset settings');
-    }
-
-    return response.json();
+    return post(`${ENDPOINTS.SETTINGS}/reset`, {});
   },
 
   /**
    * Add a scan folder
    */
   async addScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
-    const response = await fetch(`${API_BASE}/settings/scan-folders`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ folder })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to add scan folder');
-    }
-
-    return response.json();
+    return post(`${ENDPOINTS.SETTINGS}/scan-folders`, { folder });
   },
 
   /**
    * Remove a scan folder
    */
   async removeScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
-    const response = await fetch(`${API_BASE}/settings/scan-folders`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ folder })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to remove scan folder');
-    }
-
-    return response.json();
+    return post(`${ENDPOINTS.SETTINGS}/scan-folders/delete`, { folder });
   }
 };
 

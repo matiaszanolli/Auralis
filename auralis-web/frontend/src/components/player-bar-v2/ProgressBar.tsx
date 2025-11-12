@@ -12,6 +12,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Box, Slider, Typography, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
+import { formatTime } from '../../utils/timeFormat';
 
 interface ProgressBarProps {
   currentTime: number;
@@ -111,17 +112,6 @@ const StyledSlider = styled(Slider)({
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
   },
 });
-
-/**
- * Format time in MM:SS format
- */
-function formatTime(seconds: number): string {
-  if (!isFinite(seconds) || seconds < 0) return '0:00';
-
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
 
 /**
  * Calculate crossfade regions for visualization
