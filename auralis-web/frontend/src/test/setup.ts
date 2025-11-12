@@ -8,6 +8,18 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { server } from './mocks/server'
 
+// Create jest global alias for Vitest compatibility
+// This allows jest.mock() calls to work in tests
+;(globalThis as any).jest = {
+  mock: vi.mock,
+  unmock: vi.unmock,
+  doMock: vi.doMock,
+  doUnmock: vi.doUnmock,
+  fn: vi.fn,
+  spyOn: vi.spyOn,
+  clearAllMocks: vi.clearAllMocks,
+}
+
 // Cleanup after each test case (e.g., clearing jsdom)
 afterEach(() => {
   cleanup()
