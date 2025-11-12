@@ -13,5 +13,4 @@ export { default as ProcessingParameters } from './ProcessingParameters';
 export { default as ParameterBar } from './ParameterBar';
 export { default as ParameterChip } from './ParameterChip';
 export { default as InfoBox } from './InfoBox';
-export { default as EmptyState } from './EmptyState';
 export { default as LoadingState } from './LoadingState';

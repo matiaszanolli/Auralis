@@ -2,7 +2,7 @@
  * CozyLibraryView - Main Library View Orchestrator
  *
  * Refactored from 958 lines to focused orchestrator using extracted components:
- * - useLibraryData hook for data fetching
+ * - useLibraryWithStats hook for data fetching and statistics (Phase 4 consolidation)
  * - LibraryViewRouter for albums/artists navigation
  * - TrackListView for track rendering
  * - LibraryEmptyState for empty states
@@ -35,7 +35,7 @@ import EditMetadataDialog from './library/EditMetadataDialog';
 import { useToast } from './shared/Toast';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
 import { useTrackSelection } from '../hooks/useTrackSelection';
-import { useLibraryData, Track } from '../hooks/useLibraryData';
+import { useLibraryWithStats, Track } from '../hooks/useLibraryWithStats';
 import { LibraryViewRouter } from './library/LibraryViewRouter';
 import { TrackListView } from './library/TrackListView';
 import { LibraryEmptyState } from './library/LibraryEmptyState';
@@ -63,8 +63,11 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
     scanning,
     fetchTracks,
     loadMore,
-    handleScanFolder
-  } = useLibraryData({ view });
+    handleScanFolder,
+    // New composition hook provides stats too (optional)
+    stats,
+    statsLoading
+  } = useLibraryWithStats({ view, includeStats: false }); // Disable stats by default for performance
 
   // ============================================================
   // LOCAL UI STATE
