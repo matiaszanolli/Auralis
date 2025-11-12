@@ -12,9 +12,9 @@
 import React, { useState } from 'react';
 import { Box, Typography, IconButton, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import AlbumArtDisplay from '../shared/AlbumArtDisplay';
 
 interface TrackInfoProps {
   track: {
@@ -33,34 +33,6 @@ const TrackInfoContainer = styled(Box)({
   maxWidth: '400px',
 });
 
-const AlbumArtwork = styled(Box)({
-  width: '56px',
-  height: '56px',
-  borderRadius: tokens.borderRadius.md,
-  overflow: 'hidden',
-  flexShrink: 0,
-  background: tokens.colors.bg.elevated,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  boxShadow: tokens.shadows.md,
-  transition: tokens.transitions.transform,
-
-  '& img': {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  },
-
-  '&:hover': {
-    transform: 'scale(1.05)',
-  },
-});
-
-const ArtworkPlaceholder = styled(Box)({
-  color: tokens.colors.text.tertiary,
-  fontSize: '24px',
-});
 
 const TrackDetails = styled(Box)({
   minWidth: 0, // Enable text truncation
@@ -129,11 +101,11 @@ export const TrackInfo: React.FC<TrackInfoProps> = React.memo(({ track }) => {
   if (!track) {
     return (
       <TrackInfoContainer>
-        <AlbumArtwork>
-          <ArtworkPlaceholder>
-            <MusicNoteIcon fontSize="inherit" />
-          </ArtworkPlaceholder>
-        </AlbumArtwork>
+        <AlbumArtDisplay
+          size={56}
+          title="No track"
+          album="No track"
+        />
         <TrackDetails>
           <TrackTitle>No track playing</TrackTitle>
           <TrackArtist>Select a track to start</TrackArtist>
@@ -144,19 +116,12 @@ export const TrackInfo: React.FC<TrackInfoProps> = React.memo(({ track }) => {
 
   return (
     <TrackInfoContainer>
-      <AlbumArtwork>
-        {track.artwork_url ? (
-          <img
-            src={track.artwork_url}
-            alt={`${track.album || 'Album'} artwork`}
-            loading="lazy"
-          />
-        ) : (
-          <ArtworkPlaceholder>
-            <MusicNoteIcon fontSize="inherit" />
-          </ArtworkPlaceholder>
-        )}
-      </AlbumArtwork>
+      <AlbumArtDisplay
+        size={56}
+        artworkPath={track.artwork_url}
+        title={track.title}
+        album={track.album}
+      />
 
       <TrackDetails>
         <TitleContainer>

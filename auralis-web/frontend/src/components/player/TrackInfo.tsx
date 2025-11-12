@@ -15,15 +15,7 @@ import React from 'react';
 import { Box, IconButton, Tooltip, Typography, styled } from '@mui/material';
 import { Favorite, FavoriteOutlined, Lyrics as LyricsIcon } from '@mui/icons-material';
 import AlbumArtComponent from '../album/AlbumArt';
-
-const AlbumArtContainer = styled(Box)({
-  width: '64px',
-  height: '64px',
-  borderRadius: '6px',
-  flexShrink: 0,
-  overflow: 'hidden',
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
-});
+import AlbumArtDisplay from '../shared/AlbumArtDisplay';
 
 export interface Track {
   id: number;
@@ -74,22 +66,12 @@ export const TrackInfo: React.FC<TrackInfoProps> = ({
           minWidth: '280px',
         }}
       >
-        <AlbumArtContainer>
-          <Box
-            sx={{
-              width: '100%',
-              height: '100%',
-              background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#8b92b0',
-              fontSize: '12px',
-            }}
-          >
-            No track
-          </Box>
-        </AlbumArtContainer>
+        <AlbumArtDisplay
+          size={64}
+          useTokens={false}
+          title="No track"
+          album="No track"
+        />
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography
