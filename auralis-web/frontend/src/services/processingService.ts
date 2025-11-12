@@ -1,13 +1,20 @@
 /**
- * Processing Service
- * ~~~~~~~~~~~~~~~~~~
+ * Processing Service (Phase 3c)
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Frontend service for audio processing operations.
  * Handles communication with the processing API backend.
  *
+ * Enhanced with centralized error handling utilities:
+ * - WebSocketManager for automatic reconnection
+ * - Retry logic with exponential backoff
+ * - Centralized error logging
+ *
  * @copyright (C) 2024 Auralis Team
  * @license GPLv3
  */
+
+import { WebSocketManager, retryWithBackoff, withErrorLogging } from '../utils/errorHandling';
 
 export interface ProcessingSettings {
   mode: 'adaptive' | 'reference' | 'hybrid';
@@ -88,7 +95,7 @@ export interface QueueStatus {
 class ProcessingService {
   private baseUrl: string;
   private wsUrl: string;
-  private ws: WebSocket | null = null;
+  private wsManager: WebSocketManager | null = null;
   private jobCallbacks: Map<string, (job: ProcessingJob) => void> = new Map();
 
   constructor() {
@@ -97,42 +104,44 @@ class ProcessingService {
   }
 
   /**
-   * Connect to WebSocket for real-time updates
+   * Connect to WebSocket for real-time updates (Phase 3c: Uses WebSocketManager)
    */
-  connectWebSocket(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        resolve();
-        return;
-      }
+  async connectWebSocket(): Promise<void> {
+    if (this.wsManager?.isConnected()) {
+      return;
+    }
 
-      this.ws = new WebSocket(this.wsUrl);
-
-      this.ws.onopen = () => {
-        console.log('[ProcessingService] WebSocket connected');
-        resolve();
-      };
-
-      this.ws.onerror = (error) => {
-        console.error('[ProcessingService] WebSocket error:', error);
-        reject(error);
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          this.handleWebSocketMessage(message);
-        } catch (error) {
-          console.error('[ProcessingService] Failed to parse WebSocket message:', error);
-        }
-      };
-
-      this.ws.onclose = () => {
-        console.log('[ProcessingService] WebSocket disconnected');
-        // Attempt to reconnect after 3 seconds
-        setTimeout(() => this.connectWebSocket(), 3000);
-      };
+    this.wsManager = new WebSocketManager(this.wsUrl, {
+      maxReconnectAttempts: 10,
+      initialReconnectDelayMs: 1000,
+      backoffMultiplier: 1.5,
+      onReconnectAttempt: (attempt, delay) => {
+        console.log(`[ProcessingService] Reconnecting... Attempt ${attempt}, waiting ${delay}ms`);
+      },
     });
+
+    // Setup message handler
+    this.wsManager.on('message', (event: MessageEvent) => {
+      try {
+        const message = JSON.parse(event.data);
+        this.handleWebSocketMessage(message);
+      } catch (error) {
+        console.error('[ProcessingService] Failed to parse WebSocket message:', error);
+      }
+    });
+
+    // Setup error handler
+    this.wsManager.on('error', (event: Event) => {
+      console.error('[ProcessingService] WebSocket error:', event);
+    });
+
+    // Setup close handler
+    this.wsManager.on('close', () => {
+      console.log('[ProcessingService] WebSocket disconnected (will auto-reconnect)');
+    });
+
+    await this.wsManager.connect();
+    console.log('[ProcessingService] WebSocket connected');
   }
 
   /**
@@ -159,8 +168,8 @@ class ProcessingService {
     this.jobCallbacks.set(jobId, callback);
 
     // Send subscription message if WebSocket is connected
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
+    if (this.wsManager?.isConnected()) {
+      this.wsManager.send(JSON.stringify({
         type: 'subscribe_job_progress',
         job_id: jobId
       }));
@@ -175,31 +184,36 @@ class ProcessingService {
   }
 
   /**
-   * Submit audio file for processing
+   * Submit audio file for processing (Phase 3c: Retry logic added)
    */
   async processAudio(
     inputPath: string,
     settings: ProcessingSettings,
     referencePath?: string
   ): Promise<{ job_id: string; status: string; message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/processing/process`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        input_path: inputPath,
-        settings,
-        reference_path: referencePath,
-      }),
+    return await retryWithBackoff(async () => {
+      const response = await fetch(`${this.baseUrl}/api/processing/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input_path: inputPath,
+          settings,
+          reference_path: referencePath,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to submit processing job');
+      }
+
+      return await response.json();
+    }, {
+      maxRetries: 3,
+      initialDelayMs: 200,
     });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to submit processing job');
-    }
-
-    return await response.json();
   }
 
   /**
@@ -227,31 +241,42 @@ class ProcessingService {
   }
 
   /**
-   * Get processing job status
+   * Get processing job status (Phase 3c: Retry logic added)
    */
   async getJobStatus(jobId: string): Promise<ProcessingJob> {
-    const response = await fetch(`${this.baseUrl}/api/processing/job/${jobId}`);
+    return await retryWithBackoff(async () => {
+      const response = await fetch(`${this.baseUrl}/api/processing/job/${jobId}`);
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to get job status');
-    }
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to get job status');
+      }
 
-    return await response.json();
+      return await response.json();
+    }, {
+      maxRetries: 3,
+      initialDelayMs: 100,
+    });
   }
 
   /**
-   * Download processed audio file
+   * Download processed audio file (Phase 3c: Retry logic + timeout added)
    */
   async downloadResult(jobId: string): Promise<Blob> {
-    const response = await fetch(`${this.baseUrl}/api/processing/job/${jobId}/download`);
+    return await retryWithBackoff(async () => {
+      const response = await fetch(`${this.baseUrl}/api/processing/job/${jobId}/download`);
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Failed to download result');
-    }
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to download result');
+      }
 
-    return await response.blob();
+      return await response.blob();
+    }, {
+      maxRetries: 3,
+      initialDelayMs: 500,
+      maxDelayMs: 5000,
+    });
   }
 
   /**

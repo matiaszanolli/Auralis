@@ -1,10 +1,16 @@
 /**
- * Real-Time Analysis Stream for Phase 5.3
+ * Real-Time Analysis Stream for Phase 5.3 (Phase 3c Enhanced)
  *
  * This service provides real-time streaming of audio analysis data from the
  * Phase 5.1 backend to Phase 5.2 visualization components with buffering,
  * interpolation, and error recovery.
+ *
+ * Enhanced with centralized error handling (Phase 3c):
+ * - WebSocketManager for automatic reconnection
+ * - Centralized error classification
  */
+
+import { WebSocketManager, classifyErrorSeverity } from '../utils/errorHandling';
 
 interface AudioStreamConfig {
   sampleRate: number;
@@ -108,10 +114,8 @@ export class RealTimeAnalysisStream {
   private config: AudioStreamConfig;
   private isConnected = false;
   private isStreaming = false;
-  private websocket: WebSocket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 10;
-  private reconnectInterval = 1000; // Start with 1 second
+  private wsManager: WebSocketManager | null = null;
+  private currentEndpoint: string = '';
 
   // Data buffers
   private dataBuffer: AnalysisStreamData[] = [];
@@ -160,24 +164,41 @@ export class RealTimeAnalysisStream {
     this.startBufferProcessing();
   }
 
-  // Connection Management
+  // Connection Management (Phase 3c: Uses WebSocketManager)
   async connect(endpoint: string = 'ws://localhost:8080/analysis-stream'): Promise<void> {
+    this.currentEndpoint = endpoint;
+
     try {
-      this.websocket = new WebSocket(endpoint);
+      this.wsManager = new WebSocketManager(endpoint, {
+        maxReconnectAttempts: 10,
+        initialReconnectDelayMs: 1000,
+        backoffMultiplier: 2,
+        onReconnectAttempt: (attempt, delay) => {
+          console.log(`🔄 Reconnection attempt ${attempt}/10 (waiting ${delay}ms)`);
+        },
+      });
 
-      this.websocket.onopen = this.handleOpen.bind(this);
-      this.websocket.onmessage = this.handleMessage.bind(this);
-      this.websocket.onclose = this.handleClose.bind(this);
-      this.websocket.onerror = this.handleError.bind(this);
+      // Setup message handler
+      this.wsManager.on('message', (event: MessageEvent) => {
+        this.handleMessage(event);
+      });
 
-      // Set connection timeout
-      setTimeout(() => {
-        if (this.websocket?.readyState === WebSocket.CONNECTING) {
-          this.websocket.close();
-          this.handleConnectionError(new Error('Connection timeout'));
-        }
-      }, 5000);
+      // Setup error handler
+      this.wsManager.on('error', (event: Event) => {
+        this.handleError(event);
+      });
 
+      // Setup close handler
+      this.wsManager.on('close', () => {
+        this.handleClose();
+      });
+
+      // Setup open handler
+      this.wsManager.on('open', () => {
+        this.handleOpen();
+      });
+
+      await this.wsManager.connect();
     } catch (error) {
       this.handleConnectionError(error as Error);
     }
@@ -186,9 +207,9 @@ export class RealTimeAnalysisStream {
   disconnect(): void {
     this.isStreaming = false;
 
-    if (this.websocket) {
-      this.websocket.close(1000, 'Client disconnect');
-      this.websocket = null;
+    if (this.wsManager) {
+      this.wsManager.close();
+      this.wsManager = null;
     }
 
     this.clearTimers();
@@ -197,8 +218,6 @@ export class RealTimeAnalysisStream {
   private handleOpen(): void {
     console.log('🎵 Analysis stream connected');
     this.isConnected = true;
-    this.reconnectAttempts = 0;
-    this.reconnectInterval = 1000;
 
     // Send configuration
     this.sendConfiguration();
@@ -233,27 +252,25 @@ export class RealTimeAnalysisStream {
     }
   }
 
-  private handleClose(event: CloseEvent): void {
-    console.log('🔌 Analysis stream disconnected:', event.code, event.reason);
+  private handleClose(): void {
+    console.log('🔌 Analysis stream disconnected (will auto-reconnect)');
     this.isConnected = false;
     this.clearTimers();
-
-    // Attempt reconnection if not intentional disconnect
-    if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.attemptReconnection();
-    }
-
+    // WebSocketManager handles reconnection automatically
     this.notifyStatusChange();
   }
 
   private handleError(error: Event): void {
     console.error('🚨 WebSocket error:', error);
-    this.handleConnectionError(new Error('WebSocket connection error'));
+    const err = new Error('WebSocket connection error');
+    // Use centralized error classification (Phase 3c)
+    const severity = classifyErrorSeverity(err);
+    this.handleConnectionError(err, severity);
   }
 
-  private handleConnectionError(error: Error): void {
+  private handleConnectionError(error: Error, severity: 'low' | 'medium' | 'high' = 'high'): void {
     this.errorCallbacks.forEach(callback => {
-      callback(error, 'high');
+      callback(error, severity);
     });
   }
 
@@ -267,33 +284,16 @@ export class RealTimeAnalysisStream {
     }
   }
 
-  // Reconnection Logic
-  private attemptReconnection(): void {
-    this.reconnectAttempts++;
-    this.metrics.reconnects++;
-
-    console.log(`🔄 Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
-
-    setTimeout(() => {
-      if (this.reconnectAttempts <= this.maxReconnectAttempts) {
-        this.connect().catch(() => {
-          // Exponential backoff
-          this.reconnectInterval = Math.min(this.reconnectInterval * 2, 30000);
-        });
-      }
-    }, this.reconnectInterval);
-  }
-
   // Configuration
   private sendConfiguration(): void {
-    if (this.websocket?.readyState === WebSocket.OPEN) {
+    if (this.wsManager?.isConnected()) {
       const configMessage = {
         type: 'configure',
         config: this.config,
         timestamp: Date.now(),
       };
 
-      this.websocket.send(JSON.stringify(configMessage));
+      this.wsManager.send(JSON.stringify(configMessage));
     }
   }
 

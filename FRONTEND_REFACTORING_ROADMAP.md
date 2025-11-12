@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: Phase 1, 2, 3b, 4a & 4b Complete | Phase 3a Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: Phase 1, 2, 3b, 3c (Part 1), 4a & 4b Complete | Phase 3a Ready | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -27,6 +27,16 @@
 - ✅ All 49 tests passing (28 player-bar + 21 enhancement-pane)
 - ✅ Variant pattern established for 'button' and 'switch' UI styles
 
+### Phase 3c (Part 1): Error Handling Extraction (420+ lines new utilities)
+- ✅ Created `src/utils/errorHandling.ts` utility module (420+ lines)
+- ✅ Implemented RetryPolicy with exponential backoff + jitter
+- ✅ Implemented WebSocketManager with automatic reconnection
+- ✅ Created ErrorRecoveryChain for strategy-based recovery
+- ✅ Added GlobalErrorLogger with history tracking
+- ✅ Refactored `mseStreamingService.ts` (removed 21 lines duplicate retry logic)
+- ✅ Created `PHASE3C_ERROR_HANDLING_GUIDE.md` with refactoring patterns
+- ✅ Build succeeds with 11643 modules (zero errors)
+
 ### Phase 4a: Player Hook Consolidation (611 new composition hook)
 - ✅ Created `usePlayerWithAudio` composition hook (611 lines)
 - ✅ Unified `usePlayerAPI` (393 lines) + `useUnifiedWebMAudioPlayer` (218 lines) functionality
@@ -42,7 +52,7 @@
 - ✅ Optional stats loading for performance optimization
 - ✅ Composition hook pattern established and reused in Phase 4a
 
-**Cumulative Impact**: ~550 lines reduced + 985 lines of new composition hooks, 5 services refactored, 4 patterns unified, composition hook pattern proven effective
+**Cumulative Impact**: ~570 lines reduced + 1405 lines of new reusable patterns (985 composition hooks + 420 error utilities), 6 services refactored, 5 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling)
 
 ---
 
@@ -185,7 +195,17 @@ LOW IMPACT + HIGH EFFORT:
 ## 🎯 Recommended Next Steps
 
 ### ✅ Just Completed
-- **Phase 4a - Player Hook Consolidation** (4-5 hours) ⭐ NEW
+- **Phase 3c (Part 1) - Error Handling Extraction** (2-3 hours) ⭐ LATEST
+  - ✅ Created centralized error handling utilities (420+ lines)
+  - ✅ WebSocketManager for automatic reconnection
+  - ✅ RetryPolicy with exponential backoff + jitter
+  - ✅ ErrorRecoveryChain for strategy-based recovery
+  - ✅ GlobalErrorLogger for error tracking and debugging
+  - ✅ Refactored mseStreamingService.ts (21 lines saved)
+  - ✅ Created comprehensive refactoring guide for remaining 3 services
+  - ✅ Build succeeds with zero errors
+
+- **Phase 4a - Player Hook Consolidation** (4-5 hours)
   - ✅ Created usePlayerWithAudio composition hook (611 lines)
   - ✅ Unified usePlayerAPI (393 lines) + useUnifiedWebMAudioPlayer (218 lines)
   - ✅ Updated BottomPlayerBarUnified with simplified state management

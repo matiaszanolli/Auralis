@@ -1,9 +1,15 @@
 /**
- * Analysis Export Service for Phase 5.3
+ * Analysis Export Service for Phase 5.3 (Phase 3c Enhanced)
  *
  * Provides comprehensive export functionality for audio analysis data,
  * visualization snapshots, and performance reports in multiple formats.
+ *
+ * Enhanced with centralized error handling (Phase 3c):
+ * - Error logging for export operations
+ * - Graceful error recovery
  */
+
+import { withErrorLogging, createTimeoutPromise } from '../utils/errorHandling';
 
 interface ExportMetadata {
   timestamp: string;
@@ -282,22 +288,53 @@ export class AnalysisExportService {
     }
   }
 
-  // Export Methods
+  // Export Methods (Phase 3c: Enhanced with error logging and timeout protection)
   async exportSession(options: Partial<ExportOptions> = {}): Promise<Blob> {
+    return withErrorLogging(async () => {
+      if (!this.currentSession) {
+        throw new Error('No active session to export');
+      }
+
+      const exportOptions: ExportOptions = {
+        format: 'json',
+        includeMetadata: true,
+        includeStatistics: true,
+        includeVisualizations: false,
+        compressionLevel: 6,
+        ...options,
+      };
+
+      this.notifyProgress(0, 'Preparing export...');
+
+      let data: any;
+      let mimeType: string;
+      let filename: string;
+
+      // Wrap export in timeout protection (60 second limit)
+      const exportData = await createTimeoutPromise(
+        this.performExport(exportOptions),
+        60000,
+        'Export operation timed out'
+      );
+
+      data = exportData.data;
+      mimeType = exportData.mimeType;
+      filename = exportData.filename;
+
+      // Continue with blob creation...
+      this.notifyProgress(90, 'Finalizing export...');
+
+      const blob = new Blob([data], { type: mimeType });
+      this.notifyProgress(100, 'Export complete');
+
+      return blob;
+    }, 'Export session');
+  }
+
+  private async performExport(exportOptions: ExportOptions): Promise<{ data: any; mimeType: string; filename: string }> {
     if (!this.currentSession) {
-      throw new Error('No active session to export');
+      throw new Error('No active session');
     }
-
-    const exportOptions: ExportOptions = {
-      format: 'json',
-      includeMetadata: true,
-      includeStatistics: true,
-      includeVisualizations: false,
-      compressionLevel: 6,
-      ...options,
-    };
-
-    this.notifyProgress(0, 'Preparing export...');
 
     let data: any;
     let mimeType: string;
@@ -344,13 +381,9 @@ export class AnalysisExportService {
         throw new Error(`Unsupported export format: ${exportOptions.format}`);
     }
 
-    this.notifyProgress(100, 'Export complete');
+    this.notifyProgress(85, 'Preparing blob...');
 
-    if (typeof data === 'string') {
-      return new Blob([data], { type: mimeType });
-    } else {
-      return data;
-    }
+    return { data, mimeType, filename };
   }
 
   private async exportAsJSON(options: ExportOptions): Promise<string> {
