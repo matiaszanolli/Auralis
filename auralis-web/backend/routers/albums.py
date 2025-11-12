@@ -12,6 +12,10 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 
+from .dependencies import require_library_manager
+from .errors import NotFoundError, handle_query_error
+from .serializers import serialize_albums, serialize_album, serialize_tracks
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,11 +58,9 @@ def create_albums_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
+
             # Get albums with pagination
             if search:
                 albums = library_manager.albums.search(search, limit=limit, offset=offset)
@@ -110,9 +112,10 @@ def create_albums_router(get_library_manager):
                 "limit": limit,
                 "has_more": has_more
             }
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Failed to get albums: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get albums: {e}")
+            raise handle_query_error("get albums", e)
 
     @router.get("/api/albums/{album_id}")
     async def get_album(album_id: int):
@@ -128,15 +131,12 @@ def create_albums_router(get_library_manager):
         Raises:
             HTTPException: If album not found or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             album = library_manager.albums.get_by_id(album_id)
 
             if not album:
-                raise HTTPException(status_code=404, detail=f"Album {album_id} not found")
+                raise NotFoundError("Album", album_id)
 
             # Convert to dict
             if hasattr(album, 'to_dict'):
@@ -154,8 +154,7 @@ def create_albums_router(get_library_manager):
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to get album {album_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get album: {e}")
+            raise handle_query_error("get album", e)
 
     @router.get("/api/albums/{album_id}/tracks")
     async def get_album_tracks(album_id: int):
@@ -171,29 +170,15 @@ def create_albums_router(get_library_manager):
         Raises:
             HTTPException: If album not found or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             album = library_manager.albums.get_by_id(album_id)
 
             if not album:
-                raise HTTPException(status_code=404, detail=f"Album {album_id} not found")
+                raise NotFoundError("Album", album_id)
 
             # Convert tracks to dicts
-            tracks_data = []
-            for track in album.tracks:
-                if hasattr(track, 'to_dict'):
-                    tracks_data.append(track.to_dict())
-                else:
-                    tracks_data.append({
-                        'id': track.id,
-                        'title': track.title,
-                        'duration': track.duration,
-                        'track_number': track.track_number,
-                        'disc_number': track.disc_number,
-                    })
+            tracks_data = serialize_tracks(album.tracks if hasattr(album, 'tracks') else [])
 
             # Sort by disc and track number
             tracks_data.sort(key=lambda t: (t.get('disc_number', 1) or 1, t.get('track_number', 0) or 0))
@@ -211,7 +196,6 @@ def create_albums_router(get_library_manager):
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to get tracks for album {album_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get album tracks: {e}")
+            raise handle_query_error("get album tracks", e)
 
     return router

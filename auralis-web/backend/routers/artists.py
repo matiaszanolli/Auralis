@@ -14,6 +14,9 @@ from typing import Optional, Callable
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from .dependencies import require_library_manager
+from .errors import NotFoundError, handle_query_error
+
 
 # Response models
 class ArtistResponse(BaseModel):
@@ -95,7 +98,7 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
         search, and multiple sort options.
         """
         try:
-            manager = get_library_manager()
+            manager = require_library_manager(get_library_manager)
 
             if search:
                 # Search artists by name
@@ -143,8 +146,10 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
                 has_more=has_more
             )
 
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch artists: {str(e)}")
+            raise handle_query_error("fetch artists", e)
 
     @router.get("/api/artists/{artist_id}", response_model=ArtistDetailResponse)
     async def get_artist(artist_id: int):
@@ -153,11 +158,11 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
         Returns artist information with all their albums.
         """
         try:
-            manager = get_library_manager()
+            manager = require_library_manager(get_library_manager)
             artist = manager.artists.get_by_id(artist_id)
 
             if not artist:
-                raise HTTPException(status_code=404, detail="Artist not found")
+                raise NotFoundError("Artist", artist_id)
 
             # Transform albums to response format
             albums = []
@@ -188,7 +193,7 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch artist: {str(e)}")
+            raise handle_query_error("fetch artist", e)
 
     @router.get("/api/artists/{artist_id}/tracks", response_model=ArtistTracksResponse)
     async def get_artist_tracks(artist_id: int):
@@ -197,11 +202,11 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
         Returns all tracks by the artist, sorted by album and track number.
         """
         try:
-            manager = get_library_manager()
+            manager = require_library_manager(get_library_manager)
             artist = manager.artists.get_by_id(artist_id)
 
             if not artist:
-                raise HTTPException(status_code=404, detail="Artist not found")
+                raise NotFoundError("Artist", artist_id)
 
             # Transform tracks to response format
             tracks = []
@@ -233,6 +238,6 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch artist tracks: {str(e)}")
+            raise handle_query_error("fetch artist tracks", e)
 
     return router

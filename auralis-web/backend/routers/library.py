@@ -24,6 +24,21 @@ from fastapi import APIRouter, HTTPException
 from typing import Optional, List
 import logging
 
+from .dependencies import require_library_manager
+from .errors import (
+    LibraryManagerUnavailableError,
+    InternalServerError,
+    NotFoundError,
+    handle_query_error
+)
+from .serializers import (
+    serialize_tracks,
+    serialize_albums,
+    serialize_artists,
+    serialize_album,
+    serialize_artist
+)
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["library"])
 
@@ -50,15 +65,14 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             stats = library_manager.get_library_stats()
             return stats
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get stats: {e}")
+            raise handle_query_error("get library stats", e)
 
     @router.get("/api/library/tracks")
     async def get_tracks(
@@ -87,11 +101,9 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
+
             # Get tracks with pagination
             if search:
                 tracks = library_manager.search_tracks(search, limit=limit, offset=offset)
@@ -102,29 +114,17 @@ def create_library_router(get_library_manager):
                 tracks, total = library_manager.get_all_tracks(limit=limit, offset=offset, order_by=order_by)
                 has_more = (offset + len(tracks)) < total
 
-            # Convert to dicts for JSON serialization
-            tracks_data = []
-            for track in tracks:
-                if hasattr(track, 'to_dict'):
-                    tracks_data.append(track.to_dict())
-                else:
-                    tracks_data.append({
-                        'id': getattr(track, 'id', None),
-                        'title': getattr(track, 'title', 'Unknown'),
-                        'filepath': getattr(track, 'filepath', ''),
-                        'duration': getattr(track, 'duration', 0),
-                        'format': getattr(track, 'format', 'Unknown')
-                    })
-
             return {
-                "tracks": tracks_data,
+                "tracks": serialize_tracks(tracks),
                 "total": total,
                 "offset": offset,
                 "limit": limit,
                 "has_more": has_more
             }
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get tracks: {e}")
+            raise handle_query_error("get tracks", e)
 
     @router.get("/api/library/tracks/favorites")
     async def get_favorite_tracks(limit: int = 50, offset: int = 0):
@@ -141,32 +141,24 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             tracks = library_manager.get_favorite_tracks(limit=limit, offset=offset)
-
-            # Convert to dicts for JSON serialization
-            tracks_data = []
-            for track in tracks:
-                if hasattr(track, 'to_dict'):
-                    tracks_data.append(track.to_dict())
 
             # Calculate has_more (we don't have total count for favorites, so estimate)
             has_more = len(tracks) >= limit
 
             return {
-                "tracks": tracks_data,
-                "total": len(tracks_data) + offset,
+                "tracks": serialize_tracks(tracks),
+                "total": len(tracks) + offset,
                 "limit": limit,
                 "offset": offset,
                 "has_more": has_more
             }
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Failed to get favorite tracks: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get favorites: {e}")
+            raise handle_query_error("get favorite tracks", e)
 
     @router.post("/api/library/tracks/{track_id}/favorite")
     async def set_track_favorite(track_id: int):
@@ -182,17 +174,15 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or operation fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             library_manager.tracks.set_favorite(track_id, True)
             logger.info(f"Track {track_id} marked as favorite")
             return {"message": "Track marked as favorite", "track_id": track_id, "favorite": True}
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Failed to set favorite: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to set favorite: {e}")
+            raise handle_query_error("set track favorite", e)
 
     @router.delete("/api/library/tracks/{track_id}/favorite")
     async def remove_track_favorite(track_id: int):
@@ -208,17 +198,15 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or operation fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             library_manager.tracks.set_favorite(track_id, False)
             logger.info(f"Track {track_id} removed from favorites")
             return {"message": "Track removed from favorites", "track_id": track_id, "favorite": False}
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Failed to remove favorite: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to remove favorite: {e}")
+            raise handle_query_error("remove track favorite", e)
 
     @router.get("/api/library/tracks/{track_id}/lyrics")
     async def get_track_lyrics(track_id: int):
@@ -236,14 +224,11 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available, track not found, or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             track = library_manager.tracks.get_by_id(track_id)
             if not track:
-                raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
+                raise NotFoundError("Track", track_id)
 
             # If lyrics exist in database, return them
             if track.lyrics:
@@ -308,8 +293,7 @@ def create_library_router(get_library_manager):
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to get lyrics: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get lyrics: {e}")
+            raise handle_query_error("get track lyrics", e)
 
     @router.get("/api/library/artists")
     async def get_artists(
@@ -338,20 +322,18 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
-        # Validate and limit pagination parameters
-        limit = min(max(limit, 1), 200)  # Between 1-200
-        offset = max(offset, 0)  # Non-negative
-
-        # Validate order_by
-        valid_order_by = ["name", "album_count", "track_count"]
-        if order_by not in valid_order_by:
-            order_by = "name"
-
         try:
+            library_manager = require_library_manager(get_library_manager)
+
+            # Validate and limit pagination parameters
+            limit = min(max(limit, 1), 200)  # Between 1-200
+            offset = max(offset, 0)  # Non-negative
+
+            # Validate order_by
+            valid_order_by = ["name", "album_count", "track_count"]
+            if order_by not in valid_order_by:
+                order_by = "name"
+
             artists, total = library_manager.artists.get_all(
                 limit=limit,
                 offset=offset,
@@ -362,15 +344,16 @@ def create_library_router(get_library_manager):
             has_more = (offset + limit) < total
 
             return {
-                "artists": [artist.to_dict() for artist in artists],
+                "artists": serialize_artists(artists),
                 "total": total,
                 "limit": limit,
                 "offset": offset,
                 "has_more": has_more
             }
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Failed to get artists: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get artists: {e}")
+            raise handle_query_error("get artists", e)
 
     @router.get("/api/library/artists/{artist_id}")
     async def get_artist(artist_id: int):
@@ -386,21 +369,17 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or artist not found
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             artist = library_manager.artists.get_by_id(artist_id)
             if not artist:
-                raise HTTPException(status_code=404, detail=f"Artist {artist_id} not found")
+                raise NotFoundError("Artist", artist_id)
 
-            return artist.to_dict()
+            return serialize_artist(artist)
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to get artist {artist_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get artist: {e}")
+            raise handle_query_error("get artist", e)
 
     @router.get("/api/library/albums")
     async def get_albums():
@@ -413,19 +392,17 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             albums = library_manager.albums.get_all()
             return {
-                "albums": [album.to_dict() for album in albums],
+                "albums": serialize_albums(albums),
                 "total": len(albums)
             }
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Failed to get albums: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get albums: {e}")
+            raise handle_query_error("get albums", e)
 
     @router.get("/api/library/albums/{album_id}")
     async def get_album(album_id: int):
@@ -441,21 +418,17 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or album not found
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             album = library_manager.albums.get_by_id(album_id)
             if not album:
-                raise HTTPException(status_code=404, detail=f"Album {album_id} not found")
+                raise NotFoundError("Album", album_id)
 
-            return album.to_dict()
+            return serialize_album(album)
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Failed to get album {album_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to get album: {e}")
+            raise handle_query_error("get album", e)
 
     @router.post("/api/library/scan")
     async def scan_library(
@@ -485,11 +458,8 @@ def create_library_router(get_library_manager):
         Raises:
             HTTPException: If library manager not available or scan fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            library_manager = require_library_manager(get_library_manager)
             from auralis.library.scanner import LibraryScanner
 
             # Create scanner with progress callback
@@ -515,8 +485,9 @@ def create_library_router(get_library_manager):
                 "directories_scanned": result.directories_scanned
             }
 
+        except HTTPException:
+            raise
         except Exception as e:
-            logger.error(f"Library scan failed: {e}")
-            raise HTTPException(status_code=500, detail=f"Scan failed: {e}")
+            raise handle_query_error("scan library", e)
 
     return router
