@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: Phase 1, 2, 3a, 3b, 3c (Complete), 4a, 4b, 4c (Complete) | Phase 5a Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: Phase 1, 2, 3a, 3b, 3c, 4a, 4b, 4c (Complete), 5a (Complete) | Phase 5b-5d Ready | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -91,7 +91,27 @@
 
 **Cumulative Phase 4c Impact**: 40+ lines of duplicate reconnection logic eliminated, robust exponential backoff with jitter, centralized error handling for all WebSocket operations
 
-**Cumulative Impact**: ~850 lines reduced + 1405 lines of new reusable patterns (985 composition hooks + 420 error utilities), 7 services refactored, 8 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling, WebSocket management, keyboard shortcuts consolidation, WebSocket hook optimization)
+### Phase 5a: Service Factory Pattern Consolidation (55+ lines reduced)
+- ✅ Created `serviceFactory.ts` utility (130 lines)
+  - Generic `createCrudService<T, U>()` factory for REST API wrappers
+  - Standard CRUD methods: list(), getOne(), create(), update(), delete()
+  - Custom endpoints: custom(name, method, data) for non-standard operations
+  - Batch operations: batchCreate(), batchDelete()
+
+- ✅ Refactored 4 services using factory pattern:
+  - `playlistService.ts`: Delegated CRUD to factory
+  - `queueService.ts`: Factory with custom endpoints for reorder/shuffle/clear
+  - `settingsService.ts`: Factory with custom endpoints for scan folders
+  - `artworkService.ts`: Factory with custom endpoints for extract/download/delete
+
+- ✅ Metrics:
+  - Build: 11645 modules (stable)
+  - Tests: No regressions (790 passed, 626 pre-existing failures)
+  - Backward compatibility: All 4 services maintain identical public APIs
+
+**Cumulative Phase 5a Impact**: Eliminated direct apiRequest wrapper imports, DRY principle for CRUD patterns, consistent typing across all services
+
+**Cumulative Impact**: ~920 lines reduced + 1535 lines of new reusable patterns (985 composition hooks + 420 error utilities + 130 service factory), 11 services refactored, 9 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling, WebSocket management, keyboard shortcuts consolidation, WebSocket hook optimization, service factory pattern)
 
 ---
 
@@ -196,16 +216,22 @@
 
 ---
 
-### Phase 5: Streaming Service Optimization (Estimated: 150+ lines)
+### Phase 5: Service Consolidation & Streaming Optimization (Estimated: 150+ lines)
 
 **Priority**: LOW | **Impact**: HIGH | **Effort**: HIGH
 
-#### 5a: MSE Streaming + Real-time Analysis
+#### ✅ 5a: Service Factory Pattern (COMPLETE)
+- ✅ Created generic `createCrudService<T, U>` factory
+- ✅ Refactored 4 services (playlist, queue, settings, artwork)
+- ✅ All services maintain backward-compatible public APIs
+- ✅ 55+ lines of code reduction
+
+#### 5b: MSE Streaming + Real-time Analysis
 - `services/mseStreamingService.ts` (171 lines)
 - `services/RealTimeAnalysisStream.ts` (605 lines)
 - Opportunity: Shared buffering strategy, unified error handling
 
-#### 5b: Analysis Export Service
+#### 5c: Analysis Export Service
 - `services/AnalysisExportService.ts` (886 lines)
 - Opportunity: Extract common export patterns, format handlers
 
