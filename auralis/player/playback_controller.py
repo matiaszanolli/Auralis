@@ -1,0 +1,143 @@
+# -*- coding: utf-8 -*-
+
+"""
+PlaybackController - Manages playback state machine
+
+Handles: play/pause/stop/seek operations and state transitions
+Responsibilities:
+- Playback state (PLAYING, PAUSED, STOPPED, LOADING, ERROR)
+- Position tracking during playback
+- Callback notifications for state changes
+"""
+
+from enum import Enum
+from typing import Callable, List
+from ..utils.logging import debug, info
+
+
+class PlaybackState(Enum):
+    """Playback state enumeration"""
+    STOPPED = "stopped"
+    PLAYING = "playing"
+    PAUSED = "paused"
+    LOADING = "loading"
+    ERROR = "error"
+
+
+class PlaybackController:
+    """
+    Manages playback state and position tracking.
+
+    Decoupled from audio I/O, file loading, and queue management.
+    Only responsible for state machine and playback timeline.
+    """
+
+    def __init__(self):
+        self.state = PlaybackState.STOPPED
+        self.position = 0  # Position in samples
+        self.callbacks: List[Callable] = []
+
+    def add_callback(self, callback: Callable):
+        """Register a callback for state changes"""
+        self.callbacks.append(callback)
+
+    def _notify_callbacks(self, state_info: dict = None):
+        """Notify all callbacks of state change"""
+        for callback in self.callbacks:
+            try:
+                callback(state_info or {"state": self.state.value})
+            except Exception as e:
+                debug(f"Callback error: {e}")
+
+    def play(self) -> bool:
+        """
+        Start playback.
+
+        Returns:
+            bool: True if state changed, False if already playing
+        """
+        if self.state == PlaybackState.PAUSED:
+            self.state = PlaybackState.PLAYING
+            info("Playback resumed")
+        elif self.state == PlaybackState.STOPPED:
+            self.state = PlaybackState.PLAYING
+            info("Playback started")
+        else:
+            return False
+
+        self._notify_callbacks({"state": self.state.value, "action": "play"})
+        return True
+
+    def pause(self) -> bool:
+        """
+        Pause playback.
+
+        Returns:
+            bool: True if paused, False if not playing
+        """
+        if self.state == PlaybackState.PLAYING:
+            self.state = PlaybackState.PAUSED
+            info("Playback paused")
+            self._notify_callbacks({"state": self.state.value, "action": "pause"})
+            return True
+        return False
+
+    def stop(self) -> bool:
+        """
+        Stop playback and reset position.
+
+        Returns:
+            bool: True if stopped, False if already stopped
+        """
+        if self.state in [PlaybackState.PLAYING, PlaybackState.PAUSED]:
+            self.state = PlaybackState.STOPPED
+            self.position = 0
+            info("Playback stopped")
+            self._notify_callbacks({"state": self.state.value, "action": "stop"})
+            return True
+        return False
+
+    def seek(self, position_samples: int, max_samples: int) -> bool:
+        """
+        Seek to a position (in samples).
+
+        Args:
+            position_samples: Target position in samples
+            max_samples: Maximum valid position (total track length)
+
+        Returns:
+            bool: True if seek succeeded
+        """
+        # Clamp to valid range
+        position_samples = max(0, min(position_samples, max_samples))
+        self.position = position_samples
+
+        debug(f"Seeked to sample {position_samples}")
+        self._notify_callbacks({
+            "state": self.state.value,
+            "action": "seek",
+            "position_samples": position_samples
+        })
+        return True
+
+    def set_loading(self):
+        """Set state to LOADING"""
+        self.state = PlaybackState.LOADING
+        self._notify_callbacks({"state": self.state.value, "action": "loading"})
+
+    def set_error(self):
+        """Set state to ERROR"""
+        self.state = PlaybackState.ERROR
+        self._notify_callbacks({"state": self.state.value, "action": "error"})
+
+    def is_playing(self) -> bool:
+        """Check if currently playing"""
+        return self.state == PlaybackState.PLAYING
+
+    def is_stopped(self) -> bool:
+        """Check if stopped"""
+        return self.state == PlaybackState.STOPPED
+
+    def is_paused(self) -> bool:
+        """Check if paused"""
+        return self.state == PlaybackState.PAUSED
