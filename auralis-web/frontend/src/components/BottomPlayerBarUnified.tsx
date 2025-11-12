@@ -18,6 +18,9 @@
  * ✅ Preset selector removed from player bar (moved to settings)
  * ✅ Layout fixes prevent element overlap
  *
+ * Phase 4a Consolidation:
+ * ✅ Updated to use usePlayerWithAudio composition hook (Phase 4a consolidation)
+ *
  * @copyright (C) 2025 Auralis Team
  * @license GPLv3
  */
@@ -46,8 +49,7 @@ import {
 import { Slider } from '@mui/material';
 import { colors, gradients } from '../theme/auralisTheme';
 import { useToast } from './shared/Toast';
-import { usePlayerAPI } from '../hooks/usePlayerAPI';
-import { useUnifiedWebMAudioPlayer } from '../hooks/useUnifiedWebMAudioPlayer';
+import { usePlayerWithAudio } from '../hooks/usePlayerWithAudio';
 import { useEnhancement } from '../contexts/EnhancementContext';
 import AlbumArtComponent from './album/AlbumArt';
 
@@ -128,19 +130,31 @@ const ControlButton = styled(IconButton)({
 });
 
 export const BottomPlayerBarUnified: React.FC = () => {
-  // Get current track and queue from usePlayerAPI
+  // Phase 4a Consolidation: Use unified player with audio composition hook
   const {
     currentTrack,
     queue,
     queueIndex,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    loading: playerLoading,
+    error: playerError,
+    audioState,
+    audioMetadata,
+    audioError,
+    play,
+    pause,
+    togglePlayPause,
     next: nextTrack,
     previous: previousTrack,
-    play: apiPlay,
-    pause: apiPause
-  } = usePlayerAPI();
-
-  // Unified WebM Audio Player
-  const player = useUnifiedWebMAudioPlayer({
+    seek,
+    setVolume: setPlayerVolume,
+    setEnhanced,
+    setPreset,
+    player
+  } = usePlayerWithAudio({
     apiBaseUrl: 'http://localhost:8765',
     debug: true,
     autoPlay: true
@@ -154,45 +168,25 @@ export const BottomPlayerBarUnified: React.FC = () => {
 
   const { info, error: showError } = useToast();
 
-  // Load track when currentTrack changes
-  useEffect(() => {
-    if (currentTrack && currentTrack.id) {
-      console.log(`[Player] Loading track ${currentTrack.id}: ${currentTrack.title}`);
-      player.loadTrack(currentTrack.id)
-        .catch((err) => {
-          console.error('[Player] Failed to load track:', err);
-          showError(`Playback error: ${err.message}`);
-        });
-    }
-  }, [currentTrack?.id]);
-
   // Show error toast
   useEffect(() => {
-    if (player.error) {
-      showError(`Playback error: ${player.error.message}`);
+    if (playerError) {
+      showError(`Playback error: ${playerError}`);
     }
-  }, [player.error]);
+    if (audioError) {
+      showError(`Playback error: ${audioError.message}`);
+    }
+  }, [playerError, audioError, showError]);
 
-  // Handle play/pause - CRITICAL FIX: Sync both backend and Web Audio API
-  // This ensures play/pause state is consistent across all clients via WebSocket
+  // Handle play/pause
   const handlePlayPause = useCallback(async () => {
     try {
-      if (player.isPlaying) {
-        // Pause both Web Audio API and Backend
-        console.log('[Player] Pausing playback (both Web Audio API and Backend)');
-        player.pause();        // Stop Web Audio API immediately
-        await apiPause();      // Update backend state (broadcasts via WebSocket)
-      } else {
-        // Play both Web Audio API and Backend
-        console.log('[Player] Starting playback (both Web Audio API and Backend)');
-        await player.play();   // Start Web Audio API
-        await apiPlay();       // Update backend state (broadcasts via WebSocket)
-      }
+      await togglePlayPause();
     } catch (err: any) {
       console.error('[Player] Playback error:', err);
       showError(`Playback error: ${err.message}`);
     }
-  }, [player.isPlaying, apiPlay, apiPause]);
+  }, [togglePlayPause, showError]);
 
   // Handle next track (sync with queue)
   const handleNext = useCallback(async () => {
@@ -224,42 +218,42 @@ export const BottomPlayerBarUnified: React.FC = () => {
     setIsSeeking(true);
 
     try {
-      await player.seek(position);
+      await seek(position);
     } catch (err: any) {
       showError(`Seek failed: ${err.message}`);
     } finally {
       setIsSeeking(false);
     }
-  }, [player]);
+  }, [seek, showError]);
 
   // Handle volume change
-  const handleVolumeChange = useCallback((_: Event, newValue: number | number[]) => {
+  const handleVolumeChange = useCallback(async (_: Event, newValue: number | number[]) => {
     const volume = newValue as number;
     setLocalVolume(volume);
-    player.setVolume(volume / 100);
+    await setPlayerVolume(volume);
     if (volume > 0) setIsMuted(false);
-  }, [player]);
+  }, [setPlayerVolume]);
 
   // Handle mute toggle
-  const handleMuteToggle = useCallback(() => {
+  const handleMuteToggle = useCallback(async () => {
     if (isMuted) {
-      player.setVolume(localVolume / 100);
+      await setPlayerVolume(localVolume);
       setIsMuted(false);
     } else {
-      player.setVolume(0);
+      await setPlayerVolume(0);
       setIsMuted(true);
     }
-  }, [isMuted, localVolume, player]);
+  }, [isMuted, localVolume, setPlayerVolume]);
 
   // Handle mouse wheel on volume
-  const handleVolumeWheel = useCallback((e: React.WheelEvent) => {
+  const handleVolumeWheel = useCallback(async (e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -5 : 5;
     const newVolume = Math.max(0, Math.min(100, localVolume + delta));
     setLocalVolume(newVolume);
-    player.setVolume(newVolume / 100);
+    await setPlayerVolume(newVolume);
     if (newVolume > 0) setIsMuted(false);
-  }, [localVolume, player]);
+  }, [localVolume, setPlayerVolume]);
 
   // Get volume icon
   const getVolumeIcon = useCallback(() => {
@@ -281,10 +275,10 @@ export const BottomPlayerBarUnified: React.FC = () => {
       {/* Progress Bar - Full width, snapped to top */}
       <Box sx={{ width: '100%', px: 3, py: 0.75 }}>
         <Slider
-          value={isSeeking ? player.currentTime : player.currentTime}
-          max={player.duration || 100}
+          value={isSeeking ? currentTime : currentTime}
+          max={duration || 100}
           onChange={handleSeek}
-          disabled={player.state === 'idle' || player.isLoading}
+          disabled={audioState === 'idle' || playerLoading}
           sx={{
             height: 4,
             '& .MuiSlider-track': {
@@ -397,12 +391,12 @@ export const BottomPlayerBarUnified: React.FC = () => {
 
           <PlayButton
             onClick={handlePlayPause}
-            disabled={player.isLoading || player.state === 'idle'}
+            disabled={playerLoading || audioState === 'idle'}
             size="small"
           >
-            {player.isLoading ? (
+            {playerLoading ? (
               <CircularProgress size={24} color="inherit" />
-            ) : player.isPlaying ? (
+            ) : isPlaying ? (
               <Pause sx={{ fontSize: 28 }} />
             ) : (
               <PlayArrow sx={{ fontSize: 28 }} />
@@ -433,7 +427,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
               ml: 2,
             }}
           >
-            {formatTime(player.currentTime)} / {formatTime(player.duration)}
+            {formatTime(currentTime)} / {formatTime(duration)}
           </Typography>
         </Box>
 
