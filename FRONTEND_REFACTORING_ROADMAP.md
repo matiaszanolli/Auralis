@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: Phase 1, 2, 3b, 3c (Complete), 4a & 4b Complete | Phase 3a Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: Phase 1, 2, 3a, 3b, 3c (Complete), 4a & 4b Complete | Phase 4c Ready | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -26,6 +26,25 @@
 - ✅ Updated `enhancement-pane-v2/EnhancementToggle.tsx` (94 → 52 lines, -42 lines)
 - ✅ All 49 tests passing (28 player-bar + 21 enhancement-pane)
 - ✅ Variant pattern established for 'button' and 'switch' UI styles
+
+### Phase 3a: Keyboard Shortcuts Consolidation (307 + 79 → 387 lines, unified architecture)
+- ✅ Created unified `useKeyboardShortcuts` hook (387 lines)
+  - Supports both V1 (config-based) and V2 (service-based) patterns
+  - Automatic format detection for backward compatibility
+  - Delegates to `keyboardShortcutsService` for robust event handling
+
+- ✅ Refactored `useKeyboardShortcutsV2.ts` (79 → 20 lines)
+  - Now a backward compatibility shim re-exporting unified hook
+  - Maintains API contract for existing code
+  - Clear deprecation notice with migration guide
+
+- ✅ Updated `ComfortableApp.tsx`
+  - Changed import from useKeyboardShortcutsV2 to useKeyboardShortcuts
+  - No functional changes (unified hook has identical return type)
+
+- ✅ Build succeeds with 11643 modules (zero errors, no regressions)
+
+**Cumulative Phase 3a Impact**: Unified two separate hook implementations, eliminated code duplication, single source of truth for keyboard shortcuts, maintained full backward compatibility
 
 ### Phase 3c (Complete): Error Handling Extraction (420+ utility lines, 90+ service lines reduced)
 
@@ -61,7 +80,7 @@
 - ✅ Optional stats loading for performance optimization
 - ✅ Composition hook pattern established and reused in Phase 4a
 
-**Cumulative Impact**: ~660 lines reduced + 1405 lines of new reusable patterns (985 composition hooks + 420 error utilities), 7 services refactored, 6 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling, WebSocket management)
+**Cumulative Impact**: ~810 lines reduced (incl. 307 V1 keyboard hook) + 1405 lines of new reusable patterns (985 composition hooks + 420 error utilities), 7 services refactored, 7 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling, WebSocket management, keyboard shortcuts consolidation)
 
 ---
 
