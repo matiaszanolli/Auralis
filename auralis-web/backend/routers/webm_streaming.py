@@ -52,6 +52,11 @@ class StreamMetadata(BaseModel):
     mime_type: str  # Always "audio/webm"
     codecs: str  # Always "opus"
     format_version: str  # Unified architecture version
+    # NEW: Actual playable duration for each chunk type
+    # Chunk 0: full duration (chunk_duration)
+    # Chunks 1+: interval duration (chunk_interval), overlap already trimmed
+    chunk_playable_duration: int  # Playable duration in seconds for non-first chunks
+    overlap_duration: int  # Overlap between chunks for reference
 
 
 def create_webm_streaming_router(
@@ -136,7 +141,9 @@ def create_webm_streaming_router(
                 total_chunks=total_chunks,
                 mime_type="audio/webm",
                 codecs="opus",
-                format_version="unified-v1.0"
+                format_version="unified-v1.0",
+                chunk_playable_duration=chunk_interval,  # Non-first chunks play for interval duration
+                overlap_duration=5  # 5s overlap between chunks (context trimmed at backend)
             )
 
             logger.info(f"Stream metadata for track {track_id}: {total_chunks} chunks, {duration:.1f}s, "

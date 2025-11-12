@@ -488,11 +488,11 @@ Automatically used by `HybridProcessor` for intelligent parameter selection.
 - [docs/guides/AUDIO_FINGERPRINT_GRAPH_SYSTEM.md](docs/guides/AUDIO_FINGERPRINT_GRAPH_SYSTEM.md) - Fingerprint system
 
 **Performance:**
-- [PERFORMANCE_OPTIMIZATION_QUICK_START.md](PERFORMANCE_OPTIMIZATION_QUICK_START.md) - Optimization guide
-- [LARGE_LIBRARY_OPTIMIZATION.md](docs/completed/LARGE_LIBRARY_OPTIMIZATION.md) - Library performance
+- [docs/completed/performance/PERFORMANCE_OPTIMIZATION_QUICK_START.md](docs/completed/performance/PERFORMANCE_OPTIMIZATION_QUICK_START.md) - Optimization guide
+- [docs/completed/LARGE_LIBRARY_OPTIMIZATION.md](docs/completed/LARGE_LIBRARY_OPTIMIZATION.md) - Library performance
 
 **Complete Index:**
-- [docs/README.md](docs/README.md) - Documentation index (all 55 files)
+- [docs/README.md](docs/README.md) - Documentation index (163 active files + 158 archived)
 
 ---
 
