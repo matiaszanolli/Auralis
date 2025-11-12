@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: Phase 1, 2, 3b, 3c (Part 1), 4a & 4b Complete | Phase 3a Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: Phase 1, 2, 3b, 3c (Complete), 4a & 4b Complete | Phase 3a Ready | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -27,7 +27,9 @@
 - ✅ All 49 tests passing (28 player-bar + 21 enhancement-pane)
 - ✅ Variant pattern established for 'button' and 'switch' UI styles
 
-### Phase 3c (Part 1): Error Handling Extraction (420+ lines new utilities)
+### Phase 3c (Complete): Error Handling Extraction (420+ utility lines, 90+ service lines reduced)
+
+**Part 1: Utility Creation & mseStreamingService Refactoring**
 - ✅ Created `src/utils/errorHandling.ts` utility module (420+ lines)
 - ✅ Implemented RetryPolicy with exponential backoff + jitter
 - ✅ Implemented WebSocketManager with automatic reconnection
@@ -35,7 +37,14 @@
 - ✅ Added GlobalErrorLogger with history tracking
 - ✅ Refactored `mseStreamingService.ts` (removed 21 lines duplicate retry logic)
 - ✅ Created `PHASE3C_ERROR_HANDLING_GUIDE.md` with refactoring patterns
-- ✅ Build succeeds with 11643 modules (zero errors)
+
+**Part 2: Remaining Services Refactoring**
+- ✅ Refactored `processingService.ts` (WebSocketManager + 5 API retry endpoints)
+- ✅ Refactored `RealTimeAnalysisStream.ts` (40 lines reconnection logic removed)
+- ✅ Refactored `AnalysisExportService.ts` (timeout protection + error logging)
+- ✅ Build succeeds with 11643 modules (zero errors, no regressions)
+
+**Cumulative Phase 3c Impact**: 90+ lines of duplicate reconnection/retry logic consolidated, unified error classification, automatic reconnection with configurable delays
 
 ### Phase 4a: Player Hook Consolidation (611 new composition hook)
 - ✅ Created `usePlayerWithAudio` composition hook (611 lines)
@@ -52,7 +61,7 @@
 - ✅ Optional stats loading for performance optimization
 - ✅ Composition hook pattern established and reused in Phase 4a
 
-**Cumulative Impact**: ~570 lines reduced + 1405 lines of new reusable patterns (985 composition hooks + 420 error utilities), 6 services refactored, 5 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling)
+**Cumulative Impact**: ~660 lines reduced + 1405 lines of new reusable patterns (985 composition hooks + 420 error utilities), 7 services refactored, 6 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling, WebSocket management)
 
 ---
 
