@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: Phase 1, 2, 3a, 3b, 3c (Complete), 4a & 4b Complete | Phase 4c Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: Phase 1, 2, 3a, 3b, 3c (Complete), 4a, 4b, 4c (Complete) | Phase 5a Ready | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -80,7 +80,18 @@
 - ✅ Optional stats loading for performance optimization
 - ✅ Composition hook pattern established and reused in Phase 4a
 
-**Cumulative Impact**: ~810 lines reduced (incl. 307 V1 keyboard hook) + 1405 lines of new reusable patterns (985 composition hooks + 420 error utilities), 7 services refactored, 7 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling, WebSocket management, keyboard shortcuts consolidation)
+### Phase 4c: WebSocket Hook Optimization (104 → 64 lines, -40 lines)
+- ✅ Migrated WebSocketContext to use WebSocketManager (Phase 3c utilities)
+- ✅ Removed ~30 lines of manual exponential backoff logic
+- ✅ Enhanced connection with proper event handlers (open, close, error, message)
+- ✅ Refactored useWebSocket.ts as backward compatibility adapter (40 lines reduction)
+- ✅ Maintains subscription-based message handling
+- ✅ Message queueing during disconnection preserved
+- ✅ Build succeeds with 11644 modules (zero errors, +1 module for WebSocketManager)
+
+**Cumulative Phase 4c Impact**: 40+ lines of duplicate reconnection logic eliminated, robust exponential backoff with jitter, centralized error handling for all WebSocket operations
+
+**Cumulative Impact**: ~850 lines reduced + 1405 lines of new reusable patterns (985 composition hooks + 420 error utilities), 7 services refactored, 8 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling, WebSocket management, keyboard shortcuts consolidation, WebSocket hook optimization)
 
 ---
 
