@@ -1,12 +1,14 @@
 /**
- * Settings Service
+ * Settings Service (Phase 5a)
  * ~~~~~~~~~~~~~~~~
  *
- * API service for user settings management
+ * API service for user settings management.
+ *
+ * Refactored using Service Factory Pattern (Phase 5a) to reduce code duplication.
  */
 
-import { get, put, post } from '../utils/apiRequest';
 import { ENDPOINTS } from '../config/api';
+import { createCrudService } from '../utils/serviceFactory';
 
 export interface UserSettings {
   id: number;
@@ -52,7 +54,7 @@ export interface SettingsUpdate {
   scan_interval?: number;
   // Playback
   crossfade_enabled?: boolean;
-  crossfade_duration?: number;
+  crossfade_duration?: boolean;
   gapless_enabled?: boolean;
   replay_gain_enabled?: boolean;
   volume?: number;
@@ -76,41 +78,58 @@ export interface SettingsUpdate {
   debug_mode?: boolean;
 }
 
+// Create base CRUD service using factory
+const crudService = createCrudService<UserSettings, SettingsUpdate>({
+  list: ENDPOINTS.SETTINGS,
+  update: ENDPOINTS.SETTINGS,
+  custom: {
+    reset: `${ENDPOINTS.SETTINGS}/reset`,
+    addScanFolder: `${ENDPOINTS.SETTINGS}/scan-folders`,
+    removeScanFolder: `${ENDPOINTS.SETTINGS}/scan-folders/delete`,
+  },
+});
+
+/**
+ * Get current user settings
+ */
+export async function getSettings(): Promise<UserSettings> {
+  return crudService.list() as Promise<UserSettings>;
+}
+
+/**
+ * Update user settings
+ */
+export async function updateSettings(updates: SettingsUpdate): Promise<{ message: string; settings: UserSettings }> {
+  return crudService.update(0, updates) as Promise<any>;
+}
+
+/**
+ * Reset all settings to defaults
+ */
+export async function resetSettings(): Promise<{ message: string; settings: UserSettings }> {
+  return crudService.custom('reset', 'post', {});
+}
+
+/**
+ * Add a scan folder
+ */
+export async function addScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
+  return crudService.custom('addScanFolder', 'post', { folder });
+}
+
+/**
+ * Remove a scan folder
+ */
+export async function removeScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
+  return crudService.custom('removeScanFolder', 'post', { folder });
+}
+
 export const settingsService = {
-  /**
-   * Get current user settings
-   */
-  async getSettings(): Promise<UserSettings> {
-    return get(ENDPOINTS.SETTINGS);
-  },
-
-  /**
-   * Update user settings
-   */
-  async updateSettings(updates: SettingsUpdate): Promise<{ message: string; settings: UserSettings }> {
-    return put(ENDPOINTS.SETTINGS, updates);
-  },
-
-  /**
-   * Reset all settings to defaults
-   */
-  async resetSettings(): Promise<{ message: string; settings: UserSettings }> {
-    return post(`${ENDPOINTS.SETTINGS}/reset`, {});
-  },
-
-  /**
-   * Add a scan folder
-   */
-  async addScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
-    return post(`${ENDPOINTS.SETTINGS}/scan-folders`, { folder });
-  },
-
-  /**
-   * Remove a scan folder
-   */
-  async removeScanFolder(folder: string): Promise<{ message: string; settings: UserSettings }> {
-    return post(`${ENDPOINTS.SETTINGS}/scan-folders/delete`, { folder });
-  }
+  getSettings,
+  updateSettings,
+  resetSettings,
+  addScanFolder,
+  removeScanFolder,
 };
 
 export default settingsService;
