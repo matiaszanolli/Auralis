@@ -1,13 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-
 /**
- * @deprecated This hook is deprecated. Please use useWebSocketContext from contexts/WebSocketContext instead.
+ * useWebSocket Hook (DEPRECATED - Phase 4c)
  *
- * The new WebSocketContext provides:
- * - Single shared WebSocket connection (no duplication)
- * - Subscription-based message handling
- * - Automatic reconnection with exponential backoff
- * - Message queueing during disconnection
+ * ⚠️ DEPRECATED: Use `useWebSocketContext` from '../contexts/WebSocketContext' instead
+ *
+ * This hook is maintained for backward compatibility only.
+ * Phase 4c optimization integrated WebSocketContext with Phase 3c error handling utilities
+ * (WebSocketManager) for robust reconnection and error recovery.
  *
  * Migration example:
  * ```ts
@@ -23,82 +21,44 @@ import { useState, useEffect, useRef } from 'react';
  *   return unsubscribe;
  * }, [subscribe]);
  * ```
+ *
+ * The new WebSocketContext provides:
+ * - Single shared WebSocket connection (no duplication)
+ * - Subscription-based message handling
+ * - Automatic reconnection with exponential backoff (via WebSocketManager)
+ * - Message queueing during disconnection
+ * - Centralized error handling (Phase 3c integration)
  */
-interface UseWebSocketReturn {
+
+import { useWebSocketContext } from '../contexts/WebSocketContext';
+
+/**
+ * Adapter interface for backward compatibility
+ */
+export interface UseWebSocketReturn {
   connected: boolean;
   lastMessage: string | null;
   sendMessage: (message: any) => void;
 }
 
+/**
+ * Deprecated hook - adapts new WebSocketContext to old interface
+ * Phase 4c: This is now a thin compatibility wrapper
+ */
 export const useWebSocket = (url: string): UseWebSocketReturn => {
-  const [connected, setConnected] = useState(false);
-  const [lastMessage, setLastMessage] = useState<string | null>(null);
-  const ws = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  // Note: url parameter is ignored since WebSocketContext uses a shared connection
+  // This maintains backward compatibility while delegating to the centralized context
 
-  const connect = () => {
-    try {
-      ws.current = new WebSocket(url);
+  const { isConnected, send } = useWebSocketContext();
 
-      ws.current.onopen = () => {
-        console.log('WebSocket connected');
-        setConnected(true);
+  console.warn(
+    '⚠️  useWebSocket is deprecated. Use useWebSocketContext() instead. ' +
+    'See comments in src/hooks/useWebSocket.ts for migration guide.'
+  );
 
-        // Send ping to keep connection alive
-        const pingInterval = setInterval(() => {
-          if (ws.current?.readyState === WebSocket.OPEN) {
-            ws.current.send(JSON.stringify({ type: 'ping' }));
-          } else {
-            clearInterval(pingInterval);
-          }
-        }, 30000);
-      };
-
-      ws.current.onmessage = (event) => {
-        setLastMessage(event.data);
-      };
-
-      ws.current.onclose = () => {
-        console.log('WebSocket disconnected');
-        setConnected(false);
-
-        // Attempt to reconnect after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
-      };
-
-      ws.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setConnected(false);
-      };
-
-    } catch (error) {
-      console.error('Failed to connect to WebSocket:', error);
-      setConnected(false);
-    }
+  return {
+    connected: isConnected,
+    lastMessage: null, // Not tracked in new context (use subscribe instead)
+    sendMessage: send
   };
-
-  const sendMessage = (message: any) => {
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket is not connected');
-    }
-  };
-
-  useEffect(() => {
-    connect();
-
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (ws.current) {
-        ws.current.close();
-      }
-    };
-  }, [url]);
-
-  return { connected, lastMessage, sendMessage };
 };
