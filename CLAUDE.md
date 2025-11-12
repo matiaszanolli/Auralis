@@ -107,7 +107,12 @@ python benchmark_performance.py
 cd auralis-web/frontend
 npm test                               # Interactive test mode
 npm run test:run                       # Single test run
+npm run test:run -- --coverage         # With coverage report
 npm run build                          # Production build
+
+# Run specific frontend test files
+npm test -- src/components/library/__tests__/CozyAlbumGrid.test.tsx
+npm test -- EnhancementPaneV2           # Partial filename match
 ```
 
 ### Code Quality
@@ -188,6 +193,13 @@ make clean
 - `mutation/` - Mutation testing for test quality validation
 - `validation/` - End-to-end validation tests
 - `conftest.py` - Pytest fixtures and configuration
+
+**Frontend Tests** (`auralis-web/frontend/src/**/__tests__/`):
+- **Phase 1**: ✅ Complete - 204 tests (core UI components)
+- **Phase 2 Library**: ✅ Complete - 86 tests across 12 library components
+- **Phase 2 Enhancement**: 🚀 In Progress - 150+ tests for parameter display/controls
+- **Phase 3**: Planned - 80+ service/hook tests
+- **Target Coverage**: 55%+ overall frontend
 
 ---
 
@@ -477,6 +489,9 @@ Automatically used by `HybridProcessor` for intelligent parameter selection.
 ---
 
 ## 📚 Documentation References
+
+**Frontend Testing:**
+- [docs/guides/PHASE2_ENHANCEMENT_ROADMAP.md](docs/guides/PHASE2_ENHANCEMENT_ROADMAP.md) - **IN PROGRESS** - Phase 2 enhancement component tests & Phase 3 planning
 
 **Development Guidelines:**
 - [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** test quality
