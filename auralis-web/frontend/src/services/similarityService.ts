@@ -12,7 +12,21 @@
  * - Manage similarity system state
  */
 
-const API_BASE = '/api/similarity';
+import { get, post } from '../utils/apiRequest';
+
+const API_BASE = '/similarity';
+
+/**
+ * Helper to build URL with query parameters
+ */
+function buildUrl(path: string, params?: Record<string, string | number | boolean>): string {
+  if (!params) return path;
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    searchParams.append(key, String(value));
+  });
+  return `${path}?${searchParams.toString()}`;
+}
 
 export interface SimilarTrack {
   track_id: number;
@@ -79,20 +93,8 @@ class SimilarityService {
     limit: number = 10,
     useGraph: boolean = true
   ): Promise<SimilarTrack[]> {
-    try {
-      const response = await fetch(
-        `${API_BASE}/tracks/${trackId}/similar?limit=${limit}&use_graph=${useGraph}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to find similar tracks: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error finding similar tracks:', error);
-      throw error;
-    }
+    const url = buildUrl(`${API_BASE}/tracks/${trackId}/similar`, { limit, use_graph: useGraph });
+    return get(url);
   }
 
   /**
@@ -106,20 +108,7 @@ class SimilarityService {
     trackId1: number,
     trackId2: number
   ): Promise<ComparisonResult> {
-    try {
-      const response = await fetch(
-        `${API_BASE}/tracks/${trackId1}/compare/${trackId2}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to compare tracks: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error comparing tracks:', error);
-      throw error;
-    }
+    return get(`${API_BASE}/tracks/${trackId1}/compare/${trackId2}`);
   }
 
   /**
@@ -135,20 +124,8 @@ class SimilarityService {
     trackId2: number,
     topN: number = 5
   ): Promise<SimilarityExplanation> {
-    try {
-      const response = await fetch(
-        `${API_BASE}/tracks/${trackId1}/explain/${trackId2}?top_n=${topN}`
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to explain similarity: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error explaining similarity:', error);
-      throw error;
-    }
+    const url = buildUrl(`${API_BASE}/tracks/${trackId1}/explain/${trackId2}`, { top_n: topN });
+    return get(url);
   }
 
   /**
@@ -158,21 +135,8 @@ class SimilarityService {
    * @returns Graph statistics
    */
   async buildGraph(k: number = 10): Promise<GraphStats> {
-    try {
-      const response = await fetch(
-        `${API_BASE}/graph/build?k=${k}`,
-        { method: 'POST' }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to build graph: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error building graph:', error);
-      throw error;
-    }
+    const url = buildUrl(`${API_BASE}/graph/build`, { k });
+    return post(url, {});
   }
 
   /**
@@ -182,18 +146,12 @@ class SimilarityService {
    */
   async getGraphStats(): Promise<GraphStats | null> {
     try {
-      const response = await fetch(`${API_BASE}/graph/stats`);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null; // Graph doesn't exist
-        }
-        throw new Error(`Failed to get graph stats: ${response.statusText}`);
+      return await get(`${API_BASE}/graph/stats`);
+    } catch (error: any) {
+      // Handle 404 gracefully (graph doesn't exist)
+      if (error.status === 404) {
+        return null;
       }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting graph stats:', error);
       throw error;
     }
   }
@@ -205,21 +163,8 @@ class SimilarityService {
    * @returns Fit result
    */
   async fit(minSamples: number = 10): Promise<FitResult> {
-    try {
-      const response = await fetch(
-        `${API_BASE}/fit?min_samples=${minSamples}`,
-        { method: 'POST' }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fit similarity system: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fitting similarity system:', error);
-      throw error;
-    }
+    const url = buildUrl(`${API_BASE}/fit`, { min_samples: minSamples });
+    return post(url, {});
   }
 
   /**
@@ -231,8 +176,7 @@ class SimilarityService {
     try {
       const stats = await this.getGraphStats();
       return stats !== null && stats.total_edges > 0;
-    } catch (error) {
-      console.error('Error checking similarity system status:', error);
+    } catch {
       return false;
     }
   }
