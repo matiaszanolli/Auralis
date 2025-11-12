@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: Phase 1, 2, 3a, 3b, 3c, 4a, 4b, 4c (Complete), 5a (Complete) | Phase 5b-5d Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: Phase 1, 2, 3a, 3b, 3c, 4a, 4b, 4c (Complete), 5a, 5b (Complete) | Phase 5c-5d Ready | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -111,7 +111,23 @@
 
 **Cumulative Phase 5a Impact**: Eliminated direct apiRequest wrapper imports, DRY principle for CRUD patterns, consistent typing across all services
 
-**Cumulative Impact**: ~920 lines reduced + 1535 lines of new reusable patterns (985 composition hooks + 420 error utilities + 130 service factory), 11 services refactored, 9 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling, WebSocket management, keyboard shortcuts consolidation, WebSocket hook optimization, service factory pattern)
+### Phase 5b: SimilarityService Factory Pattern (50+ lines reduced)
+- ✅ Converted class-based `SimilarityService` to factory pattern
+  - Removed class definition (71 lines)
+  - Converted 7 methods to exported async functions
+  - All custom endpoints use `createCrudService` factory
+  - Maintained error handling (404 in getGraphStats)
+  - Preserved singleton export for backward compatibility
+
+- ✅ Metrics:
+  - Code reduction: 50+ lines of class boilerplate eliminated
+  - Build: 11645 modules (stable)
+  - Backward compatibility: 100% maintained
+  - Zero new imports: Only createCrudService factory
+
+**Cumulative Phase 5b Impact**: Eliminated legacy class patterns from service layer, consistent function-based API across all services, singleton pattern maintained
+
+**Cumulative Impact**: ~975 lines reduced + 1535 lines of new reusable patterns (985 composition hooks + 420 error utilities + 130 service factory), 12 services refactored (5 CRUD + 1 similarity + 6 other), 10 patterns unified (API, utility consolidation, component composition, composition hooks, centralized error handling, WebSocket management, keyboard shortcuts consolidation, WebSocket hook optimization, service factory pattern, service modernization)
 
 ---
 
@@ -216,9 +232,9 @@
 
 ---
 
-### Phase 5: Service Consolidation & Streaming Optimization (Estimated: 150+ lines)
+### Phase 5: Service Consolidation & Streaming Optimization (Estimated: 300+ lines total)
 
-**Priority**: LOW | **Impact**: HIGH | **Effort**: HIGH
+**Priority**: LOW-MEDIUM | **Impact**: HIGH | **Effort**: MEDIUM-HIGH
 
 #### ✅ 5a: Service Factory Pattern (COMPLETE)
 - ✅ Created generic `createCrudService<T, U>` factory
@@ -226,12 +242,25 @@
 - ✅ All services maintain backward-compatible public APIs
 - ✅ 55+ lines of code reduction
 
-#### 5b: MSE Streaming + Real-time Analysis
+#### ✅ 5b: SimilarityService Factory Pattern (COMPLETE)
+- ✅ Converted class-based to factory pattern
+- ✅ 7 methods → exported async functions
+- ✅ 50+ lines of class boilerplate eliminated
+- ✅ Full backward compatibility maintained
+
+#### 5c: Performance/Animation Utilities Consolidation
+- `utils/VisualizationOptimizer.ts` (561 lines)
+- `utils/AdvancedPerformanceOptimizer.ts` (470 lines)
+- `utils/SmoothAnimationEngine.ts` (641 lines)
+- Opportunity: Merge duplicate FPS tracking, easing functions, performance monitoring
+- Estimated savings: 150-200 lines
+
+#### 5d: MSE Streaming + Real-time Analysis
 - `services/mseStreamingService.ts` (171 lines)
 - `services/RealTimeAnalysisStream.ts` (605 lines)
 - Opportunity: Shared buffering strategy, unified error handling
 
-#### 5c: Analysis Export Service
+#### 5e: Analysis Export Service
 - `services/AnalysisExportService.ts` (886 lines)
 - Opportunity: Extract common export patterns, format handlers
 
