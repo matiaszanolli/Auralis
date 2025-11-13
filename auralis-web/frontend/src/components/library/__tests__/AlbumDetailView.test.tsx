@@ -11,6 +11,7 @@
  * - Duration formatting
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -20,7 +21,7 @@ import AlbumDetailView from '../AlbumDetailView';
 import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock the AlbumArt component
-jest.mock('../../album/AlbumArt', () => {
+vi.mock('../../album/AlbumArt', () => {
   return function MockAlbumArt({ albumId, size }: any) {
     return (
       <div data-testid="album-artwork">
@@ -31,7 +32,7 @@ jest.mock('../../album/AlbumArt', () => {
 });
 
 // Mock fetch for API calls
-global.fetch = jest.fn();
+global.fetch = vi.fn();
 
 const mockAlbumData = {
   album_id: 1,
@@ -57,8 +58,8 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('AlbumDetailView', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (global.fetch as jest.Mock).mockResolvedValue({
+    vi.clearAllMocks();
+    (global.fetch.  as any).mockResolvedValue({
       ok: true,
       json: async () => mockAlbumData,
     });
@@ -66,7 +67,7 @@ describe('AlbumDetailView', () => {
 
   describe('Rendering', () => {
     it('should render loading state initially', () => {
-      (global.fetch as jest.Mock).mockImplementation(
+      (global.fetch.  as any).mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -180,7 +181,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle single track album', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -268,7 +269,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should show empty state when no tracks', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -292,7 +293,7 @@ describe('AlbumDetailView', () => {
   describe('Playback Integration', () => {
     it('should play album when play button clicked', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = jest.fn();
+      const onTrackPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -312,7 +313,7 @@ describe('AlbumDetailView', () => {
 
     it('should play track when track row clicked', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = jest.fn();
+      const onTrackPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -479,7 +480,7 @@ describe('AlbumDetailView', () => {
 
   describe('Navigation', () => {
     it('should show back button when onBack provided', async () => {
-      const onBack = jest.fn();
+      const onBack = vi.fn();
 
       render(
         <Wrapper>
@@ -497,7 +498,7 @@ describe('AlbumDetailView', () => {
 
     it('should call onBack when back button clicked', async () => {
       const user = userEvent.setup();
-      const onBack = jest.fn();
+      const onBack = vi.fn();
 
       render(
         <Wrapper>
@@ -533,7 +534,7 @@ describe('AlbumDetailView', () => {
 
   describe('Loading State', () => {
     it('should show loading skeletons while fetching', () => {
-      (global.fetch as jest.Mock).mockImplementation(
+      (global.fetch.  as any).mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -579,8 +580,8 @@ describe('AlbumDetailView', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/albums/1/tracks');
 
       // Change albumId
-      (global.fetch as jest.Mock).mockClear();
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockClear();
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -603,7 +604,7 @@ describe('AlbumDetailView', () => {
 
   describe('Error State', () => {
     it('should display error message on fetch failure', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: false,
         json: async () => ({ error: 'Not found' }),
       });
@@ -620,8 +621,8 @@ describe('AlbumDetailView', () => {
     });
 
     it('should show back button in error state', async () => {
-      const onBack = jest.fn();
-      (global.fetch as jest.Mock).mockResolvedValue({
+      const onBack = vi.fn();
+      (global.fetch.  as any).mockResolvedValue({
         ok: false,
       });
 
@@ -640,7 +641,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle network errors', async () => {
-      (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (global.fetch.  as any).mockRejectedValue(new Error('Network error'));
 
       render(
         <Wrapper>
@@ -654,7 +655,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle malformed API response', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({}), // Missing required fields
       });
@@ -699,7 +700,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should format duration > 1 hour correctly', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -830,8 +831,8 @@ describe('AlbumDetailView', () => {
   describe('Integration', () => {
     it('should handle full album view workflow', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = jest.fn();
-      const onBack = jest.fn();
+      const onTrackPlay = vi.fn();
+      const onBack = vi.fn();
 
       render(
         <Wrapper>
@@ -895,7 +896,7 @@ describe('AlbumDetailView', () => {
 
   describe('Edge Cases', () => {
     it('should handle album with no year', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -918,7 +919,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle album with no genre', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -941,7 +942,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle track with no track_number', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -966,7 +967,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle very long track title', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -994,7 +995,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle very long artist name', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -1024,7 +1025,7 @@ describe('AlbumDetailView', () => {
         track_number: i + 1,
       }));
 
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,

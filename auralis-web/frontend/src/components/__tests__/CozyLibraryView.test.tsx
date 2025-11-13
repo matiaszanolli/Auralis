@@ -10,6 +10,7 @@
  * - Empty states and loading states
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -20,9 +21,9 @@ import { useLibraryWithStats } from '../../hooks/useLibraryWithStats';
 import { usePlayerAPI } from '../../hooks/usePlayerAPI';
 import { auralisTheme } from '../../theme/auralisTheme';
 
-jest.mock('../../hooks/useLibraryWithStats');
-jest.mock('../../hooks/usePlayerAPI');
-jest.mock('../CozyAlbumGrid', () => {
+vi.mock('../../hooks/useLibraryWithStats');
+vi.mock('../../hooks/usePlayerAPI');
+vi.mock('../CozyAlbumGrid', () => {
   return function MockGrid({ albums, onAlbumClick }: any) {
     return (
       <div data-testid="album-grid">
@@ -35,7 +36,7 @@ jest.mock('../CozyAlbumGrid', () => {
     );
   };
 });
-jest.mock('../CozyArtistList', () => {
+vi.mock('../CozyArtistList', () => {
   return function MockList({ artists, onArtistClick }: any) {
     return (
       <div data-testid="artist-list">
@@ -48,7 +49,7 @@ jest.mock('../CozyArtistList', () => {
     );
   };
 });
-jest.mock('../GlobalSearch', () => {
+vi.mock('../GlobalSearch', () => {
   return function MockSearch({ onSearch }: any) {
     return (
       <input
@@ -89,16 +90,16 @@ const mockLibraryWithStats = {
   statsLoading: false,
 
   // Methods
-  fetchTracks: jest.fn(),
-  loadMore: jest.fn(),
-  handleScanFolder: jest.fn(),
-  refetchStats: jest.fn(),
-  isElectron: jest.fn(() => false),
+  fetchTracks: vi.fn(),
+  loadMore: vi.fn(),
+  handleScanFolder: vi.fn(),
+  refetchStats: vi.fn(),
+  isElectron: vi.fn(() => false),
 };
 
 const mockPlayerAPI = {
-  play: jest.fn(),
-  addToQueue: jest.fn(),
+  play: vi.fn(),
+  addToQueue: vi.fn(),
 };
 
 const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -111,9 +112,9 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('CozyLibraryView', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (useLibraryWithStats as jest.Mock).mockReturnValue(mockLibraryWithStats);
-    (usePlayerAPI as jest.Mock).mockReturnValue(mockPlayerAPI);
+    vi.clearAllMocks();
+    vi.mocked(useLibraryWithStats).mockReturnValue(mockLibraryWithStats);
+    vi.mocked(usePlayerAPI).mockReturnValue(mockPlayerAPI);
   });
 
   describe('Rendering', () => {
@@ -239,9 +240,9 @@ describe('CozyLibraryView', () => {
   describe('Search Filter', () => {
     it('should filter albums on search', async () => {
       const user = userEvent.setup();
-      const searchMock = jest.fn();
+      const searchMock = vi.fn();
 
-      (useLibraryData as jest.Mock).mockReturnValue({
+      vi.mocked(useLibraryData).mockReturnValue({
         ...mockLibraryData,
         search: searchMock,
       });
@@ -281,7 +282,7 @@ describe('CozyLibraryView', () => {
     it('should show no results message when search empty', async () => {
       const user = userEvent.setup();
 
-      (useLibraryData as jest.Mock).mockReturnValue({
+      vi.mocked(useLibraryData).mockReturnValue({
         ...mockLibraryData,
         albums: [],
       });
@@ -299,7 +300,7 @@ describe('CozyLibraryView', () => {
 
   describe('Loading State', () => {
     it('should show loading indicator when loading', () => {
-      (useLibraryData as jest.Mock).mockReturnValue({
+      vi.mocked(useLibraryData).mockReturnValue({
         ...mockLibraryData,
         isLoading: true,
       });
@@ -322,7 +323,7 @@ describe('CozyLibraryView', () => {
         </Wrapper>
       );
 
-      (useLibraryData as jest.Mock).mockReturnValue({
+      vi.mocked(useLibraryData).mockReturnValue({
         ...mockLibraryData,
         isLoading: false,
       });
@@ -341,7 +342,7 @@ describe('CozyLibraryView', () => {
 
   describe('Error Handling', () => {
     it('should show error message on error', () => {
-      (useLibraryData as jest.Mock).mockReturnValue({
+      vi.mocked(useLibraryData).mockReturnValue({
         ...mockLibraryData,
         error: 'Failed to load library',
       });
@@ -358,10 +359,10 @@ describe('CozyLibraryView', () => {
     it('should show retry button on error', async () => {
       const user = userEvent.setup();
 
-      (useLibraryData as jest.Mock).mockReturnValue({
+      vi.mocked(useLibraryData).mockReturnValue({
         ...mockLibraryData,
         error: 'Failed to load library',
-        retry: jest.fn(),
+        retry: vi.fn(),
       });
 
       render(
@@ -379,7 +380,7 @@ describe('CozyLibraryView', () => {
 
   describe('Empty State', () => {
     it('should show empty state when no albums', () => {
-      (useLibraryData as jest.Mock).mockReturnValue({
+      vi.mocked(useLibraryData).mockReturnValue({
         ...mockLibraryData,
         albums: [],
       });
@@ -395,7 +396,7 @@ describe('CozyLibraryView', () => {
     });
 
     it('should show action prompt in empty state', () => {
-      (useLibraryData as jest.Mock).mockReturnValue({
+      vi.mocked(useLibraryData).mockReturnValue({
         ...mockLibraryData,
         albums: [],
       });
@@ -518,7 +519,7 @@ describe('CozyLibraryView', () => {
         error: null,
       };
 
-      (useLibraryData as jest.Mock).mockReturnValue(largeLibrary);
+      vi.mocked(useLibraryData).mockReturnValue(largeLibrary);
 
       render(
         <Wrapper>
@@ -538,7 +539,7 @@ describe('CozyLibraryView', () => {
         </Wrapper>
       );
 
-      (useLibraryData as jest.Mock).mockReturnValue({
+      vi.mocked(useLibraryData).mockReturnValue({
         ...mockLibraryData,
         albums: [
           ...mockLibraryData.albums,

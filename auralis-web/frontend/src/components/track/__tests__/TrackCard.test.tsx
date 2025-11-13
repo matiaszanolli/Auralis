@@ -9,6 +9,7 @@
  * - Context menu access
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -19,8 +20,8 @@ import { useTrackSelection } from '../../../hooks/useTrackSelection';
 import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock hooks and components
-jest.mock('../../../hooks/useTrackSelection');
-jest.mock('../../album/AlbumArt', () => {
+vi.mock('../../../hooks/useTrackSelection');
+vi.mock('../../album/AlbumArt', () => {
   return function MockAlbumArt({ track }: any) {
     return (
       <div data-testid="track-card-artwork">
@@ -29,7 +30,7 @@ jest.mock('../../album/AlbumArt', () => {
     );
   };
 });
-jest.mock('../../track/TrackContextMenu', () => {
+vi.mock('../../track/TrackContextMenu', () => {
   return function MockContextMenu({ track, onPlay }: any) {
     return (
       <div data-testid="track-card-context-menu">
@@ -51,7 +52,7 @@ const mockTrack = {
 const mockSelectionContext = {
   selectedTracks: new Set<number>(),
   isSelected: (id: number) => false,
-  toggleSelection: jest.fn(),
+  toggleSelection: vi.fn(),
 };
 
 const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -64,8 +65,8 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('TrackCard', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (useTrackSelection as jest.Mock).mockReturnValue(mockSelectionContext);
+    vi.clearAllMocks();
+    vi.mocked(useTrackSelection).mockReturnValue(mockSelectionContext);
   });
 
   describe('Rendering', () => {
@@ -186,7 +187,7 @@ describe('TrackCard', () => {
 
     it('should call onPlay when play button clicked', async () => {
       const user = userEvent.setup();
-      const onPlay = jest.fn();
+      const onPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -206,7 +207,7 @@ describe('TrackCard', () => {
 
   describe('Selection', () => {
     it('should show unchecked checkbox when not selected', () => {
-      (useTrackSelection as jest.Mock).mockReturnValue({
+      vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
         isSelected: () => false,
       });
@@ -222,7 +223,7 @@ describe('TrackCard', () => {
     });
 
     it('should show checked checkbox when selected', () => {
-      (useTrackSelection as jest.Mock).mockReturnValue({
+      vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
         isSelected: () => true,
         selectedTracks: new Set([mockTrack.id]),
@@ -240,9 +241,9 @@ describe('TrackCard', () => {
 
     it('should toggle selection on checkbox click', async () => {
       const user = userEvent.setup();
-      const toggleSelection = jest.fn();
+      const toggleSelection = vi.fn();
 
-      (useTrackSelection as jest.Mock).mockReturnValue({
+      vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
         toggleSelection,
       });
@@ -260,7 +261,7 @@ describe('TrackCard', () => {
     });
 
     it('should highlight card when selected', () => {
-      (useTrackSelection as jest.Mock).mockReturnValue({
+      vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
         isSelected: () => true,
         selectedTracks: new Set([mockTrack.id]),
@@ -308,7 +309,7 @@ describe('TrackCard', () => {
 
     it('should call onPlay from context menu', async () => {
       const user = userEvent.setup();
-      const onPlay = jest.fn();
+      const onPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -371,7 +372,7 @@ describe('TrackCard', () => {
   describe('Interactions', () => {
     it('should handle double-click to play', async () => {
       const user = userEvent.setup();
-      const onPlay = jest.fn();
+      const onPlay = vi.fn();
 
       render(
         <Wrapper>

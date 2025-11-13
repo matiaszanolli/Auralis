@@ -278,7 +278,7 @@ describe('CozyArtistList', () => {
 
   describe('Artist Click Handler', () => {
     it('should call onArtistClick when artist is clicked', async () => {
-      const mockClick = jest.fn();
+      const mockClick = vi.fn();
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
@@ -302,7 +302,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should pass artist ID and name to callback', async () => {
-      const mockClick = jest.fn();
+      const mockClick = vi.fn();
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
@@ -511,7 +511,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should handle network error', async () => {
-      (global.fetch as jest.Mock).mockRejectedValueOnce(
+      (global.fetch.  as any).mockRejectedValueOnce(
         new Error('Network error')
       );
 
@@ -633,7 +633,7 @@ describe('CozyArtistList', () => {
         total: 2,
       };
 
-      (global.fetch as jest.Mock)
+      (global.fetch.  as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => initialData,

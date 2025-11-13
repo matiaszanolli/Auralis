@@ -10,6 +10,7 @@
  * - Queue display
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -19,7 +20,7 @@ import TrackListView from '../TrackListView';
 import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock components
-jest.mock('../track/TrackCard', () => {
+vi.mock('../track/TrackCard', () => {
   return function MockTrackCard({ title, artist, onPlay }: any) {
     return (
       <div data-testid={`track-card-${title}`}>
@@ -31,7 +32,7 @@ jest.mock('../track/TrackCard', () => {
   };
 });
 
-jest.mock('./SelectableTrackRow', () => {
+vi.mock('./SelectableTrackRow', () => {
   return function MockSelectableTrackRow({ track, onPlay, onToggleSelect }: any) {
     return (
       <div data-testid={`track-row-${track.id}`}>
@@ -47,29 +48,29 @@ jest.mock('./SelectableTrackRow', () => {
   };
 });
 
-jest.mock('../player/TrackQueue', () => {
+vi.mock('../player/TrackQueue', () => {
   return function MockTrackQueue() {
     return <div data-testid="track-queue">Queue</div>;
   };
 });
 
-jest.mock('../shared/SkeletonLoader', () => ({
+vi.mock('../shared/SkeletonLoader', () => ({
   LibraryGridSkeleton: () => <div data-testid="grid-skeleton">Loading...</div>,
   TrackRowSkeleton: () => <div data-testid="row-skeleton">Loading row...</div>,
 }));
 
-jest.mock('../../services/queueService', () => ({
-  removeTrackFromQueue: jest.fn(async () => undefined),
-  reorderQueue: jest.fn(async () => undefined),
-  shuffleQueue: jest.fn(async () => undefined),
-  clearQueue: jest.fn(async () => undefined),
+vi.mock('../../services/queueService', () => ({
+  removeTrackFromQueue: vi.fn(async () => undefined),
+  reorderQueue: vi.fn(async () => undefined),
+  shuffleQueue: vi.fn(async () => undefined),
+  clearQueue: vi.fn(async () => undefined),
 }));
 
-jest.mock('../shared/Toast', () => ({
+vi.mock('../shared/Toast', () => ({
   useToast: () => ({
-    success: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
   }),
 }));
 
@@ -126,11 +127,11 @@ const defaultProps = {
   isPlaying: false,
   selectedTracks: new Set<number>(),
   isSelected: (id: number) => false,
-  onToggleSelect: jest.fn(),
-  onTrackPlay: jest.fn(),
-  onPause: jest.fn(),
-  onEditMetadata: jest.fn(),
-  onLoadMore: jest.fn(),
+  onToggleSelect: vi.fn(),
+  onTrackPlay: vi.fn(),
+  onPause: vi.fn(),
+  onEditMetadata: vi.fn(),
+  onLoadMore: vi.fn(),
 };
 
 const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -143,7 +144,7 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('TrackListView', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Rendering - Grid Mode', () => {
@@ -361,7 +362,7 @@ describe('TrackListView', () => {
     });
 
     it('should call onLoadMore when observer intersects', async () => {
-      const onLoadMore = jest.fn();
+      const onLoadMore = vi.fn();
 
       const { container } = render(
         <Wrapper>
@@ -390,8 +391,8 @@ describe('TrackListView', () => {
     });
 
     it('should debounce load more calls', async () => {
-      jest.useFakeTimers();
-      const onLoadMore = jest.fn();
+      vi.useFakeTimers();
+      const onLoadMore = vi.fn();
 
       render(
         <Wrapper>
@@ -405,9 +406,9 @@ describe('TrackListView', () => {
       );
 
       // Multiple scroll events should not call onLoadMore multiple times immediately
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should show track count during loading', () => {
@@ -430,7 +431,7 @@ describe('TrackListView', () => {
   describe('Track Selection - List Mode', () => {
     it('should toggle track selection', async () => {
       const user = userEvent.setup();
-      const onToggleSelect = jest.fn();
+      const onToggleSelect = vi.fn();
 
       render(
         <Wrapper>
@@ -469,7 +470,7 @@ describe('TrackListView', () => {
 
     it('should pass selection callback to rows', async () => {
       const user = userEvent.setup();
-      const onToggleSelect = jest.fn();
+      const onToggleSelect = vi.fn();
 
       render(
         <Wrapper>
@@ -491,7 +492,7 @@ describe('TrackListView', () => {
   describe('Playback Integration', () => {
     it('should call onTrackPlay in grid mode', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = jest.fn();
+      const onTrackPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -511,7 +512,7 @@ describe('TrackListView', () => {
 
     it('should call onTrackPlay in list mode', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = jest.fn();
+      const onTrackPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -531,7 +532,7 @@ describe('TrackListView', () => {
 
     it('should pass correct track to onTrackPlay', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = jest.fn();
+      const onTrackPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -794,7 +795,7 @@ describe('TrackListView', () => {
   describe('Integration', () => {
     it('should handle complete workflow in grid mode', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = jest.fn();
+      const onTrackPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -822,8 +823,8 @@ describe('TrackListView', () => {
 
     it('should handle complete workflow in list mode', async () => {
       const user = userEvent.setup();
-      const onTrackPlay = jest.fn();
-      const onToggleSelect = jest.fn();
+      const onTrackPlay = vi.fn();
+      const onToggleSelect = vi.fn();
 
       render(
         <Wrapper>
