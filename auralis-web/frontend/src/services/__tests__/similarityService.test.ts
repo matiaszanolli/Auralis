@@ -13,6 +13,14 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+
+// Setup fetch mock with proper Vitest types
+const createFetchMock = () => vi.fn();
+let fetchMock = createFetchMock();
+vi.stubGlobal('fetch', fetchMock);
+
+// Helper function to access the mocked fetch with proper types
+const mockFetch = () => fetchMock as any;
 import similarityService, {
   SimilarTrack,
   ComparisonResult,
@@ -47,14 +55,14 @@ describe('SimilarityService', () => {
         }
       ];
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       const result = await similarityService.findSimilar(1);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/tracks/1/similar?limit=10&use_graph=true'
       );
       expect(result).toEqual(mockResponse);
@@ -65,14 +73,14 @@ describe('SimilarityService', () => {
     it('should find similar tracks with custom limit', async () => {
       const mockResponse: SimilarTrack[] = [];
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       await similarityService.findSimilar(1, 5);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/tracks/1/similar?limit=5&use_graph=true'
       );
     });
@@ -80,20 +88,20 @@ describe('SimilarityService', () => {
     it('should find similar tracks without graph', async () => {
       const mockResponse: SimilarTrack[] = [];
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       await similarityService.findSimilar(1, 10, false);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/tracks/1/similar?limit=10&use_graph=false'
       );
     });
 
     it('should throw error on API failure', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Not Found'
@@ -104,7 +112,7 @@ describe('SimilarityService', () => {
     });
 
     it('should throw error on network failure', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+      mockFetch().mockRejectedValueOnce(new Error('Network error'));
 
       await expect(similarityService.findSimilar(1))
         .rejects.toThrow('Network error');
@@ -120,14 +128,14 @@ describe('SimilarityService', () => {
         similarity_score: 0.72
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       const result = await similarityService.compareTracks(1, 2);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/tracks/1/compare/2'
       );
       expect(result).toEqual(mockResponse);
@@ -144,7 +152,7 @@ describe('SimilarityService', () => {
         similarity_score: 1.0
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
@@ -156,7 +164,7 @@ describe('SimilarityService', () => {
     });
 
     it('should throw error on invalid track IDs', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Track not found'
@@ -188,14 +196,14 @@ describe('SimilarityService', () => {
         ]
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       const result = await similarityService.explainSimilarity(1, 2, 5);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/tracks/1/explain/2?top_n=5'
       );
       expect(result).toEqual(mockResponse);
@@ -213,14 +221,14 @@ describe('SimilarityService', () => {
         all_contributions: []
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       await similarityService.explainSimilarity(1, 2);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/tracks/1/explain/2?top_n=5'
       );
     });
@@ -236,14 +244,14 @@ describe('SimilarityService', () => {
         build_time_seconds: 2.5
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       const result = await similarityService.buildGraph();
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/graph/build?k=10',
         { method: 'POST' }
       );
@@ -260,21 +268,21 @@ describe('SimilarityService', () => {
         build_time_seconds: 1.2
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       await similarityService.buildGraph(5);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/graph/build?k=5',
         { method: 'POST' }
       );
     });
 
     it('should throw error if insufficient fingerprints', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         status: 400,
         statusText: 'Insufficient fingerprints'
@@ -294,21 +302,21 @@ describe('SimilarityService', () => {
         avg_distance: 0.345
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       const result = await similarityService.getGraphStats();
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/graph/stats'
       );
       expect(result).toEqual(mockResponse);
     });
 
     it('should return null if no graph exists', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Graph not built'
@@ -327,14 +335,14 @@ describe('SimilarityService', () => {
         total_fingerprints: 50
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       const result = await similarityService.fit();
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/fit?min_samples=10',
         { method: 'POST' }
       );
@@ -348,14 +356,14 @@ describe('SimilarityService', () => {
         total_fingerprints: 100
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
 
       await similarityService.fit(20);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/similarity/fit?min_samples=20',
         { method: 'POST' }
       );
@@ -367,7 +375,7 @@ describe('SimilarityService', () => {
         total_fingerprints: 5
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse
       });
@@ -387,7 +395,7 @@ describe('SimilarityService', () => {
         avg_distance: 0.345
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockGraphStats
       });
@@ -398,7 +406,7 @@ describe('SimilarityService', () => {
     });
 
     it('should return false when no graph exists', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         status: 404
       });
@@ -409,7 +417,7 @@ describe('SimilarityService', () => {
     });
 
     it('should return false on network error', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+      mockFetch().mockRejectedValueOnce(new Error('Network error'));
 
       const result = await similarityService.isReady();
 

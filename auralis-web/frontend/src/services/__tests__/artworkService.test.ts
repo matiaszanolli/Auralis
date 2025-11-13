@@ -6,6 +6,14 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// Setup fetch mock with proper Vitest types
+const createFetchMock = () => vi.fn();
+let fetchMock = createFetchMock();
+vi.stubGlobal('fetch', fetchMock);
+
+// Helper function to access the mocked fetch with proper types
+const mockFetch = () => fetchMock as any;
 import {
   extractArtwork,
   downloadArtwork,
@@ -32,14 +40,14 @@ describe('ArtworkService', () => {
         album: 'Test Album',
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
 
       const result = await extractArtwork(1);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/albums/1/artwork/extract',
         { method: 'POST' }
       );
@@ -47,7 +55,7 @@ describe('ArtworkService', () => {
     });
 
     it('should throw error on failed extraction', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'No artwork found in audio files' }),
       });
@@ -56,7 +64,7 @@ describe('ArtworkService', () => {
     });
 
     it('should throw generic error when no detail provided', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({}),
       });
@@ -65,7 +73,7 @@ describe('ArtworkService', () => {
     });
 
     it('should handle network errors', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+      mockFetch().mockRejectedValueOnce(new Error('Network error'));
 
       await expect(extractArtwork(1)).rejects.toThrow('Network error');
     });
@@ -77,14 +85,14 @@ describe('ArtworkService', () => {
         album_id: 999,
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
 
       await extractArtwork(999);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/albums/999/artwork/extract',
         { method: 'POST' }
       );
@@ -101,14 +109,14 @@ describe('ArtworkService', () => {
         album: 'Test Album',
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
 
       const result = await downloadArtwork(1);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/albums/1/artwork/download',
         { method: 'POST' }
       );
@@ -116,7 +124,7 @@ describe('ArtworkService', () => {
     });
 
     it('should throw error on failed download', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'Album not found online' }),
       });
@@ -125,7 +133,7 @@ describe('ArtworkService', () => {
     });
 
     it('should throw generic error when no detail provided', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({}),
       });
@@ -134,14 +142,14 @@ describe('ArtworkService', () => {
     });
 
     it('should handle API timeout', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Request timeout'));
+      mockFetch().mockRejectedValueOnce(new Error('Request timeout'));
 
       await expect(downloadArtwork(1)).rejects.toThrow('Request timeout');
     });
 
     it('should download for various album IDs', async () => {
       for (const albumId of [1, 42, 9999]) {
-        (global.fetch as any).mockResolvedValueOnce({
+        mockFetch().mockResolvedValueOnce({
           ok: true,
           json: async () => ({
             message: 'Downloaded',
@@ -152,7 +160,7 @@ describe('ArtworkService', () => {
 
         await downloadArtwork(albumId);
 
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(mockFetch()).toHaveBeenCalledWith(
           `/api/albums/${albumId}/artwork/download`,
           { method: 'POST' }
         );
@@ -167,14 +175,14 @@ describe('ArtworkService', () => {
         album_id: 1,
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockResponse,
       });
 
       const result = await deleteArtwork(1);
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch()).toHaveBeenCalledWith(
         '/api/albums/1/artwork',
         { method: 'DELETE' }
       );
@@ -182,7 +190,7 @@ describe('ArtworkService', () => {
     });
 
     it('should throw error on failed deletion', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'Artwork not found' }),
       });
@@ -191,7 +199,7 @@ describe('ArtworkService', () => {
     });
 
     it('should throw generic error when no detail provided', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({}),
       });
@@ -200,7 +208,7 @@ describe('ArtworkService', () => {
     });
 
     it('should handle permission errors', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'Permission denied' }),
       });
@@ -210,14 +218,14 @@ describe('ArtworkService', () => {
 
     it('should delete for different album IDs', async () => {
       for (const albumId of [1, 100, 5000]) {
-        (global.fetch as any).mockResolvedValueOnce({
+        mockFetch().mockResolvedValueOnce({
           ok: true,
           json: async () => ({ message: 'Deleted', album_id: albumId }),
         });
 
         await deleteArtwork(albumId);
 
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(mockFetch()).toHaveBeenCalledWith(
           `/api/albums/${albumId}/artwork`,
           { method: 'DELETE' }
         );
@@ -275,7 +283,7 @@ describe('ArtworkService', () => {
   describe('Integration scenarios', () => {
     it('should handle extract -> download fallback workflow', async () => {
       // First, extraction fails
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'No embedded artwork' }),
       });
@@ -283,7 +291,7 @@ describe('ArtworkService', () => {
       await expect(extractArtwork(1)).rejects.toThrow('No embedded artwork');
 
       // Then, download succeeds
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           message: 'Downloaded from MusicBrainz',
@@ -298,7 +306,7 @@ describe('ArtworkService', () => {
 
     it('should handle extract -> delete -> extract workflow', async () => {
       // Extract artwork
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           message: 'Extracted',
@@ -310,7 +318,7 @@ describe('ArtworkService', () => {
       await extractArtwork(1);
 
       // Delete artwork
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({ message: 'Deleted', album_id: 1 }),
       });
@@ -318,7 +326,7 @@ describe('ArtworkService', () => {
       await deleteArtwork(1);
 
       // Extract again
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           message: 'Re-extracted',
@@ -333,7 +341,7 @@ describe('ArtworkService', () => {
 
     it('should handle multiple concurrent operations', async () => {
       const promises = [1, 2, 3].map(id => {
-        (global.fetch as any).mockResolvedValueOnce({
+        mockFetch().mockResolvedValueOnce({
           ok: true,
           json: async () => ({
             message: 'Success',
@@ -355,7 +363,7 @@ describe('ArtworkService', () => {
 
   describe('Error handling edge cases', () => {
     it('should handle malformed JSON response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => { throw new Error('Invalid JSON'); },
       });
@@ -364,7 +372,7 @@ describe('ArtworkService', () => {
     });
 
     it('should handle null response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => null,
       });
@@ -374,7 +382,7 @@ describe('ArtworkService', () => {
     });
 
     it('should handle 404 errors', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         status: 404,
         json: async () => ({ detail: 'Album not found' }),
@@ -384,7 +392,7 @@ describe('ArtworkService', () => {
     });
 
     it('should handle 500 errors', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         status: 500,
         json: async () => ({ detail: 'Internal server error' }),
@@ -394,7 +402,7 @@ describe('ArtworkService', () => {
     });
 
     it('should handle timeout errors', async () => {
-      (global.fetch as any).mockImplementationOnce(() =>
+      mockFetch().mockImplementationOnce(() =>
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Timeout')), 100)
         )
