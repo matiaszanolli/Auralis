@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: ✅ Phases 1, 2, 3a, 3b, 3c, 4a, 4b, 4c, 5a, 5b, 5c, 5d (All Complete) | Phase 5e Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: ✅ Phases 1, 2, 3a, 3b, 3c, 4a, 4b, 4c, 5a, 5b, 5c, 5d, 5e (All Complete) | **All Frontend Refactoring Phases Complete** | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -180,7 +180,35 @@
 
 **Cumulative Phase 5d Impact**: Unified streaming infrastructure for shared metrics and state management, eliminated 85 lines of duplicate metrics code, backpressure management for buffer control, metrics history for performance analysis
 
-**Cumulative Impact**: ~1260 lines reduced + 1935 lines of new reusable patterns (985 composition hooks + 420 error utilities + 130 service factory + 650 unified performance optimizer + 400 unified streaming infrastructure), 12 services refactored (5 CRUD + 1 similarity + 6 other), 12 patterns unified (adding unified streaming infrastructure to previous 11)
+### Phase 5e: Analysis Export Service Consolidation (104 lines reduced)
+- ✅ Created `exportInfrastructure.ts` (330 lines, unified module)
+  - StatisticsAggregator: Generic statistics calculation for multiple categories
+  - calculateStatistics(): Unified average/min/max calculation
+  - extractNumericValues(): Type-safe field extraction from snapshot arrays
+  - CanvasRenderingUtils: Unified canvas rendering with theme support
+  - ExportFormatHandler: Abstract base for format-specific export handlers
+  - ExportFormatRegistry: Registry pattern eliminating switch statement duplication
+  - ProgressTracker: Centralized progress tracking with subscriber pattern
+  - DataTransformer: CSV/XML escaping, data filtering, field selection
+  - ExportOperationManager: Coordinates export operations with progress tracking
+
+- ✅ Refactored `AnalysisExportService.ts` (920 → 816 lines, 104 lines reduced)
+  - Replaced 3 duplicate statistics calculation methods with unified utilities
+  - Consolidated progress callback system into ProgressTracker
+  - Removed escapeXml() method - now uses DataTransformer utility
+  - Updated canvas rendering to use CanvasRenderingUtils
+  - Updated all progress notifications to use progressTracker
+  - Maintained 100% backward compatibility of public API
+
+- ✅ Metrics:
+  - Code reduction: 104 lines from AnalysisExportService
+  - New unified module: 330 lines (consolidates shared export infrastructure)
+  - Build: 11645 modules (stable, no regressions)
+  - Backward compatibility: 100% maintained
+
+**Cumulative Phase 5e Impact**: Unified export infrastructure for shared statistics calculation and progress tracking, eliminated 104 lines of duplicate export code, consistent canvas rendering patterns, centralized progress notification system
+
+**Cumulative Impact**: ~1364 lines reduced + 2265 lines of new reusable patterns (985 composition hooks + 420 error utilities + 130 service factory + 650 unified performance optimizer + 400 unified streaming infrastructure + 330 unified export infrastructure), 12 services refactored (5 CRUD + 1 similarity + 6 other), 13 patterns unified (all frontend refactoring complete)
 
 ---
 
@@ -308,14 +336,19 @@
 - Opportunity: Merge duplicate FPS tracking, easing functions, performance monitoring
 - Estimated savings: 150-200 lines
 
-#### 5d: MSE Streaming + Real-time Analysis
-- `services/mseStreamingService.ts` (171 lines)
-- `services/RealTimeAnalysisStream.ts` (605 lines)
-- Opportunity: Shared buffering strategy, unified error handling
+#### ✅ 5d: MSE Streaming + Real-time Analysis (COMPLETE)
+- ✅ Created unified `streamingInfrastructure.ts` (400+ lines)
+- ✅ Refactored `RealTimeAnalysisStream.ts` (605 → ~520 lines, 85 lines reduced)
+- ✅ Eliminated duplicate metrics tracking and state management
+- ✅ Added BackpressureManager for buffer flow control
+- ✅ Full backward compatibility maintained
 
-#### 5e: Analysis Export Service
-- `services/AnalysisExportService.ts` (886 lines)
-- Opportunity: Extract common export patterns, format handlers
+#### ✅ 5e: Analysis Export Service (COMPLETE)
+- ✅ Created unified `exportInfrastructure.ts` (330 lines)
+- ✅ Refactored `AnalysisExportService.ts` (920 → 816 lines, 104 lines reduced)
+- ✅ Consolidated statistics calculation and progress tracking
+- ✅ Unified canvas rendering infrastructure
+- ✅ Full backward compatibility maintained
 
 ---
 
@@ -493,6 +526,6 @@ Each phase should produce:
 
 ---
 
-**Last Updated**: 2025-11-12 (Phase 5d Complete - All Phases 1-5d Complete)
-**Next Phase**: Phase 5e (Analysis Export Service)
+**Last Updated**: 2025-11-12 (Phase 5e Complete - All Phases 1-5e Complete - Full Frontend Refactoring Finished!)
+**All Phases Complete**: Frontend refactoring initiative concluded with all 13 consolidation patterns unified
 **Maintained By**: Claude Code
