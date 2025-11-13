@@ -1,5 +1,6 @@
 /**
  * Analysis Export Service for Phase 5.3 (Phase 3c Enhanced)
+ * Phase 5e: Refactored with unified export infrastructure
  *
  * Provides comprehensive export functionality for audio analysis data,
  * visualization snapshots, and performance reports in multiple formats.
@@ -7,9 +8,25 @@
  * Enhanced with centralized error handling (Phase 3c):
  * - Error logging for export operations
  * - Graceful error recovery
+ *
+ * Phase 5e Refactoring:
+ * - Uses unified statistics calculation utilities
+ * - Centralized progress tracking system
+ * - Shared canvas rendering infrastructure
+ * - Eliminates 100+ lines of duplicate code
  */
 
+import React from 'react';
 import { withErrorLogging, createTimeoutPromise } from '../utils/errorHandling';
+import {
+  calculateRunningAverage,
+  extractNumericValues,
+  calculateStatistics,
+  ProgressTracker,
+  CanvasRenderingUtils,
+  DataTransformer,
+  ProgressCallback,
+} from '../utils/exportInfrastructure';
 
 interface ExportMetadata {
   timestamp: string;
@@ -128,9 +145,10 @@ export class AnalysisExportService {
   private currentSession: AnalysisSession | null = null;
   private snapshots: AnalysisSnapshot[] = [];
   private maxSnapshots = 10000; // Limit memory usage
-  private exportCallbacks: ((progress: number, status: string) => void)[] = [];
+  private progressTracker: ProgressTracker;
 
   constructor() {
+    this.progressTracker = new ProgressTracker();
     this.startNewSession();
   }
 
@@ -206,7 +224,7 @@ export class AnalysisExportService {
     stats.totalSnapshots = this.snapshots.length;
 
     if (snapshot.loudness) {
-      stats.averageLoudness = this.calculateRunningAverage(
+      stats.averageLoudness = calculateRunningAverage(
         stats.averageLoudness,
         snapshot.loudness.momentary_loudness,
         stats.totalSnapshots
@@ -218,7 +236,7 @@ export class AnalysisExportService {
     }
 
     if (snapshot.correlation) {
-      stats.averageCorrelation = this.calculateRunningAverage(
+      stats.averageCorrelation = calculateRunningAverage(
         stats.averageCorrelation,
         snapshot.correlation.correlation_coefficient,
         stats.totalSnapshots
@@ -226,7 +244,7 @@ export class AnalysisExportService {
     }
 
     if (snapshot.dynamics) {
-      stats.averageDynamicRange = this.calculateRunningAverage(
+      stats.averageDynamicRange = calculateRunningAverage(
         stats.averageDynamicRange,
         snapshot.dynamics.dr_value,
         stats.totalSnapshots
@@ -235,7 +253,7 @@ export class AnalysisExportService {
 
     if (snapshot.processing) {
       const efficiency = 100 - snapshot.processing.globalCpuUsage;
-      stats.processingEfficiency = this.calculateRunningAverage(
+      stats.processingEfficiency = calculateRunningAverage(
         stats.processingEfficiency,
         efficiency,
         stats.totalSnapshots
@@ -243,48 +261,48 @@ export class AnalysisExportService {
     }
   }
 
-  private calculateRunningAverage(currentAvg: number, newValue: number, count: number): number {
-    return (currentAvg * (count - 1) + newValue) / count;
-  }
-
   private updateSessionStatistics(): void {
     if (!this.currentSession || this.snapshots.length === 0) return;
 
     const stats = this.currentSession.statistics;
 
-    // Calculate final statistics
-    const loudnessValues = this.snapshots
-      .map(s => s.loudness?.momentary_loudness)
-      .filter(v => v !== undefined) as number[];
-
-    const correlationValues = this.snapshots
-      .map(s => s.correlation?.correlation_coefficient)
-      .filter(v => v !== undefined) as number[];
-
-    const drValues = this.snapshots
-      .map(s => s.dynamics?.dr_value)
-      .filter(v => v !== undefined) as number[];
-
-    const cpuValues = this.snapshots
-      .map(s => s.processing?.globalCpuUsage)
-      .filter(v => v !== undefined) as number[];
+    // Use consolidated utility to extract and calculate statistics
+    const loudnessValues = extractNumericValues(
+      this.snapshots,
+      s => s.loudness?.momentary_loudness
+    );
+    const correlationValues = extractNumericValues(
+      this.snapshots,
+      s => s.correlation?.correlation_coefficient
+    );
+    const drValues = extractNumericValues(
+      this.snapshots,
+      s => s.dynamics?.dr_value
+    );
+    const cpuValues = extractNumericValues(
+      this.snapshots,
+      s => s.processing?.globalCpuUsage
+    );
 
     if (loudnessValues.length > 0) {
-      stats.averageLoudness = loudnessValues.reduce((a, b) => a + b, 0) / loudnessValues.length;
-      stats.peakLoudness = Math.max(...loudnessValues);
+      const loudnessStats = calculateStatistics(loudnessValues);
+      stats.averageLoudness = loudnessStats.average;
+      stats.peakLoudness = loudnessStats.max;
     }
 
     if (correlationValues.length > 0) {
-      stats.averageCorrelation = correlationValues.reduce((a, b) => a + b, 0) / correlationValues.length;
+      const corrStats = calculateStatistics(correlationValues);
+      stats.averageCorrelation = corrStats.average;
     }
 
     if (drValues.length > 0) {
-      stats.averageDynamicRange = drValues.reduce((a, b) => a + b, 0) / drValues.length;
+      const drStats = calculateStatistics(drValues);
+      stats.averageDynamicRange = drStats.average;
     }
 
     if (cpuValues.length > 0) {
-      const avgCpu = cpuValues.reduce((a, b) => a + b, 0) / cpuValues.length;
-      stats.processingEfficiency = 100 - avgCpu;
+      const cpuStats = calculateStatistics(cpuValues);
+      stats.processingEfficiency = 100 - cpuStats.average;
     }
   }
 
@@ -304,7 +322,7 @@ export class AnalysisExportService {
         ...options,
       };
 
-      this.notifyProgress(0, 'Preparing export...');
+      this.progressTracker.updateProgress(0, 'Preparing export...');
 
       let data: any;
       let mimeType: string;
@@ -322,10 +340,10 @@ export class AnalysisExportService {
       filename = exportData.filename;
 
       // Continue with blob creation...
-      this.notifyProgress(90, 'Finalizing export...');
+      this.progressTracker.updateProgress(90, 'Finalizing export...');
 
       const blob = new Blob([data], { type: mimeType });
-      this.notifyProgress(100, 'Export complete');
+      this.progressTracker.updateProgress(100, 'Export complete');
 
       return blob;
     }, 'Export session');
@@ -381,13 +399,13 @@ export class AnalysisExportService {
         throw new Error(`Unsupported export format: ${exportOptions.format}`);
     }
 
-    this.notifyProgress(85, 'Preparing blob...');
+    this.progressTracker.updateProgress(85, 'Preparing blob...');
 
     return { data, mimeType, filename };
   }
 
   private async exportAsJSON(options: ExportOptions): Promise<string> {
-    this.notifyProgress(20, 'Generating JSON...');
+    this.progressTracker.updateProgress(20, 'Generating JSON...');
 
     const exportData: any = {};
 
@@ -431,12 +449,12 @@ export class AnalysisExportService {
       filters: options.dataFilters,
     };
 
-    this.notifyProgress(80, 'Formatting JSON...');
+    this.progressTracker.updateProgress(80, 'Formatting JSON...');
     return JSON.stringify(exportData, null, 2);
   }
 
   private async exportAsCSV(options: ExportOptions): Promise<string> {
-    this.notifyProgress(20, 'Generating CSV...');
+    this.progressTracker.updateProgress(20, 'Generating CSV...');
 
     const headers = [
       'timestamp',
@@ -454,7 +472,7 @@ export class AnalysisExportService {
     let csv = headers.join(',') + '\n';
 
     this.snapshots.forEach((snapshot, index) => {
-      this.notifyProgress(20 + (index / this.snapshots.length) * 60, `Processing row ${index + 1}...`);
+      this.progressTracker.updateProgress(20 + (index / this.snapshots.length) * 60, `Processing row ${index + 1}...`);
 
       const row = [
         snapshot.timestamp,
@@ -476,7 +494,7 @@ export class AnalysisExportService {
   }
 
   private async exportAsXML(options: ExportOptions): Promise<string> {
-    this.notifyProgress(20, 'Generating XML...');
+    this.progressTracker.updateProgress(20, 'Generating XML...');
 
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
     xml += '<auralis_analysis>\n';
@@ -484,7 +502,7 @@ export class AnalysisExportService {
     if (options.includeMetadata) {
       xml += '  <metadata>\n';
       Object.entries(this.currentSession!.metadata).forEach(([key, value]) => {
-        xml += `    <${key}>${this.escapeXml(String(value))}</${key}>\n`;
+        xml += `    <${key}>${DataTransformer.escapeXml(String(value))}</${key}>\n`;
       });
       xml += '  </metadata>\n';
     }
@@ -499,7 +517,7 @@ export class AnalysisExportService {
 
     xml += '  <snapshots>\n';
     this.snapshots.forEach((snapshot, index) => {
-      this.notifyProgress(20 + (index / this.snapshots.length) * 60, `Processing snapshot ${index + 1}...`);
+      this.progressTracker.updateProgress(20 + (index / this.snapshots.length) * 60, `Processing snapshot ${index + 1}...`);
 
       xml += '    <snapshot>\n';
       xml += `      <timestamp>${snapshot.timestamp}</timestamp>\n`;
@@ -522,17 +540,8 @@ export class AnalysisExportService {
     return xml;
   }
 
-  private escapeXml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
   private async exportAsPDF(options: ExportOptions): Promise<Blob> {
-    this.notifyProgress(20, 'Generating PDF report...');
+    this.progressTracker.updateProgress(20, 'Generating PDF report...');
 
     // This would require a PDF library like jsPDF
     // For now, return a placeholder
@@ -563,12 +572,12 @@ export class AnalysisExportService {
   }
 
   private async exportAsImage(options: ExportOptions, format: 'png' | 'svg'): Promise<Blob> {
-    this.notifyProgress(20, `Generating ${format.toUpperCase()} visualization...`);
+    this.progressTracker.updateProgress(20, `Generating ${format.toUpperCase()} visualization...`);
 
     const visualSettings = options.visualizationSettings || {
       width: 1920,
       height: 1080,
-      theme: 'dark',
+      theme: 'dark' as const,
       includeWaveform: true,
       includeSpectrum: true,
       includeMeters: true,
@@ -584,7 +593,7 @@ export class AnalysisExportService {
     // Render visualization
     await this.renderVisualization(ctx, visualSettings);
 
-    this.notifyProgress(80, 'Converting to image...');
+    this.progressTracker.updateProgress(80, 'Converting to image...');
 
     if (format === 'png') {
       return new Promise((resolve) => {
@@ -602,13 +611,14 @@ export class AnalysisExportService {
     settings: ExportOptions['visualizationSettings']
   ): Promise<void> {
     const { width, height, theme } = settings!;
+    const renderCtx = { width, height, theme, ctx };
 
     // Set background
-    ctx.fillStyle = theme === 'dark' ? '#0A0A0A' : '#FFFFFF';
-    ctx.fillRect(0, 0, width, height);
+    CanvasRenderingUtils.setBackground(renderCtx);
 
     // Render title
-    ctx.fillStyle = theme === 'dark' ? '#FFFFFF' : '#000000';
+    const colors = CanvasRenderingUtils.getThemeColors(theme);
+    ctx.fillStyle = colors.text;
     ctx.font = 'bold 48px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Auralis Audio Analysis Report', width / 2, 60);
@@ -773,21 +783,9 @@ export class AnalysisExportService {
     </svg>`;
   }
 
-  // Progress notification
-  private notifyProgress(progress: number, status: string): void {
-    this.exportCallbacks.forEach(callback => {
-      callback(progress, status);
-    });
-  }
-
-  onExportProgress(callback: (progress: number, status: string) => void): () => void {
-    this.exportCallbacks.push(callback);
-    return () => {
-      const index = this.exportCallbacks.indexOf(callback);
-      if (index > -1) {
-        this.exportCallbacks.splice(index, 1);
-      }
-    };
+  // Progress notification (delegated to progress tracker)
+  onExportProgress(callback: ProgressCallback): () => void {
+    return this.progressTracker.subscribe(callback);
   }
 
   // Quick export methods
@@ -856,7 +854,7 @@ export class AnalysisExportService {
   destroy(): void {
     this.snapshots = [];
     this.currentSession = null;
-    this.exportCallbacks = [];
+    this.progressTracker.clear();
   }
 }
 
@@ -913,8 +911,5 @@ export function useAnalysisExport() {
     getSnapshotCount: () => exportService.getSnapshotCount(),
   };
 }
-
-// Import React for the hook
-import React from 'react';
 
 export default AnalysisExportService;
