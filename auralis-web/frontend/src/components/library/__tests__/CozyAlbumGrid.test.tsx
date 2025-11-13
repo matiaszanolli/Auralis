@@ -182,7 +182,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should call onAlbumClick when album is clicked', async () => {
-      const mockClick = jest.fn();
+      const mockClick = vi.fn();
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
@@ -285,7 +285,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should handle network error', async () => {
-      (global.fetch as jest.Mock).mockRejectedValueOnce(
+      (global.fetch.  as any).mockRejectedValueOnce(
         new Error('Network error')
       );
 
@@ -336,7 +336,7 @@ describe('CozyAlbumGrid', () => {
         total: 100,
       };
 
-      (global.fetch as jest.Mock)
+      (global.fetch.  as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ ...mockAlbumData, has_more: true, total: 100 }),
@@ -423,7 +423,7 @@ describe('CozyAlbumGrid', () => {
         total: 2,
       };
 
-      (global.fetch as jest.Mock)
+      (global.fetch.  as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => initialData,
@@ -517,7 +517,7 @@ describe('CozyAlbumGrid', () => {
         total: 100,
       };
 
-      (global.fetch as jest.Mock)
+      (global.fetch.  as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ ...mockAlbumData, has_more: true, total: 100 }),
@@ -562,7 +562,7 @@ describe('CozyAlbumGrid', () => {
 
   describe('Props and Callbacks', () => {
     it('should accept onAlbumClick callback', async () => {
-      const mockClick = jest.fn();
+      const mockClick = vi.fn();
       (global.fetch as any).mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
@@ -713,7 +713,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should handle rapid consecutive mounts', async () => {
-      (global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch.  as any).mockResolvedValue({
         ok: true,
         json: async () => mockAlbumData,
       });

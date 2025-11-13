@@ -51,7 +51,7 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 describe('LibraryEmptyState', () => {
   describe('View-Based Rendering', () => {
     it('should render library empty state when no search query and view is library', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -67,7 +67,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should render favorites empty state when view is favourites', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -84,7 +84,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should render search results empty state when search query is present', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -103,7 +103,7 @@ describe('LibraryEmptyState', () => {
 
   describe('Favorites View', () => {
     it('should display favorites empty state title', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -119,7 +119,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should display favorites help text', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -137,7 +137,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should ignore search query when view is favourites', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -157,7 +157,7 @@ describe('LibraryEmptyState', () => {
 
   describe('Search Results View', () => {
     it('should display search query in empty results message', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       const searchQuery = 'rare song title';
       render(
         <Wrapper>
@@ -174,7 +174,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should prioritize search query over view type', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -190,7 +190,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should show library empty state when search query is empty string', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -208,7 +208,7 @@ describe('LibraryEmptyState', () => {
 
   describe('Library Empty State', () => {
     it('should display scan folder button', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -225,7 +225,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should call onScanFolder when scan button clicked', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -244,7 +244,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should show scanning state when scanning prop is true', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -260,7 +260,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should hide scanning state when scanning prop is false', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -278,7 +278,7 @@ describe('LibraryEmptyState', () => {
 
   describe('State Transitions', () => {
     it('should switch from library to favorites empty state on prop change', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       const { rerender } = render(
         <Wrapper>
           <LibraryEmptyState
@@ -308,7 +308,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should switch from library to search results on search query change', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       const { rerender } = render(
         <Wrapper>
           <LibraryEmptyState
@@ -337,7 +337,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should show search results when search query is present in library view', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       const { rerender } = render(
         <Wrapper>
           <LibraryEmptyState
@@ -368,7 +368,7 @@ describe('LibraryEmptyState', () => {
 
   describe('Scanning State', () => {
     it('should toggle scanning indicator when scanning changes', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       const { rerender } = render(
         <Wrapper>
           <LibraryEmptyState
@@ -399,7 +399,7 @@ describe('LibraryEmptyState', () => {
 
   describe('Callback Handling', () => {
     it('should accept onScanFolder callback', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -415,7 +415,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should pass onScanFolder to EmptyLibrary component', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -436,7 +436,7 @@ describe('LibraryEmptyState', () => {
 
   describe('Edge Cases', () => {
     it('should handle empty view string', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -453,7 +453,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should handle unknown view type', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -470,7 +470,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should handle whitespace in search query as empty', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -487,7 +487,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should handle case-sensitive view prop', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -506,7 +506,7 @@ describe('LibraryEmptyState', () => {
 
   describe('Accessibility', () => {
     it('should have accessible button for scan action', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState
@@ -524,7 +524,7 @@ describe('LibraryEmptyState', () => {
     });
 
     it('should display descriptive text for all empty states', () => {
-      const mockScanFolder = jest.fn();
+      const mockScanFolder = vi.fn();
       render(
         <Wrapper>
           <LibraryEmptyState

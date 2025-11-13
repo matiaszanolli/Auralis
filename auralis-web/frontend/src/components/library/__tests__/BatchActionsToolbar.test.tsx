@@ -10,6 +10,7 @@
  * - Animation on mount/unmount
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -28,7 +29,7 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('BatchActionsToolbar', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Rendering', () => {
@@ -37,7 +38,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -50,7 +51,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={5}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -63,7 +64,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={1}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -76,7 +77,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={10}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -91,8 +92,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onAddToPlaylist={jest.fn()}
-            onClearSelection={jest.fn()}
+            onAddToPlaylist={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -105,8 +106,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onAddToQueue={jest.fn()}
-            onClearSelection={jest.fn()}
+            onAddToQueue={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -119,8 +120,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onToggleFavorite={jest.fn()}
-            onClearSelection={jest.fn()}
+            onToggleFavorite={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -133,8 +134,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onRemove={jest.fn()}
-            onClearSelection={jest.fn()}
+            onRemove={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -147,8 +148,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onEditMetadata={jest.fn()}
-            onClearSelection={jest.fn()}
+            onEditMetadata={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -161,7 +162,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -174,14 +175,14 @@ describe('BatchActionsToolbar', () => {
   describe('Action Button Callbacks', () => {
     it('should call onAddToPlaylist when clicked', async () => {
       const user = userEvent.setup();
-      const onAddToPlaylist = jest.fn();
+      const onAddToPlaylist = vi.fn();
 
       render(
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
             onAddToPlaylist={onAddToPlaylist}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -194,14 +195,14 @@ describe('BatchActionsToolbar', () => {
 
     it('should call onAddToQueue when clicked', async () => {
       const user = userEvent.setup();
-      const onAddToQueue = jest.fn();
+      const onAddToQueue = vi.fn();
 
       render(
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
             onAddToQueue={onAddToQueue}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -214,14 +215,14 @@ describe('BatchActionsToolbar', () => {
 
     it('should call onToggleFavorite when clicked', async () => {
       const user = userEvent.setup();
-      const onToggleFavorite = jest.fn();
+      const onToggleFavorite = vi.fn();
 
       render(
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
             onToggleFavorite={onToggleFavorite}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -234,14 +235,14 @@ describe('BatchActionsToolbar', () => {
 
     it('should call onRemove when clicked', async () => {
       const user = userEvent.setup();
-      const onRemove = jest.fn();
+      const onRemove = vi.fn();
 
       render(
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
             onRemove={onRemove}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -254,7 +255,7 @@ describe('BatchActionsToolbar', () => {
 
     it('should call onClearSelection when close clicked', async () => {
       const user = userEvent.setup();
-      const onClearSelection = jest.fn();
+      const onClearSelection = vi.fn();
 
       render(
         <Wrapper>
@@ -280,8 +281,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onEditMetadata={jest.fn()}
-            onClearSelection={jest.fn()}
+            onEditMetadata={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -294,14 +295,14 @@ describe('BatchActionsToolbar', () => {
 
     it('should call onEditMetadata from menu', async () => {
       const user = userEvent.setup();
-      const onEditMetadata = jest.fn();
+      const onEditMetadata = vi.fn();
 
       render(
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
             onEditMetadata={onEditMetadata}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -322,8 +323,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onEditMetadata={jest.fn()}
-            onClearSelection={jest.fn()}
+            onEditMetadata={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -346,8 +347,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onRemove={jest.fn()}
-            onClearSelection={jest.fn()}
+            onRemove={vi.fn()}
+            onClearSelection={vi.fn()}
             context="library"
           />
         </Wrapper>
@@ -362,8 +363,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onRemove={jest.fn()}
-            onClearSelection={jest.fn()}
+            onRemove={vi.fn()}
+            onClearSelection={vi.fn()}
             context="playlist"
           />
         </Wrapper>
@@ -378,8 +379,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onRemove={jest.fn()}
-            onClearSelection={jest.fn()}
+            onRemove={vi.fn()}
+            onClearSelection={vi.fn()}
             context="favorites"
           />
         </Wrapper>
@@ -394,8 +395,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onRemove={jest.fn()}
-            onClearSelection={jest.fn()}
+            onRemove={vi.fn()}
+            onClearSelection={vi.fn()}
             context="queue"
           />
         </Wrapper>
@@ -412,7 +413,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -425,7 +426,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -438,7 +439,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -451,7 +452,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -464,7 +465,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -479,10 +480,10 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onAddToPlaylist={jest.fn()}
-            onAddToQueue={jest.fn()}
-            onRemove={jest.fn()}
-            onClearSelection={jest.fn()}
+            onAddToPlaylist={vi.fn()}
+            onAddToQueue={vi.fn()}
+            onRemove={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -499,8 +500,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onAddToPlaylist={jest.fn()}
-            onClearSelection={jest.fn()}
+            onAddToPlaylist={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -516,8 +517,8 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onAddToPlaylist={jest.fn()}
-            onClearSelection={jest.fn()}
+            onAddToPlaylist={vi.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -537,7 +538,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={0}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -550,7 +551,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={9999}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -563,7 +564,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={5}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -574,7 +575,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={10}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -589,7 +590,7 @@ describe('BatchActionsToolbar', () => {
         <Wrapper>
           <BatchActionsToolbar
             selectedCount={3}
-            onClearSelection={jest.fn()}
+            onClearSelection={vi.fn()}
           />
         </Wrapper>
       );
@@ -603,12 +604,12 @@ describe('BatchActionsToolbar', () => {
     it('should handle complete workflow', async () => {
       const user = userEvent.setup();
       const callbacks = {
-        onAddToPlaylist: jest.fn(),
-        onAddToQueue: jest.fn(),
-        onToggleFavorite: jest.fn(),
-        onRemove: jest.fn(),
-        onEditMetadata: jest.fn(),
-        onClearSelection: jest.fn(),
+        onAddToPlaylist: vi.fn(),
+        onAddToQueue: vi.fn(),
+        onToggleFavorite: vi.fn(),
+        onRemove: vi.fn(),
+        onEditMetadata: vi.fn(),
+        onClearSelection: vi.fn(),
       };
 
       render(

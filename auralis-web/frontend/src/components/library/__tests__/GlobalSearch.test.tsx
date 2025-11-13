@@ -11,6 +11,7 @@
  * - Clear functionality
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -20,7 +21,7 @@ import GlobalSearch from '../GlobalSearch';
 import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock AlbumArt component
-jest.mock('../../album/AlbumArt', () => {
+vi.mock('../../album/AlbumArt', () => {
   return function MockAlbumArt({ albumId, size }: any) {
     return (
       <div data-testid={`album-art-${albumId}`} style={{ width: size, height: size }}>
@@ -31,7 +32,7 @@ jest.mock('../../album/AlbumArt', () => {
 });
 
 // Mock fetch
-global.fetch = jest.fn();
+global.fetch = vi.fn();
 
 const mockTracksResponse = {
   tracks: [
@@ -85,8 +86,8 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('GlobalSearch', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (global.fetch as jest.Mock).mockImplementation((url: string) => {
+    vi.clearAllMocks();
+    (global.fetch.  as any).mockImplementation((url: string) => {
       if (url.includes('tracks')) {
         return Promise.resolve({
           ok: true,
@@ -160,7 +161,7 @@ describe('GlobalSearch', () => {
 
     it('should require minimum 2 characters to search', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -171,16 +172,16 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Q');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       // Should not call fetch with single character
-      expect((global.fetch as jest.Mock).mock.calls.length).toBe(0);
+      expect((global.fetch.  as any).mock.calls.length).toBe(0);
     });
 
     it('should debounce search input', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -191,18 +192,18 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(200);
-      expect((global.fetch as jest.Mock).mock.calls.length).toBe(0);
+      vi.advanceTimersByTime(200);
+      expect((global.fetch.  as any).mock.calls.length).toBe(0);
 
-      jest.advanceTimersByTime(200);
-      expect((global.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(0);
+      vi.advanceTimersByTime(200);
+      expect((global.fetch.  as any).mock.calls.length).toBeGreaterThan(0);
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should clear input on clear button click', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -213,8 +214,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       // Wait for results
       await waitFor(() => {
@@ -232,7 +233,7 @@ describe('GlobalSearch', () => {
   describe('Search Results - Tracks', () => {
     it('should display matching tracks', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -243,8 +244,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Bohemian');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
@@ -253,7 +254,7 @@ describe('GlobalSearch', () => {
 
     it('should display track artist and album', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -264,8 +265,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText(/Queen/)).toBeInTheDocument();
@@ -274,7 +275,7 @@ describe('GlobalSearch', () => {
 
     it('should show track type chip', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -285,8 +286,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Bohemian');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText('Track')).toBeInTheDocument();
@@ -295,7 +296,7 @@ describe('GlobalSearch', () => {
 
     it('should limit track results to 5', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       const manyTracks = Array.from({ length: 20 }, (_, i) => ({
         id: i,
@@ -305,7 +306,7 @@ describe('GlobalSearch', () => {
         album_id: i,
       }));
 
-      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      (global.fetch.  as any).mockImplementation((url: string) => {
         if (url.includes('tracks')) {
           return Promise.resolve({
             ok: true,
@@ -324,8 +325,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Song');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         const songResults = screen.queryAllByText(/Song/);
@@ -337,7 +338,7 @@ describe('GlobalSearch', () => {
   describe('Search Results - Albums', () => {
     it('should display matching albums', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -348,8 +349,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Night');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText(/A Night at the Opera|Night/)).toBeInTheDocument();
@@ -358,7 +359,7 @@ describe('GlobalSearch', () => {
 
     it('should display album type chip', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -369,8 +370,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Night');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText('Album')).toBeInTheDocument();
@@ -379,7 +380,7 @@ describe('GlobalSearch', () => {
 
     it('should display album artwork', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -390,8 +391,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Night');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByTestId(/album-art/)).toBeInTheDocument();
@@ -402,7 +403,7 @@ describe('GlobalSearch', () => {
   describe('Search Results - Artists', () => {
     it('should display matching artists', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -413,8 +414,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         const queen = screen.getAllByText('Queen');
@@ -424,7 +425,7 @@ describe('GlobalSearch', () => {
 
     it('should display artist album and track counts', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -435,8 +436,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText(/albums|tracks/i)).toBeInTheDocument();
@@ -445,7 +446,7 @@ describe('GlobalSearch', () => {
 
     it('should display artist type chip', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -456,8 +457,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText('Artist')).toBeInTheDocument();
@@ -468,7 +469,7 @@ describe('GlobalSearch', () => {
   describe('Result Grouping', () => {
     it('should group results by type', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -479,8 +480,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         const headers = screen.queryAllByText(/Tracks|Albums|Artists/);
@@ -490,7 +491,7 @@ describe('GlobalSearch', () => {
 
     it('should show dividers between categories', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       const { container } = render(
         <Wrapper>
@@ -501,8 +502,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         const dividers = container.querySelectorAll('[class*="Divider"]');
@@ -512,9 +513,9 @@ describe('GlobalSearch', () => {
 
     it('should hide empty categories', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
-      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+      (global.fetch.  as any).mockImplementation((url: string) => {
         if (url.includes('tracks')) {
           return Promise.resolve({
             ok: true,
@@ -545,8 +546,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         // Should only show Albums header
@@ -560,9 +561,9 @@ describe('GlobalSearch', () => {
   describe('Empty State', () => {
     it('should show no results message when query has no matches', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
-      (global.fetch as jest.Mock).mockImplementation(() =>
+      (global.fetch.  as any).mockImplementation(() =>
         Promise.resolve({
           ok: true,
           json: async () => ({ tracks: [], albums: [], artists: [] }),
@@ -578,8 +579,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'NonexistentBand');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText(/no results found/i)).toBeInTheDocument();
@@ -588,9 +589,9 @@ describe('GlobalSearch', () => {
 
     it('should display query in no results message', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
-      (global.fetch as jest.Mock).mockImplementation(() =>
+      (global.fetch.  as any).mockImplementation(() =>
         Promise.resolve({
           ok: true,
           json: async () => ({ tracks: [], albums: [], artists: [] }),
@@ -606,8 +607,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Nonexistent');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText(/Nonexistent/)).toBeInTheDocument();
@@ -618,9 +619,9 @@ describe('GlobalSearch', () => {
   describe('Loading State', () => {
     it('should show loading indicator while searching', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
-      (global.fetch as jest.Mock).mockImplementation(
+      (global.fetch.  as any).mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -633,17 +634,17 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
+      vi.advanceTimersByTime(400);
 
       // Loading icon should appear
       expect(screen.getByRole('progressbar') || document.body).toBeInTheDocument();
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should hide loading indicator when done', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -654,8 +655,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
@@ -669,8 +670,8 @@ describe('GlobalSearch', () => {
   describe('Result Click Handling', () => {
     it('should call onResultClick when result clicked', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
-      const onResultClick = jest.fn();
+      vi.useFakeTimers();
+      const onResultClick = vi.fn();
 
       render(
         <Wrapper>
@@ -681,8 +682,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Bohemian');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
@@ -697,7 +698,7 @@ describe('GlobalSearch', () => {
 
     it('should clear search after result click', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -708,8 +709,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
       await user.type(input, 'Bohemian');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
@@ -724,8 +725,8 @@ describe('GlobalSearch', () => {
 
     it('should pass correct result data', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
-      const onResultClick = jest.fn();
+      vi.useFakeTimers();
+      const onResultClick = vi.fn();
 
       render(
         <Wrapper>
@@ -736,8 +737,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Bohemian');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
@@ -757,7 +758,7 @@ describe('GlobalSearch', () => {
   describe('Search Filtering', () => {
     it('should search across artist and track title', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -769,8 +770,8 @@ describe('GlobalSearch', () => {
       // Search by artist name
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         // Should find tracks by artist
@@ -780,7 +781,7 @@ describe('GlobalSearch', () => {
 
     it('should filter results by query', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -791,8 +792,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Bohemian');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
@@ -816,7 +817,7 @@ describe('GlobalSearch', () => {
 
     it('should have accessible result buttons', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -827,8 +828,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       await waitFor(() => {
         const buttons = screen.getAllByRole('button');
@@ -840,9 +841,9 @@ describe('GlobalSearch', () => {
   describe('Edge Cases', () => {
     it('should handle search API failures gracefully', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
-      (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (global.fetch.  as any).mockRejectedValue(new Error('Network error'));
 
       render(
         <Wrapper>
@@ -853,8 +854,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, 'Queen');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       // Should handle error gracefully
       expect(document.body).toBeInTheDocument();
@@ -862,7 +863,7 @@ describe('GlobalSearch', () => {
 
     it('should handle very long search query', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -874,15 +875,15 @@ describe('GlobalSearch', () => {
       const longQuery = 'A'.repeat(200);
       await user.type(input, longQuery);
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       expect(input.value.length).toBe(200);
     });
 
     it('should handle special characters in search', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -893,8 +894,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i);
       await user.type(input, '@#$%');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       // Should handle without crashing
       expect(document.body).toBeInTheDocument();
@@ -902,7 +903,7 @@ describe('GlobalSearch', () => {
 
     it('should handle unicode characters', async () => {
       const user = userEvent.setup();
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       render(
         <Wrapper>
@@ -913,8 +914,8 @@ describe('GlobalSearch', () => {
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
       await user.type(input, '音楽');
 
-      jest.advanceTimersByTime(400);
-      jest.useRealTimers();
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
 
       expect(input.value).toBe('音楽');
     });

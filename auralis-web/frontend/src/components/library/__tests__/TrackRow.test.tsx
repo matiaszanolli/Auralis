@@ -10,6 +10,7 @@
  * - Drag handle
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -20,8 +21,8 @@ import { useTrackSelection } from '../../../hooks/useTrackSelection';
 import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock hooks and components
-jest.mock('../../../hooks/useTrackSelection');
-jest.mock('../TrackContextMenu', () => {
+vi.mock('../../../hooks/useTrackSelection');
+vi.mock('../TrackContextMenu', () => {
   return function MockContextMenu({ track, onPlay }: any) {
     return (
       <div data-testid="track-context-menu">
@@ -30,7 +31,7 @@ jest.mock('../TrackContextMenu', () => {
     );
   };
 });
-jest.mock('../../album/AlbumArt', () => {
+vi.mock('../../album/AlbumArt', () => {
   return function MockAlbumArt({ track }: any) {
     return <div data-testid="track-artwork">Art: {track.title}</div>;
   };
@@ -59,11 +60,11 @@ const mockTrack2 = {
 const mockSelectionContext = {
   selectedTracks: new Set<number>(),
   isSelected: (id: number) => false,
-  toggleSelection: jest.fn(),
-  addToSelection: jest.fn(),
-  removeFromSelection: jest.fn(),
-  clearSelection: jest.fn(),
-  selectRange: jest.fn(),
+  toggleSelection: vi.fn(),
+  addToSelection: vi.fn(),
+  removeFromSelection: vi.fn(),
+  clearSelection: vi.fn(),
+  selectRange: vi.fn(),
 };
 
 const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -76,8 +77,8 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('TrackRow', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (useTrackSelection as jest.Mock).mockReturnValue(mockSelectionContext);
+    vi.clearAllMocks();
+    vi.mocked(useTrackSelection).mockReturnValue(mockSelectionContext);
   });
 
   describe('Rendering', () => {
@@ -168,7 +169,7 @@ describe('TrackRow', () => {
 
   describe('Selection', () => {
     it('should check checkbox when selected', () => {
-      (useTrackSelection as jest.Mock).mockReturnValue({
+      vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
         isSelected: () => true,
         selectedTracks: new Set([1]),
@@ -185,7 +186,7 @@ describe('TrackRow', () => {
     });
 
     it('should uncheck checkbox when not selected', () => {
-      (useTrackSelection as jest.Mock).mockReturnValue({
+      vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
         isSelected: () => false,
         selectedTracks: new Set(),
@@ -203,9 +204,9 @@ describe('TrackRow', () => {
 
     it('should toggle selection on checkbox click', async () => {
       const user = userEvent.setup();
-      const toggleSelection = jest.fn();
+      const toggleSelection = vi.fn();
 
-      (useTrackSelection as jest.Mock).mockReturnValue({
+      vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
         toggleSelection,
       });
@@ -224,9 +225,9 @@ describe('TrackRow', () => {
 
     it('should support shift-click for range selection', async () => {
       const user = userEvent.setup();
-      const selectRange = jest.fn();
+      const selectRange = vi.fn();
 
-      (useTrackSelection as jest.Mock).mockReturnValue({
+      vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
         selectRange,
       });
@@ -245,9 +246,9 @@ describe('TrackRow', () => {
 
     it('should support ctrl/cmd-click for multi-select', async () => {
       const user = userEvent.setup();
-      const toggleSelection = jest.fn();
+      const toggleSelection = vi.fn();
 
-      (useTrackSelection as jest.Mock).mockReturnValue({
+      vi.mocked(useTrackSelection).mockReturnValue({
         ...mockSelectionContext,
         toggleSelection,
       });
@@ -268,7 +269,7 @@ describe('TrackRow', () => {
   describe('Playback', () => {
     it('should call onPlay callback on double-click', async () => {
       const user = userEvent.setup();
-      const onPlay = jest.fn();
+      const onPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -284,7 +285,7 @@ describe('TrackRow', () => {
 
     it('should call onPlay with track from context menu', async () => {
       const user = userEvent.setup();
-      const onPlay = jest.fn();
+      const onPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -300,7 +301,7 @@ describe('TrackRow', () => {
 
     it('should disable play on double-click when track unavailable', async () => {
       const user = userEvent.setup();
-      const onPlay = jest.fn();
+      const onPlay = vi.fn();
 
       const unavailableTrack = { ...mockTrack, filepath: null };
 
@@ -378,7 +379,7 @@ describe('TrackRow', () => {
 
     it('should call onDragStart when drag begins', () => {
       const user = userEvent.setup();
-      const onDragStart = jest.fn();
+      const onDragStart = vi.fn();
 
       const { container } = render(
         <Wrapper>
@@ -398,7 +399,7 @@ describe('TrackRow', () => {
     });
 
     it('should call onDragEnd when drag ends', () => {
-      const onDragEnd = jest.fn();
+      const onDragEnd = vi.fn();
 
       const { container } = render(
         <Wrapper>

@@ -9,6 +9,7 @@
  * - Track info display
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -20,10 +21,10 @@ import { useUnifiedWebMAudioPlayer } from '../../../hooks/useUnifiedWebMAudioPla
 import { useEnhancement } from '../../../contexts/EnhancementContext';
 import { auralisTheme } from '../../../theme/auralisTheme';
 
-jest.mock('../../../hooks/usePlayerAPI');
-jest.mock('../../../hooks/useUnifiedWebMAudioPlayer');
-jest.mock('../../../contexts/EnhancementContext');
-jest.mock('../../player/PlaybackControls', () => {
+vi.mock('../../../hooks/usePlayerAPI');
+vi.mock('../../../hooks/useUnifiedWebMAudioPlayer');
+vi.mock('../../../contexts/EnhancementContext');
+vi.mock('../../player/PlaybackControls', () => {
   return function MockControls({ onPlay, onPause, onNext, onPrev, isPlaying }: any) {
     return (
       <div data-testid="playback-controls">
@@ -46,12 +47,12 @@ const mockPlayerState = {
 };
 
 const mockPlayerAPI = {
-  play: jest.fn(),
-  pause: jest.fn(),
-  next: jest.fn(),
-  previous: jest.fn(),
-  setVolume: jest.fn(),
-  seek: jest.fn(),
+  play: vi.fn(),
+  pause: vi.fn(),
+  next: vi.fn(),
+  previous: vi.fn(),
+  setVolume: vi.fn(),
+  seek: vi.fn(),
 };
 
 const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -64,10 +65,10 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('PlayerBarV2', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (usePlayerAPI as jest.Mock).mockReturnValue(mockPlayerAPI);
-    (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue(mockPlayerState);
-    (useEnhancement as jest.Mock).mockReturnValue({ isEnabled: false, currentPreset: 'adaptive' });
+    vi.clearAllMocks();
+    vi.mocked(usePlayerAPI).mockReturnValue(mockPlayerAPI);
+    vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue(mockPlayerState);
+    vi.mocked(useEnhancement).mockReturnValue({ isEnabled: false, currentPreset: 'adaptive' });
   });
 
   describe('Rendering', () => {
@@ -141,7 +142,7 @@ describe('PlayerBarV2', () => {
     });
 
     it('should show pause button when playing', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         isPlaying: true,
       });
@@ -167,7 +168,7 @@ describe('PlayerBarV2', () => {
 
     it('should call pause on pause button click', async () => {
       const user = userEvent.setup();
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         isPlaying: true,
       });
@@ -208,7 +209,7 @@ describe('PlayerBarV2', () => {
 
   describe('Volume Control', () => {
     it('should display current volume', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         volume: 75,
       });
@@ -238,7 +239,7 @@ describe('PlayerBarV2', () => {
 
   describe('Progress Bar', () => {
     it('should display current time', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         position: 90,
       });
@@ -285,7 +286,7 @@ describe('PlayerBarV2', () => {
     });
 
     it('should show enabled state when enhancement is on', () => {
-      (useEnhancement as jest.Mock).mockReturnValue({
+      vi.mocked(useEnhancement).mockReturnValue({
         isEnabled: true,
         currentPreset: 'bright',
       });
@@ -299,7 +300,7 @@ describe('PlayerBarV2', () => {
     });
 
     it('should show disabled state when enhancement is off', () => {
-      (useEnhancement as jest.Mock).mockReturnValue({
+      vi.mocked(useEnhancement).mockReturnValue({
         isEnabled: false,
         currentPreset: 'adaptive',
       });
@@ -316,7 +317,7 @@ describe('PlayerBarV2', () => {
 
   describe('Empty State', () => {
     it('should handle no current track', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         currentTrack: null,
       });
@@ -330,7 +331,7 @@ describe('PlayerBarV2', () => {
     });
 
     it('should disable controls when no track loaded', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         currentTrack: null,
       });
@@ -377,7 +378,7 @@ describe('PlayerBarV2', () => {
       );
       expect(screen.getByText('Test Track')).toBeInTheDocument();
 
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         currentTrack: { id: 2, title: 'New Track', artist: 'New Artist', duration: 240 },
       });
@@ -397,7 +398,7 @@ describe('PlayerBarV2', () => {
         </Wrapper>
       );
 
-      (useEnhancement as jest.Mock).mockReturnValue({
+      vi.mocked(useEnhancement).mockReturnValue({
         isEnabled: true,
         currentPreset: 'warm',
       });
@@ -439,7 +440,7 @@ describe('PlayerBarV2', () => {
 
   describe('Edge Cases', () => {
     it('should handle zero duration tracks', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         duration: 0,
       });
@@ -452,7 +453,7 @@ describe('PlayerBarV2', () => {
     });
 
     it('should handle very long track titles', () => {
-      (useUnifiedWebMAudioPlayer as jest.Mock).mockReturnValue({
+      vi.mocked(useUnifiedWebMAudioPlayer).mockReturnValue({
         ...mockPlayerState,
         currentTrack: {
           ...mockPlayerState.currentTrack,

@@ -9,6 +9,7 @@
  * - All TrackRow callbacks
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,7 +19,7 @@ import { DraggableTrackRow } from '../DraggableTrackRow';
 import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock Draggable component from @hello-pangea/dnd
-jest.mock('@hello-pangea/dnd', () => ({
+vi.mock('@hello-pangea/dnd', () => ({
   Draggable: ({ children, draggableId, index, isDragDisabled }: any) => {
     return (
       <div
@@ -27,7 +28,7 @@ jest.mock('@hello-pangea/dnd', () => ({
       >
         {children(
           {
-            innerRef: jest.fn(),
+            innerRef: vi.fn(),
             draggableProps: { 'data-rbd-draggable-id': draggableId },
             dragHandleProps: { 'data-rbd-drag-handle-id': `${draggableId}-handle` },
           },
@@ -39,7 +40,7 @@ jest.mock('@hello-pangea/dnd', () => ({
 }));
 
 // Mock TrackRow component
-jest.mock('../TrackRow', () => {
+vi.mock('../TrackRow', () => {
   return function MockTrackRow({ track, onPlay }: any) {
     return (
       <div data-testid={`track-row-${track.id}`}>
@@ -68,7 +69,7 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('DraggableTrackRow', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Rendering', () => {
@@ -79,7 +80,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -94,7 +95,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -109,7 +110,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -124,7 +125,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
             showDragHandle={true}
           />
         </Wrapper>
@@ -141,7 +142,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
             showDragHandle={false}
           />
         </Wrapper>
@@ -160,7 +161,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -176,7 +177,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={5}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -192,7 +193,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
             isDragDisabled={true}
           />
         </Wrapper>
@@ -211,7 +212,7 @@ describe('DraggableTrackRow', () => {
   describe('Playback Integration', () => {
     it('should call onPlay when track play button clicked', async () => {
       const user = userEvent.setup();
-      const onPlay = jest.fn();
+      const onPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -231,7 +232,7 @@ describe('DraggableTrackRow', () => {
     });
 
     it('should pass onPause callback to TrackRow', () => {
-      const onPause = jest.fn();
+      const onPause = vi.fn();
 
       render(
         <Wrapper>
@@ -239,7 +240,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
             onPause={onPause}
           />
         </Wrapper>
@@ -255,7 +256,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
             isPlaying={true}
           />
         </Wrapper>
@@ -271,7 +272,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
             isCurrent={true}
           />
         </Wrapper>
@@ -284,15 +285,15 @@ describe('DraggableTrackRow', () => {
   describe('Callbacks', () => {
     it('should pass all callbacks to TrackRow', () => {
       const callbacks = {
-        onPlay: jest.fn(),
-        onPause: jest.fn(),
-        onDoubleClick: jest.fn(),
-        onEditMetadata: jest.fn(),
-        onToggleFavorite: jest.fn(),
-        onShowAlbum: jest.fn(),
-        onShowArtist: jest.fn(),
-        onShowInfo: jest.fn(),
-        onDelete: jest.fn(),
+        onPlay: vi.fn(),
+        onPause: vi.fn(),
+        onDoubleClick: vi.fn(),
+        onEditMetadata: vi.fn(),
+        onToggleFavorite: vi.fn(),
+        onShowAlbum: vi.fn(),
+        onShowArtist: vi.fn(),
+        onShowInfo: vi.fn(),
+        onDelete: vi.fn(),
       };
 
       render(
@@ -322,19 +323,19 @@ describe('DraggableTrackRow', () => {
             track={track1}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
           <DraggableTrackRow
             track={track2}
             index={1}
             draggableId="track-2"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
           <DraggableTrackRow
             track={track3}
             index={2}
             draggableId="track-3"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -354,13 +355,13 @@ describe('DraggableTrackRow', () => {
             track={track1}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
           <DraggableTrackRow
             track={track2}
             index={1}
             draggableId="track-2"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -378,7 +379,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
             showDragHandle={true}
           />
         </Wrapper>
@@ -397,7 +398,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -429,7 +430,7 @@ describe('DraggableTrackRow', () => {
             track={minimalTrack}
             index={0}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -444,7 +445,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={9999}
             draggableId="track-1"
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -461,7 +462,7 @@ describe('DraggableTrackRow', () => {
             track={mockTrack}
             index={0}
             draggableId={specialId}
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );

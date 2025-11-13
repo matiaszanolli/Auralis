@@ -9,6 +9,7 @@
  * - Integration with TrackRow callbacks
  */
 
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,7 +19,7 @@ import SelectableTrackRow from '../SelectableTrackRow';
 import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock TrackRow component
-jest.mock('../TrackRow', () => {
+vi.mock('../TrackRow', () => {
   return function MockTrackRow({ track, onPlay, onEditMetadata }: any) {
     return (
       <div data-testid={`track-row-${track.id}`}>
@@ -53,7 +54,7 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 
 describe('SelectableTrackRow', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Rendering', () => {
@@ -64,7 +65,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -79,7 +80,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -95,7 +96,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -113,7 +114,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -129,7 +130,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={true}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -140,7 +141,7 @@ describe('SelectableTrackRow', () => {
 
     it('should toggle selection on checkbox click', async () => {
       const user = userEvent.setup();
-      const onToggleSelect = jest.fn();
+      const onToggleSelect = vi.fn();
 
       render(
         <Wrapper>
@@ -161,7 +162,7 @@ describe('SelectableTrackRow', () => {
 
     it('should call onToggleSelect with event object', async () => {
       const user = userEvent.setup();
-      const onToggleSelect = jest.fn();
+      const onToggleSelect = vi.fn();
 
       render(
         <Wrapper>
@@ -189,7 +190,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={true}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -205,7 +206,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -218,7 +219,7 @@ describe('SelectableTrackRow', () => {
   describe('Event Handling', () => {
     it('should toggle selection when container clicked', async () => {
       const user = userEvent.setup();
-      const onToggleSelect = jest.fn();
+      const onToggleSelect = vi.fn();
 
       const { container } = render(
         <Wrapper>
@@ -240,7 +241,7 @@ describe('SelectableTrackRow', () => {
 
     it('should not toggle selection when clicking action button', async () => {
       const user = userEvent.setup();
-      const onToggleSelect = jest.fn();
+      const onToggleSelect = vi.fn();
 
       render(
         <Wrapper>
@@ -249,7 +250,7 @@ describe('SelectableTrackRow', () => {
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
-            onPlay={jest.fn()}
+            onPlay={vi.fn()}
           />
         </Wrapper>
       );
@@ -263,7 +264,7 @@ describe('SelectableTrackRow', () => {
 
     it('should stop event propagation on checkbox click', async () => {
       const user = userEvent.setup();
-      const onToggleSelect = jest.fn();
+      const onToggleSelect = vi.fn();
 
       render(
         <Wrapper>
@@ -287,7 +288,7 @@ describe('SelectableTrackRow', () => {
   describe('Playback Integration', () => {
     it('should pass onPlay callback', async () => {
       const user = userEvent.setup();
-      const onPlay = jest.fn();
+      const onPlay = vi.fn();
 
       render(
         <Wrapper>
@@ -295,7 +296,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
             onPlay={onPlay}
           />
         </Wrapper>
@@ -308,7 +309,7 @@ describe('SelectableTrackRow', () => {
     });
 
     it('should pass onPause callback', () => {
-      const onPause = jest.fn();
+      const onPause = vi.fn();
 
       render(
         <Wrapper>
@@ -316,7 +317,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
             onPause={onPause}
           />
         </Wrapper>
@@ -332,7 +333,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
             isPlaying={true}
           />
         </Wrapper>
@@ -348,7 +349,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
             isCurrent={true}
           />
         </Wrapper>
@@ -361,7 +362,7 @@ describe('SelectableTrackRow', () => {
   describe('Metadata Editing', () => {
     it('should call onEditMetadata when edit button clicked', async () => {
       const user = userEvent.setup();
-      const onEditMetadata = jest.fn();
+      const onEditMetadata = vi.fn();
 
       render(
         <Wrapper>
@@ -369,7 +370,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
             onEditMetadata={onEditMetadata}
           />
         </Wrapper>
@@ -382,7 +383,7 @@ describe('SelectableTrackRow', () => {
     });
 
     it('should pass onEditMetadata to TrackRow', () => {
-      const onEditMetadata = jest.fn();
+      const onEditMetadata = vi.fn();
 
       render(
         <Wrapper>
@@ -390,7 +391,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
             onEditMetadata={onEditMetadata}
           />
         </Wrapper>
@@ -411,13 +412,13 @@ describe('SelectableTrackRow', () => {
             track={track1}
             index={0}
             isSelected={true}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
           <SelectableTrackRow
             track={track2}
             index={1}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -436,13 +437,13 @@ describe('SelectableTrackRow', () => {
             track={track1}
             index={0}
             isSelected={true}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
           <SelectableTrackRow
             track={track2}
             index={1}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -461,7 +462,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -479,7 +480,7 @@ describe('SelectableTrackRow', () => {
             track={mockTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -507,7 +508,7 @@ describe('SelectableTrackRow', () => {
             track={extendedTrack as any}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -517,7 +518,7 @@ describe('SelectableTrackRow', () => {
 
     it('should handle rapid selection toggles', async () => {
       const user = userEvent.setup();
-      const onToggleSelect = jest.fn();
+      const onToggleSelect = vi.fn();
 
       const { rerender } = render(
         <Wrapper>
@@ -562,7 +563,7 @@ describe('SelectableTrackRow', () => {
             track={longTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -582,7 +583,7 @@ describe('SelectableTrackRow', () => {
             track={longTrack}
             index={0}
             isSelected={false}
-            onToggleSelect={jest.fn()}
+            onToggleSelect={vi.fn()}
           />
         </Wrapper>
       );
@@ -594,8 +595,8 @@ describe('SelectableTrackRow', () => {
   describe('Integration', () => {
     it('should handle complete workflow', async () => {
       const user = userEvent.setup();
-      const onToggleSelect = jest.fn();
-      const onPlay = jest.fn();
+      const onToggleSelect = vi.fn();
+      const onPlay = vi.fn();
 
       const { rerender } = render(
         <Wrapper>
