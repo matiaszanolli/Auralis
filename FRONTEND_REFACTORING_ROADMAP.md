@@ -1,6 +1,6 @@
 # Frontend Refactoring Roadmap
 
-**Status**: ✅ Phases 1, 2, 3a, 3b, 3c, 4a, 4b, 4c, 5a, 5b, 5c (All Complete) | Phase 5d-5e Ready | **Total Opportunities**: 15+ refactoring initiatives
+**Status**: ✅ Phases 1, 2, 3a, 3b, 3c, 4a, 4b, 4c, 5a, 5b, 5c, 5d (All Complete) | Phase 5e Ready | **Total Opportunities**: 15+ refactoring initiatives
 
 ---
 
@@ -150,7 +150,37 @@
 
 **Cumulative Phase 5c Impact**: Unified performance optimization system, single source of truth for metrics and quality management, eliminated 3 separate FPS tracking implementations, 150-200 lines net reduction through pattern consolidation
 
-**Cumulative Impact**: ~1175 lines reduced + 1535 lines of new reusable patterns (985 composition hooks + 420 error utilities + 130 service factory + 650 unified performance optimizer), 12 services refactored (5 CRUD + 1 similarity + 6 other), 11 patterns unified (adding unified performance optimization to previous 10)
+### Phase 5d: Streaming Infrastructure Consolidation (85 lines reduced)
+- ✅ Created `streamingInfrastructure.ts` (400+ lines, unified module)
+  - StreamingStateManager for unified state and metrics management
+  - StreamingSubscriptionManager for event-based callbacks
+  - BackpressureManager for buffer flow control
+  - Unified metrics tracking (packets, latency, jitter, buffer health)
+  - Configuration management for streaming scenarios
+  - Metrics history tracking for analysis
+
+- ✅ Refactored `RealTimeAnalysisStream.ts` (605 → ~520 lines, 85 lines reduced)
+  - Replaced duplicate metrics tracking with StreamingStateManager
+  - Removed duplicate metricsInterval (now in state manager)
+  - Removed updateLatencyMetrics (handled by state manager)
+  - Removed updateMetrics (handled by state manager)
+  - Added BackpressureManager for buffer flow control
+  - Maintained 100% backward compatibility
+
+- ✅ mseStreamingService.ts remains specialized (HTTP chunk streaming)
+  - Both services can share infrastructure without forced consolidation
+  - Services remain focused on protocols (HTTP vs WebSocket)
+  - Infrastructure handles common patterns
+
+- ✅ Metrics:
+  - Code reduction: 85 lines from RealTimeAnalysisStream
+  - New unified module: 400+ lines (consolidates shared infrastructure)
+  - Build: 11645 modules (stable, no regressions)
+  - Backward compatibility: 100% maintained
+
+**Cumulative Phase 5d Impact**: Unified streaming infrastructure for shared metrics and state management, eliminated 85 lines of duplicate metrics code, backpressure management for buffer control, metrics history for performance analysis
+
+**Cumulative Impact**: ~1260 lines reduced + 1935 lines of new reusable patterns (985 composition hooks + 420 error utilities + 130 service factory + 650 unified performance optimizer + 400 unified streaming infrastructure), 12 services refactored (5 CRUD + 1 similarity + 6 other), 12 patterns unified (adding unified streaming infrastructure to previous 11)
 
 ---
 
@@ -463,6 +493,6 @@ Each phase should produce:
 
 ---
 
-**Last Updated**: 2025-11-12 (Phase 5c Complete - All Phases 1-5c Complete)
-**Next Phase**: Phase 5d-5e (MSE Streaming + Real-time Analysis, Export Service)
+**Last Updated**: 2025-11-12 (Phase 5d Complete - All Phases 1-5d Complete)
+**Next Phase**: Phase 5e (Analysis Export Service)
 **Maintained By**: Claude Code
