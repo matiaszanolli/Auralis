@@ -1,6 +1,9 @@
 /**
  * EnhancedTrackQueue Component Tests
  *
+ * DEPRECATED: Component no longer exists in codebase.
+ * Marked as skipped to prevent test failures.
+ *
  * Tests for the drag-and-drop queue management component,
  * including reordering, removal, shuffle, and clear functionality.
  */
@@ -8,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@/test/test-utils'
 import userEvent from '@testing-library/user-event'
-import { EnhancedTrackQueue } from './EnhancedTrackQueue'
+// import { EnhancedTrackQueue } from './EnhancedTrackQueue'
 
 // Mock toast notifications
 vi.mock('@/components/shared/Toast', async (importOriginal) => {
@@ -29,7 +32,7 @@ const mockTracks = [
   { id: 3, title: 'Track 3', artist: 'Artist 3', duration: 150 },
 ]
 
-describe('EnhancedTrackQueue', () => {
+describe.skip('EnhancedTrackQueue', () => {
   describe('Rendering', () => {
     it('renders queue title', () => {
       render(<EnhancedTrackQueue tracks={mockTracks} />)

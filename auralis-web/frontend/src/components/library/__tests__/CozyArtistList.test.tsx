@@ -511,7 +511,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should handle network error', async () => {
-      (global.fetch.  as any).mockRejectedValueOnce(
+      (global.fetch as any).mockRejectedValueOnce(
         new Error('Network error')
       );
 
@@ -633,7 +633,7 @@ describe('CozyArtistList', () => {
         total: 2,
       };
 
-      (global.fetch.  as any)
+      (global.fetch as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => initialData,
