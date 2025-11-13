@@ -56,15 +56,15 @@ Object.defineProperty(window, 'matchMedia', {
 })
 
 // Mock IntersectionObserver (used by virtualization libraries)
-global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  takeRecords() {
-    return []
-  }
-  unobserve() {}
-} as any
+// Create a factory function so tests can spy on and override the constructor
+const createIntersectionObserverMock = () => vi.fn(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+  takeRecords: vi.fn(() => []),
+}));
+
+global.IntersectionObserver = createIntersectionObserverMock() as any
 
 // Mock ResizeObserver (used by some UI components)
 global.ResizeObserver = class ResizeObserver {
