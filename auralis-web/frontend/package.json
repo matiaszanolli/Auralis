@@ -33,7 +33,9 @@
     "test": "NODE_ENV=test vitest",
     "test:ui": "NODE_ENV=test vitest --ui",
     "test:run": "NODE_ENV=test vitest run",
+    "test:memory": "NODE_ENV=test node --max-old-space-size=2048 --expose-gc node_modules/.bin/vitest run",
     "test:coverage": "NODE_ENV=test vitest run --coverage",
+    "test:coverage:memory": "NODE_ENV=test node --max-old-space-size=2048 --expose-gc node_modules/.bin/vitest run --coverage",
     "test:watch": "NODE_ENV=test vitest watch"
   },
   "eslintConfig": {

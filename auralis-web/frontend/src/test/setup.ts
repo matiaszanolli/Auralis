@@ -20,9 +20,24 @@ import { server } from './mocks/server'
   clearAllMocks: vi.clearAllMocks,
 }
 
-// Cleanup after each test case (e.g., clearing jsdom)
-afterEach(() => {
+// Cleanup after each test case with aggressive memory management
+afterEach(async () => {
+  // 1. React Testing Library cleanup (unmount all components)
   cleanup()
+
+  // 2. Clear all vi mocks
+  vi.clearAllMocks()
+
+  // 3. Clear jest timer mocks
+  vi.useRealTimers()
+
+  // 4. Force garbage collection if available (V8)
+  if (global.gc) {
+    global.gc()
+  }
+
+  // 5. Small delay to allow cleanup to complete
+  await new Promise(resolve => setTimeout(resolve, 0))
 })
 
 // Mock window.matchMedia (used by MUI components for responsive design)
@@ -80,14 +95,36 @@ Element.prototype.scrollTo = vi.fn()
 // vi.spyOn(console, 'error').mockImplementation(() => {})
 
 // ============================================================
-// MSW Server Lifecycle
+// MSW Server Lifecycle with Memory Management
 // ============================================================
 
 // Start MSW server before all tests
-beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'warn' })
+})
 
-// Reset handlers after each test
-afterEach(() => server.resetHandlers())
+// Reset handlers after each test with proper cleanup
+afterEach(async () => {
+  // 1. Reset all MSW handlers
+  server.resetHandlers()
 
-// Clean up after all tests
-afterAll(() => server.close())
+  // 2. Clear any pending requests
+  await new Promise(resolve => setTimeout(resolve, 0))
+})
+
+// Clean up after all tests - comprehensive cleanup
+afterAll(async () => {
+  // 1. Stop MSW server
+  server.close()
+
+  // 2. Clear any remaining timeouts
+  vi.clearAllTimers()
+
+  // 3. Final garbage collection
+  if (global.gc) {
+    global.gc()
+  }
+
+  // 4. Wait for cleanup
+  await new Promise(resolve => setTimeout(resolve, 100))
+})
