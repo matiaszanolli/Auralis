@@ -115,20 +115,20 @@ describe('useKeyboardShortcuts', () => {
   });
 
   describe('Volume controls', () => {
-    it('should handle Shift+ArrowUp for volume up', () => {
+    it('should handle ArrowUp for volume up', () => {
       renderHook(() => useKeyboardShortcuts(handlers));
 
-      const event = createKeyboardEvent('ArrowUp', { shiftKey: true });
+      const event = createKeyboardEvent('ArrowUp');
       document.dispatchEvent(event);
 
       expect(handlers.onVolumeUp).toHaveBeenCalledTimes(1);
       expect(event.defaultPrevented).toBe(true);
     });
 
-    it('should handle Shift+ArrowDown for volume down', () => {
+    it('should handle ArrowDown for volume down', () => {
       renderHook(() => useKeyboardShortcuts(handlers));
 
-      const event = createKeyboardEvent('ArrowDown', { shiftKey: true });
+      const event = createKeyboardEvent('ArrowDown');
       document.dispatchEvent(event);
 
       expect(handlers.onVolumeDown).toHaveBeenCalledTimes(1);
@@ -435,7 +435,7 @@ describe('useKeyboardShortcuts', () => {
 
   describe('Cleanup', () => {
     it('should remove event listener on unmount', () => {
-      const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
+      const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
 
       const { unmount } = renderHook(() => useKeyboardShortcuts(handlers));
 
