@@ -21,15 +21,15 @@ import AlbumDetailView from '../AlbumDetailView';
 import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock the AlbumArt component
-vi.mock('../../album/AlbumArt', () => {
-  return function MockAlbumArt({ albumId, size }: any) {
+vi.mock('../../album/AlbumArt', () => ({
+  default: function MockAlbumArt({ albumId, size }: any) {
     return (
       <div data-testid="album-artwork">
         <img src={`/artwork/${albumId}`} alt="Album" style={{ width: size, height: size }} />
       </div>
     );
-  };
-});
+  },
+}));
 
 // Mock fetch for API calls
 global.fetch = vi.fn();
@@ -59,7 +59,7 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 describe('AlbumDetailView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global.fetch.  as any).mockResolvedValue({
+    (global.fetch as any).mockResolvedValue({
       ok: true,
       json: async () => mockAlbumData,
     });
@@ -67,7 +67,7 @@ describe('AlbumDetailView', () => {
 
   describe('Rendering', () => {
     it('should render loading state initially', () => {
-      (global.fetch.  as any).mockImplementation(
+      (global.fetch as any).mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -181,7 +181,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle single track album', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -269,7 +269,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should show empty state when no tracks', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -534,7 +534,7 @@ describe('AlbumDetailView', () => {
 
   describe('Loading State', () => {
     it('should show loading skeletons while fetching', () => {
-      (global.fetch.  as any).mockImplementation(
+      (global.fetch as any).mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -580,8 +580,8 @@ describe('AlbumDetailView', () => {
       expect(global.fetch).toHaveBeenCalledWith('/api/albums/1/tracks');
 
       // Change albumId
-      (global.fetch.  as any).mockClear();
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockClear();
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -604,7 +604,7 @@ describe('AlbumDetailView', () => {
 
   describe('Error State', () => {
     it('should display error message on fetch failure', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: false,
         json: async () => ({ error: 'Not found' }),
       });
@@ -622,7 +622,7 @@ describe('AlbumDetailView', () => {
 
     it('should show back button in error state', async () => {
       const onBack = vi.fn();
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: false,
       });
 
@@ -641,7 +641,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle network errors', async () => {
-      (global.fetch.  as any).mockRejectedValue(new Error('Network error'));
+      (global.fetch as any).mockRejectedValue(new Error('Network error'));
 
       render(
         <Wrapper>
@@ -655,7 +655,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle malformed API response', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({}), // Missing required fields
       });
@@ -700,7 +700,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should format duration > 1 hour correctly', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -896,7 +896,7 @@ describe('AlbumDetailView', () => {
 
   describe('Edge Cases', () => {
     it('should handle album with no year', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -919,7 +919,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle album with no genre', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -942,7 +942,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle track with no track_number', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -967,7 +967,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle very long track title', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -995,7 +995,7 @@ describe('AlbumDetailView', () => {
     });
 
     it('should handle very long artist name', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -1025,7 +1025,7 @@ describe('AlbumDetailView', () => {
         track_number: i + 1,
       }));
 
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => ({
           ...mockAlbumData,

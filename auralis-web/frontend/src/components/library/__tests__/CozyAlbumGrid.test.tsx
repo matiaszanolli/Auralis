@@ -285,7 +285,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should handle network error', async () => {
-      (global.fetch.  as any).mockRejectedValueOnce(
+      (global.fetch as any).mockRejectedValueOnce(
         new Error('Network error')
       );
 
@@ -336,7 +336,7 @@ describe('CozyAlbumGrid', () => {
         total: 100,
       };
 
-      (global.fetch.  as any)
+      (global.fetch as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ ...mockAlbumData, has_more: true, total: 100 }),
@@ -423,7 +423,7 @@ describe('CozyAlbumGrid', () => {
         total: 2,
       };
 
-      (global.fetch.  as any)
+      (global.fetch as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => initialData,
@@ -517,7 +517,7 @@ describe('CozyAlbumGrid', () => {
         total: 100,
       };
 
-      (global.fetch.  as any)
+      (global.fetch as any)
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ ...mockAlbumData, has_more: true, total: 100 }),
@@ -713,7 +713,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should handle rapid consecutive mounts', async () => {
-      (global.fetch.  as any).mockResolvedValue({
+      (global.fetch as any).mockResolvedValue({
         ok: true,
         json: async () => mockAlbumData,
       });
