@@ -17,8 +17,13 @@ import {
   type QueueTrack,
 } from '../queueService';
 
-// Mock fetch
-global.fetch = vi.fn();
+// Setup fetch mock with proper Vitest types
+const createFetchMock = () => vi.fn();
+let fetchMock = createFetchMock();
+vi.stubGlobal('fetch', fetchMock);
+
+// Helper function to access the mocked fetch with proper types
+const mockFetch = () => fetchMock as any;
 
 const mockQueueTracks: QueueTrack[] = [
   {
@@ -58,14 +63,14 @@ describe('QueueService', () => {
 
   describe('getQueue', () => {
     it('should get current queue successfully', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockQueueResponse,
       });
 
       const result = await getQueue();
 
-      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue');
+      expect(mockFetch()).toHaveBeenCalledWith('/api/player/queue');
       expect(result).toEqual(mockQueueResponse);
       expect(result.tracks).toHaveLength(3);
       expect(result.current_index).toBe(0);
@@ -79,7 +84,7 @@ describe('QueueService', () => {
         total_tracks: 0,
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => emptyQueue,
       });
@@ -91,7 +96,7 @@ describe('QueueService', () => {
     });
 
     it('should throw error on failed fetch', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         statusText: 'Server Error',
       });
@@ -100,13 +105,13 @@ describe('QueueService', () => {
     });
 
     it('should handle network errors', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Network error'));
+      mockFetch().mockRejectedValueOnce(new Error('Network error'));
 
       await expect(getQueue()).rejects.toThrow('Network error');
     });
 
     it('should return tracks with all fields', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockQueueResponse,
       });
@@ -121,7 +126,7 @@ describe('QueueService', () => {
     });
 
     it('should handle tracks without optional fields', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockQueueResponse,
       });
@@ -136,28 +141,28 @@ describe('QueueService', () => {
 
   describe('removeTrackFromQueue', () => {
     it('should remove track at index 0', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await removeTrackFromQueue(0);
 
-      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue/0', {
+      expect(mockFetch()).toHaveBeenCalledWith('/api/player/queue/0', {
         method: 'DELETE',
       });
     });
 
     it('should remove track at various indices', async () => {
       for (const index of [0, 1, 2, 5, 10]) {
-        (global.fetch as any).mockResolvedValueOnce({
+        mockFetch().mockResolvedValueOnce({
           ok: true,
           json: async () => ({}),
         });
 
         await removeTrackFromQueue(index);
 
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(mockFetch()).toHaveBeenCalledWith(
           `/api/player/queue/${index}`,
           { method: 'DELETE' }
         );
@@ -165,7 +170,7 @@ describe('QueueService', () => {
     });
 
     it('should throw error with detail message', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'Index out of range' }),
       });
@@ -174,7 +179,7 @@ describe('QueueService', () => {
     });
 
     it('should throw generic error when no detail', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({}),
       });
@@ -183,7 +188,7 @@ describe('QueueService', () => {
     });
 
     it('should handle negative indices', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'Invalid index' }),
       });
@@ -192,7 +197,7 @@ describe('QueueService', () => {
     });
 
     it('should handle network errors', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Connection lost'));
+      mockFetch().mockRejectedValueOnce(new Error('Connection lost'));
 
       await expect(removeTrackFromQueue(0)).rejects.toThrow('Connection lost');
     });
@@ -202,14 +207,14 @@ describe('QueueService', () => {
     it('should reorder queue successfully', async () => {
       const newOrder = [2, 0, 1];
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await reorderQueue(newOrder);
 
-      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue/reorder', {
+      expect(mockFetch()).toHaveBeenCalledWith('/api/player/queue/reorder', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -227,14 +232,14 @@ describe('QueueService', () => {
       ];
 
       for (const newOrder of patterns) {
-        (global.fetch as any).mockResolvedValueOnce({
+        mockFetch().mockResolvedValueOnce({
           ok: true,
           json: async () => ({}),
         });
 
         await reorderQueue(newOrder);
 
-        const call = (global.fetch as any).mock.calls[0];
+        const call = mockFetch().mock.calls[0];
         const body = JSON.parse(call[1].body);
         expect(body.new_order).toEqual(newOrder);
 
@@ -243,7 +248,7 @@ describe('QueueService', () => {
     });
 
     it('should throw error with detail message', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'Invalid reorder pattern' }),
       });
@@ -252,7 +257,7 @@ describe('QueueService', () => {
     });
 
     it('should throw generic error when no detail', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({}),
       });
@@ -261,14 +266,14 @@ describe('QueueService', () => {
     });
 
     it('should handle empty array', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await reorderQueue([]);
 
-      const call = (global.fetch as any).mock.calls[0];
+      const call = mockFetch().mock.calls[0];
       const body = JSON.parse(call[1].body);
       expect(body.new_order).toEqual([]);
     });
@@ -276,14 +281,14 @@ describe('QueueService', () => {
     it('should handle large arrays', async () => {
       const largeArray = Array.from({ length: 1000 }, (_, i) => i);
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await reorderQueue(largeArray);
 
-      const call = (global.fetch as any).mock.calls[0];
+      const call = mockFetch().mock.calls[0];
       const body = JSON.parse(call[1].body);
       expect(body.new_order).toHaveLength(1000);
     });
@@ -291,20 +296,20 @@ describe('QueueService', () => {
 
   describe('shuffleQueue', () => {
     it('should shuffle queue successfully', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await shuffleQueue();
 
-      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue/shuffle', {
+      expect(mockFetch()).toHaveBeenCalledWith('/api/player/queue/shuffle', {
         method: 'POST',
       });
     });
 
     it('should throw error with detail message', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'Queue is empty' }),
       });
@@ -313,7 +318,7 @@ describe('QueueService', () => {
     });
 
     it('should throw generic error when no detail', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({}),
       });
@@ -322,40 +327,40 @@ describe('QueueService', () => {
     });
 
     it('should handle network errors', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Timeout'));
+      mockFetch().mockRejectedValueOnce(new Error('Timeout'));
 
       await expect(shuffleQueue()).rejects.toThrow('Timeout');
     });
 
     it('should not send any body data', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await shuffleQueue();
 
-      const call = (global.fetch as any).mock.calls[0];
+      const call = mockFetch().mock.calls[0];
       expect(call[1].body).toBeUndefined();
     });
   });
 
   describe('clearQueue', () => {
     it('should clear queue successfully', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await clearQueue();
 
-      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue/clear', {
+      expect(mockFetch()).toHaveBeenCalledWith('/api/player/queue/clear', {
         method: 'POST',
       });
     });
 
     it('should throw error with detail message', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'Permission denied' }),
       });
@@ -364,7 +369,7 @@ describe('QueueService', () => {
     });
 
     it('should throw generic error when no detail', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({}),
       });
@@ -373,20 +378,20 @@ describe('QueueService', () => {
     });
 
     it('should handle network errors', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Server unavailable'));
+      mockFetch().mockRejectedValueOnce(new Error('Server unavailable'));
 
       await expect(clearQueue()).rejects.toThrow('Server unavailable');
     });
 
     it('should not send any body data', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await clearQueue();
 
-      const call = (global.fetch as any).mock.calls[0];
+      const call = mockFetch().mock.calls[0];
       expect(call[1].body).toBeUndefined();
     });
   });
@@ -395,14 +400,14 @@ describe('QueueService', () => {
     it('should set queue with default start index', async () => {
       const trackIds = [1, 2, 3];
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await setQueue(trackIds);
 
-      expect(global.fetch).toHaveBeenCalledWith('/api/player/queue', {
+      expect(mockFetch()).toHaveBeenCalledWith('/api/player/queue', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -418,14 +423,14 @@ describe('QueueService', () => {
       const trackIds = [1, 2, 3, 4, 5];
       const startIndex = 2;
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await setQueue(trackIds, startIndex);
 
-      const call = (global.fetch as any).mock.calls[0];
+      const call = mockFetch().mock.calls[0];
       const body = JSON.parse(call[1].body);
       expect(body.tracks).toEqual(trackIds);
       expect(body.start_index).toBe(2);
@@ -435,14 +440,14 @@ describe('QueueService', () => {
       const trackIds = [10, 20, 30, 40, 50];
 
       for (const startIndex of [0, 1, 2, 3, 4]) {
-        (global.fetch as any).mockResolvedValueOnce({
+        mockFetch().mockResolvedValueOnce({
           ok: true,
           json: async () => ({}),
         });
 
         await setQueue(trackIds, startIndex);
 
-        const call = (global.fetch as any).mock.calls[0];
+        const call = mockFetch().mock.calls[0];
         const body = JSON.parse(call[1].body);
         expect(body.start_index).toBe(startIndex);
 
@@ -451,14 +456,14 @@ describe('QueueService', () => {
     });
 
     it('should set queue with single track', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await setQueue([42]);
 
-      const call = (global.fetch as any).mock.calls[0];
+      const call = mockFetch().mock.calls[0];
       const body = JSON.parse(call[1].body);
       expect(body.tracks).toEqual([42]);
       expect(body.start_index).toBe(0);
@@ -467,21 +472,21 @@ describe('QueueService', () => {
     it('should set queue with many tracks', async () => {
       const manyTracks = Array.from({ length: 100 }, (_, i) => i + 1);
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await setQueue(manyTracks, 50);
 
-      const call = (global.fetch as any).mock.calls[0];
+      const call = mockFetch().mock.calls[0];
       const body = JSON.parse(call[1].body);
       expect(body.tracks).toHaveLength(100);
       expect(body.start_index).toBe(50);
     });
 
     it('should throw error with detail message', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({ detail: 'Invalid track IDs' }),
       });
@@ -490,7 +495,7 @@ describe('QueueService', () => {
     });
 
     it('should throw generic error when no detail', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         json: async () => ({}),
       });
@@ -499,20 +504,20 @@ describe('QueueService', () => {
     });
 
     it('should handle empty track array', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
 
       await setQueue([]);
 
-      const call = (global.fetch as any).mock.calls[0];
+      const call = mockFetch().mock.calls[0];
       const body = JSON.parse(call[1].body);
       expect(body.tracks).toEqual([]);
     });
 
     it('should handle network errors', async () => {
-      (global.fetch as any).mockRejectedValueOnce(new Error('Connection failed'));
+      mockFetch().mockRejectedValueOnce(new Error('Connection failed'));
 
       await expect(setQueue([1, 2, 3])).rejects.toThrow('Connection failed');
     });
@@ -521,14 +526,14 @@ describe('QueueService', () => {
   describe('Integration scenarios', () => {
     it('should handle complete queue workflow', async () => {
       // Set queue
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
       await setQueue([1, 2, 3], 0);
 
       // Get queue
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => mockQueueResponse,
       });
@@ -536,21 +541,21 @@ describe('QueueService', () => {
       expect(queue.tracks).toHaveLength(3);
 
       // Remove track
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
       await removeTrackFromQueue(1);
 
       // Shuffle
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
       await shuffleQueue();
 
       // Clear
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -559,20 +564,20 @@ describe('QueueService', () => {
 
     it('should handle reorder then shuffle workflow', async () => {
       // Reorder
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
       await reorderQueue([2, 0, 1]);
 
       // Shuffle
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
       await shuffleQueue();
 
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch()).toHaveBeenCalledTimes(2);
     });
 
     it('should handle multiple concurrent operations', async () => {
@@ -583,7 +588,7 @@ describe('QueueService', () => {
       ];
 
       const promises = operations.map(op => {
-        (global.fetch as any).mockResolvedValueOnce({
+        mockFetch().mockResolvedValueOnce({
           ok: true,
           json: async () => ({}),
         });
@@ -592,13 +597,13 @@ describe('QueueService', () => {
 
       await Promise.all(promises);
 
-      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(mockFetch()).toHaveBeenCalledTimes(3);
     });
   });
 
   describe('Error handling edge cases', () => {
     it('should handle malformed JSON response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => { throw new Error('Invalid JSON'); },
       });
@@ -607,7 +612,7 @@ describe('QueueService', () => {
     });
 
     it('should handle null response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: true,
         json: async () => null,
       });
@@ -617,7 +622,7 @@ describe('QueueService', () => {
     });
 
     it('should handle 404 errors', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Not Found',
@@ -627,7 +632,7 @@ describe('QueueService', () => {
     });
 
     it('should handle 500 errors', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch().mockResolvedValueOnce({
         ok: false,
         status: 500,
         json: async () => ({ detail: 'Internal server error' }),
@@ -637,7 +642,7 @@ describe('QueueService', () => {
     });
 
     it('should handle timeout in setQueue', async () => {
-      (global.fetch as any).mockImplementationOnce(() =>
+      mockFetch().mockImplementationOnce(() =>
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Request timeout')), 100)
         )
