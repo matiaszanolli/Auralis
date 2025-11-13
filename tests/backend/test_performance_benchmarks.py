@@ -23,7 +23,7 @@ import time
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.library.repositories.track_repository import TrackRepository
+from auralis.library.repositories.trackssitory import TrackRepository
 from auralis.library.scanner import LibraryScanner
 from auralis.library.manager import LibraryManager
 from auralis.io.saver import save as save_audio
@@ -151,7 +151,7 @@ def test_perf_library_scan_10_tracks(temp_audio_dir):
     assert elapsed_time < 2.0, \
         f"Too slow: {elapsed_time:.3f}s for 10 tracks (target <2.0s)"
 
-    manager.close()
+    
 
 
 @pytest.mark.performance
@@ -182,7 +182,7 @@ def test_perf_library_scan_100_tracks(temp_audio_dir):
     assert elapsed_time < 15.0, \
         f"Too slow: {elapsed_time:.3f}s for 100 tracks (target <15.0s)"
 
-    manager.close()
+    
 
 
 @pytest.mark.performance
@@ -289,16 +289,16 @@ def test_perf_cache_hit_improvement():
             "channels": 2,
             "bitrate": 1411200,
         }
-        manager.track_repo.add(track_info)
+        manager.tracks.add(track_info)
 
     # First query (cache miss)
     start_time = time.time()
-    tracks1, total1 = manager.track_repo.get_all(limit=50, offset=0)
+    tracks1, total1 = manager.tracks.get_all(limit=50, offset=0)
     miss_time = time.time() - start_time
 
     # Second query (cache hit)
     start_time = time.time()
-    tracks2, total2 = manager.track_repo.get_all(limit=50, offset=0)
+    tracks2, total2 = manager.tracks.get_all(limit=50, offset=0)
     hit_time = time.time() - start_time
 
     speedup = miss_time / hit_time if hit_time > 0 else float('inf')
@@ -311,7 +311,7 @@ def test_perf_cache_hit_improvement():
     assert hit_time <= miss_time, \
         "Cache hit should not be slower than cache miss"
 
-    manager.close()
+    
 
 
 # ============================================================================

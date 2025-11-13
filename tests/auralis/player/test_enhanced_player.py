@@ -20,7 +20,7 @@ import time
 # Add project root to path
 sys.path.insert(0, os.path.abspath('../..'))
 
-from auralis.player.enhanced_audio_player import EnhancedAudioPlayer, QueueManager, PlaybackState
+from auralis.player.enhanced_audio_player import EnhancedAudioPlayer, QueueController, PlaybackState
 from auralis.player.config import PlayerConfig
 from auralis.library.manager import LibraryManager
 import soundfile as sf

@@ -11,11 +11,12 @@ Audio file metadata editing and management
 """
 
 from .models import MetadataUpdate
-from .metadata_editor import MetadataEditor
+from .metadata_editor import MetadataEditor, MUTAGEN_AVAILABLE
 from .factory import create_metadata_editor
 
 __all__ = [
     'MetadataUpdate',
     'MetadataEditor',
     'create_metadata_editor',
+    'MUTAGEN_AVAILABLE',
 ]

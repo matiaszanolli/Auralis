@@ -42,13 +42,13 @@ def library_manager():
     """Create an in-memory library manager."""
     manager = LibraryManager(database_path=":memory:")
     yield manager
-    manager.close()
+    # SQLite in-memory DB is cleaned up automatically
 
 
 @pytest.fixture
 def track_repo(library_manager):
     """Get track repository from library manager."""
-    return library_manager.track_repo
+    return library_manager.tracks
 
 
 def create_test_track(directory: Path, filename: str):

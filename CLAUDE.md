@@ -13,18 +13,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## ⚡ Quick Start (30 seconds)
 
+**Web Interface (recommended for development):**
 ```bash
-# Install and run
 pip install -r requirements.txt
 python launch-auralis-web.py --dev    # http://localhost:8765
+```
 
-# Run all tests
-python -m pytest tests/ -v
+**Desktop Application (full stack):**
+```bash
+pip install -r requirements.txt && cd desktop && npm install
+npm run dev                           # Starts backend + frontend + Electron
+```
 
-# Run specific test suite
-python -m pytest tests/backend/ -v     # API tests
-python -m pytest tests/auralis/ -v     # Core audio processing
-python -m pytest tests/boundaries/ -v  # Edge cases & boundaries
+**Run Tests:**
+```bash
+python -m pytest tests/ -v                    # All tests
+cd auralis-web/frontend && npm run test:memory  # Frontend tests (memory safe)
 ```
 
 ---
@@ -32,19 +36,39 @@ python -m pytest tests/boundaries/ -v  # Edge cases & boundaries
 ## 🎯 Common Development Tasks
 
 ### Running the Application
+
+**Web Interface:**
 ```bash
-# Web interface (recommended for development)
-python launch-auralis-web.py --dev    # Dev mode, http://localhost:8765
-python launch-auralis-web.py           # Production mode
+# Development mode (auto-reloads, http://localhost:8765)
+python launch-auralis-web.py --dev
 
-# Desktop application (from root directory)
-npm run dev                            # Starts backend + frontend + Electron
+# Production mode (serves built frontend from backend)
+python launch-auralis-web.py
 
-# Just the backend API server
+# Backend only (FastAPI with Swagger UI at http://localhost:8765/api/docs)
 cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
+```
 
-# Frontend only (requires backend running separately)
-cd auralis-web/frontend && npm start   # Proxies to http://localhost:8765
+**Desktop Application (Electron):**
+```bash
+cd desktop
+
+# Development mode (starts backend + frontend dev server + Electron window)
+npm run dev
+
+# Build for production (all platforms: Linux, Windows, macOS)
+npm run package
+
+# Platform-specific builds
+npm run package:linux   # Linux AppImage + DEB
+npm run package:win     # Windows installer (requires Windows)
+npm run package:mac     # macOS app (requires macOS)
+```
+
+**Frontend Separately (debugging):**
+```bash
+# Requires backend running on port 8765
+cd auralis-web/frontend && npm start   # Dev server at http://localhost:3000 (proxies to backend)
 ```
 
 ### Running Tests
@@ -200,11 +224,16 @@ make clean
 **Tests** (`tests/`):
 - `backend/` - API endpoint tests (96 tests, 74% coverage)
 - `auralis/` - Audio processing tests (24 tests)
-- `boundaries/` - Edge case and boundary tests (151 tests, 101% of target)
+- `boundaries/` - Edge case and boundary tests (151 tests)
+- `concurrency/` - Thread-safety and race condition tests
+- `edge_cases/` - Complex edge cases and corner conditions
 - `integration/` - Cross-component integration tests (85 tests)
 - `invariants/` - Critical invariant tests (305 tests)
+- `load_stress/` - Load and stress testing (large datasets)
 - `mutation/` - Mutation testing for test quality validation
-- `validation/` - End-to-end validation tests
+- `performance/` - Performance benchmarks and regression tests
+- `regression/` - Regression test suite
+- `security/` - Security and OWASP Top 10 tests
 - `conftest.py` - Pytest fixtures and configuration
 
 **Frontend Tests** (`auralis-web/frontend/src/**/__tests__/`):
@@ -216,6 +245,35 @@ make clean
 - **Memory Status**: ✅ Fixed - Tests no longer run out of memory
   - Use `npm run test:memory` to run with 2GB heap + garbage collection
   - See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md) for details
+
+---
+
+## 🚀 Launch Script Guide
+
+The [launch-auralis-web.py](launch-auralis-web.py) script is your primary development entry point:
+
+```bash
+# Development mode (starts backend + frontend dev server)
+python launch-auralis-web.py --dev
+
+# Production mode (serves built frontend from backend)
+python launch-auralis-web.py
+
+# Custom port
+python launch-auralis-web.py --port 9000
+
+# Skip browser auto-open
+python launch-auralis-web.py --dev --no-browser
+```
+
+**What it does:**
+1. Checks Python and Node.js dependencies
+2. Starts FastAPI backend (port 8765)
+3. In `--dev` mode: Starts React dev server (port 3000)
+4. Opens browser automatically (can skip with `--no-browser`)
+5. Manages process lifecycle (Ctrl+C stops all servers)
+
+**For desktop app:** Use `cd desktop && npm run dev` instead for Electron integration.
 
 ---
 
@@ -280,9 +338,21 @@ All API endpoints are modular routers in `auralis-web/backend/routers/`:
 
 ## ⚠️ Important Gotchas & Common Mistakes
 
+### Worker Project Integration
+
+This machine has a separate worker project at `../worker_aithentia/` with its own backend deployed at https://api.test.aithentia.com:8000/. When working on:
+- API integrations or webhooks → Check worker project compatibility
+- Database schema changes → Verify worker compatibility
+- Authentication or API keys → Consult worker project's .env setup
+
+**Worker project is NOT part of Auralis** - it's a separate service. Don't confuse it with the Auralis backend on port 8765.
+
 ### Port Numbers
-- **Backend API**: Port **8765** (NOT 8000)
-- **Frontend dev**: Port 3000 (proxies to backend)
+- **Auralis Backend API**: Port **8765** (NOT 8000)
+  - API Docs available at http://localhost:8765/api/docs
+  - Use this for all Auralis development
+- **Worker API** (if needed): Port 8000 (separate project)
+- **Frontend dev**: Port 3000 (proxies to Auralis backend on 8765)
 - Check with `lsof -ti:8765` if port is in use
 
 ### Audio Processing Invariants
@@ -345,6 +415,26 @@ from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ  # OLD
 - ✅ Keep components under 300 lines
 - ✅ Extract subcomponents if needed
 - ❌ Don't create "Enhanced" or variant versions of existing components
+
+### Desktop App Development (Electron)
+
+**Development:**
+```bash
+cd desktop
+npm run dev    # Starts backend + frontend dev server + Electron window
+```
+
+**Key Files:**
+- [desktop/main.js](desktop/main.js) - Electron main process (spawns backend, loads frontend)
+- [desktop/preload.js](desktop/preload.js) - IPC bridge for native file selection and OS integration
+- [desktop/package.json](desktop/package.json) - Electron build configuration
+
+**Important Notes:**
+- Backend starts automatically by main.js; don't start it separately
+- Frontend loads from http://localhost:3000 (dev) or built files (production)
+- IPC communication between Electron and renderer for file picking
+- Use `npm run package` to build installers for distribution
+- Cross-platform builds require native tools (may fail on wrong OS)
 
 ### Common Testing Gotchas
 1. **AsyncIO Tests**: Use `@pytest.mark.asyncio` for async functions; backend tests may need `await` handling

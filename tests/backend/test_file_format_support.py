@@ -44,7 +44,7 @@ def library_manager():
     """Create an in-memory library manager."""
     manager = LibraryManager(database_path=":memory:")
     yield manager
-    manager.close()
+    
 
 
 def create_test_audio_data(duration_seconds=1.0, sample_rate=44100):

@@ -22,7 +22,7 @@ import shutil
 import threading
 import time
 
-from auralis.library.repositories.track_repository import TrackRepository
+from auralis.library.repositories.trackssitory import TrackRepository
 from auralis.library.manager import LibraryManager
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
@@ -47,7 +47,7 @@ def shared_db(temp_audio_dir):
     db_path = temp_audio_dir / "shared.db"
     manager = LibraryManager(db_path=str(db_path))
     yield manager
-    manager.close()
+    
 
 
 # ============================================================================
@@ -74,14 +74,14 @@ def test_concurrent_read_operations(shared_db):
             "channels": 2,
             "bitrate": 1411200,
         }
-        shared_db.track_repo.add(track_info)
+        shared_db.tracks.add(track_info)
 
     results = []
     errors = []
 
     def read_tracks():
         try:
-            tracks, total = shared_db.track_repo.get_all(limit=50, offset=0)
+            tracks, total = shared_db.tracks.get_all(limit=50, offset=0)
             results.append((tracks, total))
         except Exception as e:
             errors.append(e)
@@ -132,7 +132,7 @@ def test_concurrent_write_operations(temp_audio_dir):
                 "channels": 2,
                 "bitrate": 1411200,
             }
-            track = manager.track_repo.add(track_info)
+            track = manager.tracks.add(track_info)
             added_ids.append(track.id)
         except Exception as e:
             errors.append(e)
@@ -149,7 +149,7 @@ def test_concurrent_write_operations(temp_audio_dir):
         t.join()
 
     # Verify all tracks were added (some failures acceptable due to locks)
-    tracks, total = manager.track_repo.get_all(limit=50, offset=0)
+    tracks, total = manager.tracks.get_all(limit=50, offset=0)
 
     # Should have added most or all tracks
     assert total >= 5, f"Too few tracks added: {total} (expected ~10)"
@@ -158,7 +158,7 @@ def test_concurrent_write_operations(temp_audio_dir):
     if errors:
         print(f"  Errors encountered: {len(errors)} (database locking is normal)")
 
-    manager.close()
+    
 
 
 # ============================================================================
@@ -188,7 +188,7 @@ def test_concurrent_read_write_mix(temp_audio_dir):
             "channels": 2,
             "bitrate": 1411200,
         }
-        manager.track_repo.add(track_info)
+        manager.tracks.add(track_info)
 
     read_results = []
     write_results = []
@@ -197,7 +197,7 @@ def test_concurrent_read_write_mix(temp_audio_dir):
     def reader_thread():
         try:
             for _ in range(5):
-                tracks, total = manager.track_repo.get_all(limit=50, offset=0)
+                tracks, total = manager.tracks.get_all(limit=50, offset=0)
                 read_results.append(total)
                 time.sleep(0.01)  # Small delay
         except Exception as e:
@@ -216,7 +216,7 @@ def test_concurrent_read_write_mix(temp_audio_dir):
                     "channels": 2,
                     "bitrate": 1411200,
                 }
-                track = manager.track_repo.add(track_info)
+                track = manager.tracks.add(track_info)
                 write_results.append(track.id)
                 time.sleep(0.01)  # Small delay
         except Exception as e:
@@ -249,7 +249,7 @@ def test_concurrent_read_write_mix(temp_audio_dir):
     if errors:
         print(f"  Errors: {len(errors)} (some locking errors are acceptable)")
 
-    manager.close()
+    
 
 
 # ============================================================================
@@ -331,14 +331,14 @@ def test_concurrent_cache_access(temp_audio_dir):
         "channels": 2,
         "bitrate": 1411200,
     }
-    manager.track_repo.add(track_info)
+    manager.tracks.add(track_info)
 
     results = []
 
     def reader():
         # Read multiple times
         for _ in range(3):
-            tracks, total = manager.track_repo.get_all(limit=50, offset=0)
+            tracks, total = manager.tracks.get_all(limit=50, offset=0)
             results.append(total)
             time.sleep(0.01)
 
@@ -356,7 +356,7 @@ def test_concurrent_cache_access(temp_audio_dir):
                 "channels": 2,
                 "bitrate": 1411200,
             }
-            manager.track_repo.add(track_info)
+            manager.tracks.add(track_info)
 
     # Start reader and writer
     t1 = threading.Thread(target=reader)
@@ -375,7 +375,7 @@ def test_concurrent_cache_access(temp_audio_dir):
     unique_counts = set(results)
     assert len(unique_counts) >= 1  # At minimum, consistent behavior
 
-    manager.close()
+    
 
 
 # ============================================================================
@@ -405,10 +405,10 @@ def test_concurrent_connection_cleanup(temp_audio_dir):
             "channels": 2,
             "bitrate": 1411200,
         }
-        manager.track_repo.add(track_info)
+        manager.tracks.add(track_info)
 
         # Close cleanly
-        manager.close()
+        
 
     # Create 10 managers in parallel
     threads = []
@@ -423,12 +423,12 @@ def test_concurrent_connection_cleanup(temp_audio_dir):
 
     # Verify database is still accessible
     final_manager = LibraryManager(db_path=str(db_path))
-    tracks, total = final_manager.track_repo.get_all(limit=50, offset=0)
+    tracks, total = final_manager.tracks.get_all(limit=50, offset=0)
 
     # Should have some tracks
     assert total >= 1
 
-    final_manager.close()
+    final_
 
 
 # ============================================================================
@@ -458,14 +458,14 @@ def test_concurrent_search_operations(temp_audio_dir):
             "channels": 2,
             "bitrate": 1411200,
         }
-        manager.track_repo.add(track_info)
+        manager.tracks.add(track_info)
 
     search_results = []
     errors = []
 
     def search_tracks(query):
         try:
-            results, total = manager.track_repo.search(query, limit=50, offset=0)
+            results, total = manager.tracks.search(query, limit=50, offset=0)
             search_results.append((query, total))
         except Exception as e:
             errors.append(e)
@@ -489,7 +489,7 @@ def test_concurrent_search_operations(temp_audio_dir):
 
     print(f"\n  Search results: {search_results}")
 
-    manager.close()
+    
 
 
 # ============================================================================
