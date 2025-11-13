@@ -620,6 +620,368 @@ python -c "from auralis.library import LibraryManager; m = LibraryManager(); pri
 
 ---
 
+## 🔍 Code Organization Principles
+
+### Module Size Guidelines
+- Keep Python modules under 300 lines
+- Keep React components under 300 lines
+- Extract subcomponents when exceeding limits
+- Use facade pattern for backward compatibility when refactoring
+
+### Component Organization
+**One component per purpose:**
+- Don't create duplicate "Enhanced" or "V2" versions of existing components
+- If improving a component, refactor it in-place when possible
+- Extract distinct UI patterns into reusable primitives in design-system/
+
+**Modular Design Pattern (Backend):**
+- Each router handles a single domain (player, library, enhancement, etc.)
+- Routers use FastAPI dependency injection for shared state
+- Mirror test structure to router structure: `routers/player.py` → `tests/backend/test_player.py`
+
+### Repository Pattern (Data Access)
+- Always use repository pattern in `auralis/library/repositories/`
+- Never direct database queries outside repositories
+- Implement pagination for large result sets
+- Queries automatically cached via LibraryManager (configure TTL)
+
+---
+
+## 🔄 Refactoring Strategy
+
+### When to Refactor
+1. **Duplication**: DRY principle violation (code appears 2+ times)
+2. **Size Violation**: Module/component > 300 lines
+3. **Complexity**: Method has 3+ responsibilities (SRP violation)
+4. **Performance**: Profiling shows bottleneck
+5. **Clarity**: Code intent unclear without extensive comments
+
+### Before Refactoring
+- Write tests for current behavior first
+- Ensure test coverage > 80% for target code
+- Create branch with descriptive name (e.g., `refactor/simplify-eq-calculation`)
+- Document invariants that must hold
+
+### After Refactoring
+- All tests still pass
+- Performance metrics unchanged or improved
+- No new duplicate code introduced
+- Document breaking changes if any
+
+---
+
+## 📋 Frequently Updated Files
+
+When working on features, check these files for context and dependencies:
+
+**Configuration & Version:**
+- [auralis/version.py](auralis/version.py) - Version string (bumped for releases)
+- [auralis/core/unified_config.py](auralis/core/unified_config.py) - Processing parameters
+- [pyproject.toml](pyproject.toml) - Python version, dependencies
+
+**Frontend Styling:**
+- [auralis-web/frontend/src/design-system/](auralis-web/frontend/src/design-system/) - All design tokens (required for new UI)
+- [auralis-web/frontend/src/theme/](auralis-web/frontend/src/theme/) - Theme colors, spacing, typography
+
+**Backend State:**
+- [auralis-web/backend/state_manager.py](auralis-web/backend/state_manager.py) - WebSocket state (modify carefully - thread-safe code)
+- [auralis-web/backend/chunked_processor.py](auralis-web/backend/chunked_processor.py) - Streaming processor (complex state machine)
+
+**Database Schema:**
+- [auralis/library/repositories/](auralis/library/repositories/) - All data access (repository pattern, no direct SQL)
+
+**Frontend State:**
+- [auralis-web/frontend/src/contexts/](auralis-web/frontend/src/contexts/) - Global state management
+- [auralis-web/frontend/src/hooks/](auralis-web/frontend/src/hooks/) - Shared React hooks
+
+---
+
+## ⚡ Performance Considerations
+
+### Before Optimizing
+1. Profile to identify actual bottleneck: `python -m cProfile -s cumtime script.py`
+2. Establish baseline metric (execution time, memory, etc.)
+3. Set target improvement % (typically 20-40%)
+
+### Common Optimizations Available
+```python
+# 1. NumPy Vectorization (typical 1.5-2.5x speedup)
+# Instead of: for loop over samples
+# Use: np.array operations with broadcasting
+
+# 2. Numba JIT Compilation (40-70x for tight loops)
+from numba import jit
+@jit(nopython=True)
+def expensive_calculation(x):
+    # ... tight loop code ...
+
+# 3. Query Caching (136x on cache hit)
+# LibraryManager.albums() automatically cached
+# Configure cache TTL in __init__
+
+# 4. Chunked Processing (parallel loading)
+# Backend already uses 30s chunks with Promise.all()
+# Don't add more chunking without profiling first
+```
+
+### Validating Performance
+```bash
+# Quick: ~30 seconds
+python tests/validation/test_integration_quick.py
+
+# Comprehensive: ~2-3 minutes
+python benchmark_performance.py
+
+# Profile specific component
+python -m cProfile -s cumtime -o stats.prof script.py
+python -m pstats stats.prof
+```
+
+---
+
+## 💡 Development Workflow
+
+### Starting a New Feature
+
+1. **Scope & Plan**
+   - Check existing code for similar functionality (avoid duplication)
+   - Read relevant test files to understand expected behavior
+   - Check `docs/MASTER_ROADMAP.md` for planned features or conflicts
+
+2. **Create Branch**
+   ```bash
+   git checkout -b feature/short-description
+   # Examples: feature/search-improvement, fix/websocket-race-condition
+   ```
+
+3. **Implement with Tests**
+   - Write tests first (TDD) or alongside code
+   - Run tests frequently: `pytest tests/ -v`
+   - Ensure no existing tests break
+
+4. **Code Review Checklist**
+   - ✅ All tests pass (including new and existing)
+   - ✅ No module/component > 300 lines
+   - ✅ No code duplication introduced
+   - ✅ Design system tokens used (frontend)
+   - ✅ Docstrings for public functions
+   - ✅ Type hints present (Python)
+   - ✅ No hardcoded values (colors, strings, paths)
+
+5. **Performance Check (if applicable)**
+   ```bash
+   python -m pytest tests/ --cov=auralis --cov=auralis-web --cov-report=html
+   python benchmark_performance.py  # Check for regressions
+   ```
+
+6. **Commit with Clear Message**
+   ```bash
+   git commit -m "feat: brief description of change
+
+   Longer explanation if needed. References any related issues.
+   Breaks/Changes: Document if this breaks existing behavior."
+   ```
+
+### Common Workflows by Component
+
+**Fixing a Bug:**
+1. Write a failing test that reproduces the bug
+2. Fix the code
+3. Verify test passes
+4. Check no other tests break
+5. Commit with `fix:` prefix
+
+**Adding a New Endpoint:**
+1. Create router file in `auralis-web/backend/routers/`
+2. Include router in `main.py` via `app.include_router()`
+3. Add tests in `tests/backend/test_*.py` (mirror structure)
+4. Document in `auralis-web/backend/WEBSOCKET_API.md` if WebSocket
+
+**Refactoring Existing Code:**
+1. Ensure >80% test coverage for code being refactored
+2. Create `refactor/` branch
+3. Run tests constantly while refactoring
+4. No behavior changes (tests should pass unchanged)
+5. Document in commit: "refactor: description, no behavior changes"
+
+---
+
+## 🚨 Critical Invariants (MUST NOT Break)
+
+These properties must hold at all times. Tests verify them in `tests/invariants/`:
+
+**Audio Processing:**
+- ✅ Output sample count == input sample count (always)
+- ✅ Output is NumPy ndarray, not Python list
+- ✅ Audio never modified in-place (always copy first)
+- ✅ No NaN/Inf values in output
+- ✅ Loudness never increases beyond configured maximum
+
+**Player State:**
+- ✅ Player position never exceeds track duration
+- ✅ Queue position valid for current queue length
+- ✅ State changes atomic (no partial updates)
+- ✅ WebSocket updates ordered (no race conditions)
+
+**Database:**
+- ✅ Track metadata immutable (read-only after insert)
+- ✅ Database connection pooling thread-safe
+- ✅ Queries cached only when deterministic
+- ✅ Foreign keys always valid (referential integrity)
+
+**Modifying these?** Update corresponding tests in `tests/invariants/` first!
+
+---
+
+## 🎯 Quick Reference & Common Mistakes
+
+### Quick Command Reference
+
+```bash
+# Start development
+python launch-auralis-web.py --dev        # Web UI dev mode
+npm run dev                               # Desktop app full stack
+
+# Run tests (most common)
+python -m pytest tests/ -v                # All tests
+python -m pytest tests/boundaries/ -v    # Just boundaries (151 tests)
+python -m pytest -k "test_name" -v       # Single test by name
+python -m pytest -m "not slow" -v        # Skip slow tests
+
+# Build & package
+make build                                # Full build with tests
+make build-fast                           # Fast build without tests
+npm run package                           # Create installers
+
+# Debug & check
+lsof -ti:8765 | xargs kill -9            # Free port 8765
+pip install -r requirements.txt          # Reinstall deps
+mypy auralis/ auralis-web/backend/       # Type check
+```
+
+### Common Mistakes & How to Avoid
+
+**❌ Port 8000 instead of 8765**
+- Backend runs on **8765**, not 8000
+- Frontend dev server on 3000 (proxies to 8765)
+- Check: `lsof -ti:8765` before starting
+
+**❌ Audio array in-place modification**
+```python
+# ❌ WRONG - modifies input
+audio *= gain
+
+# ✅ CORRECT - creates copy first
+audio = audio.copy()
+audio *= gain
+```
+
+**❌ Creating duplicate components**
+```python
+# ❌ WRONG - duplicates existing EnhancementPane
+class EnhancementPaneV2(Component): ...
+
+# ✅ CORRECT - refactor existing component
+# Improve EnhancementPane in-place, extract subcomponents if needed
+```
+
+**❌ Direct database queries**
+```python
+# ❌ WRONG - bypasses repository pattern
+session.query(Track).filter(...).all()
+
+# ✅ CORRECT - use repository
+from auralis.library.repositories import TrackRepository
+repo = TrackRepository()
+repo.find_by_genre(genre)  # Automatically cached
+```
+
+**❌ Hardcoded colors/spacing in components**
+```tsx
+// ❌ WRONG - breaks design consistency
+<div style={{ color: '#FF5733', marginTop: '12px' }}>
+
+// ✅ CORRECT - use design tokens
+import { colors, spacing } from '../design-system'
+<div style={{ color: colors.accent, marginTop: spacing.md }}>
+```
+
+**❌ Not running tests before committing**
+```bash
+# ❌ WRONG - code might break things
+git commit -m "Add feature"
+
+# ✅ CORRECT - verify first
+python -m pytest tests/ -v      # Run all tests
+git status                       # Review changes
+git commit -m "Add feature"
+```
+
+**❌ Modifying critical invariants without tests**
+- Any change to core processors (HybridProcessor, DSP stages) must verify:
+  - Output sample count == input sample count
+  - No NaN/Inf in output
+  - Corresponding tests in `tests/invariants/` pass
+
+**❌ Frontend tests with hardcoded delays**
+```tsx
+// ❌ WRONG - flaky tests
+await new Promise(resolve => setTimeout(resolve, 1000))
+
+// ✅ CORRECT - wait for actual condition
+await waitFor(() => {
+  expect(screen.getByText('Loaded')).toBeInTheDocument()
+})
+```
+
+**❌ Long-running methods without progress feedback**
+- If operation > 2 seconds, provide user feedback
+- Use existing progress indicators: `PlayerStatus`, `LibraryScanning`
+- Don't block UI thread (async/await in frontend, threading in backend)
+
+### When Something's Broken
+
+**Test hangs or fails intermittently:**
+- Check for race conditions in async code
+- Verify WebSocket state isolation (each test needs fresh PlayerStateManager)
+- Look for hardcoded delays or timeouts
+
+**Frontend not updating:**
+- Check React Query cache is invalidated: `queryClient.invalidateQueries()`
+- Verify state changes propagated through contexts
+- Check console for errors (DevTools F12)
+
+**Backend returns wrong data:**
+- Verify cache TTL hasn't stalled old data: Check `LibraryManager.cache_info()`
+- Check repository queries are using correct filters
+- Verify database migrations ran: `sqlite3 ~/.auralis/library.db ".schema"`
+
+**Audio sounds wrong:**
+- Check processing pipeline disabled/enabled correctly
+- Verify sample rate unchanged (44.1kHz)
+- Check for clipping: max output amplitude should be < 1.0
+- Run: `python -m pytest tests/invariants/ -v` to validate
+
+---
+
+## 📊 Project Health Metrics
+
+**Current Status (Beta 12.0):**
+- Backend: 850+ tests, 74%+ coverage
+- Frontend: 234 tests passing, 95.5% pass rate
+- Code Quality: Type hints, comprehensive docstrings, linting
+- Performance: 36.6x real-time, 740+ files/sec library scanning
+- CI/CD: GitHub Actions with multi-platform builds
+
+**Before Shipping Changes:**
+- ✅ All tests pass (`pytest tests/ -v`)
+- ✅ No performance regression (baseline vs. current)
+- ✅ No new warnings in linting
+- ✅ Type checking passes (`mypy`)
+- ✅ Frontend builds without errors (`npm run build`)
+
+---
+
 ## Notes from ~/.claude/CLAUDE.md
 
 - Always prioritize improving existing code rather than duplicating logic
