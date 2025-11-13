@@ -1,9 +1,14 @@
 /**
- * Real-Time Analysis Stream for Phase 5.3 (Phase 3c Enhanced)
+ * Real-Time Analysis Stream for Phase 5.3 (Phase 3c Enhanced, Phase 5d Refactored)
  *
  * This service provides real-time streaming of audio analysis data from the
  * Phase 5.1 backend to Phase 5.2 visualization components with buffering,
  * interpolation, and error recovery.
+ *
+ * Phase 5d: Refactored to use unified streaming infrastructure
+ * - StreamingStateManager for state and metrics management
+ * - StreamingSubscriptionManager for callback handling
+ * - Eliminated duplicate metrics tracking code (moved to infrastructure)
  *
  * Enhanced with centralized error handling (Phase 3c):
  * - WebSocketManager for automatic reconnection
@@ -11,6 +16,16 @@
  */
 
 import { WebSocketManager, classifyErrorSeverity } from '../utils/errorHandling';
+import {
+  StreamingStateManager,
+  StreamingSubscriptionManager,
+  BackpressureManager,
+  StreamingStatus,
+  StreamingMetrics,
+  createStreamingState,
+  createSubscriptionManager,
+  createBackpressureManager,
+} from '../utils/streamingInfrastructure';
 
 interface AudioStreamConfig {
   sampleRate: number;
@@ -112,14 +127,16 @@ type ErrorCallback = (error: Error, severity: 'low' | 'medium' | 'high') => void
 
 export class RealTimeAnalysisStream {
   private config: AudioStreamConfig;
-  private isConnected = false;
-  private isStreaming = false;
   private wsManager: WebSocketManager | null = null;
   private currentEndpoint: string = '';
 
+  // Unified streaming infrastructure (Phase 5d)
+  private stateManager: StreamingStateManager;
+  private subscriptions: StreamingSubscriptionManager;
+  private backpressure: BackpressureManager;
+
   // Data buffers
   private dataBuffer: AnalysisStreamData[] = [];
-  private maxBufferSize = 100;
   private sequenceNumber = 0;
   private lastReceivedSequence = -1;
 
@@ -127,24 +144,12 @@ export class RealTimeAnalysisStream {
   private interpolationBuffer: Map<string, number[]> = new Map();
   private interpolationHistory = 10;
 
-  // Callbacks
+  // Legacy callbacks (for backward compatibility)
   private dataCallbacks: AnalysisDataCallback[] = [];
   private statusCallbacks: StreamStatusCallback[] = [];
   private errorCallbacks: ErrorCallback[] = [];
 
-  // Metrics
-  private metrics: StreamMetrics = {
-    packetsReceived: 0,
-    packetsDropped: 0,
-    latency: 0,
-    jitter: 0,
-    bufferHealth: 1.0,
-    reconnects: 0,
-    dataRate: 0,
-  };
-
   // Timers
-  private metricsInterval?: number;
   private bufferProcessingInterval?: number;
   private heartbeatInterval?: number;
 
@@ -160,7 +165,21 @@ export class RealTimeAnalysisStream {
       ...config,
     };
 
-    this.startMetricsMonitoring();
+    // Initialize unified streaming infrastructure (Phase 5d)
+    this.stateManager = createStreamingState({
+      bufferSize: this.config.bufferSize,
+      enableBuffering: this.config.enableBuffering,
+      metricsUpdateIntervalMs: this.config.analysisInterval,
+    });
+
+    this.subscriptions = createSubscriptionManager();
+    this.backpressure = createBackpressureManager(80, 20);
+
+    // Wire status change listener for backward compatibility
+    this.stateManager.onStatusChange((status) => {
+      this.notifyStatusChange();
+    });
+
     this.startBufferProcessing();
   }
 
@@ -217,7 +236,9 @@ export class RealTimeAnalysisStream {
 
   private handleOpen(): void {
     console.log('🎵 Analysis stream connected');
-    this.isConnected = true;
+
+    // Update state using state manager (Phase 5d)
+    this.stateManager.setConnected(true, false);
 
     // Send configuration
     this.sendConfiguration();
@@ -232,17 +253,21 @@ export class RealTimeAnalysisStream {
     try {
       const data: AnalysisStreamData = JSON.parse(event.data);
 
-      // Update metrics
-      this.metrics.packetsReceived++;
-      this.updateLatencyMetrics(data.timestamp);
+      // Update metrics using state manager (Phase 5d)
+      this.stateManager.recordPacketReceived();
+      this.stateManager.updateLatency(Date.now() - data.timestamp);
 
       // Check sequence for dropped packets
       if (this.lastReceivedSequence >= 0 && data.sequence !== this.lastReceivedSequence + 1) {
         const dropped = data.sequence - this.lastReceivedSequence - 1;
-        this.metrics.packetsDropped += dropped;
+        this.stateManager.recordPacketsDropped(dropped);
         this.handleDroppedPackets(dropped);
       }
       this.lastReceivedSequence = data.sequence;
+
+      // Check backpressure (Phase 5d)
+      const bufferPercentage = (this.dataBuffer.length / this.config.bufferSize) * 100;
+      this.backpressure.checkBackpressure(bufferPercentage);
 
       // Process data
       this.processIncomingData(data);
@@ -254,7 +279,7 @@ export class RealTimeAnalysisStream {
 
   private handleClose(): void {
     console.log('🔌 Analysis stream disconnected (will auto-reconnect)');
-    this.isConnected = false;
+    this.stateManager.setConnected(false, false);
     this.clearTimers();
     // WebSocketManager handles reconnection automatically
     this.notifyStatusChange();
@@ -322,12 +347,12 @@ export class RealTimeAnalysisStream {
     this.dataBuffer.push(data);
 
     // Maintain buffer size
-    if (this.dataBuffer.length > this.maxBufferSize) {
+    if (this.dataBuffer.length > this.config.bufferSize) {
       this.dataBuffer.shift();
     }
 
-    // Update buffer health
-    this.metrics.bufferHealth = Math.max(0, 1 - (this.dataBuffer.length / this.maxBufferSize));
+    // Update buffer health using state manager (Phase 5d)
+    this.stateManager.updateBufferHealth(this.dataBuffer.length, this.config.bufferSize);
   }
 
   private processData(data: AnalysisStreamData): void {
@@ -414,18 +439,11 @@ export class RealTimeAnalysisStream {
     }, this.config.analysisInterval);
   }
 
-  // Metrics and Monitoring
-  private startMetricsMonitoring(): void {
-    this.metricsInterval = window.setInterval(() => {
-      this.updateMetrics();
-      this.notifyStatusChange();
-    }, 1000);
-  }
-
+  // Heartbeat (metrics monitoring is now handled by StreamingStateManager)
   private startHeartbeat(): void {
     this.heartbeatInterval = window.setInterval(() => {
-      if (this.websocket?.readyState === WebSocket.OPEN) {
-        this.websocket.send(JSON.stringify({
+      if (this.wsManager?.isConnected()) {
+        this.wsManager.send(JSON.stringify({
           type: 'heartbeat',
           timestamp: Date.now(),
         }));
@@ -433,32 +451,8 @@ export class RealTimeAnalysisStream {
     }, 30000); // 30 second heartbeat
   }
 
-  private updateLatencyMetrics(packetTimestamp: number): void {
-    const now = Date.now();
-    const latency = now - packetTimestamp;
-
-    // Update latency with exponential moving average
-    this.metrics.latency = this.metrics.latency * 0.9 + latency * 0.1;
-
-    // Calculate jitter (latency variation)
-    const jitter = Math.abs(latency - this.metrics.latency);
-    this.metrics.jitter = this.metrics.jitter * 0.9 + jitter * 0.1;
-  }
-
-  private updateMetrics(): void {
-    // Calculate data rate
-    const dataRate = (this.metrics.packetsReceived * 1024) / 1000; // Rough estimate
-    this.metrics.dataRate = dataRate;
-
-    // Reset counters periodically
-    if (this.metrics.packetsReceived > 1000) {
-      this.metrics.packetsReceived = Math.floor(this.metrics.packetsReceived * 0.9);
-      this.metrics.packetsDropped = Math.floor(this.metrics.packetsDropped * 0.9);
-    }
-  }
-
   private clearTimers(): void {
-    if (this.metricsInterval) clearInterval(this.metricsInterval);
+    // metricsInterval is now handled by StateManager (Phase 5d)
     if (this.bufferProcessingInterval) clearInterval(this.bufferProcessingInterval);
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
   }
@@ -505,26 +499,37 @@ export class RealTimeAnalysisStream {
   }
 
   getMetrics(): StreamMetrics {
-    return { ...this.metrics };
+    // Return metrics from state manager (Phase 5d)
+    const unified = this.stateManager.getMetrics();
+    return {
+      packetsReceived: unified.packetsReceived,
+      packetsDropped: unified.packetsDropped,
+      latency: unified.latency,
+      jitter: unified.jitter,
+      bufferHealth: unified.bufferHealth,
+      reconnects: unified.reconnects,
+      dataRate: unified.dataRate,
+    };
   }
 
   isStreamingData(): boolean {
-    return this.isConnected && this.isStreaming;
+    return this.stateManager.getStatus().isConnected && this.stateManager.getStatus().isStreaming;
   }
 
   getBufferStatus(): { size: number; health: number; maxSize: number } {
+    const metrics = this.stateManager.getMetrics();
     return {
       size: this.dataBuffer.length,
-      health: this.metrics.bufferHealth,
-      maxSize: this.maxBufferSize,
+      health: metrics.bufferHealth,
+      maxSize: this.config.bufferSize,
     };
   }
 
   // Control Methods
   startStreaming(): void {
-    this.isStreaming = true;
-    if (this.websocket?.readyState === WebSocket.OPEN) {
-      this.websocket.send(JSON.stringify({
+    this.stateManager.setStreaming(true);
+    if (this.wsManager?.isConnected()) {
+      this.wsManager.send(JSON.stringify({
         type: 'start_stream',
         timestamp: Date.now(),
       }));
@@ -532,9 +537,9 @@ export class RealTimeAnalysisStream {
   }
 
   stopStreaming(): void {
-    this.isStreaming = false;
-    if (this.websocket?.readyState === WebSocket.OPEN) {
-      this.websocket.send(JSON.stringify({
+    this.stateManager.setStreaming(false);
+    if (this.wsManager?.isConnected()) {
+      this.wsManager.send(JSON.stringify({
         type: 'stop_stream',
         timestamp: Date.now(),
       }));
@@ -549,6 +554,10 @@ export class RealTimeAnalysisStream {
     this.errorCallbacks = [];
     this.dataBuffer = [];
     this.interpolationBuffer.clear();
+
+    // Cleanup unified streaming infrastructure (Phase 5d)
+    this.stateManager.cleanup();
+    this.subscriptions.clear();
   }
 }
 
