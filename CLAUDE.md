@@ -105,15 +105,28 @@ python benchmark_performance.py
 # 1. Edit in auralis-web/frontend/src/
 # 2. Dev server auto-reloads
 cd auralis-web/frontend
-npm test                               # Interactive test mode
-npm run test:run                       # Single test run
-npm run test:run -- --coverage         # With coverage report
-npm run build                          # Production build
+
+# Running tests (use test:memory for full suite to avoid OOM)
+npm test                                  # Interactive test mode (light)
+npm run test:run                          # Single test run (fast)
+npm run test:memory                       # Full suite with memory management (RECOMMENDED)
+npm run test:coverage                     # Coverage report (light, watch mode)
+npm run test:coverage:memory              # Coverage + memory management
+npm run build                             # Production build
 
 # Run specific frontend test files
 npm test -- src/components/library/__tests__/CozyAlbumGrid.test.tsx
-npm test -- EnhancementPaneV2           # Partial filename match
+npm test -- EnhancementPaneV2             # Partial filename match
 ```
+
+**Frontend Test Guidelines:**
+- ⚠️ **Important:** Use `npm run test:memory` for full test runs (prevents out-of-memory)
+- Keep test files under 400 lines (split into focused suites if larger)
+- Use Vitest syntax (`vi.mock`, `vi.fn`) not Jest syntax
+- Always cleanup: use `afterEach` for component unmounting
+- Use MSW handlers for API mocking, not fetch mocks
+- Wrap async operations with `waitFor` (not hardcoded delays)
+- See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
 
 ### Code Quality
 ```bash
@@ -200,6 +213,9 @@ make clean
 - **Phase 2 Enhancement**: 🚀 In Progress - 150+ tests for parameter display/controls
 - **Phase 3**: Planned - 80+ service/hook tests
 - **Target Coverage**: 55%+ overall frontend
+- **Memory Status**: ✅ Fixed - Tests no longer run out of memory
+  - Use `npm run test:memory` to run with 2GB heap + garbage collection
+  - See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md) for details
 
 ---
 
