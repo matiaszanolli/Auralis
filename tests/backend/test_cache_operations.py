@@ -22,7 +22,7 @@ import tempfile
 import shutil
 import time
 
-from auralis.library.repositories.track_repository import TrackRepository
+from auralis.library.repositories.trackssitory import TrackRepository
 from auralis.library.manager import LibraryManager
 from auralis.io.saver import save as save_audio
 
@@ -44,13 +44,13 @@ def library_manager():
     """Create an in-memory library manager."""
     manager = LibraryManager(database_path=":memory:")
     yield manager
-    manager.close()
+    
 
 
 @pytest.fixture
 def track_repo(library_manager):
     """Get track repository from library manager."""
-    return library_manager.track_repo
+    return library_manager.tracks
 
 
 def create_test_track(directory: Path, filename: str):
@@ -85,13 +85,13 @@ def test_cache_first_query_is_miss(temp_audio_dir, library_manager):
             "channels": 2,
             "bitrate": 1411200,
         }
-        library_manager.track_repo.add(track_info)
+        library_manager.tracks.add(track_info)
 
     # Clear cache first
     library_manager.clear_cache()
 
     # First query
-    tracks, total = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks, total = library_manager.tracks.get_all(limit=50, offset=0)
 
     assert len(tracks) == 10
 
@@ -116,13 +116,13 @@ def test_cache_second_query_is_hit(temp_audio_dir, library_manager):
             "channels": 2,
             "bitrate": 1411200,
         }
-        library_manager.track_repo.add(track_info)
+        library_manager.tracks.add(track_info)
 
     # First query (cache miss)
-    tracks1, total1 = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks1, total1 = library_manager.tracks.get_all(limit=50, offset=0)
 
     # Second query (should be cache hit)
-    tracks2, total2 = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks2, total2 = library_manager.tracks.get_all(limit=50, offset=0)
 
     assert len(tracks1) == len(tracks2)
     assert total1 == total2
@@ -148,19 +148,19 @@ def test_cache_hit_faster_than_miss(temp_audio_dir, library_manager):
             "channels": 2,
             "bitrate": 1411200,
         }
-        library_manager.track_repo.add(track_info)
+        library_manager.tracks.add(track_info)
 
     # Clear cache
     library_manager.clear_cache()
 
     # First query (cache miss)
     start_time = time.time()
-    tracks1, _ = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks1, _ = library_manager.tracks.get_all(limit=50, offset=0)
     miss_time = time.time() - start_time
 
     # Second query (cache hit)
     start_time = time.time()
-    tracks2, _ = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks2, _ = library_manager.tracks.get_all(limit=50, offset=0)
     hit_time = time.time() - start_time
 
     # Cache hit should be faster or equal
@@ -191,10 +191,10 @@ def test_cache_invalidates_on_add(temp_audio_dir, library_manager):
             "channels": 2,
             "bitrate": 1411200,
         }
-        library_manager.track_repo.add(track_info)
+        library_manager.tracks.add(track_info)
 
     # Query to populate cache
-    tracks1, total1 = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks1, total1 = library_manager.tracks.get_all(limit=50, offset=0)
 
     # Add another track (should invalidate cache)
     filepath = create_test_track(temp_audio_dir, "new_track.wav")
@@ -208,10 +208,10 @@ def test_cache_invalidates_on_add(temp_audio_dir, library_manager):
         "channels": 2,
         "bitrate": 1411200,
     }
-    library_manager.track_repo.add(track_info)
+    library_manager.tracks.add(track_info)
 
     # Query again (should reflect new track)
-    tracks2, total2 = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks2, total2 = library_manager.tracks.get_all(limit=50, offset=0)
 
     assert total2 == total1 + 1
 
@@ -234,16 +234,16 @@ def test_cache_invalidates_on_update(temp_audio_dir, library_manager):
         "channels": 2,
         "bitrate": 1411200,
     }
-    track = library_manager.track_repo.add(track_info)
+    track = library_manager.tracks.add(track_info)
 
     # Query to populate cache
-    tracks1, _ = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks1, _ = library_manager.tracks.get_all(limit=50, offset=0)
 
     # Update track (should invalidate cache)
-    library_manager.track_repo.update(track.id, {"title": "Updated Title"})
+    library_manager.tracks.update(track.id, {"title": "Updated Title"})
 
     # Query again (should reflect update)
-    tracks2, _ = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks2, _ = library_manager.tracks.get_all(limit=50, offset=0)
 
     assert tracks2[0].title == "Updated Title"
 
@@ -269,17 +269,17 @@ def test_cache_invalidates_on_delete(temp_audio_dir, library_manager):
             "channels": 2,
             "bitrate": 1411200,
         }
-        track = library_manager.track_repo.add(track_info)
+        track = library_manager.tracks.add(track_info)
         track_ids.append(track.id)
 
     # Query to populate cache
-    tracks1, total1 = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks1, total1 = library_manager.tracks.get_all(limit=50, offset=0)
 
     # Delete a track (should invalidate cache)
-    library_manager.track_repo.delete(track_ids[0])
+    library_manager.tracks.delete(track_ids[0])
 
     # Query again (should reflect deletion)
-    tracks2, total2 = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks2, total2 = library_manager.tracks.get_all(limit=50, offset=0)
 
     assert total2 == total1 - 1
 
@@ -322,11 +322,11 @@ def test_cache_clear_resets_statistics(temp_audio_dir, library_manager):
             "channels": 2,
             "bitrate": 1411200,
         }
-        library_manager.track_repo.add(track_info)
+        library_manager.tracks.add(track_info)
 
     # Make some queries
-    library_manager.track_repo.get_all(limit=50, offset=0)
-    library_manager.track_repo.get_all(limit=50, offset=0)
+    library_manager.tracks.get_all(limit=50, offset=0)
+    library_manager.tracks.get_all(limit=50, offset=0)
 
     # Clear cache
     library_manager.clear_cache()
@@ -360,16 +360,16 @@ def test_cache_manual_clear(temp_audio_dir, library_manager):
             "channels": 2,
             "bitrate": 1411200,
         }
-        library_manager.track_repo.add(track_info)
+        library_manager.tracks.add(track_info)
 
     # Query to populate cache
-    library_manager.track_repo.get_all(limit=50, offset=0)
+    library_manager.tracks.get_all(limit=50, offset=0)
 
     # Clear cache
     library_manager.clear_cache()
 
     # Next query should work (cache miss)
-    tracks, total = library_manager.track_repo.get_all(limit=50, offset=0)
+    tracks, total = library_manager.tracks.get_all(limit=50, offset=0)
     assert len(tracks) == 5
 
 

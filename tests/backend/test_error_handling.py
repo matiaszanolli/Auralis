@@ -22,7 +22,7 @@ import shutil
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.library.repositories.track_repository import TrackRepository
+from auralis.library.repositories.trackssitory import TrackRepository
 from auralis.library.manager import LibraryManager
 from auralis.io.unified_loader import load_audio
 from auralis.io.saver import save as save_audio
@@ -286,7 +286,7 @@ def test_error_cleanup_on_exception(temp_audio_dir):
         }
 
         try:
-            manager.track_repo.add(invalid_track_info)
+            manager.tracks.add(invalid_track_info)
         except Exception:
             pass  # Expected
 
@@ -302,11 +302,11 @@ def test_error_cleanup_on_exception(temp_audio_dir):
             "bitrate": 1411200,
         }
 
-        track = manager.track_repo.add(valid_track_info)
+        track = manager.tracks.add(valid_track_info)
         assert track is not None
 
     finally:
-        manager.close()
+        
 
 
 # ============================================================================
@@ -343,8 +343,8 @@ def test_error_database_locked_handling():
 
         # Should handle gracefully (either succeed or raise predictable error)
         try:
-            track1 = manager1.track_repo.add(track_info)
-            track2 = manager2.track_repo.add(track_info)
+            track1 = manager1.tracks.add(track_info)
+            track2 = manager2.tracks.add(track_info)
         except Exception as e:
             # Database lock or constraint violation is acceptable
             pass

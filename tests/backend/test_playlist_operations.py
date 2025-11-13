@@ -42,7 +42,7 @@ def library_manager():
     """Create an in-memory library manager."""
     manager = LibraryManager(database_path=":memory:")
     yield manager
-    manager.close()
+    
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def playlist_repo(library_manager):
 @pytest.fixture
 def track_repo(library_manager):
     """Get track repository from library manager."""
-    return library_manager.track_repo
+    return library_manager.tracks
 
 
 def create_test_track(directory: Path, filename: str):

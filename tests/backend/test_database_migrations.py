@@ -42,7 +42,7 @@ def library_manager_file(temp_db_dir):
     db_path = temp_db_dir / "library.db"
     manager = LibraryManager(database_path=str(db_path))
     yield manager
-    manager.close()
+    
 
 
 # ============================================================================
@@ -62,7 +62,7 @@ def test_migration_new_database_has_current_schema(temp_db_dir):
     # Database should be created with current schema
     assert db_path.exists()
 
-    manager.close()
+    
 
 
 @pytest.mark.integration
@@ -76,7 +76,7 @@ def test_migration_schema_version_table_exists(library_manager_file):
     # (Implementation-specific - may use alembic_version or custom table)
 
     # This validates the database was initialized
-    tracks, total = library_manager_file.track_repo.get_all(limit=1, offset=0)
+    tracks, total = library_manager_file.tracks.get_all(limit=1, offset=0)
     assert isinstance(tracks, list)
 
 
@@ -105,13 +105,13 @@ def test_migration_preserves_existing_tracks(temp_db_dir):
         "channels": 2,
         "bitrate": 1411200,
     }
-    track = manager1.track_repo.add(track_info)
+    track = manager1.tracks.add(track_info)
     track_id = track.id
     manager1.close()
 
     # Reopen database (simulates migration on app restart)
     manager2 = LibraryManager(database_path=str(db_path))
-    retrieved = manager2.track_repo.get_by_id(track_id)
+    retrieved = manager2.tracks.get_by_id(track_id)
 
     assert retrieved is not None
     assert retrieved.title == "Test Track"
@@ -142,14 +142,14 @@ def test_migration_preserves_track_count(temp_db_dir):
             "channels": 2,
             "bitrate": 1411200,
         }
-        manager1.track_repo.add(track_info)
+        manager1.tracks.add(track_info)
 
-    tracks1, total1 = manager1.track_repo.get_all(limit=100, offset=0)
+    tracks1, total1 = manager1.tracks.get_all(limit=100, offset=0)
     manager1.close()
 
     # Reopen and verify count
     manager2 = LibraryManager(database_path=str(db_path))
-    tracks2, total2 = manager2.track_repo.get_all(limit=100, offset=0)
+    tracks2, total2 = manager2.tracks.get_all(limit=100, offset=0)
 
     assert total2 == total1
     assert total2 == 10
@@ -179,7 +179,7 @@ def test_migration_tracks_table_has_required_columns(library_manager_file):
         "channels": 2,
         "bitrate": 1411200,
     }
-    track = library_manager_file.track_repo.add(track_info)
+    track = library_manager_file.tracks.add(track_info)
 
     # Verify track has expected attributes
     assert hasattr(track, 'id')
@@ -243,9 +243,9 @@ def test_migration_creates_performance_indexes(temp_db_dir):
         "channels": 2,
         "bitrate": 1411200,
     }
-    manager.track_repo.add(track_info)
+    manager.tracks.add(track_info)
 
-    manager.close()
+    
 
     # Query sqlite_master for indexes
     conn = sqlite3.connect(str(db_path))
@@ -297,7 +297,7 @@ def test_migration_handles_old_schema_gracefully(temp_db_dir):
     try:
         manager = LibraryManager(database_path=str(db_path))
         # Should not crash
-        manager.close()
+        
     except Exception as e:
         # Some implementations may not support automatic migration
         # That's acceptable as long as it doesn't crash silently
