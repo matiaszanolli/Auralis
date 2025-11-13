@@ -67,8 +67,9 @@ const crudService = createCrudService<Playlist, CreatePlaylistRequest>({
  * Get all playlists
  */
 export async function getPlaylists(): Promise<PlaylistsResponse> {
-  const playlists = await crudService.list();
-  return { playlists: Array.isArray(playlists) ? playlists : (playlists as any).playlists, total: playlists.length };
+  const response = await crudService.list();
+  const playlistsArray = Array.isArray(response) ? response : (response as any).playlists;
+  return { playlists: playlistsArray, total: playlistsArray.length };
 }
 
 /**

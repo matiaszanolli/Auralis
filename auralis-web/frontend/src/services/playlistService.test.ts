@@ -46,7 +46,11 @@ describe('PlaylistService', () => {
       const result = await playlistService.getPlaylists()
 
       expect(apiRequest.get).toHaveBeenCalledWith('/playlists')
-      expect(result).toEqual(mockResponse)
+      // The implementation wraps the response and calculates total as array length
+      expect(result).toEqual({
+        playlists: [mockPlaylist],
+        total: 1, // Length of the playlists array
+      })
     })
 
     it('throws error on fetch failure', async () => {
