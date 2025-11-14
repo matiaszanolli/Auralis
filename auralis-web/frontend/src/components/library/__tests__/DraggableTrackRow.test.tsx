@@ -37,16 +37,16 @@ vi.mock('@hello-pangea/dnd', () => ({
 }));
 
 // Mock TrackRow component
-vi.mock('../TrackRow', () => {
-  return function MockTrackRow({ track, onPlay }: any) {
+vi.mock('../TrackRow', () => ({
+  default: function MockTrackRow({ track, onPlay }: any) {
     return (
       <div data-testid={`track-row-${track.id}`}>
         <span>{track.title}</span>
         <button onClick={() => onPlay(track.id)}>Play</button>
       </div>
     );
-  };
-});
+  },
+}));
 
 const mockTrack = {
   id: 1,
@@ -314,7 +314,8 @@ describe('DraggableTrackRow', () => {
       const track2 = { ...mockTrack, id: 2 };
 
       const { container } = render(
-        <DraggableTrackRow
+        <>
+          <DraggableTrackRow
             track={track1}
             index={0}
             draggableId="track-1"
@@ -326,6 +327,7 @@ describe('DraggableTrackRow', () => {
             draggableId="track-2"
             onPlay={vi.fn()}
           />
+        </>
       );
 
       const draggables = container.querySelectorAll('[data-testid^="draggable"]');
