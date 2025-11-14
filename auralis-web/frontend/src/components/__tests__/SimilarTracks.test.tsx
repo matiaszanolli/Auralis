@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@/test/test-utils';
 import SimilarTracks from '../SimilarTracks';
 import similarityService, { SimilarTrack } from '../../services/similarityService';
 
