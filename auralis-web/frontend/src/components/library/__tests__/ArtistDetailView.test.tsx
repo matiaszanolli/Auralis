@@ -67,8 +67,11 @@ describe('ArtistDetailView', () => {
         <ArtistDetailView artistId={1} />
       );
 
-      expect(screen.getAllByTestId(/skeleton|loading/i).length).toBeGreaterThan(0) ||
-      expect(document.querySelector('[role="progressbar"]')).toBeInTheDocument();
+      try {
+        expect(document.querySelector('.MuiSkeleton-root')).toBeInTheDocument();
+      } catch {
+        expect(document.querySelector('[role="progressbar"]')).toBeInTheDocument();
+      }
     });
 
     it('should render artist details after loading', async () => {
@@ -182,7 +185,7 @@ describe('ArtistDetailView', () => {
         expect(screen.getByText('David Bowie')).toBeInTheDocument();
       });
 
-      expect(screen.getByTestId(/album-artwork-101/)).toBeInTheDocument();
+      expect(screen.getByTestId('album-artwork-101')).toBeInTheDocument();
     });
 
     it('should switch to tracks tab on click', async () => {
