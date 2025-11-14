@@ -18,15 +18,15 @@ import userEvent from '@testing-library/user-event';
 import GlobalSearch from '../GlobalSearch';
 
 // Mock AlbumArt component
-vi.mock('../../album/AlbumArt', () => {
-  return function MockAlbumArt({ albumId, size }: any) {
+vi.mock('../../album/AlbumArt', () => ({
+  default: function MockAlbumArt({ albumId, size }: any) {
     return (
       <div data-testid={`album-art-${albumId}`} style={{ width: size, height: size }}>
         Album {albumId}
       </div>
     );
-  };
-});
+  },
+}));
 
 // Mock fetch
 global.fetch = vi.fn();

@@ -282,7 +282,8 @@ describe('DraggableTrackRow', () => {
       const track3 = { ...mockTrack, id: 3, title: 'Track 3' };
 
       render(
-        <DraggableTrackRow
+        <>
+          <DraggableTrackRow
             track={track1}
             index={0}
             draggableId="track-1"
@@ -300,6 +301,7 @@ describe('DraggableTrackRow', () => {
             draggableId="track-3"
             onPlay={vi.fn()}
           />
+        </>
       );
 
       expect(screen.getByText('Track 1')).toBeInTheDocument();

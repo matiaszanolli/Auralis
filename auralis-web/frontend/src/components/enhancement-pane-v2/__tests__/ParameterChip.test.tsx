@@ -265,7 +265,6 @@ describe('ParameterChip', () => {
               gradient="linear-gradient(90deg, #0ff, #f0f)"
             />
           </div>
-        </Wrapper>
       );
 
       expect(screen.getByText('Chip 1')).toBeInTheDocument();
@@ -277,8 +276,7 @@ describe('ParameterChip', () => {
   describe('Accessibility', () => {
     it('should have readable label', () => {
       render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Accessible"
             gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
           />
