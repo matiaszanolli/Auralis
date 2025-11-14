@@ -16,8 +16,8 @@ import userEvent from '@testing-library/user-event';
 import SelectableTrackRow from '../SelectableTrackRow';
 
 // Mock TrackRow component
-vi.mock('../TrackRow', () => {
-  return function MockTrackRow({ track, onPlay, onEditMetadata }: any) {
+vi.mock('../TrackRow', () => ({
+  default: function MockTrackRow({ track, onPlay, onEditMetadata }: any) {
     return (
       <div data-testid={`track-row-${track.id}`}>
         <span>{track.title}</span>
@@ -28,8 +28,8 @@ vi.mock('../TrackRow', () => {
         )}
       </div>
     );
-  };
-});
+  },
+}));
 
 const mockTrack = {
   id: 1,
@@ -386,7 +386,8 @@ describe('SelectableTrackRow', () => {
       const track2 = { ...mockTrack, id: 2, title: 'Track 2' };
 
       const { container } = render(
-        <SelectableTrackRow
+        <>
+          <SelectableTrackRow
             track={track1}
             index={0}
             isSelected={true}
@@ -398,6 +399,7 @@ describe('SelectableTrackRow', () => {
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
+        </>
       );
 
       const checkboxes = container.querySelectorAll('[role="checkbox"]');
