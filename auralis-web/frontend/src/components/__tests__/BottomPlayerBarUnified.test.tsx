@@ -15,12 +15,21 @@ import { render, screen, fireEvent, waitFor, within } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import BottomPlayerBarUnified from '../BottomPlayerBarUnified';
-import { usePlayerWithAudio } from '../../hooks/usePlayerWithAudio';
-import { useEnhancement } from '../../contexts/EnhancementContext';
 
-// Mock hooks
-vi.mock('../../hooks/usePlayerWithAudio');
-vi.mock('../../contexts/EnhancementContext');
+// Mock hooks using hoisted functions
+const { mockUsePlayerWithAudio, mockUseEnhancement } = vi.hoisted(() => ({
+  mockUsePlayerWithAudio: vi.fn(),
+  mockUseEnhancement: vi.fn(),
+}));
+
+vi.mock('../../hooks/usePlayerWithAudio', () => ({
+  usePlayerWithAudio: mockUsePlayerWithAudio,
+}));
+vi.mock('../../contexts/EnhancementContext', () => ({
+  useEnhancement: mockUseEnhancement,
+  EnhancementContext: vi.fn(),
+  EnhancementProvider: ({ children }: any) => <>{children}</>,
+}));
 vi.mock('../album/AlbumArt', () => {
   return {
     default: function MockAlbumArt() {
@@ -28,15 +37,15 @@ vi.mock('../album/AlbumArt', () => {
     },
   };
 });
-vi.mock('../shared/Toast', async () => {
-  const actual = await vi.importActual<typeof import('../shared/Toast')>('../shared/Toast');
-  return {
-    ...actual,
-    useToast: () => ({
-      showToast: vi.fn(),
-    }),
-  };
-});
+vi.mock('../shared/Toast', () => ({
+  useToast: () => ({
+    showToast: vi.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
+  }),
+  Toast: () => null,
+  ToastProvider: ({ children }: any) => <>{children}</>,
+}));
 
 const mockPlayerWithAudio = {
   // Queue & Track Data
@@ -98,11 +107,11 @@ describe('BottomPlayerBarUnified', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(usePlayerWithAudio).mockReturnValue({
+    mockUsePlayerWithAudio.mockReturnValue({
       ...mockPlayerWithAudio,
     });
 
-    vi.mocked(useEnhancement).mockReturnValue({
+    mockUseEnhancement.mockReturnValue({
       ...mockEnhancement,
       toggleEnhancement: vi.fn(),
     });
@@ -186,7 +195,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Play/Pause Functionality', () => {
     it('should show pause button when playing', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         isPlaying: true,
       });
@@ -199,7 +208,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show play button when not playing', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         isPlaying: false,
       });
@@ -226,7 +235,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should call togglePlayPause when pause button clicked', async () => {
       const user = userEvent.setup();
 
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         isPlaying: true,
       });
@@ -277,7 +286,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should disable previous button at queue start', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         queueIndex: 0,
       });
@@ -296,7 +305,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should disable next button at queue end', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         queueIndex: 1,
         queue: [
@@ -321,7 +330,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Volume Control', () => {
     it('should display current volume level', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         volume: 75,
       });
@@ -352,7 +361,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show mute icon when volume is 0', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         volume: 0,
       });
@@ -365,7 +374,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show volume down icon for low volume', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         volume: 25,
       });
@@ -378,7 +387,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show volume up icon for high volume', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         volume: 75,
       });
@@ -393,7 +402,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Progress Bar', () => {
     it('should display current time', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         position: 90, // 1:30
       });
@@ -406,7 +415,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should display total duration', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         duration: 180, // 3:00
       });
@@ -421,7 +430,7 @@ describe('BottomPlayerBarUnified', () => {
       const { rerender } = render(<BottomPlayerBarUnified />
       );
 
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         position: 90,
       });
@@ -452,7 +461,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should handle seeking at track end', async () => {
       const user = userEvent.setup();
 
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         duration: 180,
       });
@@ -484,7 +493,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show unfilled heart when not favorited', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         isFavorited: false,
       });
@@ -496,7 +505,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show filled heart when favorited', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         isFavorited: true,
       });
@@ -525,7 +534,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Enhancement Indicator', () => {
     it('should show enhancement status', () => {
-      vi.mocked(useEnhancement).mockReturnValue({
+      mockUseEnhancement.mockReturnValue({
         isEnabled: true,
         currentPreset: 'bright',
       });
@@ -538,7 +547,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should show when enhancement is disabled', () => {
-      vi.mocked(useEnhancement).mockReturnValue({
+      mockUseEnhancement.mockReturnValue({
         isEnabled: false,
         currentPreset: 'adaptive',
       });
@@ -554,7 +563,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Empty State', () => {
     it('should handle no current track', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         currentTrack: null,
       });
@@ -568,7 +577,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should disable playback controls when no track loaded', () => {
-      vi.mocked(usePlayerWithAudio).mockReturnValue({
+      mockUsePlayerWithAudio.mockReturnValue({
         ...mockPlayerWithAudio,
         currentTrack: null,
       });
