@@ -11,13 +11,10 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CozyArtistList } from '../CozyArtistList';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock context menu and toast hooks
 vi.mock('../../shared/ContextMenu', () => ({
@@ -39,15 +36,6 @@ vi.mock('../../shared/Toast', () => ({
   }),
 }));
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      <div style={{ height: '800px', overflow: 'auto' }}>
-        {children}
-      </div>
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 const mockArtistData = {
   artists: [
@@ -76,9 +64,7 @@ describe('CozyArtistList', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       // Check for skeleton elements
@@ -93,9 +79,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -112,9 +96,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -133,9 +115,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -152,9 +132,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -170,9 +148,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -194,9 +170,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -213,9 +187,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -233,9 +205,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -261,9 +231,7 @@ describe('CozyArtistList', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -285,9 +253,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList onArtistClick={mockClick} />
-        </Wrapper>
+        <CozyArtistList onArtistClick={mockClick} />
       );
 
       await waitFor(() => {
@@ -309,9 +275,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList onArtistClick={mockClick} />
-        </Wrapper>
+        <CozyArtistList onArtistClick={mockClick} />
       );
 
       await waitFor(() => {
@@ -332,9 +296,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -358,9 +320,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -381,9 +341,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -398,9 +356,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -421,9 +377,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -442,9 +396,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -465,9 +417,7 @@ describe('CozyArtistList', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -484,9 +434,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -500,9 +448,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -516,9 +462,7 @@ describe('CozyArtistList', () => {
       );
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -535,9 +479,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -552,9 +494,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -581,9 +521,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -601,9 +539,7 @@ describe('CozyArtistList', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -644,9 +580,7 @@ describe('CozyArtistList', () => {
         });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -670,9 +604,7 @@ describe('CozyArtistList', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -695,9 +627,7 @@ describe('CozyArtistList', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -723,9 +653,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -746,9 +674,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -769,9 +695,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -793,9 +717,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -812,9 +734,7 @@ describe('CozyArtistList', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {
@@ -832,9 +752,7 @@ describe('CozyArtistList', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyArtistList />
-        </Wrapper>
+        <CozyArtistList />
       );
 
       await waitFor(() => {

@@ -9,12 +9,9 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
+import { render, screen } from '@/test/test-utils';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LibraryEmptyState } from '../LibraryEmptyState';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock the shared EmptyState components
 vi.mock('../../shared/EmptyState', () => ({
@@ -40,27 +37,18 @@ vi.mock('../../shared/EmptyState', () => ({
   ),
 }));
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('LibraryEmptyState', () => {
   describe('View-Based Rendering', () => {
     it('should render library empty state when no search query and view is library', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('empty-library')).toBeInTheDocument();
@@ -69,14 +57,12 @@ describe('LibraryEmptyState', () => {
     it('should render favorites empty state when view is favourites', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="favourites"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('empty-state')).toBeInTheDocument();
@@ -86,14 +72,12 @@ describe('LibraryEmptyState', () => {
     it('should render search results empty state when search query is present', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery="nonexistent"
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('no-search-results')).toBeInTheDocument();
@@ -105,14 +89,12 @@ describe('LibraryEmptyState', () => {
     it('should display favorites empty state title', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="favourites"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText(/No favorites yet/)).toBeInTheDocument();
@@ -121,14 +103,12 @@ describe('LibraryEmptyState', () => {
     it('should display favorites help text', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="favourites"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(
@@ -139,14 +119,12 @@ describe('LibraryEmptyState', () => {
     it('should ignore search query when view is favourites', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="favourites"
             searchQuery="test query"
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       // Should still show favorites empty state, not search results
@@ -160,14 +138,12 @@ describe('LibraryEmptyState', () => {
       const mockScanFolder = vi.fn();
       const searchQuery = 'rare song title';
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery={searchQuery}
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText(`No results for "${searchQuery}"`)).toBeInTheDocument();
@@ -176,14 +152,12 @@ describe('LibraryEmptyState', () => {
     it('should prioritize search query over view type', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery="test"
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('no-search-results')).toBeInTheDocument();
@@ -192,14 +166,12 @@ describe('LibraryEmptyState', () => {
     it('should show library empty state when search query is empty string', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('empty-library')).toBeInTheDocument();
@@ -210,14 +182,12 @@ describe('LibraryEmptyState', () => {
     it('should display scan folder button', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       const scanButton = screen.getByTestId('scan-button');
@@ -227,14 +197,12 @@ describe('LibraryEmptyState', () => {
     it('should call onScanFolder when scan button clicked', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       const scanButton = screen.getByTestId('scan-button');
@@ -246,14 +214,12 @@ describe('LibraryEmptyState', () => {
     it('should show scanning state when scanning prop is true', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={true}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText(/Scanning.../)).toBeInTheDocument();
@@ -262,14 +228,12 @@ describe('LibraryEmptyState', () => {
     it('should hide scanning state when scanning prop is false', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.queryByText(/Scanning.../)).not.toBeInTheDocument();
@@ -280,27 +244,23 @@ describe('LibraryEmptyState', () => {
     it('should switch from library to favorites empty state on prop change', () => {
       const mockScanFolder = vi.fn();
       const { rerender } = render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('empty-library')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="favourites"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('empty-state')).toBeInTheDocument();
@@ -310,27 +270,23 @@ describe('LibraryEmptyState', () => {
     it('should switch from library to search results on search query change', () => {
       const mockScanFolder = vi.fn();
       const { rerender } = render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('empty-library')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery="test"
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('no-search-results')).toBeInTheDocument();
@@ -339,27 +295,23 @@ describe('LibraryEmptyState', () => {
     it('should show search results when search query is present in library view', () => {
       const mockScanFolder = vi.fn();
       const { rerender } = render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('empty-library')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery="search term"
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('no-search-results')).toBeInTheDocument();
@@ -370,27 +322,23 @@ describe('LibraryEmptyState', () => {
     it('should toggle scanning indicator when scanning changes', () => {
       const mockScanFolder = vi.fn();
       const { rerender } = render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.queryByText(/Scanning.../)).not.toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={true}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText(/Scanning.../)).toBeInTheDocument();
@@ -401,14 +349,12 @@ describe('LibraryEmptyState', () => {
     it('should accept onScanFolder callback', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       expect(mockScanFolder).not.toHaveBeenCalled();
@@ -417,14 +363,12 @@ describe('LibraryEmptyState', () => {
     it('should pass onScanFolder to EmptyLibrary component', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       const scanButton = screen.getByTestId('scan-button');
@@ -438,14 +382,12 @@ describe('LibraryEmptyState', () => {
     it('should handle empty view string', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view=""
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       // Should fall back to library empty state
@@ -455,14 +397,12 @@ describe('LibraryEmptyState', () => {
     it('should handle unknown view type', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="unknown-view"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       // Should fall back to library empty state
@@ -472,14 +412,12 @@ describe('LibraryEmptyState', () => {
     it('should handle whitespace in search query as empty', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery="   "
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       // Whitespace is still truthy, so it should show search results
@@ -489,14 +427,12 @@ describe('LibraryEmptyState', () => {
     it('should handle case-sensitive view prop', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="Favourites"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       // Should not match "Favourites" (case-sensitive)
@@ -508,14 +444,12 @@ describe('LibraryEmptyState', () => {
     it('should have accessible button for scan action', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="library"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       const scanButton = screen.getByTestId('scan-button');
@@ -526,14 +460,12 @@ describe('LibraryEmptyState', () => {
     it('should display descriptive text for all empty states', () => {
       const mockScanFolder = vi.fn();
       render(
-        <Wrapper>
-          <LibraryEmptyState
+        <LibraryEmptyState
             view="favourites"
             searchQuery=""
             scanning={false}
             onScanFolder={mockScanFolder}
           />
-        </Wrapper>
       );
 
       const title = screen.getByText(/No favorites yet/);

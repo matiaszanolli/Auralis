@@ -10,13 +10,10 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CozyAlbumGrid } from '../CozyAlbumGrid';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock AlbumCard component
 vi.mock('../../album/AlbumCard', () => {
@@ -44,15 +41,6 @@ vi.mock('../../album/AlbumCard', () => {
   };
 });
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      <div style={{ height: '800px', overflow: 'auto' }}>
-        {children}
-      </div>
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 const mockAlbumData = {
   albums: [
@@ -96,9 +84,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       // Check for skeleton elements
@@ -113,9 +99,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -132,9 +116,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -152,9 +134,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -170,9 +150,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -189,9 +167,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid onAlbumClick={mockClick} />
-        </Wrapper>
+        <CozyAlbumGrid onAlbumClick={mockClick} />
       );
 
       await waitFor(() => {
@@ -217,9 +193,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -238,9 +212,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -258,9 +230,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -274,9 +244,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -290,9 +258,7 @@ describe('CozyAlbumGrid', () => {
       );
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -309,9 +275,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -347,9 +311,7 @@ describe('CozyAlbumGrid', () => {
         });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -375,9 +337,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -434,9 +394,7 @@ describe('CozyAlbumGrid', () => {
         });
 
       const { container } = render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -460,9 +418,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -485,9 +441,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -528,9 +482,7 @@ describe('CozyAlbumGrid', () => {
         });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -549,9 +501,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -569,9 +519,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid onAlbumClick={mockClick} />
-        </Wrapper>
+        <CozyAlbumGrid onAlbumClick={mockClick} />
       );
 
       await waitFor(() => {
@@ -591,9 +539,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -628,9 +574,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -659,9 +603,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -682,9 +624,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -702,9 +642,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -719,9 +657,7 @@ describe('CozyAlbumGrid', () => {
       });
 
       const { unmount: unmount1 } = render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {
@@ -731,9 +667,7 @@ describe('CozyAlbumGrid', () => {
       unmount1();
 
       render(
-        <Wrapper>
-          <CozyAlbumGrid />
-        </Wrapper>
+        <CozyAlbumGrid />
       );
 
       await waitFor(() => {

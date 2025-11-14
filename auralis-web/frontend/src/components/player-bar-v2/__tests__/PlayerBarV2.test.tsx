@@ -11,15 +11,12 @@
 
 import { vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import PlayerBarV2 from '../PlayerBarV2';
 import { usePlayerAPI } from '../../../hooks/usePlayerAPI';
 import { useUnifiedWebMAudioPlayer } from '../../../hooks/useUnifiedWebMAudioPlayer';
 import { useEnhancement } from '../../../contexts/EnhancementContext';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 vi.mock('../../../hooks/usePlayerAPI');
 vi.mock('../../../hooks/useUnifiedWebMAudioPlayer');
@@ -55,13 +52,6 @@ const mockPlayerAPI = {
   seek: vi.fn(),
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('PlayerBarV2', () => {
   beforeEach(() => {
@@ -74,27 +64,21 @@ describe('PlayerBarV2', () => {
   describe('Rendering', () => {
     it('should render player bar container', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByTestId(/player|bar/i)).toBeInTheDocument();
     });
 
     it('should render playback controls', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByTestId('playback-controls')).toBeInTheDocument();
     });
 
     it('should display track info', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText('Test Track')).toBeInTheDocument();
       expect(screen.getByText('Test Artist')).toBeInTheDocument();
@@ -102,9 +86,7 @@ describe('PlayerBarV2', () => {
 
     it('should render volume control slider', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const sliders = screen.getAllByRole('slider');
       expect(sliders.length).toBeGreaterThan(0);
@@ -112,9 +94,7 @@ describe('PlayerBarV2', () => {
 
     it('should render enhancement toggle', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const toggleButton = screen.getByRole('button', { name: /enhancement|enhance/i });
       expect(toggleButton).toBeInTheDocument();
@@ -122,9 +102,7 @@ describe('PlayerBarV2', () => {
 
     it('should render progress bar', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const sliders = screen.getAllByRole('slider');
       expect(sliders.length).toBeGreaterThanOrEqual(2); // Progress + volume
@@ -134,9 +112,7 @@ describe('PlayerBarV2', () => {
   describe('Playback Controls', () => {
     it('should show play button when paused', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText('Play')).toBeInTheDocument();
     });
@@ -147,9 +123,7 @@ describe('PlayerBarV2', () => {
         isPlaying: true,
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText('Pause')).toBeInTheDocument();
     });
@@ -157,9 +131,7 @@ describe('PlayerBarV2', () => {
     it('should call play on play button click', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const playButton = screen.getByText('Play');
       await user.click(playButton);
@@ -173,9 +145,7 @@ describe('PlayerBarV2', () => {
         isPlaying: true,
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const pauseButton = screen.getByText('Pause');
       await user.click(pauseButton);
@@ -185,9 +155,7 @@ describe('PlayerBarV2', () => {
     it('should call next on next button click', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const nextButton = screen.getByText('Next');
       await user.click(nextButton);
@@ -197,9 +165,7 @@ describe('PlayerBarV2', () => {
     it('should call previous on prev button click', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const prevButton = screen.getByText('Prev');
       await user.click(prevButton);
@@ -214,9 +180,7 @@ describe('PlayerBarV2', () => {
         volume: 75,
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText('75')).toBeInTheDocument();
     });
@@ -224,9 +188,7 @@ describe('PlayerBarV2', () => {
     it('should update volume on slider change', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const sliders = screen.getAllByRole('slider');
       const volumeSlider = sliders[sliders.length - 1];
@@ -244,27 +206,21 @@ describe('PlayerBarV2', () => {
         position: 90,
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText(/1:30|01:30/)).toBeInTheDocument();
     });
 
     it('should display total duration', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText(/3:00|03:00/)).toBeInTheDocument();
     });
 
     it('should seek on progress bar click', async () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const sliders = screen.getAllByRole('slider');
       fireEvent.change(sliders[0], { target: { value: '90' } });
@@ -277,9 +233,7 @@ describe('PlayerBarV2', () => {
   describe('Enhancement Toggle', () => {
     it('should show enhancement toggle button', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const toggleButton = screen.getByRole('button', { name: /enhancement|enhance/i });
       expect(toggleButton).toBeInTheDocument();
@@ -291,9 +245,7 @@ describe('PlayerBarV2', () => {
         currentPreset: 'bright',
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const enhancementInfo = screen.getByText(/bright|enhancement.*on/i);
       expect(enhancementInfo).toBeInTheDocument();
@@ -305,9 +257,7 @@ describe('PlayerBarV2', () => {
         currentPreset: 'adaptive',
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       // Should show some indication that enhancement is disabled
       const elements = screen.queryAllByText(/disabled|off|enhancement/i);
@@ -322,9 +272,7 @@ describe('PlayerBarV2', () => {
         currentTrack: null,
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const noTrackText = screen.queryByText(/no track|empty|select/i);
       expect(noTrackText).toBeInTheDocument();
@@ -336,9 +284,7 @@ describe('PlayerBarV2', () => {
         currentTrack: null,
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const playButton = screen.getByText('Play');
       expect(playButton).toBeDisabled();
@@ -348,9 +294,7 @@ describe('PlayerBarV2', () => {
   describe('Responsive Layout', () => {
     it('should adapt to different screen sizes', () => {
       const { container } = render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const playerBar = container.firstChild;
       expect(playerBar).toBeInTheDocument();
@@ -358,9 +302,7 @@ describe('PlayerBarV2', () => {
 
     it('should have proper z-index for layering', () => {
       const { container } = render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const playerBar = container.querySelector('[style*="z-index"]');
       if (playerBar) {
@@ -372,9 +314,7 @@ describe('PlayerBarV2', () => {
   describe('State Synchronization', () => {
     it('should update when player state changes', () => {
       const { rerender } = render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText('Test Track')).toBeInTheDocument();
 
@@ -384,18 +324,14 @@ describe('PlayerBarV2', () => {
       });
 
       rerender(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText('New Track')).toBeInTheDocument();
     });
 
     it('should update when enhancement state changes', () => {
       const { rerender } = render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
 
       vi.mocked(useEnhancement).mockReturnValue({
@@ -404,9 +340,7 @@ describe('PlayerBarV2', () => {
       });
 
       rerender(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText(/warm|enhancement/i)).toBeInTheDocument();
     });
@@ -415,9 +349,7 @@ describe('PlayerBarV2', () => {
   describe('Accessibility', () => {
     it('should have proper ARIA labels', () => {
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const buttons = screen.getAllByRole('button');
       buttons.forEach(button => {
@@ -428,9 +360,7 @@ describe('PlayerBarV2', () => {
     it('should be keyboard navigable', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       const firstButton = screen.getByText('Play');
       await user.tab();
@@ -445,9 +375,7 @@ describe('PlayerBarV2', () => {
         duration: 0,
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText('Test Track')).toBeInTheDocument();
     });
@@ -461,9 +389,7 @@ describe('PlayerBarV2', () => {
         },
       });
       render(
-        <Wrapper>
-          <PlayerBarV2 />
-        </Wrapper>
+        <PlayerBarV2 />
       );
       expect(screen.getByText(/A+/)).toBeInTheDocument();
     });

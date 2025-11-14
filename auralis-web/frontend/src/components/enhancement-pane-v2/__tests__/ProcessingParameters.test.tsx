@@ -11,20 +11,10 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
+import { render, screen } from '@/test/test-utils';
 import { describe, it, expect } from 'vitest';
 import ProcessingParameters from '../ProcessingParameters';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('ProcessingParameters', () => {
   describe('Loudness Display', () => {
@@ -40,9 +30,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/-14/)).toBeInTheDocument();
@@ -61,9 +49,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/-18/)).toBeInTheDocument();
@@ -81,9 +67,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/-2/)).toBeInTheDocument();
@@ -102,9 +86,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/-23/)).toBeInTheDocument();
@@ -125,9 +107,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/2.5/)).toBeInTheDocument();
@@ -146,9 +126,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/1.8/)).toBeInTheDocument();
@@ -167,9 +145,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // Zero bass boost should not be displayed (conditional rendering)
@@ -188,9 +164,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.queryByText(/Bass Adjustment/)).not.toBeInTheDocument();
@@ -208,9 +182,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // Should show +3 dB for positive values
@@ -229,9 +201,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/8/)).toBeInTheDocument();
@@ -250,9 +220,7 @@ describe('ProcessingParameters', () => {
       };
 
       const { container } = render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // Should have styled typography elements for EQ values
@@ -274,9 +242,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/3%/)).toBeInTheDocument();
@@ -295,9 +261,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/1%/)).toBeInTheDocument();
@@ -316,9 +280,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.queryByText(/Compression/)).not.toBeInTheDocument();
@@ -336,9 +298,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // 0.08 * 100 = 8%
@@ -357,9 +317,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/15%/)).toBeInTheDocument();
@@ -377,9 +335,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // Just at threshold, should show
@@ -401,9 +357,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/105%/)).toBeInTheDocument();
@@ -422,9 +376,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/100%/)).toBeInTheDocument();
@@ -442,9 +394,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/120%/)).toBeInTheDocument();
@@ -462,9 +412,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/150%/)).toBeInTheDocument();
@@ -484,9 +432,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/-14/)).toBeInTheDocument();
@@ -508,9 +454,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // Should show bass and compression
@@ -536,9 +480,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // Should render without crashing
@@ -557,9 +499,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // Negative EQ should be shown as cuts
@@ -579,9 +519,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // Should display with appropriate decimal places
@@ -604,9 +542,7 @@ describe('ProcessingParameters', () => {
       };
 
       const { container } = render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       // Should have clear labels
@@ -626,9 +562,7 @@ describe('ProcessingParameters', () => {
       };
 
       render(
-        <Wrapper>
-          <ProcessingParameters params={parameters} />
-        </Wrapper>
+        <ProcessingParameters params={parameters} />
       );
 
       expect(screen.getByText(/LUFS/)).toBeInTheDocument();

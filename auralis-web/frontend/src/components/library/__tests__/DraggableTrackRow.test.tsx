@@ -11,12 +11,9 @@
 
 import { vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import { DraggableTrackRow } from '../DraggableTrackRow';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock Draggable component from @hello-pangea/dnd
 vi.mock('@hello-pangea/dnd', () => ({
@@ -59,13 +56,6 @@ const mockTrack = {
   duration: 180,
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('DraggableTrackRow', () => {
   beforeEach(() => {
@@ -75,14 +65,12 @@ describe('DraggableTrackRow', () => {
   describe('Rendering', () => {
     it('should render draggable container', () => {
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('draggable-track-1')).toBeInTheDocument();
@@ -90,14 +78,12 @@ describe('DraggableTrackRow', () => {
 
     it('should render track row', () => {
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -105,14 +91,12 @@ describe('DraggableTrackRow', () => {
 
     it('should display track title', () => {
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Test Track')).toBeInTheDocument();
@@ -120,15 +104,13 @@ describe('DraggableTrackRow', () => {
 
     it('should show drag handle by default', () => {
       const { container } = render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
             showDragHandle={true}
           />
-        </Wrapper>
       );
 
       const dragHandle = container.querySelector('[data-rbd-drag-handle-id]');
@@ -137,15 +119,13 @@ describe('DraggableTrackRow', () => {
 
     it('should hide drag handle when showDragHandle is false', () => {
       const { container } = render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
             showDragHandle={false}
           />
-        </Wrapper>
       );
 
       const dragHandle = container.querySelector('[data-rbd-drag-handle-id]');
@@ -156,14 +136,12 @@ describe('DraggableTrackRow', () => {
   describe('Drag and Drop', () => {
     it('should have draggable properties', () => {
       const { container } = render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       const draggable = container.querySelector('[data-rbd-draggable-id]');
@@ -172,14 +150,12 @@ describe('DraggableTrackRow', () => {
 
     it('should pass correct index', () => {
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={5}
             draggableId="track-1"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       // Index is passed to Draggable component internally
@@ -188,15 +164,13 @@ describe('DraggableTrackRow', () => {
 
     it('should disable drag when isDragDisabled is true', () => {
       const { container } = render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
             isDragDisabled={true}
           />
-        </Wrapper>
       );
 
       const draggable = screen.getByTestId('draggable-track-1');
@@ -215,14 +189,12 @@ describe('DraggableTrackRow', () => {
       const onPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={onPlay}
           />
-        </Wrapper>
       );
 
       const playButton = screen.getByRole('button', { name: /play/i });
@@ -235,15 +207,13 @@ describe('DraggableTrackRow', () => {
       const onPause = vi.fn();
 
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
             onPause={onPause}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -251,15 +221,13 @@ describe('DraggableTrackRow', () => {
 
     it('should pass isPlaying state', () => {
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
             isPlaying={true}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -267,15 +235,13 @@ describe('DraggableTrackRow', () => {
 
     it('should pass isCurrent state', () => {
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
             isCurrent={true}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -297,14 +263,12 @@ describe('DraggableTrackRow', () => {
       };
 
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             {...callbacks}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -318,8 +282,7 @@ describe('DraggableTrackRow', () => {
       const track3 = { ...mockTrack, id: 3, title: 'Track 3' };
 
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={track1}
             index={0}
             draggableId="track-1"
@@ -337,7 +300,6 @@ describe('DraggableTrackRow', () => {
             draggableId="track-3"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Track 1')).toBeInTheDocument();
@@ -350,8 +312,7 @@ describe('DraggableTrackRow', () => {
       const track2 = { ...mockTrack, id: 2 };
 
       const { container } = render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={track1}
             index={0}
             draggableId="track-1"
@@ -363,7 +324,6 @@ describe('DraggableTrackRow', () => {
             draggableId="track-2"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       const draggables = container.querySelectorAll('[data-testid^="draggable"]');
@@ -374,15 +334,13 @@ describe('DraggableTrackRow', () => {
   describe('Accessibility', () => {
     it('should have accessible drag handle', () => {
       const { container } = render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
             showDragHandle={true}
           />
-        </Wrapper>
       );
 
       const dragHandle = container.querySelector('[data-rbd-drag-handle-id]');
@@ -393,14 +351,12 @@ describe('DraggableTrackRow', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       const playButton = screen.getByRole('button', { name: /play/i });
@@ -425,14 +381,12 @@ describe('DraggableTrackRow', () => {
       };
 
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={minimalTrack}
             index={0}
             draggableId="track-1"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Minimal Track')).toBeInTheDocument();
@@ -440,14 +394,12 @@ describe('DraggableTrackRow', () => {
 
     it('should handle large index values', () => {
       render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={9999}
             draggableId="track-1"
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -457,14 +409,12 @@ describe('DraggableTrackRow', () => {
       const specialId = 'track-@#$%-1';
 
       const { container } = render(
-        <Wrapper>
-          <DraggableTrackRow
+        <DraggableTrackRow
             track={mockTrack}
             index={0}
             draggableId={specialId}
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId(`draggable-${specialId}`)).toBeInTheDocument();

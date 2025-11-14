@@ -13,13 +13,10 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SettingsDialog from '../SettingsDialog';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock the settings service
 vi.mock('../../../services/settingsService', () => ({
@@ -32,13 +29,6 @@ vi.mock('../../../services/settingsService', () => ({
   },
 }));
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 const mockSettings = {
   scan_folders: ['/music/library'],
@@ -72,9 +62,7 @@ describe('SettingsDialog', () => {
   describe('Dialog Rendering', () => {
     it('should not render when closed', () => {
       render(
-        <Wrapper>
-          <SettingsDialog open={false} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={false} onClose={vi.fn()} />
       );
 
       const dialog = screen.queryByRole('dialog');
@@ -86,9 +74,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -102,9 +88,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -117,9 +101,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -135,9 +117,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -156,9 +136,7 @@ describe('SettingsDialog', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -180,9 +158,7 @@ describe('SettingsDialog', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -204,9 +180,7 @@ describe('SettingsDialog', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -228,9 +202,7 @@ describe('SettingsDialog', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -252,9 +224,7 @@ describe('SettingsDialog', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -276,9 +246,7 @@ describe('SettingsDialog', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -301,9 +269,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -316,9 +282,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -334,9 +298,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -349,9 +311,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -364,9 +324,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -381,9 +339,7 @@ describe('SettingsDialog', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={mockClose} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={mockClose} />
       );
 
       await waitFor(() => {
@@ -403,9 +359,7 @@ describe('SettingsDialog', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={mockClose} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={mockClose} />
       );
 
       await waitFor(() => {
@@ -438,13 +392,11 @@ describe('SettingsDialog', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SettingsDialog
+        <SettingsDialog
             open={true}
             onClose={mockClose}
             onSettingsChange={mockSettingsChange}
           />
-        </Wrapper>
       );
 
       await waitFor(() => {
@@ -466,9 +418,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -482,9 +432,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -498,9 +446,7 @@ describe('SettingsDialog', () => {
       vi.mocked(settingsService.getSettings).mockResolvedValue(mockSettings);
 
       render(
-        <Wrapper>
-          <SettingsDialog open={true} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={true} onClose={vi.fn()} />
       );
 
       await waitFor(() => {
@@ -513,9 +459,7 @@ describe('SettingsDialog', () => {
   describe('Empty State', () => {
     it('should not render when open is false', () => {
       render(
-        <Wrapper>
-          <SettingsDialog open={false} onClose={vi.fn()} />
-        </Wrapper>
+        <SettingsDialog open={false} onClose={vi.fn()} />
       );
 
       const dialog = screen.queryByRole('dialog');

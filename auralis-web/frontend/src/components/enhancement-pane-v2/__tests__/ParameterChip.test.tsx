@@ -10,31 +10,19 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
+import { render, screen } from '@/test/test-utils';
 import { describe, it, expect } from 'vitest';
 import ParameterChip from '../ParameterChip';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('ParameterChip', () => {
   describe('Rendering', () => {
     it('should render chip with label', () => {
       render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Balanced"
             gradient="linear-gradient(90deg, #000, #fff)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Balanced')).toBeInTheDocument();
@@ -42,12 +30,10 @@ describe('ParameterChip', () => {
 
     it('should render as Chip component', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Test"
             gradient="linear-gradient(90deg, #ddd, #999)"
           />
-        </Wrapper>
       );
 
       const chip = container.querySelector('[class*="MuiChip"]');
@@ -56,12 +42,10 @@ describe('ParameterChip', () => {
 
     it('should display correct label text', () => {
       render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Custom Label"
             gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Custom Label')).toBeInTheDocument();
@@ -71,12 +55,10 @@ describe('ParameterChip', () => {
   describe('Gradient Application', () => {
     it('should apply gradient background', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Gradient"
             gradient="linear-gradient(90deg, #000000, #ffffff)"
           />
-        </Wrapper>
       );
 
       const chip = container.querySelector('[class*="MuiChip"]');
@@ -85,12 +67,10 @@ describe('ParameterChip', () => {
 
     it('should support linear gradient left to right', () => {
       render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="LTR"
             gradient="linear-gradient(90deg, #ff0000, #00ff00)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('LTR')).toBeInTheDocument();
@@ -98,12 +78,10 @@ describe('ParameterChip', () => {
 
     it('should support linear gradient top to bottom', () => {
       render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="TTB"
             gradient="linear-gradient(180deg, #0000ff, #ffff00)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('TTB')).toBeInTheDocument();
@@ -111,12 +89,10 @@ describe('ParameterChip', () => {
 
     it('should support radial gradients', () => {
       render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Radial"
             gradient="radial-gradient(circle, #ff00ff, #00ffff)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Radial')).toBeInTheDocument();
@@ -126,12 +102,10 @@ describe('ParameterChip', () => {
   describe('Styling', () => {
     it('should be small size', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Small"
             gradient="linear-gradient(90deg, #ddd, #999)"
           />
-        </Wrapper>
       );
 
       const chip = container.querySelector('[class*="MuiChip-sizeSmall"]');
@@ -140,12 +114,10 @@ describe('ParameterChip', () => {
 
     it('should have proper styling for parameter display', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Styled"
             gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
           />
-        </Wrapper>
       );
 
       const chip = container.querySelector('[class*="MuiChip"]');
@@ -159,12 +131,10 @@ describe('ParameterChip', () => {
 
       labels.forEach((label) => {
         const { unmount } = render(
-          <Wrapper>
-            <ParameterChip
+          <ParameterChip
               label={label}
               gradient="linear-gradient(90deg, #000, #fff)"
             />
-          </Wrapper>
         );
 
         expect(screen.getByText(label)).toBeInTheDocument();
@@ -177,12 +147,10 @@ describe('ParameterChip', () => {
 
       labels.forEach((label) => {
         const { unmount } = render(
-          <Wrapper>
-            <ParameterChip
+          <ParameterChip
               label={label}
               gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
             />
-          </Wrapper>
         );
 
         expect(screen.getByText(label)).toBeInTheDocument();
@@ -195,12 +163,10 @@ describe('ParameterChip', () => {
 
       labels.forEach((label) => {
         const { unmount } = render(
-          <Wrapper>
-            <ParameterChip
+          <ParameterChip
               label={label}
               gradient="linear-gradient(90deg, #ff6b6b, #ffd43b)"
             />
-          </Wrapper>
         );
 
         expect(screen.getByText(label)).toBeInTheDocument();
@@ -212,23 +178,19 @@ describe('ParameterChip', () => {
   describe('Memoization', () => {
     it('should be memoized component', () => {
       const { rerender } = render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Test"
             gradient="linear-gradient(90deg, #ddd, #999)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Test')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Test"
             gradient="linear-gradient(90deg, #ddd, #999)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Test')).toBeInTheDocument();
@@ -236,23 +198,19 @@ describe('ParameterChip', () => {
 
     it('should update when label changes', () => {
       const { rerender } = render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Original"
             gradient="linear-gradient(90deg, #ccc, #333)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Original')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Updated"
             gradient="linear-gradient(90deg, #ddd, #999)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Updated')).toBeInTheDocument();
@@ -260,23 +218,19 @@ describe('ParameterChip', () => {
 
     it('should update when gradient changes', () => {
       const { rerender } = render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Gradient"
             gradient="linear-gradient(90deg, #000, #fff)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Gradient')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Gradient"
             gradient="linear-gradient(90deg, #fff, #000)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Gradient')).toBeInTheDocument();
@@ -286,12 +240,10 @@ describe('ParameterChip', () => {
   describe('Integration', () => {
     it('should work as standalone component', () => {
       render(
-        <Wrapper>
-          <ParameterChip
+        <ParameterChip
             label="Standalone"
             gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Standalone')).toBeInTheDocument();
@@ -299,8 +251,7 @@ describe('ParameterChip', () => {
 
     it('should display multiple chips together', () => {
       render(
-        <Wrapper>
-          <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
             <ParameterChip
               label="Chip 1"
               gradient="linear-gradient(90deg, #f00, #0f0)"
@@ -331,7 +282,6 @@ describe('ParameterChip', () => {
             label="Accessible"
             gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Accessible')).toBeInTheDocument();
