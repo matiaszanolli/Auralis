@@ -18,15 +18,15 @@ import userEvent from '@testing-library/user-event';
 import ArtistDetailView from '../ArtistDetailView';
 
 // Mock the AlbumArt component
-vi.mock('../../album/AlbumArt', () => {
-  return function MockAlbumArt({ albumId, size }: any) {
+vi.mock('../../album/AlbumArt', () => ({
+  default: function MockAlbumArt({ albumId, size }: any) {
     return (
       <div data-testid={`album-artwork-${albumId}`}>
         <img src={`/artwork/${albumId}`} alt={`Album ${albumId}`} style={{ width: size, height: size }} />
       </div>
     );
-  };
-});
+  },
+}));
 
 // Mock fetch for API calls
 global.fetch = vi.fn();
