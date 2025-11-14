@@ -67,9 +67,17 @@ const mockAlbumData = {
   total: 2,
 };
 
+// Create mock fetch before test
+const mockFetch = vi.fn();
+
+// Setup fetch mock
+beforeAll(() => {
+  global.fetch = mockFetch as any;
+});
+
 describe('CozyAlbumGrid', () => {
   beforeEach(() => {
-    global.fetch = vi.fn();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -78,7 +86,7 @@ describe('CozyAlbumGrid', () => {
 
   describe('Initial Loading', () => {
     it('should render loading skeletons on initial mount', () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
       });
@@ -93,7 +101,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should fetch albums on mount', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
       });
@@ -110,7 +118,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should render albums after loading', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
       });
@@ -128,7 +136,7 @@ describe('CozyAlbumGrid', () => {
 
   describe('Album Rendering', () => {
     it('should display all albums from response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
       });
@@ -144,7 +152,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should display album artist and metadata', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
       });
@@ -161,7 +169,7 @@ describe('CozyAlbumGrid', () => {
 
     it('should call onAlbumClick when album is clicked', async () => {
       const mockClick = vi.fn();
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
       });
@@ -183,7 +191,7 @@ describe('CozyAlbumGrid', () => {
 
   describe('Empty States', () => {
     it('should show empty state when no albums', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           albums: [],
@@ -202,7 +210,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should display helpful empty state message', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           albums: [],
@@ -225,7 +233,7 @@ describe('CozyAlbumGrid', () => {
 
   describe('Error Handling', () => {
     it('should handle fetch error gracefully', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -239,7 +247,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should display error message on failure', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -253,7 +261,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should handle network error', async () => {
-      (global.fetch as any).mockRejectedValueOnce(
+      mockFetch.mockRejectedValueOnce(
         new Error('Network error')
       );
 
@@ -269,7 +277,7 @@ describe('CozyAlbumGrid', () => {
 
   describe('Pagination', () => {
     it('should fetch with correct limit and offset', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
       });
@@ -300,7 +308,7 @@ describe('CozyAlbumGrid', () => {
         total: 100,
       };
 
-      (global.fetch as any)
+      mockFetch
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ ...mockAlbumData, has_more: true, total: 100 }),
@@ -327,7 +335,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should show end of list message when has_more is false', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -383,7 +391,7 @@ describe('CozyAlbumGrid', () => {
         total: 2,
       };
 
-      (global.fetch as any)
+      mockFetch
         .mockResolvedValueOnce({
           ok: true,
           json: async () => initialData,
@@ -408,7 +416,7 @@ describe('CozyAlbumGrid', () => {
 
   describe('Infinite Scroll', () => {
     it('should have load more trigger element when has_more is true', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -431,7 +439,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should not render load more trigger when has_more is false', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -471,7 +479,7 @@ describe('CozyAlbumGrid', () => {
         total: 100,
       };
 
-      (global.fetch as any)
+      mockFetch
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ ...mockAlbumData, has_more: true, total: 100 }),
@@ -491,7 +499,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should update album count display on load more', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockAlbumData,
@@ -513,7 +521,7 @@ describe('CozyAlbumGrid', () => {
   describe('Props and Callbacks', () => {
     it('should accept onAlbumClick callback', async () => {
       const mockClick = vi.fn();
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
       });
@@ -533,7 +541,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should handle undefined onAlbumClick gracefully', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockAlbumData,
       });
@@ -568,7 +576,7 @@ describe('CozyAlbumGrid', () => {
         total: 1,
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => albumWith5HourDuration,
       });
@@ -597,7 +605,7 @@ describe('CozyAlbumGrid', () => {
         total: 1,
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => albumWithMinuteDuration,
       });
@@ -614,7 +622,7 @@ describe('CozyAlbumGrid', () => {
 
   describe('Edge Cases', () => {
     it('should handle response with null albums array', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           albums: null,
@@ -633,7 +641,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should handle response with undefined total', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           albums: mockAlbumData.albums,
@@ -651,7 +659,7 @@ describe('CozyAlbumGrid', () => {
     });
 
     it('should handle rapid consecutive mounts', async () => {
-      (global.fetch as any).mockResolvedValue({
+      mockFetch.mockResolvedValue({
         ok: true,
         json: async () => mockAlbumData,
       });

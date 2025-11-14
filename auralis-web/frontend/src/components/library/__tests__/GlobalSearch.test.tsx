@@ -28,8 +28,13 @@ vi.mock('../../album/AlbumArt', () => ({
   },
 }));
 
-// Mock fetch
-global.fetch = vi.fn();
+// Create mock fetch before test
+const mockFetch = vi.fn();
+
+// Setup fetch mock
+beforeAll(() => {
+  global.fetch = mockFetch as any;
+});
 
 const mockTracksResponse = {
   tracks: [
@@ -77,7 +82,7 @@ const mockArtistsResponse = {
 describe('GlobalSearch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global.fetch as any).mockImplementation((url: string) => {
+    mockFetch.mockImplementation((url: string) => {
       if (url.includes('tracks')) {
         return Promise.resolve({
           ok: true,
@@ -156,7 +161,7 @@ describe('GlobalSearch', () => {
       vi.useRealTimers();
 
       // Should not call fetch with single character
-      expect((global.fetch as any).mock.calls.length).toBe(0);
+      expect(mockFetch.mock.calls.length).toBe(0);
     });
 
     it('should debounce search input', async () => {
@@ -171,10 +176,10 @@ describe('GlobalSearch', () => {
       await user.type(input, 'Queen');
 
       vi.advanceTimersByTime(200);
-      expect((global.fetch as any).mock.calls.length).toBe(0);
+      expect(mockFetch.mock.calls.length).toBe(0);
 
       vi.advanceTimersByTime(200);
-      expect((global.fetch as any).mock.calls.length).toBeGreaterThan(0);
+      expect(mockFetch.mock.calls.length).toBeGreaterThan(0);
 
       vi.useRealTimers();
     });
@@ -276,7 +281,7 @@ describe('GlobalSearch', () => {
         album_id: i,
       }));
 
-      (global.fetch as any).mockImplementation((url: string) => {
+      mockFetch.mockImplementation((url: string) => {
         if (url.includes('tracks')) {
           return Promise.resolve({
             ok: true,
@@ -467,7 +472,7 @@ describe('GlobalSearch', () => {
       const user = userEvent.setup();
       vi.useFakeTimers();
 
-      (global.fetch as any).mockImplementation((url: string) => {
+      mockFetch.mockImplementation((url: string) => {
         if (url.includes('tracks')) {
           return Promise.resolve({
             ok: true,
@@ -513,7 +518,7 @@ describe('GlobalSearch', () => {
       const user = userEvent.setup();
       vi.useFakeTimers();
 
-      (global.fetch as any).mockImplementation(() =>
+      mockFetch.mockImplementation(() =>
         Promise.resolve({
           ok: true,
           json: async () => ({ tracks: [], albums: [], artists: [] }),
@@ -539,7 +544,7 @@ describe('GlobalSearch', () => {
       const user = userEvent.setup();
       vi.useFakeTimers();
 
-      (global.fetch as any).mockImplementation(() =>
+      mockFetch.mockImplementation(() =>
         Promise.resolve({
           ok: true,
           json: async () => ({ tracks: [], albums: [], artists: [] }),
@@ -567,7 +572,7 @@ describe('GlobalSearch', () => {
       const user = userEvent.setup();
       vi.useFakeTimers();
 
-      (global.fetch as any).mockImplementation(
+      mockFetch.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -771,7 +776,7 @@ describe('GlobalSearch', () => {
       const user = userEvent.setup();
       vi.useFakeTimers();
 
-      (global.fetch as any).mockRejectedValue(new Error('Network error'));
+      mockFetch.mockRejectedValue(new Error('Network error'));
 
       render(
         <GlobalSearch />
