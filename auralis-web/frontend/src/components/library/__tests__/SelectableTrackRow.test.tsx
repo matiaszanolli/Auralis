@@ -361,7 +361,8 @@ describe('SelectableTrackRow', () => {
       const track2 = { ...mockTrack, id: 2, title: 'Track 2' };
 
       render(
-        <SelectableTrackRow
+        <>
+          <SelectableTrackRow
             track={track1}
             index={0}
             isSelected={true}
@@ -373,6 +374,7 @@ describe('SelectableTrackRow', () => {
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
+        </>
       );
 
       expect(screen.getByText('Track 1')).toBeInTheDocument();
