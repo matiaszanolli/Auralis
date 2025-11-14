@@ -10,8 +10,13 @@ import { render, screen, waitFor, act } from '@/test/test-utils'
 import '@testing-library/jest-dom'
 import LyricsPanel from '../LyricsPanel'
 
-// Mock fetch
-global.fetch = vi.fn()
+// Create mock fetch before test
+const mockFetch = vi.fn()
+
+// Setup fetch mock
+beforeAll(() => {
+  global.fetch = mockFetch as any
+})
 
 describe('LyricsPanel', () => {
   const mockOnClose = vi.fn()
@@ -22,7 +27,7 @@ describe('LyricsPanel', () => {
 
   describe('Rendering', () => {
     it('renders the panel with header', async () => {
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ track_id: 1, lyrics: null, format: null })
       })
@@ -37,7 +42,7 @@ describe('LyricsPanel', () => {
     })
 
     it('renders close button', async () => {
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ track_id: 1, lyrics: null, format: null })
       })
@@ -52,7 +57,7 @@ describe('LyricsPanel', () => {
     })
 
     it('shows empty state when no lyrics available', async () => {
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ track_id: 1, lyrics: null, format: null })
       })
@@ -70,7 +75,7 @@ describe('LyricsPanel', () => {
   describe('Lyrics Fetching', () => {
     it('fetches lyrics on mount', async () => {
       const mockLyrics = 'Line 1\nLine 2\nLine 3'
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 1,
@@ -91,7 +96,7 @@ describe('LyricsPanel', () => {
     })
 
     it('displays loading state while fetching', async () => {
-      ;(global.fetch as any).mockImplementation(() => new Promise(() => {}))
+      ;mockFetch.mockImplementation(() => new Promise(() => {}))
 
       await act(async () => {
         render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
@@ -104,7 +109,7 @@ describe('LyricsPanel', () => {
 
     it('displays plain text lyrics', async () => {
       const mockLyrics = 'Line 1\nLine 2\nLine 3'
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 1,
@@ -125,7 +130,7 @@ describe('LyricsPanel', () => {
     })
 
     it('handles fetch errors gracefully', async () => {
-      ;(global.fetch as any).mockRejectedValueOnce(new Error('Network error'))
+      ;mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
       await act(async () => {
         render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
@@ -141,7 +146,7 @@ describe('LyricsPanel', () => {
   describe('LRC Format Parsing', () => {
     it('parses LRC format correctly', async () => {
       const lrcLyrics = '[00:00.00]First line\n[00:05.00]Second line\n[00:10.00]Third line'
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 1,
@@ -163,7 +168,7 @@ describe('LyricsPanel', () => {
 
     it('parses timestamps with milliseconds', async () => {
       const lrcLyrics = '[00:12.45]Line with milliseconds'
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 1,
@@ -183,7 +188,7 @@ describe('LyricsPanel', () => {
 
     it('parses timestamps without milliseconds', async () => {
       const lrcLyrics = '[00:30]Line without milliseconds'
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 1,
@@ -203,7 +208,7 @@ describe('LyricsPanel', () => {
 
     it('ignores metadata tags in LRC', async () => {
       const lrcLyrics = '[ar:Artist Name]\n[ti:Title]\n[00:00.00]Actual lyric'
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 1,
@@ -226,7 +231,7 @@ describe('LyricsPanel', () => {
   describe('Active Line Highlighting', () => {
     it('highlights current line based on playback time', async () => {
       const lrcLyrics = '[00:00.00]First line\n[00:05.00]Second line\n[00:10.00]Third line'
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 1,
@@ -256,7 +261,7 @@ describe('LyricsPanel', () => {
 
     it('handles time before first line', async () => {
       const lrcLyrics = '[00:05.00]First line\n[00:10.00]Second line'
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 1,
@@ -277,7 +282,7 @@ describe('LyricsPanel', () => {
 
   describe('Track Changes', () => {
     it('fetches new lyrics when track changes', async () => {
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 1,
@@ -295,7 +300,7 @@ describe('LyricsPanel', () => {
       })
 
       // Change track
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           track_id: 2,
@@ -316,7 +321,7 @@ describe('LyricsPanel', () => {
 
   describe('Error Handling', () => {
     it('handles 404 errors', async () => {
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404
       })
@@ -331,7 +336,7 @@ describe('LyricsPanel', () => {
     })
 
     it('handles network errors', async () => {
-      ;(global.fetch as any).mockRejectedValueOnce(new Error('Network error'))
+      ;mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
       await act(async () => {
         render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
@@ -345,7 +350,7 @@ describe('LyricsPanel', () => {
 
   describe('User Interactions', () => {
     it('calls onClose when close button clicked', async () => {
-      ;(global.fetch as any).mockResolvedValueOnce({
+      ;mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ track_id: 1, lyrics: null, format: null })
       })

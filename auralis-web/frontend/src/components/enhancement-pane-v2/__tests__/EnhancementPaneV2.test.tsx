@@ -22,11 +22,32 @@ vi.mock('../../../contexts/EnhancementContext', () => {
   };
 }, { virtual: true });
 
+// Create mock fetch before test
+const mockFetch = vi.fn().mockResolvedValue({
+  ok: true,
+  json: async () => ({
+    spectral_balance: 0.5,
+    dynamic_range: 0.6,
+    energy_level: 0.4,
+    target_lufs: -14,
+    peak_target_db: -3,
+    bass_boost: 0,
+    air_boost: 0,
+    compression_amount: 0,
+    expansion_amount: 0,
+    stereo_width: 100,
+  }),
+});
+
+// Setup fetch mock
+beforeAll(() => {
+  global.fetch = mockFetch as any;
+});
 
 describe('EnhancementPaneV2', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn().mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         spectral_balance: 0.5,

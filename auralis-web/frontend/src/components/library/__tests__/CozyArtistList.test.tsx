@@ -47,9 +47,17 @@ const mockArtistData = {
   total: 3,
 };
 
+// Create mock fetch before test
+const mockFetch = vi.fn();
+
+// Setup fetch mock
+beforeAll(() => {
+  global.fetch = mockFetch as any;
+});
+
 describe('CozyArtistList', () => {
   beforeEach(() => {
-    global.fetch = vi.fn();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -58,7 +66,7 @@ describe('CozyArtistList', () => {
 
   describe('Initial Loading', () => {
     it('should render loading skeletons on initial mount', () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -73,7 +81,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should fetch artists on mount', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -90,7 +98,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should render artists after loading', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -109,7 +117,7 @@ describe('CozyArtistList', () => {
 
   describe('Artist Display', () => {
     it('should display all artists from response', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -126,7 +134,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should display album count for each artist', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -142,7 +150,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should display track count for each artist', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -158,7 +166,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should handle singular album/track display', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           artists: [
@@ -181,7 +189,7 @@ describe('CozyArtistList', () => {
 
   describe('Alphabetical Grouping', () => {
     it('should group artists by first letter', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -199,7 +207,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should display alphabetical dividers', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -225,7 +233,7 @@ describe('CozyArtistList', () => {
         total: 3,
       };
 
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => unorderedArtists,
       });
@@ -247,7 +255,7 @@ describe('CozyArtistList', () => {
   describe('Artist Click Handler', () => {
     it('should call onArtistClick when artist is clicked', async () => {
       const mockClick = vi.fn();
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -269,7 +277,7 @@ describe('CozyArtistList', () => {
 
     it('should pass artist ID and name to callback', async () => {
       const mockClick = vi.fn();
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -290,7 +298,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should handle undefined onArtistClick gracefully', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -314,7 +322,7 @@ describe('CozyArtistList', () => {
 
   describe('Pagination', () => {
     it('should fetch with correct limit and offset', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -331,7 +339,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should show end of list message when has_more is false', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockArtistData,
@@ -350,7 +358,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should display artist count in header', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -367,7 +375,7 @@ describe('CozyArtistList', () => {
 
   describe('Empty States', () => {
     it('should show empty state when no artists', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           artists: [],
@@ -386,7 +394,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should display helpful empty state message', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           artists: [],
@@ -407,7 +415,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should display person icon in empty state', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           artists: [],
@@ -429,7 +437,7 @@ describe('CozyArtistList', () => {
 
   describe('Error Handling', () => {
     it('should handle fetch error gracefully', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -443,7 +451,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should display error message on failure', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -457,7 +465,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should handle network error', async () => {
-      (global.fetch as any).mockRejectedValueOnce(
+      mockFetch.mockRejectedValueOnce(
         new Error('Network error')
       );
 
@@ -473,7 +481,7 @@ describe('CozyArtistList', () => {
 
   describe('Context Menu', () => {
     it('should render context menu component', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -488,7 +496,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should handle right-click on artist', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -515,7 +523,7 @@ describe('CozyArtistList', () => {
 
   describe('Artist Avatar Display', () => {
     it('should display artist initial in avatar', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -533,7 +541,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should display gradient background for avatar', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -569,7 +577,7 @@ describe('CozyArtistList', () => {
         total: 2,
       };
 
-      (global.fetch as any)
+      mockFetch
         .mockResolvedValueOnce({
           ok: true,
           json: async () => initialData,
@@ -594,7 +602,7 @@ describe('CozyArtistList', () => {
 
   describe('Infinite Scroll', () => {
     it('should have load more trigger element when has_more is true', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockArtistData,
@@ -617,7 +625,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should not render load more trigger when has_more is false', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ...mockArtistData,
@@ -643,7 +651,7 @@ describe('CozyArtistList', () => {
 
   describe('Edge Cases', () => {
     it('should handle response with null artists array', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           artists: null,
@@ -662,7 +670,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should handle artists with missing album_count', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           artists: [
@@ -683,7 +691,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should handle artists with special characters in name', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           artists: [
@@ -705,7 +713,7 @@ describe('CozyArtistList', () => {
 
     it('should handle very long artist names', async () => {
       const longName = 'A' + 'B'.repeat(100);
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           artists: [
@@ -728,7 +736,7 @@ describe('CozyArtistList', () => {
 
   describe('Accessibility', () => {
     it('should have proper list structure', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
@@ -746,7 +754,7 @@ describe('CozyArtistList', () => {
     });
 
     it('should have clickable artist items', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockArtistData,
       });
