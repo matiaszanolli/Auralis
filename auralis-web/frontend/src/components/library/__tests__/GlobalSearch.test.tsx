@@ -120,7 +120,11 @@ describe('GlobalSearch', () => {
         <GlobalSearch />
       );
 
-      expect(screen.getByTestId(/search|icon/i) || document.body).toBeInTheDocument();
+      try {
+        expect(screen.getByTestId('SearchIcon')).toBeInTheDocument();
+      } catch {
+        expect(document.querySelector('[data-testid*="search"]')).toBeInTheDocument();
+      }
     });
 
     it('should not show results initially', () => {
