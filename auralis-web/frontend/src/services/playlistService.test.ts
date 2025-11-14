@@ -45,7 +45,7 @@ describe('PlaylistService', () => {
 
       const result = await playlistService.getPlaylists()
 
-      expect(apiRequest.get).toHaveBeenCalledWith('/playlists')
+      expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists')
       // The implementation wraps the response and calculates total as array length
       expect(result).toEqual({
         playlists: [mockPlaylist],
@@ -72,7 +72,7 @@ describe('PlaylistService', () => {
 
       const result = await playlistService.getPlaylist(1)
 
-      expect(apiRequest.get).toHaveBeenCalledWith('/playlists/1')
+      expect(apiRequest.get).toHaveBeenCalledWith('/api/playlists/1')
       expect(result).toEqual(mockPlaylist)
     })
 
@@ -99,7 +99,7 @@ describe('PlaylistService', () => {
 
       const result = await playlistService.createPlaylist(request)
 
-      expect(apiRequest.post).toHaveBeenCalledWith('/playlists', request)
+      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists', request)
       expect(result).toEqual(mockPlaylist)
     })
 
@@ -114,7 +114,7 @@ describe('PlaylistService', () => {
 
       await playlistService.createPlaylist(request)
 
-      expect(apiRequest.post).toHaveBeenCalledWith('/playlists', request)
+      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists', request)
     })
 
     it('throws error on creation failure', async () => {
@@ -137,7 +137,7 @@ describe('PlaylistService', () => {
 
       await playlistService.updatePlaylist(1, updates)
 
-      expect(apiRequest.put).toHaveBeenCalledWith('/playlists/1', updates)
+      expect(apiRequest.put).toHaveBeenCalledWith('/api/playlists/1', updates)
     })
 
     it('throws error when playlist not found', async () => {
@@ -155,7 +155,7 @@ describe('PlaylistService', () => {
 
       await playlistService.deletePlaylist(1)
 
-      expect(apiRequest.del).toHaveBeenCalledWith('/playlists/1')
+      expect(apiRequest.del).toHaveBeenCalledWith('/api/playlists/1')
     })
 
     it('throws error when playlist not found', async () => {
@@ -171,7 +171,7 @@ describe('PlaylistService', () => {
 
       await playlistService.addTrackToPlaylist(1, 5)
 
-      expect(apiRequest.post).toHaveBeenCalledWith('/playlists/1/tracks', { track_id: 5 })
+      expect(apiRequest.post).toHaveBeenCalledWith('/api/playlists/1/tracks', { track_id: 5 })
     })
 
     it('throws error when track already in playlist', async () => {
@@ -189,7 +189,7 @@ describe('PlaylistService', () => {
 
       await playlistService.removeTrackFromPlaylist(1, 5)
 
-      expect(apiRequest.del).toHaveBeenCalledWith('/playlists/1/tracks/5')
+      expect(apiRequest.del).toHaveBeenCalledWith('/api/playlists/1/tracks/5')
     })
 
     it('throws error when track not in playlist', async () => {
@@ -207,7 +207,7 @@ describe('PlaylistService', () => {
 
       await playlistService.clearPlaylist(1)
 
-      expect(apiRequest.del).toHaveBeenCalledWith('/playlists/1/tracks')
+      expect(apiRequest.del).toHaveBeenCalledWith('/api/playlists/1/tracks')
     })
 
     it('throws error when playlist not found', async () => {
