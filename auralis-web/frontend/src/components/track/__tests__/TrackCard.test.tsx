@@ -11,13 +11,10 @@
 
 import { vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
-import TrackCard from '../TrackCard';
+import { TrackCard } from '../TrackCard';
 import { useTrackSelection } from '../../../hooks/useTrackSelection';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock hooks and components
 vi.mock('../../../hooks/useTrackSelection');
@@ -30,7 +27,7 @@ vi.mock('../../album/AlbumArt', () => {
     );
   };
 });
-vi.mock('../../track/TrackContextMenu', () => {
+vi.mock('../../shared/TrackContextMenu', () => {
   return function MockContextMenu({ track, onPlay }: any) {
     return (
       <div data-testid="track-card-context-menu">
@@ -55,13 +52,6 @@ const mockSelectionContext = {
   toggleSelection: vi.fn(),
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('TrackCard', () => {
   beforeEach(() => {
@@ -72,9 +62,7 @@ describe('TrackCard', () => {
   describe('Rendering', () => {
     it('should render track card container', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
@@ -83,9 +71,7 @@ describe('TrackCard', () => {
 
     it('should display album artwork', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const artwork = screen.getByTestId('track-card-artwork');
@@ -95,9 +81,7 @@ describe('TrackCard', () => {
 
     it('should display track title', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       expect(screen.getByText('Beautiful Song')).toBeInTheDocument();
@@ -105,9 +89,7 @@ describe('TrackCard', () => {
 
     it('should display artist name', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       expect(screen.getByText('Amazing Artist')).toBeInTheDocument();
@@ -115,9 +97,7 @@ describe('TrackCard', () => {
 
     it('should display album name', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       expect(screen.getByText('Great Album')).toBeInTheDocument();
@@ -125,9 +105,7 @@ describe('TrackCard', () => {
 
     it('should display duration', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       expect(screen.getByText(/4:00|04:00/)).toBeInTheDocument();
@@ -135,9 +113,7 @@ describe('TrackCard', () => {
 
     it('should render selection checkbox', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -150,9 +126,7 @@ describe('TrackCard', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
@@ -167,9 +141,7 @@ describe('TrackCard', () => {
       const user = userEvent.setup();
 
       const { container } = render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const card = container.querySelector('[data-testid*="card"]') || container.firstChild;
@@ -190,9 +162,7 @@ describe('TrackCard', () => {
       const onPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} onPlay={onPlay} />
-        </Wrapper>
+        <TrackCard track={mockTrack} onPlay={onPlay} />
       );
 
       const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
@@ -213,9 +183,7 @@ describe('TrackCard', () => {
       });
 
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
@@ -230,9 +198,7 @@ describe('TrackCard', () => {
       });
 
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
@@ -249,9 +215,7 @@ describe('TrackCard', () => {
       });
 
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -268,9 +232,7 @@ describe('TrackCard', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const card = container.querySelector('[data-testid*="card"]');
@@ -284,9 +246,7 @@ describe('TrackCard', () => {
   describe('Context Menu', () => {
     it('should render context menu', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       expect(screen.getByTestId('track-card-context-menu')).toBeInTheDocument();
@@ -296,9 +256,7 @@ describe('TrackCard', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
@@ -312,9 +270,7 @@ describe('TrackCard', () => {
       const onPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} onPlay={onPlay} />
-        </Wrapper>
+        <TrackCard track={mockTrack} onPlay={onPlay} />
       );
 
       const playButton = screen.getByText('Play from Menu');
@@ -327,9 +283,7 @@ describe('TrackCard', () => {
   describe('Styling & Layout', () => {
     it('should apply card styling', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const card = container.querySelector('[data-testid*="card"]') || container.firstChild;
@@ -338,9 +292,7 @@ describe('TrackCard', () => {
 
     it('should stack metadata below artwork', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const artwork = screen.getByTestId('track-card-artwork');
@@ -355,9 +307,7 @@ describe('TrackCard', () => {
 
     it('should have proper aspect ratio for artwork', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const artwork = screen.getByTestId('track-card-artwork');
@@ -375,9 +325,7 @@ describe('TrackCard', () => {
       const onPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} onPlay={onPlay} />
-        </Wrapper>
+        <TrackCard track={mockTrack} onPlay={onPlay} />
       );
 
       const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
@@ -390,9 +338,7 @@ describe('TrackCard', () => {
       const user = userEvent.setup();
 
       const { container } = render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const card = container.querySelector('[data-testid*="card"]') || container.firstChild;
@@ -414,9 +360,7 @@ describe('TrackCard', () => {
       const noArtworkTrack = { ...mockTrack, artwork: null };
 
       render(
-        <Wrapper>
-          <TrackCard track={noArtworkTrack} />
-        </Wrapper>
+        <TrackCard track={noArtworkTrack} />
       );
 
       // Should still render without crashing
@@ -430,9 +374,7 @@ describe('TrackCard', () => {
       };
 
       render(
-        <Wrapper>
-          <TrackCard track={longTitleTrack} />
-        </Wrapper>
+        <TrackCard track={longTitleTrack} />
       );
 
       // Should truncate or wrap appropriately
@@ -446,9 +388,7 @@ describe('TrackCard', () => {
       };
 
       render(
-        <Wrapper>
-          <TrackCard track={longArtistTrack} />
-        </Wrapper>
+        <TrackCard track={longArtistTrack} />
       );
 
       expect(screen.getByText(/B+/)).toBeInTheDocument();
@@ -458,9 +398,7 @@ describe('TrackCard', () => {
       const noDurationTrack = { ...mockTrack, duration: 0 };
 
       render(
-        <Wrapper>
-          <TrackCard track={noDurationTrack} />
-        </Wrapper>
+        <TrackCard track={noDurationTrack} />
       );
 
       expect(screen.getByText('Beautiful Song')).toBeInTheDocument();
@@ -470,9 +408,7 @@ describe('TrackCard', () => {
   describe('Accessibility', () => {
     it('should have proper ARIA roles', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const card = screen.getByRole('article');
@@ -481,9 +417,7 @@ describe('TrackCard', () => {
 
     it('should have accessible checkbox', () => {
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -494,9 +428,7 @@ describe('TrackCard', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -510,17 +442,13 @@ describe('TrackCard', () => {
   describe('Performance', () => {
     it('should render efficiently', () => {
       const { rerender } = render(
-        <Wrapper>
-          <TrackCard track={mockTrack} />
-        </Wrapper>
+        <TrackCard track={mockTrack} />
       );
 
       const otherTrack = { ...mockTrack, id: 2, title: 'Different Track' };
 
       rerender(
-        <Wrapper>
-          <TrackCard track={otherTrack} />
-        </Wrapper>
+        <TrackCard track={otherTrack} />
       );
 
       expect(screen.getByText('Different Track')).toBeInTheDocument();

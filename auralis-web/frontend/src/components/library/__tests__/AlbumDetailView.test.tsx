@@ -13,12 +13,9 @@
 
 import { vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import AlbumDetailView from '../AlbumDetailView';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock the AlbumArt component
 vi.mock('../../album/AlbumArt', () => ({
@@ -48,13 +45,6 @@ const mockAlbumData = {
   ],
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('AlbumDetailView', () => {
   beforeEach(() => {
@@ -72,9 +62,7 @@ describe('AlbumDetailView', () => {
       );
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       expect(screen.getAllByTestId(/skeleton|loading/i).length).toBeGreaterThan(0) ||
@@ -83,9 +71,7 @@ describe('AlbumDetailView', () => {
 
     it('should render album details after loading', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -95,9 +81,7 @@ describe('AlbumDetailView', () => {
 
     it('should display album artwork', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -107,9 +91,7 @@ describe('AlbumDetailView', () => {
 
     it('should display album title', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -119,9 +101,7 @@ describe('AlbumDetailView', () => {
 
     it('should display album artist', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -131,9 +111,7 @@ describe('AlbumDetailView', () => {
 
     it('should display album year', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -143,9 +121,7 @@ describe('AlbumDetailView', () => {
 
     it('should display genre', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -155,9 +131,7 @@ describe('AlbumDetailView', () => {
 
     it('should display track count', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -169,9 +143,7 @@ describe('AlbumDetailView', () => {
   describe('Album Metadata', () => {
     it('should display total duration in hours and minutes', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -191,9 +163,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -203,9 +173,7 @@ describe('AlbumDetailView', () => {
 
     it('should format album metadata correctly', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -218,9 +186,7 @@ describe('AlbumDetailView', () => {
   describe('Track List', () => {
     it('should render all tracks in album', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -232,9 +198,7 @@ describe('AlbumDetailView', () => {
 
     it('should display track artist', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -245,9 +209,7 @@ describe('AlbumDetailView', () => {
 
     it('should format track duration correctly', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -257,9 +219,7 @@ describe('AlbumDetailView', () => {
 
     it('should display track numbers', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -279,9 +239,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -296,9 +254,7 @@ describe('AlbumDetailView', () => {
       const onTrackPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} onTrackPlay={onTrackPlay} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} onTrackPlay={onTrackPlay} />
       );
 
       await waitFor(() => {
@@ -316,9 +272,7 @@ describe('AlbumDetailView', () => {
       const onTrackPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} onTrackPlay={onTrackPlay} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} onTrackPlay={onTrackPlay} />
       );
 
       await waitFor(() => {
@@ -334,9 +288,7 @@ describe('AlbumDetailView', () => {
 
     it('should highlight current track', async () => {
       const { container } = render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} currentTrackId={2} isPlaying={true} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} currentTrackId={2} isPlaying={true} />
       );
 
       await waitFor(() => {
@@ -351,9 +303,7 @@ describe('AlbumDetailView', () => {
 
     it('should show pause icon for current playing track', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={true} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={true} />
       );
 
       await waitFor(() => {
@@ -368,9 +318,7 @@ describe('AlbumDetailView', () => {
       const user = userEvent.setup();
 
       const { container } = render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} currentTrackId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} currentTrackId={1} />
       );
 
       await waitFor(() => {
@@ -388,13 +336,11 @@ describe('AlbumDetailView', () => {
 
     it('should change button text when album is playing', async () => {
       const { rerender } = render(
-        <Wrapper>
-          <AlbumDetailView
+        <AlbumDetailView
             albumId={1}
             currentTrackId={1}
             isPlaying={false}
           />
-        </Wrapper>
       );
 
       await waitFor(() => {
@@ -404,13 +350,11 @@ describe('AlbumDetailView', () => {
       expect(screen.getByRole('button', { name: /play album/i })).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <AlbumDetailView
+        <AlbumDetailView
             albumId={1}
             currentTrackId={1}
             isPlaying={true}
           />
-        </Wrapper>
       );
 
       expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument();
@@ -420,9 +364,7 @@ describe('AlbumDetailView', () => {
   describe('Favorite Toggle', () => {
     it('should show favorite button', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -434,9 +376,7 @@ describe('AlbumDetailView', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -454,9 +394,7 @@ describe('AlbumDetailView', () => {
       const user = userEvent.setup();
 
       const { rerender } = render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -468,9 +406,7 @@ describe('AlbumDetailView', () => {
 
       // Rerender and check state persists
       rerender(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       const updatedButton = screen.getByRole('button', { name: /favorite|add|remove/i });
@@ -483,9 +419,7 @@ describe('AlbumDetailView', () => {
       const onBack = vi.fn();
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} onBack={onBack} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} onBack={onBack} />
       );
 
       await waitFor(() => {
@@ -501,9 +435,7 @@ describe('AlbumDetailView', () => {
       const onBack = vi.fn();
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} onBack={onBack} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} onBack={onBack} />
       );
 
       await waitFor(() => {
@@ -518,9 +450,7 @@ describe('AlbumDetailView', () => {
 
     it('should not show back button when onBack not provided', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -539,9 +469,7 @@ describe('AlbumDetailView', () => {
       );
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       // Should show loading UI (skeletons or progress)
@@ -553,9 +481,7 @@ describe('AlbumDetailView', () => {
 
     it('should hide loading state when data loaded', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -568,9 +494,7 @@ describe('AlbumDetailView', () => {
 
     it('should refetch when albumId changes', async () => {
       const { rerender } = render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -591,9 +515,7 @@ describe('AlbumDetailView', () => {
       });
 
       rerender(
-        <Wrapper>
-          <AlbumDetailView albumId={2} />
-        </Wrapper>
+        <AlbumDetailView albumId={2} />
       );
 
       await waitFor(() => {
@@ -610,9 +532,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={999} />
-        </Wrapper>
+        <AlbumDetailView albumId={999} />
       );
 
       await waitFor(() => {
@@ -627,9 +547,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={999} onBack={onBack} />
-        </Wrapper>
+        <AlbumDetailView albumId={999} onBack={onBack} />
       );
 
       await waitFor(() => {
@@ -644,9 +562,7 @@ describe('AlbumDetailView', () => {
       (global.fetch as any).mockRejectedValue(new Error('Network error'));
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -661,9 +577,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -676,9 +590,7 @@ describe('AlbumDetailView', () => {
   describe('Duration Formatting', () => {
     it('should format track duration as MM:SS', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -688,9 +600,7 @@ describe('AlbumDetailView', () => {
 
     it('should format album duration in minutes', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -712,9 +622,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -726,9 +634,7 @@ describe('AlbumDetailView', () => {
   describe('Accessibility', () => {
     it('should have proper table semantics', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -738,9 +644,7 @@ describe('AlbumDetailView', () => {
 
     it('should have table headers', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -752,9 +656,7 @@ describe('AlbumDetailView', () => {
 
     it('should have accessible buttons with tooltips', async () => {
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -771,9 +673,7 @@ describe('AlbumDetailView', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -793,9 +693,7 @@ describe('AlbumDetailView', () => {
   describe('Styling & Layout', () => {
     it('should apply header styling', async () => {
       const { container } = render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -808,9 +706,7 @@ describe('AlbumDetailView', () => {
 
     it('should display album art and info side by side', async () => {
       const { container } = render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -835,15 +731,13 @@ describe('AlbumDetailView', () => {
       const onBack = vi.fn();
 
       render(
-        <Wrapper>
-          <AlbumDetailView
+        <AlbumDetailView
             albumId={1}
             onTrackPlay={onTrackPlay}
             onBack={onBack}
             currentTrackId={1}
             isPlaying={false}
           />
-        </Wrapper>
       );
 
       // 1. Album loads
@@ -873,9 +767,7 @@ describe('AlbumDetailView', () => {
       const user = userEvent.setup();
 
       const { rerender } = render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={false} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={false} />
       );
 
       await waitFor(() => {
@@ -884,9 +776,7 @@ describe('AlbumDetailView', () => {
 
       // Update playing state
       rerender(
-        <Wrapper>
-          <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={true} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} currentTrackId={1} isPlaying={true} />
       );
 
       // Current track should be highlighted
@@ -905,9 +795,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -928,9 +816,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -953,9 +839,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -984,9 +868,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -1004,9 +886,7 @@ describe('AlbumDetailView', () => {
       });
 
       render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {
@@ -1035,9 +915,7 @@ describe('AlbumDetailView', () => {
       });
 
       const { container } = render(
-        <Wrapper>
-          <AlbumDetailView albumId={1} />
-        </Wrapper>
+        <AlbumDetailView albumId={1} />
       );
 
       await waitFor(() => {

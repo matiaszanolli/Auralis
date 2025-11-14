@@ -10,20 +10,10 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
+import { render, screen } from '@/test/test-utils';
 import { describe, it, expect } from 'vitest';
 import AudioCharacteristics from '../AudioCharacteristics';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('AudioCharacteristics', () => {
   describe('Rendering', () => {
@@ -35,9 +25,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Audio Characteristics/i)).toBeInTheDocument();
@@ -51,9 +39,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Spectral Balance/)).toBeInTheDocument();
@@ -71,9 +57,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Dark/)).toBeInTheDocument();
@@ -87,9 +71,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Balanced/)).toBeInTheDocument();
@@ -103,9 +85,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Bright/)).toBeInTheDocument();
@@ -121,9 +101,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Compressed/)).toBeInTheDocument();
@@ -137,9 +115,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       // Balanced might be in spectral, need specific search
@@ -155,9 +131,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       const allText = screen.getByText(/Dynamic Range/).textContent;
@@ -174,9 +148,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Quiet/)).toBeInTheDocument();
@@ -190,9 +162,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Energy Level/)).toBeInTheDocument();
@@ -206,9 +176,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       const loudText = screen.getAllByText(/Loud/);
@@ -225,9 +193,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Dark|Compressed|Quiet/)).toBeInTheDocument();
@@ -241,9 +207,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Bright|Dynamic|Loud/)).toBeInTheDocument();
@@ -257,9 +221,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       // At boundary, should show balanced/moderate/moderate
@@ -276,18 +238,14 @@ describe('AudioCharacteristics', () => {
       };
 
       const { rerender } = render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Audio Characteristics/)).toBeInTheDocument();
 
       // Rerender with same props
       rerender(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       // Should still render correctly
@@ -304,9 +262,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Audio Characteristics/)).toBeInTheDocument();
@@ -320,9 +276,7 @@ describe('AudioCharacteristics', () => {
       };
 
       render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       expect(screen.getByText(/Spectral Balance/)).toBeInTheDocument();
@@ -340,9 +294,7 @@ describe('AudioCharacteristics', () => {
       };
 
       const { container } = render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       // Should render without errors
@@ -357,9 +309,7 @@ describe('AudioCharacteristics', () => {
       };
 
       const { container } = render(
-        <Wrapper>
-          <AudioCharacteristics params={params} />
-        </Wrapper>
+        <AudioCharacteristics params={params} />
       );
 
       // Should have proper structure for gradient visualization

@@ -12,12 +12,9 @@
 
 import { vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import TrackListView from '../TrackListView';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock components
 vi.mock('../track/TrackCard', () => {
@@ -64,14 +61,6 @@ vi.mock('../../services/queueService', () => ({
   reorderQueue: vi.fn(async () => undefined),
   shuffleQueue: vi.fn(async () => undefined),
   clearQueue: vi.fn(async () => undefined),
-}));
-
-vi.mock('../shared/Toast', () => ({
-  useToast: () => ({
-    success: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  }),
 }));
 
 const mockTracks = [
@@ -134,13 +123,6 @@ const defaultProps = {
   onLoadMore: vi.fn(),
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('TrackListView', () => {
   beforeEach(() => {
@@ -150,9 +132,7 @@ describe('TrackListView', () => {
   describe('Rendering - Grid Mode', () => {
     it('should render grid view by default', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" />
       );
 
       expect(screen.getByTestId('track-card-Track 1')).toBeInTheDocument();
@@ -162,9 +142,7 @@ describe('TrackListView', () => {
 
     it('should render all tracks in grid', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" />
       );
 
       expect(screen.getByText('Track 1')).toBeInTheDocument();
@@ -174,9 +152,7 @@ describe('TrackListView', () => {
 
     it('should display artist name in grid cards', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" />
       );
 
       expect(screen.getByText('Artist 1')).toBeInTheDocument();
@@ -185,9 +161,7 @@ describe('TrackListView', () => {
 
     it('should render track queue in grid mode', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" tracks={mockTracks} />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" tracks={mockTracks} />
       );
 
       expect(screen.getByTestId('track-queue')).toBeInTheDocument();
@@ -195,9 +169,7 @@ describe('TrackListView', () => {
 
     it('should not render queue when no tracks', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" tracks={[]} />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" tracks={[]} />
       );
 
       expect(screen.queryByTestId('track-queue')).not.toBeInTheDocument();
@@ -207,9 +179,7 @@ describe('TrackListView', () => {
   describe('Rendering - List Mode', () => {
     it('should render list view', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="list" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="list" />
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -219,9 +189,7 @@ describe('TrackListView', () => {
 
     it('should display all tracks in list', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="list" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="list" />
       );
 
       expect(screen.getByText('Track 1')).toBeInTheDocument();
@@ -231,9 +199,7 @@ describe('TrackListView', () => {
 
     it('should show selection checkboxes in list mode', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="list" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="list" />
       );
 
       expect(screen.getByTestId('checkbox-1')).toBeInTheDocument();
@@ -242,9 +208,7 @@ describe('TrackListView', () => {
 
     it('should render in paper container', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="list" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="list" />
       );
 
       const paper = container.querySelector('[class*="Paper"]');
@@ -255,9 +219,7 @@ describe('TrackListView', () => {
   describe('Loading State', () => {
     it('should show grid skeleton in grid mode', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" loading={true} />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" loading={true} />
       );
 
       expect(screen.getByTestId('grid-skeleton')).toBeInTheDocument();
@@ -265,9 +227,7 @@ describe('TrackListView', () => {
 
     it('should show row skeletons in list mode', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="list" loading={true} />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="list" loading={true} />
       );
 
       expect(screen.getAllByTestId('row-skeleton').length).toBeGreaterThan(0);
@@ -275,9 +235,7 @@ describe('TrackListView', () => {
 
     it('should not render tracks while loading', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" loading={true} />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" loading={true} />
       );
 
       expect(screen.queryByText('Track 1')).not.toBeInTheDocument();
@@ -287,9 +245,7 @@ describe('TrackListView', () => {
   describe('Empty State', () => {
     it('should handle empty track list', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} tracks={[]} viewMode="list" />
-        </Wrapper>
+        <TrackListView {...defaultProps} tracks={[]} viewMode="list" />
       );
 
       expect(screen.getByText(/showing all 0 tracks|no tracks/i) || document.body).toBeInTheDocument();
@@ -297,15 +253,13 @@ describe('TrackListView', () => {
 
     it('should show end of list message when no more tracks', () => {
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             tracks={mockTracks}
             hasMore={false}
             totalTracks={3}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText(/showing all 3 tracks/)).toBeInTheDocument();
@@ -315,13 +269,11 @@ describe('TrackListView', () => {
   describe('Infinite Scroll', () => {
     it('should render load more trigger when hasMore is true', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             hasMore={true}
           />
-        </Wrapper>
       );
 
       // Should have a trigger element for infinite scroll
@@ -331,13 +283,11 @@ describe('TrackListView', () => {
 
     it('should not render load more when hasMore is false', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             hasMore={false}
           />
-        </Wrapper>
       );
 
       const emptyBoxes = container.querySelectorAll('div[style*="height: 100px"]');
@@ -346,14 +296,12 @@ describe('TrackListView', () => {
 
     it('should show loading spinner during infinite scroll', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             hasMore={true}
             isLoadingMore={true}
           />
-        </Wrapper>
       );
 
       // Should render spinner animation
@@ -365,14 +313,12 @@ describe('TrackListView', () => {
       const onLoadMore = vi.fn();
 
       const { container } = render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             hasMore={true}
             onLoadMore={onLoadMore}
           />
-        </Wrapper>
       );
 
       // Find the load more ref element
@@ -395,14 +341,12 @@ describe('TrackListView', () => {
       const onLoadMore = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             hasMore={true}
             onLoadMore={onLoadMore}
           />
-        </Wrapper>
       );
 
       // Multiple scroll events should not call onLoadMore multiple times immediately
@@ -413,15 +357,13 @@ describe('TrackListView', () => {
 
     it('should show track count during loading', () => {
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             hasMore={true}
             isLoadingMore={true}
             totalTracks={100}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText(/loading more tracks.*3\/100/)).toBeInTheDocument();
@@ -434,13 +376,11 @@ describe('TrackListView', () => {
       const onToggleSelect = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             onToggleSelect={onToggleSelect}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByTestId('checkbox-1');
@@ -454,14 +394,12 @@ describe('TrackListView', () => {
       const isSelected = (id: number) => selectedTracks.has(id);
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             selectedTracks={selectedTracks}
             isSelected={isSelected}
           />
-        </Wrapper>
       );
 
       // SelectableTrackRow receives selected prop
@@ -473,13 +411,11 @@ describe('TrackListView', () => {
       const onToggleSelect = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             onToggleSelect={onToggleSelect}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByTestId('checkbox-1');
@@ -495,13 +431,11 @@ describe('TrackListView', () => {
       const onTrackPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             onTrackPlay={onTrackPlay}
           />
-        </Wrapper>
       );
 
       const playButtons = screen.getAllByRole('button', { name: /play/i });
@@ -515,13 +449,11 @@ describe('TrackListView', () => {
       const onTrackPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             onTrackPlay={onTrackPlay}
           />
-        </Wrapper>
       );
 
       const playButton = screen.getAllByRole('button', { name: /play/i })[0];
@@ -535,13 +467,11 @@ describe('TrackListView', () => {
       const onTrackPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             onTrackPlay={onTrackPlay}
           />
-        </Wrapper>
       );
 
       const card = screen.getByTestId('track-card-Track 1');
@@ -554,14 +484,12 @@ describe('TrackListView', () => {
 
     it('should highlight current track', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             currentTrackId={2}
             isPlaying={true}
           />
-        </Wrapper>
       );
 
       // Current track should be marked
@@ -570,14 +498,12 @@ describe('TrackListView', () => {
 
     it('should pass isPlaying to track rows', () => {
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             isPlaying={true}
             currentTrackId={1}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -587,17 +513,13 @@ describe('TrackListView', () => {
   describe('View Mode Switching', () => {
     it('should switch between grid and list modes', () => {
       const { rerender } = render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" />
       );
 
       expect(screen.getByTestId('track-card-Track 1')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="list" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="list" />
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -605,15 +527,11 @@ describe('TrackListView', () => {
 
     it('should preserve data when switching views', () => {
       const { rerender } = render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" />
       );
 
       rerender(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="list" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="list" />
       );
 
       expect(screen.getByText('Track 1')).toBeInTheDocument();
@@ -624,9 +542,7 @@ describe('TrackListView', () => {
   describe('Animations', () => {
     it('should apply fade-in animation classes in grid', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" />
       );
 
       const gridItems = container.querySelectorAll('[class*="animate"]');
@@ -635,9 +551,7 @@ describe('TrackListView', () => {
 
     it('should apply fade-in animation in list', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="list" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="list" />
       );
 
       const animated = container.querySelectorAll('[class*="animate"]');
@@ -646,9 +560,7 @@ describe('TrackListView', () => {
 
     it('should stagger animations', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" />
       );
 
       const items = container.querySelectorAll('[style*="animation"]');
@@ -659,9 +571,7 @@ describe('TrackListView', () => {
   describe('Accessibility', () => {
     it('should have proper checkbox semantics', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="list" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="list" />
       );
 
       const checkboxes = screen.getAllByRole('checkbox');
@@ -670,9 +580,7 @@ describe('TrackListView', () => {
 
     it('should have accessible play buttons', () => {
       render(
-        <Wrapper>
-          <TrackListView {...defaultProps} viewMode="grid" />
-        </Wrapper>
+        <TrackListView {...defaultProps} viewMode="grid" />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -689,14 +597,12 @@ describe('TrackListView', () => {
       }));
 
       const { container } = render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             tracks={manyTracks}
             totalTracks={500}
           />
-        </Wrapper>
       );
 
       const rows = container.querySelectorAll('[data-testid^="track-row"]');
@@ -715,13 +621,11 @@ describe('TrackListView', () => {
       ];
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             tracks={tracksWithMissing as any}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Track 1')).toBeInTheDocument();
@@ -737,13 +641,11 @@ describe('TrackListView', () => {
       ];
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             tracks={largeIdTracks as any}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Large ID Track')).toBeInTheDocument();
@@ -756,13 +658,11 @@ describe('TrackListView', () => {
       };
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             tracks={[longTitleTrack] as any}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText(/A+/)).toBeInTheDocument();
@@ -778,14 +678,12 @@ describe('TrackListView', () => {
       }));
 
       const { container } = render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             tracks={largeDataset as any}
             totalTracks={1000}
           />
-        </Wrapper>
       );
 
       expect(container).toBeInTheDocument();
@@ -798,14 +696,12 @@ describe('TrackListView', () => {
       const onTrackPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="grid"
             tracks={mockTracks}
             onTrackPlay={onTrackPlay}
           />
-        </Wrapper>
       );
 
       // Verify grid rendered
@@ -827,15 +723,13 @@ describe('TrackListView', () => {
       const onToggleSelect = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackListView
+        <TrackListView
             {...defaultProps}
             viewMode="list"
             tracks={mockTracks}
             onTrackPlay={onTrackPlay}
             onToggleSelect={onToggleSelect}
           />
-        </Wrapper>
       );
 
       // Verify list rendered

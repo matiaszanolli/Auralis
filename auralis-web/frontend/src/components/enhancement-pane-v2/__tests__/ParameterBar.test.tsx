@@ -11,33 +11,21 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
+import { render, screen } from '@/test/test-utils';
 import { describe, it, expect } from 'vitest';
 import ParameterBar from '../ParameterBar';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('ParameterBar', () => {
   describe('Rendering', () => {
     it('should render label text', () => {
       render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Spectral Balance"
             value={0.5}
             gradient="linear-gradient(90deg, #000, #fff)"
             chipLabel="Balanced"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Spectral Balance')).toBeInTheDocument();
@@ -45,14 +33,12 @@ describe('ParameterBar', () => {
 
     it('should render chip with label', () => {
       render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Dynamic Range"
             value={0.5}
             gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
             chipLabel="Moderate"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Moderate')).toBeInTheDocument();
@@ -60,14 +46,12 @@ describe('ParameterBar', () => {
 
     it('should render progress bar element', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Energy Level"
             value={0.5}
             gradient="linear-gradient(90deg, #ff6b6b, #ffd43b)"
             chipLabel="Medium"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('[role="progressbar"]');
@@ -76,14 +60,12 @@ describe('ParameterBar', () => {
 
     it('should render all components together', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Test Parameter"
             value={0.75}
             gradient="linear-gradient(90deg, blue, green)"
             chipLabel="High"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Test Parameter')).toBeInTheDocument();
@@ -95,14 +77,12 @@ describe('ParameterBar', () => {
   describe('Progress Bar Fill', () => {
     it('should display 0% fill for value 0', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Low"
             value={0}
             gradient="linear-gradient(90deg, #ccc, #333)"
             chipLabel="Min"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('[role="progressbar"]');
@@ -111,14 +91,12 @@ describe('ParameterBar', () => {
 
     it('should display 50% fill for value 0.5', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Mid"
             value={0.5}
             gradient="linear-gradient(90deg, #ddd, #555)"
             chipLabel="Mid"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('[role="progressbar"]');
@@ -127,14 +105,12 @@ describe('ParameterBar', () => {
 
     it('should display 100% fill for value 1', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="High"
             value={1}
             gradient="linear-gradient(90deg, #999, #000)"
             chipLabel="Max"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('[role="progressbar"]');
@@ -143,14 +119,12 @@ describe('ParameterBar', () => {
 
     it('should calculate percentage correctly for 0.25 value', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Quarter"
             value={0.25}
             gradient="linear-gradient(90deg, #e0e0e0, #5c6bc0)"
             chipLabel="Low"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('[role="progressbar"]');
@@ -159,14 +133,12 @@ describe('ParameterBar', () => {
 
     it('should calculate percentage correctly for 0.75 value', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="ThreeQuarters"
             value={0.75}
             gradient="linear-gradient(90deg, #e0e0e0, #f57c00)"
             chipLabel="High"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('[role="progressbar"]');
@@ -177,14 +149,12 @@ describe('ParameterBar', () => {
   describe('Gradient Application', () => {
     it('should apply gradient to progress bar', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Gradient Test"
             value={0.5}
             gradient="linear-gradient(90deg, #000000, #ffffff)"
             chipLabel="Test"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('.MuiLinearProgress-bar');
@@ -200,14 +170,12 @@ describe('ParameterBar', () => {
 
       gradients.forEach((gradient) => {
         const { container } = render(
-          <Wrapper>
-            <ParameterBar
+          <ParameterBar
               label="Gradient Test"
               value={0.5}
               gradient={gradient}
               chipLabel="Test"
             />
-          </Wrapper>
         );
 
         expect(container.querySelector('[role="progressbar"]')).toBeTruthy();
@@ -218,14 +186,12 @@ describe('ParameterBar', () => {
   describe('Boundary Values', () => {
     it('should handle zero value', () => {
       render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Zero"
             value={0}
             gradient="linear-gradient(90deg, #ddd, #999)"
             chipLabel="None"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Zero')).toBeInTheDocument();
@@ -234,14 +200,12 @@ describe('ParameterBar', () => {
 
     it('should handle maximum value (1)', () => {
       render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Maximum"
             value={1}
             gradient="linear-gradient(90deg, #000, #fff)"
             chipLabel="Full"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Maximum')).toBeInTheDocument();
@@ -250,14 +214,12 @@ describe('ParameterBar', () => {
 
     it('should handle very small positive values', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Tiny"
             value={0.01}
             gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
             chipLabel="Minimal"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('[role="progressbar"]');
@@ -266,14 +228,12 @@ describe('ParameterBar', () => {
 
     it('should handle values very close to 1', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Almost Full"
             value={0.99}
             gradient="linear-gradient(90deg, #e0e0e0, #ffd43b)"
             chipLabel="Nearly Max"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('[role="progressbar"]');
@@ -284,14 +244,12 @@ describe('ParameterBar', () => {
   describe('Real Audio Parameters', () => {
     it('should display spectral balance parameter', () => {
       render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Spectral Balance"
             value={0.6}
             gradient="linear-gradient(90deg, #000000, #ffffff)"
             chipLabel="Bright"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Spectral Balance')).toBeInTheDocument();
@@ -300,14 +258,12 @@ describe('ParameterBar', () => {
 
     it('should display dynamic range parameter', () => {
       render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Dynamic Range"
             value={0.3}
             gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
             chipLabel="Compressed"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Dynamic Range')).toBeInTheDocument();
@@ -316,14 +272,12 @@ describe('ParameterBar', () => {
 
     it('should display energy level parameter', () => {
       render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Energy Level"
             value={0.8}
             gradient="linear-gradient(90deg, #ff6b6b, #ffd43b)"
             chipLabel="Loud"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Energy Level')).toBeInTheDocument();
@@ -334,27 +288,23 @@ describe('ParameterBar', () => {
   describe('Memoization', () => {
     it('should be memoized component', () => {
       const { rerender } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Test"
             value={0.5}
             gradient="linear-gradient(90deg, #ddd, #999)"
             chipLabel="Mid"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Test')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Test"
             value={0.5}
             gradient="linear-gradient(90deg, #ddd, #999)"
             chipLabel="Mid"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Test')).toBeInTheDocument();
@@ -362,28 +312,24 @@ describe('ParameterBar', () => {
 
     it('should update when props change', () => {
       const { rerender } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Original"
             value={0.3}
             gradient="linear-gradient(90deg, #ccc, #333)"
             chipLabel="Low"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Original')).toBeInTheDocument();
       expect(screen.getByText('Low')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Updated"
             value={0.7}
             gradient="linear-gradient(90deg, #ddd, #999)"
             chipLabel="High"
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Updated')).toBeInTheDocument();
@@ -394,14 +340,12 @@ describe('ParameterBar', () => {
   describe('Accessibility', () => {
     it('should have accessible label text', () => {
       render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Accessible Parameter"
             value={0.5}
             gradient="linear-gradient(90deg, #e0e0e0, #1976d2)"
             chipLabel="Value"
           />
-        </Wrapper>
       );
 
       const label = screen.getByText('Accessible Parameter');
@@ -410,14 +354,12 @@ describe('ParameterBar', () => {
 
     it('should have progress bar with aria attributes', () => {
       const { container } = render(
-        <Wrapper>
-          <ParameterBar
+        <ParameterBar
             label="Test"
             value={0.6}
             gradient="linear-gradient(90deg, #ddd, #999)"
             chipLabel="Test"
           />
-        </Wrapper>
       );
 
       const progressBar = container.querySelector('[role="progressbar"]');

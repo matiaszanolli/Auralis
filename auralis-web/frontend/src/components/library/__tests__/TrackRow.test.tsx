@@ -12,13 +12,10 @@
 
 import { vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import TrackRow from '../TrackRow';
 import { useTrackSelection } from '../../../hooks/useTrackSelection';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock hooks and components
 vi.mock('../../../hooks/useTrackSelection');
@@ -67,13 +64,6 @@ const mockSelectionContext = {
   selectRange: vi.fn(),
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('TrackRow', () => {
   beforeEach(() => {
@@ -84,9 +74,7 @@ describe('TrackRow', () => {
   describe('Rendering', () => {
     it('should render track title', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       expect(screen.getByText('Test Track')).toBeInTheDocument();
@@ -94,9 +82,7 @@ describe('TrackRow', () => {
 
     it('should render artist name', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       expect(screen.getByText('Test Artist')).toBeInTheDocument();
@@ -104,9 +90,7 @@ describe('TrackRow', () => {
 
     it('should render album name', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       expect(screen.getByText('Test Album')).toBeInTheDocument();
@@ -114,9 +98,7 @@ describe('TrackRow', () => {
 
     it('should render duration', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       // Duration should be displayed as MM:SS
@@ -125,9 +107,7 @@ describe('TrackRow', () => {
 
     it('should render album artwork', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       expect(screen.getByTestId('track-artwork')).toBeInTheDocument();
@@ -135,9 +115,7 @@ describe('TrackRow', () => {
 
     it('should render selection checkbox', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -146,9 +124,7 @@ describe('TrackRow', () => {
 
     it('should render context menu', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       expect(screen.getByTestId('track-context-menu')).toBeInTheDocument();
@@ -156,9 +132,7 @@ describe('TrackRow', () => {
 
     it('should render drag handle if draggable', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} draggable={true} />
-        </Wrapper>
+        <TrackRow track={mockTrack} draggable={true} />
       );
 
       // Drag handle should be present
@@ -176,9 +150,7 @@ describe('TrackRow', () => {
       });
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
@@ -193,9 +165,7 @@ describe('TrackRow', () => {
       });
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
@@ -212,9 +182,7 @@ describe('TrackRow', () => {
       });
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -233,9 +201,7 @@ describe('TrackRow', () => {
       });
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} index={0} />
-        </Wrapper>
+        <TrackRow track={mockTrack} index={0} />
       );
 
       const row = screen.getByRole('row');
@@ -254,9 +220,7 @@ describe('TrackRow', () => {
       });
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const row = screen.getByRole('row');
@@ -272,9 +236,7 @@ describe('TrackRow', () => {
       const onPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} onPlay={onPlay} />
-        </Wrapper>
+        <TrackRow track={mockTrack} onPlay={onPlay} />
       );
 
       const row = screen.getByRole('row');
@@ -288,9 +250,7 @@ describe('TrackRow', () => {
       const onPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} onPlay={onPlay} />
-        </Wrapper>
+        <TrackRow track={mockTrack} onPlay={onPlay} />
       );
 
       const playButton = screen.getByText('Play');
@@ -306,9 +266,7 @@ describe('TrackRow', () => {
       const unavailableTrack = { ...mockTrack, filepath: null };
 
       render(
-        <Wrapper>
-          <TrackRow track={unavailableTrack} onPlay={onPlay} />
-        </Wrapper>
+        <TrackRow track={unavailableTrack} onPlay={onPlay} />
       );
 
       const row = screen.getByRole('row');
@@ -323,9 +281,7 @@ describe('TrackRow', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const row = screen.getByRole('row');
@@ -340,9 +296,7 @@ describe('TrackRow', () => {
       const user = userEvent.setup();
 
       const { container } = render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const row = container.querySelector('tr');
@@ -357,9 +311,7 @@ describe('TrackRow', () => {
   describe('Drag and Drop', () => {
     it('should be draggable when draggable prop is true', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackRow track={mockTrack} draggable={true} />
-        </Wrapper>
+        <TrackRow track={mockTrack} draggable={true} />
       );
 
       const row = container.querySelector('tr');
@@ -368,9 +320,7 @@ describe('TrackRow', () => {
 
     it('should not be draggable when draggable prop is false', () => {
       const { container } = render(
-        <Wrapper>
-          <TrackRow track={mockTrack} draggable={false} />
-        </Wrapper>
+        <TrackRow track={mockTrack} draggable={false} />
       );
 
       const row = container.querySelector('tr');
@@ -382,13 +332,11 @@ describe('TrackRow', () => {
       const onDragStart = vi.fn();
 
       const { container } = render(
-        <Wrapper>
-          <TrackRow
+        <TrackRow
             track={mockTrack}
             draggable={true}
             onDragStart={onDragStart}
           />
-        </Wrapper>
       );
 
       const row = container.querySelector('tr');
@@ -402,13 +350,11 @@ describe('TrackRow', () => {
       const onDragEnd = vi.fn();
 
       const { container } = render(
-        <Wrapper>
-          <TrackRow
+        <TrackRow
             track={mockTrack}
             draggable={true}
             onDragEnd={onDragEnd}
           />
-        </Wrapper>
       );
 
       const row = container.querySelector('tr');
@@ -424,9 +370,7 @@ describe('TrackRow', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const row = screen.getByRole('row');
@@ -438,9 +382,7 @@ describe('TrackRow', () => {
 
     it('should pass track to context menu', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       expect(screen.getByText(`Art: ${mockTrack.title}`)).toBeInTheDocument();
@@ -450,9 +392,7 @@ describe('TrackRow', () => {
   describe('Accessibility', () => {
     it('should have proper table structure', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       expect(screen.getByRole('row')).toBeInTheDocument();
@@ -460,9 +400,7 @@ describe('TrackRow', () => {
 
     it('should have accessible track title', () => {
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const titleElement = screen.getByText('Test Track');
@@ -473,9 +411,7 @@ describe('TrackRow', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -493,9 +429,7 @@ describe('TrackRow', () => {
       };
 
       const { container } = render(
-        <Wrapper>
-          <TrackRow track={longTitleTrack} />
-        </Wrapper>
+        <TrackRow track={longTitleTrack} />
       );
 
       const row = container.querySelector('tr');
@@ -509,9 +443,7 @@ describe('TrackRow', () => {
       };
 
       render(
-        <Wrapper>
-          <TrackRow track={noDurationTrack} />
-        </Wrapper>
+        <TrackRow track={noDurationTrack} />
       );
 
       // Should still render without crashing
@@ -525,9 +457,7 @@ describe('TrackRow', () => {
       };
 
       render(
-        <Wrapper>
-          <TrackRow track={noArtworkTrack} />
-        </Wrapper>
+        <TrackRow track={noArtworkTrack} />
       );
 
       expect(screen.getByText('Test Track')).toBeInTheDocument();
@@ -541,9 +471,7 @@ describe('TrackRow', () => {
       };
 
       render(
-        <Wrapper>
-          <TrackRow track={specialTrack} />
-        </Wrapper>
+        <TrackRow track={specialTrack} />
       );
 
       expect(screen.getByText(/Track.*Remix.*2024/)).toBeInTheDocument();
@@ -553,16 +481,12 @@ describe('TrackRow', () => {
   describe('Performance', () => {
     it('should render efficiently with many rows', () => {
       const { container, rerender } = render(
-        <Wrapper>
-          <TrackRow track={mockTrack} />
-        </Wrapper>
+        <TrackRow track={mockTrack} />
       );
 
       // Update track and ensure no unnecessary re-renders
       rerender(
-        <Wrapper>
-          <TrackRow track={mockTrack2} />
-        </Wrapper>
+        <TrackRow track={mockTrack2} />
       );
 
       expect(screen.getByText('Another Track')).toBeInTheDocument();
@@ -576,17 +500,13 @@ describe('TrackRow', () => {
       };
 
       const { rerender } = render(
-        <Wrapper>
-          <TestWrapper />
-        </Wrapper>
+        <TestWrapper />
       );
 
       const initialRenderCount = renderCount;
 
       rerender(
-        <Wrapper>
-          <TestWrapper />
-        </Wrapper>
+        <TestWrapper />
       );
 
       // Should not increase render count significantly

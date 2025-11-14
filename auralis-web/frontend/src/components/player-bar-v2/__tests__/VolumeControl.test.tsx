@@ -11,29 +11,17 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import { describe, it, expect, vi } from 'vitest';
 import { VolumeControl } from '../VolumeControl';
-import { auralisTheme } from '@/theme/auralisTheme';
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('VolumeControl', () => {
   describe('Rendering', () => {
     it('should render volume control container', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const volumeContainer = container.querySelector('[class*="MuiBox"]');
@@ -42,9 +30,7 @@ describe('VolumeControl', () => {
 
     it('should render mute button', () => {
       render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -53,9 +39,7 @@ describe('VolumeControl', () => {
 
     it('should render volume slider', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('[class*="MuiSlider"]');
@@ -64,9 +48,7 @@ describe('VolumeControl', () => {
 
     it('should render all components together', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const button = screen.getAllByRole('button');
@@ -80,9 +62,7 @@ describe('VolumeControl', () => {
   describe('Volume Slider', () => {
     it('should set slider value to current volume', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -91,18 +71,14 @@ describe('VolumeControl', () => {
 
     it('should update slider when volume changes', () => {
       const { rerender, container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.3} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.3} onChange={vi.fn()} />
       );
 
       let slider = container.querySelector('input[type="range"]') as HTMLInputElement;
       expect(slider?.value).toBe('0.3');
 
       rerender(
-        <Wrapper>
-          <VolumeControl volume={0.7} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.7} onChange={vi.fn()} />
       );
 
       slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -111,9 +87,7 @@ describe('VolumeControl', () => {
 
     it('should handle minimum volume (0)', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -122,9 +96,7 @@ describe('VolumeControl', () => {
 
     it('should handle maximum volume (1)', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={1} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={1} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -135,9 +107,7 @@ describe('VolumeControl', () => {
       const mockChange = vi.fn();
 
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={mockChange} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={mockChange} />
       );
 
       const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -150,9 +120,7 @@ describe('VolumeControl', () => {
   describe('Mute Button', () => {
     it('should render mute button', () => {
       render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -161,9 +129,7 @@ describe('VolumeControl', () => {
 
     it('should have mute aria-label when not muted', () => {
       render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -176,9 +142,7 @@ describe('VolumeControl', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={mockChange} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={mockChange} />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -192,9 +156,7 @@ describe('VolumeControl', () => {
   describe('Volume Icons', () => {
     it('should display VolumeOff icon when volume is 0', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0} onChange={vi.fn()} />
       );
 
       // Icon should be present when volume is 0
@@ -204,9 +166,7 @@ describe('VolumeControl', () => {
 
     it('should display VolumeMute icon when volume is low (< 0.3)', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.2} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.2} onChange={vi.fn()} />
       );
 
       const svgIcon = container.querySelector('[class*="MuiSvgIcon"]');
@@ -215,9 +175,7 @@ describe('VolumeControl', () => {
 
     it('should display VolumeDown icon when volume is medium (0.3-0.7)', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const svgIcon = container.querySelector('[class*="MuiSvgIcon"]');
@@ -226,9 +184,7 @@ describe('VolumeControl', () => {
 
     it('should display VolumeUp icon when volume is high (> 0.7)', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.8} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.8} onChange={vi.fn()} />
       );
 
       const svgIcon = container.querySelector('[class*="MuiSvgIcon"]');
@@ -237,18 +193,14 @@ describe('VolumeControl', () => {
 
     it('should change icon when volume changes', () => {
       const { rerender, container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.1} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.1} onChange={vi.fn()} />
       );
 
       let svgIcon = container.querySelector('[class*="MuiSvgIcon"]');
       expect(svgIcon).toBeTruthy();
 
       rerender(
-        <Wrapper>
-          <VolumeControl volume={0.9} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.9} onChange={vi.fn()} />
       );
 
       svgIcon = container.querySelector('[class*="MuiSvgIcon"]');
@@ -262,9 +214,7 @@ describe('VolumeControl', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={mockChange} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={mockChange} />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -279,9 +229,7 @@ describe('VolumeControl', () => {
       const user = userEvent.setup();
 
       const { rerender } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={mockChange} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={mockChange} />
       );
 
       // First click: mute
@@ -292,9 +240,7 @@ describe('VolumeControl', () => {
       expect(mockChange).toHaveBeenCalledWith(0);
 
       rerender(
-        <Wrapper>
-          <VolumeControl volume={0} onChange={mockChange} />
-        </Wrapper>
+        <VolumeControl volume={0} onChange={mockChange} />
       );
 
       // Second click: unmute
@@ -310,9 +256,7 @@ describe('VolumeControl', () => {
   describe('Boundary Values', () => {
     it('should handle zero volume', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -321,9 +265,7 @@ describe('VolumeControl', () => {
 
     it('should handle maximum volume', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={1} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={1} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -332,9 +274,7 @@ describe('VolumeControl', () => {
 
     it('should handle very low volume (0.01)', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.01} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.01} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -343,9 +283,7 @@ describe('VolumeControl', () => {
 
     it('should handle very high volume (0.99)', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.99} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.99} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -354,9 +292,7 @@ describe('VolumeControl', () => {
 
     it('should handle precise volume values', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.33} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.33} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -369,17 +305,13 @@ describe('VolumeControl', () => {
       const mockChange = vi.fn();
 
       const { rerender } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={mockChange} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={mockChange} />
       );
 
       expect(screen.getAllByRole('button').length).toBeGreaterThan(0);
 
       rerender(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={mockChange} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={mockChange} />
       );
 
       expect(screen.getAllByRole('button').length).toBeGreaterThan(0);
@@ -387,18 +319,14 @@ describe('VolumeControl', () => {
 
     it('should update when volume prop changes', () => {
       const { rerender, container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.3} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.3} onChange={vi.fn()} />
       );
 
       let slider = container.querySelector('input[type="range"]') as HTMLInputElement;
       expect(slider?.value).toBe('0.3');
 
       rerender(
-        <Wrapper>
-          <VolumeControl volume={0.7} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.7} onChange={vi.fn()} />
       );
 
       slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -411,9 +339,7 @@ describe('VolumeControl', () => {
       const user = userEvent.setup();
 
       const { rerender, container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={mockChange1} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={mockChange1} />
       );
 
       let slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -422,9 +348,7 @@ describe('VolumeControl', () => {
       expect(mockChange1).toHaveBeenCalled();
 
       rerender(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={mockChange2} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={mockChange2} />
       );
 
       slider = container.querySelector('input[type="range"]') as HTMLInputElement;
@@ -437,9 +361,7 @@ describe('VolumeControl', () => {
   describe('Accessibility', () => {
     it('should have aria-label on mute button', () => {
       render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -448,9 +370,7 @@ describe('VolumeControl', () => {
 
     it('should have aria-label on volume slider', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]');
@@ -459,9 +379,7 @@ describe('VolumeControl', () => {
 
     it('should have title attribute on mute button', () => {
       render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -470,9 +388,7 @@ describe('VolumeControl', () => {
 
     it('should have min and max attributes on slider', () => {
       const { container } = render(
-        <Wrapper>
-          <VolumeControl volume={0.5} onChange={vi.fn()} />
-        </Wrapper>
+        <VolumeControl volume={0.5} onChange={vi.fn()} />
       );
 
       const slider = container.querySelector('input[type="range"]');

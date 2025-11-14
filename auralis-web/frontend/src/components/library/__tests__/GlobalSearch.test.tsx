@@ -13,12 +13,9 @@
 
 import { vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import GlobalSearch from '../GlobalSearch';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock AlbumArt component
 vi.mock('../../album/AlbumArt', () => {
@@ -76,13 +73,6 @@ const mockArtistsResponse = {
   ],
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('GlobalSearch', () => {
   beforeEach(() => {
@@ -113,9 +103,7 @@ describe('GlobalSearch', () => {
   describe('Rendering', () => {
     it('should render search input field', () => {
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search tracks, albums, artists/i);
@@ -124,9 +112,7 @@ describe('GlobalSearch', () => {
 
     it('should have search icon', () => {
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       expect(screen.getByTestId(/search|icon/i) || document.body).toBeInTheDocument();
@@ -134,9 +120,7 @@ describe('GlobalSearch', () => {
 
     it('should not show results initially', () => {
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       expect(screen.queryByText(/tracks|albums|artists/i)).not.toBeInTheDocument();
@@ -148,9 +132,7 @@ describe('GlobalSearch', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
@@ -164,9 +146,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -184,9 +164,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -206,9 +184,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
@@ -236,9 +212,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -257,9 +231,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -278,9 +250,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -317,9 +287,7 @@ describe('GlobalSearch', () => {
       });
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -341,9 +309,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -362,9 +328,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -383,9 +347,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -406,9 +368,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -428,9 +388,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -449,9 +407,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -472,9 +428,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -494,9 +448,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       const { container } = render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -538,9 +490,7 @@ describe('GlobalSearch', () => {
       });
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -571,9 +521,7 @@ describe('GlobalSearch', () => {
       );
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -599,9 +547,7 @@ describe('GlobalSearch', () => {
       );
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -626,9 +572,7 @@ describe('GlobalSearch', () => {
       );
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -647,9 +591,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -674,9 +616,7 @@ describe('GlobalSearch', () => {
       const onResultClick = vi.fn();
 
       render(
-        <Wrapper>
-          <GlobalSearch onResultClick={onResultClick} />
-        </Wrapper>
+        <GlobalSearch onResultClick={onResultClick} />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -701,9 +641,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
@@ -729,9 +667,7 @@ describe('GlobalSearch', () => {
       const onResultClick = vi.fn();
 
       render(
-        <Wrapper>
-          <GlobalSearch onResultClick={onResultClick} />
-        </Wrapper>
+        <GlobalSearch onResultClick={onResultClick} />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -761,9 +697,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -784,9 +718,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -806,9 +738,7 @@ describe('GlobalSearch', () => {
   describe('Accessibility', () => {
     it('should have proper input attributes', () => {
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -820,9 +750,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -846,9 +774,7 @@ describe('GlobalSearch', () => {
       (global.fetch as any).mockRejectedValue(new Error('Network error'));
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -866,9 +792,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
@@ -886,9 +810,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i);
@@ -906,9 +828,7 @@ describe('GlobalSearch', () => {
       vi.useFakeTimers();
 
       render(
-        <Wrapper>
-          <GlobalSearch />
-        </Wrapper>
+        <GlobalSearch />
       );
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;

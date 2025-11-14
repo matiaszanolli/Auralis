@@ -11,29 +11,17 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import { describe, it, expect, vi } from 'vitest';
 import { EnhancementToggle } from '../EnhancementToggle';
-import { auralisTheme } from '@/theme/auralisTheme';
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('EnhancementToggle (Player Bar Variant)', () => {
   describe('Rendering', () => {
     it('should render toggle button when enabled', async () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       const button = screen.getByRole('button');
@@ -42,9 +30,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should render toggle button when disabled', async () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
       );
 
       const button = screen.getByRole('button');
@@ -53,9 +39,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should render icon button with AutoAwesome icon', async () => {
       const { container } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       const svgIcon = container.querySelector('[class*="MuiSvgIcon"]');
@@ -64,9 +48,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should display label "Enhanced" when enabled', () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Enhanced')).toBeInTheDocument();
@@ -74,9 +56,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should display label "Original" when disabled', () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Original')).toBeInTheDocument();
@@ -89,9 +69,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
       );
 
       const button = screen.getByRole('button');
@@ -105,9 +83,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       const user = userEvent.setup();
 
       const { rerender } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
       );
 
       expect(screen.getByText('Original')).toBeInTheDocument();
@@ -115,9 +91,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       await user.click(screen.getByRole('button'));
 
       rerender(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={mockToggle} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={mockToggle} />
       );
 
       expect(screen.getByText('Enhanced')).toBeInTheDocument();
@@ -128,9 +102,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       const user = userEvent.setup();
 
       const { rerender } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={mockToggle} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={mockToggle} />
       );
 
       expect(screen.getByText('Enhanced')).toBeInTheDocument();
@@ -138,9 +110,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       await user.click(screen.getByRole('button'));
 
       rerender(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
       );
 
       expect(screen.getByText('Original')).toBeInTheDocument();
@@ -152,9 +122,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       const button = screen.getByRole('button');
@@ -169,9 +137,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
       );
 
       const button = screen.getByRole('button');
@@ -186,9 +152,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       const button = screen.getByRole('button');
@@ -209,9 +173,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
   describe('Visual Styling', () => {
     it('should have button styling when enabled', () => {
       const { container } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       const button = container.querySelector('button');
@@ -220,9 +182,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should have button styling when disabled', () => {
       const { container } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
       );
 
       const button = container.querySelector('button');
@@ -231,9 +191,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should have container with flex layout', () => {
       const { container } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       const containerBox = container.querySelector('[class*="MuiBox"]');
@@ -244,9 +202,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
   describe('Label Display', () => {
     it('should show correct label for enabled state', () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Enhanced')).toBeInTheDocument();
@@ -255,9 +211,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should show correct label for disabled state', () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Original')).toBeInTheDocument();
@@ -266,17 +220,13 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should update label when state changes', () => {
       const { rerender } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Original')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Enhanced')).toBeInTheDocument();
@@ -287,9 +237,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
     it('should reflect enabled state in tooltip', async () => {
       const user = userEvent.setup();
       const { rerender } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
       );
 
       let button = screen.getByRole('button');
@@ -302,9 +250,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       await user.unhover(button);
 
       rerender(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       button = screen.getByRole('button');
@@ -322,9 +268,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
       );
 
       const button = screen.getByRole('button');
@@ -338,27 +282,21 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       const user = userEvent.setup();
 
       const { rerender } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
       );
 
       let button = screen.getByRole('button');
 
       await user.click(button);
       rerender(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={mockToggle} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={mockToggle} />
       );
 
       button = screen.getByRole('button');
       await user.click(button);
 
       rerender(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={mockToggle} />
       );
 
       expect(mockToggle).toHaveBeenCalledTimes(2);
@@ -368,17 +306,13 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
   describe('Memoization', () => {
     it('should be memoized component', () => {
       const { rerender } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Enhanced')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Enhanced')).toBeInTheDocument();
@@ -386,17 +320,13 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should update when isEnabled prop changes', () => {
       const { rerender } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Original')).toBeInTheDocument();
 
       rerender(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       expect(screen.getByText('Enhanced')).toBeInTheDocument();
@@ -408,9 +338,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       const user = userEvent.setup();
 
       const { rerender } = render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={mockToggle1} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={mockToggle1} />
       );
 
       let button = screen.getByRole('button');
@@ -419,9 +347,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
       expect(mockToggle1).toHaveBeenCalledTimes(1);
 
       rerender(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={mockToggle2} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={mockToggle2} />
       );
 
       button = screen.getByRole('button');
@@ -434,9 +360,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
   describe('Accessibility', () => {
     it('should have button role', () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       const button = screen.getByRole('button');
@@ -445,9 +369,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should have aria-label for screen readers', () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       const button = screen.getByRole('button');
@@ -456,9 +378,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should have descriptive aria-label when enabled', () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={true} onToggle={vi.fn()} />
       );
 
       const button = screen.getByRole('button');
@@ -467,9 +387,7 @@ describe('EnhancementToggle (Player Bar Variant)', () => {
 
     it('should have descriptive aria-label when disabled', () => {
       render(
-        <Wrapper>
-          <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
-        </Wrapper>
+        <EnhancementToggle isEnabled={false} onToggle={vi.fn()} />
       );
 
       const button = screen.getByRole('button');

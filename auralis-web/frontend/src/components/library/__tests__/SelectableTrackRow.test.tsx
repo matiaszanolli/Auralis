@@ -11,12 +11,9 @@
 
 import { vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import SelectableTrackRow from '../SelectableTrackRow';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock TrackRow component
 vi.mock('../TrackRow', () => {
@@ -44,13 +41,6 @@ const mockTrack = {
   isEnhanced: false,
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('SelectableTrackRow', () => {
   beforeEach(() => {
@@ -60,14 +50,12 @@ describe('SelectableTrackRow', () => {
   describe('Rendering', () => {
     it('should render selectable container', () => {
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -75,14 +63,12 @@ describe('SelectableTrackRow', () => {
 
     it('should display track row', () => {
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Test Track')).toBeInTheDocument();
@@ -91,14 +77,12 @@ describe('SelectableTrackRow', () => {
 
     it('should render selection checkbox', () => {
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -109,14 +93,12 @@ describe('SelectableTrackRow', () => {
   describe('Selection Checkbox', () => {
     it('should show unchecked checkbox when not selected', () => {
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
@@ -125,14 +107,12 @@ describe('SelectableTrackRow', () => {
 
     it('should show checked checkbox when selected', () => {
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={true}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
@@ -144,14 +124,12 @@ describe('SelectableTrackRow', () => {
       const onToggleSelect = vi.fn();
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -165,14 +143,12 @@ describe('SelectableTrackRow', () => {
       const onToggleSelect = vi.fn();
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -185,14 +161,12 @@ describe('SelectableTrackRow', () => {
   describe('Selection Styling', () => {
     it('should apply selected styling when isSelected is true', () => {
       const { container } = render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={true}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       const selectableContainer = container.querySelector('[class*="SelectableContainer"]');
@@ -201,14 +175,12 @@ describe('SelectableTrackRow', () => {
 
     it('should not apply selected styling when isSelected is false', () => {
       const { container } = render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       const selectableContainer = container.querySelector('[class*="SelectableContainer"]');
@@ -222,14 +194,12 @@ describe('SelectableTrackRow', () => {
       const onToggleSelect = vi.fn();
 
       const { container } = render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
           />
-        </Wrapper>
       );
 
       const selectableContainer = container.querySelector('[class*="SelectableContainer"]');
@@ -244,15 +214,13 @@ describe('SelectableTrackRow', () => {
       const onToggleSelect = vi.fn();
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
             onPlay={vi.fn()}
           />
-        </Wrapper>
       );
 
       const playButton = screen.getByRole('button', { name: /play/i });
@@ -267,14 +235,12 @@ describe('SelectableTrackRow', () => {
       const onToggleSelect = vi.fn();
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -291,15 +257,13 @@ describe('SelectableTrackRow', () => {
       const onPlay = vi.fn();
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
             onPlay={onPlay}
           />
-        </Wrapper>
       );
 
       const playButton = screen.getByRole('button', { name: /play/i });
@@ -312,15 +276,13 @@ describe('SelectableTrackRow', () => {
       const onPause = vi.fn();
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
             onPause={onPause}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -328,15 +290,13 @@ describe('SelectableTrackRow', () => {
 
     it('should pass isPlaying state', () => {
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
             isPlaying={true}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -344,15 +304,13 @@ describe('SelectableTrackRow', () => {
 
     it('should pass isCurrent state', () => {
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
             isCurrent={true}
           />
-        </Wrapper>
       );
 
       expect(screen.getByTestId('track-row-1')).toBeInTheDocument();
@@ -365,15 +323,13 @@ describe('SelectableTrackRow', () => {
       const onEditMetadata = vi.fn();
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
             onEditMetadata={onEditMetadata}
           />
-        </Wrapper>
       );
 
       const editButton = screen.getByRole('button', { name: /edit/i });
@@ -386,15 +342,13 @@ describe('SelectableTrackRow', () => {
       const onEditMetadata = vi.fn();
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
             onEditMetadata={onEditMetadata}
           />
-        </Wrapper>
       );
 
       expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument();
@@ -407,8 +361,7 @@ describe('SelectableTrackRow', () => {
       const track2 = { ...mockTrack, id: 2, title: 'Track 2' };
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={track1}
             index={0}
             isSelected={true}
@@ -420,7 +373,6 @@ describe('SelectableTrackRow', () => {
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Track 1')).toBeInTheDocument();
@@ -432,8 +384,7 @@ describe('SelectableTrackRow', () => {
       const track2 = { ...mockTrack, id: 2, title: 'Track 2' };
 
       const { container } = render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={track1}
             index={0}
             isSelected={true}
@@ -445,7 +396,6 @@ describe('SelectableTrackRow', () => {
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       const checkboxes = container.querySelectorAll('[role="checkbox"]');
@@ -457,14 +407,12 @@ describe('SelectableTrackRow', () => {
   describe('Accessibility', () => {
     it('should have accessible checkbox', () => {
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -475,14 +423,12 @@ describe('SelectableTrackRow', () => {
       const user = userEvent.setup();
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -503,14 +449,12 @@ describe('SelectableTrackRow', () => {
       };
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={extendedTrack as any}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText('Test Track')).toBeInTheDocument();
@@ -521,14 +465,12 @@ describe('SelectableTrackRow', () => {
       const onToggleSelect = vi.fn();
 
       const { rerender } = render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
           />
-        </Wrapper>
       );
 
       const checkbox = screen.getByRole('checkbox');
@@ -537,14 +479,12 @@ describe('SelectableTrackRow', () => {
       expect(onToggleSelect).toHaveBeenCalledTimes(1);
 
       rerender(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={true}
             onToggleSelect={onToggleSelect}
           />
-        </Wrapper>
       );
 
       await user.click(checkbox);
@@ -558,14 +498,12 @@ describe('SelectableTrackRow', () => {
       };
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={longTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText(/A+/)).toBeInTheDocument();
@@ -578,14 +516,12 @@ describe('SelectableTrackRow', () => {
       };
 
       render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={longTrack}
             index={0}
             isSelected={false}
             onToggleSelect={vi.fn()}
           />
-        </Wrapper>
       );
 
       expect(screen.getByText(/B+/)).toBeInTheDocument();
@@ -599,15 +535,13 @@ describe('SelectableTrackRow', () => {
       const onPlay = vi.fn();
 
       const { rerender } = render(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={false}
             onToggleSelect={onToggleSelect}
             onPlay={onPlay}
           />
-        </Wrapper>
       );
 
       // User selects track
@@ -617,15 +551,13 @@ describe('SelectableTrackRow', () => {
 
       // Update selected state
       rerender(
-        <Wrapper>
-          <SelectableTrackRow
+        <SelectableTrackRow
             track={mockTrack}
             index={0}
             isSelected={true}
             onToggleSelect={onToggleSelect}
             onPlay={onPlay}
           />
-        </Wrapper>
       );
 
       // User clicks play

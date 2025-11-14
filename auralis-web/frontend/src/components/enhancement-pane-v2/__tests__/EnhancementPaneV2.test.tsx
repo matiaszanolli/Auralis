@@ -5,12 +5,9 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
+import { render, screen } from '@/test/test-utils';
 import { describe, it, expect, vi } from 'vitest';
 import EnhancementPaneV2 from '../EnhancementPaneV2';
-import { auralisTheme } from '../../../theme/auralisTheme';
 
 // Mock the EnhancementContext
 vi.mock('../../../contexts/EnhancementContext', () => {
@@ -25,13 +22,6 @@ vi.mock('../../../contexts/EnhancementContext', () => {
   };
 }, { virtual: true });
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('EnhancementPaneV2', () => {
   beforeEach(() => {
@@ -56,9 +46,7 @@ describe('EnhancementPaneV2', () => {
   describe('Rendering', () => {
     it('should render enhancement pane header', () => {
       render(
-        <Wrapper>
-          <EnhancementPaneV2 />
-        </Wrapper>
+        <EnhancementPaneV2 />
       );
 
       expect(screen.getByText('Auto-Mastering')).toBeInTheDocument();
@@ -66,9 +54,7 @@ describe('EnhancementPaneV2', () => {
 
     it('should render in expanded view by default', () => {
       render(
-        <Wrapper>
-          <EnhancementPaneV2 collapsed={false} />
-        </Wrapper>
+        <EnhancementPaneV2 collapsed={false} />
       );
 
       expect(screen.getByText('Auto-Mastering')).toBeInTheDocument();
@@ -76,9 +62,7 @@ describe('EnhancementPaneV2', () => {
 
     it('should render in collapsed view when prop set', () => {
       render(
-        <Wrapper>
-          <EnhancementPaneV2 collapsed={true} />
-        </Wrapper>
+        <EnhancementPaneV2 collapsed={true} />
       );
 
       // Collapsed view shows minimal UI
@@ -87,9 +71,7 @@ describe('EnhancementPaneV2', () => {
 
     it('should have control buttons', () => {
       render(
-        <Wrapper>
-          <EnhancementPaneV2 />
-        </Wrapper>
+        <EnhancementPaneV2 />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -100,9 +82,7 @@ describe('EnhancementPaneV2', () => {
   describe('Toggle Functionality', () => {
     it('should render enhancement toggle switch', () => {
       render(
-        <Wrapper>
-          <EnhancementPaneV2 />
-        </Wrapper>
+        <EnhancementPaneV2 />
       );
 
       const toggle = screen.queryByRole('switch') || screen.queryByRole('checkbox');
@@ -113,9 +93,7 @@ describe('EnhancementPaneV2', () => {
       const mockCallback = vi.fn();
 
       render(
-        <Wrapper>
-          <EnhancementPaneV2 onMasteringToggle={mockCallback} />
-        </Wrapper>
+        <EnhancementPaneV2 onMasteringToggle={mockCallback} />
       );
 
       expect(screen.getByText('Auto-Mastering')).toBeInTheDocument();
@@ -127,9 +105,7 @@ describe('EnhancementPaneV2', () => {
       const mockCallback = vi.fn();
 
       render(
-        <Wrapper>
-          <EnhancementPaneV2 onToggleCollapse={mockCallback} />
-        </Wrapper>
+        <EnhancementPaneV2 onToggleCollapse={mockCallback} />
       );
 
       expect(screen.getByText('Auto-Mastering')).toBeInTheDocument();
@@ -139,9 +115,7 @@ describe('EnhancementPaneV2', () => {
   describe('Accessibility', () => {
     it('should have semantic heading', () => {
       render(
-        <Wrapper>
-          <EnhancementPaneV2 />
-        </Wrapper>
+        <EnhancementPaneV2 />
       );
 
       expect(screen.getByText('Auto-Mastering')).toBeInTheDocument();
@@ -149,9 +123,7 @@ describe('EnhancementPaneV2', () => {
 
     it('should be keyboard navigable', () => {
       const { container } = render(
-        <Wrapper>
-          <EnhancementPaneV2 />
-        </Wrapper>
+        <EnhancementPaneV2 />
       );
 
       // Should have interactive elements
@@ -163,15 +135,11 @@ describe('EnhancementPaneV2', () => {
   describe('Memoization', () => {
     it('should be memoized', () => {
       const { rerender } = render(
-        <Wrapper>
-          <EnhancementPaneV2 collapsed={false} />
-        </Wrapper>
+        <EnhancementPaneV2 collapsed={false} />
       );
 
       rerender(
-        <Wrapper>
-          <EnhancementPaneV2 collapsed={false} />
-        </Wrapper>
+        <EnhancementPaneV2 collapsed={false} />
       );
 
       expect(screen.getByText('Auto-Mastering')).toBeInTheDocument();
@@ -181,9 +149,7 @@ describe('EnhancementPaneV2', () => {
   describe('Edge Cases', () => {
     it('should handle missing callbacks gracefully', () => {
       render(
-        <Wrapper>
-          <EnhancementPaneV2 />
-        </Wrapper>
+        <EnhancementPaneV2 />
       );
 
       expect(screen.getByText('Auto-Mastering')).toBeInTheDocument();

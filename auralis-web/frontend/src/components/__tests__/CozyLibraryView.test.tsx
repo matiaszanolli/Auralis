@@ -96,6 +96,7 @@ const mockLibraryWithStats = {
 
 const mockPlayerAPI = {
   play: vi.fn(),
+  playTrack: vi.fn(),
   addToQueue: vi.fn(),
 };
 
