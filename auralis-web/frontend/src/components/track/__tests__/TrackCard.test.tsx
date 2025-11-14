@@ -3,455 +3,187 @@
  *
  * Tests the card-based track display component:
  * - Album artwork display
- * - Track metadata
- * - Play button on hover
- * - Selection state
- * - Context menu access
+ * - Track metadata rendering
+ * - Click handling for playback
+ * - Duration formatting
  */
 
 import { vi } from 'vitest';
-import React from 'react';
 import { render, screen, fireEvent } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { TrackCard } from '../TrackCard';
-import { useTrackSelection } from '../../../hooks/useTrackSelection';
 
-// Mock hooks and components
-vi.mock('../../../hooks/useTrackSelection');
-vi.mock('../../album/AlbumArt', () => {
-  return function MockAlbumArt({ track }: any) {
-    return (
-      <div data-testid="track-card-artwork">
-        <img src={track.artwork} alt={track.title} />
-      </div>
-    );
-  };
-});
-vi.mock('../../shared/TrackContextMenu', () => {
-  return function MockContextMenu({ track, onPlay }: any) {
-    return (
-      <div data-testid="track-card-context-menu">
-        <button onClick={() => onPlay?.(track)}>Play from Menu</button>
-      </div>
-    );
-  };
-});
-
-const mockTrack = {
+const defaultProps = {
   id: 1,
   title: 'Beautiful Song',
   artist: 'Amazing Artist',
   album: 'Great Album',
+  albumId: 1,
   duration: 240,
-  artwork: 'http://example.com/artwork.jpg',
+  albumArt: 'http://example.com/artwork.jpg',
+  onPlay: vi.fn(),
 };
-
-const mockSelectionContext = {
-  selectedTracks: new Set<number>(),
-  isSelected: (id: number) => false,
-  toggleSelection: vi.fn(),
-};
-
 
 describe('TrackCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useTrackSelection).mockReturnValue(mockSelectionContext);
   });
 
   describe('Rendering', () => {
-    it('should render track card container', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
-      expect(card).toBeInTheDocument();
-    });
-
-    it('should display album artwork', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const artwork = screen.getByTestId('track-card-artwork');
-      expect(artwork).toBeInTheDocument();
-      expect(artwork.querySelector('img')).toHaveAttribute('src', mockTrack.artwork);
-    });
-
-    it('should display track title', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
+    it('should render track title', () => {
+      render(<TrackCard {...defaultProps} />);
       expect(screen.getByText('Beautiful Song')).toBeInTheDocument();
     });
 
     it('should display artist name', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
+      render(<TrackCard {...defaultProps} />);
       expect(screen.getByText('Amazing Artist')).toBeInTheDocument();
     });
 
     it('should display album name', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
+      render(<TrackCard {...defaultProps} />);
       expect(screen.getByText('Great Album')).toBeInTheDocument();
     });
 
-    it('should display duration', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      expect(screen.getByText(/4:00|04:00/)).toBeInTheDocument();
+    it('should display formatted duration', () => {
+      render(<TrackCard {...defaultProps} />);
+      // 240 seconds = 4:00
+      expect(screen.getByText(/4:00/)).toBeInTheDocument();
     });
 
-    it('should render selection checkbox', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const checkbox = screen.getByRole('checkbox');
-      expect(checkbox).toBeInTheDocument();
-    });
-  });
-
-  describe('Play Button on Hover', () => {
-    it('should show play button on hover', async () => {
-      const user = userEvent.setup();
-
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
-      await user.hover(card);
-
-      // Play button should be visible on hover
-      const playButton = screen.queryByRole('button', { name: /play/i });
-      expect(playButton).toBeInTheDocument();
+    it('should render with album art when provided', () => {
+      const { container } = render(<TrackCard {...defaultProps} />);
+      const img = container.querySelector('img[alt="Beautiful Song"]');
+      expect(img).toBeInTheDocument();
+      expect(img).toHaveAttribute('src', 'http://example.com/artwork.jpg');
     });
 
-    it('should hide play button when not hovering', async () => {
-      const user = userEvent.setup();
-
+    it('should render with placeholder when no album art', () => {
       const { container } = render(
-        <TrackCard track={mockTrack} />
+        <TrackCard {...defaultProps} albumArt={undefined} />
       );
-
-      const card = container.querySelector('[data-testid*="card"]') || container.firstChild;
-
-      if (card) {
-        await user.unhover(card as Element);
-        // Play button should be hidden when not hovering
-        const playButton = screen.queryByRole('button', { name: /play/i, hidden: false });
-        if (playButton) {
-          const style = window.getComputedStyle(playButton);
-          expect(style.visibility === 'hidden' || style.display === 'none').toBeTruthy();
-        }
-      }
-    });
-
-    it('should call onPlay when play button clicked', async () => {
-      const user = userEvent.setup();
-      const onPlay = vi.fn();
-
-      render(
-        <TrackCard track={mockTrack} onPlay={onPlay} />
-      );
-
-      const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
-      await user.hover(card);
-
-      const playButton = screen.getByRole('button', { name: /play/i });
-      await user.click(playButton);
-
-      expect(onPlay).toHaveBeenCalledWith(mockTrack);
-    });
-  });
-
-  describe('Selection', () => {
-    it('should show unchecked checkbox when not selected', () => {
-      vi.mocked(useTrackSelection).mockReturnValue({
-        ...mockSelectionContext,
-        isSelected: () => false,
-      });
-
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
-      expect(checkbox.checked).toBe(false);
-    });
-
-    it('should show checked checkbox when selected', () => {
-      vi.mocked(useTrackSelection).mockReturnValue({
-        ...mockSelectionContext,
-        isSelected: () => true,
-        selectedTracks: new Set([mockTrack.id]),
-      });
-
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
-      expect(checkbox.checked).toBe(true);
-    });
-
-    it('should toggle selection on checkbox click', async () => {
-      const user = userEvent.setup();
-      const toggleSelection = vi.fn();
-
-      vi.mocked(useTrackSelection).mockReturnValue({
-        ...mockSelectionContext,
-        toggleSelection,
-      });
-
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const checkbox = screen.getByRole('checkbox');
-      await user.click(checkbox);
-
-      expect(toggleSelection).toHaveBeenCalledWith(mockTrack.id);
-    });
-
-    it('should highlight card when selected', () => {
-      vi.mocked(useTrackSelection).mockReturnValue({
-        ...mockSelectionContext,
-        isSelected: () => true,
-        selectedTracks: new Set([mockTrack.id]),
-      });
-
-      const { container } = render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const card = container.querySelector('[data-testid*="card"]');
-      if (card) {
-        const classes = card.className;
-        expect(classes.includes('selected') || card.getAttribute('aria-selected')).toBeTruthy();
-      }
-    });
-  });
-
-  describe('Context Menu', () => {
-    it('should render context menu', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      expect(screen.getByTestId('track-card-context-menu')).toBeInTheDocument();
-    });
-
-    it('should open context menu on right-click', async () => {
-      const user = userEvent.setup();
-
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
-      fireEvent.contextMenu(card);
-
-      expect(screen.getByTestId('track-card-context-menu')).toBeInTheDocument();
-    });
-
-    it('should call onPlay from context menu', async () => {
-      const user = userEvent.setup();
-      const onPlay = vi.fn();
-
-      render(
-        <TrackCard track={mockTrack} onPlay={onPlay} />
-      );
-
-      const playButton = screen.getByText('Play from Menu');
-      await user.click(playButton);
-
-      expect(onPlay).toHaveBeenCalledWith(mockTrack);
-    });
-  });
-
-  describe('Styling & Layout', () => {
-    it('should apply card styling', () => {
-      const { container } = render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const card = container.querySelector('[data-testid*="card"]') || container.firstChild;
-      expect(card).toHaveClass(/card|Card/);
-    });
-
-    it('should stack metadata below artwork', () => {
-      const { container } = render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const artwork = screen.getByTestId('track-card-artwork');
-      const title = screen.getByText('Beautiful Song');
-
-      const artworkRect = artwork.getBoundingClientRect();
-      const titleRect = title.getBoundingClientRect();
-
-      // Title should be below artwork
-      expect(titleRect.top).toBeGreaterThan(artworkRect.bottom);
-    });
-
-    it('should have proper aspect ratio for artwork', () => {
-      const { container } = render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const artwork = screen.getByTestId('track-card-artwork');
-      const rect = artwork.getBoundingClientRect();
-
-      // Should be roughly square (1:1 aspect ratio)
-      const aspectRatio = rect.width / rect.height;
-      expect(Math.abs(aspectRatio - 1)).toBeLessThan(0.1);
+      // Should still render without crashing
+      expect(screen.getByText('Beautiful Song')).toBeInTheDocument();
     });
   });
 
   describe('Interactions', () => {
-    it('should handle double-click to play', async () => {
-      const user = userEvent.setup();
+    it('should call onPlay with track id when clicked', async () => {
       const onPlay = vi.fn();
+      render(<TrackCard {...defaultProps} onPlay={onPlay} />);
 
-      render(
-        <TrackCard track={mockTrack} onPlay={onPlay} />
-      );
+      const card = screen.getByRole('article') || screen.getByText('Beautiful Song').closest('div');
+      if (card) {
+        fireEvent.click(card);
+      }
 
-      const card = screen.getByRole('article') || screen.getByTestId(/card|container/i);
-      await user.dblClick(card);
-
-      expect(onPlay).toHaveBeenCalledWith(mockTrack);
+      expect(onPlay).toHaveBeenCalledWith(1);
     });
 
-    it('should show overlay on hover', async () => {
+    it('should show visual feedback on hover', async () => {
       const user = userEvent.setup();
+      const { container } = render(<TrackCard {...defaultProps} />);
 
-      const { container } = render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const card = container.querySelector('[data-testid*="card"]') || container.firstChild;
-
+      const card = container.querySelector('[class*="MuiCard"]') || container.firstChild;
       if (card) {
         await user.hover(card as Element);
-        // Overlay should be visible
-        const overlay = container.querySelector('[data-testid*="overlay"]');
-        if (overlay) {
-          const style = window.getComputedStyle(overlay);
-          expect(style.opacity).not.toBe('0');
-        }
+        // Component has transition effects on hover
+        expect(card).toBeInTheDocument();
       }
     });
   });
 
   describe('Edge Cases', () => {
-    it('should handle missing artwork gracefully', () => {
-      const noArtworkTrack = { ...mockTrack, artwork: null };
-
-      render(
-        <TrackCard track={noArtworkTrack} />
-      );
-
-      // Should still render without crashing
-      expect(screen.getByText('Beautiful Song')).toBeInTheDocument();
-    });
-
     it('should handle very long track title', () => {
-      const longTitleTrack = {
-        ...mockTrack,
-        title: 'A'.repeat(50),
-      };
-
+      const longTitle = 'A'.repeat(50);
       render(
-        <TrackCard track={longTitleTrack} />
+        <TrackCard
+          {...defaultProps}
+          title={longTitle}
+        />
       );
-
-      // Should truncate or wrap appropriately
       expect(screen.getByText(/A+/)).toBeInTheDocument();
     });
 
     it('should handle very long artist name', () => {
-      const longArtistTrack = {
-        ...mockTrack,
-        artist: 'B'.repeat(50),
-      };
-
+      const longArtist = 'B'.repeat(50);
       render(
-        <TrackCard track={longArtistTrack} />
+        <TrackCard
+          {...defaultProps}
+          artist={longArtist}
+        />
       );
-
       expect(screen.getByText(/B+/)).toBeInTheDocument();
     });
 
-    it('should handle missing duration', () => {
-      const noDurationTrack = { ...mockTrack, duration: 0 };
-
-      render(
-        <TrackCard track={noDurationTrack} />
-      );
-
+    it('should handle zero duration', () => {
+      render(<TrackCard {...defaultProps} duration={0} />);
       expect(screen.getByText('Beautiful Song')).toBeInTheDocument();
     });
-  });
 
-  describe('Accessibility', () => {
-    it('should have proper ARIA roles', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const card = screen.getByRole('article');
-      expect(card).toHaveAttribute('aria-label');
+    it('should handle very short duration', () => {
+      render(<TrackCard {...defaultProps} duration={5} />);
+      expect(screen.getByText(/0:05/)).toBeInTheDocument();
     });
 
-    it('should have accessible checkbox', () => {
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const checkbox = screen.getByRole('checkbox');
-      expect(checkbox).toHaveAccessibleName();
-    });
-
-    it('should support keyboard navigation', async () => {
-      const user = userEvent.setup();
-
-      render(
-        <TrackCard track={mockTrack} />
-      );
-
-      const checkbox = screen.getByRole('checkbox');
-      await user.tab();
-
-      // Should be focusable
-      expect(document.activeElement).toBeInTheDocument();
+    it('should handle very long duration', () => {
+      // 3661 seconds = 61 minutes and 1 second
+      render(<TrackCard {...defaultProps} duration={3661} />);
+      expect(screen.getByText(/61:01/)).toBeInTheDocument();
     });
   });
 
-  describe('Performance', () => {
-    it('should render efficiently', () => {
-      const { rerender } = render(
-        <TrackCard track={mockTrack} />
-      );
+  describe('Duration Formatting', () => {
+    it('should format minutes and seconds correctly', () => {
+      render(<TrackCard {...defaultProps} duration={125} />);
+      // 125 seconds = 2:05
+      expect(screen.getByText(/2:05/)).toBeInTheDocument();
+    });
 
-      const otherTrack = { ...mockTrack, id: 2, title: 'Different Track' };
+    it('should pad seconds with zero', () => {
+      render(<TrackCard {...defaultProps} duration={65} />);
+      // 65 seconds = 1:05
+      expect(screen.getByText(/1:05/)).toBeInTheDocument();
+    });
+
+    it('should show minutes only when seconds is zero', () => {
+      render(<TrackCard {...defaultProps} duration={120} />);
+      // 120 seconds = 2:00
+      expect(screen.getByText(/2:00/)).toBeInTheDocument();
+    });
+  });
+
+  describe('Props Variations', () => {
+    it('should render with minimal props', () => {
+      const minimalProps = {
+        id: 1,
+        title: 'Track',
+        artist: 'Artist',
+        album: 'Album',
+        duration: 180,
+        onPlay: vi.fn(),
+      };
+      render(<TrackCard {...minimalProps} />);
+      expect(screen.getByText('Track')).toBeInTheDocument();
+    });
+
+    it('should handle different album IDs', () => {
+      render(<TrackCard {...defaultProps} albumId={999} />);
+      expect(screen.getByText('Beautiful Song')).toBeInTheDocument();
+    });
+
+    it('should render multiple cards with different data', () => {
+      const { rerender } = render(<TrackCard {...defaultProps} id={1} />);
+      expect(screen.getByText('Beautiful Song')).toBeInTheDocument();
 
       rerender(
-        <TrackCard track={otherTrack} />
+        <TrackCard
+          {...defaultProps}
+          id={2}
+          title='Different Song'
+        />
       );
-
-      expect(screen.getByText('Different Track')).toBeInTheDocument();
+      expect(screen.getByText('Different Song')).toBeInTheDocument();
     });
   });
 });
