@@ -36,35 +36,35 @@ export function getWsUrl(path: string): string {
  */
 export const ENDPOINTS = {
   // Playlists
-  PLAYLISTS: '/playlists',
-  PLAYLIST: (id: number) => `/playlists/${id}`,
-  PLAYLIST_TRACKS: (id: number) => `/playlists/${id}/tracks`,
-  ADD_PLAYLIST_TRACK: (id: number) => `/playlists/${id}/tracks`,
-  REMOVE_PLAYLIST_TRACK: (id: number, trackId: number) => `/playlists/${id}/tracks/${trackId}`,
+  PLAYLISTS: '/api/playlists',
+  PLAYLIST: (id: number) => `/api/playlists/${id}`,
+  PLAYLIST_TRACKS: (id: number) => `/api/playlists/${id}/tracks`,
+  ADD_PLAYLIST_TRACK: (id: number) => `/api/playlists/${id}/tracks`,
+  REMOVE_PLAYLIST_TRACK: (id: number, trackId: number) => `/api/playlists/${id}/tracks/${trackId}`,
 
   // Queue
-  QUEUE: '/player/queue',
-  QUEUE_TRACK: (index: number) => `/player/queue/${index}`,
-  QUEUE_REORDER: '/player/queue/reorder',
-  QUEUE_SHUFFLE: '/player/queue/shuffle',
-  QUEUE_CLEAR: '/player/queue/clear',
+  QUEUE: '/api/player/queue',
+  QUEUE_TRACK: (index: number) => `/api/player/queue/${index}`,
+  QUEUE_REORDER: '/api/player/queue/reorder',
+  QUEUE_SHUFFLE: '/api/player/queue/shuffle',
+  QUEUE_CLEAR: '/api/player/queue/clear',
 
   // Settings
-  SETTINGS: '/settings',
-  ENHANCEMENT_SETTINGS: '/settings/enhancement',
+  SETTINGS: '/api/settings',
+  ENHANCEMENT_SETTINGS: '/api/settings/enhancement',
 
   // Library
-  LIBRARY_STATS: '/library/stats',
-  LIBRARY_TRACKS: '/library/tracks',
-  LIBRARY_ALBUMS: '/library/albums',
-  LIBRARY_ARTISTS: '/library/artists',
+  LIBRARY_STATS: '/api/library/stats',
+  LIBRARY_TRACKS: '/api/library/tracks',
+  LIBRARY_ALBUMS: '/api/library/albums',
+  LIBRARY_ARTISTS: '/api/library/artists',
 
   // Player
-  PLAYER_STATUS: '/player/status',
-  PLAYER_LOAD: '/player/load',
-  PLAYER_PLAY: '/player/play',
-  PLAYER_PAUSE: '/player/pause',
-  PLAYER_STOP: '/player/stop',
-  PLAYER_SEEK: '/player/seek',
-  PLAYER_VOLUME: '/player/volume',
+  PLAYER_STATUS: '/api/player/status',
+  PLAYER_LOAD: '/api/player/load',
+  PLAYER_PLAY: '/api/player/play',
+  PLAYER_PAUSE: '/api/player/pause',
+  PLAYER_STOP: '/api/player/stop',
+  PLAYER_SEEK: '/api/player/seek',
+  PLAYER_VOLUME: '/api/player/volume',
 } as const;
