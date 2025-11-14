@@ -11,17 +11,12 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import BottomPlayerBarUnified from '../BottomPlayerBarUnified';
 import { usePlayerWithAudio } from '../../hooks/usePlayerWithAudio';
 import { useEnhancement } from '../../contexts/EnhancementContext';
-import { WebSocketProvider } from '../../contexts/WebSocketContext';
-import { ToastProvider } from '../shared/Toast';
-import { auralisTheme } from '../../theme/auralisTheme';
 
 // Mock hooks
 vi.mock('../../hooks/usePlayerWithAudio');
@@ -98,17 +93,6 @@ const mockEnhancement = {
   currentPreset: 'adaptive',
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      <WebSocketProvider>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
-      </WebSocketProvider>
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('BottomPlayerBarUnified', () => {
   beforeEach(() => {
@@ -126,10 +110,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Rendering', () => {
     it('should render the player bar container', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const container = screen.getByRole('region', { hidden: true });
@@ -137,50 +118,35 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should display album art', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       expect(screen.getByTestId('album-art')).toBeInTheDocument();
     });
 
     it('should display track title', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       expect(screen.getByText('Test Track')).toBeInTheDocument();
     });
 
     it('should display artist name', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       expect(screen.getByText('Test Artist')).toBeInTheDocument();
     });
 
     it('should display album name', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       expect(screen.getByText('Test Album')).toBeInTheDocument();
     });
 
     it('should render play button', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const playButton = screen.getByRole('button', { name: /play|pause/i });
@@ -188,10 +154,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should render next track button', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const nextButtons = screen.getAllByRole('button');
@@ -202,10 +165,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should render previous track button', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const prevButtons = screen.getAllByRole('button');
@@ -216,10 +176,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should render volume control', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const volumeSliders = screen.getAllByRole('slider');
@@ -234,10 +191,7 @@ describe('BottomPlayerBarUnified', () => {
         isPlaying: true,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const pauseButton = screen.getByRole('button', { name: /pause/i });
@@ -250,10 +204,7 @@ describe('BottomPlayerBarUnified', () => {
         isPlaying: false,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const playButton = screen.getByRole('button', { name: /play/i });
@@ -263,10 +214,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should call togglePlayPause when play button clicked', async () => {
       const user = userEvent.setup();
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const playButton = screen.getByRole('button', { name: /play/i });
@@ -283,10 +231,7 @@ describe('BottomPlayerBarUnified', () => {
         isPlaying: true,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const pauseButton = screen.getByRole('button', { name: /pause/i });
@@ -300,10 +245,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should call next when next button clicked', async () => {
       const user = userEvent.setup();
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -320,10 +262,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should call previous when previous button clicked', async () => {
       const user = userEvent.setup();
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -343,10 +282,7 @@ describe('BottomPlayerBarUnified', () => {
         queueIndex: 0,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -369,10 +305,7 @@ describe('BottomPlayerBarUnified', () => {
         ],
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const buttons = screen.getAllByRole('button');
@@ -393,10 +326,7 @@ describe('BottomPlayerBarUnified', () => {
         volume: 75,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // The volume is stored locally in the component and updated via slider
@@ -406,10 +336,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should update volume on slider change', async () => {
       const user = userEvent.setup();
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const sliders = screen.getAllByRole('slider');
@@ -430,10 +357,7 @@ describe('BottomPlayerBarUnified', () => {
         volume: 0,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // Check for mute icon presence
@@ -446,10 +370,7 @@ describe('BottomPlayerBarUnified', () => {
         volume: 25,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // Check for volume down icon
@@ -462,10 +383,7 @@ describe('BottomPlayerBarUnified', () => {
         volume: 75,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // Check for volume up icon
@@ -480,10 +398,7 @@ describe('BottomPlayerBarUnified', () => {
         position: 90, // 1:30
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // Check for time display (format: MM:SS)
@@ -496,20 +411,14 @@ describe('BottomPlayerBarUnified', () => {
         duration: 180, // 3:00
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       expect(screen.getByText(/3:00|03:00/)).toBeInTheDocument();
     });
 
     it('should update progress on track position change', () => {
-      const { rerender } = render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      const { rerender } = render(<BottomPlayerBarUnified />
       );
 
       vi.mocked(usePlayerWithAudio).mockReturnValue({
@@ -517,10 +426,7 @@ describe('BottomPlayerBarUnified', () => {
         position: 90,
       });
 
-      rerender(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      rerender(<BottomPlayerBarUnified />
       );
 
       expect(screen.getByText(/1:30|01:30/)).toBeInTheDocument();
@@ -529,10 +435,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should call seek when progress bar is clicked', async () => {
       const user = userEvent.setup();
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const sliders = screen.getAllByRole('slider');
@@ -554,10 +457,7 @@ describe('BottomPlayerBarUnified', () => {
         duration: 180,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const sliders = screen.getAllByRole('slider');
@@ -573,10 +473,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Favorite Button', () => {
     it('should display favorite button', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const favoriteButtons = screen.getAllByRole('button');
@@ -592,10 +489,7 @@ describe('BottomPlayerBarUnified', () => {
         isFavorited: false,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       expect(screen.getByTestId('FavoriteBorderIcon')).toBeInTheDocument();
@@ -607,10 +501,7 @@ describe('BottomPlayerBarUnified', () => {
         isFavorited: true,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       expect(screen.getByTestId('FavoriteIcon')).toBeInTheDocument();
@@ -619,10 +510,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should call toggleFavorite when favorite button clicked', async () => {
       const user = userEvent.setup();
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const favoriteIcon = screen.getByTestId('FavoriteBorderIcon');
@@ -642,10 +530,7 @@ describe('BottomPlayerBarUnified', () => {
         currentPreset: 'bright',
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // Should display enhancement is enabled
@@ -658,10 +543,7 @@ describe('BottomPlayerBarUnified', () => {
         currentPreset: 'adaptive',
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // Enhancement should still be visible but disabled
@@ -677,10 +559,7 @@ describe('BottomPlayerBarUnified', () => {
         currentTrack: null,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // Should display empty state or default text
@@ -694,10 +573,7 @@ describe('BottomPlayerBarUnified', () => {
         currentTrack: null,
       });
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const playButton = screen.getByRole('button', { name: /play/i });
@@ -707,10 +583,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Responsiveness', () => {
     it('should render at bottom of viewport', () => {
-      const { container } = render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      const { container } = render(<BottomPlayerBarUnified />
       );
 
       const playerBar = container.firstChild;
@@ -720,10 +593,7 @@ describe('BottomPlayerBarUnified', () => {
     });
 
     it('should have proper z-index for overlay', () => {
-      const { container } = render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      const { container } = render(<BottomPlayerBarUnified />
       );
 
       // Player bar should be above other content but below modals
@@ -735,10 +605,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should support space bar to toggle play/pause', async () => {
       const user = userEvent.setup();
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // Simulate space bar press
@@ -756,10 +623,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should support arrow keys for navigation', async () => {
       const user = userEvent.setup();
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       // Simulate right arrow press (next track)
@@ -773,10 +637,7 @@ describe('BottomPlayerBarUnified', () => {
 
   describe('Accessibility', () => {
     it('should have proper ARIA labels', () => {
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       expect(screen.getByRole('button', { name: /play|pause/i })).toBeInTheDocument();
@@ -785,10 +646,7 @@ describe('BottomPlayerBarUnified', () => {
     it('should be keyboard navigable', async () => {
       const user = userEvent.setup();
 
-      render(
-        <Wrapper>
-          <BottomPlayerBarUnified />
-        </Wrapper>
+      render(<BottomPlayerBarUnified />
       );
 
       const playButton = screen.getByRole('button', { name: /play|pause/i });

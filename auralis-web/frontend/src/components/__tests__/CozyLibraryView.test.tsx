@@ -12,14 +12,11 @@
 
 import { vi } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
 import CozyLibraryView from '../CozyLibraryView';
 import { useLibraryWithStats } from '../../hooks/useLibraryWithStats';
 import { usePlayerAPI } from '../../hooks/usePlayerAPI';
-import { auralisTheme } from '../../theme/auralisTheme';
 
 vi.mock('../../hooks/useLibraryWithStats');
 vi.mock('../../hooks/usePlayerAPI');
@@ -102,13 +99,6 @@ const mockPlayerAPI = {
   addToQueue: vi.fn(),
 };
 
-const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider theme={auralisTheme}>
-      {children}
-    </ThemeProvider>
-  </BrowserRouter>
-);
 
 describe('CozyLibraryView', () => {
   beforeEach(() => {
@@ -120,9 +110,9 @@ describe('CozyLibraryView', () => {
   describe('Rendering', () => {
     it('should render library view container', () => {
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
       const view = screen.getByTestId(/library|view/i);
       expect(view).toBeInTheDocument();
@@ -130,18 +120,18 @@ describe('CozyLibraryView', () => {
 
     it('should render search input', () => {
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
       expect(screen.getByTestId('search-input')).toBeInTheDocument();
     });
 
     it('should render view toggle buttons', () => {
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
       const toggleButtons = screen.queryAllByRole('button', { name: /album|artist|track|grid|list/i });
       expect(toggleButtons.length).toBeGreaterThan(0);
@@ -149,9 +139,9 @@ describe('CozyLibraryView', () => {
 
     it('should display album grid by default', () => {
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
       expect(screen.getByTestId('album-grid')).toBeInTheDocument();
     });
@@ -160,9 +150,9 @@ describe('CozyLibraryView', () => {
   describe('Album Grid View', () => {
     it('should render all albums', () => {
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
       expect(screen.getByText('Album 1')).toBeInTheDocument();
       expect(screen.getByText('Album 2')).toBeInTheDocument();
@@ -171,9 +161,9 @@ describe('CozyLibraryView', () => {
     it('should navigate to album detail on click', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
       const albumButton = screen.getByText('Album 1');
       await user.click(albumButton);
@@ -190,9 +180,9 @@ describe('CozyLibraryView', () => {
     it('should switch to artist view on toggle', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const artistViewButton = screen.getByRole('button', { name: /artist/i });
@@ -204,9 +194,9 @@ describe('CozyLibraryView', () => {
     it('should render all artists in artist view', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const artistViewButton = screen.getByRole('button', { name: /artist/i });
@@ -219,9 +209,9 @@ describe('CozyLibraryView', () => {
     it('should navigate to artist detail on artist click', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const artistViewButton = screen.getByRole('button', { name: /artist/i });
@@ -248,9 +238,9 @@ describe('CozyLibraryView', () => {
       });
 
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const searchInput = screen.getByTestId('search-input');
@@ -264,9 +254,9 @@ describe('CozyLibraryView', () => {
     it('should clear search results on clear button', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const searchInput = screen.getByTestId('search-input');
@@ -288,9 +278,9 @@ describe('CozyLibraryView', () => {
       });
 
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const emptyState = screen.queryByText(/no.*found|empty|not found/i);
@@ -306,9 +296,9 @@ describe('CozyLibraryView', () => {
       });
 
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const loadingIndicator = screen.getByRole('progressbar') ||
@@ -318,9 +308,9 @@ describe('CozyLibraryView', () => {
 
     it('should show albums after loading', async () => {
       const { rerender } = render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       vi.mocked(useLibraryData).mockReturnValue({
@@ -329,9 +319,9 @@ describe('CozyLibraryView', () => {
       });
 
       rerender(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       await waitFor(() => {
@@ -348,9 +338,9 @@ describe('CozyLibraryView', () => {
       });
 
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       expect(screen.getByText(/failed|error|unable/i)).toBeInTheDocument();
@@ -366,9 +356,9 @@ describe('CozyLibraryView', () => {
       });
 
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const retryButton = screen.getByRole('button', { name: /retry|try again/i });
@@ -386,9 +376,9 @@ describe('CozyLibraryView', () => {
       });
 
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const emptyState = screen.getByText(/no.*albums|empty library|add music/i);
@@ -402,9 +392,9 @@ describe('CozyLibraryView', () => {
       });
 
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const actionButton = screen.getByRole('button', { name: /import|add|browse/i });
@@ -416,9 +406,9 @@ describe('CozyLibraryView', () => {
     it('should play album on album selection', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const albumButton = screen.getByText('Album 1');
@@ -434,9 +424,9 @@ describe('CozyLibraryView', () => {
     it('should add track to queue', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       // Navigate to view with tracks
@@ -456,9 +446,9 @@ describe('CozyLibraryView', () => {
     it('should preserve scroll position when switching views', async () => {
       const user = userEvent.setup();
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       // Scroll down
@@ -481,9 +471,9 @@ describe('CozyLibraryView', () => {
   describe('Accessibility', () => {
     it('should have accessible view controls', () => {
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const viewButtons = screen.getAllByRole('button', { name: /album|artist|track/i });
@@ -494,9 +484,9 @@ describe('CozyLibraryView', () => {
 
     it('should have accessible search input', () => {
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       const searchInput = screen.getByTestId('search-input');
@@ -522,9 +512,9 @@ describe('CozyLibraryView', () => {
       vi.mocked(useLibraryData).mockReturnValue(largeLibrary);
 
       render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       expect(screen.getByTestId('album-grid')).toBeInTheDocument();
@@ -534,9 +524,9 @@ describe('CozyLibraryView', () => {
   describe('State Synchronization', () => {
     it('should update when library data changes', () => {
       const { rerender } = render(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       vi.mocked(useLibraryData).mockReturnValue({
@@ -548,9 +538,9 @@ describe('CozyLibraryView', () => {
       });
 
       rerender(
-        <Wrapper>
+        
           <CozyLibraryView />
-        </Wrapper>
+        
       );
 
       expect(screen.getByText('Album 3')).toBeInTheDocument();
