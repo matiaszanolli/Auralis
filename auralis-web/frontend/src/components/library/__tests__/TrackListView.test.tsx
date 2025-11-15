@@ -17,8 +17,8 @@ import userEvent from '@testing-library/user-event';
 import TrackListView from '../TrackListView';
 
 // Mock components
-vi.mock('../track/TrackCard', () => {
-  return function MockTrackCard({ title, artist, onPlay }: any) {
+vi.mock('../track/TrackCard', () => ({
+  TrackCard: function MockTrackCard({ title, artist, onPlay }: any) {
     return (
       <div data-testid={`track-card-${title}`}>
         <span>{title}</span>
@@ -26,11 +26,12 @@ vi.mock('../track/TrackCard', () => {
         <button onClick={() => onPlay?.()}>Play</button>
       </div>
     );
-  };
-});
+  },
+}));
 
-vi.mock('./SelectableTrackRow', () => {
-  return function MockSelectableTrackRow({ track, onPlay, onToggleSelect }: any) {
+vi.mock('./SelectableTrackRow', () => ({
+  __esModule: true,
+  default: function MockSelectableTrackRow({ track, onPlay, onToggleSelect }: any) {
     return (
       <div data-testid={`track-row-${track.id}`}>
         <input
@@ -42,14 +43,15 @@ vi.mock('./SelectableTrackRow', () => {
         <button onClick={() => onPlay?.(track.id)}>Play</button>
       </div>
     );
-  };
-});
+  },
+}));
 
-vi.mock('../player/TrackQueue', () => {
-  return function MockTrackQueue() {
+vi.mock('../player/TrackQueue', () => ({
+  __esModule: true,
+  default: function MockTrackQueue() {
     return <div data-testid="track-queue">Queue</div>;
-  };
-});
+  },
+}));
 
 vi.mock('../shared/SkeletonLoader', () => ({
   LibraryGridSkeleton: () => <div data-testid="grid-skeleton">Loading...</div>,
