@@ -38,7 +38,7 @@ export interface CrudEndpoints {
  * @param endpoints Configuration object with endpoint paths
  * @returns Object with generic CRUD functions
  */
-export function createCrudService<T = any, U = any>(endpoints: CrudEndpoints) {
+export function createCrudService<T = any, U extends Record<string, any> | undefined = any>(endpoints: CrudEndpoints) {
   return {
     /**
      * GET list of items
