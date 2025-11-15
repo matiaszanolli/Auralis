@@ -145,8 +145,8 @@ const StyledTextField = styled(MuiTextField, {
   };
 
   return {
-    ...sizeStyles[size],
-    ...variantStyles[variant],
+    ...sizeStyles[size as keyof typeof sizeStyles],
+    ...variantStyles[variant as keyof typeof variantStyles],
 
     '& .MuiFormHelperText-root': {
       marginLeft: tokens.spacing.sm,
