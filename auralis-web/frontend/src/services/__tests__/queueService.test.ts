@@ -8,7 +8,7 @@
  * Do NOT mock fetch directly - MSW will handle all HTTP requests.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   getQueue,
   removeTrackFromQueue,
@@ -19,6 +19,14 @@ import {
   type QueueResponse,
   type QueueTrack,
 } from '../queueService';
+
+// Setup fetch mock
+const createFetchMock = () => vi.fn();
+let fetchMock = createFetchMock();
+vi.stubGlobal('fetch', fetchMock);
+
+// Helper function to access the mocked fetch with proper types
+const mockFetch = () => fetchMock as any;
 
 const mockQueueTracks: QueueTrack[] = [
   {
