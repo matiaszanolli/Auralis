@@ -301,7 +301,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                           sx={{
                             height: 20,
                             fontSize: '0.7rem',
-                            background: gradients.purpleViolet,
+                            background: gradients.electricPurple,
                             color: 'white'
                           }}
                         />
@@ -314,7 +314,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                           borderRadius: 1,
                           backgroundColor: 'rgba(226, 232, 240, 0.1)',
                           '& .MuiLinearProgress-bar': {
-                            background: gradients.purpleViolet,
+                            background: gradients.electricPurple,
                             borderRadius: 1
                           }
                         }}
