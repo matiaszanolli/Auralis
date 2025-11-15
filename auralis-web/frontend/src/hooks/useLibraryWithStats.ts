@@ -303,16 +303,29 @@ export const useLibraryWithStats = ({
   );
 
   const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore || fetchInProgressRef.current) {
+    // Check guards using refs and state getters to avoid dependency loop
+    if (fetchInProgressRef.current) {
+      console.log('[useLibraryWithStats] loadMore already in progress, skipping');
       return;
     }
 
+    // NOTE: We can't use isLoadingMore or hasMore in dependencies because they change frequently
+    // Instead, we check them here and use refs to guard against parallel calls
+    // The state values are read here at callback invocation time
     fetchInProgressRef.current = true;
     setIsLoadingMore(true);
+
     try {
       const limit = 50;
-      const newOffset = offset + limit;
-      setOffset(newOffset);
+      // Get current offset value using updater function pattern
+      let newOffset = 0;
+      setOffset((prevOffset) => {
+        newOffset = prevOffset + limit;
+        return newOffset;
+      });
+
+      // Wait for state update to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       const endpoint =
         view === 'favourites'
@@ -344,7 +357,7 @@ export const useLibraryWithStats = ({
       setIsLoadingMore(false);
       fetchInProgressRef.current = false;
     }
-  }, [isLoadingMore, hasMore, offset, view]);
+  }, [view]);
 
   const handleScanFolder = useCallback(async () => {
     let folderPath: string | undefined;
