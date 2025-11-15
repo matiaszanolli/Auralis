@@ -56,7 +56,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       }}
     >
       {/* Progress slider */}
-      <Slider variant="gradient"
+      <Slider
         value={currentTime}
         max={duration || 0}
         onChange={handleSeek}
@@ -75,6 +75,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           },
           '& .MuiSlider-track': {
             border: 'none',
+            background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
           },
           '& .MuiSlider-rail': {
             opacity: 0.3,
