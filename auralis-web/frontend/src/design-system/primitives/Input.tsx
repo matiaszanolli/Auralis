@@ -184,7 +184,7 @@ export const Input: React.FC<InputProps> = ({
           </InputAdornment>
         ) : undefined,
       }}
-      {...props}
+      {...(props as any)}
     />
   );
 };
