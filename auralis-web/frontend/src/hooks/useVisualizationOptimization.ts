@@ -178,11 +178,11 @@ export const useOptimizedCanvas = (
     let ctx: CanvasRenderingContext2D | WebGLRenderingContext | null = null;
 
     if (options.enableWebGL) {
-      ctx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      ctx = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
     }
 
     if (!ctx) {
-      ctx = canvas.getContext('2d');
+      ctx = canvas.getContext('2d') as CanvasRenderingContext2D | null;
     }
 
     setContext(ctx);
