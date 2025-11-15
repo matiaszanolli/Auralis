@@ -20,7 +20,7 @@ import {
   type QueueTrack,
 } from '../queueService';
 
-// Setup fetch mock
+// Setup fetch mock for skipped tests (will be used when tests are unskipped)
 const createFetchMock = () => vi.fn();
 let fetchMock = createFetchMock();
 vi.stubGlobal('fetch', fetchMock);
