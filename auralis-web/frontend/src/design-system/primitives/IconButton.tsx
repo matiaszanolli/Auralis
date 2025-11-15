@@ -135,8 +135,8 @@ const StyledIconButton = styled(MuiIconButton, {
   };
 
   return {
-    ...sizeStyles[size],
-    ...variantStyles[variant],
+    ...sizeStyles[size as keyof typeof sizeStyles],
+    ...variantStyles[variant as keyof typeof variantStyles],
     borderRadius: tokens.borderRadius.md,
     transition: tokens.transitions.all,
     opacity: disabled ? 0.5 : 1,

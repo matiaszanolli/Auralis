@@ -60,7 +60,7 @@ const StyledDialog = styled(MuiDialog, {
 
   return {
     '& .MuiDialog-paper': {
-      ...sizeStyles[size],
+      ...sizeStyles[size as keyof typeof sizeStyles],
       width: '100%',
       background: tokens.colors.bg.secondary,
       borderRadius: tokens.borderRadius.xl,

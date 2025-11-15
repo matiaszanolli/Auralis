@@ -97,8 +97,8 @@ const StyledCard = styled(MuiCard, {
     : {};
 
   return {
-    ...variantStyles[variant],
-    ...paddingStyles[padding],
+    ...variantStyles[variant as keyof typeof variantStyles],
+    ...paddingStyles[padding as keyof typeof paddingStyles],
     ...hoverStyles,
     ...selectedStyles,
     borderRadius: tokens.borderRadius.lg,

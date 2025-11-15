@@ -133,8 +133,8 @@ const StyledSlider = styled(MuiSlider, {
   };
 
   return {
-    ...sizeStyles[size],
-    ...variantStyles[variant],
+    ...sizeStyles[size as keyof typeof sizeStyles],
+    ...variantStyles[variant as keyof typeof variantStyles],
     borderRadius: tokens.borderRadius.full,
 
     '& .MuiSlider-thumb': {
