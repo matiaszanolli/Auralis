@@ -210,7 +210,7 @@ describe('RadialPresetSelector', () => {
 
   it('handles invalid preset gracefully', () => {
     // Should default to first preset if invalid preset is provided
-    render(<RadialPresetSelector {...defaultProps} currentPreset="invalid-preset" as any />)
+    render(<RadialPresetSelector {...defaultProps} currentPreset="invalid-preset" /> as any)
 
     // Should still render (falling back to adaptive)
     expect(screen.getByText('Adaptive')).toBeInTheDocument()
