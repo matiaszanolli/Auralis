@@ -92,11 +92,11 @@ export const CreatePlaylistDialog: React.FC<CreatePlaylistDialogProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
-  const { success, showError } = useToast();
+  const { success, error } = useToast();
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      showError('Please enter a playlist name');
+      error('Please enter a playlist name');
       return;
     }
 
@@ -118,8 +118,8 @@ export const CreatePlaylistDialog: React.FC<CreatePlaylistDialogProps> = ({
       setName('');
       setDescription('');
       onClose();
-    } catch (error) {
-      showError(`Failed to create playlist: ${error}`);
+    } catch (err) {
+      error(`Failed to create playlist: ${err}`);
     } finally {
       setLoading(false);
     }
