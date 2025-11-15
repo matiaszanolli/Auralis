@@ -483,7 +483,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                         <Typography variant="body2" sx={{ color: colors.text.secondary, fontSize: '0.8125rem' }}>
                           Expansion
                         </Typography>
-                        <Typography variant="body2" sx={{ color: colors.accent.blue, fontWeight: 600, fontSize: '0.8125rem' }}>
+                        <Typography variant="body2" sx={{ color: colors.accent.info, fontWeight: 600, fontSize: '0.8125rem' }}>
                           {Math.round(params.expansion_amount * 100)}%
                         </Typography>
                       </Box>
