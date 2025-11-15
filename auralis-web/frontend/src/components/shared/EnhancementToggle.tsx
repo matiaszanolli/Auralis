@@ -75,7 +75,9 @@ export interface EnhancementToggleProps {
 // Button Variant Styles
 // ============================================================================
 
-const ToggleButton = styled(IconButton)<{ $isEnabled: boolean }>(({ $isEnabled }) => ({
+const ToggleButton = styled(IconButton, {
+  shouldForwardProp: (prop) => prop !== '$isEnabled',
+})<{ $isEnabled: boolean }>(({ $isEnabled }) => ({
   width: '40px',
   height: '40px',
   color: $isEnabled ? tokens.colors.accent.primary : tokens.colors.text.tertiary,
@@ -103,7 +105,9 @@ const ToggleButton = styled(IconButton)<{ $isEnabled: boolean }>(({ $isEnabled }
   },
 }));
 
-const EnhancementLabel = styled(Box)<{ $isEnabled: boolean }>(({ $isEnabled }) => ({
+const EnhancementLabel = styled(Box, {
+  shouldForwardProp: (prop) => prop !== '$isEnabled',
+})<{ $isEnabled: boolean }>(({ $isEnabled }) => ({
   fontSize: tokens.typography.fontSize.xs,
   fontWeight: tokens.typography.fontWeight.medium,
   color: $isEnabled ? tokens.colors.accent.primary : tokens.colors.text.tertiary,
@@ -125,7 +129,9 @@ const EnhancementContainer = styled(Box)({
 // Switch Variant Styles
 // ============================================================================
 
-const SwitchPaper = styled(Paper)<{ $isEnabled: boolean; $isProcessing: boolean }>(
+const SwitchPaper = styled(Paper, {
+  shouldForwardProp: (prop) => prop !== '$isEnabled' && prop !== '$isProcessing',
+})<{ $isEnabled: boolean; $isProcessing: boolean }>(
   ({ $isEnabled, $isProcessing }) => ({
     p: tokens.spacing.md,
     mb: tokens.spacing.lg,
