@@ -93,7 +93,13 @@ const crudService = createCrudService<UserSettings, SettingsUpdate>({
  * Get current user settings
  */
 export async function getSettings(): Promise<UserSettings> {
-  return crudService.list() as Promise<UserSettings>;
+  const result = await crudService.list();
+  // list() returns an array, but for settings we expect a single object
+  if (Array.isArray(result) && result.length > 0) {
+    return result[0];
+  }
+  // Return default empty settings if list is empty
+  throw new Error('No settings found');
 }
 
 /**
