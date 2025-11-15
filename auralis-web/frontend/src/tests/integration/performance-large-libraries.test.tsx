@@ -812,7 +812,7 @@ describe('Performance & Large Libraries Integration Tests', () => {
 
         // Evict oldest if cache full
         if (cache.size >= CACHE_SIZE) {
-          const firstKey = cache.keys().next().value;
+          const firstKey = cache.keys().next().value as string;
           cache.delete(firstKey);
         }
 
@@ -852,7 +852,7 @@ describe('Performance & Large Libraries Integration Tests', () => {
       for (let i = 0; i < 150; i++) {
         if (cache.size >= MAX_CACHE_SIZE) {
           // Remove oldest entry (LRU eviction)
-          const firstKey = cache.keys().next().value;
+          const firstKey = cache.keys().next().value as string;
           cache.delete(firstKey);
         }
         cache.set(`key${i}`, { data: `value${i}` });
