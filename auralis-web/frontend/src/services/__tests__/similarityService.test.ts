@@ -248,6 +248,8 @@ describe.skip('SimilarityService', () => {
         total_edges: 1000,
         k_neighbors: 10,
         avg_distance: 0.345,
+        min_distance: 0.001,
+        max_distance: 0.890,
         build_time_seconds: 2.5
       };
 
@@ -272,6 +274,8 @@ describe.skip('SimilarityService', () => {
         total_edges: 500,
         k_neighbors: 5,
         avg_distance: 0.345,
+        min_distance: 0.001,
+        max_distance: 0.890,
         build_time_seconds: 1.2
       };
 
@@ -306,7 +310,10 @@ describe.skip('SimilarityService', () => {
         total_tracks: 100,
         total_edges: 1000,
         k_neighbors: 10,
-        avg_distance: 0.345
+        avg_distance: 0.345,
+        min_distance: 0.001,
+        max_distance: 0.890,
+        build_time_seconds: 2.5
       };
 
       mockFetch().mockResolvedValueOnce({
@@ -399,7 +406,10 @@ describe.skip('SimilarityService', () => {
         total_tracks: 100,
         total_edges: 1000,
         k_neighbors: 10,
-        avg_distance: 0.345
+        avg_distance: 0.345,
+        min_distance: 0.001,
+        max_distance: 0.890,
+        build_time_seconds: 2.5
       };
 
       mockFetch().mockResolvedValueOnce({
