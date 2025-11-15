@@ -409,6 +409,8 @@ export const useLibraryWithStats = ({
   // ========================================================================
 
   // Auto-load on mount or when view changes
+  // NOTE: Only depend on view, autoLoad, and includeStats to avoid infinite loops
+  // fetchTracks and refetchStats are functions that change frequently due to dependencies on toast functions
   useEffect(() => {
     if (autoLoad) {
       fetchTracks();
@@ -416,7 +418,9 @@ export const useLibraryWithStats = ({
         refetchStats();
       }
     }
-  }, [view, autoLoad, includeStats, fetchTracks, refetchStats]);
+    // Dependency array only includes view, autoLoad, includeStats to prevent re-render loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, autoLoad, includeStats]);
 
   // ========================================================================
   // Return
