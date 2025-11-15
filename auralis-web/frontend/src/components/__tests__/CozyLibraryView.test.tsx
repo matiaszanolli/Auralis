@@ -101,7 +101,7 @@ const mockPlayerAPI = {
   play: vi.fn(),
   playTrack: vi.fn(),
   addToQueue: vi.fn(),
-};
+} as any;
 
 
 describe('CozyLibraryView', () => {
