@@ -193,7 +193,13 @@ describe.skip('SimilarityService', () => {
           }
         ],
         all_contributions: [
-          { dimension: 'bass_pct', contribution: 0.125 }
+          {
+            dimension: 'bass_pct',
+            contribution: 0.125,
+            value1: 45.2,
+            value2: 60.1,
+            difference: 14.9
+          }
         ]
       };
 
