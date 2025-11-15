@@ -390,7 +390,7 @@ export class RealTimeAnalysisStream {
   // Interpolation
   private updateInterpolationData(data: AnalysisStreamData): void {
     // Store key metrics for interpolation
-    const metrics = [
+    const metrics: [string, number | undefined][] = [
       ['spectrum_peak', data.spectrum?.peak_frequency],
       ['loudness_momentary', data.loudness?.momentary_loudness],
       ['correlation', data.correlation?.correlation_coefficient],
