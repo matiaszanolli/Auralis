@@ -170,7 +170,7 @@ export const Slider: React.FC<SliderProps> = ({
       variant={variant}
       size={size}
       valueLabelDisplay={showValue ? 'auto' : 'off'}
-      {...props}
+      {...(props as any)}
     />
   );
 };
