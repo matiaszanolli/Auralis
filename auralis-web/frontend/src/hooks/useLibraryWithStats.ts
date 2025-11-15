@@ -41,7 +41,7 @@
  * @see useLibraryStats.ts (deprecated, use this instead)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '../components/shared/Toast';
 
 // ============================================================================
@@ -186,6 +186,9 @@ export const useLibraryWithStats = ({
   const [stats, setStats] = useState<LibraryStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(includeStats);
 
+  // Prevent multiple simultaneous fetches (debounce protection)
+  const fetchInProgressRef = useRef(false);
+
   const { success, error: toastError, info } = useToast();
 
   // ========================================================================
@@ -208,6 +211,13 @@ export const useLibraryWithStats = ({
 
   const fetchTracks = useCallback(
     async (resetPagination = true) => {
+      // Prevent multiple simultaneous fetches (anti-spam/debounce)
+      if (fetchInProgressRef.current) {
+        console.log('[useLibraryWithStats] Fetch already in progress, skipping');
+        return;
+      }
+
+      fetchInProgressRef.current = true;
       setLoading(true);
       setError(null);
 
@@ -283,6 +293,7 @@ export const useLibraryWithStats = ({
         }
       } finally {
         setLoading(false);
+        fetchInProgressRef.current = false;
       }
     },
     // NOTE: Do NOT include 'offset' in dependencies - it's only used for loadMore (non-reset case)
@@ -292,10 +303,11 @@ export const useLibraryWithStats = ({
   );
 
   const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore) {
+    if (isLoadingMore || !hasMore || fetchInProgressRef.current) {
       return;
     }
 
+    fetchInProgressRef.current = true;
     setIsLoadingMore(true);
     try {
       const limit = 50;
@@ -330,6 +342,7 @@ export const useLibraryWithStats = ({
       console.error('Error loading more tracks:', err);
     } finally {
       setIsLoadingMore(false);
+      fetchInProgressRef.current = false;
     }
   }, [isLoadingMore, hasMore, offset, view]);
 
