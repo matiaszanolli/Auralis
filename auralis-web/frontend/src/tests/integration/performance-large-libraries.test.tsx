@@ -1056,14 +1056,14 @@ describe('Performance & Large Libraries Integration Tests', () => {
       const originalRemoveEventListener = window.removeEventListener;
 
       // Track listener changes relative to baseline
-      window.addEventListener = vi.fn((...args) => {
+      window.addEventListener = vi.fn((...args: any[]) => {
         listenerCount++;
-        return originalAddEventListener.apply(window, args);
+        return originalAddEventListener.apply(window, args as any);
       });
 
-      window.removeEventListener = vi.fn((...args) => {
+      window.removeEventListener = vi.fn((...args: any[]) => {
         listenerCount--;
-        return originalRemoveEventListener.apply(window, args);
+        return originalRemoveEventListener.apply(window, args as any);
       });
 
       const ComponentWithCleanup = () => {
