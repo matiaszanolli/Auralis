@@ -609,9 +609,9 @@ export class AnalysisExportService {
 
   private async renderVisualization(
     ctx: CanvasRenderingContext2D,
-    settings: ExportOptions['visualizationSettings']
+    settings: Required<ExportOptions['visualizationSettings']>
   ): Promise<void> {
-    const { width, height, theme } = settings!;
+    const { width, height, theme } = settings;
     const renderCtx = { width, height, theme, ctx };
 
     // Set background
