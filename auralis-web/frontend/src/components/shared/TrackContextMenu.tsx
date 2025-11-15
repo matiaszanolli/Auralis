@@ -61,7 +61,7 @@ const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructiv
   color: destructive ? '#ff4757' : colors.text.primary,
   padding: `${spacing.sm + 2}px ${spacing.md - 4}px`,
   borderRadius: `${borderRadius.xs}px`,
-  margin: `${spacing.xxs}px 0`,
+  margin: `${spacing.xs}px 0`,
   transition: `all ${transitions.fast}`,
   '&:hover': {
     background: destructive ? 'rgba(255, 71, 87, 0.12)' : 'rgba(102, 126, 234, 0.15)',
