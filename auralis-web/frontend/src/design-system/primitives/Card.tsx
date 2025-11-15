@@ -41,7 +41,7 @@ export interface CardProps extends Omit<MuiCardProps, 'variant'> {
 const StyledCard = styled(MuiCard, {
   shouldForwardProp: (prop) =>
     !['variant', 'padding', 'hoverable', 'selected'].includes(prop as string),
-})<CardProps>(({ variant = 'default', padding = 'md', hoverable, selected }) => {
+})<{ variant?: 'default' | 'elevated' | 'outlined'; padding?: 'none' | 'sm' | 'md' | 'lg'; hoverable?: boolean; selected?: boolean }>(({ variant = 'default', padding = 'md', hoverable, selected }) => {
   // Padding styles
   const paddingStyles = {
     none: { padding: 0 },
