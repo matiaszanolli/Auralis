@@ -285,7 +285,10 @@ export const useLibraryWithStats = ({
         setLoading(false);
       }
     },
-    [view, offset, success, toastError, info, loadMockData]
+    // NOTE: Do NOT include 'offset' in dependencies - it's only used for loadMore (non-reset case)
+    // fetchTracks is called with resetPagination=true from useEffect, which always uses currentOffset=0
+    // Including offset would cause fetchTracks to be recreated every time offset changes, leading to infinite loops
+    [view, success, toastError, info, loadMockData]
   );
 
   const loadMore = useCallback(async () => {
