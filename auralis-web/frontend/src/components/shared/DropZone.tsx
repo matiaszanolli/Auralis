@@ -159,20 +159,24 @@ export const DropZone: React.FC<DropZoneProps> = ({
         overflow: 'hidden',
         opacity: disabled ? 0.5 : 1,
 
-        '&:hover': !disabled && !scanning && {
-          borderColor: '#667eea',
-          background: alpha('#667eea', 0.02),
-          transform: 'scale(1.01)',
-        },
+        ...((!disabled && !scanning) && {
+          '&:hover': {
+            borderColor: '#667eea',
+            background: alpha('#667eea', 0.02),
+            transform: 'scale(1.01)',
+          },
+        }),
 
-        '&::before': isDragging && {
-          content: '""',
-          position: 'absolute',
-          inset: 0,
-          background: gradients.aurora,
-          opacity: 0.05,
-          animation: 'pulse 2s ease-in-out infinite',
-        },
+        ...(isDragging && {
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: 0,
+            background: gradients.aurora,
+            opacity: 0.05,
+            animation: 'pulse 2s ease-in-out infinite',
+          },
+        }),
 
         '@keyframes pulse': {
           '0%, 100%': { opacity: 0.05 },
