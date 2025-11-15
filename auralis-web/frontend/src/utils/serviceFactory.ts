@@ -154,7 +154,7 @@ export function createEndpointGenerator(baseUrl: string) {
     withParam: (key: string, value: any) => `${baseUrl}?${key}=${value}`,
     withParams: (params: Record<string, any>) => {
       const queryString = Object.entries(params)
-        .map(([k, v]) => `${k}=${v}`)
+        .map(([k, v]: [string, any]) => `${k}=${v}`)
         .join('&');
       return queryString ? `${baseUrl}?${queryString}` : baseUrl;
     }
