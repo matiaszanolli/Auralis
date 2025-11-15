@@ -288,7 +288,7 @@ export class UnifiedWebMAudioPlayer {
         throw new Error(`Failed to fetch metadata: ${response.statusText}`);
       }
 
-      this.metadata = await response.json();
+      this.metadata = (await response.json()) as StreamMetadata;
       this.trackId = trackId;
 
       // Initialize chunks
