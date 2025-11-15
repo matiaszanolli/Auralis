@@ -120,7 +120,7 @@ export const Card: React.FC<CardProps> = ({
       padding={padding}
       hoverable={hoverable}
       selected={selected}
-      {...props}
+      {...(props as any)}
     >
       {children}
     </StyledCard>
