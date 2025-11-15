@@ -522,8 +522,8 @@ export const handlers = [
         album: track.album,
         year: track.year || 2020,
         genre: track.genre || 'Rock',
-        track: track.track_number || 1,
-        disc: track.disc_number || 1
+        track: 1,
+        disc: 1
       }
     });
   }),
@@ -551,8 +551,8 @@ export const handlers = [
         album: track.album,
         year: track.year || 2020,
         genre: track.genre || 'Rock',
-        track: track.track_number || 1,
-        disc: track.disc_number || 1,
+        track: 1,
+        disc: 1,
         comment: '',
         composer: '',
         publisher: '',
