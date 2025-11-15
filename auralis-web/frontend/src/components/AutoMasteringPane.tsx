@@ -435,7 +435,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                         <Typography
                           variant="body2"
                           sx={{
-                            color: params.bass_boost > 0 ? colors.accent.green : colors.accent.orange,
+                            color: params.bass_boost > 0 ? colors.accent.success : colors.accent.warning,
                             fontWeight: 600,
                             fontSize: '0.8125rem'
                           }}
@@ -454,7 +454,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                         <Typography
                           variant="body2"
                           sx={{
-                            color: params.air_boost > 0 ? colors.accent.green : colors.accent.orange,
+                            color: params.air_boost > 0 ? colors.accent.success : colors.accent.warning,
                             fontWeight: 600,
                             fontSize: '0.8125rem'
                           }}
