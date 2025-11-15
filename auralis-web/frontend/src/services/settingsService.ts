@@ -54,7 +54,7 @@ export interface SettingsUpdate {
   scan_interval?: number;
   // Playback
   crossfade_enabled?: boolean;
-  crossfade_duration?: boolean;
+  crossfade_duration?: number;
   gapless_enabled?: boolean;
   replay_gain_enabled?: boolean;
   volume?: number;
