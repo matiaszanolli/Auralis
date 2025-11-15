@@ -208,14 +208,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         maxReconnectAttempts: 10,
         initialReconnectDelayMs: 1000,
         backoffMultiplier: 2,
-        maxDelayMs: 30000,
+        maxReconnectDelayMs: 30000,
         onReconnectAttempt: (attempt, delay) => {
           console.log(`🔄 Reconnection attempt ${attempt}/10 (waiting ${delay}ms)`);
         },
       });
 
       // Setup message handler
-      wsManagerRef.current.on('message', (event: MessageEvent) => {
+      wsManagerRef.current.on('message', ((event: MessageEvent) => {
         try {
           const message: AuralisWebSocketMessage = JSON.parse(event.data);
 
@@ -244,7 +244,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
         }
-      });
+      }) as (event: MessageEvent | Event) => void);
 
       // Setup open handler
       wsManagerRef.current.on('open', () => {
