@@ -213,17 +213,15 @@ export const BottomPlayerBarUnified: React.FC = () => {
   }, [queue.length, queueIndex, previousTrack, info, showError]);
 
   // Handle seek (with proper state management)
-  const handleSeek = useCallback(async (value: number | number[]) => {
+  const handleSeek = useCallback((_: Event, value: number | number[]) => {
     const position = value as number;
     setIsSeeking(true);
 
-    try {
-      await seek(position);
-    } catch (err: any) {
+    seek(position).catch((err: any) => {
       showError(`Seek failed: ${err.message}`);
-    } finally {
+    }).finally(() => {
       setIsSeeking(false);
-    }
+    });
   }, [seek, showError]);
 
   // Handle volume change

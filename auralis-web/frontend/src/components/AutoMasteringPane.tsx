@@ -333,7 +333,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                           sx={{
                             height: 20,
                             fontSize: '0.7rem',
-                            background: gradients.blueViolet,
+                            background: gradients.cosmicBlue,
                             color: 'white'
                           }}
                         />
@@ -346,7 +346,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                           borderRadius: 1,
                           backgroundColor: 'rgba(226, 232, 240, 0.1)',
                           '& .MuiLinearProgress-bar': {
-                            background: gradients.blueViolet,
+                            background: gradients.cosmicBlue,
                             borderRadius: 1
                           }
                         }}
@@ -365,7 +365,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                           sx={{
                             height: 20,
                             fontSize: '0.7rem',
-                            background: gradients.tealBlue,
+                            background: gradients.deepOcean,
                             color: 'white'
                           }}
                         />
@@ -378,7 +378,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                           borderRadius: 1,
                           backgroundColor: 'rgba(226, 232, 240, 0.1)',
                           '& .MuiLinearProgress-bar': {
-                            background: gradients.tealBlue,
+                            background: gradients.deepOcean,
                             borderRadius: 1
                           }
                         }}
