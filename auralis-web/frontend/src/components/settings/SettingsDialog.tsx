@@ -232,11 +232,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
     await triggerScan(folder);
   };
 
-  const getValue = <K extends keyof UserSettings>(key: K): UserSettings[K] => {
+  const getValue = <K extends keyof SettingsUpdate>(key: K): any => {
     if (key in pendingChanges) {
-      return pendingChanges[key] as UserSettings[K];
+      return pendingChanges[key as keyof SettingsUpdate];
     }
-    return settings ? settings[key] : null as any;
+    return settings ? (settings[key as keyof UserSettings] as any) : null;
   };
 
   if (!settings) {
