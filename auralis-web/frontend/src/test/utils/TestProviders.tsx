@@ -11,7 +11,6 @@ import { WebSocketProvider } from '../../contexts/WebSocketContext';
 interface TestProvidersProps {
   children: ReactNode;
   wsUrl?: string;
-  autoConnect?: boolean;
 }
 
 /**
@@ -19,15 +18,13 @@ interface TestProvidersProps {
  *
  * @param children - Components to wrap
  * @param wsUrl - WebSocket URL (defaults to test mock URL)
- * @param autoConnect - Whether to auto-connect WebSocket (default: false for tests)
  */
 export const TestProviders: React.FC<TestProvidersProps> = ({
   children,
-  wsUrl = 'ws://localhost:8765/ws',
-  autoConnect = false
+  wsUrl = 'ws://localhost:8765/ws'
 }) => {
   return (
-    <WebSocketProvider url={wsUrl} autoConnect={autoConnect}>
+    <WebSocketProvider url={wsUrl}>
       {children}
     </WebSocketProvider>
   );
@@ -39,7 +36,7 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
  */
 export const MinimalTestProviders: React.FC<{ children: ReactNode }> = ({ children }) => {
   return (
-    <WebSocketProvider url="ws://test/ws" autoConnect={false}>
+    <WebSocketProvider url="ws://test/ws">
       {children}
     </WebSocketProvider>
   );
