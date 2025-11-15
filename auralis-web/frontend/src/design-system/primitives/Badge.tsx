@@ -94,7 +94,7 @@ export const Badge: React.FC<BadgeProps> = ({
       variant={variant}
       badgeContent={dot ? undefined : value}
       invisible={!value && !dot}
-      {...props}
+      {...(props as any)}
     >
       {children}
     </StyledBadge>
