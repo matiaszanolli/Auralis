@@ -185,7 +185,7 @@ export const useOptimizedCanvas = (
       ctx = canvas.getContext('2d') as CanvasRenderingContext2D | null;
     }
 
-    setContext(ctx);
+    setContext(ctx as CanvasRenderingContext2D | WebGLRenderingContext | null);
   }, [canvasRef, options.width, options.height, options.enableWebGL]);
 
   // Optimized render function
