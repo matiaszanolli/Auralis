@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
 import { Snackbar, Alert, AlertColor, styled, keyframes } from '@mui/material';
 import { colors, gradients } from '../../theme/auralisTheme';
 
@@ -101,7 +101,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
 }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const showToast = (
+  const showToast = useCallback((
     message: string,
     type: AlertColor = 'info',
     duration: number = 4000
@@ -114,35 +114,35 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
       // Keep only the latest maxToasts
       return updated.slice(-maxToasts);
     });
-  };
+  }, [maxToasts]);
 
-  const success = (message: string, duration?: number) => {
+  const success = useCallback((message: string, duration?: number) => {
     showToast(message, 'success', duration);
-  };
+  }, [showToast]);
 
-  const error = (message: string, duration?: number) => {
+  const error = useCallback((message: string, duration?: number) => {
     showToast(message, 'error', duration);
-  };
+  }, [showToast]);
 
-  const info = (message: string, duration?: number) => {
+  const info = useCallback((message: string, duration?: number) => {
     showToast(message, 'info', duration);
-  };
+  }, [showToast]);
 
-  const warning = (message: string, duration?: number) => {
+  const warning = useCallback((message: string, duration?: number) => {
     showToast(message, 'warning', duration);
-  };
+  }, [showToast]);
 
-  const handleClose = (id: string) => {
+  const handleClose = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
+  }, []);
 
-  const value: ToastContextValue = {
+  const value: ToastContextValue = useMemo(() => ({
     showToast,
     success,
     error,
     info,
     warning,
-  };
+  }), [showToast, success, error, info, warning]);
 
   return (
     <ToastContext.Provider value={value}>
