@@ -244,10 +244,10 @@ export abstract class ExportFormatHandler {
  * Eliminates switch statement duplication
  */
 export class ExportFormatRegistry {
-  private handlers: Map<string, typeof ExportFormatHandler> = new Map();
+  private handlers: Map<string, new (sessionId: string, config: ExportFormatConfig) => ExportFormatHandler> = new Map();
 
-  register(format: string, handler: typeof ExportFormatHandler): void {
-    this.handlers.set(format, handler);
+  register(format: string, handler: typeof ExportFormatHandler | (new (sessionId: string, config: ExportFormatConfig) => ExportFormatHandler)): void {
+    this.handlers.set(format, handler as new (sessionId: string, config: ExportFormatConfig) => ExportFormatHandler);
   }
 
   getHandler(format: string, sessionId: string): ExportFormatHandler | null {
