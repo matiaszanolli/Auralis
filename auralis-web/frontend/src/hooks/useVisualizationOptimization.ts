@@ -125,8 +125,15 @@ export const useVisualizationOptimization = (
   }, [enableMonitoring]);
 
   const updateConfig = useCallback((config: Partial<PerformanceConfig>): void => {
-    if (optimizerRef.current) {
-      optimizerRef.current.setConfig(config);
+    // Note: PerformanceOptimizer uses profiles instead of dynamic config
+    // To change behavior, use setProfile() instead
+    if (optimizerRef.current && config) {
+      // Profile-based configuration is applied at initialization
+      // For runtime changes, use updateCPUUsage() or updateBufferHealth()
+      if (typeof config.adaptiveQuality === 'boolean' && config.adaptiveQuality) {
+        // Adaptive quality is enabled
+        optimizerRef.current.updateBufferHealth(90, 100);
+      }
     }
   }, []);
 
