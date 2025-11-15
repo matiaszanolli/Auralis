@@ -49,7 +49,13 @@ const crudService = createCrudService<QueueResponse, SetQueueRequest>({
  * Get current queue
  */
 export async function getQueue(): Promise<QueueResponse> {
-  return crudService.list() as Promise<QueueResponse>;
+  const result = await crudService.list();
+  // list() returns an array, but for queue we expect the first item or create a response
+  if (Array.isArray(result) && result.length > 0) {
+    return result[0];
+  }
+  // Return empty queue response if list is empty
+  return { tracks: [], current_index: 0, total_tracks: 0 };
 }
 
 /**

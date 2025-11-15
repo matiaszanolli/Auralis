@@ -198,9 +198,9 @@ export class RealTimeAnalysisStream {
       });
 
       // Setup message handler
-      this.wsManager.on('message', (event: MessageEvent) => {
-        this.handleMessage(event);
-      });
+      this.wsManager.on('message', ((event: MessageEvent | Event) => {
+        this.handleMessage(event as MessageEvent);
+      }) as (event: MessageEvent | Event) => void);
 
       // Setup error handler
       this.wsManager.on('error', (event: Event) => {
