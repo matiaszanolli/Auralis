@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -590,7 +590,6 @@ function ComfortableApp() {
             <CozyLibraryView
               key={viewKey}
               onTrackPlay={handleTrackPlay}
-              onEnhancementToggle={handleEnhancementToggle}
               view={currentView}
             />
           </Box>
