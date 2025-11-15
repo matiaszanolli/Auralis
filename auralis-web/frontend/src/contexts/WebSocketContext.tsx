@@ -186,6 +186,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   // Message queue for sending during disconnection
   const messageQueueRef = useRef<any[]>([]);
 
+  // Track if component is mounted to prevent setState after unmount
+  const mountedRef = useRef(true);
+
   /**
    * Connect to WebSocket (Phase 4c: Uses WebSocketManager)
    */
@@ -246,8 +249,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       // Setup open handler
       wsManagerRef.current.on('open', () => {
         console.log('✅ WebSocket connected');
-        setIsConnected(true);
-        setConnectionStatus('connected');
+        if (mountedRef.current) {
+          setIsConnected(true);
+          setConnectionStatus('connected');
+        }
 
         // Send queued messages
         while (messageQueueRef.current.length > 0) {
@@ -259,14 +264,20 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       // Setup error handler
       wsManagerRef.current.on('error', (event: Event) => {
         console.error('❌ WebSocket error:', event);
-        setConnectionStatus('error');
+        // Only update state if component is still mounted
+        if (mountedRef.current) {
+          setConnectionStatus('error');
+        }
       });
 
       // Setup close handler
       wsManagerRef.current.on('close', () => {
         console.log('🔌 WebSocket disconnected (will auto-reconnect)');
-        setIsConnected(false);
-        setConnectionStatus('disconnected');
+        // Only update state if component is still mounted
+        if (mountedRef.current) {
+          setIsConnected(false);
+          setConnectionStatus('disconnected');
+        }
       });
 
       await wsManagerRef.current.connect();
@@ -349,6 +360,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 
     // Cleanup on unmount
     return () => {
+      mountedRef.current = false;
       disconnect();
     };
   }, [connect, disconnect]);

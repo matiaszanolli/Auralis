@@ -15,7 +15,7 @@ import { render, screen, fireEvent } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { DraggableTrackRow } from '../DraggableTrackRow';
 
-// Mock Draggable component from @hello-pangea/dnd
+// Mock Draggable and DragDropContext from @hello-pangea/dnd
 vi.mock('@hello-pangea/dnd', () => ({
   Draggable: ({ children, draggableId, index, isDragDisabled }: any) => {
     return (
@@ -34,6 +34,9 @@ vi.mock('@hello-pangea/dnd', () => ({
       </div>
     );
   },
+  DragDropContext: ({ children, onDragEnd }: any) => (
+    <div>{children}</div>
+  ),
 }));
 
 // Mock TrackRow component
