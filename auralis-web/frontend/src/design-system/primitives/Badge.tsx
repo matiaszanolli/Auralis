@@ -70,7 +70,7 @@ const StyledBadge = styled(MuiBadge, {
   };
 
   return {
-    ...variantStyles[variant],
+    ...variantStyles[variant as keyof typeof variantStyles],
     '& .MuiBadge-badge': {
       fontSize: tokens.typography.fontSize.xs,
       fontWeight: tokens.typography.fontWeight.semibold,
@@ -93,7 +93,7 @@ export const Badge: React.FC<BadgeProps> = ({
     <StyledBadge
       variant={variant}
       badgeContent={dot ? undefined : value}
-      variant={dot ? 'dot' : 'standard'}
+      invisible={!value && !dot}
       {...props}
     >
       {children}
