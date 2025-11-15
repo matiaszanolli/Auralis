@@ -31,7 +31,7 @@ describe('ThemeToggle', () => {
       text: { primary: '#ffffff', secondary: '#8b92b0' },
     },
     glassEffects: {},
-  }
+  } as any
 
   const mockLightTheme = {
     mode: 'light' as const,
@@ -42,7 +42,7 @@ describe('ThemeToggle', () => {
       text: { primary: '#1a1f3a', secondary: '#5a6280' },
     },
     glassEffects: {},
-  }
+  } as any
 
   beforeEach(() => {
     mockToggleTheme.mockClear()
