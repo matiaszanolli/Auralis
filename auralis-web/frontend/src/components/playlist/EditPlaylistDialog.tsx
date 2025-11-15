@@ -92,7 +92,7 @@ export const EditPlaylistDialog: React.FC<EditPlaylistDialogProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
-  const { success, showError } = useToast();
+  const { success, error } = useToast();
 
   // Update form when playlist changes
   useEffect(() => {
@@ -106,7 +106,7 @@ export const EditPlaylistDialog: React.FC<EditPlaylistDialogProps> = ({
     if (!playlist) return;
 
     if (!name.trim()) {
-      showError('Please enter a playlist name');
+      error('Please enter a playlist name');
       return;
     }
 
@@ -124,8 +124,8 @@ export const EditPlaylistDialog: React.FC<EditPlaylistDialogProps> = ({
       }
 
       onClose();
-    } catch (error) {
-      showError(`Failed to update playlist: ${error}`);
+    } catch (err) {
+      error(`Failed to update playlist: ${err}`);
     } finally {
       setLoading(false);
     }
