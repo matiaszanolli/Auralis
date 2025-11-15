@@ -129,7 +129,7 @@ export const TrackQueue: React.FC<TrackQueueProps> = ({
 }) => {
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
   const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
-  const { success, info, warning } = useToast();
+  const { success, info } = useToast();
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -158,7 +158,7 @@ export const TrackQueue: React.FC<TrackQueueProps> = ({
       onAddToQueue: () => {
         success(`Added "${selectedTrack.title}" to queue`);
       },
-      onLove: () => {
+      onToggleLove: () => {
         success(`Added "${selectedTrack.title}" to favorites`);
       },
       onAddToPlaylist: () => {
@@ -166,10 +166,6 @@ export const TrackQueue: React.FC<TrackQueueProps> = ({
       },
       onShowInfo: () => {
         info(`${selectedTrack.title} ${selectedTrack.artist ? `by ${selectedTrack.artist}` : ''}`);
-      },
-      onRemoveFromQueue: () => {
-        warning(`Removed "${selectedTrack.title}" from queue`);
-        // TODO: Implement queue removal
       },
     }
   ) : [];
