@@ -8,8 +8,8 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
 [![Release](https://img.shields.io/badge/release-v1.0.0--beta.12-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.12)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-234%20passing-brightgreen.svg)]()
-[![Phase 1](https://img.shields.io/badge/Phase%201%20Week%203-30%2F150%20boundary%20tests-blue.svg)]()
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1084%20passing%2F1425%20total-orange.svg)]()
+[![Status](https://img.shields.io/badge/Frontend%20Tests-Memory%20Issues%20(76%25%20pass)-orange.svg)]()
 
 ## 📥 Download Beta 12.0
 
@@ -254,13 +254,13 @@ desktop/                   # Electron wrapper
 
 ### Test Coverage (850+ Tests)
 
-**Current Status (Phase 1 Week 3):**
+**Current Status (Beta 12.0):**
 - **850+ total tests** across comprehensive test suites
-- **30 boundary tests** for chunked processing (100% pass rate)
 - **Critical invariant tests** (305 tests) - Properties that must always hold
 - **Advanced integration tests** (85 tests) - Boundary & integration coverage
 - **API security tests** (67 tests) - SQL injection, XSS, authentication
-- **Production bug discovery** - Boundary tests caught P1 bug on Day 1
+- **Boundary tests** (151+ tests) - Edge cases and limits
+- **Production bug discovery** - Tests catching real-world issues
 
 **Backend (Python):**
 - **850+ tests** across all test categories
@@ -271,10 +271,12 @@ desktop/                   # Electron wrapper
 - All critical audio processing paths tested
 
 **Frontend (React/TypeScript):**
-- **245 tests** with Vitest + React Testing Library
-- **95.5% pass rate** (234 passing, 11 edge cases)
-- Component testing with full provider context
-- WebSocket integration tests
+- **1,425 tests** with Vitest + React Testing Library
+- **168 tests failing** (11.8% failure rate) - Memory and async issues
+- **1,084 tests passing** (76.1% success rate)
+- **173 tests skipped** (12.1%)
+- ⚠️ **Critical Issues**: Component lifecycle bugs, async cleanup, provider nesting
+- See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md) for status
 
 **Testing Philosophy:**
 - **Coverage ≠ Quality** - 100% coverage doesn't mean tests catch bugs
@@ -304,11 +306,12 @@ python -m pytest tests/backend/ --cov=auralis-web/backend --cov-report=html
 # Core audio processing tests
 python -m pytest tests/test_adaptive_processing.py -v
 
-# Frontend tests (245 tests, 95.5% pass rate)
+# Frontend tests (234+ tests with memory management)
 cd auralis-web/frontend
-npm test                    # Interactive watch mode
+npm run test:memory         # ⭐ RECOMMENDED - Full suite with 2GB heap + GC
+npm test                    # Interactive watch mode (light memory)
 npm run test:run           # Single run
-npm run test:coverage      # With coverage report
+npm run test:coverage:memory # Coverage with memory management
 
 # Full test suite (850+ tests)
 python -m pytest tests/ -v
@@ -423,12 +426,15 @@ npm run build
 - [x] Query caching (136x speedup)
 - [x] Cross-platform builds (Windows + Linux)
 
-### 🔄 In Progress (Phase 1 Week 3)
-- [x] **Chunked Processing Boundaries** - 30/30 tests (100% passing)
-- [ ] **Pagination Boundaries** - 0/30 tests (next up)
-- [ ] **Audio Processing Boundaries** - 0/30 tests
-- [ ] **Library Operations Boundaries** - 0/30 tests
-- [ ] **String Input Boundaries** - 0/30 tests
+### 🔄 In Progress (Beta 12.0)
+- [ ] **Fix GlobalSearch.test.tsx** - 31/35 tests failing (missing async/await, long running)
+- [ ] **Fix TrackListView.test.tsx** - 24/42 tests failing (component lifecycle issues)
+- [ ] **Fix ArtistDetailView.test.tsx** - 17/43 tests failing (state cleanup, provider nesting)
+- [ ] **Fix useInfiniteScroll.test.ts** - 17/20 tests failing (intersection observer mocking)
+- [ ] **Fix WebSocket cleanup** - Add proper act() wrappers and subscription cleanup
+- [ ] **Fix AlbumArt.test.tsx** - 11/11 tests failing (mock loading issues)
+- [ ] **Reduce test suite memory usage** - Target: 50% reduction, 0 OOM errors
+- [ ] **Integration test stability** - WebSocket reconnection, async operations
 
 ### 📋 Planned (v1.0.0 Stable)
 - [ ] Enhancement presets UI (backend complete: Adaptive, Gentle, Warm, Bright, Punchy)
@@ -472,19 +478,39 @@ npm run build
 
 ---
 
-## 🐛 Known Issues (Beta.6)
+## 🐛 Known Issues (Beta 12.0)
 
 ### ⚠️ Current Limitations
 
-**Keyboard Shortcuts Temporarily Disabled** (P0)
+**Frontend Test Memory & Async Issues** (P1)
+- **Issue:** 168 failing tests (11.8%) across multiple components - async cleanup, provider nesting, lifecycle bugs
+- **Test Results:** 1,425 total tests: 1,084 passing (76%), 168 failing (12%), 173 skipped (12%)
+- **Main Problem Files:**
+  - `GlobalSearch.test.tsx` - 31/35 tests failing (long-running, 6+ minutes)
+  - `TrackListView.test.tsx` - 24/42 tests failing
+  - `ArtistDetailView.test.tsx` - 17/43 tests failing
+  - `useInfiniteScroll.test.ts` - 17/20 tests failing
+  - `TrackRow.test.tsx` - 14/33 tests failing
+  - `AlbumArt.test.tsx` - 11/11 tests failing
+- **Root Causes:**
+  1. Missing `act()` wrapper in async operations
+  2. WebSocket subscription not cleaned up properly
+  3. Component state updates after unmount
+  4. Memory leaks from provider nesting
+- **Status:** In Progress - Infrastructure improvements underway
+- **Workaround:** Use `npm run test:memory` for full suite (2GB heap with GC), expect ~76% pass rate
+- **Details:** See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
+- **Impact:** Developers must use memory-managed test commands; expect failing tests when running full suite
+
+**Keyboard Shortcuts Temporarily Disabled** (P2)
 - **Issue:** Circular dependency in production build minification
-- **Status:** Feature complete, disabled for Beta.6 release
-- **Fix:** Re-enable in Beta.7 with refactored architecture
+- **Status:** Feature complete, disabled for Beta.6+ release
+- **Fix:** Re-enable with refactored architecture
 - **Details:** See [BETA6_KEYBOARD_SHORTCUTS_DISABLED.md](docs/troubleshooting/BETA6_KEYBOARD_SHORTCUTS_DISABLED.md)
 
 **Playlist Track Order Persistence**
 - **Issue:** Drag-reordered tracks may not persist across restarts
-- **Status:** Database migration planned for Beta.7
+- **Status:** Database migration planned
 - **Workaround:** Use queue for temporary ordering
 
 **Preset Switching Buffering**
@@ -492,7 +518,7 @@ npm run build
 - **Status:** Ongoing optimization
 - **Workaround:** Select preset before starting playback
 
-### ✅ Recently Fixed (Beta.2-6)
+### ✅ Recently Fixed (Beta.2-12)
 
 **Audio fuzziness between chunks** - ✅ FIXED in Beta.2
 - Fixed with 3s crossfade and state tracking
