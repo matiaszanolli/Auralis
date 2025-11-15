@@ -163,7 +163,7 @@ export const IconButton: React.FC<IconButtonProps> = ({
       size={size}
       active={active}
       disabled={disabled}
-      {...props}
+      {...(props as any)}
     >
       {children}
     </StyledIconButton>
