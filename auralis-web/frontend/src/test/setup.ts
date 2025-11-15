@@ -103,7 +103,8 @@ beforeAll(() => {
   server.listen({
     onUnhandledRequest: (request) => {
       // Suppress warnings for WebSocket connections (mocked in test environment)
-      if (request.url.protocol === 'ws:' || request.url.protocol === 'wss:') {
+      const url = new URL(request.url);
+      if (url.protocol === 'ws:' || url.protocol === 'wss:') {
         return;
       }
       console.warn(`[MSW] Warning: unhandled ${request.method} ${request.url}`);
