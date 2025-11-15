@@ -12,13 +12,18 @@ import EnhancementPaneV2 from '../EnhancementPaneV2';
 // Mock the EnhancementContext
 vi.mock('../../../contexts/EnhancementContext', () => {
   const mockUseEnhancement = () => ({
-    settings: { enabled: true },
+    settings: { enabled: true, preset: 'adaptive', intensity: 1.0 },
     isProcessing: false,
     setEnabled: vi.fn().mockResolvedValue(undefined),
+    setPreset: vi.fn(),
+    setIntensity: vi.fn(),
   });
+
+  const MockEnhancementProvider = ({ children }: { children: React.ReactNode }) => children;
 
   return {
     useEnhancement: mockUseEnhancement,
+    EnhancementProvider: MockEnhancementProvider,
   };
 }, { virtual: true });
 
