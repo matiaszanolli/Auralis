@@ -53,7 +53,7 @@ export interface ButtonProps extends Omit<MuiButtonProps, 'variant' | 'size' | '
 const StyledButton = styled(MuiButton, {
   shouldForwardProp: (prop) =>
     !['variant', 'size', 'loading'].includes(prop as string),
-})<ButtonProps>(({ variant = 'primary', size = 'md', disabled, loading }) => {
+})<{ variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; size?: 'sm' | 'md' | 'lg'; loading?: boolean }>(({ variant = 'primary', size = 'md', disabled, loading }) => {
   // Base styles
   const baseStyles = {
     fontFamily: tokens.typography.fontFamily.primary,
@@ -189,7 +189,7 @@ export const Button: React.FC<ButtonProps> = ({
       loading={loading}
       startIcon={!loading ? startIcon : undefined}
       endIcon={!loading ? endIcon : undefined}
-      {...props}
+      {...(props as any)}
     >
       {loading && <LoadingSpinner size={20} />}
       <span style={{ visibility: loading ? 'hidden' : 'visible' }}>
