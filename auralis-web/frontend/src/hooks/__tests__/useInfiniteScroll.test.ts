@@ -12,10 +12,11 @@ import { useInfiniteScroll } from '../useInfiniteScroll';
 // Mock IntersectionObserver
 let observerCallback: IntersectionObserverCallback | null = null;
 let observedElements: Set<Element> = new Set();
+let mockObserverInstance: any = null;
 
 const mockIntersectionObserver = vi.fn((callback: IntersectionObserverCallback) => {
   observerCallback = callback;
-  return {
+  mockObserverInstance = {
     observe: (element: Element) => {
       observedElements.add(element);
     },
@@ -26,6 +27,7 @@ const mockIntersectionObserver = vi.fn((callback: IntersectionObserverCallback) 
       observedElements.clear();
     },
   };
+  return mockObserverInstance;
 });
 
 // Helper to trigger intersection
@@ -88,7 +90,7 @@ describe('useInfiniteScroll', () => {
 
       // Set up a target element
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
       // Force re-render to trigger useEffect
       rerender();
@@ -113,9 +115,9 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       await waitFor(() => {
         expect(onLoadMore).not.toHaveBeenCalled();
@@ -134,9 +136,9 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       await waitFor(() => {
         expect(onLoadMore).not.toHaveBeenCalled();
@@ -246,11 +248,11 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
       expect(result.current.isFetching).toBe(false);
 
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       await waitFor(() => {
         expect(result.current.isFetching).toBe(true);
@@ -277,12 +279,12 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
       // Trigger multiple intersections rapidly
-      mockObserver.triggerIntersection(true);
-      mockObserver.triggerIntersection(true);
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
+      triggerIntersection(true);
+      triggerIntersection(true);
 
       await waitFor(() => {
         expect(onLoadMore).toHaveBeenCalledTimes(1);
@@ -303,9 +305,9 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       await waitFor(() => {
         expect(console.error).toHaveBeenCalledWith(
@@ -339,10 +341,10 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
       // First attempt (fails)
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       await waitFor(() => {
         expect(onLoadMore).toHaveBeenCalledTimes(1);
@@ -353,7 +355,7 @@ describe('useInfiniteScroll', () => {
       });
 
       // Second attempt (succeeds)
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       await waitFor(() => {
         expect(onLoadMore).toHaveBeenCalledTimes(2);
@@ -376,14 +378,17 @@ describe('useInfiniteScroll', () => {
       expect(global.IntersectionObserver).toHaveBeenCalled();
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
     });
 
     it('should cleanup observer on unmount', () => {
       const onLoadMore = vi.fn().mockResolvedValue(undefined);
       const unobserveSpy = vi.fn();
 
-      mockObserver.unobserve = unobserveSpy;
+      // Create spy on the mock observer instance
+      if (mockObserverInstance) {
+        mockObserverInstance.unobserve = unobserveSpy;
+      }
 
       const { result, unmount } = renderHook(() =>
         useInfiniteScroll({
@@ -394,7 +399,7 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
       unmount();
 
@@ -417,10 +422,10 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
       // Should load when hasMore is true
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       await waitFor(() => {
         expect(onLoadMore).toHaveBeenCalledTimes(1);
@@ -430,7 +435,7 @@ describe('useInfiniteScroll', () => {
       rerender({ hasMore: false });
 
       // Should not load when hasMore is false
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       await waitFor(() => {
         expect(onLoadMore).toHaveBeenCalledTimes(1); // Still 1
@@ -474,7 +479,7 @@ describe('useInfiniteScroll', () => {
       expect(result.current.observerTarget.current).toBeNull();
 
       // Should not crash or call onLoadMore
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       expect(onLoadMore).not.toHaveBeenCalled();
     });
@@ -491,10 +496,10 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
       // Trigger non-intersection
-      mockObserver.triggerIntersection(false);
+      triggerIntersection(false);
 
       await waitFor(() => {
         expect(onLoadMore).not.toHaveBeenCalled();
@@ -515,7 +520,7 @@ describe('useInfiniteScroll', () => {
       );
 
       const targetElement = document.createElement('div');
-      result.current.observerTarget.current = targetElement;
+      (result.current.observerTarget as any).current = targetElement;
 
       // Rapid toggles
       rerender({ hasMore: false });
@@ -523,7 +528,7 @@ describe('useInfiniteScroll', () => {
       rerender({ hasMore: false });
       rerender({ hasMore: true });
 
-      mockObserver.triggerIntersection(true);
+      triggerIntersection(true);
 
       // Should eventually load when hasMore is true
       await waitFor(() => {
