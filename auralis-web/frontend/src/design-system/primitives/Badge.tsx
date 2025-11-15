@@ -35,7 +35,7 @@ export interface BadgeProps extends Omit<MuiBadgeProps, 'variant' | 'color'> {
 
 const StyledBadge = styled(MuiBadge, {
   shouldForwardProp: (prop) => prop !== 'variant',
-})<BadgeProps>(({ variant = 'default' }) => {
+})<{ variant?: 'default' | 'primary' | 'success' | 'warning' | 'error' }>(({ variant = 'default' }) => {
   const variantStyles = {
     default: {
       '& .MuiBadge-badge': {
