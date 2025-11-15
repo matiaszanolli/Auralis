@@ -41,7 +41,7 @@ vi.mock('@hello-pangea/dnd', () => ({
 
 // Mock TrackRow component
 vi.mock('../TrackRow', () => ({
-  default: function MockTrackRow({ track, onPlay }: any) {
+  TrackRow: function MockTrackRow({ track, onPlay }: any) {
     return (
       <div data-testid={`track-row-${track.id}`}>
         <span>{track.title}</span>
@@ -49,6 +49,7 @@ vi.mock('../TrackRow', () => ({
       </div>
     );
   },
+  Track: class MockTrack {},
 }));
 
 const mockTrack = {
@@ -181,6 +182,15 @@ describe('DraggableTrackRow', () => {
     });
 
     it('should enable drag by default', () => {
+      render(
+        <DraggableTrackRow
+          track={mockTrack}
+          index={0}
+          draggableId="track-1"
+          onPlay={vi.fn()}
+        />
+      );
+
       const draggable = screen.getByTestId('draggable-track-1');
       expect(draggable).toHaveAttribute('data-drag-disabled', 'false');
     });
