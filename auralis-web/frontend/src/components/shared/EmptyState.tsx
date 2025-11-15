@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography, styled } from '@mui/material';
 import { MusicNote, SearchOff, PlaylistPlay, FolderOpen } from '@mui/icons-material';
 import { colors, spacing, transitions } from '../../theme/auralisTheme';
-import { GradientButton } from './GradientButton';
+import { Button } from '../../design-system/primitives/Button';
 
 interface EmptyStateProps {
   icon?: 'music' | 'search' | 'playlist' | 'folder';
@@ -80,7 +80,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       {description && <Description>{description}</Description>}
 
       {actionLabel && onAction && (
-        <Button variant="primary" onClick={onAction} size="large">
+        <Button variant="primary" onClick={onAction} size="lg">
           {actionLabel}
         </Button>
       )}
@@ -119,7 +119,7 @@ export const EmptyLibrary: React.FC<{
             Your library is empty. Start by scanning a folder to add your music collection.
           </Description>
           {onScanFolder && (
-            <Button variant="primary" onClick={onScanFolder} size="large">
+            <Button variant="primary" onClick={onScanFolder} size="lg">
               Scan Folder
             </Button>
           )}
