@@ -121,14 +121,15 @@ class ProcessingService {
     });
 
     // Setup message handler
-    this.wsManager.on('message', (event: MessageEvent) => {
+    this.wsManager.on('message', ((event: MessageEvent | Event) => {
       try {
-        const message = JSON.parse(event.data);
+        const messageEvent = event as MessageEvent;
+        const message = JSON.parse(messageEvent.data);
         this.handleWebSocketMessage(message);
       } catch (error) {
         console.error('[ProcessingService] Failed to parse WebSocket message:', error);
       }
-    });
+    }) as (event: MessageEvent | Event) => void);
 
     // Setup error handler
     this.wsManager.on('error', (event: Event) => {
