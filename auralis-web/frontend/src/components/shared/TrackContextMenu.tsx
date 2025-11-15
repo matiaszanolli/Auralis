@@ -129,7 +129,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
 }) => {
   const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const { success, showError } = useToast();
+  const { success, error } = useToast();
 
   // Load playlists when menu opens
   useEffect(() => {
@@ -154,8 +154,8 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
       await playlistService.addTracksToPlaylist(playlistId, [trackId]);
       success(`Added to "${playlistName}"`);
       onClose();
-    } catch (error) {
-      showError(`Failed to add to playlist: ${error}`);
+    } catch (err) {
+      error(`Failed to add to playlist: ${err}`);
     }
   };
 
@@ -171,8 +171,8 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
     try {
       await playlistService.addTracksToPlaylist(playlist.id, [trackId]);
       success(`Added to "${playlist.name}"`);
-    } catch (error) {
-      showError(`Failed to add to playlist: ${error}`);
+    } catch (err) {
+      error(`Failed to add to playlist: ${err}`);
     }
   };
 
