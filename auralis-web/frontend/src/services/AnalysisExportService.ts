@@ -540,13 +540,13 @@ export class AnalysisExportService {
     return xml;
   }
 
-  private async exportAsPDF(options: ExportOptions): Promise<Blob> {
+  private async exportAsPDF(options: ExportOptions): Promise<string> {
     this.progressTracker.updateProgress(20, 'Generating PDF report...');
 
     // This would require a PDF library like jsPDF
-    // For now, return a placeholder
+    // For now, return a placeholder as string
     const pdfContent = this.generatePDFContent(options);
-    return new Blob([pdfContent], { type: 'application/pdf' });
+    return pdfContent;
   }
 
   private generatePDFContent(options: ExportOptions): string {
@@ -571,7 +571,7 @@ export class AnalysisExportService {
     return content;
   }
 
-  private async exportAsImage(options: ExportOptions, format: 'png' | 'svg'): Promise<Blob> {
+  private async exportAsImage(options: ExportOptions, format: 'png' | 'svg'): Promise<string> {
     this.progressTracker.updateProgress(20, `Generating ${format.toUpperCase()} visualization...`);
 
     const visualSettings = options.visualizationSettings || {
@@ -596,13 +596,11 @@ export class AnalysisExportService {
     this.progressTracker.updateProgress(80, 'Converting to image...');
 
     if (format === 'png') {
-      return new Promise((resolve) => {
-        canvas.toBlob(resolve as any, 'image/png');
-      });
+      // For PNG, convert canvas to data URL string
+      return canvas.toDataURL('image/png');
     } else {
-      // SVG export would require different approach
-      const svgContent = this.generateSVGVisualization(visualSettings);
-      return new Blob([svgContent], { type: 'image/svg+xml' });
+      // SVG export
+      return this.generateSVGVisualization(visualSettings);
     }
   }
 
