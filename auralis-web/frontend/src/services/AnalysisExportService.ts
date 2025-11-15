@@ -17,7 +17,7 @@
  */
 
 import React from 'react';
-import { withErrorLogging, createTimeoutPromise } from '../utils/errorHandling';
+import { createTimeoutPromise, globalErrorLogger } from '../utils/errorHandling';
 import {
   calculateRunningAverage,
   extractNumericValues,
@@ -308,7 +308,7 @@ export class AnalysisExportService {
 
   // Export Methods (Phase 3c: Enhanced with error logging and timeout protection)
   async exportSession(options: Partial<ExportOptions> = {}): Promise<Blob> {
-    return withErrorLogging(async () => {
+    try {
       if (!this.currentSession) {
         throw new Error('No active session to export');
       }
@@ -346,7 +346,10 @@ export class AnalysisExportService {
       this.progressTracker.updateProgress(100, 'Export complete');
 
       return blob;
-    }, 'Export session');
+    } catch (error) {
+      globalErrorLogger.log(error as Error, 'Export session');
+      throw error;
+    }
   }
 
   private async performExport(exportOptions: ExportOptions): Promise<{ data: any; mimeType: string; filename: string }> {
