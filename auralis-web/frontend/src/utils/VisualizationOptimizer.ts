@@ -333,7 +333,7 @@ export class WebGLRenderer {
   private buffers: Map<string, WebGLBuffer> = new Map();
 
   constructor(canvas: HTMLCanvasElement) {
-    this.gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    this.gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
 
     if (!this.gl) {
       console.warn('WebGL not supported, falling back to 2D canvas');
