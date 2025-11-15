@@ -280,7 +280,7 @@ export class RealTimeAnalysisStream {
       this.processIncomingData(data);
 
     } catch (error) {
-      this.handleError(new Error(`Failed to parse stream data: ${error}`));
+      this.handleParseError(new Error(`Failed to parse stream data: ${error}`));
     }
   }
 
@@ -301,9 +301,18 @@ export class RealTimeAnalysisStream {
     this.handleConnectionError(err, severity);
   }
 
-  private handleConnectionError(error: Error, severity: 'low' | 'medium' | 'high' = 'high'): void {
+  private handleParseError(error: Error): void {
+    console.error('Failed to parse WebSocket message:', error);
+    // Use centralized error classification (Phase 3c)
+    const severity = classifyErrorSeverity(error);
+    this.handleConnectionError(error, severity);
+  }
+
+  private handleConnectionError(error: Error, severity: 'low' | 'medium' | 'high' | 'critical' = 'high'): void {
+    // Map critical severity to high for backward compatibility with ErrorCallback
+    const callbackSeverity = severity === 'critical' ? 'high' : severity;
     this.errorCallbacks.forEach(callback => {
-      callback(error, severity);
+      callback(error, callbackSeverity as 'low' | 'medium' | 'high');
     });
   }
 
