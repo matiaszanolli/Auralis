@@ -54,11 +54,11 @@ const mockExplanation: SimilarityExplanation = {
     }
   ],
   all_contributions: [
-    { dimension: 'bass_pct', contribution: 0.125 },
-    { dimension: 'lufs', contribution: 0.102 },
-    { dimension: 'tempo_bpm', contribution: 0.089 },
-    { dimension: 'crest_db', contribution: 0.045 },
-    { dimension: 'stereo_width', contribution: 0.023 }
+    { dimension: 'bass_pct', contribution: 0.125, value1: 45.2, value2: 60.1, difference: 14.9 },
+    { dimension: 'lufs', contribution: 0.102, value1: -14.3, value2: -12.1, difference: 2.2 },
+    { dimension: 'tempo_bpm', contribution: 0.089, value1: 120, value2: 140, difference: 20 },
+    { dimension: 'crest_db', contribution: 0.045, value1: 10.5, value2: 12.3, difference: 1.8 },
+    { dimension: 'stereo_width', contribution: 0.023, value1: 0.8, value2: 0.75, difference: 0.05 }
   ]
 };
 
