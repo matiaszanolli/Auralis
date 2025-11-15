@@ -245,7 +245,7 @@ export const useWebGLRenderer = (
     canvas.width = options.width;
     canvas.height = options.height;
 
-    const context = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    const context = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
 
     if (context) {
       setGL(context);
