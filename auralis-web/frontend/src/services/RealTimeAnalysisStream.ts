@@ -153,6 +153,10 @@ export class RealTimeAnalysisStream {
   private bufferProcessingInterval?: number;
   private heartbeatInterval?: number;
 
+  // State tracking
+  private isStreaming: boolean = false;
+  private isConnected: boolean = false;
+
   constructor(config: Partial<AudioStreamConfig> = {}) {
     this.config = {
       sampleRate: 44100,
@@ -237,6 +241,9 @@ export class RealTimeAnalysisStream {
   private handleOpen(): void {
     console.log('🎵 Analysis stream connected');
 
+    // Update state tracking
+    this.isConnected = true;
+
     // Update state using state manager (Phase 5d)
     this.stateManager.setConnected(true, false);
 
@@ -279,6 +286,7 @@ export class RealTimeAnalysisStream {
 
   private handleClose(): void {
     console.log('🔌 Analysis stream disconnected (will auto-reconnect)');
+    this.isConnected = false;
     this.stateManager.setConnected(false, false);
     this.clearTimers();
     // WebSocketManager handles reconnection automatically
@@ -498,6 +506,10 @@ export class RealTimeAnalysisStream {
     };
   }
 
+  get metrics(): StreamMetrics {
+    return this.getMetrics();
+  }
+
   getMetrics(): StreamMetrics {
     // Return metrics from state manager (Phase 5d)
     const unified = this.stateManager.getMetrics();
@@ -527,6 +539,7 @@ export class RealTimeAnalysisStream {
 
   // Control Methods
   startStreaming(): void {
+    this.isStreaming = true;
     this.stateManager.setStreaming(true);
     if (this.wsManager?.isConnected()) {
       this.wsManager.send(JSON.stringify({
@@ -537,6 +550,7 @@ export class RealTimeAnalysisStream {
   }
 
   stopStreaming(): void {
+    this.isStreaming = false;
     this.stateManager.setStreaming(false);
     if (this.wsManager?.isConnected()) {
       this.wsManager.send(JSON.stringify({
