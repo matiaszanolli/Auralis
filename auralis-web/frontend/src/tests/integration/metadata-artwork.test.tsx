@@ -507,7 +507,7 @@ describe('Metadata & Artwork API Integration Tests', () => {
           });
         }),
         http.put('http://localhost:8765/api/metadata/tracks/:id', async ({ request }) => {
-          const body = await request.json();
+          const body = await request.json() as any;
           return HttpResponse.json({
             success: true,
             track_id: 1,
@@ -554,7 +554,7 @@ describe('Metadata & Artwork API Integration Tests', () => {
           });
         }),
         http.put('http://localhost:8765/api/metadata/tracks/:id', async ({ request }) => {
-          const body = await request.json();
+          const body = await request.json() as any;
           return HttpResponse.json({
             success: true,
             updated_fields: ['title', 'artist', 'year'],
@@ -710,8 +710,8 @@ describe('Metadata & Artwork API Integration Tests', () => {
       // Arrange
       server.use(
         http.post('http://localhost:8765/api/metadata/batch', async ({ request }) => {
-          const body = await request.json();
-          const updates = (body as any).updates;
+          const body = await request.json() as any;
+          const updates = body.updates;
           return HttpResponse.json({
             success: true,
             total: updates.length,
@@ -1208,7 +1208,7 @@ describe('Metadata & Artwork API Integration Tests', () => {
           });
         }),
         http.put('http://localhost:8765/api/metadata/tracks/:id', async ({ request }) => {
-          const body = await request.json();
+          const body = await request.json() as any;
           currentMetadata = { ...currentMetadata, ...body };
           return HttpResponse.json({
             success: true,
@@ -1256,7 +1256,7 @@ describe('Metadata & Artwork API Integration Tests', () => {
           });
         }),
         http.put('http://localhost:8765/api/metadata/tracks/:id', async ({ request }) => {
-          const body = await request.json();
+          const body = await request.json() as any;
           return HttpResponse.json({
             success: true,
             metadata: body
