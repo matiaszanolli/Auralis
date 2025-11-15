@@ -412,9 +412,12 @@ export const useLibraryWithStats = ({
   // NOTE: Only depend on view, autoLoad, and includeStats to avoid infinite loops
   // fetchTracks and refetchStats are functions that change frequently due to dependencies on toast functions
   useEffect(() => {
+    console.log(`[useLibraryWithStats] useEffect triggered for view="${view}", autoLoad=${autoLoad}, includeStats=${includeStats}`);
     if (autoLoad) {
+      console.log(`[useLibraryWithStats] Calling fetchTracks() for view="${view}"`);
       fetchTracks();
       if (includeStats) {
+        console.log(`[useLibraryWithStats] Calling refetchStats()`);
         refetchStats();
       }
     }
