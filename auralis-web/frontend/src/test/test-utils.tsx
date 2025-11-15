@@ -35,7 +35,7 @@ export function AllProviders({ children }: AllProvidersProps) {
   return (
     <BrowserRouter>
       <DragDropContext onDragEnd={handleDragEnd}>
-        <WebSocketProvider url="ws://localhost:8765/ws" autoConnect={false}>
+        <WebSocketProvider url="ws://localhost:8765/ws">
           <ThemeProvider>
             <EnhancementProvider>
               <ToastProvider>
