@@ -154,7 +154,15 @@ export class CanvasRenderingUtils {
   /**
    * Get theme colors for common elements
    */
-  static getThemeColors(theme: 'dark' | 'light') {
+  static getThemeColors(theme: 'dark' | 'light'): {
+    text: string;
+    background: string;
+    border: string;
+    primary: string;
+    secondary: string;
+    danger: string;
+    warning: string;
+  } {
     if (theme === 'dark') {
       return {
         text: '#FFFFFF',
