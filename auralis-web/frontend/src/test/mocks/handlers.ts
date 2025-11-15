@@ -510,7 +510,7 @@ export const handlers = [
     return HttpResponse.json({
       track_id: trackId,
       filepath: track.file_path || `/music/${track.title}.flac`,
-      format: track.format || 'FLAC',
+      format: 'FLAC',
       editable_fields: [
         'title', 'artist', 'album', 'albumartist', 'year', 'genre',
         'track', 'disc', 'comment', 'bpm', 'composer', 'publisher',
@@ -544,7 +544,7 @@ export const handlers = [
     return HttpResponse.json({
       track_id: trackId,
       filepath: track.file_path || `/music/${track.title}.flac`,
-      format: track.format || 'FLAC',
+      format: 'FLAC',
       metadata: {
         title: track.title,
         artist: track.artist,
