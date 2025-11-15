@@ -84,7 +84,8 @@ export async function getPlaylist(playlistId: number): Promise<Playlist> {
  */
 export async function createPlaylist(request: CreatePlaylistRequest): Promise<Playlist> {
   const data = await crudService.create(request);
-  return data.playlist || data;
+  // crudService.create returns Playlist directly
+  return (data as any).playlist || data;
 }
 
 /**
