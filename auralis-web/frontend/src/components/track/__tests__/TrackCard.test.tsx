@@ -102,7 +102,7 @@ describe('TrackCard', () => {
           title={longTitle}
         />
       );
-      expect(screen.getByText(/A+/)).toBeInTheDocument();
+      expect(screen.getByText(longTitle, { exact: true })).toBeInTheDocument();
     });
 
     it('should handle very long artist name', () => {
@@ -113,7 +113,7 @@ describe('TrackCard', () => {
           artist={longArtist}
         />
       );
-      expect(screen.getByText(/B+/)).toBeInTheDocument();
+      expect(screen.getByText(longArtist, { exact: true })).toBeInTheDocument();
     });
 
     it('should handle zero duration', () => {

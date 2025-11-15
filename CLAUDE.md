@@ -11,6 +11,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## 🚀 Quick Reference Card
+
+| Task | Command | Notes |
+|------|---------|-------|
+| **Start development** | `python launch-auralis-web.py --dev` | Backend + frontend dev servers |
+| **Frontend tests** | `npm run test:memory` (from frontend/) | ⚠️ ALWAYS use for full suite (2GB heap) |
+| **Backend tests** | `python -m pytest tests/ -v` | 850+ tests, use -m flags to filter |
+| **Run backend only** | `cd auralis-web/backend && python -m uvicorn main:app --reload` | Swagger UI: http://localhost:8765/api/docs |
+| **Desktop app** | `cd desktop && npm run dev` | Full stack + Electron |
+| **Type check** | `mypy auralis/ auralis-web/backend/` | Python type validation |
+| **Free port 8765** | `lsof -ti:8765 \| xargs kill -9` | If backend won't start |
+
+**Critical Ports:**
+- **8765** = Backend API (NOT 8000!)
+- **3000** = Frontend dev server (proxies to 8765)
+- **8000** = Worker project (if applicable, separate repo)
+
+---
+
 ## ⚡ Quick Start (30 seconds)
 
 **Web Interface (recommended for development):**
@@ -143,14 +162,19 @@ npm test -- src/components/library/__tests__/CozyAlbumGrid.test.tsx
 npm test -- EnhancementPaneV2             # Partial filename match
 ```
 
-**Frontend Test Guidelines:**
-- ⚠️ **Important:** Use `npm run test:memory` for full test runs (prevents out-of-memory)
-- Keep test files under 400 lines (split into focused suites if larger)
-- Use Vitest syntax (`vi.mock`, `vi.fn`) not Jest syntax
-- Always cleanup: use `afterEach` for component unmounting
-- Use MSW handlers for API mocking, not fetch mocks
-- Wrap async operations with `waitFor` (not hardcoded delays)
-- See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
+**Frontend Test Guidelines (CRITICAL - Read This!):**
+1. ⚠️ **Memory Management**: Always use `npm run test:memory` for full test runs (2GB heap + GC)
+2. ⚠️ **Provider Wrapper**: ALWAYS import render from `@/test/test-utils`, NOT from `@testing-library/react`
+   - Provides: Router, DragDrop, WebSocket, Theme, Enhancement, Toast providers
+   - Never wrap components with custom Wrapper - use test-utils instead
+3. ⚠️ **API Mocking**: Use MSW (handlers in `src/test/mocks/handlers.ts`) - never fetch() mocks
+4. ⚠️ **Async Operations**: Use `waitFor(() => expect(...))` from test-utils, NEVER hardcoded `setTimeout`
+5. ⚠️ **Vitest Syntax**: Use `vi.mock()`, `vi.fn()`, NOT `jest.*` (setup.ts provides compatibility layer)
+6. File size: Keep under 400 lines (split if needed), use test template at `src/test/TEMPLATE.test.tsx`
+7. Selectors: Use `screen.getByRole()` or `screen.getByTestId()` (avoid querySelector)
+8. Cleanup: Automatic via setup.ts (no manual afterEach needed)
+9. Recent fixes: Last 5+ commits fixed selector/assertion issues - follow existing test patterns in library/
+10. See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
 
 ### Code Quality
 ```bash
@@ -236,15 +260,22 @@ make clean
 - `security/` - Security and OWASP Top 10 tests
 - `conftest.py` - Pytest fixtures and configuration
 
-**Frontend Tests** (`auralis-web/frontend/src/**/__tests__/`):
-- **Phase 1**: ✅ Complete - 204 tests (core UI components)
-- **Phase 2 Library**: ✅ Complete - 86 tests across 12 library components
-- **Phase 2 Enhancement**: 🚀 In Progress - 150+ tests for parameter display/controls
-- **Phase 3**: Planned - 80+ service/hook tests
-- **Target Coverage**: 55%+ overall frontend
-- **Memory Status**: ✅ Fixed - Tests no longer run out of memory
-  - Use `npm run test:memory` to run with 2GB heap + garbage collection
-  - See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md) for details
+**Frontend Tests** (`auralis-web/frontend/src/`):
+- **Total**: 60 test files across components, services, hooks, contexts, and integrations
+- **Organization**: Co-located `__tests__/` subdirectories next to source files
+- **Test Infrastructure**:
+  - `test/setup.ts` - Global environment, polyfills, cleanup (131 lines)
+  - `test/test-utils.tsx` - Custom render() with all providers (71 lines)
+  - `test/mocks/` - MSW server (12 lines), handlers (80+ endpoints), mockData
+  - `test/utils/test-helpers.ts` - 12+ reusable async helpers (180 lines)
+- **Memory Status**: ✅ Fixed - Tests use `npm run test:memory` with 2GB heap + GC
+- **Categories**:
+  - Components: 35+ test files (library, enhancement, player, visualizations, etc.)
+  - Integration tests: 14 test files (WebSocket, streaming, library management, etc.)
+  - Services: 6 test files
+  - Hooks: 4 test files
+  - Contexts: 1 test file
+- **Coverage Target**: 55%+ overall frontend
 
 ---
 
@@ -274,6 +305,205 @@ python launch-auralis-web.py --dev --no-browser
 5. Manages process lifecycle (Ctrl+C stops all servers)
 
 **For desktop app:** Use `cd desktop && npm run dev` instead for Electron integration.
+
+---
+
+## 🧪 Frontend Test Infrastructure
+
+### Test Setup & Utilities
+
+**Global Setup** (`auralis-web/frontend/src/test/setup.ts`, 131 lines):
+- Vitest configuration & Jest compatibility layer (`jest.*` → `vi.*`)
+- Polyfills: `matchMedia`, `IntersectionObserver`, `ResizeObserver`, `WebSocket`, `scrollTo`
+- MSW server initialization with `onUnhandledRequest: 'warn'`
+- Cleanup strategy:
+  - React Testing Library cleanup
+  - Mock clearing (`vi.clearAllMocks()`)
+  - Timer reset (`vi.useRealTimers()`)
+  - Aggressive GC if available (`global.gc()`)
+  - 100ms final delay
+
+**Custom Render** (`auralis-web/frontend/src/test/test-utils.tsx`, 71 lines):
+```typescript
+// ✅ ALWAYS use this instead of @testing-library/react
+import { render } from '@/test/test-utils'
+
+// Includes all required providers:
+// - BrowserRouter (React Router)
+// - DragDropContext (drag-and-drop)
+// - WebSocketProvider (real-time updates)
+// - ThemeProvider (dark/light mode)
+// - EnhancementProvider (audio processing)
+// - ToastProvider (notifications)
+```
+
+**Test Helpers** (`auralis-web/frontend/src/test/utils/test-helpers.ts`, 180 lines):
+- `waitForElement(selector, timeout)` - Wait for element with timeout
+- `waitForApiCall(endpoint, timeout)` - Wait for API to complete
+- `typeWithDelay(element, text)` - Simulate user typing
+- `waitForLoadingToFinish()` - Wait for loading spinner
+- `simulateNetworkDelay(ms)` - Network latency simulation
+- `waitForConditions(conditions)` - Multiple condition waiting
+- And 6+ more helpers for robust async testing
+
+### MSW (Mock Service Worker)
+
+**Server Setup** (`src/test/mocks/server.ts`, 12 lines):
+```typescript
+import { setupServer } from 'msw/node'
+import { handlers } from './handlers'
+
+export const server = setupServer(...handlers)
+```
+
+**Handlers** (`src/test/mocks/handlers.ts`, 1500+ lines):
+- **80+ endpoint mocks** covering:
+  - Player control (play, pause, seek, volume, etc.)
+  - Library management (tracks, albums, artists)
+  - Enhancement/processing (parameters, presets)
+  - Metadata editing (tags, artwork)
+  - Playlists and search
+- Base URLs: `http://localhost:8765/api` and `/api` (relative)
+- All handlers include `delay()` for realistic latency
+
+**Mock Data** (`src/test/mocks/mockData.ts`):
+- `mockTracks` - 100 test tracks with metadata
+- `mockAlbums` - 20 test albums
+- `mockArtists` - 10 test artists
+- `mockPlaylists` - Predefined playlists
+- `mockPlayerState` - Player state object
+
+### Test Organization & Patterns
+
+**Component Test Example:**
+```typescript
+import { render, screen, waitFor } from '@/test/test-utils'
+import { MyComponent } from './MyComponent'
+
+describe('MyComponent', () => {
+  it('loads and displays data', async () => {
+    render(<MyComponent />)
+
+    // Use waitFor for async operations
+    await waitFor(() => {
+      expect(screen.getByText('Loaded')).toBeInTheDocument()
+    })
+  })
+})
+```
+
+**File Locations** - Tests co-located with source:
+```
+src/
+├── components/
+│   ├── MyComponent.tsx
+│   └── __tests__/
+│       └── MyComponent.test.tsx
+├── services/
+│   ├── playerService.ts
+│   └── __tests__/
+│       └── playerService.test.ts
+├── hooks/
+│   ├── usePlayer.ts
+│   └── __tests__/
+│       └── usePlayer.test.ts
+```
+
+**Memory Management** (CRITICAL):
+```bash
+# ✅ For full test suite (prevents OOM)
+npm run test:memory                    # 2GB heap + GC enabled
+
+# ✅ For watch mode (lighter)
+npm test                               # Interactive mode
+
+# ✅ For single run (fast)
+npm run test:run                       # Fast run, same heap as standard
+
+# ✅ For coverage
+npm run test:coverage:memory           # Coverage with memory management
+```
+
+### Vite Configuration (`auralis-web/frontend/vite.config.ts`)
+
+**Key Test Settings:**
+- **Test environment**: jsdom
+- **Setup file**: `./src/test/setup.ts`
+- **Max threads**: 2 (memory management)
+- **Timeout**: 30s per test
+- **Coverage provider**: v8
+
+**Dev Server Configuration:**
+- **Port**: 3000
+- **Proxy**: `/api` and `/ws` → `http://localhost:8765`
+
+**Build Output**: `build/` directory
+
+---
+
+## 🎨 Design System (MANDATORY for Frontend)
+
+**Location**: `auralis-web/frontend/src/design-system/tokens.ts` (270 lines - SINGLE SOURCE OF TRUTH)
+
+### Required Usage
+✅ **ALWAYS import and use tokens**:
+```typescript
+import { colors, spacing, typography, shadows } from '@/design-system'
+
+// ✅ CORRECT
+<div style={{ color: colors.text.primary, padding: spacing.md }}>
+
+// ❌ WRONG - hardcoded colors/values
+<div style={{ color: '#ffffff', padding: '16px' }}>
+```
+
+### Token Categories
+
+**Colors** (60+ predefined):
+- `colors.background.primary`, `colors.background.secondary`
+- `colors.text.primary`, `colors.text.secondary`, `colors.text.disabled`
+- `colors.accent.*`, `colors.danger.*`, `colors.success.*`
+- `colors.border.*`, `colors.overlay.*`
+- Component-specific: `colors.playerBar.*`, `colors.sidebar.*`, `colors.rightPanel.*`
+
+**Spacing** (8px grid system):
+- `spacing.xs` (4px) → `spacing.xxxl` (64px)
+- Examples: `spacing.sm` (8px), `spacing.md` (16px), `spacing.lg` (24px)
+
+**Typography**:
+- `typography.fontFamily.*` (primary, mono)
+- `typography.fontSize.*` (xs, sm, md, lg, xl, 2xl, 3xl)
+- `typography.fontWeight.*` (light, normal, medium, semibold, bold)
+- `typography.lineHeight.*` (tight, normal, relaxed)
+
+**Shadows** (7 levels):
+- `shadows.sm` → `shadows['2xl']`, `shadows.glow`, `shadows.glowStrong`
+
+**Transitions**:
+- `transitions.fast` (100ms), `transitions.base` (200ms), `transitions.slow` (300ms)
+
+**Z-Index Scale** (11 levels):
+- `zIndex.base` (1) → `zIndex.max` (1000)
+- Layer ordering: base → tooltip → dropdown → modal → toast
+
+**Animations**:
+- `animations.pulse`, `animations.fadeIn`, `animations.slideUp`
+
+### Component Guidelines
+
+✅ **Keep components modular** (< 300 lines):
+- Extract subcomponents if exceeding limit
+- Use facade pattern for backward compatibility
+
+✅ **One component per purpose**:
+- Don't create "Enhanced", "V2", or "Advanced" duplicates
+- Refactor existing component in-place when possible
+
+✅ **Design system integration**:
+- All colors must use tokens
+- All spacing must use tokens
+- No hardcoded colors, fonts, or spacing values
+- Consistency with existing component patterns
 
 ---
 
@@ -968,13 +1198,71 @@ mypy auralis/ auralis-web/backend/       # Type check
 ### Common Mistakes & How to Avoid
 
 **❌ Port 8000 instead of 8765**
-- Backend runs on **8765**, not 8000
-- Frontend dev server on 3000 (proxies to 8765)
+- Backend runs on **8765**, not 8000 (CRITICAL!)
+- Frontend dev server on 3000 (configured to proxy to 8765 in vite.config.ts)
 - Check: `lsof -ti:8765` before starting
+- Note: Worker project (if present) may use port 8000 - don't confuse them
 
-**❌ Audio array in-place modification**
+**❌ Frontend tests: Not using test-utils render()**
+```tsx
+// ❌ WRONG - missing providers, will fail
+import { render } from '@testing-library/react'
+render(<MyComponent />)
+
+// ✅ CORRECT - includes all 6 required providers
+import { render } from '@/test/test-utils'
+render(<MyComponent />)
+```
+
+**❌ Mixing Jest and Vitest syntax in tests**
+```typescript
+// ❌ WRONG - Jest syntax won't work
+jest.mock('./module')
+jest.fn()
+
+// ✅ CORRECT - Vitest syntax
+vi.mock('./module')
+vi.fn()
+```
+
+**❌ Hardcoded colors/spacing in React components**
+```tsx
+// ❌ WRONG - hardcoded values, inconsistent
+<div style={{ backgroundColor: '#FF5733', padding: '12px' }}>
+
+// ✅ CORRECT - always use design tokens
+import { colors, spacing } from '@/design-system'
+<div style={{ backgroundColor: colors.background.primary, padding: spacing.md }}>
+```
+
+**❌ Frontend tests with hardcoded delays**
+```tsx
+// ❌ WRONG - flaky, slow, unpredictable
+await new Promise(resolve => setTimeout(resolve, 1000))
+
+// ✅ CORRECT - waits for actual condition with timeout
+await waitFor(() => {
+  expect(screen.getByText('Loaded')).toBeInTheDocument()
+}, { timeout: 3000 })
+```
+
+**❌ Creating test Wrapper instead of using test-utils**
+```tsx
+// ❌ WRONG - duplicates providers, causes nested Router errors
+const Wrapper = ({ children }) => (
+  <BrowserRouter>
+    <ThemeProvider>{children}</ThemeProvider>
+  </BrowserRouter>
+)
+render(<Component />, { wrapper: Wrapper })
+
+// ✅ CORRECT - test-utils already includes all providers
+render(<Component />)
+```
+
+**❌ Audio array in-place modification (Python)**
 ```python
-# ❌ WRONG - modifies input
+# ❌ WRONG - modifies input, breaks invariants
 audio *= gain
 
 # ✅ CORRECT - creates copy first
@@ -982,63 +1270,42 @@ audio = audio.copy()
 audio *= gain
 ```
 
-**❌ Creating duplicate components**
+**❌ Direct database queries in backend**
 ```python
-# ❌ WRONG - duplicates existing EnhancementPane
-class EnhancementPaneV2(Component): ...
-
-# ✅ CORRECT - refactor existing component
-# Improve EnhancementPane in-place, extract subcomponents if needed
-```
-
-**❌ Direct database queries**
-```python
-# ❌ WRONG - bypasses repository pattern
+# ❌ WRONG - bypasses repository pattern, skips caching
 session.query(Track).filter(...).all()
 
-# ✅ CORRECT - use repository
+# ✅ CORRECT - use repository with automatic caching
 from auralis.library.repositories import TrackRepository
 repo = TrackRepository()
-repo.find_by_genre(genre)  # Automatically cached
+repo.find_by_genre(genre)  # Cached automatically
 ```
 
-**❌ Hardcoded colors/spacing in components**
+**❌ Creating duplicate components ("Enhanced" versions)**
 ```tsx
-// ❌ WRONG - breaks design consistency
-<div style={{ color: '#FF5733', marginTop: '12px' }}>
+// ❌ WRONG - duplicates existing EnhancementPane
+export function EnhancementPaneV2() { ... }
 
-// ✅ CORRECT - use design tokens
-import { colors, spacing } from '../design-system'
-<div style={{ color: colors.accent, marginTop: spacing.md }}>
+// ✅ CORRECT - refactor existing component in-place
+// Update EnhancementPane, extract subcomponents if it grows > 300 lines
 ```
 
-**❌ Not running tests before committing**
+**❌ Not running full test suite before committing**
 ```bash
-# ❌ WRONG - code might break things
+# ❌ WRONG - might break other tests silently
 git commit -m "Add feature"
 
-# ✅ CORRECT - verify first
-python -m pytest tests/ -v      # Run all tests
-git status                       # Review changes
+# ✅ CORRECT - verify everything works
+npm run test:memory              # Frontend tests (2GB heap)
+python -m pytest tests/ -v       # Backend tests
 git commit -m "Add feature"
 ```
 
-**❌ Modifying critical invariants without tests**
-- Any change to core processors (HybridProcessor, DSP stages) must verify:
-  - Output sample count == input sample count
-  - No NaN/Inf in output
-  - Corresponding tests in `tests/invariants/` pass
-
-**❌ Frontend tests with hardcoded delays**
-```tsx
-// ❌ WRONG - flaky tests
-await new Promise(resolve => setTimeout(resolve, 1000))
-
-// ✅ CORRECT - wait for actual condition
-await waitFor(() => {
-  expect(screen.getByText('Loaded')).toBeInTheDocument()
-})
-```
+**❌ Ignoring recent test selector/assertion fixes**
+- Last 5+ commits (Nov 2024) fixed selector issues across components
+- Fixes: `screen.getByRole()` preferred over `querySelector()`
+- Follow patterns in `auralis-web/frontend/src/components/library/__tests__/`
+- Copy from existing passing tests when uncertain
 
 **❌ Long-running methods without progress feedback**
 - If operation > 2 seconds, provide user feedback
