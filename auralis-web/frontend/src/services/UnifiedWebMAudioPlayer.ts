@@ -1,21 +1,32 @@
 /**
- * UnifiedWebMAudioPlayer - Single Player with Web Audio API
+ * UnifiedWebMAudioPlayer - Facade Orchestrator (Phase 3.6)
  * ===========================================================
  *
- * NEW ARCHITECTURE (Phase 2):
- * - Always fetches WebM/Opus chunks from /api/stream endpoint
- * - Decodes to AudioBuffer using Web Audio API
- * - Single player, single format, zero conflicts
- * - Optional client-side DSP processing
+ * ARCHITECTURE (Phase 3.6):
+ * - Thin facade that delegates to extracted services
+ * - Services: TimingEngine, ChunkPreloadManager, AudioContextController, PlaybackController
+ * - Public API unchanged for backward compatibility
+ * - All logic delegated to focused, testable services
  *
- * Replaces dual MSE/HTML5 player with unified approach:
- * 1. Backend always serves WebM/Opus (Phase 1 ✅)
- * 2. Frontend decodes with Web Audio API (this file)
- * 3. Client-side DSP optional (future enhancement)
+ * Service Decomposition:
+ * 1. TimingEngine - Playback timing and progress bar updates (50ms interval fix)
+ * 2. ChunkPreloadManager - Chunk loading with priority queue
+ * 3. AudioContextController - Web Audio API and playback
+ * 4. PlaybackController - State machine and chunk sequencing
+ * 5. MultiTierWebMBuffer - Audio buffer caching
+ * 6. ChunkLoadPriorityQueue - Priority-based chunk loading
  *
  * @copyright (C) 2025 Auralis Team
  * @license GPLv3
  */
+
+// Import services
+import { TimingEngine } from './player/TimingEngine';
+import { ChunkPreloadManager } from './player/ChunkPreloadManager';
+import { AudioContextController } from './player/AudioContextController';
+import { PlaybackController } from './player/PlaybackController';
+import { MultiTierWebMBuffer } from './player/MultiTierWebMBuffer';
+import { ChunkLoadPriorityQueue } from './player/ChunkLoadPriorityQueue';
 
 export interface UnifiedWebMAudioPlayerConfig {
   /** Backend API base URL */
@@ -73,148 +84,22 @@ export interface ChunkInfo {
 type EventCallback = (data?: any) => void;
 
 /**
- * Multi-Tier WebM Buffer Manager
- * Caches decoded AudioBuffer instances for instant playback
- */
-class MultiTierWebMBuffer {
-  private cache: Map<string, AudioBuffer> = new Map();
-  private maxSize: number = 10; // Keep last 10 chunks
-
-  getCacheKey(trackId: number, chunkIdx: number, enhanced: boolean, preset: string): string {
-    return `${trackId}_${chunkIdx}_${enhanced}_${preset}`;
-  }
-
-  get(key: string): AudioBuffer | null {
-    return this.cache.get(key) || null;
-  }
-
-  set(key: string, buffer: AudioBuffer): void {
-    // Simple LRU: if cache full, delete oldest entry
-    if (this.cache.size >= this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      if (firstKey) this.cache.delete(firstKey);
-    }
-    this.cache.set(key, buffer);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  getSize(): number {
-    return this.cache.size;
-  }
-}
-
-/**
- * Priority Queue for Chunk Loading
- * Ensures critical chunks (needed for playback) are loaded before background chunks
+ * UnifiedWebMAudioPlayer - Facade Orchestrator
  *
- * Priority levels:
- * 1. CRITICAL (0): Chunk currently being played
- * 2. IMMEDIATE (1): Next chunk needed for continuous playback
- * 3. SEEK_TARGET (2): Chunk user just seeked to
- * 4. ADJACENT (3): Chunks ±1 around current position
- * 5. BACKGROUND (4): All other chunks
- */
-class ChunkLoadPriorityQueue {
-  private queue: Array<{ chunkIndex: number; priority: number; timestamp: number }> = [];
-  private isProcessing = false;
-  private activeLoads = new Map<number, Promise<void>>();
-
-  /**
-   * Add or update chunk in queue with given priority
-   * Lower number = higher priority
-   */
-  enqueue(chunkIndex: number, priority: number): void {
-    // Remove existing entry if present
-    this.queue = this.queue.filter(item => item.chunkIndex !== chunkIndex);
-
-    // Add with new priority and current timestamp
-    this.queue.push({
-      chunkIndex,
-      priority,
-      timestamp: Date.now()
-    });
-
-    // Sort by priority (ascending), then by timestamp (descending - newer first)
-    this.queue.sort((a, b) => {
-      if (a.priority !== b.priority) {
-        return a.priority - b.priority; // Lower priority number first
-      }
-      return b.timestamp - a.timestamp; // Newer timestamps first
-    });
-  }
-
-  /**
-   * Get next chunk to load based on priority
-   */
-  dequeue(): { chunkIndex: number; priority: number } | null {
-    if (this.queue.length === 0) return null;
-
-    const item = this.queue.shift();
-    if (!item) return null;
-
-    return {
-      chunkIndex: item.chunkIndex,
-      priority: item.priority
-    };
-  }
-
-  /**
-   * Clear all chunks with given priority or lower (less urgent)
-   */
-  clearLowerPriority(priority: number): void {
-    this.queue = this.queue.filter(item => item.priority <= priority);
-  }
-
-  /**
-   * Clear entire queue
-   */
-  clear(): void {
-    this.queue = [];
-  }
-
-  /**
-   * Check if chunk is already queued or loading
-   */
-  isQueued(chunkIndex: number): boolean {
-    return this.queue.some(item => item.chunkIndex === chunkIndex) ||
-           this.activeLoads.has(chunkIndex);
-  }
-
-  /**
-   * Get current queue size
-   */
-  getSize(): number {
-    return this.queue.length;
-  }
-
-  /**
-   * Mark load as active
-   */
-  markActive(chunkIndex: number, promise: Promise<void>): void {
-    this.activeLoads.set(chunkIndex, promise);
-    promise.finally(() => {
-      this.activeLoads.delete(chunkIndex);
-    });
-  }
-
-  /**
-   * Check if chunk is currently loading
-   */
-  isLoading(chunkIndex: number): boolean {
-    return this.activeLoads.has(chunkIndex);
-  }
-}
-
-/**
- * Unified WebM Audio Player
- * Uses Web Audio API for all playback
+ * Thin facade that coordinates extracted services for playback.
+ * Maintains backward-compatible public API while delegating all
+ * logic to focused, independently testable services.
+ *
+ * Phase 3.6 Refactoring: Facade Pattern Implementation
  */
 export class UnifiedWebMAudioPlayer {
   private config: Required<UnifiedWebMAudioPlayerConfig>;
-  private audioContext: AudioContext | null = null;
+
+  // Injected services
+  private timingEngine: TimingEngine;
+  private chunkPreloader: ChunkPreloadManager;
+  private audioController: AudioContextController;
+  private playbackController: PlaybackController;
   private buffer: MultiTierWebMBuffer;
   private loadQueue: ChunkLoadPriorityQueue;
 
@@ -225,26 +110,15 @@ export class UnifiedWebMAudioPlayer {
 
   // Playback state
   private state: PlaybackState = 'idle';
-  private currentSource: AudioBufferSourceNode | null = null;
-  private currentChunkIndex: number = 0;
-  private pauseTime: number = 0;
   private volume: number = 1.0;
-  private audioContextStartTime: number = 0;  // AudioContext.currentTime when playback started (single source of truth)
-  private trackStartTime: number = 0;  // Track timeline position (in seconds) when audioContextStartTime was recorded
-
-  // Gain node for volume control
-  private gainNode: GainNode | null = null;
 
   // Event system
   private listeners: Map<string, Set<EventCallback>> = new Map();
 
-  // Queue processor
-  private queueProcessorRunning = false;
-
   constructor(config: UnifiedWebMAudioPlayerConfig = {}) {
     this.config = {
       apiBaseUrl: config.apiBaseUrl || 'http://localhost:8765',
-      chunkDuration: config.chunkDuration || 10, // Reduced from 30s → 10s for Beta.9 Phase 2
+      chunkDuration: config.chunkDuration || 10,
       enhanced: config.enhanced !== undefined ? config.enhanced : true,
       preset: config.preset || 'adaptive',
       intensity: config.intensity !== undefined ? config.intensity : 1.0,
@@ -252,28 +126,104 @@ export class UnifiedWebMAudioPlayer {
       debug: config.debug || false
     };
 
-    // Initialize buffer
+    // Initialize services in dependency order
+    // 1. Buffer and queue (no dependencies)
     this.buffer = new MultiTierWebMBuffer();
-
-    // Initialize priority queue
     this.loadQueue = new ChunkLoadPriorityQueue();
 
-    // NOTE: AudioContext is NOT created in constructor to comply with browser autoplay policy
-    // It will be lazily created on first user gesture (play() call)
-    this.debug('UnifiedWebMAudioPlayer initialized (AudioContext deferred until first play)');
+    // 2. Independent services
+    this.timingEngine = new TimingEngine(null, this.debug.bind(this));
+    this.audioController = new AudioContextController(
+      this.config.chunkDuration,
+      this.config.chunkDuration,
+      this.debug.bind(this)
+    );
+    this.playbackController = new PlaybackController(this.debug.bind(this));
+
+    // 3. Services with dependencies
+    this.chunkPreloader = new ChunkPreloadManager(
+      this.buffer,
+      this.loadQueue,
+      {
+        apiBaseUrl: this.config.apiBaseUrl,
+        trackId: 0, // Will be set on loadTrack
+        enhanced: this.config.enhanced,
+        preset: this.config.preset,
+        intensity: this.config.intensity,
+        preloadChunks: this.config.preloadChunks
+      },
+      null, // audioContext set later
+      this.debug.bind(this)
+    );
+
+    // Wire service events
+    this.wireServiceEvents();
+
+    this.debug('UnifiedWebMAudioPlayer initialized (Phase 3.6 facade)');
   }
 
   /**
-   * Lazily initialize AudioContext on first user gesture
-   * Required by browser autoplay policy
+   * Wire service events to facade orchestration and external listeners
    */
-  private ensureAudioContext(): void {
-    if (!this.audioContext) {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      this.gainNode = this.audioContext.createGain();
-      this.gainNode!.connect(this.audioContext.destination);
-      this.debug('AudioContext created on first user gesture');
-    }
+  private wireServiceEvents(): void {
+    // TimingEngine events → forward to listeners
+    this.timingEngine.on('timeupdate', (e) => {
+      this.emit('timeupdate', e);
+    });
+
+    // AudioContextController events → orchestration
+    this.audioController.on('schedule-next-chunk', async (e) => {
+      this.debug(`AudioController: schedule-next-chunk ${e.chunkIndex}`);
+      await this.playChunkInternal(e.chunkIndex, 0).catch(err => {
+        this.debug(`Error playing scheduled chunk: ${err.message}`);
+        this.emit('error', err);
+      });
+    });
+
+    this.audioController.on('play-next-chunk', async (e) => {
+      this.debug(`AudioController: play-next-chunk ${e.chunkIndex}`);
+      await this.playChunkInternal(e.chunkIndex, 0).catch(err => {
+        this.debug(`Error playing next chunk: ${err.message}`);
+      });
+    });
+
+    this.audioController.on('track-ended', () => {
+      this.debug('AudioController: track ended');
+      this.playbackController.setState('idle');
+      this.state = 'idle';
+      this.emit('ended');
+    });
+
+    // PlaybackController events
+    this.playbackController.on('state-changed', (e) => {
+      this.debug(`PlaybackController: state change ${this.state} → ${e.state}`);
+      this.state = e.state;
+      this.emit('statechange', { oldState: this.state, newState: e.state });
+    });
+
+    // Wire ChunkPreloadManager events
+    this.wireChunkPreloaderEvents();
+  }
+
+  /**
+   * Wire ChunkPreloadManager events (can be re-wired when preloader is recreated)
+   */
+  private wireChunkPreloaderEvents(): void {
+    this.chunkPreloader.on('chunk-loaded', (e) => {
+      this.debug(`ChunkPreloadManager: chunk ${e.chunkIndex} loaded`);
+      // Update chunk in chunks array
+      if (e.chunkIndex < this.chunks.length && e.audioBuffer) {
+        this.chunks[e.chunkIndex].audioBuffer = e.audioBuffer;
+        this.chunks[e.chunkIndex].isLoaded = true;
+        this.chunks[e.chunkIndex].isLoading = false;
+      }
+      this.emit('chunk-loaded', e);
+    });
+
+    this.chunkPreloader.on('chunk-error', (e) => {
+      this.debug(`ChunkPreloadManager: chunk ${e.chunkIndex} error: ${e.error.message}`);
+      this.emit('chunk-error', e);
+    });
   }
 
   /**
@@ -281,7 +231,8 @@ export class UnifiedWebMAudioPlayer {
    */
   async loadTrack(trackId: number): Promise<void> {
     this.debug(`Loading track ${trackId}`);
-    this.setState('loading');
+    this.playbackController.setState('loading');
+    this.state = 'loading';
 
     try {
       // Stop current playback
@@ -290,7 +241,7 @@ export class UnifiedWebMAudioPlayer {
       // Clear buffer
       this.buffer.clear();
 
-      // Fetch metadata from NEW endpoint
+      // Fetch metadata from endpoint
       const metadataUrl = `${this.config.apiBaseUrl}/api/stream/${trackId}/metadata`;
       const response = await fetch(metadataUrl);
 
@@ -301,180 +252,63 @@ export class UnifiedWebMAudioPlayer {
       this.metadata = (await response.json()) as StreamMetadata;
       this.trackId = trackId;
 
-      // Initialize chunks
-      // With overlap model (15s chunks, 10s intervals):
-      //   Chunk 0: startTime=0s, endTime=10s (plays audio from 0-15s)
-      //   Chunk 1: startTime=10s, endTime=20s (plays audio from 10-25s)
-      //   Chunk 2: startTime=20s, endTime=30s (plays audio from 20-35s)
+      // Initialize chunks array with metadata
       const chunkInterval = this.metadata.chunk_interval || this.metadata.chunk_duration;
       this.chunks = [];
       for (let i = 0; i < this.metadata.total_chunks; i++) {
         this.chunks.push({
           index: i,
-          startTime: i * chunkInterval,  // Use interval, not duration
-          endTime: Math.min((i + 1) * chunkInterval, this.metadata.duration),  // Use interval, not duration
+          startTime: i * chunkInterval,
+          endTime: Math.min((i + 1) * chunkInterval, this.metadata.duration),
           audioBuffer: null,
           isLoading: false,
           isLoaded: false
         });
       }
 
-      this.debug(`Track loaded: ${this.metadata.total_chunks} chunks, ${this.metadata.duration}s`);
-      this.setState('ready');
+      // Initialize services with metadata
+      this.audioController.updateChunkTiming(
+        this.metadata.chunk_duration,
+        chunkInterval
+      );
+      this.playbackController.setMetadata(this.metadata);
 
-      // Preload first chunk
-      await this.preloadChunk(0);
+      // Re-create ChunkPreloadManager with new trackId
+      this.chunkPreloader.destroy?.();
+      this.chunkPreloader = new ChunkPreloadManager(
+        this.buffer,
+        this.loadQueue,
+        {
+          apiBaseUrl: this.config.apiBaseUrl,
+          trackId,
+          enhanced: this.config.enhanced,
+          preset: this.config.preset,
+          intensity: this.config.intensity,
+          preloadChunks: this.config.preloadChunks
+        },
+        this.audioController.getAudioContext(),
+        this.debug.bind(this)
+      );
+
+      // Re-wire events for new preloader instance
+      this.wireChunkPreloaderEvents();
+      this.chunkPreloader.initChunks(this.metadata.total_chunks);
+
+      this.debug(`Track loaded: ${this.metadata.total_chunks} chunks, ${this.metadata.duration}s`);
+      this.playbackController.setState('ready');
+      this.state = 'ready';
+
+      // Preload first chunk with highest priority
+      this.chunkPreloader.queueChunk(0, 0);
+
+      this.emit('metadata-loaded', { metadata: this.metadata });
 
     } catch (error: any) {
       this.debug(`Error loading track: ${error.message}`);
-      this.setState('error');
+      this.playbackController.setState('error');
+      this.state = 'error';
       this.emit('error', error);
       throw error;
-    }
-  }
-
-  /**
-   * Preload a chunk (fetch + decode)
-   * Now integrates with priority queue to respect seek operations
-   */
-  private async preloadChunk(chunkIndex: number, priority: number = 4): Promise<void> {
-    if (chunkIndex >= this.chunks.length) return;
-
-    const chunk = this.chunks[chunkIndex];
-    // Only skip if already loaded (with valid audioBuffer)
-    // If loading or previously failed, we should retry
-    if (chunk.isLoaded && chunk.audioBuffer) {
-      this.debug(`[PRELOAD] Chunk ${chunkIndex} already loaded, skipping`);
-      return;
-    }
-
-    // Add to priority queue instead of loading immediately
-    this.debug(`[PRELOAD] Enqueueing chunk ${chunkIndex} with priority ${priority} (queue size before: ${this.loadQueue.getSize()})`);
-    this.loadQueue.enqueue(chunkIndex, priority);
-    this.debug(`[PRELOAD] Queue size after: ${this.loadQueue.getSize()}`);
-
-    // Start queue processor if not already running
-    if (!this.queueProcessorRunning) {
-      this.debug(`[PRELOAD] Starting queue processor`);
-      this.processLoadQueue();
-    } else {
-      this.debug(`[PRELOAD] Queue processor already running`);
-    }
-  }
-
-  /**
-   * Process the priority queue, loading chunks in order of priority
-   * This ensures seeks are prioritized over background preloads
-   */
-  private async processLoadQueue(): Promise<void> {
-    if (this.queueProcessorRunning) {
-      this.debug(`[QUEUE] Queue processor already running, skipping`);
-      return;
-    }
-    this.queueProcessorRunning = true;
-    this.debug(`[QUEUE] Queue processor started with ${this.loadQueue.getSize()} items`);
-
-    // Ensure AudioContext is initialized before decoding
-    this.ensureAudioContext();
-
-    try {
-      while (this.loadQueue.getSize() > 0) {
-        const nextItem = this.loadQueue.dequeue();
-        if (!nextItem) break;
-
-        const { chunkIndex, priority } = nextItem;
-        this.debug(`[QUEUE] Processing chunk ${chunkIndex} priority ${priority} (queue size: ${this.loadQueue.getSize()})`);
-
-        // Skip if already loaded or currently loading
-        const chunk = this.chunks[chunkIndex];
-        if (chunk.isLoaded && chunk.audioBuffer) {
-          this.debug(`[QUEUE] Chunk ${chunkIndex} already loaded, skipping`);
-          continue;
-        }
-        if (chunk.isLoading) {
-          this.debug(`[QUEUE] Chunk ${chunkIndex} already loading, skipping`);
-          continue;
-        }
-
-        // Mark as loading
-        chunk.isLoading = true;
-        this.debug(`[P${priority}] Loading chunk ${chunkIndex}/${this.chunks.length}`);
-
-        try {
-          // Check buffer cache first
-          const cacheKey = this.buffer.getCacheKey(
-            this.trackId!,
-            chunkIndex,
-            this.config.enhanced,
-            this.config.preset
-          );
-
-          let audioBuffer = this.buffer.get(cacheKey);
-
-          if (!audioBuffer) {
-            // Fetch WebM chunk from endpoint
-            const chunkUrl = `${this.config.apiBaseUrl}/api/stream/${this.trackId}/chunk/${chunkIndex}` +
-              `?enhanced=${this.config.enhanced}&preset=${this.config.preset}&intensity=${this.config.intensity}`;
-
-            const response = await fetch(chunkUrl);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch chunk ${chunkIndex}: ${response.statusText}`);
-            }
-
-            const cacheHeader = response.headers.get('X-Cache-Tier');
-            this.debug(`[P${priority}] Chunk ${chunkIndex} cache: ${cacheHeader}`);
-
-            const arrayBuffer = await response.arrayBuffer();
-
-            if (arrayBuffer.byteLength === 0) {
-              throw new Error(`Chunk ${chunkIndex} returned empty data (0 bytes)`);
-            }
-
-            this.debug(`[P${priority}] Decoding ${arrayBuffer.byteLength} bytes for chunk ${chunkIndex}...`);
-
-            // Decode WebM/Opus to AudioBuffer using Web Audio API
-            try {
-              audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
-            } catch (decodeError: any) {
-              throw new Error(`Failed to decode chunk ${chunkIndex}: ${decodeError.message || 'Unknown decode error'}`);
-            }
-
-            // Cache decoded buffer
-            this.buffer.set(cacheKey, audioBuffer);
-          } else {
-            this.debug(`[P${priority}] Chunk ${chunkIndex} from buffer cache`);
-          }
-
-          chunk.audioBuffer = audioBuffer;
-          chunk.isLoaded = true;
-          chunk.isLoading = false;
-
-          this.debug(`[P${priority}] Chunk ${chunkIndex} ready (${audioBuffer.duration.toFixed(2)}s)`);
-
-          // Queue next chunks for background preload with lower priority
-          if (priority <= 2) {
-            // If this was a high-priority chunk, queue the next chunks
-            for (let i = 1; i <= this.config.preloadChunks; i++) {
-              const nextIdx = chunkIndex + i;
-              if (nextIdx < this.chunks.length && !this.loadQueue.isQueued(nextIdx)) {
-                this.loadQueue.enqueue(nextIdx, 4); // Background priority
-              }
-            }
-          }
-
-        } catch (error: any) {
-          chunk.isLoading = false;
-          chunk.audioBuffer = null; // Clear any partial state
-          this.debug(`[P${priority}] Error loading chunk ${chunkIndex}: ${error.message}`);
-          // Mark as failed so we know not to retry this chunk in the same queue cycle
-          // but it can be retried in a future queue cycle if requested
-          this.emit('chunk-error', { chunkIndex, error });
-          // Continue processing next items in queue
-        }
-      }
-      this.debug(`[QUEUE] Queue processor finished, ${this.loadQueue.getSize()} items remaining`);
-    } finally {
-      this.queueProcessorRunning = false;
     }
   }
 
@@ -486,444 +320,269 @@ export class UnifiedWebMAudioPlayer {
       throw new Error('No track loaded');
     }
 
-    // Ensure AudioContext is initialized (required by browser autoplay policy)
-    this.ensureAudioContext();
+    this.debug('Play requested');
 
-    // Resume AudioContext if suspended (browser autoplay policy)
-    if (this.audioContext!.state === 'suspended') {
-      await this.audioContext!.resume();
+    // Ensure AudioContext is initialized (browser autoplay policy)
+    this.audioController.ensureAudioContext();
+    await this.audioController.resumeAudioContext();
+
+    // Update TimingEngine with audioContext reference
+    const audioContext = this.audioController.getAudioContext();
+    if (audioContext) {
+      this.timingEngine.setAudioContext(audioContext);
+      this.chunkPreloader.setAudioContext(audioContext);
     }
 
-    // Calculate chunk to play based on current time
-    const currentTime = this.pauseTime || 0;
-    const chunkInterval = this.metadata?.chunk_interval || this.metadata?.chunk_duration || 10; // Use interval for indexing
-    const chunkDuration = this.metadata?.chunk_duration || 10;
+    // Delegate to PlaybackController
+    await this.playbackController.play();
+    this.state = 'playing';
 
-    // Calculate which chunk to play (based on INTERVAL, not duration)
-    // With 15s chunks and 10s intervals:
-    //   0-10s: chunk 0 (plays 0-15s of audio, offset 0-10s)
-    //   10-20s: chunk 1 (plays 10-25s of audio, offset 0-10s within chunk)
-    //   20-30s: chunk 2 (plays 20-35s of audio, offset 0-10s within chunk)
-    const chunkIndex = Math.floor(currentTime / chunkInterval);
+    // Start timing updates
+    this.timingEngine.startTimeUpdates();
 
-    // Calculate offset within the chunk
-    // For overlap model: offset is relative to chunk start (chunkIndex * interval)
-    const chunkStartTime = chunkIndex * chunkInterval;
-    const offsetInChunk = currentTime - chunkStartTime;
-
-    // Ensure chunk is loaded
-    const chunk = this.chunks[chunkIndex];
-    if (!chunk.isLoaded) {
-      this.setState('buffering');
-      await this.preloadChunk(chunkIndex);
-    }
-
-    // Play chunk with correct offset
-    await this.playChunk(chunkIndex, offsetInChunk);
+    this.emit('playing');
   }
-
-  /**
-   * Play a specific chunk with optional offset
-   *
-   * CRITICAL TIMING FIX (Phase 2):
-   * ==============================
-   * Issue: Chunks have overlaps but timing was misaligned causing jumps/skips
-   *
-   * Backend architecture:
-   * - Chunk 0: 15s of audio, plays during 0-10s of track
-   * - Chunk 1: 15s of audio (first 5s overlaps with chunk 0), plays during 10-20s of track
-   * - Chunk 2: 15s of audio (first 5s overlaps with chunk 1), plays during 20-30s of track
-   *
-   * Frontend fixes:
-   * 1. actualBufferOffset = offset + overlap_duration (for chunks > 0)
-   *    Because the first 5s of the buffer is overlap context, we skip it
-   * 2. playDuration clamped to actual AudioBuffer duration
-   *    Prevents trying to play more than exists in decoded buffer
-   * 3. Metadata includes chunk_playable_duration and overlap_duration
-   *    Frontend knows exact structure: 15s buffer = 5s overlap + 10s playable
-   *
-   * With 15s chunks delivered every 10s:
-   * - Each chunk contains 15 seconds of overlapped audio from the backend
-   * - We play only the INTERVAL duration (10s) that's "new" relative to playback timeline
-   * - Backend handles overlap mixing, frontend just plays sequentially
-   * - Next chunk starts automatically via onended callback when current chunk finishes
-   */
-  private async playChunk(chunkIndex: number, offset: number = 0): Promise<void> {
-    // Ensure AudioContext is initialized (required by browser autoplay policy)
-    this.ensureAudioContext();
-
-    const chunk = this.chunks[chunkIndex];
-    if (!chunk.audioBuffer) {
-      // Try to reload the chunk with high priority
-      this.debug(`Chunk ${chunkIndex} audioBuffer is null, attempting to reload...`);
-
-      // Mark as not loading so preloadChunk will queue it
-      chunk.isLoading = false;
-      chunk.isLoaded = false;
-
-      try {
-        // Queue with CRITICAL priority (0) - this chunk is needed immediately
-        this.preloadChunk(chunkIndex, 0);
-
-        // Wait for the chunk to load (with timeout)
-        const maxWaitTime = 10000; // 10 seconds
-        const startTime = Date.now();
-        while (!chunk.isLoaded && Date.now() - startTime < maxWaitTime) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-
-        if (!chunk.audioBuffer) {
-          throw new Error(`Chunk ${chunkIndex} failed to load within timeout`);
-        }
-      } catch (error: any) {
-        this.debug(`Failed to load chunk ${chunkIndex}: ${error.message}`);
-        this.setState('error');
-        this.emit('error', error);
-        throw new Error(`Chunk ${chunkIndex} not loaded: ${error.message}`);
-      }
-    }
-
-    const chunkInterval = this.metadata?.chunk_interval || this.metadata?.chunk_duration || 10;
-    const chunkDuration = this.metadata?.chunk_duration || 10;
-
-    // Stop previous source
-    if (this.currentSource) {
-      this.currentSource.stop();
-      this.currentSource.disconnect();
-    }
-
-    // Create gain node (no crossfading, just volume control)
-    const chunkGainNode = this.audioContext!.createGain();
-    chunkGainNode.connect(this.gainNode!);
-    chunkGainNode.gain.value = this.volume;
-
-    // Create new buffer source
-    const source = this.audioContext!.createBufferSource();
-    source.buffer = chunk.audioBuffer;
-    source.connect(chunkGainNode);
-
-    // Update single source of truth for timeline mapping
-    // Only update on initial play or seek, NOT on chunk transitions
-    const isChunkTransition = this.state === 'playing' && offset === 0 &&
-                             chunkIndex === this.currentChunkIndex + 1;
-
-    if (!isChunkTransition) {
-      // Initial play or seek: record the mapping between AudioContext time and track time
-      this.audioContextStartTime = this.audioContext!.currentTime;
-      this.trackStartTime = chunkIndex * chunkInterval + offset;
-      this.debug(`[TIME_MAP] Set origin: audioCtx=${this.audioContextStartTime.toFixed(3)}s → track=${this.trackStartTime.toFixed(3)}s`);
-    } else {
-      // Chunk transition: time mapping stays the same, we just keep playing
-      this.debug(`[TIME_MAP] Chunk transition (${chunkIndex}): mapping unchanged`);
-    }
-
-    this.currentChunkIndex = chunkIndex;
-
-    // Backend architecture: 15s chunks every 10s for smooth blending
-    // Each chunk contains 15s of audio (with 5s overlap from previous chunk)
-    // They are meant to be played SEQUENTIALLY, not overlapped in real time
-    //
-    // Chunk 0: Play 0-15s (10s for timeline, 5s extra for blending context)
-    // Chunk 1: Play 0-15s (10s for timeline, 5s extra for blending context)
-    // Chunk 2: Play 0-15s (10s for timeline, 5s extra for blending context)
-    //
-    // But wait - if backend trimmed the overlap, chunks should only be ~10s each
-
-    const actualBufferDuration = chunk.audioBuffer!.duration;
-    const isLastChunk = chunkIndex + 1 >= this.chunks.length;
-    const chunkStartTime = chunkIndex * chunkInterval;
-    const chunkDurationValue = this.metadata?.chunk_duration || 10;
-    const overlapDuration = chunkDurationValue - chunkInterval; // Overlap with next chunk (5s for 15s chunk, 10s interval)
-
-    let bufferOffset = offset;  // Start position in buffer
-    let playDuration: number;
-
-    if (offset > 0) {
-      // Seeking within chunk - play from seek point to end of buffer
-      playDuration = Math.max(0, actualBufferDuration - bufferOffset);
-    } else if (isLastChunk) {
-      // Last chunk - play only what's needed to reach track end
-      const remainingTrack = Math.max(0, this.metadata!.duration - chunkStartTime);
-      playDuration = Math.min(actualBufferDuration, remainingTrack);
-    } else {
-      // Normal chunk - play the FULL chunk duration to enable crossfading
-      // Chunks are 15s but only 10s "new" content; the 5s overlap will be crossfaded
-      // with the next chunk's beginning for smooth blending
-      playDuration = Math.min(actualBufferDuration, chunkDurationValue);
-    }
-
-    // Safety: never exceed buffer
-    playDuration = Math.min(playDuration, actualBufferDuration - bufferOffset);
-
-    if (playDuration <= 0) {
-      this.debug(`WARNING: Chunk ${chunkIndex} invalid duration (buffer=${actualBufferDuration.toFixed(2)}s, offset=${bufferOffset.toFixed(2)}s)`);
-      playDuration = 0.1;
-    }
-
-    // DEBUG: Log chunk timing for first few chunks
-    if (chunkIndex < 5) {
-      this.debug(`[TIMING] Chunk ${chunkIndex}: buffer=${actualBufferDuration.toFixed(2)}s, offset=${bufferOffset.toFixed(2)}s, duration=${playDuration.toFixed(2)}s, overlap=${overlapDuration.toFixed(2)}s`);
-    }
-
-    // Queue next chunk with IMMEDIATE priority for continuous playback
-    // This ensures next chunk loads before playback ends, but after seek targets
-    if (chunkIndex + 1 < this.chunks.length) {
-      const nextChunk = this.chunks[chunkIndex + 1];
-      if (!nextChunk.isLoaded && !nextChunk.isLoading) {
-        this.debug(`[PRELOAD] Queueing next chunk ${chunkIndex + 1} with IMMEDIATE priority (queue size: ${this.loadQueue.getSize()})`);
-        this.preloadChunk(chunkIndex + 1, 1); // IMMEDIATE priority for continuous playback
-      } else {
-        this.debug(`[PRELOAD] Chunk ${chunkIndex + 1} already loaded=${nextChunk.isLoaded} or loading=${nextChunk.isLoading}`);
-      }
-    }
-
-    // Play chunk: start from buffer offset, play for calculated duration
-    // bufferOffset is where we start in the buffer (normally 0, or after seeking)
-    source.start(0, bufferOffset, playDuration);
-
-    // Keep reference to current source
-    this.currentSource = source;
-
-    // Variable to track if we've already scheduled the next chunk
-    let nextChunkScheduled = false;
-    let fadeTimeoutId: number | null = null;
-
-    // CROSSFADING LOGIC: If this is not the last chunk, schedule next chunk to start
-    // during the overlap region for smooth crossfading
-    if (!isLastChunk && offset === 0) {
-      // Schedule the next chunk to start at: (playDuration - overlapDuration)
-      // This means the next chunk begins DURING the last 5s of this chunk,
-      // creating a 5s window for crossfading
-      const fadeStartTime = Math.max(0, playDuration - overlapDuration);
-
-      if (fadeStartTime > 0) {
-        // Use a timeout to start the next chunk at the right time
-        const scheduleNextChunk = async () => {
-          if (this.state === 'playing' && this.currentSource === source && !nextChunkScheduled) {
-            nextChunkScheduled = true;
-            try {
-              this.debug(`[FADE] Starting next chunk (${chunkIndex + 1}) for crossfading`);
-              await this.playChunk(chunkIndex + 1, 0);
-            } catch (error: any) {
-              this.debug(`Error scheduling next chunk: ${error.message}`);
-            }
-          }
-        };
-
-        const delayMs = fadeStartTime * 1000;
-        this.debug(`Scheduling next chunk (${chunkIndex + 1}) to start in ${delayMs.toFixed(0)}ms for crossfading`);
-
-        fadeTimeoutId = window.setTimeout(scheduleNextChunk, delayMs);
-      }
-    }
-
-    // Handle end of playback - cleanup and handle last chunk
-    source.onended = async () => {
-      source.disconnect();
-      chunkGainNode.disconnect();
-
-      // Clear scheduled timeout if it hasn't fired yet
-      if (fadeTimeoutId !== null) {
-        clearTimeout(fadeTimeoutId);
-      }
-
-      // If not the last chunk AND we haven't scheduled next chunk yet, play it now
-      // (This handles case where chunk ends before fade-in time)
-      if (!isLastChunk && this.state === 'playing' && this.currentChunkIndex === chunkIndex && !nextChunkScheduled) {
-        try {
-          nextChunkScheduled = true;
-          this.debug(`Playing next chunk ${chunkIndex + 1} on source ended`);
-          await this.playChunk(chunkIndex + 1, 0);
-        } catch (error: any) {
-          this.debug(`Error playing next chunk: ${error.message}`);
-          this.setState('error');
-          this.emit('error', error);
-        }
-      } else if (isLastChunk && this.state === 'playing') {
-        // Last chunk ended
-        this.setState('idle');
-        this.emit('ended');
-      }
-    };
-
-    this.setState('playing');
-    if (chunkIndex < 5) {
-      this.debug(`[TIMELINE] Chunk ${chunkIndex}: playbackStart=${this.playbackStartTrackTime.toFixed(2)}s, audioCtxTime=${this.audioContext!.currentTime.toFixed(2)}s`);
-    }
-    this.debug(`Playing chunk ${chunkIndex} (offset ${offset.toFixed(2)}s, duration ${playDuration.toFixed(2)}s, fade_start=${!isLastChunk ? (playDuration - overlapDuration).toFixed(2) : 'N/A'}s)`);
-
-    // Start time updates
-    this.startTimeUpdates();
-  }
-
 
   /**
    * Pause playback
    */
   pause(): void {
-    if (this.state !== 'playing') return;
+    if (this.playbackController.getState() !== 'playing') return;
+
+    this.debug('Pause requested');
 
     // Calculate current position
-    this.pauseTime = this.getCurrentTime();
+    const currentTime = this.timingEngine.getCurrentTime();
+    this.timingEngine.setPauseTime(currentTime);
+    this.playbackController.setCurrentPosition(currentTime);
 
-    // Stop playback
-    if (this.currentSource) {
-      this.currentSource.stop();
-      this.currentSource.disconnect();
-      this.currentSource = null;
-    }
+    // Stop audio
+    this.audioController.stopCurrentSource();
 
-    this.setState('paused');
-    this.stopTimeUpdates();
-    this.debug(`Paused at ${this.pauseTime.toFixed(2)}s`);
+    // Update state
+    this.playbackController.setState('paused');
+    this.state = 'paused';
+    this.timingEngine.stopTimeUpdates();
+
+    this.debug(`Paused at ${currentTime.toFixed(2)}s`);
+    this.emit('paused');
   }
 
   /**
    * Stop playback and reset
    */
-  stop(): void {
-    if (this.currentSource) {
-      this.currentSource.stop();
-      this.currentSource.disconnect();
-      this.currentSource = null;
-    }
+  private stop(): void {
+    this.debug('Stopping playback');
+    this.audioController.stopCurrentSource();
 
-    this.pauseTime = 0;
-    this.audioContextStartTime = 0;
-    this.trackStartTime = 0;
-    this.currentChunkIndex = 0;
+    this.timingEngine.setPauseTime(0);
+    this.playbackController.setCurrentPosition(0);
+    this.playbackController.setCurrentChunkIndex(0);
+    this.playbackController.setState('idle');
+    this.state = 'idle';
 
-    this.setState('idle');
-    this.stopTimeUpdates();
+    this.timingEngine.stopTimeUpdates();
   }
 
   /**
    * Seek to specific time
-   * HIGH PRIORITY: SEEK_TARGET (2) ensures target chunk loads before background preloads
    */
   async seek(time: number): Promise<void> {
-    if (!this.metadata) throw new Error('No track loaded');
+    if (!this.metadata) {
+      throw new Error('No track loaded');
+    }
 
-    const wasPlaying = this.state === 'playing';
+    const wasPlaying = this.playbackController.getState() === 'playing';
+
+    this.debug(`Seek to ${time.toFixed(2)}s (was playing: ${wasPlaying})`);
 
     // Stop current playback
-    if (this.currentSource) {
-      this.currentSource.stop();
-      this.currentSource.disconnect();
-      this.currentSource = null;
-    }
+    this.audioController.stopCurrentSource();
+    this.timingEngine.stopTimeUpdates();
 
-    // Calculate target chunk using chunk_interval (not duration)
-    const chunkInterval = this.metadata?.chunk_interval || this.metadata?.chunk_duration || 10;
+    // Calculate target chunk and offset
+    const chunkInterval = this.metadata.chunk_interval || this.metadata.chunk_duration;
     const targetChunk = Math.floor(time / chunkInterval);
+    const offset = time - (targetChunk * chunkInterval);
 
-    // Calculate offset within the chunk (relative to chunk start time)
-    const chunkStartTime = targetChunk * chunkInterval;
-    const offset = time - chunkStartTime;
+    this.debug(`Seeking to chunk ${targetChunk} + ${offset.toFixed(2)}s offset`);
 
-    this.debug(`Seeking to ${time.toFixed(2)}s (chunk ${targetChunk}, offset ${offset.toFixed(2)}s)`);
-
-    // Queue target chunk with high priority (SEEK_TARGET = 2)
-    // This interrupts background preloads to prioritize the seek position
-    const chunk = this.chunks[targetChunk];
-    if (!chunk.isLoaded) {
-      this.setState('buffering');
-      this.preloadChunk(targetChunk, 2); // SEEK_TARGET priority
-
-      // Also queue adjacent chunks for smoother playback
-      if (targetChunk > 0) {
-        this.preloadChunk(targetChunk - 1, 3); // ADJACENT priority
-      }
-      if (targetChunk + 1 < this.chunks.length) {
-        this.preloadChunk(targetChunk + 1, 3); // ADJACENT priority
-      }
-
-      // Wait for target chunk to be loaded
-      await new Promise<void>((resolve) => {
-        const checkLoaded = () => {
-          if (chunk.isLoaded && chunk.audioBuffer) {
-            resolve();
-          } else {
-            // Check again in 50ms
-            setTimeout(checkLoaded, 50);
-          }
-        };
-        checkLoaded();
-      });
+    // Queue chunks with appropriate priorities
+    this.chunkPreloader.queueChunk(targetChunk, 2); // SEEK_TARGET
+    if (targetChunk > 0) {
+      this.chunkPreloader.queueChunk(targetChunk - 1, 3); // ADJACENT (prev)
+    }
+    if (targetChunk + 1 < this.chunks.length) {
+      this.chunkPreloader.queueChunk(targetChunk + 1, 3); // ADJACENT (next)
     }
 
-    // Update position
-    this.pauseTime = time;
+    // Update timing reference
+    this.timingEngine.setPauseTime(time);
+    this.playbackController.setCurrentPosition(time);
+    this.playbackController.setCurrentChunkIndex(targetChunk);
 
-    // Resume playback if was playing
+    // If was playing, wait a bit for chunk to load then resume
     if (wasPlaying) {
-      await this.playChunk(targetChunk, offset);
+      // Wait up to 2 seconds for target chunk to load
+      const maxWait = 2000;
+      const startTime = Date.now();
+      while (
+        (!this.chunks[targetChunk]?.audioBuffer) &&
+        Date.now() - startTime < maxWait
+      ) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      // Resume playback
+      await this.playChunkInternal(targetChunk, offset);
+      this.timingEngine.startTimeUpdates();
+      this.playbackController.setState('playing');
+      this.state = 'playing';
     }
+
+    this.emit('seeked');
   }
 
   /**
-   * Set enhancement mode (triggers buffer flush and reload)
-   *
-   * NEW (Beta.9 Phase 2): Improved toggle with instant buffer flush
-   * - Saves playback position
-   * - Stops current playback
-   * - Clears buffer completely
-   * - Reloads from current position with new settings
-   * - Resumes playback if was playing
+   * Internal: Play a specific chunk
+   * Called by AudioController or when transitioning between chunks
+   */
+  private async playChunkInternal(chunkIndex: number, offset: number = 0): Promise<void> {
+    if (chunkIndex >= this.chunks.length) {
+      this.debug(`playChunkInternal: chunk ${chunkIndex} out of bounds`);
+      return;
+    }
+
+    const chunk = this.chunks[chunkIndex];
+
+    // If chunk not loaded, queue it with CRITICAL priority and wait
+    if (!chunk.audioBuffer || !chunk.isLoaded) {
+      this.debug(`playChunkInternal: chunk ${chunkIndex} not loaded, queuing with CRITICAL priority`);
+      this.chunkPreloader.queueChunk(chunkIndex, 0);
+
+      // Wait up to 5 seconds for load
+      const maxWait = 5000;
+      const startTime = Date.now();
+      while (!this.chunks[chunkIndex].audioBuffer && Date.now() - startTime < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      if (!this.chunks[chunkIndex].audioBuffer) {
+        throw new Error(`Chunk ${chunkIndex} failed to load within timeout`);
+      }
+    }
+
+    const audioBuffer = this.chunks[chunkIndex].audioBuffer;
+    if (!audioBuffer) {
+      throw new Error(`Chunk ${chunkIndex} audioBuffer is null`);
+    }
+
+    // Delegate to AudioContextController
+    const isPlaying = this.playbackController.getState() === 'playing';
+    await this.audioController.playChunk(
+      chunkIndex,
+      audioBuffer,
+      offset,
+      isPlaying,
+      this.chunks.length,
+      this.metadata || undefined
+    );
+
+    // Update PlaybackController state
+    this.playbackController.setCurrentChunkIndex(chunkIndex);
+
+    // Queue next chunk for preload
+    if (chunkIndex + 1 < this.chunks.length) {
+      this.chunkPreloader.queueChunk(chunkIndex + 1, 1); // IMMEDIATE
+    }
+
+    this.debug(`playChunkInternal: playing chunk ${chunkIndex} from ${offset.toFixed(2)}s`);
+  }
+
+  /**
+   * Toggle audio enhancement
    */
   async setEnhanced(enabled: boolean, preset?: string): Promise<void> {
     const oldEnhanced = this.config.enhanced;
     const oldPreset = this.config.preset;
 
     this.config.enhanced = enabled;
-    if (preset) this.config.preset = preset;
+    if (preset) {
+      this.config.preset = preset;
+    }
 
-    // If settings changed, flush buffer and reload
-    if (oldEnhanced !== enabled || (preset && oldPreset !== preset)) {
-      this.debug(`Enhancement changed: ${enabled}, preset: ${preset || this.config.preset}`);
+    // Only reload if settings changed
+    if (oldEnhanced === enabled && (!preset || oldPreset === preset)) {
+      return;
+    }
 
-      // NEW (Beta.9): Save playback state
-      const wasPlaying = this.state === 'playing';
-      const currentTime = this.getCurrentTime();
+    this.debug(`Enhancement changed: enabled=${enabled}, preset=${preset || this.config.preset}`);
 
-      // Stop current playback (releases audio buffers)
-      if (this.currentSource) {
-        this.currentSource.stop();
-        this.currentSource.disconnect();
-        this.currentSource = null;
+    if (!this.trackId || !this.metadata) {
+      return;
+    }
+
+    const wasPlaying = this.playbackController.getState() === 'playing';
+    const currentTime = this.getCurrentTime();
+
+    this.debug(`Flushing buffer at ${currentTime.toFixed(2)}s, wasPlaying=${wasPlaying}`);
+
+    // Stop playback
+    this.audioController.stopCurrentSource();
+    this.timingEngine.stopTimeUpdates();
+
+    // Clear buffer
+    this.buffer.clear();
+
+    // Re-create ChunkPreloadManager with updated config
+    this.chunkPreloader.destroy?.();
+    this.chunkPreloader = new ChunkPreloadManager(
+      this.buffer,
+      this.loadQueue,
+      {
+        apiBaseUrl: this.config.apiBaseUrl,
+        trackId: this.trackId,
+        enhanced: this.config.enhanced,
+        preset: this.config.preset,
+        intensity: this.config.intensity,
+        preloadChunks: this.config.preloadChunks
+      },
+      this.audioController.getAudioContext(),
+      this.debug.bind(this)
+    );
+    this.wireChunkPreloaderEvents();
+    this.chunkPreloader.initChunks(this.chunks.length);
+
+    if (wasPlaying) {
+      // Preload current and adjacent chunks
+      const chunkInterval = this.metadata.chunk_interval || this.metadata.chunk_duration;
+      const currentChunkIndex = Math.floor(currentTime / chunkInterval);
+
+      this.chunkPreloader.queueChunk(currentChunkIndex, 0); // CRITICAL
+      if (currentChunkIndex + 1 < this.chunks.length) {
+        this.chunkPreloader.queueChunk(currentChunkIndex + 1, 1); // IMMEDIATE
       }
 
-      // Clear buffer completely (releases cached chunks)
-      this.buffer.clear();
-
-      this.debug(`Buffer flushed at ${currentTime.toFixed(2)}s, wasPlaying: ${wasPlaying}`);
-
-      // Reload from current position
-      if (this.trackId && this.currentChunkIndex < this.chunks.length) {
-        // Preload current chunk AND next chunk in parallel to avoid blocking
-        // This prevents the event loop from being blocked and keeps backend responsive
-        const preloadPromises = [this.preloadChunk(this.currentChunkIndex)];
-
-        if (this.currentChunkIndex + 1 < this.chunks.length) {
-          preloadPromises.push(this.preloadChunk(this.currentChunkIndex + 1));
-        }
-
-        // Wait for both chunks to load in parallel
-        await Promise.all(preloadPromises);
-        this.debug(`Preloaded ${preloadPromises.length} chunk(s) in parallel for smooth enhancement toggle`);
-
-        // Resume playback if was playing
-        if (wasPlaying) {
-          this.debug(`Resuming playback from ${currentTime.toFixed(2)}s with new settings`);
-          await this.seek(currentTime);
-          await this.play();
-        }
+      // Wait for chunks to load (up to 3 seconds)
+      const maxWait = 3000;
+      const startTime = Date.now();
+      while (
+        !this.chunks[currentChunkIndex].audioBuffer &&
+        Date.now() - startTime < maxWait
+      ) {
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
+
+      // Resume from current time
+      await this.seek(currentTime);
+      await this.play();
+
+      this.debug(`Enhancement toggle complete, resumed playback`);
     }
   }
 
   /**
-   * Set preset (triggers chunk reload)
+   * Set preset
    */
   async setPreset(preset: string): Promise<void> {
     await this.setEnhanced(this.config.enhanced, preset);
@@ -934,47 +593,19 @@ export class UnifiedWebMAudioPlayer {
    */
   setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
-    if (this.gainNode) {
-      this.gainNode.gain.value = this.volume;
-    }
+    this.audioController.setVolume(this.volume);
+    this.debug(`Volume set to ${(this.volume * 100).toFixed(0)}%`);
   }
 
   /**
    * Get current playback time
-   *
-   * SINGLE SOURCE OF TRUTH: AudioContext.currentTime
-   * ================================================
-   * The Web Audio API's AudioContext.currentTime is the only authoritative clock.
-   * We map it to the track timeline using a simple linear relationship:
-   *
-   *   trackTime = trackStartTime + (audioContext.currentTime - audioContextStartTime)
-   *
-   * This mapping is set once at the start of playback (or after a seek) and remains
-   * unchanged across chunk transitions, ensuring smooth timeline progression.
-   *
-   * Example:
-   * - Start playback of chunk 0 at track 0s
-   *   → audioContextStartTime = 100.5 (arbitrary Web Audio time)
-   *   → trackStartTime = 0
-   *   → trackTime = 0 + (100.5 - 100.5) = 0
-   *
-   * - 5 seconds later
-   *   → audioContext.currentTime = 105.5
-   *   → trackTime = 0 + (105.5 - 100.5) = 5 ✓
-   *
-   * - Chunk transition at 10s (currentChunkIndex becomes 1, but mapping unchanged)
-   *   → audioContext.currentTime = 110.5
-   *   → trackTime = 0 + (110.5 - 100.5) = 10 ✓ (continuous!)
    */
   getCurrentTime(): number {
-    if (this.state === 'playing' && this.currentSource && this.audioContext) {
-      // Apply linear mapping: trackTime = trackStartTime + (audioCtxTime - audioCtxStartTime)
-      const currentTime = this.trackStartTime + (this.audioContext.currentTime - this.audioContextStartTime);
-
-      // Clamp to track duration
-      return Math.min(currentTime, this.metadata!.duration);
+    if (this.playbackController.getState() === 'playing') {
+      const currentTime = this.timingEngine.getCurrentTime();
+      return Math.min(currentTime, this.metadata?.duration || 0);
     }
-    return this.pauseTime;
+    return this.playbackController.getCurrentPosition();
   }
 
   /**
@@ -986,31 +617,20 @@ export class UnifiedWebMAudioPlayer {
 
   /**
    * Get current playback time with debug info
-   *
-   * IMPORTANT: The hook's currentTime state (updated every 100ms) may be up to 100ms stale.
-   * This method provides the actual current time from AudioContext for real-time UI updates.
    */
   getCurrentTimeDebug(): { time: number; audioCtxTime: number; trackStartTime: number; difference: number } {
-    const time = this.getCurrentTime();
-    const audioCtxTime = this.audioContext?.currentTime ?? 0;
-    const difference = audioCtxTime - this.audioContextStartTime;
-    return {
-      time,
-      audioCtxTime,
-      trackStartTime: this.trackStartTime,
-      difference
-    };
+    return this.timingEngine.getCurrentTimeDebug();
   }
 
   /**
-   * Get current state
+   * Get current playback state
    */
   getState(): PlaybackState {
     return this.state;
   }
 
   /**
-   * Get metadata
+   * Get track metadata
    */
   getMetadata(): StreamMetadata | null {
     return this.metadata;
@@ -1020,18 +640,19 @@ export class UnifiedWebMAudioPlayer {
    * Cleanup resources
    */
   cleanup(): void {
+    this.debug('Cleaning up player resources');
     this.stop();
+    this.timingEngine.destroy?.();
+    this.chunkPreloader.destroy();
+    this.audioController.destroy?.();
+    this.playbackController.destroy?.();
     this.buffer.clear();
-    if (this.audioContext) {
-      this.audioContext.close();
-    }
     this.listeners.clear();
   }
 
-  // ========================================
-  // Event System
-  // ========================================
-
+  /**
+   * Event system: register listener
+   */
   on(event: string, callback: EventCallback): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
@@ -1044,49 +665,32 @@ export class UnifiedWebMAudioPlayer {
     };
   }
 
+  /**
+   * Event system: unregister listener
+   */
+  off(event: string, callback: EventCallback): void {
+    this.listeners.get(event)?.delete(callback);
+  }
+
+  /**
+   * Event system: emit event
+   */
   private emit(event: string, data?: any): void {
-    this.listeners.get(event)?.forEach(callback => callback(data));
-  }
-
-  // ========================================
-  // Internal Helpers
-  // ========================================
-
-  private setState(newState: PlaybackState): void {
-    if (this.state !== newState) {
-      const oldState = this.state;
-      this.state = newState;
-      this.debug(`State: ${oldState} → ${newState}`);
-      this.emit('statechange', { oldState, newState });
+    const callbacks = this.listeners.get(event);
+    if (callbacks) {
+      callbacks.forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          this.debug(`Error in event listener for '${event}': ${error}`);
+        }
+      });
     }
   }
 
-  private timeUpdateInterval: number | null = null;
-
-  private startTimeUpdates(): void {
-    if (this.timeUpdateInterval) return;
-
-    // CRITICAL FIX: Reduce interval from 100ms to 50ms to minimize state staleness
-    // Problem: UI was getting 100ms old time values
-    // Solution: Update more frequently so state is never more than 50ms stale
-    this.timeUpdateInterval = window.setInterval(() => {
-      if (this.state === 'playing') {
-        const currentTime = this.getCurrentTime();
-        const duration = this.getDuration();
-        const debugInfo = this.getCurrentTimeDebug();
-        this.debug(`[TIMING] Emitting timeupdate: time=${currentTime.toFixed(2)}s, audioCtxTime=${debugInfo.audioCtxTime.toFixed(2)}s, diff=${debugInfo.difference.toFixed(3)}s`);
-        this.emit('timeupdate', { currentTime, duration });
-      }
-    }, 50); // Reduced from 100ms to 50ms for better responsiveness
-  }
-
-  private stopTimeUpdates(): void {
-    if (this.timeUpdateInterval) {
-      clearInterval(this.timeUpdateInterval);
-      this.timeUpdateInterval = null;
-    }
-  }
-
+  /**
+   * Debug logging
+   */
   private debug(message: string): void {
     if (this.config.debug) {
       console.log(`[UnifiedWebMAudioPlayer] ${message}`);
