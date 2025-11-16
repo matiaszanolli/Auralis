@@ -644,14 +644,62 @@ export class UnifiedWebMAudioPlayer {
       }
     }
 
-    // Handle end of playback
+    // Play chunk: start from buffer offset, play for calculated duration
+    // bufferOffset is where we start in the buffer (normally 0, or after seeking)
+    source.start(0, bufferOffset, playDuration);
+
+    // Keep reference to current source
+    this.currentSource = source;
+
+    // Variable to track if we've already scheduled the next chunk
+    let nextChunkScheduled = false;
+    let fadeTimeoutId: number | null = null;
+
+    // CROSSFADING LOGIC: If this is not the last chunk, schedule next chunk to start
+    // during the overlap region for smooth crossfading
+    if (!isLastChunk && offset === 0) {
+      // Schedule the next chunk to start at: (playDuration - overlapDuration)
+      // This means the next chunk begins DURING the last 5s of this chunk,
+      // creating a 5s window for crossfading
+      const fadeStartTime = Math.max(0, playDuration - overlapDuration);
+
+      if (fadeStartTime > 0) {
+        // Use a timeout to start the next chunk at the right time
+        const scheduleNextChunk = async () => {
+          if (this.state === 'playing' && this.currentSource === source && !nextChunkScheduled) {
+            nextChunkScheduled = true;
+            try {
+              this.debug(`[FADE] Starting next chunk (${chunkIndex + 1}) for crossfading`);
+              await this.playChunk(chunkIndex + 1, 0);
+            } catch (error: any) {
+              this.debug(`Error scheduling next chunk: ${error.message}`);
+            }
+          }
+        };
+
+        const delayMs = fadeStartTime * 1000;
+        this.debug(`Scheduling next chunk (${chunkIndex + 1}) to start in ${delayMs.toFixed(0)}ms for crossfading`);
+
+        fadeTimeoutId = window.setTimeout(scheduleNextChunk, delayMs);
+      }
+    }
+
+    // Handle end of playback - cleanup and handle last chunk
     source.onended = async () => {
       source.disconnect();
       chunkGainNode.disconnect();
 
-      // If not the last chunk, automatically play next chunk
-      if (!isLastChunk && this.state === 'playing' && this.currentChunkIndex === chunkIndex) {
+      // Clear scheduled timeout if it hasn't fired yet
+      if (fadeTimeoutId !== null) {
+        clearTimeout(fadeTimeoutId);
+      }
+
+      // If not the last chunk AND we haven't scheduled next chunk yet, play it now
+      // (This handles case where chunk ends before fade-in time)
+      if (!isLastChunk && this.state === 'playing' && this.currentChunkIndex === chunkIndex && !nextChunkScheduled) {
         try {
+          nextChunkScheduled = true;
+          this.debug(`Playing next chunk ${chunkIndex + 1} on source ended`);
           await this.playChunk(chunkIndex + 1, 0);
         } catch (error: any) {
           this.debug(`Error playing next chunk: ${error.message}`);
@@ -664,54 +712,6 @@ export class UnifiedWebMAudioPlayer {
         this.emit('ended');
       }
     };
-
-    // Play chunk: start from buffer offset, play for calculated duration
-    // bufferOffset is where we start in the buffer (normally 0, or after seeking)
-    source.start(0, bufferOffset, playDuration);
-
-    // Keep reference to current source
-    this.currentSource = source;
-
-    // CROSSFADING LOGIC: If this is not the last chunk, schedule next chunk to start
-    // during the overlap region for smooth crossfading
-    if (!isLastChunk && offset === 0) {
-      // Schedule the next chunk to start at: (playDuration - overlapDuration)
-      // This means the next chunk begins DURING the last 5s of this chunk,
-      // creating a 5s window for crossfading
-      const fadeStartTime = Math.max(0, playDuration - overlapDuration);
-
-      if (fadeStartTime > 0) {
-        // Use a timeout to start the next chunk at the right time
-        // We need to schedule it relative to when this source started
-        const scheduleNextChunk = () => {
-          if (this.state === 'playing' && this.currentSource === source) {
-            this.playChunk(chunkIndex + 1, 0).catch((error: any) => {
-              this.debug(`Error scheduling next chunk: ${error.message}`);
-            });
-          }
-        };
-
-        // Calculate when to start the next chunk (in seconds)
-        // We'll use a timeout: Web Audio time is relative to AudioContext creation
-        // but we scheduled the source to start at this.startTime
-        // So next chunk should start at: this.startTime + fadeStartTime
-        const delayMs = fadeStartTime * 1000;
-
-        this.debug(`Scheduling next chunk (${chunkIndex + 1}) to start in ${delayMs.toFixed(0)}ms for crossfading`);
-
-        // Store timeout ID so we can cancel if needed
-        const timeoutId = window.setTimeout(scheduleNextChunk, delayMs);
-
-        // Clean up timeout if chunk ends or playback stops
-        source.onended = (() => {
-          const originalOnended = source.onended;
-          return () => {
-            clearTimeout(timeoutId);
-            if (originalOnended) originalOnended.call(source);
-          };
-        })();
-      }
-    }
 
     this.setState('playing');
     this.debug(`Playing chunk ${chunkIndex} (offset ${offset.toFixed(2)}s, duration ${playDuration.toFixed(2)}s, fade_start=${!isLastChunk ? (playDuration - overlapDuration).toFixed(2) : 'N/A'}s)`);
