@@ -227,11 +227,10 @@ export class UnifiedWebMAudioPlayer {
   private state: PlaybackState = 'idle';
   private currentSource: AudioBufferSourceNode | null = null;
   private currentChunkIndex: number = 0;
-  private startTime: number = 0;
-  private currentChunkOffset: number = 0;  // Offset within current chunk (for seeking)
   private pauseTime: number = 0;
   private volume: number = 1.0;
-  private playbackStartTrackTime: number = 0;  // Track time when playback started (for continuous timeline)
+  private audioContextStartTime: number = 0;  // AudioContext.currentTime when playback started (single source of truth)
+  private trackStartTime: number = 0;  // Track timeline position (in seconds) when audioContextStartTime was recorded
 
   // Gain node for volume control
   private gainNode: GainNode | null = null;
@@ -583,31 +582,23 @@ export class UnifiedWebMAudioPlayer {
     source.buffer = chunk.audioBuffer;
     source.connect(chunkGainNode);
 
-    // Track when this chunk started playing in audio context time
-    // startTime is when source.start() is called, which is NOW
-    // currentChunkOffset is where we start in the buffer (for seeking)
+    // Update single source of truth for timeline mapping
+    // Only update on initial play or seek, NOT on chunk transitions
     const chunkInterval = this.metadata?.chunk_interval || 10;
-
-    // Track timing for accurate timeline calculation
-    // For chunk transitions, we want the timeline to be continuous across chunks
-    // If this is a chunk transition (sequential chunk during playback), calculate
-    // what the track time should be based on chunk index
     const isChunkTransition = this.state === 'playing' && offset === 0 &&
                              chunkIndex === this.currentChunkIndex + 1;
 
-    if (isChunkTransition) {
-      // Chunk transition: calculate the track time this chunk represents
-      // This chunk starts at (chunkIndex * chunkInterval) on the timeline
-      this.playbackStartTrackTime = chunkIndex * chunkInterval;
+    if (!isChunkTransition) {
+      // Initial play or seek: record the mapping between AudioContext time and track time
+      this.audioContextStartTime = this.audioContext!.currentTime;
+      this.trackStartTime = chunkIndex * chunkInterval + offset;
+      this.debug(`[TIME_MAP] Set origin: audioCtx=${this.audioContextStartTime.toFixed(3)}s → track=${this.trackStartTime.toFixed(3)}s`);
     } else {
-      // Initial playback, seeking, or other state change
-      // Calculate what track time we're starting at
-      this.playbackStartTrackTime = chunkIndex * chunkInterval + offset;
+      // Chunk transition: time mapping stays the same, we just keep playing
+      this.debug(`[TIME_MAP] Chunk transition (${chunkIndex}): mapping unchanged`);
     }
 
-    this.startTime = this.audioContext!.currentTime;
     this.currentChunkIndex = chunkIndex;
-    this.currentChunkOffset = offset;
 
     // Backend architecture: 15s chunks every 10s for smooth blending
     // Each chunk contains 15s of audio (with 5s overlap from previous chunk)
@@ -776,9 +767,9 @@ export class UnifiedWebMAudioPlayer {
     }
 
     this.pauseTime = 0;
-    this.startTime = 0;
+    this.audioContextStartTime = 0;
+    this.trackStartTime = 0;
     this.currentChunkIndex = 0;
-    this.playbackStartTrackTime = 0;
 
     this.setState('idle');
     this.stopTimeUpdates();
@@ -929,33 +920,37 @@ export class UnifiedWebMAudioPlayer {
   /**
    * Get current playback time
    *
-   * Timeline position calculation:
-   * =============================
-   * We play only the primary 10s interval of each chunk:
-   * - Chunk 0: Play 0-10s (buffer has 15s total, but we play first 10s)
-   * - Chunk 1: Play 10-20s (buffer has 15s total, but we play first 10s)
-   * - Chunk 2: Play 20-30s (buffer has 15s total, but we play first 10s)
+   * SINGLE SOURCE OF TRUTH: AudioContext.currentTime
+   * ================================================
+   * The Web Audio API's AudioContext.currentTime is the only authoritative clock.
+   * We map it to the track timeline using a simple linear relationship:
    *
-   * The backend pre-mixed the 5s blend context into each chunk's audio.
-   * We only play the primary interval to avoid timeline jumps and repeated audio.
+   *   trackTime = trackStartTime + (audioContext.currentTime - audioContextStartTime)
    *
-   * Timeline position = (chunkIndex × 10s) + elapsed_since_chunk_start
-   * Clamped to next chunk's start time to prevent blend context from extending past interval
+   * This mapping is set once at the start of playback (or after a seek) and remains
+   * unchanged across chunk transitions, ensuring smooth timeline progression.
+   *
+   * Example:
+   * - Start playback of chunk 0 at track 0s
+   *   → audioContextStartTime = 100.5 (arbitrary Web Audio time)
+   *   → trackStartTime = 0
+   *   → trackTime = 0 + (100.5 - 100.5) = 0
+   *
+   * - 5 seconds later
+   *   → audioContext.currentTime = 105.5
+   *   → trackTime = 0 + (105.5 - 100.5) = 5 ✓
+   *
+   * - Chunk transition at 10s (currentChunkIndex becomes 1, but mapping unchanged)
+   *   → audioContext.currentTime = 110.5
+   *   → trackTime = 0 + (110.5 - 100.5) = 10 ✓ (continuous!)
    */
   getCurrentTime(): number {
     if (this.state === 'playing' && this.currentSource && this.audioContext) {
-      // Calculate elapsed time since playback started (across all chunks)
-      const elapsedTime = this.audioContext.currentTime - this.startTime;
+      // Apply linear mapping: trackTime = trackStartTime + (audioCtxTime - audioCtxStartTime)
+      const currentTime = this.trackStartTime + (this.audioContext.currentTime - this.audioContextStartTime);
 
-      // Current track timeline position based on continuous playback
-      let currentTime = this.playbackStartTrackTime + elapsedTime;
-
-      // Clamp to track duration to prevent overshooting
-      // NOTE: We removed clamping to chunk boundaries because it caused jumps
-      // during transitions. The playDuration already controls what we play.
-      currentTime = Math.min(currentTime, this.metadata!.duration);
-
-      return currentTime;
+      // Clamp to track duration
+      return Math.min(currentTime, this.metadata!.duration);
     }
     return this.pauseTime;
   }
