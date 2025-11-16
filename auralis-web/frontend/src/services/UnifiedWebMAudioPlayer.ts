@@ -434,6 +434,9 @@ export class UnifiedWebMAudioPlayer {
           chunk.isLoading = false;
           chunk.audioBuffer = null; // Clear any partial state
           this.debug(`[P${priority}] Error loading chunk ${chunkIndex}: ${error.message}`);
+          // Mark as failed so we know not to retry this chunk in the same queue cycle
+          // but it can be retried in a future queue cycle if requested
+          this.emit('chunk-error', { chunkIndex, error });
           // Continue processing next items in queue
         }
       }
@@ -512,15 +515,31 @@ export class UnifiedWebMAudioPlayer {
   private async playChunk(chunkIndex: number, offset: number = 0): Promise<void> {
     const chunk = this.chunks[chunkIndex];
     if (!chunk.audioBuffer) {
-      // Instead of throwing immediately, try to reload the chunk
+      // Try to reload the chunk with high priority
       this.debug(`Chunk ${chunkIndex} audioBuffer is null, attempting to reload...`);
+
+      // Mark as not loading so preloadChunk will queue it
+      chunk.isLoading = false;
+      chunk.isLoaded = false;
+
       try {
-        await this.preloadChunk(chunkIndex);
-        if (!this.chunks[chunkIndex].audioBuffer) {
-          throw new Error(`Chunk ${chunkIndex} failed to load and has no audio buffer`);
+        // Queue with CRITICAL priority (0) - this chunk is needed immediately
+        this.preloadChunk(chunkIndex, 0);
+
+        // Wait for the chunk to load (with timeout)
+        const maxWaitTime = 10000; // 10 seconds
+        const startTime = Date.now();
+        while (!chunk.isLoaded && Date.now() - startTime < maxWaitTime) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+
+        if (!chunk.audioBuffer) {
+          throw new Error(`Chunk ${chunkIndex} failed to load within timeout`);
         }
       } catch (error: any) {
         this.debug(`Failed to load chunk ${chunkIndex}: ${error.message}`);
+        this.setState('error');
+        this.emit('error', error);
         throw new Error(`Chunk ${chunkIndex} not loaded: ${error.message}`);
       }
     }
@@ -570,19 +589,20 @@ export class UnifiedWebMAudioPlayer {
     let playDuration: number;
 
     if (offset > 0) {
-      // Seeking within chunk - play remaining duration in this chunk's interval
-      const remainingInInterval = chunkEndTime - (chunkStartTime + offset);
-      playDuration = Math.max(0, Math.min(remainingInInterval, actualBufferDuration - bufferOffset));
+      // Seeking within chunk - play remaining content from seek point to end of chunk's interval
+      // Example: seeking to 12s in chunk 1 (10-20s interval) -> play remaining 8s to reach 20s
+      const remainingInInterval = Math.max(0, chunkEndTime - (chunkStartTime + offset));
+      playDuration = Math.min(remainingInInterval, actualBufferDuration - bufferOffset);
     } else if (isLastChunk) {
       // Last chunk - play only what's needed to reach track end
-      const remainingTrack = this.metadata!.duration - chunkStartTime;
+      const remainingTrack = Math.max(0, this.metadata!.duration - chunkStartTime);
       playDuration = Math.min(actualBufferDuration, remainingTrack);
     } else {
       // Normal chunk - play ONLY the chunk_interval duration (10s)
       // Backend pre-mixed the blend context (5s), but we only play the primary content
       // The 5s blend is already baked into the audio for DSP smooth transitions
       // Playing only the interval duration prevents timeline jumps and repeated audio
-      playDuration = Math.min(chunkInterval, actualBufferDuration - bufferOffset);
+      playDuration = chunkInterval;
     }
 
     // Safety: never exceed buffer
