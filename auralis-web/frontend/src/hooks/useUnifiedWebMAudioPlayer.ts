@@ -96,6 +96,7 @@ export function useUnifiedWebMAudioPlayer(
     });
 
     const unsubscribeTime = player.on('timeupdate', ({ currentTime: time, duration: dur }) => {
+      console.log(`[useUnifiedWebMAudioPlayer] timeupdate received: currentTime=${time.toFixed(2)}s`);
       setCurrentTime(time);
       setDuration(dur);
     });
