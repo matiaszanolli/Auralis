@@ -604,7 +604,6 @@ export class UnifiedWebMAudioPlayer {
 
     // Update single source of truth for timeline mapping
     // Only update on initial play or seek, NOT on chunk transitions
-    const chunkInterval = this.metadata?.chunk_interval || 10;
     const isChunkTransition = this.state === 'playing' && offset === 0 &&
                              chunkIndex === this.currentChunkIndex + 1;
 
