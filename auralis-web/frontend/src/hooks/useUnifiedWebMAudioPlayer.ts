@@ -84,7 +84,10 @@ export function useUnifiedWebMAudioPlayer(
 
   // Initialize player on mount
   useEffect(() => {
-    const player = new UnifiedWebMAudioPlayer(config);
+    const player = new UnifiedWebMAudioPlayer({
+      ...config,
+      debug: true // Enable debug logging for investigation
+    });
     playerRef.current = player;
 
     // Subscribe to state changes

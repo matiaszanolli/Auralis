@@ -632,6 +632,11 @@ export class UnifiedWebMAudioPlayer {
       playDuration = 0.1;
     }
 
+    // DEBUG: Log chunk timing for first few chunks
+    if (chunkIndex < 5) {
+      this.debug(`[TIMING] Chunk ${chunkIndex}: buffer=${actualBufferDuration.toFixed(2)}s, offset=${bufferOffset.toFixed(2)}s, duration=${playDuration.toFixed(2)}s, interval=${chunkInterval}s, startTime=${chunkStartTime}s`);
+    }
+
     // Queue next chunk with IMMEDIATE priority for continuous playback
     // This ensures next chunk loads before playback ends, but after seek targets
     if (chunkIndex + 1 < this.chunks.length) {
