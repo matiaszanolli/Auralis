@@ -570,17 +570,19 @@ export class UnifiedWebMAudioPlayer {
     let playDuration: number;
 
     if (offset > 0) {
-      // Seeking within chunk - play remaining duration in buffer
-      playDuration = Math.max(0, actualBufferDuration - bufferOffset);
+      // Seeking within chunk - play remaining duration in this chunk's interval
+      const remainingInInterval = chunkEndTime - (chunkStartTime + offset);
+      playDuration = Math.max(0, Math.min(remainingInInterval, actualBufferDuration - bufferOffset));
     } else if (isLastChunk) {
       // Last chunk - play only what's needed to reach track end
       const remainingTrack = this.metadata!.duration - chunkStartTime;
       playDuration = Math.min(actualBufferDuration, remainingTrack);
     } else {
-      // Normal chunk - play the FULL 15s buffer
-      // Each buffer contains 10s of primary content + 5s blend context for next chunk
-      // Playing the full buffer ensures smooth transitions with blended audio
-      playDuration = actualBufferDuration;
+      // Normal chunk - play ONLY the chunk_interval duration (10s)
+      // Backend pre-mixed the blend context (5s), but we only play the primary content
+      // The 5s blend is already baked into the audio for DSP smooth transitions
+      // Playing only the interval duration prevents timeline jumps and repeated audio
+      playDuration = Math.min(chunkInterval, actualBufferDuration - bufferOffset);
     }
 
     // Safety: never exceed buffer
@@ -820,15 +822,16 @@ export class UnifiedWebMAudioPlayer {
    *
    * Timeline position calculation:
    * =============================
-   * Each chunk's buffer is played sequentially:
-   * - Chunk 0: 15s (contains timeline 0-10s + blend context 10-15s)
-   * - Chunk 1: 15s (contains timeline 10-20s + blend context 20-25s)
-   * - Chunk 2: 15s (contains timeline 20-30s + blend context 30-35s)
+   * We play only the primary 10s interval of each chunk:
+   * - Chunk 0: Play 0-10s (buffer has 15s total, but we play first 10s)
+   * - Chunk 1: Play 10-20s (buffer has 15s total, but we play first 10s)
+   * - Chunk 2: Play 20-30s (buffer has 15s total, but we play first 10s)
+   *
+   * The backend pre-mixed the 5s blend context into each chunk's audio.
+   * We only play the primary interval to avoid timeline jumps and repeated audio.
    *
    * Timeline position = (chunkIndex × 10s) + elapsed_since_chunk_start
-   *
-   * The blend context (5s overlap) naturally provides smooth crossfades
-   * and is included in each chunk's 15s buffer.
+   * Clamped to next chunk's start time to prevent blend context from extending past interval
    */
   getCurrentTime(): number {
     if (this.state === 'playing' && this.currentSource) {
@@ -843,8 +846,14 @@ export class UnifiedWebMAudioPlayer {
       // Current track timeline position
       let currentTime = chunkStartTime + this.currentChunkOffset + elapsedInChunk;
 
-      // Safety clamp to track duration for last chunk
-      if (this.currentChunkIndex + 1 >= this.chunks.length) {
+      // Clamp to interval boundaries to prevent playback from extending past next chunk
+      const isLastChunk = this.currentChunkIndex + 1 >= this.chunks.length;
+      if (!isLastChunk) {
+        // Can't go past the start of the next chunk
+        const nextChunkStart = (this.currentChunkIndex + 1) * chunkInterval;
+        currentTime = Math.min(currentTime, nextChunkStart);
+      } else {
+        // Last chunk: can't go past track duration
         currentTime = Math.min(currentTime, this.metadata!.duration);
       }
 
