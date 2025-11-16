@@ -214,7 +214,7 @@ class ChunkLoadPriorityQueue {
  */
 export class UnifiedWebMAudioPlayer {
   private config: Required<UnifiedWebMAudioPlayerConfig>;
-  private audioContext: AudioContext;
+  private audioContext: AudioContext | null = null;
   private buffer: MultiTierWebMBuffer;
   private loadQueue: ChunkLoadPriorityQueue;
 
@@ -233,7 +233,7 @@ export class UnifiedWebMAudioPlayer {
   private volume: number = 1.0;
 
   // Gain node for volume control
-  private gainNode: GainNode;
+  private gainNode: GainNode | null = null;
 
   // Event system
   private listeners: Map<string, Set<EventCallback>> = new Map();
@@ -252,18 +252,28 @@ export class UnifiedWebMAudioPlayer {
       debug: config.debug || false
     };
 
-    // Initialize Web Audio API
-    this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    this.gainNode = this.audioContext.createGain();
-    this.gainNode.connect(this.audioContext.destination);
-
     // Initialize buffer
     this.buffer = new MultiTierWebMBuffer();
 
     // Initialize priority queue
     this.loadQueue = new ChunkLoadPriorityQueue();
 
-    this.debug('UnifiedWebMAudioPlayer initialized');
+    // NOTE: AudioContext is NOT created in constructor to comply with browser autoplay policy
+    // It will be lazily created on first user gesture (play() call)
+    this.debug('UnifiedWebMAudioPlayer initialized (AudioContext deferred until first play)');
+  }
+
+  /**
+   * Lazily initialize AudioContext on first user gesture
+   * Required by browser autoplay policy
+   */
+  private ensureAudioContext(): void {
+    if (!this.audioContext) {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.gainNode = this.audioContext.createGain();
+      this.gainNode!.connect(this.audioContext.destination);
+      this.debug('AudioContext created on first user gesture');
+    }
   }
 
   /**
@@ -352,6 +362,9 @@ export class UnifiedWebMAudioPlayer {
     if (this.queueProcessorRunning) return;
     this.queueProcessorRunning = true;
 
+    // Ensure AudioContext is initialized before decoding
+    this.ensureAudioContext();
+
     try {
       while (this.loadQueue.getSize() > 0) {
         const nextItem = this.loadQueue.dequeue();
@@ -402,7 +415,7 @@ export class UnifiedWebMAudioPlayer {
 
             // Decode WebM/Opus to AudioBuffer using Web Audio API
             try {
-              audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+              audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
             } catch (decodeError: any) {
               throw new Error(`Failed to decode chunk ${chunkIndex}: ${decodeError.message || 'Unknown decode error'}`);
             }
@@ -453,9 +466,12 @@ export class UnifiedWebMAudioPlayer {
       throw new Error('No track loaded');
     }
 
+    // Ensure AudioContext is initialized (required by browser autoplay policy)
+    this.ensureAudioContext();
+
     // Resume AudioContext if suspended (browser autoplay policy)
-    if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
+    if (this.audioContext!.state === 'suspended') {
+      await this.audioContext!.resume();
     }
 
     // Calculate chunk to play based on current time
@@ -513,6 +529,9 @@ export class UnifiedWebMAudioPlayer {
    * - Next chunk starts automatically via onended callback when current chunk finishes
    */
   private async playChunk(chunkIndex: number, offset: number = 0): Promise<void> {
+    // Ensure AudioContext is initialized (required by browser autoplay policy)
+    this.ensureAudioContext();
+
     const chunk = this.chunks[chunkIndex];
     if (!chunk.audioBuffer) {
       // Try to reload the chunk with high priority
@@ -554,19 +573,19 @@ export class UnifiedWebMAudioPlayer {
     }
 
     // Create gain node (no crossfading, just volume control)
-    const chunkGainNode = this.audioContext.createGain();
-    chunkGainNode.connect(this.gainNode);
+    const chunkGainNode = this.audioContext!.createGain();
+    chunkGainNode.connect(this.gainNode!);
     chunkGainNode.gain.value = this.volume;
 
     // Create new buffer source
-    const source = this.audioContext.createBufferSource();
+    const source = this.audioContext!.createBufferSource();
     source.buffer = chunk.audioBuffer;
     source.connect(chunkGainNode);
 
     // Track when this chunk started playing in audio context time
     // startTime is when source.start() is called, which is NOW
     // currentChunkOffset is where we start in the buffer (for seeking)
-    this.startTime = this.audioContext.currentTime;
+    this.startTime = this.audioContext!.currentTime;
     this.currentChunkIndex = chunkIndex;
     this.currentChunkOffset = offset;
 
@@ -834,7 +853,9 @@ export class UnifiedWebMAudioPlayer {
    */
   setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
-    this.gainNode.gain.value = this.volume;
+    if (this.gainNode) {
+      this.gainNode.gain.value = this.volume;
+    }
   }
 
   /**
@@ -854,7 +875,7 @@ export class UnifiedWebMAudioPlayer {
    * Clamped to next chunk's start time to prevent blend context from extending past interval
    */
   getCurrentTime(): number {
-    if (this.state === 'playing' && this.currentSource) {
+    if (this.state === 'playing' && this.currentSource && this.audioContext) {
       const chunkInterval = this.metadata?.chunk_interval || 10;
 
       // Timeline position where this chunk starts (0s, 10s, 20s, 30s, etc.)
@@ -909,7 +930,9 @@ export class UnifiedWebMAudioPlayer {
   cleanup(): void {
     this.stop();
     this.buffer.clear();
-    this.audioContext.close();
+    if (this.audioContext) {
+      this.audioContext.close();
+    }
     this.listeners.clear();
   }
 
