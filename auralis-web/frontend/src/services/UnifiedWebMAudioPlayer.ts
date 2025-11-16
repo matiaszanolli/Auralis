@@ -570,13 +570,16 @@ export class UnifiedWebMAudioPlayer {
     let playDuration: number;
 
     if (offset > 0) {
-      // Seeking within chunk - play remaining duration
+      // Seeking within chunk - play remaining duration in buffer
       playDuration = Math.max(0, actualBufferDuration - bufferOffset);
     } else if (isLastChunk) {
-      // Last chunk - play only what's needed for remaining track
-      playDuration = Math.min(actualBufferDuration, chunkEndTime - chunkStartTime);
+      // Last chunk - play only what's needed to reach track end
+      const remainingTrack = this.metadata!.duration - chunkStartTime;
+      playDuration = Math.min(actualBufferDuration, remainingTrack);
     } else {
-      // Normal chunk - play the full buffer (it contains ~10s playable + 5s overlap/context)
+      // Normal chunk - play the FULL 15s buffer
+      // Each buffer contains 10s of primary content + 5s blend context for next chunk
+      // Playing the full buffer ensures smooth transitions with blended audio
       playDuration = actualBufferDuration;
     }
 
@@ -815,21 +818,37 @@ export class UnifiedWebMAudioPlayer {
   /**
    * Get current playback time
    *
-   * Chunk timeline mapping:
-   * - Chunk 0 @ timeline 0s: buffer has 15s (0-10s playable + 5s blend context)
-   * - Chunk 1 @ timeline 10s: buffer has 10s (already trimmed overlap)
-   * - Chunk 2 @ timeline 20s: buffer has 10s (already trimmed overlap)
+   * Timeline position calculation:
+   * =============================
+   * Each chunk's buffer is played sequentially:
+   * - Chunk 0: 15s (contains timeline 0-10s + blend context 10-15s)
+   * - Chunk 1: 15s (contains timeline 10-20s + blend context 20-25s)
+   * - Chunk 2: 15s (contains timeline 20-30s + blend context 30-35s)
+   *
+   * Timeline position = (chunkIndex × 10s) + elapsed_since_chunk_start
+   *
+   * The blend context (5s overlap) naturally provides smooth crossfades
+   * and is included in each chunk's 15s buffer.
    */
   getCurrentTime(): number {
     if (this.state === 'playing' && this.currentSource) {
-      // Elapsed time since this chunk started playing
+      const chunkInterval = this.metadata?.chunk_interval || 10;
+
+      // Timeline position where this chunk starts (0s, 10s, 20s, 30s, etc.)
+      const chunkStartTime = this.currentChunkIndex * chunkInterval;
+
+      // Elapsed time since this chunk started playing (in seconds)
       const elapsedInChunk = this.audioContext.currentTime - this.startTime;
 
-      // Timeline position of this chunk's start (0s, 10s, 20s, 30s, etc.)
-      const chunkStartTime = this.currentChunkIndex * (this.metadata?.chunk_interval || 10);
+      // Current track timeline position
+      let currentTime = chunkStartTime + this.currentChunkOffset + elapsedInChunk;
 
-      // Current playback position = chunk start + offset we started with + elapsed time
-      return chunkStartTime + this.currentChunkOffset + elapsedInChunk;
+      // Safety clamp to track duration for last chunk
+      if (this.currentChunkIndex + 1 >= this.chunks.length) {
+        currentTime = Math.min(currentTime, this.metadata!.duration);
+      }
+
+      return currentTime;
     }
     return this.pauseTime;
   }
