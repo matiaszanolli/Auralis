@@ -231,6 +231,7 @@ export class UnifiedWebMAudioPlayer {
   private currentChunkOffset: number = 0;  // Offset within current chunk (for seeking)
   private pauseTime: number = 0;
   private volume: number = 1.0;
+  private playbackStartTrackTime: number = 0;  // Track time when playback started (for continuous timeline)
 
   // Gain node for volume control
   private gainNode: GainNode | null = null;
@@ -585,6 +586,20 @@ export class UnifiedWebMAudioPlayer {
     // Track when this chunk started playing in audio context time
     // startTime is when source.start() is called, which is NOW
     // currentChunkOffset is where we start in the buffer (for seeking)
+    const chunkInterval = this.metadata?.chunk_interval || 10;
+
+    // Track playback start time for continuous timeline calculation
+    // - On initial load or seek: calculate absolute track time for this chunk+offset
+    // - On chunk transition (crossfade): don't update, maintain continuous timeline
+    const isChunkTransition = this.state === 'playing' && offset === 0 &&
+                             chunkIndex === this.currentChunkIndex + 1;
+
+    if (!isChunkTransition) {
+      // Initial playback, seeking, or other state change
+      this.playbackStartTrackTime = chunkIndex * chunkInterval + offset;
+    }
+    // else: chunk transition - keep playbackStartTrackTime from previous chunk
+
     this.startTime = this.audioContext!.currentTime;
     this.currentChunkIndex = chunkIndex;
     this.currentChunkOffset = offset;
@@ -714,6 +729,9 @@ export class UnifiedWebMAudioPlayer {
     };
 
     this.setState('playing');
+    if (chunkIndex < 5) {
+      this.debug(`[TIMELINE] Chunk ${chunkIndex}: playbackStart=${this.playbackStartTrackTime.toFixed(2)}s, audioCtxTime=${this.audioContext!.currentTime.toFixed(2)}s`);
+    }
     this.debug(`Playing chunk ${chunkIndex} (offset ${offset.toFixed(2)}s, duration ${playDuration.toFixed(2)}s, fade_start=${!isLastChunk ? (playDuration - overlapDuration).toFixed(2) : 'N/A'}s)`);
 
     // Start time updates
@@ -755,6 +773,7 @@ export class UnifiedWebMAudioPlayer {
     this.pauseTime = 0;
     this.startTime = 0;
     this.currentChunkIndex = 0;
+    this.playbackStartTrackTime = 0;
 
     this.setState('idle');
     this.stopTimeUpdates();
@@ -922,14 +941,11 @@ export class UnifiedWebMAudioPlayer {
     if (this.state === 'playing' && this.currentSource && this.audioContext) {
       const chunkInterval = this.metadata?.chunk_interval || 10;
 
-      // Timeline position where this chunk starts (0s, 10s, 20s, 30s, etc.)
-      const chunkStartTime = this.currentChunkIndex * chunkInterval;
+      // Calculate elapsed time since playback started (across all chunks)
+      const elapsedTime = this.audioContext.currentTime - this.startTime;
 
-      // Elapsed time since this chunk started playing (in seconds)
-      const elapsedInChunk = this.audioContext.currentTime - this.startTime;
-
-      // Current track timeline position
-      let currentTime = chunkStartTime + this.currentChunkOffset + elapsedInChunk;
+      // Current track timeline position based on continuous playback
+      let currentTime = this.playbackStartTrackTime + elapsedTime;
 
       // Clamp to interval boundaries to prevent playback from extending past next chunk
       const isLastChunk = this.currentChunkIndex + 1 >= this.chunks.length;
