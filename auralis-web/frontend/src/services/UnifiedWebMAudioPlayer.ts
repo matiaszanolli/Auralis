@@ -343,14 +343,22 @@ export class UnifiedWebMAudioPlayer {
     const chunk = this.chunks[chunkIndex];
     // Only skip if already loaded (with valid audioBuffer)
     // If loading or previously failed, we should retry
-    if (chunk.isLoaded && chunk.audioBuffer) return;
+    if (chunk.isLoaded && chunk.audioBuffer) {
+      this.debug(`[PRELOAD] Chunk ${chunkIndex} already loaded, skipping`);
+      return;
+    }
 
     // Add to priority queue instead of loading immediately
+    this.debug(`[PRELOAD] Enqueueing chunk ${chunkIndex} with priority ${priority} (queue size before: ${this.loadQueue.getSize()})`);
     this.loadQueue.enqueue(chunkIndex, priority);
+    this.debug(`[PRELOAD] Queue size after: ${this.loadQueue.getSize()}`);
 
     // Start queue processor if not already running
     if (!this.queueProcessorRunning) {
+      this.debug(`[PRELOAD] Starting queue processor`);
       this.processLoadQueue();
+    } else {
+      this.debug(`[PRELOAD] Queue processor already running`);
     }
   }
 
@@ -359,8 +367,12 @@ export class UnifiedWebMAudioPlayer {
    * This ensures seeks are prioritized over background preloads
    */
   private async processLoadQueue(): Promise<void> {
-    if (this.queueProcessorRunning) return;
+    if (this.queueProcessorRunning) {
+      this.debug(`[QUEUE] Queue processor already running, skipping`);
+      return;
+    }
     this.queueProcessorRunning = true;
+    this.debug(`[QUEUE] Queue processor started with ${this.loadQueue.getSize()} items`);
 
     // Ensure AudioContext is initialized before decoding
     this.ensureAudioContext();
@@ -371,11 +383,18 @@ export class UnifiedWebMAudioPlayer {
         if (!nextItem) break;
 
         const { chunkIndex, priority } = nextItem;
+        this.debug(`[QUEUE] Processing chunk ${chunkIndex} priority ${priority} (queue size: ${this.loadQueue.getSize()})`);
 
         // Skip if already loaded or currently loading
         const chunk = this.chunks[chunkIndex];
-        if (chunk.isLoaded && chunk.audioBuffer) continue;
-        if (chunk.isLoading) continue;
+        if (chunk.isLoaded && chunk.audioBuffer) {
+          this.debug(`[QUEUE] Chunk ${chunkIndex} already loaded, skipping`);
+          continue;
+        }
+        if (chunk.isLoading) {
+          this.debug(`[QUEUE] Chunk ${chunkIndex} already loading, skipping`);
+          continue;
+        }
 
         // Mark as loading
         chunk.isLoading = true;
@@ -453,6 +472,7 @@ export class UnifiedWebMAudioPlayer {
           // Continue processing next items in queue
         }
       }
+      this.debug(`[QUEUE] Queue processor finished, ${this.loadQueue.getSize()} items remaining`);
     } finally {
       this.queueProcessorRunning = false;
     }
@@ -651,7 +671,10 @@ export class UnifiedWebMAudioPlayer {
     if (chunkIndex + 1 < this.chunks.length) {
       const nextChunk = this.chunks[chunkIndex + 1];
       if (!nextChunk.isLoaded && !nextChunk.isLoading) {
+        this.debug(`[PRELOAD] Queueing next chunk ${chunkIndex + 1} with IMMEDIATE priority (queue size: ${this.loadQueue.getSize()})`);
         this.preloadChunk(chunkIndex + 1, 1); // IMMEDIATE priority for continuous playback
+      } else {
+        this.debug(`[PRELOAD] Chunk ${chunkIndex + 1} already loaded=${nextChunk.isLoaded} or loading=${nextChunk.isLoading}`);
       }
     }
 
@@ -963,6 +986,24 @@ export class UnifiedWebMAudioPlayer {
   }
 
   /**
+   * Get current playback time with debug info
+   *
+   * IMPORTANT: The hook's currentTime state (updated every 100ms) may be up to 100ms stale.
+   * This method provides the actual current time from AudioContext for real-time UI updates.
+   */
+  getCurrentTimeDebug(): { time: number; audioCtxTime: number; trackStartTime: number; difference: number } {
+    const time = this.getCurrentTime();
+    const audioCtxTime = this.audioContext?.currentTime ?? 0;
+    const difference = audioCtxTime - this.audioContextStartTime;
+    return {
+      time,
+      audioCtxTime,
+      trackStartTime: this.trackStartTime,
+      difference
+    };
+  }
+
+  /**
    * Get current state
    */
   getState(): PlaybackState {
@@ -1026,13 +1067,18 @@ export class UnifiedWebMAudioPlayer {
   private startTimeUpdates(): void {
     if (this.timeUpdateInterval) return;
 
+    // CRITICAL FIX: Reduce interval from 100ms to 50ms to minimize state staleness
+    // Problem: UI was getting 100ms old time values
+    // Solution: Update more frequently so state is never more than 50ms stale
     this.timeUpdateInterval = window.setInterval(() => {
       if (this.state === 'playing') {
         const currentTime = this.getCurrentTime();
         const duration = this.getDuration();
+        const debugInfo = this.getCurrentTimeDebug();
+        this.debug(`[TIMING] Emitting timeupdate: time=${currentTime.toFixed(2)}s, audioCtxTime=${debugInfo.audioCtxTime.toFixed(2)}s, diff=${debugInfo.difference.toFixed(3)}s`);
         this.emit('timeupdate', { currentTime, duration });
       }
-    }, 100); // Update every 100ms
+    }, 50); // Reduced from 100ms to 50ms for better responsiveness
   }
 
   private stopTimeUpdates(): void {

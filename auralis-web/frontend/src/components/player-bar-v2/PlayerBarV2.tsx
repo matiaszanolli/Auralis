@@ -114,6 +114,13 @@ export const PlayerBarV2: React.FC<PlayerBarV2Props> = React.memo(({
   onPrevious,
   onNext,
 }) => {
+  // DEBUG: Log props to ProgressBar
+  React.useEffect(() => {
+    if (player.currentTime > 0) {
+      console.log(`[PlayerBarV2] Passing to ProgressBar: currentTime=${player.currentTime.toFixed(2)}s, duration=${player.duration.toFixed(2)}s`);
+    }
+  }, [player.currentTime, player.duration]);
+
   // Memoized handlers to prevent re-renders
   const handlePlayPause = useCallback(() => {
     if (player.isPlaying) {
