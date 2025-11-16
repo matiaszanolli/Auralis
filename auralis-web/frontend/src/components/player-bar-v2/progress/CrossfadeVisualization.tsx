@@ -13,7 +13,7 @@
 import React, { useMemo } from 'react';
 import { Box, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { formatTime } from '../../utils/timeFormat';
+import { formatTime } from '@/utils/timeFormat';
 
 const CrossfadeIndicators = styled(Box)({
   position: 'absolute',

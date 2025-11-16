@@ -12,7 +12,7 @@
 import React from 'react';
 import { Typography, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { formatTime } from '../../utils/timeFormat';
+import { formatTime } from '@/utils/timeFormat';
 
 const TimeDisplayText = styled(Typography)({
   fontFamily: tokens.typography.fontFamily.mono,

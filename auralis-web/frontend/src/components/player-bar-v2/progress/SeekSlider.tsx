@@ -13,7 +13,7 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Slider, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { formatTime } from '../../utils/timeFormat';
+import { formatTime } from '@/utils/timeFormat';
 
 const SliderContainer = styled(Box)({
   flex: 1,
