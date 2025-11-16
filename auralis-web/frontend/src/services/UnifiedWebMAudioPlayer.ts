@@ -588,17 +588,22 @@ export class UnifiedWebMAudioPlayer {
     // currentChunkOffset is where we start in the buffer (for seeking)
     const chunkInterval = this.metadata?.chunk_interval || 10;
 
-    // Track playback start time for continuous timeline calculation
-    // - On initial load or seek: calculate absolute track time for this chunk+offset
-    // - On chunk transition (crossfade): don't update, maintain continuous timeline
+    // Track timing for accurate timeline calculation
+    // For chunk transitions, we want the timeline to be continuous across chunks
+    // If this is a chunk transition (sequential chunk during playback), calculate
+    // what the track time should be based on chunk index
     const isChunkTransition = this.state === 'playing' && offset === 0 &&
                              chunkIndex === this.currentChunkIndex + 1;
 
-    if (!isChunkTransition) {
+    if (isChunkTransition) {
+      // Chunk transition: calculate the track time this chunk represents
+      // This chunk starts at (chunkIndex * chunkInterval) on the timeline
+      this.playbackStartTrackTime = chunkIndex * chunkInterval;
+    } else {
       // Initial playback, seeking, or other state change
+      // Calculate what track time we're starting at
       this.playbackStartTrackTime = chunkIndex * chunkInterval + offset;
     }
-    // else: chunk transition - keep playbackStartTrackTime from previous chunk
 
     this.startTime = this.audioContext!.currentTime;
     this.currentChunkIndex = chunkIndex;
@@ -939,24 +944,16 @@ export class UnifiedWebMAudioPlayer {
    */
   getCurrentTime(): number {
     if (this.state === 'playing' && this.currentSource && this.audioContext) {
-      const chunkInterval = this.metadata?.chunk_interval || 10;
-
       // Calculate elapsed time since playback started (across all chunks)
       const elapsedTime = this.audioContext.currentTime - this.startTime;
 
       // Current track timeline position based on continuous playback
       let currentTime = this.playbackStartTrackTime + elapsedTime;
 
-      // Clamp to interval boundaries to prevent playback from extending past next chunk
-      const isLastChunk = this.currentChunkIndex + 1 >= this.chunks.length;
-      if (!isLastChunk) {
-        // Can't go past the start of the next chunk
-        const nextChunkStart = (this.currentChunkIndex + 1) * chunkInterval;
-        currentTime = Math.min(currentTime, nextChunkStart);
-      } else {
-        // Last chunk: can't go past track duration
-        currentTime = Math.min(currentTime, this.metadata!.duration);
-      }
+      // Clamp to track duration to prevent overshooting
+      // NOTE: We removed clamping to chunk boundaries because it caused jumps
+      // during transitions. The playDuration already controls what we play.
+      currentTime = Math.min(currentTime, this.metadata!.duration);
 
       return currentTime;
     }
