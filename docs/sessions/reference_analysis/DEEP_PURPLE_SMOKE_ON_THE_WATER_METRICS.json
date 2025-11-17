@@ -1,0 +1,141 @@
+{
+  "reference_info": {
+    "track": "Smoke On The Water",
+    "artist": "Deep Purple",
+    "album": "Made In Japan",
+    "live_venue": "Festival Hall, Osaka",
+    "live_date": "1972-08-15",
+    "original_master": {
+      "name": "1998 Remaster (25th Anniversary)",
+      "format": "MP3 320 Kbps",
+      "engineer": "Unknown (original remaster)",
+      "importance": "Reference baseline - original remaster standard"
+    },
+    "reference_master": {
+      "name": "2025 Steven Wilson Remix",
+      "format": "FLAC 16-bit 44.1kHz",
+      "engineer": "Steven Wilson",
+      "importance": "HIGH - World-class remaster engineer",
+      "characteristics": "Modern remix with emphasis on clarity and dynamics"
+    }
+  },
+  "original_1998_metrics": {
+    "duration_seconds": 453.4,
+    "sample_rate": 44100,
+    "loudness": {
+      "rms_db": -16.03,
+      "peak_db": -0.61,
+      "peak_left_linear": 0.9674,
+      "peak_right_linear": 0.9974,
+      "note": "Conservative peak levels, well below clipping"
+    },
+    "dynamics": {
+      "crest_factor": 5.90,
+      "dynamic_range_db": 119.37,
+      "note": "Very high DR - strong dynamic preservation in original"
+    },
+    "frequency": {
+      "spectral_centroid_hz": 685,
+      "bass_20_250hz_db": -41.49,
+      "mid_250_4k_db": -57.09,
+      "treble_4k_20k_db": -73.06,
+      "bass_to_mid_ratio_db": 15.61,
+      "treble_to_mid_ratio_db": -15.96,
+      "note": "Dark tone (low spectral centroid), massive bass boost vs mid"
+    },
+    "stereo": {
+      "width": 0.430,
+      "correlation": 0.574,
+      "note": "Moderate stereo width - typical of live rock recording"
+    }
+  },
+  "steven_wilson_2025_metrics": {
+    "duration_seconds": 453.4,
+    "sample_rate": 44100,
+    "loudness": {
+      "rms_db": -16.54,
+      "peak_db": -0.24,
+      "peak_left_linear": 1.0000,
+      "peak_right_linear": 1.0000,
+      "note": "Slightly lower RMS, peaks optimized to ceiling (-0.24 dB)"
+    },
+    "dynamics": {
+      "crest_factor": 6.53,
+      "dynamic_range_db": 96.09,
+      "note": "Reduced DR (-23 dB) but still excellent dynamic preservation"
+    },
+    "frequency": {
+      "spectral_centroid_hz": 664,
+      "bass_20_250hz_db": -41.74,
+      "mid_250_4k_db": -58.50,
+      "treble_4k_20k_db": -72.16,
+      "bass_to_mid_ratio_db": 16.75,
+      "treble_to_mid_ratio_db": -13.66,
+      "note": "Slightly darker tone, slightly more bass-heavy, warmer presence"
+    },
+    "stereo": {
+      "width": 0.389,
+      "correlation": 0.623,
+      "note": "Slightly narrower stereo (more focused), tighter L/R correlation"
+    }
+  },
+  "comparison": {
+    "loudness_changes": {
+      "rms_db_change": -0.51,
+      "peak_db_change": 0.37,
+      "peak_headroom_reduction": 0.37,
+      "interpretation": "Wilson slightly reduced RMS (more dynamic), optimized peaks to ceiling"
+    },
+    "dynamics_changes": {
+      "crest_factor_change": 0.63,
+      "dynamic_range_db_change": -23.28,
+      "interpretation": "DR reduction expected for professional remaster, but CF increase is GOOD"
+    },
+    "frequency_changes": {
+      "spectral_centroid_change_hz": -21,
+      "bass_change_db": -0.26,
+      "mid_change_db": -1.40,
+      "treble_change_db": 0.90,
+      "bass_to_mid_change_db": 1.15,
+      "treble_to_mid_change_db": 2.30,
+      "interpretation": "Wilson INCREASED bass-to-mid ratio (1.15 dB MORE bass boost) and brightened treble presence (2.3 dB more)"
+    },
+    "stereo_changes": {
+      "width_change": -0.041,
+      "correlation_change": 0.049,
+      "interpretation": "Slightly tightened stereo image for focus, but still maintains live character"
+    }
+  },
+  "key_insights": {
+    "bass_processing": "IMPORTANT: Steven Wilson INCREASED bass relative to midrange by +1.15 dB, contradicting our assumption that bass should be minimal",
+    "treble_enhancement": "Wilson brightened treble region by +2.3 dB relative to mid (improving clarity presence)",
+    "dynamic_handling": "Crest factor increased (GOOD - transient preservation), but overall DR reduced (expected for mastering)",
+    "loudness_approach": "Wilson kept RMS conservative but optimized peaks - suggests focus on headroom and transient handling",
+    "stereo_treatment": "Subtle - only -0.041 width change, maintaining live recording character",
+    "genre_characteristics": "Classic rock live recording - Wilson preserved dynamic character while modernizing frequency response"
+  },
+  "recommendations_for_auralis": {
+    "frequency_response": [
+      "Bass boost of +1-1.5 dB vs midrange is CORRECT for rock (not excessive)",
+      "Our current +3.2 dB bass on rock tracks is OVER-BOOSTED vs Wilson standard",
+      "Should be targeting: +1.0-1.5 dB bass boost, not +3.2 dB",
+      "Treble presence should be enhanced by +2-3 dB relative to mid (currently neutral)"
+    ],
+    "dynamic_handling": [
+      "Crest factor of 6.53 is GOOD target (we have 3.8, need improvement)",
+      "Keep dynamic range high - Wilson shows 96 dB is acceptable for pro master",
+      "Focus on transient preservation (CF increase) not overall DR reduction"
+    ],
+    "stereo_treatment": [
+      "Live recordings benefit from maintained stereo width (Wilson only reduced by 0.041)",
+      "Don't over-narrow stereo field - maintain live character"
+    ]
+  },
+  "metadata": {
+    "analysis_date": "2025-11-17",
+    "analyzer": "Auralis Quality Metrics System",
+    "audio_length_analyzed_seconds": 453.4,
+    "audio_files_deleted": true,
+    "metrics_saved": true
+  }
+}
