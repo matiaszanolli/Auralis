@@ -129,11 +129,17 @@ class RecordingTypeDetector:
         """
         Classify recording type from fingerprint features.
 
-        Detection logic based on reference data analysis:
-        - Spectral centroid: Studio ~664 Hz, Bootleg 374-571 Hz, Metal 1344 Hz
-        - Bass-to-mid ratio: Studio +1.15 dB, Bootleg +13-17 dB, Metal +9.58 dB
-        - Stereo width: Studio 0.39, Bootleg 0.17-0.23, Metal 0.418
-        - Crest factor: Studio 6.53, Bootleg 4-6, Metal 3.54
+        PHASE 6.2 RECALIBRATION: Updated boundaries based on actual library audio.
+
+        Reference data analysis (from actual library measurements):
+        - Deep Purple In Rock: 7,658 Hz centroid, +1.62 dB bass-to-mid, 0.13 stereo, 11.95 CF
+        - Iron Maiden Wasted: 7,754 Hz centroid, +0.65 dB bass-to-mid, 0.11 stereo, 18.89 CF
+        - Both indicate "HD Bright Transparent" mastering style (very bright, narrow, excellent transients)
+
+        Legacy reference data (from Phase 4 - kept for compatibility):
+        - Studio: 664 Hz, +1.15 dB bass-to-mid, 0.39 stereo, 6.53 CF
+        - Bootleg: 374-571 Hz, +13-17 dB bass-to-mid, 0.17-0.23 stereo, 4-6 CF
+        - Metal: 1344 Hz, +9.58 dB bass-to-mid, 0.418 stereo, 3.54 CF
         """
         spectral_centroid = fingerprint.get('spectral_centroid', 0.5)
         bass_to_mid = fingerprint.get('bass_mid_ratio', 1.0)  # in dB
@@ -143,11 +149,11 @@ class RecordingTypeDetector:
         # Denormalize spectral centroid to Hz (assuming normalized 0-1 to 0-20kHz)
         spectral_centroid_hz = spectral_centroid * 20000
 
-        # Classification logic
+        # Classification logic - now with HD Bright profile support
         scores = {
+            RecordingType.STUDIO: self._score_studio(spectral_centroid_hz, bass_to_mid, stereo_width, crest_factor),
             RecordingType.BOOTLEG: self._score_bootleg(spectral_centroid_hz, bass_to_mid, stereo_width),
             RecordingType.METAL: self._score_metal(spectral_centroid_hz, bass_to_mid, stereo_width, crest_factor),
-            RecordingType.STUDIO: self._score_studio(spectral_centroid_hz, bass_to_mid, stereo_width),
         }
 
         # Find best match
@@ -189,7 +195,7 @@ class RecordingTypeDetector:
 
         return min(score, 1.0)
 
-    def _score_metal(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: float) -> float:
+    def _score_metal(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: float = None) -> float:
         """
         Score likelihood of metal recording.
 
@@ -216,37 +222,54 @@ class RecordingTypeDetector:
             score += 0.2  # Metal indicator
 
         # Crest factor: Low indicates compression (metal)
-        if crest_db < 4.5:
+        if crest_db is not None and crest_db < 4.5:
             score += 0.2  # Metal indicator
 
         return min(score, 1.0)
 
-    def _score_studio(self, spectral_hz: float, bass_to_mid: float, stereo_width: float) -> float:
+    def _score_studio(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: float = None) -> float:
         """
         Score likelihood of studio recording.
 
-        Studio characteristics:
+        PHASE 6.2: Now handles both legacy and HD Bright profiles
+
+        Legacy studio characteristics (warm, balanced):
         - Normal brightness: spectral centroid ~664 Hz (moderate)
         - Modest bass: bass-to-mid +1.15 dB (low-moderate)
         - Good stereo: width 0.39 (good)
+        - Crest factor: 6.53 (moderate transients)
+
+        HD Bright Transparent characteristics (new library style):
+        - Very bright: spectral centroid ~7,700 Hz (presence boost)
+        - Low bass: bass-to-mid +0.65-1.62 dB (minimal bass)
+        - Narrow stereo: width 0.11-0.13 (tight imaging)
+        - Excellent transients: crest factor 11-19 dB
         """
         score = 0.0
 
-        # Spectral centroid: Middle range is studio
-        if 600 < spectral_hz < 800:
-            score += 0.4  # Strong studio indicator
+        # Profile 1: HD Bright Transparent (most common in actual library)
+        # Very specific boundaries for high confidence
+        if 7500 <= spectral_hz <= 8000:
+            score += 0.35  # Very strong HD Bright indicator
+            if -2 <= bass_to_mid <= 3:
+                score += 0.20  # Confirms HD Bright
+            if 0.08 <= stereo_width <= 0.16:
+                score += 0.20  # Confirms narrow stereo
+            if crest_db is not None and 10 <= crest_db <= 20:
+                score += 0.10  # Confirms excellent transients
+
+        # Profile 2: Legacy warm/balanced studio (for compatibility)
+        # Broader boundaries for flexibility
+        elif 600 < spectral_hz < 800:
+            score += 0.35  # Strong legacy studio indicator
+            if bass_to_mid < 5:
+                score += 0.25  # Modest bass
+            if 0.30 < stereo_width < 0.50:
+                score += 0.15  # Good stereo width
         elif 500 < spectral_hz < 900:
-            score += 0.2
-
-        # Bass-to-mid ratio: Low is studio
-        if bass_to_mid < 5:
-            score += 0.4  # Strong studio indicator
-        elif bass_to_mid < 8:
-            score += 0.2
-
-        # Stereo width: Good width is studio
-        if 0.35 < stereo_width < 0.45:
-            score += 0.2  # Studio indicator
+            score += 0.15
+            if bass_to_mid < 8:
+                score += 0.15
 
         return min(score, 1.0)
 
