@@ -211,9 +211,40 @@ class ContinuousMode:
         return processed_audio
 
     def _apply_eq(self, audio: np.ndarray, eq_processor, params) -> np.ndarray:
-        """Apply EQ using generated parameters"""
+        """Apply EQ using generated parameters with adaptive guidance"""
 
         eq_curve = params.eq_curve
+
+        # Apply adaptive guidance if recording type was detected
+        if self.last_adaptive_params is not None:
+            adaptive_params = self.last_adaptive_params
+
+            # Blend adaptive guidance with continuous space curve
+            # Higher confidence = more aggressive adaptive guidance
+            adaptive_blend = min(adaptive_params.confidence, 0.7)  # Cap at 70% influence
+
+            # Apply adaptive bass adjustment
+            eq_curve['low_shelf_gain'] = (
+                eq_curve['low_shelf_gain'] * (1 - adaptive_blend) +
+                adaptive_params.bass_adjustment_db * adaptive_blend
+            )
+
+            # Apply adaptive mid adjustment
+            eq_curve['low_mid_gain'] = (
+                eq_curve['low_mid_gain'] * (1 - adaptive_blend) +
+                adaptive_params.mid_adjustment_db * adaptive_blend
+            )
+
+            # Apply adaptive treble adjustment
+            eq_curve['high_shelf_gain'] = (
+                eq_curve['high_shelf_gain'] * (1 - adaptive_blend) +
+                adaptive_params.treble_adjustment_db * adaptive_blend
+            )
+
+            debug(f"[EQ] Applied adaptive guidance (blend={adaptive_blend:.1%}): "
+                  f"Bass {adaptive_params.bass_adjustment_db:+.2f} dB, "
+                  f"Mid {adaptive_params.mid_adjustment_db:+.2f} dB, "
+                  f"Treble {adaptive_params.treble_adjustment_db:+.2f} dB")
 
         # Create targets dict for EQ processor (compatible with existing API)
         targets = {
@@ -233,20 +264,69 @@ class ContinuousMode:
 
         print(f"[EQ] Applied curve with blend {params.eq_blend:.2f}: "
               f"bass {eq_curve['low_shelf_gain']:+.1f} dB, "
+              f"mid {eq_curve['low_mid_gain']:+.1f} dB, "
               f"air {eq_curve['high_shelf_gain']:+.1f} dB")
 
         return audio
 
     def _apply_dynamics(self, audio: np.ndarray, params) -> np.ndarray:
-        """Apply dynamics processing (compression or expansion)"""
+        """Apply dynamics processing with adaptive guidance"""
 
-        # Compression
-        if params.compression_params['amount'] > 0.1:
-            audio = self._apply_compression(audio, params.compression_params)
+        # Adjust compression parameters based on adaptive guidance
+        compression_params = params.compression_params.copy()
+        expansion_params = params.expansion_params.copy()
 
-        # Expansion (de-mastering)
-        if params.expansion_params['amount'] > 0.1:
-            audio = self._apply_expansion(audio, params.expansion_params)
+        if self.last_adaptive_params is not None:
+            adaptive_params = self.last_adaptive_params
+
+            # Use adaptive confidence to scale compression amount
+            # Higher confidence in recording type = more aggressive compression tuning
+            adaptive_strength = adaptive_params.confidence
+
+            # Adjust compression ratio and amount based on recording type philosophy
+            if adaptive_params.mastering_philosophy == "correct":
+                # Bootleg: More aggressive compression to tame dynamics
+                compression_params['ratio'] = min(
+                    compression_params['ratio'] * (1 + adaptive_strength * 0.3),
+                    4.0  # Cap at 4:1
+                )
+                compression_params['amount'] = min(
+                    compression_params['amount'] * (1 + adaptive_strength * 0.2),
+                    0.9  # Cap at 90%
+                )
+                debug(f"[Dynamics] Bootleg correction: ratio {compression_params['ratio']:.2f}:1, "
+                      f"amount {compression_params['amount']:.0%}")
+
+            elif adaptive_params.mastering_philosophy == "punch":
+                # Metal: Controlled compression for punch (not over-compressed)
+                compression_params['ratio'] = max(
+                    compression_params['ratio'] * (1 - adaptive_strength * 0.1),
+                    1.5  # Minimum 1.5:1
+                )
+                # Keep amount moderate for metal
+                debug(f"[Dynamics] Metal punch: ratio {compression_params['ratio']:.2f}:1, "
+                      f"amount {compression_params['amount']:.0%}")
+
+            elif adaptive_params.mastering_philosophy == "enhance":
+                # Studio: Subtle compression, preserve dynamics
+                compression_params['ratio'] = max(
+                    compression_params['ratio'] * (1 - adaptive_strength * 0.2),
+                    1.2  # Minimum 1.2:1
+                )
+                compression_params['amount'] = max(
+                    compression_params['amount'] * (1 - adaptive_strength * 0.3),
+                    0.1  # Minimum 10%
+                )
+                debug(f"[Dynamics] Studio enhancement: ratio {compression_params['ratio']:.2f}:1, "
+                      f"amount {compression_params['amount']:.0%}")
+
+        # Apply Compression
+        if compression_params['amount'] > 0.1:
+            audio = self._apply_compression(audio, compression_params)
+
+        # Apply Expansion (de-mastering) if needed
+        if expansion_params['amount'] > 0.1:
+            audio = self._apply_expansion(audio, expansion_params)
 
         return audio
 
@@ -315,7 +395,7 @@ class ContinuousMode:
         return audio
 
     def _apply_stereo_width(self, audio: np.ndarray, params) -> np.ndarray:
-        """Apply stereo width adjustment"""
+        """Apply stereo width adjustment with adaptive guidance"""
 
         # Only process stereo audio
         if audio.ndim != 2 or audio.shape[0] != 2:
@@ -324,6 +404,36 @@ class ContinuousMode:
         # Get current and target width
         current_width = stereo_width_analysis(audio)
         target_width = params.stereo_width_target
+
+        # Apply adaptive guidance if recording type was detected
+        if self.last_adaptive_params is not None:
+            adaptive_params = self.last_adaptive_params
+
+            # Use adaptive stereo strategy to modulate target
+            # Each philosophy has different stereo treatment approach
+            if adaptive_params.stereo_strategy == "narrow":
+                # Narrow: Reduce stereo width (metal recordings, mono sources)
+                # More aggressive if high confidence
+                target_width = current_width * (
+                    1 - adaptive_params.confidence * (1 - adaptive_params.stereo_width_target)
+                )
+                debug(f"[Stereo Width] Narrowing strategy: {current_width:.2f} → "
+                      f"{target_width:.2f} (confidence {adaptive_params.confidence:.0%})")
+
+            elif adaptive_params.stereo_strategy == "expand":
+                # Expand: Increase stereo width (bootleg concert recordings)
+                # More aggressive if high confidence
+                target_width = current_width + (
+                    (adaptive_params.stereo_width_target - current_width) *
+                    adaptive_params.confidence
+                )
+                debug(f"[Stereo Width] Expansion strategy: {current_width:.2f} → "
+                      f"{target_width:.2f} (confidence {adaptive_params.confidence:.0%})")
+
+            elif adaptive_params.stereo_strategy == "maintain":
+                # Maintain: Keep current width close to reference
+                # Use confidence-scaled adjustment
+                target_width = adaptive_params.stereo_width_target
 
         # Only adjust if significant difference
         if abs(target_width - current_width) > 0.05:
