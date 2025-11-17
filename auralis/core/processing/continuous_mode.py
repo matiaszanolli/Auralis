@@ -21,6 +21,7 @@ from ...dsp.dynamics.soft_clipper import soft_clip
 from ...utils.logging import debug
 from .continuous_space import ProcessingSpaceMapper, PreferenceVector, ProcessingParameters
 from .parameter_generator import ContinuousParameterGenerator
+from ..recording_type_detector import RecordingTypeDetector
 
 
 class ContinuousMode:
@@ -49,10 +50,15 @@ class ContinuousMode:
         self.space_mapper = ProcessingSpaceMapper()
         self.param_generator = ContinuousParameterGenerator()
 
+        # Initialize 25D-guided recording type detector
+        self.recording_type_detector = RecordingTypeDetector()
+
         # Store last fingerprint and parameters for debugging/learning
         self.last_fingerprint = None
         self.last_coordinates = None
         self.last_parameters = None
+        self.last_recording_type = None
+        self.last_adaptive_params = None
 
     def _convert_targets_to_parameters(self, targets: Dict[str, Any]) -> ProcessingParameters:
         """
@@ -152,6 +158,18 @@ class ContinuousMode:
 
             print(f"[Continuous Space] Fingerprint extracted:")
             print(f"  Bass: {fingerprint['bass_pct']:.1f}%, Crest: {fingerprint['crest_db']:.1f} dB, LUFS: {fingerprint['lufs']:.1f}")
+
+            # Step 1b: Detect recording type from fingerprint (NEW - Phase 5)
+            recording_type, adaptive_params = self.recording_type_detector.detect(
+                processed_audio,
+                self.config.internal_sample_rate
+            )
+            self.last_recording_type = recording_type
+            self.last_adaptive_params = adaptive_params
+
+            print(f"[Recording Type Detector] Detected: {recording_type.value} (confidence: {adaptive_params.confidence:.1%})")
+            print(f"[Recording Type Detector] Philosophy: {adaptive_params.mastering_philosophy}")
+            print(f"[Recording Type Detector] Bass: {adaptive_params.bass_adjustment_db:+.2f} dB, Treble: {adaptive_params.treble_adjustment_db:+.2f} dB")
 
             # Step 2: Map to 3D processing space
             coords = self.space_mapper.map_fingerprint_to_space(fingerprint)

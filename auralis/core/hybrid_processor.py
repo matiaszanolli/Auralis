@@ -31,6 +31,7 @@ from ..utils.logging import debug, info
 from ..io.results import Result
 from .hybrid import RealtimeEQManager, DynamicsManager, PreferenceManager
 from ..learning.preference_engine import create_preference_engine
+from .recording_type_detector import RecordingTypeDetector
 
 
 class HybridProcessor:
@@ -51,6 +52,10 @@ class HybridProcessor:
         self.target_generator = AdaptiveTargetGenerator(config, self)
         self.spectrum_mapper = SpectrumMapper()
         self.fingerprint_analyzer = AudioFingerprintAnalyzer()
+
+        # Initialize 25D-guided recording type detector
+        self.recording_type_detector = RecordingTypeDetector()
+        debug("✅ Recording type detector initialized")
 
         # Initialize psychoacoustic EQ
         eq_settings = EQSettings(
