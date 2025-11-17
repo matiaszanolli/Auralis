@@ -1,0 +1,272 @@
+{
+  "reference_info": {
+    "track": "Wasted Years",
+    "artist": "Iron Maiden",
+    "album": "Maiden England '88 (Live Concert Recording)",
+    "analysis_date": "2025-11-17",
+    "original_master": {
+      "name": "Maiden England '88 Original Concert Recording",
+      "format": "FLAC 16-bit 44.1kHz",
+      "source": "1988 Live concert",
+      "characteristics": "Professional concert recording, already mastered/mixed",
+      "importance": "Baseline - original metal recording quality"
+    },
+    "reference_master": {
+      "name": "Matchering Remastered Version",
+      "format": "FLAC 16-bit 44.1kHz",
+      "processor": "Matchering (Automated Mastering Tool)",
+      "characteristics": "Professionally remastered for optimal playback",
+      "importance": "CRITICAL - Shows metal-specific mastering approach"
+    }
+  },
+  "track_metrics": {
+    "track_name": "Wasted Years",
+    "duration_seconds": 305.8,
+    "sample_rate_hz": 44100,
+    "original_metrics": {
+      "loudness": {
+        "rms_db": -10.97,
+        "peak_db": -0.00,
+        "peak_left_linear": 1.0000,
+        "peak_right_linear": 1.0000,
+        "note": "Hot/loud original - already compressed"
+      },
+      "dynamics": {
+        "crest_factor": 3.54,
+        "dynamic_range_db": 96.3,
+        "note": "Low crest factor - metal is heavily compressed"
+      },
+      "frequency": {
+        "spectral_centroid_hz": 1344,
+        "bass_20_250hz_db": -38.45,
+        "mid_250_4k_db": -49.03,
+        "treble_4k_20k_db": -60.56,
+        "bass_to_mid_ratio_db": 9.58,
+        "treble_to_mid_ratio_db": -14.42,
+        "note": "VERY BRIGHT - different baseline than studio rock"
+      },
+      "stereo": {
+        "width": 0.418,
+        "correlation": 0.567,
+        "note": "Good stereo image - solid L/R separation"
+      }
+    },
+    "matchering_metrics": {
+      "loudness": {
+        "rms_db": -14.91,
+        "peak_db": -0.40,
+        "peak_left_linear": 0.9550,
+        "peak_right_linear": 0.9550,
+        "note": "Significantly quieter (-3.93 dB), optimized peaks"
+      },
+      "dynamics": {
+        "crest_factor": 5.31,
+        "dynamic_range_db": 119.5,
+        "note": "Improved CF, expanded DR by 23.2 dB"
+      },
+      "frequency": {
+        "spectral_centroid_hz": 930,
+        "bass_20_250hz_db": -41.30,
+        "mid_250_4k_db": -54.73,
+        "treble_4k_20k_db": -61.78,
+        "bass_to_mid_ratio_db": 13.43,
+        "treble_to_mid_ratio_db": -15.63,
+        "note": "DARKENED significantly - warm but punchy"
+      },
+      "stereo": {
+        "width": 0.263,
+        "correlation": 0.711,
+        "note": "NARROWED for punch - tighter phase relationship"
+      }
+    },
+    "comparison": {
+      "loudness_changes": {
+        "rms_decrease_db": -3.93,
+        "peak_change_db": -0.40,
+        "interpretation": "Most aggressive RMS reduction of all genres - creates headroom"
+      },
+      "dynamics_changes": {
+        "crest_factor_increase": 1.77,
+        "dynamic_range_expansion": 23.2,
+        "interpretation": "Significant improvement - recovers dynamics from compressed original"
+      },
+      "frequency_changes": {
+        "spectral_centroid_change_hz": -414,
+        "bass_increase_db": 2.85,
+        "mid_reduction_db": -5.70,
+        "treble_reduction_db": -1.22,
+        "bass_to_mid_increase_db": 3.85,
+        "treble_to_mid_change_db": -1.22,
+        "interpretation": "UNIQUE: Treble reduction (opposite of other genres), aggressive midrange reduction for clarity"
+      },
+      "stereo_changes": {
+        "width_reduction": -0.155,
+        "correlation_increase": 0.144,
+        "interpretation": "Stereo NARROWED (opposite of bootleg) - more focused, punchy presentation"
+      }
+    }
+  },
+  "genre_patterns": {
+    "metal_characteristics": {
+      "baseline_brightness": "VERY BRIGHT (1344 Hz vs rock 664 Hz)",
+      "bass_balance": "MODERATE (+9.58 dB, not excessive)",
+      "original_compression": "HIGH (CF 3.54 - metal standard)",
+      "stereo_image": "GOOD (0.418 - solid width)",
+      "root_cause": "Professional metal mixing is aggressive and punchy from the start"
+    },
+    "matchering_approach": {
+      "strategy": "Punch and aggression with warmth",
+      "rms_adjustment": "-3.93 dB (most aggressive reduction)",
+      "bass_boost": "+3.85 dB (enhancement for punch, not correction)",
+      "mid_reduction": "-5.70 dB (MOST aggressive of all genres)",
+      "treble_adjustment": "-1.22 dB (REDUCTION - unique to metal!)",
+      "spectral_darkening": "-414 Hz (warm warmth while keeping punch)",
+      "stereo_narrowing": "-0.155 (tighter, more aggressive presentation)",
+      "dynamics_expansion": "+23.2 dB (like bootleg, restore dynamics)",
+      "assessment": "Matchering enhanced metal's aggressive character while improving technical quality"
+    },
+    "key_findings": [
+      "Metal original is BRIGHT (1344 Hz centroid) - opposite of dark bootleg",
+      "Matchering reduces treble (-1.22 dB) - opposite of brightening other genres",
+      "Bass boost (+3.85 dB) similar to bootleg but for different reason (punch vs correction)",
+      "Midrange reduction (-5.70 dB) is most aggressive of all genres analyzed",
+      "RMS reduction (-3.93 dB) most extreme - creates significant headroom",
+      "Dynamic range expansion (+23.2 dB) similar to bootleg - suggest compressed originals",
+      "Stereo narrowing (-0.155) opposite of bootleg widening (0.21) - genre-specific approach",
+      "Metal mastering is about punch and aggression, not clarity and presence"
+    ]
+  },
+  "genre_comparison": {
+    "deep_purple_studio": {
+      "spectral_centroid_hz": 664,
+      "bass_boost_db": 1.15,
+      "mid_reduction_db": -1.4,
+      "treble_boost_db": 2.3,
+      "stereo_strategy": "Maintain (slightly tighten)",
+      "philosophy": "Enhance and refine"
+    },
+    "porcupine_tree_bootleg": {
+      "spectral_centroid_hz": "374-571",
+      "spectral_shift_hz": "+439 to +599",
+      "bass_reduction_db": "-3.0 to -5.5",
+      "treble_boost_db": "+2.4 to +4.6",
+      "stereo_strategy": "Expand (~+0.21)",
+      "philosophy": "Correct and transform"
+    },
+    "iron_maiden_metal": {
+      "spectral_centroid_hz": 1344,
+      "spectral_shift_hz": -414,
+      "bass_boost_db": 3.85,
+      "mid_reduction_db": -5.70,
+      "treble_reduction_db": -1.22,
+      "stereo_strategy": "Narrow (~-0.155)",
+      "philosophy": "Punch and aggression"
+    }
+  },
+  "implications_for_auralis": {
+    "important_note": "Metal genre requires THIRD mastering approach - not just studio or bootleg",
+    "three_distinct_philosophies": [
+      {
+        "genre": "Studio Rock (Deep Purple)",
+        "recording_type": "Professional studio live mix",
+        "philosophy": "Enhance and refine",
+        "key_moves": {
+          "bass": "+1.15 dB (modest)",
+          "treble": "+2.3 dB (presence peak)",
+          "stereo": "Maintain",
+          "approach": "Already well-balanced - just optimize"
+        }
+      },
+      {
+        "genre": "Live Bootleg (Porcupine Tree)",
+        "recording_type": "Concert audience recording",
+        "philosophy": "Correct and transform",
+        "key_moves": {
+          "bass": "-4.0 dB (reduction from excessive)",
+          "treble": "+4.0 dB (aggressive brightening)",
+          "stereo": "+0.21 (expand narrow image)",
+          "approach": "Fix fundamental recording issues"
+        }
+      },
+      {
+        "genre": "Metal (Iron Maiden)",
+        "recording_type": "Professional metal recording",
+        "philosophy": "Punch and aggression",
+        "key_moves": {
+          "bass": "+3.85 dB (add punch)",
+          "treble": "-1.22 dB (prevent harshness - UNIQUE!)",
+          "stereo": "-0.155 (narrow for tightness)",
+          "approach": "Enhance aggressive character while improving quality"
+        }
+      }
+    ],
+    "key_insights": [
+      {
+        "discovery": "Metal is bright, not dark - needs treble REDUCTION not boost",
+        "implication": "Can't use one EQ curve for all genres",
+        "auralis_action": "Need genre-specific (or recording-type) detection + presets"
+      },
+      {
+        "discovery": "Bass boost can be for correction (bootleg -4) or enhancement (metal +3.85)",
+        "implication": "Can't just boost bass - need to understand why and how much",
+        "auralis_action": "Different bass boost amounts for different recording types"
+      },
+      {
+        "discovery": "Stereo processing is opposite: bootleg expands, metal narrows",
+        "implication": "Recording type determines stereo strategy",
+        "auralis_action": "Detect stereo width, apply appropriate adjustment"
+      },
+      {
+        "discovery": "RMS reduction in metal is most extreme (-3.93 dB)",
+        "implication": "Metal originals are over-compressed - need aggressive headroom creation",
+        "auralis_action": "Metal preset allows more RMS reduction than other types"
+      },
+      {
+        "discovery": "Midrange reduction in metal is most aggressive (-5.70 dB)",
+        "implication": "Metal needs clarity through aggressive mid reduction",
+        "auralis_action": "Metal midrange target: -5.7 dB (vs studio -1.0, bootleg -3.85)"
+      }
+    ]
+  },
+  "metal_preset_specification": {
+    "preset_name": "MetalRockPreset",
+    "bass_boost_db": 3.85,
+    "mid_reduction_db": -5.70,
+    "treble_reduction_db": -1.22,
+    "target_spectral_centroid_hz": 930,
+    "crest_factor_target_min": 5.0,
+    "crest_factor_target_max": 5.3,
+    "stereo_width_target": 0.263,
+    "stereo_correlation_target": 0.711,
+    "rms_target_db": -14.91,
+    "peak_headroom_db": -0.40,
+    "dynamic_range_target_db": 119.5,
+    "dynamic_range_expansion_db": 23.2,
+    "notes": "Most aggressive parameters of all genres. Unique treble reduction. Strong midrange removal. Significant RMS reduction for headroom."
+  },
+  "metal_detection_criteria": {
+    "preliminary_detection": {
+      "spectral_centroid_min_hz": 1000,
+      "bass_to_mid_min_db": 8.0,
+      "stereo_width_min": 0.35,
+      "crest_factor_max": 4.5,
+      "logic": "If all criteria met, classify as METAL"
+    },
+    "note": "Iron Maiden is single metal reference - more references recommended for robust detection"
+  },
+  "metadata": {
+    "analysis_date": "2025-11-17",
+    "track": "Wasted Years",
+    "artist": "Iron Maiden",
+    "album": "Maiden England '88",
+    "duration_seconds": 305.8,
+    "sample_rate_hz": 44100,
+    "audio_files_deleted": true,
+    "metrics_saved": true,
+    "confidence_level": "HIGH - Real metal recording analysis",
+    "genre": "Metal/Heavy Metal",
+    "recording_type": "Professional concert recording",
+    "remastering_tool": "Matchering",
+    "reference_quality": "⭐⭐⭐⭐⭐ - Professional mastering standard"
+  }
+}
