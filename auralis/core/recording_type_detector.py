@@ -282,13 +282,15 @@ class RecordingTypeDetector:
         treble_adjustment = 2.0
 
         # Fine-tune based on actual spectral content (25D guidance)
-        spectral_centroid = fingerprint.get('spectral_centroid', 0.5) * 20000
-        if spectral_centroid < 600:
-            # Already dark, reduce bass boost
-            bass_adjustment = 1.0
-        elif spectral_centroid > 800:
-            # Bright, might need less treble boost
-            treble_adjustment = 1.5
+        # Only apply fine-tuning if fingerprint data is provided
+        if 'spectral_centroid' in fingerprint:
+            spectral_centroid = fingerprint['spectral_centroid'] * 20000
+            if spectral_centroid < 600:
+                # Already dark, reduce bass boost
+                bass_adjustment = 1.0
+            elif spectral_centroid > 800:
+                # Bright, might need less treble boost
+                treble_adjustment = 1.5
 
         return AdaptiveParameters(
             bass_adjustment_db=bass_adjustment,
@@ -356,19 +358,22 @@ class RecordingTypeDetector:
         treble_adjustment = -1.22  # UNIQUE: reduction not boost
 
         # Fine-tune based on actual brightness (25D guidance)
-        spectral_centroid = fingerprint.get('spectral_centroid', 0.7) * 20000
-        crest_factor = fingerprint.get('crest_db', 3.5)
+        # Only apply fine-tuning if fingerprint data is provided
+        if 'spectral_centroid' in fingerprint:
+            spectral_centroid = fingerprint['spectral_centroid'] * 20000
 
-        # More aggressive if extremely bright
-        if spectral_centroid > 1300:
-            treble_adjustment = -1.5
-        if spectral_centroid < 1200:
-            # Less reduction needed if not as bright
-            treble_adjustment = -0.8
+            # More aggressive if brighter than reference (1340 Hz)
+            if spectral_centroid > 1340:
+                treble_adjustment = -1.5
+            elif spectral_centroid < 1200:
+                # Less reduction needed if not as bright
+                treble_adjustment = -0.95
 
-        # Adjust mid reduction based on compression
-        if crest_factor < 3.5:
-            mid_adjustment = -5.5  # Less aggressive
+        # Adjust mid reduction based on compression if provided
+        if 'crest_db' in fingerprint:
+            crest_factor = fingerprint['crest_db']
+            if crest_factor < 3.5:
+                mid_adjustment = -5.5  # Less aggressive
 
         return AdaptiveParameters(
             bass_adjustment_db=bass_adjustment,
