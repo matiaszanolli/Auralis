@@ -1,0 +1,263 @@
+{
+  "reference_info": {
+    "concert": "Porcupine Tree - Rockpalast 2006 Live Concert",
+    "venue": "Rockpalast Festival",
+    "date": "2006",
+    "artist": "Porcupine Tree",
+    "band_leader": "Steven Wilson",
+    "original_master": {
+      "name": "2006 Bootleg Recording (Live Audience Recording)",
+      "format": "FLAC 16-bit 44.1kHz",
+      "source": "Concert bootleg/audience tape",
+      "characteristics": "Raw live recording, unprocessed, typical bootleg quality",
+      "importance": "Baseline - shows original acoustic/live characteristics"
+    },
+    "reference_master": {
+      "name": "Matchering Remastered Version",
+      "format": "FLAC 16-bit 44.1kHz",
+      "processor": "Matchering (Automated Mastering Tool)",
+      "characteristics": "Professionally remastered, enhanced frequency response and dynamics",
+      "importance": "CRITICAL - Shows automated mastering approach to live recording"
+    }
+  },
+  "cd1_track2_open_car": {
+    "track_name": "Open Car",
+    "duration_seconds": 285.8,
+    "cd": 1,
+    "bootleg_metrics": {
+      "loudness": {
+        "rms_db": -13.29,
+        "peak_db": -0.00,
+        "peak_left_linear": 1.0000,
+        "peak_right_linear": 1.0000,
+        "note": "Hot levels - peaks at ceiling already"
+      },
+      "dynamics": {
+        "crest_factor": 4.62,
+        "dynamic_range_db": 96.3,
+        "note": "Moderate crest factor, high DR (characteristic of live recording)"
+      },
+      "frequency": {
+        "spectral_centroid_hz": 374,
+        "bass_20_250hz_db": -44.52,
+        "mid_250_4k_db": -61.31,
+        "treble_4k_20k_db": -79.17,
+        "bass_to_mid_ratio_db": 16.79,
+        "treble_to_mid_ratio_db": -17.86,
+        "note": "VERY DARK - bootleg is extremely bass-heavy, missing treble"
+      },
+      "stereo": {
+        "width": 0.172,
+        "correlation": 0.828,
+        "note": "Narrow stereo - typical of bootleg recording (mono-ish)"
+      }
+    },
+    "matchering_metrics": {
+      "loudness": {
+        "rms_db": -12.22,
+        "peak_db": -0.02,
+        "peak_left_linear": 0.9977,
+        "peak_right_linear": 0.9978,
+        "note": "Slightly louder (+1.07 dB), optimized peaks"
+      },
+      "dynamics": {
+        "crest_factor": 4.08,
+        "dynamic_range_db": 119.9,
+        "note": "Expanded DR significantly (+23.5 dB) - major effect!"
+      },
+      "frequency": {
+        "spectral_centroid_hz": 973,
+        "bass_20_250hz_db": -46.85,
+        "mid_250_4k_db": -59.14,
+        "treble_4k_20k_db": -74.62,
+        "bass_to_mid_ratio_db": 12.29,
+        "treble_to_mid_ratio_db": -15.49,
+        "note": "BRIGHTENED significantly - bootleg was too dark"
+      },
+      "stereo": {
+        "width": 0.382,
+        "correlation": 0.618,
+        "note": "EXPANDED stereo image by 0.210 (122% wider!)"
+      }
+    },
+    "comparison": {
+      "loudness_changes": {
+        "rms_increase_db": 1.07,
+        "peak_change_db": -0.02,
+        "interpretation": "Matchering made it louder while maintaining peak control"
+      },
+      "dynamics_changes": {
+        "crest_factor_reduction": -0.54,
+        "dynamic_range_expansion": 23.5,
+        "interpretation": "MAJOR: DR expanded by 23.5 dB (bootleg very compressed)"
+      },
+      "frequency_changes": {
+        "spectral_centroid_change_hz": 599,
+        "bass_reduction_db": -2.33,
+        "treble_increase_db": 4.55,
+        "bass_to_mid_reduction_db": -4.51,
+        "treble_to_mid_increase_db": 2.37,
+        "interpretation": "Matchering BRIGHTENED the dark bootleg significantly"
+      },
+      "stereo_changes": {
+        "width_expansion": 0.210,
+        "correlation_reduction": 0.21,
+        "interpretation": "Stereo image expanded 122% - from narrow to wide"
+      }
+    }
+  },
+  "cd2_track1_arriving_somewhere": {
+    "track_name": "Arriving Somewhere But Not Here",
+    "duration_seconds": 766.1,
+    "cd": 2,
+    "bootleg_metrics": {
+      "loudness": {
+        "rms_db": -16.58,
+        "peak_db": -0.00,
+        "peak_left_linear": 1.0000,
+        "peak_right_linear": 1.0000,
+        "note": "Very hot - peaks at ceiling, quieter RMS (more dynamic)"
+      },
+      "dynamics": {
+        "crest_factor": 6.74,
+        "dynamic_range_db": 96.3,
+        "note": "Good crest factor (6.74), high DR - good dynamics"
+      },
+      "frequency": {
+        "spectral_centroid_hz": 571,
+        "bass_20_250hz_db": -39.05,
+        "mid_250_4k_db": -52.65,
+        "treble_4k_20k_db": -70.45,
+        "bass_to_mid_ratio_db": 13.60,
+        "treble_to_mid_ratio_db": -17.80,
+        "note": "Dark bootleg (typical) - strong bass, missing treble"
+      },
+      "stereo": {
+        "width": 0.230,
+        "correlation": 0.770,
+        "note": "Narrow stereo - bootleg mono-like"
+      }
+    },
+    "matchering_metrics": {
+      "loudness": {
+        "rms_db": -13.40,
+        "peak_db": -0.02,
+        "peak_left_linear": 0.9977,
+        "peak_right_linear": 0.9978,
+        "note": "Much louder (+3.18 dB RMS), peaks optimized"
+      },
+      "dynamics": {
+        "crest_factor": 4.67,
+        "dynamic_range_db": 119.9,
+        "note": "CF reduced but DR expanded 23.5 dB"
+      },
+      "frequency": {
+        "spectral_centroid_hz": 1010,
+        "bass_20_250hz_db": -44.57,
+        "mid_250_4k_db": -54.97,
+        "treble_4k_20k_db": -71.80,
+        "bass_to_mid_ratio_db": 10.40,
+        "treble_to_mid_ratio_db": -17.10,
+        "note": "Brightened but less dramatic than CD1T2"
+      },
+      "stereo": {
+        "width": 0.462,
+        "correlation": 0.538,
+        "note": "Stereo expanded to 0.462 (100% wider!)"
+      }
+    },
+    "comparison": {
+      "loudness_changes": {
+        "rms_increase_db": 3.18,
+        "peak_change_db": -0.02,
+        "interpretation": "Significant loudness increase while preserving peaks"
+      },
+      "dynamics_changes": {
+        "crest_factor_reduction": -2.08,
+        "dynamic_range_expansion": 23.5,
+        "interpretation": "Large CF reduction but consistent DR expansion"
+      },
+      "frequency_changes": {
+        "spectral_centroid_change_hz": 439,
+        "bass_reduction_db": -5.52,
+        "treble_increase_db": -1.35,
+        "bass_to_mid_reduction_db": -3.19,
+        "treble_to_mid_change_db": 0.70,
+        "interpretation": "Less treble boost than CD1T2, but more bass reduction"
+      },
+      "stereo_changes": {
+        "width_expansion": 0.232,
+        "correlation_reduction": 0.232,
+        "interpretation": "Stereo expansion 100% (0.230 → 0.462)"
+      }
+    }
+  },
+  "concert_wide_patterns": {
+    "bootleg_characteristics": {
+      "primary_issue": "EXTREMELY DARK TONE",
+      "spectral_centroid_range": "374-571 Hz",
+      "bass_dominance": "+13.6 to +16.8 dB (vs mid)",
+      "treble_weakness": "-17.8 to -17.9 dB (vs mid)",
+      "stereo_issue": "Very narrow (0.17-0.23)",
+      "dynamics": "High DR but moderate CF (bootleg compression)",
+      "root_cause": "Live concert recording artifact - bass-heavy, treble-lost, mono-ish"
+    },
+    "matchering_approach": {
+      "strategy": "Aggressive brightening and stereo expansion",
+      "spectral_shift": "+439 to +599 Hz (brightened)",
+      "bass_reduction": "-2.3 to -5.5 dB (reduced heavy bass)",
+      "treble_adjustment": "+2.4 dB to +4.6 dB (subtle boost)",
+      "stereo_expansion": "~100% wider (0.23 → 0.46)",
+      "loudness_boost": "+1.1 to +3.2 dB RMS",
+      "dynamics_expansion": "Consistent +23.5 dB DR increase",
+      "assessment": "Matchering corrected bootleg's darkness and mono-ness"
+    },
+    "key_findings": [
+      "Bootleg is EXTREMELY dark (spectral centroid 374-571 Hz)",
+      "Matchering brightens by 439-599 Hz (HUGE shift to 973-1010 Hz)",
+      "Bootleg is VERY narrow stereo (0.17-0.23) - Matchering 100% wider (0.38-0.46)",
+      "Bass-to-mid ratio: Bootleg +13.6 to +16.8 dB → Matchering +10.4 to +12.3 dB",
+      "DR expansion is consistent +23.5 dB (likely different mastering approach)",
+      "Matchering adds 1-3 dB loudness while preserving peaks",
+      "Concert recording has very different baseline than studio recording"
+    ]
+  },
+  "implications_for_auralis": {
+    "important_note": "Live concert recordings have VERY DIFFERENT characteristics than studio recordings",
+    "comparisons_made": [
+      "Deep Purple Smoke On Water: Studio live recording",
+      "Porcupine Tree Rockpalast: Concert bootleg → Professional remaster"
+    ],
+    "key_insights": [
+      {
+        "discovery": "Live bootlegs are extremely bass-heavy, treble-deficient",
+        "implication": "Need different EQ for live vs studio",
+        "auralis_action": "Concert audio needs MORE aggressive treble boost than studio"
+      },
+      {
+        "discovery": "Bootleg stereo is very narrow, Matchering expands 100%",
+        "implication": "Stereo expansion is valid mastering technique",
+        "auralis_action": "May benefit from stereo widening for live recordings"
+      },
+      {
+        "discovery": "Matchering increases DR despite increasing loudness",
+        "implication": "Shows different mastering philosophy",
+        "auralis_action": "Not just simple compression - intelligent processing"
+      },
+      {
+        "discovery": "Spectral centroid shift of 439-599 Hz is massive",
+        "implication": "Live recordings need fundamental tonal rebalancing",
+        "auralis_action": "Concert audio: reduce bass significantly, boost treble significantly"
+      }
+    ]
+  },
+  "metadata": {
+    "analysis_date": "2025-11-17",
+    "concert": "Porcupine Tree Rockpalast 2006",
+    "tracks_analyzed": 2,
+    "total_duration_analyzed_seconds": 1051.9,
+    "audio_files_deleted": true,
+    "metrics_saved": true,
+    "confidence_level": "HIGH - Real concert recording analysis"
+  }
+}
