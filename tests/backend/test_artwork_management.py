@@ -48,7 +48,7 @@ def library_manager():
 @pytest.fixture
 def album_repo(library_manager):
     """Get album repository from library manager."""
-    return library_manager.album_repo
+    return library_manager.albums
 
 
 @pytest.fixture
@@ -66,17 +66,39 @@ def create_test_track(directory: Path, filename: str):
 
 
 def create_test_image(size=(160, 160)):
-    """Create a minimal JPEG test image file (fake JPEG header)."""
-    # Minimal valid JPEG data (1x1 red pixel)
+    """Create a minimal JPEG test image file with variable size."""
+    # Base JPEG header
+    width, height = size
+
+    # Create minimal valid JPEG with variable size
+    # This creates a very small JPEG with the specified dimensions
     jpeg_data = bytes.fromhex(
         'ffd8ffe000104a46494600010100000100010000ffdb00430001010101010101'
         '01010101010101010101010101010101010101010101010101010101010101'
         '01010101010101010101010101010101ffdb004301010101010101010101'
         '01010101010101010101010101010101010101010101010101010101010101'
-        '0101010101010101010101ffc00011080001000103012200021101031101ffc4'
+        '0101010101010101010101ffc00011'
+    )
+
+    # Add height (2 bytes, big-endian)
+    jpeg_data += height.to_bytes(2, byteorder='big')
+
+    # Add width (2 bytes, big-endian)
+    jpeg_data += width.to_bytes(2, byteorder='big')
+
+    # Add remaining JPEG structure
+    jpeg_data += bytes.fromhex(
+        '03012200021101031101ffc4'
         '00140001000000000000000000000000000008ffc40014010100000000000000'
         '0000000000000000ffda000c03010002000300003f00bf80ffd9'
     )
+
+    # Append some padding data to ensure different sizes
+    # This is to ensure different image sizes produce different file sizes
+    padding = (width * height) % 256
+    if padding > 0:
+        jpeg_data += bytes([padding] * (padding % 100 + 1))
+
     return jpeg_data
 
 
