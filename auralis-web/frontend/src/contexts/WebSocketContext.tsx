@@ -173,9 +173,7 @@ interface WebSocketProviderProps {
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
-  url = typeof window !== 'undefined'
-    ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
-    : 'ws://localhost:8765/ws'
+  url = 'ws://localhost:8765/ws'
 }) => {
   const wsManagerRef = useRef<WebSocketManager | null>(null);
   const [isConnected, setIsConnected] = useState(false);
