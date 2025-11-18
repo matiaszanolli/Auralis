@@ -313,13 +313,15 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
 
             <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
               <Tooltip title="Scan Folder">
-                <IconButton
-                  color="primary"
-                  onClick={handleScanFolder}
-                  disabled={scanning}
-                >
-                  <FolderOpen />
-                </IconButton>
+                <span>
+                  <IconButton
+                    color="primary"
+                    onClick={handleScanFolder}
+                    disabled={scanning}
+                  >
+                    <FolderOpen />
+                  </IconButton>
+                </span>
               </Tooltip>
 
               <Tooltip title="Refresh Library">
