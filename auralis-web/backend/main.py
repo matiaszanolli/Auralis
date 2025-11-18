@@ -310,7 +310,7 @@ enhancement_router = create_enhancement_router(
     get_enhancement_settings=lambda: enhancement_settings,
     connection_manager=manager,
     get_processing_cache=lambda: processing_cache,
-    get_multi_tier_buffer=lambda: multi_tier_manager if HAS_MULTI_TIER else None,
+    get_multi_tier_buffer=lambda: streamlined_cache if HAS_STREAMLINED_CACHE else None,
     get_player_state_manager=lambda: player_state_manager,
     get_processing_engine=lambda: processing_engine if HAS_PROCESSING else None
 )
@@ -365,7 +365,7 @@ player_router = create_player_router(
     chunked_audio_processor_class=ChunkedAudioProcessor,
     create_track_info_fn=create_track_info,
     buffer_presets_fn=buffer_presets_for_track,
-    get_multi_tier_buffer=lambda: multi_tier_manager if HAS_MULTI_TIER else None,
+    get_multi_tier_buffer=lambda: streamlined_cache if HAS_STREAMLINED_CACHE else None,
     get_enhancement_settings=lambda: enhancement_settings
 )
 app.include_router(player_router)
