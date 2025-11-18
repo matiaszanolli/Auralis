@@ -323,12 +323,14 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
               </Tooltip>
 
               <Tooltip title="Refresh Library">
-                <IconButton
-                  onClick={() => fetchTracks()}
-                  disabled={loading}
-                >
-                  <Refresh />
-                </IconButton>
+                <span>
+                  <IconButton
+                    onClick={() => fetchTracks()}
+                    disabled={loading}
+                  >
+                    <Refresh />
+                  </IconButton>
+                </span>
               </Tooltip>
 
               <ViewToggle value={viewMode} onChange={setViewMode} />

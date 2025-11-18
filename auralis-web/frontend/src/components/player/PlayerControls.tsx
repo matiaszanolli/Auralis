@@ -149,15 +149,17 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({
 
       {/* Play/Pause button */}
       <Tooltip title={isPlaying ? "Pause (Space)" : "Play (Space)"} arrow>
-        <PlayButton
-          onClick={onPlayPause}
-          disabled={loading}
-          sx={{
-            opacity: loading ? 0.5 : 1,
-          }}
-        >
-          {isPlaying ? <Pause /> : <PlayArrow />}
-        </PlayButton>
+        <span>
+          <PlayButton
+            onClick={onPlayPause}
+            disabled={loading}
+            sx={{
+              opacity: loading ? 0.5 : 1,
+            }}
+          >
+            {isPlaying ? <Pause /> : <PlayArrow />}
+          </PlayButton>
+        </span>
       </Tooltip>
 
       {/* Next button */}
