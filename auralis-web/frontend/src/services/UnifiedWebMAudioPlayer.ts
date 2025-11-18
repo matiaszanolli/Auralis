@@ -460,8 +460,8 @@ export class UnifiedWebMAudioPlayer {
       this.debug(`playChunkInternal: chunk ${chunkIndex} not loaded, queuing with CRITICAL priority`);
       this.chunkPreloader.queueChunk(chunkIndex, 0);
 
-      // Wait up to 5 seconds for load
-      const maxWait = 5000;
+      // Wait up to 15 seconds for load (accounts for chunk processing + network latency)
+      const maxWait = 15000;
       const startTime = Date.now();
       while (!this.chunks[chunkIndex].audioBuffer && Date.now() - startTime < maxWait) {
         await new Promise(resolve => setTimeout(resolve, 50));
