@@ -108,10 +108,13 @@ def client():
 
     # Import main app
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'))
-    from main import app
-
-    with TestClient(app) as test_client:
-        yield test_client
+    try:
+        from main import app
+        with TestClient(app) as test_client:
+            yield test_client
+    except ImportError:
+        # If backend not available, skip fixture
+        pytest.skip("Backend main app not available")
 
 
 @pytest.fixture

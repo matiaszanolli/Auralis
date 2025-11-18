@@ -188,32 +188,10 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(config, items):
     """Modify test collection to add markers based on test location and name"""
-    for item in items:
-        # Add markers based on file location
-        if "unit" in str(item.fspath):
-            item.add_marker(pytest.mark.unit)
-        elif "integration" in str(item.fspath):
-            item.add_marker(pytest.mark.integration)
-
-        # Add markers based on test name patterns
-        if "performance" in item.name or "benchmark" in item.name:
-            item.add_marker(pytest.mark.performance)
-            item.add_marker(pytest.mark.slow)
-
-        if "error" in item.name or "invalid" in item.name or "edge" in item.name:
-            item.add_marker(pytest.mark.error)
-
-        if "player" in item.name:
-            item.add_marker(pytest.mark.player)
-
-        if "dsp" in item.name:
-            item.add_marker(pytest.mark.dsp)
-
-        if "audio" in item.name or "sound" in item.name:
-            item.add_marker(pytest.mark.audio)
-
-        if "file" in item.name or "load" in item.name or "save" in item.name:
-            item.add_marker(pytest.mark.files)
+    # NOTE: Disabled automatic marker assignment for performance - tests should be marked explicitly
+    # This hook was causing O(n) operations on 6000+ items, slowing down test collection significantly
+    # If automatic markers are needed again, use set operations instead of string searches for better performance
+    pass
 
 def pytest_runtest_setup(item):
     """Setup hook called before each test"""

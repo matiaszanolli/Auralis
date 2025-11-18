@@ -23,7 +23,7 @@ import time
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.library.repositories.trackssitory import TrackRepository
+from auralis.library.repositories.track_repository import TrackRepository
 from auralis.library.scanner import LibraryScanner
 from auralis.library.manager import LibraryManager
 from auralis.io.saver import save as save_audio

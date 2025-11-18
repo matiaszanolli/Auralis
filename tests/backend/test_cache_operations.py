@@ -22,7 +22,7 @@ import tempfile
 import shutil
 import time
 
-from auralis.library.repositories.trackssitory import TrackRepository
+from auralis.library.repositories.track_repository import TrackRepository
 from auralis.library.manager import LibraryManager
 from auralis.io.saver import save as save_audio
 
