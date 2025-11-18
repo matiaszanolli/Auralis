@@ -14,6 +14,7 @@ DEPRECATED: Use repository classes directly for new code
 """
 
 import os
+import threading
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from sqlalchemy import create_engine
@@ -82,6 +83,11 @@ class LibraryManager:
         self.stats = StatsRepository(self.SessionLocal)
         self.fingerprints = FingerprintRepository(self.SessionLocal)
 
+        # Thread-safe locking for delete operations (prevents race conditions)
+        self._delete_lock = threading.RLock()
+        # Track IDs that have been successfully deleted (for race condition prevention)
+        self._deleted_track_ids = set()
+
         info(f"Auralis Library Manager initialized: {database_path}")
 
     def get_session(self):
@@ -90,7 +96,27 @@ class LibraryManager:
 
     # Track operations (delegate to TrackRepository)
     def add_track(self, track_info: Dict[str, Any]) -> Optional[Track]:
-        """Add a track to the library"""
+        """
+        Add a track to the library with file path validation
+
+        Args:
+            track_info: Dictionary containing track metadata including filepath
+
+        Returns:
+            Track object if successful, None otherwise
+
+        Raises:
+            FileNotFoundError: If the track file does not exist
+            ValueError: If no filepath provided in track_info
+        """
+        # Validate filepath exists before adding to database
+        if 'filepath' not in track_info:
+            raise ValueError("track_info must contain 'filepath' key")
+
+        filepath = track_info['filepath']
+        if not Path(filepath).exists():
+            raise FileNotFoundError(f"Audio file not found: {filepath}")
+
         track = self.tracks.add(track_info)
         if track:
             # Invalidate queries that list tracks
@@ -293,20 +319,49 @@ class LibraryManager:
 
     def delete_track(self, track_id: int) -> bool:
         """
-        Delete a track and invalidate caches
+        Delete a track and invalidate caches (thread-safe)
 
         Args:
             track_id: Track ID to delete
 
         Returns:
-            True if deleted, False if not found
+            True if deleted, False if not found or already deleted
+
+        Notes:
+            - Uses mutual exclusion lock to prevent race conditions
+            - Only one delete operation per track ID can succeed
+            - Multiple concurrent deletes will serialize safely
+            - Tracks deleted IDs to prevent double-deletion
         """
-        result = self.tracks.delete(track_id)
-        if result:
-            # Invalidate queries that might include the deleted track
-            invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
-                             'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
-        return result
+        with self._delete_lock:
+            # Check if this track has already been deleted by another thread
+            if track_id in self._deleted_track_ids:
+                # Already deleted, return false
+                return False
+
+            # Check if track still exists before deleting
+            # This ensures only one thread can delete this track
+            # because the check and delete are atomic within the lock
+            existing_track = self.tracks.get_by_id(track_id)
+            if not existing_track:
+                # Track doesn't exist, return false
+                return False
+
+            # Perform the deletion inside the lock
+            # Since we checked it exists and we hold the lock,
+            # only this thread can delete it, so this should always succeed
+            result = self.tracks.delete(track_id)
+            if result:
+                # Mark this track as deleted to prevent double-deletion
+                self._deleted_track_ids.add(track_id)
+                # Invalidate queries that might include the deleted track
+                invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
+                                 'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
+            else:
+                # If delete returned False despite existing_track being truthy,
+                # something went wrong - log it but return False to signal failure
+                warning(f"Failed to delete track {track_id} despite it existing")
+            return result
 
     def update_track(self, track_id: int, track_info: dict) -> Optional[Track]:
         """

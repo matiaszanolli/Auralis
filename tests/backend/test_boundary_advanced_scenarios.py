@@ -633,7 +633,6 @@ def test_concurrent_search_operations(test_library_large):
 @pytest.mark.fast
 @pytest.mark.library
 @pytest.mark.error
-@pytest.mark.skip(reason="LibraryManager.add_track() does not validate file existence - implementation enhancement needed")
 def test_invalid_file_path_handling(tmp_path):
     """
     BOUNDARY: Adding track with invalid file path.
@@ -641,9 +640,6 @@ def test_invalid_file_path_handling(tmp_path):
     Validates:
     - Graceful error handling
     - Database not corrupted
-
-    NOTE: LibraryManager currently accepts non-existent file paths without validation.
-    This test documents the expected behavior once file path validation is implemented.
     """
     db_path = tmp_path / "test.db"
     manager = LibraryManager(database_path=str(db_path))
@@ -763,7 +759,6 @@ def test_database_connection_recovery(tmp_path):
 @pytest.mark.fast
 @pytest.mark.library
 @pytest.mark.error
-@pytest.mark.skip(reason="LibraryManager lacks thread-safe delete semantics - race condition allows multiple deletes to report success")
 def test_concurrent_delete_same_track(test_library_large):
     """
     BOUNDARY: Multiple threads trying to delete same track.
@@ -771,10 +766,6 @@ def test_concurrent_delete_same_track(test_library_large):
     Validates:
     - One delete succeeds, others handle gracefully
     - No database corruption
-
-    NOTE: LibraryManager.delete_track() does not enforce mutual exclusion.
-    Multiple concurrent deletes of the same track can all report success.
-    This test documents the expected behavior once proper locking is implemented.
     """
     manager, track_ids, _ = test_library_large
 
