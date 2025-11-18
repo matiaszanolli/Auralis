@@ -220,12 +220,17 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
             if not success:
                 raise HTTPException(status_code=500, detail="Failed to write metadata to file")
 
-            # Update database record
+            # Update database record in the existing session
             for field, value in metadata_updates.items():
                 if hasattr(track, field):
                     setattr(track, field, value)
 
-            library_manager.session.commit()
+            # The track is already in the session, just need to flush/commit
+            # Get the session that contains the track
+            from sqlalchemy.orm import object_session
+            session = object_session(track)
+            if session:
+                session.commit()
 
             # Broadcast metadata updated event
             if broadcast_manager:
@@ -250,19 +255,13 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
             }
 
         except HTTPException:
-            # Rollback database changes on any HTTP error
-            library_manager.session.rollback()
             raise
         except FileNotFoundError as e:
-            library_manager.session.rollback()
             raise HTTPException(status_code=404, detail=f"Audio file not found: {e}")
         except ValueError as e:
-            library_manager.session.rollback()
             raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
         except Exception as e:
             logger.error(f"Failed to update metadata for track {track_id}: {e}")
-            # Rollback database changes
-            library_manager.session.rollback()
             raise HTTPException(status_code=500, detail=f"Failed to update metadata: {e}")
 
     @router.post("/api/metadata/batch")
@@ -314,6 +313,9 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
 
             # Update database for successful updates
             successful_track_ids = []
+            from sqlalchemy.orm import object_session
+            session = None
+
             for result in results.get('results', []):
                 if result['success']:
                     track_id = result['track_id']
@@ -326,7 +328,12 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
                                 setattr(track, field, value)
                         successful_track_ids.append(track_id)
 
-            library_manager.session.commit()
+                        # Get session from the track object (same session as when loaded)
+                        if session is None:
+                            session = object_session(track)
+
+            if successful_track_ids and session:
+                session.commit()
 
             # Broadcast batch update event
             if broadcast_manager and successful_track_ids:
@@ -352,7 +359,6 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
 
         except Exception as e:
             logger.error(f"Batch metadata update failed: {e}")
-            library_manager.session.rollback()
             raise HTTPException(status_code=500, detail=f"Batch update failed: {e}")
 
     return router

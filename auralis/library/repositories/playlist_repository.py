@@ -55,17 +55,13 @@ class PlaylistRepository:
                 playlist.tracks = tracks
 
             session.add(playlist)
+            session.flush()  # Flush to get the ID without committing yet
+            playlist_id = playlist.id  # Capture ID before expunging
+
             session.commit()
 
-            # Get the playlist with eager loading
-            playlist = session.query(Playlist).options(
-                selectinload(Playlist.tracks).selectinload(Track.artists),
-                selectinload(Playlist.tracks).selectinload(Track.genres),
-                selectinload(Playlist.tracks).selectinload(Track.album)
-            ).filter_by(id=playlist.id).first()
-
-            # Expunge from session to avoid DetachedInstanceError
-            session.expunge(playlist)
+            # Simply refresh the playlist object to ensure it's attached to session
+            session.refresh(playlist)
 
             info(f"Created playlist: {name}")
             return playlist
