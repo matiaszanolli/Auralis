@@ -60,7 +60,7 @@ class TestCompleteWorkflows:
         # Complete workflow
         with timer() as t:
             # 1. Import to library
-            manager = LibraryManager(db_path=':memory:')
+            manager = LibraryManager(database_path=':memory:')
             manager.scan_folder(temp_audio_dir)
 
             # 2. Process all tracks
@@ -95,7 +95,7 @@ class TestCompleteWorkflows:
                 filepath = os.path.join(tmpdir, f'import_{i:04d}.wav')
                 save(filepath, audio, 44100, subtype='PCM_16')
 
-            manager = LibraryManager(db_path=':memory:')
+            manager = LibraryManager(database_path=':memory:')
 
             with timer() as t:
                 manager.scan_folder(tmpdir)
@@ -186,7 +186,7 @@ class TestCompleteWorkflows:
             filepath = os.path.join(temp_audio_dir, f'rebuild_{i:03d}.wav')
             save(filepath, audio, 44100, subtype='PCM_16')
 
-        manager = LibraryManager(db_path=':memory:')
+        manager = LibraryManager(database_path=':memory:')
 
         # Initial scan
         manager.scan_folder(temp_audio_dir)

@@ -136,7 +136,7 @@ def test_perf_library_scan_10_tracks(temp_audio_dir):
         filepath = temp_audio_dir / f"track_{i:02d}.wav"
         create_test_audio_file(filepath, duration=1.0)
 
-    manager = LibraryManager(db_path=":memory:")
+    manager = LibraryManager(database_path=":memory:")
     scanner = LibraryScanner(manager)
 
     start_time = time.time()
@@ -167,7 +167,7 @@ def test_perf_library_scan_100_tracks(temp_audio_dir):
         filepath = temp_audio_dir / f"track_{i:03d}.wav"
         create_test_audio_file(filepath, duration=0.5)
 
-    manager = LibraryManager(db_path=":memory:")
+    manager = LibraryManager(database_path=":memory:")
     scanner = LibraryScanner(manager)
 
     start_time = time.time()
@@ -275,7 +275,7 @@ def test_perf_cache_hit_improvement():
 
     Baseline: Cache hit should be >10x faster than cache miss.
     """
-    manager = LibraryManager(db_path=":memory:")
+    manager = LibraryManager(database_path=":memory:")
 
     # Add some tracks
     for i in range(10):
