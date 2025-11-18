@@ -99,7 +99,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
         try:
             # Get track from database
             from auralis.library.repositories import TrackRepository
-            track_repo = TrackRepository(library_manager.session)
+            track_repo = TrackRepository(library_manager.SessionLocal)
             track = track_repo.get_by_id(track_id)
 
             if not track:
@@ -148,7 +148,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
         try:
             # Get track from database
             from auralis.library.repositories import TrackRepository
-            track_repo = TrackRepository(library_manager.session)
+            track_repo = TrackRepository(library_manager.SessionLocal)
             track = track_repo.get_by_id(track_id)
 
             if not track:
@@ -195,7 +195,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
         try:
             # Get track from database
             from auralis.library.repositories import TrackRepository
-            track_repo = TrackRepository(library_manager.session)
+            track_repo = TrackRepository(library_manager.SessionLocal)
             track = track_repo.get_by_id(track_id)
 
             if not track:
@@ -288,7 +288,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
 
         try:
             from auralis.library.repositories import TrackRepository
-            track_repo = TrackRepository(library_manager.session)
+            track_repo = TrackRepository(library_manager.SessionLocal)
 
             # Prepare batch updates
             batch_updates = []

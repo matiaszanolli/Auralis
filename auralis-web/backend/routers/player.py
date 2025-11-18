@@ -578,7 +578,10 @@ def create_player_router(
             raise HTTPException(status_code=503, detail="Audio player not available")
 
         try:
-            audio_player.add_to_queue(track_path)
+            # add_to_queue expects a dict with track info, not a string path
+            # Create a minimal track info dict with the filepath
+            track_info = {"filepath": track_path}
+            audio_player.add_to_queue(track_info)
 
             # Broadcast queue update
             await connection_manager.broadcast({
@@ -730,14 +733,12 @@ def create_player_router(
 
         if not player_state_manager:
             raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue_manager'):
-            raise HTTPException(status_code=503, detail="Queue manager not available")
+        if not audio_player or not hasattr(audio_player, 'clear_queue'):
+            raise HTTPException(status_code=503, detail="Audio player not available")
 
         try:
-            queue_manager = audio_player.queue_manager
-
-            # Clear queue
-            queue_manager.clear()
+            # Clear queue using the player's clear_queue method
+            audio_player.clear_queue()
 
             # Stop playback
             if hasattr(audio_player, 'stop'):
