@@ -775,8 +775,9 @@ def test_concurrent_delete_same_track(test_library_large):
 
     def delete_track():
         try:
-            manager.delete_track(target_id)
-            success_count[0] += 1
+            result = manager.delete_track(target_id)
+            if result:  # Only count successful deletes
+                success_count[0] += 1
         except Exception as e:
             errors.append(e)
 

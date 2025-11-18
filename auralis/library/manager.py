@@ -331,7 +331,7 @@ class LibraryManager:
             - Uses mutual exclusion lock to prevent race conditions
             - Only one delete operation per track ID can succeed
             - Multiple concurrent deletes will serialize safely
-            - Tracks deleted IDs to prevent double-deletion
+            - Atomic check-and-delete within single transaction
         """
         with self._delete_lock:
             # Check if this track has already been deleted by another thread
@@ -339,29 +339,37 @@ class LibraryManager:
                 # Already deleted, return false
                 return False
 
-            # Check if track still exists before deleting
-            # This ensures only one thread can delete this track
-            # because the check and delete are atomic within the lock
-            existing_track = self.tracks.get_by_id(track_id)
-            if not existing_track:
-                # Track doesn't exist, return false
-                return False
+            # Perform atomic check-and-delete within single transaction
+            # to ensure only one thread can successfully delete
+            session = self.get_session()
+            try:
+                # Query within this transaction to get current state
+                from .models import Track
+                track = session.query(Track).filter(Track.id == track_id).first()
 
-            # Perform the deletion inside the lock
-            # Since we checked it exists and we hold the lock,
-            # only this thread can delete it, so this should always succeed
-            result = self.tracks.delete(track_id)
-            if result:
-                # Mark this track as deleted to prevent double-deletion
+                if not track:
+                    # Track doesn't exist, return false
+                    return False
+
+                # Delete within same transaction - atomic operation
+                session.delete(track)
+                session.commit()
+
+                # Mark this track as deleted to prevent any issues
                 self._deleted_track_ids.add(track_id)
+
                 # Invalidate queries that might include the deleted track
                 invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
                                  'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
-            else:
-                # If delete returned False despite existing_track being truthy,
-                # something went wrong - log it but return False to signal failure
-                warning(f"Failed to delete track {track_id} despite it existing")
-            return result
+
+                info(f"Deleted track {track_id}")
+                return True
+            except Exception as e:
+                session.rollback()
+                error(f"Failed to delete track {track_id}: {e}")
+                return False
+            finally:
+                session.close()
 
     def update_track(self, track_id: int, track_info: dict) -> Optional[Track]:
         """
