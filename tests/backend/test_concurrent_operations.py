@@ -45,7 +45,7 @@ def temp_audio_dir():
 def shared_db(temp_audio_dir):
     """Create a shared database for concurrency tests."""
     db_path = temp_audio_dir / "shared.db"
-    manager = LibraryManager(db_path=str(db_path))
+    manager = LibraryManager(database_path=str(db_path))
     yield manager
     
 
@@ -115,7 +115,7 @@ def test_concurrent_write_operations(temp_audio_dir):
     Tests that concurrent writes maintain data consistency.
     """
     db_path = temp_audio_dir / "concurrent_write.db"
-    manager = LibraryManager(db_path=str(db_path))
+    manager = LibraryManager(database_path=str(db_path))
 
     errors = []
     added_ids = []
@@ -174,7 +174,7 @@ def test_concurrent_read_write_mix(temp_audio_dir):
     Tests that readers and writers don't deadlock.
     """
     db_path = temp_audio_dir / "read_write_mix.db"
-    manager = LibraryManager(db_path=str(db_path))
+    manager = LibraryManager(database_path=str(db_path))
 
     # Add initial tracks
     for i in range(5):
@@ -318,7 +318,7 @@ def test_concurrent_cache_access(temp_audio_dir):
     Tests that cache doesn't return stale data.
     """
     db_path = temp_audio_dir / "cache_test.db"
-    manager = LibraryManager(db_path=str(db_path))
+    manager = LibraryManager(database_path=str(db_path))
 
     # Add initial track
     track_info = {
@@ -392,7 +392,7 @@ def test_concurrent_connection_cleanup(temp_audio_dir):
     db_path = temp_audio_dir / "cleanup_test.db"
 
     def create_and_close():
-        manager = LibraryManager(db_path=str(db_path))
+        manager = LibraryManager(database_path=str(db_path))
 
         # Add a track
         track_info = {
@@ -422,7 +422,7 @@ def test_concurrent_connection_cleanup(temp_audio_dir):
         t.join()
 
     # Verify database is still accessible
-    final_manager = LibraryManager(db_path=str(db_path))
+    final_manager = LibraryManager(database_path=str(db_path))
     tracks, total = final_manager.tracks.get_all(limit=50, offset=0)
 
     # Should have some tracks
@@ -444,7 +444,7 @@ def test_concurrent_search_operations(temp_audio_dir):
     Tests that search remains accurate under concurrent access.
     """
     db_path = temp_audio_dir / "search_concurrent.db"
-    manager = LibraryManager(db_path=str(db_path))
+    manager = LibraryManager(database_path=str(db_path))
 
     # Add tracks with searchable terms
     for i in range(20):

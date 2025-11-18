@@ -270,7 +270,7 @@ def test_error_cleanup_on_exception(temp_audio_dir):
 
     Tests that file handles and connections are closed on error.
     """
-    manager = LibraryManager(db_path=":memory:")
+    manager = LibraryManager(database_path=":memory:")
 
     try:
         # Force an error by trying to add invalid data
@@ -326,8 +326,8 @@ def test_error_database_locked_handling():
     db_path = temp_dir / "test.db"
 
     try:
-        manager1 = LibraryManager(db_path=str(db_path))
-        manager2 = LibraryManager(db_path=str(db_path))
+        manager1 = LibraryManager(database_path=str(db_path))
+        manager2 = LibraryManager(database_path=str(db_path))
 
         # Try concurrent writes (may or may not cause lock)
         track_info = {
