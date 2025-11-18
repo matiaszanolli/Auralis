@@ -779,23 +779,29 @@ class ChunkedAudioProcessor:
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
 
-        # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
-        # This reduces initial buffering from ~30s to <5s
-        if chunk_index == 0:
-            # Temporarily disable fingerprint analysis
-            original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
-            self.processor.content_analyzer.use_fingerprint_analysis = False
-            logger.info("⚡ Fast-start: Skipping fingerprint analysis for first chunk")
-
-            try:
-                # Process with shared HybridProcessor instance
-                processed_chunk = self.processor.process(audio_chunk)
-            finally:
-                # Restore fingerprint analysis for subsequent chunks
-                self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+        # SPECIAL CASE: If preset is None, we're serving original/unprocessed audio
+        # Just trim context and encode without any processing
+        if self.processor is None:
+            logger.info(f"Serving original audio for chunk {chunk_index} (no processing)")
+            processed_chunk = audio_chunk
         else:
-            # Normal processing with fingerprint analysis
-            processed_chunk = self.processor.process(audio_chunk)
+            # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
+            # This reduces initial buffering from ~30s to <5s
+            if chunk_index == 0:
+                # Temporarily disable fingerprint analysis
+                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
+                self.processor.content_analyzer.use_fingerprint_analysis = False
+                logger.info("⚡ Fast-start: Skipping fingerprint analysis for first chunk")
+
+                try:
+                    # Process with shared HybridProcessor instance
+                    processed_chunk = self.processor.process(audio_chunk)
+                finally:
+                    # Restore fingerprint analysis for subsequent chunks
+                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+            else:
+                # Normal processing with fingerprint analysis
+                processed_chunk = self.processor.process(audio_chunk)
 
         # Trim context (keep only the actual chunk)
         context_samples = int(CONTEXT_DURATION * self.sample_rate)
