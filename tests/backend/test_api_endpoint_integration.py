@@ -369,9 +369,9 @@ def test_metadata_update_api(client):
 
     track_id = tracks_data["tracks"][0]["id"]
 
-    # Update metadata
-    update_response = client.patch(
-        f"/api/metadata/track/{track_id}",
+    # Update metadata (use PUT not PATCH, correct endpoint: /metadata/tracks not /metadata/track)
+    update_response = client.put(
+        f"/api/metadata/tracks/{track_id}",
         json={"title": "Updated Title"}
     )
     assert update_response.status_code in [200, 204], (
@@ -379,7 +379,7 @@ def test_metadata_update_api(client):
     )
 
     # Verify update persisted
-    get_response = client.get(f"/api/metadata/track/{track_id}")
+    get_response = client.get(f"/api/metadata/tracks/{track_id}")
     if get_response.status_code == 200:
         updated_data = get_response.json()
         assert updated_data.get("title") == "Updated Title", (
@@ -395,13 +395,13 @@ def test_metadata_update_api(client):
 @pytest.mark.api
 def test_queue_add_track_api(client):
     """
-    INTEGRATION TEST: /api/queue/add endpoint.
+    INTEGRATION TEST: /api/player/queue/add endpoint.
 
     Validates:
     - Adding track to queue
     - Queue state updated
     """
-    # Get a track ID first
+    # Get a track first (need filepath, not just ID)
     tracks_response = client.get("/api/library/tracks?limit=1")
     if tracks_response.status_code != 200:
         pytest.skip("No tracks available")
@@ -410,19 +410,23 @@ def test_queue_add_track_api(client):
     if not tracks_data.get("tracks"):
         pytest.skip("No tracks in library")
 
-    track_id = tracks_data["tracks"][0]["id"]
+    # Get the track filepath (queue/add endpoint expects filepath, not ID)
+    track = tracks_data["tracks"][0]
+    track_filepath = track.get("filepath") or track.get("path")
+    if not track_filepath:
+        pytest.skip("Track has no filepath")
 
-    # Add to queue
+    # Add to queue using correct endpoint and parameter
     add_response = client.post(
-        "/api/queue/add",
-        json={"track_id": track_id}
+        "/api/player/queue/add",
+        params={"track_path": track_filepath}
     )
     assert add_response.status_code in [200, 201, 204], (
-        "Adding to queue should succeed"
+        f"Adding to queue should succeed, got {add_response.status_code}: {add_response.text}"
     )
 
     # Verify queue state
-    queue_response = client.get("/api/queue")
+    queue_response = client.get("/api/player/queue")
     assert queue_response.status_code == 200, "Queue endpoint should be accessible"
 
     queue_data = queue_response.json()
