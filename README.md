@@ -6,44 +6,36 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.0.0--beta.12-orange.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.12)
+[![Release](https://img.shields.io/badge/release-v1.1.0--beta.1-yellow.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.1)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1084%20passing%2F1425%20total-orange.svg)]()
-[![Status](https://img.shields.io/badge/Frontend%20Tests-Memory%20Issues%20(76%25%20pass)-orange.svg)]()
+[![Status](https://img.shields.io/badge/Current-Development%20Release-yellow.svg)]()
 
-## 📥 Download Beta 12.0
+## 📦 Current Version: 1.1.0-beta.1
 
-**🎯 Latest Release: Critical Async Fix**
+**🔨 Development Release (November 18, 2025)** - No binaries, build from source
 
-| Platform | Download | Size |
-|----------|----------|------|
-| 🪟 **Windows** | [Auralis Setup 1.0.0-beta.12.exe](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.12/Auralis.Setup.1.0.0-beta.12.exe) | 246 MB |
-| 🐧 **Linux (AppImage)** | [Auralis-1.0.0-beta.12.AppImage](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.12/Auralis-1.0.0-beta.12.AppImage) | 274 MB |
-| 🐧 **Linux (DEB)** | [auralis-desktop_1.0.0-beta.12_amd64.deb](https://github.com/matiaszanolli/Auralis/releases/download/v1.0.0-beta.12/auralis-desktop_1.0.0-beta.12_amd64.deb) | 242 MB |
+This is a **development-focused release** with major improvements currently in progress. Features:
+- ✅ **Thread-safe library management** - File path validation and race condition fixes
+- ✅ **Comprehensive testing** - 2500+ tests (850+ backend, 1084+ frontend)
+- ✅ **Accessibility** - WCAG-compliant tooltip fixes
+- ✅ **Stable WebSocket** - Improved chunk loading and timeout management
 
-📖 **[User Guide](docs/getting-started/BETA_USER_GUIDE.md)** | 📝 **[Release Notes](RELEASE_NOTES_BETA12.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
+📖 **[Release Notes](RELEASE_NOTES_1_1_0_BETA1.md)** | 📝 **[Development Roadmap](DEVELOPMENT_ROADMAP_1_1_0.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
 
-### 📚 What's New in Beta 12.0
+### 📚 Next Stable Release: 1.1.0 (December 2025)
 
-**🔧 Critical Bug Fix: Enhancement Toggle**
+The first **official stable release** with binary installers coming end of December 2025. See [DEVELOPMENT_ROADMAP_1_1_0.md](DEVELOPMENT_ROADMAP_1_1_0.md) for:
+- Strategic direction through v2.0.0 (4-quarter roadmap)
+- Performance & optimization targets (Q1 2026)
+- Feature expansion roadmap (Q2-Q3 2026)
+- Developer ecosystem & plugins (Q4 2026+)
 
-Beta 11.2 introduced a critical bug where toggling enhancement would break playback. **Beta 12.0 completely fixes this issue.**
-
-- ✅ **Parallel chunk preloading** - Uses `Promise.all()` for non-blocking operations
-- ✅ **Responsive backend** - Event loop stays free during chunk loading
-- ✅ **Smooth playback** - Zero stuttering when toggling enhancement
-- ✅ **Faster loading** - Chunks load in parallel instead of sequentially
-
-**Features from Beta 11.2:**
-- ⚡ **36.6x real-time** processing speed indicator
-- 🚀 **Instant preset switching** (< 1s)
-- ⌨️ **14 Keyboard shortcuts** (Space, ←→, ↑↓, M, 1-4, /, Esc, ?, Ctrl/Cmd+,)
-
-See [RELEASE_NOTES_BETA12.md](RELEASE_NOTES_BETA12.md) for complete details.
+**Previous Stable Release:** [Beta 12.0](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.12)
 
 ---
 
-📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 📈 **[Phase 1 Progress](docs/development/PHASE1_WEEK3_PROGRESS.md)**
+📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 🚀 **[Development Roadmap](DEVELOPMENT_ROADMAP_1_1_0.md)**
 
 ---
 
@@ -61,37 +53,43 @@ Auralis is a **local music player** with professional audio enhancement built-in
 - 🎨 **Audio Visualizer** - Watch your music come alive with real-time visualization
 - 🖥️ **Desktop & Web** - Native Electron app or run in your browser
 - 🔒 **100% Private** - Your music, your computer, no cloud required
-- ⚡ **Blazing Fast** - 52.8x real-time audio processing, 740+ files/second scanning
+- ⚡ **Blazing Fast** - 36.6x real-time audio processing, 740+ files/second scanning
 - ✅ **Well Tested** - 850+ automated tests, production-ready quality, comprehensive test suite
 
 ---
 
 ## 🚀 Quick Start
 
-### Option 1: Download Beta Release (Recommended)
+### Option 1: Run from Source (Recommended for 1.1.0-beta.1)
+
+Since 1.1.0-beta.1 is a development release without binaries, build from source:
+
+### Option 2: Download Previous Stable Release (1.0.0-beta.12)
+
+For a stable release with binary installers, download Beta 12.0:
 
 **Windows:**
 ```bash
-# 1. Download Auralis Setup 1.0.0-beta.8.exe
+# 1. Download Auralis Setup 1.0.0-beta.12.exe
 # 2. Run the installer
 # 3. Launch Auralis from Start Menu
 ```
 
 **Linux (AppImage):**
 ```bash
-# 1. Download Auralis-1.0.0-beta.8.AppImage
-chmod +x Auralis-1.0.0-beta.8.AppImage
-./Auralis-1.0.0-beta.8.AppImage
+# 1. Download Auralis-1.0.0-beta.12.AppImage
+chmod +x Auralis-1.0.0-beta.12.AppImage
+./Auralis-1.0.0-beta.12.AppImage
 ```
 
 **Linux (Debian/Ubuntu):**
 ```bash
-# 1. Download auralis-desktop_1.0.0-beta.8_amd64.deb
-sudo dpkg -i auralis-desktop_1.0.0-beta.8_amd64.deb
+# 1. Download auralis-desktop_1.0.0-beta.12_amd64.deb
+sudo dpkg -i auralis-desktop_1.0.0-beta.12_amd64.deb
 auralis-desktop
 ```
 
-### Option 2: Run from Source (Development)
+### Building from Source (Development)
 
 **Web Interface:**
 ```bash
