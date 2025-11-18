@@ -158,22 +158,24 @@ export const TrackInfo: React.FC<TrackInfoProps> = ({
       >
         {/* Favorite button */}
         <Tooltip title={isLoved ? "Remove from favorites (L)" : "Add to favorites (L)"} arrow>
-          <IconButton
-            onClick={onToggleLove}
-            disabled={isFavoriting}
-            size="small"
-            sx={{
-              color: isLoved ? '#e91e63' : '#8b92b0',
-              '&:hover': {
-                color: '#e91e63',
-                transform: 'scale(1.1)',
-              },
-              transition: 'all 0.2s ease',
-              opacity: isFavoriting ? 0.5 : 1,
-            }}
-          >
-            {isLoved ? <Favorite /> : <FavoriteOutlined />}
-          </IconButton>
+          <span>
+            <IconButton
+              onClick={onToggleLove}
+              disabled={isFavoriting}
+              size="small"
+              sx={{
+                color: isLoved ? '#e91e63' : '#8b92b0',
+                '&:hover': {
+                  color: '#e91e63',
+                  transform: 'scale(1.1)',
+                },
+                transition: 'all 0.2s ease',
+                opacity: isFavoriting ? 0.5 : 1,
+              }}
+            >
+              {isLoved ? <Favorite /> : <FavoriteOutlined />}
+            </IconButton>
+          </span>
         </Tooltip>
 
         {/* Lyrics button */}
