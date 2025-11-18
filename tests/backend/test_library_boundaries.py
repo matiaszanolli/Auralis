@@ -21,7 +21,7 @@ from pathlib import Path
 import tempfile
 import shutil
 
-from auralis.library.repositories.trackssitory import TrackRepository
+from auralis.library.repositories.track_repository import TrackRepository
 from auralis.library.repositories.album_repository import AlbumRepository
 from auralis.library.repositories.artist_repository import ArtistRepository
 from auralis.io.saver import save as save_audio

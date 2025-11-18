@@ -22,7 +22,7 @@ import shutil
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.library.repositories.trackssitory import TrackRepository
+from auralis.library.repositories.track_repository import TrackRepository
 from auralis.library.manager import LibraryManager
 from auralis.io.unified_loader import load_audio
 from auralis.io.saver import save as save_audio
@@ -306,7 +306,7 @@ def test_error_cleanup_on_exception(temp_audio_dir):
         assert track is not None
 
     finally:
-        
+        pass
 
 
 # ============================================================================

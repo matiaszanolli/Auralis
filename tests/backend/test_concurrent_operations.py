@@ -22,7 +22,7 @@ import shutil
 import threading
 import time
 
-from auralis.library.repositories.trackssitory import TrackRepository
+from auralis.library.repositories.track_repository import TrackRepository
 from auralis.library.manager import LibraryManager
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
