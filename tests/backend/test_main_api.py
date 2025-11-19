@@ -107,14 +107,13 @@ class TestLibraryEndpoints:
     def test_get_tracks_with_mock(self, client):
         """Test getting tracks with mocked data"""
         with patch('main.library_manager') as mock_library:
+            # Create a mock track with proper attribute values to avoid serialization issues
             mock_track = Mock()
-            mock_track.to_dict.return_value = {
-                "id": 1,
-                "title": "Test Song",
-                "filepath": "/path/to/song.mp3",
-                "duration": 180,
-                "format": "mp3"
-            }
+            mock_track.id = 1
+            mock_track.title = "Test Song"
+            mock_track.filepath = "/path/to/song.mp3"
+            mock_track.duration = 180
+            mock_track.format = "mp3"
             # get_all_tracks returns (tracks, total) tuple
             mock_library.get_all_tracks.return_value = ([mock_track], 1)
 
@@ -134,12 +133,13 @@ class TestLibraryEndpoints:
     def test_get_tracks_with_search_mock(self, client):
         """Test track search with mocked data"""
         with patch('main.library_manager') as mock_library:
+            # Create a mock track with proper attribute values to avoid serialization issues
             mock_track = Mock()
-            mock_track.to_dict.return_value = {
-                "id": 2,
-                "title": "Test Result",
-                "filepath": "/path/to/result.wav"
-            }
+            mock_track.id = 2
+            mock_track.title = "Test Result"
+            mock_track.filepath = "/path/to/result.wav"
+            mock_track.duration = 0  # Default from DEFAULT_TRACK_FIELDS
+            mock_track.format = "Unknown"  # Default from DEFAULT_TRACK_FIELDS
             mock_library.search_tracks.return_value = [mock_track]
 
             response = client.get("/api/library/tracks?search=test&limit=5")
@@ -842,11 +842,20 @@ class TestFavoritesEndpoints:
     def test_get_favorites_success(self, client):
         """Test getting favorite tracks"""
         with patch('main.library_manager') as mock_library:
-            # Create mock tracks with to_dict() method
+            # Create mock tracks with proper attribute values to avoid serialization issues
             mock_track1 = Mock()
-            mock_track1.to_dict.return_value = {"id": 1, "title": "Track 1", "favorite": True}
+            mock_track1.id = 1
+            mock_track1.title = "Track 1"
+            mock_track1.filepath = "/path/to/track1.wav"
+            mock_track1.duration = 180
+            mock_track1.format = "Unknown"
+
             mock_track2 = Mock()
-            mock_track2.to_dict.return_value = {"id": 2, "title": "Track 2", "favorite": True}
+            mock_track2.id = 2
+            mock_track2.title = "Track 2"
+            mock_track2.filepath = "/path/to/track2.wav"
+            mock_track2.duration = 200
+            mock_track2.format = "Unknown"
 
             # Endpoint calls get_favorite_tracks() not tracks.get_favorites()
             mock_library.get_favorite_tracks.return_value = [mock_track1, mock_track2]
@@ -991,12 +1000,16 @@ class TestAlbumArtistEndpoints:
     def test_get_artist_detail_success(self, client):
         """Test getting artist details"""
         with patch('main.library_manager') as mock_library:
+            # Create mock artist with proper attribute values to avoid serialization issues
+            # Important: explicitly set albums and tracks to empty lists to prevent Mock from
+            # creating infinite recursion when serializer uses hasattr() and len()
             mock_artist = Mock()
-            mock_artist.to_dict.return_value = {
-                "id": 1,
-                "name": "Test Artist",
-                "total_plays": 100
-            }
+            mock_artist.id = 1
+            mock_artist.name = "Test Artist"
+            mock_artist.track_count = 10
+            mock_artist.album_count = 2
+            mock_artist.albums = []  # Prevent Mock infinite recursion
+            mock_artist.tracks = []  # Prevent Mock infinite recursion
             mock_library.artists.get_by_id.return_value = mock_artist
 
             response = client.get("/api/library/artists/1")
@@ -1016,12 +1029,19 @@ class TestAlbumArtistEndpoints:
     def test_get_album_detail_success(self, client):
         """Test getting album details"""
         with patch('main.library_manager') as mock_library:
-            mock_album = Mock()
-            mock_album.to_dict.return_value = {
-                "id": 1,
-                "title": "Test Album",
-                "artist_id": 1
+            # Create mock album with spec to prevent infinite Mock recursion
+            # Use a dict-like object instead of Mock to avoid JSON serialization issues
+            album_data = {
+                'id': 1,
+                'title': 'Test Album',
+                'artist': 'Test Artist',
+                'year': 2024,
+                'artwork_path': None,
+                'tracks': []
             }
+            # Convert dict to object-like mock with attributes
+            from types import SimpleNamespace
+            mock_album = SimpleNamespace(**album_data)
             mock_library.albums.get_by_id.return_value = mock_album
 
             response = client.get("/api/library/albums/1")
@@ -1041,11 +1061,26 @@ class TestAlbumArtistEndpoints:
     def test_get_albums_list(self, client):
         """Test getting albums list"""
         with patch('main.library_manager') as mock_library:
-            # Create mock albums with to_dict() method
-            mock_album1 = Mock()
-            mock_album1.to_dict.return_value = {"id": 1, "title": "Album 1"}
-            mock_album2 = Mock()
-            mock_album2.to_dict.return_value = {"id": 2, "title": "Album 2"}
+            # Use SimpleNamespace instead of Mock to avoid JSON serialization recursion issues
+            from types import SimpleNamespace
+
+            mock_album1 = SimpleNamespace(
+                id=1,
+                title="Album 1",
+                artist="Artist 1",
+                year=2023,
+                artwork_path=None,
+                tracks=[]
+            )
+
+            mock_album2 = SimpleNamespace(
+                id=2,
+                title="Album 2",
+                artist="Artist 2",
+                year=2024,
+                artwork_path=None,
+                tracks=[]
+            )
 
             mock_library.albums.get_all.return_value = [mock_album1, mock_album2]
 
