@@ -10,14 +10,6 @@ documented endpoint status and commit 38be81c for details.
 """
 
 import pytest
-
-# Skip this test file - API endpoints incomplete
-pytestmark = pytest.mark.skip(
-    reason="API endpoint integration tests - Multiple endpoints return 404/503 "
-           "due to incomplete implementation (player state, seek, library search, "
-           "albums, enhancement presets, etc.). See commit 38be81c and "
-           "test_api_endpoint_integration.py for documented endpoint status."
-)
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
