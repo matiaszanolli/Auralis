@@ -116,6 +116,11 @@ class EnhancedAudioPlayer:
         Returns:
             bool: True if successful
         """
+        # Check if a file is loaded before seeking
+        if not self.file_manager.is_loaded():
+            warning("No audio file loaded")
+            return False
+
         max_samples = self.file_manager.get_total_samples()
         position_samples = int(position_seconds * self.file_manager.sample_rate)
         return self.playback.seek(position_samples, max_samples)
@@ -149,7 +154,9 @@ class EnhancedAudioPlayer:
         self.playback.set_loading()
 
         if self.file_manager.load_file(file_path):
-            self.playback.stop()
+            # Explicitly set state to STOPPED (stop() doesn't work when state is LOADING)
+            self.playback.state = PlaybackState.STOPPED
+            self.playback.position = 0
 
             # Start prebuffering next track
             self.gapless.start_prebuffering()
@@ -338,9 +345,40 @@ class EnhancedAudioPlayer:
         self.integration.add_callback(callback)
         self.playback.add_callback(callback)
 
+    def _notify_callbacks(self, info: Dict[str, Any] = None):
+        """
+        Notify all registered callbacks with current playback information.
+
+        Args:
+            info: Optional custom playback info dict to pass to callbacks.
+                  If not provided, uses get_playback_info()
+        """
+        if info is None:
+            info = self.get_playback_info()
+        self.integration._notify_callbacks(info)
+
     def get_playback_info(self) -> Dict[str, Any]:
-        """Get comprehensive playback information"""
-        return self.integration.get_playback_info()
+        """
+        Get comprehensive playback information.
+
+        Returns a flattened view for backward compatibility.
+        """
+        full_info = self.integration.get_playback_info()
+
+        # Flatten the nested structure for backward compatibility
+        return {
+            'state': full_info['playback']['state'],
+            'position_seconds': full_info['playback']['position_seconds'],
+            'duration_seconds': full_info['playback']['duration_seconds'],
+            'current_file': full_info['playback']['current_file'],
+            'is_playing': full_info['playback']['is_playing'],
+            # Also include full nested structure for new code that expects it
+            'playback': full_info['playback'],
+            'queue': full_info['queue'],
+            'library': full_info['library'],
+            'processing': full_info['processing'],
+            'session': full_info['session'],
+        }
 
     def get_queue_info(self) -> Dict[str, Any]:
         """Get detailed queue information"""
@@ -359,6 +397,11 @@ class EnhancedAudioPlayer:
         self.integration._notify_callbacks({'action': 'repeat_changed', 'enabled': enabled})
 
     # ========== Properties for backward compatibility ==========
+
+    @property
+    def library(self) -> LibraryManager:
+        """Get the library manager instance"""
+        return self.integration.library
 
     @property
     def current_file(self) -> Optional[str]:
