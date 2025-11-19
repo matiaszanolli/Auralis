@@ -28,6 +28,51 @@ class QueueController:
         self.queue = QueueManager()
         self.library = library_manager or LibraryManager()
 
+    # Backward compatibility properties for old test code
+    @property
+    def tracks(self) -> List[Dict[str, Any]]:
+        """Get list of tracks in queue"""
+        return self.queue.tracks
+
+    @property
+    def current_index(self) -> int:
+        """Get current track index"""
+        return self.queue.current_index
+
+    @current_index.setter
+    def current_index(self, value: int):
+        """Set current track index"""
+        self.queue.current_index = value
+
+    @property
+    def shuffle_enabled(self) -> bool:
+        """Get shuffle mode status"""
+        return self.queue.shuffle_enabled
+
+    @shuffle_enabled.setter
+    def shuffle_enabled(self, value: bool):
+        """Set shuffle mode"""
+        self.queue.shuffle_enabled = value
+
+    @property
+    def repeat_enabled(self) -> bool:
+        """Get repeat mode status"""
+        return self.queue.repeat_enabled
+
+    @repeat_enabled.setter
+    def repeat_enabled(self, value: bool):
+        """Set repeat mode"""
+        self.queue.repeat_enabled = value
+
+    def add_tracks(self, track_list: List[Dict[str, Any]]):
+        """Add multiple tracks to queue"""
+        for track_info in track_list:
+            self.add_track(track_info)
+
+    def clear(self):
+        """Clear all tracks from queue (backward compatibility alias)"""
+        self.clear_queue()
+
     def next_track(self) -> Optional[Dict[str, Any]]:
         """
         Get next track from queue.
