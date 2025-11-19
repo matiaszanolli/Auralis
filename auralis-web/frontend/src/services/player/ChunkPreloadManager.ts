@@ -46,6 +46,11 @@ export class ChunkPreloadManager {
   private eventCallbacks = new Map<string, Set<EventCallback>>();
   private debug: (msg: string) => void = () => {};
 
+  // Retry logic with exponential backoff
+  private retryState: Map<number, { attempts: number; lastAttemptTime: number }> = new Map();
+  private readonly MAX_RETRIES = 3;
+  private readonly BASE_RETRY_DELAY_MS = 500; // Start with 500ms, exponential backoff 2x
+
   constructor(
     buffer: MultiTierWebMBuffer,
     queue: ChunkLoadPriorityQueue,
@@ -292,6 +297,9 @@ export class ChunkPreloadManager {
 
       this.debug(`[P${priority}] Chunk ${chunkIndex} ready (${audioBuffer.duration.toFixed(2)}s)`);
 
+      // Clear retry state on successful load
+      this.clearRetryState(chunkIndex);
+
       // Now emit event - state is fully consistent
       this.emit('chunk-loaded', { chunkIndex, audioBuffer });
 
@@ -314,9 +322,71 @@ export class ChunkPreloadManager {
 
       this.debug(`[P${priority}] Error loading chunk ${chunkIndex}: ${error.message}`);
 
+      // Schedule automatic retry with exponential backoff if attempts remaining
+      this.scheduleRetry(chunkIndex, priority, error);
+
       // Now emit error event - state is fully consistent
       this.emit('chunk-error', { chunkIndex, error });
       // Continue - chunk can be retried in future queue cycle if requested
+    }
+  }
+
+  /**
+   * Schedule automatic retry for a failed chunk with exponential backoff
+   * Reduces retry spam on persistent failures by using exponential delays
+   */
+  private scheduleRetry(chunkIndex: number, priority: number, error: any): void {
+    let retryInfo = this.retryState.get(chunkIndex);
+
+    // Initialize or increment attempt counter
+    if (!retryInfo) {
+      retryInfo = { attempts: 0, lastAttemptTime: 0 };
+      this.retryState.set(chunkIndex, retryInfo);
+    }
+
+    const attempts = retryInfo.attempts;
+
+    // Check if we've exceeded max retries
+    if (attempts >= this.MAX_RETRIES) {
+      this.debug(
+        `[RETRY] Chunk ${chunkIndex} exceeded max retries (${this.MAX_RETRIES}), giving up. ` +
+        `Error: ${error.message}`
+      );
+      return;
+    }
+
+    // Calculate exponential backoff delay (500ms, 1s, 2s)
+    const delayMs = this.BASE_RETRY_DELAY_MS * Math.pow(2, attempts);
+
+    // Increment attempt counter
+    retryInfo.attempts++;
+    retryInfo.lastAttemptTime = Date.now();
+
+    this.debug(
+      `[RETRY] Chunk ${chunkIndex} failed (attempt ${retryInfo.attempts}/${this.MAX_RETRIES}). ` +
+      `Scheduling retry in ${delayMs}ms... Error: ${error.message}`
+    );
+
+    // Schedule retry with backoff delay
+    setTimeout(() => {
+      this.debug(
+        `[RETRY] Retrying chunk ${chunkIndex} (attempt ${retryInfo.attempts}/${this.MAX_RETRIES})`
+      );
+      // Re-queue with original priority (or slightly elevated to skip line)
+      this.queueChunk(chunkIndex, Math.max(priority - 1, 0));
+    }, delayMs);
+  }
+
+  /**
+   * Clear retry state for a chunk (called on successful load)
+   */
+  private clearRetryState(chunkIndex: number): void {
+    if (this.retryState.has(chunkIndex)) {
+      const attempts = this.retryState.get(chunkIndex)!.attempts;
+      if (attempts > 0) {
+        this.debug(`[RETRY] Chunk ${chunkIndex} recovered after ${attempts} failed attempt(s)`);
+      }
+      this.retryState.delete(chunkIndex);
     }
   }
 
@@ -372,5 +442,6 @@ export class ChunkPreloadManager {
     this.clearQueue();
     this.chunks = [];
     this.eventCallbacks.clear();
+    this.retryState.clear(); // Clear retry state to prevent memory leaks
   }
 }
