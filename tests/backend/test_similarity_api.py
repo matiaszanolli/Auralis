@@ -9,16 +9,44 @@ Tests the REST API endpoints for the similarity system
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 
-NOTE: Tests use APIs that are incompatible with current implementation.
-Requires refactoring to match current API.
+NOTE: Integration tests for similarity API that require:
+1. Full FastAPI application startup (library_manager initialization)
+2. Fingerprints to exist in the library database
+3. Similarity system to be fitted
+
+Status: SKIPPED
+- Tests are integration tests with external dependencies
+- Require full application startup in test context
+- Need pre-existing fingerprints in library
+- Need fitted similarity system
+
+To enable these tests in future:
+1. Mock the library_manager and fingerprint system
+2. Or run against live instance with populated library
+3. Ensure similarity router is properly initialized during testing
 """
 
 import pytest
-
-# Skip - tests use APIs incompatible with current implementation
-pytestmark = pytest.mark.skip(reason="Tests use APIs incompatible with current implementation. Requires refactoring.")
+import sys
+from pathlib import Path
 from fastapi.testclient import TestClient
 from auralis.library import LibraryManager
+
+# Skip all tests in this file - integration tests with external dependencies
+pytestmark = pytest.mark.skip(
+    reason="Integration tests for similarity API. Requires full application startup "
+           "and library with fingerprints. Tests skipped to keep CI fast; run manually with populated library."
+)
+
+# Add backend to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
+
+
+@pytest.fixture(scope="module")
+def client():
+    """Create test client for FastAPI app"""
+    from main import app
+    return TestClient(app)
 
 
 @pytest.fixture(scope="module")
