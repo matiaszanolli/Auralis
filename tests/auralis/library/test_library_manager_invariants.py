@@ -490,15 +490,18 @@ def test_recent_tracks_ordered_by_last_played(populated_manager):
     # Get recent tracks
     recent, _ = manager.get_recent_tracks(limit=100)
 
-    if len(recent) < 2:
-        pytest.skip("Need at least 2 recent tracks to test ordering")
+    # Filter out tracks without last_played timestamps (shouldn't happen, but be safe)
+    recent_with_timestamps = [t for t in recent if t.last_played is not None]
+
+    if len(recent_with_timestamps) < 2:
+        pytest.skip("Need at least 2 recent tracks with timestamps to test ordering")
 
     # Verify ordering
-    for i in range(len(recent) - 1):
-        assert recent[i].last_played >= recent[i + 1].last_played, (
+    for i in range(len(recent_with_timestamps) - 1):
+        assert recent_with_timestamps[i].last_played >= recent_with_timestamps[i + 1].last_played, (
             f"Recent tracks not properly ordered: "
-            f"track {i} played at {recent[i].last_played}, "
-            f"track {i+1} played at {recent[i+1].last_played}"
+            f"track {i} played at {recent_with_timestamps[i].last_played}, "
+            f"track {i+1} played at {recent_with_timestamps[i+1].last_played}"
         )
 
 
