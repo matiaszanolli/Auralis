@@ -206,9 +206,9 @@ async def startup_event():
             audio_player = EnhancedAudioPlayer(player_config)
             logger.info("✅ Enhanced Audio Player initialized")
 
-            # Initialize state manager (must be after manager is created)
+            # Initialize state manager (must be after library_manager is created)
             global player_state_manager
-            player_state_manager = PlayerStateManager(manager)
+            player_state_manager = PlayerStateManager(library_manager)
             logger.info("✅ Player State Manager initialized")
 
             # Initialize similarity system
