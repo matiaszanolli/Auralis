@@ -278,8 +278,8 @@ export class ChunkPreloadManager {
 
       this.debug(`[P${priority}] Chunk ${chunkIndex} ready (${audioBuffer.duration.toFixed(2)}s)`);
 
-      // Emit chunk loaded event
-      this.emit('chunk-loaded', { chunkIndex });
+      // Emit chunk loaded event with the audio buffer so facade can update its state
+      this.emit('chunk-loaded', { chunkIndex, audioBuffer });
 
       // Queue next chunks for background preload with lower priority
       if (priority <= ChunkLoadPriority.SEEK_TARGET) {
