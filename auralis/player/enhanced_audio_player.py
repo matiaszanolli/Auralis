@@ -33,6 +33,9 @@ from ..core.processor import process as core_process
 from ..library.manager import LibraryManager
 from ..utils.logging import debug, info, warning, error
 
+# Backward compatibility alias for old test code
+QueueManager = QueueController
+
 
 class EnhancedAudioPlayer:
     """
