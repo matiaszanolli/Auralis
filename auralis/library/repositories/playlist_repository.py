@@ -60,8 +60,10 @@ class PlaylistRepository:
 
             session.commit()
 
-            # Simply refresh the playlist object to ensure it's attached to session
+            # Refresh playlist and eager-load tracks to avoid DetachedInstanceError
             session.refresh(playlist)
+            # Access tracks to ensure they're loaded before session closes
+            _ = playlist.tracks
 
             info(f"Created playlist: {name}")
             return playlist
