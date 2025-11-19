@@ -112,6 +112,21 @@ export class UnifiedWebMAudioPlayer {
   private state: PlaybackState = 'idle';
   private volume: number = 1.0;
 
+  // Error tracking and user feedback
+  private errorState: {
+    lastError: Error | null;
+    errorType: 'network' | 'decode' | 'timeout' | 'audiocontext' | 'unknown';
+    failedChunks: Set<number>;
+    errorCount: number;
+    lastErrorTime: number;
+  } = {
+    lastError: null,
+    errorType: 'unknown',
+    failedChunks: new Set(),
+    errorCount: 0,
+    lastErrorTime: 0
+  };
+
   // Event system
   private listeners: Map<string, Set<EventCallback>> = new Map();
 
@@ -222,6 +237,9 @@ export class UnifiedWebMAudioPlayer {
 
     this.chunkPreloader.on('chunk-error', (e) => {
       this.debug(`ChunkPreloadManager: chunk ${e.chunkIndex} error: ${e.error.message}`);
+      // Track error with categorization for UI feedback and retry logic
+      this.handleChunkError(e.error, e.chunkIndex);
+      // Also forward original event for backward compatibility
       this.emit('chunk-error', e);
     });
   }
@@ -323,6 +341,12 @@ export class UnifiedWebMAudioPlayer {
     this.debug('Play requested');
 
     try {
+      // Clear error state when resuming playback (track recovery)
+      if (this.errorState.errorCount > 0) {
+        this.debug('Clearing error state - playback recovery attempt');
+        this.resetErrorState();
+      }
+
       // Ensure AudioContext is initialized (browser autoplay policy)
       // Must be called from user gesture context (button click)
       this.debug('Ensuring AudioContext...');
@@ -664,6 +688,84 @@ export class UnifiedWebMAudioPlayer {
   }
 
   /**
+   * Categorize error and track failed chunks for retry logic
+   * Emits categorized error event for UI feedback
+   */
+  private handleChunkError(error: any, chunkIndex: number): void {
+    // Categorize error type
+    const errorMessage = error?.message || String(error);
+    let errorType: 'network' | 'decode' | 'timeout' | 'audiocontext' | 'unknown' = 'unknown';
+
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Network')) {
+      errorType = 'network';
+    } else if (errorMessage.includes('decode')) {
+      errorType = 'decode';
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('failed to load')) {
+      errorType = 'timeout';
+    } else if (errorMessage.includes('AudioContext')) {
+      errorType = 'audiocontext';
+    }
+
+    // Update error state
+    const now = Date.now();
+    this.errorState.lastError = error;
+    this.errorState.errorType = errorType;
+    this.errorState.errorCount++;
+    this.errorState.lastErrorTime = now;
+    this.errorState.failedChunks.add(chunkIndex);
+
+    this.debug(
+      `[ERROR] Chunk ${chunkIndex} failed (${errorType}): ${errorMessage} ` +
+      `(total errors: ${this.errorState.errorCount})`
+    );
+
+    // Emit categorized error event for UI feedback
+    this.emit('chunk-error-detailed', {
+      chunkIndex,
+      errorType,
+      errorMessage,
+      failedChunkCount: this.errorState.failedChunks.size,
+      totalErrors: this.errorState.errorCount
+    });
+  }
+
+  /**
+   * Get current error state for UI feedback
+   */
+  getErrorState(): {
+    lastError: Error | null;
+    errorType: string;
+    failedChunkCount: number;
+    totalErrorCount: number;
+  } {
+    return {
+      lastError: this.errorState.lastError,
+      errorType: this.errorState.errorType,
+      failedChunkCount: this.errorState.failedChunks.size,
+      totalErrorCount: this.errorState.errorCount
+    };
+  }
+
+  /**
+   * Clear error state when resuming playback successfully
+   */
+  private resetErrorState(): void {
+    this.errorState.lastError = null;
+    this.errorState.errorType = 'unknown';
+    this.errorState.failedChunks.clear();
+    this.errorState.errorCount = 0;
+    this.errorState.lastErrorTime = 0;
+    this.debug('[ERROR] Error state cleared - playback recovery successful');
+  }
+
+  /**
+   * Check if chunk failed previously (for retry logic)
+   */
+  didChunkFail(chunkIndex: number): boolean {
+    return this.errorState.failedChunks.has(chunkIndex);
+  }
+
+  /**
    * Cleanup resources
    */
   cleanup(): void {
@@ -675,6 +777,7 @@ export class UnifiedWebMAudioPlayer {
     this.playbackController.destroy?.();
     this.buffer.clear();
     this.listeners.clear();
+    this.errorState.failedChunks.clear();
   }
 
   /**
