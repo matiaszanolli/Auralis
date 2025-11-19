@@ -32,6 +32,12 @@ class TestLibraryManagerAdvanced:
         """Create LibraryManager instance."""
         return LibraryManager(temp_db)
 
+    @pytest.fixture(autouse=True)
+    def mock_file_exists(self):
+        """Mock Path.exists() to allow fake file paths in tests."""
+        with patch('pathlib.Path.exists', return_value=True):
+            yield
+
     def test_session_management(self, manager):
         """Test database session management."""
         session = manager.get_session()
@@ -209,16 +215,19 @@ class TestLibraryManagerAdvanced:
         manager.record_track_play(track.id)
 
         # Test recent tracks
-        recent = manager.get_recent_tracks(limit=10)
+        recent, recent_count = manager.get_recent_tracks(limit=10)
         assert isinstance(recent, list)
+        assert isinstance(recent_count, int)
 
         # Test popular tracks
-        popular = manager.get_popular_tracks(limit=10)
+        popular, popular_count = manager.get_popular_tracks(limit=10)
         assert isinstance(popular, list)
+        assert isinstance(popular_count, int)
 
         # Test favorite tracks
-        favorites = manager.get_favorite_tracks(limit=10)
+        favorites, favorites_count = manager.get_favorite_tracks(limit=10)
         assert isinstance(favorites, list)
+        assert isinstance(favorites_count, int)
 
 
 class TestLibraryScannerAdvanced:
@@ -496,6 +505,12 @@ class TestModelRelationships:
         if os.path.exists(db_path):
             os.unlink(db_path)
 
+    @pytest.fixture(autouse=True)
+    def mock_file_exists(self):
+        """Mock Path.exists() to allow fake file paths in tests."""
+        with patch('pathlib.Path.exists', return_value=True):
+            yield
+
     def test_track_album_artist_relationships(self, temp_db):
         """Test relationships between Track, Album, and Artist models."""
         manager = LibraryManager(temp_db)
@@ -556,6 +571,12 @@ class TestErrorHandlingAndEdgeCases:
         if os.path.exists(db_path):
             os.unlink(db_path)
 
+    @pytest.fixture(autouse=True)
+    def mock_file_exists(self):
+        """Mock Path.exists() to allow fake file paths in tests."""
+        with patch('pathlib.Path.exists', return_value=True):
+            yield
+
     def test_invalid_operations(self, temp_db):
         """Test invalid operations are handled gracefully."""
         manager = LibraryManager(temp_db)
@@ -585,10 +606,12 @@ class TestErrorHandlingAndEdgeCases:
         manager = LibraryManager(temp_db)
 
         # Test empty search
-        results = manager.search_tracks('')
+        results, count = manager.search_tracks('')
         assert isinstance(results, list)
+        assert isinstance(count, int)
 
         # Test search with no matches
-        results = manager.search_tracks('nonexistent_query_12345')
+        results, count = manager.search_tracks('nonexistent_query_12345')
         assert isinstance(results, list)
         assert len(results) == 0
+        assert count == 0
