@@ -156,27 +156,43 @@ class LibraryScanner:
         """Scan a single directory"""
         return self.scan_directories([directory], **kwargs)
 
-    def scan_folder(self, folder_path: str, **kwargs) -> List[Dict]:
+    def scan_folder(self, folder_path: str, recursive: bool = True, **kwargs) -> List[Dict]:
         """
         Backward compatibility method for scanning a folder.
 
         Args:
             folder_path: Path to folder to scan
+            recursive: Whether to scan subdirectories
             **kwargs: Additional arguments for scan
 
         Returns:
             List of discovered files with metadata
         """
-        # Scan the directory
-        result = self.scan_single_directory(folder_path, **kwargs)
-
-        # Extract files from result for backward compatibility
-        # Return as list of dicts with filepath key
+        # Use FileDiscovery to find all audio files in the folder
+        # This is compatible with the old test expectations
         files = []
-        if hasattr(result, 'files_processed') and result.files_processed > 0:
-            # Return basic file info compatible with old tests
-            # In real implementation, would track processed files
-            pass
+
+        try:
+            for filepath in self.file_discovery.discover_audio_files(folder_path, recursive):
+                # Extract metadata for each file
+                file_info = self.audio_analyzer.extract_audio_info(filepath)
+
+                if file_info:
+                    # Convert AudioFileInfo to dict for backward compatibility
+                    file_dict = {
+                        'filepath': filepath,
+                        'duration': file_info.duration,
+                        'sample_rate': file_info.sample_rate,
+                        'channels': file_info.channels,
+                        'format': file_info.format,
+                    }
+                else:
+                    # Minimal info if analysis failed
+                    file_dict = {'filepath': filepath}
+
+                files.append(file_dict)
+        except Exception as e:
+            warning(f"Error discovering audio files in {folder_path}: {e}")
 
         return files
 
