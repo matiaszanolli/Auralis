@@ -284,13 +284,15 @@ export class ChunkPreloadManager {
         this.debug(`[P${priority}] Chunk ${chunkIndex} from buffer cache`);
       }
 
+      // Update all state atomically (before event emission)
+      // This ensures event listeners see consistent state
       chunk.audioBuffer = audioBuffer;
       chunk.isLoaded = true;
       chunk.isLoading = false;
 
       this.debug(`[P${priority}] Chunk ${chunkIndex} ready (${audioBuffer.duration.toFixed(2)}s)`);
 
-      // Emit chunk loaded event with the audio buffer so facade can update its state
+      // Now emit event - state is fully consistent
       this.emit('chunk-loaded', { chunkIndex, audioBuffer });
 
       // Queue next chunks for background preload with lower priority
@@ -304,10 +306,15 @@ export class ChunkPreloadManager {
         }
       }
     } catch (error: any) {
+      // Update error state atomically (before event emission)
+      // This ensures event listeners see consistent state
       chunk.isLoading = false;
+      chunk.isLoaded = false;
       chunk.audioBuffer = null; // Clear any partial state
+
       this.debug(`[P${priority}] Error loading chunk ${chunkIndex}: ${error.message}`);
-      // Emit error event
+
+      // Now emit error event - state is fully consistent
       this.emit('chunk-error', { chunkIndex, error });
       // Continue - chunk can be retried in future queue cycle if requested
     }
