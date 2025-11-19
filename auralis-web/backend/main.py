@@ -175,6 +175,19 @@ async def startup_event():
             library_manager = LibraryManager()
             logger.info("✅ Auralis LibraryManager initialized")
 
+            # Auto-scan default music directory on startup
+            try:
+                music_dir = Path.home() / "Music"
+                if music_dir.exists():
+                    scanner = LibraryScanner(library_manager)
+                    scan_result = scanner.scan([str(music_dir)], recursive=True, skip_existing=True)
+                    if scan_result and scan_result.get('files_added', 0) > 0:
+                        logger.info(f"🎵 Auto-scanned ~/Music: {scan_result.get('files_added', 0)} files added")
+                    elif scan_result:
+                        logger.info(f"🎵 ~/Music already scanned: {scan_result.get('files_found', 0)} total files")
+            except Exception as scan_e:
+                logger.warning(f"⚠️  Failed to auto-scan ~/Music: {scan_e}")
+
             # Initialize settings repository
             settings_repository = SettingsRepository(library_manager.SessionLocal)
             logger.info("✅ Settings Repository initialized")
