@@ -237,7 +237,18 @@ export class ChunkPreloadManager {
           `?enhanced=${this.config.enhanced}&preset=${this.config.preset}` +
           `&intensity=${this.config.intensity}`;
 
-        const response = await fetch(chunkUrl);
+        this.debug(`[P${priority}] Fetching chunk from: ${chunkUrl}`);
+
+        let response: Response;
+        try {
+          response = await fetch(chunkUrl);
+        } catch (fetchError: any) {
+          this.debug(`[P${priority}] Fetch failed: ${fetchError.message}`);
+          throw new Error(`Failed to fetch chunk ${chunkIndex}: ${fetchError.message}`);
+        }
+
+        this.debug(`[P${priority}] Fetch response status: ${response.status} ${response.statusText}`);
+
         if (!response.ok) {
           throw new Error(`Failed to fetch chunk ${chunkIndex}: ${response.statusText}`);
         }
@@ -246,6 +257,7 @@ export class ChunkPreloadManager {
         this.debug(`[P${priority}] Chunk ${chunkIndex} cache: ${cacheHeader}`);
 
         const arrayBuffer = await response.arrayBuffer();
+        this.debug(`[P${priority}] Chunk ${chunkIndex}: received ${arrayBuffer.byteLength} bytes`);
 
         if (arrayBuffer.byteLength === 0) {
           throw new Error(`Chunk ${chunkIndex} returned empty data (0 bytes)`);

@@ -51,8 +51,14 @@ const PlayerBarV2Connected: React.FC = () => {
   const { info, error: showError } = useToast();
 
   // Initialize unified player with enhancement config
+  // Use location.origin to get the current protocol + host:port
+  // This works for both web and Electron (localhost:8765) access
+  const apiBaseUrl = typeof window !== 'undefined'
+    ? window.location.origin
+    : 'http://localhost:8765';
+
   const player = useUnifiedWebMAudioPlayer({
-    apiBaseUrl: 'http://localhost:8765',
+    apiBaseUrl,
     enhanced: enhancementSettings.enabled,
     preset: enhancementSettings.preset,
     intensity: enhancementSettings.intensity,

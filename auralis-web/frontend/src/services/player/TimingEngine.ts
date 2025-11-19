@@ -135,9 +135,9 @@ export class TimingEngine implements ITimingEngine {
 
       // Log the timing update for debugging
       this.debug(
-        `[TIMING] Emitting timeupdate: time=${currentTime.toFixed(2)}s, ` +
-        `audioCtxTime=${debugInfo.audioCtxTime.toFixed(2)}s, ` +
-        `diff=${debugInfo.difference.toFixed(3)}s`
+        `[TIMING] Emitting timeupdate: time=${(currentTime || 0).toFixed(2)}s, ` +
+        `audioCtxTime=${(debugInfo?.audioCtxTime || 0).toFixed(2)}s, ` +
+        `diff=${(debugInfo?.difference || 0).toFixed(3)}s`
       );
 
       // Notify all listeners

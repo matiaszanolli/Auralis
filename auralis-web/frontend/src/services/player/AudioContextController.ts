@@ -63,22 +63,48 @@ export class AudioContextController {
    * Ensure AudioContext exists and is properly initialized
    * Required by browser autoplay policy - must be called on user gesture
    */
-  ensureAudioContext(): void {
+  ensureAudioContext(): AudioContext {
     if (!this.audioContext) {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      this.gainNode = this.audioContext.createGain();
-      this.gainNode.connect(this.audioContext.destination);
-      this.debug('AudioContext created on first user gesture');
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) {
+          throw new Error('Web Audio API not supported in this browser');
+        }
+        this.audioContext = new AudioContextClass();
+        this.gainNode = this.audioContext.createGain();
+        this.gainNode.connect(this.audioContext.destination);
+        this.debug(`AudioContext created on first user gesture, state: ${this.audioContext.state}`);
+      } catch (error: any) {
+        this.debug(`ERROR: Failed to create AudioContext: ${error.message}`);
+        throw error;
+      }
     }
+    return this.audioContext;
   }
 
   /**
    * Resume AudioContext if suspended (browser autoplay policy)
    */
   async resumeAudioContext(): Promise<void> {
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-      this.debug('AudioContext resumed');
+    if (!this.audioContext) {
+      this.debug('No AudioContext to resume');
+      return;
+    }
+
+    try {
+      const state = this.audioContext.state;
+      this.debug(`AudioContext state before resume: ${state}`);
+
+      if (state === 'suspended') {
+        this.debug('AudioContext suspended, resuming...');
+        await this.audioContext.resume();
+        this.debug(`AudioContext resumed successfully, state: ${this.audioContext.state}`);
+      } else {
+        this.debug(`AudioContext already ${state}, no resume needed`);
+      }
+    } catch (error: any) {
+      this.debug(`ERROR: Failed to resume AudioContext: ${error.message}`);
+      throw error;
     }
   }
 
@@ -145,8 +171,8 @@ export class AudioContextController {
       throw new Error('AudioContext not initialized');
     }
 
-    if (!audioBuffer) {
-      throw new Error(`Chunk ${chunkIndex} has no audio buffer`);
+    if (!audioBuffer || !audioBuffer.duration) {
+      throw new Error(`Chunk ${chunkIndex} has invalid audio buffer: ${!audioBuffer ? 'null' : 'undefined duration'}`);
     }
 
     // Stop previous source
@@ -223,6 +249,11 @@ export class AudioContextController {
         `offset=${bufferOffset.toFixed(2)}s, duration=${playDuration.toFixed(2)}s, ` +
         `overlap=${overlapDuration.toFixed(2)}s`
       );
+    }
+
+    // Validate audioBuffer is still available before playback
+    if (!audioBuffer || !audioBuffer.duration) {
+      throw new Error(`Invalid audio buffer for chunk ${chunkIndex}: duration is undefined`);
     }
 
     // Start playback

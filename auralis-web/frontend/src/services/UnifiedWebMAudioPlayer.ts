@@ -322,29 +322,56 @@ export class UnifiedWebMAudioPlayer {
 
     this.debug('Play requested');
 
-    // Ensure AudioContext is initialized (browser autoplay policy)
-    this.audioController.ensureAudioContext();
-    await this.audioController.resumeAudioContext();
+    try {
+      // Ensure AudioContext is initialized (browser autoplay policy)
+      // Must be called from user gesture context (button click)
+      this.debug('Ensuring AudioContext...');
+      const audioContext = this.audioController.ensureAudioContext();
+      this.debug(`AudioContext created/ensured, state: ${audioContext.state}`);
 
-    // Update TimingEngine with audioContext reference
-    const audioContext = this.audioController.getAudioContext();
-    if (audioContext) {
-      this.timingEngine.setAudioContext(audioContext);
-      this.chunkPreloader.setAudioContext(audioContext);
+      // Resume if suspended
+      this.debug('Attempting to resume AudioContext...');
+      await this.audioController.resumeAudioContext();
 
-      // Now that AudioContext is ready, queue the first chunk for loading
-      // This must happen after AudioContext is created (browser autoplay policy)
-      this.chunkPreloader.queueChunk(0, 0);
+      // Update TimingEngine with audioContext reference
+      const currentContext = this.audioController.getAudioContext();
+      if (currentContext) {
+        this.timingEngine.setAudioContext(currentContext);
+        this.chunkPreloader.setAudioContext(currentContext);
+
+        // Now that AudioContext is ready, queue the first chunk for loading
+        // This must happen after AudioContext is created (browser autoplay policy)
+        this.debug('AudioContext ready, queuing first chunk with CRITICAL priority');
+        this.chunkPreloader.queueChunk(0, 0); // Priority 0 = CRITICAL
+
+        // CRITICAL: Wait for chunk 0 to be fully loaded and decoded before playback
+        // This prevents race conditions where playback starts with invalid/undefined audioBuffer
+        this.debug('Waiting for chunk 0 to load and decode...');
+        const chunk0Ready = await this.waitForChunk0();
+        if (!chunk0Ready) {
+          throw new Error('Chunk 0 failed to load before playback timeout');
+        }
+        this.debug('Chunk 0 is ready, proceeding with playback');
+      } else {
+        throw new Error('AudioContext initialization failed');
+      }
+
+      // Delegate to PlaybackController
+      this.debug('Starting playback via PlaybackController');
+      await this.playbackController.play();
+      this.state = 'playing';
+
+      // Start timing updates
+      this.timingEngine.startTimeUpdates();
+
+      this.debug('Playback started successfully');
+      this.emit('playing');
+    } catch (error: any) {
+      this.debug(`ERROR in play(): ${error.message}`);
+      this.state = 'error';
+      this.emit('error', error);
+      throw error;
     }
-
-    // Delegate to PlaybackController
-    await this.playbackController.play();
-    this.state = 'playing';
-
-    // Start timing updates
-    this.timingEngine.startTimeUpdates();
-
-    this.emit('playing');
   }
 
   /**
@@ -465,7 +492,7 @@ export class UnifiedWebMAudioPlayer {
       this.chunkPreloader.queueChunk(chunkIndex, 0);
 
       // Wait up to 15 seconds for load (accounts for chunk processing + network latency)
-      const maxWait = 15000;
+      const maxWait = 30000; // 30s timeout for chunk loading
       const startTime = Date.now();
       while (!this.chunks[chunkIndex].audioBuffer && Date.now() - startTime < maxWait) {
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -690,6 +717,46 @@ export class UnifiedWebMAudioPlayer {
         }
       });
     }
+  }
+
+  /**
+   * Wait for chunk 0 to be fully loaded and decoded
+   * Critical for preventing race conditions during playback initialization
+   * @returns true if chunk 0 is ready, false if timeout or error
+   */
+  private async waitForChunk0(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const maxWaitTime = 30000; // 30 second timeout
+      let timeoutId: NodeJS.Timeout | null = null;
+
+      // Check if chunk 0 is already loaded
+      const chunk0 = this.chunkPreloader.getChunk(0);
+      if (chunk0 && chunk0.isLoaded && chunk0.audioBuffer) {
+        this.debug(`[BUFFERING] Chunk 0 already loaded`);
+        resolve(true);
+        return;
+      }
+
+      // Set up timeout
+      timeoutId = setTimeout(() => {
+        this.debug(`[BUFFERING] Chunk 0 failed to load within ${maxWaitTime}ms timeout`);
+        this.chunkPreloader.off('chunk-loaded', onChunkLoaded);
+        resolve(false);
+      }, maxWaitTime);
+
+      // Listen for chunk 0 loaded event
+      const onChunkLoaded = (data: any) => {
+        if (data.chunkIndex === 0) {
+          this.debug(`[BUFFERING] Chunk 0 loaded event received`);
+          if (timeoutId) clearTimeout(timeoutId);
+          this.chunkPreloader.off('chunk-loaded', onChunkLoaded);
+          resolve(true);
+        }
+      };
+
+      this.chunkPreloader.on('chunk-loaded', onChunkLoaded);
+      this.debug(`[BUFFERING] Waiting for chunk 0 loaded event...`);
+    });
   }
 
   /**

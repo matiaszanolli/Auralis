@@ -161,7 +161,7 @@ export class PlaybackController {
     });
 
     // Wait for chunk to be ready
-    const maxWaitTime = 15000; // 15 second timeout
+    const maxWaitTime = 30000; // 30s timeout for chunk loading // 15 second timeout
     const startTime = Date.now();
     while (!this.chunks[chunkIndex]?.isLoaded && Date.now() - startTime < maxWaitTime) {
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -232,7 +232,7 @@ export class PlaybackController {
     });
 
     // Wait for target chunk to be loaded
-    const maxWaitTime = 15000; // 15 second timeout
+    const maxWaitTime = 30000; // 30s timeout for chunk loading // 15 second timeout
     const startTime = Date.now();
     while (!this.chunks[targetChunk]?.isLoaded && Date.now() - startTime < maxWaitTime) {
       await new Promise(resolve => setTimeout(resolve, 50));
