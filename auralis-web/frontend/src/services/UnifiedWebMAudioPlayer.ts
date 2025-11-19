@@ -298,8 +298,8 @@ export class UnifiedWebMAudioPlayer {
       this.playbackController.setState('ready');
       this.state = 'ready';
 
-      // Preload first chunk with highest priority
-      this.chunkPreloader.queueChunk(0, 0);
+      // NOTE: Chunk queueing deferred to play() method - AudioContext must be created first
+      // (browser autoplay policy prevents creating AudioContext before user gesture)
 
       this.emit('metadata-loaded', { metadata: this.metadata });
 
@@ -331,6 +331,10 @@ export class UnifiedWebMAudioPlayer {
     if (audioContext) {
       this.timingEngine.setAudioContext(audioContext);
       this.chunkPreloader.setAudioContext(audioContext);
+
+      // Now that AudioContext is ready, queue the first chunk for loading
+      // This must happen after AudioContext is created (browser autoplay policy)
+      this.chunkPreloader.queueChunk(0, 0);
     }
 
     // Delegate to PlaybackController
