@@ -423,6 +423,28 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to seek: {e}")
 
+    @router.get("/api/player/volume")
+    async def get_volume():
+        """
+        Get current playback volume (0.0 to 1.0).
+
+        Returns:
+            dict: Current volume level
+
+        Raises:
+            HTTPException: If audio player not available
+        """
+        audio_player = get_audio_player()
+        if not audio_player:
+            raise HTTPException(status_code=503, detail="Audio player not available")
+
+        try:
+            # Get current volume from audio player
+            volume = getattr(audio_player, 'volume', 0.5)
+            return {"volume": volume}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to get volume: {e}")
+
     @router.post("/api/player/volume")
     async def set_volume(volume: float):
         """
