@@ -36,7 +36,15 @@
     "test:memory": "NODE_ENV=test node --max-old-space-size=2048 --expose-gc node_modules/.bin/vitest run",
     "test:coverage": "NODE_ENV=test vitest run --coverage",
     "test:coverage:memory": "NODE_ENV=test node --max-old-space-size=2048 --expose-gc node_modules/.bin/vitest run --coverage",
-    "test:watch": "NODE_ENV=test vitest watch"
+    "test:watch": "NODE_ENV=test vitest watch",
+    "test:player": "NODE_ENV=test vitest run src/tests/integration/player-controls/",
+    "test:library": "NODE_ENV=test vitest run src/tests/integration/library-management/",
+    "test:streaming": "NODE_ENV=test vitest run src/tests/integration/streaming-audio/",
+    "test:websocket": "NODE_ENV=test vitest run src/tests/integration/websocket-realtime/",
+    "test:enhancement": "NODE_ENV=test vitest run src/tests/integration/enhancement-processing/",
+    "test:errors": "NODE_ENV=test vitest run src/tests/integration/error-handling/",
+    "test:performance": "NODE_ENV=test vitest run src/tests/integration/performance/",
+    "test:integration": "NODE_ENV=test vitest run src/tests/integration/"
   },
   "eslintConfig": {
     "extends": [
