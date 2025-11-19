@@ -702,6 +702,10 @@ npm run dev    # Starts backend + frontend dev server + Electron window
 4. **Library Transactions**: Tests may need isolation; check if test needs new LibraryManager instance
 5. **Boundary Tests**: When writing boundaries, test both minimum (0, empty, None) and maximum values
 6. **Invariant Tests**: If modifying core processors, update invariant tests in `tests/invariants/`
+7. **FastAPI TestClient**: ⚠️ CRITICAL - TestClient must use context manager syntax or startup events won't run:
+   - ❌ WRONG: `@pytest.fixture\ndef client(): return TestClient(app)`
+   - ✅ CORRECT: `@pytest.fixture\ndef client():\n    with TestClient(app) as client:\n        yield client`
+   - Without context manager, all `@app.on_event("startup")` handlers are skipped!
 
 ---
 
@@ -1456,6 +1460,37 @@ def delete_track(self, track_id: int) -> bool:
 - File validation tests pass naturally with `FileNotFoundError` exception
 - Concurrent deletion tests validate thread-safety with multiple threads attempting simultaneous deletes
 - Add tests using `test_audio_file` fixture or create temporary files for file path validation
+
+### FastAPI TestClient Startup Events (December 2024)
+
+**Problem**: Integration tests were failing with 503 Service Unavailable errors because API components (LibraryManager, AudioPlayer, etc.) were not initialized.
+
+**Root Cause**: TestClient does NOT call FastAPI startup events unless used as a context manager. Direct instantiation `TestClient(app)` skips startup/shutdown completely.
+
+**Solution**: Update FastAPI test fixtures to use context manager syntax:
+
+```python
+# ❌ WRONG - startup events never run
+@pytest.fixture
+def client():
+    return TestClient(app)
+
+# ✅ CORRECT - startup events run on entry, shutdown on exit
+@pytest.fixture
+def client():
+    with TestClient(app) as client:
+        yield client
+```
+
+**Critical Impact**:
+- Fixes all FastAPI integration tests that depend on `@app.on_event("startup")`
+- Enabled initialization of LibraryManager, AudioPlayer, ProcessingEngine, etc.
+- This single fix unlocked 11+ previously failing API tests
+
+**When to Apply**:
+- All FastAPI TestClient fixtures must use context manager syntax
+- If tests fail with "not available" or 503 errors during integration testing, check if TestClient fixture uses context manager
+- Documented in `tests/integration/test_api_integration.py` as example pattern
 
 ---
 
