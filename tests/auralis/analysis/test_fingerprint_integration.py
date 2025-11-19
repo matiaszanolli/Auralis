@@ -15,6 +15,7 @@ Usage:
 
 import numpy as np
 import sys
+import pytest
 from pathlib import Path
 
 # Add project root to path
@@ -255,8 +256,14 @@ def test_end_to_end_processing():
     return True
 
 
-def test_real_audio(audio_path: str):
+def test_real_audio(test_audio_files):
     """Test with real audio file."""
+    # Get the first available audio file from the fixture
+    if not test_audio_files:
+        pytest.skip("No test audio files available")
+
+    audio_path = next(iter(test_audio_files.values()))
+
     print("\n" + "=" * 80)
     print(f"TEST 4: Real Audio File - {audio_path}")
     print("=" * 80)
@@ -331,7 +338,6 @@ def test_real_audio(audio_path: str):
     print(f"  Fingerprint-driven:    {targets.get('fingerprint_driven', False)}")
 
     print(f"\n✅ TEST 4 PASSED: Real audio analysis complete")
-    return True
 
 
 def main():
