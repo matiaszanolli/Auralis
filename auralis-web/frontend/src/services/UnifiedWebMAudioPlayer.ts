@@ -594,14 +594,10 @@ export class UnifiedWebMAudioPlayer {
         this.chunkPreloader.queueChunk(currentChunkIndex + 1, 1); // IMMEDIATE
       }
 
-      // Wait for chunks to load (up to 3 seconds)
-      const maxWait = 3000;
-      const startTime = Date.now();
-      while (
-        !this.chunks[currentChunkIndex].audioBuffer &&
-        Date.now() - startTime < maxWait
-      ) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+      // Wait for current chunk to load using event-driven approach (not polling)
+      const chunkLoaded = await this.waitForChunk(currentChunkIndex, 3000);
+      if (!chunkLoaded) {
+        this.debug(`[ENHANCE] Timeout waiting for chunk ${currentChunkIndex}, resuming anyway`);
       }
 
       // Resume from current time
@@ -724,30 +720,33 @@ export class UnifiedWebMAudioPlayer {
    * Critical for preventing race conditions during playback initialization
    * @returns true if chunk 0 is ready, false if timeout or error
    */
-  private async waitForChunk0(): Promise<boolean> {
+  /**
+   * Event-driven wait for a specific chunk to load
+   * Replaces polling with proper event listening for better reliability
+   */
+  private async waitForChunk(chunkIndex: number, maxWaitTime: number = 3000): Promise<boolean> {
     return new Promise((resolve) => {
-      const maxWaitTime = 30000; // 30 second timeout
       let timeoutId: NodeJS.Timeout | null = null;
 
-      // Check if chunk 0 is already loaded
-      const chunk0 = this.chunkPreloader.getChunk(0);
-      if (chunk0 && chunk0.isLoaded && chunk0.audioBuffer) {
-        this.debug(`[BUFFERING] Chunk 0 already loaded`);
+      // Check if chunk is already loaded
+      const chunk = this.chunkPreloader.getChunk(chunkIndex);
+      if (chunk && chunk.isLoaded && chunk.audioBuffer) {
+        this.debug(`[WAIT] Chunk ${chunkIndex} already loaded`);
         resolve(true);
         return;
       }
 
       // Set up timeout
       timeoutId = setTimeout(() => {
-        this.debug(`[BUFFERING] Chunk 0 failed to load within ${maxWaitTime}ms timeout`);
+        this.debug(`[WAIT] Chunk ${chunkIndex} failed to load within ${maxWaitTime}ms timeout`);
         this.chunkPreloader.off('chunk-loaded', onChunkLoaded);
         resolve(false);
       }, maxWaitTime);
 
-      // Listen for chunk 0 loaded event
+      // Listen for chunk loaded event
       const onChunkLoaded = (data: any) => {
-        if (data.chunkIndex === 0) {
-          this.debug(`[BUFFERING] Chunk 0 loaded event received`);
+        if (data.chunkIndex === chunkIndex) {
+          this.debug(`[WAIT] Chunk ${chunkIndex} loaded event received`);
           if (timeoutId) clearTimeout(timeoutId);
           this.chunkPreloader.off('chunk-loaded', onChunkLoaded);
           resolve(true);
@@ -755,8 +754,12 @@ export class UnifiedWebMAudioPlayer {
       };
 
       this.chunkPreloader.on('chunk-loaded', onChunkLoaded);
-      this.debug(`[BUFFERING] Waiting for chunk 0 loaded event...`);
+      this.debug(`[WAIT] Waiting for chunk ${chunkIndex} loaded event (timeout: ${maxWaitTime}ms)...`);
     });
+  }
+
+  private async waitForChunk0(): Promise<boolean> {
+    return this.waitForChunk(0, 30000);
   }
 
   /**
