@@ -51,6 +51,10 @@ class MetadataEditor:
     - Validation and error handling
     """
 
+    # Class attributes for tag mappings
+    STANDARD_FIELDS = STANDARD_FIELDS
+    TAG_MAPPINGS = TAG_MAPPINGS
+
     def __init__(self):
         """Initialize metadata editor"""
         if not MUTAGEN_AVAILABLE:
@@ -208,3 +212,27 @@ class MetadataEditor:
 
         info(f"Batch update complete: {results['success']} succeeded, {results['failed']} failed")
         return results
+
+    def _create_backup(self, filepath: str) -> bool:
+        """
+        Create a backup of an audio file before modification
+
+        Args:
+            filepath: Path to audio file
+
+        Returns:
+            True if backup successful, False otherwise
+        """
+        return BackupManager.create_backup(filepath)
+
+    def _restore_backup(self, filepath: str) -> bool:
+        """
+        Restore an audio file from backup
+
+        Args:
+            filepath: Path to audio file to restore
+
+        Returns:
+            True if restore successful, False otherwise
+        """
+        return BackupManager.restore_backup(filepath)

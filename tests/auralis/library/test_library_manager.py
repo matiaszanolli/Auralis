@@ -16,6 +16,9 @@ import shutil
 import sqlite3
 from pathlib import Path
 from datetime import datetime
+from unittest.mock import patch
+
+import pytest
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath('../..'))
@@ -27,6 +30,12 @@ import soundfile as sf
 
 class TestLibraryManagerComprehensive:
     """Comprehensive test coverage for LibraryManager"""
+
+    @pytest.fixture(autouse=True)
+    def mock_file_exists(self):
+        """Mock Path.exists() to allow fake file paths in tests."""
+        with patch('pathlib.Path.exists', return_value=True):
+            yield
 
     def setUp(self):
         """Set up test fixtures"""
@@ -133,12 +142,14 @@ class TestLibraryManagerComprehensive:
             self.manager.add_track(track_info)
 
         # Test basic search
-        results = self.manager.search_tracks("Rock")
+        results, count = self.manager.search_tracks("Rock")
         assert len(results) >= 1  # Should find tracks with "Rock"
+        assert isinstance(count, int)
 
         # Test non-existent search
-        no_results = self.manager.search_tracks("NonExistent")
+        no_results, no_count = self.manager.search_tracks("NonExistent")
         assert len(no_results) == 0
+        assert no_count == 0
 
         self.tearDown()
 
@@ -170,14 +181,16 @@ class TestLibraryManagerComprehensive:
             pass  # Method might not have data
 
         # Test getting popular tracks (this method exists)
-        popular = self.manager.get_popular_tracks(limit=5)
+        popular, popular_count = self.manager.get_popular_tracks(limit=5)
         assert isinstance(popular, list)
         assert len(popular) <= 5
+        assert isinstance(popular_count, int)
 
         # Test getting recent tracks (this method exists)
-        recent = self.manager.get_recent_tracks(limit=5)
+        recent, recent_count = self.manager.get_recent_tracks(limit=5)
         assert isinstance(recent, list)
         assert len(recent) <= 5
+        assert isinstance(recent_count, int)
 
         self.tearDown()
 
