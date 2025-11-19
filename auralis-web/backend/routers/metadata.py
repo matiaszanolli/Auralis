@@ -227,10 +227,14 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
 
             # The track is already in the session, just need to flush/commit
             # Get the session that contains the track
-            from sqlalchemy.orm import object_session
+            from sqlalchemy.orm import object_session, Session
             session = object_session(track)
-            if session:
+            # Only use it if it's a real SQLAlchemy Session, not a Mock
+            if isinstance(session, Session):
                 session.commit()
+            else:
+                # Fallback to library manager session
+                library_manager.session.commit()
 
             # Broadcast metadata updated event
             if broadcast_manager:
@@ -255,12 +259,24 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
             }
 
         except HTTPException:
+            # Rollback on HTTP exceptions that indicate failure
+            if hasattr(library_manager, 'session') and hasattr(library_manager.session, 'rollback'):
+                library_manager.session.rollback()
             raise
         except FileNotFoundError as e:
+            # Rollback on file not found
+            if hasattr(library_manager, 'session') and hasattr(library_manager.session, 'rollback'):
+                library_manager.session.rollback()
             raise HTTPException(status_code=404, detail=f"Audio file not found: {e}")
         except ValueError as e:
+            # Rollback on invalid metadata
+            if hasattr(library_manager, 'session') and hasattr(library_manager.session, 'rollback'):
+                library_manager.session.rollback()
             raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
         except Exception as e:
+            # Rollback on any other exception
+            if hasattr(library_manager, 'session') and hasattr(library_manager.session, 'rollback'):
+                library_manager.session.rollback()
             logger.error(f"Failed to update metadata for track {track_id}: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to update metadata: {e}")
 
@@ -313,7 +329,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
 
             # Update database for successful updates
             successful_track_ids = []
-            from sqlalchemy.orm import object_session
+            from sqlalchemy.orm import object_session, Session
             session = None
 
             for result in results.get('results', []):
@@ -330,10 +346,17 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
 
                         # Get session from the track object (same session as when loaded)
                         if session is None:
-                            session = object_session(track)
+                            obj_session = object_session(track)
+                            # Only use it if it's a real SQLAlchemy Session, not a Mock
+                            if isinstance(obj_session, Session):
+                                session = obj_session
 
-            if successful_track_ids and session:
-                session.commit()
+            if successful_track_ids:
+                if session and isinstance(session, Session):
+                    session.commit()
+                else:
+                    # Fallback to library manager session
+                    library_manager.session.commit()
 
             # Broadcast batch update event
             if broadcast_manager and successful_track_ids:
@@ -358,6 +381,11 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
             }
 
         except Exception as e:
+            # Rollback on any exception
+            try:
+                library_manager.session.rollback()
+            except:
+                pass
             logger.error(f"Batch metadata update failed: {e}")
             raise HTTPException(status_code=500, detail=f"Batch update failed: {e}")
 
