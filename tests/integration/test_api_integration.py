@@ -38,8 +38,9 @@ from auralis.io.saver import save as save_audio
 
 @pytest.fixture
 def client():
-    """Create a FastAPI test client."""
-    return TestClient(app)
+    """Create a FastAPI test client with startup/shutdown events."""
+    with TestClient(app) as client:
+        yield client
 
 
 @pytest.fixture

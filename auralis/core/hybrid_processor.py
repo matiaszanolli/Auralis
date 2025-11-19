@@ -189,6 +189,10 @@ class HybridProcessor:
         else:
             target_audio = target
 
+        # Handle empty audio
+        if len(target_audio) == 0:
+            return target_audio
+
         # Process based on mode
         if self.config.is_reference_mode() and reference is not None:
             return self._process_reference_mode(target_audio, reference, results)
