@@ -52,6 +52,7 @@ import { useToast } from './shared/Toast';
 import { usePlayerWithAudio } from '../hooks/usePlayerWithAudio';
 import { useEnhancement } from '../contexts/EnhancementContext';
 import AlbumArtComponent from './album/AlbumArt';
+import { triggerAudioPlayGesture } from './player/HiddenAudioElement';
 
 const PlayerContainer = styled(Box)({
   position: 'fixed',
@@ -181,6 +182,8 @@ export const BottomPlayerBarUnified: React.FC = () => {
   // Handle play/pause
   const handlePlayPause = useCallback(async () => {
     try {
+      // Trigger audio play gesture to satisfy browser autoplay policies
+      triggerAudioPlayGesture();
       await togglePlayPause();
     } catch (err: any) {
       console.error('[Player] Playback error:', err);
@@ -193,6 +196,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
     if (!queue.length || queueIndex >= queue.length - 1) return;
 
     try {
+      triggerAudioPlayGesture();
       await nextTrack();
       info('Next track');
     } catch (err: any) {
@@ -205,6 +209,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
     if (!queue.length || queueIndex === 0) return;
 
     try {
+      triggerAudioPlayGesture();
       await previousTrack();
       info('Previous track');
     } catch (err: any) {
