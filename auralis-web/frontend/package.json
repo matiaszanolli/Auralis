@@ -44,6 +44,10 @@
     "test:enhancement": "NODE_ENV=test vitest run src/tests/integration/enhancement-processing/",
     "test:errors": "NODE_ENV=test vitest run src/tests/integration/error-handling/",
     "test:performance": "NODE_ENV=test vitest run src/tests/integration/performance/",
+    "test:search": "NODE_ENV=test vitest run src/tests/integration/library-management/search.test.tsx",
+    "test:filter": "NODE_ENV=test vitest run src/tests/integration/library-management/filter.test.tsx",
+    "test:sort": "NODE_ENV=test vitest run src/tests/integration/library-management/sort.test.tsx",
+    "test:accessibility": "NODE_ENV=test vitest run src/tests/integration/library-management/accessibility.test.tsx",
     "test:integration": "NODE_ENV=test vitest run src/tests/integration/"
   },
   "eslintConfig": {

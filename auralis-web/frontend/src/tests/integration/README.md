@@ -97,23 +97,19 @@ New npm scripts for running feature-specific tests:
 
 ## Large Test Files (Priority for Future Refactoring)
 
-These files should be split further to reduce memory usage:
+### Phase 2 Progress (Current)
+✅ **Completed**:
+- `search.test.tsx` - Advanced Search (5 tests, ~280 LOC) - EXTRACTED
 
-### 1. `search-filter-accessibility.test.tsx` (1148 LOC)
-**Current structure** (5 describe blocks):
-- Advanced Search (5 tests, ~225 LOC)
-- Filter Combinations (5 tests, ~245 LOC)
-- Sort Operations (5 tests, ~255 LOC)
-- Keyboard Accessibility (3 tests, ~90 LOC)
-- Screen Reader Support (2 tests, ~30 LOC)
+⏳ **Pending** (remaining parts of former search-filter-accessibility.test.tsx):
+- Filter Combinations (5 tests, ~245 LOC) → Create `filter.test.tsx`
+- Sort Operations (5 tests, ~255 LOC) → Create `sort.test.tsx`
+- Keyboard Accessibility (3 tests, ~90 LOC) → Create `accessibility.test.tsx`
+- Screen Reader Support (2 tests, ~30 LOC) → Merge into `accessibility.test.tsx`
 
-**Recommended split**:
-- `search.test.tsx` - Search functionality only
-- `filter.test.tsx` - Filter combinations
-- `sort.test.tsx` - Sort operations
-- `accessibility.test.tsx` - Keyboard & screen reader
+### Phase 3 (Remaining Large Files)
 
-### 2. `performance-large-libraries.test.tsx` (1114 LOC)
+### 1. `performance-large-libraries.test.tsx` (1114 LOC)
 **Current structure** (5 describe blocks):
 - Pagination Performance (5 tests, ~325 LOC)
 - Virtual Scrolling (5 tests, ~145 LOC)
@@ -128,10 +124,10 @@ These files should be split further to reduce memory usage:
 - `bundle-size.test.tsx` - Bundle optimization
 - `memory-management.test.tsx` - Memory tests
 
-### 3. `streaming-mse.test.tsx` (882 LOC)
+### 2. `streaming-mse.test.tsx` (882 LOC)
 - Consider splitting MSE initialization from playback scenarios
 
-### 4. `websocket-realtime.test.tsx` (811 LOC)
+### 3. `websocket-realtime.test.tsx` (811 LOC)
 - Consider splitting connection lifecycle from message handling
 
 ## Test Counts by Feature
