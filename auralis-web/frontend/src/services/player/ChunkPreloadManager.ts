@@ -172,9 +172,22 @@ export class ChunkPreloadManager {
     this.queueProcessorRunning = true;
     this.debug(`[QUEUE] Queue processor started with ${this.queue.getSize()} items`);
 
-    // Ensure AudioContext exists before decoding
+    // Wait for AudioContext to be available if not yet initialized
+    // This handles race conditions where queue is added before AudioContext exists
     if (!this.audioContext) {
-      throw new Error('AudioContext not initialized');
+      this.debug(`[QUEUE] AudioContext not yet initialized, waiting...`);
+      let waitCount = 0;
+      const maxWait = 50; // Wait up to 5 seconds (50 * 100ms)
+      while (!this.audioContext && waitCount < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        waitCount++;
+      }
+
+      if (!this.audioContext) {
+        this.queueProcessorRunning = false;
+        throw new Error('AudioContext failed to initialize within timeout');
+      }
+      this.debug(`[QUEUE] AudioContext available after ${waitCount * 100}ms wait`);
     }
 
     try {
@@ -246,7 +259,7 @@ export class ChunkPreloadManager {
       let audioBuffer = this.buffer.get(cacheKey);
 
       if (!audioBuffer) {
-        // Fetch WebM chunk from endpoint
+        // Fetch WAV chunk from endpoint (Web Audio API compatible format)
         const chunkUrl =
           `${this.config.apiBaseUrl}/api/stream/${this.config.trackId}/chunk/${chunkIndex}` +
           `?enhanced=${this.config.enhanced}&preset=${this.config.preset}` +
