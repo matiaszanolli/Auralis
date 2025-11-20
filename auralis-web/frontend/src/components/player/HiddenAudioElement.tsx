@@ -88,6 +88,21 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
   }, [onAudioContextEnabled, debug]);
 
   /**
+   * Expose trigger method globally after component mounts
+   */
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__auralisAudioElementTriggerPlay = triggerPlay;
+      log('Audio play gesture trigger registered globally');
+
+      return () => {
+        // Cleanup if component unmounts
+        delete (window as any).__auralisAudioElementTriggerPlay;
+      };
+    }
+  }, []);
+
+  /**
    * Trigger play (this satisfies browser autoplay policy)
    * Call this from user gesture handlers (click, etc.)
    */
@@ -121,14 +136,6 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
         crossOrigin="anonymous"
         controls={false}
       />
-
-      {/* Expose trigger method through context or direct call */}
-      {typeof window !== 'undefined' &&
-        (() => {
-          // Store trigger function on window for access from hooks
-          (window as any).__auralisAudioElementTriggerPlay = triggerPlay;
-          return null;
-        })()}
     </>
   );
 };
