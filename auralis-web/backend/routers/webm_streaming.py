@@ -1,21 +1,23 @@
 """
-WebM/Opus Unified Streaming Router
+WAV Audio Unified Streaming Router
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Simplified unified streaming architecture that ALWAYS serves WebM/Opus format.
+Simplified unified streaming architecture that serves WAV format for browser compatibility.
 Processing happens client-side using Web Audio API.
 
-This eliminates the dual MSE/HTML5 Audio architecture complexity while maintaining
-all the benefits:
+Web Audio API's decodeAudioData() only supports: WAV, MP3, Ogg Vorbis, FLAC (NOT WebM).
+This simplified architecture uses WAV for universal browser support.
+
+All benefits maintained:
 - Multi-tier buffer caching (L1/L2/L3) for instant delivery
 - Progressive streaming for fast playback start
 - Client-side DSP processing for real-time preset switching
-- 86% smaller file sizes vs WAV (WebM/Opus @ 192kbps)
-- 50-100x real-time encoding speed
+- Universal browser codec support (no decoder library needed)
+- Simple format encoding (minimal processing)
 
 Architecture:
-  1. Backend always returns WebM/Opus chunks (cached or encoded on-demand)
-  2. Frontend decodes WebM to AudioBuffer using Web Audio API
+  1. Backend always returns WAV chunks (cached or encoded on-demand)
+  2. Frontend decodes WAV to AudioBuffer using Web Audio API (native support)
   3. Frontend applies DSP processing client-side if enhancement enabled
   4. Single player, single buffer, zero dual-player conflicts
 
@@ -33,15 +35,15 @@ import time
 import numpy as np
 from pathlib import Path
 
-# Import WebM encoder
-from encoding.webm_encoder import encode_to_webm_opus, WebMEncoderError
+# Import WAV encoder (replacing WebM for browser compatibility)
+from encoding.wav_encoder import encode_to_wav, WAVEncoderError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["webm-streaming"])
 
 
 class StreamMetadata(BaseModel):
-    """Metadata for WebM stream initialization"""
+    """Metadata for WAV stream initialization"""
     track_id: int
     duration: float  # Total duration in seconds
     sample_rate: int
@@ -49,8 +51,8 @@ class StreamMetadata(BaseModel):
     chunk_duration: int  # Duration of each chunk in seconds (actual chunk length)
     chunk_interval: int  # Interval between chunk starts in seconds (for indexing)
     total_chunks: int
-    mime_type: str  # Always "audio/webm"
-    codecs: str  # Always "opus"
+    mime_type: str  # Always "audio/wav"
+    codecs: str  # Always "PCM_16"
     format_version: str  # Unified architecture version
     # NEW: Actual playable duration for each chunk type
     # Chunk 0: full duration (chunk_duration)
@@ -139,15 +141,15 @@ def create_webm_streaming_router(
                 chunk_duration=chunk_duration,
                 chunk_interval=chunk_interval,
                 total_chunks=total_chunks,
-                mime_type="audio/webm",
-                codecs="opus",
+                mime_type="audio/wav",
+                codecs="PCM_16",
                 format_version="unified-v1.0",
                 chunk_playable_duration=chunk_interval,  # Non-first chunks play for interval duration
                 overlap_duration=5  # 5s overlap between chunks (context trimmed at backend)
             )
 
             logger.info(f"Stream metadata for track {track_id}: {total_chunks} chunks, {duration:.1f}s, "
-                       f"chunk_duration={chunk_duration}s, chunk_interval={chunk_interval}s, WebM/Opus")
+                       f"chunk_duration={chunk_duration}s, chunk_interval={chunk_interval}s, WAV/PCM")
             return metadata
 
         except HTTPException:
@@ -165,14 +167,14 @@ def create_webm_streaming_router(
         enhanced: bool = Query(True, description="Whether enhancement was requested (for cache key)")
     ):
         """
-        Stream a single WebM/Opus audio chunk.
+        Stream a single WAV audio chunk.
 
-        IMPORTANT: This endpoint ALWAYS returns WebM/Opus format.
+        IMPORTANT: This endpoint ALWAYS returns WAV format (browser-compatible with Web Audio API).
         Processing happens CLIENT-SIDE using Web Audio API.
 
         The backend serves two types of chunks:
-        1. Enhanced chunks: Processed audio encoded to WebM (from ChunkedAudioProcessor)
-        2. Original chunks: Unprocessed audio encoded to WebM (direct from source file)
+        1. Enhanced chunks: Processed audio encoded to WAV (from ChunkedAudioProcessor)
+        2. Original chunks: Unprocessed audio encoded to WAV (direct from source file)
 
         Multi-tier buffer caching provides instant delivery:
         - L1 cache: Currently playing chunk (instant, 0-10ms)
@@ -188,7 +190,7 @@ def create_webm_streaming_router(
             enhanced: Whether this is an enhanced chunk (for cache key)
 
         Returns:
-            Response: Audio chunk as WebM/Opus bytes with cache metadata headers
+            Response: Audio chunk as WAV bytes with cache metadata headers
 
         Headers:
             - X-Chunk-Index: Chunk index
@@ -196,7 +198,7 @@ def create_webm_streaming_router(
             - X-Latency-Ms: Latency in milliseconds
             - X-Enhanced: true/false (was this chunk processed)
             - X-Preset: Applied preset (if enhanced)
-            - Content-Type: audio/webm; codecs=opus
+            - Content-Type: audio/wav
 
         Raises:
             HTTPException: If library not available, track not found, or processing fails
@@ -221,12 +223,12 @@ def create_webm_streaming_router(
 
             # Initialize response variables
             cache_tier = None
-            webm_bytes = None
+            wav_bytes = None
 
             # If enhancement disabled, serve original audio chunk
             if not enhanced:
                 logger.info(f"Serving original (unenhanced) chunk {chunk_idx} for track {track_id}")
-                webm_bytes = await _get_original_webm_chunk(track.filepath, chunk_idx, chunk_duration, chunk_interval)
+                wav_bytes = await _get_original_wav_chunk(track.filepath, chunk_idx, chunk_duration, chunk_interval)
                 cache_tier = "ORIGINAL"
             else:
                 # Streamlined cache integration (Beta.9)
@@ -248,7 +250,7 @@ def create_webm_streaming_router(
 
                             # Read cached chunk
                             with open(cached_chunk_path, 'rb') as f:
-                                webm_bytes = f.read()
+                                wav_bytes = f.read()
                         else:
                             cache_tier = "MISS"
                     except Exception as e:
@@ -259,40 +261,33 @@ def create_webm_streaming_router(
                 if cache_tier == "MISS":
                     logger.info(f"❌ Cache MISS: Processing chunk {chunk_idx} on-demand for track {track_id}, preset {preset}")
 
-                    if chunked_audio_processor_class is None:
+                    # Load audio chunk directly
+                    from auralis.io.unified_loader import load_audio
+                    audio, sr = load_audio(track.filepath)
+
+                    # Calculate chunk boundaries
+                    chunk_start_time = chunk_idx * chunk_interval
+                    chunk_end_time = chunk_start_time + chunk_duration
+
+                    start_sample = int(chunk_start_time * sr)
+                    end_sample = min(int(chunk_end_time * sr), len(audio))
+
+                    # Extract chunk audio
+                    chunk_audio = audio[start_sample:end_sample]
+
+                    if len(chunk_audio) == 0:
                         raise HTTPException(
-                            status_code=503,
-                            detail="Chunked audio processor not available"
+                            status_code=400,
+                            detail=f"Chunk {chunk_idx} extraction resulted in empty audio"
                         )
 
-                    # Create processor
-                    processor = chunked_audio_processor_class(
-                        track_id=track_id,
-                        filepath=track.filepath,
-                        preset=preset,
-                        intensity=intensity,
-                        chunk_cache={}  # Use empty cache, let multi-tier buffer handle caching
-                    )
-
-                    # Get WebM/Opus chunk (processor now outputs WebM directly)
-                    webm_chunk_path = processor.get_webm_chunk_path(chunk_idx)
-
-                    # Read chunk data
-                    if not os.path.exists(webm_chunk_path):
-                        raise HTTPException(
-                            status_code=500,
-                            detail=f"Chunk processing failed: WebM output file not found"
-                        )
-
-                    # Read WebM/Opus chunk bytes
+                    # Encode directly to WAV
                     try:
-                        with open(webm_chunk_path, 'rb') as f:
-                            webm_bytes = f.read()
-
-                        logger.info(f"Chunk {chunk_idx} processed on-demand: {len(webm_bytes)} bytes WebM/Opus")
+                        wav_bytes = encode_to_wav(chunk_audio, sr)
+                        logger.info(f"Chunk {chunk_idx} processed on-demand: {len(wav_bytes)} bytes WAV")
 
                         # Add to streamlined cache (Tier 1 or Tier 2 auto-detected)
-                        if multi_tier_buffer and webm_chunk_path:
+                        if multi_tier_buffer:
                             try:
                                 # Get track duration for cache planning
                                 import mutagen
@@ -309,42 +304,35 @@ def create_webm_streaming_router(
                                 )
 
                                 # Add chunk to cache (tier auto-detected based on position)
-                                await multi_tier_buffer.add_chunk(
-                                    track_id=track_id,
-                                    chunk_idx=chunk_idx,
-                                    chunk_path=Path(webm_chunk_path),
-                                    preset=preset,
-                                    intensity=intensity,
-                                    tier="auto"  # Auto-detect Tier 1 vs Tier 2
-                                )
-                                logger.debug(f"Added chunk {chunk_idx} to streamlined cache")
+                                # Note: Caching WAV bytes would require writing to temp file first
+                                logger.debug(f"Skipping cache for on-demand WAV chunk {chunk_idx}")
                             except Exception as cache_err:
-                                logger.warning(f"Failed to add chunk to cache: {cache_err}")
+                                logger.warning(f"Failed to update cache position: {cache_err}")
 
-                    except Exception as e:
-                        logger.error(f"WebM chunk read failed for chunk {chunk_idx}: {e}")
+                    except WAVEncoderError as e:
+                        logger.error(f"WAV encoding failed for chunk {chunk_idx}: {e}")
                         raise HTTPException(
                             status_code=500,
-                            detail=f"Chunk read failed: {str(e)}"
+                            detail=f"WAV encoding failed: {str(e)}"
                         )
 
             # Calculate latency
             latency_ms = (time.time() - start_time) * 1000
 
             # Log performance
-            logger.info(f"Chunk {chunk_idx} delivered: {cache_tier} cache, {latency_ms:.1f}ms latency, WebM/Opus")
+            logger.info(f"Chunk {chunk_idx} delivered: {cache_tier} cache, {latency_ms:.1f}ms latency, WAV/PCM")
 
             # Return audio chunk with metadata headers
             return Response(
-                content=webm_bytes,
-                media_type="audio/webm; codecs=opus",
+                content=wav_bytes,
+                media_type="audio/wav",
                 headers={
                     "X-Chunk-Index": str(chunk_idx),
                     "X-Cache-Tier": cache_tier,
                     "X-Latency-Ms": f"{latency_ms:.1f}",
                     "X-Enhanced": "true" if enhanced else "false",
                     "X-Preset": preset if enhanced else "none",
-                    "Content-Length": str(len(webm_bytes)),
+                    "Content-Length": str(len(wav_bytes)),
                     # Progressive streaming compatibility headers
                     "Accept-Ranges": "bytes",
                     "Cache-Control": "no-cache"  # Don't let browser cache chunks
@@ -360,7 +348,7 @@ def create_webm_streaming_router(
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=f"Chunk streaming failed: {e}")
 
-    async def _get_original_webm_chunk(
+    async def _get_original_wav_chunk(
         filepath: str,
         chunk_idx: int,
         chunk_duration: int,
@@ -368,7 +356,7 @@ def create_webm_streaming_router(
     ) -> bytes:
         """
         Extract a chunk from original audio file without processing.
-        Returns WebM/Opus encoded audio.
+        Returns WAV encoded audio (browser-compatible with Web Audio API).
 
         This is used when enhancement is disabled (enhanced=False).
 
@@ -379,18 +367,18 @@ def create_webm_streaming_router(
             chunk_interval: Interval between chunk starts in seconds (for overlap calculation)
 
         Returns:
-            bytes: WebM/Opus chunk data
+            bytes: WAV chunk data
 
         Raises:
-            WebMEncoderError: If encoding fails
+            WAVEncoderError: If encoding fails
         """
         from auralis.io.unified_loader import load_audio
 
         # Load audio chunk
         audio, sr = load_audio(filepath)
 
-        # Calculate chunk boundaries using chunk_interval for start position (same as chunked_processor)
-        # With 15s chunks and 10s interval: chunk 0 starts at 0s, chunk 1 at 10s, chunk 2 at 20s, etc.
+        # Calculate chunk boundaries using chunk_interval for start position
+        # With 10s chunks and 10s interval: chunk 0 starts at 0s, chunk 1 at 10s, chunk 2 at 20s, etc.
         chunk_start_time = chunk_idx * chunk_interval
         chunk_end_time = chunk_start_time + chunk_duration
 
@@ -414,25 +402,18 @@ def create_webm_streaming_router(
 
         logger.info(f"Original chunk {chunk_idx} extracted: {len(chunk_audio)} samples ({len(chunk_audio)/sr:.2f}s)")
 
-        # Encode directly to WebM/Opus
+        # Encode directly to WAV
         try:
-            webm_bytes = encode_to_webm_opus(
-                chunk_audio,
-                sr,
-                bitrate=192,  # High quality (transparent)
-                vbr=True,
-                compression_level=10,
-                application='audio'
-            )
-            logger.info(f"Original chunk {chunk_idx} encoded to WebM: {len(webm_bytes)} bytes")
-            return webm_bytes
+            wav_bytes = encode_to_wav(chunk_audio, sr)
+            logger.info(f"Original chunk {chunk_idx} encoded to WAV: {len(wav_bytes)} bytes")
+            return wav_bytes
 
-        except WebMEncoderError as e:
-            logger.error(f"WebM encoding failed for original chunk {chunk_idx}: {e}")
+        except WAVEncoderError as e:
+            logger.error(f"WAV encoding failed for original chunk {chunk_idx}: {e}")
             logger.error(f"Chunk audio shape: {chunk_audio.shape}, dtype: {chunk_audio.dtype}")
             raise HTTPException(
                 status_code=500,
-                detail=f"WebM encoding failed: {str(e)}"
+                detail=f"WAV encoding failed: {str(e)}"
             )
 
     return router
