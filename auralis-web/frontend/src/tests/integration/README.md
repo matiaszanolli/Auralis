@@ -97,53 +97,78 @@ New npm scripts for running feature-specific tests:
 
 ## Large Test Files (Priority for Future Refactoring)
 
-### Phase 2 Progress (Current)
-✅ **Completed**:
-- `search.test.tsx` - Advanced Search (5 tests, ~280 LOC) - EXTRACTED
+### Phase 2 Progress (✅ COMPLETED)
+✅ **All Completed**:
+- `search.test.tsx` - Advanced Search (5 tests, ~280 LOC) - EXTRACTED ✅
+- `filter.test.tsx` - Filter Combinations (5 tests, ~358 LOC) - EXTRACTED ✅
+- `sort.test.tsx` - Sort Operations (5 tests, ~331 LOC) - EXTRACTED ✅
+- `accessibility.test.tsx` - Keyboard + Screen Reader (5 tests, ~356 LOC) - EXTRACTED ✅
 
-⏳ **Pending** (remaining parts of former search-filter-accessibility.test.tsx):
-- Filter Combinations (5 tests, ~245 LOC) → Create `filter.test.tsx`
-- Sort Operations (5 tests, ~255 LOC) → Create `sort.test.tsx`
-- Keyboard Accessibility (3 tests, ~90 LOC) → Create `accessibility.test.tsx`
-- Screen Reader Support (2 tests, ~30 LOC) → Merge into `accessibility.test.tsx`
+**Phase 2 Summary**: Successfully split 1,148 LOC monolithic `search-filter-accessibility.test.tsx` into 4 focused modules (20 tests total, ~1,325 LOC including components)
 
-### Phase 3 (Remaining Large Files)
+### Phase 3 Progress (⏳ PLACEHOLDER FILES CREATED)
 
-### 1. `performance-large-libraries.test.tsx` (1114 LOC)
-**Current structure** (5 describe blocks):
-- Pagination Performance (5 tests, ~325 LOC)
-- Virtual Scrolling (5 tests, ~145 LOC)
-- Cache Efficiency (5 tests, ~287 LOC)
-- Bundle Optimization (3 tests, ~72 LOC)
-- Memory Management (2 tests, ~35 LOC)
+**Priority 1: Performance Tests Split (1,114 LOC → 5 files) - Placeholder Setup Complete**
 
-**Recommended split**:
-- `pagination.test.tsx` - Pagination tests
-- `virtual-scrolling.test.tsx` - Virtual list tests
-- `cache-efficiency.test.tsx` - Caching tests
-- `bundle-size.test.tsx` - Bundle optimization
-- `memory-management.test.tsx` - Memory tests
+Created placeholder files with implementation guides and npm runners ready:
 
-### 2. `streaming-mse.test.tsx` (882 LOC)
-- Consider splitting MSE initialization from playback scenarios
+#### ✅ 1.1 `performance/pagination.test.tsx` (5 tests, ~315 LOC)
+**Status**: Placeholder created with TODO markers
+**npm runner**: `npm run test:pagination`
+**Key components**: LibraryView, SearchBar, performance timing
+**Tests**: Initial load performance, infinite scroll, search performance, UI state, error handling
 
-### 3. `websocket-realtime.test.tsx` (811 LOC)
-- Consider splitting connection lifecycle from message handling
+#### ✅ 1.2 `performance/virtual-scrolling.test.tsx` (5 tests, ~145 LOC)
+**Status**: Placeholder created with TODO markers
+**npm runner**: `npm run test:virtual-scrolling`
+**Key components**: VirtualList, 10k+ item rendering
+**Tests**: Visible item rendering, large dataset handling, scroll position preservation, offset calculation, visible range updates
+
+#### ✅ 1.3 `performance/cache-efficiency.test.tsx` (5 tests, ~287 LOC)
+**Status**: Placeholder created with TODO markers
+**npm runner**: `npm run test:cache`
+**Key components**: useCachedFetch hook, cache monitoring
+**Tests**: Query result caching, cache invalidation, cache hit detection, memory optimization, TTL expiration
+
+#### ✅ 1.4 `performance/bundle-size.test.tsx` (3 tests, ~72 LOC)
+**Status**: Placeholder created with TODO markers
+**npm runner**: `npm run test:bundle`
+**Key components**: Bundle analysis tools, code splitting verification
+**Tests**: Bundle size constraints, lazy loading, tree-shaking
+
+#### ✅ 1.5 `performance/memory-management.test.tsx` (2 tests, ~35 LOC)
+**Status**: Placeholder created with TODO markers
+**npm runner**: `npm run test:memory-mgmt`
+**Key components**: Memory leak detection, cleanup verification
+**Tests**: Pagination memory leaks, event listener cleanup
+
+**Priority 2: Other Large Files**
+
+#### 2.1 `streaming-audio/streaming-mse.test.tsx` (882 LOC)
+- Current: Single file with mixed concerns (MSE setup, playback, buffering)
+- Recommendation: Split by concern (initialization vs playback scenarios)
+- Target: Keep < 500 LOC per file
+
+#### 2.2 `websocket-realtime/websocket-realtime.test.tsx` (811 LOC)
+- Current: Connection lifecycle + message handling mixed
+- Recommendation: Split lifecycle tests from event handling tests
+- Target: Keep < 450 LOC per file
 
 ## Test Counts by Feature
 
 | Feature | Files | Tests | LOC |
 |---------|-------|-------|-----|
 | Player Controls | 3 | ~35 | ~680 |
-| Library Management | 5 | ~65 | ~3,372* |
+| Library Management (Phase 2) | 7 | ~40 | ~1,797* |
 | Streaming Audio | 1 | ~15 | ~882 |
 | WebSocket | 1 | ~20 | ~811 |
 | Enhancement | 1 | ~15 | ~TBD |
 | Error Handling | 1 | ~15 | ~688 |
-| Performance | 1 | ~20 | ~1,114 |
-| **TOTAL** | **13** | **~185** | **~7,547** |
+| Performance (Phase 3 placeholders) | 6 | ~20 | ~854** |
+| **TOTAL** | **20** | **~160** | **~7,712** |
 
-*includes refactored metadata.test.tsx and artwork.test.tsx
+*includes search, filter, sort, accessibility, metadata, artwork test files
+**includes 5 placeholder test files ready for Phase 3 extraction
 
 ## Test Setup & Utilities
 
