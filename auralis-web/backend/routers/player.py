@@ -579,6 +579,9 @@ def create_player_router(
         except HTTPException:
             raise
         except Exception as e:
+            import traceback
+            logger.error(f"set_queue exception: {type(e).__name__}: {e}")
+            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Failed to set queue: {e}")
 
     @router.post("/api/player/queue/add")
