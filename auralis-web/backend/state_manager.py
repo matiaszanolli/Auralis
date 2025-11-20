@@ -188,6 +188,7 @@ class PlayerStateManager:
 
     async def _broadcast_state(self, state: PlayerState):
         """Broadcast state to all WebSocket clients"""
+        logger.debug(f"DEBUG _broadcast_state: ws_manager type: {type(self.ws_manager)}, has broadcast: {hasattr(self.ws_manager, 'broadcast')}")
         await self.ws_manager.broadcast({
             "type": "player_state",
             "data": state.model_dump()
