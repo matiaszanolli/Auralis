@@ -92,10 +92,10 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
                     break  # Don't process chunks beyond the track
 
                 try:
-                    # Process chunk (this will cache the WebM file)
-                    webm_chunk_path = processor.get_webm_chunk_path(chunk_idx)
+                    # Process chunk (this will cache the WAV file)
+                    wav_chunk_path = processor.get_wav_chunk_path(chunk_idx)
 
-                    if os.path.exists(webm_chunk_path):
+                    if os.path.exists(wav_chunk_path):
                         processed_count += 1
                         logger.info(f"✅ Pre-processed chunk {chunk_idx} ({processed_count}/{len(chunks_to_process)})")
                     else:

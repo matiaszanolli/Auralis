@@ -202,13 +202,14 @@ class ChunkedAudioProcessor:
         """
         return self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.wav"
 
-    def _get_webm_chunk_path(self, chunk_index: int) -> Path:
+    def _get_wav_chunk_path(self, chunk_index: int) -> Path:
         """
-        Get file path for WebM/Opus chunk.
+        Get file path for WAV chunk.
 
-        This is the primary output format for the unified architecture.
+        This is the primary output format for the unified architecture
+        (replaced WebM/Opus for Web Audio API compatibility).
         """
-        return self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.webm"
+        return self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.wav"
 
     def load_chunk(self, chunk_index: int, with_context: bool = True) -> Tuple[np.ndarray, float, float]:
         """
@@ -743,38 +744,39 @@ class ChunkedAudioProcessor:
 
         return str(full_path)
 
-    def get_webm_chunk_path(self, chunk_index: int) -> str:
+    def get_wav_chunk_path(self, chunk_index: int) -> str:
         """
-        Get WebM/Opus chunk for unified streaming architecture.
+        Get WAV chunk for unified streaming architecture.
 
         This is the PRIMARY output method for the unified architecture.
-        Process audio and encode directly to WebM/Opus in a single pass.
+        Process audio and encode directly to WAV in a single pass.
+        WAV format is required for Web Audio API compatibility.
 
         Args:
             chunk_index: Index of chunk to retrieve
 
         Returns:
-            Path to WebM/Opus chunk file
+            Path to WAV chunk file
         """
         # Check cache first
-        cache_key = f"{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_webm_{chunk_index}"
+        cache_key = f"{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_wav_{chunk_index}"
         if cache_key in self.chunk_cache:
             cached_path = Path(self.chunk_cache[cache_key])
             if cached_path.exists():
-                logger.info(f"Serving cached WebM chunk {chunk_index}")
+                logger.info(f"Serving cached WAV chunk {chunk_index}")
                 return str(cached_path)
 
-        # Get WebM output path
-        webm_chunk_path = self._get_webm_chunk_path(chunk_index)
+        # Get WAV output path
+        wav_chunk_path = self._get_wav_chunk_path(chunk_index)
 
         # Check if already exists on disk
-        if webm_chunk_path.exists():
-            logger.info(f"WebM chunk {chunk_index} already exists on disk")
-            self.chunk_cache[cache_key] = str(webm_chunk_path)
-            return str(webm_chunk_path)
+        if wav_chunk_path.exists():
+            logger.info(f"WAV chunk {chunk_index} already exists on disk")
+            self.chunk_cache[cache_key] = str(wav_chunk_path)
+            return str(wav_chunk_path)
 
         # Process audio chunk
-        logger.info(f"Processing chunk {chunk_index} directly to WebM/Opus")
+        logger.info(f"Processing chunk {chunk_index} directly to WAV")
 
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
@@ -907,29 +909,22 @@ class ChunkedAudioProcessor:
             processed_chunk = processed_chunk[:expected_samples]
             logger.warning(f"⚠️ Chunk {chunk_index} was {current_samples - expected_samples} samples too long, trimmed")
 
-        # Encode directly to WebM/Opus (no WAV intermediate)
+        # Encode directly to WAV (Web Audio API compatible)
         try:
-            from encoding.webm_encoder import encode_to_webm_opus, WebMEncoderError
+            from encoding.wav_encoder import encode_to_wav, WAVEncoderError
 
-            webm_bytes = encode_to_webm_opus(
-                processed_chunk,
-                self.sample_rate,
-                bitrate=192,  # High quality (transparent)
-                vbr=True,
-                compression_level=10,
-                application='audio'
-            )
+            wav_bytes = encode_to_wav(processed_chunk, self.sample_rate)
 
-            # Write WebM file
-            webm_chunk_path.write_bytes(webm_bytes)
-            logger.info(f"Chunk {chunk_index} encoded to WebM/Opus: {len(webm_bytes)} bytes")
+            # Write WAV file
+            wav_chunk_path.write_bytes(wav_bytes)
+            logger.info(f"Chunk {chunk_index} encoded to WAV: {len(wav_bytes)} bytes")
 
-        except WebMEncoderError as e:
-            logger.error(f"WebM encoding failed for chunk {chunk_index}: {e}")
-            raise RuntimeError(f"Failed to encode chunk to WebM/Opus: {e}")
+        except WAVEncoderError as e:
+            logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
+            raise RuntimeError(f"Failed to encode chunk to WAV: {e}")
 
         # Cache the path
-        self.chunk_cache[cache_key] = str(webm_chunk_path)
+        self.chunk_cache[cache_key] = str(wav_chunk_path)
 
         # Store last_content_profile globally for visualizer API access
         # This allows the /api/processing/parameters endpoint to show real processing data
