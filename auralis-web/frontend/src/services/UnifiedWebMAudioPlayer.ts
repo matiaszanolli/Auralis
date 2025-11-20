@@ -134,7 +134,7 @@ export class UnifiedWebMAudioPlayer {
     this.config = {
       apiBaseUrl: config.apiBaseUrl || 'http://localhost:8765',
       chunkDuration: config.chunkDuration || 10,
-      enhanced: config.enhanced !== undefined ? config.enhanced : true,
+      enhanced: config.enhanced !== undefined ? config.enhanced : false,  // Default to false for WAV compatibility
       preset: config.preset || 'adaptive',
       intensity: config.intensity !== undefined ? config.intensity : 1.0,
       preloadChunks: config.preloadChunks || 2,
