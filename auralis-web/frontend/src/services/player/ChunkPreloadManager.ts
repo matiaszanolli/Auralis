@@ -278,16 +278,44 @@ export class ChunkPreloadManager {
           throw new Error(`Chunk ${chunkIndex} returned empty data (0 bytes)`);
         }
 
+        // Verify RIFF/WAV header for debugging
+        const dataView = new DataView(arrayBuffer);
+        const riffHeader = String.fromCharCode(
+          dataView.getUint8(0),
+          dataView.getUint8(1),
+          dataView.getUint8(2),
+          dataView.getUint8(3)
+        );
+        const waveHeader = String.fromCharCode(
+          dataView.getUint8(8),
+          dataView.getUint8(9),
+          dataView.getUint8(10),
+          dataView.getUint8(11)
+        );
+        this.debug(
+          `[P${priority}] WAV header check: RIFF='${riffHeader}' WAVE='${waveHeader}' ` +
+          `(${arrayBuffer.byteLength} bytes)`
+        );
+
         this.debug(`[P${priority}] Decoding ${arrayBuffer.byteLength} bytes for chunk ${chunkIndex}...`);
 
-        // Decode WebM/Opus to AudioBuffer using Web Audio API
+        // Decode WAV to AudioBuffer using Web Audio API
         if (!this.audioContext) {
           throw new Error('AudioContext not available for decoding');
         }
 
         try {
           audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+          this.debug(
+            `[P${priority}] Decoded chunk ${chunkIndex}: ` +
+            `${audioBuffer.duration.toFixed(2)}s, ` +
+            `${audioBuffer.numberOfChannels} channels, ` +
+            `${audioBuffer.sampleRate}Hz`
+          );
         } catch (decodeError: any) {
+          this.debug(
+            `[P${priority}] Decode error details: ${decodeError.name} - ${decodeError.message}`
+          );
           throw new Error(
             `Failed to decode chunk ${chunkIndex}: ${decodeError.message || 'Unknown decode error'}`
           );
