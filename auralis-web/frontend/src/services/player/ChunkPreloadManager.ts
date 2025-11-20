@@ -116,7 +116,11 @@ export class ChunkPreloadManager {
     // Start queue processor if not already running
     if (!this.queueProcessorRunning) {
       this.debug(`[PRELOAD] Starting queue processor`);
-      this.processLoadQueue();
+      // Fire and forget with error handling
+      this.processLoadQueue().catch((error: any) => {
+        this.debug(`[PRELOAD] Queue processor error: ${error.message}`);
+        this.emit('queue-error', { error });
+      });
     } else {
       this.debug(`[PRELOAD] Queue processor already running`);
     }
@@ -200,7 +204,13 @@ export class ChunkPreloadManager {
         this.debug(`[P${priority}] Loading chunk ${chunkIndex}/${this.chunks.length}`);
 
         // Create load promise without awaiting (fire and forget)
-        const loadPromise = this.loadChunkInternal(chunkIndex, priority);
+        // Add error handling to catch and emit errors from async loading
+        const loadPromise = this.loadChunkInternal(chunkIndex, priority)
+          .catch((error: any) => {
+            this.debug(`[P${priority}] Caught async error loading chunk ${chunkIndex}: ${error.message}`);
+            // Error is already handled in loadChunkInternal catch block and emitted
+            // This catch is here to prevent unhandled promise rejection warnings
+          });
         this.queue.markActive(chunkIndex, loadPromise);
 
         // Don't await - let loads happen in parallel
