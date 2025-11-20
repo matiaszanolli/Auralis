@@ -119,6 +119,30 @@ app.add_middleware(
 if HAS_PROCESSING:
     app.include_router(processing_router)
 
+# WebSocket connection manager (created early so it can be used in startup)
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+
+    async def broadcast(self, message: dict):
+        """Broadcast message to all connected clients"""
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(json.dumps(message))
+            except Exception as e:
+                logger.error(f"Error broadcasting to client: {e}")
+
+manager = ConnectionManager()
+
 # Global state
 library_manager: Optional[LibraryManager] = None
 settings_repository: Optional[SettingsRepository] = None
@@ -208,7 +232,9 @@ async def startup_event():
 
             # Initialize state manager (must be after library_manager is created)
             global player_state_manager
-            player_state_manager = PlayerStateManager(library_manager)
+            logger.info(f"DEBUG: Creating PlayerStateManager with manager type: {type(manager)}, has broadcast: {hasattr(manager, 'broadcast')}")
+            player_state_manager = PlayerStateManager(manager)
+            logger.info(f"DEBUG: PlayerStateManager ws_manager type: {type(player_state_manager.ws_manager)}")
             logger.info("✅ Player State Manager initialized")
 
             # Initialize similarity system
@@ -277,30 +303,6 @@ async def startup_event():
             logger.warning("⚠️  Streamlined cache not available")
         elif not library_manager:
             logger.warning("⚠️  Library manager not available - streamlined cache disabled")
-
-# WebSocket connection manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-        logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
-
-    async def broadcast(self, message: dict):
-        """Broadcast message to all connected clients"""
-        for connection in self.active_connections:
-            try:
-                await connection.send_text(json.dumps(message))
-            except Exception as e:
-                logger.error(f"Error broadcasting to client: {e}")
-
-manager = ConnectionManager()
 
 # Create and include system router (health, version, WebSocket)
 system_router = create_system_router(
