@@ -533,9 +533,6 @@ def create_player_router(
         if not audio_player:
             raise HTTPException(status_code=503, detail="Audio player not available")
 
-        # DEBUG: Verify player_state_manager is correctly initialized
-        logger.error(f"DEBUG set_queue: psm.ws_manager type = {type(player_state_manager.ws_manager)}, has broadcast = {hasattr(player_state_manager.ws_manager, 'broadcast')}")
-
         try:
             # Get tracks from library by IDs
             db_tracks = []

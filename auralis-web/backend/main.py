@@ -232,9 +232,7 @@ async def startup_event():
 
             # Initialize state manager (must be after library_manager is created)
             global player_state_manager
-            logger.info(f"DEBUG: Creating PlayerStateManager with manager type: {type(manager)}, has broadcast: {hasattr(manager, 'broadcast')}")
             player_state_manager = PlayerStateManager(manager)
-            logger.info(f"DEBUG: PlayerStateManager ws_manager type: {type(player_state_manager.ws_manager)}")
             logger.info("✅ Player State Manager initialized")
 
             # Initialize similarity system
