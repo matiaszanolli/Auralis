@@ -71,6 +71,9 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 
+[tool.hatch.build.targets.wheel]
+packages = ["auralis"]
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --cov=matchering_player"
