@@ -39,9 +39,9 @@ interface EventHandlersOptions {
 }
 
 export interface PlayerEventHandlers {
-  onPlay: () => void;
+  onPlay: () => Promise<void>;
   onPause: () => void;
-  onSeek: (time: number) => void;
+  onSeek: (time: number) => Promise<void>;
   onVolumeChange: (volume: number) => void;
   onEnhancementToggle: () => Promise<void>;
   onPrevious: () => Promise<void>;
@@ -58,10 +58,16 @@ export function usePlayerEventHandlers({
   onError
 }: EventHandlersOptions): PlayerEventHandlers {
   // Play handler
-  const handlePlay = useCallback(() => {
+  const handlePlay = useCallback(async () => {
     console.log(`[usePlayerEventHandlers] Play`);
-    player.play();
-  }, [player]);
+    try {
+      await player.play();
+      console.log(`[usePlayerEventHandlers] Play completed successfully`);
+    } catch (err: any) {
+      console.error(`[usePlayerEventHandlers] Play failed:`, err);
+      onError?.(`Playback failed: ${err.message}`);
+    }
+  }, [player, onError]);
 
   // Pause handler
   const handlePause = useCallback(() => {
@@ -70,10 +76,16 @@ export function usePlayerEventHandlers({
   }, [player]);
 
   // Seek handler
-  const handleSeek = useCallback((time: number) => {
+  const handleSeek = useCallback(async (time: number) => {
     console.log(`[usePlayerEventHandlers] Seek to ${time.toFixed(2)}s`);
-    player.seek(time);
-  }, [player]);
+    try {
+      await player.seek(time);
+      console.log(`[usePlayerEventHandlers] Seek completed successfully`);
+    } catch (err: any) {
+      console.error(`[usePlayerEventHandlers] Seek failed:`, err);
+      onError?.(`Seek failed: ${err.message}`);
+    }
+  }, [player, onError]);
 
   // Volume change handler
   const handleVolumeChange = useCallback((newVolume: number) => {

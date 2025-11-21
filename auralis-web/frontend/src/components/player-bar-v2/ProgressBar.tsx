@@ -57,7 +57,7 @@ const ProgressContainer = styled(Box)({
  *   chunkInterval={10}
  * />
  */
-export const ProgressBar: React.FC<ProgressBarProps> = ({
+export const ProgressBar: React.FC<ProgressBarProps> = React.memo(({
   currentTime,
   duration,
   onSeek,
@@ -78,6 +78,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       <DurationDisplay duration={duration} />
     </ProgressContainer>
   );
-};
+});
 
 ProgressBar.displayName = 'ProgressBar';
