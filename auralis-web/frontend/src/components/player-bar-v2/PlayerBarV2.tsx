@@ -117,7 +117,8 @@ export const PlayerBarV2: React.FC<PlayerBarV2Props> = React.memo(({
   // DEBUG: Log props to ProgressBar
   React.useEffect(() => {
     if (player.currentTime > 0) {
-      console.log(`[PlayerBarV2] Passing to ProgressBar: currentTime=${player.currentTime.toFixed(2)}s, duration=${player.duration.toFixed(2)}s`);
+      const displayDuration = player.duration ? player.duration.toFixed(2) : '0.00';
+      console.log(`[PlayerBarV2] Passing to ProgressBar: currentTime=${player.currentTime.toFixed(2)}s, duration=${displayDuration}s`);
     }
   }, [player.currentTime, player.duration]);
 

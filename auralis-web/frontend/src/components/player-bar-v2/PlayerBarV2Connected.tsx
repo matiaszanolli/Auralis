@@ -19,7 +19,7 @@
  * This is the ONLY player bar component - eliminates duplicate player instances.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { PlayerBarV2 } from './PlayerBarV2';
 import { usePlayerAPI } from '@/hooks/usePlayerAPI';
 import { useUnifiedWebMAudioPlayer } from '@/hooks/useUnifiedWebMAudioPlayer';
@@ -109,7 +109,8 @@ const PlayerBarV2Connected: React.FC = () => {
   // Prepare player state for PlayerBarV2
   // IMPORTANT: Use player.isPlaying (unified player state) NOT Redux isPlaying
   // to avoid desync between play/pause button and actual playback
-  const playerState = {
+  // CRITICAL: Wrap in useMemo to prevent unnecessary re-renders of memoized PlayerBarV2
+  const playerState = useMemo(() => ({
     currentTrack: currentTrack || null,
     isPlaying: player.isPlaying, // Use unified player's state
     currentTime: player.currentTime || 0,
@@ -118,11 +119,22 @@ const PlayerBarV2Connected: React.FC = () => {
     isEnhanced: enhancementSettings.enabled,
     queue: queue || [],
     queueIndex: queueIndex
-  };
+  }), [
+    currentTrack,
+    player.isPlaying,
+    player.currentTime,
+    player.duration,
+    volume,
+    enhancementSettings.enabled,
+    queue,
+    queueIndex
+  ]);
 
-  // DEBUG: Log timing mismatch
+  // DEBUG: Log all timing values including dependencies
+  console.log(`[PlayerBarV2Connected] Current values: isPlaying=${player.isPlaying}, currentTime=${player.currentTime.toFixed(2)}s, duration=${player.duration.toFixed(2)}s, state=${player.state}`);
   if (player.isPlaying && player.currentTime > 0) {
-    console.log(`[PlayerBarV2Connected] Passing to UI: currentTime=${player.currentTime.toFixed(2)}s, duration=${player.duration.toFixed(2)}s`);
+    const displayDuration = player.duration ? player.duration.toFixed(2) : '0.00';
+    console.log(`[PlayerBarV2Connected] Passing to UI: currentTime=${player.currentTime.toFixed(2)}s, duration=${displayDuration}s`);
   }
 
   // ========== Render ==========

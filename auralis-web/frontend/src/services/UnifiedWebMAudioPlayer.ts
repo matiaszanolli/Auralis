@@ -181,9 +181,13 @@ export class UnifiedWebMAudioPlayer {
    * Wire service events to facade orchestration and external listeners
    */
   private wireServiceEvents(): void {
-    // TimingEngine events → forward to listeners
+    // TimingEngine events → forward to listeners (with duration from metadata)
     this.timingEngine.on('timeupdate', (e) => {
-      this.emit('timeupdate', e);
+      // Enhance timeupdate with duration from metadata
+      this.emit('timeupdate', {
+        ...e,
+        duration: this.metadata?.duration || 0
+      });
     });
 
     // AudioContextController events → orchestration
@@ -232,11 +236,16 @@ export class UnifiedWebMAudioPlayer {
         this.chunks[e.chunkIndex].isLoaded = true;
         this.chunks[e.chunkIndex].isLoading = false;
       }
+      // Synchronize PlaybackController's internal chunk state
+      // This allows play() and seek() to detect that chunks are loaded
+      this.playbackController.updateChunkLoadState(e.chunkIndex, false, true);
       this.emit('chunk-loaded', e);
     });
 
     this.chunkPreloader.on('chunk-error', (e) => {
       this.debug(`ChunkPreloadManager: chunk ${e.chunkIndex} error: ${e.error.message}`);
+      // Clear loading state in PlaybackController on error
+      this.playbackController.updateChunkLoadState(e.chunkIndex, false, false);
       // Track error with categorization for UI feedback and retry logic
       this.handleChunkError(e.error, e.chunkIndex);
       // Also forward original event for backward compatibility
@@ -363,7 +372,12 @@ export class UnifiedWebMAudioPlayer {
         this.timingEngine.setAudioContext(currentContext);
         this.chunkPreloader.setAudioContext(currentContext);
 
-        // Now that AudioContext is ready, queue the first chunk for loading
+        // CRITICAL: Set up listener BEFORE queuing chunk to avoid race condition
+        // where chunk loads so fast the event is emitted before listener is registered
+        this.debug('Setting up chunk 0 ready listener before queuing...');
+        const chunk0ReadyPromise = this.waitForChunk(0, 30000);
+
+        // Now that AudioContext is ready and listener is registered, queue the first chunk
         // This must happen after AudioContext is created (browser autoplay policy)
         this.debug('AudioContext ready, queuing first chunk with CRITICAL priority');
         this.chunkPreloader.queueChunk(0, 0); // Priority 0 = CRITICAL
@@ -371,7 +385,7 @@ export class UnifiedWebMAudioPlayer {
         // CRITICAL: Wait for chunk 0 to be fully loaded and decoded before playback
         // This prevents race conditions where playback starts with invalid/undefined audioBuffer
         this.debug('Waiting for chunk 0 to load and decode...');
-        const chunk0Ready = await this.waitForChunk0();
+        const chunk0Ready = await chunk0ReadyPromise;
         if (!chunk0Ready) {
           throw new Error('Chunk 0 failed to load before playback timeout');
         }
@@ -545,6 +559,16 @@ export class UnifiedWebMAudioPlayer {
 
     // Update PlaybackController state
     this.playbackController.setCurrentChunkIndex(chunkIndex);
+
+    // CRITICAL: Update timing reference after chunk loads
+    // This ensures currentTime calculations are correct for the new chunk
+    // trackTime = chunkIndex * 15 + offset (each chunk is 15 seconds)
+    const chunkDuration = 15;
+    const trackTime = (chunkIndex * chunkDuration) + offset;
+    if (this.audioContext) {
+      this.timingEngine.updateTimingReference(this.audioContext.currentTime, trackTime);
+      this.debug(`Updated timing: audioCtxTime=${this.audioContext.currentTime.toFixed(2)}, trackTime=${trackTime.toFixed(2)}`);
+    }
 
     // Queue next chunk for preload
     if (chunkIndex + 1 < this.chunks.length) {

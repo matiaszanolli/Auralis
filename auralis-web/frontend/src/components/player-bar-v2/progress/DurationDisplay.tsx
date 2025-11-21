@@ -33,8 +33,8 @@ interface DurationDisplayProps {
  * <DurationDisplay duration={295.5} />
  * // Renders: "4:55"
  */
-export const DurationDisplay: React.FC<DurationDisplayProps> = ({ duration }) => {
+export const DurationDisplay: React.FC<DurationDisplayProps> = React.memo(({ duration }) => {
   return <TimeDisplayText>{formatTime(duration)}</TimeDisplayText>;
-};
+});
 
 DurationDisplay.displayName = 'DurationDisplay';

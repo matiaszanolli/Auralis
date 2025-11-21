@@ -87,7 +87,7 @@ interface SeekSliderProps {
  *   onSeek={(time) => player.seek(time)}
  * />
  */
-export const SeekSlider: React.FC<SeekSliderProps> = ({ currentTime, duration, onSeek, children }) => {
+export const SeekSlider: React.FC<SeekSliderProps> = React.memo(({ currentTime, duration, onSeek, children }) => {
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekPreview, setSeekPreview] = useState<number | null>(null);
 
@@ -134,6 +134,6 @@ export const SeekSlider: React.FC<SeekSliderProps> = ({ currentTime, duration, o
       />
     </SliderContainer>
   );
-};
+});
 
 SeekSlider.displayName = 'SeekSlider';

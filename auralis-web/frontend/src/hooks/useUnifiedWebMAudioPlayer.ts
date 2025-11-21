@@ -96,9 +96,14 @@ export function useUnifiedWebMAudioPlayer(
     });
 
     const unsubscribeTime = player.on('timeupdate', ({ currentTime: time, duration: dur }) => {
-      console.log(`[useUnifiedWebMAudioPlayer] timeupdate received: currentTime=${time.toFixed(2)}s`);
+      console.log(`[useUnifiedWebMAudioPlayer] timeupdate received: currentTime=${time.toFixed(2)}s, duration=${dur?.toFixed(2) || '0.00'}s`);
+      // CRITICAL: Update both state immediately for React to see the change
       setCurrentTime(time);
-      setDuration(dur);
+      if (dur) {
+        setDuration(dur);
+      }
+      // DEBUG: Force immediate log to verify state is being set
+      console.log(`[useUnifiedWebMAudioPlayer] State updated to currentTime=${time.toFixed(2)}s`);
     });
 
     const unsubscribeError = player.on('error', (err) => {

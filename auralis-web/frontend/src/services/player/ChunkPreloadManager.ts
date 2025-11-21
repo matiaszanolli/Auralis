@@ -82,9 +82,20 @@ export class ChunkPreloadManager {
 
   /**
    * Update audio context (if it changes during playback)
+   * If there are queued chunks waiting, retry processing now that AudioContext is available
    */
   setAudioContext(audioContext: AudioContext): void {
     this.audioContext = audioContext;
+    this.debug(`[PRELOAD] AudioContext set, queue size: ${this.queue.getSize()}`);
+
+    // If there are items in the queue and processor isn't running, start it now
+    if (this.queue.getSize() > 0 && !this.queueProcessorRunning) {
+      this.debug(`[PRELOAD] Queue has items and processor not running, starting processor`);
+      this.processLoadQueue().catch((error: any) => {
+        this.debug(`[PRELOAD] Queue processor error after AudioContext set: ${error.message}`);
+        this.emit('queue-error', { error });
+      });
+    }
   }
 
   /**
@@ -185,7 +196,9 @@ export class ChunkPreloadManager {
 
       if (!this.audioContext) {
         this.queueProcessorRunning = false;
-        throw new Error('AudioContext failed to initialize within timeout');
+        this.debug(`[QUEUE] AudioContext failed to initialize within timeout, will retry when AudioContext is set`);
+        // Don't throw - allow retry when AudioContext becomes available
+        return;
       }
       this.debug(`[QUEUE] AudioContext available after ${waitCount * 100}ms wait`);
     }
@@ -494,5 +507,6 @@ export class ChunkPreloadManager {
     this.chunks = [];
     this.eventCallbacks.clear();
     this.retryState.clear(); // Clear retry state to prevent memory leaks
+    this.queueProcessorRunning = false; // CRITICAL: Reset flag to ensure queue processing can restart
   }
 }
