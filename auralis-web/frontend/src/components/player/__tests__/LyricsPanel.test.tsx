@@ -5,10 +5,28 @@
  * Tests the lyrics display panel with LRC parsing and auto-scroll.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { render, screen, waitFor, act } from '@/test/test-utils'
 import '@testing-library/jest-dom'
 import LyricsPanel from '../LyricsPanel'
+
+// Mock usePlayerAPI hook
+vi.mock('@/hooks/usePlayerAPI', () => ({
+  usePlayerAPI: () => ({
+    currentTime: 0,
+    duration: 0,
+    isPlaying: false,
+    volume: 0.8,
+    queue: [],
+    queueIndex: -1,
+    currentTrack: null,
+    play: vi.fn(),
+    pause: vi.fn(),
+    next: vi.fn(),
+    previous: vi.fn(),
+    setVolume: vi.fn()
+  })
+}))
 
 // Create mock fetch before test
 const mockFetch = vi.fn()
@@ -33,7 +51,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -48,7 +66,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -63,7 +81,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -85,7 +103,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -99,7 +117,7 @@ describe('LyricsPanel', () => {
       ;mockFetch.mockImplementation(() => new Promise(() => {}))
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -119,7 +137,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -133,7 +151,7 @@ describe('LyricsPanel', () => {
       ;mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       // Should show empty state after error
@@ -156,7 +174,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -178,7 +196,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -198,7 +216,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -218,7 +236,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -241,7 +259,7 @@ describe('LyricsPanel', () => {
       })
 
       const { rerender } = await act(async () => {
-        return render(<LyricsPanel trackId={1} currentTime={6} onClose={mockOnClose} />)
+        return render(<LyricsPanel trackId={1}onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -250,7 +268,7 @@ describe('LyricsPanel', () => {
 
       // Update playback time to 11 seconds
       await act(async () => {
-        rerender(<LyricsPanel trackId={1} currentTime={11} onClose={mockOnClose} />)
+        rerender(<LyricsPanel trackId={1}onClose={mockOnClose} />)
       })
 
       // Third line should now be highlighted
@@ -271,7 +289,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={2} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1}onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -292,7 +310,7 @@ describe('LyricsPanel', () => {
       })
 
       const { rerender } = await act(async () => {
-        return render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        return render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -310,7 +328,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        rerender(<LyricsPanel trackId={2} currentTime={0} onClose={mockOnClose} />)
+        rerender(<LyricsPanel trackId={2}onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -327,7 +345,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -339,7 +357,7 @@ describe('LyricsPanel', () => {
       ;mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {
@@ -356,7 +374,7 @@ describe('LyricsPanel', () => {
       })
 
       await act(async () => {
-        render(<LyricsPanel trackId={1} currentTime={0} onClose={mockOnClose} />)
+        render(<LyricsPanel trackId={1} onClose={mockOnClose} />)
       })
 
       await waitFor(() => {

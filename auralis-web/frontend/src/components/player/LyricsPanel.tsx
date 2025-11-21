@@ -11,10 +11,10 @@ import {
   MusicNote as MusicNoteIcon
 } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
+import { usePlayerAPI } from '../../hooks/usePlayerAPI';
 
 interface LyricsPanelProps {
   trackId: number | null;
-  currentTime: number;
   onClose: () => void;
 }
 
@@ -94,7 +94,7 @@ const EmptyState = styled(Box)({
   textAlign: 'center',
 });
 
-export const LyricsPanel: React.FC<LyricsPanelProps> = ({ trackId, currentTime, onClose }) => {
+export const LyricsPanel: React.FC<LyricsPanelProps> = ({ trackId, onClose }) => {
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [format, setFormat] = useState<'plain' | 'lrc' | null>(null);
   const [loading, setLoading] = useState(false);
@@ -102,6 +102,9 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({ trackId, currentTime, 
   const [activeLine, setActiveLine] = useState(-1);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLDivElement>(null);
+
+  // Get current playback time from player API
+  const { currentTime = 0 } = usePlayerAPI();
 
   // Fetch lyrics when track changes
   useEffect(() => {

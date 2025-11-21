@@ -176,13 +176,16 @@ npm test -- EnhancementPaneV2             # Partial filename match
    - Provides: Router, DragDrop, WebSocket, Theme, Enhancement, Toast providers
    - Never wrap components with custom Wrapper - use test-utils instead
 3. ⚠️ **API Mocking**: Use MSW (handlers in `src/test/mocks/handlers.ts`) - never fetch() mocks
+   - Audio chunk endpoints now return **WAV format** (16/24-bit PCM) not WebM/Opus
+   - Update mock handlers to reflect WAV format if testing audio playback
 4. ⚠️ **Async Operations**: Use `waitFor(() => expect(...))` from test-utils, NEVER hardcoded `setTimeout`
 5. ⚠️ **Vitest Syntax**: Use `vi.mock()`, `vi.fn()`, NOT `jest.*` (setup.ts provides compatibility layer)
-6. File size: Keep under 400 lines (split if needed), use test template at `src/test/TEMPLATE.test.tsx`
-7. Selectors: Use `screen.getByRole()` or `screen.getByTestId()` (avoid querySelector)
-8. Cleanup: Automatic via setup.ts (no manual afterEach needed)
-9. Recent fixes: Last 5+ commits fixed selector/assertion issues - follow existing test patterns in library/
-10. See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
+6. ⚠️ **Autoplay Handling**: Tests for audio playback need user gesture simulation or `.catch()` for autoplay errors
+7. File size: Keep under 400 lines (split if needed), use test template at `src/test/TEMPLATE.test.tsx`
+8. Selectors: Use `screen.getByRole()` or `screen.getByTestId()` (avoid querySelector)
+9. Cleanup: Automatic via setup.ts (no manual afterEach needed)
+10. Recent fixes: Last 5+ commits fixed selector/assertion issues - follow existing test patterns in library/
+11. See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
 
 ### Code Quality
 ```bash
@@ -533,9 +536,12 @@ import { colors, spacing, typography, shadows } from '@/design-system'
 ### Critical Performance Patterns
 1. **Query Caching**: LibraryManager caches `albums()`, `artists()`, `tracks()` → 136x speedup
 2. **Chunked Processing**: Backend splits audio into 30s chunks, processes in parallel
+   - Chunks now output as WAV format (16/24-bit PCM) for Web Audio API compatibility
+   - Enhanced error handling for network delays and chunk loading failures
 3. **NumPy Vectorization**: DSP operations use np.array broadcasting (1.7x EQ speedup)
 4. **Numba JIT** (optional): Envelope follower compilation → 40-70x speedup
-5. **MSE Streaming**: Chunks encoded as WebM/Opus for efficient browser playback
+5. **MSE Streaming**: Chunks encoded as WAV (PCM) for efficient browser playback
+   - Proper Promise handling for chunk loading with `.catch()` for network errors
 
 ### Backend Router Pattern
 All API endpoints are modular routers in `auralis-web/backend/routers/`:
@@ -564,6 +570,11 @@ All API endpoints are modular routers in `auralis-web/backend/routers/`:
 3. Keep critical section small (lock → check → update → unlock)
 4. Test with `tests/concurrency/` boundary tests to catch race conditions
 5. Document lock semantics in docstring: "Thread-safe: Uses RLock for X operation"
+
+**Recent Race Condition Fixes** (November 2025):
+- **ChunkPreloadManager AudioContext initialization** - Race condition when multiple chunks load simultaneously, fixed with proper synchronization
+- **PlayerStateManager state updates** - WebSocket updates now properly ordered with atomic operations
+- **LibraryManager delete_track()** - Race condition preventing multiple concurrent deletes from all succeeding (see thread-safety section above)
 
 ---
 
@@ -843,6 +854,21 @@ python benchmark_performance.py
 ### Processing Presets
 - Adaptive, Gentle, Warm, Bright, Punchy
 
+### Audio Format & Browser Compatibility
+**WAV Format Migration** (November 2025):
+- Audio chunks now output as **WAV format** (16-bit or 24-bit PCM)
+- Previously used WebM/Opus, now standardized to WAV for Web Audio API compatibility
+- Browser's Web Audio API requires PCM format for accurate audio processing
+- Ensures consistent quality across all browsers and playback scenarios
+- Relevant files: `ChunkedAudioProcessor`, `ChunkPreloadManager` in backend
+
+**Browser Autoplay Policy Compliance**:
+- Modern browsers require user gesture for audio playback (click/tap)
+- Audio playback automatically requests user permission when needed
+- `play()` method returns Promise that may reject if policy not satisfied
+- Wrap playback calls with `.catch()` to handle denied autoplay
+- Relevant files: `HiddenAudioElement.tsx`, `useAudioPlayback` hook
+
 ### Audio Fingerprint System (NEW)
 25-dimensional acoustic fingerprint for intelligent processing:
 - **Frequency** (7D): Bass, mids, treble distribution
@@ -865,6 +891,7 @@ Automatically used by `HybridProcessor` for intelligent parameter selection.
 **Development Guidelines:**
 - [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** test quality
 - [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Testing roadmap
+- [Audio Playback Status & Implementation](docs/guides/AUDIO_PLAYBACK_STATUS.md) - Comprehensive audio playback guide (Nov 2025)
 
 **Architecture & Design:**
 - [docs/guides/UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md) - UI requirements
@@ -897,7 +924,7 @@ git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push origin master && git push origin vX.Y.Z
 ```
 
-**Current Version**: 1.0.0-beta.12 (see README.md for latest)
+**Current Version**: 1.1.0-beta.1 (see README.md for latest, released November 18, 2025)
 
 ---
 
@@ -1372,12 +1399,19 @@ git commit -m "Add feature"
 
 ## 📊 Project Health Metrics
 
-**Current Status (Beta 12.0):**
+**Current Status (1.1.0-beta.1, November 18, 2025):**
 - Backend: 850+ tests, 74%+ coverage
-- Frontend: 234 tests passing, 95.5% pass rate
+- Frontend: 234+ tests passing, 95.5%+ pass rate
 - Code Quality: Type hints, comprehensive docstrings, linting
 - Performance: 36.6x real-time, 740+ files/sec library scanning
 - CI/CD: GitHub Actions with multi-platform builds
+- **Recent Focus**: WAV format browser compatibility, autoplay policy compliance, chunk loading stability
+
+**Development Snapshot:**
+- Audio processing now uses WAV format (16/24-bit PCM) for Web Audio API compatibility
+- Browser autoplay policy handling implemented for user gesture compliance
+- ChunkPreloadManager AudioContext initialization race condition fixed
+- Enhanced chunk loading error handling and async promise management
 
 **Before Shipping Changes:**
 - ✅ All tests pass (`pytest tests/ -v`)
