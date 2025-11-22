@@ -3,9 +3,12 @@
  *
  * Consolidates search field, results container, and result item styling
  * used in GlobalSearch component.
+ *
+ * Avatar components (ArtistSearchAvatar, DefaultSearchAvatar) are imported from Avatar.styles.ts
  */
 
-import { Box, TextField, Paper, Typography, ListItemButton, Chip, Avatar, styled } from '@mui/material';
+import { Box, TextField, Paper, Typography, ListItemButton, Chip, styled } from '@mui/material';
+export { ArtistSearchAvatar, DefaultSearchAvatar } from './Avatar.styles';
 
 /**
  * SearchContainer - Root container for search input
@@ -127,28 +130,6 @@ export const TypeChip = styled(Chip)(({ theme }) => ({
     backgroundColor: 'rgba(236, 72, 153, 0.2)',
     color: '#ec4899'
   }
-}));
-
-/**
- * ArtistSearchAvatar - Circular avatar for artist search results
- * Features aurora gradient background with initial letter
- */
-export const ArtistSearchAvatar = styled(Avatar)(({ theme }) => ({
-  width: 40,
-  height: 40,
-  background: 'linear-gradient(135deg, #667eea, #764ba2)',
-  fontSize: '1rem',
-  fontWeight: 'bold'
-}));
-
-/**
- * DefaultSearchAvatar - Generic avatar for non-artist results
- * Used for tracks and other result types
- */
-export const DefaultSearchAvatar = styled(Avatar)(({ theme }) => ({
-  width: 40,
-  height: 40,
-  backgroundColor: 'rgba(102, 126, 234, 0.2)'
 }));
 
 /**
