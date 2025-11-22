@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   InputAdornment,
   List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
   Typography,
   Divider,
   CircularProgress,
@@ -22,14 +19,11 @@ import {
   SearchField,
   ResultsContainer,
   CategoryHeader,
-  StyledListItemButton,
-  ResultTitle,
-  ResultSubtitle,
-  TypeChip,
   ArtistSearchAvatar,
   DefaultSearchAvatar,
   EmptyResultsBox
 } from './SearchStyles.styles';
+import SearchResultItem from './SearchResultItem';
 import AlbumArt from '../album/AlbumArt';
 
 interface SearchResult {
@@ -239,23 +233,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
               <>
                 <CategoryHeader>Tracks</CategoryHeader>
                 {groupedResults.tracks.map((result) => (
-                  <StyledListItemButton
+                  <SearchResultItem
                     key={`${result.type}-${result.id}`}
-                    onClick={() => handleResultClick(result)}
-                  >
-                    <ListItemAvatar>
-                      {getAvatar(result)}
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <ResultTitle className="result-title">
-                          {result.title}
-                        </ResultTitle>
-                      }
-                      secondary={<ResultSubtitle>{result.subtitle}</ResultSubtitle>}
-                    />
-                    <TypeChip label="Track" size="small" className="track" />
-                  </StyledListItemButton>
+                    result={result}
+                    avatar={getAvatar(result)}
+                    chipLabel="Track"
+                    chipClass="track"
+                    onClick={handleResultClick}
+                  />
                 ))}
               </>
             )}
@@ -265,23 +250,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
                 {groupedResults.tracks.length > 0 && <Divider sx={{ my: 1 }} />}
                 <CategoryHeader>Albums</CategoryHeader>
                 {groupedResults.albums.map((result) => (
-                  <StyledListItemButton
+                  <SearchResultItem
                     key={`${result.type}-${result.id}`}
-                    onClick={() => handleResultClick(result)}
-                  >
-                    <ListItemAvatar>
-                      {getAvatar(result)}
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <ResultTitle className="result-title">
-                          {result.title}
-                        </ResultTitle>
-                      }
-                      secondary={<ResultSubtitle>{result.subtitle}</ResultSubtitle>}
-                    />
-                    <TypeChip label="Album" size="small" className="album" />
-                  </StyledListItemButton>
+                    result={result}
+                    avatar={getAvatar(result)}
+                    chipLabel="Album"
+                    chipClass="album"
+                    onClick={handleResultClick}
+                  />
                 ))}
               </>
             )}
@@ -293,23 +269,14 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
                 )}
                 <CategoryHeader>Artists</CategoryHeader>
                 {groupedResults.artists.map((result) => (
-                  <StyledListItemButton
+                  <SearchResultItem
                     key={`${result.type}-${result.id}`}
-                    onClick={() => handleResultClick(result)}
-                  >
-                    <ListItemAvatar>
-                      {getAvatar(result)}
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <ResultTitle className="result-title">
-                          {result.title}
-                        </ResultTitle>
-                      }
-                      secondary={<ResultSubtitle>{result.subtitle}</ResultSubtitle>}
-                    />
-                    <TypeChip label="Artist" size="small" className="artist" />
-                  </StyledListItemButton>
+                    result={result}
+                    avatar={getAvatar(result)}
+                    chipLabel="Artist"
+                    chipClass="artist"
+                    onClick={handleResultClick}
+                  />
                 ))}
               </>
             )}
