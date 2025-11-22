@@ -5,10 +5,12 @@
  * and reusability across artist-related components.
  *
  * Avatar components (ArtistAvatarCircle) are imported from Avatar.styles.ts
+ * Tab components (StyledTabs, DetailViewTabs) are imported from Tabs.styles.ts
  */
 
-import { Paper, Typography, Tabs, TableContainer, styled } from '@mui/material';
+import { Paper, Typography, TableContainer, styled } from '@mui/material';
 export { ArtistAvatarCircle } from './Avatar.styles';
+export { DetailViewTabs as StyledTabs } from './Tabs.styles';
 
 /**
  * AlbumCard - Card container for album displays in artist view
@@ -47,26 +49,6 @@ export const AlbumTitle = styled(Typography)(({ theme }) => ({
 export const AlbumInfo = styled(Typography)(({ theme }) => ({
   fontSize: '0.875rem',
   color: theme.palette.text.secondary
-}));
-
-/**
- * StyledTabs - Tab navigation with aurora indicator for albums/tracks view
- */
-export const StyledTabs = styled(Tabs)(({ theme }) => ({
-  borderBottom: '1px solid rgba(255,255,255,0.1)',
-  marginBottom: theme.spacing(3),
-  '& .MuiTab-root': {
-    textTransform: 'none',
-    fontSize: '1rem',
-    fontWeight: 500,
-    minWidth: 120,
-    '&.Mui-selected': {
-      color: '#667eea'
-    }
-  },
-  '& .MuiTabs-indicator': {
-    backgroundColor: '#667eea'
-  }
 }));
 
 /**
