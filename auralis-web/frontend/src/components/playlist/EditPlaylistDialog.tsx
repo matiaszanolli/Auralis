@@ -10,6 +10,7 @@ import * as playlistService from '../../services/playlistService';
 import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
 import { StyledTextField } from '../library/FormFields.styles';
 import { GradientButton, CancelButton } from '../library/Button.styles';
+import { auroraOpacity } from '../library/Color.styles';
 
 interface EditPlaylistDialogProps {
   open: boolean;
@@ -108,9 +109,9 @@ export const EditPlaylistDialog: React.FC<EditPlaylistDialogProps> = ({
           <Box
             sx={{
               p: 2,
-              background: 'rgba(102, 126, 234, 0.1)',
+              background: auroraOpacity.veryLight,
               borderRadius: '8px',
-              border: `1px solid rgba(102, 126, 234, 0.2)`,
+              border: `1px solid ${auroraOpacity.standard}`,
             }}
           >
             <Box sx={{ color: colors.text.secondary, fontSize: '14px' }}>
