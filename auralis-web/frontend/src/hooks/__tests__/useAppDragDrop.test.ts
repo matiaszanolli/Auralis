@@ -1,9 +1,11 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAppDragDrop } from '../useAppDragDrop';
 import { DropResult } from '@hello-pangea/dnd';
 
 // Mock fetch
-global.fetch = vi.fn();
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
 
 describe('useAppDragDrop', () => {
   const mockInfo = vi.fn();
@@ -12,7 +14,7 @@ describe('useAppDragDrop', () => {
   beforeEach(() => {
     mockInfo.mockClear();
     mockSuccess.mockClear();
-    (global.fetch as any).mockClear();
+    vi.clearAllMocks();
   });
 
   const createDropResult = (
@@ -55,7 +57,7 @@ describe('useAppDragDrop', () => {
         await result.current.handleDragEnd(dropResult);
       });
 
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 
@@ -74,13 +76,13 @@ describe('useAppDragDrop', () => {
         await result.current.handleDragEnd(dropResult);
       });
 
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 
   describe('add to queue', () => {
     it('adds track to queue on drop', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -99,7 +101,7 @@ describe('useAppDragDrop', () => {
         await result.current.handleDragEnd(dropResult);
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
         '/api/player/queue/add-track',
         expect.objectContaining({
           method: 'POST',
@@ -114,7 +116,7 @@ describe('useAppDragDrop', () => {
     });
 
     it('handles queue add error', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -139,7 +141,7 @@ describe('useAppDragDrop', () => {
 
   describe('add to playlist', () => {
     it('adds track to playlist on drop', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -158,7 +160,7 @@ describe('useAppDragDrop', () => {
         await result.current.handleDragEnd(dropResult);
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/playlists/5/tracks/add'),
         expect.any(Object)
       );
@@ -169,7 +171,7 @@ describe('useAppDragDrop', () => {
     });
 
     it('handles playlist add error', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -194,7 +196,7 @@ describe('useAppDragDrop', () => {
 
   describe('reorder queue', () => {
     it('reorders tracks in queue', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -212,7 +214,7 @@ describe('useAppDragDrop', () => {
         await result.current.handleDragEnd(dropResult);
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
         '/api/player/queue/move',
         expect.objectContaining({
           method: 'PUT',
@@ -225,7 +227,7 @@ describe('useAppDragDrop', () => {
     });
 
     it('handles queue reorder error', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -250,7 +252,7 @@ describe('useAppDragDrop', () => {
 
   describe('reorder playlist', () => {
     it('reorders tracks in playlist', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -268,7 +270,7 @@ describe('useAppDragDrop', () => {
         await result.current.handleDragEnd(dropResult);
       });
 
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/playlists/5/tracks/reorder'),
         expect.any(Object)
       );
@@ -277,7 +279,7 @@ describe('useAppDragDrop', () => {
     });
 
     it('handles playlist reorder error', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: false,
       });
 
@@ -302,7 +304,7 @@ describe('useAppDragDrop', () => {
 
   describe('track ID extraction', () => {
     it('extracts track ID from draggable ID', async () => {
-      (global.fetch as any).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({}),
       });
@@ -322,7 +324,7 @@ describe('useAppDragDrop', () => {
       });
 
       const callBody = JSON.parse(
-        (global.fetch as any).mock.calls[0][1].body
+        mockFetch.mock.calls[0][1].body
       );
       expect(callBody.track_id).toBe(999);
     });
@@ -330,7 +332,7 @@ describe('useAppDragDrop', () => {
 
   describe('error handling', () => {
     it('handles network errors gracefully', async () => {
-      (global.fetch as any).mockRejectedValueOnce(
+      mockFetch.mockRejectedValueOnce(
         new Error('Network error')
       );
 
@@ -354,7 +356,7 @@ describe('useAppDragDrop', () => {
 
     it('logs errors to console', async () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
-      (global.fetch as any).mockRejectedValueOnce(
+      mockFetch.mockRejectedValueOnce(
         new Error('Test error')
       );
 
