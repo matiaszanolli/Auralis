@@ -43,16 +43,41 @@ afterEach(async () => {
 // Mock window.matchMedia (used by MUI components for responsive design)
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: vi.fn().mockImplementation((query) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(), // deprecated
-    removeListener: vi.fn(), // deprecated
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
+  value: vi.fn().mockImplementation((query) => {
+    // Simulate responsive behavior based on query
+    // Default to desktop size (1920x1080) unless specific breakpoint is requested
+    let matches = false;
+
+    if (query) {
+      // Common MUI breakpoints
+      if (query.includes('max-width: 400px')) {
+        matches = true; // xs
+      } else if (query.includes('max-width: 600px')) {
+        matches = true; // sm
+      } else if (query.includes('max-width: 900px')) {
+        matches = false; // md (default desktop)
+      } else if (query.includes('max-width: 1200px')) {
+        matches = false; // lg
+      } else if (query.includes('max-width: 1536px')) {
+        matches = false; // xl
+      } else if (query.includes('(prefers-color-scheme: dark)')) {
+        matches = true; // dark mode (assume dark for tests)
+      } else if (query.includes('(prefers-reduced-motion: reduce)')) {
+        matches = false; // animation enabled (default)
+      }
+    }
+
+    return {
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(), // deprecated
+      removeListener: vi.fn(), // deprecated
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    };
+  }),
 })
 
 // Mock IntersectionObserver (used by virtualization libraries)
