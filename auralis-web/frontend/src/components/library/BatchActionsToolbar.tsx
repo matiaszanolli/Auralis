@@ -40,6 +40,7 @@ import {
   MoreVert
 } from '@mui/icons-material';
 import { cardShadows } from './Shadow.styles';
+import { spacingPresets } from './Spacing.styles';
 
 interface BatchActionsToolbarProps {
   selectedCount: number;
@@ -62,10 +63,10 @@ const ToolbarContainer = styled(Paper)(({ theme }) => ({
   backdropFilter: 'blur(20px)',
   border: '1px solid rgba(255, 255, 255, 0.2)',
   borderRadius: '16px',
-  padding: '12px 24px',
+  padding: spacingPresets.buttons.compact,
   display: 'flex',
   alignItems: 'center',
-  gap: '16px',
+  gap: spacingPresets.gap.standard,
   boxShadow: cardShadows.dropdownDark,
   animation: 'slideDown 0.3s ease-out',
   '@keyframes slideDown': {
