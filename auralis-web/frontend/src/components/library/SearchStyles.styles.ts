@@ -8,9 +8,10 @@
  * Empty state components are imported from EmptyState.styles.ts
  */
 
-import { TextField, Paper, Typography, ListItemButton, Chip, styled } from '@mui/material';
+import { TextField, Paper, ListItemButton, Chip, styled, Box } from '@mui/material';
 export { ArtistSearchAvatar, DefaultSearchAvatar } from './Avatar.styles';
 export { SearchEmptyState as EmptyResultsBox } from './EmptyState.styles';
+export { CategoryHeader, ResultTitle, ResultSubtitle } from './Typography.styles';
 
 /**
  * SearchContainer - Root container for search input
@@ -70,18 +71,6 @@ export const ResultsContainer = styled(Paper)(({ theme }) => ({
 }));
 
 /**
- * CategoryHeader - Section header for result categories
- */
-export const CategoryHeader = styled(Typography)(({ theme }) => ({
-  fontSize: '0.75rem',
-  fontWeight: 'bold',
-  textTransform: 'uppercase',
-  color: theme.palette.text.secondary,
-  padding: theme.spacing(2, 2, 1, 2),
-  letterSpacing: 1
-}));
-
-/**
  * StyledListItemButton - Result row with hover effects
  */
 export const StyledListItemButton = styled(ListItemButton)(({ theme }) => ({
@@ -93,23 +82,6 @@ export const StyledListItemButton = styled(ListItemButton)(({ theme }) => ({
       color: '#667eea'
     }
   }
-}));
-
-/**
- * ResultTitle - Primary result text
- */
-export const ResultTitle = styled(Typography)({
-  fontSize: '0.95rem',
-  fontWeight: 500,
-  transition: 'color 0.2s ease'
-});
-
-/**
- * ResultSubtitle - Secondary result metadata
- */
-export const ResultSubtitle = styled(Typography)(({ theme }) => ({
-  fontSize: '0.85rem',
-  color: theme.palette.text.secondary
 }));
 
 /**
