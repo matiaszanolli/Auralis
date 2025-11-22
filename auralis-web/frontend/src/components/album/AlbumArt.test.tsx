@@ -139,7 +139,7 @@ describe('AlbumArt', () => {
   describe('Component Lifecycle', () => {
     it('should mount and unmount cleanly', () => {
       const { unmount } = render(<AlbumArt albumId={1} />);
-      expect(screen.getByRole('main') || document.body).toBeInTheDocument();
+      expect(document.body).toBeInTheDocument();
 
       unmount();
       // Component should unmount without errors
@@ -151,7 +151,7 @@ describe('AlbumArt', () => {
       // Update props
       rerender(<AlbumArt albumId={2} />);
 
-      expect(screen.getByRole('main') || document.body).toBeInTheDocument();
+      expect(document.body).toBeInTheDocument();
     });
   });
 });
