@@ -27,8 +27,10 @@ import { useToast } from '../shared/Toast';
 import {
   ListLoadingContainer,
   GridContainer,
-  InfiniteScrollTrigger,
 } from './Grid.styles';
+import InfiniteScrollTrigger from './InfiniteScrollTrigger';
+import EndOfListIndicator from './EndOfListIndicator';
+import GridLoadingState from './GridLoadingState';
 
 export interface Track {
   id: number;
@@ -174,11 +176,7 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
         </Grid>
 
         {/* Intersection observer trigger for infinite scroll */}
-        {hasMore && (
-          <InfiniteScrollTrigger ref={loadMoreRef}>
-            {isLoadingMore && <SpinnerBox />}
-          </InfiniteScrollTrigger>
-        )}
+        {hasMore && <InfiniteScrollTrigger ref={loadMoreRef} />}
 
         {/* Track Queue - Shows current album/playlist tracks */}
         {tracks.length > 0 && (
@@ -275,36 +273,16 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
       ))}
 
       {/* Intersection observer trigger for infinite scroll */}
-      {hasMore && (
-        <Box
-          ref={loadMoreRef}
-          sx={{
-            height: '100px',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            p: 2
-          }}
-        >
-          {isLoadingMore && (
-            <>
-              <SpinnerBox />
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                Loading more tracks... ({tracks.length}/{totalTracks})
-              </Typography>
-            </>
-          )}
-        </Box>
+      {hasMore && <InfiniteScrollTrigger ref={loadMoreRef} />}
+
+      {/* Loading indicator */}
+      {isLoadingMore && (
+        <GridLoadingState current={tracks.length} total={totalTracks} itemType="tracks" />
       )}
 
       {/* End of list indicator */}
       {!hasMore && tracks.length > 0 && (
-        <Box sx={{ p: 3, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            Showing all {totalTracks} tracks
-          </Typography>
-        </Box>
+        <EndOfListIndicator count={totalTracks} itemType="tracks" />
       )}
     </Paper>
   );
