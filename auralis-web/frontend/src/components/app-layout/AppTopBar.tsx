@@ -9,6 +9,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
+import { auroraOpacity } from '../library/Color.styles';
 
 /**
  * Props for the AppTopBar component.
@@ -132,7 +133,7 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
         justifyContent: 'space-between',
         padding: '16px 24px',
         background: 'var(--midnight-blue)',
-        borderBottom: '1px solid rgba(102, 126, 234, 0.1)',
+        borderBottom: `1px solid ${auroraOpacity.veryLight}`,
         height: 70,
         gap: 16,
       }}
@@ -153,7 +154,7 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
               color: 'var(--silver)',
               padding: '8px',
               '&:hover': {
-                background: 'rgba(102, 126, 234, 0.1)',
+                background: auroraOpacity.veryLight,
               },
             }}
           >
@@ -190,12 +191,12 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
           sx={{
             display: 'flex',
             alignItems: 'center',
-            background: 'rgba(102, 126, 234, 0.05)',
+            background: auroraOpacity.minimal,
             borderRadius: '8px',
             border: `1px solid ${
               isSearchFocused
-                ? 'rgba(102, 126, 234, 0.3)'
-                : 'rgba(102, 126, 234, 0.1)'
+                ? auroraOpacity.strong
+                : auroraOpacity.veryLight
             }`,
             padding: '8px 12px',
             gap: 8,
