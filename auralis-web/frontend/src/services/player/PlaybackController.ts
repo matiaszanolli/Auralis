@@ -14,7 +14,10 @@
  * - Seek with priority-based chunk preloading
  * - Resumable playback tracking
  * - State transition validation
+ * - Adaptive timeout management for chunk loading
  */
+
+import { AdaptiveTimeoutManager } from './AdaptiveTimeoutManager';
 
 export interface ChunkInfo {
   isLoaded: boolean;
@@ -49,11 +52,13 @@ export class PlaybackController {
 
   private eventCallbacks = new Map<string, Set<EventCallback>>();
   private debug: (msg: string) => void = () => {};
+  private timeoutManager: AdaptiveTimeoutManager;
 
   constructor(debugFn?: (msg: string) => void) {
     if (debugFn) {
       this.debug = debugFn;
     }
+    this.timeoutManager = new AdaptiveTimeoutManager(debugFn);
   }
 
   /**
@@ -65,6 +70,8 @@ export class PlaybackController {
       isLoading: false,
       audioBuffer: null
     }));
+    // Reset timeout manager for new track
+    this.timeoutManager.reset();
     this.debug(`[PLAYBACK] Initialized ${chunkCount} chunks`);
   }
 
@@ -160,15 +167,22 @@ export class PlaybackController {
       chunkDuration
     });
 
-    // Wait for chunk to be ready
-    const maxWaitTime = 30000; // 30s timeout for chunk loading // 15 second timeout
+    // Wait for chunk to be ready with adaptive timeout
+    const maxWaitTime = this.timeoutManager.getTimeoutMs();
     const startTime = Date.now();
     while (!this.chunks[chunkIndex]?.isLoaded && Date.now() - startTime < maxWaitTime) {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
 
+    // Record load time for adaptive timeout tuning
+    const loadTimeMs = Date.now() - startTime;
+    this.timeoutManager.recordChunkLoad(chunkIndex, loadTimeMs);
+
     if (!this.chunks[chunkIndex]?.isLoaded) {
-      throw new Error(`Chunk ${chunkIndex} failed to load within timeout`);
+      throw new Error(
+        `Chunk ${chunkIndex} failed to load within adaptive timeout ` +
+        `(${this.timeoutManager.getTimeoutSeconds().toFixed(1)}s)`
+      );
     }
   }
 
@@ -231,15 +245,22 @@ export class PlaybackController {
       }
     });
 
-    // Wait for target chunk to be loaded
-    const maxWaitTime = 30000; // 30s timeout for chunk loading // 15 second timeout
+    // Wait for target chunk to be loaded with adaptive timeout
+    const maxWaitTime = this.timeoutManager.getTimeoutMs();
     const startTime = Date.now();
     while (!this.chunks[targetChunk]?.isLoaded && Date.now() - startTime < maxWaitTime) {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
 
+    // Record load time for adaptive timeout tuning
+    const loadTimeMs = Date.now() - startTime;
+    this.timeoutManager.recordChunkLoad(targetChunk, loadTimeMs);
+
     if (!this.chunks[targetChunk]?.isLoaded) {
-      throw new Error(`Chunk ${targetChunk} failed to load within seek timeout`);
+      throw new Error(
+        `Chunk ${targetChunk} failed to load within adaptive seek timeout ` +
+        `(${this.timeoutManager.getTimeoutSeconds().toFixed(1)}s)`
+      );
     }
   }
 

@@ -62,18 +62,20 @@ export function usePlayerEventHandlers({
     console.log(`[usePlayerEventHandlers] Play`);
     try {
       await player.play();
+      callbacks.play();
       console.log(`[usePlayerEventHandlers] Play completed successfully`);
     } catch (err: any) {
       console.error(`[usePlayerEventHandlers] Play failed:`, err);
       onError?.(`Playback failed: ${err.message}`);
     }
-  }, [player, onError]);
+  }, [player, callbacks, onError]);
 
   // Pause handler
   const handlePause = useCallback(() => {
     console.log(`[usePlayerEventHandlers] Pause`);
     player.pause();
-  }, [player]);
+    callbacks.pause();
+  }, [player, callbacks]);
 
   // Seek handler
   const handleSeek = useCallback(async (time: number) => {

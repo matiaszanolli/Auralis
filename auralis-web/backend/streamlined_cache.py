@@ -425,6 +425,54 @@ class StreamlinedCacheManager:
             }
         }
 
+    async def warm_tier1_immediately(
+        self,
+        track_id: int,
+        chunk_paths: List[Tuple[int, Path, Optional[str]]],
+        intensity: float = 1.0
+    ) -> int:
+        """
+        Immediately warm Tier 1 cache with pre-processed chunks.
+
+        This proactively loads the current and next chunks into Tier 1 cache
+        to ensure instant playback continuity and fast preset switching.
+
+        Args:
+            track_id: Track ID
+            chunk_paths: List of (chunk_index, path, preset) tuples to cache
+            intensity: Processing intensity
+
+        Returns:
+            Number of chunks loaded into Tier 1
+        """
+        async with self._lock:
+            loaded_count = 0
+
+            for chunk_idx, chunk_path, preset in chunk_paths:
+                chunk = CachedChunk(
+                    track_id=track_id,
+                    chunk_idx=chunk_idx,
+                    preset=preset,
+                    intensity=intensity,
+                    chunk_path=chunk_path
+                )
+
+                cache_key = chunk.key()
+
+                # Add to Tier 1
+                # Check size limit first
+                if len(self.tier1_cache) >= TIER1_MAX_CHUNKS * 2:  # × 2 for original + processed
+                    await self._evict_tier1_lru()
+
+                self.tier1_cache[cache_key] = chunk
+                loaded_count += 1
+
+            if loaded_count > 0:
+                preset_str = "original/processed" if len(chunk_paths) > 1 else "original"
+                logger.info(f"✅ Tier 1 warmed: {loaded_count} chunks for track {track_id}")
+
+            return loaded_count
+
     async def clear_all(self):
         """Clear all caches."""
         async with self._lock:

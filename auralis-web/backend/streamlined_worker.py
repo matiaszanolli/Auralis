@@ -129,6 +129,9 @@ class StreamlinedCacheWorker:
         """
         Ensure a chunk is cached in Tier 1 (both original and processed).
 
+        This method proactively loads chunks into Tier 1 cache to ensure instant
+        playback continuity and fast preset switching.
+
         Args:
             track: Track object from library
             track_id: Track ID
@@ -136,6 +139,9 @@ class StreamlinedCacheWorker:
             preset: Current preset
             intensity: Processing intensity
         """
+        # Collect chunk paths to warm Tier 1 after processing
+        tier1_chunks_to_warm = []
+
         # Check if original chunk is cached
         original_path, tier = await self.cache_manager.get_chunk(
             track_id, chunk_idx, preset=None, intensity=intensity
@@ -143,9 +149,14 @@ class StreamlinedCacheWorker:
 
         if original_path is None:
             # Process original chunk
-            await self._process_chunk(
+            original_path = await self._process_chunk(
                 track, track_id, chunk_idx, preset=None, intensity=intensity, tier="tier1"
             )
+
+        # Add to warming list if we have the path
+        if original_path:
+            from pathlib import Path
+            tier1_chunks_to_warm.append((chunk_idx, Path(original_path), None))
 
         # Check if processed chunk is cached (only if auto-mastering enabled)
         if self.cache_manager.auto_mastering_enabled:
@@ -155,9 +166,22 @@ class StreamlinedCacheWorker:
 
             if processed_path is None:
                 # Process with current preset
-                await self._process_chunk(
+                processed_path = await self._process_chunk(
                     track, track_id, chunk_idx, preset=preset, intensity=intensity, tier="tier1"
                 )
+
+            # Add to warming list if we have the path
+            if processed_path:
+                from pathlib import Path
+                tier1_chunks_to_warm.append((chunk_idx, Path(processed_path), preset))
+
+        # Immediately warm Tier 1 with these chunks
+        if tier1_chunks_to_warm:
+            await self.cache_manager.warm_tier1_immediately(
+                track_id=track_id,
+                chunk_paths=tier1_chunks_to_warm,
+                intensity=intensity
+            )
 
     async def _build_tier2_cache(
         self,
@@ -224,7 +248,7 @@ class StreamlinedCacheWorker:
         preset: Optional[str],
         intensity: float,
         tier: str
-    ):
+    ) -> Optional[str]:
         """
         Process a single chunk and add to cache.
 
@@ -235,6 +259,9 @@ class StreamlinedCacheWorker:
             preset: Processing preset (None for original)
             intensity: Processing intensity
             tier: Target tier ("tier1" or "tier2")
+
+        Returns:
+            Path to processed chunk file, or None if processing failed
         """
         try:
             preset_str = "original" if preset is None else preset
@@ -243,7 +270,7 @@ class StreamlinedCacheWorker:
             # Check if file exists
             if not Path(track.filepath).exists():
                 logger.error(f"File not found: {track.filepath}")
-                return
+                return None
 
             # Import here to avoid circular dependency
             from chunked_processor import ChunkedAudioProcessor
@@ -256,12 +283,12 @@ class StreamlinedCacheWorker:
                 intensity=intensity
             )
 
-            # Process chunk with timeout
+            # Process chunk with timeout (using thread-safe async method)
             timeout_seconds = 20 if tier == "tier1" else 60  # Tier 1 is urgent
 
             try:
                 chunk_path = await asyncio.wait_for(
-                    asyncio.to_thread(processor.process_chunk, chunk_idx),
+                    processor.process_chunk_safe(chunk_idx),
                     timeout=timeout_seconds
                 )
             except asyncio.TimeoutError:
@@ -269,13 +296,13 @@ class StreamlinedCacheWorker:
                     f"[{tier}] Timeout processing chunk {chunk_idx} "
                     f"(exceeded {timeout_seconds}s limit)"
                 )
-                return
+                return None
             except FileNotFoundError as e:
                 logger.error(f"[{tier}] File not found: {e}")
-                return
+                return None
             except PermissionError as e:
                 logger.error(f"[{tier}] Permission denied: {e}")
-                return
+                return None
 
             # Add to cache
             if chunk_path:
@@ -299,8 +326,11 @@ class StreamlinedCacheWorker:
             # Small delay to avoid CPU saturation
             await asyncio.sleep(0.05)
 
+            return chunk_path
+
         except Exception as e:
             logger.error(f"[{tier}] Failed to process chunk {chunk_idx}: {e}", exc_info=True)
+            return None
 
     async def trigger_immediate_processing(
         self,
