@@ -16,6 +16,7 @@ import { colors } from '../../theme/auralisTheme';
 import { cardShadows } from '../library/Shadow.styles';
 import { radiusMedium, radiusSmall } from '../library/BorderRadius.styles';
 import { spacingXSmall, spacingXMedium } from '../library/Spacing.styles';
+import { auroraOpacity } from '../library/Color.styles';
 
 export interface ContextMenuAction {
   id: string;
@@ -37,7 +38,7 @@ interface ContextMenuProps {
 const StyledMenu = styled(Menu)({
   '& .MuiPaper-root': {
     background: colors.background.secondary,
-    border: `1px solid rgba(102, 126, 234, 0.2)`,
+    border: `1px solid ${auroraOpacity.standard}`,
     boxShadow: cardShadows.dropdownDark,
     borderRadius: radiusMedium,
     minWidth: '220px',
@@ -57,7 +58,7 @@ const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructiv
   '&:hover': {
     background: destructive
       ? 'rgba(255, 71, 87, 0.1)'
-      : 'rgba(102, 126, 234, 0.15)',
+      : auroraOpacity.lighter,
   },
 
   '&.Mui-disabled': {
@@ -140,7 +141,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       {actions.map((action, index) => (
         <React.Fragment key={action.id}>
           {action.divider && index > 0 && (
-            <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 1 }} />
+            <Divider sx={{ borderColor: auroraOpacity.minimal, my: 1 }} />
           )}
           <StyledMenuItem
             onClick={() => {

@@ -11,6 +11,7 @@ import { Box, IconButton, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 import { compoundShadows } from '../library/Shadow.styles';
 import { radiusMedium } from '../library/BorderRadius.styles';
+import { auroraOpacity } from '../library/Color.styles';
 
 /**
  * PlayerContainer - Main fixed player bar container
@@ -28,7 +29,7 @@ export const PlayerContainer = styled(Box)({
   background: 'linear-gradient(180deg, rgba(10, 14, 39, 0.98) 0%, rgba(10, 14, 39, 0.99) 100%)',
   backdropFilter: 'blur(20px)',
   WebkitBackdropFilter: 'blur(20px)', // Safari support
-  borderTop: `1px solid rgba(102, 126, 234, 0.15)`,
+  borderTop: `1px solid ${auroraOpacity.lighter}`,
   display: 'flex',
   flexDirection: 'column',
   zIndex: 1300, // Higher than MUI modals (1200)
@@ -59,7 +60,7 @@ export const PlayButton = styled(IconButton)({
   },
 
   '&:disabled': {
-    background: 'rgba(102, 126, 234, 0.2)',
+    background: auroraOpacity.standard,
     color: 'rgba(255, 255, 255, 0.3)',
   },
 });
@@ -90,7 +91,7 @@ export const ControlButton = styled(IconButton)({
 
   '&:hover': {
     color: '#ffffff',
-    background: 'rgba(102, 126, 234, 0.1)',
+    background: auroraOpacity.veryLight,
   },
 
   '&:disabled': {
