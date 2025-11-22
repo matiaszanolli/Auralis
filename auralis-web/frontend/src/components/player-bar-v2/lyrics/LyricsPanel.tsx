@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import { colors, gradients } from '../../../theme/auralisTheme';
 import { usePlayerAPI } from '../../../hooks/usePlayerAPI';
+import { auroraOpacity } from '../../library/Color.styles';
 
 interface LyricsPanelProps {
   trackId: number | null;
@@ -27,7 +28,7 @@ const PanelContainer = styled(Box)({
   width: '320px',
   height: '100%',
   background: colors.background.secondary,
-  borderLeft: `1px solid rgba(102, 126, 234, 0.1)`,
+  borderLeft: `1px solid ${auroraOpacity.veryLight}`,
   display: 'flex',
   flexDirection: 'column',
   overflow: 'hidden',
@@ -35,11 +36,11 @@ const PanelContainer = styled(Box)({
 
 const Header = styled(Box)({
   padding: '16px 20px',
-  borderBottom: `1px solid rgba(102, 126, 234, 0.1)`,
+  borderBottom: `1px solid ${auroraOpacity.veryLight}`,
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  background: 'rgba(102, 126, 234, 0.05)',
+  background: auroraOpacity.minimal,
 });
 
 const LyricsContainer = styled(Box)({
@@ -55,10 +56,10 @@ const LyricsContainer = styled(Box)({
     background: colors.background.primary,
   },
   '&::-webkit-scrollbar-thumb': {
-    background: 'rgba(102, 126, 234, 0.3)',
+    background: auroraOpacity.strong,
     borderRadius: '4px',
     '&:hover': {
-      background: 'rgba(102, 126, 234, 0.5)',
+      background: auroraOpacity.stronger,
     },
   },
 });
