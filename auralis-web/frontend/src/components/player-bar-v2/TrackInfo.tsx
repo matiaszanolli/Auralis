@@ -10,19 +10,23 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Typography, IconButton, styled } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import LyricsIcon from '@mui/icons-material/Lyrics';
 import AlbumArtDisplay from '../shared/AlbumArtDisplay';
 
 interface TrackInfoProps {
   track: {
+    id?: number;
     title?: string;
     artist?: string;
     album?: string;
     artwork_url?: string;
   } | null;
+  onToggleLyrics?: () => void;
+  showLyricsButton?: boolean;
 }
 
 const TrackInfoContainer = styled(Box)({
@@ -46,7 +50,14 @@ const TitleContainer = styled(Box)({
   minWidth: 0,
 });
 
-const FavoriteButton = styled(IconButton)({
+const ActionButtonsContainer = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  gap: tokens.spacing.xs,
+  flexShrink: 0,
+});
+
+const ActionButton = styled(IconButton)({
   color: tokens.colors.text.secondary,
   padding: 0,
   minWidth: '24px',
@@ -90,7 +101,11 @@ const TrackArtist = styled(Typography)({
   },
 });
 
-export const TrackInfo: React.FC<TrackInfoProps> = React.memo(({ track }) => {
+export const TrackInfo: React.FC<TrackInfoProps> = React.memo(({
+  track,
+  onToggleLyrics,
+  showLyricsButton = true
+}) => {
   const [isFavorite, setIsFavorite] = useState(false);
 
   const handleFavoriteToggle = (e: React.MouseEvent) => {
@@ -128,14 +143,28 @@ export const TrackInfo: React.FC<TrackInfoProps> = React.memo(({ track }) => {
           <TrackTitle title={track.title} sx={{ flex: 1 }}>
             {track.title || 'Unknown Track'}
           </TrackTitle>
-          <FavoriteButton
-            onClick={handleFavoriteToggle}
-            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-            size="small"
-          >
-            {isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
-          </FavoriteButton>
+          <ActionButtonsContainer>
+            <Tooltip title={isFavorite ? 'Remove from favorites' : 'Add to favorites'} arrow>
+              <ActionButton
+                onClick={handleFavoriteToggle}
+                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                size="small"
+              >
+                {isFavorite ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+              </ActionButton>
+            </Tooltip>
+            {showLyricsButton && onToggleLyrics && (
+              <Tooltip title="Toggle lyrics" arrow>
+                <ActionButton
+                  onClick={onToggleLyrics}
+                  aria-label="Toggle lyrics"
+                  size="small"
+                >
+                  <LyricsIcon />
+                </ActionButton>
+              </Tooltip>
+            )}
+          </ActionButtonsContainer>
         </TitleContainer>
         <TrackArtist title={track.artist}>
           {track.artist || 'Unknown Artist'}

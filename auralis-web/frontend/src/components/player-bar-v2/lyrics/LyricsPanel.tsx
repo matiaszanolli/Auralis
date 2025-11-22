@@ -10,8 +10,8 @@ import {
   Close as CloseIcon,
   MusicNote as MusicNoteIcon
 } from '@mui/icons-material';
-import { colors, gradients } from '../../theme/auralisTheme';
-import { usePlayerAPI } from '../../hooks/usePlayerAPI';
+import { colors, gradients } from '../../../theme/auralisTheme';
+import { usePlayerAPI } from '../../../hooks/usePlayerAPI';
 
 interface LyricsPanelProps {
   trackId: number | null;
