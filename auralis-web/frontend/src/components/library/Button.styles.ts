@@ -80,3 +80,30 @@ export const CancelButton = styled(Button)(({ theme }) => ({
   },
   transition: 'all 0.2s ease',
 }));
+
+/**
+ * SaveButton - Primary action button with aurora gradient
+ * Used in dialogs and forms for saving/submitting data
+ */
+export const SaveButton = styled(Button)(({ theme }) => ({
+  background: gradients.aurora,
+  color: '#ffffff',
+  textTransform: 'none',
+  fontWeight: 600,
+  '&:hover': {
+    background: gradients.auroraHover,
+    transform: 'translateY(-1px)',
+    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+  },
+  '&:disabled': {
+    background: 'rgba(102, 126, 234, 0.3)',
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  transition: 'all 0.2s ease',
+}));
+
+/**
+ * CancelButtonForDialog - Cancel button with secondary styling
+ * Alias for CancelButton, used in EditMetadataDialog and other dialogs
+ */
+export const CancelButtonForDialog = CancelButton;

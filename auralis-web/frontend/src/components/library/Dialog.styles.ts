@@ -10,6 +10,7 @@
 import { Dialog, DialogTitle, DialogActions, Button, Box, Typography, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 export { DialogTabs as StyledTabs, DetailViewTabs } from './Tabs.styles';
+export { SaveButton, CancelButtonForDialog } from './Button.styles';
 
 /**
  * StyledDialog - Base dialog with dark theme, blur background, and aurora border
@@ -69,37 +70,6 @@ export const SectionDescription = styled(Typography)(({ theme }) => ({
 export const MetadataDialogActions = styled(DialogActions)(({ theme }) => ({
   borderTop: '1px solid rgba(255,255,255,0.1)',
   padding: theme.spacing(2)
-}));
-
-/**
- * SaveButton - Primary action button with aurora gradient
- * Used in EditMetadataDialog for saving metadata
- */
-export const SaveButton = styled(Button)(({ theme }) => ({
-  background: gradients.aurora,
-  color: '#ffffff',
-  '&:hover': {
-    background: gradients.auroraHover,
-    transform: 'translateY(-1px)',
-    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-  },
-  '&:disabled': {
-    background: 'rgba(102, 126, 234, 0.3)',
-    color: 'rgba(255, 255, 255, 0.5)',
-  },
-  transition: 'all 0.2s ease',
-}));
-
-/**
- * CancelButtonForDialog - Cancel button with secondary styling
- * Used in EditMetadataDialog
- */
-export const CancelButtonForDialog = styled(Button)(({ theme }) => ({
-  color: 'rgba(255,255,255,0.7)',
-  '&:hover': {
-    backgroundColor: 'rgba(255,255,255,0.1)'
-  },
-  transition: 'all 0.2s ease',
 }));
 
 export default StyledDialog;
