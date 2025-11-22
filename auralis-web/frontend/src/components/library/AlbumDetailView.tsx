@@ -16,6 +16,7 @@ import {
   Tooltip
 } from '@mui/material';
 import { EmptyStateBox } from './EmptyStateBox';
+import DetailViewHeader from './DetailViewHeader';
 import {
   ArrowBack,
   PlayArrow,
@@ -58,64 +59,6 @@ interface AlbumDetailViewProps {
 }
 
 // Styled Components
-const HeaderSection = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  gap: theme.spacing(4),
-  marginBottom: theme.spacing(4),
-  padding: theme.spacing(4),
-  background: 'rgba(255,255,255,0.03)',
-  borderRadius: theme.spacing(2),
-  backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255,255,255,0.05)'
-}));
-
-const AlbumArtWrapper = styled(Box)({
-  flexShrink: 0,
-  width: 280,
-  height: 280,
-  borderRadius: 12,
-  overflow: 'hidden',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
-});
-
-const AlbumInfo = styled(Box)(({ theme }) => ({
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'center',
-  gap: theme.spacing(2)
-}));
-
-const AlbumTitle = styled(Typography)({
-  fontSize: '2.5rem',
-  fontWeight: 'bold',
-  background: 'linear-gradient(45deg, #667eea, #764ba2)',
-  backgroundClip: 'text',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  marginBottom: 8
-});
-
-const AlbumArtist = styled(Typography)(({ theme }) => ({
-  fontSize: '1.5rem',
-  color: theme.palette.text.secondary,
-  marginBottom: 16
-}));
-
-const AlbumMetadata = styled(Typography)(({ theme }) => ({
-  fontSize: '0.95rem',
-  color: theme.palette.text.secondary,
-  marginBottom: 4
-}));
-
-const ActionButtons = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  gap: theme.spacing(2),
-  marginTop: theme.spacing(2),
-  alignItems: 'center',
-  flexWrap: 'wrap' // Allow wrapping on smaller screens
-}));
-
 const PlayButton = styled(Button)(({ theme }) => ({
   background: 'linear-gradient(45deg, #667eea, #764ba2)',
   color: 'white',
@@ -315,43 +258,35 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
       )}
 
       {/* Album Header */}
-      <HeaderSection>
-        <AlbumArtWrapper>
-          <AlbumArt
-            albumId={album.id}
-            size={280}
-            borderRadius={0}
-          />
-        </AlbumArtWrapper>
-
-        <AlbumInfo>
-          <Box>
-            <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 1 }}>
-              Album
-            </Typography>
-            <AlbumTitle variant="h2">
-              {album.title}
-            </AlbumTitle>
-            <AlbumArtist variant="h5">
-              {album.artist_name || album.artist}
-            </AlbumArtist>
+      <DetailViewHeader
+        artwork={
+          <Box sx={{ width: 280, height: 280, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+            <AlbumArt
+              albumId={album.id}
+              size={280}
+              borderRadius={0}
+            />
           </Box>
-
+        }
+        title={album.title}
+        subtitle={album.artist_name || album.artist}
+        metadata={
           <Box>
-            <AlbumMetadata>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
               {album.year && `${album.year} • `}
               {album.track_count} {album.track_count === 1 ? 'track' : 'tracks'}
               {' • '}
               {formatTotalDuration(album.total_duration)}
-            </AlbumMetadata>
+            </Typography>
             {album.genre && (
-              <AlbumMetadata>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                 Genre: {album.genre}
-              </AlbumMetadata>
+              </Typography>
             )}
           </Box>
-
-          <ActionButtons>
+        }
+        actions={
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <PlayButton
               startIcon={isPlaying && currentTrackId === album.tracks?.[0]?.id ? <Pause /> : <PlayArrow />}
               onClick={handlePlayAlbum}
@@ -401,9 +336,9 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
                 <MoreVert />
               </IconButton>
             </Tooltip>
-          </ActionButtons>
-        </AlbumInfo>
-      </HeaderSection>
+          </Box>
+        }
+      />
 
       {/* Track Listing */}
       <TableContainer
