@@ -9,14 +9,10 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Skeleton,
-  Tabs,
   Tab,
-  Divider
 } from '@mui/material';
 import {
   ArrowBack,
@@ -25,12 +21,20 @@ import {
   Shuffle,
   MoreVert
 } from '@mui/icons-material';
-import { styled } from '@mui/material/styles';
 import AlbumArt from '../album/AlbumArt';
 import { EmptyStateBox } from './EmptyStateBox';
 import DetailViewHeader from './DetailViewHeader';
 import { PlayButton, ShuffleButton } from './Button.styles';
 import { StyledTableRow, PlayIcon } from './Table.styles';
+import {
+  AlbumCard,
+  AlbumTitle,
+  AlbumInfo,
+  StyledTabs,
+  ArtistAvatarCircle,
+  NoAlbumsContainer,
+  TracksTableContainer,
+} from './ArtistDetail.styles';
 
 interface Track {
   id: number;
@@ -66,55 +70,6 @@ interface ArtistDetailViewProps {
   currentTrackId?: number;
   isPlaying?: boolean;
 }
-
-// Styled Components
-
-const AlbumCard = styled(Paper)(({ theme }) => ({
-  background: 'rgba(255,255,255,0.03)',
-  borderRadius: theme.spacing(2),
-  overflow: 'hidden',
-  cursor: 'pointer',
-  transition: 'all 0.2s ease',
-  border: '1px solid rgba(255,255,255,0.05)',
-  '&:hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-    '& .album-title': {
-      color: '#667eea'
-    }
-  }
-}));
-
-const AlbumTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '1rem',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  marginBottom: 4,
-  transition: 'color 0.2s ease'
-}));
-
-const AlbumInfo = styled(Typography)(({ theme }) => ({
-  fontSize: '0.875rem',
-  color: theme.palette.text.secondary
-}));
-
-
-const StyledTabs = styled(Tabs)(({ theme }) => ({
-  borderBottom: '1px solid rgba(255,255,255,0.1)',
-  marginBottom: theme.spacing(3),
-  '& .MuiTab-root': {
-    textTransform: 'none',
-    fontSize: '1rem',
-    fontWeight: 500,
-    minWidth: 120,
-    '&.Mui-selected': {
-      color: '#667eea'
-    }
-  },
-  '& .MuiTabs-indicator': {
-    backgroundColor: '#667eea'
-  }
-}));
 
 export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
   artistId,
@@ -257,23 +212,9 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
       {/* Artist Header */}
       <DetailViewHeader
         artwork={
-          <Box
-            sx={{
-              width: 200,
-              height: 200,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '5rem',
-              fontWeight: 'bold',
-              color: 'white',
-              boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
-            }}
-          >
+          <ArtistAvatarCircle>
             {getArtistInitial(artist.name)}
-          </Box>
+          </ArtistAvatarCircle>
         }
         title={artist.name}
         metadata={
@@ -347,33 +288,18 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
                 ))}
               </Grid>
             ) : (
-              <Paper
-                sx={{
-                  p: 4,
-                  textAlign: 'center',
-                  background: 'rgba(255,255,255,0.03)',
-                  borderRadius: 2
-                }}
-              >
+              <NoAlbumsContainer>
                 <Typography color="text.secondary">
                   No albums found for this artist
                 </Typography>
-              </Paper>
+              </NoAlbumsContainer>
             )}
           </Box>
         )}
 
         {/* All Tracks Tab */}
         {activeTab === 1 && (
-          <TableContainer
-            component={Paper}
-            elevation={2}
-            sx={{
-              background: 'rgba(255,255,255,0.03)',
-              borderRadius: 2,
-              backdropFilter: 'blur(10px)'
-            }}
-          >
+          <TracksTableContainer>
             <Table>
               <TableHead>
                 <TableRow>
@@ -455,7 +381,7 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
+          </TracksTableContainer>
         )}
       </Box>
     </Container>
