@@ -108,23 +108,31 @@ class AuralisApp {
         pythonArgs = [path.join(__dirname, '..', 'auralis-web', 'backend', 'main.py')];
         cwd = path.join(__dirname, '..');
       } else {
-        // Production: Run bundled executable
+        // Production: Run Python backend from resources
+        // Try to use compiled binary first, fallback to Python script
         const backendPath = path.join(process.resourcesPath, 'backend', 'auralis-backend');
-
-        // Add platform-specific extension
         const backendExe = process.platform === 'win32'
           ? `${backendPath}.exe`
           : backendPath;
 
-        if (!fs.existsSync(backendExe)) {
-          console.error(`Backend executable not found at: ${backendExe}`);
-          reject(new Error('Backend executable not found'));
+        const pythonScript = path.join(process.resourcesPath, 'backend', 'backend', 'main.py');
+
+        if (fs.existsSync(backendExe)) {
+          // Use compiled binary if available
+          pythonCmd = backendExe;
+          pythonArgs = [];
+          cwd = path.join(process.resourcesPath, 'backend');
+        } else if (fs.existsSync(pythonScript)) {
+          // Fallback: Use Python script from resources
+          console.log('Binary not found, using Python script from resources');
+          pythonCmd = 'python3';
+          pythonArgs = [pythonScript];
+          cwd = path.join(process.resourcesPath, 'backend');
+        } else {
+          console.error(`Backend not found. Tried:\n  Binary: ${backendExe}\n  Script: ${pythonScript}`);
+          reject(new Error('Backend executable or script not found'));
           return;
         }
-
-        pythonCmd = backendExe;
-        pythonArgs = [];
-        cwd = path.join(process.resourcesPath, 'backend');
       }
 
       console.log(`Executing: ${pythonCmd} ${pythonArgs.join(' ')}`);
