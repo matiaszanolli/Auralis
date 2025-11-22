@@ -27,8 +27,8 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import PlaylistList from '../../components/playlist/PlaylistList';
-import * as playlistService from '../../services/playlistService';
+import PlaylistList from '@/components/playlist/PlaylistList';
+import * as playlistService from '@/services/playlistService';
 
 // Mock window.confirm for delete operations
 const mockConfirm = vi.fn();

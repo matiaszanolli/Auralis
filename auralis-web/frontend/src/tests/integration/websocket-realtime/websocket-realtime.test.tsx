@@ -18,7 +18,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { WebSocketProvider, useWebSocketContext } from '../../contexts/WebSocketContext';
+import { WebSocketProvider, useWebSocketContext } from '@/contexts/WebSocketContext';
 import { MockWebSocket, createMockWebSocket, CONNECTING, OPEN, CLOSING, CLOSED } from '@/test/mocks/websocket';
 
 // Test wrapper component
