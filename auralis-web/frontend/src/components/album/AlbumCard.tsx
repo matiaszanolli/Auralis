@@ -30,6 +30,7 @@ import { AlbumArt } from './AlbumArt';
 import { downloadArtwork, extractArtwork, deleteArtwork } from '../../services/artworkService';
 import { useToast } from '../shared/Toast';
 import { colors, gradients } from '../../theme/auralisTheme';
+import { auroraOpacity } from '../library/Color.styles';
 
 interface AlbumCardProps {
   albumId: number;
@@ -136,8 +137,8 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
         height: '100%',
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: `0 8px 24px rgba(102, 126, 234, 0.2)`,
-          border: `1px solid rgba(102, 126, 234, 0.3)`,
+          boxShadow: `0 8px 24px ${auroraOpacity.standard}`,
+          border: `1px solid ${auroraOpacity.strong}`,
         },
       }}
       onMouseEnter={() => setIsHovered(true)}
