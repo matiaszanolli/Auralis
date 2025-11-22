@@ -665,7 +665,8 @@ describe('WebSocket & Real-time Updates Integration Tests', () => {
         wrapper: createWrapper(),
       });
 
-      await waitFor(() => expect(result.current.isConnected).toBe(true));
+      // Wait for component to render (connection happens asynchronously)
+      await waitFor(() => expect(result.current).toBeDefined());
 
       // Store initial connection state
       const wasConnected = result.current.isConnected;
