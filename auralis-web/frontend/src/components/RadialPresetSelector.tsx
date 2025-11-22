@@ -8,7 +8,7 @@ import {
   BoltOutlined,
 } from '@mui/icons-material';
 import { colors, gradients } from '../theme/auralisTheme';
-import { auroraOpacity } from './library/Color.styles';
+import { auroraOpacity, colorAuroraPrimary } from './library/Color.styles';
 
 interface Preset {
   value: string;
@@ -64,7 +64,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
       value: 'warm',
       label: 'Warm',
       description: 'Adds warmth and smoothness',
-      gradient: 'linear-gradient(135deg, #ff6b6b 0%, #ffa502 100%)',
+      gradient: gradients.neonSunset,
       icon: <WhatshotOutlined />,
       angle: 216, // Bottom-left
     },
@@ -119,7 +119,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: `0 0 40px ${currentPresetData.gradient.match(/#[0-9a-f]{6}/i)?.[0] || '#667eea'}66`,
+          boxShadow: `0 0 40px ${currentPresetData.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}66`,
           transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
           border: '3px solid rgba(255, 255, 255, 0.2)',
           backdropFilter: 'blur(10px)',
@@ -194,7 +194,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
                 border: isActive
                   ? '3px solid rgba(255, 255, 255, 0.4)'
                   : isHovered
-                  ? `2px solid ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || '#667eea'}`
+                  ? `2px solid ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}`
                   : '2px solid rgba(255, 255, 255, 0.1)',
                 display: 'flex',
                 alignItems: 'center',
@@ -202,9 +202,9 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
                 cursor: isActive ? 'default' : 'pointer',
                 transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 boxShadow: isActive
-                  ? `0 0 30px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || '#667eea'}99`
+                  ? `0 0 30px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}99`
                   : isHovered
-                  ? `0 0 20px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || '#667eea'}66`
+                  ? `0 0 20px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}66`
                   : '0 2px 8px rgba(0, 0, 0, 0.3)',
                 zIndex: isActive ? 10 : isHovered ? 5 : 1,
                 '&:hover': {
@@ -257,7 +257,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
               y1={centerY}
               x2={centerX + pos.x}
               y2={centerY + pos.y}
-              stroke={isActive ? '#667eea' : '#ffffff'}
+              stroke={isActive ? colorAuroraPrimary : '#ffffff'}
               strokeWidth={isActive ? 2 : 1}
               strokeDasharray={isActive ? '0' : '4 4'}
               style={{

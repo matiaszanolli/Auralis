@@ -27,7 +27,8 @@ import {
 import { Close, Keyboard } from '@mui/icons-material';
 import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
 import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
+import { spacingSmall, spacingXSmall } from '../library/Spacing.styles';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;
@@ -37,18 +38,18 @@ interface KeyboardShortcutsHelpProps {
 }
 
 const CategorySection = styled(Paper)(({ theme }) => ({
-  background: 'rgba(255, 255, 255, 0.03)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
+  background: auroraOpacity.ultraLight,
+  border: `1px solid rgba(255, 255, 255, 0.08)`,
   borderRadius: '12px',
-  padding: '16px',
-  marginBottom: '16px',
+  padding: spacingSmall,
+  marginBottom: spacingSmall,
 }));
 
 const ShortcutRow = styled(Box)(({ theme }) => ({
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '12px 0',
+  padding: `${spacingXSmall} 0`,
   borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
   '&:last-child': {
     borderBottom: 'none',
@@ -59,11 +60,11 @@ const ShortcutKey = styled(Box)(({ theme }) => ({
   background: auroraOpacity.standard,
   border: `1px solid ${auroraOpacity.veryStrong}`,
   borderRadius: '6px',
-  padding: '4px 12px',
+  padding: `${spacingXSmall} 12px`,
   fontFamily: 'monospace',
   fontSize: '14px',
   fontWeight: 'bold',
-  color: '#667eea',
+  color: colorAuroraPrimary,
   minWidth: '80px',
   textAlign: 'center',
   boxShadow: `0 2px 8px ${auroraOpacity.standard}`,
@@ -75,18 +76,18 @@ const ShortcutDescription = styled(Typography)(({ theme }) => ({
 }));
 
 const CategoryTitle = styled(Typography)(({ theme }) => ({
-  color: '#667eea',
+  color: colorAuroraPrimary,
   fontWeight: 'bold',
   fontSize: '16px',
-  marginBottom: '12px',
+  marginBottom: spacingXSmall,
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
+  gap: spacingXSmall,
 }));
 
 const EmptyState = styled(Box)(({ theme }) => ({
   textAlign: 'center',
-  padding: '40px 20px',
+  padding: `40px ${spacingSmall}`,
   color: 'rgba(255, 255, 255, 0.5)',
 }));
 
