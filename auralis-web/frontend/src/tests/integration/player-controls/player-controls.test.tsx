@@ -33,7 +33,7 @@ const mockTrack = {
   duration: 240.5,
 };
 
-// Default player state
+// Default player state with queue for navigation
 const defaultPlayerState = {
   currentTrack: mockTrack,
   isPlaying: false,
@@ -41,6 +41,12 @@ const defaultPlayerState = {
   duration: 240.5,
   volume: 0.7,
   isEnhanced: false,
+  queue: [
+    { ...mockTrack, id: 1, title: 'Track 1' },
+    { ...mockTrack, id: 2, title: 'Track 2' },
+    { ...mockTrack, id: 3, title: 'Track 3' },
+  ],
+  queueIndex: 1, // Start at second track to enable both prev and next
 };
 
 // Default mock handlers
