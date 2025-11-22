@@ -3,9 +3,12 @@
  *
  * Consolidates styled components from ArtistDetailView for better organization
  * and reusability across artist-related components.
+ *
+ * Avatar components (ArtistAvatarCircle) are imported from Avatar.styles.ts
  */
 
-import { Paper, Typography, Tabs, Box, TableContainer, styled } from '@mui/material';
+import { Paper, Typography, Tabs, TableContainer, styled } from '@mui/material';
+export { ArtistAvatarCircle } from './Avatar.styles';
 
 /**
  * AlbumCard - Card container for album displays in artist view
@@ -64,24 +67,6 @@ export const StyledTabs = styled(Tabs)(({ theme }) => ({
   '& .MuiTabs-indicator': {
     backgroundColor: '#667eea'
   }
-}));
-
-/**
- * ArtistAvatarCircle - Circular artist avatar with aurora gradient background
- * Used for displaying artist initials
- */
-export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
-  width: 200,
-  height: 200,
-  borderRadius: '50%',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '5rem',
-  fontWeight: 'bold',
-  color: 'white',
-  boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
 }));
 
 /**
