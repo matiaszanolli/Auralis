@@ -21,6 +21,7 @@ import {
   Box,
   Typography,
   Paper,
+  Divider,
   styled
 } from '@mui/material';
 import { Close, Keyboard } from '@mui/icons-material';

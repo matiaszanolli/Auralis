@@ -58,10 +58,14 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       rollupOptions: {
         output: {
-          // Disable automatic chunking to prevent missing chunk errors
-          manualChunks: undefined,
+          // Separate vendor chunk for better module initialization order
+          manualChunks: {
+            'vendor': ['react', 'react-dom', '@mui/material', '@mui/icons-material'],
+          },
         },
       },
+      // Increase chunk size warning threshold
+      chunkSizeWarningLimit: 1000,
     },
     test: {
       globals: true,
