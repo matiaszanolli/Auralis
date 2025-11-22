@@ -5,15 +5,15 @@
  * following the Auralis dark theme aesthetic with aurora gradients.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Grid,
   Typography,
   Skeleton,
 } from '@mui/material';
-import { colors } from '../../theme/auralisTheme';
 import { AlbumCard } from '../album/AlbumCard';
+import { EmptyStateBox } from './EmptyStateBox';
 
 interface Album {
   id: number;
@@ -28,47 +28,6 @@ interface Album {
 interface CozyAlbumGridProps {
   onAlbumClick?: (albumId: number) => void;
 }
-
-const EmptyState = ({ children }: { children: React.ReactNode }) => (
-  <Box
-    sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '400px',
-      color: colors.text.disabled,
-      textAlign: 'center',
-      padding: '40px',
-    }}
-  >
-    {children}
-  </Box>
-);
-
-const EmptyStateText = ({ children }: { children: React.ReactNode }) => (
-  <Typography
-    sx={{
-      fontSize: '18px',
-      fontWeight: 500,
-      marginBottom: '8px',
-      color: colors.text.secondary,
-    }}
-  >
-    {children}
-  </Typography>
-);
-
-const EmptyStateSubtext = ({ children }: { children: React.ReactNode }) => (
-  <Typography
-    sx={{
-      fontSize: '14px',
-      color: colors.text.disabled,
-    }}
-  >
-    {children}
-  </Typography>
-);
 
 export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) => {
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -117,16 +76,12 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
       if (resetPagination) {
         setAlbums(data.albums || []);
       } else {
-        // Deduplicate albums by ID to prevent duplicate key warnings
         const newAlbums = data.albums || [];
         setAlbums(prev => {
-          const existingIds = new Set(prev.map(a => a.id));
-          const uniqueNewAlbums = newAlbums.filter(a => !existingIds.has(a.id));
-          return [...prev, ...uniqueNewAlbums];
+          const existingIds = new Set(prev.map((a: Album) => a.id));
+          return [...prev, ...newAlbums.filter((a: Album) => !existingIds.has(a.id))];
         });
       }
-
-      console.log(`Loaded ${data.albums?.length || 0} albums, ${currentOffset + (data.albums?.length || 0)}/${data.total || 0}`);
     } catch (err) {
       console.error('Error fetching albums:', err);
       setError(err instanceof Error ? err.message : 'Failed to load albums');
@@ -153,116 +108,41 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     }
   };
 
-  const formatDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    return `${minutes}m`;
-  };
-
   useEffect(() => {
     fetchAlbums(true);
   }, []);
 
   // Infinite scroll with scroll event checking sentinel element visibility
   useEffect(() => {
-    console.log('CozyAlbumGrid: Setting up scroll listener', {
-      hasMore,
-      isLoadingMore,
-      loading,
-      offset,
-      albumsCount: albums.length
-    });
-
     const handleScroll = () => {
-      // Log all guard conditions
-      console.log('CozyAlbumGrid: handleScroll called', {
-        hasMore,
-        isLoadingMore,
-        loading,
-        triggerExists: !!loadMoreTriggerRef.current,
-        containerExists: !!containerRef.current
-      });
+      if (!hasMore || isLoadingMore || loading) return;
 
-      if (!hasMore || isLoadingMore || loading) {
-        console.log('CozyAlbumGrid: Guard condition blocked scroll', {
-          hasMore,
-          isLoadingMore,
-          loading
-        });
-        return;
-      }
-
-      // Check if load more trigger element is visible in viewport
       const triggerElement = loadMoreTriggerRef.current;
-      if (!triggerElement) {
-        console.log('CozyAlbumGrid: Trigger element not found');
-        return;
-      }
+      if (!triggerElement) return;
 
       const rect = triggerElement.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-
-      console.log('CozyAlbumGrid: Checking trigger visibility', {
-        triggerTop: rect.top,
-        triggerBottom: rect.bottom,
-        viewportHeight,
-        isNearViewport: rect.top < viewportHeight + 2000
-      });
-
-      // Trigger load when sentinel element is within 2000px of viewport
-      // This ensures loading starts before user scrolls all the way to the end
       const isNearViewport = rect.top < viewportHeight + 2000;
 
       if (isNearViewport) {
-        console.log('CozyAlbumGrid: Load trigger visible, loading more', {
-          triggerTop: rect.top,
-          viewportHeight,
-          hasMore,
-          isLoadingMore
-        });
         loadMore();
       }
     };
 
     // Find scrollable parent and attach listener
     let scrollableParent = containerRef.current?.parentElement;
-    console.log('CozyAlbumGrid: Starting parent search', {
-      containerExists: !!containerRef.current,
-      parentExists: !!scrollableParent
-    });
-
     while (scrollableParent) {
       const overflowY = window.getComputedStyle(scrollableParent).overflowY;
-      console.log('CozyAlbumGrid: Checking parent', {
-        tagName: scrollableParent.tagName,
-        className: scrollableParent.className,
-        overflowY
-      });
-
-      if (overflowY === 'auto' || overflowY === 'scroll') {
-        break;
-      }
+      if (overflowY === 'auto' || overflowY === 'scroll') break;
       scrollableParent = scrollableParent.parentElement;
     }
 
     if (scrollableParent) {
-      console.log('CozyAlbumGrid: Attached scroll listener to', {
-        tagName: scrollableParent.tagName,
-        className: scrollableParent.className
-      });
       scrollableParent.addEventListener('scroll', handleScroll);
-      // Also check on mount in case content is already visible
       handleScroll();
       return () => {
-        console.log('CozyAlbumGrid: Removing scroll listener');
         scrollableParent.removeEventListener('scroll', handleScroll);
       };
-    } else {
-      console.warn('CozyAlbumGrid: No scrollable parent found!');
     }
   }, [hasMore, isLoadingMore, loading, offset, albums.length]);
 
@@ -292,21 +172,19 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
 
   if (error) {
     return (
-      <EmptyState>
-        <EmptyStateText>Error Loading Albums</EmptyStateText>
-        <EmptyStateSubtext>{error}</EmptyStateSubtext>
-      </EmptyState>
+      <EmptyStateBox
+        title="Error Loading Albums"
+        subtitle={error}
+      />
     );
   }
 
   if (albums.length === 0) {
     return (
-      <EmptyState>
-        <EmptyStateText>No Albums Yet</EmptyStateText>
-        <EmptyStateSubtext>
-          Your album library will appear here once you scan your music folder
-        </EmptyStateSubtext>
-      </EmptyState>
+      <EmptyStateBox
+        title="No Albums Yet"
+        subtitle="Your album library will appear here once you scan your music folder"
+      />
     );
   }
 

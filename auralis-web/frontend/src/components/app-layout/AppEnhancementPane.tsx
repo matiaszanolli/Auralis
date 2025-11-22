@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton, Button, Tooltip } from '@mui/material';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
@@ -193,10 +193,11 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
           }}
         >
           <Tooltip title={useV2 ? 'Switch to V1' : 'Switch to V2'}>
-            <IconButton
+            <Button
               onClick={onToggleV2}
               size="small"
               fullWidth
+              variant="outlined"
               sx={{
                 background: useV2
                   ? 'rgba(102, 126, 234, 0.2)'
@@ -221,7 +222,7 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
               }}
             >
               {useV2 ? 'V2 Active' : 'V1'}
-            </IconButton>
+            </Button>
           </Tooltip>
         </Box>
       )}

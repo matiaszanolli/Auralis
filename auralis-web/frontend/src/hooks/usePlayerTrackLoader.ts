@@ -10,11 +10,11 @@
  */
 
 import { useEffect } from 'react';
-import type { UnifiedWebMAudioPlayer } from '@/services/UnifiedWebMAudioPlayer';
+import type { UseUnifiedWebMAudioPlayerResult } from './useUnifiedWebMAudioPlayer';
 
 interface TrackLoaderOptions {
-  player: UnifiedWebMAudioPlayer;
-  trackId: string | undefined;
+  player: UseUnifiedWebMAudioPlayerResult;
+  trackId: number | undefined;
   trackTitle: string | undefined;
   onError: (message: string) => void;
 }

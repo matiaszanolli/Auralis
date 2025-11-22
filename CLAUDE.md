@@ -52,6 +52,36 @@ cd auralis-web/frontend && npm run test:memory  # Frontend tests (memory safe)
 
 ---
 
+## ✅ Development Mode Checklist
+
+Before starting development, verify these prerequisites:
+
+**System Requirements:**
+- [ ] Python 3.9+ (check: `python --version`)
+- [ ] Node.js 18+ (check: `node --version`)
+- [ ] Port 8765 is free (check: `lsof -ti:8765` returns nothing)
+- [ ] Port 3000 is free (check: `lsof -ti:3000` returns nothing)
+
+**Dependencies Installed:**
+- [ ] Python dependencies: `pip install -r requirements.txt`
+- [ ] Frontend dependencies: `cd auralis-web/frontend && npm install`
+- [ ] Desktop dependencies (if needed): `cd desktop && npm install`
+
+**Database & Config:**
+- [ ] Database will auto-initialize on first run (no manual setup needed)
+- [ ] `.env` file exists in root (copy from `.env.example` if needed)
+
+**Quick Validation:**
+```bash
+# Verify backend can start
+cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765 &
+sleep 2
+curl http://localhost:8765/api/health
+kill %1  # Stop the process
+```
+
+---
+
 ## 🎯 Common Development Tasks
 
 ### Running the Application
@@ -90,7 +120,7 @@ npm run package:mac     # macOS app (requires macOS)
 cd auralis-web/frontend && npm start   # Dev server at http://localhost:3000 (proxies to backend)
 ```
 
-### Running Tests
+### Running Tests (Backend)
 ```bash
 # All tests
 python -m pytest tests/ -v
@@ -106,20 +136,32 @@ python -m pytest tests/mutation/ -v                   # Mutation tests (quality 
 # Run with coverage
 python -m pytest tests/ --cov=auralis --cov=auralis-web --cov-report=html
 
-# Run single test file
-python -m pytest tests/backend/test_player.py -v
-
-# Run single test
+# Run single test file or test
 python -m pytest tests/backend/test_player.py::test_play_track -v
 
-# Run tests matching pattern
-python -m pytest -k "test_enhance" -v
-
-# Run tests by marker
-python -m pytest -m "invariant" -v     # Invariant tests only
-python -m pytest -m "boundary" -v      # Boundary tests only
-python -m pytest -m "not slow" -v      # Skip slow tests
+# Run tests by pattern or marker
+python -m pytest -k "test_enhance" -v                 # Pattern match
+python -m pytest -m "invariant" -v                    # By marker
+python -m pytest -m "not slow" -v                     # Skip slow tests
 ```
+
+### Running Tests (Frontend)
+
+**Use `npm run test:memory` for full test suite** (prevents OOM with 2GB heap + GC):
+
+| Command | Use Case |
+|---------|----------|
+| `npm run test:memory` | **Full test suite** - 2GB heap, garbage collection enabled |
+| `npm test` | Interactive watch mode - light memory usage |
+| `npm run test:run` | Single run (fast), standard heap |
+| `npm run test:coverage:memory` | Coverage report with memory management |
+| `npm run test:integration` | Integration tests only |
+| `npm run test:player` | Player controls tests |
+| `npm run test:library` | Library management tests |
+| `npm run test:streaming` | Audio streaming tests |
+| `npm run test:websocket` | WebSocket real-time tests |
+| `npm run test:enhancement` | Enhancement processing tests |
+| `npm run test:performance` | Performance & pagination tests |
 
 **⚠️ Test Collection Performance Note:**
 - Test collection is fast (< 10 seconds) thanks to fixes in Nov 2024
@@ -134,8 +176,7 @@ python -m pytest -m "not slow" -v      # Skip slow tests
 **Backend API (FastAPI):**
 ```bash
 # 1. Edit endpoint in auralis-web/backend/routers/*.py
-# 2. Run affected tests
-python -m pytest tests/backend/ -v
+# 2. Run affected tests: python -m pytest tests/backend/ -v
 # 3. Test manually at http://localhost:8765/api/docs (Swagger UI)
 # 4. Backend auto-reloads with --reload flag
 ```
@@ -143,49 +184,26 @@ python -m pytest tests/backend/ -v
 **Core Audio Processing:**
 ```bash
 # 1. Edit in auralis/core/ or auralis/dsp/
-# 2. Run core tests
-python -m pytest tests/auralis/ -v
-# 3. Run validation tests
-python -m pytest tests/validation/ -v
-# 4. Check performance impact
-python benchmark_performance.py
+# 2. Run core tests: python -m pytest tests/auralis/ -v
+# 3. Check performance impact: python benchmark_performance.py
 ```
 
 **Frontend (React/TypeScript):**
 ```bash
 # 1. Edit in auralis-web/frontend/src/
-# 2. Dev server auto-reloads
-cd auralis-web/frontend
-
-# Running tests (use test:memory for full suite to avoid OOM)
-npm test                                  # Interactive test mode (light)
-npm run test:run                          # Single test run (fast)
-npm run test:memory                       # Full suite with memory management (RECOMMENDED)
-npm run test:coverage                     # Coverage report (light, watch mode)
-npm run test:coverage:memory              # Coverage + memory management
-npm run build                             # Production build
-
-# Run specific frontend test files
-npm test -- src/components/library/__tests__/CozyAlbumGrid.test.tsx
-npm test -- EnhancementPaneV2             # Partial filename match
+# 2. Dev server auto-reloads at http://localhost:3000
+# 3. Run tests: npm run test:memory (see Frontend Tests section above)
+# 4. Build: npm run build
 ```
 
-**Frontend Test Guidelines (CRITICAL - Read This!):**
-1. ⚠️ **Memory Management**: Always use `npm run test:memory` for full test runs (2GB heap + GC)
-2. ⚠️ **Provider Wrapper**: ALWAYS import render from `@/test/test-utils`, NOT from `@testing-library/react`
-   - Provides: Router, DragDrop, WebSocket, Theme, Enhancement, Toast providers
-   - Never wrap components with custom Wrapper - use test-utils instead
-3. ⚠️ **API Mocking**: Use MSW (handlers in `src/test/mocks/handlers.ts`) - never fetch() mocks
-   - Audio chunk endpoints now return **WAV format** (16/24-bit PCM) not WebM/Opus
-   - Update mock handlers to reflect WAV format if testing audio playback
-4. ⚠️ **Async Operations**: Use `waitFor(() => expect(...))` from test-utils, NEVER hardcoded `setTimeout`
-5. ⚠️ **Vitest Syntax**: Use `vi.mock()`, `vi.fn()`, NOT `jest.*` (setup.ts provides compatibility layer)
-6. ⚠️ **Autoplay Handling**: Tests for audio playback need user gesture simulation or `.catch()` for autoplay errors
-7. File size: Keep under 400 lines (split if needed), use test template at `src/test/TEMPLATE.test.tsx`
-8. Selectors: Use `screen.getByRole()` or `screen.getByTestId()` (avoid querySelector)
-9. Cleanup: Automatic via setup.ts (no manual afterEach needed)
-10. Recent fixes: Last 5+ commits fixed selector/assertion issues - follow existing test patterns in library/
-11. See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
+**Frontend Test Guidelines (CRITICAL):**
+- ⚠️ **Memory Management**: Always use `npm run test:memory` for full suite (2GB heap + GC)
+- ⚠️ **Provider Wrapper**: Import render from `@/test/test-utils`, NOT `@testing-library/react`
+- ⚠️ **API Mocking**: Use MSW in `src/test/mocks/handlers.ts` - WAV format (16/24-bit PCM)
+- ⚠️ **Async Operations**: Use `waitFor()` from test-utils, NEVER hardcoded `setTimeout`
+- ⚠️ **Vitest Syntax**: Use `vi.*` NOT `jest.*` (setup.ts provides compatibility)
+- ⚠️ **Selectors**: Use `screen.getByRole()` or `screen.getByTestId()` (avoid querySelector)
+- See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
 
 ### Code Quality
 ```bash
@@ -301,21 +319,45 @@ python launch-auralis-web.py --dev
 # Production mode (serves built frontend from backend)
 python launch-auralis-web.py
 
-# Custom port
+# Custom port (if 8765 is taken)
 python launch-auralis-web.py --port 9000
 
-# Skip browser auto-open
+# Skip browser auto-open (useful in SSH/remote)
 python launch-auralis-web.py --dev --no-browser
 ```
 
 **What it does:**
 1. Checks Python and Node.js dependencies
-2. Starts FastAPI backend (port 8765)
+2. Starts FastAPI backend (port 8765 by default)
 3. In `--dev` mode: Starts React dev server (port 3000)
 4. Opens browser automatically (can skip with `--no-browser`)
 5. Manages process lifecycle (Ctrl+C stops all servers)
 
-**For desktop app:** Use `cd desktop && npm run dev` instead for Electron integration.
+**If Port 8765 is Already in Use:**
+```bash
+# Find what's using port 8765
+lsof -ti:8765
+
+# Kill the process
+lsof -ti:8765 | xargs kill -9
+
+# Or use custom port
+python launch-auralis-web.py --dev --port 9000
+# Frontend will still proxy to custom backend port
+```
+
+**For Desktop App:**
+Use `cd desktop && npm run dev` instead - includes backend + frontend + Electron window.
+
+**Running Backend & Frontend Separately:**
+```bash
+# Terminal 1: Backend only
+cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
+
+# Terminal 2: Frontend only (requires backend running)
+cd auralis-web/frontend && npm start
+# Opens http://localhost:3000 (proxies to http://localhost:8765)
+```
 
 ---
 
@@ -437,18 +479,24 @@ npm run test:coverage:memory           # Coverage with memory management
 
 ### Vite Configuration (`auralis-web/frontend/vite.config.ts`)
 
-**Key Test Settings:**
-- **Test environment**: jsdom
-- **Setup file**: `./src/test/setup.ts`
-- **Max threads**: 2 (memory management)
+**Test Settings:**
+- **Environment**: jsdom (simulates browser DOM)
+- **Setup file**: `./src/test/setup.ts` (polyfills, MSW server, cleanup)
+- **Max threads**: 2 (prevents memory exhaustion)
 - **Timeout**: 30s per test
 - **Coverage provider**: v8
 
-**Dev Server Configuration:**
-- **Port**: 3000
-- **Proxy**: `/api` and `/ws` → `http://localhost:8765`
+**Dev Server:**
+- **Port**: 3000 (http://localhost:3000)
+- **Proxy to Backend**: `/api` and `/ws` → `http://localhost:8765`
+- **Path Aliases**: `@/` maps to `src/` (e.g., `@/components` = `src/components`)
 
-**Build Output**: `build/` directory
+**Build Output**: `build/` directory (served by backend in production)
+
+**Environment Variables:**
+- `VITE_API_URL` - Backend API base URL (defaults to http://localhost:8765)
+- `VITE_WS_URL` - WebSocket URL (defaults to ws://localhost:8765)
+- Set in `.env` or `.env.local` files
 
 ---
 
@@ -925,6 +973,188 @@ git push origin master && git push origin vX.Y.Z
 ```
 
 **Current Version**: 1.1.0-beta.1 (see README.md for latest, released November 18, 2025)
+
+---
+
+## 🔍 Debugging Tips
+
+### Backend Debugging (Python)
+
+**Enable Verbose Logging:**
+```python
+# In your code or pytest
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger('auralis').setLevel(logging.DEBUG)
+
+# Or via environment
+DEBUG=1 python launch-auralis-web.py --dev
+```
+
+**Debug with Python Debugger (pdb):**
+```python
+# Add breakpoint in code
+breakpoint()  # Python 3.7+
+# or
+import pdb; pdb.set_trace()
+```
+
+**VSCode Python Debugging:**
+1. Install Python extension
+2. Create `.vscode/launch.json`:
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["main:app", "--reload", "--port", "8765"],
+      "cwd": "${workspaceFolder}/auralis-web/backend",
+      "jinja": true
+    }
+  ]
+}
+```
+
+**Inspect WebSocket Messages:**
+```bash
+# Use websocat to monitor WebSocket traffic
+websocat ws://localhost:8765/ws
+
+# Or add logging in state_manager.py around message sends
+```
+
+**Database Inspection:**
+```bash
+# Inspect SQLite database
+sqlite3 ~/.auralis/library.db
+
+# Useful queries
+sqlite3 ~/.auralis/library.db "SELECT COUNT(*) FROM tracks;"
+sqlite3 ~/.auralis/library.db ".schema"
+sqlite3 ~/.auralis/library.db ".tables"
+```
+
+**Profile Backend Performance:**
+```bash
+# CPU profiling
+python -m cProfile -s cumtime -o profile.stats script.py
+python -m pstats profile.stats
+
+# Memory profiling
+pip install memory-profiler
+python -m memory_profiler script.py
+```
+
+---
+
+### Frontend Debugging (React/TypeScript)
+
+**Enable Verbose Logging:**
+```typescript
+// In setup.ts or test file
+if (process.env.DEBUG) {
+  console.log = (...args) => original_log('[DEBUG]', ...args)
+}
+```
+
+**Chrome DevTools:**
+```bash
+# Frontend dev server is proxied through backend
+# Open browser at http://localhost:3000
+# Use Chrome DevTools (F12) to:
+# - Inspect React components (React DevTools extension)
+# - Monitor Network requests
+# - Check WebSocket frames (Network → WS)
+# - Profile performance (Performance tab)
+```
+
+**VSCode TypeScript Debugging:**
+1. Install Debugger for Chrome/Edge
+2. Create `.vscode/launch.json`:
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Frontend",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/auralis-web/frontend/src",
+      "sourceMapPathOverride": {
+        "/src/*": "${webRoot}/*"
+      }
+    }
+  ]
+}
+```
+
+**React DevTools:**
+- Install React DevTools browser extension
+- Inspect component tree, props, state
+- Monitor re-renders with Profiler
+
+**WebSocket Debugging:**
+```typescript
+// Add logging in test or component
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'websocket') {
+    console.log('[WS]', event.data);
+  }
+});
+```
+
+**Memory Leak Detection:**
+```bash
+# Heap snapshot comparison in DevTools
+# 1. Take heap snapshot before action
+# 2. Perform action
+# 3. Take heap snapshot after action
+# 4. Compare snapshots to find retained objects
+# Or use memory profiler npm package
+```
+
+---
+
+### Test Debugging
+
+**Run Single Test with Logging:**
+```bash
+# Backend
+python -m pytest tests/backend/test_player.py::test_play_track -vv -s
+
+# Frontend
+npm test -- MyComponent.test.tsx --reporter=verbose
+```
+
+**Debug with pdb (Backend Tests):**
+```python
+# In test file
+def test_something():
+    breakpoint()  # Will pause execution
+    assert some_value == expected
+```
+
+**Debug with browser (Frontend Tests):**
+```bash
+# Run tests with UI mode
+npm run test:ui
+# Click on test to debug with browser DevTools
+```
+
+**Skip Tests to Debug Subset:**
+```bash
+# Backend
+pytest -k "not slow" -v  # Skip slow tests
+pytest -m "not integration" -v  # Skip integration
+
+# Frontend
+npm test -- --reporter=verbose --bail  # Stop on first failure
+```
 
 ---
 
