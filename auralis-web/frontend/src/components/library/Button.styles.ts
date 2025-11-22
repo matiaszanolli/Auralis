@@ -5,13 +5,14 @@
  */
 
 import { Button, styled } from '@mui/material';
+import { gradients } from '../../theme/auralisTheme';
 
 /**
  * PlayButton - Gradient action button for playing tracks/albums
  * Used in AlbumDetailView and ArtistDetailView
  */
 export const PlayButton = styled(Button)(({ theme }) => ({
-  background: 'linear-gradient(45deg, #667eea, #764ba2)',
+  background: gradients.aurora45,
   color: 'white',
   padding: '12px 32px',
   fontSize: '1rem',
@@ -19,7 +20,7 @@ export const PlayButton = styled(Button)(({ theme }) => ({
   borderRadius: 24,
   textTransform: 'none',
   '&:hover': {
-    background: 'linear-gradient(45deg, #5568d3, #6a3f8f)',
+    background: gradients.aurora45Hover,
     transform: 'translateY(-2px)',
     boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
   },
@@ -48,14 +49,14 @@ export const ShuffleButton = styled(Button)(({ theme }) => ({
  * Used in CreatePlaylistDialog, EditPlaylistDialog, SettingsDialog
  */
 export const GradientButton = styled(Button)({
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: gradients.aurora,
   color: '#ffffff',
   textTransform: 'none',
   fontWeight: 600,
   padding: '10px 24px',
   borderRadius: '8px',
   '&:hover': {
-    background: 'linear-gradient(135deg, #7c8ef0 0%, #8b5bb5 100%)',
+    background: gradients.auroraHover,
     transform: 'translateY(-1px)',
     boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
   },
