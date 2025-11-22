@@ -28,11 +28,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
-  IconButton,
   Typography,
   Tooltip,
-  CircularProgress,
-  styled
+  CircularProgress
 } from '@mui/material';
 import {
   PlayArrow,
@@ -47,88 +45,13 @@ import {
   FavoriteOutlined
 } from '@mui/icons-material';
 import { Slider } from '@mui/material';
-import { colors, gradients } from '../theme/auralisTheme';
+import { colors } from '../theme/auralisTheme';
 import { useToast } from './shared/Toast';
 import { usePlayerWithAudio } from '../hooks/usePlayerWithAudio';
 import { useEnhancement } from '../contexts/EnhancementContext';
 import AlbumArtComponent from './album/AlbumArt';
 import { triggerAudioPlayGesture } from './player/HiddenAudioElement';
-
-const PlayerContainer = styled(Box)({
-  position: 'fixed',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  width: '100vw',
-  height: '80px',
-  margin: 0,
-  padding: 0,
-  background: 'linear-gradient(180deg, rgba(10, 14, 39, 0.98) 0%, rgba(10, 14, 39, 0.99) 100%)',
-  backdropFilter: 'blur(20px)',
-  WebkitBackdropFilter: 'blur(20px)', // Safari support
-  borderTop: `1px solid rgba(102, 126, 234, 0.15)`,
-  display: 'flex',
-  flexDirection: 'column',
-  zIndex: 1300, // Higher than MUI modals (1200)
-  boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.5), 0 -2px 8px rgba(102, 126, 234, 0.15)',
-});
-
-const PlayButton = styled(IconButton)({
-  background: gradients.aurora,
-  color: '#ffffff',
-  width: '56px',
-  height: '56px',
-  minWidth: '56px',
-  flexShrink: 0,
-  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.4), 0 0 24px rgba(102, 126, 234, 0.2)',
-  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-
-  '&:hover': {
-    background: gradients.aurora,
-    transform: 'scale(1.05)',
-    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.6), 0 0 32px rgba(102, 126, 234, 0.3)',
-  },
-
-  '&:active': {
-    transform: 'scale(0.98)',
-  },
-
-  '&:disabled': {
-    background: 'rgba(102, 126, 234, 0.2)',
-    color: 'rgba(255, 255, 255, 0.3)',
-  },
-});
-
-const AlbumArtContainer = styled(Box)({
-  width: '56px',
-  height: '56px',
-  minWidth: '56px',
-  borderRadius: '8px',
-  flexShrink: 0,
-  overflow: 'hidden',
-  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-  border: '1px solid rgba(102, 126, 234, 0.2)',
-});
-
-const ControlButton = styled(IconButton)({
-  color: 'rgba(255, 255, 255, 0.7)',
-  minWidth: 'auto',
-  width: '44px',
-  height: '44px',
-  padding: '8px',
-  flexShrink: 0,
-  transition: 'all 0.2s ease',
-
-  '&:hover': {
-    color: '#ffffff',
-    background: 'rgba(102, 126, 234, 0.1)',
-    transform: 'scale(1.1)',
-  },
-
-  '&:disabled': {
-    color: 'rgba(255, 255, 255, 0.2)',
-  },
-});
+import { PlayerContainer, PlayButton, AlbumArtContainer, ControlButton } from './player-bar-v2/PlayerBar.styles';
 
 export const BottomPlayerBarUnified: React.FC = () => {
   // Phase 4a Consolidation: Use unified player with audio composition hook
