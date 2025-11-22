@@ -2,6 +2,7 @@ import React from 'react';
 import { ToggleButtonGroup, ToggleButton, styled } from '@mui/material';
 import { ViewModule, ViewList } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
+import { auroraOpacity } from '../library/Color.styles';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -15,7 +16,7 @@ const StyledToggleButtonGroup = styled(ToggleButtonGroup)({
   borderRadius: '8px',
   padding: '4px',
   gap: '4px',
-  border: `1px solid rgba(102, 126, 234, 0.2)`,
+  border: `1px solid ${auroraOpacity.standard}`,
 });
 
 const StyledToggleButton = styled(ToggleButton)({
@@ -26,14 +27,14 @@ const StyledToggleButton = styled(ToggleButton)({
   transition: 'all 0.3s ease',
 
   '&:hover': {
-    background: 'rgba(102, 126, 234, 0.1)',
+    background: auroraOpacity.veryLight,
     color: colors.text.primary,
   },
 
   '&.Mui-selected': {
     background: gradients.aurora,
     color: '#ffffff',
-    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+    boxShadow: `0 2px 8px ${auroraOpacity.strong}`,
 
     '&:hover': {
       background: gradients.aurora,
