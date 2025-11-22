@@ -61,27 +61,29 @@ export default defineConfig(({ mode }) => {
             const loaderScript = `<script type="module">
   (async () => {
     try {
-      // Pre-fetch and execute vendor to avoid race conditions
-      // Wait for vendor to be fully parsed and executed before app code
       console.log('[loader] Pre-loading vendor module...');
 
-      await import('${vendorHref}');
+      // Load vendor module
+      const vendor = await import('${vendorHref}');
+      console.log('[loader] Vendor module imported, checking for MUI...');
 
-      // Yield to event loop to ensure vendor module is fully initialized
-      // This gives emotion, MUI, and other side-effects time to complete
-      await new Promise(r => setTimeout(r, 0));
+      // Wait multiple event loop cycles to ensure all vendor initialization is complete
+      // Vendor module contains React, MUI, emotion which register themselves on load
+      for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 0));
+      }
 
-      console.log('[loader] Vendor ready, loading application...');
+      console.log('[loader] Vendor initialization complete, loading application...');
 
-      // Now load app (static imports will reuse already-loaded vendor)
+      // Now load app - its static imports will reuse vendor from module cache
       const appModule = await import('${appSrc}');
-
       console.log('[loader] Application loaded successfully');
 
     } catch (err) {
       console.error('[loader] Fatal loading error:', err);
       const msg = (err && err.message) || 'Unknown error';
       const stack = (err && err.stack) || '';
+      console.error('[loader] Full error:', {msg, stack});
       document.documentElement.innerHTML = '<body style="background:#1a1a1a;color:#fff;font-family:sans-serif;margin:0;padding:0;display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center;max-width:700px;padding:40px"><h1 style="color:#ff6b6b;margin:0 0 20px;font-size:28px">Application Error</h1><p style="color:#ccc;margin:0 0 20px;font-size:16px">Failed to load modules</p><p style="color:#999;margin:0 0 20px;font-size:14px;font-family:monospace">' + msg + '</p><details style="text-align:left;margin:30px 0;padding:20px;background:#222;border:1px solid #444;border-radius:6px"><summary style="color:#667eea;cursor:pointer;font-weight:bold;margin-bottom:10px">Stack Trace</summary><pre style="color:#888;font-size:11px;overflow-x:auto;margin:0;white-space:pre-wrap;word-break:break-word;line-height:1.4">' + stack.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre></details><hr style="border:none;border-top:1px solid #333;margin:20px 0"><p style="color:#666;font-size:12px;margin:20px 0">Vendor: ${vendorHref}<br>App: ${appSrc}</p></div></body>';
     }
   })();
