@@ -21,6 +21,7 @@ import { TrackCard } from '../track/TrackCard';
 import SelectableTrackRow from './SelectableTrackRow';
 import TrackQueue from '../player-bar-v2/queue/TrackQueue';
 import { LibraryGridSkeleton, TrackRowSkeleton } from '../shared/SkeletonLoader';
+import { SpinnerBox } from './Spinner.styles';
 import * as queueService from '../../services/queueService';
 import { useToast } from '../shared/Toast';
 
@@ -187,23 +188,7 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
               justifyContent: 'center',
             }}
           >
-            {isLoadingMore && (
-              <Box
-                sx={{
-                  width: 20,
-                  height: 20,
-                  border: '2px solid',
-                  borderColor: 'primary.main',
-                  borderRightColor: 'transparent',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  '@keyframes spin': {
-                    '0%': { transform: 'rotate(0deg)' },
-                    '100%': { transform: 'rotate(360deg)' }
-                  }
-                }}
-              />
-            )}
+            {isLoadingMore && <SpinnerBox />}
           </Box>
         )}
 
@@ -316,21 +301,7 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
         >
           {isLoadingMore && (
             <>
-              <Box
-                sx={{
-                  width: 20,
-                  height: 20,
-                  border: '2px solid',
-                  borderColor: 'primary.main',
-                  borderRightColor: 'transparent',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  '@keyframes spin': {
-                    '0%': { transform: 'rotate(0deg)' },
-                    '100%': { transform: 'rotate(360deg)' }
-                  }
-                }}
-              />
+              <SpinnerBox />
               <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
                 Loading more tracks... ({tracks.length}/{totalTracks})
               </Typography>

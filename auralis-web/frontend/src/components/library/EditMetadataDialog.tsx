@@ -5,7 +5,6 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField,
   Grid,
   CircularProgress,
   Alert,
@@ -16,6 +15,7 @@ import {
   Save as SaveIcon,
   Close as CloseIcon
 } from '@mui/icons-material';
+import { StyledTextField } from './FormFields.styles';
 
 interface MetadataFields {
   title?: string;
@@ -203,190 +203,109 @@ const EditMetadataDialog: React.FC<EditMetadataDialogProps> = ({
           <Grid container spacing={2}>
             {/* Title */}
             <Grid item xs={12}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Title"
                 value={metadata.title || ''}
                 onChange={(e) => handleFieldChange('title', e.target.value)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
 
             {/* Artist */}
             <Grid item xs={12} sm={6}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Artist"
                 value={metadata.artist || ''}
                 onChange={(e) => handleFieldChange('artist', e.target.value)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
 
             {/* Album Artist */}
             <Grid item xs={12} sm={6}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Album Artist"
                 value={metadata.albumartist || ''}
                 onChange={(e) => handleFieldChange('albumartist', e.target.value)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
 
             {/* Album */}
             <Grid item xs={12}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Album"
                 value={metadata.album || ''}
                 onChange={(e) => handleFieldChange('album', e.target.value)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
 
             {/* Genre */}
             <Grid item xs={12} sm={6}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Genre"
                 value={metadata.genre || ''}
                 onChange={(e) => handleFieldChange('genre', e.target.value)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
 
             {/* Year */}
             <Grid item xs={12} sm={6}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Year"
                 type="number"
                 value={metadata.year || ''}
                 onChange={(e) => handleFieldChange('year', e.target.value)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
 
             {/* Track Number */}
             <Grid item xs={6} sm={3}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Track #"
                 type="number"
                 value={metadata.track || ''}
                 onChange={(e) => handleFieldChange('track', e.target.value)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
 
             {/* Disc Number */}
             <Grid item xs={6} sm={3}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Disc #"
                 type="number"
                 value={metadata.disc || ''}
                 onChange={(e) => handleFieldChange('disc', e.target.value)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
 
             {/* Composer */}
             <Grid item xs={12} sm={6}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Composer"
                 value={metadata.composer || ''}
                 onChange={(e) => handleFieldChange('composer', e.target.value)}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
 
             {/* Comment */}
             <Grid item xs={12}>
-              <TextField
+              <StyledTextField
                 fullWidth
                 label="Comment"
                 value={metadata.comment || ''}
@@ -394,15 +313,6 @@ const EditMetadataDialog: React.FC<EditMetadataDialogProps> = ({
                 multiline
                 rows={3}
                 variant="outlined"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-                    '&.Mui-focused fieldset': { borderColor: '#667eea' }
-                  },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
-                }}
               />
             </Grid>
           </Grid>
