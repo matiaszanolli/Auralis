@@ -5,6 +5,8 @@
  * used for loading states across image components, progressive loaders,
  * and other loading placeholders.
  *
+ * Border radius values are imported from BorderRadius.styles.ts.
+ *
  * Variants:
  * - SkeletonBox: Base shimmer animation for skeleton elements
  * - PulsingBox: Opacity pulse animation for icon/text loaders
@@ -13,6 +15,7 @@
 import { Box, styled } from '@mui/material';
 import { colors } from '../../theme/auralisTheme';
 import { shimmer, pulse } from './Animation.styles';
+import { radiusMedium } from './BorderRadius.styles';
 
 /**
  * SkeletonBox - Base skeleton element with shimmer animation
@@ -28,7 +31,7 @@ export const SkeletonBox = styled(Box)({
   )`,
   backgroundSize: '1000px 100%',
   animation: `${shimmer} 2s infinite linear`,
-  borderRadius: '8px',
+  borderRadius: radiusMedium,
 });
 
 /**
