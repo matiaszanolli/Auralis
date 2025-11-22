@@ -14,15 +14,10 @@ import {
 } from '@mui/material';
 import { AlbumCard } from '../album/AlbumCard';
 import { EmptyStateBox } from './EmptyStateBox';
-import {
-  GridContainer,
-  InfiniteScrollTrigger,
-  LoadingIndicatorBox,
-  LoadingSpinner,
-  LoadingText,
-  EndOfListIndicator,
-  EndOfListText,
-} from './Grid.styles';
+import { GridContainer } from './Grid.styles';
+import InfiniteScrollTrigger from './InfiniteScrollTrigger';
+import EndOfListIndicator from './EndOfListIndicator';
+import GridLoadingState from './GridLoadingState';
 
 interface Album {
   id: number;
@@ -219,30 +214,16 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
       </Grid>
 
       {/* Load more trigger - invisible sentinel element */}
-      {hasMore && (
-        <Box
-          ref={loadMoreTriggerRef}
-          sx={{ height: '1px', width: '100%' }}
-        />
-      )}
+      {hasMore && <InfiniteScrollTrigger ref={loadMoreTriggerRef} />}
 
       {/* Loading indicator */}
       {isLoadingMore && (
-        <LoadingIndicatorBox>
-          <LoadingSpinner />
-          <LoadingText variant="body2">
-            Loading more albums... ({albums.length}/{totalAlbums})
-          </LoadingText>
-        </LoadingIndicatorBox>
+        <GridLoadingState current={albums.length} total={totalAlbums} itemType="albums" />
       )}
 
       {/* End of list indicator */}
       {!hasMore && albums.length > 0 && (
-        <EndOfListIndicator>
-          <EndOfListText variant="body2">
-            Showing all {totalAlbums} albums
-          </EndOfListText>
-        </EndOfListIndicator>
+        <EndOfListIndicator count={totalAlbums} itemType="albums" />
       )}
     </GridContainer>
   );
