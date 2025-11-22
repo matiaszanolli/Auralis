@@ -48,13 +48,25 @@ export default defineConfig(({ mode }) => {
             const vendorHref = vendorMatch[0].match(/href="([^"]*)"/)?.[1]
             if (!vendorHref) return html
 
-            // Replace the module script with one that imports vendor first
-            // This ensures vendor module loads before app code executes
+            // Replace with a synchronous script that ensures vendor loads first
+            // Use a blocking pattern to prevent race conditions
             const appSrc = appScriptMatch[0].match(/src="([^"]*)"/)?.[1] || '/assets/index.js'
             const newScript = `<script type="module">
-  import('${vendorHref}').then(() => {
-    import('${appSrc}');
-  });
+  // Ensure vendor dependencies are loaded and evaluated before app code runs
+  (async () => {
+    try {
+      // Load vendor chunk first - this is critical!
+      await import('${vendorHref}');
+      // Small delay to ensure vendor is fully initialized
+      await new Promise(resolve => setTimeout(resolve, 0));
+      // Now safe to load app code
+      await import('${appSrc}');
+    } catch (error) {
+      console.error('Failed to load application:', error);
+      // Show error page if loading fails
+      document.documentElement.innerHTML = '<body style="background:#1a1a1a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center"><h1>Loading Error</h1><p>' + error.message + '</p></div></body>';
+    }
+  })();
 </script>`
 
             return html
