@@ -1,27 +1,6 @@
 import React from 'react';
-import { Box, Grid, styled, keyframes } from '@mui/material';
-import { colors } from '../../theme/auralisTheme';
-
-const shimmer = keyframes`
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-`;
-
-const SkeletonBox = styled(Box)({
-  background: `linear-gradient(
-    90deg,
-    ${colors.background.surface} 0%,
-    ${colors.background.hover} 50%,
-    ${colors.background.surface} 100%
-  )`,
-  backgroundSize: '1000px 100%',
-  animation: `${shimmer} 2s infinite linear`,
-  borderRadius: '8px',
-});
+import { Box, Grid } from '@mui/material';
+import { SkeletonBox } from '../library/Skeleton.styles';
 
 // Album Card Skeleton
 export const AlbumCardSkeleton: React.FC = () => {
