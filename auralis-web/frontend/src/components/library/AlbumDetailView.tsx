@@ -17,6 +17,8 @@ import {
 } from '@mui/material';
 import { EmptyStateBox } from './EmptyStateBox';
 import DetailViewHeader from './DetailViewHeader';
+import { PlayButton } from './Button.styles';
+import { StyledTableRow, PlayIcon } from './Table.styles';
 import {
   ArrowBack,
   PlayArrow,
@@ -26,7 +28,6 @@ import {
   Favorite,
   FavoriteBorder
 } from '@mui/icons-material';
-import { styled } from '@mui/material/styles';
 import AlbumArt from '../album/AlbumArt';
 
 interface Track {
@@ -58,51 +59,7 @@ interface AlbumDetailViewProps {
   isPlaying?: boolean;
 }
 
-// Styled Components
-const PlayButton = styled(Button)(({ theme }) => ({
-  background: 'linear-gradient(45deg, #667eea, #764ba2)',
-  color: 'white',
-  padding: '12px 32px',
-  fontSize: '1rem',
-  fontWeight: 'bold',
-  borderRadius: 24,
-  textTransform: 'none',
-  '&:hover': {
-    background: 'linear-gradient(45deg, #5568d3, #6a3f8f)',
-    transform: 'translateY(-2px)',
-    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
-  },
-  transition: 'all 0.2s ease'
-}));
-
-const StyledTableRow = styled(TableRow)(({ theme }) => ({
-  cursor: 'pointer',
-  transition: 'background-color 0.2s ease',
-  '&:hover': {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    '& .play-icon': {
-      opacity: 1
-    }
-  },
-  '&.current-track': {
-    backgroundColor: 'rgba(102, 126, 234, 0.15)',
-    '& .track-number': {
-      color: '#667eea'
-    },
-    '& .track-title': {
-      color: '#667eea',
-      fontWeight: 'bold'
-    }
-  }
-}));
-
-const PlayIcon = styled(Box)({
-  opacity: 0,
-  transition: 'opacity 0.2s ease',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center'
-});
+// Styled Components are imported from shared style files
 
 export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   albumId,
