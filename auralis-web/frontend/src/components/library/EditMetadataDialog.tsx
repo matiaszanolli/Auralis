@@ -3,8 +3,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
   Grid,
   CircularProgress,
   Alert,
@@ -16,6 +14,11 @@ import {
   Close as CloseIcon
 } from '@mui/icons-material';
 import { StyledTextField } from './FormFields.styles';
+import {
+  MetadataDialogActions,
+  SaveButton,
+  CancelButtonForDialog,
+} from './Dialog.styles';
 
 interface MetadataFields {
   title?: string;
@@ -319,33 +322,23 @@ const EditMetadataDialog: React.FC<EditMetadataDialogProps> = ({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ borderTop: '1px solid rgba(255,255,255,0.1)', p: 2 }}>
-        <Button
+      <MetadataDialogActions>
+        <CancelButtonForDialog
           onClick={handleClose}
           disabled={saving}
           startIcon={<CloseIcon />}
-          sx={{
-            color: 'rgba(255,255,255,0.7)',
-            '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
-          }}
         >
           Cancel
-        </Button>
-        <Button
+        </CancelButtonForDialog>
+        <SaveButton
           onClick={handleSave}
           disabled={saving || loading}
           variant="contained"
           startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
-          sx={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #7c8ef5 0%, #8b5bb3 100%)',
-            }
-          }}
         >
           {saving ? 'Saving...' : 'Save'}
-        </Button>
-      </DialogActions>
+        </SaveButton>
+      </MetadataDialogActions>
     </Dialog>
   );
 };

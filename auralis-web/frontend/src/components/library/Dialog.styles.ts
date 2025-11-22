@@ -5,7 +5,7 @@
  * CreatePlaylistDialog, EditPlaylistDialog, and KeyboardShortcutsHelp.
  */
 
-import { Dialog, DialogTitle, Box, Tabs, Typography, styled } from '@mui/material';
+import { Dialog, DialogTitle, DialogActions, Button, Box, Tabs, Typography, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 
 /**
@@ -77,6 +77,46 @@ export const SectionDescription = styled(Typography)(({ theme }) => ({
   fontSize: '0.75rem',
   color: theme.palette.text.secondary,
   marginTop: theme.spacing(0.5)
+}));
+
+/**
+ * MetadataDialogActions - Dialog actions bar for EditMetadataDialog
+ * Features border-top separator and padding
+ */
+export const MetadataDialogActions = styled(DialogActions)(({ theme }) => ({
+  borderTop: '1px solid rgba(255,255,255,0.1)',
+  padding: theme.spacing(2)
+}));
+
+/**
+ * SaveButton - Primary action button with aurora gradient
+ * Used in EditMetadataDialog for saving metadata
+ */
+export const SaveButton = styled(Button)(({ theme }) => ({
+  background: gradients.aurora,
+  color: '#ffffff',
+  '&:hover': {
+    background: gradients.auroraHover,
+    transform: 'translateY(-1px)',
+    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+  },
+  '&:disabled': {
+    background: 'rgba(102, 126, 234, 0.3)',
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  transition: 'all 0.2s ease',
+}));
+
+/**
+ * CancelButtonForDialog - Cancel button with secondary styling
+ * Used in EditMetadataDialog
+ */
+export const CancelButtonForDialog = styled(Button)(({ theme }) => ({
+  color: 'rgba(255,255,255,0.7)',
+  '&:hover': {
+    backgroundColor: 'rgba(255,255,255,0.1)'
+  },
+  transition: 'all 0.2s ease',
 }));
 
 export default StyledDialog;
