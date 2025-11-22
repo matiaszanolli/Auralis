@@ -29,6 +29,7 @@ import { styled } from '@mui/material/styles';
 import AlbumArt from '../album/AlbumArt';
 import { EmptyStateBox } from './EmptyStateBox';
 import DetailViewHeader from './DetailViewHeader';
+import { PlayButton, ShuffleButton } from './Button.styles';
 
 interface Track {
   id: number;
@@ -66,35 +67,6 @@ interface ArtistDetailViewProps {
 }
 
 // Styled Components
-
-const PlayButton = styled(Button)(({ theme }) => ({
-  background: 'linear-gradient(45deg, #667eea, #764ba2)',
-  color: 'white',
-  padding: '12px 32px',
-  fontSize: '1rem',
-  fontWeight: 'bold',
-  borderRadius: 24,
-  textTransform: 'none',
-  '&:hover': {
-    background: 'linear-gradient(45deg, #5568d3, #6a3f8f)',
-    transform: 'translateY(-2px)',
-    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
-  },
-  transition: 'all 0.2s ease'
-}));
-
-const ShuffleButton = styled(Button)(({ theme }) => ({
-  borderColor: theme.palette.text.secondary,
-  color: theme.palette.text.secondary,
-  padding: '12px 24px',
-  borderRadius: 24,
-  textTransform: 'none',
-  '&:hover': {
-    borderColor: theme.palette.primary.main,
-    color: theme.palette.primary.main,
-    backgroundColor: 'rgba(102, 126, 234, 0.1)'
-  }
-}));
 
 const AlbumCard = styled(Paper)(({ theme }) => ({
   background: 'rgba(255,255,255,0.03)',
