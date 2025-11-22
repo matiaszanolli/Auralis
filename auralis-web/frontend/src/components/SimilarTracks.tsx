@@ -30,6 +30,7 @@ import {
   MusicNote as MusicNoteIcon,
   AutoAwesome as SparklesIcon
 } from '@mui/icons-material';
+import { auroraOpacity } from './library/Color.styles';
 import similarityService, { SimilarTrack } from '../services/similarityService';
 
 interface SimilarTracksProps {
@@ -178,7 +179,7 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
                   px: 2,
                   py: 1.5,
                   '&:hover': {
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)'
+                    backgroundColor: auroraOpacity.veryLight
                   }
                 }}
               >

@@ -8,6 +8,7 @@ import {
   BoltOutlined,
 } from '@mui/icons-material';
 import { colors, gradients } from '../theme/auralisTheme';
+import { auroraOpacity } from './library/Color.styles';
 
 interface Preset {
   value: string;
@@ -277,7 +278,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
           width: radius * 2 + 40,
           height: radius * 2 + 40,
           borderRadius: '50%',
-          border: '1px solid rgba(102, 126, 234, 0.2)',
+          border: `1px solid ${auroraOpacity.standard}`,
           pointerEvents: 'none',
           '&::before': {
             content: '""',

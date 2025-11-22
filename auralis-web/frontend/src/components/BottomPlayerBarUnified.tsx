@@ -223,7 +223,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
               background: '#667eea',
               boxShadow: `0 0 12px ${auroraOpacity.veryStrong}`,
               '&:hover': {
-                boxShadow: `0 0 20px rgba(102, 126, 234, 0.8)`,
+                boxShadow: `0 0 20px ${auroraOpacity.saturated}`,
               },
             },
           }}
