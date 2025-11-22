@@ -3,6 +3,7 @@ import { Box, Typography, styled } from '@mui/material';
 import { MusicNote, SearchOff, PlaylistPlay, FolderOpen } from '@mui/icons-material';
 import { colors, spacing, transitions } from '../../theme/auralisTheme';
 import { Button } from '../../design-system/primitives/Button';
+import { auroraOpacity } from '../library/Color.styles';
 
 interface EmptyStateProps {
   icon?: 'music' | 'search' | 'playlist' | 'folder';
@@ -27,12 +28,12 @@ const IconContainer = styled(Box)({
   marginBottom: `${spacing.lg}px`,
   '& .MuiSvgIcon-root': {
     fontSize: '80px',
-    color: 'rgba(102, 126, 234, 0.3)',
+    color: auroraOpacity.strong,
     transition: `all ${transitions.normal}`,
   },
 
   '&:hover .MuiSvgIcon-root': {
-    color: 'rgba(102, 126, 234, 0.5)',
+    color: auroraOpacity.veryStrong,
     transform: 'scale(1.1)',
   },
 });
