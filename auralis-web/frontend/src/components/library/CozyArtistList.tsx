@@ -9,19 +9,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   List,
-  ListItem,
-  ListItemButton,
   ListItemText,
   Typography,
-  styled,
   Skeleton,
-  Avatar,
 } from '@mui/material';
 import { Person } from '@mui/icons-material';
-import { colors } from '../../theme/auralisTheme';
 import { useContextMenu, ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
 import { EmptyStateBox } from './EmptyStateBox';
+import {
+  ListContainer,
+  StyledListItem,
+  StyledListItemButton,
+  ArtistAvatar,
+  ArtistName,
+  ArtistInfo,
+  SectionHeader,
+  AlphabetDivider
+} from './ArtistList.styles';
 
 interface Artist {
   id: number;
@@ -33,71 +38,6 @@ interface Artist {
 interface CozyArtistListProps {
   onArtistClick?: (artistId: number, artistName: string) => void;
 }
-
-const ListContainer = styled(Box)({
-  padding: '24px',
-  width: '100%',
-});
-
-const StyledListItem = styled(ListItem)({
-  padding: 0,
-  marginBottom: '8px',
-});
-
-const StyledListItemButton = styled(ListItemButton)({
-  borderRadius: '12px',
-  padding: '16px 20px',
-  transition: 'all 0.3s ease',
-  border: '1px solid transparent',
-
-  '&:hover': {
-    backgroundColor: 'rgba(102, 126, 234, 0.08)',
-    border: '1px solid rgba(102, 126, 234, 0.3)',
-    transform: 'translateX(4px)',
-
-    '& .artist-name': {
-      color: '#667eea',
-    },
-  },
-});
-
-const ArtistAvatar = styled(Avatar)({
-  width: 56,
-  height: 56,
-  marginRight: '20px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  fontSize: '24px',
-});
-
-const ArtistName = styled(Typography)({
-  fontSize: '18px',
-  fontWeight: 600,
-  color: colors.text.primary,
-  transition: 'color 0.2s ease',
-});
-
-const ArtistInfo = styled(Typography)({
-  fontSize: '14px',
-  color: colors.text.secondary,
-  marginTop: '4px',
-});
-
-const SectionHeader = styled(Box)({
-  marginBottom: '24px',
-  paddingBottom: '16px',
-  borderBottom: `1px solid ${colors.background.hover}`,
-});
-
-const AlphabetDivider = styled(Typography)({
-  fontSize: '14px',
-  fontWeight: 700,
-  color: '#667eea',
-  textTransform: 'uppercase',
-  letterSpacing: '1px',
-  marginTop: '32px',
-  marginBottom: '12px',
-  paddingLeft: '8px',
-});
 
 export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick }) => {
   const [artists, setArtists] = useState<Artist[]>([]);
