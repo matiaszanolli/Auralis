@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  Tabs,
   Tab,
   Box,
-  Typography,
   Switch,
   FormControlLabel,
   TextField,
@@ -32,70 +28,14 @@ import {
   RestartAlt as ResetIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
-import { styled } from '@mui/material/styles';
 import { settingsService, UserSettings, SettingsUpdate } from '../../services/settingsService';
+import { StyledDialog, StyledDialogTitle, StyledTabs, SectionContainer, SectionLabel, SectionDescription } from '../library/Dialog.styles';
 
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
   onSettingsChange?: (settings: UserSettings) => void;
 }
-
-// Styled components
-const StyledDialog = styled(Dialog)(({ theme }) => ({
-  '& .MuiDialog-paper': {
-    background: 'rgba(26, 31, 58, 0.98)',
-    backdropFilter: 'blur(20px)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: theme.spacing(2),
-    minWidth: 700,
-    maxWidth: 900,
-    minHeight: 600
-  }
-}));
-
-const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  color: 'white',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: theme.spacing(2, 3)
-}));
-
-const StyledTabs = styled(Tabs)(({ theme }) => ({
-  borderBottom: '1px solid rgba(255,255,255,0.1)',
-  minHeight: 48,
-  '& .MuiTab-root': {
-    textTransform: 'none',
-    fontSize: '0.95rem',
-    minHeight: 48,
-    color: theme.palette.text.secondary,
-    '&.Mui-selected': {
-      color: '#667eea'
-    }
-  },
-  '& .MuiTabs-indicator': {
-    backgroundColor: '#667eea'
-  }
-}));
-
-const SettingSection = styled(Box)(({ theme }) => ({
-  marginBottom: theme.spacing(3)
-}));
-
-const SettingLabel = styled(Typography)(({ theme }) => ({
-  fontSize: '0.875rem',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  marginBottom: theme.spacing(1)
-}));
-
-const SettingDescription = styled(Typography)(({ theme }) => ({
-  fontSize: '0.75rem',
-  color: theme.palette.text.secondary,
-  marginTop: theme.spacing(0.5)
-}));
 
 export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, onSettingsChange }) => {
   const [activeTab, setActiveTab] = useState(0);
@@ -267,11 +207,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
         {/* Library Settings */}
         {activeTab === 0 && (
           <Box>
-            <SettingSection>
-              <SettingLabel>Scan Folders</SettingLabel>
-              <SettingDescription>
+            <SectionContainer>
+              <SectionLabel>Scan Folders</SectionLabel>
+              <SectionDescription>
                 Folders to scan for music files. Use the native folder picker to select directories.
-              </SettingDescription>
+              </SectionDescription>
               <List>
                 {getValue('scan_folders').length === 0 && (
                   <ListItem sx={{ px: 0 }}>
@@ -325,11 +265,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
               >
                 Add Folder
               </Button>
-            </SettingSection>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControlLabel
                 control={
                   <Switch
@@ -339,14 +279,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 }
                 label="Auto-scan library"
               />
-              <SettingDescription>
+              <SectionDescription>
                 Automatically scan for new files at regular intervals
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             {getValue('auto_scan') && (
-              <SettingSection>
-                <SettingLabel>Scan Interval (seconds)</SettingLabel>
+              <SectionContainer>
+                <SectionLabel>Scan Interval (seconds)</SectionLabel>
                 <TextField
                   type="number"
                   fullWidth
@@ -354,7 +294,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                   onChange={(e) => handleSettingChange('scan_interval', parseInt(e.target.value))}
                   inputProps={{ min: 60, max: 86400 }}
                 />
-              </SettingSection>
+              </SectionContainer>
             )}
           </Box>
         )}
@@ -362,7 +302,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
         {/* Playback Settings */}
         {activeTab === 1 && (
           <Box>
-            <SettingSection>
+            <SectionContainer>
               <FormControlLabel
                 control={
                   <Switch
@@ -372,14 +312,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 }
                 label="Gapless playback"
               />
-              <SettingDescription>
+              <SectionDescription>
                 Eliminate silence between tracks for seamless listening
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControlLabel
                 control={
                   <Switch
@@ -389,14 +329,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 }
                 label="Crossfade"
               />
-              <SettingDescription>
+              <SectionDescription>
                 Smoothly transition between tracks
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             {getValue('crossfade_enabled') && (
-              <SettingSection>
-                <SettingLabel>Crossfade Duration: {getValue('crossfade_duration').toFixed(1)}s</SettingLabel>
+              <SectionContainer>
+                <SectionLabel>Crossfade Duration: {getValue('crossfade_duration').toFixed(1)}s</SectionLabel>
                 <Slider
                   value={getValue('crossfade_duration')}
                   onChange={(e, v) => handleSettingChange('crossfade_duration', v)}
@@ -405,12 +345,12 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                   step={0.5}
                   valueLabelDisplay="auto"
                 />
-              </SettingSection>
+              </SectionContainer>
             )}
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControlLabel
                 control={
                   <Switch
@@ -420,15 +360,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 }
                 label="Replay Gain"
               />
-              <SettingDescription>
+              <SectionDescription>
                 Normalize volume levels across tracks
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
-              <SettingLabel>Default Volume: {Math.round(getValue('volume') * 100)}%</SettingLabel>
+            <SectionContainer>
+              <SectionLabel>Default Volume: {Math.round(getValue('volume') * 100)}%</SectionLabel>
               <Slider
                 value={getValue('volume')}
                 onChange={(e, v) => handleSettingChange('volume', v)}
@@ -438,14 +378,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 valueLabelDisplay="auto"
                 valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
               />
-            </SettingSection>
+            </SectionContainer>
           </Box>
         )}
 
         {/* Audio Settings */}
         {activeTab === 2 && (
           <Box>
-            <SettingSection>
+            <SectionContainer>
               <FormControl fullWidth>
                 <InputLabel>Output Device</InputLabel>
                 <Select
@@ -457,11 +397,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                   {/* Add more devices here when available */}
                 </Select>
               </FormControl>
-            </SettingSection>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControl fullWidth>
                 <InputLabel>Bit Depth</InputLabel>
                 <Select
@@ -474,14 +414,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                   <MenuItem value={32}>32-bit</MenuItem>
                 </Select>
               </FormControl>
-              <SettingDescription>
+              <SectionDescription>
                 Higher bit depth provides better dynamic range
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControl fullWidth>
                 <InputLabel>Sample Rate</InputLabel>
                 <Select
@@ -495,17 +435,17 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                   <MenuItem value={192000}>192 kHz (Ultra Hi-Res)</MenuItem>
                 </Select>
               </FormControl>
-              <SettingDescription>
+              <SectionDescription>
                 Higher sample rates capture more audio detail
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
           </Box>
         )}
 
         {/* Interface Settings */}
         {activeTab === 3 && (
           <Box>
-            <SettingSection>
+            <SectionContainer>
               <FormControl fullWidth>
                 <InputLabel>Theme</InputLabel>
                 <Select
@@ -517,11 +457,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                   <MenuItem value="light">Light</MenuItem>
                 </Select>
               </FormControl>
-            </SettingSection>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControlLabel
                 control={
                   <Switch
@@ -531,14 +471,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 }
                 label="Show visualizations"
               />
-              <SettingDescription>
+              <SectionDescription>
                 Display audio visualizations and waveforms
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControlLabel
                 control={
                   <Switch
@@ -548,17 +488,17 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 }
                 label="Mini player on close"
               />
-              <SettingDescription>
+              <SectionDescription>
                 Show mini player when closing main window
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
           </Box>
         )}
 
         {/* Enhancement Settings */}
         {activeTab === 4 && (
           <Box>
-            <SettingSection>
+            <SectionContainer>
               <FormControl fullWidth>
                 <InputLabel>Default Preset</InputLabel>
                 <Select
@@ -573,14 +513,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                   <MenuItem value="punchy">Punchy</MenuItem>
                 </Select>
               </FormControl>
-              <SettingDescription>
+              <SectionDescription>
                 Default audio enhancement preset for playback
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControlLabel
                 control={
                   <Switch
@@ -590,15 +530,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 }
                 label="Auto-enhance playback"
               />
-              <SettingDescription>
+              <SectionDescription>
                 Automatically apply enhancement to all tracks
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
-              <SettingLabel>Enhancement Intensity: {Math.round(getValue('enhancement_intensity') * 100)}%</SettingLabel>
+            <SectionContainer>
+              <SectionLabel>Enhancement Intensity: {Math.round(getValue('enhancement_intensity') * 100)}%</SectionLabel>
               <Slider
                 value={getValue('enhancement_intensity')}
                 onChange={(e, v) => handleSettingChange('enhancement_intensity', v)}
@@ -608,18 +548,18 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 valueLabelDisplay="auto"
                 valueLabelFormat={(v) => `${Math.round(v * 100)}%`}
               />
-              <SettingDescription>
+              <SectionDescription>
                 Adjust the strength of audio enhancement
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
           </Box>
         )}
 
         {/* Advanced Settings */}
         {activeTab === 5 && (
           <Box>
-            <SettingSection>
-              <SettingLabel>Cache Size (MB)</SettingLabel>
+            <SectionContainer>
+              <SectionLabel>Cache Size (MB)</SectionLabel>
               <TextField
                 type="number"
                 fullWidth
@@ -627,15 +567,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 onChange={(e) => handleSettingChange('cache_size', parseInt(e.target.value))}
                 inputProps={{ min: 128, max: 8192 }}
               />
-              <SettingDescription>
+              <SectionDescription>
                 Amount of disk space for processed audio cache
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
-              <SettingLabel>Max Concurrent Scans</SettingLabel>
+            <SectionContainer>
+              <SectionLabel>Max Concurrent Scans</SectionLabel>
               <TextField
                 type="number"
                 fullWidth
@@ -643,14 +583,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 onChange={(e) => handleSettingChange('max_concurrent_scans', parseInt(e.target.value))}
                 inputProps={{ min: 1, max: 16 }}
               />
-              <SettingDescription>
+              <SectionDescription>
                 Number of parallel threads for library scanning
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControlLabel
                 control={
                   <Switch
@@ -660,14 +600,14 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 }
                 label="Enable analytics"
               />
-              <SettingDescription>
+              <SectionDescription>
                 Collect anonymous usage data to improve Auralis
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
 
             <Divider sx={{ my: 3 }} />
 
-            <SettingSection>
+            <SectionContainer>
               <FormControlLabel
                 control={
                   <Switch
@@ -677,10 +617,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 }
                 label="Debug mode"
               />
-              <SettingDescription>
+              <SectionDescription>
                 Show detailed logging and diagnostic information
-              </SettingDescription>
-            </SettingSection>
+              </SectionDescription>
+            </SectionContainer>
           </Box>
         )}
       </DialogContent>
