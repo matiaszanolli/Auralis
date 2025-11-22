@@ -48,6 +48,7 @@ import { Slider } from '@mui/material';
 import { colors } from '../theme/auralisTheme';
 import { useToast } from './shared/Toast';
 import { usePlayerWithAudio } from '../hooks/usePlayerWithAudio';
+import { auroraOpacity } from './library/Color.styles';
 import { useEnhancement } from '../contexts/EnhancementContext';
 import AlbumArtComponent from './album/AlbumArt';
 import { triggerAudioPlayGesture } from './player/HiddenAudioElement';
@@ -214,15 +215,15 @@ export const BottomPlayerBarUnified: React.FC = () => {
             },
             '& .MuiSlider-rail': {
               height: 4,
-              background: 'rgba(102, 126, 234, 0.2)',
+              background: auroraOpacity.standard,
             },
             '& .MuiSlider-thumb': {
               width: 12,
               height: 12,
               background: '#667eea',
-              boxShadow: '0 0 12px rgba(102, 126, 234, 0.6)',
+              boxShadow: `0 0 12px ${auroraOpacity.veryStrong}`,
               '&:hover': {
-                boxShadow: '0 0 20px rgba(102, 126, 234, 0.8)',
+                boxShadow: `0 0 20px rgba(102, 126, 234, 0.8)`,
               },
             },
           }}
@@ -389,7 +390,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
                   border: 'none',
                 },
                 '& .MuiSlider-rail': {
-                  background: 'rgba(102, 126, 234, 0.2)',
+                  background: auroraOpacity.standard,
                 },
                 '& .MuiSlider-thumb': {
                   width: 10,
