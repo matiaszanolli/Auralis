@@ -26,6 +26,7 @@ import {
 import { Close, Keyboard } from '@mui/icons-material';
 import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
 import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
+import { auroraOpacity } from '../library/Color.styles';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;
@@ -54,8 +55,8 @@ const ShortcutRow = styled(Box)(({ theme }) => ({
 }));
 
 const ShortcutKey = styled(Box)(({ theme }) => ({
-  background: 'rgba(102, 126, 234, 0.2)',
-  border: '1px solid rgba(102, 126, 234, 0.4)',
+  background: auroraOpacity.standard,
+  border: `1px solid ${auroraOpacity.veryStrong}`,
   borderRadius: '6px',
   padding: '4px 12px',
   fontFamily: 'monospace',
@@ -64,7 +65,7 @@ const ShortcutKey = styled(Box)(({ theme }) => ({
   color: '#667eea',
   minWidth: '80px',
   textAlign: 'center',
-  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.2)',
+  boxShadow: `0 2px 8px ${auroraOpacity.standard}`,
 }));
 
 const ShortcutDescription = styled(Typography)(({ theme }) => ({
