@@ -22,6 +22,7 @@ import { MusicNote } from '@mui/icons-material';
 import { SkeletonContainer, SkeletonBox } from '../library/Skeleton.styles';
 import { fadeIn } from '../library/Animation.styles';
 import { Skeleton } from './SkeletonLoader';
+import { auroraOpacity } from '../library/Color.styles';
 
 interface ProgressiveImageProps {
   src: string;
@@ -63,7 +64,7 @@ const FallbackContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)',
+  background: `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, rgba(118, 75, 162, 0.15) 100%)`,
   color: 'rgba(255, 255, 255, 0.4)',
   animation: `${fadeIn} 0.3s cubic-bezier(0.4, 0, 0.2, 1)`,
 });
@@ -175,7 +176,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
         <FallbackContainer
           sx={{
             borderRadius,
-            background: fallbackGradient || 'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)',
+            background: fallbackGradient || `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, rgba(118, 75, 162, 0.15) 100%)`,
           }}
         >
           <MusicNote
