@@ -16,7 +16,7 @@ import AutoMasteringPane from './components/AutoMasteringPane';
 import EnhancementPaneV2 from './components/enhancement-pane-v2';
 import CozyLibraryView from './components/CozyLibraryView';
 import SettingsDialog from './components/settings/SettingsDialog';
-import LyricsPanel from './components/player/LyricsPanel';
+import LyricsPanel from './components/player-bar-v2/lyrics/LyricsPanel';
 import KeyboardShortcutsHelp from './components/shared/KeyboardShortcutsHelp';
 
 // Refactored app layout components (Phase 3)

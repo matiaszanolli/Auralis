@@ -19,7 +19,7 @@ import React, { useRef, useEffect } from 'react';
 import { Box, Grid, Paper, Typography } from '@mui/material';
 import { TrackCard } from '../track/TrackCard';
 import SelectableTrackRow from './SelectableTrackRow';
-import TrackQueue from '../player/TrackQueue';
+import TrackQueue from '../player-bar-v2/queue/TrackQueue';
 import { LibraryGridSkeleton, TrackRowSkeleton } from '../shared/SkeletonLoader';
 import * as queueService from '../../services/queueService';
 import { useToast } from '../shared/Toast';

@@ -130,13 +130,6 @@ const PlayerBarV2Connected: React.FC = () => {
     queueIndex
   ]);
 
-  // DEBUG: Log all timing values including dependencies
-  console.log(`[PlayerBarV2Connected] Current values: isPlaying=${player.isPlaying}, currentTime=${player.currentTime.toFixed(2)}s, duration=${player.duration.toFixed(2)}s, state=${player.state}`);
-  if (player.isPlaying && player.currentTime > 0) {
-    const displayDuration = player.duration ? player.duration.toFixed(2) : '0.00';
-    console.log(`[PlayerBarV2Connected] Passing to UI: currentTime=${player.currentTime.toFixed(2)}s, duration=${displayDuration}s`);
-  }
-
   // ========== Render ==========
 
   return (

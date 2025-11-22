@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Box, Typography, List, ListItem, ListItemText, styled } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
-import { colors, gradients } from '../../theme/auralisTheme';
-import { useContextMenu, ContextMenu, getTrackContextActions } from '../shared/ContextMenu';
-import { useToast } from '../shared/Toast';
+import { colors, gradients } from '../../../theme/auralisTheme';
+import { useContextMenu, ContextMenu, getTrackContextActions } from '../../shared/ContextMenu';
+import { useToast } from '../../shared/Toast';
 
 interface Track {
   id: number;
