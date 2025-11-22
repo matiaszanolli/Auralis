@@ -16,18 +16,16 @@
 
 import React from 'react';
 import {
-  Dialog,
-  DialogTitle,
   DialogContent,
   IconButton,
   Box,
   Typography,
   Paper,
-  Divider,
   styled
 } from '@mui/material';
 import { Close, Keyboard } from '@mui/icons-material';
 import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
+import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;
@@ -35,25 +33,6 @@ interface KeyboardShortcutsHelpProps {
   onClose: () => void;
   formatShortcut?: (shortcut: ShortcutDefinition) => string;
 }
-
-const StyledDialog = styled(Dialog)(({ theme }) => ({
-  '& .MuiDialog-paper': {
-    background: 'linear-gradient(135deg, #1a1f3a 0%, #0A0E27 100%)',
-    border: '1px solid rgba(102, 126, 234, 0.2)',
-    borderRadius: '16px',
-    maxWidth: '800px',
-    width: '100%',
-  },
-}));
-
-const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  color: '#ffffff',
-  padding: '24px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '12px',
-}));
 
 const CategorySection = styled(Paper)(({ theme }) => ({
   background: 'rgba(255, 255, 255, 0.03)',
