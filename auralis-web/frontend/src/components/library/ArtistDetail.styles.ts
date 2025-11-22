@@ -9,7 +9,7 @@
  * Empty state components are imported from EmptyState.styles.ts
  */
 
-import { Typography, TableContainer, styled } from '@mui/material';
+import { Typography, TableContainer, Paper, styled } from '@mui/material';
 export { ArtistAvatarCircle } from './Avatar.styles';
 export { DetailViewTabs as StyledTabs } from './Tabs.styles';
 export { EmptyStateContainer as NoAlbumsContainer } from './EmptyState.styles';
