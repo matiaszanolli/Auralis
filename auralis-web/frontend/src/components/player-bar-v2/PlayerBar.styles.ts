@@ -4,11 +4,13 @@
  * Consolidates styled components from BottomPlayerBarUnified
  * to improve modularity and maintainability.
  * Shadow effects are imported from Shadow.styles.ts.
+ * Border radius values are imported from BorderRadius.styles.ts.
  */
 
 import { Box, IconButton, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 import { compoundShadows } from '../library/Shadow.styles';
+import { radiusMedium } from '../library/BorderRadius.styles';
 
 /**
  * PlayerContainer - Main fixed player bar container
@@ -68,7 +70,7 @@ export const PlayButton = styled(IconButton)({
 export const AlbumArtContainer = styled(Box)({
   width: '64px',
   height: '64px',
-  borderRadius: '8px',
+  borderRadius: radiusMedium,
   marginRight: '12px',
   flexShrink: 0,
   overflow: 'hidden',

@@ -8,10 +8,12 @@
  *
  * All avatars use the aurora gradient background for visual consistency.
  * Shadow effects are imported from Shadow.styles.ts.
+ * Border radius for circles is imported from BorderRadius.styles.ts.
  */
 
 import { Avatar, Box, styled } from '@mui/material';
 import { glowShadows } from './Shadow.styles';
+import { radiusCircle } from './BorderRadius.styles';
 
 /**
  * ArtistAvatarCircle - Large circular artist avatar with aurora gradient background
@@ -21,7 +23,7 @@ import { glowShadows } from './Shadow.styles';
 export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
   width: 200,
   height: 200,
-  borderRadius: '50%',
+  borderRadius: radiusCircle,
   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
   display: 'flex',
   alignItems: 'center',

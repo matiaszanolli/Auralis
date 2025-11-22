@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import { colors } from '../../theme/auralisTheme';
 import { cardShadows } from '../library/Shadow.styles';
+import { radiusMedium, radiusSmall } from '../library/BorderRadius.styles';
 
 export interface ContextMenuAction {
   id: string;
@@ -37,7 +38,7 @@ const StyledMenu = styled(Menu)({
     background: colors.background.secondary,
     border: `1px solid rgba(102, 126, 234, 0.2)`,
     boxShadow: cardShadows.dropdownDark,
-    borderRadius: '8px',
+    borderRadius: radiusMedium,
     minWidth: '220px',
     padding: '4px',
     backdropFilter: 'blur(12px)',
@@ -45,7 +46,7 @@ const StyledMenu = styled(Menu)({
 });
 
 const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructive }) => ({
-  borderRadius: '6px',
+  borderRadius: radiusSmall,
   padding: '10px 12px',
   margin: '2px 0',
   fontSize: '14px',

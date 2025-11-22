@@ -3,11 +3,13 @@
  *
  * Consolidates gradient buttons and other styled buttons used across detail views.
  * Shadow effects are imported from Shadow.styles.ts for consistency.
+ * Border radius values are imported from BorderRadius.styles.ts.
  */
 
 import { Button, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 import { buttonShadows } from './Shadow.styles';
+import { radiusMedium, radiusFull } from './BorderRadius.styles';
 
 /**
  * PlayButton - Gradient action button for playing tracks/albums
@@ -19,7 +21,7 @@ export const PlayButton = styled(Button)(({ theme }) => ({
   padding: '12px 32px',
   fontSize: '1rem',
   fontWeight: 'bold',
-  borderRadius: 24,
+  borderRadius: radiusFull,
   textTransform: 'none',
   '&:hover': {
     background: gradients.aurora45Hover,
@@ -37,7 +39,7 @@ export const ShuffleButton = styled(Button)(({ theme }) => ({
   borderColor: theme.palette.text.secondary,
   color: theme.palette.text.secondary,
   padding: '12px 24px',
-  borderRadius: 24,
+  borderRadius: radiusFull,
   textTransform: 'none',
   '&:hover': {
     borderColor: theme.palette.primary.main,
@@ -56,7 +58,7 @@ export const GradientButton = styled(Button)({
   textTransform: 'none',
   fontWeight: 600,
   padding: '10px 24px',
-  borderRadius: '8px',
+  borderRadius: radiusMedium,
   '&:hover': {
     background: gradients.auroraHover,
     transform: 'translateY(-1px)',
