@@ -19,6 +19,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, styled, keyframes } from '@mui/material';
 import { MusicNote } from '@mui/icons-material';
+import { SkeletonContainer, SkeletonBox } from '../library/Skeleton.styles';
 import { Skeleton } from './SkeletonLoader';
 
 interface ProgressiveImageProps {
@@ -75,14 +76,6 @@ const FallbackContainer = styled(Box)({
   background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)',
   color: 'rgba(255, 255, 255, 0.4)',
   animation: `${fadeIn} 0.3s cubic-bezier(0.4, 0, 0.2, 1)`,
-});
-
-const SkeletonContainer = styled(Box)({
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  width: '100%',
-  height: '100%',
 });
 
 /**
