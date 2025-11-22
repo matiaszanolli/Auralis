@@ -25,6 +25,7 @@ import { colors, borderRadius, spacing, transitions } from '../../theme/auralisT
 import { useToast } from './Toast';
 import * as playlistService from '../../services/playlistService';
 import CreatePlaylistDialog from '../playlist/CreatePlaylistDialog';
+import { auroraOpacity } from '../library/Color.styles';
 
 interface TrackContextMenuProps {
   trackId: number | null;
@@ -47,7 +48,7 @@ interface TrackContextMenuProps {
 const StyledMenu = styled(Menu)({
   '& .MuiPaper-root': {
     background: colors.background.secondary,
-    border: `1px solid rgba(102, 126, 234, 0.2)`,
+    border: `1px solid ${auroraOpacity.standard}`,
     borderRadius: `${borderRadius.sm}px`,
     minWidth: '240px',
     boxShadow: '0 12px 48px rgba(0, 0, 0, 0.5)',
@@ -64,7 +65,7 @@ const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructiv
   margin: `${spacing.xs}px 0`,
   transition: `all ${transitions.fast}`,
   '&:hover': {
-    background: destructive ? 'rgba(255, 71, 87, 0.12)' : 'rgba(102, 126, 234, 0.15)',
+    background: destructive ? 'rgba(255, 71, 87, 0.12)' : auroraOpacity.lighter,
     transform: 'translateX(2px)',
   },
   '& .MuiListItemIcon-root': {
@@ -83,7 +84,7 @@ const PlaylistMenuItem = styled(MenuItem)({
   padding: '8px 16px 8px 48px',
   transition: 'all 0.2s ease',
   '&:hover': {
-    background: 'rgba(102, 126, 234, 0.1)',
+    background: auroraOpacity.veryLight,
     color: colors.text.primary,
     transform: 'translateX(2px)',
   },
@@ -96,7 +97,7 @@ const CreateNewMenuItem = styled(MenuItem)({
   fontWeight: 600,
   transition: 'all 0.2s ease',
   '&:hover': {
-    background: 'rgba(102, 126, 234, 0.15)',
+    background: auroraOpacity.lighter,
     transform: 'translateX(2px)',
   },
 });
@@ -203,7 +204,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
           </StyledMenuItem>
         )}
 
-        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 1 }} />
+        <Divider sx={{ borderColor: auroraOpacity.veryLight, my: 1 }} />
 
         {/* Playlist actions */}
         <StyledMenuItem>
@@ -232,7 +233,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
           Create New Playlist
         </CreateNewMenuItem>
 
-        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 1 }} />
+        <Divider sx={{ borderColor: auroraOpacity.veryLight, my: 1 }} />
 
         {/* Favorite toggle */}
         {onToggleFavorite && (
@@ -246,7 +247,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
           </StyledMenuItem>
         )}
 
-        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 1 }} />
+        <Divider sx={{ borderColor: auroraOpacity.veryLight, my: 1 }} />
 
         {/* Navigation actions */}
         {onShowAlbum && trackAlbumId && (
@@ -278,7 +279,7 @@ export const TrackContextMenu: React.FC<TrackContextMenuProps> = ({
 
         {/* Edit/Delete actions */}
         {(onEditMetadata || onDelete) && (
-          <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.1)', my: 1 }} />
+          <Divider sx={{ borderColor: auroraOpacity.veryLight, my: 1 }} />
         )}
 
         {onEditMetadata && (
