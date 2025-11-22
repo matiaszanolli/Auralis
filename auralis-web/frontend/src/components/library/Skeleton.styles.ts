@@ -10,34 +10,9 @@
  * - PulsingBox: Opacity pulse animation for icon/text loaders
  */
 
-import { Box, styled, keyframes } from '@mui/material';
+import { Box, styled } from '@mui/material';
 import { colors } from '../../theme/auralisTheme';
-
-/**
- * shimmer - Gradient shimmer animation for skeleton loaders
- * Creates left-to-right shimmer effect for loading state feedback
- */
-const shimmer = keyframes`
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-`;
-
-/**
- * pulse - Opacity pulse animation for loading indicators
- * Fades element in and out for attention
- */
-const pulse = keyframes`
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-`;
+import { shimmer, pulse } from './Animation.styles';
 
 /**
  * SkeletonBox - Base skeleton element with shimmer animation
