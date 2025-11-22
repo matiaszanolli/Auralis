@@ -13,6 +13,7 @@ import {
   Person,
 } from '@mui/icons-material';
 import { colors } from '../../theme/auralisTheme';
+import { cardShadows } from '../library/Shadow.styles';
 
 export interface ContextMenuAction {
   id: string;
@@ -35,7 +36,7 @@ const StyledMenu = styled(Menu)({
   '& .MuiPaper-root': {
     background: colors.background.secondary,
     border: `1px solid rgba(102, 126, 234, 0.2)`,
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+    boxShadow: cardShadows.dropdownDark,
     borderRadius: '8px',
     minWidth: '220px',
     padding: '4px',

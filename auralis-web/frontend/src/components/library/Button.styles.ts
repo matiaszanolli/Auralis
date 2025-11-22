@@ -2,10 +2,12 @@
  * Button Styles - Reusable button styles for library components
  *
  * Consolidates gradient buttons and other styled buttons used across detail views.
+ * Shadow effects are imported from Shadow.styles.ts for consistency.
  */
 
 import { Button, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
+import { buttonShadows } from './Shadow.styles';
 
 /**
  * PlayButton - Gradient action button for playing tracks/albums
@@ -22,7 +24,7 @@ export const PlayButton = styled(Button)(({ theme }) => ({
   '&:hover': {
     background: gradients.aurora45Hover,
     transform: 'translateY(-2px)',
-    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
+    boxShadow: buttonShadows.primary
   },
   transition: 'all 0.2s ease'
 }));
@@ -58,7 +60,7 @@ export const GradientButton = styled(Button)({
   '&:hover': {
     background: gradients.auroraHover,
     transform: 'translateY(-1px)',
-    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+    boxShadow: buttonShadows.primary,
   },
   '&:disabled': {
     background: 'rgba(102, 126, 234, 0.3)',
@@ -93,7 +95,7 @@ export const SaveButton = styled(Button)(({ theme }) => ({
   '&:hover': {
     background: gradients.auroraHover,
     transform: 'translateY(-1px)',
-    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+    boxShadow: buttonShadows.primary,
   },
   '&:disabled': {
     background: 'rgba(102, 126, 234, 0.3)',
