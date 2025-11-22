@@ -14,6 +14,15 @@ import {
 } from '@mui/material';
 import { AlbumCard } from '../album/AlbumCard';
 import { EmptyStateBox } from './EmptyStateBox';
+import {
+  GridContainer,
+  InfiniteScrollTrigger,
+  LoadingIndicatorBox,
+  LoadingSpinner,
+  LoadingText,
+  EndOfListIndicator,
+  EndOfListText,
+} from './Grid.styles';
 
 interface Album {
   id: number;
@@ -189,11 +198,8 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   }
 
   return (
-    <Box
+    <GridContainer
       ref={containerRef}
-      sx={{
-        p: 3
-      }}
     >
       <Grid container spacing={3}>
         {albums.map((album) => (
@@ -216,55 +222,29 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
       {hasMore && (
         <Box
           ref={loadMoreTriggerRef}
-          sx={{
-            height: '1px',
-            width: '100%',
-          }}
+          sx={{ height: '1px', width: '100%' }}
         />
       )}
 
       {/* Loading indicator */}
       {isLoadingMore && (
-        <Box
-          sx={{
-            height: '100px',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            p: 2
-          }}
-        >
-          <Box
-            sx={{
-              width: 20,
-              height: 20,
-              border: '2px solid',
-              borderColor: 'primary.main',
-              borderRightColor: 'transparent',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              '@keyframes spin': {
-                '0%': { transform: 'rotate(0deg)' },
-                '100%': { transform: 'rotate(360deg)' }
-              }
-            }}
-          />
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+        <LoadingIndicatorBox>
+          <LoadingSpinner />
+          <LoadingText variant="body2">
             Loading more albums... ({albums.length}/{totalAlbums})
-          </Typography>
-        </Box>
+          </LoadingText>
+        </LoadingIndicatorBox>
       )}
 
       {/* End of list indicator */}
       {!hasMore && albums.length > 0 && (
-        <Box sx={{ p: 3, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
+        <EndOfListIndicator>
+          <EndOfListText variant="body2">
             Showing all {totalAlbums} albums
-          </Typography>
-        </Box>
+          </EndOfListText>
+        </EndOfListIndicator>
       )}
-    </Box>
+    </GridContainer>
   );
 };
 

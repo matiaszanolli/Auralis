@@ -24,6 +24,11 @@ import { LibraryGridSkeleton, TrackRowSkeleton } from '../shared/SkeletonLoader'
 import { SpinnerBox } from './Spinner.styles';
 import * as queueService from '../../services/queueService';
 import { useToast } from '../shared/Toast';
+import {
+  ListLoadingContainer,
+  GridContainer,
+  InfiniteScrollTrigger,
+} from './Grid.styles';
 
 export interface Track {
   id: number;
@@ -122,19 +127,11 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
     return viewMode === 'grid' ? (
       <LibraryGridSkeleton count={12} />
     ) : (
-      <Paper
-        elevation={2}
-        sx={{
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: 3,
-          overflow: 'hidden',
-          p: 2
-        }}
-      >
+      <ListLoadingContainer elevation={2}>
         {Array.from({ length: 8 }).map((_, index) => (
           <TrackRowSkeleton key={index} />
         ))}
-      </Paper>
+      </ListLoadingContainer>
     );
   }
 
@@ -178,18 +175,9 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
 
         {/* Intersection observer trigger for infinite scroll */}
         {hasMore && (
-          <Box
-            ref={loadMoreRef}
-            sx={{
-              height: '100px',
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+          <InfiniteScrollTrigger ref={loadMoreRef}>
             {isLoadingMore && <SpinnerBox />}
-          </Box>
+          </InfiniteScrollTrigger>
         )}
 
         {/* Track Queue - Shows current album/playlist tracks */}
