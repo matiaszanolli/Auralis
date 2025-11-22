@@ -21,7 +21,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import EnhancementPaneV2 from '../../components/enhancement-pane-v2/EnhancementPaneV2';
+import EnhancementPaneV2 from '@/components/enhancement-pane-v2/EnhancementPaneV2';
 
 // Mock processing parameters
 const mockProcessingParams = {
