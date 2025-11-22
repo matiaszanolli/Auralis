@@ -19,6 +19,7 @@
 import React from 'react';
 import { Box, Checkbox, styled } from '@mui/material';
 import TrackRow from './TrackRow';
+import { auroraOpacity } from './Color.styles';
 
 interface Track {
   id: number;
@@ -56,12 +57,12 @@ const SelectableContainer = styled(Box, {
   gap: '8px',
   padding: '4px 8px',
   borderRadius: '8px',
-  backgroundColor: isSelected ? 'rgba(102, 126, 234, 0.15)' : 'transparent',
-  border: isSelected ? '1px solid rgba(102, 126, 234, 0.3)' : '1px solid transparent',
+  backgroundColor: isSelected ? auroraOpacity.lighter : 'transparent',
+  border: isSelected ? `1px solid ${auroraOpacity.strong}` : '1px solid transparent',
   transition: 'all 0.2s ease',
   cursor: 'pointer',
   '&:hover': {
-    backgroundColor: isSelected ? 'rgba(102, 126, 234, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: isSelected ? auroraOpacity.standard : 'rgba(255, 255, 255, 0.03)',
     '& .selection-checkbox': {
       opacity: 1,
     },
