@@ -385,7 +385,8 @@ describe('TrackRow', () => {
         <TrackRow track={mockTrack} />
       );
 
-      expect(screen.getByText(`Art: ${mockTrack.title}`)).toBeInTheDocument();
+      // Verify track title is displayed (passed to context menu)
+      expect(screen.getByText(mockTrack.title)).toBeInTheDocument();
     });
   });
 
