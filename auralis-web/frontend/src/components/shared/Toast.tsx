@@ -1,7 +1,8 @@
 import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
 import { Snackbar, Alert, AlertColor, styled, keyframes } from '@mui/material';
-import { colors, gradients } from '../../theme/auralisTheme';
-import { auroraOpacity } from '../library/Color.styles';
+import { colors } from '../../theme/auralisTheme';
+import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
+import { spacingXSmall } from '../library/Spacing.styles';
 
 interface ToastMessage {
   id: string;
@@ -64,7 +65,7 @@ const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }) => {
       case 'warning':
         return colors.accent.warning;
       case 'info':
-        return '#667eea';
+        return colorAuroraPrimary;
       default:
         return colors.text.disabled;
     }
@@ -86,7 +87,7 @@ const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }) => {
     },
 
     '& .MuiAlert-message': {
-      padding: '6px 0',
+      padding: `${spacingXSmall} 0`,
     },
   };
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Typography, styled, keyframes } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
+import { auroraOpacity } from '../library/Color.styles';
 
 interface AuroraLogoProps {
   size?: 'small' | 'medium' | 'large';
@@ -45,7 +46,7 @@ const LogoIcon = styled(Box)<{ size: number }>(({ size }) => ({
   justifyContent: 'center',
   position: 'relative',
   overflow: 'hidden',
-  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+  boxShadow: `0 4px 12px ${auroraOpacity.strong}`,
 
   '&::before': {
     content: '""',

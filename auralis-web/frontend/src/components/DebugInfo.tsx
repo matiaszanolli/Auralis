@@ -1,5 +1,7 @@
 import React from 'react'
 import { useCommitId, getVersionString } from '@/hooks/useCommitId'
+import { auroraOpacity, colorAuroraPrimary } from '@/components/library/Color.styles'
+import { spacingSmall, spacingXSmall } from '@/components/library/Spacing.styles'
 
 /**
  * Debug info component - displays build and commit information
@@ -29,24 +31,24 @@ export const DebugInfo: React.FC = () => {
     <div
       style={{
         position: 'fixed',
-        bottom: 20,
-        right: 20,
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-        color: '#00d4ff',
-        padding: '12px 16px',
+        bottom: spacingSmall,
+        right: spacingSmall,
+        backgroundColor: auroraOpacity.veryStrong,
+        color: colorAuroraPrimary,
+        padding: `${spacingXSmall} ${spacingSmall}`,
         borderRadius: '8px',
         fontFamily: 'monospace',
         fontSize: '12px',
         zIndex: 10000,
-        border: '1px solid #00d4ff',
+        border: `1px solid ${colorAuroraPrimary}`,
         maxWidth: '300px',
       }}
     >
-      <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>🎵 Auralis Debug</div>
+      <div style={{ marginBottom: spacingXSmall, fontWeight: 'bold' }}>🎵 Auralis Debug</div>
       <div>Version: {versionString}</div>
       <div>Commit: {commitId}</div>
       <div>Mode: {import.meta.env.MODE}</div>
-      <div style={{ marginTop: '8px', fontSize: '10px', opacity: 0.7 }}>
+      <div style={{ marginTop: spacingXSmall, fontSize: '10px', opacity: 0.7 }}>
         Press Ctrl+Shift+D to toggle
       </div>
     </div>
