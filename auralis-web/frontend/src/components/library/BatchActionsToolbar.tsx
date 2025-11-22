@@ -39,6 +39,7 @@ import {
   Edit,
   MoreVert
 } from '@mui/icons-material';
+import { cardShadows } from './Shadow.styles';
 
 interface BatchActionsToolbarProps {
   selectedCount: number;
@@ -65,7 +66,7 @@ const ToolbarContainer = styled(Paper)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: '16px',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+  boxShadow: cardShadows.dropdownDark,
   animation: 'slideDown 0.3s ease-out',
   '@keyframes slideDown': {
     from: {

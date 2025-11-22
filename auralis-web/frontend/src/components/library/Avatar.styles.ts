@@ -7,9 +7,11 @@
  * - DefaultSearchAvatar: Generic avatar for non-artist search results
  *
  * All avatars use the aurora gradient background for visual consistency.
+ * Shadow effects are imported from Shadow.styles.ts.
  */
 
 import { Avatar, Box, styled } from '@mui/material';
+import { glowShadows } from './Shadow.styles';
 
 /**
  * ArtistAvatarCircle - Large circular artist avatar with aurora gradient background
@@ -27,7 +29,7 @@ export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
   fontSize: '5rem',
   fontWeight: 'bold',
   color: 'white',
-  boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
+  boxShadow: glowShadows.purple,
 }));
 
 /**

@@ -6,9 +6,11 @@
  *
  * Avatar components (ArtistSearchAvatar, DefaultSearchAvatar) are imported from Avatar.styles.ts
  * Empty state components are imported from EmptyState.styles.ts
+ * Shadow effects are imported from Shadow.styles.ts
  */
 
 import { TextField, Paper, ListItemButton, Chip, styled, Box } from '@mui/material';
+import { containerShadows } from './Shadow.styles';
 export { ArtistSearchAvatar, DefaultSearchAvatar } from './Avatar.styles';
 export { SearchEmptyState as EmptyResultsBox } from './EmptyState.styles';
 export { CategoryHeader, ResultTitle, ResultSubtitle } from './Typography.styles';
@@ -66,7 +68,7 @@ export const ResultsContainer = styled(Paper)(({ theme }) => ({
   backdropFilter: 'blur(20px)',
   border: '1px solid rgba(255,255,255,0.1)',
   borderRadius: theme.spacing(2),
-  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+  boxShadow: containerShadows.resultsPanel,
   zIndex: 1000
 }));
 

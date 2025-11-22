@@ -3,10 +3,12 @@
  *
  * Consolidates styled components from BottomPlayerBarUnified
  * to improve modularity and maintainability.
+ * Shadow effects are imported from Shadow.styles.ts.
  */
 
 import { Box, IconButton, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
+import { compoundShadows } from '../library/Shadow.styles';
 
 /**
  * PlayerContainer - Main fixed player bar container
@@ -28,7 +30,7 @@ export const PlayerContainer = styled(Box)({
   display: 'flex',
   flexDirection: 'column',
   zIndex: 1300, // Higher than MUI modals (1200)
-  boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.5), 0 -2px 8px rgba(102, 126, 234, 0.15)',
+  boxShadow: compoundShadows.playerContainer,
 });
 
 /**
@@ -41,13 +43,13 @@ export const PlayButton = styled(IconButton)({
   height: '56px',
   minWidth: '56px',
   flexShrink: 0,
-  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.4), 0 0 24px rgba(102, 126, 234, 0.2)',
+  boxShadow: compoundShadows.playerButton,
   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
 
   '&:hover': {
     background: gradients.aurora,
     transform: 'scale(1.05)',
-    boxShadow: '0 8px 24px rgba(102, 126, 234, 0.6), 0 0 32px rgba(102, 126, 234, 0.3)',
+    boxShadow: compoundShadows.playerButtonHover,
   },
 
   '&:active': {
