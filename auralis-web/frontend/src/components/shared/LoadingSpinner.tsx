@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, CircularProgress, styled, keyframes } from '@mui/material';
+import { Box, CircularProgress, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
+import { rotate, pulse } from '../library/Animation.styles';
 
 interface LoadingSpinnerProps {
   size?: number;
@@ -8,24 +9,6 @@ interface LoadingSpinnerProps {
   gradient?: string;
   className?: string;
 }
-
-const rotate = keyframes`
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-`;
-
-const pulse = keyframes`
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-`;
 
 const SpinnerContainer = styled(Box)({
   display: 'inline-flex',

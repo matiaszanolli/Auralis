@@ -17,9 +17,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, styled, keyframes } from '@mui/material';
+import { Box, styled } from '@mui/material';
 import { MusicNote } from '@mui/icons-material';
 import { SkeletonContainer, SkeletonBox } from '../library/Skeleton.styles';
+import { fadeIn } from '../library/Animation.styles';
 import { Skeleton } from './SkeletonLoader';
 
 interface ProgressiveImageProps {
@@ -38,17 +39,6 @@ interface ProgressiveImageProps {
   onLoad?: () => void;
   onError?: () => void;
 }
-
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-`;
 
 const ImageContainer = styled(Box)({
   position: 'relative',

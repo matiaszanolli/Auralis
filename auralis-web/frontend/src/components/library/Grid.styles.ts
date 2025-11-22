@@ -5,7 +5,8 @@
  * and pagination indicators used across TrackListView and CozyAlbumGrid.
  */
 
-import { Box, Paper, Typography, styled, keyframes } from '@mui/material';
+import { Box, Paper, Typography, styled } from '@mui/material';
+import { spin } from './Animation.styles';
 
 /**
  * ListLoadingContainer - Paper container for list view loading state
@@ -52,17 +53,6 @@ export const LoadingIndicatorBox = styled(Box)(({ theme }) => ({
   padding: theme.spacing(2)
 }));
 
-/**
- * spin - Animation keyframes for loading spinner
- */
-const spin = keyframes`
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-`;
 
 /**
  * LoadingSpinner - Animated spinner for loading state
