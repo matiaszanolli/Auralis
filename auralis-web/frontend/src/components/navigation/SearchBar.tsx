@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TextField, InputAdornment, styled, Typography, Box, CircularProgress } from '@mui/material';
+import { InputAdornment, styled, Typography, Box, CircularProgress } from '@mui/material';
 import { Search, Close } from '@mui/icons-material';
 import { colors } from '../../theme/auralisTheme';
 import { IconButton } from '@mui/material';
+import { SearchTextField } from '../../components/library/FormFields.styles';
 
 interface SearchBarProps {
   value?: string;
@@ -14,49 +15,6 @@ interface SearchBarProps {
   showResultCount?: boolean;
   isSearching?: boolean;
 }
-
-const StyledSearchField = styled(TextField)(({ theme }) => ({
-  '& .MuiOutlinedInput-root': {
-    height: '48px',
-    borderRadius: '24px',
-    background: 'rgba(26, 31, 58, 0.5)',
-    backdropFilter: 'blur(8px)',
-    border: '1px solid transparent',
-    transition: 'all 0.3s ease',
-    paddingRight: '8px',
-
-    '& fieldset': {
-      border: 'none',
-    },
-
-    '&:hover': {
-      background: 'rgba(26, 31, 58, 0.7)',
-      border: '1px solid rgba(102, 126, 234, 0.2)',
-    },
-
-    '&.Mui-focused': {
-      background: 'rgba(26, 31, 58, 0.8)',
-      border: '1px solid rgba(102, 126, 234, 0.5)',
-      boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)',
-    },
-  },
-
-  '& .MuiOutlinedInput-input': {
-    fontSize: '16px',
-    color: colors.text.primary,
-    padding: '12px 16px',
-
-    '&::placeholder': {
-      color: colors.text.secondary,
-      opacity: 1,
-    },
-  },
-
-  '& .MuiInputAdornment-root': {
-    marginRight: '8px',
-    color: colors.text.secondary,
-  },
-}));
 
 const ClearButton = styled(IconButton)({
   padding: '8px',
@@ -126,7 +84,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   return (
     <Box sx={{ width: '100%' }}>
-      <StyledSearchField
+      <SearchTextField
         fullWidth
         variant="outlined"
         placeholder={placeholder}
