@@ -7,10 +7,11 @@
  * Tab components (StyledTabs, DialogTabs) are imported from Tabs.styles.ts
  */
 
-import { Dialog, DialogTitle, DialogActions, Button, Box, Typography, styled } from '@mui/material';
+import { Dialog, DialogTitle, DialogActions, Button, Box, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 export { DialogTabs as StyledTabs, DetailViewTabs } from './Tabs.styles';
 export { SaveButton, CancelButtonForDialog } from './Button.styles';
+export { SectionLabel, SectionDescription } from './Typography.styles';
 
 /**
  * StyledDialog - Base dialog with dark theme, blur background, and aurora border
@@ -44,24 +45,6 @@ export const SectionContainer = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(3)
 }));
 
-/**
- * SectionLabel - Section header typography
- */
-export const SectionLabel = styled(Typography)(({ theme }) => ({
-  fontSize: '0.875rem',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
-  marginBottom: theme.spacing(1)
-}));
-
-/**
- * SectionDescription - Secondary text for section labels
- */
-export const SectionDescription = styled(Typography)(({ theme }) => ({
-  fontSize: '0.75rem',
-  color: theme.palette.text.secondary,
-  marginTop: theme.spacing(0.5)
-}));
 
 /**
  * MetadataDialogActions - Dialog actions bar for EditMetadataDialog
