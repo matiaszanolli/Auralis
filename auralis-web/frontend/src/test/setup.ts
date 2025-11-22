@@ -116,8 +116,22 @@ global.WebSocket = class WebSocket {
 // Mock Element.scrollTo (used by auto-scroll features)
 Element.prototype.scrollTo = vi.fn()
 
-// Suppress console errors in tests (optional - remove if you want to see errors)
-// vi.spyOn(console, 'error').mockImplementation(() => {})
+// Suppress act() warnings for WebSocket and event handlers (inherently async)
+// These warnings are expected for event-driven state updates outside of React render cycles
+const originalError = console.error
+vi.spyOn(console, 'error').mockImplementation((...args: any[]) => {
+  // Suppress "An update to X inside a test was not wrapped in act(...)" warnings
+  // These occur in event handlers (WebSocket, timeouts) which are inherently async
+  if (args[0]?.toString?.().includes('not wrapped in act')) {
+    return
+  }
+  // Suppress React Router future flag warnings (expected, non-blocking)
+  if (args[0]?.toString?.().includes('React Router Future Flag Warning')) {
+    return
+  }
+  // Log all other errors normally
+  originalError(...args)
+})
 
 // ============================================================
 // MSW Server Lifecycle with Memory Management
