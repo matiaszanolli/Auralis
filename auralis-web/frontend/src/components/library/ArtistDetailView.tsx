@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import AlbumArt from '../album/AlbumArt';
+import { EmptyStateBox } from './EmptyStateBox';
 
 interface Track {
   id: number;
@@ -327,24 +328,17 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
   if (error || !artist) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Paper
-          elevation={2}
-          sx={{
-            p: 6,
-            textAlign: 'center',
-            background: 'rgba(255,255,255,0.05)',
-            borderRadius: 3
-          }}
-        >
-          <Typography variant="h6" color="error" gutterBottom>
-            {error || 'Artist not found'}
-          </Typography>
-          {onBack && (
-            <Button onClick={onBack} startIcon={<ArrowBack />} sx={{ mt: 2 }}>
+        <EmptyStateBox
+          title={error ? 'Error Loading Artist' : 'Artist not found'}
+          subtitle={error || undefined}
+        />
+        {onBack && (
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Button onClick={onBack} startIcon={<ArrowBack />}>
               Back to Artists
             </Button>
-          )}
-        </Paper>
+          </Box>
+        )}
       </Container>
     );
   }

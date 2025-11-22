@@ -15,6 +15,7 @@ import {
   Skeleton,
   Tooltip
 } from '@mui/material';
+import { EmptyStateBox } from './EmptyStateBox';
 import {
   ArrowBack,
   PlayArrow,
@@ -281,24 +282,17 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   if (error || !album) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Paper
-          elevation={2}
-          sx={{
-            p: 6,
-            textAlign: 'center',
-            background: 'rgba(255,255,255,0.05)',
-            borderRadius: 3
-          }}
-        >
-          <Typography variant="h6" color="error" gutterBottom>
-            {error || 'Album not found'}
-          </Typography>
-          {onBack && (
-            <Button onClick={onBack} startIcon={<ArrowBack />} sx={{ mt: 2 }}>
+        <EmptyStateBox
+          title={error ? 'Error Loading Album' : 'Album not found'}
+          subtitle={error || undefined}
+        />
+        {onBack && (
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Button onClick={onBack} startIcon={<ArrowBack />}>
               Back to Albums
             </Button>
-          )}
-        </Paper>
+          </Box>
+        )}
       </Container>
     );
   }
