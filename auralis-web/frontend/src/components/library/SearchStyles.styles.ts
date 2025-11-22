@@ -5,10 +5,12 @@
  * used in GlobalSearch component.
  *
  * Avatar components (ArtistSearchAvatar, DefaultSearchAvatar) are imported from Avatar.styles.ts
+ * Empty state components are imported from EmptyState.styles.ts
  */
 
-import { Box, TextField, Paper, Typography, ListItemButton, Chip, styled } from '@mui/material';
+import { TextField, Paper, Typography, ListItemButton, Chip, styled } from '@mui/material';
 export { ArtistSearchAvatar, DefaultSearchAvatar } from './Avatar.styles';
+export { SearchEmptyState as EmptyResultsBox } from './EmptyState.styles';
 
 /**
  * SearchContainer - Root container for search input
@@ -132,11 +134,3 @@ export const TypeChip = styled(Chip)(({ theme }) => ({
   }
 }));
 
-/**
- * EmptyResultsBox - Container for empty search results message
- * Centered display with icon and text
- */
-export const EmptyResultsBox = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(4),
-  textAlign: 'center'
-}));

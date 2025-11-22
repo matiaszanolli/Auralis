@@ -6,11 +6,13 @@
  *
  * Avatar components (ArtistAvatarCircle) are imported from Avatar.styles.ts
  * Tab components (StyledTabs, DetailViewTabs) are imported from Tabs.styles.ts
+ * Empty state components are imported from EmptyState.styles.ts
  */
 
-import { Paper, Typography, TableContainer, styled } from '@mui/material';
+import { Typography, TableContainer, styled } from '@mui/material';
 export { ArtistAvatarCircle } from './Avatar.styles';
 export { DetailViewTabs as StyledTabs } from './Tabs.styles';
+export { EmptyStateContainer as NoAlbumsContainer } from './EmptyState.styles';
 
 /**
  * AlbumCard - Card container for album displays in artist view
@@ -49,16 +51,6 @@ export const AlbumTitle = styled(Typography)(({ theme }) => ({
 export const AlbumInfo = styled(Typography)(({ theme }) => ({
   fontSize: '0.875rem',
   color: theme.palette.text.secondary
-}));
-
-/**
- * NoAlbumsContainer - Empty state container for when artist has no albums
- */
-export const NoAlbumsContainer = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(4),
-  textAlign: 'center',
-  background: 'rgba(255,255,255,0.03)',
-  borderRadius: theme.spacing(2)
 }));
 
 /**
