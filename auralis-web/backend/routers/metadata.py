@@ -232,9 +232,6 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
             # Only use it if it's a real SQLAlchemy Session, not a Mock
             if isinstance(session, Session):
                 session.commit()
-            else:
-                # Fallback to library manager session
-                library_manager.session.commit()
 
             # Broadcast metadata updated event
             if broadcast_manager:
@@ -259,24 +256,14 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
             }
 
         except HTTPException:
-            # Rollback on HTTP exceptions that indicate failure
-            if hasattr(library_manager, 'session') and hasattr(library_manager.session, 'rollback'):
-                library_manager.session.rollback()
             raise
         except FileNotFoundError as e:
-            # Rollback on file not found
-            if hasattr(library_manager, 'session') and hasattr(library_manager.session, 'rollback'):
-                library_manager.session.rollback()
+            # File not found error
             raise HTTPException(status_code=404, detail=f"Audio file not found: {e}")
         except ValueError as e:
-            # Rollback on invalid metadata
-            if hasattr(library_manager, 'session') and hasattr(library_manager.session, 'rollback'):
-                library_manager.session.rollback()
+            # Invalid metadata error
             raise HTTPException(status_code=400, detail=f"Invalid metadata: {e}")
         except Exception as e:
-            # Rollback on any other exception
-            if hasattr(library_manager, 'session') and hasattr(library_manager.session, 'rollback'):
-                library_manager.session.rollback()
             logger.error(f"Failed to update metadata for track {track_id}: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to update metadata: {e}")
 
