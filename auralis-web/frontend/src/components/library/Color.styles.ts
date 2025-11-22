@@ -50,6 +50,11 @@ export const auroraOpacity = {
   strong: 'rgba(102, 126, 234, 0.3)',
   veryStrong: 'rgba(102, 126, 234, 0.4)',
   stronger: 'rgba(102, 126, 234, 0.5)',
+  intense: 'rgba(102, 126, 234, 0.6)',
+  veryIntense: 'rgba(102, 126, 234, 0.7)',
+  saturated: 'rgba(102, 126, 234, 0.8)',
+  vivid: 'rgba(102, 126, 234, 0.9)',
+  fullAlpha: 'rgba(102, 126, 234, 1.0)',
 };
 
 /**
