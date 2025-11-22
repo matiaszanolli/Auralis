@@ -4,6 +4,7 @@ import { PlayArrow } from '@mui/icons-material';
 import { colors, gradients } from '../../../theme/auralisTheme';
 import { useContextMenu, ContextMenu, getTrackContextActions } from '../../shared/ContextMenu';
 import { useToast } from '../../shared/Toast';
+import { auroraOpacity } from '../../library/Color.styles';
 
 interface Track {
   id: number;
@@ -25,7 +26,7 @@ const QueueContainer = styled(Box)(({ theme }) => ({
   borderRadius: '8px',
   padding: '16px',
   marginTop: '24px',
-  border: `1px solid rgba(102, 126, 234, 0.1)`,
+  border: `1px solid ${auroraOpacity.veryLight}`,
 }));
 
 const QueueHeader = styled(Typography)(({ theme }) => ({
@@ -52,13 +53,13 @@ const TrackItem = styled(ListItem)<{ isactive?: string }>(({ isactive }) => ({
   cursor: 'pointer',
   transition: 'all 0.2s ease',
   marginBottom: '4px',
-  background: isactive === 'true' ? 'rgba(102, 126, 234, 0.15)' : 'transparent',
-  border: isactive === 'true' ? `1px solid rgba(102, 126, 234, 0.3)` : '1px solid transparent',
+  background: isactive === 'true' ? auroraOpacity.lighter : 'transparent',
+  border: isactive === 'true' ? `1px solid ${auroraOpacity.strong}` : '1px solid transparent',
   position: 'relative',
 
   '&:hover': {
     background: isactive === 'true'
-      ? 'rgba(102, 126, 234, 0.2)'
+      ? auroraOpacity.standard
       : colors.background.hover,
     transform: 'translateX(4px)',
 
