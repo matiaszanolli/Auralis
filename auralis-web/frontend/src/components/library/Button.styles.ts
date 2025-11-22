@@ -4,12 +4,14 @@
  * Consolidates gradient buttons and other styled buttons used across detail views.
  * Shadow effects are imported from Shadow.styles.ts for consistency.
  * Border radius values are imported from BorderRadius.styles.ts.
+ * Color presets are imported from Color.styles.ts for consistency.
  */
 
 import { Button, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 import { buttonShadows } from './Shadow.styles';
 import { radiusMedium, radiusFull } from './BorderRadius.styles';
+import { auroraOpacity } from './Color.styles';
 
 /**
  * PlayButton - Gradient action button for playing tracks/albums
@@ -44,7 +46,7 @@ export const ShuffleButton = styled(Button)(({ theme }) => ({
   '&:hover': {
     borderColor: theme.palette.primary.main,
     color: theme.palette.primary.main,
-    backgroundColor: 'rgba(102, 126, 234, 0.1)'
+    backgroundColor: auroraOpacity.ultraLight
   }
 }));
 
@@ -65,7 +67,7 @@ export const GradientButton = styled(Button)({
     boxShadow: buttonShadows.primary,
   },
   '&:disabled': {
-    background: 'rgba(102, 126, 234, 0.3)',
+    background: auroraOpacity.strong,
     color: 'rgba(255, 255, 255, 0.5)',
   },
   transition: 'all 0.2s ease',
@@ -79,7 +81,7 @@ export const CancelButton = styled(Button)(({ theme }) => ({
   color: theme.palette.text.secondary,
   textTransform: 'none',
   '&:hover': {
-    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    backgroundColor: auroraOpacity.veryLight,
     color: theme.palette.text.primary,
   },
   transition: 'all 0.2s ease',
@@ -100,7 +102,7 @@ export const SaveButton = styled(Button)(({ theme }) => ({
     boxShadow: buttonShadows.primary,
   },
   '&:disabled': {
-    background: 'rgba(102, 126, 234, 0.3)',
+    background: auroraOpacity.strong,
     color: 'rgba(255, 255, 255, 0.5)',
   },
   transition: 'all 0.2s ease',

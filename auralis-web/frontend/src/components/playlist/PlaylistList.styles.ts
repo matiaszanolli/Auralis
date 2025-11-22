@@ -3,10 +3,12 @@
  *
  * Consolidates styled components from PlaylistList for better organization
  * and reusability across playlist-related components.
+ * Color presets are imported from Color.styles.ts for consistency.
  */
 
 import { Box, ListItem, ListItemButton, IconButton, Typography, styled } from '@mui/material';
 import { colors } from '../../theme/auralisTheme';
+import { auroraOpacity } from '../library/Color.styles';
 
 /**
  * PlaylistSection - Root container for the playlists section
@@ -25,7 +27,7 @@ export const SectionHeader = styled(Box)({
   padding: '8px 16px',
   cursor: 'pointer',
   '&:hover': {
-    background: 'rgba(102, 126, 234, 0.05)',
+    background: auroraOpacity.minimal,
   },
   transition: 'background 0.2s ease',
 });
@@ -63,13 +65,13 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
     borderRadius: '6px',
     margin: '2px 8px',
     transition: 'all 0.2s ease',
-    background: selected ? 'rgba(102, 126, 234, 0.15)' : 'transparent',
+    background: selected ? auroraOpacity.lighter : 'transparent',
     borderLeft: selected ? '3px solid #667eea' : '3px solid transparent',
 
     '&:hover': {
       background: selected
-        ? 'rgba(102, 126, 234, 0.2)'
-        : 'rgba(102, 126, 234, 0.08)',
+        ? auroraOpacity.standard
+        : auroraOpacity.ultraLight,
       transform: 'translateX(2px)',
 
       '& .playlist-actions': {
@@ -104,7 +106,7 @@ export const ActionButton = styled(IconButton)({
   color: colors.text.secondary,
   '&:hover': {
     color: '#667eea',
-    background: 'rgba(102, 126, 234, 0.1)',
+    background: auroraOpacity.veryLight,
   },
   '& .MuiSvgIcon-root': {
     fontSize: '18px',
@@ -120,7 +122,7 @@ export const AddButton = styled(IconButton)({
   color: colors.text.secondary,
   '&:hover': {
     color: '#667eea',
-    background: 'rgba(102, 126, 234, 0.1)',
+    background: auroraOpacity.veryLight,
   },
   '& .MuiSvgIcon-root': {
     fontSize: '20px',

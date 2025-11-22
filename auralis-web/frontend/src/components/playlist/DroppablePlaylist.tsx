@@ -10,6 +10,7 @@ import { Droppable } from '@hello-pangea/dnd';
 import { styled } from '@mui/material/styles';
 import { Box, ListItemButton, ListItemText, Typography } from '@mui/material';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
+import { auroraOpacity } from '../library/Color.styles';
 
 const StyledListItemButton = styled(ListItemButton, {
   shouldForwardProp: (prop) => prop !== 'isDraggingOver' && prop !== 'selected',
@@ -19,17 +20,17 @@ const StyledListItemButton = styled(ListItemButton, {
   padding: theme.spacing(1, 2),
   transition: 'all 0.2s ease',
   backgroundColor: isDraggingOver
-    ? 'rgba(102, 126, 234, 0.2)'
+    ? auroraOpacity.standard
     : selected
-      ? 'rgba(102, 126, 234, 0.1)'
+      ? auroraOpacity.veryLight
       : 'transparent',
-  border: isDraggingOver ? '2px dashed rgba(102, 126, 234, 0.5)' : '2px solid transparent',
+  border: isDraggingOver ? `2px dashed ${auroraOpacity.stronger}` : '2px solid transparent',
 
   '&:hover': {
     backgroundColor: isDraggingOver
-      ? 'rgba(102, 126, 234, 0.25)'
+      ? auroraOpacity.light
       : selected
-        ? 'rgba(102, 126, 234, 0.15)'
+        ? auroraOpacity.lighter
         : 'rgba(255, 255, 255, 0.05)',
   },
 }));
@@ -54,8 +55,8 @@ const DropIndicator = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: 'rgba(102, 126, 234, 0.1)',
-  border: '2px dashed rgba(102, 126, 234, 0.5)',
+  backgroundColor: auroraOpacity.veryLight,
+  border: `2px dashed ${auroraOpacity.stronger}`,
   borderRadius: theme.spacing(1),
   pointerEvents: 'none',
   zIndex: 1,
