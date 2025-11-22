@@ -30,6 +30,7 @@ import AlbumArt from '../album/AlbumArt';
 import { EmptyStateBox } from './EmptyStateBox';
 import DetailViewHeader from './DetailViewHeader';
 import { PlayButton, ShuffleButton } from './Button.styles';
+import { StyledTableRow, PlayIcon } from './Table.styles';
 
 interface Track {
   id: number;
@@ -97,31 +98,6 @@ const AlbumInfo = styled(Typography)(({ theme }) => ({
   color: theme.palette.text.secondary
 }));
 
-const StyledTableRow = styled(TableRow)(({ theme }) => ({
-  cursor: 'pointer',
-  transition: 'background-color 0.2s ease',
-  '&:hover': {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    '& .play-icon': {
-      opacity: 1
-    }
-  },
-  '&.current-track': {
-    backgroundColor: 'rgba(102, 126, 234, 0.15)',
-    '& .track-title': {
-      color: '#667eea',
-      fontWeight: 'bold'
-    }
-  }
-}));
-
-const PlayIcon = styled(Box)({
-  opacity: 0,
-  transition: 'opacity 0.2s ease',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center'
-});
 
 const StyledTabs = styled(Tabs)(({ theme }) => ({
   borderBottom: '1px solid rgba(255,255,255,0.1)',
