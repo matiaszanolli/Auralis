@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, IconButton, Button, Tooltip } from '@mui/material';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { auroraOpacity } from '../library/Color.styles';
 
 /**
  * Props for the AppEnhancementPane component.
@@ -98,7 +99,7 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
         display: 'flex',
         flexDirection: 'column',
         background: 'var(--midnight-blue)',
-        borderLeft: '1px solid rgba(102, 126, 234, 0.1)',
+        borderLeft: `1px solid ${auroraOpacity.veryLight}`,
         transition: 'width 0.3s ease',
         width: isCollapsed ? 60 : 320,
         minWidth: isCollapsed ? 60 : 320,
@@ -113,7 +114,7 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 8px',
-          borderBottom: '1px solid rgba(102, 126, 234, 0.1)',
+          borderBottom: `1px solid ${auroraOpacity.veryLight}`,
           gap: 4,
         }}
       >
@@ -142,7 +143,7 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
               padding: '4px',
               '&:hover': {
                 color: 'var(--silver)',
-                background: 'rgba(102, 126, 234, 0.1)',
+                background: auroraOpacity.veryLight,
               },
             }}
           >
@@ -170,10 +171,10 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
               background: 'transparent',
             },
             '&::-webkit-scrollbar-thumb': {
-              background: 'rgba(102, 126, 234, 0.3)',
+              background: auroraOpacity.strong,
               borderRadius: '3px',
               '&:hover': {
-                background: 'rgba(102, 126, 234, 0.5)',
+                background: auroraOpacity.stronger,
               },
             },
           }}
@@ -187,7 +188,7 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
         <Box
           sx={{
             padding: '12px 8px',
-            borderTop: '1px solid rgba(102, 126, 234, 0.1)',
+            borderTop: `1px solid ${auroraOpacity.veryLight}`,
             display: 'flex',
             gap: 8,
           }}
@@ -200,8 +201,8 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
               variant="outlined"
               sx={{
                 background: useV2
-                  ? 'rgba(102, 126, 234, 0.2)'
-                  : 'rgba(102, 126, 234, 0.05)',
+                  ? auroraOpacity.standard
+                  : auroraOpacity.minimal,
                 color: useV2 ? 'rgb(102, 126, 234)' : 'rgba(255, 255, 255, 0.5)',
                 fontSize: '11px',
                 fontWeight: 600,
@@ -210,14 +211,14 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
                 padding: '8px',
                 border: `1px solid ${
                   useV2
-                    ? 'rgba(102, 126, 234, 0.3)'
-                    : 'rgba(102, 126, 234, 0.1)'
+                    ? auroraOpacity.strong
+                    : auroraOpacity.veryLight
                 }`,
                 borderRadius: '4px',
                 '&:hover': {
                   background: useV2
-                    ? 'rgba(102, 126, 234, 0.3)'
-                    : 'rgba(102, 126, 234, 0.1)',
+                    ? auroraOpacity.strong
+                    : auroraOpacity.veryLight,
                 },
               }}
             >
