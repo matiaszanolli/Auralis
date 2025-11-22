@@ -11,7 +11,7 @@
  */
 
 import { useCallback } from 'react';
-import type { UnifiedWebMAudioPlayer } from '@/services/UnifiedWebMAudioPlayer';
+import type { UseUnifiedWebMAudioPlayerResult } from './useUnifiedWebMAudioPlayer';
 
 interface PlaybackState {
   queue?: any[];
@@ -29,7 +29,7 @@ interface PlaybackCallbacks {
 }
 
 interface EventHandlersOptions {
-  player: UnifiedWebMAudioPlayer;
+  player: UseUnifiedWebMAudioPlayerResult;
   playback: PlaybackState;
   callbacks: PlaybackCallbacks;
   enhancementEnabled: boolean;

@@ -10,7 +10,7 @@
  */
 
 import { useEffect } from 'react';
-import type { UnifiedWebMAudioPlayer } from '@/services/UnifiedWebMAudioPlayer';
+import type { UseUnifiedWebMAudioPlayerResult } from './useUnifiedWebMAudioPlayer';
 
 export interface EnhancementSettings {
   enabled: boolean;
@@ -19,7 +19,7 @@ export interface EnhancementSettings {
 }
 
 interface EnhancementSyncOptions {
-  player: UnifiedWebMAudioPlayer;
+  player: UseUnifiedWebMAudioPlayerResult;
   settings: EnhancementSettings;
   onError?: (message: string) => void;
 }

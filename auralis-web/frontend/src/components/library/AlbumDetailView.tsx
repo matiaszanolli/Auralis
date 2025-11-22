@@ -171,6 +171,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [savingFavorite, setSavingFavorite] = useState(false);
 
   useEffect(() => {
     fetchAlbumDetails();
@@ -238,9 +239,34 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
     }
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    // TODO: Call API to update favorite status
+  const toggleFavorite = async () => {
+    setSavingFavorite(true);
+    try {
+      // Use first track's ID to toggle favorite (albums don't have direct favorite endpoints)
+      const trackId = album?.tracks?.[0]?.id;
+      if (!trackId) {
+        setError('Cannot favorite album: no tracks available');
+        return;
+      }
+
+      const response = await fetch(`/api/library/tracks/${trackId}/favorite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update favorite status');
+      }
+
+      setIsFavorite(!isFavorite);
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update favorite status');
+    } finally {
+      setSavingFavorite(false);
+    }
   };
 
   if (loading) {
@@ -342,10 +368,15 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
             <Tooltip title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
               <IconButton
                 onClick={toggleFavorite}
+                disabled={savingFavorite}
                 sx={{
                   color: isFavorite ? '#f50057' : 'text.secondary',
                   '&:hover': {
                     backgroundColor: 'rgba(255,255,255,0.1)'
+                  },
+                  '&:disabled': {
+                    opacity: 0.6,
+                    cursor: 'not-allowed'
                   }
                 }}
               >

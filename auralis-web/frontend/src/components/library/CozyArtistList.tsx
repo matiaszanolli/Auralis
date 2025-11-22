@@ -17,10 +17,11 @@ import {
   Skeleton,
   Avatar,
 } from '@mui/material';
-import { Person, MusicNote } from '@mui/icons-material';
+import { Person } from '@mui/icons-material';
 import { colors } from '../../theme/auralisTheme';
 import { useContextMenu, ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
+import { EmptyStateBox } from './EmptyStateBox';
 
 interface Artist {
   id: number;
@@ -81,29 +82,6 @@ const ArtistInfo = styled(Typography)({
   marginTop: '4px',
 });
 
-const EmptyState = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: '400px',
-  color: colors.text.disabled,
-  textAlign: 'center',
-  padding: '40px',
-});
-
-const EmptyStateText = styled(Typography)({
-  fontSize: '18px',
-  fontWeight: 500,
-  marginBottom: '8px',
-  color: colors.text.secondary,
-});
-
-const EmptyStateSubtext = styled(Typography)({
-  fontSize: '14px',
-  color: colors.text.disabled,
-});
-
 const SectionHeader = styled(Box)({
   marginBottom: '24px',
   paddingBottom: '16px',
@@ -147,100 +125,35 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
 
   // Infinite scroll with scroll event checking sentinel element visibility
   useEffect(() => {
-    console.log('CozyArtistList: Setting up scroll listener', {
-      hasMore,
-      isLoadingMore,
-      loading,
-      offset,
-      artistsCount: artists.length
-    });
-
     const handleScroll = () => {
-      // Log all guard conditions
-      console.log('CozyArtistList: handleScroll called', {
-        hasMore,
-        isLoadingMore,
-        loading,
-        triggerExists: !!loadMoreTriggerRef.current,
-        containerExists: !!containerRef.current
-      });
+      if (!hasMore || isLoadingMore || loading) return;
 
-      if (!hasMore || isLoadingMore || loading) {
-        console.log('CozyArtistList: Guard condition blocked scroll', {
-          hasMore,
-          isLoadingMore,
-          loading
-        });
-        return;
-      }
-
-      // Check if load more trigger element is visible in viewport
       const triggerElement = loadMoreTriggerRef.current;
-      if (!triggerElement) {
-        console.log('CozyArtistList: Trigger element not found');
-        return;
-      }
+      if (!triggerElement) return;
 
       const rect = triggerElement.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-
-      console.log('CozyArtistList: Checking trigger visibility', {
-        triggerTop: rect.top,
-        triggerBottom: rect.bottom,
-        viewportHeight,
-        isNearViewport: rect.top < viewportHeight + 2000
-      });
-
-      // Trigger load when sentinel element is within 2000px of viewport
-      // This ensures loading starts before user scrolls all the way to the end
       const isNearViewport = rect.top < viewportHeight + 2000;
 
       if (isNearViewport) {
-        console.log('CozyArtistList: Load trigger visible, loading more', {
-          triggerTop: rect.top,
-          viewportHeight,
-          hasMore,
-          isLoadingMore
-        });
         loadMore();
       }
     };
 
     // Find scrollable parent and attach listener
     let scrollableParent = containerRef.current?.parentElement;
-    console.log('CozyArtistList: Starting parent search', {
-      containerExists: !!containerRef.current,
-      parentExists: !!scrollableParent
-    });
-
     while (scrollableParent) {
       const overflowY = window.getComputedStyle(scrollableParent).overflowY;
-      console.log('CozyArtistList: Checking parent', {
-        tagName: scrollableParent.tagName,
-        className: scrollableParent.className,
-        overflowY
-      });
-
-      if (overflowY === 'auto' || overflowY === 'scroll') {
-        break;
-      }
+      if (overflowY === 'auto' || overflowY === 'scroll') break;
       scrollableParent = scrollableParent.parentElement;
     }
 
     if (scrollableParent) {
-      console.log('CozyArtistList: Attached scroll listener to', {
-        tagName: scrollableParent.tagName,
-        className: scrollableParent.className
-      });
       scrollableParent.addEventListener('scroll', handleScroll);
-      // Also check on mount in case content is already visible
       handleScroll();
       return () => {
-        console.log('CozyArtistList: Removing scroll listener');
         scrollableParent.removeEventListener('scroll', handleScroll);
       };
-    } else {
-      console.warn('CozyArtistList: No scrollable parent found!');
     }
   }, [hasMore, isLoadingMore, loading, offset, artists.length]);
 
@@ -273,16 +186,12 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
       if (resetPagination) {
         setArtists(data.artists || []);
       } else {
-        // Deduplicate artists by ID to prevent duplicate key warnings
         const newArtists = data.artists || [];
         setArtists(prev => {
-          const existingIds = new Set(prev.map(a => a.id));
-          const uniqueNewArtists = newArtists.filter(a => !existingIds.has(a.id));
-          return [...prev, ...uniqueNewArtists];
+          const existingIds = new Set(prev.map((a: Artist) => a.id));
+          return [...prev, ...newArtists.filter((a: Artist) => !existingIds.has(a.id))];
         });
       }
-
-      console.log(`Loaded ${data.artists?.length || 0} artists, ${currentOffset + (data.artists?.length || 0)}/${data.total || 0}`);
     } catch (err) {
       console.error('Error fetching artists:', err);
       setError(err instanceof Error ? err.message : 'Failed to load artists');
@@ -383,22 +292,20 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
 
   if (error) {
     return (
-      <EmptyState>
-        <EmptyStateText>Error Loading Artists</EmptyStateText>
-        <EmptyStateSubtext>{error}</EmptyStateSubtext>
-      </EmptyState>
+      <EmptyStateBox
+        title="Error Loading Artists"
+        subtitle={error}
+      />
     );
   }
 
   if (artists.length === 0) {
     return (
-      <EmptyState>
-        <Person sx={{ fontSize: 64, marginBottom: 2, opacity: 0.3 }} />
-        <EmptyStateText>No Artists Yet</EmptyStateText>
-        <EmptyStateSubtext>
-          Your artist library will appear here once you scan your music folder
-        </EmptyStateSubtext>
-      </EmptyState>
+      <EmptyStateBox
+        title="No Artists Yet"
+        subtitle="Your artist library will appear here once you scan your music folder"
+        icon={<Person sx={{ fontSize: 64, opacity: 0.3 }} />}
+      />
     );
   }
 
