@@ -15,6 +15,7 @@ import {
 import { colors } from '../../theme/auralisTheme';
 import { cardShadows } from '../library/Shadow.styles';
 import { radiusMedium, radiusSmall } from '../library/BorderRadius.styles';
+import { spacingXSmall, spacingXMedium } from '../library/Spacing.styles';
 
 export interface ContextMenuAction {
   id: string;
@@ -40,15 +41,15 @@ const StyledMenu = styled(Menu)({
     boxShadow: cardShadows.dropdownDark,
     borderRadius: radiusMedium,
     minWidth: '220px',
-    padding: '4px',
+    padding: spacingXSmall,
     backdropFilter: 'blur(12px)',
   },
 });
 
 const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructive }) => ({
   borderRadius: radiusSmall,
-  padding: '10px 12px',
-  margin: '2px 0',
+  padding: `${spacingXMedium} ${spacingXMedium}`,
+  margin: `${spacingXSmall} 0`,
   fontSize: '14px',
   color: destructive ? '#ff4757' : colors.text.primary,
   transition: 'all 0.2s ease',
