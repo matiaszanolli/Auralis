@@ -5,7 +5,6 @@ import {
   ListItem,
   ListItemText,
   ListItemAvatar,
-  Avatar,
   Typography,
   Divider,
   CircularProgress,
@@ -26,7 +25,10 @@ import {
   StyledListItemButton,
   ResultTitle,
   ResultSubtitle,
-  TypeChip
+  TypeChip,
+  ArtistSearchAvatar,
+  DefaultSearchAvatar,
+  EmptyResultsBox
 } from './SearchStyles.styles';
 import AlbumArt from '../album/AlbumArt';
 
@@ -178,24 +180,16 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
 
     if (result.type === 'artist') {
       return (
-        <Avatar
-          sx={{
-            width: 40,
-            height: 40,
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            fontSize: '1rem',
-            fontWeight: 'bold'
-          }}
-        >
+        <ArtistSearchAvatar>
           {result.title.charAt(0).toUpperCase()}
-        </Avatar>
+        </ArtistSearchAvatar>
       );
     }
 
     return (
-      <Avatar sx={{ width: 40, height: 40, bgcolor: 'rgba(102, 126, 234, 0.2)' }}>
+      <DefaultSearchAvatar>
         {getIcon(result.type)}
-      </Avatar>
+      </DefaultSearchAvatar>
     );
   };
 
@@ -325,12 +319,12 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
 
       {showResults && results.length === 0 && !loading && query.length >= 2 && (
         <ResultsContainer elevation={8}>
-          <Box sx={{ p: 4, textAlign: 'center' }}>
+          <EmptyResultsBox>
             <SearchIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
             <Typography color="text.secondary">
               No results found for "{query}"
             </Typography>
-          </Box>
+          </EmptyResultsBox>
         </ResultsContainer>
       )}
     </SearchContainer>
