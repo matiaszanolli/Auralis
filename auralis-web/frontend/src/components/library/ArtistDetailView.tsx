@@ -28,6 +28,7 @@ import {
 import { styled } from '@mui/material/styles';
 import AlbumArt from '../album/AlbumArt';
 import { EmptyStateBox } from './EmptyStateBox';
+import DetailViewHeader from './DetailViewHeader';
 
 interface Track {
   id: number;
@@ -65,61 +66,6 @@ interface ArtistDetailViewProps {
 }
 
 // Styled Components
-const HeaderSection = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: theme.spacing(4),
-  marginBottom: theme.spacing(4),
-  padding: theme.spacing(4),
-  background: 'rgba(255,255,255,0.03)',
-  borderRadius: theme.spacing(2),
-  backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255,255,255,0.05)'
-}));
-
-const ArtistAvatar = styled(Box)(({ theme }) => ({
-  flexShrink: 0,
-  width: 200,
-  height: 200,
-  borderRadius: '50%',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '5rem',
-  fontWeight: 'bold',
-  color: 'white',
-  boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
-  textTransform: 'uppercase'
-}));
-
-const ArtistInfo = styled(Box)(({ theme }) => ({
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: theme.spacing(2)
-}));
-
-const ArtistName = styled(Typography)({
-  fontSize: '3rem',
-  fontWeight: 'bold',
-  background: 'linear-gradient(45deg, #667eea, #764ba2)',
-  backgroundClip: 'text',
-  WebkitBackgroundClip: 'text',
-  WebkitTextFillColor: 'transparent',
-  marginBottom: 8
-});
-
-const ArtistStats = styled(Typography)(({ theme }) => ({
-  fontSize: '1.1rem',
-  color: theme.palette.text.secondary
-}));
-
-const ActionButtons = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  gap: theme.spacing(2),
-  marginTop: theme.spacing(2)
-}));
 
 const PlayButton = styled(Button)(({ theme }) => ({
   background: 'linear-gradient(45deg, #667eea, #764ba2)',
@@ -361,28 +307,36 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
       )}
 
       {/* Artist Header */}
-      <HeaderSection>
-        <ArtistAvatar>
-          {getArtistInitial(artist.name)}
-        </ArtistAvatar>
-
-        <ArtistInfo>
-          <Box>
-            <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 1 }}>
-              Artist
-            </Typography>
-            <ArtistName variant="h1">
-              {artist.name}
-            </ArtistName>
+      <DetailViewHeader
+        artwork={
+          <Box
+            sx={{
+              width: 200,
+              height: 200,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '5rem',
+              fontWeight: 'bold',
+              color: 'white',
+              boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
+            }}
+          >
+            {getArtistInitial(artist.name)}
           </Box>
-
-          <ArtistStats>
+        }
+        title={artist.name}
+        metadata={
+          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
             {artist.album_count && `${artist.album_count} ${artist.album_count === 1 ? 'album' : 'albums'}`}
             {artist.album_count && artist.track_count && ' • '}
             {artist.track_count && `${artist.track_count} ${artist.track_count === 1 ? 'track' : 'tracks'}`}
-          </ArtistStats>
-
-          <ActionButtons>
+          </Typography>
+        }
+        actions={
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <PlayButton
               startIcon={<PlayArrow />}
               onClick={handlePlayAll}
@@ -407,9 +361,9 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
             >
               <MoreVert />
             </IconButton>
-          </ActionButtons>
-        </ArtistInfo>
-      </HeaderSection>
+          </Box>
+        }
+      />
 
       {/* Tabs for Albums and Tracks */}
       <Box>
