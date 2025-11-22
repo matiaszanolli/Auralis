@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
 import { Snackbar, Alert, AlertColor, styled, keyframes } from '@mui/material';
 import { colors, gradients } from '../../theme/auralisTheme';
+import { auroraOpacity } from '../library/Color.styles';
 
 interface ToastMessage {
   id: string;
@@ -48,7 +49,7 @@ const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }) => {
       case 'warning':
         return 'rgba(255, 165, 2, 0.15)';
       case 'info':
-        return 'rgba(102, 126, 234, 0.15)';
+        return auroraOpacity.lighter;
       default:
         return colors.background.surface;
     }
