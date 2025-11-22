@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  Button,
   Box,
-  styled,
 } from '@mui/material';
 import { colors } from '../../theme/auralisTheme';
 import { useToast } from '../shared/Toast';
 import * as playlistService from '../../services/playlistService';
+import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
+import { StyledTextField } from '../library/FormFields.styles';
+import { GradientButton, CancelButton } from '../library/Button.styles';
 
 interface EditPlaylistDialogProps {
   open: boolean;
@@ -19,69 +17,6 @@ interface EditPlaylistDialogProps {
   playlist: playlistService.Playlist | null;
   onPlaylistUpdated?: () => void;
 }
-
-const StyledDialog = styled(Dialog)({
-  '& .MuiDialog-paper': {
-    background: colors.background.secondary,
-    border: `1px solid rgba(102, 126, 234, 0.2)`,
-    borderRadius: '12px',
-    minWidth: '400px',
-  },
-});
-
-const StyledDialogTitle = styled(DialogTitle)({
-  color: colors.text.primary,
-  fontSize: '20px',
-  fontWeight: 600,
-  borderBottom: `1px solid rgba(102, 126, 234, 0.1)`,
-});
-
-const StyledTextField = styled(TextField)({
-  '& .MuiInputBase-root': {
-    color: colors.text.primary,
-    background: colors.background.primary,
-    borderRadius: '8px',
-  },
-  '& .MuiInputLabel-root': {
-    color: colors.text.secondary,
-  },
-  '& .MuiOutlinedInput-notchedOutline': {
-    borderColor: 'rgba(102, 126, 234, 0.3)',
-  },
-  '& .MuiInputBase-root:hover .MuiOutlinedInput-notchedOutline': {
-    borderColor: 'rgba(102, 126, 234, 0.5)',
-  },
-  '& .MuiInputBase-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-    borderColor: '#667eea',
-  },
-});
-
-const SaveButton = styled(Button)({
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  color: '#ffffff',
-  textTransform: 'none',
-  fontWeight: 600,
-  padding: '10px 24px',
-  borderRadius: '8px',
-  '&:hover': {
-    background: 'linear-gradient(135deg, #7c8ef0 0%, #8b5bb5 100%)',
-    transform: 'translateY(-1px)',
-    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-  },
-  '&:disabled': {
-    background: 'rgba(102, 126, 234, 0.3)',
-    color: 'rgba(255, 255, 255, 0.5)',
-  },
-  transition: 'all 0.2s ease',
-});
-
-const CancelButton = styled(Button)({
-  color: colors.text.secondary,
-  textTransform: 'none',
-  '&:hover': {
-    background: 'rgba(102, 126, 234, 0.1)',
-  },
-});
 
 export const EditPlaylistDialog: React.FC<EditPlaylistDialogProps> = ({
   open,
@@ -188,9 +123,9 @@ export const EditPlaylistDialog: React.FC<EditPlaylistDialogProps> = ({
         <CancelButton onClick={handleClose} disabled={loading}>
           Cancel
         </CancelButton>
-        <SaveButton onClick={handleSave} disabled={!name.trim() || loading}>
+        <GradientButton onClick={handleSave} disabled={!name.trim() || loading}>
           {loading ? 'Saving...' : 'Save Changes'}
-        </SaveButton>
+        </GradientButton>
       </DialogActions>
     </StyledDialog>
   );
