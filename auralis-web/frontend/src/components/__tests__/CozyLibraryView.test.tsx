@@ -48,16 +48,51 @@ vi.mock('../CozyArtistList', () => ({
     );
   },
 }));
-vi.mock('../GlobalSearch', () => ({
+vi.mock('../navigation/SearchBar', () => ({
   __esModule: true,
-  default: function MockSearch({ onSearch }: any) {
+  default: function MockSearch({ onChange }: any) {
     return (
       <input
         data-testid="search-input"
-        placeholder="Search..."
-        onChange={(e) => onSearch?.(e.target.value)}
+        placeholder="Search your music..."
+        onChange={(e) => onChange?.(e.target.value)}
       />
     );
+  },
+}));
+vi.mock('../navigation/ViewToggle', () => ({
+  __esModule: true,
+  default: function MockViewToggle({ value, onChange }: any) {
+    return (
+      <div data-testid="view-toggle">
+        <button onClick={() => onChange?.('grid')}>Grid</button>
+        <button onClick={() => onChange?.('list')}>List</button>
+      </div>
+    );
+  },
+}));
+vi.mock('../library/LibraryViewRouter', () => ({
+  __esModule: true,
+  LibraryViewRouter: function MockRouter() {
+    return <div data-testid="library-router">View Router</div>;
+  },
+}));
+vi.mock('../library/BatchActionsToolbar', () => ({
+  __esModule: true,
+  default: function MockToolbar() {
+    return <div data-testid="batch-toolbar">Toolbar</div>;
+  },
+}));
+vi.mock('../library/EditMetadataDialog', () => ({
+  __esModule: true,
+  default: function MockDialog() {
+    return <div data-testid="edit-dialog">Dialog</div>;
+  },
+}));
+vi.mock('../library/LibraryHeader', () => ({
+  __esModule: true,
+  LibraryHeader: function MockHeader() {
+    return <div data-testid="library-header">Header</div>;
   },
 }));
 
