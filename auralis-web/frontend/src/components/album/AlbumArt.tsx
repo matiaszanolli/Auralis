@@ -9,6 +9,7 @@
 import React from 'react';
 import { Box, styled } from '@mui/material';
 import { ProgressiveImage } from '../shared/ProgressiveImage';
+import { auroraOpacity } from '../library/Color.styles';
 
 interface AlbumArtProps {
   albumId?: number;
@@ -34,7 +35,7 @@ const ArtworkContainer = styled(Box, {
 
     '&:hover': clickable ? {
       transform: 'scale(1.05)',
-      boxShadow: '0 8px 32px rgba(102, 126, 234, 0.4)',
+      boxShadow: `0 8px 32px ${auroraOpacity.veryStrong}`,
     } : {},
   })
 );
@@ -45,19 +46,19 @@ const ArtworkContainer = styled(Box, {
  */
 const getGradientForAlbum = (albumId?: number): string => {
   if (!albumId) {
-    return 'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)';
+    return `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, rgba(118, 75, 162, 0.15) 100%)`;
   }
 
   // 8 distinct gradient combinations for visual variety
   const gradients = [
-    'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)', // Purple-Violet
+    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, rgba(118, 75, 162, 0.15) 100%)`, // Purple-Violet
     'linear-gradient(135deg, rgba(118, 75, 162, 0.15) 0%, rgba(237, 66, 100, 0.15) 100%)',  // Violet-Pink
-    'linear-gradient(135deg, rgba(0, 212, 170, 0.15) 0%, rgba(102, 126, 234, 0.15) 100%)',  // Teal-Blue
+    `linear-gradient(135deg, rgba(0, 212, 170, 0.15) 0%, ${auroraOpacity.lighter} 100%)`,  // Teal-Blue
     'linear-gradient(135deg, rgba(237, 66, 100, 0.15) 0%, rgba(255, 184, 0, 0.15) 100%)',   // Pink-Orange
     'linear-gradient(135deg, rgba(67, 97, 238, 0.15) 0%, rgba(0, 212, 170, 0.15) 100%)',    // Blue-Teal
     'linear-gradient(135deg, rgba(255, 184, 0, 0.15) 0%, rgba(237, 66, 100, 0.15) 100%)',   // Orange-Pink
     'linear-gradient(135deg, rgba(118, 75, 162, 0.15) 0%, rgba(67, 97, 238, 0.15) 100%)',   // Violet-Blue
-    'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(0, 212, 170, 0.15) 100%)',  // Purple-Teal
+    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, rgba(0, 212, 170, 0.15) 100%)`,  // Purple-Teal
   ];
 
   return gradients[albumId % gradients.length];

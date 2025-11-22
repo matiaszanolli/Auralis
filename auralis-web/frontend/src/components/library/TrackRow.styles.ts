@@ -1,6 +1,7 @@
 import { Box, Typography, IconButton, styled } from '@mui/material';
 import { colors, gradients, spacing, borderRadius, transitions } from '../../theme/auralisTheme';
 import { SmallIconButton } from './Icon.styles';
+import { auroraOpacity } from './Color.styles';
 
 export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
   display: 'flex',
@@ -10,16 +11,16 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) 
   borderRadius: `${borderRadius.xs}px`,
   cursor: 'pointer',
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
-  background: iscurrent === 'true' ? 'rgba(102, 126, 234, 0.12)' : 'transparent',
-  border: iscurrent === 'true' ? '1px solid rgba(102, 126, 234, 0.2)' : '1px solid transparent',
+  background: iscurrent === 'true' ? auroraOpacity.light : 'transparent',
+  border: iscurrent === 'true' ? `1px solid ${auroraOpacity.standard}` : '1px solid transparent',
   position: 'relative',
   marginBottom: `${spacing.xs / 2}px`,
-  boxShadow: iscurrent === 'true' ? '0 0 0 1px rgba(102, 126, 234, 0.1)' : 'none',
+  boxShadow: iscurrent === 'true' ? `0 0 0 1px ${auroraOpacity.veryLight}` : 'none',
 
   '&:hover': {
     background: iscurrent === 'true'
-      ? 'rgba(102, 126, 234, 0.18)'
-      : 'rgba(102, 126, 234, 0.08)',
+      ? auroraOpacity.lighter
+      : auroraOpacity.ultraLight,
     transform: 'translateX(4px) scale(1.005)', // Subtle scale for depth
     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
 
@@ -43,7 +44,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) 
 
     '& .album-art': {
       transform: 'scale(1.05)',
-      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+      boxShadow: `0 4px 12px ${auroraOpacity.strong}`,
     },
   },
 
@@ -89,7 +90,7 @@ export const PlayButton = styled(SmallIconButton)({
   color: '#667eea',
 
   '&:hover': {
-    background: 'rgba(102, 126, 234, 0.15)',
+    background: auroraOpacity.lighter,
     transform: 'scale(1.1)',
   },
 });
@@ -176,7 +177,7 @@ export const MoreButton = styled(SmallIconButton)({
   color: colors.text.secondary,
 
   '&:hover': {
-    background: 'rgba(102, 126, 234, 0.12)',
+    background: auroraOpacity.light,
     color: '#667eea',
   },
 });
