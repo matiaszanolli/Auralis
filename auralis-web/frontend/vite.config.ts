@@ -21,11 +21,46 @@ export default defineConfig(({ mode }) => {
       react(),
       {
         name: 'inject-commit-id',
-        transformIndexHtml(html: string) {
-          // In dev mode, get fresh commit hash for each request
-          // In build mode, use the commit from config time
-          const commitId = mode === 'serve' ? getCommitId() : commitIdAtBuildTime
-          return html.replace('%VITE_COMMIT_ID%', commitId)
+        transformIndexHtml: {
+          order: 'pre',
+          handler(html: string) {
+            // In dev mode, get fresh commit hash for each request
+            // In build mode, use the commit from config time
+            const commitId = mode === 'serve' ? getCommitId() : commitIdAtBuildTime
+            return html.replace('%VITE_COMMIT_ID%', commitId)
+          },
+        },
+      },
+      {
+        name: 'fix-vendor-loading-order',
+        transformIndexHtml: {
+          order: 'post',
+          handler(html: string) {
+            if (mode === 'serve') return html
+
+            // Find vendor and app script tags
+            const vendorMatch = html.match(/<link rel="modulepreload"[^>]*href="\/[^"]*vendor[^"]*"[^>]*>/)
+            const appScriptMatch = html.match(/<script type="module"[^>]*src="\/[^"]*\/(assets\/)?index[^"]*"[^>]*><\/script>/)
+
+            if (!vendorMatch || !appScriptMatch) return html
+
+            // Extract the vendor filename
+            const vendorHref = vendorMatch[0].match(/href="([^"]*)"/)?.[1]
+            if (!vendorHref) return html
+
+            // Replace the module script with one that imports vendor first
+            // This ensures vendor module loads before app code executes
+            const appSrc = appScriptMatch[0].match(/src="([^"]*)"/)?.[1] || '/assets/index.js'
+            const newScript = `<script type="module">
+  import('${vendorHref}').then(() => {
+    import('${appSrc}');
+  });
+</script>`
+
+            return html
+              .replace(/<link rel="modulepreload"[^>]*href="\/[^"]*vendor[^"]*"[^>]*>/, '') // Remove modulepreload
+              .replace(/<script type="module"[^>]*src="\/[^"]*\/(assets\/)?index[^"]*"[^>]*><\/script>/, newScript)
+          },
         },
       },
     ],
@@ -61,15 +96,15 @@ export default defineConfig(({ mode }) => {
           // Separate vendor chunk for better module initialization order
           // Critical: This prevents 'Paper is not defined' errors in Electron/AppImage
           // by ensuring React, ReactDOM, and MUI load before application code
-          manualChunks: {
-            'vendor': [
-              'react',
-              'react-dom',
-              '@mui/material',
-              '@mui/icons-material',
-              '@emotion/react',
-              '@emotion/styled',
-            ],
+          manualChunks: (id) => {
+            // Explicitly put vendor libraries in vendor chunk
+            if (
+              id.includes('node_modules/react') ||
+              id.includes('node_modules/@mui') ||
+              id.includes('node_modules/@emotion')
+            ) {
+              return 'vendor'
+            }
           },
           chunkFileNames: '[name]-[hash].js',
         },
