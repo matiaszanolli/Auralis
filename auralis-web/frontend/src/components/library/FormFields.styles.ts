@@ -12,6 +12,7 @@
  */
 
 import { TextField, styled } from '@mui/material';
+import { auroraOpacity } from './Color.styles';
 
 /**
  * StyledTextField - Base styled TextField for dark theme
@@ -49,13 +50,13 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
 
     '&:hover': {
       background: 'rgba(26, 31, 58, 0.7)',
-      border: '1px solid rgba(102, 126, 234, 0.2)',
+      border: `1px solid ${auroraOpacity.standard}`,
     },
 
     '&.Mui-focused': {
       background: 'rgba(26, 31, 58, 0.8)',
-      border: '1px solid rgba(102, 126, 234, 0.5)',
-      boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)',
+      border: `1px solid ${auroraOpacity.stronger}`,
+      boxShadow: `0 0 0 3px ${auroraOpacity.veryLight}`,
     },
   },
 
