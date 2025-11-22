@@ -3,10 +3,13 @@
  *
  * Consolidates dialog styling patterns used across SettingsDialog,
  * CreatePlaylistDialog, EditPlaylistDialog, and KeyboardShortcutsHelp.
+ *
+ * Tab components (StyledTabs, DialogTabs) are imported from Tabs.styles.ts
  */
 
-import { Dialog, DialogTitle, DialogActions, Button, Box, Tabs, Typography, styled } from '@mui/material';
+import { Dialog, DialogTitle, DialogActions, Button, Box, Typography, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
+export { DialogTabs as StyledTabs, DetailViewTabs } from './Tabs.styles';
 
 /**
  * StyledDialog - Base dialog with dark theme, blur background, and aurora border
@@ -31,26 +34,6 @@ export const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
   justifyContent: 'space-between',
   alignItems: 'center',
   padding: theme.spacing(2, 3)
-}));
-
-/**
- * StyledTabs - Tab navigation with aurora indicator
- */
-export const StyledTabs = styled(Tabs)(({ theme }) => ({
-  borderBottom: '1px solid rgba(255,255,255,0.1)',
-  minHeight: 48,
-  '& .MuiTab-root': {
-    textTransform: 'none',
-    fontSize: '0.95rem',
-    minHeight: 48,
-    color: theme.palette.text.secondary,
-    '&.Mui-selected': {
-      color: '#667eea'
-    }
-  },
-  '& .MuiTabs-indicator': {
-    backgroundColor: '#667eea'
-  }
 }));
 
 /**
