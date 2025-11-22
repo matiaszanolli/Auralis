@@ -48,30 +48,48 @@ export default defineConfig(({ mode }) => {
             const vendorHref = vendorMatch[0].match(/href="([^"]*)"/)?.[1]
             if (!vendorHref) return html
 
-            // Replace with a synchronous script that ensures vendor loads first
-            // Use a blocking pattern to prevent race conditions
+            // Extract app src
             const appSrc = appScriptMatch[0].match(/src="([^"]*)"/)?.[1] || '/assets/index.js'
-            const newScript = `<script type="module">
-  // Ensure vendor dependencies are loaded and evaluated before app code runs
+
+            // Strategy: Remove modulepreload link completely to prevent race condition.
+            // Instead, use a loader script that explicitly loads vendor first,
+            // then loads the app which has static imports from vendor.
+            //
+            // The key: by the time `import(appSrc)` executes, vendor is already
+            // fully loaded and initialized, so the static imports in app.js
+            // will reuse the vendor module instead of triggering a new load.
+            const loaderScript = `<script type="module">
   (async () => {
     try {
-      // Load vendor chunk first - this is critical!
+      // Pre-fetch and execute vendor to avoid race conditions
+      // Wait for vendor to be fully parsed and executed before app code
+      console.log('[loader] Pre-loading vendor module...');
+
       await import('${vendorHref}');
-      // Small delay to ensure vendor is fully initialized
-      await new Promise(resolve => setTimeout(resolve, 0));
-      // Now safe to load app code
-      await import('${appSrc}');
-    } catch (error) {
-      console.error('Failed to load application:', error);
-      // Show error page if loading fails
-      document.documentElement.innerHTML = '<body style="background:#1a1a1a;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center"><h1>Loading Error</h1><p>' + error.message + '</p></div></body>';
+
+      // Yield to event loop to ensure vendor module is fully initialized
+      // This gives emotion, MUI, and other side-effects time to complete
+      await new Promise(r => setTimeout(r, 0));
+
+      console.log('[loader] Vendor ready, loading application...');
+
+      // Now load app (static imports will reuse already-loaded vendor)
+      const appModule = await import('${appSrc}');
+
+      console.log('[loader] Application loaded successfully');
+
+    } catch (err) {
+      console.error('[loader] Fatal loading error:', err);
+      const msg = (err && err.message) || 'Unknown error';
+      const stack = (err && err.stack) || '';
+      document.documentElement.innerHTML = '<body style="background:#1a1a1a;color:#fff;font-family:sans-serif;margin:0;padding:0;display:flex;align-items:center;justify-content:center;height:100vh"><div style="text-align:center;max-width:700px;padding:40px"><h1 style="color:#ff6b6b;margin:0 0 20px;font-size:28px">Application Error</h1><p style="color:#ccc;margin:0 0 20px;font-size:16px">Failed to load modules</p><p style="color:#999;margin:0 0 20px;font-size:14px;font-family:monospace">' + msg + '</p><details style="text-align:left;margin:30px 0;padding:20px;background:#222;border:1px solid #444;border-radius:6px"><summary style="color:#667eea;cursor:pointer;font-weight:bold;margin-bottom:10px">Stack Trace</summary><pre style="color:#888;font-size:11px;overflow-x:auto;margin:0;white-space:pre-wrap;word-break:break-word;line-height:1.4">' + stack.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre></details><hr style="border:none;border-top:1px solid #333;margin:20px 0"><p style="color:#666;font-size:12px;margin:20px 0">Vendor: ${vendorHref}<br>App: ${appSrc}</p></div></body>';
     }
   })();
 </script>`
 
             return html
-              .replace(/<link rel="modulepreload"[^>]*href="\/[^"]*vendor[^"]*"[^>]*>/, '') // Remove modulepreload
-              .replace(/<script type="module"[^>]*src="\/[^"]*\/(assets\/)?index[^"]*"[^>]*><\/script>/, newScript)
+              .replace(/<link rel="modulepreload"[^>]*href="\/[^"]*vendor[^"]*"[^>]*>/, '') // Remove modulepreload to eliminate race
+              .replace(/<script type="module"[^>]*src="\/[^"]*\/(assets\/)?index[^"]*"[^>]*><\/script>/, loaderScript)
           },
         },
       },
