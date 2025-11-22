@@ -46,10 +46,31 @@ export const transitions = {
 export const gradients = {
   aurora: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
   auroraReverse: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+  aurora45: 'linear-gradient(45deg, #667eea, #764ba2)',
+  aurora45Hover: 'linear-gradient(45deg, #5568d3, #6a3f8f)',
+  auroraHover: 'linear-gradient(135deg, #7c8ef0 0%, #8b5bb5 100%)',
+  auroraHover45: 'linear-gradient(45deg, #7c8ef5, #8b5bb3)',
   neonSunset: 'linear-gradient(135deg, #ff6b9d 0%, #ffa502 100%)',
   deepOcean: 'linear-gradient(135deg, #4b7bec 0%, #26de81 100%)',
   electricPurple: 'linear-gradient(135deg, #c44569 0%, #667eea 100%)',
   cosmicBlue: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+  // Album art and decorative gradients
+  auroraOverlay: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)',
+  auroraOverlayLight: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+  darkBackground: 'linear-gradient(135deg, #1a1f3a 0%, #0f1228 100%)',
+  darkToLight: 'linear-gradient(135deg, #1a1f3a 0%, #0A0E27 100%)',
+  // Track card gradients
+  gradientPink: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  gradientBlue: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  gradientGreen: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  gradientSunset: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  gradientTeal: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+  gradientPastel: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+  gradientRose: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+  // Special effects
+  bottomFade: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+  topFade: 'linear-gradient(to bottom, rgba(10, 14, 39, 0.98) 0%, rgba(10, 14, 39, 0.99) 100%)',
+  shimmer: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
 };
 
 // Color palette

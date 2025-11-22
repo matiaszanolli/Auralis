@@ -1,6 +1,10 @@
 /**
  * Auto-Mastering Visualizer Pane
  *
+ * @deprecated Use EnhancementPaneV2 instead. AutoMasteringPane (584 lines) has been refactored
+ * into EnhancementPaneV2 (274 lines) with 53% code reduction and improved maintainability.
+ * Scheduled for removal in v1.2.0. Set REACT_APP_USE_ENHANCEMENT_PANE_V2=false to use this component.
+ *
  * Displays real-time processing parameters and audio characteristics
  * from the continuous parameter space system. Shows what the auto-mastering
  * engine is doing without requiring preset selection.

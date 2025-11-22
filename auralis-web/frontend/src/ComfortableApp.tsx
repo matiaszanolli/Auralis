@@ -67,9 +67,10 @@ function ComfortableApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // Beta 13.0: Feature flag to toggle between AutoMasteringPane (old) and EnhancementPaneV2 (new)
+  // Phase 5: EnhancementPaneV2 is now default (AutoMasteringPane deprecated, scheduled for removal in v1.1.0)
+  // Feature flag preserved for emergency fallback only - set REACT_APP_USE_ENHANCEMENT_PANE_V2=false to revert
   const [useEnhancementPaneV2, setUseEnhancementPaneV2] = useState(
-    process.env.REACT_APP_USE_ENHANCEMENT_PANE_V2 === 'true'
+    process.env.REACT_APP_USE_ENHANCEMENT_PANE_V2 !== 'false' // Default to true
   );
 
   // WebSocket connection for real-time updates (using shared WebSocketContext)

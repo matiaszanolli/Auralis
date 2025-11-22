@@ -18,7 +18,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction
+  ListItemSecondaryAction,
+  Typography
 } from '@mui/material';
 import {
   Close as CloseIcon,

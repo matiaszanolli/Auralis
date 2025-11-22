@@ -6,6 +6,7 @@
  */
 
 import { Dialog, DialogTitle, Box, Tabs, Typography, styled } from '@mui/material';
+import { gradients } from '../../theme/auralisTheme';
 
 /**
  * StyledDialog - Base dialog with dark theme, blur background, and aurora border
@@ -24,7 +25,7 @@ export const StyledDialog = styled(Dialog)(({ theme }) => ({
  * StyledDialogTitle - Dialog header with aurora gradient background
  */
 export const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: gradients.aurora,
   color: 'white',
   display: 'flex',
   justifyContent: 'space-between',
