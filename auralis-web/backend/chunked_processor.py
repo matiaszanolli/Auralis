@@ -96,6 +96,11 @@ class ChunkedAudioProcessor:
         self.chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
         self.chunk_dir.mkdir(exist_ok=True)
 
+        # CRITICAL: Async lock for processor thread-safety
+        # Prevents concurrent calls to processor.process() from corrupting state
+        # (envelope followers, gain reduction tracking, etc.)
+        self._processor_lock = asyncio.Lock()
+
         # NEW (Beta.9): Load cached fingerprint from .25d file
         # This enables fast processing by skipping per-chunk analysis
         self.fingerprint = None
@@ -573,6 +578,56 @@ class ChunkedAudioProcessor:
         logger.info(f"Chunk {chunk_index} processed and saved to {chunk_path}")
         return str(chunk_path)
 
+    async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> str:
+        """
+        Process a single chunk with thread-safe locking (async version).
+
+        This async method wraps processor.process() calls with an asyncio lock to prevent
+        concurrent access from corrupting the shared processor state (envelope followers,
+        gain reduction tracking, etc.).
+
+        Args:
+            chunk_index: Index of chunk to process
+            fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
+
+        Returns:
+            Path to processed chunk file
+        """
+        async with self._processor_lock:
+            # All processor.process() calls are now serialized
+            return self.process_chunk(chunk_index, fast_start)
+
+    def process_chunk_synchronized(self, chunk_index: int, fast_start: bool = False) -> str:
+        """
+        Process a single chunk with thread-safe locking (synchronous wrapper).
+
+        This method is for use in synchronous contexts (e.g., get_full_processed_audio_path).
+        It ensures that processor.process() calls are protected by the lock, but since
+        asyncio.Lock cannot be used in synchronous context, we run the async version
+        in a new event loop.
+
+        Args:
+            chunk_index: Index of chunk to process
+            fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
+
+        Returns:
+            Path to processed chunk file
+        """
+        # For synchronous calls, we need to run the async lock in an event loop
+        # This is less ideal but necessary for backward compatibility with sync methods
+        try:
+            # Try to get the running event loop
+            loop = asyncio.get_running_loop()
+            # If we're already in an async context, schedule the coroutine
+            return asyncio.create_task(self.process_chunk_safe(chunk_index, fast_start))
+        except RuntimeError:
+            # No event loop running, create a new one
+            loop = asyncio.new_event_loop()
+            try:
+                return loop.run_until_complete(self.process_chunk_safe(chunk_index, fast_start))
+            finally:
+                loop.close()
+
     def _get_track_fingerprint_cache_key(self) -> str:
         """
         Get cache key for track-level fingerprint.
@@ -674,6 +729,7 @@ class ChunkedAudioProcessor:
         Background task to process all remaining chunks.
 
         Processes chunks sequentially to avoid overwhelming the system.
+        Uses thread-safe locking to prevent concurrent processor state corruption.
         """
         logger.info(f"Starting background processing of {self.total_chunks - 1} remaining chunks")
 
@@ -684,8 +740,8 @@ class ChunkedAudioProcessor:
                 if cache_key in self.chunk_cache:
                     continue
 
-                # Process chunk
-                self.process_chunk(chunk_idx)
+                # Process chunk with thread-safe locking
+                await self.process_chunk_safe(chunk_idx)
 
                 # Small delay to avoid CPU saturation
                 await asyncio.sleep(0.1)
@@ -708,10 +764,10 @@ class ChunkedAudioProcessor:
         if full_path.exists():
             return str(full_path)
 
-        # Ensure all chunks are processed
+        # Ensure all chunks are processed with thread-safe locking
         # Use fast-start for first chunk to reduce initial buffering time
         for chunk_idx in range(self.total_chunks):
-            self.process_chunk(chunk_idx, fast_start=(chunk_idx == 0))
+            self.process_chunk_synchronized(chunk_idx, fast_start=(chunk_idx == 0))
 
         # Concatenate chunks with proper crossfading
         logger.info("Concatenating all processed chunks with crossfading")

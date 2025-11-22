@@ -71,9 +71,9 @@ async def buffer_presets_for_track(
                             logger.debug(f"✓ Already cached: {preset} chunk {chunk_idx}")
                             continue
 
-                        # Process chunk
+                        # Process chunk with thread-safe locking
                         logger.info(f"🔄 Buffering: {preset} chunk {chunk_idx}/{chunks_to_buffer-1}")
-                        processor.process_chunk(chunk_idx)
+                        await processor.process_chunk_safe(chunk_idx)
                         logger.info(f"✅ Buffered: {preset} chunk {chunk_idx}")
 
                         # Small delay to avoid CPU saturation
