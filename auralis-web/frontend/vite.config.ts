@@ -1,4 +1,4 @@
-import { defineConfig, defineConfig as vitestDefineConfig } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { execSync } from 'child_process'
@@ -59,9 +59,19 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           // Separate vendor chunk for better module initialization order
+          // Critical: This prevents 'Paper is not defined' errors in Electron/AppImage
+          // by ensuring React, ReactDOM, and MUI load before application code
           manualChunks: {
-            'vendor': ['react', 'react-dom', '@mui/material', '@mui/icons-material'],
+            'vendor': [
+              'react',
+              'react-dom',
+              '@mui/material',
+              '@mui/icons-material',
+              '@emotion/react',
+              '@emotion/styled',
+            ],
           },
+          chunkFileNames: '[name]-[hash].js',
         },
       },
       // Increase chunk size warning threshold
