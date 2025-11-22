@@ -5,20 +5,13 @@ import {
   Typography,
   IconButton,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
   Skeleton,
   Tooltip
 } from '@mui/material';
 import { EmptyStateBox } from './EmptyStateBox';
 import DetailViewHeader from './DetailViewHeader';
 import { PlayButton } from './Button.styles';
-import { StyledTableRow, PlayIcon } from './Table.styles';
+import AlbumTrackTable from './AlbumTrackTable';
 import {
   ArrowBack,
   PlayArrow,
@@ -298,98 +291,13 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
       />
 
       {/* Track Listing */}
-      <TableContainer
-        component={Paper}
-        elevation={2}
-        sx={{
-          background: 'rgba(255,255,255,0.03)',
-          borderRadius: 2,
-          backdropFilter: 'blur(10px)'
-        }}
-      >
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell width="60px" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-                #
-              </TableCell>
-              <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-                Title
-              </TableCell>
-              <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-                Artist
-              </TableCell>
-              <TableCell align="right" width="100px" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-                Duration
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {album.tracks && album.tracks.length > 0 ? (
-              album.tracks.map((track, index) => (
-                <StyledTableRow
-                  key={track.id}
-                  onClick={() => handleTrackClick(track)}
-                  className={currentTrackId === track.id ? 'current-track' : ''}
-                >
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {currentTrackId === track.id && isPlaying ? (
-                        <Pause sx={{ fontSize: 20, color: '#667eea' }} />
-                      ) : (
-                        <>
-                          <Typography
-                            className="track-number"
-                            sx={{
-                              fontSize: '0.9rem',
-                              color: 'text.secondary',
-                              '.current-track &': { display: 'none' }
-                            }}
-                          >
-                            {track.track_number || index + 1}
-                          </Typography>
-                          <PlayIcon className="play-icon">
-                            <PlayArrow sx={{ fontSize: 20 }} />
-                          </PlayIcon>
-                        </>
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography
-                      className="track-title"
-                      sx={{
-                        fontSize: '0.95rem',
-                        fontWeight: currentTrackId === track.id ? 'bold' : 'normal'
-                      }}
-                    >
-                      {track.title}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
-                      {track.artist}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
-                      {formatDuration(track.duration)}
-                    </Typography>
-                  </TableCell>
-                </StyledTableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
-                    No tracks found for this album
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <AlbumTrackTable
+        tracks={album.tracks || []}
+        currentTrackId={currentTrackId}
+        isPlaying={isPlaying}
+        onTrackClick={handleTrackClick}
+        formatDuration={formatDuration}
+      />
     </Container>
   );
 };

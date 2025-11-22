@@ -2,13 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   List,
-  ListItem,
-  ListItemButton,
   ListItemText,
-  IconButton,
-  Typography,
   Collapse,
-  styled,
   Tooltip,
 } from '@mui/material';
 import {
@@ -19,7 +14,6 @@ import {
   Delete,
   Edit,
 } from '@mui/icons-material';
-import { colors } from '../../theme/auralisTheme';
 import { useToast } from '../shared/Toast';
 import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import { useContextMenu, ContextMenu, getPlaylistContextActions } from '../shared/ContextMenu';
@@ -27,112 +21,18 @@ import * as playlistService from '../../services/playlistService';
 import CreatePlaylistDialog from './CreatePlaylistDialog';
 import EditPlaylistDialog from './EditPlaylistDialog';
 import { DroppablePlaylist } from './DroppablePlaylist';
+import {
+  PlaylistSection,
+  SectionHeader,
+  SectionTitle,
+  AddButton,
+  EmptyState,
+} from './PlaylistList.styles';
 
 interface PlaylistListProps {
   onPlaylistSelect?: (playlistId: number) => void;
   selectedPlaylistId?: number;
 }
-
-const PlaylistSection = styled(Box)({
-  marginTop: '16px',
-});
-
-const SectionHeader = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '8px 16px',
-  cursor: 'pointer',
-  '&:hover': {
-    background: 'rgba(102, 126, 234, 0.05)',
-  },
-  transition: 'background 0.2s ease',
-});
-
-const SectionTitle = styled(Typography)({
-  fontSize: '14px',
-  fontWeight: 600,
-  color: colors.text.secondary,
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-});
-
-const StyledListItem = styled(ListItem)({
-  padding: 0,
-});
-
-const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean }>(
-  ({ selected }) => ({
-    paddingLeft: '32px',
-    paddingRight: '8px',
-    height: '40px',
-    borderRadius: '6px',
-    margin: '2px 8px',
-    transition: 'all 0.2s ease',
-    background: selected ? 'rgba(102, 126, 234, 0.15)' : 'transparent',
-    borderLeft: selected ? '3px solid #667eea' : '3px solid transparent',
-
-    '&:hover': {
-      background: selected
-        ? 'rgba(102, 126, 234, 0.2)'
-        : 'rgba(102, 126, 234, 0.08)',
-      transform: 'translateX(2px)',
-
-      '& .playlist-actions': {
-        opacity: 1,
-      },
-    },
-
-    '& .MuiListItemText-primary': {
-      fontSize: '14px',
-      color: selected ? colors.text.primary : colors.text.secondary,
-      fontWeight: selected ? 600 : 400,
-    },
-  })
-);
-
-const PlaylistActions = styled(Box)({
-  display: 'flex',
-  gap: '4px',
-  opacity: 0,
-  transition: 'opacity 0.2s ease',
-});
-
-const ActionButton = styled(IconButton)({
-  width: '28px',
-  height: '28px',
-  color: colors.text.secondary,
-  '&:hover': {
-    color: '#667eea',
-    background: 'rgba(102, 126, 234, 0.1)',
-  },
-  '& .MuiSvgIcon-root': {
-    fontSize: '18px',
-  },
-});
-
-const AddButton = styled(IconButton)({
-  width: '28px',
-  height: '28px',
-  color: colors.text.secondary,
-  '&:hover': {
-    color: '#667eea',
-    background: 'rgba(102, 126, 234, 0.1)',
-  },
-  '& .MuiSvgIcon-root': {
-    fontSize: '20px',
-  },
-});
-
-const EmptyState = styled(Box)({
-  padding: '16px 32px',
-  textAlign: 'center',
-  color: colors.text.disabled,
-  fontSize: '13px',
-});
 
 export const PlaylistList: React.FC<PlaylistListProps> = ({
   onPlaylistSelect,
