@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, List, ListItem, ListItemText, styled } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
-import { colors, gradients } from '../../../theme/auralisTheme';
+import { gradients } from '../../library/Color.styles';
 import { useContextMenu, ContextMenu, getTrackContextActions } from '../../shared/ContextMenu';
 import { useToast } from '../../shared/Toast';
 import { auroraOpacity } from '../../library/Color.styles';
@@ -23,7 +23,7 @@ interface TrackQueueProps {
 
 const QueueContainer = styled(Box)(({ theme }) => ({
   width: '100%',
-  background: colors.background.secondary,
+  background: tokens.colors.bg.secondary,
   borderRadius: '8px',
   padding: '16px',
   marginTop: '24px',
@@ -33,7 +33,7 @@ const QueueContainer = styled(Box)(({ theme }) => ({
 const QueueHeader = styled(Typography)(({ theme }) => ({
   fontSize: '14px',
   fontWeight: 600,
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   marginBottom: '12px',
@@ -61,7 +61,7 @@ const TrackItem = styled(ListItem)<{ isactive?: string }>(({ isactive }) => ({
   '&:hover': {
     background: isactive === 'true'
       ? auroraOpacity.standard
-      : colors.background.hover,
+      : tokens.colors.bg.elevated,
     transform: 'translateX(4px)',
 
     '& .play-indicator': {
@@ -77,7 +77,7 @@ const TrackItem = styled(ListItem)<{ isactive?: string }>(({ isactive }) => ({
 const TrackNumber = styled(Typography)<{ isactive?: string }>(({ isactive }) => ({
   fontSize: '14px',
   fontWeight: 500,
-  color: isactive === 'true' ? tokens.colors.accent.purple : colors.text.secondary,
+  color: isactive === 'true' ? tokens.colors.accent.purple : tokens.colors.text.secondary,
   minWidth: '32px',
   textAlign: 'center',
   transition: 'color 0.2s ease',
@@ -86,7 +86,7 @@ const TrackNumber = styled(Typography)<{ isactive?: string }>(({ isactive }) => 
 const TrackTitle = styled(Typography)<{ isactive?: string }>(({ isactive }) => ({
   fontSize: '14px',
   fontWeight: isactive === 'true' ? 600 : 400,
-  color: isactive === 'true' ? colors.text.primary : colors.text.primary,
+  color: tokens.colors.text.primary,
   flex: 1,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -98,7 +98,7 @@ const TrackTitle = styled(Typography)<{ isactive?: string }>(({ isactive }) => (
 const TrackDuration = styled(Typography)<{ isactive?: string }>(({ isactive }) => ({
   fontSize: '14px',
   fontWeight: 400,
-  color: isactive === 'true' ? colors.text.secondary : colors.text.disabled,
+  color: isactive === 'true' ? tokens.colors.text.secondary : tokens.colors.text.disabled,
   minWidth: '50px',
   textAlign: 'right',
   transition: 'color 0.2s ease',
