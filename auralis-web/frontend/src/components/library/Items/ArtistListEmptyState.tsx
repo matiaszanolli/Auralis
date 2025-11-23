@@ -1,5 +1,5 @@
 import React from 'react';
-import { Person } from '@mui/material';
+import { Person } from '@mui/icons-material';
 import { EmptyState } from '../../shared/ui/feedback';
 
 interface ArtistListEmptyStateProps {
