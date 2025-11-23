@@ -7,7 +7,7 @@ import {
   TrackNumberBox,
   TrackNumber,
   MoreButton,
-} from './Styles/TrackRow.styles';
+} from './TrackRow.styles';
 import TrackRowPlayButton from './TrackRowPlayButton';
 import TrackRowAlbumArt from './TrackRowAlbumArt';
 import TrackRowMetadata from './TrackRowMetadata';
