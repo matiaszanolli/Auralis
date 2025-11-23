@@ -1,17 +1,26 @@
 import { css } from '@emotion/react';
-import { colors, gradients } from '../theme/auralisTheme';
+import { gradients } from '../theme/auralisTheme';
+
+// Direct color values to avoid circular import issues at module load time
+const BG_PRIMARY = '#0A0E27';
+const BG_SECONDARY = '#1a1f3a';
+const BG_SURFACE = '#252b45';
+const BG_HOVER = '#2a3150';
+const TEXT_PRIMARY = '#ffffff';
+const TEXT_SECONDARY = '#8b92b0';
+const TEXT_DISABLED = '#5a5f7a';
 
 export const globalStyles = css`
   :root {
     /* Color variables */
-    --bg-primary: ${colors.background.primary};
-    --bg-secondary: ${colors.background.secondary};
-    --bg-surface: ${colors.background.surface};
-    --bg-hover: ${colors.background.hover};
+    --bg-primary: ${BG_PRIMARY};
+    --bg-secondary: ${BG_SECONDARY};
+    --bg-surface: ${BG_SURFACE};
+    --bg-hover: ${BG_HOVER};
 
-    --text-primary: ${colors.text.primary};
-    --text-secondary: ${colors.text.secondary};
-    --text-disabled: ${colors.text.disabled};
+    --text-primary: ${TEXT_PRIMARY};
+    --text-secondary: ${TEXT_SECONDARY};
+    --text-disabled: ${TEXT_DISABLED};
 
     /* Gradient variables */
     --gradient-aurora: ${gradients.aurora};
@@ -27,8 +36,8 @@ export const globalStyles = css`
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background: ${colors.background.primary};
-    color: ${colors.text.primary};
+    background: ${BG_PRIMARY};
+    color: ${TEXT_PRIMARY};
   }
 
   /* Custom scrollbar */
@@ -38,23 +47,23 @@ export const globalStyles = css`
   }
 
   ::-webkit-scrollbar-track {
-    background: ${colors.background.secondary};
+    background: ${BG_SECONDARY};
   }
 
   ::-webkit-scrollbar-thumb {
-    background: ${colors.background.surface};
+    background: ${BG_SURFACE};
     border-radius: 6px;
-    border: 2px solid ${colors.background.secondary};
+    border: 2px solid ${BG_SECONDARY};
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: ${colors.background.hover};
+    background: ${BG_HOVER};
   }
 
   /* Firefox scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: ${colors.background.surface} ${colors.background.secondary};
+    scrollbar-color: ${BG_SURFACE} ${BG_SECONDARY};
   }
 
   /* Animation keyframes */
@@ -226,9 +235,9 @@ export const globalStyles = css`
   .skeleton {
     background: linear-gradient(
       90deg,
-      ${colors.background.surface} 0%,
-      ${colors.background.hover} 50%,
-      ${colors.background.surface} 100%
+      ${BG_SURFACE} 0%,
+      ${BG_HOVER} 50%,
+      ${BG_SURFACE} 100%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
@@ -238,7 +247,7 @@ export const globalStyles = css`
   /* Selection color */
   ::selection {
     background: rgba(102, 126, 234, 0.3);
-    color: ${colors.text.primary};
+    color: ${TEXT_PRIMARY};
   }
 
   /* Focus outline */
