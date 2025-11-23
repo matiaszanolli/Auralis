@@ -10,9 +10,8 @@ import {
 // 100% design token compliance, memoized components, crossfade support
 // Replaces BottomPlayerBarUnified with cleaner architecture
 import PlayerBarV2Connected from './components/player-bar-v2/PlayerBarV2Connected';
-import AutoMasteringPane from './components/AutoMasteringPane';
 // Beta 13.0: EnhancementPaneV2 - Complete redesign with 10 focused components
-// 100% design token compliance, 84% code reduction, drop-in replacement for AutoMasteringPane
+// 100% design token compliance, 84% code reduction, replaces AutoMasteringPane
 import EnhancementPaneV2 from './components/enhancement-pane-v2';
 import CozyLibraryView from './components/CozyLibraryView';
 import SettingsDialog from './components/settings/SettingsDialog';
@@ -67,11 +66,6 @@ function ComfortableApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
   const [settingsOpen, setSettingsOpen] = useState(false);
-  // Phase 5: EnhancementPaneV2 is now default (AutoMasteringPane deprecated, scheduled for removal in v1.1.0)
-  // Feature flag preserved for emergency fallback only - set REACT_APP_USE_ENHANCEMENT_PANE_V2=false to revert
-  const [useEnhancementPaneV2, setUseEnhancementPaneV2] = useState(
-    process.env.REACT_APP_USE_ENHANCEMENT_PANE_V2 !== 'false' // Default to true
-  );
 
   // WebSocket connection for real-time updates (using shared WebSocketContext)
   const { isConnected } = useWebSocketContext();
@@ -304,26 +298,13 @@ function ComfortableApp() {
       </Box>
 
       {/* Right enhancement pane - Hidden on tablet/mobile */}
-      {!isTablet && useEnhancementPaneV2 && (
+      {!isTablet && (
         <AppEnhancementPane
           useV2={true}
           initiallyCollapsed={presetPaneCollapsed}
-          onToggleV2={() => setUseEnhancementPaneV2(!useEnhancementPaneV2)}
+          onToggleV2={() => {}} // V1 fallback removed, EnhancementPaneV2 is now default
         >
           <EnhancementPaneV2
-            collapsed={presetPaneCollapsed}
-            onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
-            onMasteringToggle={handleMasteringToggle}
-          />
-        </AppEnhancementPane>
-      )}
-      {!isTablet && !useEnhancementPaneV2 && (
-        <AppEnhancementPane
-          useV2={false}
-          initiallyCollapsed={presetPaneCollapsed}
-          onToggleV2={() => setUseEnhancementPaneV2(!useEnhancementPaneV2)}
-        >
-          <AutoMasteringPane
             collapsed={presetPaneCollapsed}
             onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
             onMasteringToggle={handleMasteringToggle}
