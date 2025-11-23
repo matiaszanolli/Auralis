@@ -6,7 +6,6 @@
  */
 
 import { Avatar, Box, ListItem, ListItemButton, Typography, styled } from '@mui/material';
-import { colors } from '../../theme/auralisTheme';
 import { tokens } from '@/design-system/tokens';
 
 /**
@@ -62,7 +61,7 @@ export const ArtistAvatar = styled(Avatar)({
 export const ArtistName = styled(Typography)({
   fontSize: '18px',
   fontWeight: 600,
-  color: colors.text.primary,
+  color: tokens.colors.text.primary,
   transition: 'color 0.2s ease',
 });
 
@@ -71,7 +70,7 @@ export const ArtistName = styled(Typography)({
  */
 export const ArtistInfo = styled(Typography)({
   fontSize: '14px',
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   marginTop: '4px',
 });
 
@@ -81,7 +80,7 @@ export const ArtistInfo = styled(Typography)({
 export const SectionHeader = styled(Box)({
   marginBottom: '24px',
   paddingBottom: '16px',
-  borderBottom: `1px solid ${colors.background.hover}`,
+  borderBottom: `1px solid ${tokens.colors.bg.hover}`,
 });
 
 /**
