@@ -106,7 +106,7 @@ export const TypeChip = styled(Chip)(({ theme }) => ({
   },
   '&.artist': {
     backgroundColor: auroraOpacity.standard,
-    color: tokens.colors.accent.pink
+    color: tokens.colors.accent.tertiary
   }
 }));
 
