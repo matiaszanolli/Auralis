@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { InputAdornment, styled, Typography, Box, CircularProgress } from '@mui/material';
-import { Search, Close } from '@mui/icons-material';
-import { IconButton } from '@mui/material';
+import { Box } from '@mui/material';
 import { SearchTextField } from '../../components/library/FormFields.styles';
-import { auroraOpacity } from '../library/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { SearchInputAdornments } from './SearchInputAdornments';
+import { SearchKeyboardHint } from './SearchKeyboardHint';
 
 interface SearchBarProps {
   value?: string;
@@ -16,25 +14,6 @@ interface SearchBarProps {
   showResultCount?: boolean;
   isSearching?: boolean;
 }
-
-const ClearButton = styled(IconButton)({
-  padding: '8px',
-  color: tokens.colors.text.secondary,
-  transition: 'all 0.2s ease',
-
-  '&:hover': {
-    color: tokens.colors.text.primary,
-    background: auroraOpacity.ultraLight,
-  },
-});
-
-const ResultCount = styled(Typography)({
-  fontSize: '12px',
-  fontWeight: 500,
-  color: tokens.colors.text.secondary,
-  padding: '0 12px',
-  whiteSpace: 'nowrap',
-});
 
 export const SearchBar: React.FC<SearchBarProps> = ({
   value: controlledValue,
@@ -93,61 +72,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         onChange={handleChange}
         autoFocus={autoFocus}
         InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search sx={{ fontSize: 20 }} />
-            </InputAdornment>
-          ),
+          startAdornment: <SearchInputAdornments.Start />,
           endAdornment: (
-            <InputAdornment position="end">
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {/* Searching indicator */}
-                {isSearching && (
-                  <CircularProgress
-                    size={16}
-                    sx={{ color: tokens.colors.text.secondary }}
-                  />
-                )}
-
-                {/* Result count */}
-                {showResultCount && !isSearching && internalValue && resultCount !== undefined && (
-                  <ResultCount>
-                    {resultCount} {resultCount === 1 ? 'result' : 'results'}
-                  </ResultCount>
-                )}
-
-                {/* Clear button */}
-                {internalValue && (
-                  <ClearButton
-                    size="small"
-                    onClick={handleClear}
-                    aria-label="Clear search"
-                  >
-                    <Close sx={{ fontSize: 18 }} />
-                  </ClearButton>
-                )}
-              </Box>
-            </InputAdornment>
+            <SearchInputAdornments.End
+              value={internalValue}
+              resultCount={resultCount}
+              showResultCount={showResultCount}
+              isSearching={isSearching}
+              onClear={handleClear}
+            />
           ),
         }}
       />
 
-      {/* Keyboard shortcut hint */}
-      {!internalValue && !autoFocus && (
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            mt: 0.5,
-            ml: 2,
-            color: tokens.colors.text.disabled,
-            fontSize: '11px',
-          }}
-        >
-          Press <Box component="span" sx={{ fontWeight: 'bold', color: tokens.colors.text.secondary }}>/</Box> or{' '}
-          <Box component="span" sx={{ fontWeight: 'bold', color: tokens.colors.text.secondary }}>⌘K</Box> to focus
-        </Typography>
-      )}
+      <SearchKeyboardHint show={!internalValue && !autoFocus} />
     </Box>
   );
 };
