@@ -8,7 +8,7 @@ import {
   Skeleton,
   Tooltip
 } from '@mui/material';
-import { EmptyStateBox } from './EmptyStateBox';
+import { EmptyState } from '../shared/EmptyState';
 import DetailViewHeader from './DetailViewHeader';
 import { PlayButton } from './Button.styles';
 import AlbumTrackTable from './AlbumTrackTable';
@@ -177,9 +177,9 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   if (error || !album) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <EmptyStateBox
+        <EmptyState
           title={error ? 'Error Loading Album' : 'Album not found'}
-          subtitle={error || undefined}
+          description={error || undefined}
         />
         {onBack && (
           <Box sx={{ textAlign: 'center', mt: 2 }}>

@@ -13,7 +13,7 @@ import {
   Skeleton,
 } from '@mui/material';
 import { AlbumCard } from '../album/AlbumCard';
-import { EmptyStateBox } from './EmptyStateBox';
+import { EmptyState } from '../shared/EmptyState';
 import { GridContainer } from './Grid.styles';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import EndOfListIndicator from './EndOfListIndicator';
@@ -176,18 +176,18 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
 
   if (error) {
     return (
-      <EmptyStateBox
+      <EmptyState
         title="Error Loading Albums"
-        subtitle={error}
+        description={error}
       />
     );
   }
 
   if (albums.length === 0) {
     return (
-      <EmptyStateBox
+      <EmptyState
         title="No Albums Yet"
-        subtitle="Your album library will appear here once you scan your music folder"
+        description="Your album library will appear here once you scan your music folder"
       />
     );
   }
