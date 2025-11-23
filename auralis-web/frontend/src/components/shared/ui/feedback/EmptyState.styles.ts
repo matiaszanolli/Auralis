@@ -5,7 +5,7 @@
  */
 
 import { Box, Typography, styled } from '@mui/material';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity } from '@/components/library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 export const Container = styled(Box)({
