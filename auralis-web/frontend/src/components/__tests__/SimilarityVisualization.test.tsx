@@ -15,7 +15,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@/test/test-utils';
-import SimilarityVisualization from '../SimilarityVisualization';
+import SimilarityVisualization from '../features/discovery/SimilarityVisualization';
 import similarityService, { SimilarityExplanation } from '../../services/similarityService';
 
 // Mock the similarity service

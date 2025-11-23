@@ -11,7 +11,7 @@ vi.mock('../../layouts/Sidebar', () => ({
   ),
 }));
 
-import { AppSidebar } from '../AppSidebar';
+import { AppSidebar } from '../../core/AppSidebar';
 
 describe('AppSidebar', () => {
   const mockOnToggleCollapse = vi.fn();
