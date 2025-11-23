@@ -7,8 +7,8 @@
  */
 
 import { Box, ListItem, ListItemButton, IconButton, Typography, styled } from '@mui/material';
-import { colors } from '../../theme/auralisTheme';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 /**
  * PlaylistSection - Root container for the playlists section
@@ -38,7 +38,7 @@ export const SectionHeader = styled(Box)({
 export const SectionTitle = styled(Typography)({
   fontSize: '14px',
   fontWeight: 600,
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   display: 'flex',
@@ -66,7 +66,7 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
     margin: '2px 8px',
     transition: 'all 0.2s ease',
     background: selected ? auroraOpacity.lighter : 'transparent',
-    borderLeft: selected ? '3px solid #667eea' : '3px solid transparent',
+    borderLeft: selected ? `3px solid ${colorAuroraPrimary}` : '3px solid transparent',
 
     '&:hover': {
       background: selected
@@ -81,7 +81,7 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
 
     '& .MuiListItemText-primary': {
       fontSize: '14px',
-      color: selected ? colors.text.primary : colors.text.secondary,
+      color: selected ? tokens.colors.text.primary : tokens.colors.text.secondary,
       fontWeight: selected ? 600 : 400,
     },
   })
@@ -103,9 +103,9 @@ export const PlaylistActions = styled(Box)({
 export const ActionButton = styled(IconButton)({
   width: '28px',
   height: '28px',
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   '&:hover': {
-    color: '#667eea',
+    color: colorAuroraPrimary,
     background: auroraOpacity.veryLight,
   },
   '& .MuiSvgIcon-root': {
@@ -119,9 +119,9 @@ export const ActionButton = styled(IconButton)({
 export const AddButton = styled(IconButton)({
   width: '28px',
   height: '28px',
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   '&:hover': {
-    color: '#667eea',
+    color: colorAuroraPrimary,
     background: auroraOpacity.veryLight,
   },
   '& .MuiSvgIcon-root': {
@@ -135,6 +135,6 @@ export const AddButton = styled(IconButton)({
 export const EmptyState = styled(Box)({
   padding: '16px 32px',
   textAlign: 'center',
-  color: colors.text.disabled,
+  color: tokens.colors.text.disabled,
   fontSize: '13px',
 });
