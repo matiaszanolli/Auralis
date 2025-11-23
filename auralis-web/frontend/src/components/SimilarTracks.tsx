@@ -31,6 +31,7 @@ import {
   AutoAwesome as SparklesIcon
 } from '@mui/icons-material';
 import { auroraOpacity } from './library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 import similarityService, { SimilarTrack } from '../services/similarityService';
 
 interface SimilarTracksProps {
@@ -89,10 +90,10 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
   };
 
   const getSimilarityColor = (score: number): string => {
-    if (score >= 0.9) return '#00d4aa'; // Very similar (90%+) - turquoise
-    if (score >= 0.8) return '#667eea'; // Similar (80-90%) - purple
-    if (score >= 0.7) return '#764ba2'; // Somewhat similar (70-80%) - darker purple
-    return '#8b92b0'; // Less similar (<70%) - gray
+    if (score >= 0.9) return tokens.colors.accent.success; // Very similar (90%+) - turquoise
+    if (score >= 0.8) return tokens.colors.accent.purple; // Similar (80-90%) - purple
+    if (score >= 0.7) return tokens.colors.accent.secondary; // Somewhat similar (70-80%) - secondary
+    return tokens.colors.text.secondary; // Less similar (<70%) - gray
   };
 
   const formatDuration = (seconds?: number): string => {
@@ -106,8 +107,8 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
   if (loading) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <CircularProgress size={24} sx={{ color: '#667eea' }} />
-        <Typography variant="body2" sx={{ mt: 1, color: '#8b92b0' }}>
+        <CircularProgress size={24} sx={{ color: tokens.colors.accent.purple }} />
+        <Typography variant="body2" sx={{ mt: 1, color: tokens.colors.text.secondary }}>
           Finding similar tracks...
         </Typography>
       </Box>
@@ -129,8 +130,8 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
   if (!trackId) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <MusicNoteIcon sx={{ fontSize: 48, color: '#667eea', opacity: 0.5, mb: 1 }} />
-        <Typography variant="body2" sx={{ color: '#8b92b0' }}>
+        <MusicNoteIcon sx={{ fontSize: 48, color: tokens.colors.accent.purple, opacity: 0.5, mb: 1 }} />
+        <Typography variant="body2" sx={{ color: tokens.colors.text.secondary }}>
           Play a track to discover similar music
         </Typography>
       </Box>
@@ -141,11 +142,11 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
   if (similarTracks.length === 0) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <SparklesIcon sx={{ fontSize: 48, color: '#667eea', opacity: 0.5, mb: 1 }} />
-        <Typography variant="body2" sx={{ color: '#8b92b0' }}>
+        <SparklesIcon sx={{ fontSize: 48, color: tokens.colors.accent.purple, opacity: 0.5, mb: 1 }} />
+        <Typography variant="body2" sx={{ color: tokens.colors.text.secondary }}>
           No similar tracks found
         </Typography>
-        <Typography variant="caption" sx={{ color: '#8b92b0', mt: 0.5, display: 'block' }}>
+        <Typography variant="caption" sx={{ color: tokens.colors.text.secondary, mt: 0.5, display: 'block' }}>
           Try playing a different track
         </Typography>
       </Box>
@@ -156,14 +157,14 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+      <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${auroraOpacity.lighter}` }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <SparklesIcon sx={{ fontSize: 20, color: '#667eea' }} />
-          <Typography variant="subtitle2" sx={{ color: '#ffffff', fontWeight: 600 }}>
+          <SparklesIcon sx={{ fontSize: 20, color: tokens.colors.accent.purple }} />
+          <Typography variant="subtitle2" sx={{ color: tokens.colors.text.primary, fontWeight: 600 }}>
             Similar Tracks
           </Typography>
         </Box>
-        <Typography variant="caption" sx={{ color: '#8b92b0', mt: 0.5, display: 'block' }}>
+        <Typography variant="caption" sx={{ color: tokens.colors.text.secondary, mt: 0.5, display: 'block' }}>
           Based on acoustic fingerprint analysis
         </Typography>
       </Box>
@@ -190,7 +191,7 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
                       <Typography
                         variant="body2"
                         sx={{
-                          color: '#ffffff',
+                          color: tokens.colors.text.primary,
                           fontWeight: 500,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -210,7 +211,7 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
                             fontSize: '0.7rem',
                             fontWeight: 600,
                             backgroundColor: getSimilarityColor(track.similarity_score),
-                            color: '#ffffff',
+                            color: tokens.colors.text.primary,
                             '& .MuiChip-label': {
                               px: 1
                             }
@@ -223,7 +224,7 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
                     <Typography
                       variant="caption"
                       sx={{
-                        color: '#8b92b0',
+                        color: tokens.colors.text.secondary,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -238,15 +239,15 @@ const SimilarTracks: React.FC<SimilarTracksProps> = ({
               </ListItemButton>
             </ListItem>
             {index < similarTracks.length - 1 && (
-              <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.05)' }} />
+              <Divider sx={{ borderColor: auroraOpacity.ultraLight }} />
             )}
           </React.Fragment>
         ))}
       </List>
 
       {/* Footer Info */}
-      <Box sx={{ px: 2, py: 1, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
-        <Typography variant="caption" sx={{ color: '#8b92b0', fontSize: '0.7rem' }}>
+      <Box sx={{ px: 2, py: 1, borderTop: `1px solid ${auroraOpacity.lighter}` }}>
+        <Typography variant="caption" sx={{ color: tokens.colors.text.secondary, fontSize: '0.7rem' }}>
           {useGraph ? '⚡ Fast lookup' : '🔍 Real-time search'} • {similarTracks.length} tracks
         </Typography>
       </Box>
