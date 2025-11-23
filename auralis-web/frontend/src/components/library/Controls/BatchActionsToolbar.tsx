@@ -1,48 +1,34 @@
 /**
- * BatchActionsToolbar Component
+ * BatchActionsToolbar Component (Refactored)
  *
  * Floating toolbar that appears when tracks are selected.
- * Provides bulk action buttons (add to playlist, add to queue, delete, etc.)
+ * Refactored from 240 lines using extracted components and helpers.
  *
- * Usage:
- * ```tsx
- * <BatchActionsToolbar
- *   selectedCount={5}
- *   onAddToPlaylist={() => handleBulkAddToPlaylist(selectedTracks)}
- *   onAddToQueue={() => handleBulkAddToQueue(selectedTracks)}
- *   onRemove={() => handleBulkRemove(selectedTracks)}
- *   onClearSelection={() => clearSelection()}
- * />
- * ```
+ * Extracted modules:
+ * - BatchActionsToolbarStyles - Styled components
+ * - BatchActionButton - Reusable action button
+ * - useBatchActionsMenu - More menu state
  */
 
-import React, { useState } from 'react';
-import {
-  Box,
-  Paper,
-  IconButton,
-  Typography,
-  Button,
-  Menu,
-  MenuItem,
-  Tooltip,
-  styled,
-  alpha
-} from '@mui/material';
+import React from 'react';
 import {
   Close,
   PlaylistAdd,
   QueueMusic,
   Delete,
   Favorite,
-  FavoriteBorder,
   Edit,
   MoreVert
 } from '@mui/icons-material';
-import { cardShadows } from '../Styles/Shadow.styles';
-import { spacingPresets } from '../Styles/Spacing.styles';
+import { Menu, MenuItem } from '@mui/material';
+import {
+  ToolbarContainer,
+  SelectionCount,
+  CloseButton,
+} from './BatchActionsToolbarStyles';
+import { BatchActionButton } from './BatchActionButton';
+import { useBatchActionsMenu } from './useBatchActionsMenu';
 import { auroraOpacity } from '../Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
 
 interface BatchActionsToolbarProps {
   selectedCount: number;
@@ -55,58 +41,27 @@ interface BatchActionsToolbarProps {
   context?: 'library' | 'playlist' | 'favorites' | 'queue';
 }
 
-const ToolbarContainer = styled(Paper)(({ theme }) => ({
-  position: 'fixed',
-  top: '80px',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  zIndex: 1200,
-  background: `linear-gradient(135deg, ${auroraOpacity.veryStrong} 0%, rgba(118, 75, 162, 0.95) 100%)`,
-  backdropFilter: 'blur(20px)',
-  border: `1px solid ${auroraOpacity.light}`,
-  borderRadius: '16px',
-  padding: spacingPresets.buttons.compact,
-  display: 'flex',
-  alignItems: 'center',
-  gap: spacingPresets.gap.standard,
-  boxShadow: cardShadows.dropdownDark,
-  animation: 'slideDown 0.3s ease-out',
-  '@keyframes slideDown': {
-    from: {
-      opacity: 0,
-      transform: 'translate(-50%, -20px)',
-    },
-    to: {
-      opacity: 1,
-      transform: 'translate(-50%, 0)',
-    },
-  },
-}));
+/**
+ * Get context-specific label for remove action
+ */
+const getRemoveLabel = (context: string): string => {
+  switch (context) {
+    case 'playlist':
+      return 'Remove from Playlist';
+    case 'favorites':
+      return 'Remove from Favorites';
+    case 'queue':
+      return 'Remove from Queue';
+    default:
+      return 'Delete';
+  }
+};
 
-const SelectionCount = styled(Typography)(({ theme }) => ({
-  color: tokens.colors.text.primary,
-  fontWeight: 'bold',
-  fontSize: '16px',
-  minWidth: '140px',
-}));
-
-const ActionButton = styled(IconButton)(({ theme }) => ({
-  color: tokens.colors.text.primary,
-  backgroundColor: auroraOpacity.light,
-  '&:hover': {
-    backgroundColor: auroraOpacity.standard,
-  },
-  transition: 'all 0.2s ease',
-}));
-
-const CloseButton = styled(IconButton)(({ theme }) => ({
-  color: tokens.colors.text.primary,
-  marginLeft: 'auto',
-  '&:hover': {
-    backgroundColor: auroraOpacity.light,
-  },
-}));
-
+/**
+ * BatchActionsToolbar - Main orchestrator component
+ *
+ * Floating toolbar with conditional action buttons and menu
+ */
 const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
   selectedCount,
   onAddToPlaylist,
@@ -117,34 +72,12 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
   onClearSelection,
   context = 'library',
 }) => {
-  const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
-
-  const handleMoreMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setMoreMenuAnchor(event.currentTarget);
-  };
-
-  const handleMoreMenuClose = () => {
-    setMoreMenuAnchor(null);
-  };
-
-  const handleAction = (action: () => void) => {
-    action();
-    handleMoreMenuClose();
-  };
-
-  // Context-specific labels
-  const getRemoveLabel = () => {
-    switch (context) {
-      case 'playlist':
-        return 'Remove from Playlist';
-      case 'favorites':
-        return 'Remove from Favorites';
-      case 'queue':
-        return 'Remove from Queue';
-      default:
-        return 'Delete';
-    }
-  };
+  const {
+    moreMenuAnchor,
+    handleMoreMenuOpen,
+    handleMoreMenuClose,
+    handleAction,
+  } = useBatchActionsMenu();
 
   return (
     <ToolbarContainer elevation={8}>
@@ -154,45 +87,45 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
 
       {/* Primary Actions */}
       {onAddToPlaylist && (
-        <Tooltip title="Add to Playlist">
-          <ActionButton onClick={onAddToPlaylist} size="medium">
-            <PlaylistAdd />
-          </ActionButton>
-        </Tooltip>
+        <BatchActionButton
+          icon={<PlaylistAdd />}
+          title="Add to Playlist"
+          onClick={onAddToPlaylist}
+        />
       )}
 
       {onAddToQueue && (
-        <Tooltip title="Add to Queue">
-          <ActionButton onClick={onAddToQueue} size="medium">
-            <QueueMusic />
-          </ActionButton>
-        </Tooltip>
+        <BatchActionButton
+          icon={<QueueMusic />}
+          title="Add to Queue"
+          onClick={onAddToQueue}
+        />
       )}
 
       {onToggleFavorite && (
-        <Tooltip title="Toggle Favorite">
-          <ActionButton onClick={onToggleFavorite} size="medium">
-            <Favorite />
-          </ActionButton>
-        </Tooltip>
+        <BatchActionButton
+          icon={<Favorite />}
+          title="Toggle Favorite"
+          onClick={onToggleFavorite}
+        />
       )}
 
       {onRemove && (
-        <Tooltip title={getRemoveLabel()}>
-          <ActionButton onClick={onRemove} size="medium">
-            <Delete />
-          </ActionButton>
-        </Tooltip>
+        <BatchActionButton
+          icon={<Delete />}
+          title={getRemoveLabel(context)}
+          onClick={onRemove}
+        />
       )}
 
       {/* More Actions Menu */}
-      {(onEditMetadata) && (
+      {onEditMetadata && (
         <>
-          <Tooltip title="More Actions">
-            <ActionButton onClick={handleMoreMenuOpen} size="medium">
-              <MoreVert />
-            </ActionButton>
-          </Tooltip>
+          <BatchActionButton
+            icon={<MoreVert />}
+            title="More Actions"
+            onClick={handleMoreMenuOpen}
+          />
           <Menu
             anchorEl={moreMenuAnchor}
             open={Boolean(moreMenuAnchor)}
@@ -214,25 +147,21 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
               },
             }}
           >
-            {onEditMetadata && (
-              <MenuItem
-                onClick={() => handleAction(onEditMetadata)}
-                sx={{ color: 'white', gap: 1 }}
-              >
-                <Edit fontSize="small" />
-                Edit Metadata
-              </MenuItem>
-            )}
+            <MenuItem
+              onClick={() => handleAction(onEditMetadata)}
+              sx={{ color: 'white', gap: 1 }}
+            >
+              <Edit fontSize="small" />
+              Edit Metadata
+            </MenuItem>
           </Menu>
         </>
       )}
 
       {/* Clear Selection Button */}
-      <Tooltip title="Clear Selection">
-        <CloseButton onClick={onClearSelection} size="small">
-          <Close />
-        </CloseButton>
-      </Tooltip>
+      <CloseButton onClick={onClearSelection} size="small">
+        <Close />
+      </CloseButton>
     </ToolbarContainer>
   );
 };
