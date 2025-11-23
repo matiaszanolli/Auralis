@@ -1,9 +1,17 @@
+/**
+ * EmptyState - Display empty state UI with icon and message
+ *
+ * Main component provides flexible empty state display.
+ * Predefined variants for common scenarios (EmptyLibrary, NoSearchResults, etc.)
+ *
+ * Styled components extracted to EmptyState.styles.ts
+ */
+
 import React from 'react';
-import { Box, Typography, styled } from '@mui/material';
+import { Box } from '@mui/material';
 import { MusicNote, SearchOff, PlaylistPlay, FolderOpen } from '@mui/icons-material';
 import { Button } from '../../design-system/primitives/Button';
-import { auroraOpacity } from '../library/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { Container, IconContainer, Title, Description } from './EmptyState.styles';
 
 interface EmptyStateProps {
   icon?: 'music' | 'search' | 'playlist' | 'folder';
@@ -13,45 +21,6 @@ interface EmptyStateProps {
   actionLabel?: string;
   onAction?: () => void;
 }
-
-const Container = styled(Box)({
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: `${tokens.spacing.xxxl} ${tokens.spacing.xl}`,
-  textAlign: 'center',
-  minHeight: '300px',
-});
-
-const IconContainer = styled(Box)({
-  marginBottom: tokens.spacing.lg,
-  '& .MuiSvgIcon-root': {
-    fontSize: '80px',
-    color: auroraOpacity.strong,
-    transition: 'all 200ms ease',
-  },
-
-  '&:hover .MuiSvgIcon-root': {
-    color: auroraOpacity.veryStrong,
-    transform: 'scale(1.1)',
-  },
-});
-
-const Title = styled(Typography)({
-  fontSize: '24px',
-  fontWeight: 600,
-  color: tokens.colors.text.primary,
-  marginBottom: tokens.spacing.sm,
-});
-
-const Description = styled(Typography)({
-  fontSize: '14px',
-  color: tokens.colors.text.secondary,
-  marginBottom: tokens.spacing.lg,
-  maxWidth: '400px',
-  lineHeight: 1.6,
-});
 
 const iconMap = {
   music: MusicNote,
