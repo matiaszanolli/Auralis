@@ -29,8 +29,7 @@ import {
 import { AlbumArt } from './AlbumArt';
 import { downloadArtwork, extractArtwork, deleteArtwork } from '../../services/artworkService';
 import { useToast } from '../shared/Toast';
-import { colors, gradients } from '../../theme/auralisTheme';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity, gradients } from '../library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface AlbumCardProps {
@@ -131,8 +130,8 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
         overflow: 'hidden',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
-        background: colors.background.surface,
-        border: `1px solid ${colors.background.hover}`,
+        background: tokens.colors.bg.surface,
+        border: `1px solid ${tokens.colors.bg.hover}`,
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
@@ -153,7 +152,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
           width: '100%',
           paddingBottom: '100%', // Creates 1:1 (square) aspect ratio
           overflow: 'hidden',
-          backgroundColor: tokens.colors.background.primary,
+          backgroundColor: tokens.colors.bg.primary,
           flexShrink: 0,
         }}
       >
@@ -320,7 +319,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
             variant="subtitle1"
             sx={{
               fontWeight: 600,
-              color: colors.text.primary,
+              color: tokens.colors.text.primary,
               mb: 0.5,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -335,7 +334,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
           <Typography
             variant="body2"
             sx={{
-              color: colors.text.secondary,
+              color: tokens.colors.text.secondary,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -350,7 +349,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
         <Typography
           variant="caption"
           sx={{
-            color: colors.text.disabled,
+            color: tokens.colors.text.disabled,
             display: 'block',
           }}
         >

@@ -96,6 +96,24 @@ export const gradientPresets = {
   aurora45: 'linear-gradient(45deg, #667eea 0%, #764ba2 100%)',
   // Hover variant with increased opacity
   auroraHover: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+
+  // Neon/vibrant gradients
+  neonSunset: 'linear-gradient(135deg, #ff6b9d 0%, #ffa502 100%)',
+  deepOcean: 'linear-gradient(135deg, #4b7bec 0%, #26de81 100%)',
+  electricPurple: 'linear-gradient(135deg, #c44569 0%, #667eea 100%)',
+  cosmicBlue: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+
+  // Album art and decorative gradients
+  gradientPink: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  gradientBlue: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  gradientGreen: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  gradientSunset: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  gradientTeal: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+  gradientPastel: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+  gradientRose: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+
+  // Special effects
+  bottomFade: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
 };
 
 /**
