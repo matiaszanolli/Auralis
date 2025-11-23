@@ -1,0 +1,61 @@
+/**
+ * BatchActionsToolbar Styled Components
+ */
+
+import { Paper, Typography, IconButton, styled } from '@mui/material';
+import { cardShadows } from '../Styles/Shadow.styles';
+import { spacingPresets } from '../Styles/Spacing.styles';
+import { auroraOpacity } from '../Styles/Color.styles';
+import { tokens } from '@/design-system/tokens';
+
+export const ToolbarContainer = styled(Paper)(({ theme }) => ({
+  position: 'fixed',
+  top: '80px',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 1200,
+  background: `linear-gradient(135deg, ${auroraOpacity.veryStrong} 0%, rgba(118, 75, 162, 0.95) 100%)`,
+  backdropFilter: 'blur(20px)',
+  border: `1px solid ${auroraOpacity.light}`,
+  borderRadius: '16px',
+  padding: spacingPresets.buttons.compact,
+  display: 'flex',
+  alignItems: 'center',
+  gap: spacingPresets.gap.standard,
+  boxShadow: cardShadows.dropdownDark,
+  animation: 'slideDown 0.3s ease-out',
+  '@keyframes slideDown': {
+    from: {
+      opacity: 0,
+      transform: 'translate(-50%, -20px)',
+    },
+    to: {
+      opacity: 1,
+      transform: 'translate(-50%, 0)',
+    },
+  },
+}));
+
+export const SelectionCount = styled(Typography)(({ theme }) => ({
+  color: tokens.colors.text.primary,
+  fontWeight: 'bold',
+  fontSize: '16px',
+  minWidth: '140px',
+}));
+
+export const ActionButton = styled(IconButton)(({ theme }) => ({
+  color: tokens.colors.text.primary,
+  backgroundColor: auroraOpacity.light,
+  '&:hover': {
+    backgroundColor: auroraOpacity.standard,
+  },
+  transition: 'all 0.2s ease',
+}));
+
+export const CloseButton = styled(IconButton)(({ theme }) => ({
+  color: tokens.colors.text.primary,
+  marginLeft: 'auto',
+  '&:hover': {
+    backgroundColor: auroraOpacity.light,
+  },
+}));
