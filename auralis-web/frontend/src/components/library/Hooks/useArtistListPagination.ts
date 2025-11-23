@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useContextMenu } from '../shared/ContextMenu';
+import { useContextMenu } from '../../shared/ContextMenu';
 import { useToast } from '../shared/ui/feedback';
 
 interface Artist {
