@@ -99,6 +99,23 @@ export const gradientPresets = {
 };
 
 /**
+ * Status colors for connection indicators and alerts
+ * Used for showing system status, connectivity, and notifications
+ */
+export const statusColors = {
+  // Connection status indicators
+  connected: '#4ade80', // Green - active/successful
+  connecting: '#facc15', // Yellow - pending/loading
+  disconnected: '#ef4444', // Red - error/offline
+
+  // Alternative status colors for emphasis
+  success: '#10b981', // Emerald green
+  warning: '#f59e0b', // Amber
+  error: '#ef4444', // Red
+  info: '#3b82f6', // Blue
+};
+
+/**
  * Utility color presets for common use cases
  */
 export const colorUtility = {
