@@ -15,22 +15,13 @@
  * - Queue integration
  */
 
-import React, { useRef, useEffect } from 'react';
-import { Box, Grid, Paper, Typography } from '@mui/material';
-import { TrackCard } from '../track/TrackCard';
-import SelectableTrackRow from './SelectableTrackRow';
-import TrackQueue from '../player-bar-v2/queue/TrackQueue';
+import React, { useRef } from 'react';
 import { LibraryGridSkeleton, TrackRowSkeleton } from '../../shared/ui/loaders';
-import { SpinnerBox } from '../Styles/Spinner.styles';
-import * as queueService from '../../services/queueService';
-import { useToast } from '../shared/ui/feedback';
-import {
-  ListLoadingContainer,
-  GridContainer,
-} from '../Styles/Grid.styles';
-import InfiniteScrollTrigger from './InfiniteScrollTrigger';
-import EndOfListIndicator from './EndOfListIndicator';
-import GridLoadingState from './GridLoadingState';
+import { ListLoadingContainer } from '../Styles/Grid.styles';
+import TrackGridView from './TrackGridView';
+import TrackListViewContent from './TrackListViewContent';
+import { useQueueOperations } from './useQueueOperations';
+import { useInfiniteScroll } from './useInfiniteScroll';
 
 export interface Track {
   id: number;
@@ -90,39 +81,26 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
   onTrackPlay,
   onPause,
   onEditMetadata,
-  onLoadMore
+  onLoadMore,
 }) => {
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  const { success, error, info } = useToast();
 
-  // Infinite scroll with Intersection Observer
-  useEffect(() => {
-    if (!loadMoreRef.current) return;
+  // Queue operations with toast feedback
+  const {
+    handleRemoveTrack,
+    handleReorderQueue,
+    handleShuffleQueue,
+    handleClearQueue,
+  } = useQueueOperations({});
 
-    // Debounce flag to prevent multiple simultaneous loads
-    let isObserverLoading = false;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading && !isObserverLoading) {
-          isObserverLoading = true;
-          onLoadMore();
-          // Reset after a delay to prevent rapid refiring
-          setTimeout(() => {
-            isObserverLoading = false;
-          }, 500);
-        }
-      },
-      { threshold: 0.1, rootMargin: '100px' } // Load when 100px away from trigger
-    );
-
-    observer.observe(loadMoreRef.current);
-
-    return () => {
-      observer.disconnect();
-      isObserverLoading = false;
-    };
-  }, [hasMore, isLoadingMore, loading, onLoadMore]);
+  // Setup infinite scroll observer
+  useInfiniteScroll({
+    hasMore,
+    isLoadingMore,
+    isLoading: loading,
+    onLoadMore,
+    loadMoreRef,
+  });
 
   // Show loading skeletons
   if (loading) {
@@ -140,151 +118,37 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
   // Grid View
   if (viewMode === 'grid') {
     return (
-      <>
-        <Grid container spacing={3}>
-          {tracks.map((track, index) => (
-            <Grid
-              item
-              xs={12}
-              sm={6}
-              md={4}
-              lg={3}
-              key={track.id}
-              className="animate-fade-in-up"
-              sx={{
-                animationDelay: `${index * 0.05}s`,
-                animationFillMode: 'both'
-              }}
-            >
-              <TrackCard
-                id={track.id}
-                title={track.title}
-                artist={track.artist}
-                album={track.album}
-                albumId={track.album_id}
-                duration={track.duration}
-                albumArt={track.albumArt}
-                onPlay={(id) => {
-                  const track = tracks.find(t => t.id === id);
-                  if (track) {
-                    onTrackPlay(track);
-                  }
-                }}
-              />
-            </Grid>
-          ))}
-        </Grid>
-
-        {/* Intersection observer trigger for infinite scroll */}
-        {hasMore && <InfiniteScrollTrigger ref={loadMoreRef} />}
-
-        {/* Track Queue - Shows current album/playlist tracks */}
-        {tracks.length > 0 && (
-          <TrackQueue
-            tracks={tracks.map(t => ({
-              id: t.id,
-              title: t.title,
-              artist: t.artist,
-              duration: t.duration
-            }))}
-            currentTrackId={currentTrackId}
-            onTrackClick={(trackId) => {
-              const track = tracks.find(t => t.id === trackId);
-              if (track) {
-                onTrackPlay(track);
-              }
-            }}
-            onRemoveTrack={async (index) => {
-              try {
-                await queueService.removeTrackFromQueue(index);
-                info('Track removed from queue');
-              } catch (err) {
-                error('Failed to remove track from queue');
-              }
-            }}
-            onReorderQueue={async (newOrder) => {
-              try {
-                await queueService.reorderQueue(newOrder);
-                success('Queue reordered');
-              } catch (err) {
-                error('Failed to reorder queue');
-              }
-            }}
-            onShuffleQueue={async () => {
-              try {
-                await queueService.shuffleQueue();
-                success('Queue shuffled');
-              } catch (err) {
-                error('Failed to shuffle queue');
-              }
-            }}
-            onClearQueue={async () => {
-              try {
-                await queueService.clearQueue();
-                info('Queue cleared');
-              } catch (err) {
-                error('Failed to clear queue');
-              }
-            }}
-            title="Current Queue"
-          />
-        )}
-      </>
+      <TrackGridView
+        tracks={tracks}
+        hasMore={hasMore}
+        currentTrackId={currentTrackId}
+        loadMoreRef={loadMoreRef}
+        onTrackPlay={onTrackPlay}
+        onRemoveTrack={handleRemoveTrack}
+        onReorderQueue={handleReorderQueue}
+        onShuffleQueue={handleShuffleQueue}
+        onClearQueue={handleClearQueue}
+      />
     );
   }
 
   // List View
   return (
-    <Paper
-      elevation={2}
-      sx={{
-        background: 'rgba(255,255,255,0.05)',
-        borderRadius: 3,
-        overflow: 'hidden',
-        p: 2
-      }}
-    >
-      {tracks.map((track, index) => (
-        <Box
-          key={track.id}
-          className="animate-fade-in-left"
-          sx={{
-            animationDelay: `${index * 0.03}s`,
-            animationFillMode: 'both'
-          }}
-        >
-          <SelectableTrackRow
-            track={track}
-            index={index}
-            isSelected={isSelected(track.id)}
-            onToggleSelect={(e) => onToggleSelect(track.id, e)}
-            isPlaying={isPlaying}
-            isCurrent={currentTrackId === track.id}
-            onPlay={(trackId) => {
-              const track = tracks.find(t => t.id === trackId);
-              if (track) {
-                onTrackPlay(track);
-              }
-            }}
-            onPause={onPause}
-            onEditMetadata={onEditMetadata}
-          />
-        </Box>
-      ))}
-
-      {/* Intersection observer trigger for infinite scroll */}
-      {hasMore && <InfiniteScrollTrigger ref={loadMoreRef} />}
-
-      {/* Loading indicator */}
-      {isLoadingMore && (
-        <GridLoadingState current={tracks.length} total={totalTracks} itemType="tracks" />
-      )}
-
-      {/* End of list indicator */}
-      {!hasMore && tracks.length > 0 && (
-        <EndOfListIndicator count={totalTracks} itemType="tracks" />
-      )}
-    </Paper>
+    <TrackListViewContent
+      tracks={tracks}
+      hasMore={hasMore}
+      isLoadingMore={isLoadingMore}
+      totalTracks={totalTracks}
+      currentTrackId={currentTrackId}
+      isPlaying={isPlaying}
+      selectedTracks={selectedTracks}
+      isSelected={isSelected}
+      loadMoreRef={loadMoreRef}
+      onToggleSelect={onToggleSelect}
+      onTrackPlay={onTrackPlay}
+      onPause={onPause}
+      onEditMetadata={onEditMetadata}
+    />
   );
 };
 
