@@ -10,6 +10,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 /**
  * Props for the AppTopBar component.
@@ -206,7 +207,7 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
         >
           <SearchIcon
             sx={{
-              color: 'rgba(255, 255, 255, 0.5)',
+              color: auroraOpacity.stronger,
               fontSize: '18px',
             }}
           />
@@ -227,7 +228,7 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
                 color: 'var(--silver)',
                 fontSize: '14px',
                 '&::placeholder': {
-                  color: 'rgba(255, 255, 255, 0.4)',
+                  color: auroraOpacity.standard,
                   opacity: 1,
                 },
               },
@@ -241,7 +242,7 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
               onClick={handleSearchClear}
               size="small"
               sx={{
-                color: 'rgba(255, 255, 255, 0.5)',
+                color: auroraOpacity.stronger,
                 padding: '4px',
                 '&:hover': {
                   color: 'var(--silver)',
