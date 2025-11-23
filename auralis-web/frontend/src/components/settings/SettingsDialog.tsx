@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserSettings } from '../../services/settingsService';
-import { StyledDialog } from '../library/Dialog.styles';
+import { StyledDialog } from '../library/Styles/Dialog.styles';
 import { SettingsTabNav } from './SettingsTabNav';
 import SettingsDialogHeader from './SettingsDialogHeader';
 import SettingsDialogContentComponent from './SettingsDialogContent';
