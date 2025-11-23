@@ -19,15 +19,14 @@
  * This is the ONLY player bar component - eliminates duplicate player instances.
  */
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { PlayerBarV2 } from './PlayerBarV2';
 import { usePlayerAPI } from '@/hooks/usePlayerAPI';
 import { useUnifiedWebMAudioPlayer } from '@/hooks/useUnifiedWebMAudioPlayer';
 import { useEnhancement } from '@/contexts/EnhancementContext';
 import { useToast } from '@/components/shared/ui/feedback';
-import { usePlayerTrackLoader } from '@/hooks/usePlayerTrackLoader';
-import { usePlayerEnhancementSync } from '@/hooks/usePlayerEnhancementSync';
-import { usePlayerEventHandlers } from '@/hooks/usePlayerEventHandlers';
+import { usePlayerState } from './usePlayerState';
+import { usePlayerFeatures } from './usePlayerFeatures';
 
 const PlayerBarV2Connected: React.FC = () => {
   // ========== State Management ==========
@@ -68,25 +67,12 @@ const PlayerBarV2Connected: React.FC = () => {
 
   // ========== Feature Hooks ==========
 
-  // Track loading and error handling
-  usePlayerTrackLoader({
+  const handlers = usePlayerFeatures({
     player,
-    trackId: currentTrack?.id,
-    trackTitle: currentTrack?.title,
-    onError: showError
-  });
-
-  // Enhancement settings synchronization
-  usePlayerEnhancementSync({
-    player,
-    settings: enhancementSettings,
-    onError: showError
-  });
-
-  // Event handlers for all playback controls
-  const handlers = usePlayerEventHandlers({
-    player,
-    playback: { queue, queueIndex },
+    currentTrack,
+    queue,
+    queueIndex,
+    enhancementSettings,
     callbacks: {
       play,
       pause,
@@ -96,39 +82,21 @@ const PlayerBarV2Connected: React.FC = () => {
         // TODO: connect to Redux volume setter
       },
       setEnhanced: (enabled, preset) => player.setEnhanced(enabled, preset),
-      setEnhancementEnabled
+      setEnhancementEnabled,
     },
-    enhancementEnabled: enhancementSettings.enabled,
-    enhancementPreset: enhancementSettings.preset,
-    onInfo: info,
-    onError: showError
+    onError: showError,
   });
 
   // ========== UI State ==========
 
-  // Prepare player state for PlayerBarV2
-  // IMPORTANT: Use player.isPlaying (unified player state) NOT Redux isPlaying
-  // to avoid desync between play/pause button and actual playback
-  // CRITICAL: Wrap in useMemo to prevent unnecessary re-renders of memoized PlayerBarV2
-  const playerState = useMemo(() => ({
-    currentTrack: currentTrack || null,
-    isPlaying: player.isPlaying, // Use unified player's state
-    currentTime: player.currentTime || 0,
-    duration: player.duration || 0,
-    volume: volume || 0.8,
-    isEnhanced: enhancementSettings.enabled,
-    queue: queue || [],
-    queueIndex: queueIndex
-  }), [
+  const playerState = usePlayerState({
     currentTrack,
-    player.isPlaying,
-    player.currentTime,
-    player.duration,
+    unifiedPlayer: player,
     volume,
-    enhancementSettings.enabled,
+    enhancementSettings,
     queue,
-    queueIndex
-  ]);
+    queueIndex,
+  });
 
   // ========== Render ==========
 
