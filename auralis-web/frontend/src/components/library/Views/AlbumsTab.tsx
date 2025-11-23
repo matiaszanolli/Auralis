@@ -10,7 +10,7 @@ import {
   AlbumCard,
   AlbumTitle,
   AlbumInfo
-} from './ArtistDetail.styles';
+} from '../Styles/ArtistDetail.styles';
 
 interface Album {
   id: number;

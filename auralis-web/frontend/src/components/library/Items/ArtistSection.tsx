@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, List } from '@mui/material';
-import { AlphabetDivider } from './ArtistList.styles';
+import { AlphabetDivider } from '../Styles/ArtistList.styles';
 import { ArtistListItem } from './ArtistListItem';
 
 interface Artist {

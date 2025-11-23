@@ -11,8 +11,8 @@ import {
   MoreVert
 } from '@mui/icons-material';
 import DetailViewHeader from './DetailViewHeader';
-import { PlayButton, ShuffleButton } from './Button.styles';
-import { ArtistAvatarCircle } from './ArtistDetail.styles';
+import { PlayButton, ShuffleButton } from '../Styles/Button.styles';
+import { ArtistAvatarCircle } from '../Styles/ArtistDetail.styles';
 
 interface Artist {
   id: number;

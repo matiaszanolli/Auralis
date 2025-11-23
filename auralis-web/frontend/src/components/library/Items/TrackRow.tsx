@@ -16,7 +16,7 @@ import {
   TrackAlbum,
   TrackDuration,
   MoreButton,
-} from './TrackRow.styles';
+} from '../Styles/TrackRow.styles';
 
 export interface Track {
   id: number;

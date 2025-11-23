@@ -15,7 +15,7 @@ import {
 import { ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
 import { EmptyState } from '../shared/EmptyState';
-import { SectionHeader } from './ArtistList.styles';
+import { SectionHeader } from '../Styles/ArtistList.styles';
 import { ArtistListLoading } from './ArtistListLoading';
 import { ArtistSection } from './ArtistSection';
 import { useArtistListPagination } from './useArtistListPagination';

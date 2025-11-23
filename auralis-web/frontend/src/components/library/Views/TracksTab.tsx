@@ -12,8 +12,8 @@ import {
   PlayArrow,
   Pause
 } from '@mui/icons-material';
-import { StyledTableRow, PlayIcon } from './Table.styles';
-import { TracksTableContainer } from './ArtistDetail.styles';
+import { StyledTableRow, PlayIcon } from '../Styles/Table.styles';
+import { TracksTableContainer } from '../Styles/ArtistDetail.styles';
 
 interface Track {
   id: number;

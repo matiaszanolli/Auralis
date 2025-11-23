@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { EmptyState } from '../shared/EmptyState';
-import { StyledTabs } from './ArtistDetail.styles';
+import { StyledTabs } from '../Styles/ArtistDetail.styles';
 import ArtistHeader from './ArtistHeader';
 import AlbumsTab from './AlbumsTab';
 import TracksTab from './TracksTab';

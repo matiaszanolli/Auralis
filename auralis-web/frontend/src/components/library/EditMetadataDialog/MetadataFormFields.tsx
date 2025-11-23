@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { Grid, CircularProgress, Box } from '@mui/material';
-import { StyledTextField } from '../FormFields.styles';
+import { StyledTextField } from '../Styles/FormFields.styles';
 import type { MetadataFields } from './useMetadataForm';
 
 export interface MetadataFormFieldsProps {

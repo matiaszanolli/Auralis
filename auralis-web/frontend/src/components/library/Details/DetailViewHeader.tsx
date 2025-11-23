@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Box, Typography, Button, styled } from '@mui/material';
-import { auroraOpacity } from './Color.styles';
+import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface DetailViewHeaderProps {

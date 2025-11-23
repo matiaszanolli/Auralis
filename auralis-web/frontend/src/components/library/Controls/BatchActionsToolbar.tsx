@@ -39,9 +39,9 @@ import {
   Edit,
   MoreVert
 } from '@mui/icons-material';
-import { cardShadows } from './Shadow.styles';
-import { spacingPresets } from './Spacing.styles';
-import { auroraOpacity } from './Color.styles';
+import { cardShadows } from '../Styles/Shadow.styles';
+import { spacingPresets } from '../Styles/Spacing.styles';
+import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface BatchActionsToolbarProps {

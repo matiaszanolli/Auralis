@@ -6,7 +6,7 @@ import {
   ArtistAvatar,
   ArtistName,
   ArtistInfo
-} from './ArtistList.styles';
+} from '../Styles/ArtistList.styles';
 
 interface Artist {
   id: number;
