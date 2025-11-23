@@ -19,7 +19,7 @@
 import React from 'react';
 import { Box, Checkbox, styled } from '@mui/material';
 import TrackRow from './TrackRow';
-import { auroraOpacity } from './Color.styles';
+import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface Track {

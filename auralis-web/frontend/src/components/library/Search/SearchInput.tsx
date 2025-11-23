@@ -10,7 +10,7 @@ import {
 import {
   SearchContainer,
   SearchField
-} from './SearchStyles.styles';
+} from '../Styles/SearchStyles.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface SearchInputProps {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { SearchContainer } from './SearchStyles.styles';
+import { SearchContainer } from '../Styles/SearchStyles.styles';
 import SearchInput from './SearchInput';
 import ResultsContainerComponent from './ResultsContainer';
 import ResultAvatar from './ResultAvatar';

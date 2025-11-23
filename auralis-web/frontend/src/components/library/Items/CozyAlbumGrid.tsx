@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { AlbumCard } from '../album/AlbumCard';
 import { EmptyState } from '../shared/EmptyState';
-import { GridContainer } from './Grid.styles';
+import { GridContainer } from '../Styles/Grid.styles';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import EndOfListIndicator from './EndOfListIndicator';
 import GridLoadingState from './GridLoadingState';

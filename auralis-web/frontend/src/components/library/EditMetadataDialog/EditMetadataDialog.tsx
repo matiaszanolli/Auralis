@@ -25,9 +25,9 @@ import {
   MetadataDialogActions,
   SaveButton,
   CancelButtonForDialog,
-} from '../Dialog.styles';
+} from '../Styles/Dialog.styles';
 import { useMetadataForm, MetadataFields } from './useMetadataForm';
-import { auroraOpacity } from '../../library/Color.styles';
+import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 export interface EditMetadataDialogProps {

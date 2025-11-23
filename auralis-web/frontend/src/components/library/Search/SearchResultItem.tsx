@@ -29,7 +29,7 @@ import {
   ResultTitle,
   ResultSubtitle,
   TypeChip
-} from './SearchStyles.styles';
+} from '../Styles/SearchStyles.styles';
 
 interface SearchResult {
   type: 'track' | 'album' | 'artist';

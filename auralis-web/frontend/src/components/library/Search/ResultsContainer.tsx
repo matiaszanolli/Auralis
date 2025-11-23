@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, List, Typography } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
-import { ResultsContainer } from './SearchStyles.styles';
+import { ResultsContainer } from '../Styles/SearchStyles.styles';
 import ResultGroup from './ResultGroup';
 
 interface SearchResult {

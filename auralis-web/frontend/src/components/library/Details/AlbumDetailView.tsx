@@ -10,9 +10,9 @@ import {
 } from '@mui/material';
 import { EmptyState } from '../shared/EmptyState';
 import DetailViewHeader from './DetailViewHeader';
-import { PlayButton } from './Button.styles';
+import { PlayButton } from '../Styles/Button.styles';
 import AlbumTrackTable from './AlbumTrackTable';
-import { auroraOpacity } from './Color.styles';
+import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 import {
   ArrowBack,

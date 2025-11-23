@@ -7,7 +7,7 @@ import {
 import {
   ArtistSearchAvatar,
   DefaultSearchAvatar
-} from './SearchStyles.styles';
+} from '../Styles/SearchStyles.styles';
 import AlbumArt from '../album/AlbumArt';
 
 interface SearchResult {

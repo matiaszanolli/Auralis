@@ -19,7 +19,7 @@ import {
   Box
 } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
-import { StyledTableRow, PlayIcon } from './Table.styles';
+import { StyledTableRow, PlayIcon } from '../Styles/Table.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface Track {

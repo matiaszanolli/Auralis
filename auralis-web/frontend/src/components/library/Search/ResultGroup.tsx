@@ -1,6 +1,6 @@
 import React from 'react';
 import { List, Divider } from '@mui/material';
-import { CategoryHeader } from './SearchStyles.styles';
+import { CategoryHeader } from '../Styles/SearchStyles.styles';
 import SearchResultItem from './SearchResultItem';
 
 interface SearchResult {
