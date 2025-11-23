@@ -1,16 +1,11 @@
-import React, { useState } from 'react';
-import {
-  Box,
-  TextField,
-  IconButton,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import SearchIcon from '@mui/icons-material/Search';
-import CloseIcon from '@mui/icons-material/Close';
-import { auroraOpacity, statusColors } from '../library/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import React from 'react';
+import { useMediaQuery, useTheme } from '@mui/material';
+import { TopBarContainer, RightSection } from './AppTopBar.styles';
+import AppTopBarLeftSection from './AppTopBarLeftSection';
+import AppTopBarSearchInput from './AppTopBarSearchInput';
+import AppTopBarStatusIndicator from './AppTopBarStatusIndicator';
+import { useSearchInput } from './useSearchInput';
+import { useConnectionStatus } from './useConnectionStatus';
 
 /**
  * Props for the AppTopBar component.
@@ -98,175 +93,40 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
   const mediaIsMobile = useMediaQuery(theme.breakpoints.down('md'));
   const shouldShowMobileMenu = isMobile || mediaIsMobile;
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  // Search input state and handlers
+  const {
+    searchQuery,
+    isSearchFocused,
+    setIsSearchFocused,
+    handleSearchChange,
+    handleSearchClear,
+  } = useSearchInput({ onSearch, onSearchClear });
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    onSearch(query);
-  };
-
-  const handleSearchClear = () => {
-    setSearchQuery('');
-    onSearch('');
-    onSearchClear?.();
-  };
-
-  const getConnectionStatusColor = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return statusColors.connected;
-      case 'connecting':
-        return statusColors.connecting;
-      case 'disconnected':
-        return statusColors.disconnected;
-      default:
-        return statusColors.disconnected;
-    }
-  };
+  // Connection status color
+  const statusColor = useConnectionStatus(connectionStatus);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '16px 24px',
-        background: 'var(--midnight-blue)',
-        borderBottom: `1px solid ${auroraOpacity.veryLight}`,
-        height: 70,
-        gap: 16,
-      }}
-    >
-      {/* Left side: Mobile menu button or title */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          flex: shouldShowMobileMenu ? 0 : 1,
-        }}
-      >
-        {shouldShowMobileMenu && (
-          <IconButton
-            onClick={onOpenMobileDrawer}
-            sx={{
-              color: 'var(--silver)',
-              padding: '8px',
-              '&:hover': {
-                background: auroraOpacity.veryLight,
-              },
-            }}
-          >
-            <MenuIcon />
-          </IconButton>
-        )}
+    <TopBarContainer>
+      <AppTopBarLeftSection
+        showMobileMenu={shouldShowMobileMenu}
+        title={title}
+        onOpenMobileDrawer={onOpenMobileDrawer}
+      />
 
-        {!shouldShowMobileMenu && (
-          <Box
-            sx={{
-              fontSize: '20px',
-              fontWeight: 600,
-              color: 'var(--silver)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {title}
-          </Box>
-        )}
-      </Box>
-
-      {/* Right side: Search input and status indicator */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          flex: 1,
-          justifyContent: 'flex-end',
-        }}
-      >
-        {/* Search input */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            background: auroraOpacity.minimal,
-            borderRadius: '8px',
-            border: `1px solid ${
-              isSearchFocused
-                ? auroraOpacity.strong
-                : auroraOpacity.veryLight
-            }`,
-            padding: '8px 12px',
-            gap: 8,
-            minWidth: shouldShowMobileMenu ? 200 : 300,
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <SearchIcon
-            sx={{
-              color: auroraOpacity.stronger,
-              fontSize: '18px',
-            }}
-          />
-          <TextField
-            placeholder="Search tracks, albums, artists..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
-            sx={{
-              flex: 1,
-              '& .MuiOutlinedInput-root': {
-                border: 'none',
-                padding: 0,
-              },
-              '& .MuiOutlinedInput-input': {
-                padding: 0,
-                color: 'var(--silver)',
-                fontSize: '14px',
-                '&::placeholder': {
-                  color: auroraOpacity.standard,
-                  opacity: 1,
-                },
-              },
-              '& .MuiOutlinedInput-notchedOutline': {
-                border: 'none',
-              },
-            }}
-          />
-          {searchQuery && (
-            <IconButton
-              onClick={handleSearchClear}
-              size="small"
-              sx={{
-                color: auroraOpacity.stronger,
-                padding: '4px',
-                '&:hover': {
-                  color: 'var(--silver)',
-                },
-              }}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-
-        {/* Connection status indicator */}
-        <Box
-          sx={{
-            width: 12,
-            height: 12,
-            borderRadius: '50%',
-            background: getConnectionStatusColor(),
-            boxShadow: `0 0 8px ${getConnectionStatusColor()}80`,
-            minWidth: 12,
-          }}
+      <RightSection>
+        <AppTopBarSearchInput
+          searchQuery={searchQuery}
+          isSearchFocused={isSearchFocused}
+          minWidth={shouldShowMobileMenu ? 200 : 300}
+          onSearchChange={handleSearchChange}
+          onFocus={() => setIsSearchFocused(true)}
+          onBlur={() => setIsSearchFocused(false)}
+          onClear={handleSearchClear}
         />
-      </Box>
-    </Box>
+
+        <AppTopBarStatusIndicator color={statusColor} />
+      </RightSection>
+    </TopBarContainer>
   );
 };
 
