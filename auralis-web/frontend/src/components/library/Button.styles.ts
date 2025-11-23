@@ -8,10 +8,9 @@
  */
 
 import { Button, styled } from '@mui/material';
-import { gradients } from '../../theme/auralisTheme';
+import { gradients, auroraOpacity } from './Color.styles';
 import { buttonShadows } from './Shadow.styles';
 import { radiusMedium, radiusFull } from './BorderRadius.styles';
-import { auroraOpacity } from './Color.styles';
 
 /**
  * PlayButton - Gradient action button for playing tracks/albums

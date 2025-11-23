@@ -8,7 +8,7 @@
  */
 
 import { Dialog, DialogTitle, DialogActions, Button, Box, styled } from '@mui/material';
-import { gradients } from '../../theme/auralisTheme';
+import { gradients } from './Color.styles';
 export { DialogTabs as StyledTabs, DetailViewTabs } from './Tabs.styles';
 export { SaveButton, CancelButtonForDialog } from './Button.styles';
 export { SectionLabel, SectionDescription } from './Typography.styles';

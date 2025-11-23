@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Box, Typography, styled } from '@mui/material';
-import { colors } from '../../theme/auralisTheme';
+import { tokens } from '@/design-system/tokens';
 
 interface EmptyStateBoxProps {
   /** Main message text */
@@ -24,7 +24,7 @@ const Container = styled(Box)({
   alignItems: 'center',
   justifyContent: 'center',
   minHeight: '400px',
-  color: colors.text.disabled,
+  color: tokens.colors.text.disabled,
   textAlign: 'center',
   padding: '40px',
 });
@@ -33,12 +33,12 @@ const Title = styled(Typography)({
   fontSize: '18px',
   fontWeight: 500,
   marginBottom: '8px',
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
 });
 
 const Subtitle = styled(Typography)({
   fontSize: '14px',
-  color: colors.text.disabled,
+  color: tokens.colors.text.disabled,
 });
 
 export const EmptyStateBox: React.FC<EmptyStateBoxProps> = ({

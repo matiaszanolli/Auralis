@@ -1,21 +1,20 @@
 import { Box, Typography, IconButton, styled } from '@mui/material';
-import { colors, gradients, spacing, borderRadius, transitions } from '../../theme/auralisTheme';
-import { SmallIconButton } from './Icon.styles';
-import { auroraOpacity } from './Color.styles';
 import { tokens } from '@/design-system/tokens';
+import { SmallIconButton } from './Icon.styles';
+import { auroraOpacity, gradients } from './Color.styles';
 
 export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
   display: 'flex',
   alignItems: 'center',
   height: '48px',
-  padding: `0 ${spacing.md}px`,
-  borderRadius: `${borderRadius.xs}px`,
+  padding: `0 ${tokens.spacing.md}`,
+  borderRadius: tokens.borderRadius.xs,
   cursor: 'pointer',
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
   background: iscurrent === 'true' ? auroraOpacity.light : 'transparent',
   border: iscurrent === 'true' ? `1px solid ${auroraOpacity.standard}` : '1px solid transparent',
   position: 'relative',
-  marginBottom: `${spacing.xs / 2}px`,
+  marginBottom: tokens.spacing.xs,
   boxShadow: iscurrent === 'true' ? `0 0 0 1px ${auroraOpacity.veryLight}` : 'none',
 
   '&:hover': {
@@ -61,7 +60,7 @@ export const ActiveIndicator = styled(Box)({
   bottom: 0,
   width: '3px',
   background: gradients.aurora,
-  borderRadius: `0 ${spacing.xs / 2}px ${spacing.xs / 2}px 0`,
+  borderRadius: `0 ${tokens.spacing.xs} ${tokens.spacing.xs} 0`,
 });
 
 export const TrackNumberBox = styled(Box)({
@@ -75,7 +74,7 @@ export const TrackNumberBox = styled(Box)({
 export const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) => ({
   fontSize: '14px',
   fontWeight: 500,
-  color: iscurrent === 'true' ? tokens.colors.accent.purple : colors.text.secondary,
+  color: iscurrent === 'true' ? tokens.colors.accent.purple : tokens.colors.text.secondary,
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 }));
 
@@ -99,8 +98,8 @@ export const PlayButton = styled(SmallIconButton)({
 export const AlbumArtThumbnail = styled(Box)({
   width: '40px',
   height: '40px',
-  marginRight: `${spacing.md / 1.33}px`, // 12px
-  borderRadius: `${borderRadius.xs}px`,
+  marginRight: '12px',
+  borderRadius: tokens.borderRadius.xs,
   overflow: 'hidden',
   flexShrink: 0,
   background: gradients.aurora,
@@ -128,7 +127,7 @@ export const TrackInfo = styled(Box)({
 export const TrackTitle = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) => ({
   fontSize: '14px',
   fontWeight: iscurrent === 'true' ? 600 : 500,
-  color: colors.text.primary,
+  color: tokens.colors.text.primary,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -139,7 +138,7 @@ export const TrackTitle = styled(Typography)<{ iscurrent?: string }>(({ iscurren
 export const TrackArtist = styled(Typography)({
   fontSize: '13px',
   fontWeight: 400,
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -149,23 +148,23 @@ export const TrackArtist = styled(Typography)({
 export const TrackAlbum = styled(Typography)({
   fontSize: '13px',
   fontWeight: 400,
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   minWidth: '200px',
   maxWidth: '300px',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  marginRight: `${spacing.md}px`,
+  marginRight: tokens.spacing.md,
   display: { xs: 'none', md: 'block' },
 });
 
 export const TrackDuration = styled(Typography)({
   fontSize: '13px',
   fontWeight: 400,
-  color: colors.text.disabled,
+  color: tokens.colors.text.disabled,
   minWidth: '50px',
   textAlign: 'right',
-  marginRight: `${spacing.sm}px`,
+  marginRight: tokens.spacing.sm,
 });
 
 /**
@@ -174,8 +173,8 @@ export const TrackDuration = styled(Typography)({
  */
 export const MoreButton = styled(SmallIconButton)({
   opacity: 0,
-  transition: `opacity ${transitions.fast}`,
-  color: colors.text.secondary,
+  transition: `opacity ${tokens.transitions.fast}`,
+  color: tokens.colors.text.secondary,
 
   '&:hover': {
     background: auroraOpacity.light,
