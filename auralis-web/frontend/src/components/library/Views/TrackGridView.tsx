@@ -1,6 +1,6 @@
 import React from 'react';
 import { Grid } from '@mui/material';
-import { TrackCard } from '../track/TrackCard';
+import { TrackCard } from '../../track/TrackCard';
 import TrackQueue from '../player-bar-v2/queue/TrackQueue';
 import InfiniteScrollTrigger from '../Items/InfiniteScrollTrigger';
 import { Track } from './TrackListView';
