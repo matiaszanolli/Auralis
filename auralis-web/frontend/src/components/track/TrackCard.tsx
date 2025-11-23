@@ -21,6 +21,7 @@ import {
 } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface TrackCardProps {
   id: number;
@@ -35,15 +36,15 @@ interface TrackCardProps {
 
 // Generate consistent color from album name for placeholders
 const getAlbumColor = (albumName: string | undefined | null): string => {
-  const colors = [
-    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Purple
-    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', // Pink
-    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // Blue
-    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', // Green
-    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', // Sunset
-    'linear-gradient(135deg, #30cfd0 0%, #330867 100%)', // Ocean
-    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)', // Pastel
-    'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', // Rose
+  const gradientList = [
+    gradients.aurora, // Purple
+    gradients.gradientPink, // Pink
+    gradients.gradientBlue, // Blue
+    gradients.gradientGreen, // Green
+    gradients.gradientSunset, // Sunset
+    gradients.gradientTeal, // Ocean/Teal
+    gradients.gradientPastel, // Pastel
+    gradients.gradientRose, // Rose
   ];
 
   // Use default album name if not provided
@@ -54,8 +55,8 @@ const getAlbumColor = (albumName: string | undefined | null): string => {
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const index = Math.abs(hash) % colors.length;
-  return colors[index];
+  const index = Math.abs(hash) % gradientList.length;
+  return gradientList[index];
 };
 
 // Format duration in MM:SS
@@ -125,7 +126,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
             <MusicNote
               sx={{
                 fontSize: 64,
-                color: 'rgba(255, 255, 255, 0.3)',
+                color: auroraOpacity.lighter,
               }}
             />
           </Box>
@@ -152,7 +153,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
               width: 56,
               height: 56,
               background: gradients.aurora,
-              color: '#fff',
+              color: tokens.colors.text.primary,
               transform: isHovered ? 'scale(1)' : 'scale(0.8)',
               transition: 'all 0.3s ease',
               '&:hover': {
@@ -185,7 +186,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           <Typography
             variant="caption"
             sx={{
-              color: '#fff',
+              color: tokens.colors.text.primary,
               fontWeight: 500,
               fontSize: '0.7rem',
             }}
