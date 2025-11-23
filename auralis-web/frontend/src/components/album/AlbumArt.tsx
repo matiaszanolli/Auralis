@@ -10,6 +10,7 @@ import React from 'react';
 import { Box, styled } from '@mui/material';
 import { ProgressiveImage } from '../shared/ProgressiveImage';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface AlbumArtProps {
   albumId?: number;
@@ -42,23 +43,31 @@ const ArtworkContainer = styled(Box, {
 
 /**
  * Generate a unique gradient for each album based on its ID
- * Creates visual variety in fallback placeholders
+ * Creates visual variety in fallback placeholders using design tokens
  */
 const getGradientForAlbum = (albumId?: number): string => {
+  // Helper to add alpha to hex colors
+  const hexToRgba = (hex: string, alpha: number): string => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
   if (!albumId) {
-    return `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, rgba(118, 75, 162, 0.15) 100%)`;
+    return `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 100%)`;
   }
 
-  // 8 distinct gradient combinations for visual variety
+  // 8 distinct gradient combinations using design tokens
   const gradients = [
-    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, rgba(118, 75, 162, 0.15) 100%)`, // Purple-Violet
-    'linear-gradient(135deg, rgba(118, 75, 162, 0.15) 0%, rgba(237, 66, 100, 0.15) 100%)',  // Violet-Pink
-    `linear-gradient(135deg, rgba(0, 212, 170, 0.15) 0%, ${auroraOpacity.lighter} 100%)`,  // Teal-Blue
-    'linear-gradient(135deg, rgba(237, 66, 100, 0.15) 0%, rgba(255, 184, 0, 0.15) 100%)',   // Pink-Orange
-    'linear-gradient(135deg, rgba(67, 97, 238, 0.15) 0%, rgba(0, 212, 170, 0.15) 100%)',    // Blue-Teal
-    'linear-gradient(135deg, rgba(255, 184, 0, 0.15) 0%, rgba(237, 66, 100, 0.15) 100%)',   // Orange-Pink
-    'linear-gradient(135deg, rgba(118, 75, 162, 0.15) 0%, rgba(67, 97, 238, 0.15) 100%)',   // Violet-Blue
-    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, rgba(0, 212, 170, 0.15) 100%)`,  // Purple-Teal
+    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 100%)`, // Purple-Violet
+    `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.pink, 0.15)} 100%)`,  // Violet-Pink
+    `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.success, 0.15)} 0%, ${auroraOpacity.lighter} 100%)`,  // Teal-Blue
+    `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.pink, 0.15)} 0%, ${hexToRgba('#FFB800', 0.15)} 100%)`,   // Pink-Orange
+    `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.purple, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.success, 0.15)} 100%)`,    // Blue-Teal
+    `linear-gradient(135deg, ${hexToRgba('#FFB800', 0.15)} 0%, ${hexToRgba(tokens.colors.accent.pink, 0.15)} 100%)`,   // Orange-Pink
+    `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.purple, 0.15)} 100%)`,   // Violet-Blue
+    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${hexToRgba(tokens.colors.accent.success, 0.15)} 100%)`,  // Purple-Teal
   ];
 
   return gradients[albumId % gradients.length];
