@@ -4,6 +4,8 @@ import { Search, Close } from '@mui/icons-material';
 import { colors } from '../../theme/auralisTheme';
 import { IconButton } from '@mui/material';
 import { SearchTextField } from '../../components/library/FormFields.styles';
+import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface SearchBarProps {
   value?: string;
@@ -23,7 +25,7 @@ const ClearButton = styled(IconButton)({
 
   '&:hover': {
     color: colors.text.primary,
-    background: 'rgba(102, 126, 234, 0.1)',
+    background: auroraOpacity.ultraLight,
   },
 });
 
@@ -104,7 +106,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 {isSearching && (
                   <CircularProgress
                     size={16}
-                    sx={{ color: colors.text.secondary }}
+                    sx={{ color: tokens.colors.text.secondary }}
                   />
                 )}
 
@@ -139,12 +141,12 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             display: 'block',
             mt: 0.5,
             ml: 2,
-            color: colors.text.disabled,
+            color: tokens.colors.text.disabled,
             fontSize: '11px',
           }}
         >
-          Press <Box component="span" sx={{ fontWeight: 'bold', color: colors.text.secondary }}>/</Box> or{' '}
-          <Box component="span" sx={{ fontWeight: 'bold', color: colors.text.secondary }}>⌘K</Box> to focus
+          Press <Box component="span" sx={{ fontWeight: 'bold', color: tokens.colors.text.secondary }}>/</Box> or{' '}
+          <Box component="span" sx={{ fontWeight: 'bold', color: tokens.colors.text.secondary }}>⌘K</Box> to focus
         </Typography>
       )}
     </Box>
