@@ -2,34 +2,24 @@
  * CozyLibraryView - Main Library View Orchestrator
  *
  * Refactored from 958 lines to focused orchestrator using extracted components:
- * - useLibraryWithStats hook for data fetching and statistics (Phase 4 consolidation)
+ * - useLibraryWithStats hook for data fetching and statistics
  * - LibraryViewRouter for albums/artists navigation
  * - TrackListView for track rendering
  * - LibraryEmptyState for empty states
+ * - useLibraryKeyboardShortcuts for keyboard handling
+ * - LibrarySearchControls for search/filter UI
  *
  * Responsibilities:
  * - Search/filter orchestration
  * - Batch operations coordination
- * - Keyboard shortcuts
  * - Layout and header rendering
  * - Component composition
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Box,
-  Container,
-  IconButton,
-  Paper,
-  Tooltip,
-  Typography
+  Container
 } from '@mui/material';
-import {
-  FolderOpen,
-  Refresh
-} from '@mui/icons-material';
-import SearchBar from './navigation/SearchBar';
-import ViewToggle, { ViewMode } from './navigation/ViewToggle';
 import BatchActionsToolbar from './library/BatchActionsToolbar';
 import EditMetadataDialog from './library/EditMetadataDialog';
 import { useToast } from './shared/Toast';
@@ -40,6 +30,8 @@ import { LibraryViewRouter } from './library/LibraryViewRouter';
 import { TrackListView } from './library/TrackListView';
 import { EmptyState, EmptyLibrary, NoSearchResults } from './shared/EmptyState';
 import { LibraryHeader } from './library/LibraryHeader';
+import LibrarySearchControls from './CozyLibraryView/LibrarySearchControls';
+import { useLibraryKeyboardShortcuts } from './CozyLibraryView/useLibraryKeyboardShortcuts';
 import { tokens } from '@/design-system/tokens';
 
 interface CozyLibraryViewProps {
@@ -115,6 +107,18 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   } = useTrackSelection(filteredTracks);
 
   // ============================================================
+  // KEYBOARD SHORTCUTS
+  // ============================================================
+  useLibraryKeyboardShortcuts({
+    filteredTracksCount: filteredTracks.length,
+    hasSelection,
+    onSelectAll: selectAll,
+    onClearSelection: clearSelection,
+    onSelectAllInfo: info,
+    onClearSelectionInfo: info
+  });
+
+  // ============================================================
   // EFFECTS
   // ============================================================
 
@@ -124,35 +128,6 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
     setSelectedArtistId(null);
     setSelectedArtistName('');
   }, [view]);
-
-  // Keyboard shortcuts (Ctrl+A, Escape)
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement;
-      const isInput = target.tagName.toLowerCase() === 'input' ||
-                     target.tagName.toLowerCase() === 'textarea' ||
-                     target.contentEditable === 'true';
-
-      if (isInput) return;
-
-      // Ctrl/Cmd + A: Select all tracks
-      if ((event.ctrlKey || event.metaKey) && event.key === 'a' && filteredTracks.length > 0) {
-        event.preventDefault();
-        selectAll();
-        info(`Selected all ${filteredTracks.length} tracks`);
-      }
-
-      // Escape: Clear selection
-      if (event.key === 'Escape' && hasSelection) {
-        event.preventDefault();
-        clearSelection();
-        info('Selection cleared');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [filteredTracks, hasSelection, selectAll, clearSelection, info]);
 
   // ============================================================
   // HANDLERS
@@ -292,57 +267,17 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
         <LibraryHeader view={view} />
 
         {/* Search and Controls */}
-        <Paper
-          elevation={2}
-          sx={{
-            p: tokens.spacing.lg,
-            mb: tokens.spacing.xl,
-            background: `${tokens.colors.bg.elevated}80`,
-            backdropFilter: 'blur(10px)',
-            borderRadius: tokens.borderRadius.lg
-          }}
-        >
-          <Box sx={{ display: 'flex', gap: tokens.spacing.md, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Box sx={{ maxWidth: 400, flex: 1 }}>
-              <SearchBar
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Search your music..."
-              />
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
-              <Tooltip title="Scan Folder">
-                <span>
-                  <IconButton
-                    color="primary"
-                    onClick={handleScanFolder}
-                    disabled={scanning}
-                  >
-                    <FolderOpen />
-                  </IconButton>
-                </span>
-              </Tooltip>
-
-              <Tooltip title="Refresh Library">
-                <span>
-                  <IconButton
-                    onClick={() => fetchTracks()}
-                    disabled={loading}
-                  >
-                    <Refresh />
-                  </IconButton>
-                </span>
-              </Tooltip>
-
-              <ViewToggle value={viewMode} onChange={setViewMode} />
-            </Box>
-
-            <Typography variant="body2" color="text.secondary">
-              {filteredTracks.length} songs
-            </Typography>
-          </Box>
-        </Paper>
+        <LibrarySearchControls
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onScanFolder={handleScanFolder}
+          onRefresh={fetchTracks}
+          scanning={scanning}
+          loading={loading}
+          trackCount={filteredTracks.length}
+        />
 
         {/* Track List or Empty State */}
         {filteredTracks.length === 0 && !loading ? (
