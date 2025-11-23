@@ -1,33 +1,44 @@
+/**
+ * PlaylistList Component
+ *
+ * Main orchestration component for playlist management in sidebar.
+ * Handles playlist selection, creation, editing, and deletion with
+ * real-time WebSocket updates.
+ *
+ * Features:
+ * - Collapsible playlist section
+ * - Create/edit/delete playlists
+ * - Context menu with playlist actions
+ * - WebSocket real-time updates
+ * - Drag-and-drop playlist selection
+ *
+ * Uses:
+ * - usePlaylistWebSocket hook for real-time updates
+ * - usePlaylistOperations hook for CRUD operations
+ * - usePlaylistContextActions hook for context menu
+ * - PlaylistListHeader for header section
+ * - PlaylistListContent for list rendering
+ *
+ * Usage:
+ * ```tsx
+ * <PlaylistList
+ *   onPlaylistSelect={handleSelect}
+ *   selectedPlaylistId={selectedId}
+ * />
+ * ```
+ */
+
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  List,
-  ListItemText,
-  Collapse,
-  Tooltip,
-} from '@mui/material';
-import {
-  QueueMusic,
-  Add,
-  ExpandMore,
-  ExpandLess,
-  Delete,
-  Edit,
-} from '@mui/icons-material';
-import { useToast } from '../shared/ui/feedback';
-import { useWebSocketContext } from '../../contexts/WebSocketContext';
-import { useContextMenu, ContextMenu, getPlaylistContextActions } from '../shared/ContextMenu';
 import * as playlistService from '../../services/playlistService';
+import { useContextMenu } from '../shared/ContextMenu';
 import CreatePlaylistDialog from './CreatePlaylistDialog';
 import EditPlaylistDialog from './EditPlaylistDialog';
-import { DroppablePlaylist } from './DroppablePlaylist';
-import {
-  PlaylistSection,
-  SectionHeader,
-  SectionTitle,
-  AddButton,
-  EmptyState,
-} from './PlaylistList.styles';
+import { PlaylistSection } from './PlaylistList.styles';
+import { PlaylistListHeader } from './PlaylistListHeader';
+import { PlaylistListContent } from './PlaylistListContent';
+import { usePlaylistWebSocket } from './usePlaylistWebSocket';
+import { usePlaylistOperations } from './usePlaylistOperations';
+import { usePlaylistContextActions } from './usePlaylistContextActions';
 
 interface PlaylistListProps {
   onPlaylistSelect?: (playlistId: number) => void;
@@ -38,6 +49,7 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
   onPlaylistSelect,
   selectedPlaylistId,
 }) => {
+  // State management
   const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
   const [expanded, setExpanded] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -45,94 +57,50 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
   const [editingPlaylist, setEditingPlaylist] = useState<playlistService.Playlist | null>(null);
   const [contextMenuPlaylist, setContextMenuPlaylist] = useState<playlistService.Playlist | null>(null);
   const [loading, setLoading] = useState(false);
-  const { success, error, info } = useToast();
 
-  // WebSocket connection for real-time updates (using shared WebSocketContext)
-  const { subscribe } = useWebSocketContext();
-
-  // Context menu state
+  // Context menu and utilities
   const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
+
+  // Custom hooks for operations
+  const { fetchPlaylists: fetchPlaylistsAsync, handleDelete } = usePlaylistOperations({
+    selectedPlaylistId,
+    onPlaylistSelect,
+  });
 
   // Load playlists on mount
   useEffect(() => {
-    fetchPlaylists();
-  }, []);
-
-  // Handle WebSocket messages for real-time playlist updates
-  useEffect(() => {
-    console.log('📝 PlaylistList: Setting up WebSocket subscriptions');
-
-    // Subscribe to playlist_created
-    const unsubscribeCreated = subscribe('playlist_created', () => {
-      fetchPlaylists();
-    });
-
-    // Subscribe to playlist_updated
-    const unsubscribeUpdated = subscribe('playlist_updated', (message: any) => {
-      try {
-        setPlaylists((prev) =>
-          prev.map((p) =>
-            p.id === message.data.playlist_id
-              ? { ...p, ...message.data.updates }
-              : p
-          )
-        );
-      } catch (err) {
-        console.error('Error handling playlist_updated:', err);
-      }
-    });
-
-    // Subscribe to playlist_deleted
-    const unsubscribeDeleted = subscribe('playlist_deleted', (message: any) => {
-      try {
-        setPlaylists((prev) =>
-          prev.filter((p) => p.id !== message.data.playlist_id)
-        );
-      } catch (err) {
-        console.error('Error handling playlist_deleted:', err);
-      }
-    });
-
-    // Subscribe to playlist_tracks_added
-    const unsubscribeTracksAdded = subscribe('playlist_tracks_added', () => {
-      fetchPlaylists();
-    });
-
-    // Subscribe to playlist_track_removed
-    const unsubscribeTrackRemoved = subscribe('playlist_track_removed', () => {
-      fetchPlaylists();
-    });
-
-    // Subscribe to playlist_cleared
-    const unsubscribeCleared = subscribe('playlist_cleared', () => {
-      fetchPlaylists();
-    });
-
-    // Cleanup: unsubscribe from all message types
-    return () => {
-      console.log('📝 PlaylistList: Cleaning up WebSocket subscriptions');
-      unsubscribeCreated();
-      unsubscribeUpdated();
-      unsubscribeDeleted();
-      unsubscribeTracksAdded();
-      unsubscribeTrackRemoved();
-      unsubscribeCleared();
-    };
-  }, [subscribe]);
-
-  const fetchPlaylists = async () => {
-    setLoading(true);
-    try {
-      const response = await playlistService.getPlaylists();
-      setPlaylists(response.playlists);
-    } catch (error) {
-      console.error('Failed to load playlists:', error);
-      // Don't show error toast on initial load, just log it
-    } finally {
+    const loadPlaylists = async () => {
+      setLoading(true);
+      const loaded = await fetchPlaylistsAsync();
+      setPlaylists(loaded);
       setLoading(false);
-    }
-  };
+    };
+    loadPlaylists();
+  }, [fetchPlaylistsAsync]);
 
+  // WebSocket subscriptions for real-time updates
+  usePlaylistWebSocket({
+    onPlaylistCreated: async () => {
+      const loaded = await fetchPlaylistsAsync();
+      setPlaylists(loaded);
+    },
+    onPlaylistUpdated: (playlistId, updates) => {
+      setPlaylists((prev) =>
+        prev.map((p) =>
+          p.id === playlistId ? { ...p, ...updates } : p
+        )
+      );
+    },
+    onPlaylistDeleted: (playlistId) => {
+      setPlaylists((prev) => prev.filter((p) => p.id !== playlistId));
+    },
+    onPlaylistsRefresh: async () => {
+      const loaded = await fetchPlaylistsAsync();
+      setPlaylists(loaded);
+    },
+  });
+
+  // Playlist creation handler
   const handlePlaylistCreated = (playlist: playlistService.Playlist) => {
     setPlaylists((prev) => [...prev, playlist]);
     if (onPlaylistSelect) {
@@ -140,29 +108,16 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
     }
   };
 
-  const handleDelete = async (playlistId: number, playlistName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    if (!window.confirm(`Delete playlist "${playlistName}"?`)) {
-      return;
-    }
-
-    try {
-      await playlistService.deletePlaylist(playlistId);
+  // Playlist deletion handler
+  const handleDeleteClick = async (playlistId: number, playlistName: string) => {
+    const deleted = await handleDelete(playlistId, playlistName);
+    if (deleted) {
       setPlaylists((prev) => prev.filter((p) => p.id !== playlistId));
-      success(`Playlist "${playlistName}" deleted`);
-
-      // Clear selection if deleted playlist was selected
-      if (selectedPlaylistId === playlistId && onPlaylistSelect) {
-        onPlaylistSelect(-1);
-      }
-    } catch (err) {
-      error(`Failed to delete playlist: ${err}`);
     }
   };
 
-  const handleEdit = (playlistId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
+  // Playlist edit handler
+  const handleEditClick = (playlistId: number) => {
     const playlist = playlists.find((p) => p.id === playlistId);
     if (playlist) {
       setEditingPlaylist(playlist);
@@ -170,11 +125,13 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
     }
   };
 
-  const handlePlaylistUpdated = () => {
-    // Refresh playlists to get latest data
-    fetchPlaylists();
+  // Playlist updated handler
+  const handlePlaylistUpdated = async () => {
+    const loaded = await fetchPlaylistsAsync();
+    setPlaylists(loaded);
   };
 
+  // Context menu handlers
   const handleContextMenuOpen = (e: React.MouseEvent, playlist: playlistService.Playlist) => {
     e.preventDefault();
     e.stopPropagation();
@@ -188,85 +145,35 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
   };
 
   // Context menu actions
-  const contextActions = contextMenuPlaylist
-    ? getPlaylistContextActions(contextMenuPlaylist.id.toString(), {
-        onPlay: () => {
-          info(`Playing playlist: ${contextMenuPlaylist.name}`);
-          if (onPlaylistSelect) {
-            onPlaylistSelect(contextMenuPlaylist.id);
-          }
-          // TODO: Implement play playlist
-        },
-        onEdit: () => {
-          setEditingPlaylist(contextMenuPlaylist);
-          setEditDialogOpen(true);
-        },
-        onDelete: () => {
-          handleDelete(contextMenuPlaylist.id, contextMenuPlaylist.name, new MouseEvent('click') as any);
-        },
-      })
-    : [];
+  const contextActions = usePlaylistContextActions({
+    playlist: contextMenuPlaylist,
+    onPlaylistSelect,
+    onDelete: handleDeleteClick,
+    onEdit: (playlist) => {
+      setEditingPlaylist(playlist);
+      setEditDialogOpen(true);
+    },
+  });
 
   return (
     <PlaylistSection>
-      <SectionHeader
-        onClick={() => setExpanded(!expanded)}
-        role="button"
-        aria-label={expanded ? 'Collapse playlists' : 'Expand playlists'}
-        aria-expanded={expanded}
-      >
-        <SectionTitle>
-          <QueueMusic sx={{ fontSize: '18px' }} />
-          Playlists ({playlists.length})
-        </SectionTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Tooltip title="Create playlist">
-            <AddButton
-              onClick={(e) => {
-                e.stopPropagation();
-                setCreateDialogOpen(true);
-              }}
-            >
-              <Add />
-            </AddButton>
-          </Tooltip>
-          {expanded ? <ExpandLess /> : <ExpandMore />}
-        </Box>
-      </SectionHeader>
+      <PlaylistListHeader
+        playlistCount={playlists.length}
+        expanded={expanded}
+        onExpandToggle={() => setExpanded(!expanded)}
+        onCreateClick={() => setCreateDialogOpen(true)}
+      />
 
-      <Collapse in={expanded}>
-        <List sx={{ py: 0 }}>
-          {loading ? (
-            <EmptyState>Loading playlists...</EmptyState>
-          ) : playlists.length === 0 ? (
-            <EmptyState>
-              No playlists yet
-              <br />
-              Click + to create one
-            </EmptyState>
-          ) : (
-            playlists.map((playlist) => (
-              <Box key={playlist.id} sx={{ px: 1 }}>
-                <DroppablePlaylist
-                  playlistId={playlist.id}
-                  playlistName={playlist.name}
-                  trackCount={playlist.track_count}
-                  selected={selectedPlaylistId === playlist.id}
-                  onClick={() => onPlaylistSelect && onPlaylistSelect(playlist.id)}
-                  onContextMenu={(e) => handleContextMenuOpen(e, playlist)}
-                />
-              </Box>
-            ))
-          )}
-        </List>
-      </Collapse>
-
-      {/* Context menu */}
-      <ContextMenu
-        anchorPosition={contextMenuState.mousePosition}
-        open={contextMenuState.isOpen}
-        onClose={handleContextMenuClose}
-        actions={contextActions}
+      <PlaylistListContent
+        playlists={playlists}
+        loading={loading}
+        expanded={expanded}
+        selectedPlaylistId={selectedPlaylistId}
+        contextMenuState={contextMenuState}
+        contextActions={contextActions}
+        onPlaylistSelect={onPlaylistSelect}
+        onContextMenuOpen={handleContextMenuOpen}
+        onContextMenuClose={handleContextMenuClose}
       />
 
       <CreatePlaylistDialog
