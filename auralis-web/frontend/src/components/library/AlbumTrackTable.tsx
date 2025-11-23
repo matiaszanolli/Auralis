@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { StyledTableRow, PlayIcon } from './Table.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface Track {
   id: number;
@@ -83,7 +84,7 @@ export const AlbumTrackTable: React.FC<AlbumTrackTableProps> = ({
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {currentTrackId === track.id && isPlaying ? (
-                      <Pause sx={{ fontSize: 20, color: '#667eea' }} />
+                      <Pause sx={{ fontSize: 20, color: tokens.colors.accent.purple }} />
                     ) : (
                       <>
                         <Typography

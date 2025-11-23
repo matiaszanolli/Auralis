@@ -7,6 +7,7 @@
 
 import { Avatar, Box, ListItem, ListItemButton, Typography, styled } from '@mui/material';
 import { colors } from '../../theme/auralisTheme';
+import { tokens } from '@/design-system/tokens';
 
 /**
  * ListContainer - Main container for artist list
@@ -34,12 +35,12 @@ export const StyledListItemButton = styled(ListItemButton)({
   border: '1px solid transparent',
 
   '&:hover': {
-    backgroundColor: 'rgba(102, 126, 234, 0.08)',
-    border: '1px solid rgba(102, 126, 234, 0.3)',
+    backgroundColor: `${tokens.colors.accent.purple}14`,
+    border: `1px solid ${tokens.colors.accent.purple}4d`,
     transform: 'translateX(4px)',
 
     '& .artist-name': {
-      color: '#667eea',
+      color: tokens.colors.accent.purple,
     },
   },
 });
@@ -51,7 +52,7 @@ export const ArtistAvatar = styled(Avatar)({
   width: 56,
   height: 56,
   marginRight: '20px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: `linear-gradient(135deg, ${tokens.colors.accent.purple} 0%, ${tokens.colors.accent.secondary} 100%)`,
   fontSize: '24px',
 });
 
@@ -89,7 +90,7 @@ export const SectionHeader = styled(Box)({
 export const AlphabetDivider = styled(Typography)({
   fontSize: '14px',
   fontWeight: 700,
-  color: '#667eea',
+  color: tokens.colors.accent.purple,
   textTransform: 'uppercase',
   letterSpacing: '1px',
   marginTop: '32px',
