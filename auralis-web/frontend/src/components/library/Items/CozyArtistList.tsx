@@ -13,8 +13,8 @@ import {
   Person
 } from '@mui/material';
 import { ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
-import { useToast } from '../shared/Toast';
-import { EmptyState } from '../shared/EmptyState';
+import { useToast } from '../shared/ui/feedback';
+import { EmptyState } from '../../shared/ui/feedback';
 import { SectionHeader } from '../Styles/ArtistList.styles';
 import { ArtistListLoading } from './ArtistListLoading';
 import { ArtistSection } from './ArtistSection';

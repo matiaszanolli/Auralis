@@ -16,7 +16,7 @@ import {
   Skeleton,
   IconButton,
 } from '@mui/material';
-import { EmptyState } from '../shared/EmptyState';
+import { EmptyState } from '../../shared/ui/feedback';
 import AlbumTrackTable from './AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
 import { useAlbumDetails, Track } from './useAlbumDetails';

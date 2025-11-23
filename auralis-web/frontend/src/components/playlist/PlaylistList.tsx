@@ -14,7 +14,7 @@ import {
   Delete,
   Edit,
 } from '@mui/icons-material';
-import { useToast } from '../shared/Toast';
+import { useToast } from '../shared/ui/feedback';
 import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import { useContextMenu, ContextMenu, getPlaylistContextActions } from '../shared/ContextMenu';
 import * as playlistService from '../../services/playlistService';

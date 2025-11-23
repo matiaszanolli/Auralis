@@ -18,7 +18,7 @@ import * as playlistService from '../../../services/playlistService';
 import CreatePlaylistDialog from '../../playlist/CreatePlaylistDialog';
 import { PlaylistSection } from './PlaylistSection';
 import { ContextMenuAction } from './contextMenuActions';
-import { useToast } from '../Toast';
+import { useToast } from '../ui/feedback';
 import { cardShadows } from '../../library/Shadow.styles';
 import { radiusMedium, radiusSmall } from '../../library/BorderRadius.styles';
 import { spacingXSmall, spacingXMedium } from '../../library/Spacing.styles';

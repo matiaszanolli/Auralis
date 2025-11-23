@@ -22,13 +22,13 @@ import {
 } from '@mui/material';
 import BatchActionsToolbar from './library/BatchActionsToolbar';
 import EditMetadataDialog from './library/EditMetadataDialog';
-import { useToast } from './shared/Toast';
+import { useToast } from './shared/ui/feedback';
 import { usePlayerAPI } from '../hooks/usePlayerAPI';
 import { useTrackSelection } from '../hooks/useTrackSelection';
 import { useLibraryWithStats, Track } from '../hooks/useLibraryWithStats';
 import { LibraryViewRouter } from './library/LibraryViewRouter';
 import { TrackListView } from './library/TrackListView';
-import { EmptyState, EmptyLibrary, NoSearchResults } from './shared/EmptyState';
+import { EmptyState, EmptyLibrary, NoSearchResults } from '../shared/ui/feedback';
 import { LibraryHeader } from './library/LibraryHeader';
 import LibrarySearchControls from './CozyLibraryView/LibrarySearchControls';
 import { useLibraryKeyboardShortcuts } from './CozyLibraryView/useLibraryKeyboardShortcuts';

@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { Box, styled } from '@mui/material';
-import { ProgressiveImage } from '../shared/ProgressiveImage';
+import { ProgressiveImage } from '../shared/ui/media';
 import { auroraOpacity } from '../library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
