@@ -20,7 +20,6 @@ import {
   Memory,
   TrendingUp
 } from '@mui/icons-material';
-import { colors, gradients } from '../theme/auralisTheme';
 import { tokens } from '@/design-system/tokens';
 
 interface ProcessingStats {

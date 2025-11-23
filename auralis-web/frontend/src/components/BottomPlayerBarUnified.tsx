@@ -45,7 +45,6 @@ import {
   FavoriteOutlined
 } from '@mui/icons-material';
 import { Slider } from '@mui/material';
-import { colors } from '../theme/auralisTheme';
 import { useToast } from './shared/Toast';
 import { usePlayerWithAudio } from '../hooks/usePlayerWithAudio';
 import { auroraOpacity } from './library/Color.styles';
