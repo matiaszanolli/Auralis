@@ -34,13 +34,13 @@ interface PlayerBarV2Props {
     queue?: any[];
     queueIndex?: number;
   };
-  onPlay: () => void;
+  onPlay: () => void | Promise<void>;
   onPause: () => void;
-  onSeek: (time: number) => void;
+  onSeek: (time: number) => void | Promise<void>;
   onVolumeChange: (volume: number) => void;
-  onEnhancementToggle: () => void;
-  onPrevious: () => void;
-  onNext: () => void;
+  onEnhancementToggle: () => void | Promise<void>;
+  onPrevious: () => void | Promise<void>;
+  onNext: () => void | Promise<void>;
 }
 
 /**

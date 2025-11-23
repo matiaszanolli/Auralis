@@ -11,12 +11,7 @@
 
 import { useEffect } from 'react';
 import type { UseUnifiedWebMAudioPlayerResult } from './useUnifiedWebMAudioPlayer';
-
-export interface EnhancementSettings {
-  enabled: boolean;
-  preset: string;
-  intensity: number;
-}
+import type { EnhancementSettings } from '@/contexts/EnhancementContext';
 
 interface EnhancementSyncOptions {
   player: UseUnifiedWebMAudioPlayerResult;

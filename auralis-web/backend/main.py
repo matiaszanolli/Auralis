@@ -14,9 +14,11 @@ Replaces the Tkinter GUI with a professional web interface.
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from pydantic import BaseModel
+from starlette.requests import Request
 import uvicorn
 import asyncio
 import json
@@ -93,6 +95,22 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc"
 )
+
+# Cache-busting middleware for development
+# Only applies to frontend static files, NOT API responses
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        # Only disable caching for frontend static files (not API endpoints)
+        # API streaming responses must NOT have cache-control headers modified
+        if not request.url.path.startswith('/api') and not request.url.path.startswith('/ws'):
+            if request.url.path.endswith(('.html', '.js', '.tsx', '.jsx')) or request.url.path == '/':
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+        return response
+
+app.add_middleware(NoCacheMiddleware)
 
 # CORS middleware for cross-origin requests
 # Allow multiple dev server ports since Vite auto-increments if port is in use
