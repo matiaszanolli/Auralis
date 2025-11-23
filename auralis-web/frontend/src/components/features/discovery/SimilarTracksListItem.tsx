@@ -41,7 +41,7 @@ export const SimilarTracksListItem: React.FC<SimilarTracksListItemProps> = ({
             px: 2,
             py: 1.5,
             '&:hover': {
-              backgroundColor: auroraOpacity.veryLight
+              backgroundColor: 'rgba(102, 126, 234, 0.08)'
             }
           }}
         >
@@ -100,7 +100,7 @@ export const SimilarTracksListItem: React.FC<SimilarTracksListItemProps> = ({
         </ListItemButton>
       </ListItem>
       {index < totalCount - 1 && (
-        <Divider sx={{ borderColor: auroraOpacity.ultraLight }} />
+        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.05)' }} />
       )}
     </>
   );
