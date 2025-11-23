@@ -12,7 +12,6 @@ import {
   Album as AlbumIcon,
   Person,
 } from '@mui/icons-material';
-import { colors } from '../../theme/auralisTheme';
 import { cardShadows } from '../library/Shadow.styles';
 import { radiusMedium, radiusSmall } from '../library/BorderRadius.styles';
 import { spacingXSmall, spacingXMedium } from '../library/Spacing.styles';
@@ -38,7 +37,7 @@ interface ContextMenuProps {
 
 const StyledMenu = styled(Menu)({
   '& .MuiPaper-root': {
-    background: colors.background.secondary,
+    background: tokens.colors.bg.secondary,
     border: `1px solid ${auroraOpacity.standard}`,
     boxShadow: cardShadows.dropdownDark,
     borderRadius: radiusMedium,
@@ -53,7 +52,7 @@ const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructiv
   padding: `${spacingXMedium} ${spacingXMedium}`,
   margin: `${spacingXSmall} 0`,
   fontSize: '14px',
-  color: destructive ? tokens.colors.accent.error : colors.text.primary,
+  color: destructive ? tokens.colors.accent.error : tokens.colors.text.primary,
   transition: 'all 0.2s ease',
 
   '&:hover': {
@@ -63,12 +62,12 @@ const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructiv
   },
 
   '&.Mui-disabled': {
-    color: colors.text.disabled,
+    color: tokens.colors.text.disabled,
     opacity: 0.5,
   },
 
   '& .MuiListItemIcon-root': {
-    color: destructive ? tokens.colors.accent.error : colors.text.secondary,
+    color: destructive ? tokens.colors.accent.error : tokens.colors.text.secondary,
     minWidth: 36,
   },
 }));
