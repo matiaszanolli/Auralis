@@ -21,7 +21,8 @@
  * @license GPLv3
  */
 
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
+import { useAudioPolicyBridge } from './useAudioPolicyBridge';
 
 interface HiddenAudioElementProps {
   /** Called when audio context should be enabled (user gesture received) */
@@ -38,92 +39,9 @@ interface HiddenAudioElementProps {
  */
 export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
   onAudioContextEnabled,
-  debug = false
+  debug = false,
 }) => {
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  const log = (msg: string) => {
-    if (debug) {
-      console.log(`[HiddenAudioElement] ${msg}`);
-    }
-  };
-
-  /**
-   * Initialize audio element and handle user gestures
-   */
-  useEffect(() => {
-    const audioElement = audioRef.current;
-    if (!audioElement) return;
-
-    // Set up CORS for potential remote streaming
-    audioElement.crossOrigin = 'anonymous';
-
-    // Configure for silent operation (used for policy only)
-    audioElement.muted = true;
-    audioElement.playsInline = true;
-    audioElement.preload = 'none';
-
-    log('Audio element configured');
-
-    // Handle play attempt (satisfies browser autoplay policy)
-    const handlePlay = async () => {
-      log('Play gesture detected - audio context may now play');
-      if (onAudioContextEnabled) {
-        onAudioContextEnabled();
-      }
-    };
-
-    // Handle pause (cleanup)
-    const handlePause = () => {
-      log('Audio paused');
-    };
-
-    audioElement.addEventListener('play', handlePlay);
-    audioElement.addEventListener('pause', handlePause);
-
-    return () => {
-      audioElement.removeEventListener('play', handlePlay);
-      audioElement.removeEventListener('pause', handlePause);
-    };
-  }, [onAudioContextEnabled, debug]);
-
-  /**
-   * Expose trigger method globally after component mounts
-   */
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).__auralisAudioElementTriggerPlay = triggerPlay;
-      log('Audio play gesture trigger registered globally');
-
-      return () => {
-        // Cleanup if component unmounts
-        delete (window as any).__auralisAudioElementTriggerPlay;
-      };
-    }
-  }, []);
-
-  /**
-   * Trigger play (this satisfies browser autoplay policy)
-   * Call this from user gesture handlers (click, etc.)
-   */
-  const triggerPlay = () => {
-    if (audioRef.current) {
-      log('Triggering play gesture...');
-      const playPromise = audioRef.current.play();
-
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            log('Play gesture accepted');
-            // Immediately pause - we don't actually play audio here
-            audioRef.current?.pause();
-          })
-          .catch((err: any) => {
-            log(`Play gesture rejected: ${err.message}`);
-          });
-      }
-    }
-  };
+  const { audioRef } = useAudioPolicyBridge({ onAudioContextEnabled, debug });
 
   return (
     <>
