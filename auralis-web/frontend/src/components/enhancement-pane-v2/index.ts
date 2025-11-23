@@ -7,7 +7,6 @@
 
 export { default } from './EnhancementPaneV2';
 export { default as EnhancementPaneV2 } from './EnhancementPaneV2';
-export { default as EnhancementToggle } from './EnhancementToggle';
 export { default as AudioCharacteristics } from './AudioCharacteristics';
 export { default as ProcessingParameters } from './ProcessingParameters';
 export { default as ParameterBar } from './ParameterBar';

@@ -16,22 +16,22 @@
  * - Component composition
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Container
-} from '@mui/material';
-import BatchActionsToolbar from './library/BatchActionsToolbar';
-import EditMetadataDialog from './library/EditMetadataDialog';
-import { useToast } from './shared/ui/feedback';
-import { usePlayerAPI } from '../hooks/usePlayerAPI';
-import { useTrackSelection } from '../hooks/useTrackSelection';
-import { useLibraryWithStats, Track } from '../hooks/useLibraryWithStats';
+import React, { useState, useMemo } from 'react';
+import { Container } from '@mui/material';
+import BatchActionsToolbar from './Controls/BatchActionsToolbar';
+import EditMetadataDialog from './EditMetadataDialog/EditMetadataDialog';
+import { useTrackSelection } from '../../hooks/useTrackSelection';
+import { useLibraryWithStats, Track } from '../../hooks/useLibraryWithStats';
 import { LibraryViewRouter } from './library/LibraryViewRouter';
 import { TrackListView } from './library/TrackListView';
 import { EmptyState, EmptyLibrary, NoSearchResults } from '../shared/ui/feedback';
 import { LibraryHeader } from './library/LibraryHeader';
 import LibrarySearchControls from './CozyLibraryView/LibrarySearchControls';
 import { useLibraryKeyboardShortcuts } from './CozyLibraryView/useLibraryKeyboardShortcuts';
+import { useBatchOperations } from './useBatchOperations';
+import { useNavigationState } from './useNavigationState';
+import { useMetadataEditing } from './useMetadataEditing';
+import { usePlaybackState } from './usePlaybackState';
 import { tokens } from '@/design-system/tokens';
 
 interface CozyLibraryViewProps {
@@ -44,7 +44,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   view = 'songs'
 }) => {
   // ============================================================
-  // DATA LAYER - Extracted to useLibraryData hook
+  // DATA LAYER
   // ============================================================
   const {
     tracks,
@@ -56,32 +56,13 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
     fetchTracks,
     loadMore,
     handleScanFolder,
-    // New composition hook provides stats too (optional)
-    stats,
-    statsLoading
-  } = useLibraryWithStats({ view, includeStats: false }); // Disable stats by default for performance
+  } = useLibraryWithStats({ view, includeStats: false });
 
   // ============================================================
   // LOCAL UI STATE
   // ============================================================
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [currentTrackId, setCurrentTrackId] = useState<number | undefined>(undefined);
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  // Navigation state
-  const [selectedAlbumId, setSelectedAlbumId] = useState<number | null>(null);
-  const [selectedArtistId, setSelectedArtistId] = useState<number | null>(null);
-  const [selectedArtistName, setSelectedArtistName] = useState<string>('');
-
-  // Metadata editing
-  const [editMetadataDialogOpen, setEditMetadataDialogOpen] = useState(false);
-  const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
-
-  const { success, error, info } = useToast();
-
-  // Real player API for playback
-  const { playTrack } = usePlayerAPI();
+  const [viewMode, setViewMode] = useState<string>('grid');
 
   // Filtered tracks (search)
   const filteredTracks = useMemo(() => {
@@ -106,108 +87,57 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
     hasSelection
   } = useTrackSelection(filteredTracks);
 
-  // ============================================================
-  // KEYBOARD SHORTCUTS
-  // ============================================================
+  // Navigation state
+  const {
+    selectedAlbumId,
+    selectedArtistId,
+    selectedArtistName,
+    handleBackFromAlbum,
+    handleBackFromArtist,
+    handleAlbumClick,
+    handleArtistClick,
+  } = useNavigationState({ view });
+
+  // Playback state and handlers
+  const {
+    currentTrackId,
+    isPlaying,
+    handlePlayTrack,
+    handlePause,
+  } = usePlaybackState(onTrackPlay);
+
+  // Metadata editing
+  const {
+    editMetadataDialogOpen,
+    editingTrackId,
+    handleEditMetadata,
+    handleCloseEditDialog,
+    handleSaveMetadata,
+  } = useMetadataEditing(fetchTracks);
+
+  // Batch operations
+  const {
+    handleBulkAddToQueue,
+    handleBulkAddToPlaylist,
+    handleBulkRemove,
+    handleBulkToggleFavorite,
+  } = useBatchOperations({
+    selectedTracks,
+    selectedCount,
+    view,
+    onFetchTracks: fetchTracks,
+    onClearSelection: clearSelection,
+  });
+
+  // Keyboard shortcuts
   useLibraryKeyboardShortcuts({
     filteredTracksCount: filteredTracks.length,
     hasSelection,
     onSelectAll: selectAll,
     onClearSelection: clearSelection,
-    onSelectAllInfo: info,
-    onClearSelectionInfo: info
+    onSelectAllInfo: () => {},
+    onClearSelectionInfo: () => {}
   });
-
-  // ============================================================
-  // EFFECTS
-  // ============================================================
-
-  // Reset navigation state when view changes
-  useEffect(() => {
-    setSelectedAlbumId(null);
-    setSelectedArtistId(null);
-    setSelectedArtistName('');
-  }, [view]);
-
-  // ============================================================
-  // HANDLERS
-  // ============================================================
-
-  // Track playback
-  const handlePlayTrack = async (track: Track) => {
-    await playTrack(track);
-    setCurrentTrackId(track.id);
-    setIsPlaying(true);
-    success(`Now playing: ${track.title}`);
-    onTrackPlay?.(track);
-  };
-
-  // Metadata editing
-  const handleEditMetadata = (trackId: number) => {
-    setEditingTrackId(trackId);
-    setEditMetadataDialogOpen(true);
-  };
-
-  // Batch operations
-  const handleBulkAddToQueue = async () => {
-    try {
-      const selectedTrackIds = Array.from(selectedTracks);
-      for (const trackId of selectedTrackIds) {
-        await fetch('/api/player/queue/add-track', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ track_id: trackId })
-        });
-      }
-      success(`Added ${selectedCount} tracks to queue`);
-      clearSelection();
-    } catch (err) {
-      error('Failed to add tracks to queue');
-    }
-  };
-
-  const handleBulkAddToPlaylist = async () => {
-    info('Bulk add to playlist - Coming soon!');
-  };
-
-  const handleBulkRemove = async () => {
-    if (!confirm(`Remove ${selectedCount} tracks?`)) {
-      return;
-    }
-
-    try {
-      if (view === 'favourites') {
-        for (const trackId of selectedTracks) {
-          await fetch(`/api/library/tracks/${trackId}/favorite`, {
-            method: 'DELETE'
-          });
-        }
-        success(`Removed ${selectedCount} tracks from favorites`);
-      } else {
-        info('Bulk delete from library requires API implementation');
-      }
-
-      clearSelection();
-      await fetchTracks();
-    } catch (err) {
-      error('Failed to remove tracks');
-    }
-  };
-
-  const handleBulkToggleFavorite = async () => {
-    try {
-      for (const trackId of selectedTracks) {
-        await fetch(`/api/library/tracks/${trackId}/favorite`, {
-          method: 'POST'
-        });
-      }
-      success(`Toggled favorite for ${selectedCount} tracks`);
-      clearSelection();
-      await fetchTracks();
-    } catch (err) {
-      error('Failed to toggle favorites');
-    }
-  };
 
   // ============================================================
   // RENDER - View Routing
@@ -224,20 +154,10 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
         selectedArtistName={selectedArtistName}
         currentTrackId={currentTrackId}
         isPlaying={isPlaying}
-        onBackFromAlbum={() => {
-          setSelectedAlbumId(null);
-          // If we came from artist view, stay in artist detail
-          // (selectedArtistId will still be set)
-        }}
-        onBackFromArtist={() => {
-          setSelectedArtistId(null);
-          setSelectedArtistName('');
-        }}
-        onAlbumClick={setSelectedAlbumId}
-        onArtistClick={(id, name) => {
-          setSelectedArtistId(id);
-          setSelectedArtistName(name);
-        }}
+        onBackFromAlbum={handleBackFromAlbum}
+        onBackFromArtist={handleBackFromArtist}
+        onAlbumClick={handleAlbumClick}
+        onArtistClick={handleArtistClick}
         onTrackPlay={handlePlayTrack}
       />
     );
@@ -312,7 +232,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
             isSelected={isSelected}
             onToggleSelect={toggleTrack}
             onTrackPlay={handlePlayTrack}
-            onPause={() => setIsPlaying(false)}
+            onPause={handlePause}
             onEditMetadata={handleEditMetadata}
             onLoadMore={loadMore}
           />
@@ -323,14 +243,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
           <EditMetadataDialog
             open={editMetadataDialogOpen}
             trackId={editingTrackId}
-            onClose={() => {
-              setEditMetadataDialogOpen(false);
-              setEditingTrackId(null);
-            }}
-            onSave={async () => {
-              success('Metadata updated successfully');
-              await fetchTracks();
-            }}
+            onClose={handleCloseEditDialog}
+            onSave={handleSaveMetadata}
           />
         )}
       </Container>
