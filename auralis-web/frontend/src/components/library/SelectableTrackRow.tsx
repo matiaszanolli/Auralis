@@ -20,6 +20,7 @@ import React from 'react';
 import { Box, Checkbox, styled } from '@mui/material';
 import TrackRow from './TrackRow';
 import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface Track {
   id: number;
@@ -62,7 +63,7 @@ const SelectableContainer = styled(Box, {
   transition: 'all 0.2s ease',
   cursor: 'pointer',
   '&:hover': {
-    backgroundColor: isSelected ? auroraOpacity.standard : 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: isSelected ? auroraOpacity.standard : auroraOpacity.ultraLight,
     '& .selection-checkbox': {
       opacity: 1,
     },
@@ -70,11 +71,11 @@ const SelectableContainer = styled(Box, {
 }));
 
 const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
-  color: 'rgba(255, 255, 255, 0.3)',
+  color: auroraOpacity.lighter,
   opacity: 0,
   transition: 'opacity 0.2s ease',
   '&.Mui-checked': {
-    color: '#667eea',
+    color: tokens.colors.accent.purple,
     opacity: 1,
   },
   '&.visible': {
