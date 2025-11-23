@@ -6,6 +6,7 @@ import {
   useTheme,
 } from '@mui/material';
 import Sidebar from '../Sidebar';
+import { auroraOpacity } from '../library/Color.styles';
 
 /**
  * Props for the AppSidebar component.
@@ -124,7 +125,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           sx: {
             width: 240,
             background: 'var(--midnight-blue)',
-            borderRight: '1px solid rgba(102, 126, 234, 0.1)',
+            borderRight: `1px solid ${auroraOpacity.veryLight}`,
           },
         }}
       >
