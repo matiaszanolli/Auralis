@@ -6,24 +6,32 @@
  *
  * Features:
  * - Position tracking for cursor location
- * - Dynamic action rendering
- * - Playlist integration (optional)
+ * - Dynamic action rendering with dividers
+ * - Playlist integration (optional, for tracks)
  * - Destructive action styling
  * - Outside-click dismissal
+ *
+ * Usage:
+ * ```tsx
+ * <ContextMenu
+ *   open={isOpen}
+ *   actions={contextActions}
+ *   anchorPosition={{ top: e.clientY, left: e.clientX }}
+ *   onClose={handleClose}
+ *   trackId={trackId}
+ *   onAddToPlaylist={addToPlaylist}
+ * />
+ * ```
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, MenuItem, ListItemIcon, ListItemText, Divider, styled } from '@mui/material';
 import * as playlistService from '../../../services/playlistService';
 import CreatePlaylistDialog from '../../playlist/CreatePlaylistDialog';
 import { PlaylistSection } from './PlaylistSection';
 import { ContextMenuAction } from './contextMenuActions';
-import { useToast } from '../ui/feedback';
-import { cardShadows } from '../../library/Shadow.styles';
-import { radiusMedium, radiusSmall } from '../../library/BorderRadius.styles';
-import { spacingXSmall, spacingXMedium } from '../../library/Spacing.styles';
-import { auroraOpacity } from '../../library/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { StyledMenu } from './ContextMenu.styles';
+import { ContextMenuActions } from './ContextMenuActions';
+import { usePlaylistActions } from './usePlaylistActions';
 
 export interface ContextMenuProps {
   open: boolean;
@@ -40,49 +48,6 @@ export interface ContextMenuProps {
   onCreatePlaylist?: (playlist: playlistService.Playlist) => Promise<void>;
 }
 
-// ============================================================================
-// Styled Components
-// ============================================================================
-
-const StyledMenu = styled(Menu)({
-  '& .MuiPaper-root': {
-    background: tokens.colors.bg.secondary,
-    border: `1px solid ${auroraOpacity.standard}`,
-    boxShadow: cardShadows.dropdownDark,
-    borderRadius: radiusMedium,
-    minWidth: '220px',
-    padding: spacingXSmall,
-    backdropFilter: 'blur(12px)',
-  },
-});
-
-const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructive }) => ({
-  borderRadius: radiusSmall,
-  padding: `${spacingXMedium} ${spacingXMedium}`,
-  margin: `${spacingXSmall} 0`,
-  fontSize: '14px',
-  color: destructive ? tokens.colors.accent.error : tokens.colors.text.primary,
-  transition: 'all 0.2s ease',
-
-  '&:hover': {
-    background: destructive ? auroraOpacity.ultraLight : auroraOpacity.lighter,
-  },
-
-  '&.Mui-disabled': {
-    color: tokens.colors.text.disabled,
-    opacity: 0.5,
-  },
-
-  '& .MuiListItemIcon-root': {
-    color: destructive ? tokens.colors.accent.error : tokens.colors.text.secondary,
-    minWidth: 36,
-  },
-}));
-
-// ============================================================================
-// Main Component
-// ============================================================================
-
 export const ContextMenu: React.FC<ContextMenuProps> = ({
   open,
   anchorPosition,
@@ -98,7 +63,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const { success, error } = useToast();
 
   // Load playlists when menu opens (if trackId provided)
   useEffect(() => {
@@ -121,30 +85,20 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     }
   }, [open, onClose]);
 
-  const handleAddToPlaylist = async (playlistId: number, playlistName: string) => {
-    if (!onAddToPlaylist) return;
-    try {
-      await onAddToPlaylist(playlistId, playlistName);
-      success(`Added to "${playlistName}"`);
-      onClose();
-    } catch (err) {
-      error(`Failed to add to playlist: ${err}`);
-    }
-  };
+  const {
+    handleAddToPlaylist,
+    handleCreateNewPlaylist,
+    handlePlaylistCreated,
+  } = usePlaylistActions({
+    onAddToPlaylist,
+    onCreatePlaylist,
+    onClose,
+    onCreateDialogOpen: () => setCreateDialogOpen(true),
+  });
 
-  const handleCreateNewPlaylist = () => {
+  const handleActionClick = (action: ContextMenuAction) => {
+    action.onClick();
     onClose();
-    setCreateDialogOpen(true);
-  };
-
-  const handlePlaylistCreated = async (playlist: playlistService.Playlist) => {
-    if (!onCreatePlaylist) return;
-    try {
-      await onCreatePlaylist(playlist);
-      success(`Added to "${playlist.name}"`);
-    } catch (err) {
-      error(`Failed to add to playlist: ${err}`);
-    }
   };
 
   const showPlaylistSection = trackId && (playlists.length > 0 || onAddToPlaylist);
@@ -159,25 +113,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         anchorPosition={anchorPosition}
         transitionDuration={200}
       >
-        {/* Main Actions */}
-        {actions.map((action, index) => (
-          <React.Fragment key={action.id}>
-            {action.divider && index > 0 && (
-              <Divider sx={{ borderColor: auroraOpacity.minimal, my: 1 }} />
-            )}
-            <StyledMenuItem
-              onClick={() => {
-                action.onClick();
-                onClose();
-              }}
-              disabled={action.disabled}
-              destructive={action.destructive}
-            >
-              {action.icon && <ListItemIcon>{action.icon}</ListItemIcon>}
-              <ListItemText>{action.label}</ListItemText>
-            </StyledMenuItem>
-          </React.Fragment>
-        ))}
+        <ContextMenuActions
+          actions={actions}
+          onActionClick={handleActionClick}
+        />
 
         {/* Playlist Section (only for track context menus with trackId) */}
         {showPlaylistSection && (
