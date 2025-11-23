@@ -21,7 +21,6 @@ import {
   Edit,
   Delete,
 } from '@mui/icons-material';
-import { colors, borderRadius, spacing, transitions } from '../../theme/auralisTheme';
 import { useToast } from './Toast';
 import * as playlistService from '../../services/playlistService';
 import CreatePlaylistDialog from '../playlist/CreatePlaylistDialog';
@@ -48,31 +47,31 @@ interface TrackContextMenuProps {
 
 const StyledMenu = styled(Menu)({
   '& .MuiPaper-root': {
-    background: colors.background.secondary,
+    background: tokens.colors.bg.secondary,
     border: `1px solid ${auroraOpacity.standard}`,
-    borderRadius: `${borderRadius.sm}px`,
+    borderRadius: `${tokens.spacing.sm}`,
     minWidth: '240px',
     boxShadow: '0 12px 48px rgba(0, 0, 0, 0.5)',
     backdropFilter: 'blur(12px)',
-    padding: `${spacing.xs}px`,
+    padding: `${tokens.spacing.xs}`,
   },
 });
 
 const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructive }) => ({
   fontSize: '14px',
-  color: destructive ? tokens.colors.accent.error : colors.text.primary,
-  padding: `${spacing.sm + 2}px ${spacing.md - 4}px`,
-  borderRadius: `${borderRadius.xs}px`,
-  margin: `${spacing.xs}px 0`,
-  transition: `all ${transitions.fast}`,
+  color: destructive ? tokens.colors.accent.error : tokens.colors.text.primary,
+  padding: `calc(${tokens.spacing.sm} + 2px) calc(${tokens.spacing.md} - 4px)`,
+  borderRadius: `${tokens.spacing.xs}`,
+  margin: `${tokens.spacing.xs} 0`,
+  transition: 'all 150ms ease',
   '&:hover': {
     background: destructive ? auroraOpacity.ultraLight : auroraOpacity.lighter,
     transform: 'translateX(2px)',
   },
   '& .MuiListItemIcon-root': {
-    color: destructive ? tokens.colors.accent.error : colors.text.secondary,
+    color: destructive ? tokens.colors.accent.error : tokens.colors.text.secondary,
     minWidth: 36,
-    transition: `color ${transitions.fast}`,
+    transition: 'color 150ms ease',
   },
   '&:hover .MuiListItemIcon-root': {
     color: destructive ? tokens.colors.accent.error : tokens.colors.accent.purple,
@@ -81,12 +80,12 @@ const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructiv
 
 const PlaylistMenuItem = styled(MenuItem)({
   fontSize: '13px',
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   padding: '8px 16px 8px 48px',
   transition: 'all 0.2s ease',
   '&:hover': {
     background: auroraOpacity.veryLight,
-    color: colors.text.primary,
+    color: tokens.colors.text.primary,
     transform: 'translateX(2px)',
   },
 });
@@ -106,7 +105,7 @@ const CreateNewMenuItem = styled(MenuItem)({
 const SectionLabel = styled(Box)({
   fontSize: '11px',
   fontWeight: 600,
-  color: colors.text.disabled,
+  color: tokens.colors.text.disabled,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   padding: '8px 16px 4px 16px',
