@@ -13,6 +13,7 @@ import {
 import { colors, gradients } from '../../../theme/auralisTheme';
 import { usePlayerAPI } from '../../../hooks/usePlayerAPI';
 import { auroraOpacity } from '../../library/Color.styles';
+import { tokens } from '../../../design-system/tokens';
 
 interface LyricsPanelProps {
   trackId: number | null;
@@ -201,7 +202,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({ trackId, onClose }) =>
     <PanelContainer>
       <Header>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <MusicNoteIcon sx={{ color: '#667eea', fontSize: 20 }} />
+          <MusicNoteIcon sx={{ color: tokens.colors.accent.purple, fontSize: 20 }} />
           <Typography variant="h6" sx={{ fontSize: '16px', fontWeight: 600 }}>
             Lyrics
           </Typography>
@@ -214,7 +215,7 @@ export const LyricsPanel: React.FC<LyricsPanelProps> = ({ trackId, onClose }) =>
       <LyricsContainer ref={lyricsContainerRef}>
         {loading && (
           <EmptyState>
-            <CircularProgress size={40} sx={{ color: '#667eea' }} />
+            <CircularProgress size={40} sx={{ color: tokens.colors.accent.purple }} />
             <Typography sx={{ mt: 2, color: colors.text.secondary }}>
               Loading lyrics...
             </Typography>
