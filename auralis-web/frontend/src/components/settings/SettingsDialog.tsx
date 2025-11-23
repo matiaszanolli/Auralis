@@ -31,6 +31,8 @@ import {
 } from '@mui/icons-material';
 import { settingsService, UserSettings, SettingsUpdate } from '../../services/settingsService';
 import { StyledDialog, StyledDialogTitle, StyledTabs, SectionContainer, SectionLabel, SectionDescription } from '../library/Dialog.styles';
+import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -225,7 +227,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 )}
                 {getValue('scan_folders').map((folder: string, index: number) => (
                   <ListItem key={index} sx={{ px: 0, py: 1 }}>
-                    <FolderIcon sx={{ mr: 2, color: '#667eea' }} />
+                    <FolderIcon sx={{ mr: 2, color: tokens.colors.accent.purple }} />
                     <ListItemText
                       primary={folder}
                       primaryTypographyProps={{ fontSize: '0.9rem' }}
@@ -256,11 +258,11 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
                 onClick={handleAddScanFolder}
                 variant="outlined"
                 sx={{
-                  borderColor: '#667eea',
-                  color: '#667eea',
+                  borderColor: tokens.colors.accent.purple,
+                  color: tokens.colors.accent.purple,
                   '&:hover': {
-                    borderColor: '#5568d3',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)'
+                    borderColor: tokens.colors.accent.purple,
+                    backgroundColor: auroraOpacity.standard
                   }
                 }}
               >
@@ -626,7 +628,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
         )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+      <DialogActions sx={{ p: 2, borderTop: `1px solid ${auroraOpacity.ultraLight}` }}>
         <Button onClick={handleReset} startIcon={<ResetIcon />} color="error">
           Reset to Defaults
         </Button>
@@ -635,9 +637,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose, o
           Cancel
         </Button>
         <Button onClick={handleSave} variant="contained" sx={{
-          background: 'linear-gradient(45deg, #667eea, #764ba2)',
+          background: `linear-gradient(45deg, ${tokens.colors.accent.purple}, ${tokens.colors.accent.secondary})`,
           '&:hover': {
-            background: 'linear-gradient(45deg, #5568d3, #6a3f8f)'
+            background: `linear-gradient(45deg, ${tokens.colors.accent.purple}, ${tokens.colors.accent.secondary})`
           }
         }}>
           Save Changes
