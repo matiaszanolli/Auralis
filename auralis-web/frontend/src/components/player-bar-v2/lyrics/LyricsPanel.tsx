@@ -10,9 +10,8 @@ import {
   Close as CloseIcon,
   MusicNote as MusicNoteIcon
 } from '@mui/icons-material';
-import { colors, gradients } from '../../../theme/auralisTheme';
+import { gradients, auroraOpacity } from '../../library/Color.styles';
 import { usePlayerAPI } from '../../../hooks/usePlayerAPI';
-import { auroraOpacity } from '../../library/Color.styles';
 import { tokens } from '../../../design-system/tokens';
 
 interface LyricsPanelProps {
@@ -28,7 +27,7 @@ interface LRCLine {
 const PanelContainer = styled(Box)({
   width: '320px',
   height: '100%',
-  background: colors.background.secondary,
+  background: tokens.colors.bg.secondary,
   borderLeft: `1px solid ${auroraOpacity.veryLight}`,
   display: 'flex',
   flexDirection: 'column',
