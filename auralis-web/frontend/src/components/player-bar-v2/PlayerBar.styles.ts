@@ -8,10 +8,9 @@
  */
 
 import { Box, IconButton, styled } from '@mui/material';
-import { gradients } from '../../theme/auralisTheme';
+import { gradients, auroraOpacity } from '../library/Color.styles';
 import { compoundShadows } from '../library/Shadow.styles';
 import { radiusMedium } from '../library/BorderRadius.styles';
-import { auroraOpacity } from '../library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 /**
