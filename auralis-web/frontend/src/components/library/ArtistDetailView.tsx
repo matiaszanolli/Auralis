@@ -2,39 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
-  Typography,
-  IconButton,
   Button,
-  Grid,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Skeleton,
   Tab,
-  Paper,
+  IconButton
 } from '@mui/material';
-import {
-  ArrowBack,
-  PlayArrow,
-  Pause,
-  Shuffle,
-  MoreVert
-} from '@mui/icons-material';
-import AlbumArt from '../album/AlbumArt';
+import { ArrowBack } from '@mui/icons-material';
 import { EmptyState } from '../shared/EmptyState';
-import DetailViewHeader from './DetailViewHeader';
-import { PlayButton, ShuffleButton } from './Button.styles';
-import { StyledTableRow, PlayIcon } from './Table.styles';
-import {
-  AlbumCard,
-  AlbumTitle,
-  AlbumInfo,
-  StyledTabs,
-  ArtistAvatarCircle,
-  TracksTableContainer,
-} from './ArtistDetail.styles';
+import { StyledTabs } from './ArtistDetail.styles';
+import ArtistHeader from './ArtistHeader';
+import AlbumsTab from './AlbumsTab';
+import TracksTab from './TracksTab';
+import DetailLoading from './DetailLoading';
 
 interface Track {
   id: number;
@@ -71,6 +49,17 @@ interface ArtistDetailViewProps {
   isPlaying?: boolean;
 }
 
+/**
+ * ArtistDetailView - Detailed artist view with albums and tracks
+ *
+ * Displays:
+ * - Artist header (avatar, name, stats, play controls)
+ * - Tab-based navigation (Albums and All Tracks)
+ * - Albums grid or tracks table
+ * - Loading and error states
+ *
+ * Orchestrates 4 subcomponents for album/track display
+ */
 export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
   artistId,
   artistName,
@@ -121,25 +110,6 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
     }
   };
 
-  const getArtistInitial = (name: string): string => {
-    return name.charAt(0).toUpperCase();
-  };
-
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatTotalDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours} hr ${mins} min`;
-    }
-    return `${mins} min`;
-  };
-
   const handlePlayAll = () => {
     if (artist?.tracks && artist.tracks.length > 0 && onTrackPlay) {
       onTrackPlay(artist.tracks[0]);
@@ -166,12 +136,7 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
   };
 
   if (loading) {
-    return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2, mb: 4 }} />
-        <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
-      </Container>
-    );
+    return <DetailLoading />;
   }
 
   if (error || !artist) {
@@ -210,48 +175,10 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
       )}
 
       {/* Artist Header */}
-      <DetailViewHeader
-        artwork={
-          <ArtistAvatarCircle>
-            {getArtistInitial(artist.name)}
-          </ArtistAvatarCircle>
-        }
-        title={artist.name}
-        metadata={
-          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-            {artist.album_count && `${artist.album_count} ${artist.album_count === 1 ? 'album' : 'albums'}`}
-            {artist.album_count && artist.track_count && ' • '}
-            {artist.track_count && `${artist.track_count} ${artist.track_count === 1 ? 'track' : 'tracks'}`}
-          </Typography>
-        }
-        actions={
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <PlayButton
-              startIcon={<PlayArrow />}
-              onClick={handlePlayAll}
-            >
-              Play All
-            </PlayButton>
-
-            <ShuffleButton
-              variant="outlined"
-              startIcon={<Shuffle />}
-              onClick={handleShufflePlay}
-            >
-              Shuffle
-            </ShuffleButton>
-
-            <IconButton
-              sx={{
-                '&:hover': {
-                  backgroundColor: 'rgba(255,255,255,0.1)'
-                }
-              }}
-            >
-              <MoreVert />
-            </IconButton>
-          </Box>
-        }
+      <ArtistHeader
+        artist={artist}
+        onPlayAll={handlePlayAll}
+        onShuffle={handleShufflePlay}
       />
 
       {/* Tabs for Albums and Tracks */}
@@ -263,132 +190,20 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
 
         {/* Albums Tab */}
         {activeTab === 0 && (
-          <Box>
-            {artist.albums && artist.albums.length > 0 ? (
-              <Grid container spacing={3}>
-                {artist.albums.map((album) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={album.id}>
-                    <AlbumCard onClick={() => handleAlbumCardClick(album.id)}>
-                      <AlbumArt
-                        albumId={album.id}
-                        size="100%"
-                        borderRadius={0}
-                      />
-                      <Box sx={{ p: 2 }}>
-                        <AlbumTitle className="album-title">
-                          {album.title}
-                        </AlbumTitle>
-                        <AlbumInfo>
-                          {album.year && `${album.year} • `}
-                          {album.track_count} {album.track_count === 1 ? 'track' : 'tracks'}
-                        </AlbumInfo>
-                      </Box>
-                    </AlbumCard>
-                  </Grid>
-                ))}
-              </Grid>
-            ) : (
-              <Paper
-                sx={{
-                  padding: 4,
-                  textAlign: 'center',
-                  background: 'rgba(255,255,255,0.03)',
-                  borderRadius: 2,
-                }}
-              >
-                <Typography color="text.secondary">
-                  No albums found for this artist
-                </Typography>
-              </Paper>
-            )}
-          </Box>
+          <AlbumsTab
+            albums={artist.albums || []}
+            onAlbumClick={handleAlbumCardClick}
+          />
         )}
 
-        {/* All Tracks Tab */}
+        {/* Tracks Tab */}
         {activeTab === 1 && (
-          <TracksTableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell width="60px" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-                    #
-                  </TableCell>
-                  <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-                    Title
-                  </TableCell>
-                  <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-                    Album
-                  </TableCell>
-                  <TableCell align="right" width="100px" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-                    Duration
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {artist.tracks && artist.tracks.length > 0 ? (
-                  artist.tracks.map((track, index) => (
-                    <StyledTableRow
-                      key={track.id}
-                      onClick={() => handleTrackClick(track)}
-                      className={currentTrackId === track.id ? 'current-track' : ''}
-                    >
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {currentTrackId === track.id && isPlaying ? (
-                            <Pause sx={{ fontSize: 20, color: '#667eea' }} />
-                          ) : (
-                            <>
-                              <Typography
-                                sx={{
-                                  fontSize: '0.9rem',
-                                  color: 'text.secondary',
-                                  '.current-track &': { display: 'none' }
-                                }}
-                              >
-                                {index + 1}
-                              </Typography>
-                              <PlayIcon className="play-icon">
-                                <PlayArrow sx={{ fontSize: 20 }} />
-                              </PlayIcon>
-                            </>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography
-                          className="track-title"
-                          sx={{
-                            fontSize: '0.95rem',
-                            fontWeight: currentTrackId === track.id ? 'bold' : 'normal'
-                          }}
-                        >
-                          {track.title}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
-                          {track.album}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
-                          {formatDuration(track.duration)}
-                        </Typography>
-                      </TableCell>
-                    </StyledTableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                      <Typography color="text.secondary">
-                        No tracks found for this artist
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TracksTableContainer>
+          <TracksTab
+            tracks={artist.tracks || []}
+            currentTrackId={currentTrackId}
+            isPlaying={isPlaying}
+            onTrackClick={handleTrackClick}
+          />
         )}
       </Box>
     </Container>

@@ -1,0 +1,96 @@
+import React from 'react';
+import {
+  Box,
+  Typography,
+  IconButton,
+  Button
+} from '@mui/material';
+import {
+  PlayArrow,
+  Shuffle,
+  MoreVert
+} from '@mui/icons-material';
+import DetailViewHeader from './DetailViewHeader';
+import { PlayButton, ShuffleButton } from './Button.styles';
+import { ArtistAvatarCircle } from './ArtistDetail.styles';
+
+interface Artist {
+  id: number;
+  name: string;
+  album_count?: number;
+  track_count?: number;
+}
+
+interface ArtistHeaderProps {
+  artist: Artist;
+  onPlayAll: () => void;
+  onShuffle: () => void;
+}
+
+/**
+ * ArtistHeader - Artist detail view header with artwork, stats, and actions
+ *
+ * Displays:
+ * - Artist avatar (first letter)
+ * - Artist name as title
+ * - Album and track counts as metadata
+ * - Play All and Shuffle buttons
+ * - More options menu button
+ */
+export const ArtistHeader: React.FC<ArtistHeaderProps> = ({
+  artist,
+  onPlayAll,
+  onShuffle
+}) => {
+  const getArtistInitial = (name: string): string => {
+    return name.charAt(0).toUpperCase();
+  };
+
+  return (
+    <DetailViewHeader
+      artwork={
+        <ArtistAvatarCircle>
+          {getArtistInitial(artist.name)}
+        </ArtistAvatarCircle>
+      }
+      title={artist.name}
+      metadata={
+        <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+          {artist.album_count && `${artist.album_count} ${artist.album_count === 1 ? 'album' : 'albums'}`}
+          {artist.album_count && artist.track_count && ' • '}
+          {artist.track_count && `${artist.track_count} ${artist.track_count === 1 ? 'track' : 'tracks'}`}
+        </Typography>
+      }
+      actions={
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <PlayButton
+            startIcon={<PlayArrow />}
+            onClick={onPlayAll}
+          >
+            Play All
+          </PlayButton>
+
+          <ShuffleButton
+            variant="outlined"
+            startIcon={<Shuffle />}
+            onClick={onShuffle}
+          >
+            Shuffle
+          </ShuffleButton>
+
+          <IconButton
+            sx={{
+              '&:hover': {
+                backgroundColor: 'rgba(255,255,255,0.1)'
+              }
+            }}
+          >
+            <MoreVert />
+          </IconButton>
+        </Box>
+      }
+    />
+  );
+};
+
+export default ArtistHeader;
