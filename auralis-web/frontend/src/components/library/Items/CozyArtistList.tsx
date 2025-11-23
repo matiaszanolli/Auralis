@@ -7,16 +7,13 @@
  */
 
 import React from 'react';
-import {
-  Box,
-  Typography,
-  Person
-} from '@mui/material';
+import { Box, Person, Typography } from '@mui/material';
 import { ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/ui/feedback';
 import { EmptyState } from '../../shared/ui/feedback';
-import { SectionHeader } from '../Styles/ArtistList.styles';
 import { ArtistListLoading } from './ArtistListLoading';
+import { ArtistListLoadingIndicator } from './ArtistListLoadingIndicator';
+import { ArtistListHeader } from './ArtistListHeader';
 import { ArtistSection } from './ArtistSection';
 import { useArtistListPagination } from './useArtistListPagination';
 
@@ -115,11 +112,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
         width: '100%'
       }}
     >
-      <SectionHeader>
-        <Typography variant="body2" color="text.secondary">
-          {artists.length} {artists.length !== totalArtists ? `of ${totalArtists}` : ''} artists in your library
-        </Typography>
-      </SectionHeader>
+      <ArtistListHeader loadedCount={artists.length} totalCount={totalArtists} />
 
       {/* Alphabetically grouped artist sections */}
       {sortedLetters.map((letter) => (
@@ -144,37 +137,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
       )}
 
       {/* Loading indicator */}
-      {isLoadingMore && (
-        <Box
-          sx={{
-            height: '100px',
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            p: 2
-          }}
-        >
-          <Box
-            sx={{
-              width: 20,
-              height: 20,
-              border: '2px solid',
-              borderColor: 'primary.main',
-              borderRightColor: 'transparent',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              '@keyframes spin': {
-                '0%': { transform: 'rotate(0deg)' },
-                '100%': { transform: 'rotate(360deg)' }
-              }
-            }}
-          />
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-            Loading more artists... ({artists.length}/{totalArtists})
-          </Typography>
-        </Box>
-      )}
+      {isLoadingMore && <ArtistListLoadingIndicator currentCount={artists.length} totalCount={totalArtists} />}
 
       {/* End of list indicator */}
       {!hasMore && artists.length > 0 && (
