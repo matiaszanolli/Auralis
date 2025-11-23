@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { getArtistContextActions } from '../../shared/ContextMenu';
-import { useToast } from '../shared/ui/feedback';
+import { useToast } from '../../shared/ui/feedback';
 
 interface ArtistInfo {
   id: number;
