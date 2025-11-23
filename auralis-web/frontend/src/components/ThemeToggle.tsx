@@ -3,7 +3,8 @@ import { IconButton, Tooltip, Box } from '@mui/material';
 import { LightMode, DarkMode } from '@mui/icons-material';
 import { useTheme } from '../contexts/ThemeContext';
 import { gradients } from '../theme/themeConfig';
-import { auroraOpacity } from './library/Color.styles';
+import { auroraOpacity, colorAuroraPrimary } from './library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface ThemeToggleProps {
   size?: 'small' | 'medium' | 'large';
@@ -35,18 +36,18 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ size = 'medium', showLabel = 
             width: buttonSize,
             height: buttonSize,
             background: isDark
-              ? 'rgba(255, 255, 255, 0.05)'
+              ? tokens.colors.border.light
               : auroraOpacity.ultraLight,
             backdropFilter: 'blur(10px)',
             border: `1px solid ${
-              isDark ? 'rgba(255, 255, 255, 0.1)' : auroraOpacity.lighter
+              isDark ? tokens.colors.border.medium : auroraOpacity.lighter
             }`,
             transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
             overflow: 'hidden',
             position: 'relative',
             '&:hover': {
               background: isDark
-                ? 'rgba(255, 255, 255, 0.1)'
+                ? tokens.colors.border.medium
                 : auroraOpacity.light,
               transform: 'scale(1.05) rotate(15deg)',
               boxShadow: isDark
@@ -87,8 +88,8 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ size = 'medium', showLabel = 
               <DarkMode
                 sx={{
                   fontSize: iconSize,
-                  color: '#ffa502',
-                  filter: 'drop-shadow(0 0 8px rgba(255, 165, 2, 0.6))',
+                  color: tokens.colors.accent.warning,
+                  filter: `drop-shadow(0 0 8px ${tokens.colors.accent.warning}99)`,
                   transition: 'all 0.3s ease',
                 }}
               />
@@ -96,7 +97,7 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ size = 'medium', showLabel = 
               <LightMode
                 sx={{
                   fontSize: iconSize,
-                  color: '#667eea',
+                  color: colorAuroraPrimary,
                   filter: `drop-shadow(0 0 8px ${auroraOpacity.veryStrong})`,
                   transition: 'all 0.3s ease',
                 }}
