@@ -2,7 +2,7 @@ import { render, screen } from '@/test/test-utils';
 import { vi } from 'vitest';
 
 // Mock the Sidebar component BEFORE importing AppSidebar
-vi.mock('../Sidebar', () => ({
+vi.mock('../../layouts/Sidebar', () => ({
   default: ({ collapsed, onNavigate, onOpenSettings }: any) => (
     <nav role="navigation" data-testid="sidebar-mock">
       <button onClick={() => onNavigate('songs')}>Songs</button>

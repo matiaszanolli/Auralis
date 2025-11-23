@@ -5,7 +5,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import Sidebar from '../Sidebar';
+import Sidebar from '../layouts/Sidebar';
 import { auroraOpacity } from '../library/Color.styles';
 
 /**

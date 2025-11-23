@@ -14,7 +14,7 @@ import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import CozyLibraryView from '../CozyLibraryView';
+import CozyLibraryView from '../library/CozyLibraryView';
 import { useLibraryWithStats } from '../../hooks/useLibraryWithStats';
 import { usePlayerAPI } from '../../hooks/usePlayerAPI';
 
