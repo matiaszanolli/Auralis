@@ -19,6 +19,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { colors, gradients } from '../../theme/auralisTheme';
+import { tokens } from '@/design-system/tokens';
 
 interface DropZoneProps {
   onFolderDrop: (folderPath: string) => void;
@@ -143,13 +144,13 @@ export const DropZone: React.FC<DropZoneProps> = ({
         borderRadius: 3,
         border: `2px dashed ${
           isDragging
-            ? '#667eea'
+            ? tokens.colors.accent.purple
             : scanning
             ? alpha(colors.text.secondary, 0.3)
             : alpha(colors.text.disabled, 0.2)
         }`,
         background: isDragging
-          ? alpha('#667eea', 0.05)
+          ? alpha(tokens.colors.accent.purple, 0.05)
           : scanning
           ? alpha(colors.background.hover, 0.5)
           : 'transparent',
@@ -161,8 +162,8 @@ export const DropZone: React.FC<DropZoneProps> = ({
 
         ...((!disabled && !scanning) && {
           '&:hover': {
-            borderColor: '#667eea',
-            background: alpha('#667eea', 0.02),
+            borderColor: tokens.colors.accent.purple,
+            background: alpha(tokens.colors.accent.purple, 0.02),
             transform: 'scale(1.01)',
           },
         }),
@@ -197,7 +198,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
           <CheckCircle
             sx={{
               fontSize: 64,
-              color: '#00d4aa',
+              color: tokens.colors.accent.success,
               animation: 'fadeIn 0.3s ease',
             }}
           />
@@ -205,7 +206,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
           <CloudUpload
             sx={{
               fontSize: 64,
-              color: '#667eea',
+              color: tokens.colors.accent.purple,
               animation: 'bounce 1s ease infinite',
             }}
           />
@@ -225,7 +226,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
         variant="h6"
         sx={{
           fontWeight: 600,
-          color: isDragging ? '#667eea' : colors.text.primary,
+          color: isDragging ? tokens.colors.accent.purple : colors.text.primary,
           mb: 1,
           transition: 'color 0.3s ease',
         }}
