@@ -276,7 +276,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
                   sx={{ ml: 'auto' }}
                 >
                   {isLoved ? (
-                    <Favorite sx={{ color: tokens.colors.accent.pink, fontSize: 20 }} />
+                    <Favorite sx={{ color: tokens.colors.accent.tertiary, fontSize: 20 }} />
                   ) : (
                     <FavoriteOutlined sx={{ fontSize: 20 }} />
                   )}
