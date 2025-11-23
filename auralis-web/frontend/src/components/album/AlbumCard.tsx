@@ -176,7 +176,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: isHovered ? 'rgba(0, 0, 0, 0.5)' : 'transparent',
+              background: isHovered ? 'rgba(0, 0, 0, 0.19)' : 'transparent',
               backdropFilter: isHovered ? 'blur(4px)' : 'none',
               transition: 'all 0.3s ease',
               opacity: isHovered ? 1 : 0,
@@ -214,7 +214,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'rgba(0, 0, 0, 0.7)',
+                background: 'rgba(0, 0, 0, 0.42)',
                 backdropFilter: 'blur(4px)',
               }}
             >
@@ -231,7 +231,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
                 left: 0,
                 right: 0,
                 p: 1,
-                background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.42), transparent)',
                 display: 'flex',
                 gap: 0.5,
                 justifyContent: 'center',
@@ -280,9 +280,9 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
               top: 8,
               right: 8,
               color: tokens.colors.text.primary,
-              background: 'rgba(0, 0, 0, 0.5)',
+              background: 'rgba(0, 0, 0, 0.19)',
               backdropFilter: 'blur(10px)',
-              '&:hover': { background: 'rgba(0, 0, 0, 0.7)' },
+              '&:hover': { background: 'rgba(0, 0, 0, 0.42)' },
             }}
           >
             <MoreVert />
