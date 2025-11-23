@@ -29,6 +29,7 @@ import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
 import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
 import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
 import { spacingSmall, spacingXSmall } from '../library/Spacing.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;
@@ -39,7 +40,7 @@ interface KeyboardShortcutsHelpProps {
 
 const CategorySection = styled(Paper)(({ theme }) => ({
   background: auroraOpacity.ultraLight,
-  border: `1px solid rgba(255, 255, 255, 0.08)`,
+  border: `1px solid ${auroraOpacity.veryLight}`,
   borderRadius: '12px',
   padding: spacingSmall,
   marginBottom: spacingSmall,
@@ -50,7 +51,7 @@ const ShortcutRow = styled(Box)(({ theme }) => ({
   justifyContent: 'space-between',
   alignItems: 'center',
   padding: `${spacingXSmall} 0`,
-  borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+  borderBottom: `1px solid ${auroraOpacity.ultraLight}`,
   '&:last-child': {
     borderBottom: 'none',
   },
@@ -71,7 +72,7 @@ const ShortcutKey = styled(Box)(({ theme }) => ({
 }));
 
 const ShortcutDescription = styled(Typography)(({ theme }) => ({
-  color: 'rgba(255, 255, 255, 0.9)',
+  color: auroraOpacity.veryStrong,
   fontSize: '14px',
 }));
 
@@ -88,7 +89,7 @@ const CategoryTitle = styled(Typography)(({ theme }) => ({
 const EmptyState = styled(Box)(({ theme }) => ({
   textAlign: 'center',
   padding: `40px ${spacingSmall}`,
-  color: 'rgba(255, 255, 255, 0.5)',
+  color: auroraOpacity.standard,
 }));
 
 const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
@@ -174,9 +175,9 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
         <IconButton
           onClick={onClose}
           sx={{
-            color: 'white',
+            color: tokens.colors.text.primary,
             '&:hover': {
-              background: 'rgba(255, 255, 255, 0.1)',
+              background: auroraOpacity.ultraLight,
             },
           }}
         >
@@ -221,9 +222,9 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
               );
             })}
 
-            <Divider sx={{ my: 3, borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+            <Divider sx={{ my: 3, borderColor: auroraOpacity.ultraLight }} />
 
-            <Box sx={{ textAlign: 'center', color: 'rgba(255, 255, 255, 0.5)' }}>
+            <Box sx={{ textAlign: 'center', color: auroraOpacity.standard }}>
               <Typography variant="body2">
                 Press <strong>?</strong> anytime to show this dialog
               </Typography>
