@@ -12,6 +12,7 @@
  */
 
 import { Tabs, styled } from '@mui/material';
+import { colorAuroraPrimary } from './Color.styles';
 
 /**
  * DialogTabs - Tab navigation for dialog interfaces
@@ -27,11 +28,11 @@ export const DialogTabs = styled(Tabs)(({ theme }) => ({
     minHeight: 48,
     color: theme.palette.text.secondary,
     '&.Mui-selected': {
-      color: '#667eea'
+      color: colorAuroraPrimary
     }
   },
   '& .MuiTabs-indicator': {
-    backgroundColor: '#667eea'
+    backgroundColor: colorAuroraPrimary
   }
 }));
 
@@ -49,11 +50,11 @@ export const DetailViewTabs = styled(Tabs)(({ theme }) => ({
     fontWeight: 500,
     minWidth: 120,
     '&.Mui-selected': {
-      color: '#667eea'
+      color: colorAuroraPrimary
     }
   },
   '& .MuiTabs-indicator': {
-    backgroundColor: '#667eea'
+    backgroundColor: colorAuroraPrimary
   }
 }));
 

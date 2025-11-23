@@ -14,6 +14,7 @@
 import { Avatar, Box, styled } from '@mui/material';
 import { glowShadows } from './Shadow.styles';
 import { radiusCircle } from './BorderRadius.styles';
+import { gradients, auroraOpacity } from './Color.styles';
 
 /**
  * ArtistAvatarCircle - Large circular artist avatar with aurora gradient background
@@ -24,7 +25,7 @@ export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
   width: 200,
   height: 200,
   borderRadius: radiusCircle,
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: gradients.aurora,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -42,7 +43,7 @@ export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
 export const ArtistSearchAvatar = styled(Avatar)(({ theme }) => ({
   width: 40,
   height: 40,
-  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+  background: gradients.aurora,
   fontSize: '1rem',
   fontWeight: 'bold'
 }));
@@ -55,5 +56,5 @@ export const ArtistSearchAvatar = styled(Avatar)(({ theme }) => ({
 export const DefaultSearchAvatar = styled(Avatar)(({ theme }) => ({
   width: 40,
   height: 40,
-  backgroundColor: 'rgba(102, 126, 234, 0.2)'
+  backgroundColor: auroraOpacity.standard
 }));
