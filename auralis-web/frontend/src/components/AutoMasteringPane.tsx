@@ -32,9 +32,10 @@ import {
   VolumeUp,
   Audiotrack
 } from '@mui/icons-material';
-import { colors, gradients } from '../theme/auralisTheme';
+import { gradients } from './library/Color.styles';
 import { useEnhancement } from '../contexts/EnhancementContext';
 import ProcessingToast from './ProcessingToast';
+import { tokens } from '@/design-system/tokens';
 
 interface ProcessingParams {
   // 3D space coordinates (0-1)
@@ -262,7 +263,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
               display: 'block',
               mt: 1,
               ml: 5,
-              color: colors.text.secondary,
+              color: tokens.colors.text.secondary,
               fontFamily: 'var(--font-body)'
             }}
           >
@@ -280,7 +281,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                   <Typography
                     variant="caption"
                     sx={{
-                      color: colors.text.secondary,
+                      color: tokens.colors.text.secondary,
                       textTransform: 'uppercase',
                       letterSpacing: 1,
                       fontWeight: 600,
@@ -296,7 +297,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                     {/* Spectral Balance */}
                     <Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: colors.text.primary, fontSize: '0.875rem' }}>
+                        <Typography variant="body2" sx={{ color: tokens.colors.text.primary, fontSize: '0.875rem' }}>
                           Spectral Balance
                         </Typography>
                         <Chip
@@ -328,7 +329,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                     {/* Dynamic Range */}
                     <Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: colors.text.primary, fontSize: '0.875rem' }}>
+                        <Typography variant="body2" sx={{ color: tokens.colors.text.primary, fontSize: '0.875rem' }}>
                           Dynamic Range
                         </Typography>
                         <Chip
@@ -360,7 +361,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                     {/* Energy Level */}
                     <Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: colors.text.primary, fontSize: '0.875rem' }}>
+                        <Typography variant="body2" sx={{ color: tokens.colors.text.primary, fontSize: '0.875rem' }}>
                           Energy Level
                         </Typography>
                         <Chip
@@ -396,7 +397,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                   <Typography
                     variant="caption"
                     sx={{
-                      color: colors.text.secondary,
+                      color: tokens.colors.text.secondary,
                       textTransform: 'uppercase',
                       letterSpacing: 1,
                       fontWeight: 600,
@@ -415,7 +416,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                         <VolumeUp sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
                         Target Loudness
                       </Typography>
-                      <Typography variant="body2" sx={{ color: colors.text.primary, fontWeight: 600, fontSize: '0.8125rem' }}>
+                      <Typography variant="body2" sx={{ color: tokens.colors.text.primary, fontWeight: 600, fontSize: '0.8125rem' }}>
                         {formatParam(params.target_lufs)} LUFS
                       </Typography>
                     </Box>
@@ -425,7 +426,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                       <Typography variant="body2" sx={{ color: colors.text.secondary, fontSize: '0.8125rem' }}>
                         Peak Level
                       </Typography>
-                      <Typography variant="body2" sx={{ color: colors.text.primary, fontWeight: 600, fontSize: '0.8125rem' }}>
+                      <Typography variant="body2" sx={{ color: tokens.colors.text.primary, fontWeight: 600, fontSize: '0.8125rem' }}>
                         {formatParam(params.peak_target_db)} dB
                       </Typography>
                     </Box>
@@ -439,7 +440,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                         <Typography
                           variant="body2"
                           sx={{
-                            color: params.bass_boost > 0 ? colors.accent.success : colors.accent.warning,
+                            color: params.bass_boost > 0 ? tokens.colors.accent.success : tokens.colors.accent.warning,
                             fontWeight: 600,
                             fontSize: '0.8125rem'
                           }}
@@ -458,7 +459,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                         <Typography
                           variant="body2"
                           sx={{
-                            color: params.air_boost > 0 ? colors.accent.success : colors.accent.warning,
+                            color: params.air_boost > 0 ? tokens.colors.accent.success : tokens.colors.accent.warning,
                             fontWeight: 600,
                             fontSize: '0.8125rem'
                           }}
@@ -475,7 +476,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                           <Compress sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
                           Compression
                         </Typography>
-                        <Typography variant="body2" sx={{ color: colors.text.primary, fontWeight: 600, fontSize: '0.8125rem' }}>
+                        <Typography variant="body2" sx={{ color: tokens.colors.text.primary, fontWeight: 600, fontSize: '0.8125rem' }}>
                           {Math.round(params.compression_amount * 100)}%
                         </Typography>
                       </Box>
@@ -487,7 +488,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                         <Typography variant="body2" sx={{ color: colors.text.secondary, fontSize: '0.8125rem' }}>
                           Expansion
                         </Typography>
-                        <Typography variant="body2" sx={{ color: colors.accent.info, fontWeight: 600, fontSize: '0.8125rem' }}>
+                        <Typography variant="body2" sx={{ color: tokens.colors.accent.info, fontWeight: 600, fontSize: '0.8125rem' }}>
                           {Math.round(params.expansion_amount * 100)}%
                         </Typography>
                       </Box>
@@ -498,7 +499,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                       <Typography variant="body2" sx={{ color: colors.text.secondary, fontSize: '0.8125rem' }}>
                         Stereo Width
                       </Typography>
-                      <Typography variant="body2" sx={{ color: colors.text.primary, fontWeight: 600, fontSize: '0.8125rem' }}>
+                      <Typography variant="body2" sx={{ color: tokens.colors.text.primary, fontWeight: 600, fontSize: '0.8125rem' }}>
                         {Math.round(params.stereo_width * 100)}%
                       </Typography>
                     </Box>
@@ -518,12 +519,12 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
                   <Typography
                     variant="caption"
                     sx={{
-                      color: colors.text.secondary,
+                      color: tokens.colors.text.secondary,
                       fontSize: '0.75rem',
                       lineHeight: 1.6
                     }}
                   >
-                    <strong style={{ color: colors.text.primary }}>Auto-Mastering</strong> analyzes your music in real-time
+                    <strong style={{ color: tokens.colors.text.primary }}>Auto-Mastering</strong> analyzes your music in real-time
                     and applies intelligent processing tailored to each track's unique characteristics.
                     No presets needed!
                   </Typography>
@@ -564,7 +565,7 @@ const AutoMasteringPane: React.FC<AutoMasteringPaneProps> = ({
             <Typography variant="body2" sx={{ color: colors.text.secondary, mb: 2 }}>
               Auto-Mastering is currently disabled
             </Typography>
-            <Typography variant="caption" sx={{ color: colors.text.disabled, lineHeight: 1.6 }}>
+            <Typography variant="caption" sx={{ color: tokens.colors.text.disabled, lineHeight: 1.6 }}>
               Enable the toggle above to start enhancing your music with intelligent processing
             </Typography>
           </Paper>

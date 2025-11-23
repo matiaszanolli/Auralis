@@ -7,8 +7,7 @@ import {
   FlareOutlined,
   BoltOutlined,
 } from '@mui/icons-material';
-import { colors, gradients } from '../theme/auralisTheme';
-import { auroraOpacity, colorAuroraPrimary } from './library/Color.styles';
+import { gradients, auroraOpacity, colorAuroraPrimary } from './library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface Preset {
@@ -191,7 +190,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
                 height: buttonSize,
                 transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px))`,
                 borderRadius: '50%',
-                background: isActive ? preset.gradient : colors.background.surface,
+                background: isActive ? preset.gradient : tokens.colors.bg.tertiary,
                 border: isActive
                   ? `3px solid ${auroraOpacity.stronger}`
                   : isHovered
@@ -219,7 +218,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
               <Box
                 sx={{
                   fontSize: isActive ? 28 : 24,
-                  color: isActive ? tokens.colors.text.primary : isHovered ? tokens.colors.text.primary : colors.text.secondary,
+                  color: isActive ? tokens.colors.text.primary : isHovered ? tokens.colors.text.primary : tokens.colors.text.secondary,
                   transition: 'all 0.3s ease',
                   filter: isActive
                     ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
