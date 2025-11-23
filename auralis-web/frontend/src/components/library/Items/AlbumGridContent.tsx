@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Grid } from '@mui/material';
-import { AlbumCard } from '../album/AlbumCard';
+import { AlbumCard } from '../../album/AlbumCard/AlbumCard';
 import { GridContainer } from '../Styles/Grid.styles';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import EndOfListIndicator from './EndOfListIndicator';
