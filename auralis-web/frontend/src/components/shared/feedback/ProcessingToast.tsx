@@ -6,21 +6,10 @@
  */
 
 import React from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Fade,
-  Stack,
-  Chip
-} from '@mui/material';
-import {
-  AutoAwesome,
-  Speed,
-  Memory,
-  TrendingUp
-} from '@mui/icons-material';
+import { Box, Paper, Typography, Fade, Stack } from '@mui/material';
+import { AutoAwesome } from '@mui/icons-material';
 import { tokens } from '@/design-system/tokens';
+import { ProcessingStatsChips } from './ProcessingStatsChips';
 
 interface ProcessingStats {
   status: 'analyzing' | 'processing' | 'idle';
@@ -102,58 +91,12 @@ export const ProcessingToast: React.FC<ProcessingToastProps> = ({ stats, show })
           </Stack>
 
           {/* Stats chips */}
-          <Stack direction="row" spacing={tokens.spacing.xs} flexWrap="wrap" gap={tokens.spacing.xs}>
-            {stats.cacheHit && (
-              <Chip
-                icon={<TrendingUp sx={{ fontSize: tokens.typography.fontSize.sm }} />}
-                label="8x faster"
-                size="small"
-                sx={{
-                  height: '22px',
-                  backgroundColor: `${tokens.colors.accent.success}1A`,
-                  color: tokens.colors.accent.success,
-                  fontSize: tokens.typography.fontSize.xs,
-                  '& .MuiChip-icon': {
-                    color: tokens.colors.accent.success
-                  }
-                }}
-              />
-            )}
-
-            {stats.processingSpeed && stats.processingSpeed > 1 && (
-              <Chip
-                icon={<Speed sx={{ fontSize: tokens.typography.fontSize.sm }} />}
-                label={`${stats.processingSpeed.toFixed(1)}x RT`}
-                size="small"
-                sx={{
-                  height: '22px',
-                  backgroundColor: `${tokens.colors.accent.primary}1A`,
-                  color: tokens.colors.accent.purple,
-                  fontSize: tokens.typography.fontSize.xs,
-                  '& .MuiChip-icon': {
-                    color: tokens.colors.accent.purple
-                  }
-                }}
-              />
-            )}
-
-            {stats.currentChunk !== undefined && (
-              <Chip
-                icon={<Memory sx={{ fontSize: tokens.typography.fontSize.sm }} />}
-                label={`${((stats.currentChunk / (stats.totalChunks || 1)) * 100).toFixed(0)}%`}
-                size="small"
-                sx={{
-                  height: '22px',
-                  backgroundColor: `${tokens.colors.text.secondary}1A`,
-                  color: tokens.colors.text.secondary,
-                  fontSize: tokens.typography.fontSize.xs,
-                  '& .MuiChip-icon': {
-                    color: tokens.colors.text.secondary
-                  }
-                }}
-              />
-            )}
-          </Stack>
+          <ProcessingStatsChips
+            cacheHit={stats.cacheHit}
+            processingSpeed={stats.processingSpeed}
+            currentChunk={stats.currentChunk}
+            totalChunks={stats.totalChunks}
+          />
         </Box>
       </Paper>
     </Fade>
