@@ -10,10 +10,10 @@
 import { vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSimilarTracksLoader } from '../useSimilarTracksLoader';
-import similarityService from '../services/similarityService';
+import similarityService from '@/services/similarityService';
 
 // Mock the similarity service
-vi.mock('../services/similarityService', () => ({
+vi.mock('@/services/similarityService', () => ({
   default: {
     findSimilar: vi.fn(),
   },

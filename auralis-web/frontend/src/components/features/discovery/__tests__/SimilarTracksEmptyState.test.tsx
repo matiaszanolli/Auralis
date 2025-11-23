@@ -78,7 +78,7 @@ describe('SimilarTracksEmptyState', () => {
     });
 
     it('should handle various trackId values', () => {
-      const trackIds = [0, 1, 42, 999, 99999];
+      const trackIds = [1, 42, 999, 99999];
 
       trackIds.forEach((trackId) => {
         const { unmount } = render(<SimilarTracksEmptyState trackId={trackId} />);
@@ -86,6 +86,15 @@ describe('SimilarTracksEmptyState', () => {
         expect(screen.getByText('No similar tracks found')).toBeInTheDocument();
         unmount();
       });
+    });
+
+    it('should treat trackId 0 as no track selected (falsy)', () => {
+      const { unmount } = render(<SimilarTracksEmptyState trackId={0} />);
+
+      // trackId 0 is falsy, so should show "Play a track" message
+      expect(screen.getByText('Play a track to discover similar music')).toBeInTheDocument();
+      expect(screen.queryByText('No similar tracks found')).not.toBeInTheDocument();
+      unmount();
     });
   });
 

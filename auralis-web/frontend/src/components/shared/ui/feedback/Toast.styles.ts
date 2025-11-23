@@ -1,7 +1,6 @@
 import { Alert, AlertColor, styled, keyframes } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
 import { getToastBackgroundColor, getToastBorderColor } from './toastColors';
-import { spacingXSmall } from '../../library/Spacing.styles';
 
 /**
  * Toast animation - slide in from right
@@ -37,7 +36,7 @@ export const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }
     },
 
     '& .MuiAlert-message': {
-      padding: `${spacingXSmall} 0`,
+      padding: `${tokens.spacing.xs} 0`,
     },
   };
 });

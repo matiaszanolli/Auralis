@@ -9,9 +9,8 @@ import {
   Tooltip,
   Divider
 } from '@mui/material';
-import { auroraOpacity } from '@/components/library/Color.styles';
 import { tokens } from '@/design-system/tokens';
-import { SimilarTrack } from '../services/similarityService';
+import { SimilarTrack } from '@/services/similarityService';
 
 interface SimilarTracksListItemProps {
   track: SimilarTrack;

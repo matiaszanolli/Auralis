@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import similarityService, { SimilarTrack } from '../services/similarityService';
+import similarityService, { SimilarTrack } from '@/services/similarityService';
 
 interface UseSimilarTracksLoaderProps {
   trackId: number | null;

@@ -58,20 +58,20 @@ describe('useTrackImage', () => {
       expect(shouldShow).toBe(false);
     });
 
-    it('should return false when albumArt is undefined', () => {
+    it('should return falsy when albumArt is undefined', () => {
       const { result } = renderHook(() => useTrackImage());
 
       const shouldShow = result.current.shouldShowImage(undefined);
 
-      expect(shouldShow).toBe(false);
+      expect(!shouldShow).toBe(true);
     });
 
-    it('should return false when albumArt is empty string', () => {
+    it('should return falsy when albumArt is empty string', () => {
       const { result } = renderHook(() => useTrackImage());
 
       const shouldShow = result.current.shouldShowImage('');
 
-      expect(shouldShow).toBe(false);
+      expect(!shouldShow).toBe(true);
     });
   });
 

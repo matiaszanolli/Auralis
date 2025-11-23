@@ -1,6 +1,5 @@
 import { AlertColor } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { auroraOpacity, colorAuroraPrimary } from '../../library/Color.styles';
 
 /**
  * Convert hex color to RGBA string
@@ -29,7 +28,7 @@ export const getToastBackgroundColor = (severity: AlertColor): string => {
     case 'warning':
       return hexToRgba(tokens.colors.accent.warning, 0.15);
     case 'info':
-      return auroraOpacity.lighter;
+      return 'rgba(102, 126, 234, 0.1)';
     default:
       return tokens.colors.bg.secondary;
   }
@@ -49,7 +48,7 @@ export const getToastBorderColor = (severity: AlertColor): string => {
     case 'warning':
       return tokens.colors.accent.warning;
     case 'info':
-      return colorAuroraPrimary;
+      return '#667eea';
     default:
       return tokens.colors.text.disabled;
   }

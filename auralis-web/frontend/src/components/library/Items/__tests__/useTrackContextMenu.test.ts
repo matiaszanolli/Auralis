@@ -12,7 +12,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useTrackContextMenu } from '../useTrackContextMenu';
 
 // Mock dependencies
-vi.mock('../shared/ui/feedback', () => ({
+vi.mock('@/components/shared/ui/feedback', () => ({
   useToast: () => ({
     success: vi.fn(),
     info: vi.fn(),
@@ -21,18 +21,18 @@ vi.mock('../shared/ui/feedback', () => ({
   }),
 }));
 
-vi.mock('../../../services/playlistService', () => ({
+vi.mock('@/services/playlistService', () => ({
   getPlaylists: vi.fn(),
   addTracksToPlaylist: vi.fn(),
   createPlaylist: vi.fn(),
 }));
 
-vi.mock('../../shared/ContextMenu', () => ({
+vi.mock('@/components/shared/ContextMenu', () => ({
   getTrackContextActions: vi.fn(() => []),
 }));
 
-import * as playlistService from '../../../services/playlistService';
-import { useToast } from '../../shared/ui/feedback';
+import * as playlistService from '@/services/playlistService';
+import { useToast } from '@/components/shared/ui/feedback';
 
 const mockTrack = {
   id: 1,
