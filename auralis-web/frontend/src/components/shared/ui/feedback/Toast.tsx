@@ -1,17 +1,41 @@
-import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
-import { Snackbar, Alert, AlertColor, styled, keyframes } from '@mui/material';
-import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
-import { spacingXSmall } from '../library/Spacing.styles';
-import { tokens } from '@/design-system/tokens';
+import React, { useState, createContext, useContext, useCallback, useMemo } from 'react';
+import { AlertColor, Snackbar } from '@mui/material';
+import { StyledAlert } from './Toast.styles';
+import { ToastItem } from './ToastItem';
+import { useToastMethods } from './useToastMethods';
 
-interface ToastMessage {
+/**
+ * Toast - Toast notification system with context provider
+ *
+ * Provides a composable toast system with:
+ * - Context-based API (useToast hook)
+ * - Typed methods (success, error, info, warning)
+ * - Multiple toast stacking with auto-dismiss
+ * - Slide-in animations with blurred backdrop
+ * - Configurable max visible toasts
+ *
+ * Usage:
+ * ```tsx
+ * // Wrap app with provider
+ * <ToastProvider>
+ *   <App />
+ * </ToastProvider>
+ *
+ * // Use in components
+ * const { success, error } = useToast();
+ * success('Operation completed');
+ * error('Something went wrong');
+ * ```
+ */
+
+export interface ToastMessage {
   id: string;
   message: string;
   type: AlertColor;
   duration?: number;
 }
 
-interface ToastContextValue {
+export interface ToastContextValue {
   showToast: (message: string, type?: AlertColor, duration?: number) => void;
   success: (message: string, duration?: number) => void;
   error: (message: string, duration?: number) => void;
@@ -21,6 +45,15 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
+/**
+ * useToast - Hook to access toast methods from context
+ *
+ * Must be used within a ToastProvider
+ *
+ * @example
+ * const { success, error } = useToast();
+ * success('Done!');
+ */
 export const useToast = () => {
   const context = useContext(ToastContext);
   if (!context) {
@@ -29,96 +62,29 @@ export const useToast = () => {
   return context;
 };
 
-const slideIn = keyframes`
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-`;
-
-const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }) => {
-  // Helper to add alpha to hex colors
-  const hexToRgba = (hex: string, alpha: number): string => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
-  const getBackgroundColor = () => {
-    switch (severity) {
-      case 'success':
-        return hexToRgba(tokens.colors.accent.success, 0.15);
-      case 'error':
-        return hexToRgba(tokens.colors.accent.error, 0.15);
-      case 'warning':
-        return hexToRgba(tokens.colors.accent.warning, 0.15);
-      case 'info':
-        return auroraOpacity.lighter;
-      default:
-        return tokens.colors.bg.secondary;
-    }
-  };
-
-  const getBorderColor = () => {
-    switch (severity) {
-      case 'success':
-        return tokens.colors.accent.success;
-      case 'error':
-        return tokens.colors.accent.error;
-      case 'warning':
-        return tokens.colors.accent.warning;
-      case 'info':
-        return colorAuroraPrimary;
-      default:
-        return tokens.colors.text.disabled;
-    }
-  };
-
-  return {
-    background: getBackgroundColor(),
-    color: tokens.colors.text.primary,
-    border: `1px solid ${getBorderColor()}`,
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.19)',
-    backdropFilter: 'blur(12px)',
-    animation: `${slideIn} 0.3s ease-out`,
-    fontSize: '14px',
-    fontWeight: 500,
-
-    '& .MuiAlert-icon': {
-      color: getBorderColor(),
-    },
-
-    '& .MuiAlert-message': {
-      padding: `${spacingXSmall} 0`,
-    },
-  };
-});
-
 interface ToastProviderProps {
   children: React.ReactNode;
   maxToasts?: number;
 }
 
+/**
+ * ToastProvider - Context provider for toast notifications
+ *
+ * Manages toast state and provides context for useToast hook.
+ * Automatically limits visible toasts and handles dismissal.
+ *
+ * @example
+ * <ToastProvider maxToasts={3}>
+ *   <App />
+ * </ToastProvider>
+ */
 export const ToastProvider: React.FC<ToastProviderProps> = ({
   children,
   maxToasts = 3,
 }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const showToast = useCallback((
-    message: string,
-    type: AlertColor = 'info',
-    duration: number = 4000
-  ) => {
-    const id = `toast-${Date.now()}-${Math.random()}`;
-    const newToast: ToastMessage = { id, message, type, duration };
-
+  const handleAddToast = useCallback((newToast: ToastMessage) => {
     setToasts((prev) => {
       const updated = [...prev, newToast];
       // Keep only the latest maxToasts
@@ -126,63 +92,45 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
     });
   }, [maxToasts]);
 
-  const success = useCallback((message: string, duration?: number) => {
-    showToast(message, 'success', duration);
-  }, [showToast]);
-
-  const error = useCallback((message: string, duration?: number) => {
-    showToast(message, 'error', duration);
-  }, [showToast]);
-
-  const info = useCallback((message: string, duration?: number) => {
-    showToast(message, 'info', duration);
-  }, [showToast]);
-
-  const warning = useCallback((message: string, duration?: number) => {
-    showToast(message, 'warning', duration);
-  }, [showToast]);
+  const toastMethods = useToastMethods({
+    maxToasts,
+    onAdd: handleAddToast,
+  });
 
   const handleClose = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  const value: ToastContextValue = useMemo(() => ({
-    showToast,
-    success,
-    error,
-    info,
-    warning,
-  }), [showToast, success, error, info, warning]);
-
   return (
-    <ToastContext.Provider value={value}>
+    <ToastContext.Provider value={toastMethods}>
       {children}
       {toasts.map((toast, index) => (
-        <Snackbar
+        <ToastItem
           key={toast.id}
-          open={true}
-          autoHideDuration={toast.duration}
-          onClose={() => handleClose(toast.id)}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-          sx={{
-            top: `${24 + index * 70}px !important`,
-            transition: 'top 0.3s ease',
-          }}
-        >
-          <StyledAlert
-            severity={toast.type}
-            onClose={() => handleClose(toast.id)}
-            variant="filled"
-          >
-            {toast.message}
-          </StyledAlert>
-        </Snackbar>
+          toast={toast}
+          index={index}
+          onClose={handleClose}
+        />
       ))}
     </ToastContext.Provider>
   );
 };
 
-// Standalone Toast component (if not using context)
+/**
+ * Toast - Standalone toast component (without context)
+ *
+ * For use cases where you need simple toast without context provider.
+ * Controlled via open prop.
+ *
+ * @example
+ * const [open, setOpen] = useState(false);
+ * <Toast
+ *   open={open}
+ *   message="Notification"
+ *   type="success"
+ *   onClose={() => setOpen(false)}
+ * />
+ */
 interface ToastProps {
   open: boolean;
   message: string;
@@ -205,7 +153,11 @@ export const Toast: React.FC<ToastProps> = ({
       onClose={onClose}
       anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
     >
-      <StyledAlert severity={type} onClose={onClose} variant="filled">
+      <StyledAlert
+        severity={type}
+        onClose={onClose}
+        variant="filled"
+      >
         {message}
       </StyledAlert>
     </Snackbar>
