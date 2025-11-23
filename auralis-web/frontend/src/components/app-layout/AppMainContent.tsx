@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
+import { auroraOpacity } from '../library/Color.styles';
 
 /**
  * Props for the AppMainContent component.
@@ -87,10 +88,10 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
             background: 'transparent',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: 'rgba(102, 126, 234, 0.3)',
+            background: auroraOpacity.strong,
             borderRadius: '4px',
             '&:hover': {
-              background: 'rgba(102, 126, 234, 0.5)',
+              background: auroraOpacity.stronger,
             },
           },
         }}
