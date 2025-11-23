@@ -1,9 +1,9 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import SelectableTrackRow from './SelectableTrackRow';
-import InfiniteScrollTrigger from './InfiniteScrollTrigger';
-import GridLoadingState from './GridLoadingState';
-import EndOfListIndicator from './EndOfListIndicator';
+import SelectableTrackRow from '../Items/SelectableTrackRow';
+import InfiniteScrollTrigger from '../Items/InfiniteScrollTrigger';
+import GridLoadingState from '../Items/GridLoadingState';
+import EndOfListIndicator from '../Items/EndOfListIndicator';
 import { ListViewContainer, TrackItemWrapper } from './TrackListView.styles';
 import { Track } from './TrackListView';
 
