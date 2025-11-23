@@ -1,6 +1,5 @@
 import { Box, Typography, IconButton, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { SmallIconButton } from './Icon.styles';
 import { auroraOpacity, gradients } from './Color.styles';
 
 export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
@@ -80,14 +79,24 @@ export const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurre
 
 /**
  * PlayButton - Small icon button with play/pause state styling
- * Extends SmallIconButton with track-specific positioning and animations
+ * 32px compact icon button with track-specific positioning and animations
  */
-export const PlayButton = styled(SmallIconButton)({
+export const PlayButton = styled(IconButton)({
+  width: '32px',
+  height: '32px',
+  minWidth: '32px',
+  minHeight: '32px',
+  padding: '4px',
+  flexShrink: 0,
   position: 'absolute',
   opacity: 0,
   transform: 'scale(0.8)',
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
   color: tokens.colors.accent.purple,
+
+  '& .MuiSvgIcon-root': {
+    fontSize: '20px',
+  },
 
   '&:hover': {
     background: auroraOpacity.lighter,
@@ -169,12 +178,22 @@ export const TrackDuration = styled(Typography)({
 
 /**
  * MoreButton - Small icon button for track menu actions
- * Extends SmallIconButton with track-specific styling
+ * 32px compact icon button with track-specific styling
  */
-export const MoreButton = styled(SmallIconButton)({
+export const MoreButton = styled(IconButton)({
+  width: '32px',
+  height: '32px',
+  minWidth: '32px',
+  minHeight: '32px',
+  padding: '4px',
+  flexShrink: 0,
   opacity: 0,
   transition: `opacity ${tokens.transitions.fast}`,
   color: tokens.colors.text.secondary,
+
+  '& .MuiSvgIcon-root': {
+    fontSize: '20px',
+  },
 
   '&:hover': {
     background: auroraOpacity.light,

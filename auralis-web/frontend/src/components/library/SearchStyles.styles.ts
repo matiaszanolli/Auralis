@@ -5,7 +5,6 @@
  * used in GlobalSearch component.
  *
  * Avatar components (ArtistSearchAvatar, DefaultSearchAvatar) are imported from Avatar.styles.ts
- * Empty state components are imported from EmptyState.styles.ts
  * Shadow effects are imported from Shadow.styles.ts
  */
 
@@ -14,7 +13,6 @@ import { containerShadows } from './Shadow.styles';
 import { auroraOpacity } from './Color.styles';
 import { tokens } from '@/design-system/tokens';
 export { ArtistSearchAvatar, DefaultSearchAvatar } from './Avatar.styles';
-export { SearchEmptyState as EmptyResultsBox } from './EmptyState.styles';
 export { CategoryHeader, ResultTitle, ResultSubtitle } from './Typography.styles';
 
 /**
