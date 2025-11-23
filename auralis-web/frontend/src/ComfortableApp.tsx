@@ -13,19 +13,19 @@ import PlayerBarV2Connected from './components/player-bar-v2/PlayerBarV2Connecte
 // Beta 13.0: EnhancementPaneV2 - Complete redesign with 10 focused components
 // 100% design token compliance, 84% code reduction, replaces AutoMasteringPane
 import EnhancementPaneV2 from './components/enhancement-pane-v2';
-import CozyLibraryView from './components/CozyLibraryView';
+import CozyLibraryView from './components/library/CozyLibraryView';
 import SettingsDialog from './components/settings/SettingsDialog';
 import LyricsPanel from './components/player-bar-v2/lyrics/LyricsPanel';
 import KeyboardShortcutsHelp from './components/shared/KeyboardShortcutsHelp';
 
-// Refactored app layout components (Phase 3)
+// Core app layout components
 import {
   AppContainer,
   AppSidebar,
   AppTopBar,
   AppMainContent,
   AppEnhancementPane,
-} from './components/app-layout';
+} from './components/core';
 
 // Custom hooks for business logic
 import { useAppLayout } from './hooks/useAppLayout';

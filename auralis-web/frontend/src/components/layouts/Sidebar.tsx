@@ -25,10 +25,10 @@ import {
   ChevronRight,
   Settings
 } from '@mui/icons-material';
-import { AuroraLogo } from './navigation/AuroraLogo';
+import { AuroraLogo } from '../navigation/AuroraLogo';
 import { tokens, withOpacity } from '@/design-system/tokens';
-import PlaylistList from './playlist/PlaylistList';
-import ThemeToggle from './ThemeToggle';
+import PlaylistList from '../playlist/PlaylistList';
+import ThemeToggle from '../shared/ui/ThemeToggle';
 
 interface SidebarProps {
   collapsed?: boolean;

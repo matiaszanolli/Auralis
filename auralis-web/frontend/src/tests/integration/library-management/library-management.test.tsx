@@ -26,7 +26,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import CozyLibraryView from '@/components/CozyLibraryView';
+import CozyLibraryView from '@/components/library/CozyLibraryView';
 
 describe('Library Management Integration Tests', () => {
   // ==========================================
