@@ -12,6 +12,7 @@ import { gradients } from '../../theme/auralisTheme';
 import { compoundShadows } from '../library/Shadow.styles';
 import { radiusMedium } from '../library/BorderRadius.styles';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 /**
  * PlayerContainer - Main fixed player bar container
@@ -41,7 +42,7 @@ export const PlayerContainer = styled(Box)({
  */
 export const PlayButton = styled(IconButton)({
   background: gradients.aurora,
-  color: '#ffffff',
+  color: tokens.colors.text.primary,
   width: '56px',
   height: '56px',
   minWidth: '56px',
@@ -61,7 +62,7 @@ export const PlayButton = styled(IconButton)({
 
   '&:disabled': {
     background: auroraOpacity.standard,
-    color: 'rgba(255, 255, 255, 0.3)',
+    color: auroraOpacity.lighter,
   },
 });
 
@@ -75,27 +76,27 @@ export const AlbumArtContainer = styled(Box)({
   marginRight: '12px',
   flexShrink: 0,
   overflow: 'hidden',
-  background: 'rgba(255,255,255,0.1)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  background: auroraOpacity.ultraLight,
+  border: `1px solid ${auroraOpacity.ultraLight}`,
 });
 
 /**
  * ControlButton - Secondary control buttons (skip, previous, volume)
  */
 export const ControlButton = styled(IconButton)({
-  color: 'rgba(255,255,255,0.7)',
+  color: auroraOpacity.stronger,
   width: '40px',
   height: '40px',
   minWidth: '40px',
   flexShrink: 0,
 
   '&:hover': {
-    color: '#ffffff',
+    color: tokens.colors.text.primary,
     background: auroraOpacity.veryLight,
   },
 
   '&:disabled': {
-    color: 'rgba(255,255,255,0.3)',
+    color: auroraOpacity.lighter,
   },
 });
 
