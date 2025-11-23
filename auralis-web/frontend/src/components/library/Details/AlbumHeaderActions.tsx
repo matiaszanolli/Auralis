@@ -23,7 +23,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import DetailViewHeader from './DetailViewHeader';
-import AlbumArt from '../album/AlbumArt';
+import AlbumArt from '../../album/AlbumArt';
 import { AlbumMetadata } from './AlbumMetadata';
 import { AlbumActionButtons } from './AlbumActionButtons';
 import type { Album } from './useAlbumDetails';
