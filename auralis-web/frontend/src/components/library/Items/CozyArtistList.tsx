@@ -1,44 +1,40 @@
 /**
  * CozyArtistList Component
  *
- * Orchestrates artist list display with infinite scroll pagination,
- * alphabetic grouping, and context menu support.
- * Uses extracted components and custom hook for logic separation.
+ * Main orchestration component for artist list view with infinite scroll
+ * pagination, alphabetic grouping, and context menu support.
+ *
+ * Features:
+ * - Infinite scroll pagination (2000px threshold)
+ * - Alphabetically grouped artist sections
+ * - Context menu with artist actions
+ * - Loading skeleton and loading indicator
+ * - End-of-list feedback
+ *
+ * Uses:
+ * - useArtistListPagination hook for data and pagination
+ * - useContextMenuActions hook for context menu
+ * - ArtistListContent component for rendering
+ * - ArtistListEmptyState component for empty/error states
+ *
+ * Usage:
+ * ```tsx
+ * <CozyArtistList onArtistClick={handleArtistClick} />
+ * ```
  */
 
 import React from 'react';
-import { Box, Person, Typography } from '@mui/material';
-import { ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
-import { useToast } from '../shared/ui/feedback';
-import { EmptyState } from '../../shared/ui/feedback';
 import { ArtistListLoading } from './ArtistListLoading';
-import { ArtistListLoadingIndicator } from './ArtistListLoadingIndicator';
-import { ArtistListHeader } from './ArtistListHeader';
-import { ArtistSection } from './ArtistSection';
+import { ArtistListEmptyState } from './ArtistListEmptyState';
+import { ArtistListContent } from './ArtistListContent';
 import { useArtistListPagination } from './useArtistListPagination';
+import { useContextMenuActions } from './useContextMenuActions';
 
 interface CozyArtistListProps {
   onArtistClick?: (artistId: number, artistName: string) => void;
 }
 
-/**
- * CozyArtistList - Main orchestration component for artist list view
- *
- * Displays:
- * - Loading skeleton during initial fetch
- * - Alphabetically grouped artist sections
- * - Infinite scroll pagination (2000px threshold)
- * - Context menu with artist actions
- * - Loading indicator and end-of-list message
- *
- * Uses:
- * - useArtistListPagination hook for pagination, grouping, context menu logic
- * - ArtistSection component for letter-grouped sections
- * - ArtistListLoading component for loading skeleton
- */
 export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick }) => {
-  const { success, info } = useToast();
-
   const {
     artists,
     loading,
@@ -54,108 +50,42 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
     handleArtistClick,
     handleContextMenuOpen,
     groupedArtists,
-    sortedLetters
+    sortedLetters,
   } = useArtistListPagination({ onArtistClick });
 
-  // Context menu actions
-  const contextActions = contextMenuArtist
-    ? getArtistContextActions(contextMenuArtist.id, {
-        onPlayAll: () => {
-          success(`Playing all songs by ${contextMenuArtist.name}`);
-          // TODO: Implement play all artist tracks
-        },
-        onAddToQueue: () => {
-          success(`Added ${contextMenuArtist.name} to queue`);
-          // TODO: Implement add artist to queue
-        },
-        onShowAlbums: () => {
-          info(`Showing albums by ${contextMenuArtist.name}`);
-          if (onArtistClick) {
-            onArtistClick(contextMenuArtist.id, contextMenuArtist.name);
-          }
-        },
-        onShowInfo: () => {
-          info(`Artist: ${contextMenuArtist.name}\n${contextMenuArtist.album_count} albums • ${contextMenuArtist.track_count} tracks`);
-          // TODO: Show artist info modal
-        },
-      })
-    : [];
+  const contextActions = useContextMenuActions({
+    artist: contextMenuArtist,
+    onArtistClick,
+  });
 
   if (loading) {
     return <ArtistListLoading />;
   }
 
-  if (error) {
-    return (
-      <EmptyState
-        title="Error Loading Artists"
-        description={error}
-      />
-    );
-  }
+  const emptyState = (
+    <ArtistListEmptyState loading={loading} error={error} />
+  );
 
-  if (artists.length === 0) {
-    return (
-      <EmptyState
-        title="No Artists Yet"
-        description="Your artist library will appear here once you scan your music folder"
-        customIcon={<Person sx={{ fontSize: 64, opacity: 0.3 }} />}
-      />
-    );
+  if (error || artists.length === 0) {
+    return emptyState;
   }
 
   return (
-    <Box
-      ref={containerRef}
-      sx={{
-        padding: '24px',
-        width: '100%'
-      }}
-    >
-      <ArtistListHeader loadedCount={artists.length} totalCount={totalArtists} />
-
-      {/* Alphabetically grouped artist sections */}
-      {sortedLetters.map((letter) => (
-        <ArtistSection
-          key={letter}
-          letter={letter}
-          artists={groupedArtists[letter]}
-          onArtistClick={handleArtistClick}
-          onContextMenu={handleContextMenuOpen}
-        />
-      ))}
-
-      {/* Load more trigger - invisible sentinel element */}
-      {hasMore && (
-        <Box
-          ref={loadMoreTriggerRef}
-          sx={{
-            height: '1px',
-            width: '100%',
-          }}
-        />
-      )}
-
-      {/* Loading indicator */}
-      {isLoadingMore && <ArtistListLoadingIndicator currentCount={artists.length} totalCount={totalArtists} />}
-
-      {/* End of list indicator */}
-      {!hasMore && artists.length > 0 && (
-        <Box sx={{ p: 3, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            Showing all {totalArtists} artists
-          </Typography>
-        </Box>
-      )}
-
-      {/* Context menu */}
-      <ContextMenu
-        anchorPosition={contextMenuState.mousePosition}
-        open={contextMenuState.isOpen}
-        onClose={handleCloseContextMenu}
-        actions={contextActions}
-      />
-    </Box>
+    <ArtistListContent
+      artists={artists}
+      totalArtists={totalArtists}
+      isLoadingMore={isLoadingMore}
+      hasMore={hasMore}
+      containerRef={containerRef}
+      loadMoreTriggerRef={loadMoreTriggerRef}
+      groupedArtists={groupedArtists}
+      sortedLetters={sortedLetters}
+      contextMenuState={contextMenuState}
+      contextActions={contextActions}
+      onArtistClick={handleArtistClick}
+      onContextMenuOpen={handleContextMenuOpen}
+      onContextMenuClose={handleCloseContextMenu}
+    />
   );
 };
 
