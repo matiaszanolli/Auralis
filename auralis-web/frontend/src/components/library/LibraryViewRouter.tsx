@@ -18,6 +18,7 @@ import { CozyAlbumGrid } from './CozyAlbumGrid';
 import { CozyArtistList } from './CozyArtistList';
 import AlbumDetailView from './AlbumDetailView';
 import ArtistDetailView from './ArtistDetailView';
+import { tokens } from '@/design-system/tokens';
 
 export interface Track {
   id: number;
@@ -103,7 +104,7 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
             fontWeight="bold"
             gutterBottom
             sx={{
-              background: 'linear-gradient(45deg, #667eea, #764ba2)',
+              background: `linear-gradient(45deg, ${tokens.colors.accent.purple}, ${tokens.colors.accent.secondary})`,
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
@@ -158,7 +159,7 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
             fontWeight="bold"
             gutterBottom
             sx={{
-              background: 'linear-gradient(45deg, #667eea, #764ba2)',
+              background: `linear-gradient(45deg, ${tokens.colors.accent.purple}, ${tokens.colors.accent.secondary})`,
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
