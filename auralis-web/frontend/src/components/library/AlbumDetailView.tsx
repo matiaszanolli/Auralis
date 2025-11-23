@@ -12,6 +12,8 @@ import { EmptyStateBox } from './EmptyStateBox';
 import DetailViewHeader from './DetailViewHeader';
 import { PlayButton } from './Button.styles';
 import AlbumTrackTable from './AlbumTrackTable';
+import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 import {
   ArrowBack,
   PlayArrow,
@@ -199,7 +201,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
           sx={{
             mb: 2,
             '&:hover': {
-              backgroundColor: 'rgba(255,255,255,0.1)'
+              backgroundColor: auroraOpacity.ultraLight
             }
           }}
         >
@@ -210,7 +212,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
       {/* Album Header */}
       <DetailViewHeader
         artwork={
-          <Box sx={{ width: 280, height: 280, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+          <Box sx={{ width: 280, height: 280, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.19)' }}>
             <AlbumArt
               albumId={album.id}
               size={280}
@@ -249,9 +251,9 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
                 onClick={toggleFavorite}
                 disabled={savingFavorite}
                 sx={{
-                  color: isFavorite ? '#f50057' : 'text.secondary',
+                  color: isFavorite ? tokens.colors.accent.error : 'text.secondary',
                   '&:hover': {
-                    backgroundColor: 'rgba(255,255,255,0.1)'
+                    backgroundColor: auroraOpacity.ultraLight
                   },
                   '&:disabled': {
                     opacity: 0.6,
@@ -267,7 +269,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
               <IconButton
                 sx={{
                   '&:hover': {
-                    backgroundColor: 'rgba(255,255,255,0.1)'
+                    backgroundColor: auroraOpacity.ultraLight
                   }
                 }}
               >
@@ -279,7 +281,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
               <IconButton
                 sx={{
                   '&:hover': {
-                    backgroundColor: 'rgba(255,255,255,0.1)'
+                    backgroundColor: auroraOpacity.ultraLight
                   }
                 }}
               >
