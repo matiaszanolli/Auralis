@@ -7,15 +7,25 @@
  * - Favorite button toggle
  * - Text truncation for long names
  * - Smooth animations
+ *
+ * Styled components extracted to TrackInfo.styles.ts
  */
 
 import React, { useState } from 'react';
-import { Box, Typography, IconButton, Tooltip, styled } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { Tooltip } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import LyricsIcon from '@mui/icons-material/Lyrics';
 import AlbumArtDisplay from '../shared/ui/media';
+import {
+  TrackInfoContainer,
+  TrackDetails,
+  TitleContainer,
+  ActionButtonsContainer,
+  ActionButton,
+  TrackTitle,
+  TrackArtist,
+} from './TrackInfo.styles';
 
 interface TrackInfoProps {
   track: {
@@ -28,78 +38,6 @@ interface TrackInfoProps {
   onToggleLyrics?: () => void;
   showLyricsButton?: boolean;
 }
-
-const TrackInfoContainer = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: tokens.spacing.md,
-  minWidth: 0, // Enable flex item shrinking
-  maxWidth: '400px',
-});
-
-
-const TrackDetails = styled(Box)({
-  minWidth: 0, // Enable text truncation
-  flex: 1,
-});
-
-const TitleContainer = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: tokens.spacing.sm,
-  minWidth: 0,
-});
-
-const ActionButtonsContainer = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  gap: tokens.spacing.xs,
-  flexShrink: 0,
-});
-
-const ActionButton = styled(IconButton)({
-  color: tokens.colors.text.secondary,
-  padding: 0,
-  minWidth: '24px',
-  width: '24px',
-  height: '24px',
-  flexShrink: 0,
-  transition: tokens.transitions.all,
-
-  '&:hover': {
-    color: tokens.colors.accent.error,
-    transform: 'scale(1.2)',
-  },
-
-  '& .MuiSvgIcon-root': {
-    fontSize: '20px',
-  },
-});
-
-const TrackTitle = styled(Typography)({
-  fontSize: tokens.typography.fontSize.base,
-  fontWeight: tokens.typography.fontWeight.semibold,
-  color: tokens.colors.text.primary,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  lineHeight: tokens.typography.lineHeight.tight,
-  marginBottom: tokens.spacing.xs,
-});
-
-const TrackArtist = styled(Typography)({
-  fontSize: tokens.typography.fontSize.sm,
-  color: tokens.colors.text.secondary,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  lineHeight: tokens.typography.lineHeight.tight,
-  transition: tokens.transitions.color,
-
-  '&:hover': {
-    color: tokens.colors.text.primary,
-  },
-});
 
 export const TrackInfo: React.FC<TrackInfoProps> = React.memo(({
   track,

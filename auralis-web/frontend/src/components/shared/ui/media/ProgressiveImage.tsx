@@ -10,20 +10,20 @@
  * - Smooth fade-in animation (300ms)
  * - Error state handling with fallback
  * - Lazy loading support
- * - Optimized re-renders
+ * - Retry logic with exponential backoff
  *
  * @copyright (C) 2024 Auralis Team
  * @license GPLv3
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Box, styled } from '@mui/material';
 import { MusicNote } from '@mui/icons-material';
-import { SkeletonContainer, SkeletonBox } from '../../library/Skeleton.styles';
+import { SkeletonContainer } from '../../library/Skeleton.styles';
 import { fadeIn } from '../../library/Animation.styles';
 import { Skeleton } from '../loaders';
 import { auroraOpacity } from '../../library/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { useProgressiveImageLoader } from './useProgressiveImageLoader';
 
 interface ProgressiveImageProps {
   src: string;
@@ -48,7 +48,7 @@ const ImageContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  flexShrink: 0, // Prevent container from collapsing
+  flexShrink: 0,
 });
 
 const StyledImage = styled('img')<{ isloaded: string }>(({ isloaded }) => ({
@@ -72,6 +72,7 @@ const FallbackContainer = styled(Box)({
 
 /**
  * Progressive Image with smooth loading transitions
+ * Uses custom hook for retry logic and image state management
  */
 export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   src,
@@ -87,56 +88,15 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
   retryOnError = true,
   maxRetries = 2,
   onLoad,
-  onError
+  onError,
 }) => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-
-  useEffect(() => {
-    // Reset states when src changes
-    setImageLoaded(false);
-    setImageError(false);
-    setImageSrc(null);
-    setRetryCount(0);
-
-    if (!src) {
-      setImageError(true);
-      return;
-    }
-
-    // Preload image
-    const img = new Image();
-
-    img.onload = () => {
-      setImageSrc(src);
-      setImageLoaded(true);
-      onLoad?.();
-    };
-
-    img.onerror = () => {
-      // Retry logic
-      if (retryOnError && retryCount < maxRetries) {
-        const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 3000); // Exponential backoff
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-        }, retryDelay);
-      } else {
-        setImageError(true);
-        onError?.();
-      }
-    };
-
-    // Add cache busting for retries
-    img.src = retryCount > 0 ? `${src}?retry=${retryCount}` : src;
-
-    // Cleanup
-    return () => {
-      img.onload = null;
-      img.onerror = null;
-    };
-  }, [src, onLoad, onError, retryCount, retryOnError, maxRetries]);
+  const { imageLoaded, imageError, imageSrc } = useProgressiveImageLoader({
+    src,
+    retryOnError,
+    maxRetries,
+    onLoad,
+    onError,
+  });
 
   return (
     <ImageContainer
