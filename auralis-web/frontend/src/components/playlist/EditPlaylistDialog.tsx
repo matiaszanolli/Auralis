@@ -4,13 +4,13 @@ import {
   DialogActions,
   Box,
 } from '@mui/material';
-import { colors } from '../../theme/auralisTheme';
 import { useToast } from '../shared/Toast';
 import * as playlistService from '../../services/playlistService';
 import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
 import { StyledTextField } from '../library/FormFields.styles';
 import { GradientButton, CancelButton } from '../library/Button.styles';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface EditPlaylistDialogProps {
   open: boolean;
@@ -114,7 +114,7 @@ export const EditPlaylistDialog: React.FC<EditPlaylistDialogProps> = ({
               border: `1px solid ${auroraOpacity.standard}`,
             }}
           >
-            <Box sx={{ color: colors.text.secondary, fontSize: '14px' }}>
+            <Box sx={{ color: tokens.colors.text.secondary, fontSize: '14px' }}>
               {playlist.track_count} track{playlist.track_count !== 1 ? 's' : ''} in this playlist
             </Box>
           </Box>

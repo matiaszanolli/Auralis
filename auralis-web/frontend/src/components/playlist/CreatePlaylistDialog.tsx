@@ -4,13 +4,13 @@ import {
   DialogActions,
   Box,
 } from '@mui/material';
-import { colors } from '../../theme/auralisTheme';
 import { useToast } from '../shared/Toast';
 import * as playlistService from '../../services/playlistService';
 import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
 import { StyledTextField } from '../library/FormFields.styles';
 import { GradientButton, CancelButton } from '../library/Button.styles';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface CreatePlaylistDialogProps {
   open: boolean;
@@ -109,7 +109,7 @@ export const CreatePlaylistDialog: React.FC<CreatePlaylistDialogProps> = ({
                 border: `1px solid ${auroraOpacity.standard}`,
               }}
             >
-              <Box sx={{ color: colors.text.secondary, fontSize: '14px' }}>
+              <Box sx={{ color: tokens.colors.text.secondary, fontSize: '14px' }}>
                 {initialTrackIds.length} track{initialTrackIds.length !== 1 ? 's' : ''} will be added to this playlist
               </Box>
             </Box>
