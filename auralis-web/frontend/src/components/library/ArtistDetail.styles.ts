@@ -10,6 +10,8 @@
  */
 
 import { Typography, TableContainer, Paper, styled } from '@mui/material';
+import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 export { ArtistAvatarCircle } from './Avatar.styles';
 export { DetailViewTabs as StyledTabs } from './Tabs.styles';
 export { EmptyStateContainer as NoAlbumsContainer } from './EmptyState.styles';
@@ -19,17 +21,17 @@ export { EmptyStateContainer as NoAlbumsContainer } from './EmptyState.styles';
  * Features hover elevation and color transition on album title
  */
 export const AlbumCard = styled(Paper)(({ theme }) => ({
-  background: 'rgba(255,255,255,0.03)',
+  background: auroraOpacity.ultraLight,
   borderRadius: theme.spacing(2),
   overflow: 'hidden',
   cursor: 'pointer',
   transition: 'all 0.2s ease',
-  border: '1px solid rgba(255,255,255,0.05)',
+  border: `1px solid ${auroraOpacity.ultraLight}`,
   '&:hover': {
     transform: 'translateY(-4px)',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.19)',
     '& .album-title': {
-      color: '#667eea'
+      color: tokens.colors.accent.purple
     }
   }
 }));
@@ -57,7 +59,7 @@ export const AlbumInfo = styled(Typography)(({ theme }) => ({
  * TracksTableContainer - Container for the tracks table with styling
  */
 export const TracksTableContainer = styled(TableContainer)(({ theme }) => ({
-  background: 'rgba(255,255,255,0.03)',
+  background: auroraOpacity.ultraLight,
   borderRadius: theme.spacing(2),
   backdropFilter: 'blur(10px)'
 }));
