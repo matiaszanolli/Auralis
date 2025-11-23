@@ -18,7 +18,7 @@ import {
   FolderOpen,
   CheckCircle,
 } from '@mui/icons-material';
-import { colors, gradients } from '../../theme/auralisTheme';
+import { gradients } from '../library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface DropZoneProps {
@@ -146,13 +146,13 @@ export const DropZone: React.FC<DropZoneProps> = ({
           isDragging
             ? tokens.colors.accent.purple
             : scanning
-            ? alpha(colors.text.secondary, 0.3)
-            : alpha(colors.text.disabled, 0.2)
+            ? alpha(tokens.colors.text.secondary, 0.3)
+            : alpha(tokens.colors.text.disabled, 0.2)
         }`,
         background: isDragging
           ? alpha(tokens.colors.accent.purple, 0.05)
           : scanning
-          ? alpha(colors.background.hover, 0.5)
+          ? alpha(tokens.colors.bg.hover, 0.5)
           : 'transparent',
         cursor: disabled || scanning ? 'not-allowed' : 'pointer',
         transition: 'all 0.3s ease',
@@ -214,7 +214,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
           <FolderOpen
             sx={{
               fontSize: 64,
-              color: colors.text.disabled,
+              color: tokens.colors.text.disabled,
               transition: 'color 0.3s ease',
             }}
           />
@@ -226,7 +226,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
         variant="h6"
         sx={{
           fontWeight: 600,
-          color: isDragging ? tokens.colors.accent.purple : colors.text.primary,
+          color: isDragging ? tokens.colors.accent.purple : tokens.colors.text.primary,
           mb: 1,
           transition: 'color 0.3s ease',
         }}
@@ -241,7 +241,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
       <Typography
         variant="body2"
         sx={{
-          color: colors.text.secondary,
+          color: tokens.colors.text.secondary,
           maxWidth: 400,
           mx: 'auto',
         }}
@@ -260,7 +260,7 @@ export const DropZone: React.FC<DropZoneProps> = ({
           sx={{
             display: 'block',
             mt: 2,
-            color: colors.text.disabled,
+            color: tokens.colors.text.disabled,
             fontSize: 11,
           }}
         >
