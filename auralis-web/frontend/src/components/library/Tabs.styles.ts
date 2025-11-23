@@ -59,8 +59,6 @@ export const DetailViewTabs = styled(Tabs)(({ theme }) => ({
 }));
 
 /**
- * StyledTabs - Alias for DetailViewTabs for backward compatibility
- * Deprecated: Use DialogTabs or DetailViewTabs instead
- * NOTE: This was changed from DialogTabs to DetailViewTabs to match ArtistDetail.styles import
+ * NOTE: StyledTabs is exported from ArtistDetail.styles.ts as a re-export of DetailViewTabs
+ * Use DialogTabs or DetailViewTabs directly, or import StyledTabs from ArtistDetail.styles
  */
-export const StyledTabs = DetailViewTabs;
