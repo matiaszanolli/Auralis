@@ -44,14 +44,15 @@ import {
   Favorite,
   FavoriteOutlined
 } from '@mui/icons-material';
-import { Slider } from '@mui/material';
 import { useToast } from './shared/Toast';
 import { usePlayerWithAudio } from '../hooks/usePlayerWithAudio';
-import { auroraOpacity } from './library/Color.styles';
+import { auroraOpacity, gradients } from './library/Color.styles';
 import { useEnhancement } from '../contexts/EnhancementContext';
 import AlbumArtComponent from './album/AlbumArt';
 import { triggerAudioPlayGesture } from './player/HiddenAudioElement';
 import { PlayerContainer, PlayButton, AlbumArtContainer, ControlButton } from './player-bar-v2/PlayerBar.styles';
+import { ProgressBar } from './player-bar-v2/ProgressBar';
+import { tokens } from '@/design-system/tokens';
 
 export const BottomPlayerBarUnified: React.FC = () => {
   // Phase 4a Consolidation: Use unified player with audio composition hook
@@ -188,44 +189,16 @@ export const BottomPlayerBarUnified: React.FC = () => {
     return <VolumeUp />;
   }, [isMuted, localVolume]);
 
-  // Format time as MM:SS
-  const formatTime = useCallback((seconds: number): string => {
-    if (!isFinite(seconds) || seconds < 0) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }, []);
-
   return (
     <PlayerContainer>
       {/* Progress Bar - Full width, snapped to top */}
       <Box sx={{ width: '100%', px: 3, py: 0.75 }}>
-        <Slider
-          value={isSeeking ? currentTime : currentTime}
-          max={duration || 100}
-          onChange={handleSeek}
-          disabled={audioState === 'idle' || playerLoading}
-          sx={{
-            height: 4,
-            '& .MuiSlider-track': {
-              background: gradients.aurora,
-              border: 'none',
-              height: 4,
-            },
-            '& .MuiSlider-rail': {
-              height: 4,
-              background: auroraOpacity.standard,
-            },
-            '& .MuiSlider-thumb': {
-              width: 12,
-              height: 12,
-              background: tokens.colors.accent.purple,
-              boxShadow: `0 0 12px ${auroraOpacity.veryStrong}`,
-              '&:hover': {
-                boxShadow: `0 0 20px ${auroraOpacity.saturated}`,
-              },
-            },
-          }}
+        <ProgressBar
+          currentTime={currentTime}
+          duration={duration || 0}
+          onSeek={handleSeek}
+          chunkDuration={15}
+          chunkInterval={10}
         />
       </Box>
 
