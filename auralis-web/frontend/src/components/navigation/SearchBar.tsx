@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { InputAdornment, styled, Typography, Box, CircularProgress } from '@mui/material';
 import { Search, Close } from '@mui/icons-material';
-import { colors } from '../../theme/auralisTheme';
 import { IconButton } from '@mui/material';
 import { SearchTextField } from '../../components/library/FormFields.styles';
 import { auroraOpacity } from '../library/Color.styles';
@@ -20,11 +19,11 @@ interface SearchBarProps {
 
 const ClearButton = styled(IconButton)({
   padding: '8px',
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   transition: 'all 0.2s ease',
 
   '&:hover': {
-    color: colors.text.primary,
+    color: tokens.colors.text.primary,
     background: auroraOpacity.ultraLight,
   },
 });
@@ -32,7 +31,7 @@ const ClearButton = styled(IconButton)({
 const ResultCount = styled(Typography)({
   fontSize: '12px',
   fontWeight: 500,
-  color: colors.text.secondary,
+  color: tokens.colors.text.secondary,
   padding: '0 12px',
   whiteSpace: 'nowrap',
 });
