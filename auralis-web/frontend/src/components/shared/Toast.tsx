@@ -3,6 +3,7 @@ import { Snackbar, Alert, AlertColor, styled, keyframes } from '@mui/material';
 import { colors } from '../../theme/auralisTheme';
 import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
 import { spacingXSmall } from '../library/Spacing.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface ToastMessage {
   id: string;
@@ -41,14 +42,22 @@ const slideIn = keyframes`
 `;
 
 const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }) => {
+  // Helper to add alpha to hex colors
+  const hexToRgba = (hex: string, alpha: number): string => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
   const getBackgroundColor = () => {
     switch (severity) {
       case 'success':
-        return 'rgba(0, 212, 170, 0.15)';
+        return hexToRgba(tokens.colors.accent.success, 0.15);
       case 'error':
-        return 'rgba(255, 71, 87, 0.15)';
+        return hexToRgba(tokens.colors.accent.error, 0.15);
       case 'warning':
-        return 'rgba(255, 165, 2, 0.15)';
+        return hexToRgba(tokens.colors.accent.warning, 0.15);
       case 'info':
         return auroraOpacity.lighter;
       default:
@@ -76,7 +85,7 @@ const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }) => {
     color: colors.text.primary,
     border: `1px solid ${getBorderColor()}`,
     borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.19)',
     backdropFilter: 'blur(12px)',
     animation: `${slideIn} 0.3s ease-out`,
     fontSize: '14px',
