@@ -10,14 +10,13 @@
  */
 
 import React, { useState } from 'react';
-import { Box, IconButton } from '@mui/material';
-import { MoreVert } from '@mui/icons-material';
 import { AlbumArt } from '../AlbumArt';
 import { PlayOverlay } from './PlayOverlay';
 import { LoadingOverlay } from './LoadingOverlay';
 import { NoArtworkButtons } from './NoArtworkButtons';
 import { ArtworkMenu } from './ArtworkMenu';
-import { tokens } from '@/design-system/tokens';
+import { ArtworkSquareContainer } from './ArtworkSquareContainer';
+import { ArtworkMenuButton } from './ArtworkMenuButton';
 
 export interface ArtworkContainerProps {
   albumId: number;
@@ -77,60 +76,28 @@ export const ArtworkContainer: React.FC<ArtworkContainerProps> = ({
   return (
     <>
       {/* Artwork Container */}
-      <Box
-        sx={{
-          position: 'relative',
-          width: '100%',
-          paddingBottom: '100%', // Creates 1:1 (square) aspect ratio
-          overflow: 'hidden',
-          backgroundColor: tokens.colors.bg.primary,
-          flexShrink: 0,
-        }}
-      >
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-          }}
-        >
-          {/* Album Artwork */}
-          <AlbumArt albumId={albumId} size="100%" borderRadius={0} />
+      <ArtworkSquareContainer>
+        {/* Album Artwork */}
+        <AlbumArt albumId={albumId} size="100%" borderRadius={0} />
 
-          {/* Play Button Overlay */}
-          <PlayOverlay isHovered={isHovered} onClick={onPlay} />
+        {/* Play Button Overlay */}
+        <PlayOverlay isHovered={isHovered} onClick={onPlay} />
 
-          {/* Loading Overlay */}
-          <LoadingOverlay show={isDownloading || isExtracting} />
+        {/* Loading Overlay */}
+        <LoadingOverlay show={isDownloading || isExtracting} />
 
-          {/* No Artwork Buttons */}
-          <NoArtworkButtons
-            show={!hasArtwork && !isDownloading && !isExtracting}
-            onDownload={handleDownload}
-            onExtract={handleExtract}
-            isDownloading={isDownloading}
-            isExtracting={isExtracting}
-          />
+        {/* No Artwork Buttons */}
+        <NoArtworkButtons
+          show={!hasArtwork && !isDownloading && !isExtracting}
+          onDownload={handleDownload}
+          onExtract={handleExtract}
+          isDownloading={isDownloading}
+          isExtracting={isExtracting}
+        />
 
-          {/* Options Menu Button */}
-          <IconButton
-            onClick={handleMenuOpen}
-            sx={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              color: tokens.colors.text.primary,
-              background: 'rgba(0, 0, 0, 0.19)',
-              backdropFilter: 'blur(10px)',
-              '&:hover': { background: 'rgba(0, 0, 0, 0.42)' },
-            }}
-          >
-            <MoreVert />
-          </IconButton>
-        </Box>
-      </Box>
+        {/* Options Menu Button */}
+        <ArtworkMenuButton onClick={handleMenuOpen} />
+      </ArtworkSquareContainer>
 
       {/* Artwork Menu */}
       <ArtworkMenu
