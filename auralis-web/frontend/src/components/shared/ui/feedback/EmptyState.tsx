@@ -10,7 +10,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { MusicNote, SearchOff, PlaylistPlay, FolderOpen } from '@mui/icons-material';
-import { Button } from '../../design-system/primitives/Button';
+import { Button } from '@/design-system/primitives/Button';
 import { Container, IconContainer, Title, Description } from './EmptyState.styles';
 
 interface EmptyStateProps {
@@ -65,7 +65,7 @@ export const EmptyLibrary: React.FC<{
   scanning?: boolean;
 }> = ({ onScanFolder, onFolderDrop, scanning = false }) => {
   // Only import DropZone if needed
-  const DropZone = React.lazy(() => import('./DropZone').then(m => ({ default: m.DropZone })));
+  const DropZone = React.lazy(() => import('@/components/shared/DropZone/DropZone').then(m => ({ default: m.DropZone })));
 
   return (
     <Container>
