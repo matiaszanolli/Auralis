@@ -1,6 +1,5 @@
 import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
 import { Snackbar, Alert, AlertColor, styled, keyframes } from '@mui/material';
-import { colors } from '../../theme/auralisTheme';
 import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
 import { spacingXSmall } from '../library/Spacing.styles';
 import { tokens } from '@/design-system/tokens';
@@ -61,28 +60,28 @@ const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }) => {
       case 'info':
         return auroraOpacity.lighter;
       default:
-        return colors.background.surface;
+        return tokens.colors.bg.secondary;
     }
   };
 
   const getBorderColor = () => {
     switch (severity) {
       case 'success':
-        return colors.accent.success;
+        return tokens.colors.accent.success;
       case 'error':
-        return colors.accent.error;
+        return tokens.colors.accent.error;
       case 'warning':
-        return colors.accent.warning;
+        return tokens.colors.accent.warning;
       case 'info':
         return colorAuroraPrimary;
       default:
-        return colors.text.disabled;
+        return tokens.colors.text.disabled;
     }
   };
 
   return {
     background: getBackgroundColor(),
-    color: colors.text.primary,
+    color: tokens.colors.text.primary,
     border: `1px solid ${getBorderColor()}`,
     borderRadius: '8px',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.19)',

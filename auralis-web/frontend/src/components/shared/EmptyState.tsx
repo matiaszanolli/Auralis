@@ -1,9 +1,9 @@
 import React from 'react';
 import { Box, Typography, styled } from '@mui/material';
 import { MusicNote, SearchOff, PlaylistPlay, FolderOpen } from '@mui/icons-material';
-import { colors, spacing, transitions } from '../../theme/auralisTheme';
 import { Button } from '../../design-system/primitives/Button';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface EmptyStateProps {
   icon?: 'music' | 'search' | 'playlist' | 'folder';
@@ -19,17 +19,17 @@ const Container = styled(Box)({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: `${spacing.xxxl}px ${spacing.xl}px`,
+  padding: `${tokens.spacing.xxxl} ${tokens.spacing.xl}`,
   textAlign: 'center',
   minHeight: '300px',
 });
 
 const IconContainer = styled(Box)({
-  marginBottom: `${spacing.lg}px`,
+  marginBottom: tokens.spacing.lg,
   '& .MuiSvgIcon-root': {
     fontSize: '80px',
     color: auroraOpacity.strong,
-    transition: `all ${transitions.normal}`,
+    transition: 'all 200ms ease',
   },
 
   '&:hover .MuiSvgIcon-root': {
@@ -41,14 +41,14 @@ const IconContainer = styled(Box)({
 const Title = styled(Typography)({
   fontSize: '24px',
   fontWeight: 600,
-  color: colors.text.primary,
-  marginBottom: `${spacing.sm}px`,
+  color: tokens.colors.text.primary,
+  marginBottom: tokens.spacing.sm,
 });
 
 const Description = styled(Typography)({
   fontSize: '14px',
-  color: colors.text.secondary,
-  marginBottom: `${spacing.lg}px`,
+  color: tokens.colors.text.secondary,
+  marginBottom: tokens.spacing.lg,
   maxWidth: '400px',
   lineHeight: 1.6,
 });
