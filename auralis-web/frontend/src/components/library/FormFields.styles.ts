@@ -13,6 +13,7 @@
 
 import { TextField, styled } from '@mui/material';
 import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 /**
  * StyledTextField - Base styled TextField for dark theme
@@ -21,12 +22,12 @@ import { auroraOpacity } from './Color.styles';
  */
 export const StyledTextField = styled(TextField)({
   '& .MuiOutlinedInput-root': {
-    color: '#fff',
-    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
-    '&.Mui-focused fieldset': { borderColor: '#667eea' }
+    color: tokens.colors.text.primary,
+    '& fieldset': { borderColor: auroraOpacity.light },
+    '&:hover fieldset': { borderColor: auroraOpacity.standard },
+    '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.purple }
   },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
+  '& .MuiInputLabel-root': { color: auroraOpacity.standard }
 });
 
 /**
@@ -38,7 +39,7 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     height: '48px',
     borderRadius: '24px',
-    background: 'rgba(26, 31, 58, 0.5)',
+    background: auroraOpacity.ultraLight,
     backdropFilter: 'blur(8px)',
     border: '1px solid transparent',
     transition: 'all 0.3s ease',
@@ -49,12 +50,12 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
     },
 
     '&:hover': {
-      background: 'rgba(26, 31, 58, 0.7)',
+      background: auroraOpacity.lighter,
       border: `1px solid ${auroraOpacity.standard}`,
     },
 
     '&.Mui-focused': {
-      background: 'rgba(26, 31, 58, 0.8)',
+      background: auroraOpacity.light,
       border: `1px solid ${auroraOpacity.stronger}`,
       boxShadow: `0 0 0 3px ${auroraOpacity.veryLight}`,
     },
@@ -62,18 +63,18 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
 
   '& .MuiOutlinedInput-input': {
     fontSize: '16px',
-    color: '#fff',
+    color: tokens.colors.text.primary,
     padding: '12px 16px',
 
     '&::placeholder': {
-      color: 'rgba(255,255,255,0.5)',
+      color: auroraOpacity.standard,
       opacity: 1,
     },
   },
 
   '& .MuiInputAdornment-root': {
     marginRight: '8px',
-    color: 'rgba(255,255,255,0.7)',
+    color: auroraOpacity.standard,
   },
 }));
 
@@ -85,16 +86,16 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
 export const CompactTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     fontSize: '0.875rem',
-    color: '#fff',
-    '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' },
-    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.25)' },
-    '&.Mui-focused fieldset': { borderColor: '#667eea' }
+    color: tokens.colors.text.primary,
+    '& fieldset': { borderColor: auroraOpacity.ultraLight },
+    '&:hover fieldset': { borderColor: auroraOpacity.lighter },
+    '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.purple }
   },
   '& .MuiOutlinedInput-input': {
     padding: '8px 12px',
   },
   '& .MuiInputLabel-root': {
-    color: 'rgba(255,255,255,0.6)',
+    color: auroraOpacity.lighter,
     fontSize: '0.875rem'
   }
 }));
