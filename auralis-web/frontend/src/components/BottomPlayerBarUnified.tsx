@@ -220,7 +220,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
             '& .MuiSlider-thumb': {
               width: 12,
               height: 12,
-              background: '#667eea',
+              background: tokens.colors.accent.purple,
               boxShadow: `0 0 12px ${auroraOpacity.veryStrong}`,
               '&:hover': {
                 boxShadow: `0 0 20px ${auroraOpacity.saturated}`,
@@ -277,7 +277,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
                   sx={{ ml: 'auto' }}
                 >
                   {isLoved ? (
-                    <Favorite sx={{ color: '#ff4081', fontSize: 20 }} />
+                    <Favorite sx={{ color: tokens.colors.accent.pink, fontSize: 20 }} />
                   ) : (
                     <FavoriteOutlined sx={{ fontSize: 20 }} />
                   )}
@@ -288,7 +288,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
               variant="caption"
               noWrap
               sx={{
-                color: 'rgba(255,255,255,0.5)',
+                color: auroraOpacity.standard,
                 fontSize: '12px',
               }}
             >
@@ -347,7 +347,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
             sx={{
               minWidth: 100,
               textAlign: 'center',
-              color: 'rgba(255,255,255,0.6)',
+              color: auroraOpacity.stronger,
               fontSize: '12px',
               fontWeight: 500,
               letterSpacing: '0.3px',
@@ -395,7 +395,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
                 '& .MuiSlider-thumb': {
                   width: 10,
                   height: 10,
-                  background: '#667eea',
+                  background: tokens.colors.accent.purple,
                 },
               }}
             />
@@ -406,7 +406,7 @@ export const BottomPlayerBarUnified: React.FC = () => {
             sx={{
               minWidth: 32,
               textAlign: 'right',
-              color: 'rgba(255,255,255,0.5)',
+              color: auroraOpacity.standard,
               fontSize: '11px',
               fontWeight: 600,
               flexShrink: 0,
