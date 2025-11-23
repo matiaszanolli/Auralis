@@ -54,7 +54,7 @@ const LyricsContainer = styled(Box)({
     width: '8px',
   },
   '&::-webkit-scrollbar-track': {
-    background: colors.background.primary,
+    background: '#0A0E27',
   },
   '&::-webkit-scrollbar-thumb': {
     background: auroraOpacity.strong,
