@@ -19,6 +19,8 @@ import {
   SaveButton,
   CancelButtonForDialog,
 } from './Dialog.styles';
+import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface MetadataFields {
   title?: string;
@@ -178,7 +180,7 @@ const EditMetadataDialog: React.FC<EditMetadataDialogProps> = ({
         }
       }}
     >
-      <DialogTitle sx={{ color: '#fff', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+      <DialogTitle sx={{ color: tokens.colors.text.primary, borderBottom: `1px solid ${auroraOpacity.ultraLight}` }}>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Typography variant="h6">Edit Metadata</Typography>
           {loading && <CircularProgress size={24} />}
