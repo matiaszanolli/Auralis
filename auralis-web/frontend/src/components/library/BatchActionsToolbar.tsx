@@ -41,6 +41,8 @@ import {
 } from '@mui/icons-material';
 import { cardShadows } from './Shadow.styles';
 import { spacingPresets } from './Spacing.styles';
+import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface BatchActionsToolbarProps {
   selectedCount: number;
@@ -59,9 +61,9 @@ const ToolbarContainer = styled(Paper)(({ theme }) => ({
   left: '50%',
   transform: 'translateX(-50%)',
   zIndex: 1200,
-  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%)',
+  background: `linear-gradient(135deg, ${auroraOpacity.veryStrong} 0%, rgba(118, 75, 162, 0.95) 100%)`,
   backdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255, 255, 255, 0.2)',
+  border: `1px solid ${auroraOpacity.light}`,
   borderRadius: '16px',
   padding: spacingPresets.buttons.compact,
   display: 'flex',
@@ -82,26 +84,26 @@ const ToolbarContainer = styled(Paper)(({ theme }) => ({
 }));
 
 const SelectionCount = styled(Typography)(({ theme }) => ({
-  color: '#ffffff',
+  color: tokens.colors.text.primary,
   fontWeight: 'bold',
   fontSize: '16px',
   minWidth: '140px',
 }));
 
 const ActionButton = styled(IconButton)(({ theme }) => ({
-  color: '#ffffff',
-  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  color: tokens.colors.text.primary,
+  backgroundColor: auroraOpacity.light,
   '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: auroraOpacity.standard,
   },
   transition: 'all 0.2s ease',
 }));
 
 const CloseButton = styled(IconButton)(({ theme }) => ({
-  color: '#ffffff',
+  color: tokens.colors.text.primary,
   marginLeft: 'auto',
   '&:hover': {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: auroraOpacity.light,
   },
 }));
 
@@ -206,7 +208,7 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
             PaperProps={{
               sx: {
                 background: 'linear-gradient(135deg, #1a1f3a 0%, #0A0E27 100%)',
-                border: '1px solid rgba(102, 126, 234, 0.2)',
+                border: `1px solid ${auroraOpacity.standard}`,
                 borderRadius: '12px',
                 mt: 1,
               },
