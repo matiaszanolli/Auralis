@@ -9,7 +9,7 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity, statusColors } from '../library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 /**
@@ -116,13 +116,13 @@ export const AppTopBar: React.FC<AppTopBarProps> = ({
   const getConnectionStatusColor = () => {
     switch (connectionStatus) {
       case 'connected':
-        return '#4ade80'; // Green
+        return statusColors.connected;
       case 'connecting':
-        return '#facc15'; // Yellow
+        return statusColors.connecting;
       case 'disconnected':
-        return '#ef4444'; // Red
+        return statusColors.disconnected;
       default:
-        return '#888888';
+        return statusColors.disconnected;
     }
   };
 
