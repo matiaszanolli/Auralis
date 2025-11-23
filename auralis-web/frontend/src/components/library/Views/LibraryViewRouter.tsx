@@ -14,10 +14,10 @@
  */
 
 import React from 'react';
-import { CozyAlbumGrid } from './CozyAlbumGrid';
-import { CozyArtistList } from './CozyArtistList';
-import AlbumDetailView from './AlbumDetailView';
-import ArtistDetailView from './ArtistDetailView';
+import { CozyAlbumGrid } from '../Items/CozyAlbumGrid';
+import { CozyArtistList } from '../Items/CozyArtistList';
+import AlbumDetailView from '../Details/AlbumDetailView';
+import ArtistDetailView from '../Details/ArtistDetailView';
 import { ViewContainer } from './ViewContainer';
 
 export interface Track {
