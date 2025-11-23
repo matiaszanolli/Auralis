@@ -22,7 +22,7 @@ import {
   MoreVert
 } from '@mui/icons-material';
 import AlbumArt from '../album/AlbumArt';
-import { EmptyStateBox } from './EmptyStateBox';
+import { EmptyState } from '../shared/EmptyState';
 import DetailViewHeader from './DetailViewHeader';
 import { PlayButton, ShuffleButton } from './Button.styles';
 import { StyledTableRow, PlayIcon } from './Table.styles';
@@ -177,9 +177,9 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
   if (error || !artist) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
-        <EmptyStateBox
+        <EmptyState
           title={error ? 'Error Loading Artist' : 'Artist not found'}
-          subtitle={error || undefined}
+          description={error || undefined}
         />
         {onBack && (
           <Box sx={{ textAlign: 'center', mt: 2 }}>

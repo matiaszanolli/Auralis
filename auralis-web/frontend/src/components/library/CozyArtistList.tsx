@@ -16,7 +16,7 @@ import {
 import { Person } from '@mui/icons-material';
 import { useContextMenu, ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
-import { EmptyStateBox } from './EmptyStateBox';
+import { EmptyState } from '../shared/EmptyState';
 import {
   ListContainer,
   StyledListItem,
@@ -232,19 +232,19 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
 
   if (error) {
     return (
-      <EmptyStateBox
+      <EmptyState
         title="Error Loading Artists"
-        subtitle={error}
+        description={error}
       />
     );
   }
 
   if (artists.length === 0) {
     return (
-      <EmptyStateBox
+      <EmptyState
         title="No Artists Yet"
-        subtitle="Your artist library will appear here once you scan your music folder"
-        icon={<Person sx={{ fontSize: 64, opacity: 0.3 }} />}
+        description="Your artist library will appear here once you scan your music folder"
+        customIcon={<Person sx={{ fontSize: 64, opacity: 0.3 }} />}
       />
     );
   }

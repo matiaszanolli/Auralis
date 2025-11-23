@@ -38,7 +38,7 @@ import { useTrackSelection } from '../hooks/useTrackSelection';
 import { useLibraryWithStats, Track } from '../hooks/useLibraryWithStats';
 import { LibraryViewRouter } from './library/LibraryViewRouter';
 import { TrackListView } from './library/TrackListView';
-import { LibraryEmptyState } from './library/LibraryEmptyState';
+import { EmptyState, EmptyLibrary, NoSearchResults } from './shared/EmptyState';
 import { LibraryHeader } from './library/LibraryHeader';
 import { tokens } from '@/design-system/tokens';
 
@@ -346,12 +346,23 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
 
         {/* Track List or Empty State */}
         {filteredTracks.length === 0 && !loading ? (
-          <LibraryEmptyState
-            view={view}
-            searchQuery={searchQuery}
-            scanning={scanning}
-            onScanFolder={handleScanFolder}
-          />
+          <>
+            {view === 'favourites' ? (
+              <EmptyState
+                icon="music"
+                title="No favorites yet"
+                description="Click the heart icon on tracks you love to add them to your favorites"
+              />
+            ) : searchQuery ? (
+              <NoSearchResults query={searchQuery} />
+            ) : (
+              <EmptyLibrary
+                onScanFolder={handleScanFolder}
+                onFolderDrop={handleScanFolder}
+                scanning={scanning}
+              />
+            )}
+          </>
         ) : (
           <TrackListView
             tracks={filteredTracks}
