@@ -17,10 +17,9 @@
  */
 
 import React from 'react';
-import { Box, Checkbox, styled } from '@mui/material';
 import TrackRow from './TrackRow';
-import { auroraOpacity } from '../Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { SelectableContainer, StyledCheckbox, TrackContainer } from './SelectableTrackRow.styles';
+import { useTrackRowSelection } from './useTrackRowSelection';
 
 interface Track {
   id: number;
@@ -50,47 +49,6 @@ interface SelectableTrackRowProps {
   onAddToPlaylist?: (trackId: number) => void;
 }
 
-const SelectableContainer = styled(Box, {
-  shouldForwardProp: (prop) => prop !== 'isSelected',
-})<{ isSelected: boolean }>(({ theme, isSelected }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  padding: '4px 8px',
-  borderRadius: '8px',
-  backgroundColor: isSelected ? auroraOpacity.lighter : 'transparent',
-  border: isSelected ? `1px solid ${auroraOpacity.strong}` : '1px solid transparent',
-  transition: 'all 0.2s ease',
-  cursor: 'pointer',
-  '&:hover': {
-    backgroundColor: isSelected ? auroraOpacity.standard : auroraOpacity.ultraLight,
-    '& .selection-checkbox': {
-      opacity: 1,
-    },
-  },
-}));
-
-const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
-  color: auroraOpacity.lighter,
-  opacity: 0,
-  transition: 'opacity 0.2s ease',
-  '&.Mui-checked': {
-    color: tokens.colors.accent.purple,
-    opacity: 1,
-  },
-  '&.visible': {
-    opacity: 1,
-  },
-  '& .MuiSvgIcon-root': {
-    fontSize: '20px',
-  },
-}));
-
-const TrackContainer = styled(Box)(({ theme }) => ({
-  flex: 1,
-  minWidth: 0, // Allow text truncation
-}));
-
 const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
   track,
   index,
@@ -104,20 +62,9 @@ const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
   onAddToQueue,
   onAddToPlaylist,
 }) => {
-  const handleContainerClick = (event: React.MouseEvent) => {
-    // Don't trigger selection if clicking on action buttons
-    const target = event.target as HTMLElement;
-    const isActionButton = target.closest('button') || target.closest('[role="button"]');
-    
-    if (!isActionButton) {
-      onToggleSelect(event);
-    }
-  };
-
-  const handleCheckboxClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    onToggleSelect(event);
-  };
+  const { handleContainerClick, handleCheckboxClick } = useTrackRowSelection({
+    onToggleSelect,
+  });
 
   return (
     <SelectableContainer
