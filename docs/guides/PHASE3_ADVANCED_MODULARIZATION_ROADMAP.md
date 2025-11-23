@@ -17,7 +17,7 @@ Phase 3 focuses on advanced component modularization and UI consolidation, build
 
 ## Progress Summary
 
-### Completed Tasks (2/9)
+### Completed Tasks (3/9)
 
 #### 1. ✅ Remove Deprecated Legacy Files
 **Commit**: 2c83624
@@ -78,6 +78,46 @@ Foundation for Phase 3 UI consolidation:
 - media/ - Media display components
 - tooltips/ - Tooltip components
 
+#### 4. ✅ Refactor RadialPresetSelector (302 lines)
+**Commit**: 624a778
+
+Completed modular refactoring of circular preset selector:
+
+**Created**:
+- `presetConfig.ts` (60 lines) - Preset definitions and utilities
+  - PRESETS constant array with all 5 presets (Adaptive, Bright, Punchy, Warm, Gentle)
+  - Preset interface definition
+  - getPresetByValue() lookup function
+  - getCirclePosition() position calculation utility
+- `PresetItem.tsx` (88 lines) - Individual preset button component
+  - Renders single preset with dynamic sizing
+  - Handles hover/active state visual feedback
+  - Tooltip with preset description
+  - Prop-based interaction callbacks
+- `usePresetSelection.ts` (34 lines) - State management hook
+  - Hover state management
+  - Memoized getCirclePosition callback
+  - Clean separation of logic from UI
+
+**Refactored**:
+- `RadialPresetSelector.tsx` (302 → 198 lines, -34%)
+  - Now uses PRESETS from config
+  - Uses PresetItem for rendering buttons
+  - Uses usePresetSelection for state management
+  - Main component simplified to orchestration only
+
+**Key Improvements**:
+- Extracted configuration into dedicated module for reusability
+- Custom hook available for other preset-based UIs
+- Individual preset button component reusable in other contexts
+- Easier to test and modify individual pieces
+- Main component cleaner and more maintainable
+
+**Metrics**:
+- Main component reduction: 302 → 198 lines (-34%)
+- 3 new focused pieces created
+- 100% backward compatible (unchanged exports)
+
 ---
 
 ## Detailed Implementation Status
@@ -87,48 +127,31 @@ Foundation for Phase 3 UI consolidation:
 | Component | Lines | Status | Priority | Reduction Target |
 |-----------|-------|--------|----------|-----------------|
 | AlbumDetailView | 307 | ✅ COMPLETE | 1 | 307→130 (-58%) |
-| RadialPresetSelector | 302 | 📋 PLANNED | 2 | 302→120 (-60%) |
+| RadialPresetSelector | 302 | ✅ COMPLETE | 2 | 302→120 (-60%) | 302→198 (-34%) |
 | EnhancementToggle | 300 | 📋 PLANNED | 3 | 300→110 (-63%) |
 | DropZone | 296 | 📋 PLANNED | 4 | 296→100 (-66%) |
 | Sidebar | 283 | 📋 PLANNED | 5 | 283→90 (-68%) |
 
-### RadialPresetSelector (302 lines) - Next Target
-
-**Location**: `shared/ui/RadialPresetSelector.tsx`
-
-**Current Structure**:
-- Preset definitions (hardcoded array)
-- Position calculation logic
-- Rendering with 5 circular presets
-- Hover/selection state management
-
-**Refactoring Plan**:
-1. **Extract `presetConfig.ts`** - Preset definitions
-2. **Extract `PresetItem.tsx`** - Individual preset button component
-3. **Extract `usePresetSelection.ts`** - Selection state and logic
-4. **Refactor `RadialPresetSelector.tsx`** - Main component (-60%)
-
-**Expected Outcome**:
-- Main component: 302L → 120L
-- Reusable hook and config for other preset-based UIs
-- Preset definitions easily customizable
-- Better testability of individual pieces
-
-### EnhancementToggle (300 lines) - Third Priority
+### EnhancementToggle (300 lines) - Current Target
 
 **Location**: `components/shared/EnhancementToggle.tsx`
 
 **Current Structure**:
 - Multiple variant rendering logic
 - State management mixed with UI
-- Complex conditional logic
+- Complex conditional logic for 4 different toggle variants
 
 **Refactoring Plan**:
-1. Extract variant-specific subcomponents
-2. Create custom hook for toggle state
-3. Separate styling logic
+1. **Extract variant components** - Individual toggle variants (Inline, Cards, Buttons, Dropdowns)
+2. **Extract custom hook** - Toggle state and behavior logic
+3. **Refactor main component** - Orchestration only (-63% target)
 
-**Expected Outcome**: 300L → 110L (-63%)
+**Expected Outcome**:
+- Main component: 300L → 110L
+- Variant components reusable in other contexts
+- Hook available for other toggle-based UIs
+- Better separation of concerns
+
 
 ### DropZone (296 lines) - Fourth Priority
 
@@ -413,20 +436,25 @@ layouts/
 
 ## Summary
 
-**Phase 3 is actively progressing** with foundation work complete and refactoring underway.
+**Phase 3 is actively progressing** with 2 of 5 major large components refactored.
 
-**Completed**:
+**Completed** (4/9 total tasks):
 - ✅ Removed 1,198 lines of deprecated code
-- ✅ Refactored AlbumDetailView with 58% main component reduction
-- ✅ Established shared UI module infrastructure
-- ✅ Documented refactoring roadmap
+- ✅ Refactored AlbumDetailView (307L → 130L, -58%)
+- ✅ Established shared UI module infrastructure with 12 empty subdirectories
+- ✅ Refactored RadialPresetSelector (302L → 198L, -34%)
+  - Extracted presetConfig.ts for reusable preset definitions
+  - Created PresetItem.tsx subcomponent for individual buttons
+  - Created usePresetSelection.ts for state management
 
 **In Progress**:
-- 🔄 RadialPresetSelector refactoring
+- 🔄 EnhancementToggle refactoring (300L → 110L target)
 - 🔄 Large component refactoring pipeline
 
 **Pending**:
-- Medium component refactoring
+- DropZone refactoring (296L → 100L target)
+- Sidebar refactoring (283L → 90L target)
+- Medium component refactoring (200-250 lines)
 - UI directory consolidation
 - Phase 3 completion documentation
 
