@@ -5,6 +5,8 @@
  */
 
 import { Box, TableRow, styled } from '@mui/material';
+import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 /**
  * StyledTableRow - Interactive table row with hover effects and current track highlighting
@@ -14,18 +16,18 @@ export const StyledTableRow = styled(TableRow)(({ theme }) => ({
   cursor: 'pointer',
   transition: 'background-color 0.2s ease',
   '&:hover': {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: auroraOpacity.ultraLight,
     '& .play-icon': {
       opacity: 1
     }
   },
   '&.current-track': {
-    backgroundColor: 'rgba(102, 126, 234, 0.15)',
+    backgroundColor: auroraOpacity.lighter,
     '& .track-number': {
-      color: '#667eea'
+      color: tokens.colors.accent.purple
     },
     '& .track-title': {
-      color: '#667eea',
+      color: tokens.colors.accent.purple,
       fontWeight: 'bold'
     }
   }

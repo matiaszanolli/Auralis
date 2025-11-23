@@ -2,6 +2,7 @@ import { Box, Typography, IconButton, styled } from '@mui/material';
 import { colors, gradients, spacing, borderRadius, transitions } from '../../theme/auralisTheme';
 import { SmallIconButton } from './Icon.styles';
 import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
   display: 'flex',
@@ -39,7 +40,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) 
     },
 
     '& .track-title': {
-      color: '#667eea',
+      color: tokens.colors.accent.purple,
     },
 
     '& .album-art': {
@@ -74,7 +75,7 @@ export const TrackNumberBox = styled(Box)({
 export const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) => ({
   fontSize: '14px',
   fontWeight: 500,
-  color: iscurrent === 'true' ? '#667eea' : colors.text.secondary,
+  color: iscurrent === 'true' ? tokens.colors.accent.purple : colors.text.secondary,
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 }));
 
@@ -87,7 +88,7 @@ export const PlayButton = styled(SmallIconButton)({
   opacity: 0,
   transform: 'scale(0.8)',
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-  color: '#667eea',
+  color: tokens.colors.accent.purple,
 
   '&:hover': {
     background: auroraOpacity.lighter,
@@ -178,6 +179,6 @@ export const MoreButton = styled(SmallIconButton)({
 
   '&:hover': {
     background: auroraOpacity.light,
-    color: '#667eea',
+    color: tokens.colors.accent.purple,
   },
 });

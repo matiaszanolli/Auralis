@@ -25,6 +25,7 @@ import {
 } from './SearchStyles.styles';
 import SearchResultItem from './SearchResultItem';
 import AlbumArt from '../album/AlbumArt';
+import { tokens } from '@/design-system/tokens';
 
 interface SearchResult {
   type: 'track' | 'album' | 'artist';
@@ -205,7 +206,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
           startAdornment: (
             <InputAdornment position="start">
               {loading ? (
-                <CircularProgress size={20} sx={{ color: '#667eea' }} />
+                <CircularProgress size={20} sx={{ color: tokens.colors.accent.purple }} />
               ) : (
                 <SearchIcon sx={{ color: 'text.secondary' }} />
               )}
