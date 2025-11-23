@@ -1,12 +1,7 @@
 import React from 'react';
-import {
-  Box,
-  SwipeableDrawer,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { useMediaQuery, useTheme } from '@mui/material';
 import Sidebar from '../layouts/Sidebar';
-import { auroraOpacity } from '../library/Color.styles';
+import { MobileSidebarDrawer } from './MobileSidebarDrawer';
 
 /**
  * Props for the AppSidebar component.
@@ -109,38 +104,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     // MOBILE: Swipeable Drawer
     // ========================================
     return (
-      <SwipeableDrawer
-        anchor="left"
+      <MobileSidebarDrawer
         open={mobileDrawerOpen}
         onClose={onCloseMobileDrawer}
-        onOpen={() => {
-          // Opening via swipe is handled by drawer
-        }}
-        disableSwipeToOpen={false}
-        swipeAreaWidth={20}
-        ModalProps={{
-          keepMounted: true, // Better performance on mobile
-        }}
-        PaperProps={{
-          sx: {
-            width: 240,
-            background: 'var(--midnight-blue)',
-            borderRight: `1px solid ${auroraOpacity.veryLight}`,
-          },
-        }}
-      >
-        <Sidebar
-          collapsed={false} // Mobile drawer never collapses
-          onNavigate={(view: string) => {
-            onNavigate(view);
-            onCloseMobileDrawer(); // Close drawer after navigation
-          }}
-          onOpenSettings={() => {
-            onOpenSettings();
-            onCloseMobileDrawer(); // Close drawer after opening settings
-          }}
-        />
-      </SwipeableDrawer>
+        onNavigate={onNavigate}
+        onOpenSettings={onOpenSettings}
+      />
     );
   }
 
