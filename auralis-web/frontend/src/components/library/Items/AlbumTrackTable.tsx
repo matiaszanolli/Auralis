@@ -7,20 +7,9 @@
  */
 
 import React from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Typography,
-  Box
-} from '@mui/material';
-import { PlayArrow, Pause } from '@mui/icons-material';
-import { StyledTableRow, PlayIcon } from '../Styles/Table.styles';
-import { tokens } from '@/design-system/tokens';
+import { Table, TableBody, TableContainer, TableRow, Paper, Typography, TableCell } from '@mui/material';
+import TrackTableHeader from './TrackTableHeader';
+import TrackTableRowItem from './TrackTableRowItem';
 
 interface Track {
   id: number;
@@ -57,75 +46,19 @@ export const AlbumTrackTable: React.FC<AlbumTrackTableProps> = ({
       }}
     >
       <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell width="60px" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-              #
-            </TableCell>
-            <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-              Title
-            </TableCell>
-            <TableCell sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-              Artist
-            </TableCell>
-            <TableCell align="right" width="100px" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-              Duration
-            </TableCell>
-          </TableRow>
-        </TableHead>
+        <TrackTableHeader />
         <TableBody>
           {tracks && tracks.length > 0 ? (
             tracks.map((track, index) => (
-              <StyledTableRow
+              <TrackTableRowItem
                 key={track.id}
-                onClick={() => onTrackClick(track)}
-                className={currentTrackId === track.id ? 'current-track' : ''}
-              >
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {currentTrackId === track.id && isPlaying ? (
-                      <Pause sx={{ fontSize: 20, color: tokens.colors.accent.purple }} />
-                    ) : (
-                      <>
-                        <Typography
-                          className="track-number"
-                          sx={{
-                            fontSize: '0.9rem',
-                            color: 'text.secondary',
-                            '.current-track &': { display: 'none' }
-                          }}
-                        >
-                          {track.track_number || index + 1}
-                        </Typography>
-                        <PlayIcon className="play-icon">
-                          <PlayArrow sx={{ fontSize: 20 }} />
-                        </PlayIcon>
-                      </>
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Typography
-                    className="track-title"
-                    sx={{
-                      fontSize: '0.95rem',
-                      fontWeight: currentTrackId === track.id ? 'bold' : 'normal'
-                    }}
-                  >
-                    {track.title}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
-                    {track.artist}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
-                    {formatDuration(track.duration)}
-                  </Typography>
-                </TableCell>
-              </StyledTableRow>
+                track={track}
+                index={index}
+                isCurrentTrack={currentTrackId === track.id}
+                isPlaying={isPlaying}
+                onTrackClick={onTrackClick}
+                formatDuration={formatDuration}
+              />
             ))
           ) : (
             <TableRow>
