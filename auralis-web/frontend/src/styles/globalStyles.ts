@@ -1,5 +1,4 @@
 import { css } from '@emotion/react';
-import { gradients } from '../theme/auralisTheme';
 
 // Direct color values to avoid circular import issues at module load time
 const BG_PRIMARY = '#0A0E27';
@@ -9,6 +8,11 @@ const BG_HOVER = '#2a3150';
 const TEXT_PRIMARY = '#ffffff';
 const TEXT_SECONDARY = '#8b92b0';
 const TEXT_DISABLED = '#5a5f7a';
+
+// Gradient constants (module load-time requirement)
+const GRADIENT_AURORA = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+const GRADIENT_NEON_SUNSET = 'linear-gradient(135deg, #ff6b9d 0%, #ffa502 100%)';
+const GRADIENT_DEEP_OCEAN = 'linear-gradient(135deg, #4b7bec 0%, #26de81 100%)';
 
 export const globalStyles = css`
   :root {
@@ -23,9 +27,9 @@ export const globalStyles = css`
     --text-disabled: ${TEXT_DISABLED};
 
     /* Gradient variables */
-    --gradient-aurora: ${gradients.aurora};
-    --gradient-sunset: ${gradients.neonSunset};
-    --gradient-ocean: ${gradients.deepOcean};
+    --gradient-aurora: ${GRADIENT_AURORA};
+    --gradient-sunset: ${GRADIENT_NEON_SUNSET};
+    --gradient-ocean: ${GRADIENT_DEEP_OCEAN};
   }
 
   * {
@@ -171,7 +175,7 @@ export const globalStyles = css`
 
   /* Utility classes */
   .gradient-text {
-    background: ${gradients.aurora};
+    background: ${GRADIENT_AURORA};
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

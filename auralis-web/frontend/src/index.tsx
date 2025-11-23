@@ -15,7 +15,6 @@ import ReactDOM from 'react-dom/client';
     const { ThemeProvider } = await import('@mui/material/styles');
     const { default: CssBaseline } = await import('@mui/material/CssBaseline');
     const { Global } = await import('@emotion/react');
-    const { auralisTheme } = await import('./theme/auralisTheme');
     const { globalStyles } = await import('./styles/globalStyles');
     const { default: App } = await import('./App');
 
@@ -38,11 +37,9 @@ import ReactDOM from 'react-dom/client';
 
     root.render(
       <React.StrictMode>
-        <ThemeProvider theme={auralisTheme}>
-          <CssBaseline />
-          <Global styles={globalStyles} />
-          <App />
-        </ThemeProvider>
+        <CssBaseline />
+        <Global styles={globalStyles} />
+        <App />
       </React.StrictMode>
     );
 

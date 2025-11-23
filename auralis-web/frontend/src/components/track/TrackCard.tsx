@@ -19,8 +19,7 @@ import {
   PlayArrow,
   MusicNote,
 } from '@mui/icons-material';
-import { colors, gradients } from '../../theme/auralisTheme';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity, gradients } from '../library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface TrackCardProps {
@@ -86,8 +85,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({
         overflow: 'hidden',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
-        background: colors.background.surface,
-        border: `1px solid ${colors.background.hover}`,
+        background: tokens.colors.bg.surface,
+        border: `1px solid ${tokens.colors.bg.hover}`,
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: `0 8px 24px ${auroraOpacity.standard}`,
@@ -203,7 +202,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
             variant="subtitle1"
             sx={{
               fontWeight: 600,
-              color: colors.text.primary,
+              color: tokens.colors.text.primary,
               mb: 0.5,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -218,7 +217,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           <Typography
             variant="body2"
             sx={{
-              color: colors.text.secondary,
+              color: tokens.colors.text.secondary,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -233,7 +232,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
           <Typography
             variant="caption"
             sx={{
-              color: colors.text.disabled,
+              color: tokens.colors.text.disabled,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
