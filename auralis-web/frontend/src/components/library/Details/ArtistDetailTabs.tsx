@@ -7,8 +7,8 @@
 import React from 'react';
 import { Box, Tab } from '@mui/material';
 import { StyledTabs } from '../Styles/ArtistDetail.styles';
-import AlbumsTab from './AlbumsTab';
-import TracksTab from './TracksTab';
+import AlbumsTab from '../Views/AlbumsTab';
+import TracksTab from '../Views/TracksTab';
 
 interface Track {
   id: number;
