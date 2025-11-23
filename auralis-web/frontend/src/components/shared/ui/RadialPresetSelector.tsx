@@ -1,23 +1,10 @@
-import React, { useState } from 'react';
-import { Box, Typography, Tooltip } from '@mui/material';
-import {
-  AutoAwesome,
-  WavesOutlined,
-  WhatshotOutlined,
-  FlareOutlined,
-  BoltOutlined,
-} from '@mui/icons-material';
-import { gradients, auroraOpacity, colorAuroraPrimary } from './library/Color.styles';
+import React from 'react';
+import { Box, Typography } from '@mui/material';
+import { PRESETS, getCirclePosition, Preset } from './presetConfig';
+import { PresetItem } from './PresetItem';
+import { usePresetSelection } from './usePresetSelection';
+import { auroraOpacity, colorAuroraPrimary, gradients } from '@/components/library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
-
-interface Preset {
-  value: string;
-  label: string;
-  description: string;
-  gradient: string;
-  icon: React.ReactNode;
-  angle: number; // Position on the circle (0-360 degrees)
-}
 
 interface RadialPresetSelectorProps {
   currentPreset: string;
@@ -26,71 +13,37 @@ interface RadialPresetSelectorProps {
   size?: number; // Diameter of the circle
 }
 
+/**
+ * Circular preset selector UI component
+ *
+ * Displays 5 audio processing presets (Adaptive, Bright, Punchy, Warm, Gentle)
+ * arranged in a circle with:
+ * - Center hub showing current preset with animated icon
+ * - Surrounding preset buttons with hover effects
+ * - Connecting lines and decorative ring
+ * - Full keyboard and mouse interaction support
+ *
+ * @example
+ * ```tsx
+ * <RadialPresetSelector
+ *   currentPreset={preset}
+ *   onPresetChange={setPreset}
+ *   size={240}
+ * />
+ * ```
+ */
 const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
   currentPreset,
   onPresetChange,
   disabled = false,
   size = 240,
 }) => {
-  const [hoveredPreset, setHoveredPreset] = useState<string | null>(null);
-
-  // Define presets with unique colors and positions around the circle
-  const presets: Preset[] = [
-    {
-      value: 'adaptive',
-      label: 'Adaptive',
-      description: 'Intelligent content-aware mastering',
-      gradient: gradients.aurora,
-      icon: <AutoAwesome />,
-      angle: 0, // Top
-    },
-    {
-      value: 'bright',
-      label: 'Bright',
-      description: 'Enhances clarity and presence',
-      gradient: gradients.neonSunset,
-      icon: <FlareOutlined />,
-      angle: 72, // Top-right
-    },
-    {
-      value: 'punchy',
-      label: 'Punchy',
-      description: 'Increases impact and dynamics',
-      gradient: gradients.electricPurple,
-      icon: <BoltOutlined />,
-      angle: 144, // Bottom-right
-    },
-    {
-      value: 'warm',
-      label: 'Warm',
-      description: 'Adds warmth and smoothness',
-      gradient: gradients.neonSunset,
-      icon: <WhatshotOutlined />,
-      angle: 216, // Bottom-left
-    },
-    {
-      value: 'gentle',
-      label: 'Gentle',
-      description: 'Subtle mastering with minimal processing',
-      gradient: gradients.deepOcean,
-      icon: <WavesOutlined />,
-      angle: 288, // Top-left
-    },
-  ];
-
-  // Calculate position on circle
-  const getPosition = (angle: number, radius: number) => {
-    const rad = ((angle - 90) * Math.PI) / 180; // -90 to start from top
-    return {
-      x: Math.cos(rad) * radius,
-      y: Math.sin(rad) * radius,
-    };
-  };
+  const { hoveredPreset, setHoveredPreset, getCirclePosition: calculatePosition } = usePresetSelection();
 
   const radius = (size - 80) / 2; // Leave space for preset buttons
   const centerSize = size / 3;
 
-  const currentPresetData = presets.find((p) => p.value === currentPreset) || presets[0];
+  const currentPresetData = PRESETS.find((p) => p.value === currentPreset) || PRESETS[0];
 
   return (
     <Box
@@ -156,79 +109,22 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
       </Box>
 
       {/* Preset buttons around the circle */}
-      {presets.map((preset) => {
-        const pos = getPosition(preset.angle, radius);
+      {PRESETS.map((preset) => {
+        const pos = calculatePosition(preset.angle, radius);
         const isActive = preset.value === currentPreset;
         const isHovered = preset.value === hoveredPreset;
-        const buttonSize = isActive ? 64 : isHovered ? 56 : 52;
 
         return (
-          <Tooltip
+          <PresetItem
             key={preset.value}
-            title={
-              <Box sx={{ textAlign: 'center', py: 0.5 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  {preset.label}
-                </Typography>
-                <Typography variant="caption" sx={{ fontSize: 11, opacity: 0.9 }}>
-                  {preset.description}
-                </Typography>
-              </Box>
-            }
-            placement="top"
-            arrow
-          >
-            <Box
-              onClick={() => !isActive && onPresetChange(preset.value)}
-              onMouseEnter={() => setHoveredPreset(preset.value)}
-              onMouseLeave={() => setHoveredPreset(null)}
-              sx={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                width: buttonSize,
-                height: buttonSize,
-                transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px))`,
-                borderRadius: '50%',
-                background: isActive ? preset.gradient : tokens.colors.bg.tertiary,
-                border: isActive
-                  ? `3px solid ${auroraOpacity.stronger}`
-                  : isHovered
-                  ? `2px solid ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}`
-                  : `2px solid ${auroraOpacity.ultraLight}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: isActive ? 'default' : 'pointer',
-                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                boxShadow: isActive
-                  ? `0 0 30px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}99`
-                  : isHovered
-                  ? `0 0 20px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}66`
-                  : '0 2px 8px rgba(0, 0, 0, 0.19)',
-                zIndex: isActive ? 10 : isHovered ? 5 : 1,
-                '&:hover': {
-                  transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px)) scale(1.05)`,
-                },
-                '&:active': {
-                  transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px)) scale(0.95)`,
-                },
-              }}
-            >
-              <Box
-                sx={{
-                  fontSize: isActive ? 28 : 24,
-                  color: isActive ? tokens.colors.text.primary : isHovered ? tokens.colors.text.primary : tokens.colors.text.secondary,
-                  transition: 'all 0.3s ease',
-                  filter: isActive
-                    ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
-                    : 'none',
-                }}
-              >
-                {preset.icon}
-              </Box>
-            </Box>
-          </Tooltip>
+            preset={preset}
+            isActive={isActive}
+            isHovered={isHovered}
+            position={pos}
+            size={size}
+            onSelect={onPresetChange}
+            onHover={setHoveredPreset}
+          />
         );
       })}
 
@@ -244,8 +140,8 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
           opacity: 0.15,
         }}
       >
-        {presets.map((preset) => {
-          const pos = getPosition(preset.angle, radius);
+        {PRESETS.map((preset) => {
+          const pos = getCirclePosition(preset.angle, radius);
           const centerX = size / 2;
           const centerY = size / 2;
           const isActive = preset.value === currentPreset;
