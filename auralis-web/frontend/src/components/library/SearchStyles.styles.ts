@@ -11,6 +11,8 @@
 
 import { TextField, Paper, ListItemButton, Chip, styled, Box } from '@mui/material';
 import { containerShadows } from './Shadow.styles';
+import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 export { ArtistSearchAvatar, DefaultSearchAvatar } from './Avatar.styles';
 export { SearchEmptyState as EmptyResultsBox } from './EmptyState.styles';
 export { CategoryHeader, ResultTitle, ResultSubtitle } from './Typography.styles';
@@ -31,20 +33,20 @@ export const SearchContainer = styled(Box)(({ theme }) => ({
  */
 export const SearchField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: auroraOpacity.ultraLight,
     borderRadius: 24,
     '&:hover': {
-      backgroundColor: 'rgba(255,255,255,0.08)'
+      backgroundColor: auroraOpacity.veryLight
     },
     '&.Mui-focused': {
-      backgroundColor: 'rgba(255,255,255,0.08)',
+      backgroundColor: auroraOpacity.veryLight,
       '& fieldset': {
-        borderColor: '#667eea',
+        borderColor: tokens.colors.accent.purple,
         borderWidth: 2
       }
     },
     '& fieldset': {
-      borderColor: 'rgba(255,255,255,0.1)'
+      borderColor: auroraOpacity.lighter
     }
   },
   '& .MuiOutlinedInput-input': {
@@ -64,9 +66,9 @@ export const ResultsContainer = styled(Paper)(({ theme }) => ({
   marginTop: theme.spacing(1),
   maxHeight: 500,
   overflowY: 'auto',
-  background: 'rgba(26, 31, 58, 0.98)',
+  background: tokens.colors.background.secondary,
   backdropFilter: 'blur(20px)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  border: `1px solid ${auroraOpacity.lighter}`,
   borderRadius: theme.spacing(2),
   boxShadow: containerShadows.resultsPanel,
   zIndex: 1000
@@ -79,9 +81,9 @@ export const StyledListItemButton = styled(ListItemButton)(({ theme }) => ({
   borderRadius: theme.spacing(1),
   margin: theme.spacing(0.5, 1),
   '&:hover': {
-    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    backgroundColor: auroraOpacity.ultraLight,
     '& .result-title': {
-      color: '#667eea'
+      color: tokens.colors.accent.purple
     }
   }
 }));
@@ -95,16 +97,16 @@ export const TypeChip = styled(Chip)(({ theme }) => ({
   fontSize: '0.7rem',
   fontWeight: 600,
   '&.track': {
-    backgroundColor: 'rgba(102, 126, 234, 0.2)',
-    color: '#667eea'
+    backgroundColor: auroraOpacity.light,
+    color: tokens.colors.accent.purple
   },
   '&.album': {
-    backgroundColor: 'rgba(118, 75, 162, 0.2)',
-    color: '#764ba2'
+    backgroundColor: auroraOpacity.standard,
+    color: tokens.colors.accent.secondary
   },
   '&.artist': {
-    backgroundColor: 'rgba(236, 72, 153, 0.2)',
-    color: '#ec4899'
+    backgroundColor: auroraOpacity.standard,
+    color: tokens.colors.accent.pink
   }
 }));
 
