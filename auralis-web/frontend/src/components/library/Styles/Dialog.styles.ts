@@ -55,4 +55,15 @@ export const MetadataDialogActions = styled(DialogActions)(({ theme }) => ({
   padding: theme.spacing(2)
 }));
 
+/**
+ * DialogPaperProps - Standard PaperProps for EditMetadataDialog
+ * Provides gradient background styling
+ */
+export const DialogPaperProps = {
+  sx: {
+    bgcolor: '#1a1f3a',
+    backgroundImage: 'linear-gradient(135deg, #1a1f3a 0%, #0f1228 100%)',
+  },
+};
+
 export default StyledDialog;

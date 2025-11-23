@@ -1,34 +1,35 @@
 /**
- * EditMetadataDialog Component (Refactored)
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * EditMetadataDialog Component
  *
- * Dialog for editing track metadata
- * Organized modular structure:
+ * Dialog for editing track metadata with form state management,
+ * error/success feedback, and save functionality.
+ *
+ * Modular structure:
+ * - EditMetadataDialogHeader - Dialog title and loading state
+ * - MetadataDialogAlerts - Error and success messages
  * - MetadataFormFields - Form field rendering
  * - useMetadataForm - Form state and operations
- * - Styled components for dialog layout
+ *
+ * Features:
+ * - Load and display current track metadata
+ * - Edit metadata fields (title, artist, album, etc.)
+ * - Save metadata with success/error feedback
+ * - Loading states during operations
  */
 
-import React, { useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  Box,
-  Typography,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
+import React from 'react';
+import { Dialog, DialogContent, CircularProgress } from '@mui/material';
 import { Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
 import { MetadataFormFields } from './MetadataFormFields';
+import { EditMetadataDialogHeader } from './EditMetadataDialogHeader';
+import { MetadataDialogAlerts } from './MetadataDialogAlerts';
 import {
   MetadataDialogActions,
   SaveButton,
   CancelButtonForDialog,
+  DialogPaperProps,
 } from '../Styles/Dialog.styles';
 import { useMetadataForm, MetadataFields } from './useMetadataForm';
-import { auroraOpacity } from '../Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
 
 export interface EditMetadataDialogProps {
   open: boolean;
@@ -66,47 +67,14 @@ export const EditMetadataDialog: React.FC<EditMetadataDialogProps> = ({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: {
-          bgcolor: '#1a1f3a',
-          backgroundImage: 'linear-gradient(135deg, #1a1f3a 0%, #0f1228 100%)',
-        },
-      }}
-    >
-      {/* Dialog Header */}
-      <DialogTitle sx={{ color: tokens.colors.text.primary, borderBottom: `1px solid ${auroraOpacity.ultraLight}` }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Typography variant="h6">Edit Metadata</Typography>
-          {loading && <CircularProgress size={24} />}
-        </Box>
-      </DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth PaperProps={DialogPaperProps}>
+      <EditMetadataDialogHeader loading={loading} />
 
-      {/* Dialog Content */}
       <DialogContent sx={{ mt: 2 }}>
-        {/* Error Alert */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Success Alert */}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            Metadata saved successfully!
-          </Alert>
-        )}
-
-        {/* Metadata Form Fields */}
+        <MetadataDialogAlerts error={error} success={success} />
         <MetadataFormFields metadata={metadata} loading={loading} onChange={updateField} />
       </DialogContent>
 
-      {/* Dialog Actions */}
       <MetadataDialogActions>
         <CancelButtonForDialog onClick={handleClose} disabled={saving} startIcon={<CloseIcon />}>
           Cancel
