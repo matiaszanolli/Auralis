@@ -17,18 +17,16 @@ import {
   QueueMusic,
   Delete,
   Favorite,
-  Edit,
   MoreVert
 } from '@mui/icons-material';
-import { Menu, MenuItem } from '@mui/material';
 import {
   ToolbarContainer,
   SelectionCount,
   CloseButton,
 } from './BatchActionsToolbarStyles';
 import { BatchActionButton } from './BatchActionButton';
+import { BatchActionsMoreMenu } from './BatchActionsMoreMenu';
 import { useBatchActionsMenu } from './useBatchActionsMenu';
-import { auroraOpacity } from '../Styles/Color.styles';
 
 interface BatchActionsToolbarProps {
   selectedCount: number;
@@ -126,35 +124,11 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
             title="More Actions"
             onClick={handleMoreMenuOpen}
           />
-          <Menu
+          <BatchActionsMoreMenu
             anchorEl={moreMenuAnchor}
-            open={Boolean(moreMenuAnchor)}
             onClose={handleMoreMenuClose}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            PaperProps={{
-              sx: {
-                background: 'linear-gradient(135deg, #1a1f3a 0%, #0A0E27 100%)',
-                border: `1px solid ${auroraOpacity.standard}`,
-                borderRadius: '12px',
-                mt: 1,
-              },
-            }}
-          >
-            <MenuItem
-              onClick={() => handleAction(onEditMetadata)}
-              sx={{ color: 'white', gap: 1 }}
-            >
-              <Edit fontSize="small" />
-              Edit Metadata
-            </MenuItem>
-          </Menu>
+            onEditMetadata={onEditMetadata}
+          />
         </>
       )}
 
