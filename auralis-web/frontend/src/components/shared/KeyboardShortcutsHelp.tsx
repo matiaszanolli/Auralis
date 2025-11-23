@@ -4,6 +4,12 @@
  * Displays a beautiful dialog showing all available keyboard shortcuts.
  * Automatically groups shortcuts by category and formats them nicely.
  *
+ * Modular structure:
+ * - KeyboardShortcutsHeader - Dialog title with close button
+ * - KeyboardShortcutsEmpty - Empty state message
+ * - KeyboardShortcutsList - Grouped shortcuts and categories
+ * - useShortcutFormatting - Memoized grouping and formatting logic
+ *
  * Usage:
  * ```tsx
  * <KeyboardShortcutsHelp
@@ -15,21 +21,14 @@
  */
 
 import React from 'react';
-import {
-  DialogContent,
-  IconButton,
-  Box,
-  Typography,
-  Paper,
-  Divider,
-  styled
-} from '@mui/material';
-import { Close, Keyboard } from '@mui/icons-material';
+import { DialogContent } from '@mui/material';
 import { ShortcutDefinition } from '../../services/keyboardShortcutsService';
-import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
-import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
-import { spacingSmall, spacingXSmall } from '../library/Spacing.styles';
-import { tokens } from '@/design-system/tokens';
+import { StyledDialog } from '../library/Dialog.styles';
+import { useShortcutFormatting } from './useShortcutFormatting';
+import { KeyboardShortcutsHeader } from './KeyboardShortcutsHeader';
+import { KeyboardShortcutsEmpty } from './KeyboardShortcutsEmpty';
+import { KeyboardShortcutsList } from './KeyboardShortcutsList';
+import { DialogContentBox } from './KeyboardShortcutsHelp.styles';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;
@@ -38,127 +37,25 @@ interface KeyboardShortcutsHelpProps {
   formatShortcut?: (shortcut: ShortcutDefinition) => string;
 }
 
-const CategorySection = styled(Paper)(({ theme }) => ({
-  background: auroraOpacity.ultraLight,
-  border: `1px solid ${auroraOpacity.veryLight}`,
-  borderRadius: '12px',
-  padding: spacingSmall,
-  marginBottom: spacingSmall,
-}));
-
-const ShortcutRow = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: `${spacingXSmall} 0`,
-  borderBottom: `1px solid ${auroraOpacity.ultraLight}`,
-  '&:last-child': {
-    borderBottom: 'none',
-  },
-}));
-
-const ShortcutKey = styled(Box)(({ theme }) => ({
-  background: auroraOpacity.standard,
-  border: `1px solid ${auroraOpacity.veryStrong}`,
-  borderRadius: '6px',
-  padding: `${spacingXSmall} 12px`,
-  fontFamily: 'monospace',
-  fontSize: '14px',
-  fontWeight: 'bold',
-  color: colorAuroraPrimary,
-  minWidth: '80px',
-  textAlign: 'center',
-  boxShadow: `0 2px 8px ${auroraOpacity.standard}`,
-}));
-
-const ShortcutDescription = styled(Typography)(({ theme }) => ({
-  color: auroraOpacity.veryStrong,
-  fontSize: '14px',
-}));
-
-const CategoryTitle = styled(Typography)(({ theme }) => ({
-  color: colorAuroraPrimary,
-  fontWeight: 'bold',
-  fontSize: '16px',
-  marginBottom: spacingXSmall,
-  display: 'flex',
-  alignItems: 'center',
-  gap: spacingXSmall,
-}));
-
-const EmptyState = styled(Box)(({ theme }) => ({
-  textAlign: 'center',
-  padding: `40px ${spacingSmall}`,
-  color: auroraOpacity.standard,
-}));
-
 const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
   open,
   shortcuts,
   onClose,
   formatShortcut,
 }) => {
-  // Group shortcuts by category
-  const groupedShortcuts: Record<string, ShortcutDefinition[]> = {};
-  shortcuts.forEach((shortcut) => {
-    if (!groupedShortcuts[shortcut.category]) {
-      groupedShortcuts[shortcut.category] = [];
-    }
-    groupedShortcuts[shortcut.category].push(shortcut);
-  });
+  const { groupedShortcuts, config, formatFn } = useShortcutFormatting(
+    shortcuts,
+    formatShortcut
+  );
 
-  // Category order
-  const categoryOrder: Array<ShortcutDefinition['category']> = [
-    'Playback',
-    'Navigation',
-    'Library',
-    'Queue',
-    'Global',
-  ];
-
-  // Category icons
-  const categoryIcons: Record<ShortcutDefinition['category'], string> = {
-    'Playback': '🎵',
-    'Navigation': '🧭',
-    'Library': '📚',
-    'Queue': '📝',
-    'Global': '⚙️',
-  };
-
-  // Default formatShortcut if not provided
-  const defaultFormatShortcut = (shortcut: ShortcutDefinition): string => {
-    const parts: string[] = [];
-    const isMac = typeof navigator !== 'undefined' &&
-                  navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-
-    if (shortcut.ctrl || shortcut.meta) {
-      parts.push(isMac ? '⌘' : 'Ctrl');
-    }
-    if (shortcut.shift) {
-      parts.push(isMac ? '⇧' : 'Shift');
-    }
-    if (shortcut.alt) {
-      parts.push(isMac ? '⌥' : 'Alt');
-    }
-
-    const keyMap: Record<string, string> = {
-      ' ': 'Space',
-      'ArrowUp': '↑',
-      'ArrowDown': '↓',
-      'ArrowLeft': '←',
-      'ArrowRight': '→',
-      'Enter': '↵',
-      'Escape': 'Esc',
-      'Delete': 'Del',
-    };
-
-    const keyDisplay = keyMap[shortcut.key] || shortcut.key.toUpperCase();
-    parts.push(keyDisplay);
-
-    return parts.join(isMac ? '' : '+');
-  };
-
-  const formatFn = formatShortcut || defaultFormatShortcut;
+  // Build categories array for rendering
+  const categories = config.categoryOrder
+    .map((category) => ({
+      category,
+      shortcuts: groupedShortcuts[category] || [],
+      icon: config.categoryIcons[category],
+    }))
+    .filter((cat) => cat.shortcuts.length > 0);
 
   return (
     <StyledDialog
@@ -167,69 +64,16 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
       maxWidth="md"
       fullWidth
     >
-      <StyledDialogTitle>
-        <Keyboard />
-        <Typography variant="h6" component="div" sx={{ flex: 1 }}>
-          Keyboard Shortcuts
-        </Typography>
-        <IconButton
-          onClick={onClose}
-          sx={{
-            color: tokens.colors.text.primary,
-            '&:hover': {
-              background: auroraOpacity.ultraLight,
-            },
-          }}
-        >
-          <Close />
-        </IconButton>
-      </StyledDialogTitle>
+      <KeyboardShortcutsHeader onClose={onClose} />
 
-      <DialogContent sx={{ p: 3 }}>
+      <DialogContent sx={DialogContentBox}>
         {shortcuts.length === 0 ? (
-          <EmptyState>
-            <Keyboard sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
-            <Typography variant="h6" gutterBottom>
-              No keyboard shortcuts configured
-            </Typography>
-            <Typography variant="body2">
-              Enable keyboard shortcuts in settings to see available shortcuts here.
-            </Typography>
-          </EmptyState>
+          <KeyboardShortcutsEmpty />
         ) : (
-          <>
-            {categoryOrder.map((category) => {
-              const categoryShortcuts = groupedShortcuts[category];
-              if (!categoryShortcuts || categoryShortcuts.length === 0) return null;
-
-              return (
-                <CategorySection key={category} elevation={0}>
-                  <CategoryTitle>
-                    <span>{categoryIcons[category]}</span>
-                    {category}
-                  </CategoryTitle>
-                  {categoryShortcuts.map((shortcut, index) => (
-                    <ShortcutRow key={index}>
-                      <ShortcutDescription>
-                        {shortcut.description}
-                      </ShortcutDescription>
-                      <ShortcutKey>
-                        {formatFn(shortcut)}
-                      </ShortcutKey>
-                    </ShortcutRow>
-                  ))}
-                </CategorySection>
-              );
-            })}
-
-            <Divider sx={{ my: 3, borderColor: auroraOpacity.ultraLight }} />
-
-            <Box sx={{ textAlign: 'center', color: auroraOpacity.standard }}>
-              <Typography variant="body2">
-                Press <strong>?</strong> anytime to show this dialog
-              </Typography>
-            </Box>
-          </>
+          <KeyboardShortcutsList
+            categories={categories}
+            formatShortcut={formatFn}
+          />
         )}
       </DialogContent>
     </StyledDialog>
