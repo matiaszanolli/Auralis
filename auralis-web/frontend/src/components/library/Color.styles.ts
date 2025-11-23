@@ -99,6 +99,12 @@ export const gradientPresets = {
 };
 
 /**
+ * Backward compatibility alias for gradientPresets
+ * Used throughout the codebase as 'gradients'
+ */
+export const gradients = gradientPresets;
+
+/**
  * Status colors for connection indicators and alerts
  * Used for showing system status, connectivity, and notifications
  */
