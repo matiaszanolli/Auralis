@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Project-Specific Guidance**: This CLAUDE.md contains Auralis-specific development guidelines. For user-specific preferences across all projects, see `~/.claude/CLAUDE.md`.
 
+**📌 Current Version**: **1.1.0-beta.2** (November 23, 2025)
+
 **Key Project Principles:**
 - Always prioritize improving existing code rather than duplicating logic
 - Coverage ≠ Quality: Test behavior and invariants, not implementation
@@ -30,6 +32,51 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## 📊 Test Status Dashboard
+
+**Backend Tests (Python/pytest):**
+| Category | Count | Status | Command |
+|----------|-------|--------|---------|
+| **Total Tests** | 850+ | ✅ Production Ready | `pytest tests/ -v` |
+| Invariant Tests | 305 | ✅ Critical | `pytest -m invariant -v` |
+| Integration Tests | 85 | ✅ Advanced | `pytest tests/integration/ -v` |
+| Boundary Tests | 151+ | ✅ Comprehensive | `pytest tests/boundaries/ -v` |
+| Backend API Tests | 96 | ✅ Endpoints | `pytest tests/backend/ -v` |
+| Audio Processing | 24 | ✅ Core | `pytest tests/auralis/ -v` |
+| Security Tests | 67 | ✅ OWASP Top 10 | `pytest -m security -v` |
+| **Coverage** | **74%+** | ✅ Excellent | `pytest --cov=auralis --cov=auralis-web` |
+
+**Frontend Tests (React/Vitest):**
+| Category | Passing | Total | Status | Command |
+|----------|---------|-------|--------|---------|
+| **All Tests** | 1,084 | 1,425 | ✅ 76% pass | `npm run test:memory` |
+| **Skipped** | — | 173 | ℹ️ 12% | — |
+| **Failing** | — | 168 | ⚠️ 12% | See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md) |
+| Coverage Target | — | — | 📈 55%+ | `npm run test:coverage:memory` |
+
+**Quick Test Commands:**
+```bash
+# Run all backend tests
+pytest tests/ -v
+
+# Run only fast tests (skip slow)
+pytest -m "not slow" -v
+
+# Run specific test category
+pytest -m invariant -v          # Critical invariants
+pytest -m boundary -v           # Edge cases
+pytest -m integration -v        # Cross-component
+pytest tests/backend/ -v        # API endpoints
+
+# Frontend tests (⚠️ ALWAYS use test:memory for full suite)
+npm run test:memory             # Full suite, 2GB heap with GC
+npm test                        # Interactive watch mode
+npm run test:run               # Single run, standard heap
+npm run test:coverage:memory    # Coverage report
+```
+
+---
+
 ## ⚡ Quick Start (30 seconds)
 
 **Web Interface (recommended for development):**
@@ -48,6 +95,65 @@ npm run dev                           # Starts backend + frontend + Electron
 ```bash
 python -m pytest tests/ -v                    # All tests
 cd auralis-web/frontend && npm run test:memory  # Frontend tests (memory safe)
+```
+
+---
+
+## 🎛️ Development Modes Guide
+
+Choose the mode that best fits your development needs:
+
+### Mode 1: Web Interface (Recommended for Most Development)
+**Best for:** Frontend features, API endpoints, library management
+```bash
+python launch-auralis-web.py --dev
+# Opens http://localhost:8765 in browser
+# Backend: http://localhost:8765/api
+# Frontend dev server: http://localhost:3000 (proxied to backend)
+# Hot reload: ✅ Both frontend and backend
+# Time to ready: ~3-5 seconds
+```
+
+### Mode 2: Desktop App (Electron) - Full Stack
+**Best for:** Testing native OS integration, file pickers, desktop-specific features
+```bash
+cd desktop && npm run dev
+# Starts: Backend (8765) + Frontend (3000) + Electron window
+# Hot reload: ✅ Frontend hot reload in Electron window
+# Backend reload: Manual - restart app after backend changes
+# Time to ready: ~5-8 seconds
+```
+
+### Mode 3: Backend Only
+**Best for:** API development, testing without UI, debugging backend logic
+```bash
+cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
+# API docs: http://localhost:8765/api/docs (Swagger UI)
+# Hot reload: ✅ Automatic
+# Time to ready: ~1-2 seconds
+```
+
+### Mode 4: Frontend Only (Requires Backend Running)
+**Best for:** UI component development when backend is stable
+```bash
+# Terminal 1: Start backend
+cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
+
+# Terminal 2: Start frontend
+cd auralis-web/frontend && npm start
+# Frontend: http://localhost:3000
+# Hot reload: ✅ Automatic
+# Backend proxy: ✅ Configured in vite.config.ts
+```
+
+**Decision Tree:**
+```
+Are you working on...
+├─ Frontend components or styling?        → Mode 1 (Web) or Mode 4 (Frontend Only)
+├─ API endpoints or backend logic?        → Mode 3 (Backend Only) or Mode 1 (Web)
+├─ Desktop/Electron features?             → Mode 2 (Desktop App)
+├─ Real-time WebSocket features?          → Mode 1 (Web) or Mode 2 (Desktop)
+└─ Full integration testing?               → Mode 2 (Desktop) or Mode 1 (Web)
 ```
 
 ---
@@ -943,6 +1049,136 @@ python -m pytest -m "not slow" -v                   # Skip slow tests
 
 ---
 
+## 📜 Script Reference
+
+### launch-auralis-web.py
+**Purpose:** Convenient launcher for the Auralis web interface
+**Location:** `/mnt/data/src/matchering/launch-auralis-web.py`
+
+```bash
+# Development mode (auto-reload, opens browser)
+python launch-auralis-web.py --dev
+
+# Development with custom port
+python launch-auralis-web.py --dev --port 9000
+
+# Production mode (serves built frontend)
+python launch-auralis-web.py
+
+# Production with custom port
+python launch-auralis-web.py --port 9000
+
+# Don't auto-open browser (useful for SSH/remote)
+python launch-auralis-web.py --dev --no-browser
+```
+
+**What it does:**
+1. Checks Python and Node.js dependencies
+2. Starts FastAPI backend (port 8765 by default)
+3. In `--dev` mode: Starts React dev server (port 3000)
+4. Opens browser automatically (unless `--no-browser`)
+5. Manages process lifecycle (Ctrl+C stops all servers)
+
+**Environment variables:**
+- `VITE_API_URL` - Backend API URL (default: http://localhost:8765)
+- `VITE_WS_URL` - WebSocket URL (default: ws://localhost:8765)
+
+### sync_version.py
+**Purpose:** Update version numbers consistently across all files
+**Location:** `/mnt/data/src/matchering/sync_version.py`
+
+```bash
+# Update to new version
+python sync_version.py 1.1.0-beta.2
+
+# Check current version
+python -c "from auralis.version import get_version; print(get_version())"
+```
+
+**What it does:**
+- Updates `auralis/version.py`
+- Updates `package.json` version field
+- Updates git tags and commit messages
+- Ensures version consistency across codebase
+
+**Files modified:**
+- `auralis/version.py` - Python version string
+- `package.json` - Node.js version
+- Git commit message and tags
+
+### Makefile
+**Purpose:** Build and manage the application
+**Location:** `/mnt/data/src/matchering/Makefile`
+
+```bash
+make help          # Show all available targets
+make clean         # Remove build artifacts
+make install       # Install dependencies
+make test          # Run full test suite
+make build         # Build app with tests
+make build-fast    # Build without tests
+make dev           # Development setup
+make lint          # Run linting
+make typecheck      # Run mypy type checking
+make release       # Full release build
+```
+
+**Key targets:**
+- `make build` - Full release build (runs tests, then builds)
+- `make build-fast` - Quick build for testing
+- `make clean` - Clean build artifacts before release
+
+---
+
+## 🌍 Environment Variables Reference
+
+### Backend Configuration (`.env`)
+
+```bash
+# Server configuration
+UVICORN_HOST=0.0.0.0
+UVICORN_PORT=8765
+UVICORN_RELOAD=true          # Auto-reload on code change
+
+# Audio processing
+AUDIO_FORMAT=wav              # wav, flac, mp3
+SAMPLE_RATE=44100             # 44100, 48000, 96000
+BIT_DEPTH=16                  # 16, 24, 32
+
+# Library settings
+LIBRARY_DB_PATH=~/.auralis/library.db
+LIBRARY_CACHE_TTL=300         # Cache time-to-live (seconds)
+
+# Feature flags
+ENABLE_FINGERPRINTING=true    # Audio fingerprinting
+ENABLE_ENHANCEMENT=true       # Real-time enhancement
+ENABLE_WEBSOCKET=true         # WebSocket updates
+```
+
+### Frontend Configuration (`.env.local`)
+
+```bash
+# API Configuration
+VITE_API_URL=http://localhost:8765
+VITE_WS_URL=ws://localhost:8765
+
+# Build optimization
+VITE_SOURCE_MAP=false         # Disable source maps (smaller build)
+```
+
+### Desktop App Configuration (`.env`)
+
+```bash
+# Electron specific
+ELECTRON_ENABLE_LOGGING=true
+NODE_ENV=development
+
+# Backend (inherited from backend .env)
+UVICORN_PORT=8765
+```
+
+---
+
 ## 🔧 Performance & Optimization
 
 ### Performance Metrics
@@ -1052,7 +1288,7 @@ git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push origin master && git push origin vX.Y.Z
 ```
 
-**Current Version**: 1.1.0-beta.1 (see README.md for latest, released November 18, 2025)
+**Current Version**: 1.1.0-beta.2 (see README.md for latest, released November 23, 2025)
 
 ---
 
@@ -1240,6 +1476,47 @@ npm test -- --reporter=verbose --bail  # Stop on first failure
 
 ## 🐛 Troubleshooting
 
+### Quick Decision Tree
+
+**Problem: Something's broken. What do I do?**
+```
+START: "What's not working?"
+├─ Backend won't start/crashes
+│  ├─ Error about port 8765 already in use → Kill process (see below)
+│  ├─ Import error or dependency missing → Reinstall requirements
+│  ├─ "Database locked" error → Kill all Python processes & restart
+│  └─ Other error → Run with verbose logging
+│
+├─ Frontend won't load/compile
+│  ├─ Blank page or 404 → Check backend is running on 8765
+│  ├─ Build fails with errors → Clean install: rm -rf node_modules && npm install
+│  ├─ Hot reload not working → Check vite.config.ts has proxy to :8765
+│  └─ "Module not found" → Check npm install completed
+│
+├─ Tests failing or hanging
+│  ├─ Timeout errors → Tests too slow, use -m "not slow" flag
+│  ├─ Memory errors (frontend) → Use npm run test:memory (2GB heap)
+│  ├─ Random failures → Possible race condition or test isolation issue
+│  └─ All tests fail → Try pytest -x to stop on first failure
+│
+├─ Desktop app won't start
+│  ├─ Backend not starting → See "Backend won't start" above
+│  ├─ Blank Electron window → Check frontend on :3000
+│  ├─ "File picker not working" → Check preload.js IPC bridge
+│  └─ Build fails → Clean: rm -rf desktop/dist && npm install
+│
+├─ Audio sounds wrong or is silent
+│  ├─ No sound at all → Check speaker volume, WebAudio API not blocked
+│  ├─ Distorted/clipped → Check processing parameters, may be too aggressive
+│  ├─ Gaps between tracks → Library scan not complete, restart
+│  └─ Enhancement toggle broken → Check WebSocket connection
+│
+└─ Database issues
+   ├─ "Database locked" → Kill all Python: pkill -9 python
+   ├─ Corrupted database → Backup then delete ~/.auralis/library.db
+   └─ Wrong data → Check SQL queries, run migrate if needed
+```
+
 ### Backend Won't Start
 ```bash
 # Check port is free
@@ -1305,6 +1582,90 @@ python benchmark_performance.py
 # Check query cache effectiveness
 python -c "from auralis.library import LibraryManager; m = LibraryManager(); print(m.cache_info())"
 ```
+
+---
+
+## 🔐 Pre-commit Hooks Setup
+
+This repository uses Git pre-commit hooks for code quality checks. Hooks are defined in `.pre-commit-config.yaml`.
+
+### Setup (One-time)
+
+```bash
+# Install pre-commit framework
+pip install pre-commit
+
+# Install hooks into .git/hooks/
+pre-commit install
+
+# Run manually on all files (optional)
+pre-commit run --all-files
+```
+
+### What Hooks Check
+
+Current hooks configured in `.pre-commit-config.yaml`:
+- Python syntax validation
+- Large file detection (prevents accidentally committing large files)
+- Whitespace/trailing space cleanup
+- JSON formatting
+- YAML validation
+
+### Running Hooks Manually
+
+```bash
+# Run all hooks on changed files
+pre-commit run
+
+# Run specific hook
+pre-commit run black
+
+# Run on all files (not just changed)
+pre-commit run --all-files
+
+# Skip hooks for emergency commit (not recommended!)
+git commit --no-verify
+```
+
+### Troubleshooting Hooks
+
+**Hooks not running on commit:**
+```bash
+# Check if hooks are installed
+ls -la .git/hooks/pre-commit
+
+# Reinstall hooks
+pre-commit install
+pre-commit install --install-hooks
+```
+
+**Hooks failing with errors:**
+```bash
+# Run with verbose output
+pre-commit run --all-files --verbose
+
+# Check hook configuration
+cat .pre-commit-config.yaml
+```
+
+**Bypass hooks temporarily:**
+```bash
+# Skip hooks for one commit (use sparingly!)
+git commit --no-verify -m "message"
+```
+
+### Updating Hooks
+
+```bash
+# Update all hooks to latest versions
+pre-commit autoupdate
+
+# Commit the updated configuration
+git add .pre-commit-config.yaml
+git commit -m "chore: update pre-commit hooks"
+```
+
+**Note:** Hooks are useful but should not be mandatory blockers. If a hook is genuinely broken, document it and use `--no-verify` sparingly while you investigate.
 
 ---
 
@@ -1717,7 +2078,7 @@ git commit -m "Add feature"
 
 ## 📊 Project Health Metrics
 
-**Current Status (1.1.0-beta.1, November 18, 2025):**
+**Current Status (1.1.0-beta.2, November 23, 2025):**
 - Backend: 850+ tests, 74%+ coverage
 - Frontend: 234+ tests passing, 95.5%+ pass rate
 - Code Quality: Type hints, comprehensive docstrings, linting
