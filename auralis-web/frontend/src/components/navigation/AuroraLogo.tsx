@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Typography, styled, keyframes } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface AuroraLogoProps {
   size?: 'small' | 'medium' | 'large';
@@ -55,7 +56,7 @@ const LogoIcon = styled(Box)<{ size: number }>(({ size }) => ({
     left: 0,
     right: 0,
     bottom: 0,
-    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+    background: `linear-gradient(90deg, transparent, rgba(255,255,255,${0.3}), transparent)`,
     backgroundSize: '200% 100%',
     animation: `${shimmer} 3s infinite`,
   },
