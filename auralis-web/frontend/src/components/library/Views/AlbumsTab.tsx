@@ -5,7 +5,7 @@ import {
   Paper,
   Typography
 } from '@mui/material';
-import AlbumArt from '../album/AlbumArt';
+import AlbumArt from '../../album/AlbumArt';
 import {
   AlbumCard,
   AlbumTitle,
