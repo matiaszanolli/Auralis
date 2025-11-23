@@ -10,14 +10,18 @@
  */
 
 import React, { useCallback } from 'react';
-import { Box, styled } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
-
 import { TrackInfo } from './TrackInfo';
 import { PlaybackControls } from './PlaybackControls';
 import { ProgressBar } from './ProgressBar';
 import { VolumeControl } from './VolumeControl';
 import { EnhancementToggle } from './EnhancementToggle';
+import {
+  PlayerContainer,
+  LeftSection,
+  CenterSection,
+  RightSection,
+  ProgressSection,
+} from './PlayerBarV2.styles';
 
 interface PlayerBarV2Props {
   player: {
@@ -38,61 +42,6 @@ interface PlayerBarV2Props {
   onPrevious: () => void;
   onNext: () => void;
 }
-
-const PlayerContainer = styled(Box)({
-  position: 'fixed',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  width: '100vw',
-  height: tokens.components.playerBar.height,
-  margin: 0,
-  background: tokens.components.playerBar.background,
-  backdropFilter: 'blur(20px)',
-  borderTop: `1px solid ${tokens.colors.border.light}`,
-  boxShadow: tokens.shadows.xl,
-  zIndex: tokens.components.playerBar.zIndex,
-  display: 'grid',
-  gridTemplateColumns: '1fr auto 1fr',
-  gridTemplateRows: '24px 1fr', // Progress bar (24px) + controls (remaining space)
-  padding: `${tokens.spacing.sm} ${tokens.spacing.md} ${tokens.spacing.sm} ${tokens.spacing.md}`, // top right bottom left
-  gap: tokens.spacing.xs,
-  transition: tokens.transitions.all,
-});
-
-const LeftSection = styled(Box)({
-  gridColumn: '1',
-  gridRow: '2',
-  display: 'flex',
-  alignItems: 'center',
-  gap: tokens.spacing.md,
-  minWidth: 0, // Enable text truncation
-});
-
-const CenterSection = styled(Box)({
-  gridColumn: '2',
-  gridRow: '2',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-});
-
-const RightSection = styled(Box)({
-  gridColumn: '3',
-  gridRow: '2',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'flex-end',
-  gap: tokens.spacing.md,
-});
-
-const ProgressSection = styled(Box)({
-  gridColumn: '1 / -1',
-  gridRow: '1',
-  display: 'flex',
-  alignItems: 'center',
-  gap: tokens.spacing.sm,
-});
 
 /**
  * PlayerBarV2 - Main component
