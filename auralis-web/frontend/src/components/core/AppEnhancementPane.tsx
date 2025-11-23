@@ -1,8 +1,21 @@
-import React, { useState } from 'react';
-import { Box, IconButton, Button, Tooltip } from '@mui/material';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { auroraOpacity } from '../library/Color.styles';
+/**
+ * AppEnhancementPane Component (Refactored)
+ *
+ * Right panel for audio enhancement controls.
+ * Refactored from 234 lines using extracted components and helpers.
+ *
+ * Extracted modules:
+ * - AppEnhancementPaneStyles - Styled components
+ * - useAppEnhancementPaneState - Collapse state hook
+ * - AppEnhancementPaneHeader - Header with toggle
+ * - AppEnhancementPaneFooter - V2 toggle button
+ */
+
+import React from 'react';
+import { PaneContainer, ContentArea } from './AppEnhancementPaneStyles';
+import { AppEnhancementPaneHeader } from './AppEnhancementPaneHeader';
+import { AppEnhancementPaneFooter } from './AppEnhancementPaneFooter';
+import { useAppEnhancementPaneState } from './useAppEnhancementPaneState';
 
 /**
  * Props for the AppEnhancementPane component.
@@ -10,7 +23,6 @@ import { auroraOpacity } from '../library/Color.styles';
 export interface AppEnhancementPaneProps {
   /**
    * Callback when enhancement parameters are changed.
-   * Receives the updated parameters object.
    */
   onEnhancementChange?: (params: Record<string, any>) => void;
 
@@ -21,64 +33,28 @@ export interface AppEnhancementPaneProps {
 
   /**
    * Whether to show the V2 enhancement pane.
-   * If false, shows the legacy enhancement interface.
    */
   useV2?: boolean;
 
   /**
    * Whether enhancement pane is initially collapsed.
-   * On tablet/mobile, may auto-collapse to save space.
    */
   initiallyCollapsed?: boolean;
 
   /**
    * Child components to render inside the pane.
-   * Typically the enhancement controls (EnhancementPaneV1 or EnhancementPaneV2).
    */
   children: React.ReactNode;
 }
 
 /**
- * AppEnhancementPane component provides the right panel for audio enhancement controls.
+ * AppEnhancementPane - Main orchestrator component
  *
- * Responsibilities:
- * - Wrap enhancement controls (V1 or V2)
- * - Handle pane collapse/expand toggle
- * - Toggle between V1 and V2 enhancement interfaces
- * - Manage responsive layout (collapsible on mobile/tablet)
- * - Delegate enhancement parameter changes to parent
- *
- * Layout Structure:
- * ```
- * AppEnhancementPane (fixed width or collapsible)
- * ├── Header with toggle and V2 switch
- * └── Enhancement controls (V1 or V2)
- * ```
- *
- * Responsive Behavior:
- * - Desktop (≥1200px): Fixed 320px wide pane, always visible
- * - Tablet (<1200px): Collapsible, defaults to collapsed
- * - Mobile (<900px): Hidden (enhancement via modal instead)
- *
- * @param props Component props
- * @returns Rendered enhancement pane with controls
- *
- * @example
- * ```tsx
- * function App() {
- *   const [useV2, setUseV2] = useState(false);
- *
- *   return (
- *     <AppEnhancementPane
- *       useV2={useV2}
- *       onToggleV2={() => setUseV2(!useV2)}
- *       onEnhancementChange={handleEnhancementChange}
- *     >
- *       {useV2 ? <EnhancementPaneV2 /> : <EnhancementPaneV1 />}
- *     </AppEnhancementPane>
- *   );
- * }
- * ```
+ * Provides the right panel for audio enhancement controls with:
+ * - Collapsible layout
+ * - Header with version title
+ * - Content area for enhancement controls
+ * - Footer with V2 toggle
  */
 export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
   onEnhancementChange,
@@ -87,147 +63,32 @@ export const AppEnhancementPane: React.FC<AppEnhancementPaneProps> = ({
   initiallyCollapsed = false,
   children,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(initiallyCollapsed);
-
-  const handleCollapsedToggle = () => {
-    setIsCollapsed(!isCollapsed);
-  };
+  const { isCollapsed, handleCollapsedToggle } = useAppEnhancementPaneState(initiallyCollapsed);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--midnight-blue)',
-        borderLeft: `1px solid ${auroraOpacity.veryLight}`,
-        transition: 'width 0.3s ease',
-        width: isCollapsed ? 60 : 320,
-        minWidth: isCollapsed ? 60 : 320,
-        height: '100%',
-        overflow: 'hidden',
-      }}
-    >
+    <PaneContainer isCollapsed={isCollapsed}>
       {/* Header with collapse toggle */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 8px',
-          borderBottom: `1px solid ${auroraOpacity.veryLight}`,
-          gap: 4,
-        }}
-      >
-        {!isCollapsed && (
-          <Box
-            sx={{
-              fontSize: '12px',
-              fontWeight: 600,
-              color: 'rgba(255, 255, 255, 0.5)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              flex: 1,
-            }}
-          >
-            {useV2 ? 'Enhancement V2' : 'Enhancement'}
-          </Box>
-        )}
-
-        {/* Collapse toggle button */}
-        <Tooltip title={isCollapsed ? 'Expand' : 'Collapse'}>
-          <IconButton
-            onClick={handleCollapsedToggle}
-            size="small"
-            sx={{
-              color: 'rgba(255, 255, 255, 0.5)',
-              padding: '4px',
-              '&:hover': {
-                color: 'var(--silver)',
-                background: auroraOpacity.veryLight,
-              },
-            }}
-          >
-            {isCollapsed ? (
-              <ExpandMoreIcon fontSize="small" />
-            ) : (
-              <ExpandLessIcon fontSize="small" />
-            )}
-          </IconButton>
-        </Tooltip>
-      </Box>
+      <AppEnhancementPaneHeader
+        isCollapsed={isCollapsed}
+        useV2={useV2}
+        onToggleCollapse={handleCollapsedToggle}
+      />
 
       {/* Content area */}
       {!isCollapsed && (
-        <Box
-          sx={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '16px 12px',
-            // Custom scrollbar styling
-            '&::-webkit-scrollbar': {
-              width: '6px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: 'transparent',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: auroraOpacity.strong,
-              borderRadius: '3px',
-              '&:hover': {
-                background: auroraOpacity.stronger,
-              },
-            },
-          }}
-        >
+        <ContentArea>
           {children}
-        </Box>
+        </ContentArea>
       )}
 
-      {/* V2 toggle button (always visible, below content when collapsed) */}
+      {/* V2 toggle button */}
       {!isCollapsed && (
-        <Box
-          sx={{
-            padding: '12px 8px',
-            borderTop: `1px solid ${auroraOpacity.veryLight}`,
-            display: 'flex',
-            gap: 8,
-          }}
-        >
-          <Tooltip title={useV2 ? 'Switch to V1' : 'Switch to V2'}>
-            <Button
-              onClick={onToggleV2}
-              size="small"
-              fullWidth
-              variant="outlined"
-              sx={{
-                background: useV2
-                  ? auroraOpacity.standard
-                  : auroraOpacity.minimal,
-                color: useV2 ? 'rgb(102, 126, 234)' : 'rgba(255, 255, 255, 0.5)',
-                fontSize: '11px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                padding: '8px',
-                border: `1px solid ${
-                  useV2
-                    ? auroraOpacity.strong
-                    : auroraOpacity.veryLight
-                }`,
-                borderRadius: '4px',
-                '&:hover': {
-                  background: useV2
-                    ? auroraOpacity.strong
-                    : auroraOpacity.veryLight,
-                },
-              }}
-            >
-              {useV2 ? 'V2 Active' : 'V1'}
-            </Button>
-          </Tooltip>
-        </Box>
+        <AppEnhancementPaneFooter
+          useV2={useV2}
+          onToggleV2={onToggleV2}
+        />
       )}
-    </Box>
+    </PaneContainer>
   );
 };
 
