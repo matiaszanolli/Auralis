@@ -7,6 +7,8 @@
 
 import React from 'react';
 import { Box, Typography, Button, styled } from '@mui/material';
+import { auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface DetailViewHeaderProps {
   /** Left side content (artwork or avatar) */
@@ -28,10 +30,10 @@ const HeaderSection = styled(Box)(({ theme }) => ({
   gap: theme.spacing(4),
   marginBottom: theme.spacing(4),
   padding: theme.spacing(4),
-  background: 'rgba(255,255,255,0.03)',
+  background: auroraOpacity.minimal,
   borderRadius: theme.spacing(2),
   backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255,255,255,0.05)',
+  border: `1px solid ${auroraOpacity.ultraLight}`,
 }));
 
 const ArtworkWrapper = styled(Box)({
@@ -52,7 +54,7 @@ const InfoSection = styled(Box)(({ theme }) => ({
 const Title = styled(Typography)({
   fontSize: '2.5rem',
   fontWeight: 'bold',
-  background: 'linear-gradient(45deg, #667eea, #764ba2)',
+  background: `linear-gradient(45deg, ${tokens.colors.accent.purple}, ${tokens.colors.accent.secondary})`,
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
