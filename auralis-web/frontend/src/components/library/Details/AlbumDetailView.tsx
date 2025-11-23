@@ -17,7 +17,7 @@ import {
   IconButton,
 } from '@mui/material';
 import { EmptyState } from '../../shared/ui/feedback';
-import AlbumTrackTable from './AlbumTrackTable';
+import AlbumTrackTable from '../Items/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
 import { useAlbumDetails, Track } from './useAlbumDetails';
 import { ArrowBack } from '@mui/icons-material';
