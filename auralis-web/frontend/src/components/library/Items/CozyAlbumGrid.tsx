@@ -13,7 +13,7 @@ import {
   Skeleton,
 } from '@mui/material';
 import { AlbumCard } from '../album/AlbumCard';
-import { EmptyState } from '../shared/EmptyState';
+import { EmptyState } from '../../shared/ui/feedback';
 import { GridContainer } from '../Styles/Grid.styles';
 import InfiniteScrollTrigger from './InfiniteScrollTrigger';
 import EndOfListIndicator from './EndOfListIndicator';

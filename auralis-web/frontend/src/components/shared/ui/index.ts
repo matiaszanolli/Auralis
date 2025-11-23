@@ -1,31 +1,50 @@
 /**
  * Shared UI Components Module
  *
- * Reusable UI components organized by purpose:
- * - RadialPresetSelector - Circular preset selector UI
- * - PresetItem - Individual preset button component
- * - usePresetSelection - State management hook for preset selection
- * - ThemeToggle - Theme switcher component
- * - PRESETS - Preset configuration and utilities
+ * Centralized, organized reusable UI components
  *
- * Empty subdirectories for future organization:
- * - badges/ - Badge components
- * - bars/ - Bar/progress components
- * - buttons/ - Button variants
- * - cards/ - Card components
- * - dialogs/ - Dialog/modal templates
- * - inputs/ - Input field components
- * - lists/ - List item components
- * - loaders/ - Loading skeleton components
- * - media/ - Media display components
- * - tooltips/ - Tooltip components
+ * Organized by category:
+ * - buttons/ - Button variants, toggles, and controls
+ * - loaders/ - Loading indicators and skeleton screens
+ * - feedback/ - Empty states, toasts, and user feedback
+ * - media/ - Media display and image components
+ * - badges/ - Badge and chip components
+ * - bars/ - Progress bars and control bars (ready for organization)
+ * - cards/ - Card templates (ready for organization)
+ * - dialogs/ - Dialog and modal templates (ready for organization)
+ * - inputs/ - Form input components (ready for organization)
+ * - lists/ - List item components (ready for organization)
+ * - tooltips/ - Tooltip components (ready for organization)
  */
 
-// Preset Selector Components
+// Buttons & Toggles
 export { default as RadialPresetSelector } from './RadialPresetSelector';
 export { PresetItem } from './PresetItem';
 export { usePresetSelection } from './usePresetSelection';
 export { PRESETS, getPresetByValue, getCirclePosition, type Preset } from './presetConfig';
-
-// Other UI Components
 export { default as ThemeToggle } from './ThemeToggle';
+export { EnhancementToggle, ButtonVariant, SwitchVariant } from './EnhancementToggle';
+
+// Loaders
+export {
+  LoadingSpinner,
+  CenteredLoading,
+  AlbumCardSkeleton,
+  TrackRowSkeleton,
+  LibraryGridSkeleton,
+  TrackListSkeleton,
+  SidebarItemSkeleton,
+  PlayerBarSkeleton,
+  Skeleton,
+} from './loaders';
+
+// Feedback
+export { EmptyState } from './feedback';
+export { Toast, useToast, ToastProvider } from './feedback';
+
+// Media
+export { AlbumArtDisplay } from './media';
+export { ProgressiveImage } from './media';
+
+// Badges
+export { ParameterChip } from './badges';

@@ -17,7 +17,7 @@ import EnhancementToggle from './EnhancementToggle';
 import AudioCharacteristics from './AudioCharacteristics';
 import ProcessingParameters from './ProcessingParameters';
 import InfoBox from './InfoBox';
-import { EmptyState } from '../shared/EmptyState';
+import { EmptyState } from '../shared/ui/feedback';
 import LoadingState from './LoadingState';
 
 interface ProcessingParams {

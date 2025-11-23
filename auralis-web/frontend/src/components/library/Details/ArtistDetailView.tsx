@@ -7,7 +7,7 @@ import {
   IconButton
 } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
-import { EmptyState } from '../shared/EmptyState';
+import { EmptyState } from '../../shared/ui/feedback';
 import { StyledTabs } from '../Styles/ArtistDetail.styles';
 import ArtistHeader from './ArtistHeader';
 import AlbumsTab from './AlbumsTab';

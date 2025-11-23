@@ -4,7 +4,7 @@ import {
   DialogActions,
   Box,
 } from '@mui/material';
-import { useToast } from '../shared/Toast';
+import { useToast } from '../shared/ui/feedback';
 import * as playlistService from '../../services/playlistService';
 import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
 import { StyledTextField } from '../library/FormFields.styles';

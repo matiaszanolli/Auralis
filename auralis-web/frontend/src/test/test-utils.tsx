@@ -15,7 +15,7 @@ import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { DragDropContext, DropResult } from '@hello-pangea/dnd'
 import { ThemeProvider } from '../contexts/ThemeContext'
-import { ToastProvider } from '../components/shared/Toast'
+import { ToastProvider } from '../components/shared/ui/feedback'
 import { EnhancementProvider } from '../contexts/EnhancementContext'
 import { WebSocketProvider } from '../contexts/WebSocketContext'
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PlayArrow, Pause, MoreVert, MusicNote } from '@mui/icons-material';
 import { ContextMenu, getTrackContextActions } from '../shared/ContextMenu';
-import { useToast } from '../shared/Toast';
+import { useToast } from '../shared/ui/feedback';
 import * as playlistService from '../../services/playlistService';
 import {
   RowContainer,

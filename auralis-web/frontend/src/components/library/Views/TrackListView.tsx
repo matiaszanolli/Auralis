@@ -20,10 +20,10 @@ import { Box, Grid, Paper, Typography } from '@mui/material';
 import { TrackCard } from '../track/TrackCard';
 import SelectableTrackRow from './SelectableTrackRow';
 import TrackQueue from '../player-bar-v2/queue/TrackQueue';
-import { LibraryGridSkeleton, TrackRowSkeleton } from '../shared/SkeletonLoader';
+import { LibraryGridSkeleton, TrackRowSkeleton } from '../../shared/ui/loaders';
 import { SpinnerBox } from '../Styles/Spinner.styles';
 import * as queueService from '../../services/queueService';
-import { useToast } from '../shared/Toast';
+import { useToast } from '../shared/ui/feedback';
 import {
   ListLoadingContainer,
   GridContainer,

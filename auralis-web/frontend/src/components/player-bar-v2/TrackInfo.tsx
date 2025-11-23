@@ -15,7 +15,7 @@ import { tokens } from '@/design-system/tokens';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import LyricsIcon from '@mui/icons-material/Lyrics';
-import AlbumArtDisplay from '../shared/AlbumArtDisplay';
+import AlbumArtDisplay from '../shared/ui/media';
 
 interface TrackInfoProps {
   track: {

@@ -19,10 +19,10 @@
 import React, { useState, useEffect } from 'react';
 import { Box, styled } from '@mui/material';
 import { MusicNote } from '@mui/icons-material';
-import { SkeletonContainer, SkeletonBox } from '../library/Skeleton.styles';
-import { fadeIn } from '../library/Animation.styles';
-import { Skeleton } from './SkeletonLoader';
-import { auroraOpacity } from '../library/Color.styles';
+import { SkeletonContainer, SkeletonBox } from '../../library/Skeleton.styles';
+import { fadeIn } from '../../library/Animation.styles';
+import { Skeleton } from '../loaders';
+import { auroraOpacity } from '../../library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface ProgressiveImageProps {

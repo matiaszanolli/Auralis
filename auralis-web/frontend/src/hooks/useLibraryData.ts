@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useToast } from '../components/shared/Toast';
+import { useToast } from '../components/shared/ui/feedback';
 
 export interface Track {
   id: number;
