@@ -16,7 +16,7 @@ import { Tooltip } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import LyricsIcon from '@mui/icons-material/Lyrics';
-import AlbumArtDisplay from '../shared/ui/media';
+import { AlbumArtDisplay } from '../shared/ui/media';
 import {
   TrackInfoContainer,
   TrackDetails,

@@ -1,7 +1,7 @@
 import { styled } from '@mui/material/styles';
 import { Box, ListItemButton, Typography } from '@mui/material';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity } from '../library/Styles/Color.styles';
 
 export const StyledListItemButton = styled(ListItemButton, {
   shouldForwardProp: (prop) => prop !== 'isDraggingOver' && prop !== 'selected',

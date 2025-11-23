@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyledTextField } from '../library/FormFields.styles';
+import { StyledTextField } from '../library/Styles/FormFields.styles';
 import { DialogContentBox } from './CreatePlaylistDialog.styles';
 import { InitialTracksInfo } from './InitialTracksInfo';
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
-import { auroraOpacity, colorAuroraPrimary } from '@/components/library/Styles/Color.styles';
+import { auroraOpacity, colorAuroraPrimary } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 import { Preset } from './presetConfig';
 

@@ -9,7 +9,7 @@ import { IconButton, Tooltip } from '@mui/material';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { PaneHeader, PaneTitle } from './AppEnhancementPaneStyles';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity } from '../library/Styles/Color.styles';
 
 interface AppEnhancementPaneHeaderProps {
   isCollapsed: boolean;

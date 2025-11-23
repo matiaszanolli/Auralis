@@ -18,8 +18,8 @@ import {
   Add as AddIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { SectionContainer, SectionLabel, SectionDescription } from '../library/Dialog.styles';
-import { auroraOpacity } from '../library/Color.styles';
+import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
+import { auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface FoldersListProps {

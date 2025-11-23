@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity } from '../library/Styles/Color.styles';
 
 /**
  * Props for the AppMainContent component.

@@ -1,6 +1,6 @@
 import { styled } from '@mui/material/styles';
 import { DialogContent, DialogActions, Box } from '@mui/material';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 export const SettingsDialogContent = styled(DialogContent)({

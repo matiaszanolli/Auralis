@@ -15,11 +15,10 @@ import {
   ListItemText,
   Box,
   styled,
-  Add,
 } from '@mui/material';
-import { PlaylistAdd } from '@mui/icons-material';
+import { PlaylistAdd, Add } from '@mui/icons-material';
 import * as playlistService from '../../../services/playlistService';
-import { auroraOpacity } from '../../library/Color.styles';
+import { auroraOpacity } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 const PlaylistMenuItem = styled(MenuItem)({

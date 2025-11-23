@@ -15,7 +15,7 @@ import React from 'react';
 import { Box, styled } from '@mui/material';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { tokens } from '@/design-system/tokens';
-import { auroraOpacity } from '@/components/library/Styles/Color.styles';
+import { auroraOpacity } from '../../../library/Styles/Color.styles';
 
 export interface AlbumArtDisplayProps {
   /**

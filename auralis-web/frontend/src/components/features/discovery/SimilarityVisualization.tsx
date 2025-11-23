@@ -13,7 +13,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
-import similarityService, { SimilarityExplanation } from '../services/similarityService';
+import similarityService, { SimilarityExplanation } from '../../../services/similarityService';
 import {
   SimilarityLoadingState,
   SimilarityErrorState,

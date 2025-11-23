@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Typography, LinearProgress } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { colorAuroraPrimary } from './library/Color.styles';
+import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 import { SectionDivider, DimensionRow, ValueComparisonBox } from './SimilarityVisualization.styles';
 import { useSimilarityFormatting } from './useSimilarityFormatting';
 

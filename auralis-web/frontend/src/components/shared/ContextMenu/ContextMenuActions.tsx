@@ -2,7 +2,7 @@ import React from 'react';
 import { ListItemIcon, ListItemText, Divider } from '@mui/material';
 import { StyledMenuItem } from './ContextMenu.styles';
 import { ContextMenuAction } from './contextMenuActions';
-import { auroraOpacity } from '../../library/Color.styles';
+import { auroraOpacity } from '../../library/Styles/Color.styles';
 
 interface ContextMenuActionsProps {
   actions: ContextMenuAction[];

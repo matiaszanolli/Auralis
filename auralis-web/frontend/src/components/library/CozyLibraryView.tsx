@@ -22,12 +22,15 @@ import BatchActionsToolbar from './Controls/BatchActionsToolbar';
 import EditMetadataDialog from './EditMetadataDialog/EditMetadataDialog';
 import { useTrackSelection } from '../../hooks/useTrackSelection';
 import { useLibraryWithStats, Track } from '../../hooks/useLibraryWithStats';
-import { LibraryViewRouter } from './library/LibraryViewRouter';
-import { TrackListView } from './library/TrackListView';
+import type { ViewMode } from '../navigation/ViewToggle';
+// TODO: LibraryViewRouter and TrackListView - components to be created
+// import { LibraryViewRouter } from './library/LibraryViewRouter';
+// import { TrackListView } from './library/TrackListView';
 import { EmptyState, EmptyLibrary, NoSearchResults } from '../shared/ui/feedback';
-import { LibraryHeader } from './library/LibraryHeader';
-import LibrarySearchControls from './CozyLibraryView/LibrarySearchControls';
-import { useLibraryKeyboardShortcuts } from './CozyLibraryView/useLibraryKeyboardShortcuts';
+// TODO: LibraryHeader - component to be created
+// import { LibraryHeader } from './library/LibraryHeader';
+import LibrarySearchControls from '../CozyLibraryView/LibrarySearchControls';
+import { useLibraryKeyboardShortcuts } from '../CozyLibraryView/useLibraryKeyboardShortcuts';
 import { useBatchOperations } from './useBatchOperations';
 import { useNavigationState } from './useNavigationState';
 import { useMetadataEditing } from './useMetadataEditing';
@@ -49,20 +52,19 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   const {
     tracks,
     loading,
-    hasMore,
-    totalTracks,
-    isLoadingMore,
     scanning,
     fetchTracks,
-    loadMore,
     handleScanFolder,
   } = useLibraryWithStats({ view, includeStats: false });
+
+  // Note: hasMore, totalTracks, isLoadingMore, and loadMore are not currently used
+  // They will be needed when TrackListView component is created (see line 225-241)
 
   // ============================================================
   // LOCAL UI STATE
   // ============================================================
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<string>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   // Filtered tracks (search)
   const filteredTracks = useMemo(() => {
@@ -79,8 +81,6 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   // Track selection for batch operations
   const {
     selectedTracks,
-    isSelected,
-    toggleTrack,
     selectAll,
     clearSelection,
     selectedCount,
@@ -110,7 +110,6 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   const {
     editMetadataDialogOpen,
     editingTrackId,
-    handleEditMetadata,
     handleCloseEditDialog,
     handleSaveMetadata,
   } = useMetadataEditing(fetchTracks);
@@ -143,8 +142,10 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   // RENDER - View Routing
   // ============================================================
 
-  // Check if we should render a routed view (albums/artists)
+  // TODO: Check if we should render a routed view (albums/artists)
   // Only render router for albums/artists views or when navigating album/artist details
+  // LibraryViewRouter component to be created
+  /*
   if (view === 'albums' || view === 'artists' || selectedAlbumId !== null || selectedArtistId !== null) {
     return (
       <LibraryViewRouter
@@ -162,6 +163,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
       />
     );
   }
+  */
 
   // ============================================================
   // RENDER - Main Track List View
@@ -183,8 +185,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
       )}
 
       <Container maxWidth="xl" sx={{ py: tokens.spacing.xl }}>
-        {/* Header */}
-        <LibraryHeader view={view} />
+        {/* Header - LibraryHeader component to be created */}
+        {/* <LibraryHeader view={view} /> */}
 
         {/* Search and Controls */}
         <LibrarySearchControls
@@ -219,23 +221,26 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
             )}
           </>
         ) : (
-          <TrackListView
-            tracks={filteredTracks}
-            viewMode={viewMode}
-            loading={loading}
-            hasMore={hasMore}
-            totalTracks={totalTracks}
-            isLoadingMore={isLoadingMore}
-            currentTrackId={currentTrackId}
-            isPlaying={isPlaying}
-            selectedTracks={selectedTracks}
-            isSelected={isSelected}
-            onToggleSelect={toggleTrack}
-            onTrackPlay={handlePlayTrack}
-            onPause={handlePause}
-            onEditMetadata={handleEditMetadata}
-            onLoadMore={loadMore}
-          />
+          <>
+            {/* TrackListView component to be created */}
+            {/* <TrackListView
+              tracks={filteredTracks}
+              viewMode={viewMode}
+              loading={loading}
+              hasMore={hasMore}
+              totalTracks={totalTracks}
+              isLoadingMore={isLoadingMore}
+              currentTrackId={currentTrackId}
+              isPlaying={isPlaying}
+              selectedTracks={selectedTracks}
+              isSelected={isSelected}
+              onToggleSelect={toggleTrack}
+              onTrackPlay={handlePlayTrack}
+              onPause={handlePause}
+              onEditMetadata={handleEditMetadata}
+              onLoadMore={loadMore}
+            /> */}
+          </>
         )}
 
         {/* Edit Metadata Dialog */}

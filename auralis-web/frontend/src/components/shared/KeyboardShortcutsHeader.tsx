@@ -1,8 +1,7 @@
 import React from 'react';
 import { IconButton, Typography } from '@mui/material';
 import { Close, Keyboard } from '@mui/icons-material';
-import { StyledDialogTitle } from '../library/Dialog.styles';
-import { auroraOpacity } from '../library/Color.styles';
+import { StyledDialogTitle } from '../library/Styles/Dialog.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface KeyboardShortcutsHeaderProps {
@@ -28,7 +27,7 @@ export const KeyboardShortcutsHeader: React.FC<KeyboardShortcutsHeaderProps> = (
         sx={{
           color: tokens.colors.text.primary,
           '&:hover': {
-            background: auroraOpacity.ultraLight,
+            background: 'rgba(102, 126, 234, 0.05)',
           },
         }}
       >

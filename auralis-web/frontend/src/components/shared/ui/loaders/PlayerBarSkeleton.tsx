@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import { SkeletonBox } from '../library/Skeleton.styles';
+import { SkeletonBox } from '../../../library/Styles/Skeleton.styles';
 
 /**
  * PlayerBarSkeleton - Loading skeleton for player bar

@@ -16,7 +16,7 @@ import { Card } from '@mui/material';
 import { ArtworkContainer } from './ArtworkContainer';
 import { AlbumInfo } from './AlbumInfo';
 import { useArtworkHandlers } from './useArtworkHandlers';
-import { auroraOpacity } from '../../library/Color.styles';
+import { auroraOpacity } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 export interface AlbumCardProps {

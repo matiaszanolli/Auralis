@@ -1,8 +1,8 @@
 import { Menu, MenuItem, styled } from '@mui/material';
-import { cardShadows } from '../../library/Shadow.styles';
-import { radiusMedium, radiusSmall } from '../../library/BorderRadius.styles';
-import { spacingXSmall, spacingXMedium } from '../../library/Spacing.styles';
-import { auroraOpacity } from '../../library/Color.styles';
+import { cardShadows } from '../../library/Styles/Shadow.styles';
+import { radiusMedium, radiusSmall } from '../../library/Styles/BorderRadius.styles';
+import { spacingXSmall, spacingXMedium } from '../../library/Styles/Spacing.styles';
+import { auroraOpacity } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 /**

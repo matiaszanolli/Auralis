@@ -1,6 +1,6 @@
 import { Paper, styled, alpha } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { gradients } from '@/components/library/Styles/Color.styles';
+import { gradients } from '../../library/Styles/Color.styles';
 
 /**
  * Styled components for DropZone

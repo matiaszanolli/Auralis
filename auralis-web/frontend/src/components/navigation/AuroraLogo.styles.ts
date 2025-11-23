@@ -3,7 +3,7 @@
  */
 
 import { Box, Typography, styled, keyframes } from '@mui/material';
-import { gradients, auroraOpacity } from '../library/Color.styles';
+import { gradients, auroraOpacity } from '../library/Styles/Color.styles';
 
 export const float = keyframes`
   0%, 100% {
