@@ -4,14 +4,15 @@
  *
  * Drag-and-drop zone for folder import.
  * Supports both drag-and-drop and click-to-browse functionality.
+ *
+ * Icon and text content extracted to separate components.
  */
 
 import React, { useCallback, useRef } from 'react';
-import { Box, Typography } from '@mui/material';
-import { CloudUpload, FolderOpen, CheckCircle } from '@mui/icons-material';
-import { tokens } from '@/design-system/tokens';
 import { DropZonePaper } from './DropZoneStyles';
 import { useDropZone } from './useDropZone';
+import { DropZoneIcon } from './DropZoneIcon';
+import { DropZoneText } from './DropZoneText';
 
 interface DropZoneProps {
   onFolderDrop: (folderPath: string) => void;
@@ -81,88 +82,8 @@ export const DropZone: React.FC<DropZoneProps> = ({
       $disabled={disabled}
       $scanning={scanning}
     >
-      {/* Icon */}
-      <Box
-        sx={{
-          mb: 2,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        {scanning ? (
-          <CheckCircle
-            sx={{
-              fontSize: 64,
-              color: tokens.colors.accent.success,
-              animation: 'fadeIn 0.3s ease',
-            }}
-          />
-        ) : isDragging ? (
-          <CloudUpload
-            sx={{
-              fontSize: 64,
-              color: tokens.colors.accent.purple,
-              animation: 'bounce 1s ease infinite',
-            }}
-          />
-        ) : (
-          <FolderOpen
-            sx={{
-              fontSize: 64,
-              color: tokens.colors.text.disabled,
-              transition: 'color 0.3s ease',
-            }}
-          />
-        )}
-      </Box>
-
-      {/* Text */}
-      <Typography
-        variant="h6"
-        sx={{
-          fontWeight: 600,
-          color: isDragging ? tokens.colors.accent.purple : tokens.colors.text.primary,
-          mb: 1,
-          transition: 'color 0.3s ease',
-        }}
-      >
-        {scanning
-          ? 'Scanning...'
-          : isDragging
-          ? 'Drop folder here'
-          : 'Drag & Drop Music Folder'}
-      </Typography>
-
-      <Typography
-        variant="body2"
-        sx={{
-          color: tokens.colors.text.secondary,
-          maxWidth: 400,
-          mx: 'auto',
-        }}
-      >
-        {scanning
-          ? 'Please wait while we scan your music library'
-          : isDragging
-          ? 'Release to start scanning'
-          : 'Drag a folder containing music files here, or click to browse'}
-      </Typography>
-
-      {/* Supported formats */}
-      {!scanning && !isDragging && (
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            mt: 2,
-            color: tokens.colors.text.disabled,
-            fontSize: 11,
-          }}
-        >
-          Supported: MP3, FLAC, WAV, OGG, M4A, AAC, WMA
-        </Typography>
-      )}
+      <DropZoneIcon isDragging={isDragging} scanning={scanning} />
+      <DropZoneText isDragging={isDragging} scanning={scanning} />
     </DropZonePaper>
   );
 };
