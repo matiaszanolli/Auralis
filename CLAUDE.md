@@ -613,22 +613,36 @@ border: `1px solid ${auroraOpacity.strong}`  // 0.3 (template literal for CSS)
 
 **Always Use Design Tokens:**
 ```typescript
-// For colors
-import { auroraOpacity } from '@/components/library/Color.styles'
+// For colors & gradients
+import { auroraOpacity, gradients } from '@/components/library/Color.styles'
 background: auroraOpacity.lighter
+border: `1px solid ${auroraOpacity.strong}`
 
-// For spacing/padding
-import { spacing } from '@/theme/auralisTheme'
-padding: spacing.md
+// For spacing/padding (from design-system tokens)
+import { tokens } from '@/design-system/tokens'
+padding: tokens.spacing.md
+color: tokens.colors.text.primary
 
 // For shadows
-import { compoundShadows } from '@/components/library/Shadow.styles'
-boxShadow: compoundShadows.playerContainer
+import { cardShadows } from '@/components/library/Shadow.styles'
+boxShadow: cardShadows.dropdownDark
 
 // For animations
 import { fadeIn } from '@/components/library/Animation.styles'
 animation: `${fadeIn} 0.3s ease`
 ```
+
+**⚠️ IMPORTANT - Design System Architecture (Phase 10 Complete):**
+- **`@/design-system/tokens`** - Primary source for colors, spacing, typography, shadows (exported from main design system)
+- **`./library/Color.styles.ts`** - Aurora-specific colors, opacity variants (9 levels), gradients (all exports from Color.styles)
+- **`./library/Shadow.styles.ts`** - Compound shadow definitions
+- **`./library/Spacing.styles.ts`** - Reusable spacing constants
+- **`./library/Animation.styles.ts`** - Keyframe animations
+- **`./library/BorderRadius.styles.ts`** - Radius constants
+- **Theme files** (`theme/themeConfig.ts`) - Reserved for theme switching ONLY, not component styling
+
+**Legacy file (ARCHIVED - do not use):**
+- ❌ `auralisTheme.ts.archived` - Legacy theme file, no longer imported anywhere (keep for historical reference only)
 
 ---
 
@@ -1586,9 +1600,17 @@ vi.fn()
 // ❌ WRONG - hardcoded values, inconsistent
 <div style={{ backgroundColor: '#FF5733', padding: '12px' }}>
 
-// ✅ CORRECT - always use design tokens
-import { colors, spacing } from '@/design-system'
-<div style={{ backgroundColor: colors.background.primary, padding: spacing.md }}>
+// ❌ WRONG - importing from legacy theme
+import { colors } from '@/theme/auralisTheme'
+<div style={{ backgroundColor: colors.background.primary }}>
+
+// ✅ CORRECT - use design tokens from primary source
+import { tokens } from '@/design-system/tokens'
+<div style={{ backgroundColor: tokens.colors.bg.secondary, padding: tokens.spacing.md }}>
+
+// ✅ ALSO CORRECT - use aurora-specific exports for advanced cases
+import { auroraOpacity } from '@/components/library/Color.styles'
+<div style={{ border: `1px solid ${auroraOpacity.standard}` }}>
 ```
 
 **❌ Frontend tests with hardcoded delays**
@@ -1703,12 +1725,15 @@ git commit -m "Add feature"
 - CI/CD: GitHub Actions with multi-platform builds
 - **Recent Focus**: Phase 10 Design System Consolidation (complete), WAV format browser compatibility, autoplay policy compliance
 
-**Development Snapshot (Latest - Phase 10 Complete):**
-- ✅ **Phase 10A-10Z Design System Consolidation** - Established production-ready design system
+**Development Snapshot (Latest - Phase 10 Complete, November 2025):**
+- ✅ **Phase 10A-10Z Design System Consolidation** - COMPLETE: 100% legacy auralisTheme migration
   - Consolidated 170+ hardcoded aurora colors across 50+ component files
+  - Migrated all 20 components in final refactoring (Phase 10Q-10Z)
   - Created 7 new centralized style files (Color, Shadow, BorderRadius, Spacing, Animation, Dialog, etc.)
   - 88% reduction in duplicate color definitions
-  - 22 remaining colors (edge cases, tests)
+  - **Zero legacy auralisTheme imports remaining** in component code
+  - `auralisTheme.ts` archived and removed from git tracking
+  - Single source of truth established: `@/design-system/tokens` + `./library/Color.styles.ts`
   - All builds maintain 4.1-4.3s range with zero TypeScript errors
 - ✅ Audio processing uses WAV format (16/24-bit PCM) for Web Audio API compatibility
 - ✅ Browser autoplay policy handling for user gesture compliance
