@@ -19,13 +19,33 @@ import { useTrackSelection } from '../../../hooks/useTrackSelection';
 
 // Mock hooks and components
 vi.mock('../../../hooks/useTrackSelection');
-vi.mock('../TrackContextMenu', () => {
-  return function MockContextMenu({ track, onPlay }: any) {
-    return (
-      <div data-testid="track-context-menu">
-        <button onClick={() => onPlay?.(track)}>Play</button>
-      </div>
-    );
+vi.mock('../../shared/ContextMenu', () => {
+  return {
+    ContextMenu: function MockContextMenu({ open, onClose }: any) {
+      return open ? (
+        <div data-testid="track-context-menu" onClick={onClose}>
+          Context Menu
+        </div>
+      ) : null;
+    },
+    getTrackContextActions: vi.fn(() => []),
+    useContextMenu: vi.fn(),
+  };
+});
+vi.mock('../../shared/Toast', () => {
+  return {
+    useToast: () => ({
+      success: vi.fn(),
+      error: vi.fn(),
+      info: vi.fn(),
+      warning: vi.fn(),
+    }),
+  };
+});
+vi.mock('../../../services/playlistService', () => {
+  return {
+    getPlaylists: vi.fn(() => Promise.resolve({ playlists: [] })),
+    addTracksToPlaylist: vi.fn(() => Promise.resolve()),
   };
 });
 vi.mock('../../album/AlbumArt', () => {
