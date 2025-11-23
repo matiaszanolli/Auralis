@@ -23,9 +23,9 @@ import EditMetadataDialog from './EditMetadataDialog/EditMetadataDialog';
 import { useTrackSelection } from '../../hooks/useTrackSelection';
 import { useLibraryWithStats, Track } from '../../hooks/useLibraryWithStats';
 import type { ViewMode } from '../navigation/ViewToggle';
-// TODO: LibraryViewRouter and TrackListView - components to be created
+// TODO: LibraryViewRouter - component to be created
 // import { LibraryViewRouter } from './library/LibraryViewRouter';
-// import { TrackListView } from './library/TrackListView';
+import { TrackListView } from './Views/TrackListView';
 import { EmptyState, EmptyLibrary, NoSearchResults } from '../shared/ui/feedback';
 // TODO: LibraryHeader - component to be created
 // import { LibraryHeader } from './library/LibraryHeader';
@@ -55,10 +55,11 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
     scanning,
     fetchTracks,
     handleScanFolder,
+    hasMore,
+    totalTracks,
+    isLoadingMore,
+    loadMore,
   } = useLibraryWithStats({ view, includeStats: false });
-
-  // Note: hasMore, totalTracks, isLoadingMore, and loadMore are not currently used
-  // They will be needed when TrackListView component is created (see line 225-241)
 
   // ============================================================
   // LOCAL UI STATE
@@ -84,7 +85,9 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
     selectAll,
     clearSelection,
     selectedCount,
-    hasSelection
+    hasSelection,
+    isSelected,
+    toggleTrack,
   } = useTrackSelection(filteredTracks);
 
   // Navigation state
@@ -112,6 +115,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
     editingTrackId,
     handleCloseEditDialog,
     handleSaveMetadata,
+    handleEditMetadata,
   } = useMetadataEditing(fetchTracks);
 
   // Batch operations
@@ -221,26 +225,23 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
             )}
           </>
         ) : (
-          <>
-            {/* TrackListView component to be created */}
-            {/* <TrackListView
-              tracks={filteredTracks}
-              viewMode={viewMode}
-              loading={loading}
-              hasMore={hasMore}
-              totalTracks={totalTracks}
-              isLoadingMore={isLoadingMore}
-              currentTrackId={currentTrackId}
-              isPlaying={isPlaying}
-              selectedTracks={selectedTracks}
-              isSelected={isSelected}
-              onToggleSelect={toggleTrack}
-              onTrackPlay={handlePlayTrack}
-              onPause={handlePause}
-              onEditMetadata={handleEditMetadata}
-              onLoadMore={loadMore}
-            /> */}
-          </>
+          <TrackListView
+            tracks={filteredTracks}
+            viewMode={viewMode}
+            loading={loading}
+            hasMore={hasMore}
+            totalTracks={totalTracks}
+            isLoadingMore={isLoadingMore}
+            currentTrackId={currentTrackId}
+            isPlaying={isPlaying}
+            selectedTracks={selectedTracks}
+            isSelected={isSelected}
+            onToggleSelect={toggleTrack}
+            onTrackPlay={handlePlayTrack}
+            onPause={handlePause}
+            onEditMetadata={handleEditMetadata}
+            onLoadMore={loadMore}
+          />
         )}
 
         {/* Edit Metadata Dialog */}
