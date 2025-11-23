@@ -1,11 +1,23 @@
-import React, { useState } from 'react';
-import { Box, Typography, List, ListItem, ListItemText, styled } from '@mui/material';
-import { PlayArrow } from '@mui/icons-material';
-import { gradients } from '../../library/Color.styles';
-import { useContextMenu, ContextMenu, getTrackContextActions } from '../../shared/ContextMenu';
+/**
+ * TrackQueue Component (Refactored)
+ *
+ * Displays upcoming tracks in queue with context menu support.
+ * Refactored from 234 lines using extracted components and helpers.
+ *
+ * Extracted modules:
+ * - TrackQueueStyles - All styled components
+ * - TrackQueueHelpers - Utility functions
+ * - useTrackQueueMenu - Context menu state
+ * - TrackQueueItem - Individual track item component
+ */
+
+import React from 'react';
+import { ContextMenu, getTrackContextActions } from '../../shared/ContextMenu';
+import { useContextMenu } from '../../shared/ContextMenu';
 import { useToast } from '../../shared/ui/feedback';
-import { auroraOpacity } from '../../library/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { QueueContainer, QueueHeader, QueueList } from './TrackQueueStyles';
+import { TrackQueueItem } from './TrackQueueItem';
+import { useTrackQueueMenu } from './useTrackQueueMenu';
 
 interface Track {
   id: number;
@@ -21,137 +33,35 @@ interface TrackQueueProps {
   title?: string;
 }
 
-const QueueContainer = styled(Box)(({ theme }) => ({
-  width: '100%',
-  background: tokens.colors.bg.secondary,
-  borderRadius: '8px',
-  padding: '16px',
-  marginTop: '24px',
-  border: `1px solid ${auroraOpacity.veryLight}`,
-}));
-
-const QueueHeader = styled(Typography)(({ theme }) => ({
-  fontSize: '14px',
-  fontWeight: 600,
-  color: tokens.colors.text.secondary,
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-  marginBottom: '12px',
-  paddingLeft: '8px',
-}));
-
-const QueueList = styled(List)({
-  padding: 0,
-  '& .MuiListItem-root': {
-    padding: 0,
-  },
-});
-
-const TrackItem = styled(ListItem)<{ isactive?: string }>(({ isactive }) => ({
-  height: '48px',
-  padding: '0 12px',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  transition: 'all 0.2s ease',
-  marginBottom: '4px',
-  background: isactive === 'true' ? auroraOpacity.lighter : 'transparent',
-  border: isactive === 'true' ? `1px solid ${auroraOpacity.strong}` : '1px solid transparent',
-  position: 'relative',
-
-  '&:hover': {
-    background: isactive === 'true'
-      ? auroraOpacity.standard
-      : tokens.colors.bg.elevated,
-    transform: 'translateX(4px)',
-
-    '& .play-indicator': {
-      opacity: 1,
-    },
-  },
-
-  '&:last-child': {
-    marginBottom: 0,
-  },
-}));
-
-const TrackNumber = styled(Typography)<{ isactive?: string }>(({ isactive }) => ({
-  fontSize: '14px',
-  fontWeight: 500,
-  color: isactive === 'true' ? tokens.colors.accent.purple : tokens.colors.text.secondary,
-  minWidth: '32px',
-  textAlign: 'center',
-  transition: 'color 0.2s ease',
-}));
-
-const TrackTitle = styled(Typography)<{ isactive?: string }>(({ isactive }) => ({
-  fontSize: '14px',
-  fontWeight: isactive === 'true' ? 600 : 400,
-  color: tokens.colors.text.primary,
-  flex: 1,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  paddingRight: '12px',
-  transition: 'all 0.2s ease',
-}));
-
-const TrackDuration = styled(Typography)<{ isactive?: string }>(({ isactive }) => ({
-  fontSize: '14px',
-  fontWeight: 400,
-  color: isactive === 'true' ? tokens.colors.text.secondary : tokens.colors.text.disabled,
-  minWidth: '50px',
-  textAlign: 'right',
-  transition: 'color 0.2s ease',
-}));
-
-const PlayIndicator = styled(PlayArrow)({
-  position: 'absolute',
-  left: '8px',
-  fontSize: '16px',
-  color: tokens.colors.accent.purple,
-  opacity: 0,
-  transition: 'opacity 0.2s ease',
-});
-
-const ActiveIndicator = styled(Box)({
-  position: 'absolute',
-  left: 0,
-  top: 0,
-  bottom: 0,
-  width: '3px',
-  background: gradients.aurora,
-  borderRadius: '0 2px 2px 0',
-});
-
+/**
+ * TrackQueue - Main orchestrator component
+ *
+ * Manages:
+ * - Queue container and header
+ * - Track item list with context menu
+ * - Track selection and playback
+ */
 export const TrackQueue: React.FC<TrackQueueProps> = ({
   tracks,
   currentTrackId,
   onTrackClick,
   title = 'Queue',
 }) => {
-  const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
   const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
   const { success, info } = useToast();
+  const { selectedTrackId, handleTrackContextMenu } = useTrackQueueMenu();
 
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  if (!tracks || tracks.length === 0) {
+    return null;
+  }
 
-  const handleTrackContextMenu = (e: React.MouseEvent, track: Track) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setSelectedTrackId(track.id);
-    handleContextMenu(e);
-  };
-
+  // Get selected track for context menu
   const selectedTrack = tracks.find(t => t.id === selectedTrackId);
 
   // Context menu actions
   const contextActions = selectedTrack ? getTrackContextActions(
     selectedTrack.id,
-    false, // isLoved - can be extended with user favorites state
+    false,
     {
       onPlay: () => {
         onTrackClick?.(selectedTrack.id);
@@ -164,61 +74,31 @@ export const TrackQueue: React.FC<TrackQueueProps> = ({
         success(`Added "${selectedTrack.title}" to favorites`);
       },
       onAddToPlaylist: () => {
-        info('Select playlist'); // TODO: Show playlist selector modal
+        info('Select playlist');
       },
       onShowInfo: () => {
-        info(`${selectedTrack.title} ${selectedTrack.artist ? `by ${selectedTrack.artist}` : ''}`);
+        const artist = selectedTrack.artist ? `by ${selectedTrack.artist}` : '';
+        info(`${selectedTrack.title} ${artist}`);
       },
     }
   ) : [];
-
-  if (!tracks || tracks.length === 0) {
-    return null;
-  }
 
   return (
     <QueueContainer>
       <QueueHeader>{title}</QueueHeader>
       <QueueList>
-        {tracks.map((track, index) => {
-          const isActive = currentTrackId === track.id;
-          const isActiveStr = isActive ? 'true' : 'false';
-
-          return (
-            <TrackItem
-              key={track.id}
-              isactive={isActiveStr}
-              onClick={() => onTrackClick?.(track.id)}
-              onContextMenu={(e) => handleTrackContextMenu(e, track)}
-            >
-              {isActive && <ActiveIndicator />}
-              <PlayIndicator className="play-indicator" />
-
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  width: '100%',
-                  gap: 2,
-                  paddingLeft: isActive ? '12px' : '0',
-                  transition: 'padding-left 0.2s ease',
-                }}
-              >
-                <TrackNumber isactive={isActiveStr}>
-                  {index + 1}
-                </TrackNumber>
-
-                <TrackTitle isactive={isActiveStr}>
-                  {track.title}
-                </TrackTitle>
-
-                <TrackDuration isactive={isActiveStr}>
-                  {formatDuration(track.duration)}
-                </TrackDuration>
-              </Box>
-            </TrackItem>
-          );
-        })}
+        {tracks.map((track, index) => (
+          <TrackQueueItem
+            key={track.id}
+            track={track}
+            index={index}
+            isActive={currentTrackId === track.id}
+            onTrackClick={onTrackClick || (() => {})}
+            onContextMenu={(e, t) =>
+              handleTrackContextMenu(e, t, handleContextMenu)
+            }
+          />
+        ))}
       </QueueList>
 
       <ContextMenu
