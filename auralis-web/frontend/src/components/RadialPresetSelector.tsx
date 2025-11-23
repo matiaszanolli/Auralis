@@ -9,6 +9,7 @@ import {
 } from '@mui/icons-material';
 import { colors, gradients } from '../theme/auralisTheme';
 import { auroraOpacity, colorAuroraPrimary } from './library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface Preset {
   value: string;
@@ -121,14 +122,14 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
           justifyContent: 'center',
           boxShadow: `0 0 40px ${currentPresetData.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}66`,
           transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-          border: '3px solid rgba(255, 255, 255, 0.2)',
+          border: `3px solid ${auroraOpacity.lighter}`,
           backdropFilter: 'blur(10px)',
         }}
       >
         <Box
           sx={{
             fontSize: 32,
-            color: '#fff',
+            color: tokens.colors.text.primary,
             mb: 0.5,
             filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
             animation: 'pulse 2s ease-in-out infinite',
@@ -143,7 +144,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
         <Typography
           variant="caption"
           sx={{
-            color: '#fff',
+            color: tokens.colors.text.primary,
             fontWeight: 700,
             fontSize: 13,
             textTransform: 'uppercase',
@@ -192,10 +193,10 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
                 borderRadius: '50%',
                 background: isActive ? preset.gradient : colors.background.surface,
                 border: isActive
-                  ? '3px solid rgba(255, 255, 255, 0.4)'
+                  ? `3px solid ${auroraOpacity.stronger}`
                   : isHovered
                   ? `2px solid ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}`
-                  : '2px solid rgba(255, 255, 255, 0.1)',
+                  : `2px solid ${auroraOpacity.ultraLight}`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -205,7 +206,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
                   ? `0 0 30px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}99`
                   : isHovered
                   ? `0 0 20px ${preset.gradient.match(/#[0-9a-f]{6}/i)?.[0] || colorAuroraPrimary}66`
-                  : '0 2px 8px rgba(0, 0, 0, 0.3)',
+                  : '0 2px 8px rgba(0, 0, 0, 0.19)',
                 zIndex: isActive ? 10 : isHovered ? 5 : 1,
                 '&:hover': {
                   transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px)) scale(1.05)`,
@@ -218,7 +219,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
               <Box
                 sx={{
                   fontSize: isActive ? 28 : 24,
-                  color: isActive ? '#fff' : isHovered ? '#fff' : colors.text.secondary,
+                  color: isActive ? tokens.colors.text.primary : isHovered ? tokens.colors.text.primary : colors.text.secondary,
                   transition: 'all 0.3s ease',
                   filter: isActive
                     ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
@@ -257,7 +258,7 @@ const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
               y1={centerY}
               x2={centerX + pos.x}
               y2={centerY + pos.y}
-              stroke={isActive ? colorAuroraPrimary : '#ffffff'}
+              stroke={isActive ? colorAuroraPrimary : tokens.colors.text.primary}
               strokeWidth={isActive ? 2 : 1}
               strokeDasharray={isActive ? '0' : '4 4'}
               style={{
