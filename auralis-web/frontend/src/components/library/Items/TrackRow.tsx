@@ -1,6 +1,6 @@
 import React from 'react';
 import { MoreVert } from '@mui/icons-material';
-import { ContextMenu } from '../shared/ContextMenu';
+import { ContextMenu } from '../../shared/ContextMenu';
 import {
   RowContainer,
   ActiveIndicator,
