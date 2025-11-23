@@ -2,8 +2,7 @@ import React from 'react';
 import { IconButton, Tooltip, Box } from '@mui/material';
 import { LightMode, DarkMode } from '@mui/icons-material';
 import { useTheme } from '../contexts/ThemeContext';
-import { gradients } from '../theme/themeConfig';
-import { auroraOpacity, colorAuroraPrimary } from './library/Color.styles';
+import { gradients, auroraOpacity, colorAuroraPrimary } from './library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface ThemeToggleProps {
