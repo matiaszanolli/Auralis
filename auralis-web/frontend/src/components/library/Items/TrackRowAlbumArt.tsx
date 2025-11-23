@@ -1,6 +1,6 @@
 import React from 'react';
 import { MusicNote } from '@mui/icons-material';
-import { AlbumArtThumbnail } from '../Styles/TrackRow.styles';
+import { AlbumArtThumbnail } from './TrackRow.styles';
 
 interface TrackRowAlbumArtProps {
   albumArt?: string;

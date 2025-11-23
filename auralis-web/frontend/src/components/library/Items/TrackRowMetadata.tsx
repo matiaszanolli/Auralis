@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrackInfo, TrackTitle, TrackArtist, TrackAlbum, TrackDuration } from '../Styles/TrackRow.styles';
+import { TrackInfo, TrackTitle, TrackArtist, TrackAlbum, TrackDuration } from './TrackRow.styles';
 
 interface TrackRowMetadataProps {
   title: string;

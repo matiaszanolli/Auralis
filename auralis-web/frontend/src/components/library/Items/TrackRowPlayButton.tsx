@@ -1,6 +1,6 @@
 import React from 'react';
 import { PlayArrow, Pause } from '@mui/icons-material';
-import { PlayButton } from '../Styles/TrackRow.styles';
+import { PlayButton } from './TrackRow.styles';
 
 interface TrackRowPlayButtonProps {
   isCurrent: boolean;
