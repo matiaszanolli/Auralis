@@ -16,6 +16,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixes in development
 
+## [1.1.0-beta.2] - 2025-11-23
+
+### Added
+- **PlayerBarV2Connected Complete Refactoring**: Major architecture update
+  - 7 playback event handlers inlined directly for better clarity and debugging
+  - Proper async/await support for play, seek, enhancement toggle, previous, next
+  - Direct synchronization between unified player and Redux state
+  - Memoized callbacks with useCallback for stable references
+
+### Changed
+- **Event Handler Architecture**: Removed unnecessary usePlayerFeatures abstraction layer
+  - Inlined handlePlay, handlePause, handleSeek, handleVolumeChange, handleEnhancementToggle, handlePrevious, handleNext
+  - Each handler now explicitly syncs changes to Redux (play, pause, setVolume, setEnhancementEnabled)
+  - All async operations properly wrapped in try-catch with error handling
+- **Type System Consolidation**: Unified EnhancementSettings definitions
+  - Single canonical source: `@/contexts/EnhancementContext`
+  - Removed duplicate definitions from usePlayerState, usePlayerEnhancementSync, usePlayerFeatures
+  - All imports now enforce consistency via canonical interface
+- **Backend Cache Middleware**: Fixed to not interfere with API responses
+  - Cache headers now only apply to static frontend files (.html, .js, .jsx, .tsx, /)
+  - API endpoints (/api/*, /ws/*) bypass cache headers for proper streaming
+
+### Fixed
+- **Incomplete Volume Control**: Volume changes now persist to Redux state (was TODO comment)
+- **Type Mismatches**: Event handler types now compatible across components
+  - PlayerBarV2 accepts both sync and async handlers
+  - All handler return types properly typed as `void | Promise<void>`
+- **Audio Chunk Loading Timeouts**: Cache middleware no longer interferes with streaming responses
+- **Enhancement Settings Synchronization**: Type-safe consistency across all components
+
+### Deprecated
+- **usePlayerFeatures Hook**: Marked for removal in v1.1.0
+  - Replaced by inlined handlers in PlayerBarV2Connected
+  - Kept for backward compatibility only
+  - Do not use in new code
+
+### Performance
+- **Build Time**: Unchanged (4.54s with 11,902 modules)
+- **Type Checking**: Faster with consolidated type definitions
+- **Frontend Bundle**: Slightly reduced through dead code removal
+
+### Technical
+- **Architecture**: Clearer separation between container (PlayerBarV2Connected) and presentational (PlayerBarV2) components
+- **Code Clarity**: Direct handler implementation easier to debug than abstraction layers
+- **Error Handling**: Comprehensive try-catch blocks with user-facing error messages
+- **Logging**: Console statements at each handler for debugging playback issues
+- **State Management**: Dual-system sync (unified player + Redux) prevents state desync
+
+### Documentation
+- [RELEASE_NOTES_1_1_0_BETA2.md](../releases/RELEASE_NOTES_1_1_0_BETA2.md) - Complete release notes
+- [PLAYERBARV2_REFACTORING_FIXES.md](../../PLAYERBARV2_REFACTORING_FIXES.md) - Detailed refactoring documentation
+- Updated [CLAUDE.md](../../CLAUDE.md) with new architecture patterns
+
+## [1.1.0-beta.1] - 2025-11-18
+
+### Added
+- **LibraryManager Thread-Safety & Validation**
+  - File path validation in `add_track()` with FileNotFoundError
+  - Thread-safe deletion with RLock and race condition prevention
+  - Tracked deleted IDs to prevent multiple concurrent deletes all succeeding
+
+### Changed
+- **Test Collection Performance**: Removed O(n) pytest collection hook
+  - Test collection now < 10 seconds (previously 30+ minutes)
+  - Baseline established and documented
+
+### Fixed
+- **Invalid File Path Handling**: `test_invalid_file_path_handling` now passes
+- **Concurrent Delete Race Condition**: Validation logic verified
+
 ## [1.0.0-alpha.1] - 2025-10-24
 
 ### Added

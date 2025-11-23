@@ -6,22 +6,23 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.1.0--beta.1-yellow.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.1)
+[![Release](https://img.shields.io/badge/release-v1.1.0--beta.2-yellow.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.2)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1084%20passing%2F1425%20total-orange.svg)]()
 [![Status](https://img.shields.io/badge/Current-Development%20Release-yellow.svg)]()
 
-## 📦 Current Version: 1.1.0-beta.1
+## 📦 Current Version: 1.1.0-beta.2
 
-**🔨 Development Release (November 18, 2025)** - No binaries, build from source
+**🔨 Development Release (November 23, 2025)** - No binaries, build from source
 
-This is a **development-focused release** with major improvements currently in progress. Features:
-- ✅ **Thread-safe library management** - File path validation and race condition fixes
+This is a **development-focused release** with critical component refactoring and type system consolidation. Features:
+- ✅ **PlayerBarV2Connected Refactoring** - Complete architecture update with inlined event handlers
+- ✅ **Type System Consolidation** - Single canonical source for EnhancementSettings across all components
+- ✅ **Volume Control Fix** - Volume changes now properly persist to Redux state
+- ✅ **Backend Cache Middleware Fix** - Audio streaming no longer interfered with by cache headers
 - ✅ **Comprehensive testing** - 2500+ tests (850+ backend, 1084+ frontend)
-- ✅ **Accessibility** - WCAG-compliant tooltip fixes
-- ✅ **Stable WebSocket** - Improved chunk loading and timeout management
 
-📖 **[Release Notes](RELEASE_NOTES_1_1_0_BETA1.md)** | 📝 **[Development Roadmap](DEVELOPMENT_ROADMAP_1_1_0.md)** | 🔗 **[Full Changelog](https://github.com/matiaszanolli/Auralis/releases)**
+📖 **[Release Notes](docs/releases/RELEASE_NOTES_1_1_0_BETA2.md)** | 📝 **[Development Roadmap](DEVELOPMENT_ROADMAP_1_1_0.md)** | 🔗 **[Full Changelog](docs/versions/CHANGELOG.md)**
 
 ### 📚 Next Stable Release: 1.1.0 (December 2025)
 
@@ -60,9 +61,9 @@ Auralis is a **local music player** with professional audio enhancement built-in
 
 ## 🚀 Quick Start
 
-### Option 1: Run from Source (Recommended for 1.1.0-beta.1)
+### Option 1: Run from Source (Recommended for 1.1.0-beta.2)
 
-Since 1.1.0-beta.1 is a development release without binaries, build from source:
+Since 1.1.0-beta.2 is a development release without binaries, build from source:
 
 ### Option 2: Download Previous Stable Release (1.0.0-beta.12)
 
