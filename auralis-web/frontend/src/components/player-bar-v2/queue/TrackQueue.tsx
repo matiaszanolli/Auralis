@@ -5,6 +5,7 @@ import { colors, gradients } from '../../../theme/auralisTheme';
 import { useContextMenu, ContextMenu, getTrackContextActions } from '../../shared/ContextMenu';
 import { useToast } from '../../shared/Toast';
 import { auroraOpacity } from '../../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface Track {
   id: number;
@@ -76,7 +77,7 @@ const TrackItem = styled(ListItem)<{ isactive?: string }>(({ isactive }) => ({
 const TrackNumber = styled(Typography)<{ isactive?: string }>(({ isactive }) => ({
   fontSize: '14px',
   fontWeight: 500,
-  color: isactive === 'true' ? '#667eea' : colors.text.secondary,
+  color: isactive === 'true' ? tokens.colors.accent.purple : colors.text.secondary,
   minWidth: '32px',
   textAlign: 'center',
   transition: 'color 0.2s ease',
@@ -107,7 +108,7 @@ const PlayIndicator = styled(PlayArrow)({
   position: 'absolute',
   left: '8px',
   fontSize: '16px',
-  color: '#667eea',
+  color: tokens.colors.accent.purple,
   opacity: 0,
   transition: 'opacity 0.2s ease',
 });
