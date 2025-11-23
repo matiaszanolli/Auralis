@@ -1,50 +1,27 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * AlbumDetailView Component (Refactored)
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ * Album detail view with modular subcomponents:
+ * - useAlbumDetails - Data fetching and state management
+ * - AlbumHeaderActions - Album header with artwork and controls
+ * - AlbumTrackTable - Track listing (existing component)
+ */
+
+import React from 'react';
 import {
   Box,
   Container,
-  Typography,
-  IconButton,
   Button,
   Skeleton,
-  Tooltip
+  IconButton,
 } from '@mui/material';
 import { EmptyState } from '../shared/EmptyState';
-import DetailViewHeader from './DetailViewHeader';
-import { PlayButton } from '../Styles/Button.styles';
 import AlbumTrackTable from './AlbumTrackTable';
+import AlbumHeaderActions from './AlbumHeaderActions';
+import { useAlbumDetails, Track } from './useAlbumDetails';
+import { ArrowBack } from '@mui/icons-material';
 import { auroraOpacity } from '../Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
-import {
-  ArrowBack,
-  PlayArrow,
-  Pause,
-  AddToQueue,
-  MoreVert,
-  Favorite,
-  FavoriteBorder
-} from '@mui/icons-material';
-import AlbumArt from '../album/AlbumArt';
-
-interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  duration: number;
-  track_number?: number;
-  disc_number?: number;
-}
-
-interface Album {
-  id: number;
-  title: string;
-  artist: string;
-  artist_name?: string;
-  year?: number;
-  genre?: string;
-  track_count: number;
-  total_duration: number;
-  tracks?: Track[];
-}
 
 interface AlbumDetailViewProps {
   albumId: number;
@@ -54,8 +31,6 @@ interface AlbumDetailViewProps {
   isPlaying?: boolean;
 }
 
-// Styled Components are imported from shared style files
-
 export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   albumId,
   onBack,
@@ -63,64 +38,13 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   currentTrackId,
   isPlaying = false
 }) => {
-  const [album, setAlbum] = useState<Album | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [savingFavorite, setSavingFavorite] = useState(false);
-
-  useEffect(() => {
-    fetchAlbumDetails();
-  }, [albumId]);
-
-  const fetchAlbumDetails = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Use new REST API endpoint for album tracks
-      const response = await fetch(`/api/albums/${albumId}/tracks`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch album details');
-      }
-
-      const data = await response.json();
-
-      // Transform API response to match Album interface
-      const albumData: Album = {
-        id: data.album_id,
-        title: data.album_title,
-        artist: data.artist,
-        artist_name: data.artist,
-        year: data.year,
-        track_count: data.total_tracks,
-        total_duration: data.tracks?.reduce((sum: number, t: Track) => sum + (t.duration || 0), 0) || 0,
-        tracks: data.tracks || []
-      };
-
-      setAlbum(albumData);
-    } catch (err) {
-      console.error('Error fetching album details:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load album details');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { album, loading, error, isFavorite, savingFavorite, toggleFavorite } = useAlbumDetails(albumId);
 
   const formatDuration = (seconds: number): string => {
-    const totalSeconds = Math.floor(seconds); // Round to integer first
+    const totalSeconds = Math.floor(seconds);
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatTotalDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours} hr ${mins} min`;
-    }
-    return `${mins} min`;
   };
 
   const handlePlayAlbum = () => {
@@ -132,36 +56,6 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   const handleTrackClick = (track: Track) => {
     if (onTrackPlay) {
       onTrackPlay(track);
-    }
-  };
-
-  const toggleFavorite = async () => {
-    setSavingFavorite(true);
-    try {
-      // Use first track's ID to toggle favorite (albums don't have direct favorite endpoints)
-      const trackId = album?.tracks?.[0]?.id;
-      if (!trackId) {
-        setError('Cannot favorite album: no tracks available');
-        return;
-      }
-
-      const response = await fetch(`/api/library/tracks/${trackId}/favorite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update favorite status');
-      }
-
-      setIsFavorite(!isFavorite);
-    } catch (err) {
-      console.error('Error toggling favorite:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update favorite status');
-    } finally {
-      setSavingFavorite(false);
     }
   };
 
@@ -209,87 +103,15 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
         </IconButton>
       )}
 
-      {/* Album Header */}
-      <DetailViewHeader
-        artwork={
-          <Box sx={{ width: 280, height: 280, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.19)' }}>
-            <AlbumArt
-              albumId={album.id}
-              size={280}
-              borderRadius={0}
-            />
-          </Box>
-        }
-        title={album.title}
-        subtitle={album.artist_name || album.artist}
-        metadata={
-          <Box>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
-              {album.year && `${album.year} • `}
-              {album.track_count} {album.track_count === 1 ? 'track' : 'tracks'}
-              {' • '}
-              {formatTotalDuration(album.total_duration)}
-            </Typography>
-            {album.genre && (
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                Genre: {album.genre}
-              </Typography>
-            )}
-          </Box>
-        }
-        actions={
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <PlayButton
-              startIcon={isPlaying && currentTrackId === album.tracks?.[0]?.id ? <Pause /> : <PlayArrow />}
-              onClick={handlePlayAlbum}
-            >
-              {isPlaying && currentTrackId === album.tracks?.[0]?.id ? 'Pause' : 'Play Album'}
-            </PlayButton>
-
-            <Tooltip title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
-              <IconButton
-                onClick={toggleFavorite}
-                disabled={savingFavorite}
-                sx={{
-                  color: isFavorite ? tokens.colors.accent.error : 'text.secondary',
-                  '&:hover': {
-                    backgroundColor: auroraOpacity.ultraLight
-                  },
-                  '&:disabled': {
-                    opacity: 0.6,
-                    cursor: 'not-allowed'
-                  }
-                }}
-              >
-                {isFavorite ? <Favorite /> : <FavoriteBorder />}
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Add to queue">
-              <IconButton
-                sx={{
-                  '&:hover': {
-                    backgroundColor: auroraOpacity.ultraLight
-                  }
-                }}
-              >
-                <AddToQueue />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="More options">
-              <IconButton
-                sx={{
-                  '&:hover': {
-                    backgroundColor: auroraOpacity.ultraLight
-                  }
-                }}
-              >
-                <MoreVert />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        }
+      {/* Album Header with Actions */}
+      <AlbumHeaderActions
+        album={album}
+        isPlaying={isPlaying}
+        currentTrackId={currentTrackId}
+        isFavorite={isFavorite}
+        savingFavorite={savingFavorite}
+        onPlay={handlePlayAlbum}
+        onToggleFavorite={toggleFavorite}
       />
 
       {/* Track Listing */}
