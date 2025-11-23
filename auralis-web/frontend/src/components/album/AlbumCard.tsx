@@ -31,6 +31,7 @@ import { downloadArtwork, extractArtwork, deleteArtwork } from '../../services/a
 import { useToast } from '../shared/Toast';
 import { colors, gradients } from '../../theme/auralisTheme';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface AlbumCardProps {
   albumId: number;
@@ -152,7 +153,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
           width: '100%',
           paddingBottom: '100%', // Creates 1:1 (square) aspect ratio
           overflow: 'hidden',
-          backgroundColor: '#000',
+          backgroundColor: tokens.colors.background.primary,
           flexShrink: 0,
         }}
       >
@@ -187,7 +188,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
                 width: 56,
                 height: 56,
                 background: gradients.aurora,
-                color: '#fff',
+                color: tokens.colors.text.primary,
                 transform: isHovered ? 'scale(1)' : 'scale(0.8)',
                 transition: 'all 0.3s ease',
                 '&:hover': {
@@ -217,7 +218,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
                 backdropFilter: 'blur(4px)',
               }}
             >
-              <CircularProgress size={40} sx={{ color: '#667eea' }} />
+              <CircularProgress size={40} sx={{ color: auroraOpacity.veryStrong }} />
             </Box>
           )}
 
@@ -244,7 +245,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
                     handleDownloadArtwork();
                   }}
                   sx={{
-                    color: '#fff',
+                    color: tokens.colors.text.primary,
                     background: gradients.aurora,
                     '&:hover': { background: gradients.electricPurple },
                   }}
@@ -260,9 +261,9 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
                     handleExtractArtwork();
                   }}
                   sx={{
-                    color: '#fff',
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    '&:hover': { background: 'rgba(255, 255, 255, 0.3)' },
+                    color: tokens.colors.text.primary,
+                    background: auroraOpacity.light,
+                    '&:hover': { background: auroraOpacity.standard },
                   }}
                 >
                   <ImageSearch fontSize="small" />
@@ -278,7 +279,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
               position: 'absolute',
               top: 8,
               right: 8,
-              color: '#fff',
+              color: tokens.colors.text.primary,
               background: 'rgba(0, 0, 0, 0.5)',
               backdropFilter: 'blur(10px)',
               '&:hover': { background: 'rgba(0, 0, 0, 0.7)' },
