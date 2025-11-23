@@ -17,6 +17,7 @@ import { cardShadows } from '../library/Shadow.styles';
 import { radiusMedium, radiusSmall } from '../library/BorderRadius.styles';
 import { spacingXSmall, spacingXMedium } from '../library/Spacing.styles';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 export interface ContextMenuAction {
   id: string;
@@ -52,12 +53,12 @@ const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructiv
   padding: `${spacingXMedium} ${spacingXMedium}`,
   margin: `${spacingXSmall} 0`,
   fontSize: '14px',
-  color: destructive ? '#ff4757' : colors.text.primary,
+  color: destructive ? tokens.colors.accent.error : colors.text.primary,
   transition: 'all 0.2s ease',
 
   '&:hover': {
     background: destructive
-      ? 'rgba(255, 71, 87, 0.1)'
+      ? auroraOpacity.ultraLight
       : auroraOpacity.lighter,
   },
 
@@ -67,7 +68,7 @@ const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructiv
   },
 
   '& .MuiListItemIcon-root': {
-    color: destructive ? '#ff4757' : colors.text.secondary,
+    color: destructive ? tokens.colors.accent.error : colors.text.secondary,
     minWidth: 36,
   },
 }));
