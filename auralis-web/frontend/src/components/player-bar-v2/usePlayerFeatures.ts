@@ -1,29 +1,24 @@
 /**
- * usePlayerFeatures - Initialize all player feature hooks
+ * usePlayerFeatures - DEPRECATED - Initialize all player feature hooks
+ *
+ * ⚠️ DEPRECATED: This hook has been replaced by the refactored PlayerBarV2Connected
+ * which inlines all functionality directly for better performance and clarity.
+ *
+ * Kept for backward compatibility only. Do not use in new code.
  *
  * Combines track loading, enhancement sync, and event handlers
  * into a single hook for easier management.
  */
 
-import { useMemo } from 'react';
 import { usePlayerTrackLoader } from '@/hooks/usePlayerTrackLoader';
 import { usePlayerEnhancementSync } from '@/hooks/usePlayerEnhancementSync';
 import { usePlayerEventHandlers } from '@/hooks/usePlayerEventHandlers';
+import type { EnhancementSettings } from '@/contexts/EnhancementContext';
 
 interface Track {
   id?: number;
   title?: string;
   [key: string]: any;
-}
-
-interface Queue {
-  index: number;
-  items: Track[];
-}
-
-interface EnhancementSettings {
-  enabled: boolean;
-  preset?: string;
 }
 
 interface Callbacks {

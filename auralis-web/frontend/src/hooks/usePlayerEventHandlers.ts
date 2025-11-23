@@ -33,7 +33,7 @@ interface EventHandlersOptions {
   playback: PlaybackState;
   callbacks: PlaybackCallbacks;
   enhancementEnabled: boolean;
-  enhancementPreset: string;
+  enhancementPreset?: string;
   onInfo?: (message: string) => void;
   onError?: (message: string) => void;
 }

@@ -9,6 +9,7 @@
  */
 
 import { useMemo } from 'react';
+import type { EnhancementSettings } from '@/contexts/EnhancementContext';
 
 interface Track {
   id: number;
@@ -23,12 +24,6 @@ interface PlayerUnified {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
-}
-
-interface EnhancementSettings {
-  enabled: boolean;
-  preset?: string;
-  intensity?: number;
 }
 
 interface UsePlayerStateProps {
