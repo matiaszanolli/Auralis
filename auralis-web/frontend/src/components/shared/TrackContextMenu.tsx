@@ -26,6 +26,7 @@ import { useToast } from './Toast';
 import * as playlistService from '../../services/playlistService';
 import CreatePlaylistDialog from '../playlist/CreatePlaylistDialog';
 import { auroraOpacity } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface TrackContextMenuProps {
   trackId: number | null;
@@ -59,22 +60,22 @@ const StyledMenu = styled(Menu)({
 
 const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(({ destructive }) => ({
   fontSize: '14px',
-  color: destructive ? '#ff4757' : colors.text.primary,
+  color: destructive ? tokens.colors.accent.error : colors.text.primary,
   padding: `${spacing.sm + 2}px ${spacing.md - 4}px`,
   borderRadius: `${borderRadius.xs}px`,
   margin: `${spacing.xs}px 0`,
   transition: `all ${transitions.fast}`,
   '&:hover': {
-    background: destructive ? 'rgba(255, 71, 87, 0.12)' : auroraOpacity.lighter,
+    background: destructive ? auroraOpacity.ultraLight : auroraOpacity.lighter,
     transform: 'translateX(2px)',
   },
   '& .MuiListItemIcon-root': {
-    color: destructive ? '#ff4757' : colors.text.secondary,
+    color: destructive ? tokens.colors.accent.error : colors.text.secondary,
     minWidth: 36,
     transition: `color ${transitions.fast}`,
   },
   '&:hover .MuiListItemIcon-root': {
-    color: destructive ? '#ff4757' : '#667eea',
+    color: destructive ? tokens.colors.accent.error : tokens.colors.accent.purple,
   },
 }));
 
@@ -92,7 +93,7 @@ const PlaylistMenuItem = styled(MenuItem)({
 
 const CreateNewMenuItem = styled(MenuItem)({
   fontSize: '13px',
-  color: '#667eea',
+  color: tokens.colors.accent.purple,
   padding: '8px 16px 8px 48px',
   fontWeight: 600,
   transition: 'all 0.2s ease',
