@@ -6,7 +6,7 @@
  * - Duration formatting
  */
 
-import { gradients } from '../library/Color.styles';
+import { gradients } from '../library/Styles/Color.styles';
 
 /**
  * Generate consistent color from album name for placeholders

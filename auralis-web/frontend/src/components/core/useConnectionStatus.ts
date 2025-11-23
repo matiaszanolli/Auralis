@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { statusColors } from '../library/Color.styles';
+import { statusColors } from '../library/Styles/Color.styles';
 
 export type ConnectionStatusType = 'connected' | 'connecting' | 'disconnected';
 

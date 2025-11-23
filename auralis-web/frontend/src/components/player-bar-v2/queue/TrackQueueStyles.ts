@@ -4,8 +4,8 @@
 
 import { Box, Typography, List, ListItem, styled } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
-import { gradients } from '../../library/Color.styles';
-import { auroraOpacity } from '../../library/Color.styles';
+import { gradients } from '../../library/Styles/Color.styles';
+import { auroraOpacity } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 export const QueueContainer = styled(Box)(({ theme }) => ({

@@ -8,7 +8,7 @@
 import React from 'react';
 import { SwipeableDrawer } from '@mui/material';
 import Sidebar from '../layouts/Sidebar';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity } from '../library/Styles/Color.styles';
 
 interface MobileSidebarDrawerProps {
   open: boolean;

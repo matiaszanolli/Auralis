@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import * as queueService from '../../services/queueService';
+import * as queueService from '../../../services/queueService';
 import { useToast } from '../shared/ui/feedback';
 
 export interface UseQueueOperationsProps {

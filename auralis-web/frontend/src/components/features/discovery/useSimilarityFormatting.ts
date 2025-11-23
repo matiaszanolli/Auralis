@@ -1,5 +1,5 @@
 import { tokens } from '@/design-system/tokens';
-import { colorAuroraPrimary } from './library/Color.styles';
+import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 
 /**
  * useSimilarityFormatting - Similarity value and text formatting utilities

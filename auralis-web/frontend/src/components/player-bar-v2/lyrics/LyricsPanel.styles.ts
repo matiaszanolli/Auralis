@@ -1,6 +1,6 @@
 import { styled } from '@mui/material/styles';
 import { Box, Typography } from '@mui/material';
-import { gradients, auroraOpacity } from '../../library/Color.styles';
+import { gradients, auroraOpacity } from '../../library/Styles/Color.styles';
 import { tokens } from '../../../design-system/tokens';
 
 export const PanelContainer = styled(Box)({

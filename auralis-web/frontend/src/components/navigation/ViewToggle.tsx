@@ -1,7 +1,7 @@
 import React from 'react';
 import { ToggleButtonGroup, ToggleButton, styled } from '@mui/material';
 import { ViewModule, ViewList } from '@mui/icons-material';
-import { gradients, auroraOpacity } from '../library/Color.styles';
+import { gradients, auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 export type ViewMode = 'grid' | 'list';

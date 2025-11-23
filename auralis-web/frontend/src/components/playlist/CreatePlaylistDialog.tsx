@@ -1,7 +1,7 @@
 import React from 'react';
 import { DialogContent } from '@mui/material';
 import * as playlistService from '../../services/playlistService';
-import { StyledDialog, StyledDialogTitle } from '../library/Dialog.styles';
+import { StyledDialog, StyledDialogTitle } from '../library/Styles/Dialog.styles';
 import { useCreatePlaylistForm } from './useCreatePlaylistForm';
 import { CreatePlaylistFormFields } from './CreatePlaylistFormFields';
 import { CreatePlaylistDialogActions } from './CreatePlaylistDialogActions';

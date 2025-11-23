@@ -1,6 +1,6 @@
 import { Box, Typography, IconButton, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { auroraOpacity, gradients } from './Color.styles';
+import { auroraOpacity, gradients } from '../Styles/Color.styles';
 
 export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
   display: 'flex',

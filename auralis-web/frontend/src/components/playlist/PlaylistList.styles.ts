@@ -7,7 +7,7 @@
  */
 
 import { Box, ListItem, ListItemButton, IconButton, Typography, styled } from '@mui/material';
-import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
+import { auroraOpacity, colorAuroraPrimary } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 /**

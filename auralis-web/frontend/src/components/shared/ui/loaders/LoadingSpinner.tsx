@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, CircularProgress, styled } from '@mui/material';
-import { rotate, pulse } from '../library/Animation.styles';
-import { colorAuroraPrimary, colorAuroraSecondary, gradients } from '../library/Color.styles';
+import { rotate, pulse } from '../../../library/Styles/Animation.styles';
+import { colorAuroraPrimary, colorAuroraSecondary, gradients } from '../../../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface LoadingSpinnerProps {

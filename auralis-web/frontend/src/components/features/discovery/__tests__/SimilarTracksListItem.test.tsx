@@ -11,7 +11,7 @@
 import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { SimilarTracksListItem } from '../SimilarTracksListItem';
-import { SimilarTrack } from '../../services/similarityService';
+import { SimilarTrack } from '../../../../services/similarityService';
 
 describe('SimilarTracksListItem', () => {
   const mockTrack: SimilarTrack = {

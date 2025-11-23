@@ -14,7 +14,7 @@ import { TrackInfo } from './TrackInfo';
 import { PlaybackControls } from './PlaybackControls';
 import { ProgressBar } from './ProgressBar';
 import { VolumeControl } from './VolumeControl';
-import { EnhancementToggle } from './EnhancementToggle';
+import { EnhancementToggle } from '../shared/EnhancementToggle/EnhancementToggle';
 import {
   PlayerContainer,
   LeftSection,

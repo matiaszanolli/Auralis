@@ -2,7 +2,7 @@ import React from 'react';
 import { TextField, IconButton } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity } from '../library/Styles/Color.styles';
 import { SearchContainer } from './AppTopBar.styles';
 
 interface AppTopBarSearchInputProps {

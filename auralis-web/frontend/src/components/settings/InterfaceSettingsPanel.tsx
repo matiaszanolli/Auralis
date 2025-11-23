@@ -9,7 +9,7 @@ import {
   FormControlLabel,
   Divider
 } from '@mui/material';
-import { SectionContainer, SectionDescription } from '../library/Dialog.styles';
+import { SectionContainer, SectionDescription } from '../library/Styles/Dialog.styles';
 
 interface InterfaceSettingsPanelProps {
   theme: string;

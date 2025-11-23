@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, List } from '@mui/material';
-import { SimilarTrack } from '../services/similarityService';
+import { SimilarTrack } from '../../../services/similarityService';
 import SimilarTracksListItem from './SimilarTracksListItem';
 import SimilarTracksHeader from './SimilarTracksHeader';
 import SimilarTracksFooter from './SimilarTracksFooter';

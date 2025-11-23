@@ -1,6 +1,6 @@
 import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity } from '../library/Styles/Color.styles';
 
 export const TopBarContainer = styled(Box)({
   display: 'flex',

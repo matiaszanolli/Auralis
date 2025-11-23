@@ -13,4 +13,4 @@ export { TrackInfo } from './TrackInfo';
 export { PlaybackControls } from './PlaybackControls';
 export { ProgressBar } from './ProgressBar';
 export { VolumeControl } from './VolumeControl';
-export { EnhancementToggle } from './EnhancementToggle';
+// EnhancementToggle is now in shared/EnhancementToggle (not exported from player-bar-v2)

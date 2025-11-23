@@ -6,7 +6,7 @@ import {
   FormControlLabel,
   Divider
 } from '@mui/material';
-import { SectionContainer, SectionLabel, SectionDescription } from '../library/Dialog.styles';
+import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
 
 interface AdvancedSettingsPanelProps {
   cacheSize: number;

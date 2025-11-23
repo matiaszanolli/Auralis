@@ -8,7 +8,7 @@ import {
   ShortcutKey,
   CategoryTitle,
 } from './KeyboardShortcutsHelp.styles';
-import { auroraOpacity } from '../library/Color.styles';
+import { auroraOpacity } from '../library/Styles/Color.styles';
 
 interface ShortcutCategory {
   category: string;

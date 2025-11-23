@@ -1,6 +1,6 @@
 import { styled, Paper, Box, Typography } from '@mui/material';
-import { auroraOpacity, colorAuroraPrimary } from '../library/Color.styles';
-import { spacingSmall, spacingXSmall } from '../library/Spacing.styles';
+import { auroraOpacity, colorAuroraPrimary } from '../library/Styles/Color.styles';
+import { spacingSmall, spacingXSmall } from '../library/Styles/Spacing.styles';
 
 export const CategorySection = styled(Paper)(({ theme }) => ({
   background: auroraOpacity.ultraLight,

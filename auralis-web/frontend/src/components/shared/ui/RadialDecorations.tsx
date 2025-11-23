@@ -7,7 +7,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { PRESETS, getCirclePosition } from './presetConfig';
-import { auroraOpacity, colorAuroraPrimary, gradients } from '@/components/library/Styles/Color.styles';
+import { auroraOpacity, colorAuroraPrimary, gradients } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface RadialDecorationsProps {

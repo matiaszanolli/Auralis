@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Tab } from '@mui/material';
-import { StyledTabs } from '../library/Dialog.styles';
+import { StyledTabs } from '../library/Styles/Dialog.styles';
 
 interface SettingsTabNavProps {
   activeTab: number;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { IconButton, Typography } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
-import { StyledDialogTitle } from '../library/Dialog.styles';
+import { StyledDialogTitle } from '../library/Styles/Dialog.styles';
 
 interface SettingsDialogHeaderProps {
   onClose: () => void;

@@ -15,7 +15,7 @@ import {
   FlareOutlined,
   BoltOutlined,
 } from '@mui/icons-material';
-import { gradients } from '@/components/library/Styles/Color.styles';
+import { gradients } from '../../library/Styles/Color.styles';
 
 export interface Preset {
   value: string;

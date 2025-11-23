@@ -1,7 +1,7 @@
 import React from 'react'
 import { useCommitId, getVersionString } from '@/hooks/useCommitId'
-import { auroraOpacity, colorAuroraPrimary } from '@/components/library/Styles/Color.styles'
-import { spacingSmall, spacingXSmall } from '@/components/library/Styles/Spacing.styles'
+import { auroraOpacity, colorAuroraPrimary } from '../library/Styles/Color.styles'
+import { spacingSmall, spacingXSmall } from '../library/Styles/Spacing.styles'
 
 /**
  * Debug info component - displays build and commit information
