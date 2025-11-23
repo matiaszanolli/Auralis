@@ -1,8 +1,8 @@
 # Auralis Documentation Index
 
-**Last Updated**: November 11, 2025
-**Current Version**: v1.0.0-beta.12
-**Total Documentation Files**: 120 active files (cleaned up from 381)
+**Last Updated**: November 23, 2025
+**Current Version**: v1.1.0-beta.2
+**Total Documentation Files**: 120+ active files (cleaned up from 381, reorganized Nov 23)
 
 This directory contains all technical documentation for the Auralis project. Documentation is organized by category for easy navigation.
 
@@ -35,6 +35,13 @@ docs/
 │   ├── testing/                    # Test summaries (1 file)
 │   └── *.md                        # Feature completions
 │
+├── archive/                        # Historical documentation (organized Nov 23)
+│   ├── README.md                   # Archive index & guidelines
+│   ├── builds/                     # Historical build documentation
+│   ├── guides/                     # Deprecated guides
+│   ├── research/                   # Research & studies (50+ files)
+│   └── sessions/                   # Oct-Nov 2024 sessions (22+ dirs)
+│
 ├── sessions/                       # Active development sessions (5 recent)
 │   ├── nov9_keyboard_shortcuts_reenabled/  # ⭐ LATEST: Keyboard shortcuts
 │   ├── nov9_quick_wins/            # UI quick wins
@@ -45,6 +52,7 @@ docs/
 ├── guides/                         # Implementation guides (12 files)
 │   ├── VALIDATION_GUIDE.md         # Mastering quality validation
 │   ├── UI_DESIGN_GUIDELINES.md     # UI rules and patterns
+│   ├── AUDIO_PLAYBACK_STATUS.md    # Audio implementation (moved Nov 23)
 │   └── *.md                        # Feature-specific guides
 │
 ├── versions/                       # Version management (5 files)
@@ -229,6 +237,18 @@ docs/
 - **Active sessions**: 5 recent (Nov 5-9)
 - **Archive**: 341 historical files (Oct 25 - Nov 4 + old releases)
 - **Total size**: ~1.1 MB (47% reduction)
+
+**November 23 Reorganization** (Latest):
+- ✅ Moved root-level .md files to docs/ subdirectories
+  - `DEVELOPMENT_ROADMAP_1_1_0.md` → `docs/roadmaps/`
+  - `RELEASE_NOTES_1_1_0_BETA1.md` → `docs/releases/`
+  - `AUDIO_PLAYBACK_STATUS.md` → `docs/guides/`
+- ✅ Consolidated duplicate audio playback docs to archive
+- ✅ Consolidated APPIMAGE build docs to `docs/archive/builds/`
+- ✅ Moved entire `research/` directory to `docs/archive/research/` (50+ files)
+- ✅ Created comprehensive archive structure with READMEs
+- ✅ Updated docs index with new structure
+- ✅ **Root now contains only: README.md, CLAUDE.md, .env files**
 
 **November 11 Cleanup**:
 - ✅ Deleted 32 obsolete files (phase plans, old beta releases, test logs)
