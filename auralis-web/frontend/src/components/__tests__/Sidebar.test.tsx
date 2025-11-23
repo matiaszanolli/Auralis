@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@/test/test-utils'
-import Sidebar from '../Sidebar'
+import Sidebar from '../layouts/Sidebar'
 
 describe('Sidebar', () => {
   const mockOnNavigate = vi.fn()
