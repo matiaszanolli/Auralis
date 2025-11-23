@@ -6,7 +6,6 @@
  *
  * Avatar components (ArtistAvatarCircle) are imported from Avatar.styles.ts
  * Tab components (StyledTabs, DetailViewTabs) are imported from Tabs.styles.ts
- * Empty state components are imported from EmptyState.styles.ts
  */
 
 import { Typography, TableContainer, Paper, styled } from '@mui/material';
@@ -14,7 +13,6 @@ import { auroraOpacity } from './Color.styles';
 import { tokens } from '@/design-system/tokens';
 export { ArtistAvatarCircle } from './Avatar.styles';
 export { DetailViewTabs as StyledTabs } from './Tabs.styles';
-export { EmptyStateContainer as NoAlbumsContainer } from './EmptyState.styles';
 
 /**
  * AlbumCard - Card container for album displays in artist view

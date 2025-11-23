@@ -21,7 +21,6 @@ import {
   CategoryHeader,
   ArtistSearchAvatar,
   DefaultSearchAvatar,
-  EmptyResultsBox
 } from './SearchStyles.styles';
 import SearchResultItem from './SearchResultItem';
 import AlbumArt from '../album/AlbumArt';
@@ -287,12 +286,12 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ onResultClick, onClo
 
       {showResults && results.length === 0 && !loading && query.length >= 2 && (
         <ResultsContainer elevation={8}>
-          <EmptyResultsBox>
+          <Box sx={{ padding: 4, textAlign: 'center' }}>
             <SearchIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
             <Typography color="text.secondary">
               No results found for "{query}"
             </Typography>
-          </EmptyResultsBox>
+          </Box>
         </ResultsContainer>
       )}
     </SearchContainer>

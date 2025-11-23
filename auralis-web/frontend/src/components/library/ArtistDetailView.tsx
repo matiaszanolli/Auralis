@@ -13,6 +13,7 @@ import {
   TableRow,
   Skeleton,
   Tab,
+  Paper,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -32,7 +33,6 @@ import {
   AlbumInfo,
   StyledTabs,
   ArtistAvatarCircle,
-  NoAlbumsContainer,
   TracksTableContainer,
 } from './ArtistDetail.styles';
 
@@ -288,11 +288,18 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
                 ))}
               </Grid>
             ) : (
-              <NoAlbumsContainer>
+              <Paper
+                sx={{
+                  padding: 4,
+                  textAlign: 'center',
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: 2,
+                }}
+              >
                 <Typography color="text.secondary">
                   No albums found for this artist
                 </Typography>
-              </NoAlbumsContainer>
+              </Paper>
             )}
           </Box>
         )}
