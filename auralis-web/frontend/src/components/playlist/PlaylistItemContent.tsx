@@ -25,7 +25,7 @@ export const PlaylistItemContent: React.FC<PlaylistItemContentProps> = ({
       <ListItemText
         primary={playlistName}
         secondary={
-          <TrackCount>
+          <TrackCount component="span">
             {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
           </TrackCount>
         }
