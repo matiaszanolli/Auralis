@@ -3,12 +3,16 @@
  *
  * Displays applied processing parameters extracted from audio analysis.
  * Shows loudness targets, EQ adjustments, dynamics, and stereo width.
+ *
+ * Orchestrates ParameterRow components with formatting via custom hook.
  */
 
 import React from 'react';
 import { Box, Typography, Stack } from '@mui/material';
 import { GraphicEq, VolumeUp, Compress } from '@mui/icons-material';
 import { tokens } from '../../design-system/tokens';
+import { ParameterRow } from './ParameterRow';
+import { useParameterFormatting } from './useParameterFormatting';
 
 interface ProcessingParams {
   target_lufs: number;
@@ -25,10 +29,24 @@ interface ProcessingParametersProps {
 }
 
 const ProcessingParameters: React.FC<ProcessingParametersProps> = React.memo(({ params }) => {
-  const formatParam = (value: number | undefined, decimals: number = 1): string => {
-    if (value === undefined || value === null) return '—';
-    return value.toFixed(decimals);
-  };
+  const {
+    formatTargetLoudness,
+    formatPeakTarget,
+    formatBassBoost,
+    formatAirBoost,
+    formatCompression,
+    formatExpansion,
+    formatStereoWidth,
+  } = useParameterFormatting(params);
+
+  // Get all formatted parameters
+  const loudness = formatTargetLoudness();
+  const peak = formatPeakTarget();
+  const bass = formatBassBoost();
+  const air = formatAirBoost();
+  const compression = formatCompression();
+  const expansion = formatExpansion();
+  const stereoWidth = formatStereoWidth();
 
   return (
     <Box>
@@ -49,134 +67,13 @@ const ProcessingParameters: React.FC<ProcessingParametersProps> = React.memo(({ 
       </Typography>
 
       <Stack spacing={tokens.spacing.md}>
-        {/* Target Loudness */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
-            <VolumeUp sx={{ fontSize: tokens.typography.fontSize.sm, mr: tokens.spacing.xs, verticalAlign: 'middle' }} />
-            Target Loudness
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              color: tokens.colors.text.primary,
-              fontWeight: tokens.typography.fontWeight.semibold,
-              fontSize: tokens.typography.fontSize.sm,
-            }}
-          >
-            {formatParam(params.target_lufs)} LUFS
-          </Typography>
-        </Box>
-
-        {/* Peak Target */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
-            Peak Level
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              color: tokens.colors.text.primary,
-              fontWeight: tokens.typography.fontWeight.semibold,
-              fontSize: tokens.typography.fontSize.sm,
-            }}
-          >
-            {formatParam(params.peak_target_db)} dB
-          </Typography>
-        </Box>
-
-        {/* Bass Adjustment (conditional) */}
-        {params.bass_boost !== undefined && params.bass_boost !== null && Math.abs(params.bass_boost) > 0.1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
-              Bass Adjustment
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: params.bass_boost > 0 ? tokens.colors.accent.success : tokens.colors.accent.warning,
-                fontWeight: tokens.typography.fontWeight.semibold,
-                fontSize: tokens.typography.fontSize.sm,
-              }}
-            >
-              {params.bass_boost > 0 ? '+' : ''}{formatParam(params.bass_boost)} dB
-            </Typography>
-          </Box>
-        )}
-
-        {/* Air Adjustment (conditional) */}
-        {params.air_boost !== undefined && params.air_boost !== null && Math.abs(params.air_boost) > 0.1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
-              Air Adjustment
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: params.air_boost > 0 ? tokens.colors.accent.success : tokens.colors.accent.warning,
-                fontWeight: tokens.typography.fontWeight.semibold,
-                fontSize: tokens.typography.fontSize.sm,
-              }}
-            >
-              {params.air_boost > 0 ? '+' : ''}{formatParam(params.air_boost)} dB
-            </Typography>
-          </Box>
-        )}
-
-        {/* Compression (conditional) */}
-        {params.compression_amount !== undefined && params.compression_amount !== null && params.compression_amount > 0.05 && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
-              <Compress sx={{ fontSize: tokens.typography.fontSize.sm, mr: tokens.spacing.xs, verticalAlign: 'middle' }} />
-              Compression
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: tokens.colors.text.primary,
-                fontWeight: tokens.typography.fontWeight.semibold,
-                fontSize: tokens.typography.fontSize.sm,
-              }}
-            >
-              {Math.round(params.compression_amount * 100)}%
-            </Typography>
-          </Box>
-        )}
-
-        {/* Expansion (conditional) */}
-        {params.expansion_amount !== undefined && params.expansion_amount !== null && params.expansion_amount > 0.05 && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
-              Expansion
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: tokens.colors.accent.info,
-                fontWeight: tokens.typography.fontWeight.semibold,
-                fontSize: tokens.typography.fontSize.sm,
-              }}
-            >
-              {Math.round(params.expansion_amount * 100)}%
-            </Typography>
-          </Box>
-        )}
-
-        {/* Stereo Width */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
-            Stereo Width
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              color: tokens.colors.text.primary,
-              fontWeight: tokens.typography.fontWeight.semibold,
-              fontSize: tokens.typography.fontSize.sm,
-            }}
-          >
-            {params.stereo_width !== undefined && params.stereo_width !== null ? Math.round(params.stereo_width * 100) : '—'}%
-          </Typography>
-        </Box>
+        <ParameterRow label={loudness.label} value={loudness.value} icon={VolumeUp} />
+        <ParameterRow label={peak.label} value={peak.value} />
+        {bass.shouldShow && <ParameterRow label={bass.label} value={bass.value} valueColor={bass.valueColor} />}
+        {air.shouldShow && <ParameterRow label={air.label} value={air.value} valueColor={air.valueColor} />}
+        {compression.shouldShow && <ParameterRow label={compression.label} value={compression.value} icon={Compress} />}
+        {expansion.shouldShow && <ParameterRow label={expansion.label} value={expansion.value} valueColor={expansion.valueColor} />}
+        <ParameterRow label={stereoWidth.label} value={stereoWidth.value} />
       </Stack>
     </Box>
   );

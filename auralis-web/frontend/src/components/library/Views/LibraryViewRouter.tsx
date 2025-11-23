@@ -8,17 +8,17 @@
  * - Artist detail view (albums/tracks from specific artist)
  *
  * Extracted from CozyLibraryView.tsx to separate routing logic.
+ * Uses ViewContainer for consistent header/layout across views.
  *
  * Returns null if current view should be handled by parent (songs/favorites).
  */
 
 import React from 'react';
-import { Container, Box, Typography } from '@mui/material';
 import { CozyAlbumGrid } from './CozyAlbumGrid';
 import { CozyArtistList } from './CozyArtistList';
 import AlbumDetailView from './AlbumDetailView';
 import ArtistDetailView from './ArtistDetailView';
-import { tokens } from '@/design-system/tokens';
+import { ViewContainer } from './ViewContainer';
 
 export interface Track {
   id: number;
@@ -69,7 +69,7 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
   onBackFromArtist,
   onAlbumClick,
   onArtistClick,
-  onTrackPlay
+  onTrackPlay,
 }) => {
   // Album detail view (from albums or artists view)
   if (selectedAlbumId !== null) {
@@ -87,39 +87,9 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
   // Albums view - grid of albums
   if (view === 'albums') {
     return (
-      <Container
-        maxWidth="xl"
-        sx={{
-          py: 4,
-          height: '100%',
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
-        <Box sx={{ mb: 4, flexShrink: 0 }}>
-          <Typography
-            variant="h3"
-            component="h1"
-            fontWeight="bold"
-            gutterBottom
-            sx={{
-              background: `linear-gradient(45deg, ${tokens.colors.accent.purple}, ${tokens.colors.accent.secondary})`,
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}
-          >
-            📀 Albums
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            Browse your music collection by album
-          </Typography>
-        </Box>
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          <CozyAlbumGrid onAlbumClick={onAlbumClick} />
-        </Box>
-      </Container>
+      <ViewContainer icon="📀" title="Albums" subtitle="Browse your music collection by album">
+        <CozyAlbumGrid onAlbumClick={onAlbumClick} />
+      </ViewContainer>
     );
   }
 
@@ -142,39 +112,9 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
 
     // Artist list view
     return (
-      <Container
-        maxWidth="xl"
-        sx={{
-          py: 4,
-          height: '100%',
-          overflowY: 'auto',
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-      >
-        <Box sx={{ mb: 4, flexShrink: 0 }}>
-          <Typography
-            variant="h3"
-            component="h1"
-            fontWeight="bold"
-            gutterBottom
-            sx={{
-              background: `linear-gradient(45deg, ${tokens.colors.accent.purple}, ${tokens.colors.accent.secondary})`,
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}
-          >
-            🎤 Artists
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            Browse artists in your music library
-          </Typography>
-        </Box>
-        <Box sx={{ flex: 1, minHeight: 0 }}>
-          <CozyArtistList onArtistClick={onArtistClick} />
-        </Box>
-      </Container>
+      <ViewContainer icon="🎤" title="Artists" subtitle="Browse artists in your music library">
+        <CozyArtistList onArtistClick={onArtistClick} />
+      </ViewContainer>
     );
   }
 
