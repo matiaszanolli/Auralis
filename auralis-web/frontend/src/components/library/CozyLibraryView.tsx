@@ -23,8 +23,7 @@ import EditMetadataDialog from './EditMetadataDialog/EditMetadataDialog';
 import { useTrackSelection } from '../../hooks/useTrackSelection';
 import { useLibraryWithStats, Track } from '../../hooks/useLibraryWithStats';
 import type { ViewMode } from '../navigation/ViewToggle';
-// TODO: LibraryViewRouter - component to be created
-// import { LibraryViewRouter } from './library/LibraryViewRouter';
+import { LibraryViewRouter } from './Views/LibraryViewRouter';
 import { TrackListView } from './Views/TrackListView';
 import { EmptyState, EmptyLibrary, NoSearchResults } from '../shared/ui/feedback';
 // TODO: LibraryHeader - component to be created
@@ -146,10 +145,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   // RENDER - View Routing
   // ============================================================
 
-  // TODO: Check if we should render a routed view (albums/artists)
-  // Only render router for albums/artists views or when navigating album/artist details
-  // LibraryViewRouter component to be created
-  /*
+  // Render routed view for albums/artists or when navigating album/artist details
   if (view === 'albums' || view === 'artists' || selectedAlbumId !== null || selectedArtistId !== null) {
     return (
       <LibraryViewRouter
@@ -167,7 +163,6 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
       />
     );
   }
-  */
 
   // ============================================================
   // RENDER - Main Track List View
