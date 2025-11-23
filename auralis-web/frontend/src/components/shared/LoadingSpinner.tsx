@@ -2,6 +2,8 @@ import React from 'react';
 import { Box, CircularProgress, styled } from '@mui/material';
 import { gradients } from '../../theme/auralisTheme';
 import { rotate, pulse } from '../library/Animation.styles';
+import { colorAuroraPrimary, colorAuroraSecondary } from '../library/Color.styles';
+import { tokens } from '@/design-system/tokens';
 
 interface LoadingSpinnerProps {
   size?: number;
@@ -42,8 +44,8 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       <GradientSVG width={0} height={0}>
         <defs>
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#667eea" />
-            <stop offset="100%" stopColor="#764ba2" />
+            <stop offset="0%" stopColor={colorAuroraPrimary} />
+            <stop offset="100%" stopColor={colorAuroraSecondary} />
           </linearGradient>
         </defs>
       </GradientSVG>
@@ -76,14 +78,14 @@ const CenteredContainer = styled(Box)({
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: '16px',
-  padding: '40px',
+  gap: `${tokens.spacing.md}px`,
+  padding: `${tokens.spacing.xxxl}px`,
   minHeight: '200px',
 });
 
 const LoadingText = styled(Box)(({ theme }) => ({
   fontSize: '14px',
-  color: '#8b92b0',
+  color: tokens.colors.text.secondary,
   fontWeight: 500,
   animation: `${pulse} 2s ease-in-out infinite`,
 }));
