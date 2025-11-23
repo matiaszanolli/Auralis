@@ -1,174 +1,64 @@
 /**
  * CozyArtistList Component
  *
- * Displays artists in a clean list layout with album counts and track information.
- * Follows the Auralis dark theme aesthetic.
+ * Orchestrates artist list display with infinite scroll pagination,
+ * alphabetic grouping, and context menu support.
+ * Uses extracted components and custom hook for logic separation.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import {
   Box,
-  List,
-  ListItemText,
   Typography,
-  Skeleton,
+  Person
 } from '@mui/material';
-import { Person } from '@mui/icons-material';
-import { useContextMenu, ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
+import { ContextMenu, getArtistContextActions } from '../shared/ContextMenu';
 import { useToast } from '../shared/Toast';
 import { EmptyState } from '../shared/EmptyState';
-import {
-  ListContainer,
-  StyledListItem,
-  StyledListItemButton,
-  ArtistAvatar,
-  ArtistName,
-  ArtistInfo,
-  SectionHeader,
-  AlphabetDivider
-} from './ArtistList.styles';
-
-interface Artist {
-  id: number;
-  name: string;
-  album_count?: number;
-  track_count?: number;
-}
+import { SectionHeader } from './ArtistList.styles';
+import { ArtistListLoading } from './ArtistListLoading';
+import { ArtistSection } from './ArtistSection';
+import { useArtistListPagination } from './useArtistListPagination';
 
 interface CozyArtistListProps {
   onArtistClick?: (artistId: number, artistName: string) => void;
 }
 
+/**
+ * CozyArtistList - Main orchestration component for artist list view
+ *
+ * Displays:
+ * - Loading skeleton during initial fetch
+ * - Alphabetically grouped artist sections
+ * - Infinite scroll pagination (2000px threshold)
+ * - Context menu with artist actions
+ * - Loading indicator and end-of-list message
+ *
+ * Uses:
+ * - useArtistListPagination hook for pagination, grouping, context menu logic
+ * - ArtistSection component for letter-grouped sections
+ * - ArtistListLoading component for loading skeleton
+ */
 export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick }) => {
-  const [artists, setArtists] = useState<Artist[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalArtists, setTotalArtists] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [contextMenuArtist, setContextMenuArtist] = useState<Artist | null>(null);
-
-  // Ref for scroll container
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Ref for load more trigger element
-  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
-
-  // Context menu state
-  const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
   const { success, info } = useToast();
 
-  useEffect(() => {
-    fetchArtists(true);
-  }, []);
-
-  // Infinite scroll with scroll event checking sentinel element visibility
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!hasMore || isLoadingMore || loading) return;
-
-      const triggerElement = loadMoreTriggerRef.current;
-      if (!triggerElement) return;
-
-      const rect = triggerElement.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const isNearViewport = rect.top < viewportHeight + 2000;
-
-      if (isNearViewport) {
-        loadMore();
-      }
-    };
-
-    // Find scrollable parent and attach listener
-    let scrollableParent = containerRef.current?.parentElement;
-    while (scrollableParent) {
-      const overflowY = window.getComputedStyle(scrollableParent).overflowY;
-      if (overflowY === 'auto' || overflowY === 'scroll') break;
-      scrollableParent = scrollableParent.parentElement;
-    }
-
-    if (scrollableParent) {
-      scrollableParent.addEventListener('scroll', handleScroll);
-      handleScroll();
-      return () => {
-        scrollableParent.removeEventListener('scroll', handleScroll);
-      };
-    }
-  }, [hasMore, isLoadingMore, loading, offset, artists.length]);
-
-  const fetchArtists = async (resetPagination = false) => {
-    if (resetPagination) {
-      setLoading(true);
-      setOffset(0);
-      setArtists([]);
-    } else {
-      setIsLoadingMore(true);
-    }
-
-    setError(null);
-
-    try {
-      const limit = 50;
-      const currentOffset = resetPagination ? 0 : offset;
-
-      const response = await fetch(`/api/artists?limit=${limit}&offset=${currentOffset}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch artists');
-      }
-
-      const data = await response.json();
-
-      // Update state with pagination info
-      setHasMore(data.has_more || false);
-      setTotalArtists(data.total || 0);
-
-      if (resetPagination) {
-        setArtists(data.artists || []);
-      } else {
-        const newArtists = data.artists || [];
-        setArtists(prev => {
-          const existingIds = new Set(prev.map((a: Artist) => a.id));
-          return [...prev, ...newArtists.filter((a: Artist) => !existingIds.has(a.id))];
-        });
-      }
-    } catch (err) {
-      console.error('Error fetching artists:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load artists');
-    } finally {
-      setLoading(false);
-      setIsLoadingMore(false);
-    }
-  };
-
-  const loadMore = async () => {
-    if (isLoadingMore || !hasMore) {
-      return;
-    }
-
-    const limit = 50;
-    const newOffset = offset + limit;
-    setOffset(newOffset);
-    await fetchArtists(false);
-  };
-
-  const handleArtistClick = (artist: Artist) => {
-    if (onArtistClick) {
-      onArtistClick(artist.id, artist.name);
-    }
-  };
-
-  const handleContextMenuOpen = (e: React.MouseEvent, artist: Artist) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenuArtist(artist);
-    handleContextMenu(e);
-  };
-
-  const handleContextMenuClose = () => {
-    setContextMenuArtist(null);
-    handleCloseContextMenu();
-  };
+  const {
+    artists,
+    loading,
+    error,
+    hasMore,
+    totalArtists,
+    isLoadingMore,
+    containerRef,
+    loadMoreTriggerRef,
+    contextMenuState,
+    contextMenuArtist,
+    handleCloseContextMenu,
+    handleArtistClick,
+    handleContextMenuOpen,
+    groupedArtists,
+    sortedLetters
+  } = useArtistListPagination({ onArtistClick });
 
   // Context menu actions
   const contextActions = contextMenuArtist
@@ -194,40 +84,8 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
       })
     : [];
 
-  const getArtistInitial = (name: string): string => {
-    return name.charAt(0).toUpperCase();
-  };
-
-  // Group artists by first letter
-  const groupedArtists = artists.reduce((acc, artist) => {
-    const initial = getArtistInitial(artist.name);
-    if (!acc[initial]) {
-      acc[initial] = [];
-    }
-    acc[initial].push(artist);
-    return acc;
-  }, {} as Record<string, Artist[]>);
-
-  const sortedLetters = Object.keys(groupedArtists).sort();
-
   if (loading) {
-    return (
-      <ListContainer>
-        <List>
-          {[...Array(15)].map((_, index) => (
-            <StyledListItem key={index}>
-              <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', padding: '16px 20px' }}>
-                <Skeleton variant="circular" width={56} height={56} sx={{ marginRight: '20px' }} />
-                <Box sx={{ flex: 1 }}>
-                  <Skeleton variant="text" width="30%" height={24} />
-                  <Skeleton variant="text" width="50%" height={20} sx={{ marginTop: '8px' }} />
-                </Box>
-              </Box>
-            </StyledListItem>
-          ))}
-        </List>
-      </ListContainer>
-    );
+    return <ArtistListLoading />;
   }
 
   if (error) {
@@ -263,43 +121,16 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
         </Typography>
       </SectionHeader>
 
-      <List>
-        {sortedLetters.map((letter) => (
-          <Box key={letter}>
-            <AlphabetDivider>{letter}</AlphabetDivider>
-            {groupedArtists[letter].map((artist) => (
-              <StyledListItem key={artist.id}>
-                <StyledListItemButton
-                  onClick={() => handleArtistClick(artist)}
-                  onContextMenu={(e) => handleContextMenuOpen(e, artist)}
-                >
-                  <ArtistAvatar>
-                    {getArtistInitial(artist.name)}
-                  </ArtistAvatar>
-                  <ListItemText
-                    primary={
-                      <ArtistName className="artist-name">
-                        {artist.name}
-                      </ArtistName>
-                    }
-                    secondary={
-                      <ArtistInfo>
-                        {artist.album_count
-                          ? `${artist.album_count} ${artist.album_count === 1 ? 'album' : 'albums'}`
-                          : ''}
-                        {artist.album_count && artist.track_count ? ' • ' : ''}
-                        {artist.track_count
-                          ? `${artist.track_count} ${artist.track_count === 1 ? 'track' : 'tracks'}`
-                          : ''}
-                      </ArtistInfo>
-                    }
-                  />
-                </StyledListItemButton>
-              </StyledListItem>
-            ))}
-          </Box>
-        ))}
-      </List>
+      {/* Alphabetically grouped artist sections */}
+      {sortedLetters.map((letter) => (
+        <ArtistSection
+          key={letter}
+          letter={letter}
+          artists={groupedArtists[letter]}
+          onArtistClick={handleArtistClick}
+          onContextMenu={handleContextMenuOpen}
+        />
+      ))}
 
       {/* Load more trigger - invisible sentinel element */}
       {hasMore && (
@@ -358,7 +189,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
       <ContextMenu
         anchorPosition={contextMenuState.mousePosition}
         open={contextMenuState.isOpen}
-        onClose={handleContextMenuClose}
+        onClose={handleCloseContextMenu}
         actions={contextActions}
       />
     </Box>
