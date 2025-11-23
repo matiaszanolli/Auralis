@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box, Typography, styled, keyframes } from '@mui/material';
-import { gradients } from '../../theme/auralisTheme';
-import { auroraOpacity } from '../library/Color.styles';
+import { gradients, auroraOpacity } from '../library/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface AuroraLogoProps {
