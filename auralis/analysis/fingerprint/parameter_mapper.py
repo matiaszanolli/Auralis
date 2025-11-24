@@ -150,6 +150,48 @@ class EQParameterMapper:
         # Linear interpolation in dB range
         return min_db + (value * (max_db - min_db))
 
+    def _apply_gain_saturation(self, gains: Dict[int, float], nominal_max: float = 12.0,
+                               hard_max: float = 18.0) -> Dict[int, float]:
+        """
+        Apply non-linear saturation to EQ gains to prevent extreme values.
+
+        Uses a saturation curve:
+        - Below nominal_max: Linear (no change)
+        - nominal_max to hard_max: Non-linear compression
+        - Above hard_max: Hard clip
+
+        Args:
+            gains: Dictionary of band index to gain in dB
+            nominal_max: Nominal maximum gain (dB) - typical operating range
+            hard_max: Hard maximum gain (dB) - absolute limit before clipping
+
+        Returns:
+            Dictionary with saturated gains
+        """
+        saturated = {}
+        for band_idx, gain in gains.items():
+            # Apply saturation symmetrically for positive and negative gains
+            abs_gain = abs(gain)
+            sign = 1 if gain >= 0 else -1
+
+            if abs_gain <= nominal_max:
+                # Linear region - no change
+                saturated[band_idx] = gain
+            elif abs_gain <= hard_max:
+                # Saturation region - non-linear compression
+                # Compress the excess range (nominal_max to hard_max) to 50% width
+                excess = abs_gain - nominal_max
+                max_excess = hard_max - nominal_max
+                # Saturation curve: soft knee that approaches hard_max asymptotically
+                compressed_excess = max_excess * (1.0 - np.exp(-excess / max_excess))
+                saturated_gain = nominal_max + compressed_excess
+                saturated[band_idx] = sign * saturated_gain
+            else:
+                # Hard clip above hard_max
+                saturated[band_idx] = sign * hard_max
+
+        return saturated
+
 
 class DynamicsParameterMapper:
     """Maps dynamics fingerprint dimensions to compressor/limiter settings"""
@@ -414,10 +456,18 @@ class ParameterMapper:
             else:
                 all_gains[band] = gain
 
+        # Phase 2.5.1: Apply non-linear saturation to prevent extreme values
+        # Nominal range: ±12dB (typical mastering), Hard limit: ±18dB
+        saturated_gains = self.eq_mapper._apply_gain_saturation(
+            all_gains,
+            nominal_max=12.0,
+            hard_max=18.0
+        )
+
         return {
             'enabled': True,
             'type': '31-band',
-            'gains': all_gains
+            'gains': saturated_gains
         }
 
     def _generate_dynamics_params(self, fingerprint: Dict, enable_multiband: bool) -> Dict:
