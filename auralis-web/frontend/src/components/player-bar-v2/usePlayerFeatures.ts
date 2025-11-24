@@ -24,10 +24,10 @@ interface Track {
 interface Callbacks {
   play: () => void;
   pause: () => void;
-  next: () => void;
-  previous: () => void;
+  next: () => Promise<void>;
+  previous: () => Promise<void>;
   setVolume: (volume: number) => void;
-  setEnhanced: (enabled: boolean, preset?: string) => void;
+  setEnhanced: (enabled: boolean, preset: string) => Promise<void>;
   setEnhancementEnabled: (enabled: boolean) => void;
 }
 

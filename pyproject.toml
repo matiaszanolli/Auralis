@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "matchering-player"
-version = "0.1.0"
+version = "1.1.0.beta.2"
 description = "Professional-grade media player with real-time audio remastering capabilities"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.14"
 authors = [
-    { name = "Matias Guijarro" },
+    { name = "Matías Zanolli" },
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -18,9 +18,9 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Analysis",
     "Topic :: Multimedia :: Sound/Audio :: Conversion",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "numpy>=1.20.0",
@@ -50,7 +50,7 @@ dev = [
 
 [tool.black]
 line-length = 88
-target-version = ["py39"]
+target-version = ["py314"]
 include = '\.pyi?$'
 
 [tool.isort]
@@ -58,7 +58,7 @@ profile = "black"
 multi_line_output = 3
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.14"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

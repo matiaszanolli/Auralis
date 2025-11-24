@@ -36,8 +36,8 @@
   },
   "homepage": "https://github.com/matiaszanolli/Auralis#readme",
   "engines": {
-    "node": ">=16.0.0",
-    "python": ">=3.8.0"
+    "node": ">=24.0.0",
+    "python": ">=3.14.0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

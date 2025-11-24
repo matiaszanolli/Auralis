@@ -32,7 +32,7 @@ type EventCallback = (data?: any) => void;
 
 export class AudioContextController {
   private audioContext: AudioContext | null = null;
-  private currentSource: AudioBufferSource | null = null;
+  private currentSource: AudioBufferSourceNode | null = null;
   private gainNode: GainNode | null = null;
   private volume: number = 1.0;
 

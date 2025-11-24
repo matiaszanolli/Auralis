@@ -433,8 +433,9 @@ export class SmoothAnimationEngine {
       let currentValue: number | number[];
 
       if (Array.isArray(animation.startValue) && Array.isArray(animation.endValue)) {
+        const endArray = animation.endValue as number[];
         currentValue = animation.startValue.map((start, index) => {
-          const end = animation.endValue[index] as number;
+          const end = endArray[index];
           return start + (end - start) * easedProgress;
         });
       } else {
