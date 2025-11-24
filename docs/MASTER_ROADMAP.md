@@ -190,13 +190,97 @@ User can:
 
 ---
 
-## Track 2: Architecture Cleanup - 🧹 P2 TECH DEBT
+## Track 2: 25D Adaptive Mastering System - ✨ P1 ARCHITECTURE
+
+**Priority**: **P1** - Eliminates real-time chunk caching, enables seamless mastering
+**Status: 🟢 Phase 1 In Progress (Day 1 Complete: Nov 24, 2025))
+**Effort**: ~18 weeks total (6 phases)
+**Impact**: Stable, deterministic, seamless chunk processing; zero real-time analysis overhead
+
+### Vision
+Replace real-time chunk-by-chunk analysis with intelligent pre-computed parameters derived from 25D fingerprints. This eliminates:
+- Real-time analysis overhead during playback
+- Non-deterministic chunk boundary artifacts
+- Resource-heavy streaming requirements
+- Chunk cache coherency issues
+
+### Architecture
+```
+Audio File → Background 25D Fingerprint → Pre-computed Parameters → Stable Chunk Processing → Seamless Output
+            (one-time computation)        (deterministic)          (identical across all chunks)
+```
+
+### Phases Overview
+
+**Phase 1: Fingerprint & Background Processing** (3-4 weeks)
+- Complete fingerprint extraction (already partially implemented)
+- Background extraction queue with worker threads
+- .25d sidecar file caching
+- Integrate with library scanner
+- Target: All tracks fingerprinted before processing
+
+**Phase 2: Fingerprint → Parameters Mapping** (4-5 weeks)
+- EQ parameter generator from 7D spectral fingerprint
+- Dynamics parameter generator from 2D dynamics + 3D variation
+- Level matching from genre detection
+- Resolve current TODO comments in `processing_engine.py:177-187`
+- Target: Deterministic parameter generation from fingerprint
+
+**Phase 3: Stable Chunk Processing** (2-3 weeks)
+- Chunk parameter consistency (all chunks same parameters)
+- Seamless chunk boundaries (overlap-add, no artifacts)
+- Chunk cache architecture
+- Target: Zero boundary artifacts, deterministic output
+
+**Phase 4: UI Integration** (2 weeks)
+- Update settings for fingerprint-based approach
+- Show fingerprint status in library
+- Parameter preview & visualization
+- Target: Users understand and control fingerprint-based mastering
+
+**Phase 5: Testing & Validation** (3-4 weeks)
+- Unit tests for parameter generators
+- Integration tests for full pipeline
+- A/B testing (fingerprint vs manual)
+- Performance benchmarking
+- Target: > 95% test pass, fingerprint ≥ manual presets
+
+**Phase 6: Documentation** (1 week)
+- Architecture documentation
+- Developer guide
+- API documentation update
+- Target: Clear knowledge transfer
+
+### Key Benefits
+1. **30-50% faster processing** (no real-time analysis)
+2. **Seamless playback** (no chunk boundary artifacts)
+3. **Deterministic output** (identical across plays)
+4. **Responsive UI** (minimal CPU during playback)
+5. **Scalability** (handles large libraries)
+
+### Current Blockers
+- None (existing fingerprint system enables this)
+
+### Next Steps
+1. Audit fingerprint extraction completeness (Week 1)
+2. Design background extraction pipeline (Week 2)
+3. Create test infrastructure (Week 2)
+4. Prototype EQ parameter generator (Week 3)
+
+### Roadmap Document
+📄 See [docs/roadmaps/25D_ADAPTIVE_MASTERING_ROADMAP.md](docs/roadmaps/25D_ADAPTIVE_MASTERING_ROADMAP.md) for detailed implementation plan
+
+**Timeline**: Mid-December 2025 → Late February 2026
+
+---
+
+## Track 3: Architecture Cleanup - 🧹 P2 TECH DEBT
 
 **Priority**: Important for maintainability, not blocking features
 **Status**: 🔴 Identified, not started
 **Effort**: 1-2 weeks
 **Impact**: Cleaner codebase, easier maintenance
-**When**: After Fingerprint Phase 2 is underway
+**When**: After Track 2 Phase 1 is underway
 
 ### Identified Redundancies
 
