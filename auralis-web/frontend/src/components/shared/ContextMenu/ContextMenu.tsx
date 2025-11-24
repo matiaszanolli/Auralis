@@ -30,7 +30,7 @@ import CreatePlaylistDialog from '../../playlist/CreatePlaylistDialog';
 import { PlaylistSection } from './PlaylistSection';
 import { ContextMenuAction } from './contextMenuActions';
 import { StyledMenu } from './ContextMenu.styles';
-import { ContextMenuActions } from './ContextMenuActions';
+import { ContextMenuActionsRenderer } from './ContextMenuActionsRenderer';
 import { usePlaylistActions } from './usePlaylistActions';
 
 export interface ContextMenuProps {
@@ -113,7 +113,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         anchorPosition={anchorPosition}
         transitionDuration={200}
       >
-        <ContextMenuActions
+        <ContextMenuActionsRenderer
           actions={actions}
           onActionClick={handleActionClick}
         />

@@ -4,24 +4,24 @@ import { StyledMenuItem } from './ContextMenu.styles';
 import { ContextMenuAction } from './contextMenuActions';
 import { auroraOpacity } from '../../library/Styles/Color.styles';
 
-interface ContextMenuActionsProps {
+interface ContextMenuActionsRendererProps {
   actions: ContextMenuAction[];
   onActionClick: (action: ContextMenuAction) => void;
 }
 
 /**
- * ContextMenuActions - Renders main context menu actions
+ * ContextMenuActionsRenderer - Renders main context menu actions
  *
  * Displays list of actions with optional dividers and destructive styling.
  * Handles icon rendering and menu dismissal on action click.
  *
  * @example
- * <ContextMenuActions
+ * <ContextMenuActionsRenderer
  *   actions={actions}
  *   onActionClick={handleAction}
  * />
  */
-export const ContextMenuActions: React.FC<ContextMenuActionsProps> = ({
+export const ContextMenuActionsRenderer: React.FC<ContextMenuActionsRendererProps> = ({
   actions,
   onActionClick,
 }) => {
@@ -46,4 +46,4 @@ export const ContextMenuActions: React.FC<ContextMenuActionsProps> = ({
   );
 };
 
-export default ContextMenuActions;
+export default ContextMenuActionsRenderer;
