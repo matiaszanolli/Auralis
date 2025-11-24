@@ -42,6 +42,12 @@ class Track(Base, TimestampMixin):
     recommended_reference = Column(String)  # Best reference track path
     processing_profile = Column(String)  # Optimal mastering profile
 
+    # 25D Fingerprint analysis
+    fingerprint_status = Column(String, default='pending')  # pending, processing, complete, error
+    fingerprint_computed_at = Column(DateTime)  # When fingerprint was last computed
+    fingerprint_error_message = Column(Text)  # Error message if extraction failed
+    fingerprint_vector = Column(Text)  # Serialized 25D fingerprint (JSON)
+
     # Metadata
     album_id = Column(Integer, ForeignKey('albums.id'))
     track_number = Column(Integer)

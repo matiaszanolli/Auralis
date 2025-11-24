@@ -10,9 +10,9 @@ Data models for library scanning
 :license: GPLv3, see LICENSE for more details.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 
 @dataclass
@@ -26,6 +26,7 @@ class ScanResult:
     files_failed: int = 0
     scan_time: float = 0.0
     directories_scanned: int = 0
+    added_tracks: List = field(default_factory=list)  # List of Track objects added during scan
 
     def __str__(self):
         return (f"Scan Results: {self.files_found} found, {self.files_added} added, "

@@ -36,9 +36,16 @@ class LibraryScanner:
     - Intelligent file filtering
     """
 
-    def __init__(self, library_manager):
-        """Initialize scanner with library manager"""
+    def __init__(self, library_manager, fingerprint_queue=None):
+        """
+        Initialize scanner with library manager
+
+        Args:
+            library_manager: Library manager instance
+            fingerprint_queue: Optional FingerprintExtractionQueue for background fingerprinting
+        """
         self.library_manager = library_manager
+        self.fingerprint_queue = fingerprint_queue
         self.progress_callback: Optional[Callable] = None
         self.should_stop = False
 
@@ -128,6 +135,10 @@ class LibraryScanner:
                 result.files_updated += batch_result.files_updated
                 result.files_skipped += batch_result.files_skipped
                 result.files_failed += batch_result.files_failed
+
+                # Enqueue fingerprints for newly added/updated tracks
+                if self.fingerprint_queue and batch_result.added_tracks:
+                    self._enqueue_fingerprints(batch_result.added_tracks)
 
                 # Report progress
                 progress = (i + len(batch)) / len(all_files)
@@ -224,3 +235,33 @@ class LibraryScanner:
                 self.progress_callback(progress_data)
             except Exception as e:
                 warning(f"Progress callback failed: {e}")
+
+    async def _enqueue_fingerprints(self, track_records: List):
+        """
+        Enqueue fingerprints for newly added tracks
+
+        Args:
+            track_records: List of Track objects that need fingerprinting
+        """
+        if not self.fingerprint_queue or not track_records:
+            return
+
+        enqueued_count = 0
+        for track in track_records:
+            try:
+                success = await self.fingerprint_queue.enqueue(
+                    track_id=track.id,
+                    filepath=track.filepath,
+                    priority=0  # Normal priority for scan operations
+                )
+                if success:
+                    enqueued_count += 1
+            except Exception as e:
+                warning(f"Failed to enqueue fingerprint for track {track.id}: {e}")
+
+        if enqueued_count > 0:
+            info(f"Enqueued {enqueued_count} fingerprints for extraction")
+            self._report_progress({
+                'stage': 'fingerprinting',
+                'fingerprints_enqueued': enqueued_count
+            })
