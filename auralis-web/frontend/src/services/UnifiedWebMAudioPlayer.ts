@@ -565,9 +565,10 @@ export class UnifiedWebMAudioPlayer {
     // trackTime = chunkIndex * 15 + offset (each chunk is 15 seconds)
     const chunkDuration = 15;
     const trackTime = (chunkIndex * chunkDuration) + offset;
-    if (this.audioContext) {
-      this.timingEngine.updateTimingReference(this.audioContext.currentTime, trackTime);
-      this.debug(`Updated timing: audioCtxTime=${this.audioContext.currentTime.toFixed(2)}, trackTime=${trackTime.toFixed(2)}`);
+    const audioContext = this.audioController.getAudioContext();
+    if (audioContext) {
+      this.timingEngine.updateTimingReference(audioContext.currentTime, trackTime);
+      this.debug(`Updated timing: audioCtxTime=${audioContext.currentTime.toFixed(2)}, trackTime=${trackTime.toFixed(2)}`);
     }
 
     // Queue next chunk for preload
