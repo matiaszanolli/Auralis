@@ -43,7 +43,7 @@ import { auroraOpacity, gradients } from '@/components/library/Styles/Color.styl
 export type ButtonVariant = 'text' | 'outlined' | 'contained' | 'gradient';
 export type ButtonSize = 'small' | 'medium' | 'large';
 
-export interface ButtonProps extends React.ComponentProps<typeof MuiButton> {
+export interface ButtonProps extends Omit<React.ComponentProps<typeof MuiButton>, 'variant' | 'size'> {
   /**
    * Button variant style
    * @default 'contained'
