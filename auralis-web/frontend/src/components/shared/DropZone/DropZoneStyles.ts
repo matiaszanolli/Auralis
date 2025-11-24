@@ -23,7 +23,7 @@ export const DropZonePaper = styled(Paper, {
     background: $isDragging
       ? alpha(tokens.colors.accent.purple, 0.05)
       : $scanning
-      ? alpha(tokens.colors.bg.hover, 0.5)
+      ? alpha(tokens.colors.bg.elevated, 0.5)
       : 'transparent',
     cursor: $disabled || $scanning ? 'not-allowed' : 'pointer',
     transition: 'all 0.3s ease',
