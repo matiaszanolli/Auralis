@@ -6,6 +6,7 @@ import {
   FormControlLabel,
   Divider
 } from '@mui/material';
+import { SettingsUpdate } from '../../services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
 
 interface AdvancedSettingsPanelProps {
@@ -13,7 +14,7 @@ interface AdvancedSettingsPanelProps {
   maxConcurrentScans: number;
   enableAnalytics: boolean;
   debugMode: boolean;
-  onSettingChange: (key: string, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
 }
 
 /**

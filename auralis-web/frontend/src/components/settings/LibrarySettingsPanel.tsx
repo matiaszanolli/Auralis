@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
+import { SettingsUpdate } from '../../services/settingsService';
 import FoldersList from './FoldersList';
 import AutoScanSettings from './AutoScanSettings';
 
@@ -7,7 +8,7 @@ interface LibrarySettingsPanelProps {
   scanFolders: string[];
   autoScan: boolean;
   scanInterval: number;
-  onSettingChange: (key: string, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
   onAddFolder: () => Promise<void>;
   onRemoveFolder: (folder: string) => Promise<void>;
   onRescanFolder: (folder: string) => Promise<void>;

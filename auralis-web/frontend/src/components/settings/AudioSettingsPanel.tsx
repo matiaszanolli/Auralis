@@ -7,13 +7,14 @@ import {
   MenuItem,
   Divider
 } from '@mui/material';
+import { SettingsUpdate } from '../../services/settingsService';
 import { SectionContainer, SectionDescription } from '../library/Styles/Dialog.styles';
 
 interface AudioSettingsPanelProps {
   outputDevice: string;
   bitDepth: number;
   sampleRate: number;
-  onSettingChange: (key: string, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
 }
 
 /**
