@@ -23,7 +23,7 @@ export { PresetItem } from './PresetItem';
 export { usePresetSelection } from './usePresetSelection';
 export { PRESETS, getPresetByValue, getCirclePosition, type Preset } from './presetConfig';
 export { default as ThemeToggle } from './ThemeToggle';
-export { EnhancementToggle, ButtonVariant, SwitchVariant } from './EnhancementToggle';
+export { EnhancementToggle, ButtonVariant, SwitchVariant } from '../EnhancementToggle';
 
 // Loaders
 export {
