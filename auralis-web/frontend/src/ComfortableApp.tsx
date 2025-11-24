@@ -6,12 +6,7 @@ import {
 } from '@mui/material';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
-// Beta 13.0: Using PlayerBarV2 - Complete redesign with design system
-// 100% design token compliance, memoized components, crossfade support
-// Replaces BottomPlayerBarUnified with cleaner architecture
 import PlayerBarV2Connected from './components/player-bar-v2/PlayerBarV2Connected';
-// Beta 13.0: EnhancementPaneV2 - Complete redesign with 10 focused components
-// 100% design token compliance, 84% code reduction, replaces AutoMasteringPane
 import EnhancementPaneV2 from './components/enhancement-pane-v2';
 import CozyLibraryView from './components/library/CozyLibraryView';
 import SettingsDialog from './components/settings/SettingsDialog';

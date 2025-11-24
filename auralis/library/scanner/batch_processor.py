@@ -12,7 +12,7 @@ Batch processing of audio files for library scanning
 
 from pathlib import Path
 from datetime import datetime
-from typing import List
+from typing import List, Tuple
 
 from ...utils.logging import error, debug
 from ..scan_models import ScanResult
@@ -59,7 +59,7 @@ class BatchProcessor:
             check_modifications: Check for file modifications
 
         Returns:
-            ScanResult with processing statistics
+            ScanResult with processing statistics and added track records
         """
         result = ScanResult()
 
@@ -68,13 +68,15 @@ class BatchProcessor:
                 break
 
             try:
-                file_result = self.process_single_file(
+                file_result, track_record = self.process_single_file(
                     file_path, skip_existing, check_modifications
                 )
 
                 result.files_processed += 1
                 if file_result == 'added':
                     result.files_added += 1
+                    if track_record:
+                        result.added_tracks.append(track_record)
                 elif file_result == 'updated':
                     result.files_updated += 1
                 elif file_result == 'skipped':
@@ -90,7 +92,7 @@ class BatchProcessor:
 
     def process_single_file(self, file_path: str,
                            skip_existing: bool,
-                           check_modifications: bool) -> str:
+                           check_modifications: bool) -> Tuple[str, any]:
         """
         Process a single audio file
 
@@ -100,7 +102,8 @@ class BatchProcessor:
             check_modifications: Check if file was modified
 
         Returns:
-            'added', 'updated', 'skipped', or 'failed'
+            Tuple of (status, track_record) where status is 'added', 'updated', 'skipped', or 'failed'
+            and track_record is the Track object if newly added, None otherwise
         """
         try:
             # Check if file already exists in library
@@ -113,14 +116,14 @@ class BatchProcessor:
                         file_mtime = datetime.fromtimestamp(file_stat.st_mtime)
 
                         if existing_track.updated_at and existing_track.updated_at >= file_mtime:
-                            return 'skipped'  # File hasn't been modified
+                            return 'skipped', None  # File hasn't been modified
                     else:
-                        return 'skipped'  # Skip existing files
+                        return 'skipped', None  # Skip existing files
 
             # Extract file information
             audio_info = self.audio_analyzer.extract_audio_info(file_path)
             if not audio_info:
-                return 'failed'
+                return 'failed', None
 
             # Extract metadata and add to audio_info
             metadata = self.metadata_extractor.extract_metadata_from_file(file_path)
@@ -134,12 +137,12 @@ class BatchProcessor:
             if skip_existing and self.library_manager.get_track_by_filepath(file_path):
                 # Update existing track
                 track = self.library_manager.update_track_by_filepath(file_path, track_info)
-                return 'updated' if track else 'failed'
+                return ('updated', None) if track else ('failed', None)
             else:
                 # Add new track
                 track = self.library_manager.add_track(track_info)
-                return 'added' if track else 'failed'
+                return ('added', track) if track else ('failed', None)
 
         except Exception as e:
             debug(f"Error processing {file_path}: {e}")
-            return 'failed'
+            return 'failed', None
