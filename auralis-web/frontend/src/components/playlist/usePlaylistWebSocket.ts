@@ -1,6 +1,5 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useWebSocketContext } from '../../contexts/WebSocketContext';
-import * as playlistService from '../../services/playlistService';
 
 interface UsePlaylistWebSocketProps {
   onPlaylistCreated: () => void;

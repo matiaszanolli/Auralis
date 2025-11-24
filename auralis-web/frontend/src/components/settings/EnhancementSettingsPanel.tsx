@@ -10,13 +10,14 @@ import {
   Slider,
   Divider
 } from '@mui/material';
+import { SettingsUpdate } from '../../services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
 
 interface EnhancementSettingsPanelProps {
   defaultPreset: string;
   autoEnhance: boolean;
   enhancementIntensity: number;
-  onSettingChange: (key: string, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
 }
 
 /**

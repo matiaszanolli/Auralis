@@ -4,12 +4,13 @@
 
 import React from 'react';
 import { Box, Switch, FormControlLabel, TextField, Divider } from '@mui/material';
+import { SettingsUpdate } from '../../services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
 
 interface AutoScanSettingsProps {
   autoScan: boolean;
   scanInterval: number;
-  onSettingChange: (key: string, value: any) => void;
+  onSettingChange: (key: keyof SettingsUpdate, value: any) => void;
 }
 
 export const AutoScanSettings: React.FC<AutoScanSettingsProps> = ({
