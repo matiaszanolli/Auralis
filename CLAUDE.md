@@ -1,10 +1,9 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-**Project-Specific Guidance**: This CLAUDE.md contains Auralis-specific development guidelines. For user-specific preferences across all projects, see `~/.claude/CLAUDE.md`.
+This file provides guidance to Claude Code when working with this repository.
 
 **📌 Current Version**: **1.1.0-beta.2** (November 23, 2025)
+**🐍 Python**: 3.14+ | **📦 Node**: 24+ | **Pyenv virtualenv**: auralis-3.14.0
 
 **Key Project Principles:**
 - Always prioritize improving existing code rather than duplicating logic
@@ -25,2199 +24,355 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **Type check** | `mypy auralis/ auralis-web/backend/` | Python type validation |
 | **Free port 8765** | `lsof -ti:8765 \| xargs kill -9` | If backend won't start |
 
-**Critical Ports:**
-- **8765** = Backend API (NOT 8000!)
-- **3000** = Frontend dev server (proxies to 8765)
-- **8000** = Worker project (if applicable, separate repo)
+**Critical Ports:** 8765 (Backend API, NOT 8000!), 3000 (Frontend), 8000 (Worker, if applicable)
 
 ---
 
 ## 📊 Test Status Dashboard
 
-**Backend Tests (Python/pytest):**
-| Category | Count | Status | Command |
-|----------|-------|--------|---------|
-| **Total Tests** | 850+ | ✅ Production Ready | `pytest tests/ -v` |
-| Invariant Tests | 305 | ✅ Critical | `pytest -m invariant -v` |
-| Integration Tests | 85 | ✅ Advanced | `pytest tests/integration/ -v` |
-| Boundary Tests | 151+ | ✅ Comprehensive | `pytest tests/boundaries/ -v` |
-| Backend API Tests | 96 | ✅ Endpoints | `pytest tests/backend/ -v` |
-| Audio Processing | 24 | ✅ Core | `pytest tests/auralis/ -v` |
-| Security Tests | 67 | ✅ OWASP Top 10 | `pytest -m security -v` |
-| **Coverage** | **74%+** | ✅ Excellent | `pytest --cov=auralis --cov=auralis-web` |
-
-**Frontend Tests (React/Vitest):**
-| Category | Passing | Total | Status | Command |
-|----------|---------|-------|--------|---------|
-| **All Tests** | 1,084 | 1,425 | ✅ 76% pass | `npm run test:memory` |
-| **Skipped** | — | 173 | ℹ️ 12% | — |
-| **Failing** | — | 168 | ⚠️ 12% | See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md) |
-| Coverage Target | — | — | 📈 55%+ | `npm run test:coverage:memory` |
-
-**Quick Test Commands:**
-```bash
-# Run all backend tests
-pytest tests/ -v
-
-# Run only fast tests (skip slow)
-pytest -m "not slow" -v
-
-# Run specific test category
-pytest -m invariant -v          # Critical invariants
-pytest -m boundary -v           # Edge cases
-pytest -m integration -v        # Cross-component
-pytest tests/backend/ -v        # API endpoints
-
-# Frontend tests (⚠️ ALWAYS use test:memory for full suite)
-npm run test:memory             # Full suite, 2GB heap with GC
-npm test                        # Interactive watch mode
-npm run test:run               # Single run, standard heap
-npm run test:coverage:memory    # Coverage report
-```
+| Test Category | Count | Command |
+|---|---|---|
+| **Total Backend** | 850+ | `pytest tests/ -v` |
+| Invariant Tests | 305 | `pytest -m invariant -v` |
+| Integration Tests | 85 | `pytest tests/integration/ -v` |
+| Boundary Tests | 151+ | `pytest tests/boundaries/ -v` |
+| Backend API Tests | 96 | `pytest tests/backend/ -v` |
+| **Frontend Tests** | 1,084/1,425 | `npm run test:memory` |
+| **Coverage** | 74%+ backend, 55%+ frontend | See test commands |
 
 ---
 
 ## ⚡ Quick Start (30 seconds)
 
-**Web Interface (recommended for development):**
 ```bash
+# Web interface (recommended)
 pip install -r requirements.txt
 python launch-auralis-web.py --dev    # http://localhost:8765
-```
 
-**Desktop Application (full stack):**
-```bash
-pip install -r requirements.txt && cd desktop && npm install
-npm run dev                           # Starts backend + frontend + Electron
-```
+# Or Desktop app
+pip install -r requirements.txt && cd desktop && npm install && npm run dev
 
-**Run Tests:**
-```bash
-python -m pytest tests/ -v                    # All tests
-cd auralis-web/frontend && npm run test:memory  # Frontend tests (memory safe)
+# Run tests
+python -m pytest tests/ -v                    # Backend
+cd auralis-web/frontend && npm run test:memory  # Frontend
 ```
 
 ---
 
-## 🎛️ Development Modes Guide
+## ✅ First-Time Setup
 
-Choose the mode that best fits your development needs:
+**Requirements:** Python 3.14+, Node 24+, Git, ports 8765/3000/8000 available
 
-### Mode 1: Web Interface (Recommended for Most Development)
-**Best for:** Frontend features, API endpoints, library management
+**Install:**
+```bash
+pip install -r requirements.txt
+cd auralis-web/frontend && npm install
+cd desktop && npm install  # if building desktop app
+```
+
+**Verify:**
 ```bash
 python launch-auralis-web.py --dev
-# Opens http://localhost:8765 in browser
-# Backend: http://localhost:8765/api
-# Frontend dev server: http://localhost:3000 (proxied to backend)
-# Hot reload: ✅ Both frontend and backend
-# Time to ready: ~3-5 seconds
-```
-
-### Mode 2: Desktop App (Electron) - Full Stack
-**Best for:** Testing native OS integration, file pickers, desktop-specific features
-```bash
-cd desktop && npm run dev
-# Starts: Backend (8765) + Frontend (3000) + Electron window
-# Hot reload: ✅ Frontend hot reload in Electron window
-# Backend reload: Manual - restart app after backend changes
-# Time to ready: ~5-8 seconds
-```
-
-### Mode 3: Backend Only
-**Best for:** API development, testing without UI, debugging backend logic
-```bash
-cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
-# API docs: http://localhost:8765/api/docs (Swagger UI)
-# Hot reload: ✅ Automatic
-# Time to ready: ~1-2 seconds
-```
-
-### Mode 4: Frontend Only (Requires Backend Running)
-**Best for:** UI component development when backend is stable
-```bash
-# Terminal 1: Start backend
-cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
-
-# Terminal 2: Start frontend
-cd auralis-web/frontend && npm start
-# Frontend: http://localhost:3000
-# Hot reload: ✅ Automatic
-# Backend proxy: ✅ Configured in vite.config.ts
-```
-
-**Decision Tree:**
-```
-Are you working on...
-├─ Frontend components or styling?        → Mode 1 (Web) or Mode 4 (Frontend Only)
-├─ API endpoints or backend logic?        → Mode 3 (Backend Only) or Mode 1 (Web)
-├─ Desktop/Electron features?             → Mode 2 (Desktop App)
-├─ Real-time WebSocket features?          → Mode 1 (Web) or Mode 2 (Desktop)
-└─ Full integration testing?               → Mode 2 (Desktop) or Mode 1 (Web)
+# In another terminal: curl http://localhost:8765/api/health
 ```
 
 ---
 
-## ✅ Development Mode Checklist
+## 🎛️ Development Modes
 
-Before starting development, verify these prerequisites:
-
-**System Requirements:**
-- [ ] Python 3.9+ (check: `python --version`)
-- [ ] Node.js 18+ (check: `node --version`)
-- [ ] Port 8765 is free (check: `lsof -ti:8765` returns nothing)
-- [ ] Port 3000 is free (check: `lsof -ti:3000` returns nothing)
-
-**Dependencies Installed:**
-- [ ] Python dependencies: `pip install -r requirements.txt`
-- [ ] Frontend dependencies: `cd auralis-web/frontend && npm install`
-- [ ] Desktop dependencies (if needed): `cd desktop && npm install`
-
-**Database & Config:**
-- [ ] Database will auto-initialize on first run (no manual setup needed)
-- [ ] `.env` file exists in root (copy from `.env.example` if needed)
-
-**Quick Validation:**
-```bash
-# Verify backend can start
-cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765 &
-sleep 2
-curl http://localhost:8765/api/health
-kill %1  # Stop the process
-```
+- **Mode 1 (Recommended)**: `python launch-auralis-web.py --dev` - Web interface with hot reload
+- **Mode 2**: `cd desktop && npm run dev` - Desktop app with full stack
+- **Mode 3**: `cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765` - Backend only (API docs at http://localhost:8765/api/docs)
+- **Mode 4**: `cd auralis-web/frontend && npm start` - Frontend only (requires backend running)
 
 ---
 
 ## 🎯 Common Development Tasks
 
-### Running the Application
+### Running Tests
 
-**Web Interface:**
 ```bash
-# Development mode (auto-reloads, http://localhost:8765)
-python launch-auralis-web.py --dev
+# Backend
+python -m pytest tests/ -v                    # All tests
+python -m pytest tests/backend/ -v            # API tests (96)
+python -m pytest tests/boundaries/ -v         # Edge cases (151)
+python -m pytest tests/integration/ -v        # Integration (85)
+python -m pytest tests/invariants/ -v         # Invariants (305)
+python -m pytest -m "not slow" -v             # Skip slow tests
 
-# Production mode (serves built frontend from backend)
-python launch-auralis-web.py
-
-# Backend only (FastAPI with Swagger UI at http://localhost:8765/api/docs)
-cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
+# Frontend
+npm run test:memory                           # Full suite (2GB heap + GC)
+npm test                                      # Interactive watch mode
+npm run test:coverage:memory                  # Coverage report
 ```
-
-**Desktop Application (Electron):**
-```bash
-cd desktop
-
-# Development mode (starts backend + frontend dev server + Electron window)
-npm run dev
-
-# Build for production (all platforms: Linux, Windows, macOS)
-npm run package
-
-# Platform-specific builds
-npm run package:linux   # Linux AppImage + DEB
-npm run package:win     # Windows installer (requires Windows)
-npm run package:mac     # macOS app (requires macOS)
-```
-
-**Frontend Separately (debugging):**
-```bash
-# Requires backend running on port 8765
-cd auralis-web/frontend && npm start   # Dev server at http://localhost:3000 (proxies to backend)
-```
-
-### Running Tests (Backend)
-```bash
-# All tests
-python -m pytest tests/ -v
-
-# Specific categories
-python -m pytest tests/backend/ -v                    # API endpoints (96 tests)
-python -m pytest tests/auralis/ -v                    # Audio processing (24 tests)
-python -m pytest tests/boundaries/ -v                 # Boundary conditions (151 tests)
-python -m pytest tests/integration/ -v                # Integration tests (85 tests)
-python -m pytest tests/invariants/ -v                 # Critical invariants (305 tests)
-python -m pytest tests/mutation/ -v                   # Mutation tests (quality validation)
-
-# Run with coverage
-python -m pytest tests/ --cov=auralis --cov=auralis-web --cov-report=html
-
-# Run single test file or test
-python -m pytest tests/backend/test_player.py::test_play_track -v
-
-# Run tests by pattern or marker
-python -m pytest -k "test_enhance" -v                 # Pattern match
-python -m pytest -m "invariant" -v                    # By marker
-python -m pytest -m "not slow" -v                     # Skip slow tests
-```
-
-### Running Tests (Frontend)
-
-**Use `npm run test:memory` for full test suite** (prevents OOM with 2GB heap + GC):
-
-| Command | Use Case |
-|---------|----------|
-| `npm run test:memory` | **Full test suite** - 2GB heap, garbage collection enabled |
-| `npm test` | Interactive watch mode - light memory usage |
-| `npm run test:run` | Single run (fast), standard heap |
-| `npm run test:coverage:memory` | Coverage report with memory management |
-| `npm run test:integration` | Integration tests only |
-| `npm run test:player` | Player controls tests |
-| `npm run test:library` | Library management tests |
-| `npm run test:streaming` | Audio streaming tests |
-| `npm run test:websocket` | WebSocket real-time tests |
-| `npm run test:enhancement` | Enhancement processing tests |
-| `npm run test:performance` | Performance & pagination tests |
-
-**⚠️ Test Collection Performance Note:**
-- Test collection is fast (< 10 seconds) thanks to fixes in Nov 2024
-- Fixed issues: Import typos in repository files + O(n) collection hook
-- If collection becomes slow again (30+ min), check:
-  - `tests/conftest.py` - `pytest_collection_modifyitems()` hook (disabled for performance)
-  - `auralis/library/repositories/*.py` - Import statements use `from auralis.library.repositories import X`
-  - Run with `--collect-only -q` to isolate collection issues
 
 ### Making Code Changes
 
-**Backend API (FastAPI):**
-```bash
-# 1. Edit endpoint in auralis-web/backend/routers/*.py
-# 2. Run affected tests: python -m pytest tests/backend/ -v
-# 3. Test manually at http://localhost:8765/api/docs (Swagger UI)
-# 4. Backend auto-reloads with --reload flag
-```
+**Backend API:** Edit `auralis-web/backend/routers/*.py` → Test with `pytest tests/backend/ -v` → Manual test at http://localhost:8765/api/docs
 
-**Core Audio Processing:**
-```bash
-# 1. Edit in auralis/core/ or auralis/dsp/
-# 2. Run core tests: python -m pytest tests/auralis/ -v
-# 3. Check performance impact: python benchmark_performance.py
-```
+**Audio Processing:** Edit `auralis/core/` or `auralis/dsp/` → Test with `pytest tests/auralis/ -v`
 
-**Frontend (React/TypeScript):**
-```bash
-# 1. Edit in auralis-web/frontend/src/
-# 2. Dev server auto-reloads at http://localhost:3000
-# 3. Run tests: npm run test:memory (see Frontend Tests section above)
-# 4. Build: npm run build
-```
+**Frontend:** Edit `auralis-web/frontend/src/` → Auto-reload at http://localhost:3000 → Test with `npm run test:memory`
 
-**Frontend Test Guidelines (CRITICAL):**
-- ⚠️ **Memory Management**: Always use `npm run test:memory` for full suite (2GB heap + GC)
-- ⚠️ **Provider Wrapper**: Import render from `@/test/test-utils`, NOT `@testing-library/react`
-- ⚠️ **API Mocking**: Use MSW in `src/test/mocks/handlers.ts` - WAV format (16/24-bit PCM)
-- ⚠️ **Async Operations**: Use `waitFor()` from test-utils, NEVER hardcoded `setTimeout`
-- ⚠️ **Vitest Syntax**: Use `vi.*` NOT `jest.*` (setup.ts provides compatibility)
-- ⚠️ **Selectors**: Use `screen.getByRole()` or `screen.getByTestId()` (avoid querySelector)
+---
+
+## 📁 Project Structure (Quick Overview)
+
+**Core Audio** (`auralis/`): `core/` (processing), `dsp/` (EQ, dynamics), `analysis/`, `library/` (SQLite + cache), `player/`, `io/`, `optimization/`
+
+**Web Interface** (`auralis-web/`): `backend/` (FastAPI, routers, chunked processor), `frontend/` (React/TypeScript components, hooks, services, design-system)
+
+**Desktop** (`desktop/`): `main.js` (Electron), `preload.js` (IPC bridge)
+
+**Tests** (`tests/`): `backend/` (96), `auralis/` (24), `boundaries/` (151), `integration/` (85), `invariants/` (305), `mutation/`, `performance/`, `security/`, `conftest.py` (fixtures)
+
+**Frontend Tests** (`auralis-web/frontend/src/`): 60 test files co-located with source, infrastructure in `test/` (setup.ts, test-utils.tsx, mocks/)
+
+---
+
+## 🧪 Frontend Test Guidelines (CRITICAL)
+
+- **ALWAYS** use `npm run test:memory` for full suite (2GB heap + GC prevents OOM)
+- **ALWAYS** import `render` from `@/test/test-utils`, NOT `@testing-library/react`
+- **ALWAYS** use `waitFor()` from test-utils, NEVER hardcoded `setTimeout`
+- **ALWAYS** use `vi.*` (Vitest), NOT `jest.*`
+- **ALWAYS** use `screen.getByRole()` or `screen.getByTestId()`
+- **API Mocking**: Use MSW in `src/test/mocks/handlers.ts` with WAV format (16/24-bit PCM)
 - See [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
-
-### Code Quality
-```bash
-# Type checking
-mypy auralis/ auralis-web/backend/
-
-# Linting
-python -m lint auralis/ auralis-web/backend/
-
-# Code formatting (if set up)
-black auralis/ auralis-web/backend/
-```
-
-### Building & Packaging
-```bash
-# Build desktop app for all platforms
-make build                  # Runs tests + builds (see Makefile for details)
-
-# Build without tests (faster)
-make build-fast
-
-# Package only (for distribution)
-make package
-
-# Platform-specific builds
-make build-linux
-make build-windows          # Windows only
-make build-macos            # macOS only
-
-# Clean build artifacts
-make clean
-```
-
----
-
-## 📁 Project Structure
-
-**Core Audio Engine** (`auralis/`):
-- `core/` - Main processing engine (adaptive mastering, reference mode, hybrid mode)
-- `dsp/` - Digital signal processing modules (EQ, dynamics, filtering)
-  - `eq/` - 26-band psychoacoustic EQ system
-  - `dynamics/` - Compression, limiting, envelope following
-  - `utils/` - Audio utilities (normalization, gain, stereo processing)
-- `analysis/` - Audio analysis framework (spectrum, loudness, quality metrics)
-  - `fingerprint/` - 25D audio fingerprint system (NEW)
-  - `ml/` - Machine learning genre classification
-  - `quality/` - Quality metrics (frequency response, dynamic range, etc.)
-- `library/` - Library management with SQLite backend
-  - `repositories/` - Data access layer with pagination support
-  - `cache.py` - Query result caching (136x speedup on cache hits)
-- `player/` - Audio playback engine with real-time processing
-- `io/` - Audio file I/O and format handling
-- `optimization/` - Performance optimizations (Numba JIT, NumPy vectorization)
-
-**Web Interface** (`auralis-web/`):
-- `backend/` - FastAPI server (614 lines, modular routers)
-  - `main.py` - FastAPI app initialization and routes
-  - `routers/` - Modular endpoint handlers (player, library, enhancement, etc.)
-  - `chunked_processor.py` - Streaming audio processor (30s chunks)
-  - `streaming/` - MSE + Multi-Tier Buffer streaming system
-- `frontend/` - React/TypeScript UI
-  - `components/` - Main UI components (player, library, enhancement panel)
-  - `hooks/` - Custom React hooks (player logic, library data, etc.)
-  - `services/` - API communication layer
-  - `design-system/` - Design tokens and reusable UI primitives
-
-**Desktop Application** (`desktop/`):
-- `main.js` - Electron main process (spawns backend, loads frontend)
-- `preload.js` - IPC bridge for native file selection
-
-**Tests** (`tests/`):
-- `backend/` - API endpoint tests (96 tests, 74% coverage)
-- `auralis/` - Audio processing tests (24 tests)
-- `boundaries/` - Edge case and boundary tests (151 tests)
-- `concurrency/` - Thread-safety and race condition tests
-- `edge_cases/` - Complex edge cases and corner conditions
-- `integration/` - Cross-component integration tests (85 tests)
-- `invariants/` - Critical invariant tests (305 tests)
-- `load_stress/` - Load and stress testing (large datasets)
-- `mutation/` - Mutation testing for test quality validation
-- `performance/` - Performance benchmarks and regression tests
-- `regression/` - Regression test suite
-- `security/` - Security and OWASP Top 10 tests
-- `conftest.py` - Pytest fixtures and configuration
-
-**Frontend Tests** (`auralis-web/frontend/src/`):
-- **Total**: 60 test files across components, services, hooks, contexts, and integrations
-- **Organization**: Co-located `__tests__/` subdirectories next to source files
-- **Test Infrastructure**:
-  - `test/setup.ts` - Global environment, polyfills, cleanup (131 lines)
-  - `test/test-utils.tsx` - Custom render() with all providers (71 lines)
-  - `test/mocks/` - MSW server (12 lines), handlers (80+ endpoints), mockData
-  - `test/utils/test-helpers.ts` - 12+ reusable async helpers (180 lines)
-- **Memory Status**: ✅ Fixed - Tests use `npm run test:memory` with 2GB heap + GC
-- **Categories**:
-  - Components: 35+ test files (library, enhancement, player, visualizations, etc.)
-  - Integration tests: 14 test files (WebSocket, streaming, library management, etc.)
-  - Services: 6 test files
-  - Hooks: 4 test files
-  - Contexts: 1 test file
-- **Coverage Target**: 55%+ overall frontend
-
----
-
-## 🚀 Launch Script Guide
-
-The [launch-auralis-web.py](launch-auralis-web.py) script is your primary development entry point:
-
-```bash
-# Development mode (starts backend + frontend dev server)
-python launch-auralis-web.py --dev
-
-# Production mode (serves built frontend from backend)
-python launch-auralis-web.py
-
-# Custom port (if 8765 is taken)
-python launch-auralis-web.py --port 9000
-
-# Skip browser auto-open (useful in SSH/remote)
-python launch-auralis-web.py --dev --no-browser
-```
-
-**What it does:**
-1. Checks Python and Node.js dependencies
-2. Starts FastAPI backend (port 8765 by default)
-3. In `--dev` mode: Starts React dev server (port 3000)
-4. Opens browser automatically (can skip with `--no-browser`)
-5. Manages process lifecycle (Ctrl+C stops all servers)
-
-**If Port 8765 is Already in Use:**
-```bash
-# Find what's using port 8765
-lsof -ti:8765
-
-# Kill the process
-lsof -ti:8765 | xargs kill -9
-
-# Or use custom port
-python launch-auralis-web.py --dev --port 9000
-# Frontend will still proxy to custom backend port
-```
-
-**For Desktop App:**
-Use `cd desktop && npm run dev` instead - includes backend + frontend + Electron window.
-
-**Running Backend & Frontend Separately:**
-```bash
-# Terminal 1: Backend only
-cd auralis-web/backend && python -m uvicorn main:app --reload --port 8765
-
-# Terminal 2: Frontend only (requires backend running)
-cd auralis-web/frontend && npm start
-# Opens http://localhost:3000 (proxies to http://localhost:8765)
-```
-
----
-
-## 🧪 Frontend Test Infrastructure
-
-### Test Setup & Utilities
-
-**Global Setup** (`auralis-web/frontend/src/test/setup.ts`, 131 lines):
-- Vitest configuration & Jest compatibility layer (`jest.*` → `vi.*`)
-- Polyfills: `matchMedia`, `IntersectionObserver`, `ResizeObserver`, `WebSocket`, `scrollTo`
-- MSW server initialization with `onUnhandledRequest: 'warn'`
-- Cleanup strategy:
-  - React Testing Library cleanup
-  - Mock clearing (`vi.clearAllMocks()`)
-  - Timer reset (`vi.useRealTimers()`)
-  - Aggressive GC if available (`global.gc()`)
-  - 100ms final delay
-
-**Custom Render** (`auralis-web/frontend/src/test/test-utils.tsx`, 71 lines):
-```typescript
-// ✅ ALWAYS use this instead of @testing-library/react
-import { render } from '@/test/test-utils'
-
-// Includes all required providers:
-// - BrowserRouter (React Router)
-// - DragDropContext (drag-and-drop)
-// - WebSocketProvider (real-time updates)
-// - ThemeProvider (dark/light mode)
-// - EnhancementProvider (audio processing)
-// - ToastProvider (notifications)
-```
-
-**Test Helpers** (`auralis-web/frontend/src/test/utils/test-helpers.ts`, 180 lines):
-- `waitForElement(selector, timeout)` - Wait for element with timeout
-- `waitForApiCall(endpoint, timeout)` - Wait for API to complete
-- `typeWithDelay(element, text)` - Simulate user typing
-- `waitForLoadingToFinish()` - Wait for loading spinner
-- `simulateNetworkDelay(ms)` - Network latency simulation
-- `waitForConditions(conditions)` - Multiple condition waiting
-- And 6+ more helpers for robust async testing
-
-### MSW (Mock Service Worker)
-
-**Server Setup** (`src/test/mocks/server.ts`, 12 lines):
-```typescript
-import { setupServer } from 'msw/node'
-import { handlers } from './handlers'
-
-export const server = setupServer(...handlers)
-```
-
-**Handlers** (`src/test/mocks/handlers.ts`, 1500+ lines):
-- **80+ endpoint mocks** covering:
-  - Player control (play, pause, seek, volume, etc.)
-  - Library management (tracks, albums, artists)
-  - Enhancement/processing (parameters, presets)
-  - Metadata editing (tags, artwork)
-  - Playlists and search
-- Base URLs: `http://localhost:8765/api` and `/api` (relative)
-- All handlers include `delay()` for realistic latency
-
-**Mock Data** (`src/test/mocks/mockData.ts`):
-- `mockTracks` - 100 test tracks with metadata
-- `mockAlbums` - 20 test albums
-- `mockArtists` - 10 test artists
-- `mockPlaylists` - Predefined playlists
-- `mockPlayerState` - Player state object
-
-### Test Organization & Patterns
-
-**Component Test Example:**
-```typescript
-import { render, screen, waitFor } from '@/test/test-utils'
-import { MyComponent } from './MyComponent'
-
-describe('MyComponent', () => {
-  it('loads and displays data', async () => {
-    render(<MyComponent />)
-
-    // Use waitFor for async operations
-    await waitFor(() => {
-      expect(screen.getByText('Loaded')).toBeInTheDocument()
-    })
-  })
-})
-```
-
-**File Locations** - Tests co-located with source:
-```
-src/
-├── components/
-│   ├── MyComponent.tsx
-│   └── __tests__/
-│       └── MyComponent.test.tsx
-├── services/
-│   ├── playerService.ts
-│   └── __tests__/
-│       └── playerService.test.ts
-├── hooks/
-│   ├── usePlayer.ts
-│   └── __tests__/
-│       └── usePlayer.test.ts
-```
-
-**Memory Management** (CRITICAL):
-```bash
-# ✅ For full test suite (prevents OOM)
-npm run test:memory                    # 2GB heap + GC enabled
-
-# ✅ For watch mode (lighter)
-npm test                               # Interactive mode
-
-# ✅ For single run (fast)
-npm run test:run                       # Fast run, same heap as standard
-
-# ✅ For coverage
-npm run test:coverage:memory           # Coverage with memory management
-```
-
-### Vite Configuration (`auralis-web/frontend/vite.config.ts`)
-
-**Test Settings:**
-- **Environment**: jsdom (simulates browser DOM)
-- **Setup file**: `./src/test/setup.ts` (polyfills, MSW server, cleanup)
-- **Max threads**: 2 (prevents memory exhaustion)
-- **Timeout**: 30s per test
-- **Coverage provider**: v8
-
-**Dev Server:**
-- **Port**: 3000 (http://localhost:3000)
-- **Proxy to Backend**: `/api` and `/ws` → `http://localhost:8765`
-- **Path Aliases**: `@/` maps to `src/` (e.g., `@/components` = `src/components`)
-
-**Build Output**: `build/` directory (served by backend in production)
-
-**Environment Variables:**
-- `VITE_API_URL` - Backend API base URL (defaults to http://localhost:8765)
-- `VITE_WS_URL` - WebSocket URL (defaults to ws://localhost:8765)
-- Set in `.env` or `.env.local` files
 
 ---
 
 ## 🎨 Design System (MANDATORY for Frontend)
 
-**Location**: `auralis-web/frontend/src/design-system/tokens.ts` (270 lines - SINGLE SOURCE OF TRUTH)
+**Single Source of Truth**: `auralis-web/frontend/src/design-system/tokens.ts`
 
-### Required Usage
-✅ **ALWAYS import and use tokens**:
+**Usage:**
 ```typescript
-import { colors, spacing, typography, shadows } from '@/design-system'
+import { tokens } from '@/design-system'
+// or for aurora-specific colors
+import { auroraOpacity } from '@/components/library/Color.styles'
 
 // ✅ CORRECT
-<div style={{ color: colors.text.primary, padding: spacing.md }}>
+<div style={{ color: tokens.colors.text.primary, padding: tokens.spacing.md }}>
 
 // ❌ WRONG - hardcoded colors/values
 <div style={{ color: '#ffffff', padding: '16px' }}>
 ```
 
-### Token Categories
+**Token Categories**: Colors (60+), Spacing (8px grid), Typography, Shadows (7 levels), Transitions, Z-Index, Animations
 
-**Colors** (60+ predefined):
-- `colors.background.primary`, `colors.background.secondary`
-- `colors.text.primary`, `colors.text.secondary`, `colors.text.disabled`
-- `colors.accent.*`, `colors.danger.*`, `colors.success.*`
-- `colors.border.*`, `colors.overlay.*`
-- Component-specific: `colors.playerBar.*`, `colors.sidebar.*`, `colors.rightPanel.*`
+**Phase 10 Design System Consolidation** (November 2025):
+- Eliminated 170+ hardcoded aurora colors across 50+ components
+- 88% reduction in duplicate definitions
+- Created 7 centralized style files (Color, Shadow, BorderRadius, Spacing, Animation, Dialog, etc.)
+- **Zero legacy auralisTheme imports remaining** - file archived
+- See [auroraOpacity pattern](auralis-web/frontend/src/components/library/Color.styles.ts) for modern approach
 
-**Spacing** (8px grid system):
-- `spacing.xs` (4px) → `spacing.xxxl` (64px)
-- Examples: `spacing.sm` (8px), `spacing.md` (16px), `spacing.lg` (24px)
-
-**Typography**:
-- `typography.fontFamily.*` (primary, mono)
-- `typography.fontSize.*` (xs, sm, md, lg, xl, 2xl, 3xl)
-- `typography.fontWeight.*` (light, normal, medium, semibold, bold)
-- `typography.lineHeight.*` (tight, normal, relaxed)
-
-**Shadows** (7 levels):
-- `shadows.sm` → `shadows['2xl']`, `shadows.glow`, `shadows.glowStrong`
-
-**Transitions**:
-- `transitions.fast` (100ms), `transitions.base` (200ms), `transitions.slow` (300ms)
-
-**Z-Index Scale** (11 levels):
-- `zIndex.base` (1) → `zIndex.max` (1000)
-- Layer ordering: base → tooltip → dropdown → modal → toast
-
-**Animations**:
-- `animations.pulse`, `animations.fadeIn`, `animations.slideUp`
-
-### Component Guidelines
-
-✅ **Keep components modular** (< 300 lines):
-- Extract subcomponents if exceeding limit
-- Use facade pattern for backward compatibility
-
-✅ **One component per purpose**:
-- Don't create "Enhanced", "V2", or "Advanced" duplicates
-- Refactor existing component in-place when possible
-
-✅ **Design system integration**:
-- All colors must use tokens
-- All spacing must use tokens
-- No hardcoded colors, fonts, or spacing values
-- Consistency with existing component patterns
-
-### Phase 10 Design System Consolidation (November 2025)
-
-**Complete refactoring of design tokens into modular, reusable files** - established a production-ready design system:
-
-**Files Created (7 new consolidated style files):**
-1. [Color.styles.ts](auralis-web/frontend/src/components/library/Color.styles.ts) - Aurora color opacity variants (`auroraOpacity` with 9 levels: minimal 0.05 → stronger 0.5)
-2. [Shadow.styles.ts](auralis-web/frontend/src/components/library/Shadow.styles.ts) - Compound shadows (playerContainer, dropdown, card, etc.)
-3. [BorderRadius.styles.ts](auralis-web/frontend/src/components/library/BorderRadius.styles.ts) - Reusable radius constants
-4. [Spacing.styles.ts](auralis-web/frontend/src/components/library/Spacing.styles.ts) - Spacing/padding constants (xs, sm, md, lg, xl, xxl, xxxl)
-5. [Animation.styles.ts](auralis-web/frontend/src/components/library/Animation.styles.ts) - Keyframes and animation constants
-6. [Dialog.styles.ts](auralis-web/frontend/src/components/library/Dialog.styles.ts) - Dialog/modal styling
-7. Plus 15+ additional specialized style consolidations (Button, FormFields, Icon, Skeleton, etc.)
-
-**Consolidation Results:**
-- **170+ hardcoded aurora colors** eliminated across 50+ component files
-- **50+ style files** updated to import from centralized tokens
-- **88% reduction** in duplicate color definitions
-- **22 remaining colors** (mostly in Shadow.styles edge cases and tests)
-- **Zero TypeScript errors** maintained throughout consolidation
-- **Consistent build times** (4.1-4.3s range maintained)
-
-**Key Pattern - Aurora Color Opacity:**
-```typescript
-// ❌ OLD - Hardcoded (eliminated in Phase 10P)
-background: 'rgba(102, 126, 234, 0.2)'
-border: '1px solid rgba(102, 126, 234, 0.3)'
-
-// ✅ NEW - Centralized tokens (Phase 10P+)
-import { auroraOpacity } from './Color.styles'
-background: auroraOpacity.standard  // 0.2
-border: `1px solid ${auroraOpacity.strong}`  // 0.3 (template literal for CSS)
-```
-
-**Consolidation Phases (14 total, A-Z):**
-- **10A-10G**: Component style extractions (Avatar, Skeleton, FormFields, etc.)
-- **10H-10J**: Size & variant consolidations (IconButton, Animation, Button, etc.)
-- **10K-10P**: Core design token consolidation (Containers, Typography, Spacing, BorderRadius, Shadows, Colors)
-- **10Q-10Z**: Component integration (50+ files updated to use consolidated tokens)
-
-**Benefits:**
-- ✅ Single source of truth for all design tokens
-- ✅ Consistent spacing/colors across entire application
-- ✅ Easier theme modifications (change once, affects everything)
-- ✅ Better maintainability and code clarity
-- ✅ Foundation for dark/light mode variations
-- ✅ Reduced bundle size (token reuse)
-
-**Always Use Design Tokens:**
-```typescript
-// For colors & gradients
-import { auroraOpacity, gradients } from '@/components/library/Color.styles'
-background: auroraOpacity.lighter
-border: `1px solid ${auroraOpacity.strong}`
-
-// For spacing/padding (from design-system tokens)
-import { tokens } from '@/design-system/tokens'
-padding: tokens.spacing.md
-color: tokens.colors.text.primary
-
-// For shadows
-import { cardShadows } from '@/components/library/Shadow.styles'
-boxShadow: cardShadows.dropdownDark
-
-// For animations
-import { fadeIn } from '@/components/library/Animation.styles'
-animation: `${fadeIn} 0.3s ease`
-```
-
-**⚠️ IMPORTANT - Design System Architecture (Phase 10 Complete):**
-- **`@/design-system/tokens`** - Primary source for colors, spacing, typography, shadows (exported from main design system)
-- **`./library/Color.styles.ts`** - Aurora-specific colors, opacity variants (9 levels), gradients (all exports from Color.styles)
-- **`./library/Shadow.styles.ts`** - Compound shadow definitions
-- **`./library/Spacing.styles.ts`** - Reusable spacing constants
-- **`./library/Animation.styles.ts`** - Keyframe animations
-- **`./library/BorderRadius.styles.ts`** - Radius constants
-- **Theme files** (`theme/themeConfig.ts`) - Reserved for theme switching ONLY, not component styling
-
-**Legacy file (ARCHIVED - do not use):**
-- ❌ `auralisTheme.ts.archived` - Legacy theme file, no longer imported anywhere (keep for historical reference only)
+**Component Guidelines**: Keep < 300 lines, extract subcomponents if larger, one purpose per component, no "Enhanced" or "V2" duplicates
 
 ---
 
-## 🏗️ Architecture Patterns & Key Interdependencies
+## 🏗️ Architecture Patterns
 
-### Data Flow: Library → Processor → Player → WebSocket
-1. **LibraryManager** scans folders → SQLite database with caching
-2. **HybridProcessor** loads audio → applies DSP pipeline → returns processed frames
-3. **EnhancedAudioPlayer** queues tracks → plays with real-time processing
-4. **FastAPI backend** exposes REST endpoints + WebSocket for live updates
+**Data Flow**: LibraryManager (SQLite + cache) → HybridProcessor (DSP pipeline) → EnhancedAudioPlayer (real-time) → FastAPI (REST + WebSocket)
 
-### Key Classes & Their Relationships
-- **LibraryManager** (`auralis/library/manager.py`): Singleton managing SQLite, caching queries via LRU
-- **HybridProcessor** (`auralis/core/hybrid_processor.py`): Orchestrates DSP pipeline with pluggable stages
-- **ChunkedProcessor** (`auralis-web/backend/chunked_processor.py`): Streams audio in 30s chunks with MSE encoding
-- **PlayerStateManager** (`auralis-web/backend/state_manager.py`): Thread-safe WebSocket state synchronization
-- **PsychoacousticEQ** (`auralis/dsp/eq/`): 26-band EQ with genre-specific curves
+**Key Optimizations**:
+- Query Caching: 136x speedup on cache hits
+- Chunked Processing: 30s chunks with WAV format (16/24-bit PCM)
+- NumPy Vectorization: 1.7x EQ speedup
+- Numba JIT: 40-70x speedup (optional)
+- MSE Streaming: Efficient browser playback
 
-### Critical Performance Patterns
-1. **Query Caching**: LibraryManager caches `albums()`, `artists()`, `tracks()` → 136x speedup
-2. **Chunked Processing**: Backend splits audio into 30s chunks, processes in parallel
-   - Chunks now output as WAV format (16/24-bit PCM) for Web Audio API compatibility
-   - Enhanced error handling for network delays and chunk loading failures
-3. **NumPy Vectorization**: DSP operations use np.array broadcasting (1.7x EQ speedup)
-4. **Numba JIT** (optional): Envelope follower compilation → 40-70x speedup
-5. **MSE Streaming**: Chunks encoded as WAV (PCM) for efficient browser playback
-   - Proper Promise handling for chunk loading with `.catch()` for network errors
+**Backend Router Pattern**: Modular routers in `auralis-web/backend/routers/`, auto-included in `main.py`, use FastAPI dependency injection
 
-### Backend Router Pattern
-All API endpoints are modular routers in `auralis-web/backend/routers/`:
-- Each router handles a domain (player, library, enhancement, etc.)
-- Routers use FastAPI dependency injection for shared state
-- Automatically included in `main.py` via `app.include_router()`
-- Each router test file mirrors the router directory structure
-
-### Thread-Safety Patterns (Important!)
-
-**LibraryManager Thread-Safe Operations** (`auralis/library/manager.py`):
-- Uses `threading.RLock()` for reentrant locking on concurrent operations (delete_track)
-- Maintains `_deleted_track_ids` set to track successfully deleted tracks
-- **Critical**: All lock-protected code must be inside `with self._delete_lock:` block
-- **Race Condition Prevention**: Checks `if track_id in self._deleted_track_ids: return False` to prevent multiple deletes reporting success
-
-**Repository Pattern for Data Access**:
-- All database operations go through repositories in `auralis/library/repositories/`
-- Repositories handle transaction semantics and atomicity
-- Query results automatically cached via LibraryManager (configure TTL)
-- Repository delete operations must be atomic (all-or-nothing)
-
-**When Adding Thread-Safe Code**:
-1. Identify shared state that needs protection (database updates, internal sets, etc.)
-2. Use `threading.RLock()` for reentrant locks (safer than Lock)
-3. Keep critical section small (lock → check → update → unlock)
-4. Test with `tests/concurrency/` boundary tests to catch race conditions
-5. Document lock semantics in docstring: "Thread-safe: Uses RLock for X operation"
-
-**Recent Race Condition Fixes** (November 2025):
-- **ChunkPreloadManager AudioContext initialization** - Race condition when multiple chunks load simultaneously, fixed with proper synchronization
-- **PlayerStateManager state updates** - WebSocket updates now properly ordered with atomic operations
-- **LibraryManager delete_track()** - Race condition preventing multiple concurrent deletes from all succeeding (see thread-safety section above)
+**Thread-Safety**: Use `threading.RLock()` for concurrent operations, maintain `_deleted_track_ids` set for race condition prevention, test with `tests/concurrency/` suite
 
 ---
 
 ## 🔑 Key Files You'll Modify Most
 
-**Audio Processing:**
-- [auralis/core/hybrid_processor.py](auralis/core/hybrid_processor.py) - Main processing orchestrator
-- [auralis/dsp/stages.py](auralis/dsp/stages.py) - Processing pipeline stages
-- [auralis/core/unified_config.py](auralis/core/unified_config.py) - Processing configuration
+**Audio**: `auralis/core/hybrid_processor.py`, `auralis/dsp/stages.py`, `auralis/core/unified_config.py`
 
-**Backend API:**
-- [auralis-web/backend/main.py](auralis-web/backend/main.py) - FastAPI app and routes (614 lines)
-- [auralis-web/backend/routers/](auralis-web/backend/routers/) - Modular endpoint handlers
-- [auralis-web/backend/chunked_processor.py](auralis-web/backend/chunked_processor.py) - Streaming processor
+**Backend**: `auralis-web/backend/main.py`, `auralis-web/backend/routers/`, `auralis-web/backend/chunked_processor.py`
 
-**Frontend UI:**
-- [auralis-web/frontend/src/components/ComfortableApp.tsx](auralis-web/frontend/src/components/ComfortableApp.tsx) - Main app layout
-- [auralis-web/frontend/src/components/CozyLibraryView.tsx](auralis-web/frontend/src/components/CozyLibraryView.tsx) - Library view (407 lines, refactored)
-- [auralis-web/frontend/src/components/BottomPlayerBarUnified.tsx](auralis-web/frontend/src/components/BottomPlayerBarUnified.tsx) - Player controls
-- [auralis-web/frontend/src/design-system/](auralis-web/frontend/src/design-system/) - Design tokens (required for all new UI)
+**Frontend**: `auralis-web/frontend/src/components/`, `auralis-web/frontend/src/design-system/`, `auralis-web/frontend/src/hooks/`, `auralis-web/frontend/src/services/`
 
-**Desktop:**
-- [desktop/main.js](desktop/main.js) - Electron process
-
-**Database:**
-- [auralis/library/manager.py](auralis/library/manager.py) - Library manager with caching
-- [auralis/library/cache.py](auralis/library/cache.py) - Query result caching (136x speedup)
-- [auralis/library/repositories/](auralis/library/repositories/) - Data access layer with pagination
+**Database**: `auralis/library/manager.py`, `auralis/library/cache.py`, `auralis/library/repositories/`
 
 ---
 
 ## ⚠️ Important Gotchas & Common Mistakes
 
-### Worker Project Integration
-
-This machine has a separate worker project at `../worker_aithentia/` with its own backend deployed at https://api.test.aithentia.com:8000/. When working on:
-- API integrations or webhooks → Check worker project compatibility
-- Database schema changes → Verify worker compatibility
-- Authentication or API keys → Consult worker project's .env setup
-
-**Worker project is NOT part of Auralis** - it's a separate service. Don't confuse it with the Auralis backend on port 8765.
-
 ### Port Numbers
-- **Auralis Backend API**: Port **8765** (NOT 8000)
-  - API Docs available at http://localhost:8765/api/docs
-  - Use this for all Auralis development
-- **Worker API** (if needed): Port 8000 (separate project)
-- **Frontend dev**: Port 3000 (proxies to Auralis backend on 8765)
-- Check with `lsof -ti:8765` if port is in use
+- **8765** = Auralis Backend (NOT 8000!), API docs at http://localhost:8765/api/docs
+- **3000** = Frontend dev server (proxies to 8765)
+- **8000** = Worker project (separate service if applicable)
 
-### Audio Processing Invariants
-These MUST always hold - test them!
-
+### Audio Processing Invariants (MUST always hold!)
 ```python
-# Output sample count must equal input sample count
-assert len(output_audio) == len(input_audio), "Sample count changed!"
-
-# Audio arrays are NumPy, not Python lists
-processed = processor.process(audio)  # Returns np.ndarray
-assert isinstance(processed, np.ndarray)
-
-# Never modify audio in-place
-output = audio.copy()  # NOT audio directly
-output *= gain  # Then modify the copy
+assert len(output_audio) == len(input_audio)  # Sample count preserved
+assert isinstance(processed, np.ndarray)       # NumPy arrays only
+output = audio.copy(); output *= gain         # Never modify in-place
 ```
 
-### Testing Philosophy (Read First!)
-- **Coverage ≠ Quality**: 100% coverage doesn't catch all bugs (proven by overlap bug)
-- **Test invariants**: Properties that must always hold
-- **Test behavior**: What the system does, not how it does it
-- **Test edge cases**: Boundary conditions, empty inputs, maximum values
-- **MANDATORY**: Read [docs/development/TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)
+### Testing
+- **Coverage ≠ Quality**: Test invariants and behavior, not implementation
+- **TestClient**: Must use context manager syntax or `@app.on_event("startup")` won't run
+- **AsyncIO**: Use `@pytest.mark.asyncio` for async tests
+- **WebSocket**: ChunkedProcessor maintains state, initialize PlayerStateManager in tests
+- **Fixtures**: Use fixtures from `conftest.py` (sample_audio, test_audio_file, hybrid_processor)
 
 ### API Changes
-When adding backend endpoints:
-1. Use the modular router pattern (in `routers/` directory)
-2. Router is automatically included in `main.py`
-3. Use dependency injection for shared state (player, library)
+1. Use modular router pattern (in `routers/` directory)
+2. Router auto-included via `app.include_router()`
+3. Use dependency injection for shared state
 4. Document in [WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md) if WebSocket
 5. Add tests in `tests/backend/`
 
-### Import Patterns
-**Use new modular imports:**
-```python
-from auralis.dsp.eq import PsychoacousticEQ, generate_genre_eq_curve
-from auralis.dsp.utils import spectral_centroid, to_db, adaptive_gain_calculation
-from auralis.dsp.dynamics import AdaptiveCompressor
-from auralis.analysis.quality import QualityMetrics
-from auralis.library.repositories import TrackRepository
-```
+### Frontend UI
+- **MANDATORY**: Read [UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md)
+- Use design system tokens (no hardcoded colors/spacing)
+- One component per purpose (no duplicates)
+- Keep components under 300 lines
+- Don't create "Enhanced" or "V2" versions
 
-**Legacy imports still work but are deprecated:**
-```python
-from auralis.dsp.unified import spectral_centroid  # OLD - don't use
-from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ  # OLD
-```
-
-### Database Operations
-- Always use repository pattern (in `auralis/library/repositories/`)
+### Database
+- Always use repository pattern in `auralis/library/repositories/`
 - Use pagination for large result sets
-- Queries are automatically cached (configure TTL in `LibraryManager`)
-- Default database location: `~/.auralis/library.db`
-
-### Frontend UI Development
-**MANDATORY**: Read [docs/guides/UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md)
-- ✅ Use design system tokens (no hardcoded colors/spacing)
-- ✅ One component per purpose (no duplicates)
-- ✅ Keep components under 300 lines
-- ✅ Extract subcomponents if needed
-- ❌ Don't create "Enhanced" or variant versions of existing components
-
-### Desktop App Development (Electron)
-
-**Development:**
-```bash
-cd desktop
-npm run dev    # Starts backend + frontend dev server + Electron window
-```
-
-**Key Files:**
-- [desktop/main.js](desktop/main.js) - Electron main process (spawns backend, loads frontend)
-- [desktop/preload.js](desktop/preload.js) - IPC bridge for native file selection and OS integration
-- [desktop/package.json](desktop/package.json) - Electron build configuration
-
-**Important Notes:**
-- Backend starts automatically by main.js; don't start it separately
-- Frontend loads from http://localhost:3000 (dev) or built files (production)
-- IPC communication between Electron and renderer for file picking
-- Use `npm run package` to build installers for distribution
-- Cross-platform builds require native tools (may fail on wrong OS)
-
-### Common Testing Gotchas
-1. **AsyncIO Tests**: Use `@pytest.mark.asyncio` for async functions; backend tests may need `await` handling
-2. **WebSocket State**: ChunkedProcessor maintains state; tests must initialize PlayerStateManager properly
-3. **Audio Fixtures**: Use fixtures from `conftest.py` (sample_audio, test_audio_file); don't create inline
-4. **Library Transactions**: Tests may need isolation; check if test needs new LibraryManager instance
-5. **Boundary Tests**: When writing boundaries, test both minimum (0, empty, None) and maximum values
-6. **Invariant Tests**: If modifying core processors, update invariant tests in `tests/invariants/`
-7. **FastAPI TestClient**: ⚠️ CRITICAL - TestClient must use context manager syntax or startup events won't run:
-   - ❌ WRONG: `@pytest.fixture\ndef client(): return TestClient(app)`
-   - ✅ CORRECT: `@pytest.fixture\ndef client():\n    with TestClient(app) as client:\n        yield client`
-   - Without context manager, all `@app.on_event("startup")` handlers are skipped!
+- Queries auto-cached via LibraryManager
+- Default location: `~/.auralis/library.db`
 
 ---
 
 ## 🧪 Testing Patterns
 
-### Test Structure (Arrange-Act-Assert)
 ```python
+# Arrange-Act-Assert structure
 def test_processor_preserves_sample_count():
     """Invariant: Output sample count == input sample count"""
-    # Arrange
     audio = np.random.randn(44100)
     processor = AudioProcessor()
-
-    # Act
     output = processor.process(audio)
-
-    # Assert
-    assert len(output) == len(audio), "Sample count must be preserved"
+    assert len(output) == len(audio)
 ```
 
-### Test Markers
-```python
-@pytest.mark.boundary
-def test_maximum_audio_duration():
-    """Boundary: Test at extreme values"""
-    pass
+**Test Markers**: `@pytest.mark.boundary`, `@pytest.mark.invariant`, `@pytest.mark.integration`, `@pytest.mark.mutation`, `@pytest.mark.slow`
 
-@pytest.mark.invariant
-def test_compression_ratio_invariant():
-    """Invariant: Properties that must always hold"""
-    pass
-
-@pytest.mark.integration
-def test_end_to_end_processing_pipeline():
-    """Integration: Test across components"""
-    pass
-
-@pytest.mark.mutation
-def test_quality_metric_catches_subtle_bugs():
-    """Mutation: Designed to catch specific code mutations"""
-    pass
-
-@pytest.mark.slow
-def test_large_audio_file_processing():
-    """Slow test: Skip with -m "not slow" """
-    pass
-```
-
-### Fixtures for Common Setup
-```python
-# Available in conftest.py:
-@pytest.fixture
-def sample_audio():
-    """16-bit PCM 44.1kHz audio"""
-    pass
-
-@pytest.fixture
-def test_audio_file():
-    """Path to test WAV file"""
-    pass
-
-@pytest.fixture
-def hybrid_processor():
-    """Configured HybridProcessor instance"""
-    pass
-```
-
-See [tests/conftest.py](tests/conftest.py) for all available fixtures.
+**Fixtures**: `sample_audio`, `test_audio_file`, `hybrid_processor` (see [conftest.py](tests/conftest.py))
 
 ---
 
-## 📊 Test Organization (850+ tests)
-
-**Phase 1 - Complete (541 tests):**
-- ✅ Week 1: 305 critical invariant tests
-- ✅ Week 2: 85 advanced integration tests
-- ✅ Week 3: 151 boundary tests (101% of target)
-
-**Key Test Files:**
-- `tests/backend/` - API tests (96 tests)
-- `tests/auralis/` - Audio processing (24 tests)
-- `tests/boundaries/` - Edge cases (151 tests)
-- `tests/integration/` - Cross-component (85 tests)
-- `tests/invariants/` - Critical invariants (305 tests)
-- `tests/mutation/` - Test quality validation
-- `tests/validation/` - End-to-end validation
-
-**Running Test Suites:**
-```bash
-python -m pytest tests/boundaries/ -v              # All 151 boundary tests
-python -m pytest tests/boundaries/test_chunked_processing_boundaries.py -v  # Just chunked (31)
-python -m pytest tests/boundaries/test_pagination_boundaries.py -v          # Just pagination (30)
-python -m pytest -m "invariant" -v                  # All invariant tests
-python -m pytest -m "not slow" -v                   # Skip slow tests
-```
-
----
-
-## 📜 Script Reference
-
-### launch-auralis-web.py
-**Purpose:** Convenient launcher for the Auralis web interface
-**Location:** `/mnt/data/src/matchering/launch-auralis-web.py`
+## 🚀 Build & Release
 
 ```bash
-# Development mode (auto-reload, opens browser)
-python launch-auralis-web.py --dev
+make build              # Full build with tests
+make build-fast         # Fast build without tests
+make package            # Create installers (desktop)
 
-# Development with custom port
-python launch-auralis-web.py --dev --port 9000
-
-# Production mode (serves built frontend)
-python launch-auralis-web.py
-
-# Production with custom port
-python launch-auralis-web.py --port 9000
-
-# Don't auto-open browser (useful for SSH/remote)
-python launch-auralis-web.py --dev --no-browser
+python sync_version.py 1.1.0-beta.2  # Bump version across all files
 ```
-
-**What it does:**
-1. Checks Python and Node.js dependencies
-2. Starts FastAPI backend (port 8765 by default)
-3. In `--dev` mode: Starts React dev server (port 3000)
-4. Opens browser automatically (unless `--no-browser`)
-5. Manages process lifecycle (Ctrl+C stops all servers)
-
-**Environment variables:**
-- `VITE_API_URL` - Backend API URL (default: http://localhost:8765)
-- `VITE_WS_URL` - WebSocket URL (default: ws://localhost:8765)
-
-### sync_version.py
-**Purpose:** Update version numbers consistently across all files
-**Location:** `/mnt/data/src/matchering/sync_version.py`
-
-```bash
-# Update to new version
-python sync_version.py 1.1.0-beta.2
-
-# Check current version
-python -c "from auralis.version import get_version; print(get_version())"
-```
-
-**What it does:**
-- Updates `auralis/version.py`
-- Updates `package.json` version field
-- Updates git tags and commit messages
-- Ensures version consistency across codebase
-
-**Files modified:**
-- `auralis/version.py` - Python version string
-- `package.json` - Node.js version
-- Git commit message and tags
-
-### Makefile
-**Purpose:** Build and manage the application
-**Location:** `/mnt/data/src/matchering/Makefile`
-
-```bash
-make help          # Show all available targets
-make clean         # Remove build artifacts
-make install       # Install dependencies
-make test          # Run full test suite
-make build         # Build app with tests
-make build-fast    # Build without tests
-make dev           # Development setup
-make lint          # Run linting
-make typecheck      # Run mypy type checking
-make release       # Full release build
-```
-
-**Key targets:**
-- `make build` - Full release build (runs tests, then builds)
-- `make build-fast` - Quick build for testing
-- `make clean` - Clean build artifacts before release
-
----
-
-## 🌍 Environment Variables Reference
-
-### Backend Configuration (`.env`)
-
-```bash
-# Server configuration
-UVICORN_HOST=0.0.0.0
-UVICORN_PORT=8765
-UVICORN_RELOAD=true          # Auto-reload on code change
-
-# Audio processing
-AUDIO_FORMAT=wav              # wav, flac, mp3
-SAMPLE_RATE=44100             # 44100, 48000, 96000
-BIT_DEPTH=16                  # 16, 24, 32
-
-# Library settings
-LIBRARY_DB_PATH=~/.auralis/library.db
-LIBRARY_CACHE_TTL=300         # Cache time-to-live (seconds)
-
-# Feature flags
-ENABLE_FINGERPRINTING=true    # Audio fingerprinting
-ENABLE_ENHANCEMENT=true       # Real-time enhancement
-ENABLE_WEBSOCKET=true         # WebSocket updates
-```
-
-### Frontend Configuration (`.env.local`)
-
-```bash
-# API Configuration
-VITE_API_URL=http://localhost:8765
-VITE_WS_URL=ws://localhost:8765
-
-# Build optimization
-VITE_SOURCE_MAP=false         # Disable source maps (smaller build)
-```
-
-### Desktop App Configuration (`.env`)
-
-```bash
-# Electron specific
-ELECTRON_ENABLE_LOGGING=true
-NODE_ENV=development
-
-# Backend (inherited from backend .env)
-UVICORN_PORT=8765
-```
-
----
-
-## 🔧 Performance & Optimization
-
-### Performance Metrics
-- **Real-time factor**: 36.6x (process 1 hour in ~98 seconds)
-- **Envelope follower**: 40-70x speedup with Numba JIT
-- **EQ processing**: 1.7x speedup with NumPy vectorization
-- **Cache hits**: 136x faster queries with LRU cache
-
-### Optimizations Used
-```bash
-# 1. Numba JIT compilation (optional, ~2-3x overall speedup)
-pip install numba
-
-# 2. NumPy vectorization (included, 1.7x EQ speedup)
-# 3. Query result caching (included, 136x speedup)
-# 4. Memory pools and SIMD (included)
-```
-
-### Checking Performance
-```bash
-# Quick validation (~30 seconds)
-python tests/validation/test_integration_quick.py
-
-# Comprehensive benchmark (~2-3 minutes)
-python benchmark_performance.py
-```
-
----
-
-## 🎵 Key Processing Concepts
-
-### Processing Modes
-1. **Adaptive** (default): Intelligent mastering without reference tracks
-2. **Reference**: Traditional reference-based mastering
-3. **Hybrid**: Combines reference guidance with adaptive intelligence
-
-### Processing Presets
-- Adaptive, Gentle, Warm, Bright, Punchy
-
-### Audio Format & Browser Compatibility
-**WAV Format Migration** (November 2025):
-- Audio chunks now output as **WAV format** (16-bit or 24-bit PCM)
-- Previously used WebM/Opus, now standardized to WAV for Web Audio API compatibility
-- Browser's Web Audio API requires PCM format for accurate audio processing
-- Ensures consistent quality across all browsers and playback scenarios
-- Relevant files: `ChunkedAudioProcessor`, `ChunkPreloadManager` in backend
-
-**Browser Autoplay Policy Compliance**:
-- Modern browsers require user gesture for audio playback (click/tap)
-- Audio playback automatically requests user permission when needed
-- `play()` method returns Promise that may reject if policy not satisfied
-- Wrap playback calls with `.catch()` to handle denied autoplay
-- Relevant files: `HiddenAudioElement.tsx`, `useAudioPlayback` hook
-
-### Audio Fingerprint System (NEW)
-25-dimensional acoustic fingerprint for intelligent processing:
-- **Frequency** (7D): Bass, mids, treble distribution
-- **Dynamics** (3D): Loudness, crest factor, compression
-- **Temporal** (4D): Tempo, rhythm, transients
-- **Spectral** (3D): Tonal characteristics
-- **Harmonic** (3D): Vocals vs drums detection
-- **Variation** (3D): Loudness dynamics
-- **Stereo** (2D): Width and phase
-
-Automatically used by `HybridProcessor` for intelligent parameter selection.
-
----
-
-## 📚 Documentation References
-
-**Frontend Testing:**
-- [docs/guides/PHASE2_ENHANCEMENT_ROADMAP.md](docs/guides/PHASE2_ENHANCEMENT_ROADMAP.md) - **IN PROGRESS** - Phase 2 enhancement component tests & Phase 3 planning
-
-**Development Guidelines:**
-- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** test quality
-- [TEST_IMPLEMENTATION_ROADMAP.md](docs/development/TEST_IMPLEMENTATION_ROADMAP.md) - Testing roadmap
-- [Audio Playback Status & Implementation](docs/guides/AUDIO_PLAYBACK_STATUS.md) - Comprehensive audio playback guide (Nov 2025)
-
-**Architecture & Design:**
-- [docs/guides/UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md) - UI requirements
-- [docs/guides/MULTI_TIER_BUFFER_ARCHITECTURE.md](docs/guides/MULTI_TIER_BUFFER_ARCHITECTURE.md) - Streaming architecture
-- [docs/guides/AUDIO_FINGERPRINT_GRAPH_SYSTEM.md](docs/guides/AUDIO_FINGERPRINT_GRAPH_SYSTEM.md) - Fingerprint system
-
-**Performance:**
-- [docs/completed/performance/PERFORMANCE_OPTIMIZATION_QUICK_START.md](docs/completed/performance/PERFORMANCE_OPTIMIZATION_QUICK_START.md) - Optimization guide
-- [docs/completed/LARGE_LIBRARY_OPTIMIZATION.md](docs/completed/LARGE_LIBRARY_OPTIMIZATION.md) - Library performance
-
-**Complete Index:**
-- [docs/README.md](docs/README.md) - Documentation index (163 active files + 158 archived)
-
----
-
-## 🚀 Release & Version Management
-
-**Version File**: [auralis/version.py](auralis/version.py)
-
-```bash
-# Check current version
-python -c "from auralis.version import get_version; print(get_version())"
-
-# Bump version (updates all files)
-python scripts/sync_version.py 1.0.0-beta.13
-
-# Git workflow for releases
-git commit -am "chore: bump version to X.Y.Z"
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin master && git push origin vX.Y.Z
-```
-
-**Current Version**: 1.1.0-beta.2 (see README.md for latest, released November 23, 2025)
 
 ---
 
 ## 🔍 Debugging Tips
 
-### Backend Debugging (Python)
-
-**Enable Verbose Logging:**
-```python
-# In your code or pytest
-import logging
-logging.basicConfig(level=logging.DEBUG)
-logging.getLogger('auralis').setLevel(logging.DEBUG)
-
-# Or via environment
-DEBUG=1 python launch-auralis-web.py --dev
-```
-
-**Debug with Python Debugger (pdb):**
-```python
-# Add breakpoint in code
-breakpoint()  # Python 3.7+
-# or
-import pdb; pdb.set_trace()
-```
-
-**VSCode Python Debugging:**
-1. Install Python extension
-2. Create `.vscode/launch.json`:
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Backend",
-      "type": "python",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": ["main:app", "--reload", "--port", "8765"],
-      "cwd": "${workspaceFolder}/auralis-web/backend",
-      "jinja": true
-    }
-  ]
-}
-```
-
-**Inspect WebSocket Messages:**
+**Backend Logging:**
 ```bash
-# Use websocat to monitor WebSocket traffic
-websocat ws://localhost:8765/ws
-
-# Or add logging in state_manager.py around message sends
+DEBUG=1 python launch-auralis-web.py --dev
+import logging; logging.basicConfig(level=logging.DEBUG)
 ```
 
 **Database Inspection:**
 ```bash
-# Inspect SQLite database
-sqlite3 ~/.auralis/library.db
-
-# Useful queries
 sqlite3 ~/.auralis/library.db "SELECT COUNT(*) FROM tracks;"
-sqlite3 ~/.auralis/library.db ".schema"
-sqlite3 ~/.auralis/library.db ".tables"
 ```
 
-**Profile Backend Performance:**
-```bash
-# CPU profiling
-python -m cProfile -s cumtime -o profile.stats script.py
-python -m pstats profile.stats
+**Frontend DevTools:** F12 in browser, use React DevTools extension, check Network/WebSocket tabs
 
-# Memory profiling
-pip install memory-profiler
-python -m memory_profiler script.py
-```
+**Single Test:** `python -m pytest tests/backend/test_player.py::test_play_track -vv -s`
 
 ---
 
-### Frontend Debugging (React/TypeScript)
+## 🆚 Common Mistakes & Fixes
 
-**Enable Verbose Logging:**
-```typescript
-// In setup.ts or test file
-if (process.env.DEBUG) {
-  console.log = (...args) => original_log('[DEBUG]', ...args)
-}
-```
-
-**Chrome DevTools:**
-```bash
-# Frontend dev server is proxied through backend
-# Open browser at http://localhost:3000
-# Use Chrome DevTools (F12) to:
-# - Inspect React components (React DevTools extension)
-# - Monitor Network requests
-# - Check WebSocket frames (Network → WS)
-# - Profile performance (Performance tab)
-```
-
-**VSCode TypeScript Debugging:**
-1. Install Debugger for Chrome/Edge
-2. Create `.vscode/launch.json`:
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "chrome",
-      "request": "launch",
-      "name": "Frontend",
-      "url": "http://localhost:3000",
-      "webRoot": "${workspaceFolder}/auralis-web/frontend/src",
-      "sourceMapPathOverride": {
-        "/src/*": "${webRoot}/*"
-      }
-    }
-  ]
-}
-```
-
-**React DevTools:**
-- Install React DevTools browser extension
-- Inspect component tree, props, state
-- Monitor re-renders with Profiler
-
-**WebSocket Debugging:**
-```typescript
-// Add logging in test or component
-window.addEventListener('message', (event) => {
-  if (event.data.type === 'websocket') {
-    console.log('[WS]', event.data);
-  }
-});
-```
-
-**Memory Leak Detection:**
-```bash
-# Heap snapshot comparison in DevTools
-# 1. Take heap snapshot before action
-# 2. Perform action
-# 3. Take heap snapshot after action
-# 4. Compare snapshots to find retained objects
-# Or use memory profiler npm package
-```
+| Problem | Solution |
+|---|---|
+| Port 8765 already in use | `lsof -ti:8765 \| xargs kill -9` |
+| Backend won't start | Reinstall deps: `pip install -r requirements.txt` |
+| Frontend blank page | Verify backend running on 8765: `curl http://localhost:8765/api/health` |
+| Frontend tests fail with OOM | Use `npm run test:memory` (2GB heap) instead of `npm test` |
+| Hardcoded colors in UI | Use `import { tokens } from '@/design-system'` or `auroraOpacity` from Color.styles |
+| Database locked | Kill Python: `pkill -9 python`, restart |
+| Tests hanging | Run `pytest -m "not slow" -v` to skip slow tests |
+| TypeScript errors after Node upgrade | `npm install typescript@latest && npm ci` |
 
 ---
 
-### Test Debugging
-
-**Run Single Test with Logging:**
-```bash
-# Backend
-python -m pytest tests/backend/test_player.py::test_play_track -vv -s
-
-# Frontend
-npm test -- MyComponent.test.tsx --reporter=verbose
-```
-
-**Debug with pdb (Backend Tests):**
-```python
-# In test file
-def test_something():
-    breakpoint()  # Will pause execution
-    assert some_value == expected
-```
-
-**Debug with browser (Frontend Tests):**
-```bash
-# Run tests with UI mode
-npm run test:ui
-# Click on test to debug with browser DevTools
-```
-
-**Skip Tests to Debug Subset:**
-```bash
-# Backend
-pytest -k "not slow" -v  # Skip slow tests
-pytest -m "not integration" -v  # Skip integration
-
-# Frontend
-npm test -- --reporter=verbose --bail  # Stop on first failure
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Quick Decision Tree
-
-**Problem: Something's broken. What do I do?**
-```
-START: "What's not working?"
-├─ Backend won't start/crashes
-│  ├─ Error about port 8765 already in use → Kill process (see below)
-│  ├─ Import error or dependency missing → Reinstall requirements
-│  ├─ "Database locked" error → Kill all Python processes & restart
-│  └─ Other error → Run with verbose logging
-│
-├─ Frontend won't load/compile
-│  ├─ Blank page or 404 → Check backend is running on 8765
-│  ├─ Build fails with errors → Clean install: rm -rf node_modules && npm install
-│  ├─ Hot reload not working → Check vite.config.ts has proxy to :8765
-│  └─ "Module not found" → Check npm install completed
-│
-├─ Tests failing or hanging
-│  ├─ Timeout errors → Tests too slow, use -m "not slow" flag
-│  ├─ Memory errors (frontend) → Use npm run test:memory (2GB heap)
-│  ├─ Random failures → Possible race condition or test isolation issue
-│  └─ All tests fail → Try pytest -x to stop on first failure
-│
-├─ Desktop app won't start
-│  ├─ Backend not starting → See "Backend won't start" above
-│  ├─ Blank Electron window → Check frontend on :3000
-│  ├─ "File picker not working" → Check preload.js IPC bridge
-│  └─ Build fails → Clean: rm -rf desktop/dist && npm install
-│
-├─ Audio sounds wrong or is silent
-│  ├─ No sound at all → Check speaker volume, WebAudio API not blocked
-│  ├─ Distorted/clipped → Check processing parameters, may be too aggressive
-│  ├─ Gaps between tracks → Library scan not complete, restart
-│  └─ Enhancement toggle broken → Check WebSocket connection
-│
-└─ Database issues
-   ├─ "Database locked" → Kill all Python: pkill -9 python
-   ├─ Corrupted database → Backup then delete ~/.auralis/library.db
-   └─ Wrong data → Check SQL queries, run migrate if needed
-```
-
-### Backend Won't Start
-```bash
-# Check port is free
-lsof -ti:8765 | xargs kill -9
-
-# Check dependencies
-pip install -r requirements.txt
-
-# Run directly to see errors
-cd auralis-web/backend && python -m uvicorn main:app --reload
-```
-
-### Tests Failing
-```bash
-# Run with verbose output
-python -m pytest tests/ -vv --tb=long
-
-# Check test dependencies
-pip install -r requirements.txt
-pip install pytest pytest-cov pytest-asyncio
-
-# Run single test to isolate issue
-python -m pytest tests/backend/test_player.py::test_play_track -vv
-
-# Run only fast tests (skip slow ones)
-python -m pytest -m "not slow" -v
-```
-
-### Audio Files Not Found
-```bash
-# Check test file location
-ls test_files/
-cd tests && python -m pytest test_*.py
-```
-
-### Frontend Won't Build
-```bash
-cd auralis-web/frontend
-rm -rf node_modules package-lock.json
-npm install
-npm run build
-```
-
-### Database Errors
-```bash
-# Reset database (WARNING: deletes all library data)
-rm ~/.auralis/library.db
-# Will be recreated on next app launch
-```
-
-### Performance Debugging
-```bash
-# Profile audio processing
-python -m cProfile -s cumtime -o profile.stats auralis/core/hybrid_processor.py
-python -m pstats profile.stats
-
-# Check memory usage during library scan
-watch -n 1 'ps aux | grep python'
-
-# Benchmark specific operation
-python benchmark_performance.py
-
-# Check query cache effectiveness
-python -c "from auralis.library import LibraryManager; m = LibraryManager(); print(m.cache_info())"
-```
-
----
-
-## 🔐 Pre-commit Hooks Setup
-
-This repository uses Git pre-commit hooks for code quality checks. Hooks are defined in `.pre-commit-config.yaml`.
-
-### Setup (One-time)
-
-```bash
-# Install pre-commit framework
-pip install pre-commit
-
-# Install hooks into .git/hooks/
-pre-commit install
-
-# Run manually on all files (optional)
-pre-commit run --all-files
-```
-
-### What Hooks Check
-
-Current hooks configured in `.pre-commit-config.yaml`:
-- Python syntax validation
-- Large file detection (prevents accidentally committing large files)
-- Whitespace/trailing space cleanup
-- JSON formatting
-- YAML validation
-
-### Running Hooks Manually
-
-```bash
-# Run all hooks on changed files
-pre-commit run
-
-# Run specific hook
-pre-commit run black
-
-# Run on all files (not just changed)
-pre-commit run --all-files
-
-# Skip hooks for emergency commit (not recommended!)
-git commit --no-verify
-```
-
-### Troubleshooting Hooks
-
-**Hooks not running on commit:**
-```bash
-# Check if hooks are installed
-ls -la .git/hooks/pre-commit
-
-# Reinstall hooks
-pre-commit install
-pre-commit install --install-hooks
-```
-
-**Hooks failing with errors:**
-```bash
-# Run with verbose output
-pre-commit run --all-files --verbose
-
-# Check hook configuration
-cat .pre-commit-config.yaml
-```
-
-**Bypass hooks temporarily:**
-```bash
-# Skip hooks for one commit (use sparingly!)
-git commit --no-verify -m "message"
-```
-
-### Updating Hooks
-
-```bash
-# Update all hooks to latest versions
-pre-commit autoupdate
-
-# Commit the updated configuration
-git add .pre-commit-config.yaml
-git commit -m "chore: update pre-commit hooks"
-```
-
-**Note:** Hooks are useful but should not be mandatory blockers. If a hook is genuinely broken, document it and use `--no-verify` sparingly while you investigate.
-
----
-
-## 💾 Repository Info
-
-- **Git Status**: Current branch `master`
-- **Main Branch**: `master` (use for PRs)
-- **License**: GPL-3.0
-- **Project Name**: Auralis (matchering-player)
-
----
-
-## 🔗 Useful Links
-
-- **GitHub**: https://github.com/matiaszanolli/Auralis
-- **API Docs**: http://localhost:8765/api/docs (when running)
-- **WebSocket Protocol**: [auralis-web/backend/WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md)
-- **Release Downloads**: https://github.com/matiaszanolli/Auralis/releases
-
----
-
-## 🔍 Code Organization Principles
-
-### Module Size Guidelines
-- Keep Python modules under 300 lines
-- Keep React components under 300 lines
-- Extract subcomponents when exceeding limits
-- Use facade pattern for backward compatibility when refactoring
-
-### Component Organization
-**One component per purpose:**
-- Don't create duplicate "Enhanced" or "V2" versions of existing components
-- If improving a component, refactor it in-place when possible
-- Extract distinct UI patterns into reusable primitives in design-system/
-
-**Modular Design Pattern (Backend):**
-- Each router handles a single domain (player, library, enhancement, etc.)
-- Routers use FastAPI dependency injection for shared state
-- Mirror test structure to router structure: `routers/player.py` → `tests/backend/test_player.py`
-
-### Repository Pattern (Data Access)
-- Always use repository pattern in `auralis/library/repositories/`
-- Never direct database queries outside repositories
-- Implement pagination for large result sets
-- Queries automatically cached via LibraryManager (configure TTL)
-
----
-
-## 🔄 Refactoring Strategy
-
-### When to Refactor
-1. **Duplication**: DRY principle violation (code appears 2+ times)
-2. **Size Violation**: Module/component > 300 lines
-3. **Complexity**: Method has 3+ responsibilities (SRP violation)
-4. **Performance**: Profiling shows bottleneck
-5. **Clarity**: Code intent unclear without extensive comments
-
-### Before Refactoring
-- Write tests for current behavior first
-- Ensure test coverage > 80% for target code
-- Create branch with descriptive name (e.g., `refactor/simplify-eq-calculation`)
-- Document invariants that must hold
-
-### After Refactoring
-- All tests still pass
-- Performance metrics unchanged or improved
-- No new duplicate code introduced
-- Document breaking changes if any
-
----
-
-## 📋 Frequently Updated Files
-
-When working on features, check these files for context and dependencies:
-
-**Configuration & Version:**
-- [auralis/version.py](auralis/version.py) - Version string (bumped for releases)
-- [auralis/core/unified_config.py](auralis/core/unified_config.py) - Processing parameters
-- [pyproject.toml](pyproject.toml) - Python version, dependencies
-
-**Frontend Styling:**
-- [auralis-web/frontend/src/design-system/](auralis-web/frontend/src/design-system/) - All design tokens (required for new UI)
-- [auralis-web/frontend/src/theme/](auralis-web/frontend/src/theme/) - Theme colors, spacing, typography
-
-**Backend State:**
-- [auralis-web/backend/state_manager.py](auralis-web/backend/state_manager.py) - WebSocket state (modify carefully - thread-safe code)
-- [auralis-web/backend/chunked_processor.py](auralis-web/backend/chunked_processor.py) - Streaming processor (complex state machine)
-
-**Database Schema:**
-- [auralis/library/repositories/](auralis/library/repositories/) - All data access (repository pattern, no direct SQL)
-
-**Frontend State:**
-- [auralis-web/frontend/src/contexts/](auralis-web/frontend/src/contexts/) - Global state management
-- [auralis-web/frontend/src/hooks/](auralis-web/frontend/src/hooks/) - Shared React hooks
-
----
-
-## ⚡ Performance Considerations
-
-### Before Optimizing
-1. Profile to identify actual bottleneck: `python -m cProfile -s cumtime script.py`
-2. Establish baseline metric (execution time, memory, etc.)
-3. Set target improvement % (typically 20-40%)
-
-### Common Optimizations Available
-```python
-# 1. NumPy Vectorization (typical 1.5-2.5x speedup)
-# Instead of: for loop over samples
-# Use: np.array operations with broadcasting
-
-# 2. Numba JIT Compilation (40-70x for tight loops)
-from numba import jit
-@jit(nopython=True)
-def expensive_calculation(x):
-    # ... tight loop code ...
-
-# 3. Query Caching (136x on cache hit)
-# LibraryManager.albums() automatically cached
-# Configure cache TTL in __init__
-
-# 4. Chunked Processing (parallel loading)
-# Backend already uses 30s chunks with Promise.all()
-# Don't add more chunking without profiling first
-```
-
-### Validating Performance
-```bash
-# Quick: ~30 seconds
-python tests/validation/test_integration_quick.py
-
-# Comprehensive: ~2-3 minutes
-python benchmark_performance.py
-
-# Profile specific component
-python -m cProfile -s cumtime -o stats.prof script.py
-python -m pstats stats.prof
-```
-
----
-
-## 💡 Development Workflow
-
-### Starting a New Feature
-
-1. **Scope & Plan**
-   - Check existing code for similar functionality (avoid duplication)
-   - Read relevant test files to understand expected behavior
-   - Check `docs/MASTER_ROADMAP.md` for planned features or conflicts
-
-2. **Create Branch**
-   ```bash
-   git checkout -b feature/short-description
-   # Examples: feature/search-improvement, fix/websocket-race-condition
-   ```
-
-3. **Implement with Tests**
-   - Write tests first (TDD) or alongside code
-   - Run tests frequently: `pytest tests/ -v`
-   - Ensure no existing tests break
-
-4. **Code Review Checklist**
-   - ✅ All tests pass (including new and existing)
-   - ✅ No module/component > 300 lines
-   - ✅ No code duplication introduced
-   - ✅ Design system tokens used (frontend)
-   - ✅ Docstrings for public functions
-   - ✅ Type hints present (Python)
-   - ✅ No hardcoded values (colors, strings, paths)
-
-5. **Performance Check (if applicable)**
-   ```bash
-   python -m pytest tests/ --cov=auralis --cov=auralis-web --cov-report=html
-   python benchmark_performance.py  # Check for regressions
-   ```
-
-6. **Commit with Clear Message**
-   ```bash
-   git commit -m "feat: brief description of change
-
-   Longer explanation if needed. References any related issues.
-   Breaks/Changes: Document if this breaks existing behavior."
-   ```
-
-### Common Workflows by Component
-
-**Fixing a Bug:**
-1. Write a failing test that reproduces the bug
-2. Fix the code
-3. Verify test passes
-4. Check no other tests break
-5. Commit with `fix:` prefix
-
-**Adding a New Endpoint:**
-1. Create router file in `auralis-web/backend/routers/`
-2. Include router in `main.py` via `app.include_router()`
-3. Add tests in `tests/backend/test_*.py` (mirror structure)
-4. Document in `auralis-web/backend/WEBSOCKET_API.md` if WebSocket
-
-**Refactoring Existing Code:**
-1. Ensure >80% test coverage for code being refactored
-2. Create `refactor/` branch
-3. Run tests constantly while refactoring
-4. No behavior changes (tests should pass unchanged)
-5. Document in commit: "refactor: description, no behavior changes"
+## 📚 Documentation References
+
+- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - **MANDATORY** test quality
+- [UI_DESIGN_GUIDELINES.md](docs/guides/UI_DESIGN_GUIDELINES.md) - Frontend UI requirements
+- [FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md) - Frontend test infrastructure
+- [AUDIO_PLAYBACK_STATUS.md](docs/guides/AUDIO_PLAYBACK_STATUS.md) - Comprehensive audio playback guide
+- [MULTI_TIER_BUFFER_ARCHITECTURE.md](docs/guides/MULTI_TIER_BUFFER_ARCHITECTURE.md) - Streaming architecture
+- [AUDIO_FINGERPRINT_GRAPH_SYSTEM.md](docs/guides/AUDIO_FINGERPRINT_GRAPH_SYSTEM.md) - Fingerprint system
+- [docs/README.md](docs/README.md) - Full documentation index
 
 ---
 
 ## 🚨 Critical Invariants (MUST NOT Break)
 
-These properties must hold at all times. Tests verify them in `tests/invariants/`:
-
 **Audio Processing:**
-- ✅ Output sample count == input sample count (always)
-- ✅ Output is NumPy ndarray, not Python list
-- ✅ Audio never modified in-place (always copy first)
-- ✅ No NaN/Inf values in output
-- ✅ Loudness never increases beyond configured maximum
+- Output sample count == input sample count (always)
+- Output is NumPy ndarray, not Python list
+- Audio never modified in-place (always copy first)
+- No NaN/Inf values in output
+- Loudness never exceeds configured maximum
 
 **Player State:**
-- ✅ Player position never exceeds track duration
-- ✅ Queue position valid for current queue length
-- ✅ State changes atomic (no partial updates)
-- ✅ WebSocket updates ordered (no race conditions)
+- Player position never exceeds track duration
+- Queue position valid for current queue length
+- State changes atomic (no partial updates)
+- WebSocket updates ordered (no race conditions)
 
 **Database:**
-- ✅ Track metadata immutable (read-only after insert)
-- ✅ Database connection pooling thread-safe
-- ✅ Queries cached only when deterministic
-- ✅ Foreign keys always valid (referential integrity)
-
-**Modifying these?** Update corresponding tests in `tests/invariants/` first!
+- Track metadata immutable after insert
+- Database connection pooling thread-safe
+- Queries cached only when deterministic
+- Foreign keys always valid
 
 ---
 
-## 🎯 Quick Reference & Common Mistakes
+## 💾 Repository Info
 
-### Quick Command Reference
-
-```bash
-# Start development
-python launch-auralis-web.py --dev        # Web UI dev mode
-npm run dev                               # Desktop app full stack
-
-# Run tests (most common)
-python -m pytest tests/ -v                # All tests
-python -m pytest tests/boundaries/ -v    # Just boundaries (151 tests)
-python -m pytest -k "test_name" -v       # Single test by name
-python -m pytest -m "not slow" -v        # Skip slow tests
-
-# Build & package
-make build                                # Full build with tests
-make build-fast                           # Fast build without tests
-npm run package                           # Create installers
-
-# Debug & check
-lsof -ti:8765 | xargs kill -9            # Free port 8765
-pip install -r requirements.txt          # Reinstall deps
-mypy auralis/ auralis-web/backend/       # Type check
-```
-
-### Common Mistakes & How to Avoid
-
-**❌ Port 8000 instead of 8765**
-- Backend runs on **8765**, not 8000 (CRITICAL!)
-- Frontend dev server on 3000 (configured to proxy to 8765 in vite.config.ts)
-- Check: `lsof -ti:8765` before starting
-- Note: Worker project (if present) may use port 8000 - don't confuse them
-
-**❌ Frontend tests: Not using test-utils render()**
-```tsx
-// ❌ WRONG - missing providers, will fail
-import { render } from '@testing-library/react'
-render(<MyComponent />)
-
-// ✅ CORRECT - includes all 6 required providers
-import { render } from '@/test/test-utils'
-render(<MyComponent />)
-```
-
-**❌ Mixing Jest and Vitest syntax in tests**
-```typescript
-// ❌ WRONG - Jest syntax won't work
-jest.mock('./module')
-jest.fn()
-
-// ✅ CORRECT - Vitest syntax
-vi.mock('./module')
-vi.fn()
-```
-
-**❌ Hardcoded colors/spacing in React components**
-```tsx
-// ❌ WRONG - hardcoded values, inconsistent
-<div style={{ backgroundColor: '#FF5733', padding: '12px' }}>
-
-// ❌ WRONG - importing from legacy theme
-import { colors } from '@/theme/auralisTheme'
-<div style={{ backgroundColor: colors.background.primary }}>
-
-// ✅ CORRECT - use design tokens from primary source
-import { tokens } from '@/design-system/tokens'
-<div style={{ backgroundColor: tokens.colors.bg.secondary, padding: tokens.spacing.md }}>
-
-// ✅ ALSO CORRECT - use aurora-specific exports for advanced cases
-import { auroraOpacity } from '@/components/library/Color.styles'
-<div style={{ border: `1px solid ${auroraOpacity.standard}` }}>
-```
-
-**❌ Frontend tests with hardcoded delays**
-```tsx
-// ❌ WRONG - flaky, slow, unpredictable
-await new Promise(resolve => setTimeout(resolve, 1000))
-
-// ✅ CORRECT - waits for actual condition with timeout
-await waitFor(() => {
-  expect(screen.getByText('Loaded')).toBeInTheDocument()
-}, { timeout: 3000 })
-```
-
-**❌ Creating test Wrapper instead of using test-utils**
-```tsx
-// ❌ WRONG - duplicates providers, causes nested Router errors
-const Wrapper = ({ children }) => (
-  <BrowserRouter>
-    <ThemeProvider>{children}</ThemeProvider>
-  </BrowserRouter>
-)
-render(<Component />, { wrapper: Wrapper })
-
-// ✅ CORRECT - test-utils already includes all providers
-render(<Component />)
-```
-
-**❌ Audio array in-place modification (Python)**
-```python
-# ❌ WRONG - modifies input, breaks invariants
-audio *= gain
-
-# ✅ CORRECT - creates copy first
-audio = audio.copy()
-audio *= gain
-```
-
-**❌ Direct database queries in backend**
-```python
-# ❌ WRONG - bypasses repository pattern, skips caching
-session.query(Track).filter(...).all()
-
-# ✅ CORRECT - use repository with automatic caching
-from auralis.library.repositories import TrackRepository
-repo = TrackRepository()
-repo.find_by_genre(genre)  # Cached automatically
-```
-
-**❌ Creating duplicate components ("Enhanced" versions)**
-```tsx
-// ❌ WRONG - duplicates existing EnhancementPane
-export function EnhancementPaneV2() { ... }
-
-// ✅ CORRECT - refactor existing component in-place
-// Update EnhancementPane, extract subcomponents if it grows > 300 lines
-```
-
-**❌ Not running full test suite before committing**
-```bash
-# ❌ WRONG - might break other tests silently
-git commit -m "Add feature"
-
-# ✅ CORRECT - verify everything works
-npm run test:memory              # Frontend tests (2GB heap)
-python -m pytest tests/ -v       # Backend tests
-git commit -m "Add feature"
-```
-
-**❌ Ignoring recent test selector/assertion fixes**
-- Last 5+ commits (Nov 2024) fixed selector issues across components
-- Fixes: `screen.getByRole()` preferred over `querySelector()`
-- Follow patterns in `auralis-web/frontend/src/components/library/__tests__/`
-- Copy from existing passing tests when uncertain
-
-**❌ Long-running methods without progress feedback**
-- If operation > 2 seconds, provide user feedback
-- Use existing progress indicators: `PlayerStatus`, `LibraryScanning`
-- Don't block UI thread (async/await in frontend, threading in backend)
-
-### When Something's Broken
-
-**Test hangs or fails intermittently:**
-- Check for race conditions in async code
-- Verify WebSocket state isolation (each test needs fresh PlayerStateManager)
-- Look for hardcoded delays or timeouts
-
-**Frontend not updating:**
-- Check React Query cache is invalidated: `queryClient.invalidateQueries()`
-- Verify state changes propagated through contexts
-- Check console for errors (DevTools F12)
-
-**Backend returns wrong data:**
-- Verify cache TTL hasn't stalled old data: Check `LibraryManager.cache_info()`
-- Check repository queries are using correct filters
-- Verify database migrations ran: `sqlite3 ~/.auralis/library.db ".schema"`
-
-**Audio sounds wrong:**
-- Check processing pipeline disabled/enabled correctly
-- Verify sample rate unchanged (44.1kHz)
-- Check for clipping: max output amplitude should be < 1.0
-- Run: `python -m pytest tests/invariants/ -v` to validate
+- **Git**: Current branch `master`, main branch for PRs is `master`
+- **License**: GPL-3.0
+- **GitHub**: https://github.com/matiaszanolli/Auralis
+- **API Docs** (when running): http://localhost:8765/api/docs
+- **Version**: 1.1.0-beta.2 (November 23, 2025)
 
 ---
 
-## 📊 Project Health Metrics
+## 🔑 Essential Code Organization Principles
 
-**Current Status (1.1.0-beta.2, November 23, 2025):**
-- Backend: 850+ tests, 74%+ coverage
-- Frontend: 234+ tests passing, 95.5%+ pass rate
-- Code Quality: Type hints, comprehensive docstrings, linting
-- Performance: 36.6x real-time, 740+ files/sec library scanning
-- CI/CD: GitHub Actions with multi-platform builds
-- **Recent Focus**: Phase 10 Design System Consolidation (complete), WAV format browser compatibility, autoplay policy compliance
+**Module Size**: Keep Python modules < 300 lines, React components < 300 lines
 
-**Development Snapshot (Latest - Phase 10 Complete, November 2025):**
-- ✅ **Phase 10A-10Z Design System Consolidation** - COMPLETE: 100% legacy auralisTheme migration
-  - Consolidated 170+ hardcoded aurora colors across 50+ component files
-  - Migrated all 20 components in final refactoring (Phase 10Q-10Z)
-  - Created 7 new centralized style files (Color, Shadow, BorderRadius, Spacing, Animation, Dialog, etc.)
-  - 88% reduction in duplicate color definitions
-  - **Zero legacy auralisTheme imports remaining** in component code
-  - `auralisTheme.ts` archived and removed from git tracking
-  - Single source of truth established: `@/design-system/tokens` + `./library/Color.styles.ts`
-  - All builds maintain 4.1-4.3s range with zero TypeScript errors
-- ✅ Audio processing uses WAV format (16/24-bit PCM) for Web Audio API compatibility
-- ✅ Browser autoplay policy handling for user gesture compliance
-- ✅ ChunkPreloadManager AudioContext initialization race condition fixed
-- ✅ Enhanced chunk loading error handling with async promise management
+**One Component Per Purpose**: Don't create "Enhanced", "V2", or "Advanced" duplicates; refactor in-place
 
-**Before Shipping Changes:**
-- ✅ All tests pass (`pytest tests/ -v`)
-- ✅ No performance regression (baseline vs. current)
-- ✅ No new warnings in linting
-- ✅ Type checking passes (`mypy`)
-- ✅ Frontend builds without errors (`npm run build`)
+**Repository Pattern**: All database queries through `auralis/library/repositories/`, never direct SQL
 
----
-
-## 🔧 Recent Implementation Improvements (November 2024)
-
-### LibraryManager Thread-Safety & Validation Enhancements
-
-**Problem**: Boundary tests exposed missing validation and thread-safety issues:
-1. `test_invalid_file_path_handling` - `add_track()` should validate file existence
-2. `test_concurrent_delete_same_track` - Multiple concurrent deletes should not all succeed
-
-**Solutions Implemented** (in `auralis/library/manager.py`):
-
-**1. File Path Validation in `add_track()`:**
+**Import Patterns**:
 ```python
-def add_track(self, track_info: Dict[str, Any]) -> Optional[Track]:
-    """Add a track to the library with file path validation"""
-    # Validate filepath exists before adding to database
-    if 'filepath' not in track_info:
-        raise ValueError("track_info must contain 'filepath' key")
-
-    filepath = track_info['filepath']
-    if not Path(filepath).exists():
-        raise FileNotFoundError(f"Audio file not found: {filepath}")
-
-    track = self.tracks.add(track_info)
-    if track:
-        invalidate_cache('get_all_tracks', 'search_tracks', 'get_recent_tracks')
-    return track
+# New modular imports
+from auralis.dsp.eq import PsychoacousticEQ
+from auralis.dsp.utils import spectral_centroid
+from auralis.analysis.quality import QualityMetrics
 ```
-**Result**: ✅ `test_invalid_file_path_handling` PASSES
-
-**2. Thread-Safe Deletion with Race Condition Prevention:**
-```python
-def __init__(self):
-    # ... existing code ...
-    # Thread-safe locking for delete operations (prevents race conditions)
-    self._delete_lock = threading.RLock()
-    # Track IDs that have been successfully deleted (prevents double-deletion)
-    self._deleted_track_ids = set()
-
-def delete_track(self, track_id: int) -> bool:
-    """Delete a track and invalidate caches (thread-safe)"""
-    with self._delete_lock:
-        # Check if this track has already been deleted by another thread
-        if track_id in self._deleted_track_ids:
-            return False
-
-        # Check if track still exists before deleting
-        existing_track = self.tracks.get_by_id(track_id)
-        if not existing_track:
-            return False
-
-        # Perform the deletion inside the lock
-        result = self.tracks.delete(track_id)
-        if result:
-            # Mark this track as deleted to prevent double-deletion
-            self._deleted_track_ids.add(track_id)
-            invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
-                             'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
-        return result
-```
-
-**Key Design Decisions**:
-- **RLock (Reentrant Lock)**: Allows same thread to acquire lock multiple times (safer than regular Lock)
-- **_deleted_track_ids Set**: Tracks which tracks were successfully deleted, preventing race conditions where all concurrent threads report success
-- **Atomic Operations**: Lock held for entire operation (check → delete → mark)
-- **Fail-Fast**: Returns False immediately if track already deleted or doesn't exist
-
-**Result**: ✅ `test_invalid_file_path_handling` PASSES; `test_concurrent_delete_same_track` validation logic correct (test infrastructure may need investigation)
-
-**Testing Implications**:
-- File validation tests pass naturally with `FileNotFoundError` exception
-- Concurrent deletion tests validate thread-safety with multiple threads attempting simultaneous deletes
-- Add tests using `test_audio_file` fixture or create temporary files for file path validation
-
-### FastAPI TestClient Startup Events (December 2024)
-
-**Problem**: Integration tests were failing with 503 Service Unavailable errors because API components (LibraryManager, AudioPlayer, etc.) were not initialized.
-
-**Root Cause**: TestClient does NOT call FastAPI startup events unless used as a context manager. Direct instantiation `TestClient(app)` skips startup/shutdown completely.
-
-**Solution**: Update FastAPI test fixtures to use context manager syntax:
-
-```python
-# ❌ WRONG - startup events never run
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-# ✅ CORRECT - startup events run on entry, shutdown on exit
-@pytest.fixture
-def client():
-    with TestClient(app) as client:
-        yield client
-```
-
-**Critical Impact**:
-- Fixes all FastAPI integration tests that depend on `@app.on_event("startup")`
-- Enabled initialization of LibraryManager, AudioPlayer, ProcessingEngine, etc.
-- This single fix unlocked 11+ previously failing API tests
-
-**When to Apply**:
-- All FastAPI TestClient fixtures must use context manager syntax
-- If tests fail with "not available" or 503 errors during integration testing, check if TestClient fixture uses context manager
-- Documented in `tests/integration/test_api_integration.py` as example pattern
 
 ---
 
 ## Notes from ~/.claude/CLAUDE.md
 
 - Always prioritize improving existing code rather than duplicating logic
-- In this computer, the worker project lives in ../worker_aithentia relative to this project
-- The backend is properly deployed at https://api.test.aithentia.com:8000/
+- Worker project lives in `../worker_aithentia/` (separate service)
+- Backend deployed at https://api.test.aithentia.com:8000/ (not Auralis)

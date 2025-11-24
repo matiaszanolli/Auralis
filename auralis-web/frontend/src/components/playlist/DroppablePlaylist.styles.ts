@@ -31,7 +31,7 @@ export const PlaylistIcon = styled(QueueMusicIcon)(({ theme }) => ({
   color: theme.palette.text.secondary,
 }));
 
-export const TrackCount = styled(Typography)(({ theme }) => ({
+export const TrackCount = styled(Typography)<{ component?: React.ElementType }>(({ theme }) => ({
   fontSize: '0.75rem',
   color: theme.palette.text.secondary,
   marginLeft: theme.spacing(1),
