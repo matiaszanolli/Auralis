@@ -1,15 +1,25 @@
 /**
  * Buttons Module
+ * ~~~~~~~~~~~~~~
  *
- * Button components and variations including toggles and controls
+ * Unified button components with multiple variants, sizes, and styles.
+ * Includes text, outlined, contained, and gradient button variants,
+ * plus icon buttons and button groups for comprehensive UI control.
  */
 
-// Theme and Enhancement Toggles
+// Core Button Components
+export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button';
+export { ButtonIcon, type ButtonIconProps, type ButtonIconSize, type ButtonIconShape } from './ButtonIcon';
+export { ButtonGroup, type ButtonGroupProps, type ButtonGroupDirection, type ButtonGroupSpacing, type ButtonGroupAlignment } from './ButtonGroup';
+
+// Styled Button Exports (for advanced customization)
+export { StyledTextButton, StyledOutlinedButton, StyledContainedButton, StyledGradientButton } from './Button';
+export { StyledCircularIconButton, StyledSquareIconButton } from './ButtonIcon';
+
+// Theme and Enhancement Toggles (specialized button variants)
 export { ThemeToggle } from '../ThemeToggle';
-export { EnhancementToggle, ButtonVariant, SwitchVariant } from '../../EnhancementToggle';
+export { EnhancementToggle, ButtonVariant as EnhancementButtonVariant, SwitchVariant } from '../../EnhancementToggle';
 export { RadialPresetSelector } from '../RadialPresetSelector';
 export { PresetItem } from '../PresetItem';
 export { usePresetSelection } from '../usePresetSelection';
 export { PRESETS, getPresetByValue, getCirclePosition, type Preset } from '../presetConfig';
-
-// Future button components will be added here as they're migrated
