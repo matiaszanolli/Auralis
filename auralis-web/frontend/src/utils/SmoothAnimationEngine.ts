@@ -342,7 +342,6 @@ export class SmoothAnimationEngine {
 
   // Phase correlation animation (for goniometer)
   animatePhaseCorrelation(
-    id: string,
     leftChannel: number[],
     rightChannel: number[],
     options: {
@@ -352,7 +351,6 @@ export class SmoothAnimationEngine {
     } = {}
   ): void {
     const trailLength = options.trailLength || 50;
-    const smoothing = options.smoothing || 0.3;
 
     // Convert L/R to X/Y coordinates for goniometer
     const points = leftChannel.map((left, index) => {
@@ -363,10 +361,10 @@ export class SmoothAnimationEngine {
       };
     });
 
-    // Smooth the trail
-    this.smoothValue(`${id}_trail`, points.slice(-trailLength), smoothing, {
-      onUpdate: options.onUpdate,
-    });
+    // Call update callback with the trail points
+    if (options.onUpdate) {
+      options.onUpdate(points.slice(-trailLength));
+    }
   }
 
   // Control Methods
