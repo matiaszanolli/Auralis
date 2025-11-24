@@ -29,6 +29,7 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig, AdaptiveConfig
 from auralis.io.unified_loader import load_audio
 from auralis.io.saver import save
+from auralis.analysis.fingerprint.parameter_mapper import ParameterMapper
 import numpy as np
 
 
@@ -98,6 +99,7 @@ class ProcessingEngine:
 
         # Processing components
         self.processors: Dict[str, HybridProcessor] = {}
+        self.parameter_mapper = ParameterMapper()
 
         # Temporary file management
         self.temp_dir = Path(tempfile.gettempdir()) / "auralis_processing"
@@ -162,7 +164,13 @@ class ProcessingEngine:
                 await callback(job_id, progress, message)
 
     def _create_processor_config(self, job: ProcessingJob) -> UnifiedConfig:
-        """Create UnifiedConfig from job settings"""
+        """
+        Create UnifiedConfig from job settings.
+
+        Supports two workflows:
+        1. Adaptive mode: Uses 25D fingerprint to generate parameters
+        2. Manual mode: Uses explicit UI settings for EQ/dynamics
+        """
 
         config = UnifiedConfig()
 
@@ -174,27 +182,105 @@ class ProcessingEngine:
         elif job.mode == "hybrid":
             config.set_processing_mode("hybrid")
 
-        # Apply EQ settings
-        if "eq" in job.settings and job.settings["eq"].get("enabled"):
-            eq_settings = job.settings["eq"]
-            # Apply EQ settings to config (simplified for now)
-            # TODO: Map UI EQ settings to processor config
+        # Check if using fingerprint-based adaptive mastering
+        if "fingerprint" in job.settings and job.settings["fingerprint"].get("enabled"):
+            # Workflow 1: Generate parameters from 25D fingerprint
+            fingerprint = job.settings["fingerprint"].get("data", {})
+            target_lufs = job.settings.get("targetLufs", -16.0)
 
-        # Apply dynamics settings
-        if "dynamics" in job.settings and job.settings["dynamics"].get("enabled"):
-            dynamics_settings = job.settings["dynamics"]
-            # TODO: Map UI dynamics settings to processor config
+            mastering_params = self.parameter_mapper.generate_mastering_parameters(
+                fingerprint=fingerprint,
+                target_lufs=target_lufs,
+                enable_multiband=job.settings.get("enable_multiband", False)
+            )
 
-        # Apply level matching settings
-        if "levelMatching" in job.settings and job.settings["levelMatching"].get("enabled"):
-            level_settings = job.settings["levelMatching"]
-            config.adaptive.target_lufs = level_settings.get("targetLufs", -16.0)
+            # Apply generated EQ parameters
+            if "eq" in mastering_params:
+                self._apply_eq_to_config(config, mastering_params["eq"])
+
+            # Apply generated dynamics parameters
+            if "dynamics" in mastering_params:
+                self._apply_dynamics_to_config(config, mastering_params["dynamics"])
+
+            # Apply generated level parameters
+            if "level" in mastering_params:
+                self._apply_level_to_config(config, mastering_params["level"])
+
+        else:
+            # Workflow 2: Apply manual UI settings
+            # Apply EQ settings
+            if "eq" in job.settings and job.settings["eq"].get("enabled"):
+                eq_settings = job.settings["eq"]
+                self._apply_ui_eq_to_config(config, eq_settings)
+
+            # Apply dynamics settings
+            if "dynamics" in job.settings and job.settings["dynamics"].get("enabled"):
+                dynamics_settings = job.settings["dynamics"]
+                self._apply_ui_dynamics_to_config(config, dynamics_settings)
+
+            # Apply level matching settings
+            if "levelMatching" in job.settings and job.settings["levelMatching"].get("enabled"):
+                level_settings = job.settings["levelMatching"]
+                config.adaptive.target_lufs = level_settings.get("targetLufs", -16.0)
 
         # Genre override
         if "genre_override" in job.settings:
             config.adaptive.genre_override = job.settings["genre_override"]
 
         return config
+
+    def _apply_eq_to_config(self, config: UnifiedConfig, eq_params: Dict[str, Any]) -> None:
+        """Apply generated EQ parameters to config"""
+        if eq_params.get("enabled") and "gains" in eq_params:
+            # Store EQ gains in adaptive config for HybridProcessor
+            if not hasattr(config.adaptive, "eq_gains"):
+                config.adaptive.eq_gains = {}
+            config.adaptive.eq_gains = eq_params["gains"]
+
+    def _apply_dynamics_to_config(self, config: UnifiedConfig, dynamics_params: Dict[str, Any]) -> None:
+        """Apply generated dynamics parameters to config"""
+        if dynamics_params.get("enabled") and "standard" in dynamics_params:
+            # Apply standard compressor settings
+            comp = dynamics_params["standard"]
+            if not hasattr(config.adaptive, "compressor"):
+                config.adaptive.compressor = {}
+
+            config.adaptive.compressor = {
+                "threshold": comp.get("threshold", -20.0),
+                "ratio": comp.get("ratio", 2.0),
+                "attack_ms": comp.get("attack_ms", 30.0),
+                "release_ms": comp.get("release_ms", 150.0),
+                "makeup_gain": comp.get("makeup_gain", 0.0)
+            }
+
+    def _apply_level_to_config(self, config: UnifiedConfig, level_params: Dict[str, Any]) -> None:
+        """Apply generated level parameters to config"""
+        config.adaptive.target_lufs = level_params.get("target_lufs", -16.0)
+        if "gain" in level_params:
+            if not hasattr(config.adaptive, "gain"):
+                config.adaptive.gain = 0.0
+            config.adaptive.gain = level_params["gain"]
+
+    def _apply_ui_eq_to_config(self, config: UnifiedConfig, eq_settings: Dict[str, Any]) -> None:
+        """Apply manual UI EQ settings to config"""
+        # This handles direct UI EQ input (31-band gains or parametric EQ)
+        if "gains" in eq_settings:
+            if not hasattr(config.adaptive, "eq_gains"):
+                config.adaptive.eq_gains = {}
+            config.adaptive.eq_gains = eq_settings["gains"]
+
+    def _apply_ui_dynamics_to_config(self, config: UnifiedConfig, dynamics_settings: Dict[str, Any]) -> None:
+        """Apply manual UI dynamics settings to config"""
+        if not hasattr(config.adaptive, "compressor"):
+            config.adaptive.compressor = {}
+
+        config.adaptive.compressor = {
+            "threshold": dynamics_settings.get("threshold", -20.0),
+            "ratio": dynamics_settings.get("ratio", 2.0),
+            "attack_ms": dynamics_settings.get("attack_ms", 30.0),
+            "release_ms": dynamics_settings.get("release_ms", 150.0),
+            "makeup_gain": dynamics_settings.get("makeup_gain", 0.0)
+        }
 
     async def process_job(self, job: ProcessingJob):
         """
