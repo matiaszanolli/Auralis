@@ -18,7 +18,7 @@
  * - Maintainability: Changes to common operations affect all services
  */
 
-import { get, post, put, del, ApiRequestFunction } from './apiRequest';
+import { get, post, put, del } from './apiRequest';
 
 /**
  * Generic CRUD endpoint configuration
