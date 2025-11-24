@@ -43,7 +43,7 @@
 import React from 'react';
 import { IconButton as MuiIconButton, Tooltip, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { auroraOpacity } from '../../library/Styles/Color.styles';
+import { auroraOpacity } from '@/components/library/Styles/Color.styles';
 
 export type ButtonIconSize = 'small' | 'medium' | 'large';
 export type ButtonIconShape = 'circular' | 'square';
