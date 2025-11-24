@@ -577,7 +577,7 @@ export class AnalysisExportService {
   private async exportAsImage(options: ExportOptions, format: 'png' | 'svg'): Promise<string> {
     this.progressTracker.updateProgress(20, `Generating ${format.toUpperCase()} visualization...`);
 
-    const visualSettings = options.visualizationSettings || {
+    const visualSettings: Required<ExportOptions['visualizationSettings']> = options.visualizationSettings || {
       width: 1920,
       height: 1080,
       theme: 'dark' as const,
