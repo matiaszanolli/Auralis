@@ -14,7 +14,7 @@ import { useDropZone } from './useDropZone';
 import { DropZoneIcon } from './DropZoneIcon';
 import { DropZoneText } from './DropZoneText';
 
-interface DropZoneProps {
+export interface DropZoneProps {
   onFolderDrop: (folderPath: string) => void;
   onFolderSelect?: (folderPath: string) => void;
   disabled?: boolean;
