@@ -299,7 +299,7 @@ export class SmoothAnimationEngine {
     currentValue: number,
     targetValue: number,
     options: {
-      onUpdate?: (value: number) => void;
+      onUpdate?: (value: number | number[]) => void;
       peakHold?: boolean;
       peakHoldTime?: number;
     } = {}
