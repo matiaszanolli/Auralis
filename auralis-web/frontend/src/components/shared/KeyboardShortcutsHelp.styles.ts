@@ -56,6 +56,6 @@ export const EmptyStateBox = styled(Box)(({ theme }) => ({
   color: auroraOpacity.standard,
 }));
 
-export const DialogContentBox = styled(Box)({
+export const DialogContentBoxStyles = {
   p: 3,
-});
+};
