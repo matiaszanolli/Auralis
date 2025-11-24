@@ -28,7 +28,7 @@ import { useShortcutFormatting } from './useShortcutFormatting';
 import { KeyboardShortcutsHeader } from './KeyboardShortcutsHeader';
 import { KeyboardShortcutsEmpty } from './KeyboardShortcutsEmpty';
 import { KeyboardShortcutsList } from './KeyboardShortcutsList';
-import { DialogContentBox } from './KeyboardShortcutsHelp.styles';
+import { DialogContentBoxStyles } from './KeyboardShortcutsHelp.styles';
 
 interface KeyboardShortcutsHelpProps {
   open: boolean;
@@ -66,7 +66,7 @@ const KeyboardShortcutsHelp: React.FC<KeyboardShortcutsHelpProps> = ({
     >
       <KeyboardShortcutsHeader onClose={onClose} />
 
-      <DialogContent sx={DialogContentBox}>
+      <DialogContent sx={DialogContentBoxStyles}>
         {shortcuts.length === 0 ? (
           <KeyboardShortcutsEmpty />
         ) : (
