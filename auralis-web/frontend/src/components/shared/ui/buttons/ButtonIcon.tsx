@@ -152,7 +152,7 @@ export const StyledCircularIconButton = styled(MuiIconButton, {
 export const StyledSquareIconButton = styled(MuiIconButton, {
   shouldForwardProp: (prop) => prop !== '$glowEffect',
 })<{ $glowEffect?: boolean }>(({ $glowEffect = true }) => ({
-  borderRadius: tokens.borderRadius.medium,
+  borderRadius: tokens.borderRadius.md,
   backgroundColor: auroraOpacity.minimal,
   color: tokens.colors.text.primary,
   transition: `all ${tokens.transitions.base}`,
