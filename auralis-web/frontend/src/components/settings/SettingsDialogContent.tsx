@@ -1,5 +1,5 @@
 import React from 'react';
-import { SettingsUpdate, UserSettings } from '../../services/settingsService';
+import { SettingsUpdate } from '../../services/settingsService';
 import { SettingsDialogContent as StyledContent } from './SettingsDialog.styles';
 import { LibrarySettingsPanel } from './LibrarySettingsPanel';
 import { PlaybackSettingsPanel } from './PlaybackSettingsPanel';
