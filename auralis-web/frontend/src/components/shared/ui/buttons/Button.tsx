@@ -38,7 +38,7 @@
 import React from 'react';
 import { Button as MuiButton, CircularProgress, styled } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { auroraOpacity, gradients } from '../../library/Styles/Color.styles';
+import { auroraOpacity, gradients } from '@/components/library/Styles/Color.styles';
 
 export type ButtonVariant = 'text' | 'outlined' | 'contained' | 'gradient';
 export type ButtonSize = 'small' | 'medium' | 'large';
