@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as playlistService from '../../services/playlistService';
-import { useToast } from '../shared/ui/feedback';
+import { useToast } from '../shared/Toast';
 
 interface UseEditPlaylistFormProps {
   playlist: playlistService.Playlist | null;

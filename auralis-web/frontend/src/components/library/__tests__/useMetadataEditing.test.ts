@@ -12,7 +12,7 @@ import { renderHook, act } from '@testing-library/react';
 import { useMetadataEditing } from '../useMetadataEditing';
 
 // Mock dependencies
-vi.mock('../../shared/ui/feedback', () => ({
+vi.mock('../../shared/Toast', () => ({
   useToast: vi.fn(() => ({
     success: vi.fn(),
     error: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('../../shared/ui/feedback', () => ({
   })),
 }));
 
-import { useToast } from '../../shared/ui/feedback';
+import { useToast } from '../../shared/Toast';
 
 describe('useMetadataEditing', () => {
   const mockOnFetchTracks = vi.fn().mockResolvedValue(undefined);

@@ -32,7 +32,7 @@ import { useAppLayout } from './hooks/useAppLayout';
 import { useAppDragDrop } from './hooks/useAppDragDrop';
 
 import { useWebSocketContext } from './contexts/WebSocketContext';
-import { useToast } from './components/shared/ui/feedback';
+import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts, KeyboardShortcut } from './hooks/useKeyboardShortcuts';
 import { usePlayerAPI } from './hooks/usePlayerAPI';
 

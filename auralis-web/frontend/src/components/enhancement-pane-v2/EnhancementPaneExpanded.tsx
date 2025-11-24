@@ -85,7 +85,7 @@ export const EnhancementPaneExpanded: React.FC<EnhancementPaneExpandedProps> = (
       <PaneContent>
         {/* Master Toggle */}
         <EnhancementToggle
-          enabled={settings.enabled}
+          isEnabled={settings.enabled}
           isProcessing={isProcessing}
           onToggle={handleMasteringToggle}
         />
