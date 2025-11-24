@@ -70,7 +70,7 @@ export interface ButtonGroupProps extends React.ComponentProps<typeof Box> {
    * Gap between buttons
    * @default 'md'
    */
-   gap?: ButtonGroupSpacing;
+  gap?: ButtonGroupSpacing;
 
   /**
    * Whether buttons should wrap on smaller screens
