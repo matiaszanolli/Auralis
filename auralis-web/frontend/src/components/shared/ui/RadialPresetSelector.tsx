@@ -32,7 +32,7 @@ interface RadialPresetSelectorProps {
  * />
  * ```
  */
-const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
+export const RadialPresetSelector: React.FC<RadialPresetSelectorProps> = ({
   currentPreset,
   onPresetChange,
   disabled = false,
