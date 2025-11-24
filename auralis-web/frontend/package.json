@@ -53,7 +53,10 @@
     "test:filter": "NODE_ENV=test vitest run src/tests/integration/library-management/filter.test.tsx",
     "test:sort": "NODE_ENV=test vitest run src/tests/integration/library-management/sort.test.tsx",
     "test:accessibility": "NODE_ENV=test vitest run src/tests/integration/library-management/accessibility.test.tsx",
-    "test:integration": "NODE_ENV=test vitest run src/tests/integration/"
+    "test:integration": "NODE_ENV=test vitest run src/tests/integration/",
+    "test:memory:failsafe": "node scripts/memory-test-failsafe.js",
+    "test:memory:failsafe:category": "node scripts/memory-test-failsafe.js --category",
+    "test:memory:failsafe:custom": "node scripts/memory-test-failsafe.js --max-heap"
   },
   "eslintConfig": {
     "extends": [
