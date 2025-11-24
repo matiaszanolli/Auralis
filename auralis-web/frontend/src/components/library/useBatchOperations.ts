@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useToast } from '../shared/ui/feedback';
+import { useToast } from '../shared/Toast';
 
 interface UseBatchOperationsProps {
   selectedTracks: Set<number>;

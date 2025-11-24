@@ -40,7 +40,7 @@ export {
 
 // Feedback
 export { EmptyState } from './feedback';
-export { Toast, useToast, ToastProvider } from './feedback';
+// Toast has been moved to @/components/shared/Toast
 
 // Media
 export { AlbumArtDisplay } from './media';

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useToast } from '../shared/ui/feedback';
+import { useToast } from '../shared/Toast';
 
 export const useMetadataEditing = (onFetchTracks: () => Promise<void>) => {
   const [editMetadataDialogOpen, setEditMetadataDialogOpen] = useState(false);

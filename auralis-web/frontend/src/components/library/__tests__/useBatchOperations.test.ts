@@ -17,7 +17,7 @@ import { server } from '@/test/mocks/server';
 import { http, HttpResponse } from 'msw';
 
 // Mock dependencies
-vi.mock('../../shared/ui/feedback', () => ({
+vi.mock('../../shared/Toast', () => ({
   useToast: vi.fn(() => ({
     success: vi.fn(),
     error: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('../../shared/ui/feedback', () => ({
   })),
 }));
 
-import { useToast } from '../../shared/ui/feedback';
+import { useToast } from '../../shared/Toast';
 
 describe('useBatchOperations', () => {
   const mockOnFetchTracks = vi.fn().mockResolvedValue(undefined);

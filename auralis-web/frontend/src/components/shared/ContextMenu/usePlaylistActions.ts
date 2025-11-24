@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import * as playlistService from '../../../services/playlistService';
-import { useToast } from '../ui/feedback';
+import { useToast } from '../Toast';
 
 interface UsePlaylistActionsProps {
   onAddToPlaylist?: (playlistId: number, playlistName: string) => Promise<void>;

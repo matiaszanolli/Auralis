@@ -14,7 +14,7 @@
 import React from 'react';
 import { ContextMenu, getTrackContextActions } from '../../shared/ContextMenu';
 import { useContextMenu } from '../../shared/ContextMenu';
-import { useToast } from '../../shared/ui/feedback';
+import { useToast } from '../../shared/Toast';
 import { QueueContainer, QueueHeader, QueueList } from './TrackQueueStyles';
 import { TrackQueueItem } from './TrackQueueItem';
 import { useTrackQueueMenu } from './useTrackQueueMenu';

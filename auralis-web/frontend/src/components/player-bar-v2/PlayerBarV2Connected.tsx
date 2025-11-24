@@ -24,7 +24,7 @@ import { PlayerBarV2 } from './PlayerBarV2';
 import { usePlayerAPI } from '@/hooks/usePlayerAPI';
 import { useUnifiedWebMAudioPlayer } from '@/hooks/useUnifiedWebMAudioPlayer';
 import { useEnhancement } from '@/contexts/EnhancementContext';
-import { useToast } from '@/components/shared/ui/feedback';
+import { useToast } from '@/components/shared/Toast';
 import { usePlayerState } from './usePlayerState';
 import { usePlayerTrackLoader } from '@/hooks/usePlayerTrackLoader';
 import { usePlayerEnhancementSync } from '@/hooks/usePlayerEnhancementSync';

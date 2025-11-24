@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { usePlayerAPI } from '../../hooks/usePlayerAPI';
-import { useToast } from '../shared/ui/feedback';
+import { useToast } from '../shared/Toast';
 import { Track } from '../../hooks/useLibraryWithStats';
 
 export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {

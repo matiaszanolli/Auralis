@@ -42,7 +42,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useToast } from '../components/shared/ui/feedback';
+import { useToast } from '../components/shared/Toast';
 
 // ============================================================================
 // Types
