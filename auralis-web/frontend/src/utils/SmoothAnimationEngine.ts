@@ -246,7 +246,7 @@ export class SmoothAnimationEngine {
     targetLevel: number,
     isRising: boolean = true,
     options: {
-      onUpdate?: (value: number) => void;
+      onUpdate?: (value: number | number[]) => void;
       ballistics?: 'fast' | 'medium' | 'slow';
     } = {}
   ): void {
