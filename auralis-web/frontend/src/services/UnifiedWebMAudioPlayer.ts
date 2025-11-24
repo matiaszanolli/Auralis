@@ -440,7 +440,7 @@ export class UnifiedWebMAudioPlayer {
   /**
    * Stop playback and reset
    */
-  private stop(): void {
+  public stop(): void {
     this.debug('Stopping playback');
     this.audioController.stopCurrentSource();
 
