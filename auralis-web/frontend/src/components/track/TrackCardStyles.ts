@@ -14,8 +14,8 @@ export const StyledTrackCard = styled(Card)(({ theme }) => ({
   overflow: 'hidden',
   cursor: 'pointer',
   transition: 'all 0.3s ease',
-  background: tokens.colors.bg.surface,
-  border: `1px solid ${tokens.colors.bg.hover}`,
+  background: tokens.colors.bg.tertiary,
+  border: `1px solid ${tokens.colors.bg.elevated}`,
   '&:hover': {
     transform: 'translateY(-4px)',
     boxShadow: `0 8px 24px ${auroraOpacity.standard}`,
