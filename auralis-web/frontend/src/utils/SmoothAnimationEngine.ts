@@ -270,7 +270,7 @@ export class SmoothAnimationEngine {
     id: string,
     spectrumData: number[],
     options: {
-      onUpdate?: (values: number[]) => void;
+      onUpdate?: (value: number | number[]) => void;
       smoothing?: number;
       falloffRate?: number;
     } = {}
