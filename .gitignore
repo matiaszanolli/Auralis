@@ -97,6 +97,10 @@ analysis_output/
 CLEANUP_PLAN.md
 REBUILD_NOW.sh
 
+# Exception: Keep PHASE_*.md documentation
+!PHASE_*.md
+!/docs/PHASE_*.md
+
 # System files
 Thumbs.db
 .directory
