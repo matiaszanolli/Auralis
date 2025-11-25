@@ -162,5 +162,14 @@ auralis-web/backend/.env
 ehthumbs.db
 Desktop.ini
 
+# Rust build artifacts
+vendor/auralis-dsp/target/
+vendor/auralis-dsp/Cargo.lock
+vendor/**/target/
+vendor/**/Cargo.lock
+*.rlib
+*.rmeta
+*.d
+
 # MY stuff - hands out, you evil creature
 research/

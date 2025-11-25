@@ -1,0 +1,19 @@
+[package]
+name = "auralis-dsp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ndarray = "0.15"
+num-complex = "0.4"
+rayon = "1.7"
+rustfft = "6.1"
+# pyo3 = { version = "0.20", features = ["extension-module"] }
+# numpy = "0.20"
+
+[lib]
+name = "auralis_dsp"
+crate-type = ["lib"]  # Build as library, not extension module yet
+
+[dev-dependencies]
+criterion = "0.5"
