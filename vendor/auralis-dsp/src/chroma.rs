@@ -111,28 +111,33 @@ fn cqt_frequency(bin: u32) -> f64 {
     FMIN * 2.0_f64.powf((bin as f64) / (BINS_PER_OCTAVE as f64))
 }
 
-/// Convolve audio with all CQT filters and extract magnitude
+/// Convolve audio with all CQT filters and extract magnitude (parallel per-bin)
 fn convolve_cqt(y: &[f64], kernels: &[Vec<Complex64>], _sr: usize) -> Array2<f64> {
+    use rayon::prelude::*;
+
     let n_frames = if y.len() >= HOP_LENGTH {
         ((y.len() - HOP_LENGTH) / HOP_LENGTH) + 1
     } else {
         1
     };
 
+    // Process each bin in parallel (bins are independent)
+    let bin_results: Vec<Vec<f64>> = kernels
+        .par_iter()
+        .map(|kernel| {
+            if kernel.is_empty() {
+                vec![0.0; n_frames]
+            } else {
+                convolve_single_bin(y, kernel, HOP_LENGTH)
+            }
+        })
+        .collect();
+
+    // Assemble results into 2D array
     let mut cqt_spec = Array2::zeros((N_BINS, n_frames));
-
-    // Process each bin with its corresponding filter
-    for (bin_idx, kernel) in kernels.iter().enumerate() {
-        if kernel.is_empty() {
-            continue;
-        }
-
-        // Convolve audio with this filter
-        let magnitudes = convolve_single_bin(y, kernel, HOP_LENGTH);
-
-        // Extract frames from magnitudes
-        for (frame_idx, mag) in magnitudes.iter().enumerate().take(n_frames) {
-            cqt_spec[[bin_idx, frame_idx]] = *mag;
+    for (bin_idx, magnitudes) in bin_results.iter().enumerate() {
+        for (frame_idx, &mag) in magnitudes.iter().enumerate().take(n_frames) {
+            cqt_spec[[bin_idx, frame_idx]] = mag;
         }
     }
 
