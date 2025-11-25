@@ -1,0 +1,2207 @@
+{
+  "test_date": "2025-11-24T21:42:31.966388",
+  "albums": {
+    "1988 - Battalions Of Fear": {
+      "original_album": "1988 - Battalions Of Fear",
+      "remaster_album": "1988 - Battalions Of Fear (2018)",
+      "tracks": [
+        {
+          "track_name": "01 Majesty.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12871645390987396,
+              "rms_db": -17.80731964111328,
+              "peak": 0.7970651984214783,
+              "peak_db": -1.970123052597046,
+              "crest_db": 15.837196350097656,
+              "spectral_centroid_hz": 4111.8059780650065,
+              "spectral_rolloff_hz": 11786.37994068803
+            },
+            "remastered": {
+              "rms": 0.13628366589546204,
+              "rms_db": -17.31112289428711,
+              "peak": 0.8978148698806763,
+              "peak_db": -0.9362640976905823,
+              "crest_db": 16.374858856201172,
+              "spectral_centroid_hz": 4499.787922817018,
+              "spectral_rolloff_hz": 11050.294899121141
+            },
+            "difference": {
+              "rms_change_db": 0.4961967468261719,
+              "peak_change_db": 1.0338589549064636,
+              "crest_change_db": 0.5376625061035156,
+              "centroid_change_hz": 387.98194475201126,
+              "rolloff_change_hz": -736.0850415668883
+            }
+          }
+        },
+        {
+          "track_name": "02 Guardian Of The Blind.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12052879482507706,
+              "rms_db": -18.378183364868164,
+              "peak": 0.8260693550109863,
+              "peak_db": -1.6596697568893433,
+              "crest_db": 16.71851348876953,
+              "spectral_centroid_hz": 3717.245406473197,
+              "spectral_rolloff_hz": 10780.069894737582
+            },
+            "remastered": {
+              "rms": 0.13718506693840027,
+              "rms_db": -17.253864288330078,
+              "peak": 0.9049729108810425,
+              "peak_db": -0.8672884106636047,
+              "crest_db": 16.386573791503906,
+              "spectral_centroid_hz": 4643.950800178241,
+              "spectral_rolloff_hz": 11146.107585438018
+            },
+            "difference": {
+              "rms_change_db": 1.124319076538086,
+              "peak_change_db": 0.7923813462257385,
+              "crest_change_db": -0.331939697265625,
+              "centroid_change_hz": 926.7053937050437,
+              "rolloff_change_hz": 366.03769070043563
+            }
+          }
+        },
+        {
+          "track_name": "04 Run For The Night.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1269344985485077,
+              "rms_db": -17.928407669067383,
+              "peak": 0.8121680617332458,
+              "peak_db": -1.8070818185806274,
+              "crest_db": 16.12132453918457,
+              "spectral_centroid_hz": 4229.235196763812,
+              "spectral_rolloff_hz": 12967.297462252722
+            },
+            "remastered": {
+              "rms": 0.14219123125076294,
+              "rms_db": -16.942543029785156,
+              "peak": 0.9108714461326599,
+              "peak_db": -0.8108582496643066,
+              "crest_db": 16.131685256958008,
+              "spectral_centroid_hz": 4808.107054176537,
+              "spectral_rolloff_hz": 11818.461396379756
+            },
+            "difference": {
+              "rms_change_db": 0.9858646392822266,
+              "peak_change_db": 0.9962235689163208,
+              "crest_change_db": 0.0103607177734375,
+              "centroid_change_hz": 578.8718574127242,
+              "rolloff_change_hz": -1148.8360658729653
+            }
+          }
+        },
+        {
+          "track_name": "05 The Martyr.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12639719247817993,
+              "rms_db": -17.965251922607422,
+              "peak": 0.7981444597244263,
+              "peak_db": -1.9583699703216553,
+              "crest_db": 16.006881713867188,
+              "spectral_centroid_hz": 3921.347164331688,
+              "spectral_rolloff_hz": 10830.642447755183
+            },
+            "remastered": {
+              "rms": 0.1395544856786728,
+              "rms_db": -17.10512351989746,
+              "peak": 0.8608430624008179,
+              "peak_db": -1.3015203475952148,
+              "crest_db": 15.803604125976562,
+              "spectral_centroid_hz": 4607.924620176877,
+              "spectral_rolloff_hz": 11513.491867043847
+            },
+            "difference": {
+              "rms_change_db": 0.8601284027099609,
+              "peak_change_db": 0.6568496227264404,
+              "crest_change_db": -0.203277587890625,
+              "centroid_change_hz": 686.5774558451894,
+              "rolloff_change_hz": 682.8494192886646
+            }
+          }
+        },
+        {
+          "track_name": "06 Battalions Of Fear.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.11268077790737152,
+              "rms_db": -18.963003158569336,
+              "peak": 0.740310788154602,
+              "peak_db": -2.6117186546325684,
+              "crest_db": 16.35128402709961,
+              "spectral_centroid_hz": 3737.147067980326,
+              "spectral_rolloff_hz": 9688.265873175878
+            },
+            "remastered": {
+              "rms": 0.13989390432834625,
+              "rms_db": -17.08402442932129,
+              "peak": 0.8963028788566589,
+              "peak_db": -0.950904130935669,
+              "crest_db": 16.133119583129883,
+              "spectral_centroid_hz": 4600.795145517399,
+              "spectral_rolloff_hz": 11097.48911860718
+            },
+            "difference": {
+              "rms_change_db": 1.8789787292480469,
+              "peak_change_db": 1.6608145236968994,
+              "crest_change_db": -0.21816444396972656,
+              "centroid_change_hz": 863.6480775370728,
+              "rolloff_change_hz": 1409.2232454313016
+            }
+          }
+        },
+        {
+          "track_name": "07 By The Gates Of Moria.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1043614074587822,
+              "rms_db": -19.629201889038086,
+              "peak": 0.6312677264213562,
+              "peak_db": -3.9957284927368164,
+              "crest_db": 15.63347339630127,
+              "spectral_centroid_hz": 3193.300564733815,
+              "spectral_rolloff_hz": 8565.16145491267
+            },
+            "remastered": {
+              "rms": 0.148172065615654,
+              "rms_db": -16.584672927856445,
+              "peak": 0.8048526048660278,
+              "peak_db": -1.885672926902771,
+              "crest_db": 14.69900131225586,
+              "spectral_centroid_hz": 4156.592487725794,
+              "spectral_rolloff_hz": 10513.831919814957
+            },
+            "difference": {
+              "rms_change_db": 3.0445289611816406,
+              "peak_change_db": 2.1100555658340454,
+              "crest_change_db": -0.9344720840454102,
+              "centroid_change_hz": 963.2919229919789,
+              "rolloff_change_hz": 1948.6704649022868
+            }
+          }
+        }
+      ]
+    },
+    "1989 - Follow The Blind": {
+      "original_album": "1989 - Follow The Blind",
+      "remaster_album": "1989 - Follow The Blind (2018)",
+      "tracks": [
+        {
+          "track_name": "01 Inquisition.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.06725148856639862,
+              "rms_db": -23.445964813232422,
+              "peak": 0.44654637575149536,
+              "peak_db": -7.002668857574463,
+              "crest_db": 16.44329261779785,
+              "spectral_centroid_hz": 2397.743647498823,
+              "spectral_rolloff_hz": 7772.178733943735
+            },
+            "remastered": {
+              "rms": 0.1259358674287796,
+              "rms_db": -17.997011184692383,
+              "peak": 0.8058247566223145,
+              "peak_db": -1.875187873840332,
+              "crest_db": 16.121824264526367,
+              "spectral_centroid_hz": 3009.8738636171884,
+              "spectral_rolloff_hz": 9176.564398541921
+            },
+            "difference": {
+              "rms_change_db": 5.448953628540039,
+              "peak_change_db": 5.127480983734131,
+              "crest_change_db": -0.3214683532714844,
+              "centroid_change_hz": 612.1302161183653,
+              "rolloff_change_hz": 1404.385664598186
+            }
+          }
+        },
+        {
+          "track_name": "02 Banish From Sanctuary.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12877270579338074,
+              "rms_db": -17.803524017333984,
+              "peak": 0.8510205745697021,
+              "peak_db": -1.4011988639831543,
+              "crest_db": 16.402324676513672,
+              "spectral_centroid_hz": 4074.3188442256564,
+              "spectral_rolloff_hz": 11524.411360612206
+            },
+            "remastered": {
+              "rms": 0.17345958948135376,
+              "rms_db": -15.216033935546875,
+              "peak": 0.8940086364746094,
+              "peak_db": -0.9731656908988953,
+              "crest_db": 14.242868423461914,
+              "spectral_centroid_hz": 3988.8638183523017,
+              "spectral_rolloff_hz": 10771.534713763702
+            },
+            "difference": {
+              "rms_change_db": 2.5874900817871094,
+              "peak_change_db": 0.42803317308425903,
+              "crest_change_db": -2.159456253051758,
+              "centroid_change_hz": -85.45502587335477,
+              "rolloff_change_hz": -752.8766468485046
+            }
+          }
+        },
+        {
+          "track_name": "03 Damned For All Time.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12983162701129913,
+              "rms_db": -17.732389450073242,
+              "peak": 0.8423788547515869,
+              "peak_db": -1.4898508787155151,
+              "crest_db": 16.24254035949707,
+              "spectral_centroid_hz": 3807.779092714824,
+              "spectral_rolloff_hz": 10299.04790539186
+            },
+            "remastered": {
+              "rms": 0.1758427768945694,
+              "rms_db": -15.097509384155273,
+              "peak": 0.9234188795089722,
+              "peak_db": -0.6920249462127686,
+              "crest_db": 14.405485153198242,
+              "spectral_centroid_hz": 3856.3091663771665,
+              "spectral_rolloff_hz": 10108.726003490403
+            },
+            "difference": {
+              "rms_change_db": 2.6348800659179688,
+              "peak_change_db": 0.7978259325027466,
+              "crest_change_db": -1.8370552062988281,
+              "centroid_change_hz": 48.5300736623426,
+              "rolloff_change_hz": -190.32190190145775
+            }
+          }
+        },
+        {
+          "track_name": "04 Follow The Blind.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.11567528545856476,
+              "rms_db": -18.735187530517578,
+              "peak": 0.7510184049606323,
+              "peak_db": -2.4869885444641113,
+              "crest_db": 16.248199462890625,
+              "spectral_centroid_hz": 4240.15062901267,
+              "spectral_rolloff_hz": 11543.512847131018
+            },
+            "remastered": {
+              "rms": 0.1680288314819336,
+              "rms_db": -15.492323875427246,
+              "peak": 0.9377927780151367,
+              "peak_db": -0.5578623414039612,
+              "crest_db": 14.934462547302246,
+              "spectral_centroid_hz": 3712.3342431936067,
+              "spectral_rolloff_hz": 9335.664368244503
+            },
+            "difference": {
+              "rms_change_db": 3.242863655090332,
+              "peak_change_db": 1.9291262030601501,
+              "crest_change_db": -1.313736915588379,
+              "centroid_change_hz": -527.8163858190633,
+              "rolloff_change_hz": -2207.8484788865153
+            }
+          }
+        },
+        {
+          "track_name": "05 Hall Of The King.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12201870232820511,
+              "rms_db": -18.271472930908203,
+              "peak": 0.8295929431915283,
+              "peak_db": -1.6226989030838013,
+              "crest_db": 16.648773193359375,
+              "spectral_centroid_hz": 4375.662964330858,
+              "spectral_rolloff_hz": 12869.335092794334
+            },
+            "remastered": {
+              "rms": 0.15995611250400543,
+              "rms_db": -15.91998291015625,
+              "peak": 0.8193848133087158,
+              "peak_db": -1.7302417755126953,
+              "crest_db": 14.189741134643555,
+              "spectral_centroid_hz": 3758.6724393158224,
+              "spectral_rolloff_hz": 10609.292775665399
+            },
+            "difference": {
+              "rms_change_db": 2.351490020751953,
+              "peak_change_db": -0.10754287242889404,
+              "crest_change_db": -2.4590320587158203,
+              "centroid_change_hz": -616.9905250150355,
+              "rolloff_change_hz": -2260.042317128935
+            }
+          }
+        },
+        {
+          "track_name": "06 Fast To Madness.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.11701642721891403,
+              "rms_db": -18.63506317138672,
+              "peak": 0.7897029519081116,
+              "peak_db": -2.050724744796753,
+              "crest_db": 16.584339141845703,
+              "spectral_centroid_hz": 3946.9119844597158,
+              "spectral_rolloff_hz": 10972.22273489448
+            },
+            "remastered": {
+              "rms": 0.18124797940254211,
+              "rms_db": -14.8345365524292,
+              "peak": 0.928866982460022,
+              "peak_db": -0.6409294605255127,
+              "crest_db": 14.193607330322266,
+              "spectral_centroid_hz": 3852.0873714943705,
+              "spectral_rolloff_hz": 9919.916827565721
+            },
+            "difference": {
+              "rms_change_db": 3.8005266189575195,
+              "peak_change_db": 1.4097952842712402,
+              "crest_change_db": -2.3907318115234375,
+              "centroid_change_hz": -94.8246129653453,
+              "rolloff_change_hz": -1052.3059073287586
+            }
+          }
+        },
+        {
+          "track_name": "07 Beyond The Ice.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.10475312918424606,
+              "rms_db": -19.596660614013672,
+              "peak": 0.696089506149292,
+              "peak_db": -3.146698474884033,
+              "crest_db": 16.449962615966797,
+              "spectral_centroid_hz": 3821.5247928666927,
+              "spectral_rolloff_hz": 10340.110843749268
+            },
+            "remastered": {
+              "rms": 0.17717181146144867,
+              "rms_db": -15.032108306884766,
+              "peak": 0.9059839844703674,
+              "peak_db": -0.857589602470398,
+              "crest_db": 14.174518585205078,
+              "spectral_centroid_hz": 3982.7262575074155,
+              "spectral_rolloff_hz": 10702.88430706086
+            },
+            "difference": {
+              "rms_change_db": 4.564552307128906,
+              "peak_change_db": 2.2891088724136353,
+              "crest_change_db": -2.2754440307617188,
+              "centroid_change_hz": 161.20146464072286,
+              "rolloff_change_hz": 362.7734633115924
+            }
+          }
+        },
+        {
+          "track_name": "08 Valhalla.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.101531021296978,
+              "rms_db": -19.868024826049805,
+              "peak": 0.7549310922622681,
+              "peak_db": -2.4418537616729736,
+              "crest_db": 17.426170349121094,
+              "spectral_centroid_hz": 3957.6484073828915,
+              "spectral_rolloff_hz": 11406.597247929882
+            },
+            "remastered": {
+              "rms": 0.17549198865890503,
+              "rms_db": -15.11485481262207,
+              "peak": 0.9291017055511475,
+              "peak_db": -0.6387348175048828,
+              "crest_db": 14.476119995117188,
+              "spectral_centroid_hz": 4101.787636846771,
+              "spectral_rolloff_hz": 10692.474247763621
+            },
+            "difference": {
+              "rms_change_db": 4.753170013427734,
+              "peak_change_db": 1.8031189441680908,
+              "crest_change_db": -2.9500503540039062,
+              "centroid_change_hz": 144.13922946387993,
+              "rolloff_change_hz": -714.1230001662607
+            }
+          }
+        },
+        {
+          "track_name": "09 Barbara Ann (The Regents And Beach Boys Cover).flac",
+          "metrics": {
+            "original": {
+              "rms": 0.08834200352430344,
+              "rms_db": -21.076656341552734,
+              "peak": 0.6208739876747131,
+              "peak_db": -4.139930725097656,
+              "crest_db": 16.936723709106445,
+              "spectral_centroid_hz": 3544.8848461844123,
+              "spectral_rolloff_hz": 11291.79343059067
+            },
+            "remastered": {
+              "rms": 0.16557054221630096,
+              "rms_db": -15.620338439941406,
+              "peak": 0.8426458239555359,
+              "peak_db": -1.4870984554290771,
+              "crest_db": 14.133241653442383,
+              "spectral_centroid_hz": 3738.133336364466,
+              "spectral_rolloff_hz": 10805.318556574903
+            },
+            "difference": {
+              "rms_change_db": 5.456317901611328,
+              "peak_change_db": 2.652832269668579,
+              "crest_change_db": -2.8034820556640625,
+              "centroid_change_hz": 193.24849018005352,
+              "rolloff_change_hz": -486.47487401576655
+            }
+          }
+        }
+      ]
+    },
+    "1990 - Tales From The Twilight World": {
+      "original_album": "1990 - Tales From The Twilight World",
+      "remaster_album": "1990 - Tales From The Twilight World (2018)",
+      "tracks": [
+        {
+          "track_name": "01 Traveler In Time.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12867215275764465,
+              "rms_db": -17.8103084564209,
+              "peak": 0.796548068523407,
+              "peak_db": -1.9757602214813232,
+              "crest_db": 15.834548950195312,
+              "spectral_centroid_hz": 4318.01777760253,
+              "spectral_rolloff_hz": 10966.246173333746
+            },
+            "remastered": {
+              "rms": 0.14524836838245392,
+              "rms_db": -16.757776260375977,
+              "peak": 0.819230318069458,
+              "peak_db": -1.731879711151123,
+              "crest_db": 15.025896072387695,
+              "spectral_centroid_hz": 3361.56996912393,
+              "spectral_rolloff_hz": 9338.298047389206
+            },
+            "difference": {
+              "rms_change_db": 1.0525321960449219,
+              "peak_change_db": 0.2438805103302002,
+              "crest_change_db": -0.8086528778076172,
+              "centroid_change_hz": -956.4478084786001,
+              "rolloff_change_hz": -1627.9481259445402
+            }
+          }
+        },
+        {
+          "track_name": "03 Weird Dreams.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.11419624835252762,
+              "rms_db": -18.84696388244629,
+              "peak": 0.7326117157936096,
+              "peak_db": -2.7025232315063477,
+              "crest_db": 16.144441604614258,
+              "spectral_centroid_hz": 3503.9543178334825,
+              "spectral_rolloff_hz": 10663.961653883793
+            },
+            "remastered": {
+              "rms": 0.13344553112983704,
+              "rms_db": -17.493919372558594,
+              "peak": 0.8217811584472656,
+              "peak_db": -1.70487642288208,
+              "crest_db": 15.789043426513672,
+              "spectral_centroid_hz": 3285.6526366252465,
+              "spectral_rolloff_hz": 9779.149005542877
+            },
+            "difference": {
+              "rms_change_db": 1.3530445098876953,
+              "peak_change_db": 0.9976468086242676,
+              "crest_change_db": -0.35539817810058594,
+              "centroid_change_hz": -218.301681208236,
+              "rolloff_change_hz": -884.812648340916
+            }
+          }
+        },
+        {
+          "track_name": "04 Lord Of The Rings.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.06520910561084747,
+              "rms_db": -23.713836669921875,
+              "peak": 0.6339911222457886,
+              "peak_db": -3.95833683013916,
+              "crest_db": 19.7554988861084,
+              "spectral_centroid_hz": 3493.6207303463534,
+              "spectral_rolloff_hz": 9971.978625568416
+            },
+            "remastered": {
+              "rms": 0.08602598309516907,
+              "rms_db": -21.307409286499023,
+              "peak": 0.6752442121505737,
+              "peak_db": -3.410782814025879,
+              "crest_db": 17.896625518798828,
+              "spectral_centroid_hz": 3623.812460813439,
+              "spectral_rolloff_hz": 10008.499832383506
+            },
+            "difference": {
+              "rms_change_db": 2.4064273834228516,
+              "peak_change_db": 0.5475540161132812,
+              "crest_change_db": -1.8588733673095703,
+              "centroid_change_hz": 130.19173046708556,
+              "rolloff_change_hz": 36.52120681509041
+            }
+          }
+        },
+        {
+          "track_name": "05 Goodbye My Friend.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.11721604317426682,
+              "rms_db": -18.620258331298828,
+              "peak": 0.722891092300415,
+              "peak_db": -2.818542718887329,
+              "crest_db": 15.801716804504395,
+              "spectral_centroid_hz": 3751.1874906003127,
+              "spectral_rolloff_hz": 9061.891064885165
+            },
+            "remastered": {
+              "rms": 0.1335095912218094,
+              "rms_db": -17.489749908447266,
+              "peak": 0.7483409643173218,
+              "peak_db": -2.518009901046753,
+              "crest_db": 14.971741676330566,
+              "spectral_centroid_hz": 3446.6891774579362,
+              "spectral_rolloff_hz": 9464.523856466878
+            },
+            "difference": {
+              "rms_change_db": 1.1305084228515625,
+              "peak_change_db": 0.30053281784057617,
+              "crest_change_db": -0.8299751281738281,
+              "centroid_change_hz": -304.49831314237645,
+              "rolloff_change_hz": 402.6327915817128
+            }
+          }
+        },
+        {
+          "track_name": "06 Lost In The Twilight Hall.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.10393162816762924,
+              "rms_db": -19.66504669189453,
+              "peak": 0.6188369989395142,
+              "peak_db": -4.1684746742248535,
+              "crest_db": 15.496572494506836,
+              "spectral_centroid_hz": 3884.020682440151,
+              "spectral_rolloff_hz": 9420.17331532322
+            },
+            "remastered": {
+              "rms": 0.1535717248916626,
+              "rms_db": -16.273775100708008,
+              "peak": 0.9268304109573364,
+              "peak_db": -0.6599944829940796,
+              "crest_db": 15.61378002166748,
+              "spectral_centroid_hz": 3373.397392441463,
+              "spectral_rolloff_hz": 9400.219744297543
+            },
+            "difference": {
+              "rms_change_db": 3.3912715911865234,
+              "peak_change_db": 3.508480191230774,
+              "crest_change_db": 0.11720752716064453,
+              "centroid_change_hz": -510.62328999868805,
+              "rolloff_change_hz": -19.953571025676865
+            }
+          }
+        },
+        {
+          "track_name": "07 Tommyknockers.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.11384362727403641,
+              "rms_db": -18.87382698059082,
+              "peak": 0.7222833633422852,
+              "peak_db": -2.825847864151001,
+              "crest_db": 16.047977447509766,
+              "spectral_centroid_hz": 4076.7399263909388,
+              "spectral_rolloff_hz": 9691.408636378252
+            },
+            "remastered": {
+              "rms": 0.14580900967121124,
+              "rms_db": -16.724313735961914,
+              "peak": 0.8791369199752808,
+              "peak_db": -1.118869662284851,
+              "crest_db": 15.605443954467773,
+              "spectral_centroid_hz": 3285.5382625810935,
+              "spectral_rolloff_hz": 9069.551446122345
+            },
+            "difference": {
+              "rms_change_db": 2.1495132446289062,
+              "peak_change_db": 1.70697820186615,
+              "crest_change_db": -0.4425334930419922,
+              "centroid_change_hz": -791.2016638098453,
+              "rolloff_change_hz": -621.857190255907
+            }
+          }
+        },
+        {
+          "track_name": "09 The Last Candle.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.11002155393362045,
+              "rms_db": -19.17044448852539,
+              "peak": 0.6607354879379272,
+              "peak_db": -3.599447727203369,
+              "crest_db": 15.57099723815918,
+              "spectral_centroid_hz": 3882.2962857419943,
+              "spectral_rolloff_hz": 9285.249912514308
+            },
+            "remastered": {
+              "rms": 0.13274024426937103,
+              "rms_db": -17.539947509765625,
+              "peak": 0.7964120507240295,
+              "peak_db": -1.9772435426712036,
+              "crest_db": 15.562705039978027,
+              "spectral_centroid_hz": 3409.7917842546,
+              "spectral_rolloff_hz": 9200.692635132655
+            },
+            "difference": {
+              "rms_change_db": 1.6304969787597656,
+              "peak_change_db": 1.6222041845321655,
+              "crest_change_db": -0.008292198181152344,
+              "centroid_change_hz": -472.50450148739446,
+              "rolloff_change_hz": -84.55727738165297
+            }
+          }
+        }
+      ]
+    },
+    "1992 - Somewhere Far Beyond": {
+      "original_album": "1992 - Somewhere Far Beyond",
+      "remaster_album": "1992 - Somewhere Far Beyond (2018)",
+      "tracks": [
+        {
+          "track_name": "01 Time What Is Time.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.10668078809976578,
+              "rms_db": -19.438276290893555,
+              "peak": 0.7380120754241943,
+              "peak_db": -2.638731002807617,
+              "crest_db": 16.799545288085938,
+              "spectral_centroid_hz": 3897.225272545273,
+              "spectral_rolloff_hz": 9878.020031911758
+            },
+            "remastered": {
+              "rms": 0.12826405465602875,
+              "rms_db": -17.837902069091797,
+              "peak": 0.9186573028564453,
+              "peak_db": -0.7369292974472046,
+              "crest_db": 17.100971221923828,
+              "spectral_centroid_hz": 3424.6730079799654,
+              "spectral_rolloff_hz": 9522.12227444333
+            },
+            "difference": {
+              "rms_change_db": 1.6003742218017578,
+              "peak_change_db": 1.9018017053604126,
+              "crest_change_db": 0.3014259338378906,
+              "centroid_change_hz": -472.5522645653077,
+              "rolloff_change_hz": -355.8977574684268
+            }
+          }
+        },
+        {
+          "track_name": "02 Journey Through The Dark.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.13995325565338135,
+              "rms_db": -17.080341339111328,
+              "peak": 0.8518853187561035,
+              "peak_db": -1.3923773765563965,
+              "crest_db": 15.687962532043457,
+              "spectral_centroid_hz": 4052.9196219113105,
+              "spectral_rolloff_hz": 10708.725155900409
+            },
+            "remastered": {
+              "rms": 0.13029073178768158,
+              "rms_db": -17.70172882080078,
+              "peak": 0.7018671631813049,
+              "peak_db": -3.074901580810547,
+              "crest_db": 14.62682819366455,
+              "spectral_centroid_hz": 3326.8029694128813,
+              "spectral_rolloff_hz": 9031.171875
+            },
+            "difference": {
+              "rms_change_db": -0.6213874816894531,
+              "peak_change_db": -1.6825242042541504,
+              "crest_change_db": -1.0611343383789062,
+              "centroid_change_hz": -726.1166524984292,
+              "rolloff_change_hz": -1677.553280900409
+            }
+          }
+        },
+        {
+          "track_name": "03 Black Chamber.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.061508726328611374,
+              "rms_db": -24.22126579284668,
+              "peak": 0.5763023495674133,
+              "peak_db": -4.78699254989624,
+              "crest_db": 19.43427276611328,
+              "spectral_centroid_hz": 3785.2876089115607,
+              "spectral_rolloff_hz": 11519.382255162918
+            },
+            "remastered": {
+              "rms": 0.04389428347349167,
+              "rms_db": -27.15184211730957,
+              "peak": 0.31744450330734253,
+              "peak_db": -9.966644287109375,
+              "crest_db": 17.185195922851562,
+              "spectral_centroid_hz": 3123.497334545849,
+              "spectral_rolloff_hz": 9786.780776092775
+            },
+            "difference": {
+              "rms_change_db": -2.9305763244628906,
+              "peak_change_db": -5.179651737213135,
+              "crest_change_db": -2.2490768432617188,
+              "centroid_change_hz": -661.7902743657119,
+              "rolloff_change_hz": -1732.601479070143
+            }
+          }
+        },
+        {
+          "track_name": "04 Theatre Of Pain.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12869957089424133,
+              "rms_db": -17.80845832824707,
+              "peak": 0.7901793122291565,
+              "peak_db": -2.0454869270324707,
+              "crest_db": 15.762971878051758,
+              "spectral_centroid_hz": 3947.8898584606927,
+              "spectral_rolloff_hz": 10865.544952245402
+            },
+            "remastered": {
+              "rms": 0.11738226562738419,
+              "rms_db": -18.60795021057129,
+              "peak": 0.6459500789642334,
+              "peak_db": -3.796020984649658,
+              "crest_db": 14.811930656433105,
+              "spectral_centroid_hz": 3472.768920097465,
+              "spectral_rolloff_hz": 9817.514661594549
+            },
+            "difference": {
+              "rms_change_db": -0.7994918823242188,
+              "peak_change_db": -1.7505340576171875,
+              "crest_change_db": -0.9510412216186523,
+              "centroid_change_hz": -475.12093836322765,
+              "rolloff_change_hz": -1048.0302906508532
+            }
+          }
+        },
+        {
+          "track_name": "05 The Quest For Tanelorn.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12180611491203308,
+              "rms_db": -18.286617279052734,
+              "peak": 0.7421263456344604,
+              "peak_db": -2.5904431343078613,
+              "crest_db": 15.696176528930664,
+              "spectral_centroid_hz": 3701.058822066911,
+              "spectral_rolloff_hz": 9514.698535175048
+            },
+            "remastered": {
+              "rms": 0.1074146255850792,
+              "rms_db": -19.378732681274414,
+              "peak": 0.6780203580856323,
+              "peak_db": -3.375145435333252,
+              "crest_db": 16.003585815429688,
+              "spectral_centroid_hz": 3135.700008169022,
+              "spectral_rolloff_hz": 8463.655929939141
+            },
+            "difference": {
+              "rms_change_db": -1.0921154022216797,
+              "peak_change_db": -0.7847023010253906,
+              "crest_change_db": 0.30740928649902344,
+              "centroid_change_hz": -565.3588138978889,
+              "rolloff_change_hz": -1051.042605235907
+            }
+          }
+        },
+        {
+          "track_name": "06 Ashes To Ashes.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.13398194313049316,
+              "rms_db": -17.459074020385742,
+              "peak": 0.8036764860153198,
+              "peak_db": -1.8983747959136963,
+              "crest_db": 15.560701370239258,
+              "spectral_centroid_hz": 4129.251280016538,
+              "spectral_rolloff_hz": 11245.363888888889
+            },
+            "remastered": {
+              "rms": 0.12623845040798187,
+              "rms_db": -17.976167678833008,
+              "peak": 0.8238028287887573,
+              "peak_db": -1.6835343837738037,
+              "crest_db": 16.292633056640625,
+              "spectral_centroid_hz": 3761.342538521406,
+              "spectral_rolloff_hz": 10246.150674387918
+            },
+            "difference": {
+              "rms_change_db": -0.5170936584472656,
+              "peak_change_db": 0.21484041213989258,
+              "crest_change_db": 0.7319316864013672,
+              "centroid_change_hz": -367.90874149513184,
+              "rolloff_change_hz": -999.2132145009709
+            }
+          }
+        },
+        {
+          "track_name": "07 The Bard's Song - In The Forest.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.07852388918399811,
+              "rms_db": -22.099964141845703,
+              "peak": 0.5560566782951355,
+              "peak_db": -5.09761905670166,
+              "crest_db": 17.00234603881836,
+              "spectral_centroid_hz": 3025.8594315781847,
+              "spectral_rolloff_hz": 9344.258675947665
+            },
+            "remastered": {
+              "rms": 0.07512146979570389,
+              "rms_db": -22.48472023010254,
+              "peak": 0.4631926417350769,
+              "peak_db": -6.68476676940918,
+              "crest_db": 15.799951553344727,
+              "spectral_centroid_hz": 3232.99450953092,
+              "spectral_rolloff_hz": 9971.100996815727
+            },
+            "difference": {
+              "rms_change_db": -0.38475608825683594,
+              "peak_change_db": -1.5871477127075195,
+              "crest_change_db": -1.2023944854736328,
+              "centroid_change_hz": 207.13507795273517,
+              "rolloff_change_hz": 626.8423208680615
+            }
+          }
+        },
+        {
+          "track_name": "08 The Bard's Song - The Hobbit.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.11148779094219208,
+              "rms_db": -19.05545425415039,
+              "peak": 0.838522732257843,
+              "peak_db": -1.529703140258789,
+              "crest_db": 17.5257511138916,
+              "spectral_centroid_hz": 3415.1549002062766,
+              "spectral_rolloff_hz": 9517.633611735922
+            },
+            "remastered": {
+              "rms": 0.11695369333028793,
+              "rms_db": -18.639720916748047,
+              "peak": 0.7290240526199341,
+              "peak_db": -2.7451632022857666,
+              "crest_db": 15.89455795288086,
+              "spectral_centroid_hz": 3508.023778020254,
+              "spectral_rolloff_hz": 9739.409996356126
+            },
+            "difference": {
+              "rms_change_db": 0.41573333740234375,
+              "peak_change_db": -1.2154600620269775,
+              "crest_change_db": -1.6311931610107422,
+              "centroid_change_hz": 92.86887781397763,
+              "rolloff_change_hz": 221.77638462020332
+            }
+          }
+        },
+        {
+          "track_name": "09 The Piper's Calling.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.10087147355079651,
+              "rms_db": -19.924633026123047,
+              "peak": 0.5718405842781067,
+              "peak_db": -4.854500770568848,
+              "crest_db": 15.070133209228516,
+              "spectral_centroid_hz": 3261.426335275107,
+              "spectral_rolloff_hz": 9126.726942149522
+            },
+            "remastered": {
+              "rms": 0.04395338147878647,
+              "rms_db": -27.14015769958496,
+              "peak": 0.2814520001411438,
+              "peak_db": -11.011914253234863,
+              "crest_db": 16.12824058532715,
+              "spectral_centroid_hz": 4282.887529880316,
+              "spectral_rolloff_hz": 9185.763034235848
+            },
+            "difference": {
+              "rms_change_db": -7.215524673461914,
+              "peak_change_db": -6.157413482666016,
+              "crest_change_db": 1.0581073760986328,
+              "centroid_change_hz": 1021.4611946052091,
+              "rolloff_change_hz": 59.03609208632588
+            }
+          }
+        },
+        {
+          "track_name": "10 Somewhere Far Beyond.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.13656237721443176,
+              "rms_db": -17.293378829956055,
+              "peak": 0.8233264684677124,
+              "peak_db": -1.6885584592819214,
+              "crest_db": 15.604820251464844,
+              "spectral_centroid_hz": 3412.4603736355316,
+              "spectral_rolloff_hz": 8047.397777777778
+            },
+            "remastered": {
+              "rms": 0.11264307796955109,
+              "rms_db": -18.965909957885742,
+              "peak": 0.6663414835929871,
+              "peak_db": -3.5260629653930664,
+              "crest_db": 15.439847946166992,
+              "spectral_centroid_hz": 3541.890601482824,
+              "spectral_rolloff_hz": 9267.071446954547
+            },
+            "difference": {
+              "rms_change_db": -1.6725311279296875,
+              "peak_change_db": -1.837504506111145,
+              "crest_change_db": -0.16497230529785156,
+              "centroid_change_hz": 129.43022784729237,
+              "rolloff_change_hz": 1219.6736691767692
+            }
+          }
+        }
+      ]
+    },
+    "1995 - Imaginations From The Other Side": {
+      "original_album": "1995 - Imaginations From The Other Side",
+      "remaster_album": "1995 - Imaginations From The Other Side (2018)",
+      "tracks": [
+        {
+          "track_name": "01 Imaginations From The Other Side.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.16904056072235107,
+              "rms_db": -15.440181732177734,
+              "peak": 0.839119553565979,
+              "peak_db": -1.523523211479187,
+              "crest_db": 13.916659355163574,
+              "spectral_centroid_hz": 3330.8636128561807,
+              "spectral_rolloff_hz": 9043.44285597104
+            },
+            "remastered": {
+              "rms": 0.14247800409793854,
+              "rms_db": -16.925045013427734,
+              "peak": 0.8938077688217163,
+              "peak_db": -0.9751174449920654,
+              "crest_db": 15.949926376342773,
+              "spectral_centroid_hz": 3513.6736747704304,
+              "spectral_rolloff_hz": 9106.31774495655
+            },
+            "difference": {
+              "rms_change_db": -1.48486328125,
+              "peak_change_db": 0.5484057664871216,
+              "crest_change_db": 2.033267021179199,
+              "centroid_change_hz": 182.81006191424967,
+              "rolloff_change_hz": 62.87488898551055
+            }
+          }
+        },
+        {
+          "track_name": "02 I'm Alive.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1545538753271103,
+              "rms_db": -16.218402862548828,
+              "peak": 0.7965333461761475,
+              "peak_db": -1.9759207963943481,
+              "crest_db": 14.24248218536377,
+              "spectral_centroid_hz": 3811.799842408822,
+              "spectral_rolloff_hz": 11874.807455161003
+            },
+            "remastered": {
+              "rms": 0.15239763259887695,
+              "rms_db": -16.340435028076172,
+              "peak": 0.8726720809936523,
+              "peak_db": -1.1829782724380493,
+              "crest_db": 15.15745735168457,
+              "spectral_centroid_hz": 3210.473762128541,
+              "spectral_rolloff_hz": 9479.482303010891
+            },
+            "difference": {
+              "rms_change_db": -0.12203216552734375,
+              "peak_change_db": 0.7929425239562988,
+              "crest_change_db": 0.9149751663208008,
+              "centroid_change_hz": -601.3260802802811,
+              "rolloff_change_hz": -2395.3251521501115
+            }
+          }
+        },
+        {
+          "track_name": "03 A Past And Future Secret.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12696030735969543,
+              "rms_db": -17.926639556884766,
+              "peak": 0.7844148278236389,
+              "peak_db": -2.109084129333496,
+              "crest_db": 15.817556381225586,
+              "spectral_centroid_hz": 2790.9198296256745,
+              "spectral_rolloff_hz": 9829.270633406943
+            },
+            "remastered": {
+              "rms": 0.11609478294849396,
+              "rms_db": -18.703744888305664,
+              "peak": 0.8714136481285095,
+              "peak_db": -1.1955128908157349,
+              "crest_db": 17.50823402404785,
+              "spectral_centroid_hz": 3349.865844603776,
+              "spectral_rolloff_hz": 10610.003473428274
+            },
+            "difference": {
+              "rms_change_db": -0.7771053314208984,
+              "peak_change_db": 0.9135712385177612,
+              "crest_change_db": 1.6906776428222656,
+              "centroid_change_hz": 558.9460149781016,
+              "rolloff_change_hz": 780.7328400213319
+            }
+          }
+        },
+        {
+          "track_name": "04 The Script For My Requiem.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1781989336013794,
+              "rms_db": -14.981898307800293,
+              "peak": 0.7880920171737671,
+              "peak_db": -2.0684614181518555,
+              "crest_db": 12.913436889648438,
+              "spectral_centroid_hz": 3425.0828883476174,
+              "spectral_rolloff_hz": 10841.95352287032
+            },
+            "remastered": {
+              "rms": 0.14820392429828644,
+              "rms_db": -16.582805633544922,
+              "peak": 0.8882648348808289,
+              "peak_db": -1.0291506052017212,
+              "crest_db": 15.553655624389648,
+              "spectral_centroid_hz": 3301.047997714875,
+              "spectral_rolloff_hz": 10098.252304036478
+            },
+            "difference": {
+              "rms_change_db": -1.600907325744629,
+              "peak_change_db": 1.0393108129501343,
+              "crest_change_db": 2.640218734741211,
+              "centroid_change_hz": -124.03489063274264,
+              "rolloff_change_hz": -743.7012188338431
+            }
+          }
+        },
+        {
+          "track_name": "05 Mordred's Song.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1447199136018753,
+              "rms_db": -16.7894344329834,
+              "peak": 0.8360826969146729,
+              "peak_db": -1.5550153255462646,
+              "crest_db": 15.234418869018555,
+              "spectral_centroid_hz": 4215.8638258366145,
+              "spectral_rolloff_hz": 12998.304739673338
+            },
+            "remastered": {
+              "rms": 0.11801892518997192,
+              "rms_db": -18.56096649169922,
+              "peak": 0.7725951671600342,
+              "peak_db": -2.2409603595733643,
+              "crest_db": 16.32000732421875,
+              "spectral_centroid_hz": 3369.410175906363,
+              "spectral_rolloff_hz": 9917.08254135156
+            },
+            "difference": {
+              "rms_change_db": -1.7715320587158203,
+              "peak_change_db": -0.6859450340270996,
+              "crest_change_db": 1.0855884552001953,
+              "centroid_change_hz": -846.4536499302517,
+              "rolloff_change_hz": -3081.2221983217787
+            }
+          }
+        },
+        {
+          "track_name": "06 Born In A Mourning Hall.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.18122346699237823,
+              "rms_db": -14.835711479187012,
+              "peak": 0.7933720946311951,
+              "peak_db": -2.0104615688323975,
+              "crest_db": 12.825250625610352,
+              "spectral_centroid_hz": 3948.1611354162783,
+              "spectral_rolloff_hz": 12644.04133671999
+            },
+            "remastered": {
+              "rms": 0.13629306852817535,
+              "rms_db": -17.31052589416504,
+              "peak": 0.8128779530525208,
+              "peak_db": -1.7994930744171143,
+              "crest_db": 15.511032104492188,
+              "spectral_centroid_hz": 3251.6567945664397,
+              "spectral_rolloff_hz": 9360.311760729976
+            },
+            "difference": {
+              "rms_change_db": -2.4748144149780273,
+              "peak_change_db": 0.2109684944152832,
+              "crest_change_db": 2.685781478881836,
+              "centroid_change_hz": -696.5043408498386,
+              "rolloff_change_hz": -3283.7295759900153
+            }
+          }
+        },
+        {
+          "track_name": "07 Bright Eyes.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.14880402386188507,
+              "rms_db": -16.547706604003906,
+              "peak": 0.79585862159729,
+              "peak_db": -1.9832814931869507,
+              "crest_db": 14.56442642211914,
+              "spectral_centroid_hz": 3784.5819238863764,
+              "spectral_rolloff_hz": 11472.534989714424
+            },
+            "remastered": {
+              "rms": 0.15598535537719727,
+              "rms_db": -16.138322830200195,
+              "peak": 0.8848682641983032,
+              "peak_db": -1.0624275207519531,
+              "crest_db": 15.075895309448242,
+              "spectral_centroid_hz": 3520.4345977942294,
+              "spectral_rolloff_hz": 10622.511170501524
+            },
+            "difference": {
+              "rms_change_db": 0.40938377380371094,
+              "peak_change_db": 0.9208539724349976,
+              "crest_change_db": 0.5114688873291016,
+              "centroid_change_hz": -264.14732609214707,
+              "rolloff_change_hz": -850.0238192129
+            }
+          }
+        },
+        {
+          "track_name": "08 Another Holy War.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.15713584423065186,
+              "rms_db": -16.074495315551758,
+              "peak": 0.8067704439163208,
+              "peak_db": -1.8650004863739014,
+              "crest_db": 14.209494590759277,
+              "spectral_centroid_hz": 3407.253987470869,
+              "spectral_rolloff_hz": 9887.77037037037
+            },
+            "remastered": {
+              "rms": 0.13916295766830444,
+              "rms_db": -17.129528045654297,
+              "peak": 0.8420835733413696,
+              "peak_db": -1.4928960800170898,
+              "crest_db": 15.63663101196289,
+              "spectral_centroid_hz": 3339.0124466967827,
+              "spectral_rolloff_hz": 9768.21032146461
+            },
+            "difference": {
+              "rms_change_db": -1.055032730102539,
+              "peak_change_db": 0.3721044063568115,
+              "crest_change_db": 1.4271364212036133,
+              "centroid_change_hz": -68.24154077408639,
+              "rolloff_change_hz": -119.56004890575969
+            }
+          }
+        },
+        {
+          "track_name": "09 And The Story Ends.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1773054003715515,
+              "rms_db": -15.02556037902832,
+              "peak": 0.7966598272323608,
+              "peak_db": -1.9745415449142456,
+              "crest_db": 13.051019668579102,
+              "spectral_centroid_hz": 3362.874146816621,
+              "spectral_rolloff_hz": 10471.6484538397
+            },
+            "remastered": {
+              "rms": 0.13846339285373688,
+              "rms_db": -17.173301696777344,
+              "peak": 0.8909484148025513,
+              "peak_db": -1.0029487609863281,
+              "crest_db": 16.170351028442383,
+              "spectral_centroid_hz": 3334.9355588575622,
+              "spectral_rolloff_hz": 10215.700883002206
+            },
+            "difference": {
+              "rms_change_db": -2.1477413177490234,
+              "peak_change_db": 0.9715927839279175,
+              "crest_change_db": 3.1193313598632812,
+              "centroid_change_hz": -27.938587959058623,
+              "rolloff_change_hz": -255.9475708374939
+            }
+          }
+        }
+      ]
+    },
+    "1998 - Nightfall In Middle-Earth": {
+      "original_album": "1998 - Nightfall In Middle-Earth",
+      "remaster_album": "1998 - Nightfall In Middle-Earth (2018)",
+      "tracks": [
+        {
+          "track_name": "01 War Of Wrath.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.05985942482948303,
+              "rms_db": -24.45734977722168,
+              "peak": 0.47977155447006226,
+              "peak_db": -6.379310607910156,
+              "crest_db": 18.078039169311523,
+              "spectral_centroid_hz": 3439.985336441967,
+              "spectral_rolloff_hz": 11269.865474542523
+            },
+            "remastered": {
+              "rms": 0.08217375725507736,
+              "rms_db": -21.705339431762695,
+              "peak": 0.6777044534683228,
+              "peak_db": -3.3791933059692383,
+              "crest_db": 18.32614517211914,
+              "spectral_centroid_hz": 4149.62628532271,
+              "spectral_rolloff_hz": 11816.07730263158
+            },
+            "difference": {
+              "rms_change_db": 2.7520103454589844,
+              "peak_change_db": 3.000117301940918,
+              "crest_change_db": 0.2481060028076172,
+              "centroid_change_hz": 709.640948880743,
+              "rolloff_change_hz": 546.2118280890572
+            }
+          }
+        },
+        {
+          "track_name": "02 Into The Storm.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.14195622503757477,
+              "rms_db": -16.956911087036133,
+              "peak": 0.9336267709732056,
+              "peak_db": -0.5965340733528137,
+              "crest_db": 16.360376358032227,
+              "spectral_centroid_hz": 3908.011497995379,
+              "spectral_rolloff_hz": 11159.071557546014
+            },
+            "remastered": {
+              "rms": 0.16826899349689484,
+              "rms_db": -15.479918479919434,
+              "peak": 0.9627445936203003,
+              "peak_db": -0.3297782242298126,
+              "crest_db": 15.150140762329102,
+              "spectral_centroid_hz": 4073.300636404893,
+              "spectral_rolloff_hz": 10908.833935561577
+            },
+            "difference": {
+              "rms_change_db": 1.4769926071166992,
+              "peak_change_db": 0.2667558491230011,
+              "crest_change_db": -1.210235595703125,
+              "centroid_change_hz": 165.28913840951373,
+              "rolloff_change_hz": -250.23762198443728
+            }
+          }
+        },
+        {
+          "track_name": "03 Lammoth.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.05996379256248474,
+              "rms_db": -24.442218780517578,
+              "peak": 0.3557884395122528,
+              "peak_db": -8.976163864135742,
+              "crest_db": 15.466055870056152,
+              "spectral_centroid_hz": 1963.1930388894589,
+              "spectral_rolloff_hz": 6747.362755651238
+            },
+            "remastered": {
+              "rms": 0.12017061561346054,
+              "rms_db": -18.404033660888672,
+              "peak": 0.6408153176307678,
+              "peak_db": -3.865342617034912,
+              "crest_db": 14.538692474365234,
+              "spectral_centroid_hz": 2226.8930243710865,
+              "spectral_rolloff_hz": 7851.5876893014165
+            },
+            "difference": {
+              "rms_change_db": 6.038185119628906,
+              "peak_change_db": 5.11082124710083,
+              "crest_change_db": -0.927363395690918,
+              "centroid_change_hz": 263.69998548162766,
+              "rolloff_change_hz": 1104.2249336501782
+            }
+          }
+        },
+        {
+          "track_name": "04 Nightfall.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.14048460125923157,
+              "rms_db": -17.047426223754883,
+              "peak": 0.9563373923301697,
+              "peak_db": -0.38777726888656616,
+              "crest_db": 16.659648895263672,
+              "spectral_centroid_hz": 3256.3844555679902,
+              "spectral_rolloff_hz": 9811.36965433161
+            },
+            "remastered": {
+              "rms": 0.15792584419250488,
+              "rms_db": -16.03093719482422,
+              "peak": 1.0064504146575928,
+              "peak_db": 0.0558476597070694,
+              "crest_db": 16.08678436279297,
+              "spectral_centroid_hz": 3824.840500981517,
+              "spectral_rolloff_hz": 10546.250600384246
+            },
+            "difference": {
+              "rms_change_db": 1.016489028930664,
+              "peak_change_db": 0.44362492859363556,
+              "crest_change_db": -0.5728645324707031,
+              "centroid_change_hz": 568.4560454135267,
+              "rolloff_change_hz": 734.8809460526372
+            }
+          }
+        },
+        {
+          "track_name": "05 The Minstrel.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.043683670461177826,
+              "rms_db": -27.193620681762695,
+              "peak": 0.2873137593269348,
+              "peak_db": -10.83287239074707,
+              "crest_db": 16.360746383666992,
+              "spectral_centroid_hz": 2771.4150501046975,
+              "spectral_rolloff_hz": 10939.610397684592
+            },
+            "remastered": {
+              "rms": 0.05127507448196411,
+              "rms_db": -25.801876068115234,
+              "peak": 0.3496754765510559,
+              "peak_db": -9.126697540283203,
+              "crest_db": 16.67517852783203,
+              "spectral_centroid_hz": 3574.70659926279,
+              "spectral_rolloff_hz": 11566.848523748395
+            },
+            "difference": {
+              "rms_change_db": 1.391744613647461,
+              "peak_change_db": 1.7061748504638672,
+              "crest_change_db": 0.31443214416503906,
+              "centroid_change_hz": 803.2915491580925,
+              "rolloff_change_hz": 627.2381260638031
+            }
+          }
+        },
+        {
+          "track_name": "07 Captured.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.04269490763545036,
+              "rms_db": -27.392480850219727,
+              "peak": 0.2815626561641693,
+              "peak_db": -11.008500099182129,
+              "crest_db": 16.38397979736328,
+              "spectral_centroid_hz": 2467.89127450263,
+              "spectral_rolloff_hz": 9480.738693008629
+            },
+            "remastered": {
+              "rms": 0.06263986974954605,
+              "rms_db": -24.062984466552734,
+              "peak": 0.4482712149620056,
+              "peak_db": -6.969182968139648,
+              "crest_db": 17.093799591064453,
+              "spectral_centroid_hz": 2920.9950160850394,
+              "spectral_rolloff_hz": 10370.982986767485
+            },
+            "difference": {
+              "rms_change_db": 3.329496383666992,
+              "peak_change_db": 4.0393171310424805,
+              "crest_change_db": 0.7098197937011719,
+              "centroid_change_hz": 453.1037415824094,
+              "rolloff_change_hz": 890.2442937588567
+            }
+          }
+        },
+        {
+          "track_name": "08 Blood Tears.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12681131064891815,
+              "rms_db": -17.936840057373047,
+              "peak": 0.8286471366882324,
+              "peak_db": -1.6326072216033936,
+              "crest_db": 16.30423355102539,
+              "spectral_centroid_hz": 3486.681777578341,
+              "spectral_rolloff_hz": 9484.438294270318
+            },
+            "remastered": {
+              "rms": 0.15201324224472046,
+              "rms_db": -16.36237144470215,
+              "peak": 0.9754593372344971,
+              "peak_db": -0.21581661701202393,
+              "crest_db": 16.146554946899414,
+              "spectral_centroid_hz": 4145.904684369109,
+              "spectral_rolloff_hz": 11096.142090818363
+            },
+            "difference": {
+              "rms_change_db": 1.5744686126708984,
+              "peak_change_db": 1.4167906045913696,
+              "crest_change_db": -0.15767860412597656,
+              "centroid_change_hz": 659.2229067907683,
+              "rolloff_change_hz": 1611.703796548045
+            }
+          }
+        },
+        {
+          "track_name": "09 Mirror Mirror.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1321273148059845,
+              "rms_db": -17.580148696899414,
+              "peak": 0.7856678366661072,
+              "peak_db": -2.0952205657958984,
+              "crest_db": 15.484928131103516,
+              "spectral_centroid_hz": 3334.2315667395296,
+              "spectral_rolloff_hz": 9327.365782406343
+            },
+            "remastered": {
+              "rms": 0.17269670963287354,
+              "rms_db": -15.254318237304688,
+              "peak": 0.9313924312591553,
+              "peak_db": -0.617345929145813,
+              "crest_db": 14.63697338104248,
+              "spectral_centroid_hz": 4065.685727011382,
+              "spectral_rolloff_hz": 10933.57490547177
+            },
+            "difference": {
+              "rms_change_db": 2.3258304595947266,
+              "peak_change_db": 1.4778746366500854,
+              "crest_change_db": -0.8479547500610352,
+              "centroid_change_hz": 731.4541602718523,
+              "rolloff_change_hz": 1606.2091230654278
+            }
+          }
+        },
+        {
+          "track_name": "10 Face The Truth.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.033970125019550323,
+              "rms_db": -29.37805938720703,
+              "peak": 0.2140350639820099,
+              "peak_db": -13.390301704406738,
+              "crest_db": 15.987756729125977,
+              "spectral_centroid_hz": 3121.33484014337,
+              "spectral_rolloff_hz": 10110.773130544992
+            },
+            "remastered": {
+              "rms": 0.046791378408670425,
+              "rms_db": -26.596683502197266,
+              "peak": 0.40750813484191895,
+              "peak_db": -7.797274589538574,
+              "crest_db": 18.799409866333008,
+              "spectral_centroid_hz": 3701.716365561077,
+              "spectral_rolloff_hz": 10958.64312267658
+            },
+            "difference": {
+              "rms_change_db": 2.7813758850097656,
+              "peak_change_db": 5.593027114868164,
+              "crest_change_db": 2.8116531372070312,
+              "centroid_change_hz": 580.381525417707,
+              "rolloff_change_hz": 847.8699921315874
+            }
+          }
+        },
+        {
+          "track_name": "11 Noldor (Dead Winter Reigns).flac",
+          "metrics": {
+            "original": {
+              "rms": 0.13632522523403168,
+              "rms_db": -17.308475494384766,
+              "peak": 0.9745620489120483,
+              "peak_db": -0.2238100916147232,
+              "crest_db": 17.084667205810547,
+              "spectral_centroid_hz": 3357.2395955185693,
+              "spectral_rolloff_hz": 9540.301461821518
+            },
+            "remastered": {
+              "rms": 0.13838236033916473,
+              "rms_db": -17.17838478088379,
+              "peak": 0.8649471998214722,
+              "peak_db": -1.260208010673523,
+              "crest_db": 15.918177604675293,
+              "spectral_centroid_hz": 4089.745816192944,
+              "spectral_rolloff_hz": 10230.147497909269
+            },
+            "difference": {
+              "rms_change_db": 0.13009071350097656,
+              "peak_change_db": -1.0363979190587997,
+              "crest_change_db": -1.166489601135254,
+              "centroid_change_hz": 732.5062206743746,
+              "rolloff_change_hz": 689.8460360877507
+            }
+          }
+        },
+        {
+          "track_name": "12 Battle Of Sudden Flame.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.04194415360689163,
+              "rms_db": -27.546573638916016,
+              "peak": 0.25430673360824585,
+              "peak_db": -11.892843246459961,
+              "crest_db": 15.653728485107422,
+              "spectral_centroid_hz": 2165.7258565264005,
+              "spectral_rolloff_hz": 9849.084625862079
+            },
+            "remastered": {
+              "rms": 0.06103312224149704,
+              "rms_db": -24.2886905670166,
+              "peak": 0.3944805860519409,
+              "peak_db": -8.079487800598145,
+              "crest_db": 16.209199905395508,
+              "spectral_centroid_hz": 2550.2414574528066,
+              "spectral_rolloff_hz": 10259.310732647817
+            },
+            "difference": {
+              "rms_change_db": 3.257883071899414,
+              "peak_change_db": 3.8133554458618164,
+              "crest_change_db": 0.5554714202880859,
+              "centroid_change_hz": 384.515600926406,
+              "rolloff_change_hz": 410.226106785738
+            }
+          }
+        },
+        {
+          "track_name": "13 Time Stands Still (At The Iron Hill).flac",
+          "metrics": {
+            "original": {
+              "rms": 0.13862138986587524,
+              "rms_db": -17.163394927978516,
+              "peak": 0.8769553899765015,
+              "peak_db": -1.1404500007629395,
+              "crest_db": 16.022945404052734,
+              "spectral_centroid_hz": 3721.97736031787,
+              "spectral_rolloff_hz": 10273.692032265351
+            },
+            "remastered": {
+              "rms": 0.15544578433036804,
+              "rms_db": -16.168420791625977,
+              "peak": 0.9888157844543457,
+              "peak_db": -0.09769219905138016,
+              "crest_db": 16.070730209350586,
+              "spectral_centroid_hz": 4297.709218661392,
+              "spectral_rolloff_hz": 11049.761625016945
+            },
+            "difference": {
+              "rms_change_db": 0.9949741363525391,
+              "peak_change_db": 1.0427578017115593,
+              "crest_change_db": 0.04778480529785156,
+              "centroid_change_hz": 575.7318583435217,
+              "rolloff_change_hz": 776.0695927515935
+            }
+          }
+        },
+        {
+          "track_name": "14 The Dark Elf.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.03242466598749161,
+              "rms_db": -29.782489776611328,
+              "peak": 0.21904191374778748,
+              "peak_db": -13.189456939697266,
+              "crest_db": 16.593034744262695,
+              "spectral_centroid_hz": 2455.80073547385,
+              "spectral_rolloff_hz": 10870.029878348885
+            },
+            "remastered": {
+              "rms": 0.04309464618563652,
+              "rms_db": -27.311534881591797,
+              "peak": 0.30160054564476013,
+              "peak_db": -10.411357879638672,
+              "crest_db": 16.900177001953125,
+              "spectral_centroid_hz": 2872.188376904951,
+              "spectral_rolloff_hz": 11140.514748409485
+            },
+            "difference": {
+              "rms_change_db": 2.4709548950195312,
+              "peak_change_db": 2.7780990600585938,
+              "crest_change_db": 0.3071422576904297,
+              "centroid_change_hz": 416.38764143110075,
+              "rolloff_change_hz": 270.48487006059986
+            }
+          }
+        },
+        {
+          "track_name": "15 Thorn.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.11908166855573654,
+              "rms_db": -18.483102798461914,
+              "peak": 0.7605498433113098,
+              "peak_db": -2.377446413040161,
+              "crest_db": 16.105655670166016,
+              "spectral_centroid_hz": 3625.9676038888806,
+              "spectral_rolloff_hz": 10237.6185202281
+            },
+            "remastered": {
+              "rms": 0.14944790303707123,
+              "rms_db": -16.510204315185547,
+              "peak": 0.8741104602813721,
+              "peak_db": -1.1686736345291138,
+              "crest_db": 15.341529846191406,
+              "spectral_centroid_hz": 4142.156567078645,
+              "spectral_rolloff_hz": 11001.971338816138
+            },
+            "difference": {
+              "rms_change_db": 1.9728984832763672,
+              "peak_change_db": 1.2087727785110474,
+              "crest_change_db": -0.7641258239746094,
+              "centroid_change_hz": 516.1889631897643,
+              "rolloff_change_hz": 764.3528185880386
+            }
+          }
+        },
+        {
+          "track_name": "16 The Eldar.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.08080952614545822,
+              "rms_db": -21.850749969482422,
+              "peak": 0.5812472105026245,
+              "peak_db": -4.712782859802246,
+              "crest_db": 17.137968063354492,
+              "spectral_centroid_hz": 2756.366249293257,
+              "spectral_rolloff_hz": 8996.372673721518
+            },
+            "remastered": {
+              "rms": 0.09564077854156494,
+              "rms_db": -20.38713836669922,
+              "peak": 0.6899255514144897,
+              "peak_db": -3.2239556312561035,
+              "crest_db": 17.163183212280273,
+              "spectral_centroid_hz": 3023.7972672548576,
+              "spectral_rolloff_hz": 9699.926565081696
+            },
+            "difference": {
+              "rms_change_db": 1.4636116027832031,
+              "peak_change_db": 1.4888272285461426,
+              "crest_change_db": 0.02521514892578125,
+              "centroid_change_hz": 267.43101796160045,
+              "rolloff_change_hz": 703.5538913601777
+            }
+          }
+        },
+        {
+          "track_name": "17 Nom The Wise.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.016642723232507706,
+              "rms_db": -35.57551574707031,
+              "peak": 0.21445415914058685,
+              "peak_db": -13.373310089111328,
+              "crest_db": 22.20220375061035,
+              "spectral_centroid_hz": 3134.5303368733344,
+              "spectral_rolloff_hz": 11532.190359975593
+            },
+            "remastered": {
+              "rms": 0.01866723783314228,
+              "rms_db": -34.578399658203125,
+              "peak": 0.2650552988052368,
+              "peak_db": -11.533270835876465,
+              "crest_db": 23.045129776000977,
+              "spectral_centroid_hz": 3904.068838208684,
+              "spectral_rolloff_hz": 11759.564796905222
+            },
+            "difference": {
+              "rms_change_db": 0.9971160888671875,
+              "peak_change_db": 1.8400392532348633,
+              "crest_change_db": 0.842926025390625,
+              "centroid_change_hz": 769.5385013353498,
+              "rolloff_change_hz": 227.37443692962916
+            }
+          }
+        },
+        {
+          "track_name": "18 When Sorrow Sang.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.14195992052555084,
+              "rms_db": -16.95668601989746,
+              "peak": 0.9033691883087158,
+              "peak_db": -0.8826944828033447,
+              "crest_db": 16.073991775512695,
+              "spectral_centroid_hz": 3980.82063414091,
+              "spectral_rolloff_hz": 10633.617424242424
+            },
+            "remastered": {
+              "rms": 0.14968302845954895,
+              "rms_db": -16.49654769897461,
+              "peak": 0.8856221437454224,
+              "peak_db": -1.0550305843353271,
+              "crest_db": 15.441518783569336,
+              "spectral_centroid_hz": 3937.93894886968,
+              "spectral_rolloff_hz": 10327.511655888104
+            },
+            "difference": {
+              "rms_change_db": 0.46013832092285156,
+              "peak_change_db": -0.17233610153198242,
+              "crest_change_db": -0.6324729919433594,
+              "centroid_change_hz": -42.8816852712298,
+              "rolloff_change_hz": -306.1057683543204
+            }
+          }
+        },
+        {
+          "track_name": "19 Out On The Water.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.04502102732658386,
+              "rms_db": -26.93169403076172,
+              "peak": 0.3144643306732178,
+              "peak_db": -10.048572540283203,
+              "crest_db": 16.883121490478516,
+              "spectral_centroid_hz": 1696.6184639814678,
+              "spectral_rolloff_hz": 7428.481477416253
+            },
+            "remastered": {
+              "rms": 0.042058877646923065,
+              "rms_db": -27.52284812927246,
+              "peak": 0.3225879967212677,
+              "peak_db": -9.827035903930664,
+              "crest_db": 17.695810317993164,
+              "spectral_centroid_hz": 1992.9047990709946,
+              "spectral_rolloff_hz": 8729.771341463415
+            },
+            "difference": {
+              "rms_change_db": -0.5911540985107422,
+              "peak_change_db": 0.22153663635253906,
+              "crest_change_db": 0.8126888275146484,
+              "centroid_change_hz": 296.2863350895268,
+              "rolloff_change_hz": 1301.2898640471612
+            }
+          }
+        },
+        {
+          "track_name": "20 The Steadfast.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.04330795258283615,
+              "rms_db": -27.268648147583008,
+              "peak": 0.24735000729560852,
+              "peak_db": -12.133761405944824,
+              "crest_db": 15.134886741638184,
+              "spectral_centroid_hz": 2548.6738166211135,
+              "spectral_rolloff_hz": 9440.09647768877
+            },
+            "remastered": {
+              "rms": 0.047653477638959885,
+              "rms_db": -26.4381103515625,
+              "peak": 0.2825084328651428,
+              "peak_db": -10.979372024536133,
+              "crest_db": 15.458736419677734,
+              "spectral_centroid_hz": 3265.8235172752934,
+              "spectral_rolloff_hz": 11009.151113786875
+            },
+            "difference": {
+              "rms_change_db": 0.8305377960205078,
+              "peak_change_db": 1.1543893814086914,
+              "crest_change_db": 0.3238496780395508,
+              "centroid_change_hz": 717.1497006541799,
+              "rolloff_change_hz": 1569.0546360981043
+            }
+          }
+        },
+        {
+          "track_name": "21 A Dark Passage.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.14248749613761902,
+              "rms_db": -16.92446517944336,
+              "peak": 0.9715205430984497,
+              "peak_db": -0.25096023082733154,
+              "crest_db": 16.673505783081055,
+              "spectral_centroid_hz": 3252.134440815068,
+              "spectral_rolloff_hz": 9448.160227462786
+            },
+            "remastered": {
+              "rms": 0.14435026049613953,
+              "rms_db": -16.811649322509766,
+              "peak": 0.9592949748039246,
+              "peak_db": -0.360956609249115,
+              "crest_db": 16.450693130493164,
+              "spectral_centroid_hz": 3941.058957222437,
+              "spectral_rolloff_hz": 10830.970163083764
+            },
+            "difference": {
+              "rms_change_db": 0.11281585693359375,
+              "peak_change_db": -0.10999637842178345,
+              "crest_change_db": -0.22281265258789062,
+              "centroid_change_hz": 688.9245164073691,
+              "rolloff_change_hz": 1382.8099356209786
+            }
+          }
+        },
+        {
+          "track_name": "22 Final Chapter (Thus Ends...).flac",
+          "metrics": {
+            "original": {
+              "rms": 0.027519263327121735,
+              "rms_db": -31.207265853881836,
+              "peak": 0.2507668435573578,
+              "peak_db": -12.014598846435547,
+              "crest_db": 19.19266700744629,
+              "spectral_centroid_hz": 2857.069810105707,
+              "spectral_rolloff_hz": 9375.92576213856
+            },
+            "remastered": {
+              "rms": 0.039874590933322906,
+              "rms_db": -27.9860782623291,
+              "peak": 0.41883933544158936,
+              "peak_db": -7.559051036834717,
+              "crest_db": 20.427024841308594,
+              "spectral_centroid_hz": 3887.871704062075,
+              "spectral_rolloff_hz": 10854.957737321196
+            },
+            "difference": {
+              "rms_change_db": 3.2211875915527344,
+              "peak_change_db": 4.45554780960083,
+              "crest_change_db": 1.2343578338623047,
+              "centroid_change_hz": 1030.801893956368,
+              "rolloff_change_hz": 1479.0319751826355
+            }
+          }
+        }
+      ]
+    },
+    "2002 - A Night At The Opera": {
+      "original_album": "2002 - A Night At The Opera",
+      "remaster_album": "2002 - A Night At The Opera (2018)",
+      "tracks": [
+        {
+          "track_name": "01 Precious Jerusalem.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.16942940652370453,
+              "rms_db": -15.420225143432617,
+              "peak": 0.7340971827507019,
+              "peak_db": -2.684929132461548,
+              "crest_db": 12.735295295715332,
+              "spectral_centroid_hz": 3013.4634422632103,
+              "spectral_rolloff_hz": 8960.515884275479
+            },
+            "remastered": {
+              "rms": 0.14642666280269623,
+              "rms_db": -16.687597274780273,
+              "peak": 0.862195611000061,
+              "peak_db": -1.2878837585449219,
+              "crest_db": 15.399713516235352,
+              "spectral_centroid_hz": 3881.2247804482317,
+              "spectral_rolloff_hz": 9587.95589925802
+            },
+            "difference": {
+              "rms_change_db": -1.2673721313476562,
+              "peak_change_db": 1.397045373916626,
+              "crest_change_db": 2.6644182205200195,
+              "centroid_change_hz": 867.7613381850215,
+              "rolloff_change_hz": 627.4400149825415
+            }
+          }
+        },
+        {
+          "track_name": "02 Battlefield.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1812286078929901,
+              "rms_db": -14.835464477539062,
+              "peak": 0.7276744842529297,
+              "peak_db": -2.7612571716308594,
+              "crest_db": 12.07420825958252,
+              "spectral_centroid_hz": 2853.2044283230907,
+              "spectral_rolloff_hz": 8577.880060773974
+            },
+            "remastered": {
+              "rms": 0.14649373292922974,
+              "rms_db": -16.683618545532227,
+              "peak": 0.8487605452537537,
+              "peak_db": -1.4242963790893555,
+              "crest_db": 15.259323120117188,
+              "spectral_centroid_hz": 4045.105522531857,
+              "spectral_rolloff_hz": 10299.091789540262
+            },
+            "difference": {
+              "rms_change_db": -1.848154067993164,
+              "peak_change_db": 1.336960792541504,
+              "crest_change_db": 3.185114860534668,
+              "centroid_change_hz": 1191.9010942087662,
+              "rolloff_change_hz": 1721.2117287662877
+            }
+          }
+        },
+        {
+          "track_name": "03 Under The Ice.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1633497029542923,
+              "rms_db": -15.73763370513916,
+              "peak": 0.6828360557556152,
+              "peak_db": -3.313671350479126,
+              "crest_db": 12.423962593078613,
+              "spectral_centroid_hz": 2778.2165724083347,
+              "spectral_rolloff_hz": 7874.345227632271
+            },
+            "remastered": {
+              "rms": 0.13222460448741913,
+              "rms_db": -17.573755264282227,
+              "peak": 0.792655348777771,
+              "peak_db": -2.0183119773864746,
+              "crest_db": 15.555442810058594,
+              "spectral_centroid_hz": 3918.2318259716712,
+              "spectral_rolloff_hz": 10037.24927815207
+            },
+            "difference": {
+              "rms_change_db": -1.8361215591430664,
+              "peak_change_db": 1.2953593730926514,
+              "crest_change_db": 3.1314802169799805,
+              "centroid_change_hz": 1140.0152535633365,
+              "rolloff_change_hz": 2162.904050519799
+            }
+          }
+        },
+        {
+          "track_name": "04 Sadly Sings Destiny.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1583530157804489,
+              "rms_db": -16.00747299194336,
+              "peak": 0.7443411350250244,
+              "peak_db": -2.5645594596862793,
+              "crest_db": 13.442914962768555,
+              "spectral_centroid_hz": 3046.770812170299,
+              "spectral_rolloff_hz": 8736.436645008469
+            },
+            "remastered": {
+              "rms": 0.13910414278507233,
+              "rms_db": -17.13319969177246,
+              "peak": 0.9471715688705444,
+              "peak_db": -0.47142690420150757,
+              "crest_db": 16.661773681640625,
+              "spectral_centroid_hz": 4044.018232584926,
+              "spectral_rolloff_hz": 10072.147632716835
+            },
+            "difference": {
+              "rms_change_db": -1.1257266998291016,
+              "peak_change_db": 2.0931325554847717,
+              "crest_change_db": 3.2188587188720703,
+              "centroid_change_hz": 997.247420414627,
+              "rolloff_change_hz": 1335.7109877083658
+            }
+          }
+        },
+        {
+          "track_name": "05 The Maiden And The Minstrel Knight.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.12978582084178925,
+              "rms_db": -17.735454559326172,
+              "peak": 0.6969079971313477,
+              "peak_db": -3.136491298675537,
+              "crest_db": 14.59896469116211,
+              "spectral_centroid_hz": 2981.622679379784,
+              "spectral_rolloff_hz": 8285.951694584797
+            },
+            "remastered": {
+              "rms": 0.11215250939130783,
+              "rms_db": -19.003820419311523,
+              "peak": 0.8603836894035339,
+              "peak_db": -1.3061566352844238,
+              "crest_db": 17.697662353515625,
+              "spectral_centroid_hz": 3802.4411824318713,
+              "spectral_rolloff_hz": 9598.314674857535
+            },
+            "difference": {
+              "rms_change_db": -1.2683658599853516,
+              "peak_change_db": 1.8303346633911133,
+              "crest_change_db": 3.0986976623535156,
+              "centroid_change_hz": 820.8185030520872,
+              "rolloff_change_hz": 1312.3629802727373
+            }
+          }
+        },
+        {
+          "track_name": "06 Wait For An Answer.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.15948793292045593,
+              "rms_db": -15.945444107055664,
+              "peak": 0.7022849321365356,
+              "peak_db": -3.0697333812713623,
+              "crest_db": 12.875710487365723,
+              "spectral_centroid_hz": 3005.329305808215,
+              "spectral_rolloff_hz": 8445.804585431159
+            },
+            "remastered": {
+              "rms": 0.13357922434806824,
+              "rms_db": -17.48522186279297,
+              "peak": 0.7830217480659485,
+              "peak_db": -2.124523639678955,
+              "crest_db": 15.360698699951172,
+              "spectral_centroid_hz": 3913.8872476671127,
+              "spectral_rolloff_hz": 9960.583942030964
+            },
+            "difference": {
+              "rms_change_db": -1.5397777557373047,
+              "peak_change_db": 0.9452097415924072,
+              "crest_change_db": 2.484988212585449,
+              "centroid_change_hz": 908.5579418588977,
+              "rolloff_change_hz": 1514.7793565998054
+            }
+          }
+        },
+        {
+          "track_name": "07 The Soulforged.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.1751364916563034,
+              "rms_db": -15.132467269897461,
+              "peak": 0.7770430445671082,
+              "peak_db": -2.19109845161438,
+              "crest_db": 12.941370010375977,
+              "spectral_centroid_hz": 3146.2546440726774,
+              "spectral_rolloff_hz": 9118.736211569174
+            },
+            "remastered": {
+              "rms": 0.1303190439939499,
+              "rms_db": -17.69984245300293,
+              "peak": 0.7759385704994202,
+              "peak_db": -2.2034530639648438,
+              "crest_db": 15.49638843536377,
+              "spectral_centroid_hz": 4019.364494333226,
+              "spectral_rolloff_hz": 9777.39718907231
+            },
+            "difference": {
+              "rms_change_db": -2.5673751831054688,
+              "peak_change_db": -0.012354612350463867,
+              "crest_change_db": 2.555018424987793,
+              "centroid_change_hz": 873.1098502605487,
+              "rolloff_change_hz": 658.6609775031357
+            }
+          }
+        },
+        {
+          "track_name": "08 Age Of False Innocence.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.15716838836669922,
+              "rms_db": -16.072696685791016,
+              "peak": 0.7051724791526794,
+              "peak_db": -3.034093141555786,
+              "crest_db": 13.038604736328125,
+              "spectral_centroid_hz": 3029.444839798948,
+              "spectral_rolloff_hz": 8642.892490306198
+            },
+            "remastered": {
+              "rms": 0.11128754913806915,
+              "rms_db": -19.071067810058594,
+              "peak": 0.6858415603637695,
+              "peak_db": -3.275524377822876,
+              "crest_db": 15.795544624328613,
+              "spectral_centroid_hz": 4053.6793839078687,
+              "spectral_rolloff_hz": 10029.530753206884
+            },
+            "difference": {
+              "rms_change_db": -2.998371124267578,
+              "peak_change_db": -0.24143123626708984,
+              "crest_change_db": 2.7569398880004883,
+              "centroid_change_hz": 1024.2345441089205,
+              "rolloff_change_hz": 1386.6382629006857
+            }
+          }
+        },
+        {
+          "track_name": "09 Punishment Divine.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.15427425503730774,
+              "rms_db": -16.234130859375,
+              "peak": 0.6592697501182556,
+              "peak_db": -3.61873722076416,
+              "crest_db": 12.615394592285156,
+              "spectral_centroid_hz": 2784.628041906412,
+              "spectral_rolloff_hz": 7768.059243523928
+            },
+            "remastered": {
+              "rms": 0.1289006918668747,
+              "rms_db": -17.79489517211914,
+              "peak": 0.7189310789108276,
+              "peak_db": -2.866255044937134,
+              "crest_db": 14.928640365600586,
+              "spectral_centroid_hz": 4050.2483121507476,
+              "spectral_rolloff_hz": 9997.647138333205
+            },
+            "difference": {
+              "rms_change_db": -1.5607643127441406,
+              "peak_change_db": 0.7524821758270264,
+              "crest_change_db": 2.3132457733154297,
+              "centroid_change_hz": 1265.6202702443356,
+              "rolloff_change_hz": 2229.587894809277
+            }
+          }
+        },
+        {
+          "track_name": "10 And Then There Was Silence.flac",
+          "metrics": {
+            "original": {
+              "rms": 0.13883480429649353,
+              "rms_db": -17.150033950805664,
+              "peak": 0.7090729475021362,
+              "peak_db": -2.9861819744110107,
+              "crest_db": 14.163851737976074,
+              "spectral_centroid_hz": 2928.6837006301007,
+              "spectral_rolloff_hz": 6227.021646325994
+            },
+            "remastered": {
+              "rms": 0.09339875727891922,
+              "rms_db": -20.593177795410156,
+              "peak": 0.6974393129348755,
+              "peak_db": -3.1298718452453613,
+              "crest_db": 17.463306427001953,
+              "spectral_centroid_hz": 4129.919845294464,
+              "spectral_rolloff_hz": 9003.706556423596
+            },
+            "difference": {
+              "rms_change_db": -3.443143844604492,
+              "peak_change_db": -0.14368987083435059,
+              "crest_change_db": 3.299454689025879,
+              "centroid_change_hz": 1201.236144664363,
+              "rolloff_change_hz": 2776.6849100976024
+            }
+          }
+        }
+      ]
+    }
+  }
+}

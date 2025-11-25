@@ -37,17 +37,21 @@ class TemporalAnalyzer:
             Dict with 4 temporal features
         """
         try:
+            # Cache expensive librosa operations - compute onset envelope once
+            onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
+            rms = librosa.feature.rms(y=audio)[0]
+
             # Tempo detection
-            tempo_bpm = self._detect_tempo(audio, sr)
+            tempo_bpm = self._detect_tempo(onset_env, sr)
 
             # Rhythm stability
-            rhythm_stability = self._calculate_rhythm_stability(audio, sr)
+            rhythm_stability = self._calculate_rhythm_stability(onset_env, sr)
 
             # Transient density (drum/percussion prominence)
-            transient_density = self._calculate_transient_density(audio, sr)
+            transient_density = self._calculate_transient_density(audio, sr, onset_env)
 
             # Silence ratio
-            silence_ratio = self._calculate_silence_ratio(audio)
+            silence_ratio = self._calculate_silence_ratio(rms)
 
             return {
                 'tempo_bpm': float(tempo_bpm),
@@ -66,21 +70,20 @@ class TemporalAnalyzer:
                 'silence_ratio': 0.1
             }
 
-    def _detect_tempo(self, audio: np.ndarray, sr: int) -> float:
+    def _detect_tempo(self, onset_env: np.ndarray, sr: int) -> float:
         """
         Detect tempo in BPM using librosa.
 
         Args:
-            audio: Audio signal
+            onset_env: Onset strength envelope (pre-computed)
             sr: Sample rate
 
         Returns:
             Tempo in BPM (40-200 range)
         """
         try:
-            # Use librosa's tempo detection
+            # Use librosa's tempo detection with pre-computed onset envelope
             # Note: API migration to librosa.feature.rhythm.tempo planned but not yet in 0.11.0
-            onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
 
             # Suppress FutureWarning about API migration (we're ready when it happens)
             import warnings
@@ -110,7 +113,7 @@ class TemporalAnalyzer:
             logger.debug(f"Tempo detection failed: {e}")
             return 120.0  # Default to 120 BPM
 
-    def _calculate_rhythm_stability(self, audio: np.ndarray, sr: int) -> float:
+    def _calculate_rhythm_stability(self, onset_env: np.ndarray, sr: int) -> float:
         """
         Calculate rhythm stability (how consistent the beat is).
 
@@ -118,15 +121,14 @@ class TemporalAnalyzer:
         Lower value = less stable rhythm (free jazz, ambient)
 
         Args:
-            audio: Audio signal
+            onset_env: Onset strength envelope (pre-computed)
             sr: Sample rate
 
         Returns:
             Rhythm stability (0-1)
         """
         try:
-            # Detect beat frames
-            onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
+            # Detect beat frames using pre-computed onset envelope
             tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
 
             if len(beats) < 3:
@@ -150,7 +152,7 @@ class TemporalAnalyzer:
             logger.debug(f"Rhythm stability calculation failed: {e}")
             return 0.5  # Default to medium stability
 
-    def _calculate_transient_density(self, audio: np.ndarray, sr: int) -> float:
+    def _calculate_transient_density(self, audio: np.ndarray, sr: int, onset_env: np.ndarray) -> float:
         """
         Calculate transient density (prominence of drums/percussion).
 
@@ -160,15 +162,15 @@ class TemporalAnalyzer:
         Args:
             audio: Audio signal
             sr: Sample rate
+            onset_env: Onset strength envelope (pre-computed)
 
         Returns:
             Transient density (0-1)
         """
         try:
-            # Detect onsets (transients)
+            # Detect onsets from pre-computed envelope
             onset_frames = librosa.onset.onset_detect(
-                y=audio,
-                sr=sr,
+                onset_envelope=onset_env,
                 units='frames'
             )
 
@@ -190,7 +192,7 @@ class TemporalAnalyzer:
             logger.debug(f"Transient density calculation failed: {e}")
             return 0.5  # Default to medium density
 
-    def _calculate_silence_ratio(self, audio: np.ndarray, threshold_db: float = -40) -> float:
+    def _calculate_silence_ratio(self, rms: np.ndarray, threshold_db: float = -40) -> float:
         """
         Calculate silence ratio (proportion of silent/quiet sections).
 
@@ -198,15 +200,14 @@ class TemporalAnalyzer:
         Lower value = dense/continuous (metal, electronic)
 
         Args:
-            audio: Audio signal
+            rms: RMS envelope (pre-computed)
             threshold_db: Silence threshold in dB
 
         Returns:
             Silence ratio (0-1)
         """
         try:
-            # Convert to dB
-            rms = librosa.feature.rms(y=audio)[0]
+            # Convert RMS to dB
             rms_db = librosa.amplitude_to_db(rms, ref=np.max)
 
             # Count frames below threshold
