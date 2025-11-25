@@ -9,7 +9,8 @@ Features (3D):
   - chroma_energy: Tonal complexity/richness (0-1)
 
 Dependencies:
-  - librosa for harmonic/percussive separation, chroma analysis
+  - auralis_dsp for Rust-optimized harmonic/percussive separation, pitch detection, chroma analysis
+  - librosa for fallback implementations if Rust library unavailable
   - numpy for numerical operations
 """
 
@@ -19,6 +20,15 @@ from typing import Dict
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Try to use Rust implementations via PyO3
+try:
+    import auralis_dsp
+    RUST_DSP_AVAILABLE = True
+    logger.info("Rust DSP library (auralis_dsp) available - using optimized implementations")
+except ImportError:
+    RUST_DSP_AVAILABLE = False
+    logger.warning("Rust DSP library (auralis_dsp) not available - falling back to librosa")
 
 
 class HarmonicAnalyzer:
@@ -73,8 +83,11 @@ class HarmonicAnalyzer:
             Harmonic ratio (0-1)
         """
         try:
-            # Separate harmonic and percussive components
-            harmonic, percussive = librosa.effects.hpss(audio)
+            # Use Rust implementation if available, fallback to librosa
+            if RUST_DSP_AVAILABLE:
+                harmonic, percussive = auralis_dsp.hpss(audio)
+            else:
+                harmonic, percussive = librosa.effects.hpss(audio)
 
             # Calculate RMS energy of each
             harmonic_energy = np.sqrt(np.mean(harmonic**2))
@@ -109,12 +122,20 @@ class HarmonicAnalyzer:
         """
         try:
             # Calculate pitch (fundamental frequency) using YIN algorithm
-            f0 = librosa.yin(
-                audio,
-                fmin=librosa.note_to_hz('C2'),
-                fmax=librosa.note_to_hz('C7'),
-                sr=sr
-            )
+            if RUST_DSP_AVAILABLE:
+                f0 = auralis_dsp.yin(
+                    audio,
+                    sr=sr,
+                    fmin=librosa.note_to_hz('C2'),
+                    fmax=librosa.note_to_hz('C7')
+                )
+            else:
+                f0 = librosa.yin(
+                    audio,
+                    fmin=librosa.note_to_hz('C2'),
+                    fmax=librosa.note_to_hz('C7'),
+                    sr=sr
+                )
 
             # Remove unvoiced frames (no pitch detected)
             voiced_mask = f0 > 0
@@ -158,7 +179,10 @@ class HarmonicAnalyzer:
         """
         try:
             # Calculate chromagram (12-dimensional pitch class profile)
-            chroma = librosa.feature.chroma_cqt(y=audio, sr=sr)
+            if RUST_DSP_AVAILABLE:
+                chroma = auralis_dsp.chroma_cqt(audio, sr=sr)
+            else:
+                chroma = librosa.feature.chroma_cqt(y=audio, sr=sr)
 
             # Calculate average energy across all pitch classes
             # High energy in multiple classes = rich tonal content

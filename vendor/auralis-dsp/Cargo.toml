@@ -8,12 +8,12 @@ ndarray = "0.15"
 num-complex = "0.4"
 rayon = "1.7"
 rustfft = "6.1"
-# pyo3 = { version = "0.20", features = ["extension-module"] }
-# numpy = "0.20"
+pyo3 = { version = "0.21", features = ["extension-module"] }
+numpy = "0.21"
 
 [lib]
 name = "auralis_dsp"
-crate-type = ["lib"]  # Build as library, not extension module yet
+crate-type = ["cdylib"]  # Build as Python extension module
 
 [dev-dependencies]
 criterion = "0.5"
