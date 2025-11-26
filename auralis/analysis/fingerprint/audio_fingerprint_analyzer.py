@@ -22,11 +22,12 @@ Dependencies:
 
 import numpy as np
 import logging
-from typing import Dict
+from typing import Dict, Optional, Literal
 
 from auralis.analysis.fingerprint.temporal_analyzer import TemporalAnalyzer
 from auralis.analysis.fingerprint.spectral_analyzer import SpectralAnalyzer
 from auralis.analysis.fingerprint.harmonic_analyzer import HarmonicAnalyzer
+from auralis.analysis.fingerprint.harmonic_analyzer_sampled import SampledHarmonicAnalyzer
 from auralis.analysis.fingerprint.variation_analyzer import VariationAnalyzer
 from auralis.analysis.fingerprint.stereo_analyzer import StereoAnalyzer
 
@@ -36,13 +37,30 @@ logger = logging.getLogger(__name__)
 class AudioFingerprintAnalyzer:
     """Extract complete 25D audio fingerprint."""
 
-    def __init__(self):
-        """Initialize all sub-analyzers."""
+    def __init__(self,
+                 fingerprint_strategy: Literal["full-track", "sampling"] = "sampling",
+                 sampling_interval: float = 20.0):
+        """
+        Initialize all sub-analyzers.
+
+        Args:
+            fingerprint_strategy: "full-track" or "sampling" (Phase 7)
+            sampling_interval: Interval between chunk starts in seconds (for sampling)
+        """
         self.temporal_analyzer = TemporalAnalyzer()
         self.spectral_analyzer = SpectralAnalyzer()
         self.harmonic_analyzer = HarmonicAnalyzer()
+        self.sampled_harmonic_analyzer = SampledHarmonicAnalyzer(
+            chunk_duration=5.0,
+            interval_duration=sampling_interval
+        )
         self.variation_analyzer = VariationAnalyzer()
         self.stereo_analyzer = StereoAnalyzer()
+
+        self.fingerprint_strategy = fingerprint_strategy
+        self.sampling_interval = sampling_interval
+
+        logger.debug(f"AudioFingerprintAnalyzer initialized with strategy={fingerprint_strategy}")
 
     def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
         """
@@ -121,7 +139,15 @@ class AudioFingerprintAnalyzer:
             fingerprint.update(spectral_features)
 
             # 5. Harmonic analysis (3D)
-            harmonic_features = self.harmonic_analyzer.analyze(audio_mono, sr)
+            # Use sampling or full-track strategy based on configuration
+            if self.fingerprint_strategy == "sampling":
+                harmonic_features = self.sampled_harmonic_analyzer.analyze(audio_mono, sr)
+                # Add a confidence flag to indicate sampling was used
+                fingerprint["_harmonic_analysis_method"] = "sampled"
+            else:
+                harmonic_features = self.harmonic_analyzer.analyze(audio_mono, sr)
+                fingerprint["_harmonic_analysis_method"] = "full-track"
+
             fingerprint.update(harmonic_features)
 
             # 6. Variation analysis (3D)
@@ -134,9 +160,14 @@ class AudioFingerprintAnalyzer:
 
             # Sanitize NaN values (replace with 0.0)
             for key, value in fingerprint.items():
-                if np.isnan(value) or np.isinf(value):
-                    logger.warning(f"Fingerprint dimension '{key}' contains NaN/Inf, replacing with 0.0")
-                    fingerprint[key] = 0.0
+                try:
+                    if isinstance(value, (int, float, np.number)):
+                        if np.isnan(value) or np.isinf(value):
+                            logger.warning(f"Fingerprint dimension '{key}' contains NaN/Inf, replacing with 0.0")
+                            fingerprint[key] = 0.0
+                except (TypeError, ValueError):
+                    # Skip non-numeric values (like strings)
+                    pass
 
             return fingerprint
 

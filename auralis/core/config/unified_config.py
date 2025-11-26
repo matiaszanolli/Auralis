@@ -141,8 +141,19 @@ class UnifiedConfig:
         # Set to False to use legacy preset-based processing
         self.use_continuous_space = True  # Default: enabled
 
+        # Fingerprint analysis strategy (Phase 7)
+        # "full-track": Analyze entire audio (100% accuracy, slower)
+        # "sampling": Analyze 5s chunks at intervals (169x faster, 85.8% accuracy)
+        self.fingerprint_strategy: str = "sampling"
+
+        # Sampling interval in seconds (when strategy="sampling")
+        # Recommended: 20.0 (25% coverage, 169x speedup)
+        # Options: 10.0 (50% coverage, 75x speedup), 15.0 (33%, 116x), 20.0 (25%, 169x)
+        self.fingerprint_sampling_interval: float = 20.0
+
         debug(f"Unified config initialized: mode={self.adaptive.mode}, "
               f"continuous_space={self.use_continuous_space}, "
+              f"fingerprint_strategy={self.fingerprint_strategy}, "
               f"SR={self.internal_sample_rate}Hz, FFT={self.fft_size}")
 
     def get_genre_profile(self, genre: str) -> GenreProfile:
@@ -209,6 +220,39 @@ class UnifiedConfig:
             )
         self.mastering_profile = preset_name.lower()
         debug(f"Mastering preset changed to: {preset_name}")
+
+    def set_fingerprint_strategy(self, strategy: str, sampling_interval: float = 20.0):
+        """
+        Set fingerprint analysis strategy.
+
+        Args:
+            strategy: "full-track" or "sampling"
+            sampling_interval: Interval in seconds between chunk starts (for sampling strategy)
+
+        Raises:
+            ValueError: If strategy is not valid
+        """
+        if strategy not in ("full-track", "sampling"):
+            raise ValueError(f"Invalid fingerprint strategy '{strategy}'. Use 'full-track' or 'sampling'")
+
+        if strategy == "sampling" and sampling_interval <= 0:
+            raise ValueError(f"Sampling interval must be positive, got {sampling_interval}")
+
+        self.fingerprint_strategy = strategy
+        if strategy == "sampling":
+            self.fingerprint_sampling_interval = sampling_interval
+
+        debug(f"Fingerprint strategy changed to: {strategy}")
+        if strategy == "sampling":
+            debug(f"Sampling interval: {sampling_interval}s")
+
+    def use_sampling_strategy(self) -> bool:
+        """Check if using sampling-based fingerprinting."""
+        return self.fingerprint_strategy == "sampling"
+
+    def use_fulltrack_strategy(self) -> bool:
+        """Check if using full-track fingerprinting."""
+        return self.fingerprint_strategy == "full-track"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary for serialization"""

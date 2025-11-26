@@ -33,18 +33,28 @@ class FingerprintExtractor:
     - Writes .25d file after extraction (for future speedup)
     """
 
-    def __init__(self, fingerprint_repository, use_sidecar_files: bool = True):
+    def __init__(self, fingerprint_repository, use_sidecar_files: bool = True,
+                 fingerprint_strategy: str = "sampling", sampling_interval: float = 20.0):
         """
         Initialize fingerprint extractor
 
         Args:
             fingerprint_repository: FingerprintRepository instance
             use_sidecar_files: Enable .25d sidecar file caching (default: True)
+            fingerprint_strategy: "full-track" or "sampling" (Phase 7)
+            sampling_interval: Interval between chunk starts in seconds (for sampling)
         """
         self.fingerprint_repo = fingerprint_repository
-        self.analyzer = AudioFingerprintAnalyzer()
+        self.analyzer = AudioFingerprintAnalyzer(
+            fingerprint_strategy=fingerprint_strategy,
+            sampling_interval=sampling_interval
+        )
         self.use_sidecar_files = use_sidecar_files
         self.sidecar_manager = SidecarManager() if use_sidecar_files else None
+        self.fingerprint_strategy = fingerprint_strategy
+        self.sampling_interval = sampling_interval
+
+        debug(f"FingerprintExtractor initialized with strategy={fingerprint_strategy}")
 
     def extract_and_store(self, track_id: int, filepath: str) -> bool:
         """
