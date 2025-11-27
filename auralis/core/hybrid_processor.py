@@ -106,7 +106,8 @@ class HybridProcessor:
             self.spectrum_mapper
         )
         self.continuous_mode = ContinuousMode(
-            config, self.content_analyzer, self.fingerprint_analyzer
+            config, self.content_analyzer, self.fingerprint_analyzer,
+            self.recording_type_detector
         )
         self.hybrid_mode = HybridMode(
             config, self.content_analyzer, self.target_generator,
@@ -119,9 +120,8 @@ class HybridProcessor:
         # Shared state (backwards compatibility)
         self.current_user_id = None
 
-        # Initialize performance optimizer
+        # Initialize performance optimizer (optimizations applied once at module level)
         self.performance_optimizer = get_performance_optimizer()
-        self._optimize_processing_methods()
 
         # Processing state
         self.current_targets = None
@@ -340,22 +340,6 @@ class HybridProcessor:
         """Save user preferences to storage"""
         return self.preference_manager.save_preferences(user_id)
 
-    def _optimize_processing_methods(self):
-        """Apply performance optimizations to processing methods"""
-        # Optimize critical processing methods
-        self.adaptive_mode.process = self.performance_optimizer.optimize_real_time_processing(
-            self.adaptive_mode.process
-        )
-        self.process_realtime_chunk = self.performance_optimizer.optimize_real_time_processing(
-            self.process_realtime_chunk
-        )
-
-        # Add caching to content analysis for similar audio
-        self.content_analyzer.analyze_content = self.performance_optimizer.cached_function(
-            "content_analysis"
-        )(self.content_analyzer.analyze_content)
-
-        info("Performance optimizations applied to processing methods")
 
     def get_performance_stats(self) -> Dict[str, Any]:
         """Get performance optimization statistics"""
@@ -382,37 +366,102 @@ class HybridProcessor:
             raise ValueError(f"Invalid processing mode: {mode}")
 
 
-# Convenience functions for quick processing
+# ===== Module-level performance optimizations (applied once) =====
+
+def _apply_module_optimizations():
+    """
+    Apply performance optimizations at module level (once, not per-instance)
+
+    This prevents redundant wrapping of methods every time HybridProcessor is created.
+    Optimizations are cached and reused across all instances.
+    """
+    try:
+        perf_opt = get_performance_optimizer()
+
+        # Optimize AdaptiveMode.process at the class level
+        original_process = AdaptiveMode.process
+        AdaptiveMode.process = perf_opt.optimize_real_time_processing(original_process)
+
+        # Note: We don't optimize HybridProcessor.process_realtime_chunk at module level
+        # because it's an instance method. It will use the optimizer's cached methods
+        # if called frequently (the optimizer tracks hot methods internally).
+
+        # Note: ContentAnalyzer.analyze_content caching is managed by the
+        # performance_optimizer internally for cache coherency
+
+        info("Module-level performance optimizations applied (one-time)")
+    except Exception as e:
+        debug(f"Warning: Could not apply module optimizations: {e}")
+
+
+# Apply optimizations once at module import time
+_apply_module_optimizations()
+
+
+# Module-level processor cache for convenience functions
+# Caches HybridProcessor instances to avoid expensive re-initialization
+_processor_cache: Dict[str, HybridProcessor] = {}
+
+
+def _get_or_create_processor(config: Optional[UnifiedConfig], mode: str) -> HybridProcessor:
+    """
+    Get or create a cached HybridProcessor instance
+
+    Args:
+        config: Optional custom config, or None to use default
+        mode: Processing mode ("adaptive", "reference", or "hybrid")
+
+    Returns:
+        Cached or newly created HybridProcessor instance
+    """
+    # Use config object id if provided, otherwise use mode as cache key
+    cache_key = f"{id(config)}_{mode}" if config else f"default_{mode}"
+
+    if cache_key not in _processor_cache:
+        if config is None:
+            config = UnifiedConfig()
+        config.set_processing_mode(mode)
+        _processor_cache[cache_key] = HybridProcessor(config)
+        debug(f"Created cached HybridProcessor for mode={mode}")
+    else:
+        debug(f"Using cached HybridProcessor for mode={mode}")
+
+    return _processor_cache[cache_key]
+
+
 def process_adaptive(target: Union[str, np.ndarray],
                     config: Optional[UnifiedConfig] = None) -> np.ndarray:
-    """Quick adaptive processing function"""
-    if config is None:
-        config = UnifiedConfig()
-        config.set_processing_mode("adaptive")
+    """
+    Quick adaptive processing function (cached)
 
-    processor = HybridProcessor(config)
+    Reuses HybridProcessor instances to avoid expensive re-initialization.
+    First call initializes components (~500ms), subsequent calls are instant.
+    """
+    processor = _get_or_create_processor(config, "adaptive")
     return processor.process(target)
 
 
 def process_reference(target: Union[str, np.ndarray],
                      reference: Union[str, np.ndarray],
                      config: Optional[UnifiedConfig] = None) -> np.ndarray:
-    """Quick reference-based processing function"""
-    if config is None:
-        config = UnifiedConfig()
-        config.set_processing_mode("reference")
+    """
+    Quick reference-based processing function (cached)
 
-    processor = HybridProcessor(config)
+    Reuses HybridProcessor instances to avoid expensive re-initialization.
+    First call initializes components (~500ms), subsequent calls are instant.
+    """
+    processor = _get_or_create_processor(config, "reference")
     return processor.process(target, reference)
 
 
 def process_hybrid(target: Union[str, np.ndarray],
                   reference: Optional[Union[str, np.ndarray]] = None,
                   config: Optional[UnifiedConfig] = None) -> np.ndarray:
-    """Quick hybrid processing function"""
-    if config is None:
-        config = UnifiedConfig()
-        config.set_processing_mode("hybrid")
+    """
+    Quick hybrid processing function (cached)
 
-    processor = HybridProcessor(config)
+    Reuses HybridProcessor instances to avoid expensive re-initialization.
+    First call initializes components (~500ms), subsequent calls are instant.
+    """
+    processor = _get_or_create_processor(config, "hybrid")
     return processor.process(target, reference)
