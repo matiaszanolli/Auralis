@@ -20,7 +20,10 @@ from ...dsp.unified import (
 from ...utils.logging import debug
 from .continuous_space import ProcessingSpaceMapper, PreferenceVector, ProcessingParameters
 from .parameter_generator import ContinuousParameterGenerator
-from .base_processing_mode import CompressionStrategies, ExpansionStrategies
+from .base_processing_mode import (
+    CompressionStrategies, ExpansionStrategies,
+    DBConversion, StereoWidthProcessor
+)
 from ..recording_type_detector import RecordingTypeDetector
 
 
@@ -352,7 +355,7 @@ class ContinuousMode:
         """Apply stereo width adjustment with adaptive guidance"""
 
         # Only process stereo audio
-        if audio.ndim != 2 or audio.shape[0] != 2:
+        if not StereoWidthProcessor.validate_stereo(audio):
             return audio
 
         # Get current and target width
@@ -367,7 +370,6 @@ class ContinuousMode:
             # Each philosophy has different stereo treatment approach
             if adaptive_params.stereo_strategy == "narrow":
                 # Narrow: Reduce stereo width (metal recordings, mono sources)
-                # More aggressive if high confidence
                 target_width = current_width * (
                     1 - adaptive_params.confidence * (1 - adaptive_params.stereo_width_target)
                 )
@@ -376,7 +378,6 @@ class ContinuousMode:
 
             elif adaptive_params.stereo_strategy == "expand":
                 # Expand: Increase stereo width (bootleg concert recordings)
-                # More aggressive if high confidence
                 target_width = current_width + (
                     (adaptive_params.stereo_width_target - current_width) *
                     adaptive_params.confidence
@@ -386,14 +387,12 @@ class ContinuousMode:
 
             elif adaptive_params.stereo_strategy == "maintain":
                 # Maintain: Keep current width close to reference
-                # Use confidence-scaled adjustment
                 target_width = adaptive_params.stereo_width_target
 
         # Only adjust if significant difference
         if abs(target_width - current_width) > 0.05:
             # Check peak levels before expansion (safety)
-            pre_peak = np.max(np.abs(audio))
-            pre_peak_db = 20 * np.log10(pre_peak) if pre_peak > 0 else -np.inf
+            pre_peak_db = StereoWidthProcessor.get_peak_db(audio)
 
             # Skip expansion if already close to clipping
             if pre_peak_db > -2.0 and target_width > current_width:
@@ -401,7 +400,6 @@ class ContinuousMode:
                 return audio
 
             audio = adjust_stereo_width(audio, target_width)
-
             post_width = stereo_width_analysis(audio)
             print(f"[Stereo Width] {current_width:.2f} → {post_width:.2f} (target: {target_width:.2f})")
 
@@ -413,7 +411,7 @@ class ContinuousMode:
         # Measure current state
         current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
         current_peak = np.max(np.abs(audio))
-        current_peak_db = 20 * np.log10(current_peak) if current_peak > 0 else -np.inf
+        current_peak_db = DBConversion.to_db(current_peak)
 
         print(f"[Pre-Final] Peak: {current_peak_db:.2f} dB, LUFS: {current_lufs:.1f}")
 
@@ -428,7 +426,7 @@ class ContinuousMode:
             # Update current measurements
             current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
             current_peak = np.max(np.abs(audio))
-            current_peak_db = 20 * np.log10(current_peak) if current_peak > 0 else -np.inf
+            current_peak_db = DBConversion.to_db(current_peak)
 
         # Step 2: Peak normalization (to target peak level)
         target_peak_db = params.peak_target_db
@@ -440,10 +438,10 @@ class ContinuousMode:
 
         # Final measurements
         final_peak = np.max(np.abs(audio))
-        final_peak_db = 20 * np.log10(final_peak) if final_peak > 0 else -np.inf
+        final_peak_db = DBConversion.to_db(final_peak)
         final_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
         final_rms = rms(audio)
-        final_rms_db = 20 * np.log10(final_rms) if final_rms > 0 else -np.inf
+        final_rms_db = DBConversion.to_db(final_rms)
         final_crest = final_peak_db - final_rms_db
 
         print(f"[Final] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, "
