@@ -292,7 +292,27 @@ def test_remaster_comparison():
         print(f"    Original: {original_yes.exists()}")
         print(f"    Remaster: {remaster_yes.exists()}")
 
-    # Add more test cases as they become available
+    
+
+    # Test Case 2: Porcupine Tree - Signify
+    original_pt = Path(
+        "/mnt/Musica/Musica/Porcupine Tree/Porcupine Tree - 1996 - Signify (FLAC+CUE)"
+    )
+    remaster_pt = Path(
+        "/mnt/Musica/Musica/Porcupine Tree/Porcupine Tree - Signify (1996, Remastered 2016) [FLAC]"
+    )
+
+    if original_pt.exists() and remaster_pt.exists():
+        compare_original_vs_remaster(
+            original_pt,
+            remaster_pt,
+            "Porcupine Tree - Signify (1996 Original vs 2016 Remaster)"
+        )
+    else:
+        print(f"\n⚠️  Porcupine Tree tracks not found:")
+        print(f"    Original: {original_pt.exists()}")
+        print(f"    Remaster: {remaster_pt.exists()}")
+# Add more test cases as they become available
     # TODO: Add other remaster pairs
 
     print("\n" + "=" * 130)

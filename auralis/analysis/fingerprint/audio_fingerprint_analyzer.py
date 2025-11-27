@@ -122,12 +122,18 @@ class AudioFingerprintAnalyzer:
             # Initialize fingerprint dict
             fingerprint = {}
 
+            # OPTIMIZATION: Pre-compute FFT and RMS once, reuse for frequency/dynamics/variation
+            fft = np.fft.rfft(audio_mono)
+            magnitude = np.abs(fft)
+            freqs = np.fft.rfftfreq(len(audio_mono), 1/sr)
+            rms = np.sqrt(np.mean(audio_mono ** 2))
+
             # 1. Frequency analysis (7D)
-            frequency_features = self._analyze_frequency(audio_mono, sr)
+            frequency_features = self._analyze_frequency_cached(audio_mono, sr, fft, magnitude, freqs)
             fingerprint.update(frequency_features)
 
             # 2. Dynamics analysis (3D)
-            dynamics_features = self._analyze_dynamics(audio_mono, sr)
+            dynamics_features = self._analyze_dynamics_cached(audio_mono, sr, fft, magnitude, freqs, rms)
             fingerprint.update(dynamics_features)
 
             # 3. Temporal analysis (4D)
@@ -175,23 +181,23 @@ class AudioFingerprintAnalyzer:
             logger.error(f"Audio fingerprint analysis failed: {e}")
             return self._get_default_fingerprint()
 
-    def _analyze_frequency(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def _analyze_frequency_cached(self, audio: np.ndarray, sr: int,
+                                   fft: np.ndarray, magnitude: np.ndarray,
+                                   freqs: np.ndarray) -> Dict[str, float]:
         """
-        Analyze frequency distribution (7-band).
+        Analyze frequency distribution (7-band) using pre-computed FFT.
 
         Args:
             audio: Audio signal (mono)
             sr: Sample rate
+            fft: Pre-computed FFT
+            magnitude: Pre-computed magnitude spectrum
+            freqs: Pre-computed frequency bins
 
         Returns:
             Dict with 7 frequency band percentages
         """
         try:
-            # Compute FFT
-            fft = np.fft.rfft(audio)
-            magnitude = np.abs(fft)
-            freqs = np.fft.rfftfreq(len(audio), 1/sr)
-
             # Define 7 frequency bands
             bands = {
                 'sub_bass_pct': (20, 60),
@@ -235,31 +241,32 @@ class AudioFingerprintAnalyzer:
                 'air_pct': 5.0
             }
 
-    def _analyze_dynamics(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def _analyze_dynamics_cached(self, audio: np.ndarray, sr: int,
+                                  fft: np.ndarray, magnitude: np.ndarray,
+                                  freqs: np.ndarray, rms: float) -> Dict[str, float]:
         """
-        Analyze dynamics (LUFS, crest factor, bass/mid ratio).
+        Analyze dynamics (LUFS, crest factor, bass/mid ratio) using pre-computed values.
 
         Args:
             audio: Audio signal (mono)
             sr: Sample rate
+            fft: Pre-computed FFT
+            magnitude: Pre-computed magnitude spectrum
+            freqs: Pre-computed frequency bins
+            rms: Pre-computed RMS
 
         Returns:
             Dict with 3 dynamics features
         """
         try:
             # 1. LUFS (approximate using RMS)
-            rms = np.sqrt(np.mean(audio ** 2))
             lufs = 20 * np.log10(rms + 1e-10) + 0.691  # Approximate conversion
 
             # 2. Crest factor
             peak = np.max(np.abs(audio))
             crest_db = 20 * np.log10(peak / (rms + 1e-10))
 
-            # 3. Bass/Mid ratio
-            fft = np.fft.rfft(audio)
-            magnitude = np.abs(fft)
-            freqs = np.fft.rfftfreq(len(audio), 1/sr)
-
+            # 3. Bass/Mid ratio (using pre-computed FFT)
             bass_mask = (freqs >= 60) & (freqs < 250)
             mid_mask = (freqs >= 250) & (freqs < 2000)
 
