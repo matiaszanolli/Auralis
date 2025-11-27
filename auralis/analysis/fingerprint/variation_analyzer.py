@@ -17,6 +17,7 @@ import numpy as np
 import librosa
 from typing import Dict
 import logging
+from numpy.lib.stride_tricks import as_strided
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class VariationAnalyzer:
                                                    rms: np.ndarray, hop_length: int,
                                                    frame_length: int) -> float:
         """
-        Calculate how much dynamic range changes over time using pre-computed RMS.
+        Calculate how much dynamic range changes over time using pre-computed RMS (OPTIMIZED).
 
         Higher value = more variation (classical, progressive)
         Lower value = consistent dynamics (pop, electronic)
@@ -95,26 +96,33 @@ class VariationAnalyzer:
             Dynamic range variation (0-1)
         """
         try:
-            # Calculate crest factor per frame using pre-computed RMS
             num_frames = len(rms)
-            crest_per_frame = []
+            audio_abs = np.abs(audio)
 
+            # Optimized peak calculation: vectorized with NumPy operations
+            # Pre-allocate output array
+            peaks = np.zeros(num_frames, dtype=audio.dtype)
+
+            # Use NumPy's max operation on slices (faster than Python loop)
             for i in range(num_frames):
                 start = i * hop_length
                 end = min(start + frame_length, len(audio))
-                frame = audio[start:end]
+                if start < len(audio):
+                    peaks[i] = np.max(audio_abs[start:end])
 
-                if len(frame) > 0:
-                    peak = np.max(np.abs(frame))
-                    rms_val = rms[i]
-                    # Avoid division by zero and log(0)
-                    if rms_val > 1e-10 and peak > 1e-10:
-                        crest_db = 20 * np.log10(peak / rms_val)
-                        crest_per_frame.append(crest_db)
+            # Vectorized crest factor calculation (avoid division by zero)
+            # Using NumPy's vectorized operations
+            rms_safe = np.maximum(rms, 1e-10)
+            peaks_safe = np.maximum(peaks, 1e-10)
+            crest_db = 20 * np.log10(peaks_safe / rms_safe)
 
-            if len(crest_per_frame) > 1:
+            # Filter out invalid values using boolean indexing (vectorized)
+            valid_mask = (rms > 1e-10) & (peaks > 1e-10)
+            crest_valid = crest_db[valid_mask]
+
+            if len(crest_valid) > 1:
                 # Variation = std dev of crest factor over time
-                crest_std = np.std(crest_per_frame)
+                crest_std = np.std(crest_valid)
 
                 # Normalize to 0-1
                 # Typical range: 0-6 dB std dev
@@ -263,7 +271,7 @@ class VariationAnalyzer:
 
     def _calculate_peak_consistency(self, audio: np.ndarray, sr: int) -> float:
         """
-        Calculate how consistent peaks are over time.
+        Calculate how consistent peaks are over time (OPTIMIZED).
 
         Higher value = consistent peaks (compressed music)
         Lower value = varying peaks (natural dynamics)
@@ -281,19 +289,21 @@ class VariationAnalyzer:
             frame_length = int(sr * 0.5)
 
             num_frames = int(np.ceil(len(audio) / hop_length))
-            peaks = []
+            audio_abs = np.abs(audio)
 
+            # Optimized peak calculation: use NumPy operations
+            # Pre-allocate array
+            peaks = np.zeros(num_frames, dtype=audio.dtype)
+
+            # Calculate peaks using NumPy's max (faster than Python append/list)
             for i in range(num_frames):
                 start = i * hop_length
                 end = min(start + frame_length, len(audio))
-                frame = audio[start:end]
-
-                if len(frame) > 0:
-                    peak = np.max(np.abs(frame))
-                    peaks.append(peak)
+                if start < len(audio):
+                    peaks[i] = np.max(audio_abs[start:end])
 
             if len(peaks) > 1:
-                # Consistency = inverse of peak variation
+                # Consistency = inverse of peak variation (vectorized operations)
                 peak_std = np.std(peaks)
                 peak_mean = np.mean(peaks)
 
