@@ -23,6 +23,7 @@ Dependencies:
 import numpy as np
 import logging
 from typing import Dict, Optional, Literal
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from auralis.analysis.fingerprint.temporal_analyzer import TemporalAnalyzer
 from auralis.analysis.fingerprint.spectral_analyzer import SpectralAnalyzer
@@ -136,33 +137,45 @@ class AudioFingerprintAnalyzer:
             dynamics_features = self._analyze_dynamics_cached(audio_mono, sr, fft, magnitude, freqs, rms)
             fingerprint.update(dynamics_features)
 
-            # 3. Temporal analysis (4D)
-            temporal_features = self.temporal_analyzer.analyze(audio_mono, sr)
-            fingerprint.update(temporal_features)
+            # OPTIMIZATION: Parallelize remaining analyzers (3-7) with ThreadPoolExecutor
+            # Analyzers 1-2 (frequency/dynamics) depend on pre-computed FFT, run sequentially first
+            # Analyzers 3-7 are independent and can run concurrently
 
-            # 4. Spectral analysis (3D)
-            spectral_features = self.spectral_analyzer.analyze(audio_mono, sr)
-            fingerprint.update(spectral_features)
+            # Harmonic analyzer selection
+            harmonic_analyzer = (self.sampled_harmonic_analyzer
+                                if self.fingerprint_strategy == "sampling"
+                                else self.harmonic_analyzer)
 
-            # 5. Harmonic analysis (3D)
-            # Use sampling or full-track strategy based on configuration
-            if self.fingerprint_strategy == "sampling":
-                harmonic_features = self.sampled_harmonic_analyzer.analyze(audio_mono, sr)
-                # Add a confidence flag to indicate sampling was used
-                fingerprint["_harmonic_analysis_method"] = "sampled"
-            else:
-                harmonic_features = self.harmonic_analyzer.analyze(audio_mono, sr)
-                fingerprint["_harmonic_analysis_method"] = "full-track"
+            # Run independent analyzers in parallel
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = {
+                    # 3. Temporal analysis (4D)
+                    executor.submit(self.temporal_analyzer.analyze, audio_mono, sr): 'temporal',
 
-            fingerprint.update(harmonic_features)
+                    # 4. Spectral analysis (3D)
+                    executor.submit(self.spectral_analyzer.analyze, audio_mono, sr): 'spectral',
 
-            # 6. Variation analysis (3D)
-            variation_features = self.variation_analyzer.analyze(audio_mono, sr)
-            fingerprint.update(variation_features)
+                    # 5. Harmonic analysis (3D)
+                    executor.submit(harmonic_analyzer.analyze, audio_mono, sr): 'harmonic',
 
-            # 7. Stereo analysis (2D) - uses original stereo audio
-            stereo_features = self.stereo_analyzer.analyze(audio, sr)
-            fingerprint.update(stereo_features)
+                    # 6. Variation analysis (3D)
+                    executor.submit(self.variation_analyzer.analyze, audio_mono, sr): 'variation',
+
+                    # 7. Stereo analysis (2D) - uses original stereo audio
+                    executor.submit(self.stereo_analyzer.analyze, audio, sr): 'stereo'
+                }
+
+                # Collect results as they complete
+                for future in as_completed(futures):
+                    analyzer_name = futures[future]
+                    features = future.result()
+                    fingerprint.update(features)
+
+                    # Mark harmonic analysis method
+                    if analyzer_name == 'harmonic':
+                        fingerprint["_harmonic_analysis_method"] = ("sampled"
+                                                                   if self.fingerprint_strategy == "sampling"
+                                                                   else "full-track")
 
             # Sanitize NaN values (replace with 0.0)
             for key, value in fingerprint.items():
