@@ -33,7 +33,7 @@ class ContinuousMode:
     for that specific position.
     """
 
-    def __init__(self, config, content_analyzer, fingerprint_analyzer):
+    def __init__(self, config, content_analyzer, fingerprint_analyzer, recording_type_detector=None):
         """
         Initialize continuous space processor.
 
@@ -41,6 +41,7 @@ class ContinuousMode:
             config: UnifiedConfig instance
             content_analyzer: ContentAnalyzer for audio analysis
             fingerprint_analyzer: AudioFingerprintAnalyzer for 25D fingerprints
+            recording_type_detector: Optional RecordingTypeDetector instance (shared from parent)
         """
         self.config = config
         self.content_analyzer = content_analyzer
@@ -50,8 +51,12 @@ class ContinuousMode:
         self.space_mapper = ProcessingSpaceMapper()
         self.param_generator = ContinuousParameterGenerator()
 
-        # Initialize 25D-guided recording type detector
-        self.recording_type_detector = RecordingTypeDetector()
+        # Use provided detector or create a new one (for backwards compatibility)
+        if recording_type_detector is not None:
+            self.recording_type_detector = recording_type_detector
+        else:
+            # Fallback for backwards compatibility (when called without detector)
+            self.recording_type_detector = RecordingTypeDetector()
 
         # Store last fingerprint and parameters for debugging/learning
         self.last_fingerprint = None
