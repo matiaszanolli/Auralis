@@ -297,6 +297,72 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         """
         return get_enhancement_settings()
 
+    @router.get("/api/player/mastering/recommendation/{track_id}")
+    async def get_mastering_recommendation(track_id: int, filepath: str = None, confidence_threshold: float = 0.4):
+        """
+        Get weighted mastering profile recommendation for a track (Priority 4).
+
+        Analyzes the track's audio characteristics and returns single or blended
+        profile recommendations based on confidence thresholds.
+
+        Args:
+            track_id: Track database ID
+            filepath: Path to audio file (required for analysis)
+            confidence_threshold: Threshold for switching from single to blended recommendations (0.0-1.0)
+
+        Returns:
+            dict: MasteringRecommendation serialized to JSON with weighted_profiles if hybrid
+                {
+                    "primary_profile_id": "...",
+                    "primary_profile_name": "...",
+                    "confidence_score": 0.73,
+                    "predicted_loudness_change": -0.93,
+                    "predicted_crest_change": 1.4,
+                    "predicted_centroid_change": 100.0,
+                    "weighted_profiles": [  // Only present if hybrid recommendation
+                        {"profile_id": "...", "profile_name": "...", "weight": 0.43},
+                        ...
+                    ],
+                    "reasoning": "..."
+                }
+
+        Raises:
+            HTTPException: 400 if filepath not provided or track not found
+            HTTPException: 500 if analysis fails
+        """
+        if not filepath:
+            raise HTTPException(status_code=400, detail="filepath parameter required")
+
+        try:
+            import os
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from chunked_processor import ChunkedAudioProcessor
+
+            # Create processor (caches the recommendation internally)
+            processor = ChunkedAudioProcessor(
+                track_id=track_id,
+                filepath=filepath,
+                preset=None,  # No processing needed for analysis only
+                intensity=1.0,
+                chunk_cache={}
+            )
+
+            # Get weighted recommendation
+            rec = processor.get_mastering_recommendation(confidence_threshold=confidence_threshold)
+
+            if rec is None:
+                raise HTTPException(status_code=500, detail="Failed to analyze audio file")
+
+            # Return serialized recommendation
+            return rec.to_dict()
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to generate mastering recommendation for track {track_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
     @router.get("/api/processing/parameters")
     async def get_processing_parameters():
         """

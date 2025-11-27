@@ -239,13 +239,61 @@ def create_player_router(
             logger.error(f"Failed to stream audio: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to stream audio: {e}")
 
+    async def _generate_and_broadcast_mastering_recommendation(track_id: int, track_path: str):
+        """
+        Background task to generate mastering recommendation and broadcast via WebSocket (Priority 4).
+
+        This is non-blocking - if analysis fails, playback continues normally.
+
+        Args:
+            track_id: Track database ID
+            track_path: Path to audio file
+        """
+        try:
+            # Import here to avoid circular dependencies
+            import sys
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from chunked_processor import ChunkedAudioProcessor
+
+            # Create processor to generate recommendation
+            processor = ChunkedAudioProcessor(
+                track_id=track_id,
+                filepath=track_path,
+                preset=None,  # No processing needed for analysis only
+                intensity=1.0,
+                chunk_cache={}
+            )
+
+            # Get weighted recommendation
+            rec = processor.get_mastering_recommendation(confidence_threshold=0.4)
+
+            if rec:
+                # Serialize and broadcast
+                rec_dict = rec.to_dict()
+                rec_dict['track_id'] = track_id
+                rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
+
+                await connection_manager.broadcast({
+                    "type": "mastering_recommendation",
+                    "data": rec_dict
+                })
+                logger.info(f"📊 Broadcasted mastering recommendation for track {track_id}")
+
+        except Exception as e:
+            # Log but don't fail - recommendations are optional
+            logger.warning(f"Failed to generate mastering recommendation for track {track_id}: {e}")
+
     @router.post("/api/player/load")
-    async def load_track(track_path: str):
+    async def load_track(track_path: str, track_id: int = None, background_tasks: BackgroundTasks = None):
         """
         Load a track into the player.
 
+        Also generates and broadcasts mastering profile recommendation (Priority 4) in background.
+
         Args:
             track_path: Path to audio file
+            track_id: Optional track database ID (used for mastering recommendation)
+            background_tasks: FastAPI background tasks
 
         Returns:
             dict: Success message
@@ -268,6 +316,17 @@ def create_player_router(
                     "type": "track_loaded",
                     "data": {"track_path": track_path}
                 })
+
+                # Generate mastering recommendation in background (Priority 4)
+                # Only if track_id provided and background tasks available
+                if track_id is not None and background_tasks:
+                    background_tasks.add_task(
+                        _generate_and_broadcast_mastering_recommendation,
+                        track_id=track_id,
+                        track_path=track_path
+                    )
+                    logger.info(f"🎯 Scheduled mastering recommendation generation for track {track_id}")
+
                 return {"message": "Track loaded successfully", "track_path": track_path}
             else:
                 raise HTTPException(status_code=400, detail="Failed to load track")

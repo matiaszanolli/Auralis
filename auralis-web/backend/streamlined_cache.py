@@ -110,6 +110,10 @@ class StreamlinedCacheManager:
         # Track cache status
         self.track_status: Dict[int, TrackCacheStatus] = {}
 
+        # NEW (Priority 4): Mastering recommendations cache
+        # Maps track_id -> serialized MasteringRecommendation dict
+        self.mastering_recommendations: Dict[int, dict] = {}
+
         # Playback state
         self.current_track_id: Optional[int] = None
         self.current_position: float = 0.0
@@ -473,12 +477,46 @@ class StreamlinedCacheManager:
 
             return loaded_count
 
+    def set_mastering_recommendation(self, track_id: int, recommendation: dict) -> None:
+        """
+        Cache a mastering recommendation for a track (Priority 4).
+
+        Args:
+            track_id: Track database ID
+            recommendation: Serialized MasteringRecommendation dict from adaptive_mastering_engine.recommend_weighted()
+        """
+        self.mastering_recommendations[track_id] = recommendation
+        logger.info(
+            f"📊 Cached mastering recommendation for track {track_id}: "
+            f"{recommendation.get('primary_profile_name', 'unknown')}, "
+            f"confidence={recommendation.get('confidence_score', 0):.0%}, "
+            f"blended={'yes' if recommendation.get('weighted_profiles') else 'no'}"
+        )
+
+    def get_mastering_recommendation(self, track_id: int) -> Optional[dict]:
+        """
+        Retrieve cached mastering recommendation for a track (Priority 4).
+
+        Args:
+            track_id: Track database ID
+
+        Returns:
+            Serialized MasteringRecommendation dict or None if not cached
+        """
+        return self.mastering_recommendations.get(track_id)
+
+    def clear_mastering_recommendations(self) -> None:
+        """Clear all cached mastering recommendations."""
+        self.mastering_recommendations.clear()
+        logger.info("Cleared all mastering recommendations from cache")
+
     async def clear_all(self):
         """Clear all caches."""
         async with self._lock:
             self.tier1_cache.clear()
             self.tier2_cache.clear()
             self.track_status.clear()
+            self.mastering_recommendations.clear()
             logger.info("All caches cleared")
 
 
