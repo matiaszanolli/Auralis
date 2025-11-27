@@ -734,9 +734,30 @@ else:
     frontend_path = Path(__file__).parent.parent / "frontend" / "build"
 
 logger.info(f"Looking for frontend at: {frontend_path}")
-if frontend_path.exists():
-    logger.info(f"✅ Serving frontend from: {frontend_path}")
+
+# Only mount static files in production (when not running --dev)
+# In development, Vite serves the frontend and proxies API requests
+# StaticFiles mount at "/" interferes with WebSocket routes, so we must avoid it in dev mode
+is_dev_mode = "--dev" in sys.argv or os.environ.get("DEV_MODE")
+
+if not is_dev_mode and frontend_path.exists():
+    logger.info(f"✅ Serving frontend from: {frontend_path} (production mode)")
     app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+elif is_dev_mode:
+    logger.info("ℹ️  Development mode: Vite serves frontend, StaticFiles NOT mounted (preserves WebSocket routes)")
+    @app.get("/")
+    async def root():
+        return HTMLResponse("""
+        <html>
+            <head><title>Auralis Web</title></head>
+            <body>
+                <h1>🎵 Auralis Web Backend</h1>
+                <p>Backend API is running!</p>
+                <p>Frontend served by Vite on http://localhost:3000+</p>
+                <p><a href="/api/docs">View API Documentation</a></p>
+            </body>
+        </html>
+        """)
 else:
     logger.warning(f"⚠️  Frontend not found at {frontend_path}")
     @app.get("/")

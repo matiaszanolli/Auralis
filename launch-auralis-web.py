@@ -48,7 +48,7 @@ def check_dependencies():
 
     return True
 
-def start_backend(port=8765):
+def start_backend(port=8765, dev_mode=False):
     """Start the FastAPI backend"""
     backend_dir = Path(__file__).parent / "auralis-web" / "backend"
 
@@ -61,6 +61,11 @@ def start_backend(port=8765):
     # Change to backend directory and start
     env = os.environ.copy()
     env["PYTHONPATH"] = str(Path(__file__).parent)
+
+    # Pass dev mode to backend via environment variable
+    # (since sys.argv won't work reliably through subprocess)
+    if dev_mode:
+        env["DEV_MODE"] = "1"
 
     process = subprocess.Popen(
         [sys.executable, "main.py"],
@@ -116,10 +121,11 @@ def main():
 
     try:
         # Start backend
-        backend_process = start_backend(args.port)
+        backend_process = start_backend(args.port, dev_mode=args.dev)
         if backend_process:
             processes.append(backend_process)
-            print(f"✅ Backend started (PID: {backend_process.pid})")
+            mode_str = " (development mode)" if args.dev else ""
+            print(f"✅ Backend started (PID: {backend_process.pid}){mode_str}")
         else:
             print("❌ Failed to start backend")
             return
