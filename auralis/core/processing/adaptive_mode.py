@@ -20,7 +20,7 @@ from ...dsp.dynamics.soft_clipper import soft_clip
 from ...utils.logging import debug
 from .base_processing_mode import (
     MeasurementUtilities, CompressionStrategies, ExpansionStrategies,
-    DBConversion, StereoWidthProcessor
+    DBConversion, StereoWidthProcessor, ProcessingLogger
 )
 
 
@@ -194,28 +194,24 @@ class AdaptiveMode:
         current_rms_db = DBConversion.to_db(current_rms)
         current_crest = peak_db - current_rms_db
 
-        print(f"[Pre-Final] Peak: {peak_db:.2f} dB, RMS: {current_rms_db:.2f} dB, Crest: {current_crest:.2f} dB")
+        ProcessingLogger.pre_stage("Pre-Final", peak_db, current_rms_db, current_crest)
 
         # Calculate target RMS from spectrum
         target_rms_db = spectrum_params.output_target_rms
-
-        # IMPORTANT: Apply RMS gain BEFORE peak normalization to preserve dynamics
-        # But ONLY for under-leveled material - NOT for already-loud material
         rms_diff_from_target = target_rms_db - current_rms_db
 
         # Only boost RMS if material is significantly under-leveled
         # AND we're not in expansion mode (expansion should REDUCE RMS)
         should_boost_rms = (
-            rms_diff_from_target > 0.5 and  # Need significant boost
-            current_rms_db < -15.0 and  # Material is actually quiet
-            spectrum_params.expansion_amount < 0.1  # NOT expanding dynamics
+            rms_diff_from_target > 0.5 and
+            current_rms_db < -15.0 and
+            spectrum_params.expansion_amount < 0.1
         )
 
         if should_boost_rms:
-            # Apply gain to reach target RMS first
-            rms_boost = np.clip(rms_diff_from_target, 0.0, 12.0)  # Cap at +12 dB
+            rms_boost = np.clip(rms_diff_from_target, 0.0, 12.0)
             audio = amplify(audio, rms_boost)
-            print(f"[RMS Boost] Applied {rms_boost:+.2f} dB (target: {target_rms_db:.1f} dB)")
+            ProcessingLogger.gain_applied("RMS Boost", rms_boost, target_rms_db)
 
             # Recalculate after boost
             peak = np.max(np.abs(audio))
@@ -224,7 +220,7 @@ class AdaptiveMode:
             current_rms_db = DBConversion.to_db(current_rms)
         else:
             if rms_diff_from_target > 0.5:
-                print(f"[RMS Boost] SKIPPED - Material already loud (RMS: {current_rms_db:.2f} dB, target: {target_rms_db:.2f} dB)")
+                ProcessingLogger.skipped("RMS Boost", f"Material already loud (RMS: {current_rms_db:.2f} dB, target: {target_rms_db:.2f} dB)")
 
         # Get preset-specific peak target
         preset_name = self.config.mastering_profile
@@ -237,7 +233,7 @@ class AdaptiveMode:
         if peak > 0.001:  # Avoid division by zero
             peak_change_db = target_peak_db - peak_db
             audio = audio * (target_peak / peak)
-            print(f"[Peak Normalization] {peak_db:.2f} → {target_peak_db:.2f} dB (change: {peak_change_db:+.2f} dB)")
+            ProcessingLogger.post_stage("Peak Normalization", peak_db, target_peak_db, "Peak")
 
             # Recalculate final metrics
             current_rms = rms(audio)
@@ -246,7 +242,7 @@ class AdaptiveMode:
             peak_db = DBConversion.to_db(peak)
             current_crest = peak_db - current_rms_db
 
-            print(f"[Final] Peak: {peak_db:.2f} dB, RMS: {current_rms_db:.2f} dB, Crest: {current_crest:.2f} dB")
+            ProcessingLogger.pre_stage("Final", peak_db, current_rms_db, current_crest)
 
         # Safety limiter (only if exceeds safety threshold)
         safety_threshold = -0.01  # dBFS
@@ -254,8 +250,7 @@ class AdaptiveMode:
         final_peak_db = DBConversion.to_db(final_peak)
 
         if final_peak_db > safety_threshold:
-            print(f"[Safety Limiter] Peak {final_peak_db:.2f} dB exceeds threshold {safety_threshold:.2f} dB")
-            # Apply gentle soft clipping to prevent hard clipping
+            ProcessingLogger.safety_check("Safety Limiter", final_peak_db)
             audio = soft_clip(audio, threshold=0.99)
             final_peak = np.max(np.abs(audio))
             final_peak_db = DBConversion.to_db(final_peak)

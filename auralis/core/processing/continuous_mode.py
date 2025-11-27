@@ -22,7 +22,7 @@ from .continuous_space import ProcessingSpaceMapper, PreferenceVector, Processin
 from .parameter_generator import ContinuousParameterGenerator
 from .base_processing_mode import (
     CompressionStrategies, ExpansionStrategies,
-    DBConversion, StereoWidthProcessor
+    DBConversion, StereoWidthProcessor, ProcessingLogger
 )
 from ..recording_type_detector import RecordingTypeDetector
 
@@ -413,7 +413,7 @@ class ContinuousMode:
         current_peak = np.max(np.abs(audio))
         current_peak_db = DBConversion.to_db(current_peak)
 
-        print(f"[Pre-Final] Peak: {current_peak_db:.2f} dB, LUFS: {current_lufs:.1f}")
+        ProcessingLogger.pre_stage("Pre-Final", current_peak_db, current_lufs)
 
         # Step 1: LUFS normalization (to target loudness)
         target_lufs = params.target_lufs
