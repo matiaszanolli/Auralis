@@ -3,7 +3,6 @@ import { Box, IconButton, Typography, Stack } from '@mui/material';
 import { ChevronRight, AutoAwesome } from '@mui/icons-material';
 import { tokens } from '../../design-system/tokens';
 import { useEnhancement } from '../../contexts/EnhancementContext';
-import { usePlayerState } from '../../contexts/PlayerStateContext';
 import EnhancementToggle from '../shared/EnhancementToggle/EnhancementToggle';
 import AudioCharacteristics from './AudioCharacteristics';
 import ProcessingParameters from './ProcessingParameters';
@@ -40,8 +39,8 @@ export const EnhancementPaneExpanded: React.FC<EnhancementPaneExpandedProps> = (
   onMasteringToggle,
 }) => {
   const { settings, setEnabled, isProcessing } = useEnhancement();
-  const playerState = usePlayerState();
-  const trackId = playerState?.currentTrack?.id;
+  // TODO: Get trackId from player state when PlayerStateContext becomes available
+  const trackId: number | undefined = undefined;
   const { recommendation, isLoading } = useMasteringRecommendation(trackId);
 
   const handleMasteringToggle = async (enabled: boolean) => {

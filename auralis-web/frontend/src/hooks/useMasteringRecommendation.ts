@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useWebSocket } from '../contexts/WebSocketContext';
+import { useWebSocketContext } from '../contexts/WebSocketContext';
 
 export interface MasteringRecommendationData {
   track_id: number;
@@ -35,7 +35,7 @@ interface MasteringRecommendationCache {
 }
 
 export const useMasteringRecommendation = (trackId?: number) => {
-  const { subscribe, unsubscribe } = useWebSocket();
+  const { subscribe, unsubscribe } = useWebSocketContext();
   const [recommendation, setRecommendation] = useState<MasteringRecommendationData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [cache] = useState<MasteringRecommendationCache>({});
