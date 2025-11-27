@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, IconButton, Typography, Stack } from '@mui/material';
 import { ChevronRight, AutoAwesome } from '@mui/icons-material';
 import { tokens } from '../../design-system/tokens';
 import { useEnhancement } from '../../contexts/EnhancementContext';
+import { usePlayerState } from '../../contexts/PlayerStateContext';
 import EnhancementToggle from '../shared/EnhancementToggle/EnhancementToggle';
 import AudioCharacteristics from './AudioCharacteristics';
 import ProcessingParameters from './ProcessingParameters';
+import MasteringRecommendation from './MasteringRecommendation';
 import InfoBox from './InfoBox';
 import { EmptyState } from '../shared/ui/feedback';
 import LoadingState from './LoadingState';
+import useMasteringRecommendation from '../../hooks/useMasteringRecommendation';
 import {
   ExpandedPaneContainer,
   PaneHeader,
@@ -37,6 +40,9 @@ export const EnhancementPaneExpanded: React.FC<EnhancementPaneExpandedProps> = (
   onMasteringToggle,
 }) => {
   const { settings, setEnabled, isProcessing } = useEnhancement();
+  const playerState = usePlayerState();
+  const trackId = playerState?.currentTrack?.id;
+  const { recommendation, isLoading } = useMasteringRecommendation(trackId);
 
   const handleMasteringToggle = async (enabled: boolean) => {
     await setEnabled(enabled);
@@ -98,6 +104,14 @@ export const EnhancementPaneExpanded: React.FC<EnhancementPaneExpandedProps> = (
 
             {/* Processing Parameters */}
             <ProcessingParameters params={params} />
+
+            {/* Mastering Recommendation (Priority 4) */}
+            {(recommendation || isLoading) && (
+              <MasteringRecommendation
+                recommendation={recommendation}
+                isLoading={isLoading}
+              />
+            )}
 
             {/* Info Box */}
             <InfoBox />

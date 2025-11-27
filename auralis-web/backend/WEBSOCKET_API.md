@@ -327,6 +327,74 @@ Broadcast when audio enhancement settings are updated.
 }
 ```
 
+#### `mastering_recommendation` ✨ NEW (Priority 4)
+Broadcast when a mastering profile recommendation is generated for the current track.
+
+This message contains weighted profile information for hybrid mastering scenarios.
+
+**Trigger**: When track loads or `GET /api/player/mastering/recommendation/{track_id}` completes
+
+**Payload**:
+```typescript
+{
+  "type": "mastering_recommendation",
+  "data": {
+    "track_id": number,
+    "primary_profile_id": string,
+    "primary_profile_name": string,
+    "confidence_score": number,          // 0.0 - 1.0
+    "predicted_loudness_change": number, // dB
+    "predicted_crest_change": number,    // dB
+    "predicted_centroid_change": number, // Hz
+    "weighted_profiles": [
+      {
+        "profile_id": string,
+        "profile_name": string,
+        "weight": number  // 0.0 - 1.0, sum of all weights = 1.0
+      }
+      // Only present if hybrid/blended recommendation
+    ],
+    "reasoning": string,
+    "is_hybrid": boolean  // True if weighted_profiles present and non-empty
+  }
+}
+```
+
+**Example (Hybrid Mastering)**:
+```json
+{
+  "type": "mastering_recommendation",
+  "data": {
+    "track_id": 42,
+    "primary_profile_id": "bright-masters-spectral-v1",
+    "primary_profile_name": "Bright Masters - High-Frequency Emphasis",
+    "confidence_score": 0.21,
+    "predicted_loudness_change": -1.06,
+    "predicted_crest_change": 1.47,
+    "predicted_centroid_change": 22.7,
+    "weighted_profiles": [
+      {
+        "profile_id": "bright-masters-spectral-v1",
+        "profile_name": "Bright Masters - High-Frequency Emphasis",
+        "weight": 0.43
+      },
+      {
+        "profile_id": "hires-masters-modernization-v1",
+        "profile_name": "Hi-Res Masters - Modernization with Expansion",
+        "weight": 0.31
+      },
+      {
+        "profile_id": "damaged-studio-restoration-v1",
+        "profile_name": "Damaged Studio - Restoration",
+        "weight": 0.26
+      }
+    ],
+    "reasoning": "Hybrid mastering detected (low single-profile confidence: 21%) → Blend: Bright Masters(43%) + Hi-Res Masters(31%) + Damaged Studio(26%)",
+    "is_hybrid": true
+  }
+}
+```
+
 ---
 
 ### Artwork Messages

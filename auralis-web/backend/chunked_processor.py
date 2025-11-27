@@ -27,6 +27,8 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 from auralis.io.unified_loader import load_audio
 from auralis.io.saver import save as save_audio
+from auralis.analysis.mastering_fingerprint import MasteringFingerprint
+from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +107,11 @@ class ChunkedAudioProcessor:
         # This enables fast processing by skipping per-chunk analysis
         self.fingerprint = None
         self.mastering_targets = None
+
+        # NEW (Priority 4): Weighted profile recommendation caching
+        # Stores mastering profile analysis for real-time UI display
+        self.mastering_recommendation = None
+        self.adaptive_mastering_engine = None
 
         if self.preset is not None:
             from auralis.analysis.fingerprint import FingerprintStorage
@@ -660,6 +667,57 @@ class ChunkedAudioProcessor:
         cache_key = self._get_track_fingerprint_cache_key()
         self.chunk_cache[cache_key] = fingerprint
         logger.info(f"Cached track-level fingerprint for track {self.track_id}")
+
+    def get_mastering_recommendation(self, confidence_threshold: float = 0.4):
+        """
+        Get weighted mastering profile recommendation for this track (Priority 4).
+
+        Lazily initializes the adaptive mastering engine and caches the recommendation.
+        Uses the track's fingerprint if available, otherwise analyzes from audio.
+
+        Args:
+            confidence_threshold: Threshold for blending (default 0.4)
+
+        Returns:
+            MasteringRecommendation with weighted_profiles populated if hybrid, or None if unable to analyze
+        """
+        # Return cached recommendation if available
+        if self.mastering_recommendation is not None:
+            return self.mastering_recommendation
+
+        try:
+            # Initialize engine on first use
+            if self.adaptive_mastering_engine is None:
+                self.adaptive_mastering_engine = AdaptiveMasteringEngine()
+
+            # Get or extract fingerprint
+            if self.fingerprint is None:
+                logger.info(f"📊 Extracting mastering fingerprint for recommendation analysis...")
+                try:
+                    self.fingerprint = MasteringFingerprint.from_audio_file(self.filepath)
+                except Exception as e:
+                    logger.warning(f"Failed to extract fingerprint for recommendations: {e}")
+                    return None
+
+            # Get weighted recommendation
+            if self.fingerprint:
+                self.mastering_recommendation = self.adaptive_mastering_engine.recommend_weighted(
+                    self.fingerprint,
+                    confidence_threshold=confidence_threshold
+                )
+                logger.info(
+                    f"🎯 Mastering recommendation generated: "
+                    f"profile={self.mastering_recommendation.primary_profile.name}, "
+                    f"confidence={self.mastering_recommendation.confidence_score:.0%}, "
+                    f"blended={'yes' if self.mastering_recommendation.weighted_profiles else 'no'}"
+                )
+                return self.mastering_recommendation
+
+        except Exception as e:
+            logger.error(f"Failed to generate mastering recommendation: {e}")
+            return None
+
+        return None
 
     def _generate_targets_from_fingerprint(self, fingerprint: dict) -> dict:
         """
