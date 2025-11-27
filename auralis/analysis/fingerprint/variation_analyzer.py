@@ -36,11 +36,27 @@ class VariationAnalyzer:
             Dict with 3 variation features
         """
         try:
+            # OPTIMIZATION: Pre-compute RMS with multiple hop lengths once
+            hop_length_250ms = int(sr * 0.25)
+            frame_length_500ms = int(sr * 0.5)
+
+            # RMS for 250ms hop (used in both dynamic_range and loudness_variation)
+            rms_250ms = librosa.feature.rms(y=audio, hop_length=hop_length_250ms)[0]
+
+            # RMS with frame length for dynamic range calculation
+            rms_with_frame = librosa.feature.rms(
+                y=audio,
+                frame_length=frame_length_500ms,
+                hop_length=hop_length_250ms
+            )[0]
+
             # Dynamic range variation over time
-            dynamic_range_variation = self._calculate_dynamic_range_variation(audio, sr)
+            dynamic_range_variation = self._calculate_dynamic_range_variation_cached(
+                audio, sr, rms_with_frame, hop_length_250ms, frame_length_500ms
+            )
 
             # Loudness variation (std dev)
-            loudness_variation_std = self._calculate_loudness_variation(audio, sr)
+            loudness_variation_std = self._calculate_loudness_variation_cached(audio, sr, rms_250ms)
 
             # Peak consistency
             peak_consistency = self._calculate_peak_consistency(audio, sr)
@@ -58,6 +74,95 @@ class VariationAnalyzer:
                 'loudness_variation_std': 3.0,
                 'peak_consistency': 0.7
             }
+
+    def _calculate_dynamic_range_variation_cached(self, audio: np.ndarray, sr: int,
+                                                   rms: np.ndarray, hop_length: int,
+                                                   frame_length: int) -> float:
+        """
+        Calculate how much dynamic range changes over time using pre-computed RMS.
+
+        Higher value = more variation (classical, progressive)
+        Lower value = consistent dynamics (pop, electronic)
+
+        Args:
+            audio: Audio signal
+            sr: Sample rate
+            rms: Pre-computed RMS values
+            hop_length: Hop length used in RMS computation
+            frame_length: Frame length used in RMS computation
+
+        Returns:
+            Dynamic range variation (0-1)
+        """
+        try:
+            # Calculate crest factor per frame using pre-computed RMS
+            num_frames = len(rms)
+            crest_per_frame = []
+
+            for i in range(num_frames):
+                start = i * hop_length
+                end = min(start + frame_length, len(audio))
+                frame = audio[start:end]
+
+                if len(frame) > 0:
+                    peak = np.max(np.abs(frame))
+                    rms_val = rms[i]
+                    # Avoid division by zero and log(0)
+                    if rms_val > 1e-10 and peak > 1e-10:
+                        crest_db = 20 * np.log10(peak / rms_val)
+                        crest_per_frame.append(crest_db)
+
+            if len(crest_per_frame) > 1:
+                # Variation = std dev of crest factor over time
+                crest_std = np.std(crest_per_frame)
+
+                # Normalize to 0-1
+                # Typical range: 0-6 dB std dev
+                # Low variation: < 2 dB (consistent)
+                # High variation: > 4 dB (dynamic)
+                normalized = crest_std / 6.0
+                normalized = np.clip(normalized, 0, 1)
+            else:
+                normalized = 0.5
+
+            return normalized
+
+        except Exception as e:
+            logger.debug(f"Dynamic range variation calculation failed: {e}")
+            return 0.5
+
+    def _calculate_loudness_variation_cached(self, audio: np.ndarray, sr: int,
+                                             rms: np.ndarray) -> float:
+        """
+        Calculate standard deviation of loudness over time using pre-computed RMS.
+
+        Higher value = more loudness variation (classical, film scores)
+        Lower value = consistent loudness (pop, rock)
+
+        Args:
+            audio: Audio signal
+            sr: Sample rate
+            rms: Pre-computed RMS values
+
+        Returns:
+            Loudness variation std dev (0-10 dB range typical)
+        """
+        try:
+            # Convert to dB using pre-computed RMS
+            rms_db = librosa.amplitude_to_db(rms, ref=np.max)
+
+            # Calculate std dev
+            loudness_std = np.std(rms_db)
+
+            # Clip to reasonable range
+            # Typical: 2-8 dB std dev
+            loudness_std = np.clip(loudness_std, 0, 10)
+
+            return loudness_std
+
+        except Exception as e:
+            logger.debug(f"Loudness variation calculation failed: {e}")
+            return 3.0  # Default to moderate variation
 
     def _calculate_dynamic_range_variation(self, audio: np.ndarray, sr: int) -> float:
         """
