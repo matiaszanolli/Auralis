@@ -12,9 +12,10 @@ Consolidates common measurement and debug boilerplate across modes.
 """
 
 import numpy as np
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Optional, Tuple
 from ...dsp.basic import rms, amplify
 from ...dsp.dynamics.soft_clipper import soft_clip
+from ...dsp.unified import stereo_width_analysis, adjust_stereo_width
 from ...utils.logging import debug
 
 
@@ -216,6 +217,135 @@ class CompressionStrategies:
             after,
             info_str
         )
+
+        return audio
+
+
+class DBConversion:
+    """
+    Unified dB conversion utilities to eliminate duplicate 20*log10 patterns.
+    Replaces 17+ instances of the same calculation across processing modes.
+    """
+
+    @staticmethod
+    def to_db(value: float, default: float = -np.inf) -> float:
+        """
+        Convert linear amplitude to dB with safe handling of zero/negative values.
+
+        Args:
+            value: Linear amplitude value (typically 0-1 for audio)
+            default: Value to return if input is <= 0 (default: -np.inf)
+
+        Returns:
+            Amplitude in dB (20 * log10(value)) or default if value <= 0
+        """
+        return 20 * np.log10(value) if value > 0 else default
+
+    @staticmethod
+    def to_linear(db: float) -> float:
+        """
+        Convert dB to linear amplitude.
+
+        Args:
+            db: Value in dB
+
+        Returns:
+            Linear amplitude (10^(db/20))
+        """
+        return 10 ** (db / 20)
+
+    @staticmethod
+    def db_delta(before_db: float, after_db: float) -> float:
+        """
+        Calculate change in dB with safe handling of -inf values.
+
+        Args:
+            before_db: Before value in dB
+            after_db: After value in dB
+
+        Returns:
+            Change in dB (after - before), handling -inf gracefully
+        """
+        if np.isinf(before_db) or np.isinf(after_db):
+            return 0.0 if np.isinf(before_db) and np.isinf(after_db) else np.inf
+        return after_db - before_db
+
+
+class StereoWidthProcessor:
+    """
+    Unified stereo width processing with safety checks.
+    Consolidates 70% duplicate logic between adaptive and continuous modes.
+    """
+
+    @staticmethod
+    def validate_stereo(audio: np.ndarray) -> bool:
+        """
+        Check if audio is valid stereo.
+
+        Args:
+            audio: Audio array
+
+        Returns:
+            True if audio is 2D with 2 channels, False otherwise
+        """
+        return audio.ndim == 2 and audio.shape[1] == 2
+
+    @staticmethod
+    def get_peak_db(audio: np.ndarray) -> float:
+        """
+        Get peak amplitude in dB.
+
+        Args:
+            audio: Audio array
+
+        Returns:
+            Peak in dB using DBConversion
+        """
+        peak = np.max(np.abs(audio))
+        return DBConversion.to_db(peak)
+
+    @staticmethod
+    def apply_stereo_width_safe(
+        audio: np.ndarray,
+        current_width: float,
+        target_width: float,
+        peak_db: float,
+        safety_mode: str = "adaptive"
+    ) -> np.ndarray:
+        """
+        Apply stereo width adjustment with safety checks to prevent peak clipping.
+
+        Args:
+            audio: Input audio array (must be stereo)
+            current_width: Current stereo width (0-1)
+            target_width: Target stereo width (0-1)
+            peak_db: Current peak in dB
+            safety_mode: Safety strategy ("adaptive" = limit expansion for loud material,
+                                        "conservative" = skip expansion if peak > threshold)
+
+        Returns:
+            Audio with adjusted stereo width
+        """
+        # Strategy 1: Limit expansion for already-loud material (adaptive mode)
+        if safety_mode == "adaptive":
+            # For loud material with positive peaks, limit expansion
+            if peak_db > 3.0 and target_width > current_width:
+                max_width_increase = 0.6
+                target_width = min(target_width, current_width + max_width_increase)
+                debug(f"[Stereo Width] Limited expansion for loud material: target reduced to {target_width:.2f}")
+
+        # Strategy 2: Skip expansion if peak is critically high (conservative mode)
+        elif safety_mode == "conservative":
+            if peak_db > 3.0 and target_width > current_width:
+                debug(f"[Stereo Width] SKIPPED expansion due to high peak ({peak_db:.2f} dB)")
+                return audio  # Return unmodified
+
+        # Apply stereo width only if change is meaningful
+        if abs(current_width - target_width) > 0.1:
+            audio = adjust_stereo_width(audio, target_width)
+            new_peak_db = StereoWidthProcessor.get_peak_db(audio)
+            debug(f"[Stereo Width] Peak: {peak_db:.2f} → {new_peak_db:.2f} dB "
+                  f"(width: {current_width:.2f} → {target_width:.2f})")
 
         return audio
 

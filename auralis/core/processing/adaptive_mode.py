@@ -18,7 +18,10 @@ from ...dsp.unified import (
 )
 from ...dsp.dynamics.soft_clipper import soft_clip
 from ...utils.logging import debug
-from .base_processing_mode import MeasurementUtilities, CompressionStrategies, ExpansionStrategies
+from .base_processing_mode import (
+    MeasurementUtilities, CompressionStrategies, ExpansionStrategies,
+    DBConversion, StereoWidthProcessor
+)
 
 
 class AdaptiveMode:
@@ -160,33 +163,24 @@ class AdaptiveMode:
                            spectrum_position) -> np.ndarray:
         """Apply stereo width adjustment with safety checks"""
 
-        if audio.ndim != 2 or audio.shape[1] != 2:
-            return audio  # Skip if not stereo
+        if not StereoWidthProcessor.validate_stereo(audio):
+            return audio
 
-        peak_before_stereo = np.max(np.abs(audio))
-        peak_before_stereo_db = 20 * np.log10(peak_before_stereo) if peak_before_stereo > 0 else -np.inf
-
+        peak_before_stereo_db = StereoWidthProcessor.get_peak_db(audio)
         current_width = stereo_width_analysis(audio)
         target_width = targets["stereo_width"]
 
         # CRITICAL: Prevent stereo width expansion from creating excessive peaks
-        # Strategy 1: Limit expansion for already-loud material
+        # Limit expansion for already-loud material
         if spectrum_position.input_level > 0.8 and target_width > current_width:
-            max_width_increase = 0.6  # Allow up to +0.6 increase (was 0.3)
+            max_width_increase = 0.6
             target_width = min(target_width, current_width + max_width_increase)
             print(f"[Stereo Width] Limited expansion for loud material: target reduced to {target_width:.2f}")
 
-        # Strategy 2: Skip expansion if current peak is already high (> 3 dB)
-        if peak_before_stereo_db > 3.0 and target_width > current_width:
-            print(f"[Stereo Width] SKIPPED expansion due to high peak ({peak_before_stereo_db:.2f} dB) - preserving dynamics")
-            target_width = current_width  # Keep current width
-
-        if abs(current_width - target_width) > 0.1:
-            audio = adjust_stereo_width(audio, target_width)
-
-            peak_after_stereo = np.max(np.abs(audio))
-            peak_after_stereo_db = 20 * np.log10(peak_after_stereo) if peak_after_stereo > 0 else -np.inf
-            print(f"[Stereo Width] Peak: {peak_before_stereo_db:.2f} → {peak_after_stereo_db:.2f} dB (width: {current_width:.2f} → {target_width:.2f})")
+        # Apply stereo width with safety checks
+        audio = StereoWidthProcessor.apply_stereo_width_safe(
+            audio, current_width, target_width, peak_before_stereo_db, safety_mode="adaptive"
+        )
 
         return audio
 
@@ -195,9 +189,9 @@ class AdaptiveMode:
         from ..config.preset_profiles import get_preset_profile
 
         peak = np.max(np.abs(audio))
-        peak_db = 20 * np.log10(peak) if peak > 0 else -np.inf
+        peak_db = DBConversion.to_db(peak)
         current_rms = rms(audio)
-        current_rms_db = 20 * np.log10(current_rms) if current_rms > 0 else -np.inf
+        current_rms_db = DBConversion.to_db(current_rms)
         current_crest = peak_db - current_rms_db
 
         print(f"[Pre-Final] Peak: {peak_db:.2f} dB, RMS: {current_rms_db:.2f} dB, Crest: {current_crest:.2f} dB")
@@ -225,9 +219,9 @@ class AdaptiveMode:
 
             # Recalculate after boost
             peak = np.max(np.abs(audio))
-            peak_db = 20 * np.log10(peak) if peak > 0 else -np.inf
+            peak_db = DBConversion.to_db(peak)
             current_rms = rms(audio)
-            current_rms_db = 20 * np.log10(current_rms) if current_rms > 0 else -np.inf
+            current_rms_db = DBConversion.to_db(current_rms)
         else:
             if rms_diff_from_target > 0.5:
                 print(f"[RMS Boost] SKIPPED - Material already loud (RMS: {current_rms_db:.2f} dB, target: {target_rms_db:.2f} dB)")
@@ -236,7 +230,7 @@ class AdaptiveMode:
         preset_name = self.config.mastering_profile
         preset_profile = get_preset_profile(preset_name)
         target_peak_db = preset_profile.peak_target_db if preset_profile else -1.00
-        target_peak = 10 ** (target_peak_db / 20)  # Convert dB to linear
+        target_peak = DBConversion.to_linear(target_peak_db)
 
         print(f"[Peak Normalization] Preset: {preset_name}, Target: {target_peak_db:.2f} dB")
 
@@ -247,9 +241,9 @@ class AdaptiveMode:
 
             # Recalculate final metrics
             current_rms = rms(audio)
-            current_rms_db = 20 * np.log10(current_rms) if current_rms > 0 else -np.inf
+            current_rms_db = DBConversion.to_db(current_rms)
             peak = np.max(np.abs(audio))
-            peak_db = 20 * np.log10(peak) if peak > 0 else -np.inf
+            peak_db = DBConversion.to_db(peak)
             current_crest = peak_db - current_rms_db
 
             print(f"[Final] Peak: {peak_db:.2f} dB, RMS: {current_rms_db:.2f} dB, Crest: {current_crest:.2f} dB")
@@ -257,19 +251,19 @@ class AdaptiveMode:
         # Safety limiter (only if exceeds safety threshold)
         safety_threshold = -0.01  # dBFS
         final_peak = np.max(np.abs(audio))
-        final_peak_db = 20 * np.log10(final_peak) if final_peak > 0 else -np.inf
+        final_peak_db = DBConversion.to_db(final_peak)
 
         if final_peak_db > safety_threshold:
             print(f"[Safety Limiter] Peak {final_peak_db:.2f} dB exceeds threshold {safety_threshold:.2f} dB")
             # Apply gentle soft clipping to prevent hard clipping
             audio = soft_clip(audio, threshold=0.99)
             final_peak = np.max(np.abs(audio))
-            final_peak_db = 20 * np.log10(final_peak) if final_peak > 0 else -np.inf
+            final_peak_db = DBConversion.to_db(final_peak)
             print(f"[Safety Limiter] Peak reduced to {final_peak_db:.2f} dB")
 
         # Final metrics
         final_rms = rms(audio)
-        final_rms_db = 20 * np.log10(final_rms) if final_rms > 0 else -np.inf
+        final_rms_db = DBConversion.to_db(final_rms)
         final_crest = final_peak_db - final_rms_db
 
         debug(f"[Final Result] Peak: {final_peak_db:.2f} dB, RMS: {final_rms_db:.2f} dB, Crest: {final_crest:.2f} dB")
