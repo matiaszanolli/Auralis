@@ -173,7 +173,17 @@ interface WebSocketProviderProps {
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
-  url = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
+  url = (() => {
+    // In development (Vite on localhost:3000+), connect directly to backend
+    // In production, connect through the same host as frontend
+    if (window.location.hostname === 'localhost' && parseInt(window.location.port) >= 3000) {
+      // Development: Connect directly to backend WebSocket
+      return `ws://localhost:8765/ws`
+    } else {
+      // Production: Use same host as frontend (backend serves both)
+      return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
+    }
+  })()
 }) => {
   const wsManagerRef = useRef<WebSocketManager | null>(null);
   const [isConnected, setIsConnected] = useState(false);
