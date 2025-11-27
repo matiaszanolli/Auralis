@@ -30,6 +30,13 @@ from .mastering_profile import (
 
 
 @dataclass
+class ProfileWeight:
+    """A profile with its weight in a blended recommendation."""
+    profile: MasteringProfile
+    weight: float  # 0-1, sum of all weights = 1.0
+
+
+@dataclass
 class MasteringRecommendation:
     """Recommendation for mastering an audio track."""
 
@@ -41,11 +48,12 @@ class MasteringRecommendation:
 
     alternative_profiles: List[MasteringProfile] = field(default_factory=list)
     reasoning: str = ""                     # Explanation for the recommendation
+    weighted_profiles: List[ProfileWeight] = field(default_factory=list)  # Blended profiles (if hybrid)
     created: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        result = {
             'primary_profile_id': self.primary_profile.profile_id,
             'primary_profile_name': self.primary_profile.name,
             'confidence_score': self.confidence_score,
@@ -59,9 +67,27 @@ class MasteringRecommendation:
             ],
         }
 
+        # Add weighted profiles if this is a hybrid recommendation
+        if self.weighted_profiles:
+            result['weighted_profiles'] = [
+                {'profile_id': pw.profile.profile_id, 'profile_name': pw.profile.name, 'weight': pw.weight}
+                for pw in self.weighted_profiles
+            ]
+
+        return result
+
     def summary(self) -> str:
         """Human-readable summary of recommendation."""
-        lines = [
+        lines = []
+
+        # Show weighted profiles if hybrid recommendation
+        if self.weighted_profiles:
+            lines.append(f"Blended Profile (Hybrid Mastering):")
+            for pw in self.weighted_profiles:
+                lines.append(f"  {pw.profile.name}: {pw.weight:.0%}")
+            lines.append(f"")
+
+        lines.extend([
             f"Profile: {self.primary_profile.name}",
             f"Confidence: {self.confidence_score:.0%}",
             f"Expected Changes:",
@@ -72,7 +98,7 @@ class MasteringRecommendation:
             f"Strategy: {self.primary_profile.processing_targets.description}",
             f"",
             f"Reasoning: {self.reasoning}",
-        ]
+        ])
 
         if self.alternative_profiles:
             lines.append(f"")
@@ -146,6 +172,80 @@ class AdaptiveMasteringEngine:
 
         # Generate reasoning
         rec.reasoning = self._generate_reasoning(fingerprint, primary_profile, confidence)
+
+        return rec
+
+    def recommend_weighted(self, fingerprint: MasteringFingerprint, confidence_threshold: float = 0.4, top_k: int = 3) -> MasteringRecommendation:
+        """
+        Get weighted mastering recommendation for hybrid mastering scenarios.
+
+        When the top profile has low confidence, blends multiple profiles
+        proportionally to their match scores for better hybrid recommendations.
+
+        Args:
+            fingerprint: Audio fingerprint to analyze
+            confidence_threshold: If top profile confidence is below this, create blend
+            top_k: Number of profiles to consider for weighting
+
+        Returns:
+            MasteringRecommendation with weighted_profiles if hybrid, else primary only
+        """
+        # Get top ranking profiles
+        rankings = self.profile_db.rank_profiles(fingerprint, top_k=top_k)
+
+        if not rankings:
+            return self._fallback_recommendation(fingerprint)
+
+        primary_profile, confidence = rankings[0]
+        alternatives = [profile for profile, _ in rankings[1:]] if len(rankings) > 1 else []
+
+        # If confidence is high, return single-profile recommendation
+        if confidence >= confidence_threshold:
+            rec = MasteringRecommendation(
+                primary_profile=primary_profile,
+                confidence_score=confidence,
+                alternative_profiles=alternatives,
+                predicted_loudness_change=primary_profile.processing_targets.loudness_change_db,
+                predicted_crest_change=primary_profile.processing_targets.crest_change_db,
+                predicted_centroid_change=primary_profile.processing_targets.centroid_change_hz,
+            )
+            rec.reasoning = self._generate_reasoning(fingerprint, primary_profile, confidence)
+            return rec
+
+        # Low confidence: create weighted blend from top N profiles
+        weighted_profiles = []
+        total_confidence = sum(conf for _, conf in rankings)
+
+        # Calculate weights proportional to confidence scores
+        for profile, conf in rankings:
+            if conf > 0:  # Only include profiles with positive match
+                weight = conf / total_confidence
+                weighted_profiles.append(ProfileWeight(profile=profile, weight=weight))
+
+        # Calculate blended processing targets
+        blended_loudness = sum(pw.profile.processing_targets.loudness_change_db * pw.weight
+                              for pw in weighted_profiles)
+        blended_crest = sum(pw.profile.processing_targets.crest_change_db * pw.weight
+                           for pw in weighted_profiles)
+        blended_centroid = sum(pw.profile.processing_targets.centroid_change_hz * pw.weight
+                              for pw in weighted_profiles)
+
+        # Build recommendation with weighted profiles
+        rec = MasteringRecommendation(
+            primary_profile=primary_profile,
+            confidence_score=confidence,
+            alternative_profiles=alternatives,
+            weighted_profiles=weighted_profiles,
+            predicted_loudness_change=blended_loudness,
+            predicted_crest_change=blended_crest,
+            predicted_centroid_change=blended_centroid,
+        )
+
+        # Generate reasoning for hybrid recommendation
+        reasons = []
+        reasons.append(f"Hybrid mastering detected (low single-profile confidence: {confidence:.0%})")
+        reasons.append(f"Blend: " + " + ".join(f"{pw.profile.name}({pw.weight:.0%})" for pw in weighted_profiles))
+        rec.reasoning = " → ".join(reasons)
 
         return rec
 
