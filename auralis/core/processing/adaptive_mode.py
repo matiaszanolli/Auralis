@@ -18,6 +18,7 @@ from ...dsp.unified import (
 )
 from ...dsp.dynamics.soft_clipper import soft_clip
 from ...utils.logging import debug
+from .base_processing_mode import MeasurementUtilities, CompressionStrategies, ExpansionStrategies
 
 
 class AdaptiveMode:
@@ -143,105 +144,17 @@ class AdaptiveMode:
 
     def _apply_compression(self, audio: np.ndarray, spectrum_params) -> np.ndarray:
         """Apply DIY compression to reduce crest factor"""
-
-        # Measure current state
-        before_comp_peak = np.max(np.abs(audio))
-        before_comp_peak_db = 20 * np.log10(before_comp_peak) if before_comp_peak > 0 else -np.inf
-        before_comp_rms = rms(audio)
-        before_comp_rms_db = 20 * np.log10(before_comp_rms) if before_comp_rms > 0 else -np.inf
-        before_comp_crest = before_comp_peak_db - before_comp_rms_db
-
-        # Calculate target crest reduction based on compression amount
-        # compression_amount = 0.85 means reduce crest by ~3 dB (from Matchering data)
-        # Use higher multiplier to account for stereo expansion adding peaks back
-        target_crest_reduction = spectrum_params.compression_amount * 4.5  # Max ~3.8 dB reduction
-
-        # Simple soft clipping approach: reduce peaks while preserving RMS
-        # Calculate soft clip threshold based on desired crest reduction
-        target_crest = before_comp_crest - target_crest_reduction
-        clip_threshold_db = before_comp_rms_db + target_crest
-        clip_threshold_linear = 10 ** (clip_threshold_db / 20)
-
-        # Apply soft clipping
-        audio_abs = np.abs(audio)
-        over_threshold = audio_abs > clip_threshold_linear
-
-        if np.any(over_threshold):
-            # Soft knee compression for samples over threshold
-            # Use adaptive ratio based on compression intensity
-            compression_ratio = 3.0 + spectrum_params.compression_amount * 4.0  # 3:1 to 7:1
-            excess = audio_abs[over_threshold] - clip_threshold_linear
-            compressed_excess = excess / compression_ratio
-            new_amplitude = clip_threshold_linear + compressed_excess
-
-            # Apply compression while preserving sign
-            audio[over_threshold] = np.sign(audio[over_threshold]) * new_amplitude
-
-        # Measure result
-        after_comp_peak = np.max(np.abs(audio))
-        after_comp_peak_db = 20 * np.log10(after_comp_peak) if after_comp_peak > 0 else -np.inf
-        after_comp_rms = rms(audio)
-        after_comp_rms_db = 20 * np.log10(after_comp_rms) if after_comp_rms > 0 else -np.inf
-        after_comp_crest = after_comp_peak_db - after_comp_rms_db
-
-        print(f"[DIY Compressor] Peak: {before_comp_peak_db:.2f} → {after_comp_peak_db:.2f} dB (Δ {after_comp_peak_db - before_comp_peak_db:+.2f} dB)")
-        print(f"[DIY Compressor] RMS: {before_comp_rms_db:.2f} → {after_comp_rms_db:.2f} dB (Δ {after_comp_rms_db - before_comp_rms_db:+.2f} dB)")
-        print(f"[DIY Compressor] Crest: {before_comp_crest:.2f} → {after_comp_crest:.2f} dB (Δ {after_comp_crest - before_comp_crest:+.2f} dB, target: {-target_crest_reduction:.2f} dB)")
-
-        return audio
+        return CompressionStrategies.apply_soft_knee_compression(
+            audio,
+            spectrum_params.compression_amount
+        )
 
     def _apply_expansion(self, audio: np.ndarray, spectrum_params) -> np.ndarray:
         """Apply DIY expansion to increase crest factor (de-mastering)"""
-
-        # Measure current state
-        before_exp_peak = np.max(np.abs(audio))
-        before_exp_peak_db = 20 * np.log10(before_exp_peak) if before_exp_peak > 0 else -np.inf
-        before_exp_rms = rms(audio)
-        before_exp_rms_db = 20 * np.log10(before_exp_rms) if before_exp_rms > 0 else -np.inf
-        before_exp_crest = before_exp_peak_db - before_exp_rms_db
-
-        # Calculate target crest expansion based on expansion amount
-        # expansion_amount = 0.7 means expand crest by ~4-6 dB (Pantera/Motörhead cases)
-        # expansion_amount = 0.4 means expand crest by ~2-3 dB (Soda Stereo case)
-        target_crest_expansion = spectrum_params.expansion_amount * 6.0  # Max ~4.2 dB expansion
-
-        # Expansion approach: Enhance peaks while preserving RMS
-        # We want to make loud samples louder (above RMS) to increase dynamic contrast
-        expansion_threshold_db = before_exp_rms_db + 3.0  # Start expanding 3 dB above RMS
-        expansion_threshold_linear = 10 ** (expansion_threshold_db / 20)
-
-        # Apply expansion
-        audio_abs = np.abs(audio)
-        above_threshold = audio_abs > expansion_threshold_linear
-
-        if np.any(above_threshold):
-            # Expansion: boost samples above threshold
-            # expansion_ratio: 1:2 means for every 1 dB above threshold, add 2 dB
-            expansion_ratio = 1.0 + spectrum_params.expansion_amount  # 1.1 to 1.7
-            excess = audio_abs[above_threshold] - expansion_threshold_linear
-
-            # Convert to dB, apply expansion, convert back
-            excess_db = 20 * np.log10(excess / expansion_threshold_linear + 1.0)
-            expanded_excess_db = excess_db * expansion_ratio
-            expanded_excess_linear = (10 ** (expanded_excess_db / 20) - 1.0) * expansion_threshold_linear
-
-            new_amplitude = expansion_threshold_linear + expanded_excess_linear
-
-            # Apply expansion while preserving sign
-            audio[above_threshold] = np.sign(audio[above_threshold]) * new_amplitude
-
-        # Measure result
-        after_exp_peak = np.max(np.abs(audio))
-        after_exp_peak_db = 20 * np.log10(after_exp_peak) if after_exp_peak > 0 else -np.inf
-        after_exp_rms = rms(audio)
-        after_exp_rms_db = 20 * np.log10(after_exp_rms) if after_exp_rms > 0 else -np.inf
-        after_exp_crest = after_exp_peak_db - after_exp_rms_db
-
-        print(f"[DIY Expander] Peak: {before_exp_peak_db:.2f} → {after_exp_peak_db:.2f} dB (Δ {after_exp_peak_db - before_exp_peak_db:+.2f} dB)")
-        print(f"[DIY Expander] RMS: {before_exp_rms_db:.2f} → {after_exp_rms_db:.2f} dB (Δ {after_exp_rms_db - before_exp_rms_db:+.2f} dB)")
-        print(f"[DIY Expander] Crest: {before_exp_crest:.2f} → {after_exp_crest:.2f} dB (Δ {after_exp_crest - before_exp_crest:+.2f} dB, target: +{target_crest_expansion:.2f} dB)")
-
-        return audio
+        return ExpansionStrategies.apply_peak_enhancement_expansion(
+            audio,
+            spectrum_params.expansion_amount
+        )
 
     def _apply_stereo_width(self, audio: np.ndarray, targets: Dict[str, Any],
                            spectrum_position) -> np.ndarray:

@@ -17,10 +17,10 @@ from ...dsp.basic import rms, amplify
 from ...dsp.unified import (
     calculate_loudness_units, stereo_width_analysis, adjust_stereo_width
 )
-from ...dsp.dynamics.soft_clipper import soft_clip
 from ...utils.logging import debug
 from .continuous_space import ProcessingSpaceMapper, PreferenceVector, ProcessingParameters
 from .parameter_generator import ContinuousParameterGenerator
+from .base_processing_mode import CompressionStrategies, ExpansionStrategies
 from ..recording_type_detector import RecordingTypeDetector
 
 
@@ -342,62 +342,11 @@ class ContinuousMode:
         if len(audio) == 0:
             return audio  # Return as-is if empty
 
-        before_rms = rms(audio)
-        before_peak = np.max(np.abs(audio))
-        before_crest = 20 * np.log10(before_peak / (before_rms + 1e-10))
-
-        ratio = comp_params['ratio']
-        amount = comp_params['amount']
-
-        # Simple DIY compression: apply soft clipping at higher levels
-        # soft_clip API: (audio, threshold=0.9, ceiling=0.99)
-        # Lower threshold = more compression, higher ratio = lower ceiling
-        threshold = 0.8 - (ratio - 1.0) * 0.1  # 1.5:1 → 0.75, 2.0:1 → 0.70
-        ceiling = 0.95
-
-        compressed = soft_clip(audio, threshold=threshold, ceiling=ceiling)
-
-        # Blend with original based on amount
-        audio = audio * (1.0 - amount) + compressed * amount
-
-        after_rms = rms(audio)
-        after_peak = np.max(np.abs(audio))
-        after_crest = 20 * np.log10(after_peak / (after_rms + 1e-10))
-
-        print(f"[Compression] {ratio:.1f}:1 @ {amount:.0%}: "
-              f"Crest {before_crest:.1f} → {after_crest:.1f} dB")
-
-        return audio
+        return CompressionStrategies.apply_clip_blend_compression(audio, comp_params)
 
     def _apply_expansion(self, audio: np.ndarray, exp_params: Dict) -> np.ndarray:
         """Apply expansion to increase crest factor (de-mastering)"""
-
-        before_rms = rms(audio)
-        before_peak = np.max(np.abs(audio))
-        before_crest = 20 * np.log10(before_peak / (before_rms + 1e-10))
-
-        target_increase = exp_params['target_crest_increase']
-        amount = exp_params['amount']
-
-        # Calculate current crest and target crest
-        current_crest = before_crest
-        target_crest = current_crest + target_increase
-
-        # Expansion strategy: Reduce RMS while keeping peaks (increases crest)
-        # This is the inverse of compression
-        rms_reduction_db = target_increase * amount
-
-        # Apply RMS reduction (makes audio quieter, increasing crest)
-        audio = amplify(audio, -rms_reduction_db)
-
-        after_rms = rms(audio)
-        after_peak = np.max(np.abs(audio))
-        after_crest = 20 * np.log10(after_peak / (after_rms + 1e-10))
-
-        print(f"[Expansion] Target +{target_increase:.1f} dB @ {amount:.0%}: "
-              f"Crest {before_crest:.1f} → {after_crest:.1f} dB")
-
-        return audio
+        return ExpansionStrategies.apply_rms_reduction_expansion(audio, exp_params)
 
     def _apply_stereo_width(self, audio: np.ndarray, params) -> np.ndarray:
         """Apply stereo width adjustment with adaptive guidance"""
