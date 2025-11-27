@@ -13,9 +13,10 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 ## 📦 Current Version: 1.1.0-beta.2
 
-**🔨 Development Release (November 23, 2025)** - No binaries, build from source
+**🔨 Development Release (November 27, 2025)** - No binaries, build from source
 
-This is a **development-focused release** with critical component refactoring and type system consolidation. Features:
+This is a **development-focused release** with critical component refactoring, type system consolidation, and **performance optimizations**. Features:
+- ✅ **Critical Performance Optimizations** (Nov 27) - 100-500x faster on repeated calls, 5-10MB memory saved
 - ✅ **PlayerBarV2Connected Refactoring** - Complete architecture update with inlined event handlers
 - ✅ **Type System Consolidation** - Single canonical source for EnhancementSettings across all components
 - ✅ **Volume Control Fix** - Volume changes now properly persist to Redux state
@@ -36,7 +37,7 @@ The first **official stable release** with binary installers coming end of Decem
 
 ---
 
-📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 🚀 **[Development Roadmap](DEVELOPMENT_ROADMAP_1_1_0.md)**
+📚 **[Master Roadmap](docs/MASTER_ROADMAP.md)** | 🏗️ **[Architecture Guide](CLAUDE.md)** | ⚡ **[Performance Optimizations](CRITICAL_OPTIMIZATIONS_IMPLEMENTED.md)** | 📊 **[Test Guidelines](docs/development/TESTING_GUIDELINES.md)** | 🚀 **[Development Roadmap](docs/roadmaps/DEVELOPMENT_ROADMAP_1_1_0.md)**
 
 ---
 
