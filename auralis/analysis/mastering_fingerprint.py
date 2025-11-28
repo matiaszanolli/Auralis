@@ -26,6 +26,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional, Dict, Any
 import json
+from .fingerprint.common_metrics import AudioMetrics
 
 
 @dataclass
@@ -100,9 +101,9 @@ class MasteringFingerprint:
 
             # Loudness metrics
             rms = np.sqrt(np.mean(mono ** 2))
-            loudness_dbfs = 20 * np.log10(rms + 1e-10)
+            loudness_dbfs = AudioMetrics.rms_to_db(np.array([rms]))[0]
             peak = np.max(np.abs(mono))
-            peak_dbfs = 20 * np.log10(peak + 1e-10)
+            peak_dbfs = AudioMetrics.rms_to_db(np.array([peak]))[0]
             crest_db = peak_dbfs - loudness_dbfs
 
             # Spectral metrics

@@ -19,6 +19,7 @@ from ...dsp.unified import (
     crest_factor, tempo_estimate
 )
 from ...utils.logging import debug
+from ..fingerprint.common_metrics import SafeOperations
 
 
 class FeatureExtractor:
@@ -119,9 +120,14 @@ class FeatureExtractor:
         magnitude = np.abs(spectrum[:2049])
         freqs = np.fft.fftfreq(4096, 1/self.sample_rate)[:2049]
 
-        centroid = np.sum(freqs * magnitude) / (np.sum(magnitude) + 1e-10)
-        bandwidth = np.sqrt(np.sum(((freqs - centroid) ** 2) * magnitude) /
-                           (np.sum(magnitude) + 1e-10))
+        # Use SafeOperations for safe division
+        magnitude_sum = np.sum(magnitude)
+        centroid = SafeOperations.safe_divide(np.sum(freqs * magnitude), magnitude_sum, fallback=0.0)
+        bandwidth = np.sqrt(SafeOperations.safe_divide(
+            np.sum(((freqs - centroid) ** 2) * magnitude),
+            magnitude_sum,
+            fallback=0.0
+        ))
 
         return bandwidth
 

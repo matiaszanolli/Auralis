@@ -10,6 +10,7 @@ Comprehensive dynamic range measurement and analysis tools.
 import numpy as np
 from typing import Dict, List, Tuple
 from scipy import signal
+from auralis.analysis.fingerprint.common_metrics import SafeOperations, AudioMetrics
 
 
 class DynamicRangeAnalyzer:
@@ -208,7 +209,8 @@ class DynamicRangeAnalyzer:
             }
 
         peak_amplitudes = np.abs(audio[peaks])
-        peak_levels_db = 20 * np.log10(peak_amplitudes + 1e-10)
+        # Use SafeOperations for safe log conversion with epsilon protection
+        peak_levels_db = AudioMetrics.rms_to_db(peak_amplitudes)
 
         # Calculate peak density (peaks per second)
         duration_seconds = len(audio) / self.sample_rate
@@ -319,8 +321,8 @@ class DynamicRangeAnalyzer:
         else:
             envelope_smooth = envelope
 
-        # Calculate envelope statistics
-        envelope_db = 20 * np.log10(envelope_smooth + 1e-10)
+        # Calculate envelope statistics using safe log conversion
+        envelope_db = AudioMetrics.rms_to_db(envelope_smooth)
 
         # Attack and release characteristics
         envelope_diff = np.diff(envelope_smooth)

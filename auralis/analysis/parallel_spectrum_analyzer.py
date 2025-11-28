@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from ..optimization.parallel_processor import ParallelFFTProcessor, ParallelConfig
 from ..utils.logging import debug
+from .fingerprint.common_metrics import SafeOperations, AudioMetrics
 
 
 @dataclass
@@ -288,7 +289,13 @@ class ParallelSpectrumAnalyzer:
 
         # Calculate metrics (vectorized)
         peak_frequency = self.frequency_bins[np.argmax(weighted_spectrum)]
-        spectral_centroid = np.sum(self.frequency_bins * weighted_spectrum) / (np.sum(weighted_spectrum) + 1e-10)
+        # Use SafeOperations for safe division
+        spectrum_sum = np.sum(weighted_spectrum)
+        spectral_centroid = SafeOperations.safe_divide(
+            np.sum(self.frequency_bins * weighted_spectrum),
+            spectrum_sum,
+            fallback=0.0
+        )
         spectral_rolloff = self._calculate_rolloff_vectorized(weighted_spectrum)
 
         return {
@@ -316,8 +323,8 @@ class ParallelSpectrumAnalyzer:
             if np.any(mask):
                 spectrum[i] = np.mean(magnitude[mask])
 
-        # Convert to dB (vectorized)
-        spectrum = 20 * np.log10(np.maximum(spectrum, 1e-10))
+        # Convert to dB (vectorized) using safe log conversion
+        spectrum = AudioMetrics.rms_to_db(spectrum)
 
         return spectrum
 

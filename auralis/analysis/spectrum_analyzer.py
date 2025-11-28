@@ -11,6 +11,7 @@ import numpy as np
 from scipy import signal
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from .fingerprint.common_metrics import AudioMetrics
 
 
 @dataclass
@@ -183,8 +184,8 @@ class SpectrumAnalyzer:
         if np.any(mask):
             spectrum[-1] = np.mean(magnitude[mask])
 
-        # Convert to dB
-        spectrum = 20 * np.log10(np.maximum(spectrum, 1e-10))
+        # Convert to dB using safe log conversion
+        spectrum = AudioMetrics.rms_to_db(spectrum)
 
         return spectrum
 
