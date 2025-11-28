@@ -11,12 +11,14 @@ Features (3D):
 Dependencies:
   - librosa for spectral analysis
   - numpy for numerical operations
+  - common_metrics for unified utilities
 """
 
 import numpy as np
 import librosa
-from typing import Dict
+from typing import Dict, Optional
 import logging
+from .common_metrics import MetricUtils, SafeOperations, AggregationUtils
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +43,14 @@ class SpectralAnalyzer:
             S = librosa.stft(audio)
             magnitude = np.abs(S)
 
-            # Spectral centroid (brightness)
-            spectral_centroid = self._calculate_spectral_centroid_cached(magnitude, sr)
+            # Spectral centroid (brightness) - pass pre-computed magnitude
+            spectral_centroid = self._calculate_spectral_centroid(audio, sr, magnitude=magnitude)
 
-            # Spectral rolloff (high-frequency content)
-            spectral_rolloff = self._calculate_spectral_rolloff_cached(magnitude, sr)
+            # Spectral rolloff (high-frequency content) - pass pre-computed magnitude
+            spectral_rolloff = self._calculate_spectral_rolloff(audio, sr, magnitude=magnitude)
 
-            # Spectral flatness (noise vs tonal)
-            spectral_flatness = self._calculate_spectral_flatness_cached(magnitude)
+            # Spectral flatness (noise vs tonal) - pass pre-computed magnitude
+            spectral_flatness = self._calculate_spectral_flatness(audio, magnitude=magnitude)
 
             return {
                 'spectral_centroid': float(spectral_centroid),
@@ -64,47 +66,8 @@ class SpectralAnalyzer:
                 'spectral_flatness': 0.3
             }
 
-    def _calculate_spectral_centroid_cached(self, magnitude: np.ndarray, sr: int) -> float:
-        """
-        Calculate spectral centroid from pre-computed magnitude spectrum (OPTIMIZED).
-
-        Higher value = brighter sound (cymbals, high guitar)
-        Lower value = darker sound (bass, low guitar)
-
-        Args:
-            magnitude: Pre-computed magnitude spectrum from STFT
-            sr: Sample rate
-
-        Returns:
-            Normalized spectral centroid (0-1)
-        """
-        try:
-            # Calculate spectral centroid from magnitude spectrum
-            # Frequency bins
-            freqs = librosa.fft_frequencies(sr=sr, n_fft=2 * (magnitude.shape[0] - 1))
-
-            # Weighted average of frequencies by magnitude
-            # Using axis=0 to compute across frequency bins for each frame
-            centroid = np.average(freqs[:, np.newaxis], axis=0, weights=magnitude) if magnitude.shape[0] > 0 else 0.0
-
-            # Take median across time (track-level characteristic)
-            centroid_median = np.median(centroid)
-
-            # Normalize to 0-1
-            # Typical range: 0-8000 Hz
-            # Dark (bass-heavy): 500-1500 Hz
-            # Balanced: 1500-3000 Hz
-            # Bright (treble-heavy): 3000-8000 Hz
-            normalized = centroid_median / 8000.0
-            normalized = np.clip(normalized, 0, 1)
-
-            return normalized
-
-        except Exception as e:
-            logger.debug(f"Spectral centroid calculation failed: {e}")
-            return 0.5
-
-    def _calculate_spectral_centroid(self, audio: np.ndarray, sr: int) -> float:
+    def _calculate_spectral_centroid(self, audio: np.ndarray, sr: int,
+                                    magnitude: Optional[np.ndarray] = None) -> float:
         """
         Calculate spectral centroid (center of mass of spectrum).
 
@@ -112,84 +75,36 @@ class SpectralAnalyzer:
         Lower value = darker sound (bass, low guitar)
 
         Args:
-            audio: Audio signal
+            audio: Audio signal (used if magnitude is None)
             sr: Sample rate
+            magnitude: Pre-computed magnitude spectrum from STFT (optional optimization)
 
         Returns:
             Normalized spectral centroid (0-1)
         """
         try:
-            # Calculate spectral centroid
-            centroid = librosa.feature.spectral_centroid(y=audio, sr=sr)[0]
+            # Calculate centroid (prefer pre-computed magnitude if provided)
+            if magnitude is not None:
+                # From pre-computed magnitude
+                freqs = librosa.fft_frequencies(sr=sr, n_fft=2 * (magnitude.shape[0] - 1))
+                centroid = np.average(freqs[:, np.newaxis], axis=0,
+                                    weights=magnitude) if magnitude.shape[0] > 0 else np.array([0.0])
+            else:
+                # From audio
+                centroid = librosa.feature.spectral_centroid(y=audio, sr=sr)[0]
 
-            # Take median across time (track-level characteristic)
-            centroid_median = np.median(centroid)
+            # Aggregate to track level (median across time)
+            centroid_median = AggregationUtils.aggregate_frames_to_track(centroid, method='median')
 
-            # Normalize to 0-1
-            # Typical range: 0-8000 Hz
-            # Dark (bass-heavy): 500-1500 Hz
-            # Balanced: 1500-3000 Hz
-            # Bright (treble-heavy): 3000-8000 Hz
-            normalized = centroid_median / 8000.0
-            normalized = np.clip(normalized, 0, 1)
-
-            return normalized
+            # Normalize to 0-1 (typical range: 0-8000 Hz)
+            return MetricUtils.normalize_to_range(centroid_median, 8000.0, clip=True)
 
         except Exception as e:
             logger.debug(f"Spectral centroid calculation failed: {e}")
             return 0.5
 
-    def _calculate_spectral_rolloff_cached(self, magnitude: np.ndarray, sr: int) -> float:
-        """
-        Calculate spectral rolloff from pre-computed magnitude spectrum (OPTIMIZED).
-
-        Higher value = more high-frequency content (bright, airy)
-        Lower value = less high-frequency content (dark, muffled)
-
-        Args:
-            magnitude: Pre-computed magnitude spectrum from STFT
-            sr: Sample rate
-
-        Returns:
-            Normalized spectral rolloff (0-1)
-        """
-        try:
-            # Calculate spectral rolloff (85% default) from magnitude
-            # Frequency bins
-            freqs = librosa.fft_frequencies(sr=sr, n_fft=2 * (magnitude.shape[0] - 1))
-
-            # Calculate 85th percentile frequency where cumulative energy is 85%
-            if magnitude.shape[1] > 0:
-                # Normalize magnitude per frame
-                norm = np.sum(magnitude, axis=0, keepdims=True) + 1e-10
-                magnitude_norm = magnitude / norm
-
-                # Cumulative energy
-                cumsum = np.cumsum(magnitude_norm, axis=0)
-
-                # Find index where cumsum exceeds 0.85
-                rolloff = np.array([freqs[np.where(cumsum[:, i] >= 0.85)[0][0]] if np.any(cumsum[:, i] >= 0.85) else freqs[-1]
-                                   for i in range(magnitude.shape[1])])
-            else:
-                rolloff = np.array([0.0])
-
-            # Take median across time
-            rolloff_median = np.median(rolloff)
-
-            # Normalize to 0-1
-            # Typical range: 0-10000 Hz
-            # Dark: < 3000 Hz
-            # Bright: > 6000 Hz
-            normalized = rolloff_median / 10000.0
-            normalized = np.clip(normalized, 0, 1)
-
-            return normalized
-
-        except Exception as e:
-            logger.debug(f"Spectral rolloff calculation failed: {e}")
-            return 0.5
-
-    def _calculate_spectral_rolloff(self, audio: np.ndarray, sr: int) -> float:
+    def _calculate_spectral_rolloff(self, audio: np.ndarray, sr: int,
+                                   magnitude: Optional[np.ndarray] = None) -> float:
         """
         Calculate spectral rolloff (frequency below which 85% of energy is contained).
 
@@ -197,68 +112,52 @@ class SpectralAnalyzer:
         Lower value = less high-frequency content (dark, muffled)
 
         Args:
-            audio: Audio signal
+            audio: Audio signal (used if magnitude is None)
             sr: Sample rate
+            magnitude: Pre-computed magnitude spectrum from STFT (optional optimization)
 
         Returns:
             Normalized spectral rolloff (0-1)
         """
         try:
-            # Calculate spectral rolloff (85% default)
-            rolloff = librosa.feature.spectral_rolloff(y=audio, sr=sr, roll_percent=0.85)[0]
+            if magnitude is not None:
+                # Calculate from pre-computed magnitude
+                freqs = librosa.fft_frequencies(sr=sr, n_fft=2 * (magnitude.shape[0] - 1))
 
-            # Take median across time
-            rolloff_median = np.median(rolloff)
+                # Normalize and compute cumulative energy per frame
+                if magnitude.shape[1] > 0:
+                    norm = SafeOperations.safe_divide(
+                        np.ones_like(magnitude),
+                        np.sum(magnitude, axis=0, keepdims=True)
+                    )
+                    magnitude_norm = magnitude * norm
+                    cumsum = np.cumsum(magnitude_norm, axis=0)
 
-            # Normalize to 0-1
-            # Typical range: 0-10000 Hz
-            # Dark: < 3000 Hz
-            # Bright: > 6000 Hz
-            normalized = rolloff_median / 10000.0
-            normalized = np.clip(normalized, 0, 1)
+                    # Find frequency at 85% cumulative energy
+                    rolloff = np.array([
+                        freqs[np.where(cumsum[:, i] >= 0.85)[0][0]]
+                        if np.any(cumsum[:, i] >= 0.85)
+                        else freqs[-1]
+                        for i in range(magnitude.shape[1])
+                    ])
+                else:
+                    rolloff = np.array([0.0])
+            else:
+                # Calculate from audio using librosa
+                rolloff = librosa.feature.spectral_rolloff(y=audio, sr=sr, roll_percent=0.85)[0]
 
-            return normalized
+            # Aggregate to track level (median across time)
+            rolloff_median = AggregationUtils.aggregate_frames_to_track(rolloff, method='median')
+
+            # Normalize to 0-1 (typical range: 0-10000 Hz)
+            return MetricUtils.normalize_to_range(rolloff_median, 10000.0, clip=True)
 
         except Exception as e:
             logger.debug(f"Spectral rolloff calculation failed: {e}")
             return 0.5
 
-    def _calculate_spectral_flatness_cached(self, magnitude: np.ndarray) -> float:
-        """
-        Calculate spectral flatness from pre-computed magnitude spectrum (OPTIMIZED).
-
-        Higher value = noise-like (white noise, distortion)
-        Lower value = tonal (clean instruments, vocals)
-
-        Args:
-            magnitude: Pre-computed magnitude spectrum from STFT
-
-        Returns:
-            Spectral flatness (0-1)
-        """
-        try:
-            # Calculate spectral flatness (geometric mean / arithmetic mean)
-            # Avoid log(0) by adding small epsilon
-            magnitude_safe = np.maximum(magnitude, 1e-10)
-
-            # Geometric mean (exp of mean log) and arithmetic mean
-            geom_mean = np.exp(np.mean(np.log(magnitude_safe), axis=0))
-            arith_mean = np.mean(magnitude_safe, axis=0)
-
-            # Flatness per frame
-            flatness = geom_mean / (arith_mean + 1e-10)
-
-            # Take median across time
-            flatness_median = np.median(flatness)
-
-            # Already in 0-1 range
-            return np.clip(flatness_median, 0, 1)
-
-        except Exception as e:
-            logger.debug(f"Spectral flatness calculation failed: {e}")
-            return 0.3  # Default to tonal
-
-    def _calculate_spectral_flatness(self, audio: np.ndarray) -> float:
+    def _calculate_spectral_flatness(self, audio: np.ndarray,
+                                    magnitude: Optional[np.ndarray] = None) -> float:
         """
         Calculate spectral flatness (noise-like vs tonal).
 
@@ -266,20 +165,34 @@ class SpectralAnalyzer:
         Lower value = tonal (clean instruments, vocals)
 
         Args:
-            audio: Audio signal
+            audio: Audio signal (used if magnitude is None)
+            magnitude: Pre-computed magnitude spectrum from STFT (optional optimization)
 
         Returns:
             Spectral flatness (0-1)
         """
         try:
-            # Calculate spectral flatness
-            flatness = librosa.feature.spectral_flatness(y=audio)[0]
+            if magnitude is not None:
+                # Calculate from pre-computed magnitude (geometric mean / arithmetic mean)
+                magnitude_safe = np.maximum(magnitude, SafeOperations.EPSILON)
 
-            # Take median across time
-            flatness_median = np.median(flatness)
+                # Geometric mean (exp of mean log)
+                geom_mean = np.exp(np.mean(np.log(magnitude_safe), axis=0))
+
+                # Arithmetic mean
+                arith_mean = np.mean(magnitude_safe, axis=0)
+
+                # Flatness using safe divide
+                flatness = SafeOperations.safe_divide(geom_mean, arith_mean)
+            else:
+                # Calculate from audio using librosa
+                flatness = librosa.feature.spectral_flatness(y=audio)[0]
+
+            # Aggregate to track level (median across time)
+            flatness_median = AggregationUtils.aggregate_frames_to_track(flatness, method='median')
 
             # Already in 0-1 range
-            return np.clip(flatness_median, 0, 1)
+            return float(np.clip(flatness_median, 0, 1))
 
         except Exception as e:
             logger.debug(f"Spectral flatness calculation failed: {e}")
