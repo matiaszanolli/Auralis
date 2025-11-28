@@ -10,7 +10,7 @@ Stereo phase correlation and spatial analysis tools.
 import numpy as np
 from typing import Dict, Tuple, List
 from scipy import signal
-from .fingerprint.common_metrics import SafeOperations
+from .fingerprint.common_metrics import SafeOperations, MetricUtils
 
 
 class PhaseCorrelationAnalyzer:
@@ -286,10 +286,13 @@ class PhaseCorrelationAnalyzer:
             energy = np.mean((panned_left + panned_right)**2)
             position_energy.append(energy)
 
-        # Normalize energies
+        # Normalize energies using safe division
         max_energy = max(position_energy) if position_energy else 1.0
         if max_energy > 0:
-            position_energy = [e / max_energy for e in position_energy]
+            # Use numpy array for vectorized normalization with MetricUtils
+            position_energy_array = np.array(position_energy)
+            normalized = position_energy_array / max_energy
+            position_energy = normalized.tolist()
 
         # Find center of mass (stereo center)
         if sum(position_energy) > 0:

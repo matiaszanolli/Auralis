@@ -82,7 +82,13 @@ class SpectrumAnalyzer:
         denominator = (f2 + 20.6**2) * np.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12194**2)
 
         response = numerator / denominator
-        return 20 * np.log10(response / np.max(response))
+        # Normalize response by max value for consistent 0dB peak
+        response_max = np.max(response)
+        if response_max > 0:
+            response_normalized = response / response_max
+        else:
+            response_normalized = response
+        return 20 * np.log10(np.maximum(response_normalized, 1e-10))
 
     def _c_weighting_curve(self, frequencies: np.ndarray) -> np.ndarray:
         """Calculate C-weighting curve"""
@@ -95,7 +101,13 @@ class SpectrumAnalyzer:
         denominator = (f2 + 20.6**2) * (f2 + 12194**2)
 
         response = numerator / denominator
-        return 20 * np.log10(response / np.max(response))
+        # Normalize response by max value for consistent 0dB peak
+        response_max = np.max(response)
+        if response_max > 0:
+            response_normalized = response / response_max
+        else:
+            response_normalized = response
+        return 20 * np.log10(np.maximum(response_normalized, 1e-10))
 
     def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict:
         """

@@ -19,6 +19,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 import numpy as np
+from .fingerprint.common_metrics import MetricUtils
 
 try:
     import yaml
@@ -61,26 +62,31 @@ class DetectionRules:
         loud_center = (self.loudness_min + self.loudness_max) / 2
         loud_range = (self.loudness_max - self.loudness_min) / 2
         loud_dist = abs(fingerprint.loudness_dbfs - loud_center) / max(loud_range, 0.1)
-        scores.append(max(0, 1 - loud_dist))
+        # Normalize distance to similarity using MetricUtils
+        loud_score = max(0, 1 - MetricUtils.normalize_to_range(loud_dist, 2.0, clip=True))
+        scores.append(loud_score)
 
         # Crest match
         crest_center = (self.crest_min + self.crest_max) / 2
         crest_range = (self.crest_max - self.crest_min) / 2
         crest_dist = abs(fingerprint.crest_db - crest_center) / max(crest_range, 0.1)
-        scores.append(max(0, 1 - crest_dist))
+        crest_score = max(0, 1 - MetricUtils.normalize_to_range(crest_dist, 2.0, clip=True))
+        scores.append(crest_score)
 
         # ZCR match
         zcr_center = (self.zcr_min + self.zcr_max) / 2
         zcr_range = (self.zcr_max - self.zcr_min) / 2
         zcr_dist = abs(fingerprint.zero_crossing_rate - zcr_center) / max(zcr_range, 0.01)
-        scores.append(max(0, 1 - zcr_dist))
+        zcr_score = max(0, 1 - MetricUtils.normalize_to_range(zcr_dist, 2.0, clip=True))
+        scores.append(zcr_score)
 
         # Centroid match (if specified)
         if self.centroid_min is not None and self.centroid_max is not None:
             cent_center = (self.centroid_min + self.centroid_max) / 2
             cent_range = (self.centroid_max - self.centroid_min) / 2
             cent_dist = abs(fingerprint.spectral_centroid - cent_center) / max(cent_range, 100)
-            scores.append(max(0, 1 - cent_dist))
+            cent_score = max(0, 1 - MetricUtils.normalize_to_range(cent_dist, 2.0, clip=True))
+            scores.append(cent_score)
 
         # Return average score with confidence weight
         avg_score = np.mean(scores) if scores else 0.0

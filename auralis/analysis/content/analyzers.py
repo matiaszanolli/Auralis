@@ -13,6 +13,7 @@ Genre classification and mood analysis for audio content
 import numpy as np
 from typing import Dict, Any, List
 from dataclasses import dataclass
+from ..fingerprint.common_metrics import MetricUtils
 
 
 @dataclass
@@ -100,7 +101,9 @@ class GenreAnalyzer:
 
         # Find best genre
         primary_genre = max(genre_scores, key=genre_scores.get)
-        confidence = genre_scores[primary_genre] / max(sum(genre_scores.values()), 1.0)
+        total_score = max(sum(genre_scores.values()), 1.0)
+        # Normalize confidence to 0-1 using MetricUtils
+        confidence = MetricUtils.normalize_to_range(genre_scores[primary_genre], total_score, clip=True)
 
         # Use default if confidence too low
         if confidence < 0.3:
@@ -183,25 +186,25 @@ class MoodAnalyzer:
         valence = features.harmonic_ratio * 0.5 + (1.0 - features.inharmonicity) * 0.3
         if features.spectral_centroid > 2000:
             valence += 0.2  # Brighter sounds tend to be happier
-        valence = np.clip(valence, 0.0, 1.0)
+        valence = MetricUtils.normalize_to_range(valence, 1.0, clip=True)
 
         # Arousal (energy/calmness) - based on tempo and dynamics
         arousal = min(features.tempo_estimate / 180.0, 1.0) * 0.4
         arousal += min(features.dynamic_range_db / 30.0, 1.0) * 0.3
         arousal += features.rhythm_strength * 0.3
-        arousal = np.clip(arousal, 0.0, 1.0)
+        arousal = MetricUtils.normalize_to_range(arousal, 1.0, clip=True)
 
         # Danceability - rhythm and tempo
         danceability = features.rhythm_strength * 0.5 + features.beat_consistency * 0.5
         if 100 <= features.tempo_estimate <= 130:  # Optimal dance tempo
             danceability *= 1.2
-        danceability = np.clip(danceability, 0.0, 1.0)
+        danceability = MetricUtils.normalize_to_range(danceability, 1.0, clip=True)
 
         # Acousticness - based on harmonic content and inharmonicity
         acousticness = features.harmonic_ratio * 0.6 + (1.0 - features.inharmonicity) * 0.4
         if features.spectral_centroid < 2000:  # Warmer, more acoustic
             acousticness *= 1.1
-        acousticness = np.clip(acousticness, 0.0, 1.0)
+        acousticness = MetricUtils.normalize_to_range(acousticness, 1.0, clip=True)
 
         return MoodAnalysis(
             energy_level=energy_level,

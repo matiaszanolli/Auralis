@@ -26,6 +26,7 @@ Based on 7 reference points analysis (October 26, 2025):
 import numpy as np
 from typing import Dict, Tuple, Optional
 import logging
+from .fingerprint.common_metrics import MetricUtils
 
 logger = logging.getLogger(__name__)
 
@@ -171,8 +172,13 @@ class ContinuousTargetGenerator:
         # Target loudness based on dynamics (inverse correlation)
         # High dynamics → Lower LUFS (audiophile approach)
         # Low dynamics → Higher LUFS (but still reasonable)
-        normalized_crest = (target_crest - self.bounds['crest']['min']) / \
-                          (self.bounds['crest']['max'] - self.bounds['crest']['min'])
+        # Normalize crest factor to 0-1 range using MetricUtils
+        crest_range = self.bounds['crest']['max'] - self.bounds['crest']['min']
+        normalized_crest = MetricUtils.normalize_to_range(
+            target_crest - self.bounds['crest']['min'],
+            crest_range,
+            clip=True
+        )
 
         # Inverse relationship: high crest → low LUFS
         target_lufs = self.bounds['lufs']['max'] - \
@@ -286,8 +292,8 @@ class ContinuousTargetGenerator:
             freq_delta * 0.20
         )
 
-        # Clamp to 0-1
-        return np.clip(intensity, 0.0, 1.0)
+        # Normalize to 0-1 using MetricUtils
+        return MetricUtils.normalize_to_range(intensity, 1.0, clip=True)
 
     def get_parameter_space_info(self) -> Dict:
         """

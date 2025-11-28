@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 import numpy as np
+from .fingerprint.common_metrics import MetricUtils
 
 logger = logging.getLogger(__name__)
 
@@ -234,11 +235,11 @@ class ProfileMatcher:
         lufs_distance = abs(target_lufs - source_lufs)
         crest_distance = abs(target_crest - source_crest)
 
-        # Normalize distances (0-1 scale)
+        # Normalize distances (0-1 scale) using MetricUtils
         # LUFS: 0-10 dB difference → 0-1
-        lufs_norm = min(lufs_distance / 10.0, 1.0)
+        lufs_norm = MetricUtils.normalize_to_range(lufs_distance, 10.0, clip=True)
         # Crest: 0-8 dB difference → 0-1
-        crest_norm = min(crest_distance / 8.0, 1.0)
+        crest_norm = MetricUtils.normalize_to_range(crest_distance, 8.0, clip=True)
 
         # Combine (weighted: LUFS more important)
         intensity = (lufs_norm * 0.6 + crest_norm * 0.4)
@@ -246,8 +247,8 @@ class ProfileMatcher:
         # Adjust for confidence (lower confidence = gentler processing)
         intensity *= (0.5 + confidence * 0.5)
 
-        # Clamp to 0-1
-        intensity = np.clip(intensity, 0.0, 1.0)
+        # Clamp to 0-1 using MetricUtils for consistency
+        intensity = MetricUtils.normalize_to_range(intensity, 1.0, clip=True)
 
         logger.info(f"Processing intensity: {intensity:.2f} "
                    f"(LUFS dist: {lufs_distance:.1f} dB, Crest dist: {crest_distance:.1f} dB, "
