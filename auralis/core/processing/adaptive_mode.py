@@ -20,7 +20,8 @@ from ...dsp.dynamics.soft_clipper import soft_clip
 from ...utils.logging import debug
 from .base_processing_mode import (
     MeasurementUtilities, CompressionStrategies, ExpansionStrategies,
-    DBConversion, StereoWidthProcessor, ProcessingLogger
+    DBConversion, StereoWidthProcessor, ProcessingLogger,
+    SafetyLimiter, PeakNormalizer, NormalizationStep
 )
 
 
@@ -185,19 +186,15 @@ class AdaptiveMode:
         return audio
 
     def _apply_final_normalization(self, audio: np.ndarray, spectrum_params) -> np.ndarray:
-        """Apply final RMS boost and peak normalization"""
+        """Apply final RMS boost and peak normalization using unified pipeline"""
         from ..config.preset_profiles import get_preset_profile
 
-        peak = np.max(np.abs(audio))
-        peak_db = DBConversion.to_db(peak)
-        current_rms = rms(audio)
-        current_rms_db = DBConversion.to_db(current_rms)
-        current_crest = peak_db - current_rms_db
+        # Step 1: RMS boost (if needed)
+        rms_boost_step = NormalizationStep("RMS Boost", stage_label="Pre-Final")
+        rms_boost_step.measure_before(audio)
 
-        ProcessingLogger.pre_stage("Pre-Final", peak_db, current_rms_db, current_crest)
-
-        # Calculate target RMS from spectrum
         target_rms_db = spectrum_params.output_target_rms
+        current_rms_db = rms_boost_step.before_measurement['rms_db']
         rms_diff_from_target = target_rms_db - current_rms_db
 
         # Only boost RMS if material is significantly under-leveled
@@ -210,53 +207,34 @@ class AdaptiveMode:
 
         if should_boost_rms:
             rms_boost = np.clip(rms_diff_from_target, 0.0, 12.0)
-            audio = amplify(audio, rms_boost)
+            audio = rms_boost_step.apply_gain(audio, rms_boost)
+            rms_boost_step.measure_after(audio)
             ProcessingLogger.gain_applied("RMS Boost", rms_boost, target_rms_db)
-
-            # Recalculate after boost
-            peak = np.max(np.abs(audio))
-            peak_db = DBConversion.to_db(peak)
-            current_rms = rms(audio)
-            current_rms_db = DBConversion.to_db(current_rms)
         else:
             if rms_diff_from_target > 0.5:
                 ProcessingLogger.skipped("RMS Boost", f"Material already loud (RMS: {current_rms_db:.2f} dB, target: {target_rms_db:.2f} dB)")
 
-        # Get preset-specific peak target
+        # Step 2: Peak normalization
         preset_name = self.config.mastering_profile
         preset_profile = get_preset_profile(preset_name)
         target_peak_db = preset_profile.peak_target_db if preset_profile else -1.00
-        target_peak = DBConversion.to_linear(target_peak_db)
 
-        print(f"[Peak Normalization] Preset: {preset_name}, Target: {target_peak_db:.2f} dB")
+        audio, _ = PeakNormalizer.normalize_to_target(audio, target_peak_db, preset_name)
 
-        if peak > 0.001:  # Avoid division by zero
-            peak_change_db = target_peak_db - peak_db
-            audio = audio * (target_peak / peak)
-            ProcessingLogger.post_stage("Peak Normalization", peak_db, target_peak_db, "Peak")
-
-            # Recalculate final metrics
-            current_rms = rms(audio)
-            current_rms_db = DBConversion.to_db(current_rms)
-            peak = np.max(np.abs(audio))
-            peak_db = DBConversion.to_db(peak)
-            current_crest = peak_db - current_rms_db
-
-            ProcessingLogger.pre_stage("Final", peak_db, current_rms_db, current_crest)
-
-        # Safety limiter (only if exceeds safety threshold)
-        safety_threshold = -0.01  # dBFS
+        # Log final pre-limiter metrics
         final_peak = np.max(np.abs(audio))
         final_peak_db = DBConversion.to_db(final_peak)
+        final_rms = rms(audio)
+        final_rms_db = DBConversion.to_db(final_rms)
+        final_crest = final_peak_db - final_rms_db
+        ProcessingLogger.pre_stage("Final", final_peak_db, final_rms_db, final_crest)
 
-        if final_peak_db > safety_threshold:
-            ProcessingLogger.safety_check("Safety Limiter", final_peak_db)
-            audio = soft_clip(audio, threshold=0.99)
-            final_peak = np.max(np.abs(audio))
-            final_peak_db = DBConversion.to_db(final_peak)
-            print(f"[Safety Limiter] Peak reduced to {final_peak_db:.2f} dB")
+        # Step 3: Safety limiter
+        audio, _ = SafetyLimiter.apply_if_needed(audio)
 
         # Final metrics
+        final_peak = np.max(np.abs(audio))
+        final_peak_db = DBConversion.to_db(final_peak)
         final_rms = rms(audio)
         final_rms_db = DBConversion.to_db(final_rms)
         final_crest = final_peak_db - final_rms_db

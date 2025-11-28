@@ -14,6 +14,7 @@ Consolidates common measurement and debug boilerplate across modes.
 import numpy as np
 from typing import Dict, Any, Union, Optional, Tuple
 from ...dsp.basic import rms, amplify
+from ...dsp.unified import calculate_loudness_units
 from ...dsp.dynamics.soft_clipper import soft_clip
 from ...dsp.unified import stereo_width_analysis, adjust_stereo_width
 from ...utils.logging import debug
@@ -408,6 +409,266 @@ class ProcessingLogger:
     def limited(reason: str, original: float, limited: float):
         """Log when a value is limited/clamped."""
         print(f"[{reason}] Limited: {original:.2f} → {limited:.2f}")
+
+
+class SafetyLimiter:
+    """
+    Unified safety limiter to prevent digital clipping.
+    Consolidates safety checks across normalization pipelines.
+    """
+
+    SAFETY_THRESHOLD_DB = -0.01  # dBFS - threshold for applying limiter
+    SOFT_CLIP_THRESHOLD = 0.99   # Linear amplitude threshold for soft_clip
+
+    @staticmethod
+    def apply_if_needed(audio: np.ndarray) -> Tuple[np.ndarray, bool]:
+        """
+        Apply soft clipping limiter if peak exceeds safety threshold.
+
+        Args:
+            audio: Input audio array
+
+        Returns:
+            Tuple of (processed audio, was_limiter_applied: bool)
+        """
+        final_peak = np.max(np.abs(audio))
+        final_peak_db = DBConversion.to_db(final_peak)
+
+        if final_peak_db > SafetyLimiter.SAFETY_THRESHOLD_DB:
+            ProcessingLogger.safety_check("Safety Limiter", final_peak_db)
+            audio = soft_clip(audio, threshold=SafetyLimiter.SOFT_CLIP_THRESHOLD)
+            final_peak = np.max(np.abs(audio))
+            final_peak_db = DBConversion.to_db(final_peak)
+            print(f"[Safety Limiter] Peak reduced to {final_peak_db:.2f} dB")
+            return audio, True
+
+        return audio, False
+
+
+class PeakNormalizer:
+    """
+    Unified peak normalization logic.
+    Consolidates peak-based gain adjustments across processing modes.
+    """
+
+    @staticmethod
+    def normalize_to_target(audio: np.ndarray, target_peak_db: float,
+                           preset_name: str = None) -> Tuple[np.ndarray, float]:
+        """
+        Normalize audio peak to target level.
+
+        Args:
+            audio: Input audio array
+            target_peak_db: Target peak level in dB
+            preset_name: Optional preset name for logging
+
+        Returns:
+            Tuple of (normalized audio, previous_peak_db)
+        """
+        peak = np.max(np.abs(audio))
+        peak_db = DBConversion.to_db(peak)
+
+        if preset_name:
+            print(f"[Peak Normalization] Preset: {preset_name}, Target: {target_peak_db:.2f} dB")
+
+        if peak > 0.001:  # Avoid division by zero
+            target_peak = DBConversion.to_linear(target_peak_db)
+            audio = audio * (target_peak / peak)
+            ProcessingLogger.post_stage("Peak Normalization", peak_db, target_peak_db, "Peak")
+            return audio, peak_db
+
+        return audio, peak_db
+
+
+class NormalizationStep:
+    """
+    Represents a single gain adjustment step in the normalization pipeline.
+    Consolidates the measure-adjust-remeasure pattern.
+    """
+
+    def __init__(self, step_name: str, stage_label: str = None):
+        """
+        Initialize normalization step.
+
+        Args:
+            step_name: Name of the step (e.g., "RMS Boost", "LUFS Normalization")
+            stage_label: Optional pre-logging label (e.g., "Pre-Final")
+        """
+        self.step_name = step_name
+        self.stage_label = stage_label
+        self.before_measurement = None
+        self.after_measurement = None
+        self.gain_applied_db = 0.0
+
+    def measure_before(self, audio: np.ndarray, use_lufs: bool = False,
+                      sample_rate: int = None) -> Dict[str, float]:
+        """
+        Measure audio before adjustment.
+
+        Args:
+            audio: Audio array
+            use_lufs: Whether to include LUFS measurement
+            sample_rate: Sample rate (required if use_lufs=True)
+
+        Returns:
+            Dictionary with measurements (peak_db, rms_db, crest, [lufs])
+        """
+        peak = np.max(np.abs(audio))
+        peak_db = DBConversion.to_db(peak)
+        rms_val = rms(audio)
+        rms_db = DBConversion.to_db(rms_val)
+        crest = peak_db - rms_db
+
+        measurement = {
+            'peak_db': peak_db,
+            'rms_db': rms_db,
+            'crest': crest,
+            'peak': peak,
+            'rms': rms_val
+        }
+
+        if use_lufs and sample_rate:
+            from ...dsp.unified import calculate_loudness_units
+            lufs = calculate_loudness_units(audio, sample_rate)
+            measurement['lufs'] = lufs
+
+        self.before_measurement = measurement
+
+        if self.stage_label:
+            if 'lufs' in measurement:
+                ProcessingLogger.pre_stage(self.stage_label, peak_db, measurement['lufs'])
+            else:
+                ProcessingLogger.pre_stage(self.stage_label, peak_db, rms_db, crest)
+
+        return measurement
+
+    def apply_gain(self, audio: np.ndarray, gain_db: float) -> np.ndarray:
+        """
+        Apply gain adjustment to audio.
+
+        Args:
+            audio: Input audio
+            gain_db: Gain to apply in dB
+
+        Returns:
+            Audio with gain applied
+        """
+        if abs(gain_db) > 0.01:  # Only apply if meaningful change
+            audio = amplify(audio, gain_db)
+            self.gain_applied_db = gain_db
+
+        return audio
+
+    def measure_after(self, audio: np.ndarray, use_lufs: bool = False,
+                     sample_rate: int = None) -> Dict[str, float]:
+        """
+        Measure audio after adjustment.
+
+        Args:
+            audio: Audio array
+            use_lufs: Whether to include LUFS measurement
+            sample_rate: Sample rate (required if use_lufs=True)
+
+        Returns:
+            Dictionary with measurements
+        """
+        peak = np.max(np.abs(audio))
+        peak_db = DBConversion.to_db(peak)
+        rms_val = rms(audio)
+        rms_db = DBConversion.to_db(rms_val)
+        crest = peak_db - rms_db
+
+        measurement = {
+            'peak_db': peak_db,
+            'rms_db': rms_db,
+            'crest': crest,
+            'peak': peak,
+            'rms': rms_val
+        }
+
+        if use_lufs and sample_rate:
+            from ...dsp.unified import calculate_loudness_units
+            lufs = calculate_loudness_units(audio, sample_rate)
+            measurement['lufs'] = lufs
+
+        self.after_measurement = measurement
+        return measurement
+
+    def log_summary(self) -> None:
+        """Log before/after summary for this step."""
+        if self.before_measurement and self.after_measurement:
+            if 'lufs' in self.before_measurement:
+                # LUFS-based logging (continuous mode)
+                lufs_delta = (self.after_measurement.get('lufs', 0) -
+                            self.before_measurement.get('lufs', 0))
+                peak_delta = (self.after_measurement['peak_db'] -
+                            self.before_measurement['peak_db'])
+                print(f"[{self.step_name}] LUFS: {self.before_measurement.get('lufs', 0):.1f} → "
+                      f"{self.after_measurement.get('lufs', 0):.1f} (Δ {lufs_delta:+.1f}), "
+                      f"Peak: {self.before_measurement['peak_db']:.2f} → "
+                      f"{self.after_measurement['peak_db']:.2f} dB (Δ {peak_delta:+.2f})")
+            else:
+                # RMS/Crest-based logging (adaptive mode)
+                peak_delta = (self.after_measurement['peak_db'] -
+                            self.before_measurement['peak_db'])
+                rms_delta = (self.after_measurement['rms_db'] -
+                           self.before_measurement['rms_db'])
+                crest_delta = (self.after_measurement['crest'] -
+                             self.before_measurement['crest'])
+                print(f"[{self.step_name}] Peak: {self.before_measurement['peak_db']:.2f} → "
+                      f"{self.after_measurement['peak_db']:.2f} dB (Δ {peak_delta:+.2f}), "
+                      f"RMS: {self.before_measurement['rms_db']:.2f} → "
+                      f"{self.after_measurement['rms_db']:.2f} dB (Δ {rms_delta:+.2f})")
+
+
+class FullAudioMeasurement:
+    """
+    Complete audio measurement at any point in processing pipeline.
+    Consolidates all measurement types (peak, RMS, crest, LUFS) in one place.
+    """
+
+    def __init__(self, audio: np.ndarray, sample_rate: int = None, label: str = None):
+        """
+        Initialize with comprehensive audio analysis.
+
+        Args:
+            audio: Audio array to measure
+            sample_rate: Sample rate (optional, for LUFS calculation)
+            label: Optional label for identification
+        """
+        self.label = label
+        self.peak = np.max(np.abs(audio))
+        self.peak_db = DBConversion.to_db(self.peak)
+        self.rms = rms(audio)
+        self.rms_db = DBConversion.to_db(self.rms)
+        self.crest = self.peak_db - self.rms_db
+        self.lufs = None
+
+        if sample_rate:
+            from ...dsp.unified import calculate_loudness_units
+            self.lufs = calculate_loudness_units(audio, sample_rate)
+
+    def to_dict(self) -> Dict[str, float]:
+        """Convert measurement to dictionary."""
+        data = {
+            'peak': self.peak,
+            'peak_db': self.peak_db,
+            'rms': self.rms,
+            'rms_db': self.rms_db,
+            'crest': self.crest
+        }
+        if self.lufs is not None:
+            data['lufs'] = self.lufs
+        return data
+
+    def __str__(self) -> str:
+        """String representation of measurement."""
+        if self.lufs is not None:
+            return (f"[{self.label or 'Measurement'}] Peak: {self.peak_db:.2f} dB, "
+                   f"RMS: {self.rms_db:.2f} dB, Crest: {self.crest:.2f} dB, LUFS: {self.lufs:.1f}")
+        else:
+            return (f"[{self.label or 'Measurement'}] Peak: {self.peak_db:.2f} dB, "
+                   f"RMS: {self.rms_db:.2f} dB, Crest: {self.crest:.2f} dB")
 
 
 class ExpansionStrategies:

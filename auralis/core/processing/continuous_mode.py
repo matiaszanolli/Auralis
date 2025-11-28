@@ -22,7 +22,8 @@ from .continuous_space import ProcessingSpaceMapper, PreferenceVector, Processin
 from .parameter_generator import ContinuousParameterGenerator
 from .base_processing_mode import (
     CompressionStrategies, ExpansionStrategies,
-    DBConversion, StereoWidthProcessor, ProcessingLogger
+    DBConversion, StereoWidthProcessor, ProcessingLogger,
+    SafetyLimiter, NormalizationStep
 )
 from ..recording_type_detector import RecordingTypeDetector
 
@@ -406,35 +407,32 @@ class ContinuousMode:
         return audio
 
     def _apply_final_normalization(self, audio: np.ndarray, params) -> np.ndarray:
-        """Apply final loudness and peak normalization"""
-
-        # Measure current state
-        current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
-        current_peak = np.max(np.abs(audio))
-        current_peak_db = DBConversion.to_db(current_peak)
-
-        ProcessingLogger.pre_stage("Pre-Final", current_peak_db, current_lufs)
+        """Apply final loudness and peak normalization using unified pipeline"""
 
         # Step 1: LUFS normalization (to target loudness)
+        lufs_step = NormalizationStep("LUFS Normalization", stage_label="Pre-Final")
+        lufs_step.measure_before(audio, use_lufs=True, sample_rate=self.config.internal_sample_rate)
+
         target_lufs = params.target_lufs
+        current_lufs = lufs_step.before_measurement['lufs']
         lufs_adjustment = target_lufs - current_lufs
 
         if abs(lufs_adjustment) > 0.5:
-            audio = amplify(audio, lufs_adjustment)
+            audio = lufs_step.apply_gain(audio, lufs_adjustment)
+            lufs_step.measure_after(audio, use_lufs=True, sample_rate=self.config.internal_sample_rate)
             debug(f"[LUFS Normalization] {current_lufs:.1f} → {target_lufs:.1f} LUFS ({lufs_adjustment:+.1f} dB)")
-
-            # Update current measurements
-            current_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
-            current_peak = np.max(np.abs(audio))
-            current_peak_db = DBConversion.to_db(current_peak)
 
         # Step 2: Peak normalization (to target peak level)
         target_peak_db = params.peak_target_db
+        current_peak_db = DBConversion.to_db(np.max(np.abs(audio)))
 
-        if current_peak > 0:
+        if current_peak_db < target_peak_db:  # Only adjust if below target
             peak_adjustment = target_peak_db - current_peak_db
             audio = amplify(audio, peak_adjustment)
             debug(f"[Peak Normalization] {current_peak_db:.2f} → {target_peak_db:.2f} dB ({peak_adjustment:+.1f} dB)")
+
+        # Step 3: Safety limiter (CRITICAL FIX - was missing in previous version)
+        audio, limiter_applied = SafetyLimiter.apply_if_needed(audio)
 
         # Final measurements
         final_peak = np.max(np.abs(audio))
