@@ -18,7 +18,7 @@ import librosa
 from typing import Dict, Optional
 import logging
 from .base_analyzer import BaseAnalyzer
-from .common_metrics import AudioMetrics, MetricUtils
+from .common_metrics import AudioMetrics, MetricUtils, VariationMetrics, StabilityMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -121,19 +121,8 @@ class VariationAnalyzer(BaseAnalyzer):
             peaks_safe = np.maximum(peaks, 1e-10)
             crest_db = 20 * np.log10(peaks_safe / rms_safe)
 
-            # Filter out invalid values
-            valid_mask = (rms > 1e-10) & (peaks > 1e-10)
-            crest_valid = crest_db[valid_mask]
-
-            if len(crest_valid) > 1:
-                # Variation = std dev of crest factor over time
-                crest_std = np.std(crest_valid)
-                # Normalize to 0-1 (typical range: 0-6 dB std dev)
-                normalized = MetricUtils.normalize_to_range(crest_std, 6.0, clip=True)
-            else:
-                normalized = 0.5
-
-            return normalized
+            # Use unified VariationMetrics for calculation
+            return VariationMetrics.calculate_from_crest_factors(crest_db)
 
         except Exception as e:
             logger.debug(f"Dynamic range variation calculation failed: {e}")
@@ -164,11 +153,8 @@ class VariationAnalyzer(BaseAnalyzer):
             # Convert to dB
             rms_db = librosa.amplitude_to_db(rms, ref=np.max)
 
-            # Calculate std dev and clip to reasonable dB range using MetricUtils
-            loudness_std = np.std(rms_db)
-            loudness_std = MetricUtils.clip_to_range(loudness_std, 0, 10)
-
-            return loudness_std
+            # Use unified VariationMetrics for calculation
+            return VariationMetrics.calculate_from_loudness_db(rms_db)
 
         except Exception as e:
             logger.debug(f"Loudness variation calculation failed: {e}")
@@ -206,17 +192,8 @@ class VariationAnalyzer(BaseAnalyzer):
                 if start < len(audio):
                     peaks[i] = np.max(audio_abs[start:end])
 
-            if len(peaks) > 1:
-                # Consistency = inverse of peak variation using unified CV calculation
-                peak_std = np.std(peaks)
-                peak_mean = np.mean(peaks)
-
-                # Use MetricUtils for unified CV→stability conversion
-                consistency = MetricUtils.stability_from_cv(peak_std, peak_mean)
-
-                return np.clip(consistency, 0, 1)
-            else:
-                return 0.5
+            # Use unified VariationMetrics for calculation
+            return VariationMetrics.calculate_from_peaks(peaks)
 
         except Exception as e:
             logger.debug(f"Peak consistency calculation failed: {e}")

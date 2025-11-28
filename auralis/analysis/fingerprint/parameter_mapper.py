@@ -22,23 +22,30 @@ Maps fingerprint dimensions to processor configuration:
 from typing import Dict, List, Tuple, Optional
 import numpy as np
 from ...utils.logging import debug, info
+from .common_metrics import BandNormalizationTable
 
 
 class EQParameterMapper:
     """Maps frequency fingerprint dimensions to 31-band EQ gains"""
 
     def __init__(self):
-        """Initialize EQ mapper with standard 31-band frequencies"""
+        """Initialize EQ mapper with standard 31-band frequencies and normalization table"""
         # ISO 31-band EQ center frequencies (Hz)
         self.eq_bands = [
             20, 25, 31, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500,
             630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000,
             10000, 12500, 16000, 20000
         ]
+        # Initialize band normalization table for vectorized band gain application
+        self.band_table = BandNormalizationTable()
 
     def map_frequency_to_eq(self, fingerprint: Dict) -> Dict[str, float]:
         """
         Map 7D frequency distribution to 31-band EQ gains
+
+        Uses vectorized BandNormalizationTable instead of 7 repetitive loops.
+        Previously: 7 separate loops with hardcoded band ranges
+        Now: Data-driven parameterized approach with single apply call
 
         Fingerprint dimensions used:
         - sub_bass_pct (20-60 Hz)
@@ -52,52 +59,7 @@ class EQParameterMapper:
         Returns:
             Dictionary mapping band index to gain in dB
         """
-        eq_gains = {}
-
-        # Sub-bass (20-60 Hz) - Bands 0-3
-        sub_bass_energy = fingerprint.get('sub_bass_pct', 0.1)
-        for i in range(4):
-            # Normalize to dB (-12 to +12)
-            gain = self._normalize_to_db(sub_bass_energy, -12, 12)
-            eq_gains[i] = gain
-
-        # Bass (60-250 Hz) - Bands 4-11
-        bass_energy = fingerprint.get('bass_pct', 0.2)
-        for i in range(4, 12):
-            gain = self._normalize_to_db(bass_energy, -12, 12)
-            eq_gains[i] = gain
-
-        # Low-mids (250-500 Hz) - Bands 12-14
-        low_mid_energy = fingerprint.get('low_mid_pct', 0.15)
-        for i in range(12, 15):
-            gain = self._normalize_to_db(low_mid_energy, -6, 6)
-            eq_gains[i] = gain
-
-        # Mids (500-2k Hz) - Bands 15-19
-        mid_energy = fingerprint.get('mid_pct', 0.2)
-        for i in range(15, 20):
-            gain = self._normalize_to_db(mid_energy, -6, 6)
-            eq_gains[i] = gain
-
-        # Upper-mids (2k-4k Hz) - Bands 20-23
-        upper_mid_energy = fingerprint.get('upper_mid_pct', 0.15)
-        for i in range(20, 24):
-            gain = self._normalize_to_db(upper_mid_energy, -8, 8)
-            eq_gains[i] = gain
-
-        # Presence (4k-6k Hz) - Bands 24-25
-        presence_energy = fingerprint.get('presence_pct', 0.1)
-        for i in range(24, 26):
-            gain = self._normalize_to_db(presence_energy, -6, 12)
-            eq_gains[i] = gain
-
-        # Air (6k-20k Hz) - Bands 26-31
-        air_energy = fingerprint.get('air_pct', 0.05)
-        for i in range(26, 31):
-            gain = self._normalize_to_db(air_energy, -12, 12)
-            eq_gains[i] = gain
-
-        return eq_gains
+        return self.band_table.apply_to_fingerprint(fingerprint, self._normalize_to_db)
 
     def map_spectral_to_eq(self, fingerprint: Dict) -> Dict[str, float]:
         """

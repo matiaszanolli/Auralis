@@ -19,7 +19,7 @@ import librosa
 from typing import Dict
 import logging
 from .base_analyzer import BaseAnalyzer
-from .common_metrics import MetricUtils
+from .common_metrics import MetricUtils, StabilityMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -147,13 +147,9 @@ class HarmonicAnalyzer(BaseAnalyzer):
             pitch_std = np.std(voiced_f0)
             pitch_mean = np.mean(voiced_f0)
 
-            if pitch_mean > 0:
-                # Map to stability (low variation = high stability)
-                stability = MetricUtils.stability_from_cv(pitch_std, pitch_mean, scale=10.0)
-            else:
-                stability = 0.5
-
-            return np.clip(stability, 0, 1)
+            # Use unified StabilityMetrics with harmonic-specific scale=10.0
+            # Higher scale makes pitch stability more sensitive to variation
+            return StabilityMetrics.from_values(voiced_f0, scale=10.0)
 
         except Exception as e:
             logger.debug(f"Pitch stability calculation failed: {e}")

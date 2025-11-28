@@ -19,7 +19,7 @@ import librosa
 from typing import Dict
 import logging
 from .base_analyzer import BaseAnalyzer
-from .common_metrics import MetricUtils
+from .common_metrics import MetricUtils, StabilityMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -136,14 +136,9 @@ class TemporalAnalyzer(BaseAnalyzer):
             beat_times = librosa.frames_to_time(beats, sr=sr)
             intervals = np.diff(beat_times)
 
-            # Stability = inverse of interval variation
-            # Consistent rhythm = low std dev of intervals
-            if len(intervals) > 0 and np.mean(intervals) > 0:
-                stability = MetricUtils.stability_from_cv(np.std(intervals), np.mean(intervals))
-            else:
-                stability = 0.5
-
-            return np.clip(stability, 0, 1)
+            # Use unified StabilityMetrics for calculation
+            # Default scale=1.0 is appropriate for rhythm (beat intervals)
+            return StabilityMetrics.from_intervals(intervals, scale=1.0)
 
         except Exception as e:
             logger.debug(f"Rhythm stability calculation failed: {e}")
