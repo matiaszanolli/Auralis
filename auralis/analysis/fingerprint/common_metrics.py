@@ -455,6 +455,184 @@ class MetricUtils:
         return scaled
 
     @staticmethod
+    def robust_scale_with_winsorization(
+        values: np.ndarray,
+        lower_percentile: float = 5.0,
+        upper_percentile: float = 95.0,
+        epsilon: float = SafeOperations.EPSILON
+    ) -> np.ndarray:
+        """
+        Robust scaling with Winsorization (clip outliers before scaling).
+
+        Combines two techniques:
+        1. Winsorization: Replace values beyond percentiles with percentile values
+        2. Robust scaling: Scale by IQR
+
+        More aggressive outlier handling than basic robust scaling.
+
+        Use cases:
+        - Severe outliers (beyond 1-99 percentile)
+        - Fingerprinting corrupted/damaged audio
+        - Data with known measurement errors at extremes
+
+        Args:
+            values: Array of values to scale
+            lower_percentile: Lower percentile for clipping (default 5)
+            upper_percentile: Upper percentile for clipping (default 95)
+            epsilon: Small value for numerical stability
+
+        Returns:
+            Winsorized and robustly scaled array
+
+        Examples:
+            >>> values = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 100, 1000])
+            >>> scaled = MetricUtils.robust_scale_with_winsorization(values)
+            >>> # Extreme outliers 100, 1000 replaced with 95th percentile
+        """
+        values = np.asarray(values)
+
+        # Calculate winsorization bounds
+        lower = float(np.percentile(values, lower_percentile))
+        upper = float(np.percentile(values, upper_percentile))
+
+        # Winsorize: clip extreme values
+        winsorized = np.clip(values, lower, upper)
+
+        # Apply robust scaling to winsorized values
+        return MetricUtils.robust_scale(winsorized)
+
+    @staticmethod
+    def mad_scaling(
+        values: np.ndarray,
+        scale_factor: float = 1.4826,
+        epsilon: float = SafeOperations.EPSILON
+    ) -> np.ndarray:
+        """
+        Median Absolute Deviation (MAD) scaling.
+
+        More robust than IQR for outlier detection and scaling.
+        MAD is defined as: MAD = median(|x - median(x)|)
+        Scaled value: (x - median) / (MAD * scale_factor)
+
+        scale_factor default (1.4826) assumes normal distribution.
+
+        Use cases:
+        - Outlier detection (typically |scaled| > 2.5 is outlier)
+        - Very robust scaling (handles extreme outliers)
+        - Audio quality metrics with skewed distributions
+
+        Args:
+            values: Array of values to scale
+            scale_factor: Scaling factor (default 1.4826 for normal distribution)
+            epsilon: Small value for numerical stability
+
+        Returns:
+            MAD-scaled array (centered at 0, MAD-normalized)
+
+        Examples:
+            >>> values = np.array([1, 2, 3, 4, 5, 100, 1000])
+            >>> scaled = MetricUtils.mad_scaling(values)
+            >>> # Extreme outliers have moderate scaled values
+        """
+        values = np.asarray(values)
+
+        # Calculate median
+        median = float(np.median(values))
+
+        # Calculate absolute deviations from median
+        deviations = np.abs(values - median)
+
+        # Calculate MAD (median of absolute deviations)
+        mad = float(np.median(deviations))
+
+        # Handle zero MAD
+        if abs(mad) < epsilon:
+            return np.zeros_like(values, dtype=float)
+
+        # Scale using MAD
+        scaled = (values - median) / (mad * scale_factor)
+
+        return scaled
+
+    @staticmethod
+    def outlier_mask(
+        values: np.ndarray,
+        method: str = 'iqr',
+        threshold: float = 1.5,
+        return_indices: bool = False
+    ) -> np.ndarray:
+        """
+        Detect outliers using robust methods.
+
+        Methods:
+        - 'iqr': Interquartile range (outliers > Q1 - threshold*IQR or Q3 + threshold*IQR)
+        - 'mad': Median absolute deviation (outliers where |scaled| > threshold)
+        - 'zscore': Z-score based (outliers where |z| > threshold)
+
+        Use cases:
+        - Quality control for fingerprints
+        - Identifying corrupted or unusual audio
+        - Filtering anomalous samples before normalization
+
+        Args:
+            values: Array of values to test
+            method: Detection method ('iqr', 'mad', 'zscore')
+            threshold: Sensitivity threshold
+                      - IQR: 1.5 (standard), 3.0 (extreme)
+                      - MAD: 2.5 (standard), 3.5 (extreme)
+                      - z-score: 3.0 (standard), 2.0 (sensitive)
+            return_indices: If True, return indices of outliers; if False, return boolean mask
+
+        Returns:
+            Boolean mask (True = outlier) or indices of outliers
+
+        Examples:
+            >>> values = np.array([1, 2, 3, 4, 5, 100])
+            >>> mask = MetricUtils.outlier_mask(values, method='iqr')
+            >>> outliers = values[mask]
+            >>> print(outliers)  # [100]
+
+            >>> indices = MetricUtils.outlier_mask(values, method='iqr', return_indices=True)
+            >>> print(indices)  # [5]
+        """
+        values = np.asarray(values)
+
+        if method == 'iqr':
+            q1 = float(np.percentile(values, 25))
+            q3 = float(np.percentile(values, 75))
+            iqr = q3 - q1
+            lower_bound = q1 - threshold * iqr
+            upper_bound = q3 + threshold * iqr
+            mask = (values < lower_bound) | (values > upper_bound)
+
+        elif method == 'mad':
+            median = float(np.median(values))
+            deviations = np.abs(values - median)
+            mad = float(np.median(deviations))
+            if abs(mad) < SafeOperations.EPSILON:
+                mask = np.zeros_like(values, dtype=bool)
+            else:
+                scaled = np.abs((values - median) / (mad * 1.4826))
+                mask = scaled > threshold
+
+        elif method == 'zscore':
+            mean = float(np.mean(values))
+            std = float(np.std(values))
+            if abs(std) < SafeOperations.EPSILON:
+                mask = np.zeros_like(values, dtype=bool)
+            else:
+                scaled = np.abs((values - mean) / std)
+                mask = scaled > threshold
+
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
+        if return_indices:
+            return np.where(mask)[0]
+        else:
+            return mask
+
+    @staticmethod
     def quantile_normalize(
         values: np.ndarray,
         reference: Optional[np.ndarray] = None,
