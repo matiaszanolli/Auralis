@@ -18,15 +18,22 @@ import numpy as np
 import librosa
 from typing import Dict, Optional
 import logging
+from .base_analyzer import BaseAnalyzer
 from .common_metrics import MetricUtils, SafeOperations, AggregationUtils
 
 logger = logging.getLogger(__name__)
 
 
-class SpectralAnalyzer:
+class SpectralAnalyzer(BaseAnalyzer):
     """Extract spectral character features from audio."""
 
-    def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    DEFAULT_FEATURES = {
+        'spectral_centroid': 0.5,
+        'spectral_rolloff': 0.5,
+        'spectral_flatness': 0.3
+    }
+
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
         """
         Analyze spectral features.
 
@@ -37,34 +44,25 @@ class SpectralAnalyzer:
         Returns:
             Dict with 3 spectral features
         """
-        try:
-            # OPTIMIZATION: Pre-compute STFT once, reuse for all spectral features
-            # This eliminates 2x redundant STFT computation (100-200ms savings)
-            S = librosa.stft(audio)
-            magnitude = np.abs(S)
+        # OPTIMIZATION: Pre-compute STFT once, reuse for all spectral features
+        # This eliminates 2x redundant STFT computation (100-200ms savings)
+        S = librosa.stft(audio)
+        magnitude = np.abs(S)
 
-            # Spectral centroid (brightness) - pass pre-computed magnitude
-            spectral_centroid = self._calculate_spectral_centroid(audio, sr, magnitude=magnitude)
+        # Spectral centroid (brightness) - pass pre-computed magnitude
+        spectral_centroid = self._calculate_spectral_centroid(audio, sr, magnitude=magnitude)
 
-            # Spectral rolloff (high-frequency content) - pass pre-computed magnitude
-            spectral_rolloff = self._calculate_spectral_rolloff(audio, sr, magnitude=magnitude)
+        # Spectral rolloff (high-frequency content) - pass pre-computed magnitude
+        spectral_rolloff = self._calculate_spectral_rolloff(audio, sr, magnitude=magnitude)
 
-            # Spectral flatness (noise vs tonal) - pass pre-computed magnitude
-            spectral_flatness = self._calculate_spectral_flatness(audio, magnitude=magnitude)
+        # Spectral flatness (noise vs tonal) - pass pre-computed magnitude
+        spectral_flatness = self._calculate_spectral_flatness(audio, magnitude=magnitude)
 
-            return {
-                'spectral_centroid': float(spectral_centroid),
-                'spectral_rolloff': float(spectral_rolloff),
-                'spectral_flatness': float(spectral_flatness)
-            }
-
-        except Exception as e:
-            logger.warning(f"Spectral analysis failed: {e}")
-            return {
-                'spectral_centroid': 0.5,
-                'spectral_rolloff': 0.5,
-                'spectral_flatness': 0.3
-            }
+        return {
+            'spectral_centroid': float(spectral_centroid),
+            'spectral_rolloff': float(spectral_rolloff),
+            'spectral_flatness': float(spectral_flatness)
+        }
 
     def _calculate_spectral_centroid(self, audio: np.ndarray, sr: int,
                                     magnitude: Optional[np.ndarray] = None) -> float:

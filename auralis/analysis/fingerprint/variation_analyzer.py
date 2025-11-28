@@ -17,15 +17,22 @@ import numpy as np
 import librosa
 from typing import Dict, Optional
 import logging
+from .base_analyzer import BaseAnalyzer
 from .common_metrics import AudioMetrics, MetricUtils
 
 logger = logging.getLogger(__name__)
 
 
-class VariationAnalyzer:
+class VariationAnalyzer(BaseAnalyzer):
     """Extract dynamic variation features from audio."""
 
-    def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    DEFAULT_FEATURES = {
+        'dynamic_range_variation': 0.5,
+        'loudness_variation_std': 3.0,
+        'peak_consistency': 0.7
+    }
+
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
         """
         Analyze dynamic variation features.
 
@@ -36,45 +43,36 @@ class VariationAnalyzer:
         Returns:
             Dict with 3 variation features
         """
-        try:
-            # OPTIMIZATION: Pre-compute RMS with multiple hop lengths once
-            hop_length_250ms = int(sr * 0.25)
-            frame_length_500ms = int(sr * 0.5)
+        # OPTIMIZATION: Pre-compute RMS with multiple hop lengths once
+        hop_length_250ms = int(sr * 0.25)
+        frame_length_500ms = int(sr * 0.5)
 
-            # RMS for 250ms hop (used in both dynamic_range and loudness_variation)
-            rms_250ms = librosa.feature.rms(y=audio, hop_length=hop_length_250ms)[0]
+        # RMS for 250ms hop (used in both dynamic_range and loudness_variation)
+        rms_250ms = librosa.feature.rms(y=audio, hop_length=hop_length_250ms)[0]
 
-            # RMS with frame length for dynamic range calculation
-            rms_with_frame = librosa.feature.rms(
-                y=audio,
-                frame_length=frame_length_500ms,
-                hop_length=hop_length_250ms
-            )[0]
+        # RMS with frame length for dynamic range calculation
+        rms_with_frame = librosa.feature.rms(
+            y=audio,
+            frame_length=frame_length_500ms,
+            hop_length=hop_length_250ms
+        )[0]
 
-            # Dynamic range variation over time (pass pre-computed RMS for optimization)
-            dynamic_range_variation = self._calculate_dynamic_range_variation(
-                audio, sr, rms_with_frame, hop_length_250ms, frame_length_500ms
-            )
+        # Dynamic range variation over time (pass pre-computed RMS for optimization)
+        dynamic_range_variation = self._calculate_dynamic_range_variation(
+            audio, sr, rms_with_frame, hop_length_250ms, frame_length_500ms
+        )
 
-            # Loudness variation (pass pre-computed RMS for optimization)
-            loudness_variation_std = self._calculate_loudness_variation(audio, sr, rms_250ms)
+        # Loudness variation (pass pre-computed RMS for optimization)
+        loudness_variation_std = self._calculate_loudness_variation(audio, sr, rms_250ms)
 
-            # Peak consistency
-            peak_consistency = self._calculate_peak_consistency(audio, sr)
+        # Peak consistency
+        peak_consistency = self._calculate_peak_consistency(audio, sr)
 
-            return {
-                'dynamic_range_variation': float(dynamic_range_variation),
-                'loudness_variation_std': float(loudness_variation_std),
-                'peak_consistency': float(peak_consistency)
-            }
-
-        except Exception as e:
-            logger.warning(f"Variation analysis failed: {e}")
-            return {
-                'dynamic_range_variation': 0.5,
-                'loudness_variation_std': 3.0,
-                'peak_consistency': 0.7
-            }
+        return {
+            'dynamic_range_variation': float(dynamic_range_variation),
+            'loudness_variation_std': float(loudness_variation_std),
+            'peak_consistency': float(peak_consistency)
+        }
 
     def _calculate_dynamic_range_variation(self, audio: np.ndarray, sr: int,
                                           rms: Optional[np.ndarray] = None,

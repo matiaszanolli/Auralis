@@ -18,6 +18,8 @@ import numpy as np
 import librosa
 from typing import Dict
 import logging
+from .base_analyzer import BaseAnalyzer
+from .common_metrics import MetricUtils
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +33,16 @@ except ImportError:
     logger.warning("Rust DSP library (auralis_dsp) not available - falling back to librosa")
 
 
-class HarmonicAnalyzer:
+class HarmonicAnalyzer(BaseAnalyzer):
     """Extract harmonic content features from audio."""
 
-    def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    DEFAULT_FEATURES = {
+        'harmonic_ratio': 0.5,
+        'pitch_stability': 0.7,
+        'chroma_energy': 0.5
+    }
+
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
         """
         Analyze harmonic features.
 
@@ -45,29 +53,20 @@ class HarmonicAnalyzer:
         Returns:
             Dict with 3 harmonic features
         """
-        try:
-            # Harmonic ratio (harmonic vs percussive)
-            harmonic_ratio = self._calculate_harmonic_ratio(audio)
+        # Harmonic ratio (harmonic vs percussive)
+        harmonic_ratio = self._calculate_harmonic_ratio(audio)
 
-            # Pitch stability
-            pitch_stability = self._calculate_pitch_stability(audio, sr)
+        # Pitch stability
+        pitch_stability = self._calculate_pitch_stability(audio, sr)
 
-            # Chroma energy (tonal complexity)
-            chroma_energy = self._calculate_chroma_energy(audio, sr)
+        # Chroma energy (tonal complexity)
+        chroma_energy = self._calculate_chroma_energy(audio, sr)
 
-            return {
-                'harmonic_ratio': float(harmonic_ratio),
-                'pitch_stability': float(pitch_stability),
-                'chroma_energy': float(chroma_energy)
-            }
-
-        except Exception as e:
-            logger.warning(f"Harmonic analysis failed: {e}")
-            return {
-                'harmonic_ratio': 0.5,
-                'pitch_stability': 0.7,
-                'chroma_energy': 0.5
-            }
+        return {
+            'harmonic_ratio': float(harmonic_ratio),
+            'pitch_stability': float(pitch_stability),
+            'chroma_energy': float(chroma_energy)
+        }
 
     def _calculate_harmonic_ratio(self, audio: np.ndarray) -> float:
         """
@@ -149,11 +148,8 @@ class HarmonicAnalyzer:
             pitch_mean = np.mean(voiced_f0)
 
             if pitch_mean > 0:
-                # Coefficient of variation
-                cv = pitch_std / pitch_mean
-
                 # Map to stability (low variation = high stability)
-                stability = 1.0 / (1.0 + cv * 10)  # Scale CV to reasonable range
+                stability = MetricUtils.stability_from_cv(pitch_std, pitch_mean, scale=10.0)
             else:
                 stability = 0.5
 
