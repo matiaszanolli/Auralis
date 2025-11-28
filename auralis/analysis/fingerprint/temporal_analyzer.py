@@ -18,14 +18,23 @@ import numpy as np
 import librosa
 from typing import Dict
 import logging
+from .base_analyzer import BaseAnalyzer
+from .common_metrics import MetricUtils
 
 logger = logging.getLogger(__name__)
 
 
-class TemporalAnalyzer:
+class TemporalAnalyzer(BaseAnalyzer):
     """Extract temporal and rhythmic features from audio."""
 
-    def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    DEFAULT_FEATURES = {
+        'tempo_bpm': 120.0,
+        'rhythm_stability': 0.5,
+        'transient_density': 0.5,
+        'silence_ratio': 0.1
+    }
+
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
         """
         Analyze temporal/rhythmic features.
 
@@ -36,39 +45,28 @@ class TemporalAnalyzer:
         Returns:
             Dict with 4 temporal features
         """
-        try:
-            # Cache expensive librosa operations - compute onset envelope once
-            onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
-            rms = librosa.feature.rms(y=audio)[0]
+        # Cache expensive librosa operations - compute onset envelope once
+        onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
+        rms = librosa.feature.rms(y=audio)[0]
 
-            # Tempo detection
-            tempo_bpm = self._detect_tempo(onset_env, sr)
+        # Tempo detection
+        tempo_bpm = self._detect_tempo(onset_env, sr)
 
-            # Rhythm stability
-            rhythm_stability = self._calculate_rhythm_stability(onset_env, sr)
+        # Rhythm stability
+        rhythm_stability = self._calculate_rhythm_stability(onset_env, sr)
 
-            # Transient density (drum/percussion prominence)
-            transient_density = self._calculate_transient_density(audio, sr, onset_env)
+        # Transient density (drum/percussion prominence)
+        transient_density = self._calculate_transient_density(audio, sr, onset_env)
 
-            # Silence ratio
-            silence_ratio = self._calculate_silence_ratio(rms)
+        # Silence ratio
+        silence_ratio = self._calculate_silence_ratio(rms)
 
-            return {
-                'tempo_bpm': float(tempo_bpm),
-                'rhythm_stability': float(rhythm_stability),
-                'transient_density': float(transient_density),
-                'silence_ratio': float(silence_ratio)
-            }
-
-        except Exception as e:
-            logger.warning(f"Temporal analysis failed: {e}")
-            # Return default values on error
-            return {
-                'tempo_bpm': 120.0,
-                'rhythm_stability': 0.5,
-                'transient_density': 0.5,
-                'silence_ratio': 0.1
-            }
+        return {
+            'tempo_bpm': float(tempo_bpm),
+            'rhythm_stability': float(rhythm_stability),
+            'transient_density': float(transient_density),
+            'silence_ratio': float(silence_ratio)
+        }
 
     def _detect_tempo(self, onset_env: np.ndarray, sr: int) -> float:
         """
@@ -141,8 +139,7 @@ class TemporalAnalyzer:
             # Stability = inverse of interval variation
             # Consistent rhythm = low std dev of intervals
             if len(intervals) > 0 and np.mean(intervals) > 0:
-                cv = np.std(intervals) / np.mean(intervals)  # Coefficient of variation
-                stability = 1.0 / (1.0 + cv)  # Map to 0-1 (high CV = low stability)
+                stability = MetricUtils.stability_from_cv(np.std(intervals), np.mean(intervals))
             else:
                 stability = 0.5
 

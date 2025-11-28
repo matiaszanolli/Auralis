@@ -21,6 +21,8 @@ import numpy as np
 import librosa
 from typing import Dict, Tuple
 import logging
+from .base_analyzer import BaseAnalyzer
+from .common_metrics import MetricUtils
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +36,14 @@ except ImportError:
     logger.warning("Rust DSP library (auralis_dsp) not available - falling back to librosa")
 
 
-class SampledHarmonicAnalyzer:
+class SampledHarmonicAnalyzer(BaseAnalyzer):
     """Extract harmonic features using time-domain sampling strategy."""
+
+    DEFAULT_FEATURES = {
+        'harmonic_ratio': 0.5,
+        'pitch_stability': 0.7,
+        'chroma_energy': 0.5
+    }
 
     def __init__(self, chunk_duration: float = 5.0, interval_duration: float = 10.0):
         """
@@ -47,6 +55,7 @@ class SampledHarmonicAnalyzer:
                 If equal to chunk_duration, chunks don't overlap.
                 If greater, chunks are spaced apart.
         """
+        super().__init__()
         self.chunk_duration = chunk_duration
         self.interval_duration = interval_duration
 
@@ -87,7 +96,7 @@ class SampledHarmonicAnalyzer:
 
         return np.array(chunks, dtype=object), np.array(start_times)
 
-    def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
         """
         Analyze harmonic features using time-domain sampling.
 
@@ -98,50 +107,41 @@ class SampledHarmonicAnalyzer:
         Returns:
             Dict with 3 harmonic features (aggregated from chunks)
         """
-        try:
-            # Extract chunks
-            chunks, start_times = self._extract_chunks(audio, sr)
-            n_chunks = len(chunks)
+        # Extract chunks
+        chunks, start_times = self._extract_chunks(audio, sr)
+        n_chunks = len(chunks)
 
-            logger.debug(f"Analyzing {n_chunks} chunks from {len(audio)/sr:.1f}s track")
+        logger.debug(f"Analyzing {n_chunks} chunks from {len(audio)/sr:.1f}s track")
 
-            # Analyze each chunk
-            chunk_results = {
-                'harmonic_ratio': [],
-                'pitch_stability': [],
-                'chroma_energy': []
-            }
+        # Analyze each chunk
+        chunk_results = {
+            'harmonic_ratio': [],
+            'pitch_stability': [],
+            'chroma_energy': []
+        }
 
-            for i, chunk in enumerate(chunks):
-                try:
-                    hr = self._calculate_harmonic_ratio(chunk)
-                    ps = self._calculate_pitch_stability(chunk, sr)
-                    ce = self._calculate_chroma_energy(chunk, sr)
+        for i, chunk in enumerate(chunks):
+            try:
+                hr = self._calculate_harmonic_ratio(chunk)
+                ps = self._calculate_pitch_stability(chunk, sr)
+                ce = self._calculate_chroma_energy(chunk, sr)
 
-                    chunk_results['harmonic_ratio'].append(hr)
-                    chunk_results['pitch_stability'].append(ps)
-                    chunk_results['chroma_energy'].append(ce)
+                chunk_results['harmonic_ratio'].append(hr)
+                chunk_results['pitch_stability'].append(ps)
+                chunk_results['chroma_energy'].append(ce)
 
-                except Exception as e:
-                    logger.debug(f"Chunk {i} analysis failed: {e}, using defaults")
-                    chunk_results['harmonic_ratio'].append(0.5)
-                    chunk_results['pitch_stability'].append(0.7)
-                    chunk_results['chroma_energy'].append(0.5)
+            except Exception as e:
+                logger.debug(f"Chunk {i} analysis failed: {e}, using defaults")
+                chunk_results['harmonic_ratio'].append(0.5)
+                chunk_results['pitch_stability'].append(0.7)
+                chunk_results['chroma_energy'].append(0.5)
 
-            # Aggregate results (simple mean, could be weighted by chunk characteristics)
-            return {
-                'harmonic_ratio': float(np.mean(chunk_results['harmonic_ratio'])),
-                'pitch_stability': float(np.mean(chunk_results['pitch_stability'])),
-                'chroma_energy': float(np.mean(chunk_results['chroma_energy']))
-            }
-
-        except Exception as e:
-            logger.warning(f"Sampled harmonic analysis failed: {e}")
-            return {
-                'harmonic_ratio': 0.5,
-                'pitch_stability': 0.7,
-                'chroma_energy': 0.5
-            }
+        # Aggregate results (simple mean, could be weighted by chunk characteristics)
+        return {
+            'harmonic_ratio': float(np.mean(chunk_results['harmonic_ratio'])),
+            'pitch_stability': float(np.mean(chunk_results['pitch_stability'])),
+            'chroma_energy': float(np.mean(chunk_results['chroma_energy']))
+        }
 
     def _calculate_harmonic_ratio(self, audio: np.ndarray) -> float:
         """
@@ -212,8 +212,7 @@ class SampledHarmonicAnalyzer:
             pitch_mean = np.mean(voiced_f0)
 
             if pitch_mean > 0:
-                cv = pitch_std / pitch_mean
-                stability = 1.0 / (1.0 + cv * 10)
+                stability = MetricUtils.stability_from_cv(pitch_std, pitch_mean, scale=10.0)
             else:
                 stability = 0.5
 
