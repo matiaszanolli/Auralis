@@ -348,6 +348,175 @@ class MetricUtils:
 
         return float(np.clip(scaled, min(new_min, new_max), max(new_min, new_max)))
 
+    @staticmethod
+    def normalize_with_zscore(
+        values: np.ndarray,
+        mean: Optional[float] = None,
+        std: Optional[float] = None,
+        epsilon: float = SafeOperations.EPSILON
+    ) -> np.ndarray:
+        """
+        Z-score normalization: (x - mean) / std.
+
+        Transforms data to have mean=0 and standard deviation=1.
+        Useful for distribution-aware normalization and outlier handling.
+
+        Use cases:
+        - Fingerprint features with different distributions
+        - Metric comparison across different audio types
+        - Outlier detection (values > 3σ are anomalous)
+
+        Args:
+            values: Array of values to normalize
+            mean: Pre-computed mean (calculated from values if None)
+            std: Pre-computed standard deviation (calculated from values if None)
+            epsilon: Small value for numerical stability
+
+        Returns:
+            Z-score normalized array (mean=0, std=1 for input distribution)
+
+        Examples:
+            >>> values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+            >>> normalized = MetricUtils.normalize_with_zscore(values)
+            >>> np.mean(normalized)  # ~0.0
+            >>> np.std(normalized)   # ~1.0
+        """
+        values = np.asarray(values)
+
+        # Calculate mean and std if not provided
+        if mean is None:
+            mean = float(np.mean(values))
+        if std is None:
+            std = float(np.std(values))
+
+        # Handle zero std (constant values)
+        if abs(std) < epsilon:
+            return np.zeros_like(values, dtype=float)
+
+        # Z-score normalization
+        normalized = (values - mean) / std
+
+        return normalized
+
+    @staticmethod
+    def robust_scale(
+        values: np.ndarray,
+        q1: Optional[float] = None,
+        q2: Optional[float] = None,
+        q3: Optional[float] = None,
+        epsilon: float = SafeOperations.EPSILON
+    ) -> np.ndarray:
+        """
+        Robust scaling using interquartile range (IQR).
+
+        Scales data using: (x - Q2) / (Q3 - Q1)
+        where Q2 is median, Q1 is 25th percentile, Q3 is 75th percentile.
+
+        More robust to outliers than z-score (uses IQR instead of std).
+
+        Use cases:
+        - Data with extreme outliers
+        - Non-normal distributions
+        - Fingerprint matching with corrupted audio
+
+        Args:
+            values: Array of values to scale
+            q1: 25th percentile (calculated if None)
+            q2: 50th percentile/median (calculated if None)
+            q3: 75th percentile (calculated if None)
+            epsilon: Small value for numerical stability
+
+        Returns:
+            Robustly scaled array (centered at 0, IQR-normalized)
+
+        Examples:
+            >>> values = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 100.0])
+            >>> scaled = MetricUtils.robust_scale(values)  # Outlier 100 has less impact
+        """
+        values = np.asarray(values)
+
+        # Calculate quartiles if not provided
+        if q1 is None:
+            q1 = float(np.percentile(values, 25))
+        if q2 is None:
+            q2 = float(np.percentile(values, 50))
+        if q3 is None:
+            q3 = float(np.percentile(values, 75))
+
+        iqr = q3 - q1
+
+        # Handle zero IQR (all values equal)
+        if abs(iqr) < epsilon:
+            return np.zeros_like(values, dtype=float)
+
+        # Robust scaling
+        scaled = (values - q2) / iqr
+
+        return scaled
+
+    @staticmethod
+    def quantile_normalize(
+        values: np.ndarray,
+        reference: Optional[np.ndarray] = None,
+        quantiles: Optional[np.ndarray] = None
+    ) -> np.ndarray:
+        """
+        Quantile normalization: Transform to match reference distribution.
+
+        Maps quantiles of input to quantiles of reference distribution.
+        If no reference, normalizes to uniform distribution [0, 1].
+
+        Use cases:
+        - Batch normalization for fingerprints
+        - Distribution matching for similar audio
+        - Handling different recording qualities
+
+        Args:
+            values: Array of values to normalize
+            reference: Reference distribution (uses uniform [0,1] if None)
+            quantiles: Pre-computed quantile positions (calculated if None)
+
+        Returns:
+            Quantile-normalized array
+
+        Examples:
+            >>> values = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+            >>> reference = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+            >>> normalized = MetricUtils.quantile_normalize(values, reference)
+        """
+        values = np.asarray(values)
+
+        # If no reference, use uniform distribution
+        if reference is None:
+            # Create uniform distribution [0, 1]
+            sorted_indices = np.argsort(values)
+            result = np.zeros_like(values, dtype=float)
+            result[sorted_indices] = np.linspace(0, 1, len(values))
+            return result
+
+        # Quantile normalization with reference
+        reference = np.asarray(reference)
+
+        # Get sorted positions
+        sorted_indices = np.argsort(values)
+        sorted_reference = np.sort(reference)
+
+        # Create result array
+        result = np.zeros_like(values, dtype=float)
+
+        # Interpolate reference values at sorted positions
+        reference_quantiles = np.linspace(0, len(reference) - 1, len(values))
+        interpolated = np.interp(
+            reference_quantiles,
+            np.arange(len(sorted_reference)),
+            sorted_reference
+        )
+
+        # Assign interpolated values back to original positions
+        result[sorted_indices] = interpolated
+
+        return result
+
 
 class AudioMetrics:
     """
