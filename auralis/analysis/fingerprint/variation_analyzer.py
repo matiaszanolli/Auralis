@@ -164,9 +164,9 @@ class VariationAnalyzer(BaseAnalyzer):
             # Convert to dB
             rms_db = librosa.amplitude_to_db(rms, ref=np.max)
 
-            # Calculate std dev and clip to reasonable range
+            # Calculate std dev and clip to reasonable dB range using MetricUtils
             loudness_std = np.std(rms_db)
-            loudness_std = np.clip(loudness_std, 0, 10)
+            loudness_std = MetricUtils.clip_to_range(loudness_std, 0, 10)
 
             return loudness_std
 

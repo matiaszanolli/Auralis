@@ -16,6 +16,7 @@ import numpy as np
 from typing import Dict
 import logging
 from .base_analyzer import BaseAnalyzer
+from .common_metrics import MetricUtils
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,8 @@ class StereoAnalyzer(BaseAnalyzer):
             else:
                 correlation = 1.0  # Silence = perfect correlation
 
-            return np.clip(correlation, -1, 1)
+            # Clip correlation to -1 to +1 range using MetricUtils
+            return MetricUtils.clip_to_range(correlation, -1, 1)
 
         except Exception as e:
             logger.debug(f"Phase correlation calculation failed: {e}")
