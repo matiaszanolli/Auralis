@@ -10,7 +10,7 @@ Comprehensive dynamic range measurement and analysis tools.
 import numpy as np
 from typing import Dict, List, Tuple
 from scipy import signal
-from auralis.analysis.fingerprint.common_metrics import SafeOperations, AudioMetrics
+from auralis.analysis.fingerprint.common_metrics import SafeOperations, AudioMetrics, MetricUtils
 
 
 class DynamicRangeAnalyzer:
@@ -258,7 +258,11 @@ class DynamicRangeAnalyzer:
         else:
             compression_ratio = 1.0
 
-        return np.clip(compression_ratio, 1.0, 20.0)
+        # Normalize compression ratio to 1-20 range using MetricUtils
+        # Normalize to 0-1 first (1.0 → 0, 20.0 → 1)
+        normalized = MetricUtils.normalize_to_range(compression_ratio - 1.0, 19.0, clip=True)
+        # Scale back to 1-20 range
+        return 1.0 + normalized * 19.0
 
     def _estimate_attack_time(self, audio: np.ndarray) -> float:
         """Estimate compressor attack time from transient analysis"""

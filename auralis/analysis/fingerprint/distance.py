@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 from ...utils.logging import info, warning, error, debug
+from .common_metrics import MetricUtils
 
 
 @dataclass
@@ -276,11 +277,9 @@ class FingerprintDistance:
             Similarity score (1.0 = identical, 0.0 = completely different)
         """
         # Inverse relationship: lower distance = higher similarity
-        # Clamp to [0, max_distance]
-        distance = min(distance, max_distance)
-
-        # Convert to 0-1 similarity score
-        similarity = 1.0 - (distance / max_distance)
+        # Normalize distance to 0-1 using MetricUtils, then invert
+        normalized_distance = MetricUtils.normalize_to_range(distance, max_distance, clip=True)
+        similarity = 1.0 - normalized_distance
 
         return similarity
 
