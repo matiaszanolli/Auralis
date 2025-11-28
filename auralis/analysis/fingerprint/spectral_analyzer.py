@@ -131,13 +131,18 @@ class SpectralAnalyzer(BaseAnalyzer):
                     magnitude_norm = magnitude * norm
                     cumsum = np.cumsum(magnitude_norm, axis=0)
 
-                    # Find frequency at 85% cumulative energy
-                    rolloff = np.array([
-                        freqs[np.where(cumsum[:, i] >= 0.85)[0][0]]
-                        if np.any(cumsum[:, i] >= 0.85)
-                        else freqs[-1]
-                        for i in range(magnitude.shape[1])
-                    ])
+                    # OPTIMIZATION: Vectorized rolloff calculation using argmax
+                    # Find frequency at 85% cumulative energy for all frames simultaneously
+                    # argmax returns first True index on boolean condition
+                    rolloff_indices = np.argmax(cumsum >= 0.85, axis=0)
+
+                    # Handle edge case: frames where cumsum never reaches 0.85
+                    # argmax returns 0 for all-False, so manually check and set to last freq
+                    never_reached = np.all(cumsum < 0.85, axis=0)
+                    rolloff_indices[never_reached] = len(freqs) - 1
+
+                    # Map indices to frequencies
+                    rolloff = freqs[np.clip(rolloff_indices, 0, len(freqs) - 1)]
                 else:
                     rolloff = np.array([0.0])
             else:
