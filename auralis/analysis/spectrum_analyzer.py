@@ -11,7 +11,7 @@ import numpy as np
 from scipy import signal
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from .fingerprint.common_metrics import AudioMetrics
+from .fingerprint.common_metrics import AudioMetrics, AggregationUtils
 
 
 @dataclass
@@ -234,16 +234,22 @@ class SpectrumAnalyzer:
         if not chunk_results:
             return {}
 
-        # Aggregate results
+        # Aggregate results using AggregationUtils
         aggregated_spectrum = np.mean([r['spectrum'] for r in chunk_results], axis=0)
+
+        # Aggregate scalar metrics using standardized aggregation
+        peak_frequencies = np.array([r['peak_frequency'] for r in chunk_results])
+        spectral_centroids = np.array([r['spectral_centroid'] for r in chunk_results])
+        spectral_rolloffs = np.array([r['spectral_rolloff'] for r in chunk_results])
+        total_energies = np.array([r['total_energy'] for r in chunk_results])
 
         return {
             'spectrum': aggregated_spectrum.tolist(),
             'frequency_bins': self.frequency_bins.tolist(),
-            'peak_frequency': float(np.mean([r['peak_frequency'] for r in chunk_results])),
-            'spectral_centroid': float(np.mean([r['spectral_centroid'] for r in chunk_results])),
-            'spectral_rolloff': float(np.mean([r['spectral_rolloff'] for r in chunk_results])),
-            'total_energy': float(np.mean([r['total_energy'] for r in chunk_results])),
+            'peak_frequency': float(AggregationUtils.aggregate_frames_to_track(peak_frequencies, method='mean')),
+            'spectral_centroid': float(AggregationUtils.aggregate_frames_to_track(spectral_centroids, method='mean')),
+            'spectral_rolloff': float(AggregationUtils.aggregate_frames_to_track(spectral_rolloffs, method='mean')),
+            'total_energy': float(AggregationUtils.aggregate_frames_to_track(total_energies, method='mean')),
             'num_chunks_analyzed': len(chunk_results),
             'analysis_duration': len(audio_data) / self.settings.sample_rate,
             'settings': {

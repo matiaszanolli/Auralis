@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from ..optimization.parallel_processor import ParallelFFTProcessor, ParallelConfig
 from ..utils.logging import debug
-from .fingerprint.common_metrics import SafeOperations, AudioMetrics
+from .fingerprint.common_metrics import SafeOperations, AudioMetrics, AggregationUtils
 
 
 @dataclass
@@ -188,12 +188,19 @@ class ParallelSpectrumAnalyzer:
             # Map each FFT to bands
             chunk_results = list(executor.map(self._process_fft_to_spectrum, fft_results))
 
-        # Aggregate results (vectorized)
+        # Aggregate results using AggregationUtils (vectorized)
         aggregated_spectrum = np.mean([r['spectrum'] for r in chunk_results], axis=0)
-        avg_peak_frequency = np.mean([r['peak_frequency'] for r in chunk_results])
-        avg_spectral_centroid = np.mean([r['spectral_centroid'] for r in chunk_results])
-        avg_spectral_rolloff = np.mean([r['spectral_rolloff'] for r in chunk_results])
-        avg_total_energy = np.mean([r['total_energy'] for r in chunk_results])
+
+        # Aggregate scalar metrics using standardized aggregation
+        peak_frequencies = np.array([r['peak_frequency'] for r in chunk_results])
+        spectral_centroids = np.array([r['spectral_centroid'] for r in chunk_results])
+        spectral_rolloffs = np.array([r['spectral_rolloff'] for r in chunk_results])
+        total_energies = np.array([r['total_energy'] for r in chunk_results])
+
+        avg_peak_frequency = AggregationUtils.aggregate_frames_to_track(peak_frequencies, method='mean')
+        avg_spectral_centroid = AggregationUtils.aggregate_frames_to_track(spectral_centroids, method='mean')
+        avg_spectral_rolloff = AggregationUtils.aggregate_frames_to_track(spectral_rolloffs, method='mean')
+        avg_total_energy = AggregationUtils.aggregate_frames_to_track(total_energies, method='mean')
 
         return {
             'spectrum': aggregated_spectrum.tolist(),
@@ -237,16 +244,22 @@ class ParallelSpectrumAnalyzer:
                 result = self._process_fft_to_spectrum(fft_result)
                 chunk_results.append(result)
 
-        # Aggregate
+        # Aggregate using AggregationUtils
         aggregated_spectrum = np.mean([r['spectrum'] for r in chunk_results], axis=0)
+
+        # Aggregate scalar metrics using standardized aggregation
+        peak_frequencies = np.array([r['peak_frequency'] for r in chunk_results])
+        spectral_centroids = np.array([r['spectral_centroid'] for r in chunk_results])
+        spectral_rolloffs = np.array([r['spectral_rolloff'] for r in chunk_results])
+        total_energies = np.array([r['total_energy'] for r in chunk_results])
 
         return {
             'spectrum': aggregated_spectrum.tolist(),
             'frequency_bins': self.frequency_bins.tolist(),
-            'peak_frequency': float(np.mean([r['peak_frequency'] for r in chunk_results])),
-            'spectral_centroid': float(np.mean([r['spectral_centroid'] for r in chunk_results])),
-            'spectral_rolloff': float(np.mean([r['spectral_rolloff'] for r in chunk_results])),
-            'total_energy': float(np.mean([r['total_energy'] for r in chunk_results])),
+            'peak_frequency': float(AggregationUtils.aggregate_frames_to_track(peak_frequencies, method='mean')),
+            'spectral_centroid': float(AggregationUtils.aggregate_frames_to_track(spectral_centroids, method='mean')),
+            'spectral_rolloff': float(AggregationUtils.aggregate_frames_to_track(spectral_rolloffs, method='mean')),
+            'total_energy': float(AggregationUtils.aggregate_frames_to_track(total_energies, method='mean')),
             'num_chunks_analyzed': len(chunk_results),
             'analysis_duration': len(audio_data) / self.settings.sample_rate,
             'settings': {
