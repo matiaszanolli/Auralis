@@ -102,8 +102,8 @@ class TemporalAnalyzer(BaseAnalyzer):
 
             tempo = tempo_array[0]
 
-            # Clip to reasonable range
-            tempo = np.clip(tempo, 40, 200)
+            # Clip tempo to reasonable BPM range using MetricUtils
+            tempo = MetricUtils.clip_to_range(tempo, 40, 200)
 
             return tempo
 

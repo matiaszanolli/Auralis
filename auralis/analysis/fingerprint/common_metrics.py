@@ -284,6 +284,70 @@ class MetricUtils:
 
         return normalized
 
+    @staticmethod
+    def clip_to_range(
+        value: float,
+        min_val: float,
+        max_val: float
+    ) -> float:
+        """
+        Clip value to specified range with safe bounds checking.
+
+        Common use cases:
+        - Tempo: 40-200 BPM
+        - Loudness variation: 0-10 dB
+        - Correlation coefficients: -1 to +1
+
+        Args:
+            value: Value to clip
+            min_val: Minimum allowed value
+            max_val: Maximum allowed value
+
+        Returns:
+            Clipped value within [min_val, max_val]
+        """
+        if min_val > max_val:
+            min_val, max_val = max_val, min_val  # Swap if reversed
+
+        return float(np.clip(value, min_val, max_val))
+
+    @staticmethod
+    def scale_to_range(
+        value: float,
+        old_min: float,
+        old_max: float,
+        new_min: float = 0.0,
+        new_max: float = 1.0
+    ) -> float:
+        """
+        Scale value from one range to another.
+
+        Performs linear interpolation: new_val = new_min + (value - old_min) * scale_factor
+
+        Use cases:
+        - Tempo (40-200 BPM) → (0-1) for analysis
+        - Loudness variation (0-10 dB) → (0-1) for metrics
+        - Correlation (-1 to +1) → (0-1) for similarity
+
+        Args:
+            value: Value to scale
+            old_min: Original range minimum
+            old_max: Original range maximum
+            new_min: Target range minimum (default: 0.0)
+            new_max: Target range maximum (default: 1.0)
+
+        Returns:
+            Scaled value in [new_min, new_max] range
+        """
+        if old_max <= old_min:
+            return (new_min + new_max) / 2.0  # Return midpoint for invalid range
+
+        # Linear scaling with fallback to midpoint if out of range
+        scale_factor = (new_max - new_min) / (old_max - old_min)
+        scaled = new_min + (value - old_min) * scale_factor
+
+        return float(np.clip(scaled, min(new_min, new_max), max(new_min, new_max)))
+
 
 class AudioMetrics:
     """

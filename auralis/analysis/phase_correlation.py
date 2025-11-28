@@ -99,7 +99,8 @@ class PhaseCorrelationAnalyzer:
             return 0.0
 
         correlation = np.mean(left_norm * right_norm) / (left_std * right_std)
-        return np.clip(correlation, -1.0, 1.0)
+        # Clip correlation to -1 to +1 range using MetricUtils
+        return MetricUtils.clip_to_range(correlation, -1.0, 1.0)
 
     def _calculate_phase_correlation(self, left: np.ndarray, right: np.ndarray) -> float:
         """Calculate phase correlation using analytic signals"""
@@ -137,8 +138,9 @@ class PhaseCorrelationAnalyzer:
         else:
             width = 0.0
 
-        # Normalize to 0-1 range (0 = mono, 1 = wide stereo)
-        return np.clip(width, 0.0, 2.0) / 2.0
+        # Normalize 0-2 range to 0-1 (0 = mono, 1 = wide stereo)
+        # Use scale_to_range for clearer intent
+        return MetricUtils.scale_to_range(width, 0.0, 2.0, 0.0, 1.0)
 
     def _calculate_mid_side(self, left: np.ndarray, right: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Convert L/R to Mid/Side"""
