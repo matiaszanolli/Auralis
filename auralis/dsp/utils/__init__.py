@@ -46,6 +46,12 @@ from .stereo import (
     adjust_stereo_width,
 )
 
+from .interpolation_helpers import (
+    create_triangular_envelope,
+    create_triangular_filterbank,
+    create_mel_triangular_filters,
+)
+
 __all__ = [
     # Audio info
     'size',
@@ -73,4 +79,8 @@ __all__ = [
     # Stereo processing
     'stereo_width_analysis',
     'adjust_stereo_width',
+    # Interpolation and envelope
+    'create_triangular_envelope',
+    'create_triangular_filterbank',
+    'create_mel_triangular_filters',
 ]
