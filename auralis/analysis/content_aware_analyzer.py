@@ -18,6 +18,7 @@ Key Discovery: Bass/Mid Ratio is the strongest differentiator (8.9 dB range)
 import numpy as np
 from typing import Dict, Tuple, Optional
 import logging
+from .fingerprint.common_metrics import SafeOperations, AudioMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -107,14 +108,17 @@ class ContentAwareAnalyzer:
         high_energy = np.sum(magnitude[high_mask]**2)
         total_energy = bass_energy + mid_energy + high_energy
 
-        # Percentages
-        bass_pct = (bass_energy / total_energy) * 100 if total_energy > 0 else 0
-        mid_pct = (mid_energy / total_energy) * 100 if total_energy > 0 else 0
-        high_pct = (high_energy / total_energy) * 100 if total_energy > 0 else 0
+        # Percentages (using SafeOperations for safe division)
+        bass_pct = SafeOperations.safe_divide(bass_energy, total_energy, fallback=0.0) * 100
+        mid_pct = SafeOperations.safe_divide(mid_energy, total_energy, fallback=0.0) * 100
+        high_pct = SafeOperations.safe_divide(high_energy, total_energy, fallback=0.0) * 100
 
-        # Ratios in dB (key differentiators!)
-        bass_to_mid_db = 10 * np.log10(bass_energy / mid_energy) if mid_energy > 0 else 0
-        high_to_mid_db = 10 * np.log10(high_energy / mid_energy) if mid_energy > 0 else 0
+        # Ratios in dB (key differentiators!) - use safe division with epsilon protection
+        bass_to_mid_ratio = SafeOperations.safe_divide(bass_energy, mid_energy, fallback=1.0)
+        bass_to_mid_db = 10 * np.log10(np.maximum(bass_to_mid_ratio, SafeOperations.EPSILON))
+
+        high_to_mid_ratio = SafeOperations.safe_divide(high_energy, mid_energy, fallback=1.0)
+        high_to_mid_db = 10 * np.log10(np.maximum(high_to_mid_ratio, SafeOperations.EPSILON))
 
         # Spectral characteristics
         spectral_centroid = self._calculate_spectral_centroid(magnitude, freqs)

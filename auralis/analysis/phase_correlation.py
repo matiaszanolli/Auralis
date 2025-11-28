@@ -10,6 +10,7 @@ Stereo phase correlation and spatial analysis tools.
 import numpy as np
 from typing import Dict, Tuple, List
 from scipy import signal
+from .fingerprint.common_metrics import SafeOperations
 
 
 class PhaseCorrelationAnalyzer:
@@ -220,8 +221,10 @@ class PhaseCorrelationAnalyzer:
         # Calculate cross-power spectral density
         f, cross_psd = signal.csd(left, right, self.sample_rate, nperseg=1024)
 
-        # Calculate coherence
-        coherence = np.abs(cross_psd)**2 / (left_psd * right_psd + 1e-10)
+        # Calculate coherence with safe division
+        numerator = np.abs(cross_psd)**2
+        denominator = left_psd * right_psd
+        coherence = SafeOperations.safe_divide(numerator, denominator, fallback=0.0)
 
         # Average coherence in frequency bands
         freq_bands = [
