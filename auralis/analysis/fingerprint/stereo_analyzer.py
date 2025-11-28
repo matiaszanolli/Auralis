@@ -9,19 +9,26 @@ Features (2D):
 
 Dependencies:
   - numpy for numerical operations
+  - base_analyzer for unified error handling
 """
 
 import numpy as np
 from typing import Dict
 import logging
+from .base_analyzer import BaseAnalyzer
 
 logger = logging.getLogger(__name__)
 
 
-class StereoAnalyzer:
+class StereoAnalyzer(BaseAnalyzer):
     """Extract stereo field features from audio."""
 
-    def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    DEFAULT_FEATURES = {
+        'stereo_width': 0.5,
+        'phase_correlation': 0.5
+    }
+
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
         """
         Analyze stereo field features.
 
@@ -32,48 +39,40 @@ class StereoAnalyzer:
         Returns:
             Dict with 2 stereo features
         """
-        try:
-            # Check if stereo or mono
-            if len(audio.shape) == 1 or audio.shape[0] == 1:
-                # Mono audio
-                return {
-                    'stereo_width': 0.0,
-                    'phase_correlation': 1.0  # Perfect correlation (mono)
-                }
-
-            # Stereo audio - extract left and right channels
-            if audio.shape[0] == 2:
-                # (channels, samples)
-                left = audio[0]
-                right = audio[1]
-            elif audio.shape[1] == 2:
-                # (samples, channels)
-                left = audio[:, 0]
-                right = audio[:, 1]
-            else:
-                logger.warning(f"Unexpected audio shape: {audio.shape}")
-                return {
-                    'stereo_width': 0.5,
-                    'phase_correlation': 0.5
-                }
-
-            # Calculate stereo width
-            stereo_width = self._calculate_stereo_width(left, right)
-
-            # Calculate phase correlation
-            phase_correlation = self._calculate_phase_correlation(left, right)
-
+        # Check if stereo or mono
+        if len(audio.shape) == 1 or audio.shape[0] == 1:
+            # Mono audio
             return {
-                'stereo_width': float(stereo_width),
-                'phase_correlation': float(phase_correlation)
+                'stereo_width': 0.0,
+                'phase_correlation': 1.0  # Perfect correlation (mono)
             }
 
-        except Exception as e:
-            logger.warning(f"Stereo analysis failed: {e}")
+        # Stereo audio - extract left and right channels
+        if audio.shape[0] == 2:
+            # (channels, samples)
+            left = audio[0]
+            right = audio[1]
+        elif audio.shape[1] == 2:
+            # (samples, channels)
+            left = audio[:, 0]
+            right = audio[:, 1]
+        else:
+            logger.warning(f"Unexpected audio shape: {audio.shape}")
             return {
                 'stereo_width': 0.5,
                 'phase_correlation': 0.5
             }
+
+        # Calculate stereo width
+        stereo_width = self._calculate_stereo_width(left, right)
+
+        # Calculate phase correlation
+        phase_correlation = self._calculate_phase_correlation(left, right)
+
+        return {
+            'stereo_width': float(stereo_width),
+            'phase_correlation': float(phase_correlation)
+        }
 
     def _calculate_stereo_width(self, left: np.ndarray, right: np.ndarray) -> float:
         """
