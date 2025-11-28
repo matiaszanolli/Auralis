@@ -18,6 +18,7 @@ from ...dsp.unified import (
     spectral_centroid, spectral_rolloff, zero_crossing_rate,
     crest_factor, tempo_estimate
 )
+from ...dsp.utils import create_mel_triangular_filters
 from ...utils.logging import debug
 from ..fingerprint.common_metrics import SafeOperations
 
@@ -304,24 +305,5 @@ class FeatureExtractor:
         return tonnetz.tolist()
 
     def _create_mel_filterbank(self, n_filters: int, n_fft: int) -> List[np.ndarray]:
-        """Create mel-scale filter bank"""
-        filters = []
-        mel_points = np.linspace(0, 2595 * np.log10(1 + (self.sample_rate/2) / 700), n_filters + 2)
-        hz_points = 700 * (10**(mel_points / 2595) - 1)
-        bin_points = np.floor((n_fft * 2) * hz_points / self.sample_rate).astype(int)
-
-        for i in range(n_filters):
-            filt = np.zeros(n_fft)
-            start, center, end = bin_points[i:i+3]
-
-            for j in range(start, center):
-                if j < len(filt):
-                    filt[j] = (j - start) / (center - start)
-
-            for j in range(center, end):
-                if j < len(filt):
-                    filt[j] = (end - j) / (end - center)
-
-            filters.append(filt)
-
-        return filters
+        """Create mel-scale filter bank using vectorized helper"""
+        return create_mel_triangular_filters(n_filters, n_fft, self.sample_rate)

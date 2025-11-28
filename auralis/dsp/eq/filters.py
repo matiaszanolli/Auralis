@@ -12,6 +12,7 @@ FFT-based EQ filter application with critical band processing
 
 import numpy as np
 from scipy.fft import fft, ifft
+from ..utils import create_triangular_filterbank
 
 
 def apply_eq_gains(audio_chunk: np.ndarray,
@@ -105,6 +106,8 @@ def create_filter_bank(critical_bands: list,
     """
     Create filter bank for critical bands
 
+    Uses vectorized triangular filterbank creation for improved performance.
+
     Args:
         critical_bands: List of CriticalBand objects
         sample_rate: Sample rate in Hz
@@ -113,22 +116,4 @@ def create_filter_bank(critical_bands: list,
     Returns:
         Filter bank matrix (num_bands x fft_bins)
     """
-    num_bands = len(critical_bands)
-    num_bins = fft_size // 2 + 1
-    filter_bank = np.zeros((num_bands, num_bins))
-
-    freqs = np.linspace(0, sample_rate // 2, num_bins)
-
-    for i, band in enumerate(critical_bands):
-        # Create a bandpass filter for this critical band
-        # Using triangular filter shape
-        for j, freq in enumerate(freqs):
-            if band.low_freq <= freq <= band.high_freq:
-                if freq <= band.center_freq:
-                    # Rising slope
-                    filter_bank[i, j] = (freq - band.low_freq) / (band.center_freq - band.low_freq)
-                else:
-                    # Falling slope
-                    filter_bank[i, j] = (band.high_freq - freq) / (band.high_freq - band.center_freq)
-
-    return filter_bank
+    return create_triangular_filterbank(critical_bands, sample_rate, fft_size)
