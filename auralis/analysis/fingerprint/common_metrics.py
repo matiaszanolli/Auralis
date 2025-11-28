@@ -945,3 +945,208 @@ class SpectralOperations:
         centroid = np.sum(frequencies * mag_norm)
 
         return float(centroid)
+
+
+class VariationMetrics:
+    """
+    Unified variation calculation pipelines for fingerprint analysis.
+
+    Consolidates repeated patterns for calculating different types of variation:
+    - Dynamic range variation (crest factor std)
+    - Loudness variation (RMS std in dB)
+    - Peak consistency (peak std CV→stability)
+    """
+
+    @staticmethod
+    def calculate_from_crest_factors(crest_db: np.ndarray) -> float:
+        """
+        Calculate dynamic range variation from crest factors.
+
+        Args:
+            crest_db: Array of crest factors in dB
+
+        Returns:
+            Dynamic range variation (0-1), normalized to 6dB std range
+        """
+        if len(crest_db) < 2:
+            return 0.5
+
+        valid_mask = np.isfinite(crest_db)
+        crest_valid = crest_db[valid_mask]
+
+        if len(crest_valid) > 1:
+            crest_std = np.std(crest_valid)
+            # Normalize to 0-1 (typical range: 0-6 dB std dev)
+            return MetricUtils.normalize_to_range(crest_std, 6.0, clip=True)
+        else:
+            return 0.5
+
+    @staticmethod
+    def calculate_from_loudness_db(loudness_db: np.ndarray, max_range: float = 10.0) -> float:
+        """
+        Calculate loudness variation from dB values.
+
+        Args:
+            loudness_db: Array of loudness values in dB
+            max_range: Maximum expected range (default 10dB)
+
+        Returns:
+            Loudness variation (0-10 dB typical, clipped)
+        """
+        if len(loudness_db) < 1:
+            return 3.0
+
+        loudness_std = np.std(loudness_db)
+        return MetricUtils.clip_to_range(loudness_std, 0, max_range)
+
+    @staticmethod
+    def calculate_from_peaks(peaks: np.ndarray) -> float:
+        """
+        Calculate peak consistency using CV→stability conversion.
+
+        Args:
+            peaks: Array of peak values
+
+        Returns:
+            Peak consistency (0-1)
+        """
+        if len(peaks) < 2:
+            return 0.5
+
+        peak_std = np.std(peaks)
+        peak_mean = np.mean(peaks)
+
+        if peak_mean > 0:
+            return MetricUtils.stability_from_cv(peak_std, peak_mean)
+        else:
+            return 0.5
+
+
+class StabilityMetrics:
+    """
+    Unified stability calculation patterns from various audio metrics.
+
+    Consolidates the pattern: Extract metric → Calculate CV → Convert to stability
+    Used by: rhythm, pitch, and other stability calculations
+    """
+
+    @staticmethod
+    def from_intervals(intervals: np.ndarray, scale: float = 1.0) -> float:
+        """
+        Calculate stability from inter-event intervals (rhythm, beats, etc).
+
+        Args:
+            intervals: Array of time intervals (e.g., beat-to-beat, note-to-note)
+            scale: CV scaling factor (default 1.0)
+                   Use higher for sensitive metrics (e.g., 10.0 for pitch)
+
+        Returns:
+            Stability score (0-1)
+        """
+        if len(intervals) < 2:
+            return 0.0
+
+        interval_std = np.std(intervals)
+        interval_mean = np.mean(intervals)
+
+        if interval_mean > 0:
+            return MetricUtils.stability_from_cv(interval_std, interval_mean, scale=scale)
+        else:
+            return 0.5
+
+    @staticmethod
+    def from_values(values: np.ndarray, scale: float = 1.0) -> float:
+        """
+        Calculate stability from a set of values.
+
+        Args:
+            values: Array of metric values (e.g., pitches, peak amplitudes)
+            scale: CV scaling factor (default 1.0)
+
+        Returns:
+            Stability score (0-1)
+        """
+        if len(values) < 2:
+            return 0.5
+
+        value_std = np.std(values)
+        value_mean = np.mean(values)
+
+        if value_mean > 0:
+            return MetricUtils.stability_from_cv(value_std, value_mean, scale=scale)
+        else:
+            return 0.5
+
+
+class BandNormalizationTable:
+    """
+    Parametric band normalization for EQ parameter mapping.
+
+    Replaces repetitive loops in parameter_mapper.py with data-driven approach.
+    Each band definition specifies:
+    - Band index range (start, end)
+    - Energy dimension name
+    - Min and max dB values
+    """
+
+    # Standard 31-band EQ configuration with frequency ranges and gain ranges
+    STANDARD_BANDS = [
+        # (band_start, band_end, freq_range_hz, fingerprint_key, min_db, max_db)
+        (0, 3, "20-60", "sub_bass_pct", -12, 12),
+        (4, 11, "60-250", "bass_pct", -12, 12),
+        (12, 14, "250-500", "low_mid_pct", -6, 6),
+        (15, 19, "500-2k", "mid_pct", -6, 6),
+        (20, 23, "2k-4k", "upper_mid_pct", -8, 8),
+        (24, 25, "4k-6k", "presence_pct", -6, 12),
+        (26, 31, "6k-20k", "air_pct", -12, 12),
+    ]
+
+    def __init__(self, band_definitions=None):
+        """
+        Initialize band normalization table.
+
+        Args:
+            band_definitions: List of band tuples or None for standard
+        """
+        self.bands = band_definitions if band_definitions is not None else self.STANDARD_BANDS
+
+    def apply_to_fingerprint(self, fingerprint: dict, normalize_func) -> dict:
+        """
+        Apply band normalization to fingerprint using vectorized operations.
+
+        Args:
+            fingerprint: Fingerprint dict with energy percentages
+            normalize_func: Function(value, min_db, max_db) → gain_db
+
+        Returns:
+            Dictionary mapping band index to gain in dB
+        """
+        eq_gains = {}
+
+        for band_start, band_end, freq_range, fp_key, min_db, max_db in self.bands:
+            energy_value = fingerprint.get(fp_key, 0.1)
+
+            # Calculate gain using provided normalization function
+            gain = normalize_func(energy_value, min_db, max_db)
+
+            # Apply to all bands in range (vectorized via direct assignment)
+            for i in range(band_start, band_end + 1):
+                eq_gains[i] = gain
+
+        return eq_gains
+
+    @staticmethod
+    def normalize_to_db(value: float, min_db: float, max_db: float) -> float:
+        """
+        Normalize a 0-1 value to dB range.
+
+        Args:
+            value: Input value [0, 1]
+            min_db: Minimum dB
+            max_db: Maximum dB
+
+        Returns:
+            Gain in dB
+        """
+        value_clipped = np.clip(value, 0.0, 1.0)
+        return min_db + (value_clipped * (max_db - min_db))
