@@ -78,30 +78,27 @@ class EQParameterMapper:
         rolloff = fingerprint.get('spectral_rolloff', 8000.0)
         flatness = fingerprint.get('spectral_flatness', 0.5)
 
+        # OPTIMIZATION: Use dict comprehensions instead of explicit loops
+
         # Bright sounds (high centroid) - reduce upper mids slightly
         if centroid > 3000:
-            for i in range(20, 24):  # Upper mids
-                spectral_gains[i] = -2.0
+            spectral_gains.update({i: -2.0 for i in range(20, 24)})  # Upper mids
 
         # Dull sounds (low centroid) - enhance presence
         if centroid < 1500:
-            for i in range(24, 26):  # Presence bands
-                spectral_gains[i] = 3.0
+            spectral_gains.update({i: 3.0 for i in range(24, 26)})  # Presence bands
 
         # Very bright (high rolloff) - control air band
         if rolloff > 10000:
-            for i in range(28, 31):  # Air band
-                spectral_gains[i] = -3.0
+            spectral_gains.update({i: -3.0 for i in range(28, 31)})  # Air band
 
         # Very dull (low rolloff) - boost air band
         if rolloff < 5000:
-            for i in range(28, 31):
-                spectral_gains[i] = 4.0
+            spectral_gains.update({i: 4.0 for i in range(28, 31)})  # Air band
 
         # Noise-like (high flatness) - reduce narrow peaks
         if flatness > 0.6:
-            for i in [17, 20, 24]:  # Common resonance points
-                spectral_gains[i] = -1.5
+            spectral_gains.update({i: -1.5 for i in [17, 20, 24]})  # Common resonance points
 
         return spectral_gains
 
