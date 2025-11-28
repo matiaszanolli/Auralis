@@ -33,6 +33,7 @@ from typing import Dict, Optional
 from .streaming_variation_analyzer import StreamingVariationAnalyzer
 from .streaming_spectral_analyzer import StreamingSpectralAnalyzer
 from .streaming_temporal_analyzer import StreamingTemporalAnalyzer
+from .streaming_harmonic_analyzer import StreamingHarmonicAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +46,12 @@ class StreamingFingerprint:
     streaming, and incremental audio analysis.
     """
 
-    def __init__(self, sr: int = 44100, enable_harmonic: bool = False):
+    def __init__(self, sr: int = 44100, enable_harmonic: bool = True):
         """Initialize streaming fingerprint analyzer.
 
         Args:
             sr: Sample rate in Hz (default: 44100)
-            enable_harmonic: Whether to enable harmonic metrics (Phase 7.4d not yet implemented)
+            enable_harmonic: Whether to enable harmonic metrics (default: True)
         """
         self.sr = sr
         self.enable_harmonic = enable_harmonic
@@ -60,8 +61,8 @@ class StreamingFingerprint:
         self.spectral = StreamingSpectralAnalyzer(sr=sr)
         self.temporal = StreamingTemporalAnalyzer(sr=sr)
 
-        # Placeholder for harmonic analyzer (Phase 7.4d)
-        self.harmonic = None
+        # Harmonic analyzer (Phase 7.4d)
+        self.harmonic = StreamingHarmonicAnalyzer(sr=sr) if enable_harmonic else None
 
         # Frame counter
         self.frame_count = 0
@@ -71,6 +72,8 @@ class StreamingFingerprint:
         self.variation.reset()
         self.spectral.reset()
         self.temporal.reset()
+        if self.harmonic is not None:
+            self.harmonic.reset()
         self.frame_count = 0
 
     def update(self, frame: np.ndarray) -> Dict[str, float]:
@@ -102,10 +105,10 @@ class StreamingFingerprint:
             # Temporal metrics (4D)
             fingerprint.update(temporal_metrics)
 
-            # Harmonic metrics (3D) - Phase 7.4d placeholder
+            # Harmonic metrics (3D) - Phase 7.4d
             if self.enable_harmonic and self.harmonic is not None:
-                # Will be implemented in Phase 7.4d
-                pass
+                harmonic_metrics = self.harmonic.update(frame)
+                fingerprint.update(harmonic_metrics)
 
             return fingerprint
 
@@ -117,7 +120,7 @@ class StreamingFingerprint:
         """Get current fingerprint without processing new frame.
 
         Returns:
-            Dictionary with current 13D fingerprint
+            Dictionary with current 13D fingerprint (or 16D with harmonic)
         """
         fingerprint = {}
 
@@ -129,6 +132,10 @@ class StreamingFingerprint:
 
         # Temporal metrics (4D)
         fingerprint.update(self.temporal.get_metrics())
+
+        # Harmonic metrics (3D)
+        if self.enable_harmonic and self.harmonic is not None:
+            fingerprint.update(self.harmonic.get_metrics())
 
         return fingerprint
 
@@ -149,6 +156,10 @@ class StreamingFingerprint:
         # Temporal confidence
         confidence.update(self.temporal.get_confidence())
 
+        # Harmonic confidence
+        if self.enable_harmonic and self.harmonic is not None:
+            confidence.update(self.harmonic.get_confidence())
+
         return confidence
 
     def get_frame_count(self) -> int:
@@ -161,7 +172,7 @@ class StreamingFingerprint:
         Returns:
             Dictionary with frame counts for each component
         """
-        return {
+        status = {
             'variation': {
                 'frames': self.variation.get_frame_count(),
                 'stats_updates': self.variation.peak_stats.count
@@ -176,16 +187,26 @@ class StreamingFingerprint:
             }
         }
 
+        if self.enable_harmonic and self.harmonic is not None:
+            status['harmonic'] = {
+                'frames': self.harmonic.get_frame_count(),
+                'chunks': self.harmonic.get_chunk_count()
+            }
+
+        return status
+
     def get_fingerprint_size(self) -> int:
         """Get current fingerprint dimensionality.
 
         Returns:
-            Number of dimensions in current fingerprint
+            Number of dimensions in current fingerprint (13D or 16D)
         """
-        base_size = 3 + 3 + 4  # Variation + Spectral + Temporal
+        # Base: Variation (3D) + Spectral (3D) + Temporal (4D) = 10D
+        base_size = 3 + 3 + 4
 
+        # Harmonic (3D) if enabled
         if self.enable_harmonic and self.harmonic is not None:
-            base_size += 3  # Harmonic
+            base_size += 3
 
         return base_size
 
