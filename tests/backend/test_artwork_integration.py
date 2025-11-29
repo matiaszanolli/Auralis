@@ -45,11 +45,11 @@ from auralis.io.saver import save as save_audio
 # ============================================================================
 
 @pytest.fixture
-@pytest.mark.integration
-@pytest.mark.artwork
-@pytest.mark.files
 def test_artwork_dir():
-    """Create temporary directory with test artwork."""
+    """Create temporary directory with test artwork.
+
+    Marks: integration, artwork, files
+    """
     temp_dir = tempfile.mkdtemp()
     artwork_dir = os.path.join(temp_dir, "artwork")
     os.makedirs(artwork_dir)

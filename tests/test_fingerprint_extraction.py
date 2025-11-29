@@ -181,7 +181,7 @@ class TestFingerprintExtractionQueue:
         assert queue.num_workers == 4
         assert queue.max_queue_size == 100
         assert queue.get_queue_size() == 0
-        assert not queue.is_running
+        assert queue.should_stop == False  # Initially not stopped
 
     @pytest.mark.asyncio
     async def test_enqueue_single_job(self, fingerprint_extractor_mock, library_manager_mock):
