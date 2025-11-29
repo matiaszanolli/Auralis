@@ -16,6 +16,7 @@ import sys
 import shutil
 import threading
 import time
+import pytest
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath('../..'))
