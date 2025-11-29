@@ -19,6 +19,7 @@ from ...dsp.unified import (
     spectral_centroid, spectral_rolloff, zero_crossing_rate,
     crest_factor, tempo_estimate, rms, energy_profile
 )
+from ..fingerprint.common_metrics import AggregationUtils
 
 
 class FeatureExtractor:
@@ -89,7 +90,12 @@ class FeatureExtractor:
 
             prev_spectrum = spectrum
 
-        return np.mean(flux_values) if flux_values else 0.0
+        # Aggregate spectral flux values using mean
+        if flux_values:
+            flux_array = np.array(flux_values)
+            return AggregationUtils.aggregate_frames_to_track(flux_array, method='mean')
+        else:
+            return 0.0
 
     def estimate_attack_time(self, audio: np.ndarray) -> float:
         """Estimate average attack time in milliseconds"""
@@ -134,7 +140,12 @@ class FeatureExtractor:
                         attack_time_ms = (attack_samples / self.sample_rate) * 1000
                         attack_times.append(attack_time_ms)
 
-        return np.mean(attack_times) if attack_times else 50.0
+        # Aggregate attack times using mean
+        if attack_times:
+            attack_times_array = np.array(attack_times)
+            return AggregationUtils.aggregate_frames_to_track(attack_times_array, method='mean')
+        else:
+            return 50.0
 
     def estimate_fundamental_frequency(self, audio: np.ndarray) -> float:
         """Estimate fundamental frequency using autocorrelation"""
@@ -218,7 +229,12 @@ class FeatureExtractor:
                     deviation = abs(actual_freq - harmonic_freq) / harmonic_freq
                     deviations.append(deviation)
 
-        return np.mean(deviations) if deviations else 1.0
+        # Aggregate harmonic deviations using mean
+        if deviations:
+            deviations_array = np.array(deviations)
+            return AggregationUtils.aggregate_frames_to_track(deviations_array, method='mean')
+        else:
+            return 1.0
 
     def calculate_rhythm_strength(self, audio: np.ndarray) -> float:
         """Calculate rhythmic strength"""

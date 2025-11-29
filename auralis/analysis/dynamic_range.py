@@ -10,7 +10,7 @@ Comprehensive dynamic range measurement and analysis tools.
 import numpy as np
 from typing import Dict, List, Tuple
 from scipy import signal
-from auralis.analysis.fingerprint.common_metrics import SafeOperations, AudioMetrics, MetricUtils
+from auralis.analysis.fingerprint.common_metrics import SafeOperations, AudioMetrics, MetricUtils, AggregationUtils
 
 
 class DynamicRangeAnalyzer:
@@ -305,7 +305,9 @@ class DynamicRangeAnalyzer:
                     attack_times.append(attack_time)
 
         if attack_times:
-            return np.median(attack_times)
+            # Aggregate attack times using median for robustness to outliers
+            attack_times_array = np.array(attack_times)
+            return AggregationUtils.aggregate_frames_to_track(attack_times_array, method='median')
         else:
             return 0.01  # Default 10ms
 

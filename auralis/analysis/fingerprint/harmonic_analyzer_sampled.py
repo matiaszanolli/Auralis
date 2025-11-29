@@ -23,7 +23,7 @@ from typing import Dict, Tuple
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from .base_analyzer import BaseAnalyzer
-from .common_metrics import MetricUtils
+from .common_metrics import MetricUtils, AggregationUtils
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
             ]
             results = [f.result() for f in futures]
 
-        # Aggregate results (simple mean, could be weighted by chunk characteristics)
+        # Aggregate results from chunks using mean aggregation
         if not results:
             return {
                 'harmonic_ratio': 0.5,
@@ -131,10 +131,15 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
                 'chroma_energy': 0.5
             }
 
+        # Extract chunk-level features and aggregate to track level
+        harmonic_ratios = np.array([r[0] for r in results])
+        pitch_stabilities = np.array([r[1] for r in results])
+        chroma_energies = np.array([r[2] for r in results])
+
         return {
-            'harmonic_ratio': float(np.mean([r[0] for r in results])),
-            'pitch_stability': float(np.mean([r[1] for r in results])),
-            'chroma_energy': float(np.mean([r[2] for r in results]))
+            'harmonic_ratio': AggregationUtils.aggregate_frames_to_track(harmonic_ratios, method='mean'),
+            'pitch_stability': AggregationUtils.aggregate_frames_to_track(pitch_stabilities, method='mean'),
+            'chroma_energy': AggregationUtils.aggregate_frames_to_track(chroma_energies, method='mean')
         }
 
     def _analyze_chunk(self, chunk: np.ndarray, sr: int, chunk_idx: int) -> Tuple[float, float, float]:
