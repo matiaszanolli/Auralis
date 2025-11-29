@@ -1,5 +1,5 @@
 {
-  "test_date": "2025-11-24T19:36:52.446611",
+  "test_date": "2025-11-29T19:39:46.844772",
   "target_lufs": -16.0,
   "genres": {
     "vocal_pop": {
@@ -7,7 +7,7 @@
       "a_method": "fingerprint",
       "b_file": "02_test_vocal_pop_B.wav",
       "b_method": "preset",
-      "fingerprint_eq_avg": -6.830967741935484,
+      "fingerprint_eq_avg": -6.9475,
       "preset_eq_avg": 0.3,
       "fingerprint_compression_ratio": 2.75,
       "preset_compression_ratio": 2.5
@@ -17,7 +17,7 @@
       "a_method": "preset",
       "b_file": "04_test_bass_heavy_B.wav",
       "b_method": "fingerprint",
-      "fingerprint_eq_avg": -6.279999999999999,
+      "fingerprint_eq_avg": -6.436249999999999,
       "preset_eq_avg": 0.11666666666666667,
       "fingerprint_compression_ratio": 3.5,
       "preset_compression_ratio": 3.0
@@ -27,7 +27,7 @@
       "a_method": "preset",
       "b_file": "06_test_bright_acoustic_B.wav",
       "b_method": "fingerprint",
-      "fingerprint_eq_avg": -7.279354838709675,
+      "fingerprint_eq_avg": -7.321875,
       "preset_eq_avg": 0.43333333333333335,
       "fingerprint_compression_ratio": 4.1,
       "preset_compression_ratio": 2.0
@@ -37,7 +37,7 @@
       "a_method": "preset",
       "b_file": "08_test_electronic_B.wav",
       "b_method": "fingerprint",
-      "fingerprint_eq_avg": -6.48258064516129,
+      "fingerprint_eq_avg": -6.594999999999999,
       "preset_eq_avg": 0.18333333333333332,
       "fingerprint_compression_ratio": 2.25,
       "preset_compression_ratio": 1.8
