@@ -1,0 +1,526 @@
+/**
+ * CacheHealthWidget Component Tests
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ * Unit tests for cache health widget component.
+ *
+ * Test Coverage:
+ * - Status emoji display
+ * - Health percentage display
+ * - Alert badge visibility
+ * - Trend indicator
+ * - Size variants (small, medium, large)
+ * - Interactive expansion
+ * - Loading states
+ * - Error handling
+ * - Accessibility
+ * - Responsive design
+ *
+ * Phase C.3: Component Testing & Integration
+ *
+ * @copyright (C) 2024 Auralis Team
+ * @license GPLv3, see LICENSE for more details
+ */
+
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
+import { CacheHealthWidget } from '../CacheHealthWidget';
+import * as hooks from '@/hooks/useStandardizedAPI';
+import {
+  mockCacheHealth,
+  mockUseCacheHealth,
+} from './test-utils';
+
+// Mock the hooks
+vi.mock('@/hooks/useStandardizedAPI', () => ({
+  useCacheHealth: vi.fn(),
+}));
+
+describe('CacheHealthWidget', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (hooks.useCacheHealth as any).mockImplementation(mockUseCacheHealth());
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // ============================================================================
+  // Rendering Tests
+  // ============================================================================
+
+  it('should render health widget', () => {
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByTestId('cache-health-widget')).toBeInTheDocument();
+  });
+
+  it('should display status emoji', () => {
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText(/✅|⚠️|❌/)).toBeInTheDocument();
+  });
+
+  it('should display health percentage', () => {
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText(/95%/)).toBeInTheDocument();
+  });
+
+  it('should display health label', () => {
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText(/Healthy/i)).toBeInTheDocument();
+  });
+
+  // ============================================================================
+  // Status Emoji Tests
+  // ============================================================================
+
+  it('should show checkmark emoji when healthy', () => {
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText('✅')).toBeInTheDocument();
+  });
+
+  it('should show warning emoji when degraded', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: {
+        ...mockCacheHealth(),
+        healthy: false,
+        hit_rate: 0.65,
+        status: 'degraded',
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText('⚠️')).toBeInTheDocument();
+  });
+
+  it('should show X emoji when unhealthy', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: {
+        ...mockCacheHealth(),
+        healthy: false,
+        hit_rate: 0.4,
+        status: 'unhealthy',
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText('❌')).toBeInTheDocument();
+  });
+
+  // ============================================================================
+  // Percentage Display Tests
+  // ============================================================================
+
+  it('should display correct percentage', () => {
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText(/95%/)).toBeInTheDocument();
+  });
+
+  it('should update percentage when health changes', async () => {
+    const { rerender } = render(<CacheHealthWidget />);
+
+    expect(screen.getByText(/95%/)).toBeInTheDocument();
+
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: {
+        ...mockCacheHealth(),
+        hit_rate: 0.70,
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    rerender(<CacheHealthWidget />);
+
+    expect(screen.getByText(/70%/)).toBeInTheDocument();
+  });
+
+  // ============================================================================
+  // Trend Indicator Tests
+  // ============================================================================
+
+  it('should show upward arrow when improving', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: {
+        ...mockCacheHealth(),
+        hit_rate: 0.95,
+        trend: 'improving',
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText('📈')).toBeInTheDocument();
+  });
+
+  it('should show downward arrow when degrading', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: {
+        ...mockCacheHealth(),
+        hit_rate: 0.65,
+        trend: 'degrading',
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText('📉')).toBeInTheDocument();
+  });
+
+  it('should show stable indicator when stable', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: {
+        ...mockCacheHealth(),
+        trend: 'stable',
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText('➡️')).toBeInTheDocument();
+  });
+
+  // ============================================================================
+  // Alert Badge Tests
+  // ============================================================================
+
+  it('should not show alert badge when healthy', () => {
+    render(<CacheHealthWidget />);
+
+    expect(screen.queryByTestId('alert-badge')).not.toBeInTheDocument();
+  });
+
+  it('should show alert badge when unhealthy', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: {
+        ...mockCacheHealth(),
+        healthy: false,
+        hit_rate: 0.4,
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByTestId('alert-badge')).toBeInTheDocument();
+  });
+
+  it('should show warning count in badge', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: {
+        ...mockCacheHealth(),
+        healthy: false,
+        warnings: 3,
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  // ============================================================================
+  // Size Variants Tests
+  // ============================================================================
+
+  it('should render in small size', () => {
+    const { container } = render(<CacheHealthWidget size="small" />);
+
+    const widget = container.querySelector('[data-size="small"]');
+    expect(widget).toBeInTheDocument();
+  });
+
+  it('should render in medium size', () => {
+    const { container } = render(<CacheHealthWidget size="medium" />);
+
+    const widget = container.querySelector('[data-size="medium"]');
+    expect(widget).toBeInTheDocument();
+  });
+
+  it('should render in large size', () => {
+    const { container } = render(<CacheHealthWidget size="large" />);
+
+    const widget = container.querySelector('[data-size="large"]');
+    expect(widget).toBeInTheDocument();
+  });
+
+  // ============================================================================
+  // Interactive Expansion Tests
+  // ============================================================================
+
+  it('should not be interactive by default', () => {
+    render(<CacheHealthWidget />);
+
+    const widget = screen.getByTestId('cache-health-widget');
+    expect(widget).not.toHaveAttribute('role', 'button');
+  });
+
+  it('should be interactive when enabled', () => {
+    render(<CacheHealthWidget interactive={true} />);
+
+    const widget = screen.getByTestId('cache-health-widget');
+    expect(widget).toHaveAttribute('role', 'button');
+  });
+
+  it('should expand to full monitor on click when interactive', async () => {
+    render(<CacheHealthWidget interactive={true} />);
+
+    const widget = screen.getByTestId('cache-health-widget');
+    fireEvent.click(widget);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Cache Health Monitor/i)).toBeInTheDocument();
+    });
+  });
+
+  it('should close expanded view when close button clicked', async () => {
+    render(<CacheHealthWidget interactive={true} />);
+
+    const widget = screen.getByTestId('cache-health-widget');
+    fireEvent.click(widget);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Cache Health Monitor/i)).toBeInTheDocument();
+    });
+
+    const closeButton = screen.getByRole('button', { name: /close/i });
+    fireEvent.click(closeButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Cache Health Monitor/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('should close expanded view on ESC key', async () => {
+    render(<CacheHealthWidget interactive={true} />);
+
+    const widget = screen.getByTestId('cache-health-widget');
+    fireEvent.click(widget);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Cache Health Monitor/i)).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Cache Health Monitor/i)).not.toBeInTheDocument();
+    });
+  });
+
+  // ============================================================================
+  // Loading State Tests
+  // ============================================================================
+
+  it('should show loading skeleton', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: null,
+      loading: true,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByTestId('health-skeleton')).toBeInTheDocument();
+  });
+
+  it('should not show content while loading', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: null,
+      loading: true,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.queryByText(/95%/)).not.toBeInTheDocument();
+  });
+
+  // ============================================================================
+  // Error State Tests
+  // ============================================================================
+
+  it('should show error state when error occurs', () => {
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: null,
+      loading: false,
+      error: 'Failed to load health',
+      refetch: vi.fn(),
+    }));
+
+    render(<CacheHealthWidget />);
+
+    expect(screen.getByText(/Failed to load health/)).toBeInTheDocument();
+  });
+
+  it('should show retry button on error', () => {
+    const mockRefetch = vi.fn().mockResolvedValue(undefined);
+
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: null,
+      loading: false,
+      error: 'Failed to load health',
+      refetch: mockRefetch,
+    }));
+
+    render(<CacheHealthWidget />);
+
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+    expect(retryButton).toBeInTheDocument();
+  });
+
+  it('should call refetch when retry clicked', async () => {
+    const mockRefetch = vi.fn().mockResolvedValue(undefined);
+
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: null,
+      loading: false,
+      error: 'Failed to load health',
+      refetch: mockRefetch,
+    }));
+
+    render(<CacheHealthWidget />);
+
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+    fireEvent.click(retryButton);
+
+    await waitFor(() => {
+      expect(mockRefetch).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================================
+  // Accessibility Tests
+  // ============================================================================
+
+  it('should have accessible status text', () => {
+    render(<CacheHealthWidget />);
+
+    const statusText = screen.getByText(/Healthy/i);
+    expect(statusText).toHaveAttribute('aria-label');
+  });
+
+  it('should have keyboard navigation when interactive', () => {
+    render(<CacheHealthWidget interactive={true} />);
+
+    const widget = screen.getByTestId('cache-health-widget');
+    expect(widget).toHaveAttribute('tabIndex', '0');
+  });
+
+  it('should announce status changes', async () => {
+    const { rerender } = render(<CacheHealthWidget />);
+
+    expect(screen.getByText(/Healthy/i)).toBeInTheDocument();
+
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: {
+        ...mockCacheHealth(),
+        healthy: false,
+        hit_rate: 0.4,
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    }));
+
+    rerender(<CacheHealthWidget />);
+
+    await waitFor(() => {
+      const statusText = screen.getByText(/Unhealthy/i);
+      expect(statusText).toHaveAttribute('aria-live', 'polite');
+    });
+  });
+
+  // ============================================================================
+  // Responsive Design Tests
+  // ============================================================================
+
+  it('should be responsive on mobile', () => {
+    window.matchMedia = vi.fn().mockImplementation((query) => ({
+      matches: query === '(max-width: 640px)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+
+    const { container } = render(<CacheHealthWidget />);
+
+    const widget = container.querySelector('[data-responsive="mobile"]');
+    expect(widget).toBeInTheDocument();
+  });
+
+  it('should scale text appropriately in small size', () => {
+    const { container } = render(<CacheHealthWidget size="small" />);
+
+    const percentage = container.querySelector('[data-testid="percentage"]');
+    expect(percentage).toHaveStyle({ fontSize: '14px' });
+  });
+
+  it('should scale text appropriately in large size', () => {
+    const { container } = render(<CacheHealthWidget size="large" />);
+
+    const percentage = container.querySelector('[data-testid="percentage"]');
+    expect(percentage).toHaveStyle({ fontSize: '24px' });
+  });
+
+  // ============================================================================
+  // Auto-Refresh Tests
+  // ============================================================================
+
+  it('should auto-refresh health data', () => {
+    vi.useFakeTimers();
+
+    const mockRefetch = vi.fn().mockResolvedValue(undefined);
+
+    (hooks.useCacheHealth as any).mockImplementation(() => ({
+      data: mockCacheHealth(),
+      loading: false,
+      error: null,
+      refetch: mockRefetch,
+    }));
+
+    render(<CacheHealthWidget />);
+
+    // Advance time past auto-refresh interval (typically 10s)
+    vi.advanceTimersByTime(10000);
+
+    expect(mockRefetch).toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+});
