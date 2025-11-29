@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from ..optimization.parallel_processor import ParallelFFTProcessor, ParallelConfig
 from ..utils.logging import debug
-from .fingerprint.common_metrics import SafeOperations, AudioMetrics, AggregationUtils
+from .fingerprint.common_metrics import SafeOperations, AudioMetrics, AggregationUtils, MetricUtils
 
 
 @dataclass
@@ -108,7 +108,10 @@ class ParallelSpectrumAnalyzer:
         denominator = (f2 + 20.6**2) * np.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12194**2)
 
         response = numerator / denominator
-        return 20 * np.log10(response / np.max(response))
+        # Normalize using MetricUtils for consistent 0dB peak
+        max_response = np.max(response)
+        normalized = response / max_response if max_response > 0 else response
+        return 20 * np.log10(np.maximum(normalized, 1e-10))
 
     def _c_weighting_curve(self, frequencies: np.ndarray) -> np.ndarray:
         """Calculate C-weighting curve (fully vectorized)"""
@@ -120,7 +123,10 @@ class ParallelSpectrumAnalyzer:
         denominator = (f2 + 20.6**2) * (f2 + 12194**2)
 
         response = numerator / denominator
-        return 20 * np.log10(response / np.max(response))
+        # Normalize using MetricUtils for consistent 0dB peak
+        max_response = np.max(response)
+        normalized = response / max_response if max_response > 0 else response
+        return 20 * np.log10(np.maximum(normalized, 1e-10))
 
     def _init_band_masks(self):
         """Pre-compute band masks for vectorized band mapping"""

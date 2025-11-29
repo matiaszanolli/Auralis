@@ -104,9 +104,9 @@ class HarmonicRunningStats:
         """Get average chroma energy."""
         if self.count > 0:
             energy = self.chroma_sum / self.count
-            # Normalize to 0-1 (typical range: 0.1-0.4)
-            normalized = energy / 0.4
-            return float(np.clip(normalized, 0, 1))
+            # Normalize to 0-1 using MetricUtils (typical range: 0.1-0.4)
+            normalized = MetricUtils.normalize_to_range(energy, max_val=0.4, clip=True)
+            return float(normalized)
         return 0.5
 
     def reset(self):

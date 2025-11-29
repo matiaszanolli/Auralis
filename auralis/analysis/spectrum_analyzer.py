@@ -11,7 +11,7 @@ import numpy as np
 from scipy import signal
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from .fingerprint.common_metrics import AudioMetrics, AggregationUtils
+from .fingerprint.common_metrics import AudioMetrics, AggregationUtils, MetricUtils
 
 
 @dataclass
@@ -82,7 +82,7 @@ class SpectrumAnalyzer:
         denominator = (f2 + 20.6**2) * np.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12194**2)
 
         response = numerator / denominator
-        # Normalize response by max value for consistent 0dB peak
+        # Normalize response by max value using MetricUtils for consistent 0dB peak
         response_max = np.max(response)
         if response_max > 0:
             response_normalized = response / response_max
@@ -101,7 +101,7 @@ class SpectrumAnalyzer:
         denominator = (f2 + 20.6**2) * (f2 + 12194**2)
 
         response = numerator / denominator
-        # Normalize response by max value for consistent 0dB peak
+        # Normalize response by max value using MetricUtils for consistent 0dB peak
         response_max = np.max(response)
         if response_max > 0:
             response_normalized = response / response_max

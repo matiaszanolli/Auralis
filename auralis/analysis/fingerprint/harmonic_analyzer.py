@@ -184,12 +184,11 @@ class HarmonicAnalyzer(BaseAnalyzer):
             # (how spread the energy is across pitch classes)
             chroma_energy = np.mean(chroma_mean)
 
-            # Normalize to 0-1
+            # Normalize to 0-1 using MetricUtils
             # Typical range: 0.1-0.4
             # Simple tonal: 0.1-0.2
             # Rich tonal: 0.3-0.4
-            normalized = chroma_energy / 0.4
-            normalized = np.clip(normalized, 0, 1)
+            normalized = MetricUtils.normalize_to_range(chroma_energy, max_val=0.4, clip=True)
 
             return normalized
 
