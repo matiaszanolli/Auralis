@@ -170,13 +170,12 @@ class TemporalAnalyzer(BaseAnalyzer):
             duration = len(audio) / sr
             onset_density = len(onset_frames) / duration
 
-            # Normalize to 0-1 scale
+            # Normalize to 0-1 scale using MetricUtils
             # Typical range: 0-10 onsets/second
             # Metal/electronic: 8-10+
             # Rock/pop: 4-8
             # Ambient/classical: 0-4
-            normalized_density = onset_density / 10.0
-            normalized_density = np.clip(normalized_density, 0, 1)
+            normalized_density = MetricUtils.normalize_to_range(onset_density, max_val=10.0, clip=True)
 
             return normalized_density
 

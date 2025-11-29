@@ -262,8 +262,8 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
             chroma_mean = np.mean(chroma, axis=1)
             chroma_energy = np.mean(chroma_mean)
 
-            normalized = chroma_energy / 0.4
-            normalized = np.clip(normalized, 0, 1)
+            # Normalize to 0-1 using MetricUtils
+            normalized = MetricUtils.normalize_to_range(chroma_energy, max_val=0.4, clip=True)
 
             return normalized
 
