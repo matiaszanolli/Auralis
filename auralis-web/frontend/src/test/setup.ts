@@ -127,6 +127,24 @@ global.WebSocket = class WebSocket {
 // Mock Element.scrollTo (used by auto-scroll features)
 Element.prototype.scrollTo = vi.fn()
 
+// ============================================================
+// Disable CSS Animations During Tests
+// ============================================================
+// MUI Tooltip and other components use CSS animations that can conflict
+// with React's concurrent rendering. Disable animations to prevent test flakiness.
+beforeAll(() => {
+  const style = document.createElement('style')
+  style.textContent = `
+    * {
+      animation-duration: 0s !important;
+      animation-delay: 0s !important;
+      transition-duration: 0s !important;
+      transition-delay: 0s !important;
+    }
+  `
+  document.head.appendChild(style)
+})
+
 // Suppress act() warnings for WebSocket and event handlers (inherently async)
 // These warnings are expected for event-driven state updates outside of React render cycles
 const originalError = console.error
@@ -138,6 +156,11 @@ vi.spyOn(console, 'error').mockImplementation((...args: any[]) => {
   }
   // Suppress React Router future flag warnings (expected, non-blocking)
   if (args[0]?.toString?.().includes('React Router Future Flag Warning')) {
+    return
+  }
+  // Suppress React concurrent rendering warnings ("Should not already be working")
+  // These occur when animations cause state updates during render phase
+  if (args[0]?.toString?.().includes('Should not already be working')) {
     return
   }
   // Log all other errors normally
