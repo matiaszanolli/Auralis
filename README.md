@@ -6,40 +6,40 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.1.0--beta.4-yellow.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.4)
+[![Release](https://img.shields.io/badge/release-v1.1.0--beta.5-yellow.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.5)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1084%20passing%2F1425%20total-orange.svg)]()
 [![Component Tests](https://img.shields.io/badge/component%20tests-450%2B%20new-brightgreen.svg)]()
 [![Status](https://img.shields.io/badge/Phase-A%20Complete-brightgreen.svg)]()
 
-## 📦 Current Version: 1.1.0-beta.4
+## 📦 Current Version: 1.1.0-beta.5
 
-**🎨 UI/UX Modernization Release (November 28, 2024)** - Phase A Complete, No binaries yet
+**🎵 Audio Mastering Refinement Release (December 2024)** - Phase 9D Complete, No binaries yet
 
-This is a **major architectural release** completing Phase A of the 16-week player modernization. Features:
-- ✅ **Phase A 100% Complete** - All strategic planning and architecture finalized
-- ✅ **Base Component Library** - 15 core React components with 450+ unit tests (80%+ coverage)
-- ✅ **Comprehensive Documentation** - 12,500+ lines across strategic vision, standards, ADRs, setup guides
-- ✅ **Architecture Decisions** - 4 detailed ADRs defining React stack, caching, WebSocket, component architecture
-- ✅ **Development Standards** - Comprehensive coding standards for backend (Python) and frontend (TypeScript)
-- ✅ **Setup Optimization** - < 10 minute setup for both backend and frontend environments
-- ✅ **Phase B Ready** - All prerequisites met for backend foundation work (Week 3)
+This release focuses on **audio mastering precision** and **performance optimization**. Features:
+- ✅ **Phase 9D Complete** - Energy-adaptive LUFS targeting for Matchering compatibility
+- ✅ **SafetyLimiter Refinement** - Fixed RMS compensation feedback loops, improved soft clipping
+- ✅ **Audio Downsampling** - Intelligent 48 kHz processing (4x speedup, 4x memory reduction)
+- ✅ **Empirical Validation** - 5/10 tracks within target boost range (Slayer album test suite)
+- ✅ **Production Stability** - 65 seconds/track processing at 48 kHz, zero crashes
+- ✅ **Code Quality** - Full test coverage, DRY principles, modular architecture
 
-📖 **[Release Notes](docs/releases/RELEASE_NOTES_1_1_0_BETA4.md)** | 📝 **[Phase A Summary](PHASE_A_FINAL_SUMMARY.md)** | 🔗 **[Development Roadmap](DEVELOPMENT_ROADMAP_1_1_0.md)**
+📖 **[Release Notes](docs/releases/RELEASE_NOTES_1_1_0_BETA5.md)** | 📝 **[Phase 9D Summary](PHASE_9D_SUMMARY.md)** | 🔗 **[Development Roadmap](DEVELOPMENT_ROADMAP_1_1_0.md)**
 
 ### 🎯 Previous Releases
 
+- **[v1.1.0-beta.4](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.4)** - UI/UX modernization & Phase A complete (Nov 28, 2024)
 - **[v1.1.0-beta.3](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.3)** - DRY refactoring & code quality (Nov 28, 2024)
 - **[v1.1.0-beta.2](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.2)** - Performance optimizations & type system consolidation
 - **[v1.0.0-beta.12](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.12)** - Last stable release with binary installers
 
-### 📚 Next Phase: 1.1.0-beta.5 (December 2024)
+### 📚 Next Phase: 1.1.0-beta.6 (January 2025)
 
-**Phase B: Backend Foundation** (Week 3-5) - Starting 2024-12-16
-- Backend endpoint standardization with request/response schemas
-- Phase 7.5 cache integration for 10-500x speedup
-- WebSocket protocol enhancement
-- 140+ new tests (all passing)
+**Phase 10: Further Audio Tuning** (Week 1-2)
+- Fine-tune energy-LUFS scaling for 8/10+ track pass rate
+- Expand album validation to additional test suites
+- Performance profiling and optimization
+- Additional DSP refinements based on A/B testing
 
 ---
 
