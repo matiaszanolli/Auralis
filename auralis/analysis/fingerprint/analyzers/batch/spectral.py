@@ -16,8 +16,8 @@ Dependencies:
 import numpy as np
 from typing import Dict
 import logging
-from .base_analyzer import BaseAnalyzer
-from .spectral_utilities import SpectralOperations
+from ..base_analyzer import BaseAnalyzer
+from ...utilities.spectral_ops import SpectralOperations
 
 logger = logging.getLogger(__name__)
 

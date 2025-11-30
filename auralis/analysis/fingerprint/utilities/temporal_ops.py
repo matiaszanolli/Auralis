@@ -41,7 +41,7 @@ class TemporalOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from .common_metrics import MetricUtils
+            from ..common_metrics import MetricUtils
 
             # Suppress FutureWarning about API migration (we're ready when it happens)
             with warnings.catch_warnings():
@@ -87,7 +87,7 @@ class TemporalOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from .common_metrics import StabilityMetrics
+            from ..common_metrics import StabilityMetrics
 
             # Detect beat frames using pre-computed onset envelope
             tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
@@ -125,7 +125,7 @@ class TemporalOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from .common_metrics import MetricUtils
+            from ..common_metrics import MetricUtils
 
             # Detect onsets from pre-computed envelope
             onset_frames = librosa.onset.onset_detect(

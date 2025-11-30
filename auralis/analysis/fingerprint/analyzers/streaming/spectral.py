@@ -27,7 +27,7 @@ import librosa
 import logging
 from typing import Dict, Optional, Tuple
 from collections import deque
-from .common_metrics import MetricUtils, SafeOperations
+from ...common_metrics import MetricUtils, SafeOperations
 
 logger = logging.getLogger(__name__)
 

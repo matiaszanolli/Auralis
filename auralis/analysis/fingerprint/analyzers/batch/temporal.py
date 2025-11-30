@@ -18,8 +18,8 @@ Dependencies:
 import numpy as np
 from typing import Dict
 import logging
-from .base_analyzer import BaseAnalyzer
-from .temporal_utilities import TemporalOperations
+from ..base_analyzer import BaseAnalyzer
+from ...utilities.temporal_ops import TemporalOperations
 
 logger = logging.getLogger(__name__)
 

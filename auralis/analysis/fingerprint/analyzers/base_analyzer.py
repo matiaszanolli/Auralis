@@ -16,7 +16,7 @@ Eliminates duplicate try/except blocks and default value handling across analyze
 from abc import ABC, abstractmethod
 from typing import Dict, Any
 import numpy as np
-from ...utils.logging import debug
+from ....utils.logging import debug
 
 
 class BaseAnalyzer(ABC):

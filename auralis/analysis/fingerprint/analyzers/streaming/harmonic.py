@@ -29,9 +29,9 @@ import logging
 from typing import Dict, Optional
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-from .base_streaming_analyzer import BaseStreamingAnalyzer
-from .common_metrics import MetricUtils, StabilityMetrics, SafeOperations
-from .harmonic_utilities import HarmonicOperations
+from ...utilities.base_streaming_analyzer import BaseStreamingAnalyzer
+from ...common_metrics import MetricUtils, StabilityMetrics, SafeOperations
+from ...utilities.harmonic_ops import HarmonicOperations
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +208,7 @@ class StreamingHarmonicAnalyzer(BaseStreamingAnalyzer):
 
             # For pitch, we need direct access to f0 array (not aggregated)
             # Note: This is still using the internal calculation but via the utility
-            from .dsp_backend import DSPBackend
+            from ...utilities.dsp_backend import DSPBackend
             try:
                 f0 = DSPBackend.yin(
                     chunk,
