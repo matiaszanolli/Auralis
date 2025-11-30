@@ -148,17 +148,12 @@ class ContinuousParameterGenerator:
 
         # Energy-adaptive base LUFS: simpler linear scaling
         # Target: +2.5-5.5 dB boost uniformly across all input levels
-        # Empirical tuning from Slayer album (5/10 tracks at threshold):
+        # Empirical tuning from Slayer album:
         # energy=1.0 (very loud, ~-6 dB RMS): base = -2.0 dB → +4 dB boost
         # energy=0.5 (medium, ~-18 dB RMS): base = -13.0 dB → +5 dB boost
         # energy=0.0 (very quiet, -30 dB RMS): base = -24.0 dB → +6 dB boost
         # Linear interpolation: base = -2 - 22 * (1 - energy)
         base_lufs = -2.0 - 22.0 * (1.0 - energy)
-
-        # Adjust for dynamics: preserve more headroom for dynamic material
-        # Dynamic tracks (dynamics=1) → -2 dB quieter
-        # Compressed tracks (dynamics=0) → No adjustment
-        dynamics_adjustment = dynamics * -2.0
 
         # Apply user loudness preference if provided
         preference_adjustment = 0.0
@@ -166,7 +161,7 @@ class ContinuousParameterGenerator:
             # Loudness bias affects target (-1 = -2dB, +1 = +2dB)
             preference_adjustment = preference.loudness_bias * 2.0
 
-        target_lufs = base_lufs + dynamics_adjustment + preference_adjustment
+        target_lufs = base_lufs + preference_adjustment
 
         # Clamp to reasonable range to match Matchering's +3-5 dB boost
         # For normal material (-12 dB input): -8 dB target = +4 dB boost ✓
