@@ -79,28 +79,37 @@ This document tracks legacy code identified in Auralis and the archival/removal 
 
 | File | Status | Date | Notes |
 |------|--------|------|-------|
-| `auralis/core/config/legacy.py` | Pending | - | Awaiting removal |
-| `auralis/library/scanner_legacy.py` | Pending | - | Awaiting archival |
+| `auralis/core/config/legacy.py` | ✅ DELETED | 2025-11-30 | Removed legacy Config class |
+| `auralis/library/scanner_legacy.py` | ✅ ARCHIVED | 2025-11-30 | Moved to docs/archive/legacy-code/ |
+| `.github/workflows/build.yml.old` | ✅ DELETED | 2025-11-30 | Removed obsolete CI/CD |
+| `.github/workflows/pythonpublish.yml.old` | ✅ DELETED | 2025-11-30 | Removed obsolete CI/CD |
+| `tests/auralis/core/test_config.py` | ✅ DELETED | 2025-11-30 | Tests for removed Config class |
+| `tests/auralis/core/test_processor.py` | ✅ ARCHIVED | 2025-11-30 | Legacy batch processor tests |
+| `tests/auralis/dsp/test_stages.py` | ✅ ARCHIVED | 2025-11-30 | Legacy DSP pipeline tests |
 | `auralis/player/audio_player.py` | Pending | - | Pending EnhancedAudioPlayer validation |
 | `tests/auralis/player/test_audio_players_alt.py` | Pending | - | Awaiting consolidation decision |
-| `.github/workflows/build.yml.old` | Pending | - | Awaiting deletion |
-| `.github/workflows/pythonpublish.yml.old` | Pending | - | Awaiting deletion |
 
 ## Removal Timeline
 
-### Phase 1: Safe Immediate Removal (next PR)
-- Delete `.github/workflows/build.yml.old`
-- Delete `.github/workflows/pythonpublish.yml.old`
-- Remove legacy Config imports from main.py and test files
-- Delete `auralis/core/config/legacy.py`
+### ✅ Phase 1: Safe Immediate Removal (COMPLETED 2025-11-30)
+- ✅ Delete `.github/workflows/build.yml.old`
+- ✅ Delete `.github/workflows/pythonpublish.yml.old`
+- ✅ Remove legacy Config imports from main.py and test files
+- ✅ Delete `auralis/core/config/legacy.py`
+- ✅ Archive `auralis/library/scanner_legacy.py`
+- ✅ Delete/archive legacy test files (test_config.py, test_processor.py, test_stages.py)
+- ✅ Updated public API to export modern config system (UnifiedConfig, HybridProcessor, etc.)
 
-### Phase 2: Archival with Testing (after Phase 1 validation)
-- Move `auralis/library/scanner_legacy.py` to `docs/archive/legacy-code/library/`
-- Verify modern scanner passes all tests
+**Impact**: Removed ~700 lines of legacy code and tests. All imports now point to modern system.
 
-### Phase 3: Player Consolidation (after production validation)
-- Consolidate `test_audio_players_alt.py` with main test suite
-- Decide on simple `AudioPlayer` archival based on usage
+### Phase 2: Player Consolidation (Next Priority)
+- Analyze usage of simple `AudioPlayer` vs `EnhancedAudioPlayer`
+- Consolidate `test_audio_players_alt.py` with main player test suite
+- Verify EnhancedAudioPlayer is production-ready before archiving simple version
+
+### Phase 3: Batch Processing Migration (Future)
+- Legacy `process()` function still available for backward compatibility
+- Can be fully deprecated once users migrate to HybridProcessor-based approach
 
 ## References
 
