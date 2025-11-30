@@ -203,6 +203,10 @@ class HybridProcessor:
         if len(target_audio) == 0:
             return target_audio
 
+        # Handle silence (all zeros) - return as-is to avoid NaN production in downstream processing
+        if np.allclose(target_audio, 0.0, atol=1e-10):
+            return target_audio.copy()
+
         # Process based on mode
         if self.config.is_reference_mode() and reference is not None:
             return self._process_reference_mode(target_audio, reference, results)

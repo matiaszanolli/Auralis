@@ -224,3 +224,33 @@ class QueueController:
     def get_track_count(self) -> int:
         """Get number of tracks in queue"""
         return len(self.queue.tracks)
+
+    def get_queue_size(self) -> int:
+        """Get queue size (alias for get_track_count)"""
+        return len(self.queue.tracks)
+
+    def remove_track(self, index: int) -> bool:
+        """Remove track at specified index"""
+        return self.queue.remove_track(index)
+
+    def get_queue(self) -> List[Dict[str, Any]]:
+        """Get full queue as list"""
+        return self.queue.get_queue()
+
+    def reorder_tracks(self, new_order: List[int]) -> bool:
+        """Reorder tracks according to new index order"""
+        return self.queue.reorder_tracks(new_order)
+
+    def set_queue(self, track_list: List[str], start_index: int = 0):
+        """Set queue with track list (for backward compatibility)"""
+        # Clear existing queue
+        self.queue.clear()
+        # Add new tracks (assuming track_list items are file paths or track info)
+        for track in track_list:
+            if isinstance(track, dict):
+                self.queue.add_track(track)
+            else:
+                # Assume it's a filepath
+                self.queue.add_track({'filepath': track})
+        if self.queue.tracks and start_index >= 0:
+            self.queue.current_index = min(start_index, len(self.queue.tracks) - 1)

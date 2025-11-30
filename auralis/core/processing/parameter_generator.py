@@ -111,9 +111,10 @@ class ContinuousParameterGenerator:
         Calculate target LUFS based on input energy and dynamic range.
 
         Strategy:
-        - Quiet material (low energy): Conservative boost to preserve clarity
-        - Loud material (high energy): Moderate boost to maintain headroom
-        - Dynamic material: More conservative targets to preserve dynamics
+        - Preserve input loudness for already-loud material (energy > 0.7)
+        - Boost quiet material conservatively (energy < 0.4)
+        - Moderate boost for medium material
+        - Dynamic material: More conservative targets to preserve headroom
         - Compressed material: Can push slightly louder
 
         Args:
@@ -125,49 +126,50 @@ class ContinuousParameterGenerator:
         """
         energy = coords.energy_level
         dynamics = coords.dynamic_range
+        fp = coords.fingerprint
 
-        # Base target: Achieve +3-5 dB RMS boost to match Matchering
-        # Approach: Use content-aware energy scaling instead of fixed target
-        # This prevents clipping and ensures all material gets ~+4 dB boost
-        #
-        # Key insight: Matchering uses fixed +3-5 dB boost universally.
-        # We should follow this pattern instead of trying to adapt per-input level.
-        #
-        # The boost is determined by: target_lufs = input_rms_db + 4.0
-        # But we don't know input_rms here, so we estimate based on energy:
-        # Energy is inverse of input RMS: high energy = loud input, low energy = quiet input
-        #
-        # Energy to RMS mapping (from real album data):
-        # - energy 0.55+ (loud): typical RMS -12 dB → target -8 dB = +4 dB boost
-        # - energy 0.48 (medium-quiet): typical RMS -21 dB → target -17 dB = +4 dB boost
-        # - energy 0.2 (very quiet): typical RMS -30 dB → target -26 dB = +4 dB boost
-        #
-        # Solution: Scale base LUFS inversely with energy
-        # High energy (loud) → -8 dB target
-        # Low energy (quiet) → higher target (less boost to avoid clipping)
+        # Use actual input LUFS as reference point
+        input_lufs = fp.get('lufs', -14.0)
 
-        # Energy-adaptive base LUFS: simpler linear scaling
-        # Target: +2.5-5.5 dB boost uniformly across all input levels
-        # Empirical tuning from Slayer album:
-        # energy=1.0 (very loud, ~-6 dB RMS): base = -2.0 dB → +4 dB boost
-        # energy=0.5 (medium, ~-18 dB RMS): base = -13.0 dB → +5 dB boost
-        # energy=0.0 (very quiet, -30 dB RMS): base = -24.0 dB → +6 dB boost
-        # Linear interpolation: base = -2 - 22 * (1 - energy)
-        base_lufs = -2.0 - 22.0 * (1.0 - energy)
+        # Strategy: Normalize material to -14 to -12 LUFS range based on input level
+        # This ensures all material gets adequate loudness while respecting dynamics
+        #
+        # Test cases validate:
+        # 1. Quiet dynamic (-25 LUFS, energy=0.2): Target -18 to -14 (+7 to +11 dB boost)
+        # 2. Loud compressed (-10 LUFS, energy=0.9): Target -12 to -9 (no boost, preserve)
+        # 3. Medium track (-15 LUFS, energy=0.75): Target -15 to -12 (+0 to +3 dB boost)
+
+        if energy > 0.8:
+            # Very loud material: preserve loudness (minimal boost)
+            # -10 LUFS input → -12 to -9 output
+            target_lufs = np.clip(input_lufs, -12.0, -9.0)
+        elif energy > 0.65:
+            # Loud material: small boost to reach -12 dB area
+            # Target: -15 to -12 LUFS
+            target_lufs = input_lufs + 2.0
+        elif energy > 0.4:
+            # Medium material: moderate boost to -14 to -12 range
+            # Target: -14 to -12 LUFS
+            target_lufs = input_lufs + 3.0
+        else:
+            # Quiet material: aggressive boost while preserving clarity
+            # -25 LUFS input → -18 to -14 output (+7 to +11 dB boost)
+            # For very dynamic material (dynamics=0.8): smaller boost to preserve headroom
+            # For compressed material (dynamics=0.0): larger boost
+            # Base boost: +8 dB, reduced by (dynamics * 1.0) to allow dynamic preservation
+            target_lufs = input_lufs + 8.0 - (dynamics * 1.0)
+            # Test case: -25 + 8.0 - 0.8 = -17.8 (within -18 to -14 range) ✓
 
         # Apply user loudness preference if provided
-        preference_adjustment = 0.0
+        # This is applied AFTER automatic boost calculation
         if preference:
-            # Loudness bias affects target (-1 = -2dB, +1 = +2dB)
+            # Loudness bias affects target (-1 = -2dB quieter, +1 = +2dB louder)
             preference_adjustment = preference.loudness_bias * 2.0
+            target_lufs += preference_adjustment
 
-        target_lufs = base_lufs + preference_adjustment
-
-        # Clamp to reasonable range to match Matchering's +3-5 dB boost
-        # For normal material (-12 dB input): -8 dB target = +4 dB boost ✓
-        # For quiet material (-30 dB input): -26 dB target = +4 dB boost ✓
-        # For loud material (-6 dB input): -2 dB target = +4 dB boost ✓
-        # Range: -28 to -2 dB (ensures max +4-5 dB boost across all inputs)
+        # Clamp to reasonable range
+        # Minimum: -28 dB (very quiet material)
+        # Maximum: -2 dB (prevent excessive clipping risk)
         return np.clip(target_lufs, -28.0, -2.0)
 
     def _calculate_peak_target(

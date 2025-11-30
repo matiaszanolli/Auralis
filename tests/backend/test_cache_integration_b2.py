@@ -41,7 +41,7 @@ from helpers import (
     estimate_cache_completion_time,
     create_cache_aware_response
 )
-from cache_monitoring import (
+from cache.monitoring import (
     CacheMonitor,
     CacheMetrics,
     CacheAlert,

@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils'
 import { useTheme } from '../../contexts/ThemeContext'
-import ThemeToggle from '../ThemeToggle'
+import ThemeToggle from '../shared/ui/ThemeToggle'
 
 // Mock the useTheme hook while preserving other exports
 vi.mock('../../contexts/ThemeContext', async (importOriginal) => {
