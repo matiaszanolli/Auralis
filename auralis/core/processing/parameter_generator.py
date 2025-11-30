@@ -126,14 +126,12 @@ class ContinuousParameterGenerator:
         energy = coords.energy_level
         dynamics = coords.dynamic_range
 
-        # Base target: use preset anchor targets (Adaptive uses -16 LUFS)
-        # Match Matchering behavior of +3-5 dB boost on average content
+        # Base target: Achieve +3-5 dB RMS boost to match Matchering
         # For input at -12 dB RMS:
-        #   Target RMS: -9 dB (Matchering boost +3 dB)
-        #   Convert to LUFS: -9 - 14 = -23 LUFS
-        #   But our targets are LUFS-based, so use -16 as compromise
-        # This relies on content-aware adjustments and proper normalization
-        base_lufs = -16.0
+        #   Target RMS: -9 to -7 dB (Matchering-compatible boost of +3-5 dB)
+        # We use target_lufs in continuous_mode, which is applied as RMS target directly
+        # So set base to approximately -8 LUFS for +4 dB boost on typical content
+        base_lufs = -8.0  # Adjusted to match Matchering's +3-5 dB typical boost
 
         # Adjust for dynamics: preserve more headroom for dynamic material
         # Dynamic tracks (dynamics=1) → -2 dB quieter
@@ -148,9 +146,12 @@ class ContinuousParameterGenerator:
 
         target_lufs = base_lufs + dynamics_adjustment + preference_adjustment
 
-        # Clamp to reasonable range (-20 to -13 to match Matchering more closely)
-        # Matchering typically boosts by +3-5 dB, so we aim for lower targets
-        return np.clip(target_lufs, -20.0, -13.0)
+        # Clamp to reasonable range (-20 to -6 to match Matchering +3-5 dB boost)
+        # For -12 dB RMS input:
+        #   -8 dB LUFS target → +4 dB boost
+        #   -9 dB LUFS target → +3 dB boost
+        # Allow targets from -20 (very quiet) to -6 (loud+2dB boost)
+        return np.clip(target_lufs, -20.0, -6.0)
 
     def _calculate_peak_target(
         self,

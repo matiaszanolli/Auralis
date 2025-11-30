@@ -416,9 +416,10 @@ class ContinuousMode:
         current_rms = calculate_rms(np.mean(audio, axis=1) if audio.ndim == 2 else audio)
         current_rms_db = DBConversion.to_db(current_rms)
 
-        # Convert target LUFS to equivalent RMS (LUFS ≈ RMS - 14 dB for typical music)
-        # This is an approximation, but it aligns better with perceptual loudness
-        target_rms_db = params.target_lufs + 14.0
+        # Use LUFS target directly as RMS target
+        # Both measure loudness but with different frequency weighting
+        # The key is to respect the target and not apply excessive gain
+        target_rms_db = params.target_lufs
         rms_adjustment = target_rms_db - current_rms_db
 
         if abs(rms_adjustment) > 0.5:

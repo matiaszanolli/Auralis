@@ -234,6 +234,7 @@ class HybridProcessor:
 
         # Choose processing mode based on config
         if self.config.use_continuous_space:
+            print(f"*** HYBRID PROCESSOR: use_continuous_space={self.config.use_continuous_space}, using ContinuousMode")
             info("Using continuous parameter space (fingerprint-based)")
 
             # NEW (Beta.9): Use fixed targets if set (from .25d file)
