@@ -95,9 +95,14 @@ def load_audio(
 
     # Apply post-processing options
     if target_sample_rate and target_sample_rate != sample_rate:
-        audio_data = resample_audio(audio_data, sample_rate, target_sample_rate)
-        sample_rate = target_sample_rate
-        debug(f"Resampled to {target_sample_rate} Hz")
+        # Only downsample, never upsample (resampling reduces quality)
+        if target_sample_rate < sample_rate:
+            original_sr = sample_rate
+            audio_data = resample_audio(audio_data, sample_rate, target_sample_rate)
+            sample_rate = target_sample_rate
+            debug(f"Downsampled from {original_sr} Hz to {target_sample_rate} Hz")
+        else:
+            debug(f"Skipping upsample: target {target_sample_rate} Hz >= current {sample_rate} Hz (would degrade quality)")
 
     if force_stereo and audio_data.ndim == 1:
         audio_data = np.column_stack([audio_data, audio_data])

@@ -189,8 +189,11 @@ class ChunkedAudioProcessor:
                 self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
         except Exception as e:
             logger.error(f"Failed to load audio metadata: {e}")
-            # Fallback: load entire audio (slower)
-            audio, sr = load_audio(self.filepath)
+            # Fallback: load entire audio with optional downsampling (slower)
+            audio, sr = load_audio(
+                self.filepath,
+                target_sample_rate=self.config.processing_sample_rate
+            )
             self.sample_rate = sr
             self.total_duration = len(audio) / sr
             # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
@@ -270,8 +273,11 @@ class ChunkedAudioProcessor:
 
         except Exception as e:
             logger.warning(f"Soundfile loading failed, using fallback: {e}")
-            # Fallback: load entire audio and slice
-            full_audio, _ = load_audio(self.filepath)
+            # Fallback: load entire audio and slice with optional downsampling
+            full_audio, _ = load_audio(
+                self.filepath,
+                target_sample_rate=self.config.processing_sample_rate
+            )
             start_sample = int(load_start * self.sample_rate)
             end_sample = int(load_end * self.sample_rate)
 
