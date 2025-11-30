@@ -133,11 +133,22 @@ def create_webm_streaming_router(
             # With 15s chunks and 10s intervals: chunks start at 0s, 10s, 20s, etc.
             total_chunks = math.ceil(duration / chunk_interval)
 
+            # Get actual sample rate from audio file without loading full audio
+            try:
+                from auralis.io.unified_loader import get_audio_info
+                audio_info = get_audio_info(track.filepath)
+                actual_sr = audio_info.get('sample_rate', 44100)
+                actual_channels = audio_info.get('channels', 2)
+            except Exception as e:
+                logger.warning(f"Failed to get audio info, using 44100Hz/stereo default: {e}")
+                actual_sr = 44100
+                actual_channels = 2
+
             metadata = StreamMetadata(
                 track_id=track_id,
                 duration=duration,
-                sample_rate=44100,  # Standard output sample rate
-                channels=2,  # Stereo output
+                sample_rate=actual_sr,  # Actual sample rate from audio file
+                channels=actual_channels,  # Actual channels from audio file
                 chunk_duration=chunk_duration,
                 chunk_interval=chunk_interval,
                 total_chunks=total_chunks,
@@ -257,34 +268,27 @@ def create_webm_streaming_router(
                         logger.warning(f"Cache lookup failed: {e}, falling back to on-demand processing")
                         cache_tier = "MISS"
 
-                # Cache miss - process on demand
+                # Cache miss - process on demand using ChunkedAudioProcessor for enhancement
                 if cache_tier == "MISS":
                     logger.info(f"❌ Cache MISS: Processing chunk {chunk_idx} on-demand for track {track_id}, preset {preset}")
 
-                    # Load audio chunk directly
-                    from auralis.io.unified_loader import load_audio
-                    audio, sr = load_audio(track.filepath)
+                    # Use ChunkedAudioProcessor to handle enhancement with proper DSP
+                    processor = chunked_audio_processor_class(
+                        track_id=track_id,
+                        filepath=track.filepath,
+                        preset=preset,
+                        intensity=intensity
+                    )
 
-                    # Calculate chunk boundaries
-                    chunk_start_time = chunk_idx * chunk_interval
-                    chunk_end_time = chunk_start_time + chunk_duration
+                    # Get the WAV chunk path directly from the processor
+                    # This applies enhancement via HybridProcessor if preset is not None
+                    chunk_path = processor.get_wav_chunk_path(chunk_idx)
 
-                    start_sample = int(chunk_start_time * sr)
-                    end_sample = min(int(chunk_end_time * sr), len(audio))
-
-                    # Extract chunk audio
-                    chunk_audio = audio[start_sample:end_sample]
-
-                    if len(chunk_audio) == 0:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Chunk {chunk_idx} extraction resulted in empty audio"
-                        )
-
-                    # Encode directly to WAV
                     try:
-                        wav_bytes = encode_to_wav(chunk_audio, sr)
-                        logger.info(f"Chunk {chunk_idx} processed on-demand: {len(wav_bytes)} bytes WAV")
+                        # Read the processed chunk
+                        with open(chunk_path, 'rb') as f:
+                            wav_bytes = f.read()
+                        logger.info(f"Chunk {chunk_idx} processed on-demand: {len(wav_bytes)} bytes WAV at {processor.sample_rate}Hz")
 
                         # Add to streamlined cache (Tier 1 or Tier 2 auto-detected)
                         if multi_tier_buffer:
@@ -309,11 +313,13 @@ def create_webm_streaming_router(
                             except Exception as cache_err:
                                 logger.warning(f"Failed to update cache position: {cache_err}")
 
-                    except WAVEncoderError as e:
-                        logger.error(f"WAV encoding failed for chunk {chunk_idx}: {e}")
+                    except Exception as e:
+                        logger.error(f"Failed to process chunk {chunk_idx}: {e}")
+                        import traceback
+                        logger.error(f"Traceback: {traceback.format_exc()}")
                         raise HTTPException(
                             status_code=500,
-                            detail=f"WAV encoding failed: {str(e)}"
+                            detail=f"Chunk processing failed: {str(e)}"
                         )
 
             # Calculate latency

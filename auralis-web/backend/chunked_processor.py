@@ -1053,7 +1053,7 @@ class ChunkedAudioProcessor:
             _last_content_profiles[self.preset.lower()] = self.processor.last_content_profile
             logger.debug(f"📊 Stored processing profile for preset '{self.preset}'")
 
-        return str(webm_chunk_path)
+        return str(wav_chunk_path)
 
 
 def _convert_to_webm_opus(input_wav: str, output_webm: str, bitrate: str = "128k") -> None:
