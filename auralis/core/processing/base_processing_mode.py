@@ -417,8 +417,8 @@ class SafetyLimiter:
     Consolidates safety checks across normalization pipelines.
     """
 
-    SAFETY_THRESHOLD_DB = -0.01  # dBFS - threshold for applying limiter
-    SOFT_CLIP_THRESHOLD = 0.99   # Linear amplitude threshold for soft_clip
+    SAFETY_THRESHOLD_DB = 1.0    # dBFS - threshold for applying limiter (allow more boost headroom)
+    SOFT_CLIP_THRESHOLD = 0.89   # Linear amplitude threshold for soft_clip (~-1 dB)
 
     @staticmethod
     def apply_if_needed(audio: np.ndarray) -> Tuple[np.ndarray, bool]:
