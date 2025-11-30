@@ -61,7 +61,7 @@ except ImportError as e:
 
 # Import streamlined cache system (Beta.9)
 try:
-    from streamlined_cache import StreamlinedCacheManager, streamlined_cache_manager
+    from cache import StreamlinedCacheManager, streamlined_cache_manager
     from streamlined_worker import StreamlinedCacheWorker
     from routers.cache_streamlined import create_streamlined_cache_router
     HAS_STREAMLINED_CACHE = True

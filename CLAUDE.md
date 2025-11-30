@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**📌 Current Version**: 1.1.0-beta.4 | **🐍 Python**: 3.13+ | **📦 Node**: 20+ LTS | **🦀 Rust**: Optional (vendor/auralis-dsp via PyO3)
+**📌 Current Version**: 1.1.0-beta.5 | **🐍 Python**: 3.13+ | **📦 Node**: 20+ LTS | **🦀 Rust**: Optional (vendor/auralis-dsp via PyO3)
 
 **Architecture**: Hybrid Python + Rust
 - Python layer: Research, orchestration, REST API, database

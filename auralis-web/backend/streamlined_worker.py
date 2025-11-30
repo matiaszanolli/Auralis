@@ -18,7 +18,7 @@ import logging
 from typing import Optional
 from pathlib import Path
 
-from streamlined_cache import streamlined_cache_manager, CHUNK_DURATION
+from cache import streamlined_cache_manager, CHUNK_DURATION
 
 logger = logging.getLogger(__name__)
 
