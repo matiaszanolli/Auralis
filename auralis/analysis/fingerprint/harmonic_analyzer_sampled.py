@@ -18,23 +18,14 @@ Performance Expectations:
 """
 
 import numpy as np
-import librosa
 from typing import Dict, Tuple
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from .base_analyzer import BaseAnalyzer
-from .common_metrics import MetricUtils, AggregationUtils
+from .common_metrics import AggregationUtils
+from .harmonic_utilities import HarmonicOperations
 
 logger = logging.getLogger(__name__)
-
-# Try to use Rust implementations via PyO3
-try:
-    import auralis_dsp
-    RUST_DSP_AVAILABLE = True
-    logger.info("Rust DSP library (auralis_dsp) available - using optimized implementations")
-except ImportError:
-    RUST_DSP_AVAILABLE = False
-    logger.warning("Rust DSP library (auralis_dsp) not available - falling back to librosa")
 
 
 class SampledHarmonicAnalyzer(BaseAnalyzer):
@@ -155,118 +146,8 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
             Tuple of (harmonic_ratio, pitch_stability, chroma_energy)
         """
         try:
-            hr = self._calculate_harmonic_ratio(chunk)
-            ps = self._calculate_pitch_stability(chunk, sr)
-            ce = self._calculate_chroma_energy(chunk, sr)
-            return (hr, ps, ce)
+            # Use centralized HarmonicOperations
+            return HarmonicOperations.calculate_all(chunk, sr)
         except Exception as e:
             logger.debug(f"Chunk {chunk_idx} analysis failed: {e}, using defaults")
             return (0.5, 0.7, 0.5)
-
-    def _calculate_harmonic_ratio(self, audio: np.ndarray) -> float:
-        """
-        Calculate ratio of harmonic to percussive content.
-
-        Args:
-            audio: Audio chunk
-
-        Returns:
-            Harmonic ratio (0-1)
-        """
-        try:
-            if RUST_DSP_AVAILABLE:
-                harmonic, percussive = auralis_dsp.hpss(audio)
-            else:
-                harmonic, percussive = librosa.effects.hpss(audio)
-
-            harmonic_energy = np.sqrt(np.mean(harmonic**2))
-            percussive_energy = np.sqrt(np.mean(percussive**2))
-
-            total_energy = harmonic_energy + percussive_energy
-
-            if total_energy > 0:
-                harmonic_ratio = harmonic_energy / total_energy
-            else:
-                harmonic_ratio = 0.5
-
-            return np.clip(harmonic_ratio, 0, 1)
-
-        except Exception as e:
-            logger.debug(f"Harmonic ratio calculation failed: {e}")
-            return 0.5
-
-    def _calculate_pitch_stability(self, audio: np.ndarray, sr: int) -> float:
-        """
-        Calculate pitch stability.
-
-        Args:
-            audio: Audio chunk
-            sr: Sample rate
-
-        Returns:
-            Pitch stability (0-1)
-        """
-        try:
-            if RUST_DSP_AVAILABLE:
-                f0 = auralis_dsp.yin(
-                    audio,
-                    sr=sr,
-                    fmin=librosa.note_to_hz('C2'),
-                    fmax=librosa.note_to_hz('C7')
-                )
-            else:
-                f0 = librosa.yin(
-                    audio,
-                    fmin=librosa.note_to_hz('C2'),
-                    fmax=librosa.note_to_hz('C7'),
-                    sr=sr
-                )
-
-            voiced_mask = f0 > 0
-            voiced_f0 = f0[voiced_mask]
-
-            if len(voiced_f0) < 10:
-                return 0.5
-
-            pitch_std = np.std(voiced_f0)
-            pitch_mean = np.mean(voiced_f0)
-
-            if pitch_mean > 0:
-                stability = MetricUtils.stability_from_cv(pitch_std, pitch_mean, scale=10.0)
-            else:
-                stability = 0.5
-
-            return np.clip(stability, 0, 1)
-
-        except Exception as e:
-            logger.debug(f"Pitch stability calculation failed: {e}")
-            return 0.7
-
-    def _calculate_chroma_energy(self, audio: np.ndarray, sr: int) -> float:
-        """
-        Calculate chroma energy.
-
-        Args:
-            audio: Audio chunk
-            sr: Sample rate
-
-        Returns:
-            Chroma energy (0-1)
-        """
-        try:
-            if RUST_DSP_AVAILABLE:
-                chroma = auralis_dsp.chroma_cqt(audio, sr=sr)
-            else:
-                chroma = librosa.feature.chroma_cqt(y=audio, sr=sr)
-
-            chroma_mean = np.mean(chroma, axis=1)
-            chroma_energy = np.mean(chroma_mean)
-
-            # Normalize to 0-1 using MetricUtils
-            normalized = MetricUtils.normalize_to_range(chroma_energy, max_val=0.4, clip=True)
-
-            return normalized
-
-        except Exception as e:
-            logger.debug(f"Chroma energy calculation failed: {e}")
-            return 0.5

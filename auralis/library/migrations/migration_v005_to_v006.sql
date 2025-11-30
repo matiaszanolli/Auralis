@@ -33,9 +33,3 @@ CREATE INDEX IF NOT EXISTS idx_tracks_fingerprint_queue
 -- Useful for finding recently computed fingerprints
 CREATE INDEX IF NOT EXISTS idx_tracks_fingerprint_computed_at
     ON tracks(fingerprint_computed_at DESC);
-
--- Update schema version
-UPDATE schema_version SET version = 6, applied_at = CURRENT_TIMESTAMP,
-       description = 'Added fingerprint status tracking columns to tracks table',
-       migration_script = 'migration_v005_to_v006_fingerprint_status.sql'
-WHERE id = 1;

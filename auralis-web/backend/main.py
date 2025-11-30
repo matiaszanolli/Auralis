@@ -161,6 +161,13 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Global enhancement state (defined early for use in routers)
+enhancement_settings = {
+    "enabled": True,
+    "preset": "adaptive",
+    "intensity": 1.0
+}
+
 # Global state
 library_manager: Optional[LibraryManager] = None
 settings_repository: Optional[SettingsRepository] = None
@@ -433,13 +440,6 @@ if HAS_SIMILARITY:
     logger.info("✅ Similarity router included (25D fingerprint similarity)")
 else:
     logger.warning("⚠️  Similarity router not available (missing dependencies)")
-
-# Global enhancement state
-enhancement_settings = {
-    "enabled": True,
-    "preset": "adaptive",
-    "intensity": 1.0
-}
 
 @app.post("/api/processing/enable_matching")
 async def enable_level_matching(enabled: bool):
