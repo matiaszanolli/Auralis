@@ -1,0 +1,157 @@
+{
+  "genre_tests": [
+    {
+      "track": "01_test_vocal_pop_A",
+      "genre": "Pop/Vocal",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "correlation": "1.0000",
+      "correlation_num": 1.0,
+      "speedup": "1.14x",
+      "speedup_num": 1.1398374525106862,
+      "time_full_s": "0.285s",
+      "time_sampled_s": "0.250s"
+    },
+    {
+      "track": "02_test_vocal_pop_B",
+      "genre": "Pop/Vocal",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "correlation": "1.0000",
+      "correlation_num": 1.0,
+      "speedup": "1.01x",
+      "speedup_num": 1.0121659827945744,
+      "time_full_s": "0.251s",
+      "time_sampled_s": "0.248s"
+    },
+    {
+      "track": "03_test_bass_heavy_A",
+      "genre": "Bass-Heavy",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "correlation": "1.0000",
+      "correlation_num": 1.0,
+      "speedup": "1.01x",
+      "speedup_num": 1.0074018610132565,
+      "time_full_s": "0.249s",
+      "time_sampled_s": "0.247s"
+    },
+    {
+      "track": "04_test_bass_heavy_B",
+      "genre": "Bass-Heavy",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "correlation": "1.0000",
+      "correlation_num": 1.0,
+      "speedup": "1.01x",
+      "speedup_num": 1.0106212357921354,
+      "time_full_s": "0.249s",
+      "time_sampled_s": "0.247s"
+    },
+    {
+      "track": "05_test_bright_acoustic_A",
+      "genre": "Acoustic",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "correlation": "1.0000",
+      "correlation_num": 1.0,
+      "speedup": "1.03x",
+      "speedup_num": 1.0297187789255167,
+      "time_full_s": "0.260s",
+      "time_sampled_s": "0.252s"
+    },
+    {
+      "track": "06_test_bright_acoustic_B",
+      "genre": "Acoustic",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "correlation": "1.0000",
+      "correlation_num": 1.0,
+      "speedup": "1.01x",
+      "speedup_num": 1.0052101728705958,
+      "time_full_s": "0.256s",
+      "time_sampled_s": "0.254s"
+    },
+    {
+      "track": "07_test_electronic_A",
+      "genre": "Electronic",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "correlation": "1.0000",
+      "correlation_num": 1.0,
+      "speedup": "0.98x",
+      "speedup_num": 0.9769888450218236,
+      "time_full_s": "0.237s",
+      "time_sampled_s": "0.243s"
+    },
+    {
+      "track": "08_test_electronic_B",
+      "genre": "Electronic",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "correlation": "1.0000",
+      "correlation_num": 1.0,
+      "speedup": "1.02x",
+      "speedup_num": 1.0170901225106375,
+      "time_full_s": "0.238s",
+      "time_sampled_s": "0.234s"
+    }
+  ],
+  "dramatic_change_tests": [
+    {
+      "track": "01_test_vocal_pop_A",
+      "change_type": "multi-section",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "standard_correlation": "1.0000",
+      "tight_correlation": "1.0000",
+      "standard_correlation_num": 1.0,
+      "tight_correlation_num": 1.0,
+      "speedup_standard": "1.02x",
+      "speedup_tight": "1.02x",
+      "recommendation": "Standard (20s) - more efficient"
+    },
+    {
+      "track": "02_test_vocal_pop_B",
+      "change_type": "uniform",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "standard_correlation": "1.0000",
+      "tight_correlation": "1.0000",
+      "standard_correlation_num": 1.0,
+      "tight_correlation_num": 1.0,
+      "speedup_standard": "0.99x",
+      "speedup_tight": "0.99x",
+      "recommendation": "Standard (20s) - more efficient"
+    },
+    {
+      "track": "03_test_bass_heavy_A",
+      "change_type": "extreme",
+      "duration_s": 3.0,
+      "status": "PASSED",
+      "standard_correlation": "1.0000",
+      "tight_correlation": "1.0000",
+      "standard_correlation_num": 1.0,
+      "tight_correlation_num": 1.0,
+      "speedup_standard": "1.03x",
+      "speedup_tight": "1.02x",
+      "recommendation": "Standard (20s) - more efficient"
+    }
+  ],
+  "summary": {
+    "genre_tests": {
+      "total": 8,
+      "avg_correlation": "1.0000",
+      "min_correlation": "1.0000",
+      "max_correlation": "1.0000",
+      "avg_speedup": "1.02x",
+      "pass_rate": "100.0%"
+    },
+    "dramatic_change_tests": {
+      "total": 3,
+      "avg_standard_correlation": "1.0000",
+      "avg_tight_correlation": "1.0000",
+      "recommendation": "Standard 20s interval"
+    }
+  }
+}
