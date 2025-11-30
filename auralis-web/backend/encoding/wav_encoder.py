@@ -51,9 +51,13 @@ def encode_to_wav(audio: np.ndarray, sample_rate: int = 44100, output_path: Opti
     try:
         import soundfile as sf
 
-        # Ensure audio is float32
+        # Ensure audio is float32 (Web Audio API requirement)
         if audio.dtype != np.float32:
-            audio = audio.astype(np.float32)
+            audio = audio.astype(np.float32, copy=True)
+
+        # Ensure audio is in valid range for PCM_16 encoding [-1.0, 1.0]
+        # Clip to prevent distortion
+        audio = np.clip(audio, -1.0, 1.0)
 
         # Encode to WAV in memory
         wav_buffer = io.BytesIO()
