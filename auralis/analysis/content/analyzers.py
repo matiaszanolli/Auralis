@@ -14,6 +14,7 @@ import numpy as np
 from typing import Dict, Any, List
 from dataclasses import dataclass
 from ..fingerprint.common_metrics import MetricUtils
+from .content_operations import ContentAnalysisOperations
 
 
 @dataclass
