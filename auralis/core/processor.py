@@ -13,7 +13,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 from ..utils.logging import Code, info, debug, debug_line, ModuleError
-from .config import Config
+from .config import UnifiedConfig
 from ..io.results import Result
 from ..io.loader import load
 from ..dsp.stages import main
@@ -28,7 +28,7 @@ def process(
     target: str,
     reference: str,
     results: list,
-    config: Config = None,
+    config: UnifiedConfig = None,
     preview_target: Result = None,
     preview_result: Result = None,
 ):
@@ -39,12 +39,12 @@ def process(
         target: Path to target audio file to be mastered
         reference: Path to reference audio file for matching
         results: List of Result objects or file paths for output
-        config: Processing configuration (optional)
+        config: Processing configuration (optional, defaults to UnifiedConfig)
         preview_target: Preview target result (optional)
         preview_result: Preview result output (optional)
     """
     if config is None:
-        config = Config()
+        config = UnifiedConfig()
 
     # Ensure results is a list
     if not isinstance(results, list):
