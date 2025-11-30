@@ -31,13 +31,13 @@ logger = logging.getLogger(__name__)
 class SampledHarmonicAnalyzer(BaseAnalyzer):
     """Extract harmonic features using time-domain sampling strategy."""
 
-    DEFAULT_FEATURES = {
+    DEFAULT_FEATURES: Dict[str, float] = {
         'harmonic_ratio': 0.5,
         'pitch_stability': 0.7,
         'chroma_energy': 0.5
     }
 
-    def __init__(self, chunk_duration: float = 5.0, interval_duration: float = 10.0):
+    def __init__(self, chunk_duration: float = 5.0, interval_duration: float = 10.0) -> None:
         """
         Initialize sampled analyzer.
 
@@ -48,8 +48,8 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
                 If greater, chunks are spaced apart.
         """
         super().__init__()
-        self.chunk_duration = chunk_duration
-        self.interval_duration = interval_duration
+        self.chunk_duration: float = chunk_duration
+        self.interval_duration: float = interval_duration
 
     def _extract_chunks(self, audio: np.ndarray, sr: int) -> Tuple[np.ndarray, np.ndarray]:
         """

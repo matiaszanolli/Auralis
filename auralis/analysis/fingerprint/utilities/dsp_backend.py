@@ -18,7 +18,7 @@ Supported Operations:
 import numpy as np
 import librosa
 import logging
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +27,11 @@ class DSPBackend:
     """Unified interface for DSP operations with automatic backend selection."""
 
     # Class-level flag, initialized on module load
-    AVAILABLE = False
-    _module = None
+    AVAILABLE: bool = False
+    _module: Optional[Any] = None
 
     @classmethod
-    def initialize(cls):
+    def initialize(cls) -> None:
         """Initialize DSP backend, attempting to load Rust library."""
         try:
             import auralis_dsp
@@ -44,7 +44,7 @@ class DSPBackend:
             logger.warning("Rust DSP library (auralis_dsp) not available - falling back to librosa")
 
     @classmethod
-    def hpss(cls, audio: np.ndarray, **kwargs) -> Tuple[np.ndarray, np.ndarray]:
+    def hpss(cls, audio: np.ndarray, **kwargs: Any) -> Tuple[np.ndarray, np.ndarray]:
         """
         Harmonic/Percussive Source Separation.
 

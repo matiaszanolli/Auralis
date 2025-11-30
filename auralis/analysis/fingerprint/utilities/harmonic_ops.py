@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 # Try to use Rust implementations via PyO3
 try:
     import auralis_dsp
-    RUST_DSP_AVAILABLE = True
+    RUST_DSP_AVAILABLE: bool = True
 except ImportError:
-    RUST_DSP_AVAILABLE = False
+    RUST_DSP_AVAILABLE: bool = False
 
 
 class HarmonicOperations:
