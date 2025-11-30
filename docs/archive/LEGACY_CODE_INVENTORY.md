@@ -86,8 +86,9 @@ This document tracks legacy code identified in Auralis and the archival/removal 
 | `tests/auralis/core/test_config.py` | ✅ DELETED | 2025-11-30 | Tests for removed Config class |
 | `tests/auralis/core/test_processor.py` | ✅ ARCHIVED | 2025-11-30 | Legacy batch processor tests |
 | `tests/auralis/dsp/test_stages.py` | ✅ ARCHIVED | 2025-11-30 | Legacy DSP pipeline tests |
-| `auralis/player/audio_player.py` | Pending | - | Pending EnhancedAudioPlayer validation |
-| `tests/auralis/player/test_audio_players_alt.py` | Pending | - | Awaiting consolidation decision |
+| `auralis/player/audio_player.py` | ✅ ARCHIVED | 2025-11-30 | Zero production usage; EnhancedAudioPlayer is standard |
+| `tests/auralis/player/test_audio_player.py` | ✅ ARCHIVED | 2025-11-30 | Tests for removed AudioPlayer implementation |
+| `tests/auralis/player/test_audio_players_alt.py` | ✅ DELETED | 2025-11-30 | Redundant duck-typing tests (590 lines) |
 
 ## Removal Timeline
 
@@ -102,10 +103,17 @@ This document tracks legacy code identified in Auralis and the archival/removal 
 
 **Impact**: Removed ~700 lines of legacy code and tests. All imports now point to modern system.
 
-### Phase 2: Player Consolidation (Next Priority)
-- Analyze usage of simple `AudioPlayer` vs `EnhancedAudioPlayer`
-- Consolidate `test_audio_players_alt.py` with main player test suite
-- Verify EnhancedAudioPlayer is production-ready before archiving simple version
+### ✅ Phase 2: Player Consolidation (COMPLETED 2025-11-30)
+- ✅ Analyzed usage: AudioPlayer (180 lines) had ZERO production instantiations
+- ✅ Confirmed EnhancedAudioPlayer is only player used in backend (main.py:255)
+- ✅ Archived `auralis/player/audio_player.py` (not used anywhere)
+- ✅ Deleted `tests/auralis/player/test_audio_players_alt.py` (590 lines of redundant duck-typing tests)
+- ✅ Archived `tests/auralis/player/test_audio_player.py` (implementation-specific tests for removed AudioPlayer)
+- ✅ Updated `auralis/player/__init__.py` to export EnhancedAudioPlayer only
+- ✅ Updated `auralis/__init__.py` to consolidate player exports to EnhancedAudioPlayer
+- ✅ Verified 33 passing tests in player module (all modern EnhancedAudioPlayer tests)
+
+**Impact**: Removed 1,259 lines of duplicate/redundant code. Player API now unified on EnhancedAudioPlayer.
 
 ### Phase 3: Batch Processing Migration (Future)
 - Legacy `process()` function still available for backward compatibility
