@@ -27,6 +27,7 @@ class UnifiedConfig:
         self,
         # Core audio settings (from original Matchering)
         internal_sample_rate: int = 44100,
+        processing_sample_rate: Optional[int] = 48000,  # Downsample to this rate for faster processing (optional)
         max_length: float = 15 * 60,  # 15 minutes
         max_piece_size: float = 15,  # 15 seconds
         threshold: float = 0.98,  # Peak threshold
@@ -62,6 +63,16 @@ class UnifiedConfig:
         if internal_sample_rate != 44100:
             debug(f"Using non-standard sample rate {internal_sample_rate}Hz")
         self.internal_sample_rate = internal_sample_rate
+
+        # Processing sample rate for I/O (downsampling for faster processing)
+        # If set, audio files are downsampled to this rate during loading
+        # Typical: 48000 Hz (saves 4x memory and time vs 192000 Hz)
+        # Set to None to disable downsampling (use original file sample rate)
+        if processing_sample_rate is not None:
+            assert processing_sample_rate > 0 and isinstance(processing_sample_rate, int)
+            if processing_sample_rate > internal_sample_rate:
+                debug(f"Warning: processing_sample_rate ({processing_sample_rate}) > internal_sample_rate ({internal_sample_rate})")
+        self.processing_sample_rate = processing_sample_rate
 
         assert max_length > 0
         self.max_length = max_length
