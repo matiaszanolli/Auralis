@@ -193,15 +193,17 @@ class HybridProcessor:
         if not isinstance(target_audio, np.ndarray):
             raise ValueError(f"Target audio must be a NumPy array, got {type(target_audio)}")
 
+        # Handle empty audio first (before any other processing)
+        if len(target_audio) == 0:
+            return target_audio
+
+        # Convert mono to stereo if needed
         if target_audio.ndim == 1:
-            raise ValueError(f"Target audio must be 2D (samples, channels), got 1D array with shape {target_audio.shape}")
+            target_audio = np.column_stack([target_audio, target_audio])
+            debug(f"Converted mono audio to stereo: shape now {target_audio.shape}")
 
         if target_audio.shape[0] < 2:
             raise ValueError(f"Target audio must have at least 2 samples, got {target_audio.shape[0]}")
-
-        # Handle empty audio
-        if len(target_audio) == 0:
-            return target_audio
 
         # Handle silence (all zeros) - return as-is to avoid NaN production in downstream processing
         if np.allclose(target_audio, 0.0, atol=1e-10):
