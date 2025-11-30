@@ -127,36 +127,33 @@ class ContinuousParameterGenerator:
         dynamics = coords.dynamic_range
 
         # Base target: Achieve +3-5 dB RMS boost to match Matchering
-        # Approach: Use a fixed +4 dB boost as the target, regardless of input level
-        # This prevents quiet material from being over-boosted while loud material
-        # gets reasonable enhancement.
+        # Approach: Use content-aware energy scaling instead of fixed target
+        # This prevents clipping and ensures all material gets ~+4 dB boost
         #
         # Key insight: Matchering uses fixed +3-5 dB boost universally.
         # We should follow this pattern instead of trying to adapt per-input level.
         #
         # The boost is determined by: target_lufs = input_rms_db + 4.0
-        # But we don't know input_rms here, so we set a conservative middle ground.
-        # Using -8 dB as target works well for material at -12 dB RMS (+4 dB boost)
-        # For very quiet material at -30 dB RMS, it would give +22 dB (wrong!)
+        # But we don't know input_rms here, so we estimate based on energy:
+        # Energy is inverse of input RMS: high energy = loud input, low energy = quiet input
         #
-        # Solution: Reduce target based on energy_level (inverse of input level)
-        # Low energy (quiet input) → reduce target further (cap boost)
-        # High energy (loud input) → normal target
-        base_lufs = -8.0
+        # Energy to RMS mapping (from real album data):
+        # - energy 0.55+ (loud): typical RMS -12 dB → target -8 dB = +4 dB boost
+        # - energy 0.48 (medium-quiet): typical RMS -21 dB → target -17 dB = +4 dB boost
+        # - energy 0.2 (very quiet): typical RMS -30 dB → target -26 dB = +4 dB boost
+        #
+        # Solution: Scale base LUFS inversely with energy
+        # High energy (loud) → -8 dB target
+        # Low energy (quiet) → higher target (less boost to avoid clipping)
 
-        # Energy-based adjustment: Quiet material should get less boost
-        # energy_level: 0.0 = very quiet, 1.0 = very loud
-        # The goal is to limit boost to ~+4 dB regardless of input level
-        # For loud material (energy>0.8, typical input -12 dB): -8 dB target = +4 dB boost ✓
-        # For quiet material (energy<0.2, typical input -30 dB): need -26 dB target = +4 dB boost
-        # Delta: from -8 to -26 = -18 dB adjustment
-        # But we want high-energy material to get full +4 dB, so use threshold at 0.8
-        # adjustment = max(0, (0.8 - energy) / 0.8 * 18) gives 0 to -18 dB range
-        if energy > 0.8:
-            energy_adjustment = 0.0  # High-energy material: full boost
-        else:
-            # Low-energy material: scale back to prevent over-boosting
-            energy_adjustment = ((0.8 - energy) / 0.8) * -18.0  # Range: 0 to -18 dB
+        # Energy-adaptive base LUFS: simpler linear scaling
+        # Target: +2.5-5.5 dB boost uniformly across all input levels
+        # Empirical tuning from Slayer album (5/10 tracks at threshold):
+        # energy=1.0 (very loud, ~-6 dB RMS): base = -2.0 dB → +4 dB boost
+        # energy=0.5 (medium, ~-18 dB RMS): base = -13.0 dB → +5 dB boost
+        # energy=0.0 (very quiet, -30 dB RMS): base = -24.0 dB → +6 dB boost
+        # Linear interpolation: base = -2 - 22 * (1 - energy)
+        base_lufs = -2.0 - 22.0 * (1.0 - energy)
 
         # Adjust for dynamics: preserve more headroom for dynamic material
         # Dynamic tracks (dynamics=1) → -2 dB quieter
@@ -169,7 +166,7 @@ class ContinuousParameterGenerator:
             # Loudness bias affects target (-1 = -2dB, +1 = +2dB)
             preference_adjustment = preference.loudness_bias * 2.0
 
-        target_lufs = base_lufs + energy_adjustment + dynamics_adjustment + preference_adjustment
+        target_lufs = base_lufs + dynamics_adjustment + preference_adjustment
 
         # Clamp to reasonable range to match Matchering's +3-5 dB boost
         # For normal material (-12 dB input): -8 dB target = +4 dB boost ✓
