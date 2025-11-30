@@ -26,7 +26,11 @@ class VariationOperations:
     """Centralized variation feature calculations."""
 
     @staticmethod
-    def get_frame_peaks(audio: np.ndarray, hop_length: int, frame_length: int) -> np.ndarray:
+    def get_frame_peaks(
+        audio: np.ndarray,
+        hop_length: int,
+        frame_length: int
+    ) -> np.ndarray:
         """
         Vectorized frame peak detection.
 
@@ -59,11 +63,14 @@ class VariationOperations:
         return peaks
 
     @staticmethod
-    def calculate_dynamic_range_variation(audio: np.ndarray, sr: int,
-                                          rms: Optional[np.ndarray] = None,
-                                          hop_length: Optional[int] = None,
-                                          frame_length: Optional[int] = None,
-                                          frame_peaks: Optional[np.ndarray] = None) -> float:
+    def calculate_dynamic_range_variation(
+        audio: np.ndarray,
+        sr: int,
+        rms: Optional[np.ndarray] = None,
+        hop_length: Optional[int] = None,
+        frame_length: Optional[int] = None,
+        frame_peaks: Optional[np.ndarray] = None
+    ) -> float:
         """
         Calculate how much dynamic range changes over time.
 
@@ -112,8 +119,11 @@ class VariationOperations:
             return 0.5
 
     @staticmethod
-    def calculate_loudness_variation(audio: np.ndarray, sr: int,
-                                     rms: Optional[np.ndarray] = None) -> float:
+    def calculate_loudness_variation(
+        audio: np.ndarray,
+        sr: int,
+        rms: Optional[np.ndarray] = None
+    ) -> float:
         """
         Calculate standard deviation of loudness over time.
 
@@ -148,8 +158,11 @@ class VariationOperations:
             return 3.0  # Default to moderate variation
 
     @staticmethod
-    def calculate_peak_consistency(audio: np.ndarray, sr: int,
-                                   frame_peaks: Optional[np.ndarray] = None) -> float:
+    def calculate_peak_consistency(
+        audio: np.ndarray,
+        sr: int,
+        frame_peaks: Optional[np.ndarray] = None
+    ) -> float:
         """
         Calculate how consistent peaks are over time (OPTIMIZED).
 

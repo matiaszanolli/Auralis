@@ -17,7 +17,7 @@ Features:
 import numpy as np
 import librosa
 import logging
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +26,11 @@ class SpectralOperations:
     """Centralized spectral feature calculations."""
 
     @staticmethod
-    def calculate_spectral_centroid(audio: np.ndarray, sr: int,
-                                    magnitude: Optional[np.ndarray] = None) -> float:
+    def calculate_spectral_centroid(
+        audio: np.ndarray,
+        sr: int,
+        magnitude: Optional[np.ndarray] = None
+    ) -> float:
         """
         Calculate spectral centroid (center of mass of spectrum).
 
@@ -67,8 +70,11 @@ class SpectralOperations:
             return 0.5
 
     @staticmethod
-    def calculate_spectral_rolloff(audio: np.ndarray, sr: int,
-                                   magnitude: Optional[np.ndarray] = None) -> float:
+    def calculate_spectral_rolloff(
+        audio: np.ndarray,
+        sr: int,
+        magnitude: Optional[np.ndarray] = None
+    ) -> float:
         """
         Calculate spectral rolloff (frequency below which 85% of energy is contained).
 
@@ -129,8 +135,10 @@ class SpectralOperations:
             return 0.5
 
     @staticmethod
-    def calculate_spectral_flatness(audio: np.ndarray,
-                                    magnitude: Optional[np.ndarray] = None) -> float:
+    def calculate_spectral_flatness(
+        audio: np.ndarray,
+        magnitude: Optional[np.ndarray] = None
+    ) -> float:
         """
         Calculate spectral flatness (noise-like vs tonal).
 
