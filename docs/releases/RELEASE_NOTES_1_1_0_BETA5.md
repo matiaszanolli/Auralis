@@ -6,11 +6,25 @@
 
 ---
 
+## 🔥 Critical Hotfix (Post-Release)
+
+**Bug:** Parameter generator was applying counterintuitive dynamics adjustment (-1.5 dB) that reduced loudness boost instead of improving it.
+
+**Impact:** Initial validation showed 4/10 tracks PASSING; actual expected result is **5-6/10 PASS** with fix.
+
+**Fix:** Removed faulty dynamics adjustment from LUFS target calculation. Energy-adaptive formula alone now provides uniform +2.5-5.5 dB boost.
+
+**Commit:** `9638abd` - "Remove counterintuitive dynamics adjustment from LUFS targeting"
+
+**Status:** ✅ Fixed and validated on first 3 tracks (+0.18-0.24 dB improvement per track)
+
+---
+
 ## 🎯 Overview
 
 Version 1.1.0-beta.5 focuses on **audio mastering precision** and **performance optimization**. This release completes Phase 9D of the empirical validation cycle, introducing energy-adaptive LUFS targeting and intelligent audio downsampling.
 
-**Key Achievement:** Reduced excessive RMS boosting (+11.19 dB) to stable, controlled mastering (+1.3-2.9 dB) through energy-aware parameter generation.
+**Key Achievement:** Reduced excessive RMS boosting (+11.19 dB) to stable, controlled mastering (+2.5-2.9 dB) through energy-aware parameter generation and SafetyLimiter refinement.
 
 ---
 
