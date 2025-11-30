@@ -19,6 +19,7 @@ Dependencies:
   - numpy for numerical operations
   - librosa for STFT computation
   - collections.deque for windowed buffers
+  - spectral_utilities for centralized spectral calculations
 """
 
 import numpy as np
@@ -26,7 +27,7 @@ import librosa
 import logging
 from typing import Dict, Optional, Tuple
 from collections import deque
-from .common_metrics import MetricUtils, SafeOperations, AggregationUtils
+from .common_metrics import MetricUtils, SafeOperations
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,7 @@ class StreamingSpectralAnalyzer:
         centroid_hz = self.spectral_moments.get_centroid()
         spectral_centroid = float(MetricUtils.normalize_to_range(centroid_hz, 8000.0, clip=True))
 
-        # Spectral rolloff from windowed buffer
+        # Spectral rolloff from windowed buffer (uses magnitude buffer for rolloff calculation)
         spectral_rolloff = self._calculate_rolling_rolloff()
 
         # Spectral flatness from running moments
