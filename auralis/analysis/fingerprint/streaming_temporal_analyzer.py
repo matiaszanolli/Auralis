@@ -28,6 +28,7 @@ import librosa
 import logging
 from typing import Dict, Optional
 from collections import deque
+from .base_streaming_analyzer import BaseStreamingAnalyzer
 from .common_metrics import MetricUtils, StabilityMetrics, SafeOperations
 from .temporal_utilities import TemporalOperations
 
@@ -102,7 +103,7 @@ class OnsetBuffer:
         self.last_analysis_pos = 0
 
 
-class StreamingTemporalAnalyzer:
+class StreamingTemporalAnalyzer(BaseStreamingAnalyzer):
     """Extract temporal features from audio streams in real-time.
 
     Provides real-time temporal metrics using windowed analysis:
@@ -116,6 +117,11 @@ class StreamingTemporalAnalyzer:
 
     Metrics stabilize as frames accumulate; after 5-10 seconds of audio,
     metrics represent stable estimates.
+
+    Inherits from BaseStreamingAnalyzer to use shared utilities:
+    - get_confidence() - Confidence scoring based on analysis runs
+    - get_frame_count() - Frame counting
+    - get_analysis_count() - Analysis run counting
     """
 
     def __init__(self, sr: int = 44100, buffer_duration: float = 2.0, hop_length: float = 0.25):
@@ -126,6 +132,7 @@ class StreamingTemporalAnalyzer:
             buffer_duration: Duration in seconds to buffer for beat tracking (default: 2s)
             hop_length: Hop length for RMS in seconds (default: 250ms)
         """
+        super().__init__()  # Initialize mixin
         self.sr = sr
         self.buffer_duration = buffer_duration
         self.hop_length = int(sr * hop_length)
@@ -144,9 +151,10 @@ class StreamingTemporalAnalyzer:
         self.transient_density_estimate = 0.5
         self.silence_ratio_estimate = 0.1
 
-        # Frame counter
+        # Frame counter (required by BaseStreamingAnalyzer)
         self.frame_count = 0
         self.analysis_counter = 0  # Counter for periodic re-analysis
+        self.analysis_runs = 0  # Required by BaseStreamingAnalyzer (used in get_confidence())
 
     def reset(self):
         """Reset analyzer state."""
@@ -160,6 +168,7 @@ class StreamingTemporalAnalyzer:
         self.silence_ratio_estimate = 0.1
         self.frame_count = 0
         self.analysis_counter = 0
+        self.analysis_runs = 0
 
     def update(self, frame: np.ndarray) -> Dict[str, float]:
         """Update analyzer with new audio frame.
@@ -218,6 +227,9 @@ class StreamingTemporalAnalyzer:
             self.tempo_estimate = float(tempo)
             self.rhythm_stability_estimate = float(rhythm_stability)
             self.transient_density_estimate = float(transient_density)
+
+            # Increment analysis runs for confidence scoring (BaseStreamingAnalyzer)
+            self.analysis_runs += 1
 
         except Exception as e:
             logger.debug(f"Analysis failed: {e}")
