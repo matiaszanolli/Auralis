@@ -29,7 +29,6 @@ from .audio_file_manager import AudioFileManager
 from .queue_controller import QueueController
 from .gapless_playback_engine import GaplessPlaybackEngine
 from .integration_manager import IntegrationManager
-from ..core.processor import process as core_process
 from ..library.manager import LibraryManager
 from ..utils.logging import debug, info, warning, error
 

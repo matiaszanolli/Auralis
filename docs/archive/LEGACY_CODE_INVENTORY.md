@@ -115,9 +115,24 @@ This document tracks legacy code identified in Auralis and the archival/removal 
 
 **Impact**: Removed 1,259 lines of duplicate/redundant code. Player API now unified on EnhancedAudioPlayer.
 
-### Phase 3: Batch Processing Migration (Future)
-- Legacy `process()` function still available for backward compatibility
-- Can be fully deprecated once users migrate to HybridProcessor-based approach
+### Phase 3: Batch Processing Analysis (REVIEWED 2025-11-30)
+
+**Legacy `process()` Function Status**:
+- **Location**: `auralis/core/processor.py:27-120+`
+- **Size**: ~90 lines
+- **Modern Replacement**: `HybridProcessor` + `ChunkedAudioProcessor` for streaming
+- **Production Usage**: ZERO - Not called in any active code
+- **Import Status**:
+  - Imported in EnhancedAudioPlayer but NOT USED (dead import)
+  - Exported from auralis/__init__.py for backward compatibility
+  - Only tested in archived test_processor.py (no longer running)
+- **Assessment**: Function is legacy batch processing API replaced by modern streaming architecture
+- **Deprecation Path**:
+  - Option A: Deprecate now (warn users to migrate to HybridProcessor)
+  - Option B: Archive to legacy code folder (less disruptive)
+  - Option C: Keep as-is for backward compatibility (minimal maintenance burden)
+
+**Recommendation**: Option C (keep as-is) - No production usage means no active maintenance burden, and it provides backward compatibility for external users of the library who may still use the old API. Once confident all users have migrated, it can be archived in a future major version bump.
 
 ## References
 
