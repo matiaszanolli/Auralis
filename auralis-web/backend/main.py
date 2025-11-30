@@ -42,7 +42,6 @@ try:
     from auralis.library.repositories.settings_repository import SettingsRepository
     from auralis.player.enhanced_audio_player import EnhancedAudioPlayer, PlaybackState
     from auralis.player.config import PlayerConfig
-    from auralis.core.config import Config
     HAS_AURALIS = True
 except ImportError as e:
     print(f"⚠️  Auralis library not available: {e}")
