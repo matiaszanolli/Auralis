@@ -147,8 +147,8 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
             # Lower target loudness
             target_lufs=-16.0,
 
-            # Moderate headroom (louder than Adaptive by 1 dB)
-            peak_target_db=-0.50,
+            # Less headroom (louder output, ~1 dB louder than Adaptive)
+            peak_target_db=-0.30,
         ),
 
         "warm": PresetProfile(
