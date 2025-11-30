@@ -73,11 +73,12 @@ def _apply_extreme_dynamics_rule(params: ProcessingParameters,
             # Example: Slayer (Level 0.50, Crest 18.98 dB)
             params.compression_amount = 0.85  # Heavy compression
             params.dynamics_intensity = 0.85
-            # Blend: Balanced (50/50)
-            content_recommended = -15.0
+            # Blend: Conservative (30% content, 70% preset) to match Matchering behavior
+            # Matchering boosts by +3-5 dB, not +11-18 dB
+            content_recommended = -17.0  # More conservative
             params.output_target_rms = (
-                content_recommended * 0.5 +
-                preset_target_lufs * 0.5
+                content_recommended * 0.3 +
+                preset_target_lufs * 0.7
             )
             print(f"[Content Rule] EXTREME dynamics needing correction (Level:{position.input_level:.2f}, DR:{position.dynamic_range:.2f}) → Blended RMS {params.output_target_rms:.1f} dB")
 
@@ -180,10 +181,10 @@ def _apply_output_target_rules(params: ProcessingParameters,
         # VERY LOUD + MODERATE DYNAMICS → LIGHT COMPRESSION
         # Examples: Testament (Level 0.88, DR 0.52, crest 12.55)
         # Already loud but could be tighter
-        content_recommended = -12.5  # Moderate boost
+        content_recommended = -15.0  # More conservative boost to match Matchering
         params.output_target_rms = (
-            content_recommended * 0.5 +
-            preset_target_lufs * 0.5
+            content_recommended * 0.3 +
+            preset_target_lufs * 0.7
         )
         params.compression_amount = 0.42  # Light compression
         params.expansion_amount = 0.0  # NO expansion
@@ -204,20 +205,20 @@ def _apply_output_target_rules(params: ProcessingParameters,
 
     elif position.input_level > 0.8 and position.dynamic_range >= 0.6:
         # LOUD + VERY GOOD DYNAMICS (crest > ~15 dB) → Preserve excellent balance
-        content_recommended = -12.5  # Moderate target, don't over-compress
+        content_recommended = -15.0  # More conservative target to match Matchering
         params.output_target_rms = (
-            content_recommended * 0.5 +
-            preset_target_lufs * 0.5
+            content_recommended * 0.3 +
+            preset_target_lufs * 0.7
         )
         print(f"[Content Rule] LOUD+VERY DYNAMIC (Level:{position.input_level:.2f}, DR:{position.dynamic_range:.2f}) → Blended RMS {params.output_target_rms:.1f} dB")
 
     elif position.input_level > 0.7 and position.dynamic_range > 0.4:
         # Loud + some dynamics (like live recordings) - bring up RMS
-        # Blend content recommendation with user preset (50/50)
-        content_recommended = -12.0
+        # Blend content recommendation with user preset (30/70 to match Matchering)
+        content_recommended = -15.0  # More conservative
         params.output_target_rms = (
-            content_recommended * 0.5 +
-            preset_target_lufs * 0.5
+            content_recommended * 0.3 +
+            preset_target_lufs * 0.7
         )
         print(f"[Content Rule] Loud+Dynamic detected (Level:{position.input_level:.2f}, DR:{position.dynamic_range:.2f}) → Blended target RMS {params.output_target_rms:.1f} dB (content:{content_recommended:.1f}, preset:{preset_target_lufs:.1f})")
 

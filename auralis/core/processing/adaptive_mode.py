@@ -214,12 +214,21 @@ class AdaptiveMode:
             if rms_diff_from_target > 0.5:
                 ProcessingLogger.skipped("RMS Boost", f"Material already loud (RMS: {current_rms_db:.2f} dB, target: {target_rms_db:.2f} dB)")
 
-        # Step 2: Peak normalization
+        # Step 2: Peak normalization (only if peak is below target, to avoid over-boosting)
         preset_name = self.config.mastering_profile
         preset_profile = get_preset_profile(preset_name)
         target_peak_db = preset_profile.peak_target_db if preset_profile else -1.00
 
-        audio, _ = PeakNormalizer.normalize_to_target(audio, target_peak_db, preset_name)
+        # Check current peak before normalizing
+        current_peak = np.max(np.abs(audio))
+        current_peak_db = DBConversion.to_db(current_peak)
+
+        # Only normalize if peak is significantly below target (> 1.5 dB headroom)
+        # This prevents over-boosting material that's already at reasonable levels
+        if current_peak_db < (target_peak_db - 1.5):
+            audio, _ = PeakNormalizer.normalize_to_target(audio, target_peak_db, preset_name)
+        else:
+            ProcessingLogger.skipped("Peak Normalization", f"Peak already at {current_peak_db:.2f} dB (target: {target_peak_db:.2f} dB)")
 
         # Log final pre-limiter metrics
         final_peak = np.max(np.abs(audio))

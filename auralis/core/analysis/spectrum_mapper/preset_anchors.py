@@ -99,7 +99,7 @@ def get_preset_anchors() -> Dict[str, Tuple[SpectrumPosition, ProcessingParamete
                 limiter_threshold=-3.5,
                 limiter_amount=0.4,
                 input_gain=0.0,
-                output_target_rms=-11.5,  # INCREASED from -13.5 for high-energy live material
+                output_target_rms=-14.0,  # Reduced from -11.5 to match Matchering's +3-5 dB boost behavior
                 eq_intensity=0.7,
                 dynamics_intensity=0.4,
             )

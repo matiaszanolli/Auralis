@@ -112,9 +112,9 @@ class ContinuousParameterGenerator:
 
         Strategy:
         - Quiet material (low energy): Raise to -16 to -14 LUFS
-        - Loud material (high energy): Preserve or slightly reduce to -12 to -10 LUFS
+        - Loud material (high energy): Preserve or slightly reduce to -14.5 to -13 LUFS
         - Dynamic material: More conservative targets to preserve dynamics
-        - Compressed material: Can push louder
+        - Compressed material: Can push slightly louder
 
         Args:
             coords: Processing space coordinates
@@ -126,10 +126,14 @@ class ContinuousParameterGenerator:
         energy = coords.energy_level
         dynamics = coords.dynamic_range
 
-        # Base target: interpolate between quiet and loud extremes
-        # Quiet tracks (energy=0) → -16 LUFS
-        # Loud tracks (energy=1) → -10 LUFS
-        base_lufs = -16.0 + (energy * 6.0)
+        # Base target: use preset anchor targets (Adaptive uses -16 LUFS)
+        # Match Matchering behavior of +3-5 dB boost on average content
+        # For input at -12 dB RMS:
+        #   Target RMS: -9 dB (Matchering boost +3 dB)
+        #   Convert to LUFS: -9 - 14 = -23 LUFS
+        #   But our targets are LUFS-based, so use -16 as compromise
+        # This relies on content-aware adjustments and proper normalization
+        base_lufs = -16.0
 
         # Adjust for dynamics: preserve more headroom for dynamic material
         # Dynamic tracks (dynamics=1) → -2 dB quieter
@@ -144,8 +148,9 @@ class ContinuousParameterGenerator:
 
         target_lufs = base_lufs + dynamics_adjustment + preference_adjustment
 
-        # Clamp to reasonable range
-        return np.clip(target_lufs, -20.0, -8.0)
+        # Clamp to reasonable range (-20 to -13 to match Matchering more closely)
+        # Matchering typically boosts by +3-5 dB, so we aim for lower targets
+        return np.clip(target_lufs, -20.0, -13.0)
 
     def _calculate_peak_target(
         self,

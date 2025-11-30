@@ -409,27 +409,39 @@ class ContinuousMode:
     def _apply_final_normalization(self, audio: np.ndarray, params) -> np.ndarray:
         """Apply final loudness and peak normalization using unified pipeline"""
 
-        # Step 1: LUFS normalization (to target loudness)
-        lufs_step = NormalizationStep("LUFS Normalization", stage_label="Pre-Final")
-        lufs_step.measure_before(audio, use_lufs=True, sample_rate=self.config.internal_sample_rate)
+        # Step 1: RMS-based normalization (to target loudness)
+        # Use RMS instead of LUFS because LUFS measurement can be unreliable after EQ processing
+        from ...dsp.basic import rms as calculate_rms
 
-        target_lufs = params.target_lufs
-        current_lufs = lufs_step.before_measurement['lufs']
-        lufs_adjustment = target_lufs - current_lufs
+        current_rms = calculate_rms(np.mean(audio, axis=1) if audio.ndim == 2 else audio)
+        current_rms_db = DBConversion.to_db(current_rms)
 
-        if abs(lufs_adjustment) > 0.5:
-            audio = lufs_step.apply_gain(audio, lufs_adjustment)
-            lufs_step.measure_after(audio, use_lufs=True, sample_rate=self.config.internal_sample_rate)
-            debug(f"[LUFS Normalization] {current_lufs:.1f} → {target_lufs:.1f} LUFS ({lufs_adjustment:+.1f} dB)")
+        # Convert target LUFS to equivalent RMS (LUFS ≈ RMS - 14 dB for typical music)
+        # This is an approximation, but it aligns better with perceptual loudness
+        target_rms_db = params.target_lufs + 14.0
+        rms_adjustment = target_rms_db - current_rms_db
 
-        # Step 2: Peak normalization (to target peak level)
+        if abs(rms_adjustment) > 0.5:
+            audio = amplify(audio, rms_adjustment)
+            new_rms = calculate_rms(np.mean(audio, axis=1) if audio.ndim == 2 else audio)
+            new_rms_db = DBConversion.to_db(new_rms)
+            debug(f"[RMS Normalization] {current_rms_db:.1f} → {new_rms_db:.1f} dB ({rms_adjustment:+.1f} dB)")
+
+        # Step 2: Peak normalization (DISABLED - use LUFS normalization instead)
+        # Peak normalization can cause excessive gain when EQ processing has
+        # changed the peak-to-RMS relationship. LUFS normalization is more
+        # perceptually meaningful and is already applied in step 1.
+        # Only apply peak limiting if absolutely necessary to prevent clipping.
         target_peak_db = params.peak_target_db
         current_peak_db = DBConversion.to_db(np.max(np.abs(audio)))
 
-        if current_peak_db < target_peak_db:  # Only adjust if below target
-            peak_adjustment = target_peak_db - current_peak_db
+        if current_peak_db > 0.0:
+            # Audio is clipping - apply peak limiting only
+            peak_adjustment = min(0.0 - current_peak_db, 0.0)  # At most bring to 0 dB
             audio = amplify(audio, peak_adjustment)
-            debug(f"[Peak Normalization] {current_peak_db:.2f} → {target_peak_db:.2f} dB ({peak_adjustment:+.1f} dB)")
+            debug(f"[Peak Limiting] {current_peak_db:.2f} → {0.0:.2f} dB (emergency limiting)")
+        else:
+            debug(f"[Peak Normalization] SKIPPED - audio peak at {current_peak_db:.2f} dB is safe")
 
         # Step 3: Safety limiter (CRITICAL FIX - was missing in previous version)
         audio, limiter_applied = SafetyLimiter.apply_if_needed(audio)
