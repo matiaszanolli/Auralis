@@ -11,7 +11,7 @@ import os
 from unittest.mock import patch, MagicMock
 
 from auralis.core.processor import process
-from auralis.core.config import Config
+from auralis.core.config import UnifiedConfig
 from auralis.io.results import Result
 from auralis.utils.logging import ModuleError, Code
 
