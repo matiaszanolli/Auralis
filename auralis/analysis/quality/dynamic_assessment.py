@@ -11,9 +11,12 @@ Assess audio dynamic range quality
 """
 
 from typing import Dict
+from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
+from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOperations
+from auralis.analysis.quality_assessors.utilities.assessment_constants import AssessmentConstants
 
 
-class DynamicRangeAssessor:
+class DynamicRangeAssessor(BaseAssessor):
     """Assess dynamic range quality"""
 
     def assess(self, dynamic_result: Dict) -> float:
@@ -29,56 +32,60 @@ class DynamicRangeAssessor:
         dr_value = dynamic_result['dr_value']
         crest_factor = dynamic_result['crest_factor_db']
 
-        # DR value scoring
-        dr_score = self._score_dr_value(dr_value)
+        # DR value scoring using band score
+        dr_score = ScoringOperations.band_score(dr_value, [
+            (0.0, 0.0),
+            (4.0, 20.0),
+            (7.0, 40.0),
+            (10.0, 60.0),
+            (14.0, 80.0),
+            (20.0, 100.0)
+        ])
 
         # Crest factor scoring
-        cf_score = self._score_crest_factor(crest_factor)
+        cf_score = ScoringOperations.band_score(crest_factor, [
+            (0.0, 0.0),
+            (6.0, 40.0),
+            (10.0, 70.0),
+            (15.0, 100.0)
+        ])
 
         # Combined score (weighted average)
-        return float(dr_score * 0.7 + cf_score * 0.3)
+        total_score = ScoringOperations.weighted_score([
+            (dr_score, 0.7),
+            (cf_score, 0.3)
+        ])
 
-    def _score_dr_value(self, dr_value: float) -> float:
+        return float(total_score)
+
+    def detailed_analysis(self, dynamic_result: Dict) -> Dict:
         """
-        Score DR (Dynamic Range) value
+        Perform detailed dynamic range analysis
 
         Args:
-            dr_value: DR value from EBU R128
+            dynamic_result: Dictionary with dynamic range metrics
 
         Returns:
-            Score 0-100
+            Dictionary with detailed dynamic metrics
         """
-        if dr_value >= 20:
-            return 100.0
-        elif dr_value >= 14:
-            return 80 + (dr_value - 14) * 20 / 6  # 80-100
-        elif dr_value >= 10:
-            return 60 + (dr_value - 10) * 20 / 4  # 60-80
-        elif dr_value >= 7:
-            return 40 + (dr_value - 7) * 20 / 3   # 40-60
-        elif dr_value >= 4:
-            return 20 + (dr_value - 4) * 20 / 3   # 20-40
-        else:
-            return dr_value * 20 / 4               # 0-20
+        dr_value = dynamic_result['dr_value']
+        crest_factor = dynamic_result['crest_factor_db']
 
-    def _score_crest_factor(self, crest_factor: float) -> float:
-        """
-        Score crest factor (peak-to-RMS ratio)
+        dr_score = ScoringOperations.band_score(dr_value, [
+            (0.0, 0.0), (4.0, 20.0), (7.0, 40.0),
+            (10.0, 60.0), (14.0, 80.0), (20.0, 100.0)
+        ])
 
-        Args:
-            crest_factor: Crest factor in dB
+        cf_score = ScoringOperations.band_score(crest_factor, [
+            (0.0, 0.0), (6.0, 40.0), (10.0, 70.0), (15.0, 100.0)
+        ])
 
-        Returns:
-            Score 0-100
-        """
-        if crest_factor >= 15:
-            return 100.0
-        elif crest_factor >= 10:
-            return 70 + (crest_factor - 10) * 30 / 5  # 70-100
-        elif crest_factor >= 6:
-            return 40 + (crest_factor - 6) * 30 / 4   # 40-70
-        else:
-            return crest_factor * 40 / 6              # 0-40
+        return {
+            'dr_value': float(dr_value),
+            'crest_factor_db': float(crest_factor),
+            'dr_score': dr_score,
+            'crest_factor_score': cf_score
+        }
 
     def categorize_dynamics(self, dr_value: float) -> Dict:
         """

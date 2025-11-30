@@ -11,9 +11,12 @@ Assess stereo imaging and spatial quality
 """
 
 from typing import Dict
+from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
+from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOperations
+from auralis.analysis.quality_assessors.utilities.assessment_constants import AssessmentConstants
 
 
-class StereoImagingAssessor:
+class StereoImagingAssessor(BaseAssessor):
     """Assess stereo imaging quality"""
 
     def assess(self, phase_result: Dict) -> float:
@@ -31,67 +34,62 @@ class StereoImagingAssessor:
         stereo_width = phase_result['stereo_width']
         mono_compatibility = phase_result['mono_compatibility']
 
-        # Individual component scores
-        corr_score = self._score_correlation(correlation)
+        # Score correlation using band scoring
+        corr_score = ScoringOperations.band_score(correlation, [
+            (-1.0, 0.0),      # Negative = phase issues
+            (0.0, 33.0),      # Low correlation
+            (0.3, 100.0),     # Optimal range starts
+            (0.8, 100.0),     # Optimal range ends
+            (1.0, 50.0)       # Too high = narrow image
+        ])
+
         phase_score = phase_correlation * 100
-        width_score = self._score_stereo_width(stereo_width)
+
+        # Score stereo width using band scoring
+        width_score = ScoringOperations.band_score(stereo_width, [
+            (0.0, 0.0),       # Too narrow
+            (0.3, 100.0),     # Optimal range
+            (0.8, 100.0),     # Optimal range
+            (1.0, 0.0)        # Too wide
+        ])
+
         mono_score = mono_compatibility * 100
 
         # Combined score (weighted average)
-        total_score = (
-            corr_score * 0.3 +
-            phase_score * 0.2 +
-            width_score * 0.2 +
-            mono_score * 0.3
-        )
+        total_score = ScoringOperations.weighted_score([
+            (corr_score, 0.3),
+            (phase_score, 0.2),
+            (width_score, 0.2),
+            (mono_score, 0.3)
+        ])
 
         return float(total_score)
 
-    def _score_correlation(self, correlation: float) -> float:
+    def detailed_analysis(self, phase_result: Dict) -> Dict:
         """
-        Score correlation between left and right channels
-
-        Ideal correlation is positive but not too high (indicates good stereo width
-        while maintaining coherence)
+        Perform detailed stereo imaging analysis
 
         Args:
-            correlation: Correlation coefficient (-1 to 1)
+            phase_result: Phase correlation analysis results
 
         Returns:
-            Score 0-100
+            Dictionary with detailed stereo metrics
         """
-        if 0.3 <= correlation <= 0.8:
-            return 100.0
-        elif correlation > 0.8:
-            # Penalty for too high correlation (too narrow stereo image)
-            return max(0, 100 - (correlation - 0.8) * 200)
-        elif correlation >= 0:
-            # Lower correlation is less ideal but acceptable
-            return correlation * 100 / 0.3
-        else:
-            # Negative correlation is problematic (phase issues)
-            return 0.0
+        correlation = phase_result['correlation']
+        stereo_width = phase_result['stereo_width']
+        mono_compatibility = phase_result['mono_compatibility']
 
-    def _score_stereo_width(self, stereo_width: float) -> float:
-        """
-        Score stereo width
-
-        Moderate width is ideal - too narrow or too wide can be problematic
-
-        Args:
-            stereo_width: Stereo width factor (0-1)
-
-        Returns:
-            Score 0-100
-        """
-        if 0.3 <= stereo_width <= 0.8:
-            return 100.0
-        elif stereo_width < 0.3:
-            # Too narrow
-            return stereo_width * 100 / 0.3
-        else:
-            # Too wide
-            return max(0, 100 - (stereo_width - 0.8) * 100 / 0.2)
+        return {
+            'correlation': float(correlation),
+            'stereo_width': float(stereo_width),
+            'mono_compatibility': float(mono_compatibility),
+            'correlation_score': ScoringOperations.band_score(correlation, [
+                (-1.0, 0.0), (0.0, 33.0), (0.3, 100.0), (0.8, 100.0), (1.0, 50.0)
+            ]),
+            'width_score': ScoringOperations.band_score(stereo_width, [
+                (0.0, 0.0), (0.3, 100.0), (0.8, 100.0), (1.0, 0.0)
+            ])
+        }
 
     def identify_stereo_issues(self, phase_result: Dict) -> Dict:
         """
