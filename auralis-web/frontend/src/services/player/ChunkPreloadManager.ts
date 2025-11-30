@@ -339,8 +339,20 @@ export class ChunkPreloadManager {
             `${audioBuffer.sampleRate}Hz`
           );
         } catch (decodeError: any) {
+          // Log detailed decode error info for debugging
+          const dataView = new DataView(arrayBuffer);
+          const riffHeader = arrayBuffer.byteLength >= 4
+            ? String.fromCharCode(...Array.from(new Uint8Array(arrayBuffer, 0, 4)))
+            : 'N/A';
           this.debug(
-            `[P${priority}] Decode error details: ${decodeError.name} - ${decodeError.message}`
+            `[P${priority}] Decode FAILED: ${decodeError.name} - ${decodeError.message}`
+          );
+          this.debug(
+            `[P${priority}] ArrayBuffer: ${arrayBuffer.byteLength} bytes, RIFF header: '${riffHeader}'`
+          );
+          console.error(
+            `Chunk ${chunkIndex} decode failed:`,
+            { errorName: decodeError.name, errorMsg: decodeError.message, bufferSize: arrayBuffer.byteLength, riffHeader }
           );
           throw new Error(
             `Failed to decode chunk ${chunkIndex}: ${decodeError.message || 'Unknown decode error'}`
