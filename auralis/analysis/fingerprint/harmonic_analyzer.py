@@ -18,9 +18,12 @@ import numpy as np
 from typing import Dict
 import logging
 from .base_analyzer import BaseAnalyzer
-from .harmonic_utilities import HarmonicOperations
+from .harmonic_utilities import HarmonicOperations, RUST_DSP_AVAILABLE
 
 logger = logging.getLogger(__name__)
+
+# Re-export RUST_DSP_AVAILABLE for backward compatibility
+__all__ = ['HarmonicAnalyzer', 'RUST_DSP_AVAILABLE']
 
 
 class HarmonicAnalyzer(BaseAnalyzer):
