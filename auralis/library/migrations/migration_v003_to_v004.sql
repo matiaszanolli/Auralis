@@ -82,8 +82,3 @@ CREATE INDEX IF NOT EXISTS idx_fingerprints_composite
 
 -- Index for fingerprint version (for future migrations)
 CREATE INDEX IF NOT EXISTS idx_fingerprints_version ON track_fingerprints(fingerprint_version);
-
--- Update schema version
--- Note: The schema_info table should be created in the initial migration
--- If it doesn't exist, this will fail gracefully
-UPDATE schema_info SET version = 4 WHERE id = 1;

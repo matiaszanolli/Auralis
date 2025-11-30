@@ -29,6 +29,7 @@ import logging
 from typing import Dict, Optional
 from collections import deque
 from .common_metrics import MetricUtils, StabilityMetrics, SafeOperations
+from .temporal_utilities import TemporalOperations
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +196,7 @@ class StreamingTemporalAnalyzer:
             return self.get_metrics()
 
     def _perform_analysis(self):
-        """Perform expensive analysis on buffered audio."""
+        """Perform expensive analysis on buffered audio using TemporalOperations."""
         try:
             audio = self.onset_buffer.get_audio()
             if audio is None or len(audio) < self.sr // 4:
@@ -205,48 +206,18 @@ class StreamingTemporalAnalyzer:
             onsets = self.onset_buffer.detect_onsets()
             if len(onsets) > 0:
                 # Update recent onsets
-                current_time = len(audio) / self.sr
                 for onset_time in onsets:
                     self.recent_onsets.append(onset_time)
 
-            # Detect tempo and beats
-            try:
-                onset_env = librosa.onset.onset_strength(y=audio, sr=self.sr)
+            # Use centralized TemporalOperations for all calculations
+            # Note: We calculate all temporal features together for efficiency
+            tempo, rhythm_stability, transient_density, _ = TemporalOperations.calculate_all(
+                audio, self.sr
+            )
 
-                # Tempo detection
-                import warnings
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=FutureWarning, module="librosa")
-                    try:
-                        tempo_array = librosa.feature.rhythm.tempo(onset_envelope=onset_env, sr=self.sr)
-                    except AttributeError:
-                        tempo_array = librosa.beat.tempo(onset_envelope=onset_env, sr=self.sr)
-
-                if len(tempo_array) > 0:
-                    self.tempo_estimate = float(MetricUtils.clip_to_range(tempo_array[0], 40, 200))
-
-                # Beat tracking for rhythm stability
-                try:
-                    _, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=self.sr)
-
-                    if len(beats) >= 3:
-                        beat_times = librosa.frames_to_time(beats, sr=self.sr)
-                        intervals = np.diff(beat_times)
-
-                        # Use unified StabilityMetrics
-                        stability = StabilityMetrics.from_intervals(intervals, scale=1.0)
-                        self.rhythm_stability_estimate = float(np.clip(stability, 0, 1))
-                except Exception as e:
-                    logger.debug(f"Beat tracking failed: {e}")
-
-            except Exception as e:
-                logger.debug(f"Tempo/beat detection failed: {e}")
-
-            # Calculate transient density
-            onset_frames = librosa.onset.onset_detect(onset_envelope=onset_env, units='frames')
-            duration = len(audio) / self.sr
-            onset_density = len(onset_frames) / max(duration, 0.1)
-            self.transient_density_estimate = float(np.clip(onset_density / 10.0, 0, 1))
+            self.tempo_estimate = float(tempo)
+            self.rhythm_stability_estimate = float(rhythm_stability)
+            self.transient_density_estimate = float(transient_density)
 
         except Exception as e:
             logger.debug(f"Analysis failed: {e}")

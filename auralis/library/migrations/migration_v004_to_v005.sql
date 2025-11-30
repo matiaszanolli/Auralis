@@ -37,6 +37,3 @@ CREATE INDEX IF NOT EXISTS idx_similarity_graph_distance ON similarity_graph(dis
 
 -- Composite index for efficient rank-ordered queries
 CREATE INDEX IF NOT EXISTS idx_similarity_graph_track_rank ON similarity_graph(track_id, rank, distance);
-
--- Update schema version
-UPDATE schema_info SET version = 5 WHERE id = 1;

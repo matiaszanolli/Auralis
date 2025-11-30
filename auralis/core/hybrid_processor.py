@@ -189,6 +189,16 @@ class HybridProcessor:
         else:
             target_audio = target
 
+        # Validate audio array
+        if not isinstance(target_audio, np.ndarray):
+            raise ValueError(f"Target audio must be a NumPy array, got {type(target_audio)}")
+
+        if target_audio.ndim == 1:
+            raise ValueError(f"Target audio must be 2D (samples, channels), got 1D array with shape {target_audio.shape}")
+
+        if target_audio.shape[0] < 2:
+            raise ValueError(f"Target audio must have at least 2 samples, got {target_audio.shape[0]}")
+
         # Handle empty audio
         if len(target_audio) == 0:
             return target_audio
@@ -250,6 +260,10 @@ class HybridProcessor:
 
         self.preference_manager.set_content_profile(self.last_content_profile)
 
+        # Apply brick-wall limiter for final peak control
+        # Ensures output never clips and stays within safe range
+        processed = self.brick_wall_limiter.process(processed)
+
         return processed
 
     def _process_hybrid_mode(self, target_audio: np.ndarray,
@@ -267,7 +281,13 @@ class HybridProcessor:
                 reference_audio = reference
 
         # Delegate to hybrid mode processor
-        return self.hybrid_mode.process(target_audio, reference_audio, self.eq_processor)
+        processed = self.hybrid_mode.process(target_audio, reference_audio, self.eq_processor)
+
+        # Apply brick-wall limiter for final peak control
+        # Ensures output never clips and stays within safe range
+        processed = self.brick_wall_limiter.process(processed)
+
+        return processed
 
     def process_realtime_chunk(self, audio_chunk: np.ndarray,
                               content_info: Optional[Dict[str, Any]] = None) -> np.ndarray:

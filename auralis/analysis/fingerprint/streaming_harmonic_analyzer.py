@@ -30,17 +30,9 @@ from typing import Dict, Optional
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from .common_metrics import MetricUtils, StabilityMetrics, SafeOperations
+from .harmonic_utilities import HarmonicOperations
 
 logger = logging.getLogger(__name__)
-
-# Try to use Rust implementations via PyO3
-try:
-    import auralis_dsp
-    RUST_DSP_AVAILABLE = True
-    logger.info("Rust DSP library (auralis_dsp) available - using optimized implementations")
-except ImportError:
-    RUST_DSP_AVAILABLE = False
-    logger.warning("Rust DSP library (auralis_dsp) not available - falling back to librosa")
 
 
 class HarmonicRunningStats:
@@ -195,117 +187,35 @@ class StreamingHarmonicAnalyzer:
             return self.get_metrics()
 
     def _analyze_chunk(self, chunk: np.ndarray):
-        """Analyze single chunk.
+        """Analyze single chunk using centralized HarmonicOperations.
 
         Args:
             chunk: Audio chunk to analyze
         """
         try:
-            # Harmonic/percussive separation
-            harmonic_ratio = self._calculate_harmonic_ratio(chunk)
+            # Use centralized HarmonicOperations for all three metrics
+            harmonic_ratio = HarmonicOperations.calculate_harmonic_ratio(chunk)
             self.stats.update_harmonic(harmonic_ratio)
 
-            # Pitch tracking
-            f0 = self._calculate_pitch(chunk)
-            self.stats.update_pitch(f0)
-
-            # Chroma energy
-            chroma_energy = self._calculate_chroma_energy(chunk)
-            self.stats.update_chroma(chroma_energy)
-
-        except Exception as e:
-            logger.debug(f"Chunk analysis failed: {e}")
-
-    def _calculate_harmonic_ratio(self, audio: np.ndarray) -> float:
-        """Calculate harmonic/percussive ratio.
-
-        Args:
-            audio: Audio chunk
-
-        Returns:
-            Harmonic ratio (0-1)
-        """
-        try:
-            # Use Rust implementation if available
-            if RUST_DSP_AVAILABLE:
-                harmonic, percussive = auralis_dsp.hpss(audio)
-            else:
-                harmonic, percussive = librosa.effects.hpss(audio)
-
-            # Calculate RMS energy
-            harmonic_energy = np.sqrt(np.mean(harmonic ** 2))
-            percussive_energy = np.sqrt(np.mean(percussive ** 2))
-
-            total_energy = harmonic_energy + percussive_energy
-
-            if total_energy > SafeOperations.EPSILON:
-                ratio = harmonic_energy / total_energy
-            else:
-                ratio = 0.5
-
-            return float(np.clip(ratio, 0, 1))
-
-        except Exception as e:
-            logger.debug(f"Harmonic ratio calculation failed: {e}")
-            return 0.5
-
-    def _calculate_pitch(self, audio: np.ndarray) -> np.ndarray:
-        """Calculate pitch using YIN algorithm.
-
-        Args:
-            audio: Audio chunk
-
-        Returns:
-            Pitch values (f0) from YIN detection
-        """
-        try:
-            # Use Rust implementation if available
-            if RUST_DSP_AVAILABLE:
-                f0 = auralis_dsp.yin(
-                    audio,
+            # For pitch, we need direct access to f0 array (not aggregated)
+            # Note: This is still using the internal calculation but via the utility
+            from .dsp_backend import DSPBackend
+            try:
+                f0 = DSPBackend.yin(
+                    chunk,
                     sr=self.sr,
                     fmin=librosa.note_to_hz('C2'),
                     fmax=librosa.note_to_hz('C7')
                 )
-            else:
-                f0 = librosa.yin(
-                    audio,
-                    fmin=librosa.note_to_hz('C2'),
-                    fmax=librosa.note_to_hz('C7'),
-                    sr=self.sr
-                )
+            except Exception:
+                f0 = np.array([0])
+            self.stats.update_pitch(f0)
 
-            return f0
+            chroma_energy = HarmonicOperations.calculate_chroma_energy(chunk, self.sr)
+            self.stats.update_chroma(chroma_energy)
 
         except Exception as e:
-            logger.debug(f"Pitch detection failed: {e}")
-            return np.array([0])
-
-    def _calculate_chroma_energy(self, audio: np.ndarray) -> float:
-        """Calculate chroma energy (tonal complexity).
-
-        Args:
-            audio: Audio chunk
-
-        Returns:
-            Chroma energy (0-1)
-        """
-        try:
-            # Use Rust implementation if available
-            if RUST_DSP_AVAILABLE:
-                chroma = auralis_dsp.chroma_cqt(audio, sr=self.sr)
-            else:
-                chroma = librosa.feature.chroma_cqt(y=audio, sr=self.sr)
-
-            # Average energy across pitch classes and time
-            chroma_mean = np.mean(chroma, axis=1)  # Per pitch class
-            chroma_energy = np.mean(chroma_mean)  # Average
-
-            return float(chroma_energy)
-
-        except Exception as e:
-            logger.debug(f"Chroma energy calculation failed: {e}")
-            return 0.5
+            logger.debug(f"Chunk analysis failed: {e}")
 
     def get_metrics(self) -> Dict[str, float]:
         """Get current harmonic metrics.
