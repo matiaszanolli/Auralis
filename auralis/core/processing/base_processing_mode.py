@@ -425,6 +425,9 @@ class SafetyLimiter:
         """
         Apply soft clipping limiter if peak exceeds safety threshold.
 
+        The soft clipping curve (tanh) provides gentle, musical peak limiting
+        that prevents digital clipping without introducing hard distortion.
+
         Args:
             audio: Input audio array
 
@@ -437,9 +440,12 @@ class SafetyLimiter:
         if final_peak_db > SafetyLimiter.SAFETY_THRESHOLD_DB:
             ProcessingLogger.safety_check("Safety Limiter", final_peak_db)
             audio = soft_clip(audio, threshold=SafetyLimiter.SOFT_CLIP_THRESHOLD)
+
+            # Measure result
             final_peak = np.max(np.abs(audio))
             final_peak_db = DBConversion.to_db(final_peak)
             print(f"[Safety Limiter] Peak reduced to {final_peak_db:.2f} dB")
+
             return audio, True
 
         return audio, False
