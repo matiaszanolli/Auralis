@@ -29,6 +29,7 @@ import logging
 from typing import Dict, Optional
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from .base_streaming_analyzer import BaseStreamingAnalyzer
 from .common_metrics import MetricUtils, StabilityMetrics, SafeOperations
 from .harmonic_utilities import HarmonicOperations
 
@@ -109,7 +110,7 @@ class HarmonicRunningStats:
         self.chroma_sum = 0.0
 
 
-class StreamingHarmonicAnalyzer:
+class StreamingHarmonicAnalyzer(BaseStreamingAnalyzer):
     """Extract harmonic features from audio streams in real-time.
 
     Provides real-time harmonic metrics using chunk-based analysis:
@@ -120,6 +121,11 @@ class StreamingHarmonicAnalyzer:
 
     Metrics stabilize as chunks accumulate; after 5-10 seconds of audio,
     metrics represent stable estimates.
+
+    Inherits from BaseStreamingAnalyzer to use shared utilities:
+    - get_confidence() - Confidence scoring based on analysis runs
+    - get_frame_count() - Frame counting
+    - get_analysis_count() - Analysis run counting
     """
 
     def __init__(self, sr: int = 44100, chunk_duration: float = 0.5,
@@ -131,6 +137,7 @@ class StreamingHarmonicAnalyzer:
             chunk_duration: Duration of each analyzed chunk in seconds
             interval_duration: Interval between chunk starts in seconds
         """
+        super().__init__()  # Initialize mixin
         self.sr = sr
         self.chunk_duration = chunk_duration
         self.interval_duration = interval_duration
@@ -143,9 +150,10 @@ class StreamingHarmonicAnalyzer:
         # Running statistics
         self.stats = HarmonicRunningStats()
 
-        # Frame counter
+        # Frame counter (required by BaseStreamingAnalyzer)
         self.frame_count = 0
         self.chunk_count = 0
+        self.analysis_runs = 0  # Required by BaseStreamingAnalyzer (used in get_confidence())
 
     def reset(self):
         """Reset analyzer state."""
@@ -153,6 +161,7 @@ class StreamingHarmonicAnalyzer:
         self.stats.reset()
         self.frame_count = 0
         self.chunk_count = 0
+        self.analysis_runs = 0
 
     def update(self, frame: np.ndarray) -> Dict[str, float]:
         """Update analyzer with new audio frame.
@@ -213,6 +222,9 @@ class StreamingHarmonicAnalyzer:
 
             chroma_energy = HarmonicOperations.calculate_chroma_energy(chunk, self.sr)
             self.stats.update_chroma(chroma_energy)
+
+            # Increment analysis runs for confidence scoring (BaseStreamingAnalyzer)
+            self.analysis_runs += 1
 
         except Exception as e:
             logger.debug(f"Chunk analysis failed: {e}")
