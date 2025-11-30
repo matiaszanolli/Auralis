@@ -2,13 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**📌 Current Version**: 1.1.0-beta.4 | **🐍 Python**: 3.13+ | **📦 Node**: 20+ LTS
+**📌 Current Version**: 1.1.0-beta.4 | **🐍 Python**: 3.13+ | **📦 Node**: 20+ LTS | **🦀 Rust**: Optional (vendor/auralis-dsp via PyO3)
+
+**Architecture**: Hybrid Python + Rust
+- Python layer: Research, orchestration, REST API, database
+- Rust layer: `vendor/auralis-dsp` for performance-critical DSP (HPSS, YIN, Chroma via PyO3)
+- Graceful fallback to librosa when Rust module unavailable
 
 **Core Principles:**
-- Always prioritize improving existing code rather than duplicating logic
-- Coverage ≠ Quality: Test behavior and invariants, not implementation
-- Modular design: Keep modules under 300 lines, one purpose per component
-- Avoid component duplication (no "Enhanced"/"V2" variants)—refactor in-place instead
+- **DRY (Don't Repeat Yourself)**: Always prioritize improving existing code rather than duplicating logic
+  - Use **Utilities Pattern** when multiple modules share similar logic: Extract to static utility methods, refactor modules to thin wrappers
+  - Example: Phase 7.2 consolidated 900 lines of duplicate spectrum/content analysis via SpectrumOperations + BaseSpectrumAnalyzer
+- **Coverage ≠ Quality**: Test behavior and invariants, not implementation details
+- **Modular Design**: Keep modules under 300 lines, one clear purpose per component
+- **No Component Duplication**: Avoid "Enhanced"/"V2"/"Advanced" variants—refactor shared logic in-place instead
+- **Content-Aware Processing**: Adapt DSP parameters based on source characteristics (loudness, dynamics, frequency content)
 
 ---
 
@@ -100,13 +108,28 @@ python -m pytest tests/backend/test_player.py -v
 ### Audio Processing Engine (`auralis/`)
 - **`core/`** - Master processing pipeline, HybridProcessor, streaming infrastructure
 - **`dsp/`** - Digital Signal Processing: EQ (critical bands, filters, curves), Dynamics (compressor, limiter, soft clipper), Realtime Adaptive EQ
-- **`analysis/`** - Audio analysis: fingerprinting (25D), spectral analysis, quality metrics, content analysis
+- **`analysis/`** - Audio analysis: fingerprinting (25D), spectral analysis, quality metrics, content analysis (Phase 7.2 consolidation)
+  - `spectrum_analyzer.py` - Vectorized FFT-based spectrum analysis
+  - `parallel_spectrum_analyzer.py` - Thread-pooled parallel spectrum analysis
+  - `content_analyzer.py` - Content-aware source characteristics detection
+  - Note: Heavy lifting (HPSS, YIN, Chroma extraction) delegated to `vendor/auralis-dsp` (Rust) with librosa fallback
 - **`library/`** - SQLite database, repository pattern for queries, metadata management, query caching (136x speedup)
 - **`player/`** - Playback engine, state management, queue handling
 - **`io/`** - Multi-format audio I/O: WAV, FLAC, MP3, OGG, M4A (supports 16/24-bit PCM)
 - **`optimization/`** - Performance optimizations, vectorization, memory management
 - **`learning/`** - Adaptive learning system for profile selection
 - **`utils/`** - Shared utilities and helpers
+
+### Rust DSP Module (`vendor/auralis-dsp/`)
+- **Language**: Rust via PyO3 bindings (optional, with graceful librosa fallback)
+- **Build**: `maturin develop` (development) or `maturin build` (release)
+- **Modules**:
+  - **HPSS** (Harmonic/Percussive Source Separation) - Separates melodic and rhythmic content
+  - **YIN** - Fundamental frequency detection for pitch analysis
+  - **Chroma** - 12-bin chromatic pitch analysis for harmonic content
+- **Integration**: Called from `auralis/analysis/` modules via `try_import_rust_module()`
+- **Fallback**: If Rust module unavailable (compilation failed, not installed), gracefully falls back to librosa equivalents
+- **Performance**: Provides 2-5x speedup for heavy DSP operations (HPSS decomposition, YIN pitch tracking)
 
 ### Web Interface (`auralis-web/`)
 - **`backend/`** - FastAPI REST API + WebSocket server
@@ -428,6 +451,24 @@ make lint      # Basic syntax check
 make typecheck # mypy type checking (if available)
 ```
 
+### Build Rust DSP Module (Optional)
+```bash
+# Install Rust build tools (one time)
+pip install maturin
+
+# Development build (hot reload)
+cd vendor/auralis-dsp
+maturin develop
+
+# Release build (optimized)
+maturin build --release
+
+# Build with ABI3 forward compatibility (Python version support)
+PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop
+```
+
+**Note**: The Rust module is optional. If not installed or compilation fails, the system gracefully falls back to librosa implementations with no loss of functionality (just slower performance on HPSS, YIN, Chroma analysis).
+
 ### Build for Release
 ```bash
 # Full release (tests + build, all platforms)
@@ -456,6 +497,8 @@ python sync_version.py 1.1.0-beta.4
 - **Module Size**: Keep Python modules < 300 lines, React components < 300 lines
 - **Single Responsibility**: Each file has ONE purpose; split if growing too large
 - **No Duplication**: Don't create "Enhanced"/"V2"/"Advanced" variants—refactor in-place
+  - **Utilities Pattern**: When multiple modules have similar logic (e.g., spectrum analysis, content detection), extract to a utilities module with static methods (see Phase 7.2: SpectrumOperations + BaseSpectrumAnalyzer eliminated 900 lines of duplication)
+  - **Thin Wrappers**: Once utilities extracted, module implementations become thin wrappers that delegate to the utility module
 - **Database Access**: Repository pattern ONLY (`auralis/library/repositories/`), never raw SQL in business logic
 - **No Premature Abstraction**: Don't create helpers for one-time operations
 - **Clear naming**: Use descriptive names that make purpose obvious without comments
@@ -502,6 +545,33 @@ python sync_version.py 1.1.0-beta.4
   - Types: `feat` (new feature), `fix` (bug fix), `refactor` (code structure), `perf` (optimization), `test` (test-only), `docs` (documentation)
 - **Commit scope**: Keep commits focused on one logical change
 - **Merge strategy**: Squash merge to `master` when PR approved (keeps history clean)
+
+---
+
+## 🎯 Current Development Phase
+
+**Phase**: 9B (Empirical Validation) - Auralis audio processing comparison against Matchering
+
+**Completed Phases**:
+- ✅ **Phase 7.2**: Spectrum and Content Analysis Consolidation (eliminated 900 lines of duplicate code via Utilities Pattern)
+- ✅ **Phase 8**: Preset-Aware Peak Normalization (fixed preset differentiation bug, Gentle now 0.20 dB louder than Adaptive)
+- ✅ **Phase 9A**: Matchering Baseline Analysis (analyzed two Slayer albums, established content-aware scaling patterns)
+
+**Active Phase 9B Tasks**:
+- ⏳ Process Slayer albums with Auralis and compare to Matchering baseline
+- ⏳ Update Paper Section 5.2 with empirical validation results
+- ⏳ Prepare Beta.2 release
+
+**Research Folder**:
+- Location: `research/` (excluded from git via .gitignore)
+- Contains: Audio analysis data, validation scripts, baseline comparisons
+- Publishing: Will be FOSS'd after paper completion (not ready for public yet)
+
+**Key Files This Phase**:
+- `PHASE_9A_SUMMARY.md` - Matchering baseline analysis documentation
+- `research/MATCHERING_BASELINE_ANALYSIS.md` - Detailed two-album analysis
+- `research/validate_with_real_audio.py` - Real audio processing script
+- `PHASE_8_COMPLETE_SUMMARY.md` - Phase 8 completion documentation
 
 ---
 
