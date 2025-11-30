@@ -202,8 +202,14 @@ class HybridProcessor:
             target_audio = np.column_stack([target_audio, target_audio])
             debug(f"Converted mono audio to stereo: shape now {target_audio.shape}")
 
-        if target_audio.shape[0] < 2:
-            raise ValueError(f"Target audio must have at least 2 samples, got {target_audio.shape[0]}")
+        # Check for minimum audio length (1024 samples = ~23ms at 44.1kHz)
+        # Prevents Rust FFT/DSP operations from panicking on tiny audio
+        MIN_SAMPLES = 1024
+        if target_audio.shape[0] < MIN_SAMPLES:
+            raise ValueError(
+                f"Target audio must have at least {MIN_SAMPLES} samples for DSP processing, "
+                f"got {target_audio.shape[0]} samples (~{target_audio.shape[0]/44100*1000:.1f}ms at 44.1kHz)"
+            )
 
         # Handle silence (all zeros) - return as-is to avoid NaN production in downstream processing
         if np.allclose(target_audio, 0.0, atol=1e-10):
