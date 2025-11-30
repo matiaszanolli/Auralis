@@ -15,8 +15,8 @@ Dependencies:
 import numpy as np
 from typing import Dict
 import logging
-from .base_analyzer import BaseAnalyzer
-from .common_metrics import MetricUtils
+from ..base_analyzer import BaseAnalyzer
+from ...common_metrics import MetricUtils
 
 logger = logging.getLogger(__name__)
 

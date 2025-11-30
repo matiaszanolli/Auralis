@@ -30,10 +30,10 @@ import numpy as np
 import logging
 from typing import Dict, Optional
 
-from .streaming_variation_analyzer import StreamingVariationAnalyzer
-from .streaming_spectral_analyzer import StreamingSpectralAnalyzer
-from .streaming_temporal_analyzer import StreamingTemporalAnalyzer
-from .streaming_harmonic_analyzer import StreamingHarmonicAnalyzer
+from .variation import StreamingVariationAnalyzer
+from .spectral import StreamingSpectralAnalyzer
+from .temporal import StreamingTemporalAnalyzer
+from .harmonic import StreamingHarmonicAnalyzer
 
 logger = logging.getLogger(__name__)
 

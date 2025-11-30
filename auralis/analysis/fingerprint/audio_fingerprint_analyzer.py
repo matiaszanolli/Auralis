@@ -25,12 +25,12 @@ import logging
 from typing import Dict, Optional, Literal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from auralis.analysis.fingerprint.temporal_analyzer import TemporalAnalyzer
-from auralis.analysis.fingerprint.spectral_analyzer import SpectralAnalyzer
-from auralis.analysis.fingerprint.harmonic_analyzer import HarmonicAnalyzer
-from auralis.analysis.fingerprint.harmonic_analyzer_sampled import SampledHarmonicAnalyzer
-from auralis.analysis.fingerprint.variation_analyzer import VariationAnalyzer
-from auralis.analysis.fingerprint.stereo_analyzer import StereoAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.temporal import TemporalAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.spectral import SpectralAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import SampledHarmonicAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.variation import VariationAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.stereo import StereoAnalyzer
 
 logger = logging.getLogger(__name__)
 

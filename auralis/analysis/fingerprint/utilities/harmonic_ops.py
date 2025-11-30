@@ -87,7 +87,7 @@ class HarmonicOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from .common_metrics import StabilityMetrics
+            from ..common_metrics import StabilityMetrics
 
             # Calculate pitch (fundamental frequency) using YIN algorithm
             if RUST_DSP_AVAILABLE:
@@ -137,7 +137,7 @@ class HarmonicOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from .common_metrics import MetricUtils
+            from ..common_metrics import MetricUtils
 
             # Calculate chromagram (12-dimensional pitch class profile)
             if RUST_DSP_AVAILABLE:

@@ -17,8 +17,8 @@ Dependencies:
 import numpy as np
 from typing import Dict
 import logging
-from .base_analyzer import BaseAnalyzer
-from .harmonic_utilities import HarmonicOperations, RUST_DSP_AVAILABLE
+from ..base_analyzer import BaseAnalyzer
+from ...utilities.harmonic_ops import HarmonicOperations, RUST_DSP_AVAILABLE
 
 logger = logging.getLogger(__name__)
 

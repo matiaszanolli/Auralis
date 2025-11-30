@@ -42,7 +42,7 @@ from auralis.analysis.fingerprint.common_metrics import (
     AggregationUtils,
     SpectralOperations,
 )
-from auralis.analysis.fingerprint.base_analyzer import BaseAnalyzer
+from auralis.analysis.fingerprint.analyzers.base_analyzer import BaseAnalyzer
 
 __all__ = [
     'AudioFingerprintAnalyzer',

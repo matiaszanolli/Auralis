@@ -16,8 +16,8 @@ Dependencies:
 import numpy as np
 from typing import Dict
 import logging
-from .base_analyzer import BaseAnalyzer
-from .variation_utilities import VariationOperations
+from ..base_analyzer import BaseAnalyzer
+from ...utilities.variation_ops import VariationOperations
 
 logger = logging.getLogger(__name__)
 
