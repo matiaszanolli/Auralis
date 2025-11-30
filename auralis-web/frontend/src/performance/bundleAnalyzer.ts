@@ -397,7 +397,7 @@ export function extractModuleSizes(rollupOutput: any[]): ModuleMetrics[] {
 // Exports
 // ============================================================================
 
-export { BundleAnalyzer, bundleAnalyzer };
+export { BundleAnalyzer };
 export type {
   ModuleMetrics,
   BundleMetrics,

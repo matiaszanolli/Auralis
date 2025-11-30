@@ -23,7 +23,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from streamlined_cache import (
+from cache.manager import (
     StreamlinedCacheManager,
     CachedChunk,
     TrackCacheStatus,

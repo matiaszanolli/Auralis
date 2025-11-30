@@ -1090,6 +1090,7 @@ class BandNormalizationTable:
     """
 
     # Standard 31-band EQ configuration with frequency ranges and gain ranges
+    # Total bands: 0-30 (31 bands inclusive)
     STANDARD_BANDS = [
         # (band_start, band_end, freq_range_hz, fingerprint_key, min_db, max_db)
         (0, 3, "20-60", "sub_bass_pct", -12, 12),
@@ -1098,7 +1099,7 @@ class BandNormalizationTable:
         (15, 19, "500-2k", "mid_pct", -6, 6),
         (20, 23, "2k-4k", "upper_mid_pct", -8, 8),
         (24, 25, "4k-6k", "presence_pct", -6, 12),
-        (26, 31, "6k-20k", "air_pct", -12, 12),
+        (26, 30, "6k-20k", "air_pct", -12, 12),
     ]
 
     def __init__(self, band_definitions=None):

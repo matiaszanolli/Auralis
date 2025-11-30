@@ -23,7 +23,7 @@ from unittest.mock import AsyncMock, Mock, MagicMock
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from cache_endpoints import (
+from cache.endpoints import (
     CacheAwareEndpoint,
     CacheQueryBuilder,
     EndpointMetrics,

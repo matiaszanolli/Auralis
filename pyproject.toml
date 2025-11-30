@@ -74,15 +74,4 @@ warn_unreachable = true
 [tool.hatch.build.targets.wheel]
 packages = ["auralis"]
 
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = "-ra -q --cov=matchering_player"
-testpaths = [
-    "tests",
-]
-markers = [
-    "mutation: Mutation testing (tests designed to kill specific mutations)",
-    "boundary: Boundary condition and edge case tests",
-    "load: Load testing (large datasets, high volume operations)",
-    "stress: Stress testing (resource limits, extreme conditions)",
-]
+# Pytest configuration is defined in pytest.ini (takes precedence over pyproject.toml)

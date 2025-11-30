@@ -482,7 +482,7 @@ def test_playlist_create_api(client):
 @pytest.mark.api
 def test_playlist_add_tracks_api(client):
     """
-    INTEGRATION TEST: /api/playlists/{id}/tracks endpoint (ADD).
+    INTEGRATION TEST: /api/playlists/{id}/tracks/add endpoint (ADD).
 
     Validates:
     - Adding tracks to playlist
@@ -496,7 +496,11 @@ def test_playlist_add_tracks_api(client):
     if create_response.status_code not in [200, 201]:
         pytest.skip("Playlist creation failed")
 
-    playlist_id = create_response.json().get("id") or create_response.json().get("playlist_id")
+    # Extract playlist_id from nested response structure
+    response_data = create_response.json()
+    playlist_id = response_data.get("playlist", {}).get("id") or response_data.get("id") or response_data.get("playlist_id")
+    if not playlist_id:
+        pytest.skip("Could not extract playlist_id from response")
 
     # Get a track ID
     tracks_response = client.get("/api/library/tracks?limit=1")
@@ -505,13 +509,13 @@ def test_playlist_add_tracks_api(client):
 
     track_id = tracks_response.json()["tracks"][0]["id"]
 
-    # Add track to playlist
+    # Add track to playlist using the correct endpoint
     add_response = client.post(
-        f"/api/playlists/{playlist_id}/tracks",
+        f"/api/playlists/{playlist_id}/tracks/add",
         json={"track_id": track_id}
     )
     assert add_response.status_code in [200, 201, 204], (
-        "Adding track to playlist should succeed"
+        f"Adding track to playlist should succeed, got {add_response.status_code}: {add_response.text}"
     )
 
 

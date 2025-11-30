@@ -555,11 +555,11 @@ def create_player_router(
             raise HTTPException(status_code=503, detail="Audio player not available")
 
         try:
-            if hasattr(audio_player, 'queue_manager'):
-                queue_info = audio_player.queue_manager.get_queue_info() if hasattr(audio_player.queue_manager, 'get_queue_info') else {
-                    "tracks": list(audio_player.queue_manager.queue),
-                    "current_index": audio_player.queue_manager.current_index,
-                    "total_tracks": len(audio_player.queue_manager.queue)
+            if hasattr(audio_player, 'queue'):
+                queue_info = audio_player.queue.get_queue_info() if hasattr(audio_player.queue, 'get_queue_info') else {
+                    "tracks": list(audio_player.queue.queue),
+                    "current_index": audio_player.queue.current_index,
+                    "total_tracks": len(audio_player.queue.queue)
                 }
                 return queue_info
             else:
@@ -611,8 +611,8 @@ def create_player_router(
             await player_state_manager.set_queue(track_infos, request.start_index)
 
             # Set queue in actual player
-            if hasattr(audio_player, 'queue_manager'):
-                audio_player.queue_manager.set_queue([t.filepath for t in db_tracks], request.start_index)
+            if hasattr(audio_player, 'queue'):
+                audio_player.queue.set_queue([t.filepath for t in db_tracks], request.start_index)
 
             # Load and start playing if requested
             if request.start_index >= 0 and request.start_index < len(db_tracks):
@@ -696,11 +696,11 @@ def create_player_router(
 
         if not player_state_manager:
             raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        if not audio_player or not hasattr(audio_player, 'queue'):
             raise HTTPException(status_code=503, detail="Queue manager not available")
 
         try:
-            queue_manager = audio_player.queue_manager
+            queue_manager = audio_player.queue
 
             # Validate index
             if index < 0 or index >= queue_manager.get_queue_size():
@@ -754,11 +754,11 @@ def create_player_router(
 
         if not player_state_manager:
             raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        if not audio_player or not hasattr(audio_player, 'queue'):
             raise HTTPException(status_code=503, detail="Queue manager not available")
 
         try:
-            queue_manager = audio_player.queue_manager
+            queue_manager = audio_player.queue
 
             # Validate new_order
             queue_size = queue_manager.get_queue_size()
@@ -817,11 +817,11 @@ def create_player_router(
 
         if not player_state_manager:
             raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        if not audio_player or not hasattr(audio_player, 'queue'):
             raise HTTPException(status_code=503, detail="Queue manager not available")
 
         try:
-            queue_manager = audio_player.queue_manager
+            queue_manager = audio_player.queue
 
             # Clear queue
             queue_manager.clear()
@@ -871,7 +871,7 @@ def create_player_router(
             raise HTTPException(status_code=503, detail="Player not available")
         if not library_manager:
             raise HTTPException(status_code=503, detail="Library manager not available")
-        if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        if not audio_player or not hasattr(audio_player, 'queue'):
             raise HTTPException(status_code=503, detail="Queue manager not available")
 
         try:
@@ -880,7 +880,7 @@ def create_player_router(
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
 
-            queue_manager = audio_player.queue_manager
+            queue_manager = audio_player.queue
 
             # Add to queue at position
             if request.position is not None:
@@ -936,11 +936,11 @@ def create_player_router(
 
         if not player_state_manager:
             raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        if not audio_player or not hasattr(audio_player, 'queue'):
             raise HTTPException(status_code=503, detail="Queue manager not available")
 
         try:
-            queue_manager = audio_player.queue_manager
+            queue_manager = audio_player.queue
             current_queue = queue_manager.get_queue()
 
             # Validate indices
@@ -994,11 +994,11 @@ def create_player_router(
 
         if not player_state_manager:
             raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue_manager'):
+        if not audio_player or not hasattr(audio_player, 'queue'):
             raise HTTPException(status_code=503, detail="Queue manager not available")
 
         try:
-            queue_manager = audio_player.queue_manager
+            queue_manager = audio_player.queue
 
             # Shuffle queue
             queue_manager.shuffle()
