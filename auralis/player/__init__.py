@@ -4,7 +4,7 @@
 Auralis Player Module
 ~~~~~~~~~~~~~~~~~~~~~
 
-Real-time audio player with live mastering
+Real-time audio player with live mastering and adaptive DSP
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -12,7 +12,7 @@ Real-time audio player with live mastering
 Based on Matchering Player components
 """
 
-from .audio_player import AudioPlayer
+from .enhanced_audio_player import EnhancedAudioPlayer
 from .config import PlayerConfig
 
-__all__ = ["AudioPlayer", "PlayerConfig"]
+__all__ = ["EnhancedAudioPlayer", "PlayerConfig"]

@@ -22,9 +22,8 @@ __copyright__ = "Copyright (C) 2024 Auralis Team"
 from .core.processor import process
 from .core.config import UnifiedConfig
 
-# Real-time player
-from .player.audio_player import AudioPlayer
-from .player.enhanced_audio_player import EnhancedAudioPlayer
+# Real-time player (Modern implementation with adaptive DSP)
+from .player import EnhancedAudioPlayer
 from .player.config import PlayerConfig
 
 # Results and output handling
@@ -47,11 +46,10 @@ from .analysis.content_analysis import analyze_audio_content
 __all__ = [
     "process",           # Core batch processing
     "UnifiedConfig",     # Modern unified configuration
-    "AudioPlayer",      # Basic real-time player
-    "EnhancedAudioPlayer",  # Advanced player with DSP
-    "PlayerConfig",     # Player configuration
+    "EnhancedAudioPlayer",  # Real-time player with adaptive DSP (modern standard)
+    "PlayerConfig",      # Player configuration
     "Result", "pcm16", "pcm24",  # Output formats
-    "log",              # Logging
+    "log",               # Logging
     # Modern system
     "create_adaptive_config",
     "create_reference_config",
