@@ -12,9 +12,13 @@ Assess audio frequency response quality
 
 import numpy as np
 from typing import Dict
+from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
+from auralis.analysis.quality_assessors.utilities.frequency_ops import FrequencyOperations
+from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOperations
+from auralis.analysis.quality_assessors.utilities.assessment_constants import AssessmentConstants
 
 
-class FrequencyResponseAssessor:
+class FrequencyResponseAssessor(BaseAssessor):
     """Assess frequency response quality"""
 
     def __init__(self, frequency_bins: np.ndarray):
@@ -24,6 +28,7 @@ class FrequencyResponseAssessor:
         Args:
             frequency_bins: Array of frequency bin values
         """
+        super().__init__()
         self.frequency_bins = frequency_bins
         self.reference_curve = self._create_reference_curve()
 
@@ -69,9 +74,33 @@ class FrequencyResponseAssessor:
         weighted_deviation = np.average(deviation, weights=weights)
 
         # Convert to score (lower deviation = higher score)
-        score = max(0, 100 - weighted_deviation * 2)
+        score = ScoringOperations.linear_scale_score(
+            weighted_deviation, 0, 50, inverted=True
+        )
 
         return float(score)
+
+    def detailed_analysis(self, spectrum_result: Dict) -> Dict:
+        """
+        Perform detailed frequency response analysis
+
+        Args:
+            spectrum_result: Dictionary with spectrum analysis
+
+        Returns:
+            Dictionary with detailed frequency metrics
+        """
+        spectrum = np.array(spectrum_result['spectrum'])
+        deviation = np.abs(spectrum - self.reference_curve)
+        weights = self._calculate_frequency_weights()
+        weighted_deviation = np.average(deviation, weights=weights)
+
+        return {
+            'weighted_deviation_db': float(weighted_deviation),
+            'max_deviation_db': float(np.max(deviation)),
+            'mean_deviation_db': float(np.mean(deviation)),
+            'deviation_std_db': float(np.std(deviation))
+        }
 
     def _calculate_frequency_weights(self) -> np.ndarray:
         """
