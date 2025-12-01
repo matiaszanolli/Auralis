@@ -32,7 +32,7 @@ export const MasteringRecommendation: React.FC = () => {
   }
 
   const data = recMessage.data;
-  const confidence = Math.round((data.confidence || 0.5) * 100);
+  const confidence = Math.round((data.confidence_score || 0.5) * 100);
 
   return (
     <div style={styles.container}>
@@ -47,8 +47,8 @@ export const MasteringRecommendation: React.FC = () => {
       {isExpanded && (
         <div style={styles.content}>
           <div style={styles.recommendation}>
-            <div style={styles.label}>Recommended Preset</div>
-            <div style={styles.value}>{data.recommended_preset}</div>
+            <div style={styles.label}>Recommended Profile</div>
+            <div style={styles.value}>{data.primary_profile_name}</div>
           </div>
 
           <div style={styles.confidence}>
