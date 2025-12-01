@@ -1,7 +1,7 @@
 import React from 'react';
 import { Grid } from '@mui/material';
 import { TrackCard } from '../../track/TrackCard';
-import TrackQueue from '../../player-bar-v2/queue/TrackQueue';
+// import TrackQueue from '../../player-bar-v2/queue/TrackQueue'; // FIXME: Component not found
 import InfiniteScrollTrigger from '../Items/InfiniteScrollTrigger';
 import { Track } from './TrackListView';
 
@@ -72,29 +72,8 @@ export const TrackGridView: React.FC<TrackGridViewProps> = ({
       {/* Intersection observer trigger for infinite scroll */}
       {hasMore && <InfiniteScrollTrigger ref={loadMoreRef} />}
 
-      {/* Track Queue - Shows current album/playlist tracks */}
-      {tracks.length > 0 && (
-        <TrackQueue
-          tracks={tracks.map((t) => ({
-            id: t.id,
-            title: t.title,
-            artist: t.artist,
-            duration: t.duration,
-          }))}
-          currentTrackId={currentTrackId}
-          onTrackClick={(trackId) => {
-            const foundTrack = tracks.find((t) => t.id === trackId);
-            if (foundTrack) {
-              onTrackPlay(foundTrack);
-            }
-          }}
-          onRemoveTrack={onRemoveTrack}
-          onReorderQueue={onReorderQueue}
-          onShuffleQueue={onShuffleQueue}
-          onClearQueue={onClearQueue}
-          title="Current Queue"
-        />
-      )}
+      {/* TrackQueue component removed - FIXME: Import path not found */}
+      {/* TODO: Implement track queue display or remove if not needed */}
     </>
   );
 };
