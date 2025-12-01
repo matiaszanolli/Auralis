@@ -46,29 +46,29 @@ The current frontend is heavily fragmented due to iterative patching without a s
 ✅ **Phase 3:** Enhancement pane redesign (1 week, parallel start)
 🔴 **Phase 4:** Integration testing against real backend - **CRITICAL API CONTRACT MISMATCH DISCOVERED**
 
-#### ⚠️ Phase 4 Blocker: Backend/Frontend API Contract Mismatch
+#### ✅ Phase 4: API Contract Fixes COMPLETED
 **Discovered:** November 30, 2025
-**Priority:** CRITICAL - Must resolve before Phase 4 can proceed
+**Resolved:** November 30, 2025
+**Priority:** CRITICAL - RESOLVED
 
-**Issue:** Frontend hooks assume JSON request bodies, but backend uses query parameters for all POST requests.
+**Issue:** Frontend hooks assumed JSON request bodies, but backend uses query parameters for all POST requests.
 
-**Examples:**
-- Frontend: `POST /api/player/load {track_id}` → Backend: `POST /api/player/load?track_path=...&track_id=...`
-- Frontend: `POST /api/player/seek {position}` → Backend: `POST /api/player/seek?position=...`
-- Frontend: `POST /api/player/volume {volume}` → Backend: `POST /api/player/volume?volume=...`
+**What Was Fixed:**
+1. ✅ Updated `useRestAPI.ts` to support query parameters in POST, PUT, PATCH methods
+2. ✅ Updated `usePlaybackControl.ts` - seek/volume now use query parameters
+3. ✅ Updated `useEnhancementControl.ts` - toggle/preset/intensity now use query parameters
+4. ✅ Updated Phase 4 integration tests to match new API format
+5. ✅ No breaking changes - backward compatible with JSON body pattern
 
-**Decision:** Fix frontend to match backend (already deployed, consistent, less risky)
+**Documentation:**
+- ✅ [PHASE4_API_AUDIT.md](../../PHASE4_API_AUDIT.md) - Complete audit of all endpoints
+- ✅ [PHASE_4_COMPLETION_SUMMARY.md](../../PHASE_4_COMPLETION_SUMMARY.md) - Implementation details
 
-**Scope:**
-1. Update usePlaybackControl to use query parameters
-2. Update useEnhancementControl to use query parameters
-3. Update useRestAPI to support query parameter passing
-4. Retest Phase 1-3 (mocks unaffected, but some integration will change)
-5. Continue Phase 4 integration tests
+**Backend Bug Discovered (Separate Issue):**
+The `/api/player/load` endpoint has a pre-existing bug where the implementation doesn't match
+the endpoint signature. This is outside Phase 4 scope and should be fixed in backend roadmap.
 
-**See:** [PHASE4_API_AUDIT.md](../../PHASE4_API_AUDIT.md)
-
-**Phase 4 Revised:** Integration, error handling, performance, accessibility (1 week, after API fix)
+**Phase 4 Next Steps:** Integration testing and error handling (pending backend bug fix)
 
 ### Success Criteria
 
