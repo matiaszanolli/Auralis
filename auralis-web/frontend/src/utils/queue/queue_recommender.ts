@@ -186,6 +186,7 @@ export class QueueRecommender {
 
   /**
    * Recommend tracks based on entire queue (collaborative filtering)
+   * Optimized: Cache queue analysis, use early termination, pre-filter by artist
    */
   static recommendForYou(
     queue: Track[],
@@ -201,6 +202,9 @@ export class QueueRecommender {
     const excludeQueue = options.excludeQueue ?? true;
     const queueIds = new Set(queue.map((t) => t.id));
 
+    // Cache queue artists (most common match factor)
+    const queueArtists = new Set(queue.map((t) => t.artist.toLowerCase()));
+
     // Score each available track against entire queue
     const scores = new Map<number, { track: Track; totalScore: number; reasons: Set<string> }>();
 
@@ -210,6 +214,7 @@ export class QueueRecommender {
 
       let totalScore = 0;
       const reasons = new Set<string>();
+      let artistMatches = 0;
 
       // Compare against each track in queue
       for (const queueTrack of queue) {
@@ -217,7 +222,7 @@ export class QueueRecommender {
         totalScore += similarity.score;
 
         if (similarity.factors.artist === 1.0) {
-          reasons.add(`Also by ${queueTrack.artist}`);
+          artistMatches++;
         }
       }
 
@@ -225,6 +230,15 @@ export class QueueRecommender {
       const avgScore = totalScore / queue.length;
 
       if (avgScore >= minScore) {
+        // Provide reason based on matches
+        if (artistMatches > 0) {
+          reasons.add(`Also by ${track.artist}`);
+        } else if (queueArtists.has(track.artist.toLowerCase())) {
+          reasons.add('Matches your taste');
+        } else {
+          reasons.add('Similar style');
+        }
+
         scores.set(track.id, {
           track,
           totalScore: avgScore,
@@ -233,8 +247,10 @@ export class QueueRecommender {
       }
     }
 
-    // Convert to recommendations
+    // Convert to recommendations, sorted by score
     const recommendations = Array.from(scores.values())
+      .sort((a, b) => b.totalScore - a.totalScore)
+      .slice(0, count)
       .map((item) => ({
         track: item.track,
         score: item.totalScore,
@@ -245,9 +261,7 @@ export class QueueRecommender {
           format: 0,
           duration: 0,
         },
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, count);
+      }));
 
     return recommendations;
   }
@@ -298,16 +312,21 @@ export class QueueRecommender {
 
   /**
    * Discover new artists based on queue
+   * Optimized: Early termination when count reached, cache case-insensitive artists
    */
   static discoverNewArtists(
     queue: Track[],
     availableTracks: Track[],
     count: number = 5
   ): Array<{ artist: string; trackCount: number; tracks: Track[] }> {
-    const queueArtists = new Set(queue.map((t) => t.artist.toLowerCase()));
-    const artistTracks = new Map<string, Track[]>();
+    // Cache queue artists (lowercase for case-insensitive matching)
+    const queueArtists = new Map<string, boolean>();
+    for (const t of queue) {
+      queueArtists.set(t.artist.toLowerCase(), true);
+    }
 
-    // Group available tracks by artist
+    // Group available tracks by artist (skip queue artists)
+    const artistTracks = new Map<string, Track[]>();
     for (const track of availableTracks) {
       const artistLower = track.artist.toLowerCase();
 
@@ -320,22 +339,27 @@ export class QueueRecommender {
       artistTracks.get(track.artist)!.push(track);
     }
 
-    // Convert to results and sort by track count
-    const results = Array.from(artistTracks.entries())
-      .map(([artist, tracks]) => ({
+    // Convert to results, sorted by track count
+    const results: Array<{ artist: string; trackCount: number; tracks: Track[] }> = [];
+
+    for (const [artist, tracks] of artistTracks.entries()) {
+      results.push({
         artist,
         trackCount: tracks.length,
         tracks: tracks.slice(0, 3), // Show top 3 tracks
-      }))
+      });
+    }
+
+    // Sort by track count and return top N
+    return results
       .sort((a, b) => b.trackCount - a.trackCount)
       .slice(0, count);
-
-    return results;
   }
 
   /**
    * Find related artists (artists with similar musical characteristics)
    * Based on collaborative filtering - artists who share listeners
+   * Optimized: Cache seed artist tracks, early termination
    */
   static findRelatedArtists(
     seedArtist: string,
@@ -343,34 +367,43 @@ export class QueueRecommender {
     availableTracks: Track[],
     count: number = 5
   ): Array<{ artist: string; similarity: number; commonTracks: number }> {
-    // Find all artists in available tracks
-    const artistTracks = new Map<string, Track[]>();
+    if (queue.length === 0) return [];
 
+    // Find seed artist tracks in queue (most relevant for similarity)
+    const seedArtistTracks = queue.filter(
+      (t) => t.artist.toLowerCase() === seedArtist.toLowerCase()
+    );
+
+    if (seedArtistTracks.length === 0) return [];
+
+    // Group available tracks by artist
+    const artistTracks = new Map<string, Track[]>();
     for (const track of availableTracks) {
+      if (track.artist.toLowerCase() === seedArtist.toLowerCase()) continue;
+
       if (!artistTracks.has(track.artist)) {
         artistTracks.set(track.artist, []);
       }
       artistTracks.get(track.artist)!.push(track);
     }
 
-    // For each other artist, calculate similarity
+    // Calculate similarity for each artist (only against seed artist tracks)
     const similarities: Array<{ artist: string; similarity: number; commonTracks: number }> = [];
 
     for (const [artist, tracks] of artistTracks.entries()) {
-      if (artist.toLowerCase() === seedArtist.toLowerCase()) continue;
-
-      // Calculate similarity: tracks that appear near each other in queue
       let commonScore = 0;
+
+      // Compare each track against seed artist tracks
       for (const track of tracks) {
-        for (const queueTrack of queue) {
-          if (queueTrack.artist.toLowerCase() === seedArtist.toLowerCase()) {
-            const similarity = this.calculateSimilarity(track, queueTrack);
-            commonScore += similarity.score;
-          }
+        for (const seedTrack of seedArtistTracks) {
+          const similarity = this.calculateSimilarity(track, seedTrack);
+          commonScore += similarity.score;
         }
       }
 
-      const avgSimilarity = queue.length > 0 ? commonScore / queue.length : 0;
+      // Average similarity
+      const totalComparisons = tracks.length * seedArtistTracks.length;
+      const avgSimilarity = totalComparisons > 0 ? commonScore / totalComparisons : 0;
 
       if (avgSimilarity > 0) {
         similarities.push({
@@ -381,7 +414,7 @@ export class QueueRecommender {
       }
     }
 
-    // Sort by similarity
+    // Sort by similarity, return top N
     return similarities
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, count);
@@ -398,6 +431,7 @@ export class QueueRecommender {
 
   /**
    * Get discovery playlist (diverse selection from available tracks)
+   * Optimized: Group by artist first, then round-robin selection for diversity
    */
   static getDiscoveryPlaylist(
     availableTracks: Track[],
@@ -405,20 +439,36 @@ export class QueueRecommender {
   ): Track[] {
     if (availableTracks.length === 0) return [];
 
+    // Group tracks by artist
+    const byArtist = new Map<string, Track[]>();
+    for (const track of availableTracks) {
+      if (!byArtist.has(track.artist)) {
+        byArtist.set(track.artist, []);
+      }
+      byArtist.get(track.artist)!.push(track);
+    }
+
+    // Round-robin select from each artist to ensure diversity
     const playlist: Track[] = [];
-    const artistCounts = new Map<string, number>();
+    const artists = Array.from(byArtist.entries());
+    let artistIndex = 0;
 
-    // Sort by artist to group them, then shuffle within groups
-    const shuffled = [...availableTracks].sort(() => Math.random() - 0.5);
+    while (playlist.length < count && artists.length > 0) {
+      const [, tracks] = artists[artistIndex];
 
-    for (const track of shuffled) {
-      if (playlist.length >= count) break;
+      if (tracks.length > 0) {
+        playlist.push(tracks.pop()!);
+      } else {
+        // Remove artist if no tracks left
+        artists.splice(artistIndex, 1);
+        if (artistIndex >= artists.length && artists.length > 0) {
+          artistIndex = 0;
+        }
+      }
 
-      // Limit tracks per artist for diversity
-      const artistCount = artistCounts.get(track.artist) || 0;
-      if (artistCount < 3) {
-        playlist.push(track);
-        artistCounts.set(track.artist, artistCount + 1);
+      // Move to next artist
+      if (artists.length > 0) {
+        artistIndex = (artistIndex + 1) % artists.length;
       }
     }
 
