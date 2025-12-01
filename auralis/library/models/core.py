@@ -341,3 +341,66 @@ class QueueState(Base, TimestampMixin):
         state.is_shuffled = data.get('is_shuffled', False)
         state.repeat_mode = data.get('repeat_mode', 'off')
         return state
+
+
+class QueueHistory(Base, TimestampMixin):
+    """
+    Model for tracking queue state history for undo/redo operations.
+
+    Stores snapshots of queue state at each operation, limiting to 20 most recent
+    for memory efficiency while preserving undo/redo functionality.
+    """
+    __tablename__ = 'queue_history'
+
+    id = Column(Integer, primary_key=True)
+
+    # Reference to queue state (for tracking which queue this history belongs to)
+    queue_state_id = Column(Integer, ForeignKey('queue_state.id'), nullable=False)
+
+    # Type of operation that triggered this history entry
+    # Valid values: 'set', 'add', 'remove', 'reorder', 'shuffle', 'clear'
+    operation = Column(String, nullable=False)
+
+    # Full snapshot of queue state before the operation
+    # Stored as JSON to capture: track_ids, current_index, is_shuffled, repeat_mode
+    state_snapshot = Column(Text, nullable=False)
+
+    # Optional metadata about the operation
+    # For 'add'/'remove': contains index or track_id
+    # For 'reorder': contains fromIndex and toIndex
+    # For 'shuffle': contains shuffle_mode info
+    operation_metadata = Column(Text, default='{}')
+
+    def to_dict(self) -> dict:
+        """Convert history entry to dictionary"""
+        import json
+        try:
+            state_snapshot = json.loads(self.state_snapshot) if self.state_snapshot else {}
+        except (json.JSONDecodeError, TypeError):
+            state_snapshot = {}
+
+        try:
+            operation_metadata = json.loads(self.operation_metadata) if self.operation_metadata else {}
+        except (json.JSONDecodeError, TypeError):
+            operation_metadata = {}
+
+        return {
+            'id': self.id,
+            'queue_state_id': self.queue_state_id,
+            'operation': self.operation,
+            'state_snapshot': state_snapshot,
+            'operation_metadata': operation_metadata,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    @staticmethod
+    def from_dict(data: dict) -> 'QueueHistory':
+        """Create QueueHistory from dictionary"""
+        import json
+        entry = QueueHistory()
+        entry.queue_state_id = data.get('queue_state_id', 1)
+        entry.operation = data.get('operation', 'set')
+        entry.state_snapshot = json.dumps(data.get('state_snapshot', {}))
+        entry.operation_metadata = json.dumps(data.get('operation_metadata', {}))
+        return entry

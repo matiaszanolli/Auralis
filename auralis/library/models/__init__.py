@@ -14,7 +14,7 @@ Database models for music library management
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist
 
 # Core models
-from .core import Track, Album, Artist, Genre, Playlist, QueueState
+from .core import Track, Album, Artist, Genre, Playlist, QueueState, QueueHistory
 
 # Statistics
 from .statistics import LibraryStats
@@ -43,6 +43,7 @@ __all__ = [
     'Genre',
     'Playlist',
     'QueueState',
+    'QueueHistory',
     # Statistics
     'LibraryStats',
     # Settings

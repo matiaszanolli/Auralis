@@ -17,6 +17,7 @@ from .playlist_repository import PlaylistRepository
 from .stats_repository import StatsRepository
 from .fingerprint_repository import FingerprintRepository
 from .queue_repository import QueueRepository
+from .queue_history_repository import QueueHistoryRepository
 
 __all__ = [
     'TrackRepository',
@@ -26,4 +27,5 @@ __all__ = [
     'StatsRepository',
     'FingerprintRepository',
     'QueueRepository',
+    'QueueHistoryRepository',
 ]
