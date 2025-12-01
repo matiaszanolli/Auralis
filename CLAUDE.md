@@ -17,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Modular Design**: Keep modules under 300 lines, one clear purpose per component
 - **No Component Duplication**: Avoid "Enhanced"/"V2"/"Advanced" variants—refactor shared logic in-place instead
 - **Content-Aware Processing**: Adapt DSP parameters based on source characteristics (loudness, dynamics, frequency content)
+- **No Sugar-Coating, No Timelines**: Be honest about what's done vs. what's uncertain. Never suggest production readiness without validation. For audio, quality and testing are not optional—they are the foundation of improvement. No dates without confidence. Test rigorously or don't claim readiness.
 
 ---
 
