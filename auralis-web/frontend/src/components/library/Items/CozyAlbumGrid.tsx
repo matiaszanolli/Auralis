@@ -32,8 +32,6 @@ interface CozyAlbumGridProps {
  * - Grid rendering with album cards
  */
 export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) => {
-  console.log('[CozyAlbumGrid] Rendered');
-
   // Pagination logic
   const {
     albums,

@@ -41,7 +41,6 @@ export const AlbumGridContent: React.FC<AlbumGridContentProps> = ({
   loadMoreTriggerRef,
   onAlbumClick,
 }) => {
-  console.log('[AlbumGridContent] Rendering with', albums.length, 'albums');
   return (
     <GridContainer ref={containerRef}>
       <Grid container spacing={3}>
