@@ -251,7 +251,6 @@ function ComfortableApp() {
   };
 
   const handleSidebarNavigation = useCallback((view: string) => {
-    console.log('[ComfortableApp] handleSidebarNavigation called with view:', view);
     setCurrentView(view);
   }, []);
 
