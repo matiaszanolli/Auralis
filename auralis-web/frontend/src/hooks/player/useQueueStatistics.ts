@@ -91,7 +91,16 @@ export interface QueueStatisticsActions {
 /**
  * Hook for analyzing queue statistics
  *
- * @param queue Current queue tracks
+ * ⚠️ **IMPORTANT: Queue Size Constraints**
+ * This hook is optimized for playback queues (100-500 tracks).
+ * DO NOT use with entire music library (will crash).
+ *
+ * Safe ranges:
+ * - Optimal: 100-500 tracks
+ * - Maximum: 1000 tracks (risky)
+ * - Never: 10K+ tracks (will crash)
+ *
+ * @param queue Current queue tracks (max 500 recommended)
  * @returns Queue statistics and analysis
  *
  * @example
@@ -104,6 +113,15 @@ export interface QueueStatisticsActions {
  * ```
  */
 export function useQueueStatistics(queue: Track[]): QueueStatisticsActions {
+  // Guard: Warn if queue exceeds safe size
+  if (queue.length > 1000) {
+    console.warn(
+      `⚠️ useQueueStatistics: Queue size (${queue.length}) exceeds safe limit (1000). ` +
+      `This hook is designed for playback queues only (100-500 tracks), not entire libraries. ` +
+      `Using with large datasets will cause severe performance degradation or crashes. ` +
+      `See: PHASE_7_ARCHITECTURAL_FIX.md for guidance.`
+    );
+  }
   const stats = useMemo(() => {
     return QueueStatistics.calculateStats(queue);
   }, [queue]);

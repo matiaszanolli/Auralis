@@ -85,7 +85,16 @@ export interface QueueRecommendationsActions {
 /**
  * Hook for getting queue recommendations
  *
- * @param queue Current queue tracks
+ * ⚠️ **IMPORTANT: Queue Size Constraints**
+ * This hook is optimized for playback queues (100-500 tracks).
+ * DO NOT use with entire music library (will crash).
+ *
+ * Safe ranges:
+ * - Optimal: 100-500 tracks for queue, 1000+ for availableTracks
+ * - Maximum queue: 1000 tracks (risky)
+ * - Never queue: 10K+ tracks (will crash)
+ *
+ * @param queue Current queue tracks (max 500 recommended)
  * @param currentTrack Currently playing track (if any)
  * @param availableTracks All available tracks to recommend from
  * @returns Recommendations and utility functions
@@ -110,6 +119,15 @@ export function useQueueRecommendations(
   currentTrack: Track | null,
   availableTracks: Track[]
 ): QueueRecommendationsActions {
+  // Guard: Warn if queue exceeds safe size
+  if (queue.length > 1000) {
+    console.warn(
+      `⚠️ useQueueRecommendations: Queue size (${queue.length}) exceeds safe limit (1000). ` +
+      `This hook is designed for playback queues only (100-500 tracks), not entire libraries. ` +
+      `Using with large datasets will cause severe performance degradation or crashes. ` +
+      `See: PHASE_7_ARCHITECTURAL_FIX.md for guidance.`
+    );
+  }
   // Check if we have enough data
   const hasEnoughData = queue.length >= 3 && availableTracks.length > queue.length;
 
