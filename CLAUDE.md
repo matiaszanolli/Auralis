@@ -9,6 +9,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Rust layer: `vendor/auralis-dsp` for performance-critical DSP (HPSS, YIN, Chroma via PyO3)
 - Graceful fallback to librosa when Rust module unavailable
 
+**⚠️ CRITICAL: DO NOT RUN MEMORY TESTS**
+```
+npm run test:memory   # ❌ WILL CRASH THE SYSTEM - DO NOT RUN
+```
+Memory tests consume 2GB+ and cause system crashes. Use specific test files instead:
+```bash
+# Run specific test file only
+npx vitest run src/hooks/player/__tests__/useQueueSearch.test.ts
+
+# Run component tests
+npx vitest run src/components/player/__tests__/QueueSearchPanel.test.ts
+
+# Run tests in watch mode (for development)
+npx vitest src/hooks/player/__tests__/useQueueSearch.test.ts
+```
+
 **Core Principles:**
 - **DRY (Don't Repeat Yourself)**: Always prioritize improving existing code rather than duplicating logic
   - Use **Utilities Pattern** when multiple modules share similar logic: Extract to static utility methods, refactor modules to thin wrappers
