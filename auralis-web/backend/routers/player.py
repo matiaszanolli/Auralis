@@ -306,8 +306,12 @@ def create_player_router(
             raise HTTPException(status_code=503, detail="Audio player not available")
 
         try:
-            # Add to queue and load
-            audio_player.add_to_queue(track_path)
+            # Add to queue with track info dict (add_to_queue expects dict, not string)
+            track_info = {
+                'filepath': track_path,
+                'id': track_id
+            }
+            audio_player.add_to_queue(track_info)
             success = audio_player.load_current_track() if hasattr(audio_player, 'load_current_track') else True
 
             if success:
