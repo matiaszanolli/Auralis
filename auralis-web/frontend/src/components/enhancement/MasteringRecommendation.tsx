@@ -8,7 +8,7 @@
  * @module components/enhancement/MasteringRecommendation
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { tokens } from '@/design-system/tokens';
 import { useWebSocketLatestMessage } from '@/hooks/websocket/useWebSocketSubscription';
 import type { MasteringRecommendationMessage } from '@/types/websocket';
@@ -107,7 +107,7 @@ const styles = {
     gap: tokens.spacing.md,
     marginTop: tokens.spacing.md,
     paddingTop: tokens.spacing.md,
-    borderTop: `1px solid ${tokens.colors.border.subtle}`,
+    borderTop: `1px solid ${tokens.colors.border.light}`,
   },
 
   recommendation: {

@@ -99,7 +99,7 @@ const styles = {
     gap: tokens.spacing.xs,
     padding: tokens.spacing.md,
     backgroundColor: tokens.colors.bg.primary,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.medium}`,
     borderRadius: tokens.borderRadius.md,
     cursor: 'pointer',
     transition: 'all 0.2s ease',
@@ -114,7 +114,7 @@ const styles = {
   presetButtonActive: {
     backgroundColor: tokens.colors.accent.primary,
     borderColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.onAccent,
+    color: tokens.colors.text.secondary,
   },
 
   presetName: {
@@ -129,7 +129,7 @@ const styles = {
   },
 
   error: {
-    color: tokens.colors.error,
+    color: tokens.colors.accent.error,
     fontSize: tokens.typography.fontSize.sm,
   },
 };
