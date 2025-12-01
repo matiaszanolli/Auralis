@@ -1,193 +1,311 @@
 /**
- * ProgressBar Component
- * ~~~~~~~~~~~~~~~~~~~~~
+ * ProgressBar - Interactive progress timeline with seeking capability
  *
- * Shows current playback position and duration with seek slider.
- * Interactive scrubbing for track seeking.
+ * Provides draggable/clickable progress indicator with buffered range visualization
+ * and hover time tooltip. Core component for track position control.
  *
- * Usage:
- * ```typescript
- * <ProgressBar />
- * ```
- *
- * Props: None required (uses hooks internally)
- *
- * @module components/player/ProgressBar
+ * @component
+ * @example
+ * <ProgressBar
+ *   currentTime={90}
+ *   duration={225}
+ *   bufferedPercentage={75}
+ *   onSeek={(position) => console.log(`Seek to ${position}s`)}
+ * />
  */
 
-import React, { useCallback, useState } from 'react';
-import { tokens } from '@/design-system/tokens';
-import { usePlaybackState, usePlaybackPosition } from '@/hooks/player/usePlaybackState';
-import { useSeekControl } from '@/hooks/player/usePlaybackControl';
-import { formatDuration } from '@/types/domain';
+import React, { useRef, useCallback, useState, useMemo } from 'react';
+import { formatSecondToTime } from '@/hooks/usePlayerDisplay';
+import { tokens } from '@/design-system';
+
+export interface ProgressBarProps {
+  /**
+   * Current playback position in seconds
+   */
+  currentTime: number;
+
+  /**
+   * Total track duration in seconds
+   */
+  duration: number;
+
+  /**
+   * Percentage of audio that has been buffered (0-100)
+   * Default: 0
+   */
+  bufferedPercentage?: number;
+
+  /**
+   * Callback when user seeks to a position (in seconds)
+   */
+  onSeek: (position: number) => void;
+
+  /**
+   * Disable interaction and seeking
+   * Default: false
+   */
+  disabled?: boolean;
+
+  /**
+   * Additional CSS class names
+   */
+  className?: string;
+
+  /**
+   * Custom aria label (optional)
+   */
+  ariaLabel?: string;
+}
 
 /**
- * ProgressBar component
+ * ProgressBar Component
  *
- * Displays seekable progress slider with time display.
- * Shows current position and total duration.
- * Handles user seeking with optimistic UI updates.
+ * Renders an interactive timeline with seeking capability, buffered range,
+ * and hover time preview.
  */
-export const ProgressBar: React.FC = () => {
-  const { position, duration } = usePlaybackPosition();
-  const { seek, isLoading } = useSeekControl();
+export const ProgressBar: React.FC<ProgressBarProps> = ({
+  currentTime,
+  duration,
+  bufferedPercentage = 0,
+  onSeek,
+  disabled = false,
+  className = '',
+  ariaLabel,
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const [hoverPosition, setHoverPosition] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragPosition, setDragPosition] = useState(position);
 
-  /**
-   * Calculate percentage for progress display
-   */
-  const percentage = duration > 0 ? (position / duration) * 100 : 0;
-  const dragPercentage = duration > 0 ? (dragPosition / duration) * 100 : 0;
+  // Calculate progress percentage
+  const progressPercentage = useMemo(() => {
+    if (!Number.isFinite(duration) || duration <= 0) {
+      return 0;
+    }
+    const percentage = (currentTime / duration) * 100;
+    return Math.min(Math.max(percentage, 0), 100);
+  }, [currentTime, duration]);
 
-  /**
-   * Handle slider input change (dragging)
-   */
-  const handleSliderChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setIsDragging(true);
-      const newPosition = parseFloat(e.target.value);
-      setDragPosition(newPosition);
+  // Clamp buffered percentage
+  const clampedBufferedPercentage = useMemo(() => {
+    return Math.min(Math.max(bufferedPercentage, 0), 100);
+  }, [bufferedPercentage]);
+
+  // Format hover time
+  const hoverTimeStr = useMemo(() => {
+    return formatSecondToTime(hoverPosition, duration >= 3600);
+  }, [hoverPosition, duration]);
+
+  // Handle mouse position calculation
+  const getPositionFromEvent = useCallback(
+    (event: React.MouseEvent | MouseEvent) => {
+      if (!containerRef.current) return currentTime;
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = ('clientX' in event ? event.clientX : event.pageX) - rect.left;
+      const percentage = Math.max(0, Math.min(1, x / rect.width));
+      return percentage * duration;
     },
-    []
+    [duration, currentTime]
   );
 
-  /**
-   * Handle slider release (stop dragging, commit seek)
-   */
-  const handleSliderRelease = useCallback(async () => {
+  // Handle click to seek
+  const handleClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (disabled || !Number.isFinite(duration) || duration <= 0) {
+        return;
+      }
+
+      const position = getPositionFromEvent(event);
+      onSeek(position);
+    },
+    [disabled, duration, getPositionFromEvent, onSeek]
+  );
+
+  // Handle mouse move for hover preview
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (disabled || !containerRef.current) {
+        return;
+      }
+
+      const position = getPositionFromEvent(event);
+      setHoverPosition(position);
+    },
+    [disabled, getPositionFromEvent]
+  );
+
+  // Handle drag start
+  const handleMouseDown = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (disabled || !Number.isFinite(duration) || duration <= 0) {
+        return;
+      }
+
+      setIsDragging(true);
+      const position = getPositionFromEvent(event);
+      onSeek(position);
+    },
+    [disabled, duration, getPositionFromEvent, onSeek]
+  );
+
+  // Handle drag during mouse move
+  const handleGlobalMouseMove = useCallback(
+    (event: MouseEvent) => {
+      if (!isDragging || !containerRef.current) {
+        return;
+      }
+
+      const position = getPositionFromEvent(event);
+      onSeek(position);
+    },
+    [isDragging, getPositionFromEvent, onSeek]
+  );
+
+  // Handle drag end
+  const handleGlobalMouseUp = useCallback(() => {
     setIsDragging(false);
-
-    try {
-      await seek(dragPosition);
-    } catch (err) {
-      console.error('Failed to seek:', err);
-      // Reset to current position on error
-      setDragPosition(position);
-    }
-  }, [dragPosition, position, seek]);
-
-  /**
-   * Handle mouse down to start tracking drag
-   */
-  const handleMouseDown = useCallback(() => {
-    setIsDragging(true);
   }, []);
 
+  // Set up global event listeners during drag
+  React.useEffect(() => {
+    if (!isDragging) {
+      return;
+    }
+
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, handleGlobalMouseMove, handleGlobalMouseUp]);
+
+  // Aria label
+  const finalAriaLabel = useMemo(() => {
+    if (ariaLabel) {
+      return ariaLabel;
+    }
+    return `Progress: ${formatSecondToTime(currentTime, duration >= 3600)} of ${formatSecondToTime(duration, duration >= 3600)}`;
+  }, [ariaLabel, currentTime, duration]);
+
   return (
-    <div style={styles.container}>
-      {/* Time display (current / total) */}
-      <div style={styles.timeDisplay}>
-        <span style={styles.time}>{formatDuration(isDragging ? dragPosition : position)}</span>
-        <span style={styles.separator}>/</span>
-        <span style={styles.time}>{formatDuration(duration)}</span>
-      </div>
-
-      {/* Progress slider */}
-      <div style={styles.sliderContainer}>
-        <input
-          type="range"
-          min="0"
-          max={Math.ceil(duration) || 0}
-          value={isDragging ? dragPosition : position}
-          onChange={handleSliderChange}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleSliderRelease}
-          onTouchStart={handleMouseDown}
-          onTouchEnd={handleSliderRelease}
-          disabled={duration === 0 || isLoading}
+    <div
+      className={className}
+      data-testid="progress-bar"
+      style={{
+        position: 'relative',
+        width: '100%',
+      }}
+    >
+      {/* Main progress bar container */}
+      <div
+        ref={containerRef}
+        role="slider"
+        aria-label={finalAriaLabel}
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(currentTime)}
+        aria-disabled={disabled}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+        onMouseMove={handleMouseMove}
+        onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        style={{
+          position: 'relative',
+          height: '24px',
+          cursor: disabled ? 'default' : 'pointer',
+          padding: '8px 0',
+          userSelect: 'none',
+        }}
+        data-testid="progress-bar-container"
+      >
+        {/* Background/track */}
+        <div
           style={{
-            ...styles.slider,
-            background: `linear-gradient(to right, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.primary} ${isDragging ? dragPercentage : percentage}%, ${tokens.colors.bg.tertiary} ${isDragging ? dragPercentage : percentage}%, ${tokens.colors.bg.tertiary} 100%)`,
+            position: 'absolute',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '100%',
+            height: '4px',
+            backgroundColor: tokens.colors.bg.tertiary,
+            borderRadius: '2px',
+            overflow: 'hidden',
           }}
-          aria-label="Seek slider"
-          title={`${isDragging ? dragPercentage.toFixed(1) : percentage.toFixed(1)}%`}
-        />
-      </div>
+          data-testid="progress-bar-track"
+        >
+          {/* Buffered range */}
+          <div
+            style={{
+              position: 'absolute',
+              height: '100%',
+              width: `${clampedBufferedPercentage}%`,
+              backgroundColor: tokens.colors.accent.secondary,
+              transition: isDragging ? 'none' : 'width 0.1s ease-out',
+            }}
+            data-testid="progress-bar-buffered"
+          />
 
-      {/* Optional: Buffered progress indicator */}
-      {false && (
-        <div style={styles.bufferedIndicator}>
-          <div style={styles.bufferedBar} />
+          {/* Played range */}
+          <div
+            style={{
+              position: 'absolute',
+              height: '100%',
+              width: `${progressPercentage}%`,
+              backgroundColor: tokens.colors.accent.primary,
+              transition: isDragging ? 'none' : 'width 0.1s ease-out',
+            }}
+            data-testid="progress-bar-played"
+          />
         </div>
-      )}
+
+        {/* Draggable thumb */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: `${progressPercentage}%`,
+            transform: 'translate(-50%, -50%)',
+            width: isDragging ? '14px' : '10px',
+            height: isDragging ? '14px' : '10px',
+            backgroundColor: tokens.colors.accent.primary,
+            borderRadius: '50%',
+            boxShadow: isDragging ? `0 0 8px ${tokens.colors.accent.primary}` : 'none',
+            transition: 'all 0.1s ease-out',
+            pointerEvents: 'none',
+          }}
+          data-testid="progress-bar-thumb"
+        />
+
+        {/* Hover time tooltip */}
+        {isHovering && !disabled && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '-30px',
+              left: `${Math.min(Math.max((hoverPosition / duration) * 100, 0), 100)}%`,
+              transform: 'translateX(-50%)',
+              backgroundColor: tokens.colors.bg.secondary,
+              color: tokens.colors.text.primary,
+              padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
+              borderRadius: '4px',
+              fontSize: tokens.typography.fontSize.xs,
+              fontFamily: tokens.typography.fontFamilyMono,
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              border: `1px solid ${tokens.colors.border.medium}`,
+              zIndex: 1000,
+            }}
+            data-testid="progress-bar-tooltip"
+          >
+            {hoverTimeStr}
+          </div>
+        )}
+      </div>
     </div>
   );
-};
-
-/**
- * Component styles using design tokens
- */
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: tokens.spacing.sm,
-    padding: `${tokens.spacing.sm} 0`,
-    width: '100%',
-  },
-
-  timeDisplay: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    fontSize: tokens.typography.fontSize.xs,
-    color: tokens.colors.text.secondary,
-    paddingX: tokens.spacing.sm,
-  },
-
-  time: {
-    fontFamily: tokens.typography.fontFamily.monospace,
-    fontWeight: tokens.typography.fontWeight.bold,
-  },
-
-  separator: {
-    margin: `0 ${tokens.spacing.xs}`,
-  },
-
-  sliderContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    width: '100%',
-    paddingX: tokens.spacing.xs,
-  },
-
-  slider: {
-    width: '100%',
-    height: '6px',
-    cursor: 'pointer',
-    appearance: 'none' as const,
-    WebkitAppearance: 'none' as const,
-    borderRadius: tokens.borderRadius.full,
-    border: 'none',
-    outline: 'none',
-    WebkitSliderThumb: {
-      appearance: 'none' as const,
-      WebkitAppearance: 'none' as const,
-      width: '14px',
-      height: '14px',
-      borderRadius: tokens.borderRadius.full,
-      backgroundColor: tokens.colors.accent.primary,
-      cursor: 'pointer',
-      boxShadow: `0 0 4px ${tokens.colors.shadow.md}`,
-    },
-  },
-
-  bufferedIndicator: {
-    display: 'flex',
-    alignItems: 'center',
-    width: '100%',
-    height: '2px',
-    backgroundColor: tokens.colors.bg.tertiary,
-    borderRadius: tokens.borderRadius.full,
-  },
-
-  bufferedBar: {
-    height: '100%',
-    backgroundColor: tokens.colors.text.secondary,
-    borderRadius: tokens.borderRadius.full,
-    width: '0%', // Will be set dynamically
-  },
 };
 
 export default ProgressBar;
