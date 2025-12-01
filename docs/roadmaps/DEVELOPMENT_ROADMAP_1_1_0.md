@@ -44,7 +44,31 @@ The current frontend is heavily fragmented due to iterative patching without a s
 ✅ **Phase 1:** Player redesign (1.5 weeks, parallel start)
 ✅ **Phase 2:** Library browser redesign (1.5 weeks, parallel start)
 ✅ **Phase 3:** Enhancement pane redesign (1 week, parallel start)
-✅ **Phase 4:** Integration, error handling, performance, accessibility (1 week, sequential)
+🔴 **Phase 4:** Integration testing against real backend - **CRITICAL API CONTRACT MISMATCH DISCOVERED**
+
+#### ⚠️ Phase 4 Blocker: Backend/Frontend API Contract Mismatch
+**Discovered:** November 30, 2025
+**Priority:** CRITICAL - Must resolve before Phase 4 can proceed
+
+**Issue:** Frontend hooks assume JSON request bodies, but backend uses query parameters for all POST requests.
+
+**Examples:**
+- Frontend: `POST /api/player/load {track_id}` → Backend: `POST /api/player/load?track_path=...&track_id=...`
+- Frontend: `POST /api/player/seek {position}` → Backend: `POST /api/player/seek?position=...`
+- Frontend: `POST /api/player/volume {volume}` → Backend: `POST /api/player/volume?volume=...`
+
+**Decision:** Fix frontend to match backend (already deployed, consistent, less risky)
+
+**Scope:**
+1. Update usePlaybackControl to use query parameters
+2. Update useEnhancementControl to use query parameters
+3. Update useRestAPI to support query parameter passing
+4. Retest Phase 1-3 (mocks unaffected, but some integration will change)
+5. Continue Phase 4 integration tests
+
+**See:** [PHASE4_API_AUDIT.md](../../PHASE4_API_AUDIT.md)
+
+**Phase 4 Revised:** Integration, error handling, performance, accessibility (1 week, after API fix)
 
 ### Success Criteria
 
