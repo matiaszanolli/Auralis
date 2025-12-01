@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   useMediaQuery,
@@ -250,12 +250,10 @@ function ComfortableApp() {
     info(enabled ? '✨ Mastering enabled' : 'Mastering disabled');
   };
 
-  const handleSidebarNavigation = (view: string) => {
+  const handleSidebarNavigation = useCallback((view: string) => {
     console.log('[ComfortableApp] handleSidebarNavigation called with view:', view);
-    console.log('[ComfortableApp] currentView before:', currentView);
     setCurrentView(view);
-    console.log('[ComfortableApp] currentView after setCurrentView:', view);
-  };
+  }, []);
 
   return (
     <AppContainer onDragEnd={handleDragEnd}>
