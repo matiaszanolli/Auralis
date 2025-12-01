@@ -146,7 +146,16 @@ function calculateRelevance(
 /**
  * Hook for searching and filtering queue
  *
- * @param queue Current queue tracks
+ * ⚠️ **IMPORTANT: Queue Size Constraints**
+ * This hook is optimized for playback queues (100-500 tracks).
+ * DO NOT use with entire music library (will crash).
+ *
+ * Safe ranges:
+ * - Optimal: 100-500 tracks
+ * - Maximum: 1000 tracks (risky)
+ * - Never: 10K+ tracks (will crash)
+ *
+ * @param queue Current queue tracks (max 500 recommended)
  * @returns Search state and filter actions
  *
  * @example
@@ -159,6 +168,16 @@ function calculateRelevance(
  * ```
  */
 export function useQueueSearch(queue: Track[]): QueueSearchActions {
+  // Guard: Warn if queue exceeds safe size
+  if (queue.length > 1000) {
+    console.warn(
+      `⚠️ useQueueSearch: Queue size (${queue.length}) exceeds safe limit (1000). ` +
+      `This hook is designed for playback queues only (100-500 tracks), not entire libraries. ` +
+      `Using with large datasets will cause severe performance degradation or crashes. ` +
+      `See: PHASE_7_ARCHITECTURAL_FIX.md for guidance.`
+    );
+  }
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFiltersState] = useState<QueueFilters>({});
