@@ -28,7 +28,8 @@ from .repositories import (
     ArtistRepository,
     PlaylistRepository,
     StatsRepository,
-    FingerprintRepository
+    FingerprintRepository,
+    QueueRepository
 )
 from .cache import cached_query, invalidate_cache, get_cache_stats
 from ..utils.logging import info, warning, error
@@ -82,6 +83,7 @@ class LibraryManager:
         self.playlists = PlaylistRepository(self.SessionLocal)
         self.stats = StatsRepository(self.SessionLocal)
         self.fingerprints = FingerprintRepository(self.SessionLocal)
+        self.queue = QueueRepository(self.SessionLocal)
 
         # Thread-safe locking for delete operations (prevents race conditions)
         self._delete_lock = threading.RLock()

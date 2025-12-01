@@ -11,6 +11,7 @@ Core models for tracks, albums, artists, genres, and playlists
 """
 
 from typing import Optional, List
+from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
 
@@ -279,3 +280,64 @@ class Playlist(Base, TimestampMixin):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class QueueState(Base, TimestampMixin):
+    """
+    Model for persisting playback queue state.
+
+    Stores the current playback queue configuration including:
+    - List of tracks in queue
+    - Current playback index
+    - Shuffle mode state
+    - Repeat mode setting
+    """
+    __tablename__ = 'queue_state'
+
+    id = Column(Integer, primary_key=True)
+
+    # Queue composition - stored as JSON list of track IDs
+    # Example: "[1, 5, 3, 7]" - order matters
+    track_ids = Column(Text, default='[]', nullable=False)
+
+    # Current playback position in queue
+    current_index = Column(Integer, default=0, nullable=False)
+
+    # Shuffle mode toggle
+    is_shuffled = Column(Boolean, default=False, nullable=False)
+
+    # Repeat mode: 'off', 'all', or 'one'
+    repeat_mode = Column(String, default='off', nullable=False)
+
+    # Timestamp for optimistic sync detection
+    synced_at = Column(DateTime, default=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        """Convert queue state to dictionary"""
+        import json
+        try:
+            track_ids = json.loads(self.track_ids) if self.track_ids else []
+        except (json.JSONDecodeError, TypeError):
+            track_ids = []
+
+        return {
+            'id': self.id,
+            'track_ids': track_ids,
+            'current_index': self.current_index,
+            'is_shuffled': self.is_shuffled,
+            'repeat_mode': self.repeat_mode,
+            'synced_at': self.synced_at.isoformat() if self.synced_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    @staticmethod
+    def from_dict(data: dict) -> 'QueueState':
+        """Create QueueState from dictionary"""
+        import json
+        state = QueueState()
+        state.track_ids = json.dumps(data.get('track_ids', []))
+        state.current_index = data.get('current_index', 0)
+        state.is_shuffled = data.get('is_shuffled', False)
+        state.repeat_mode = data.get('repeat_mode', 'off')
+        return state
