@@ -21,6 +21,56 @@ Auralis is evolving from a **core audio player** (1.0.0) into a **comprehensive 
 
 ---
 
+## 🔴 CRITICAL PRIORITY: Frontend Complete Redesign
+
+**Updated:** November 30, 2025
+**Priority Level:** 🔴 **CRITICAL - Main Development Focus**
+**Timeline:** 4-6 weeks (parallel Phases 1-3, then sequential Phase 4)
+**Target Release:** 1.2.0 (March 2026)
+
+### Why This Matters
+
+The current frontend is heavily fragmented due to iterative patching without a solid backend API. With the **new unified streaming backend** and **WebSocket protocol** now complete, we're undertaking a complete redesign to:
+
+- **Eliminate 40% code duplication** across 600+ fragmented component files
+- **Build from the new backend API spec** instead of adapting legacy code
+- **Handle dynamic playback changes** (seek, skip, preset toggle, auto-mastering)
+- **Add fingerprint caching system** (preprocessing disguised as buffering)
+- **Achieve modern, consistent UI** with single design system
+
+### Key Deliverables
+
+✅ **Phase 0:** Type definitions, hooks architecture, fingerprint cache (1 week)
+✅ **Phase 1:** Player redesign (1.5 weeks, parallel start)
+✅ **Phase 2:** Library browser redesign (1.5 weeks, parallel start)
+✅ **Phase 3:** Enhancement pane redesign (1 week, parallel start)
+✅ **Phase 4:** Integration, error handling, performance, accessibility (1 week, sequential)
+
+### Success Criteria
+
+- ✅ All components < 300 lines each (currently 600+ fragmented files)
+- ✅ Zero duplicate code (currently 40% duplication)
+- ✅ 100% new backend API spec compliance
+- ✅ Fingerprint caching working (disguised as buffering)
+- ✅ Handle sudden state changes (seek, skip, preset toggle)
+- ✅ Modern, sleek UI consistent across all sections
+- ✅ 60 FPS rendering, < 200ms interactions
+- ✅ WCAG 2.1 AA accessibility
+- ✅ 850+ frontend tests passing (match backend)
+
+### Complete Roadmap
+
+📋 **See [FRONTEND_REDESIGN_ROADMAP_2_0.md](FRONTEND_REDESIGN_ROADMAP_2_0.md)** for full implementation details including:
+- Phase 0: Foundation (types, hooks, fingerprint cache, testing setup)
+- Phase 1: Player redesign (state management, playback controls, streaming integration)
+- Phase 2: Library browser (queries with caching, infinite scroll, metadata editor)
+- Phase 3: Enhancement pane (settings, preset selector, mastering recommendation)
+- Phase 4: Integration (state sync, error handling, performance, accessibility)
+- Testing strategy and success metrics
+- 4-6 week implementation timeline
+
+---
+
 ## 🗓️ Release Schedule & Phases
 
 ### Phase 1: Core Stability (1.1.0-beta.1 → 1.1.0) - Q4 2025
