@@ -118,24 +118,36 @@ PHASE 4 STATUS: ✅ WORKING
 
 ---
 
-## Known Issues (Out of Phase 4 Scope)
+## Backend Bug Fix: `/api/player/load`
 
-### Backend Bug: `/api/player/load`
+### Issue
+**Status:** ✅ FIXED
+**Error:** `'str' object has no attribute 'get'` (now resolved)
+**Root Cause:** Endpoint was passing string (track_path) to `add_to_queue()` which expects dict
 
-**Status:** `500 Internal Server Error`
-**Error:** `'str' object has no attribute 'get'`
-**Root Cause:** Endpoint signature says `track_path: str` but implementation code expects a dict
+### Solution
+**Commit:** `23f1764`
 
-**Impact:** Cannot load tracks via API
-**Severity:** High (blocks playback workflows)
-**Action:** Should be fixed in backend code review
+Changed the endpoint to construct a track_info dict before calling add_to_queue():
+```python
+# Before (broken)
+audio_player.add_to_queue(track_path)  # ❌ Wrong type
 
-**Workaround:** None currently (backend implementation issue)
+# After (fixed)
+track_info = {
+    'filepath': track_path,
+    'id': track_id
+}
+audio_player.add_to_queue(track_info)  # ✅ Correct
+```
+
+**Impact:** ✅ Load tracks now works completely
 
 ---
 
 ## Files Modified in Phase 4
 
+### Frontend (3 files)
 ```
 auralis-web/frontend/src/hooks/api/useRestAPI.ts
   - Added query parameter support to POST, PUT, PATCH
@@ -152,7 +164,17 @@ auralis-web/frontend/src/hooks/enhancement/useEnhancementControl.ts
 auralis-web/frontend/src/contexts/WebSocketContext.tsx
   - Fixed WebSocket URL to use Vite proxy (localhost:3000/ws)
   - Updated comments to explain proxy behavior
+```
 
+### Backend (1 file)
+```
+auralis-web/backend/routers/player.py
+  - Fixed load_track() to pass dict to add_to_queue() instead of string
+  - Constructs track_info dict with filepath and id
+```
+
+### Tests (1 file)
+```
 tests/integration/test_phase4_player_workflow.py
   - Updated all API calls to use query parameter format
 ```
