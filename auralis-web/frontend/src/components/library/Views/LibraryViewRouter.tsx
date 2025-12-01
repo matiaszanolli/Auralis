@@ -71,6 +71,8 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
   onArtistClick,
   onTrackPlay,
 }) => {
+  console.log('[LibraryViewRouter] Rendered with view:', view, 'selectedAlbumId:', selectedAlbumId, 'selectedArtistId:', selectedArtistId);
+
   // Album detail view (from albums or artists view)
   if (selectedAlbumId !== null) {
     return (

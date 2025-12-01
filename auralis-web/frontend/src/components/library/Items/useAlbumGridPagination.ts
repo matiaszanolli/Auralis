@@ -27,7 +27,12 @@ export const useAlbumGridPagination = () => {
   const isFetchingRef = useRef(false);
 
   const fetchAlbums = async (resetPagination = false) => {
-    if (isFetchingRef.current) return;
+    console.log('[useAlbumGridPagination] fetchAlbums called with resetPagination:', resetPagination);
+
+    if (isFetchingRef.current) {
+      console.log('[useAlbumGridPagination] Already fetching, skipping');
+      return;
+    }
     isFetchingRef.current = true;
 
     if (resetPagination) {
@@ -44,18 +49,23 @@ export const useAlbumGridPagination = () => {
       const limit = 50;
       const currentOffset = resetPagination ? 0 : offset;
 
-      const response = await fetch(`/api/albums?limit=${limit}&offset=${currentOffset}`);
+      const url = `/api/albums?limit=${limit}&offset=${currentOffset}`;
+      console.log('[useAlbumGridPagination] Fetching from:', url);
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error('Failed to fetch albums');
       }
 
       const data = await response.json();
+      console.log('[useAlbumGridPagination] Received', (data.albums || []).length, 'albums, total:', data.total);
 
       setHasMore(data.has_more || false);
       setTotalAlbums(data.total || 0);
 
       if (resetPagination) {
-        setAlbums(data.albums || []);
+        const albumsToSet = data.albums || [];
+        console.log('[useAlbumGridPagination] Setting albums:', albumsToSet.length);
+        setAlbums(albumsToSet);
       } else {
         const newAlbums = data.albums || [];
         setAlbums(prev => {
