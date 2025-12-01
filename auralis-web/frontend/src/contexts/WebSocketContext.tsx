@@ -174,13 +174,12 @@ interface WebSocketProviderProps {
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   children,
   url = (() => {
-    // In development (Vite on localhost:3000+), connect directly to backend WebSocket
+    // In development (Vite on localhost:3000), connect through Vite proxy to backend
     // In production, use same host as frontend (backend serves both)
     if (window.location.hostname === 'localhost' && parseInt(window.location.port) >= 3000) {
-      // Development: Connect directly to backend WebSocket at port 8765
-      // The relative path /ws doesn't work with WebSocket constructor (gets converted to http://)
-      // So we need to explicitly construct the WebSocket URL
-      return `ws://localhost:8765/ws`
+      // Development: Connect through Vite proxy at localhost:3000/ws
+      // Vite is configured to proxy /ws -> ws://localhost:8765/ws
+      return `ws://localhost:3000/ws`
     } else {
       // Production: Use same host as frontend (backend serves both)
       return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
