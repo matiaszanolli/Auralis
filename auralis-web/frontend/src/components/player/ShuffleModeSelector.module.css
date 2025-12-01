@@ -1,0 +1,119 @@
+/* ShuffleModeSelector Styles */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 16px);
+}
+
+.modesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: var(--spacing-sm, 8px);
+}
+
+.modeButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs, 4px);
+  padding: var(--spacing-md, 16px);
+  border-radius: var(--border-radius-md, 8px);
+  border: 1px solid var(--border-default, #e0e0e0);
+  background-color: var(--bg-secondary, #f5f5f5);
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  font-size: var(--font-size-sm, 12px);
+  font-weight: 600;
+  transition: all 0.2s ease;
+  min-height: 80px;
+}
+
+.modeButton:hover:not(:disabled) {
+  background-color: var(--bg-tertiary, #e8e8e8);
+  border-color: var(--accent-primary, #0066cc);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.modeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modeButton:focus {
+  outline: 2px solid var(--accent-primary, #0066cc);
+  outline-offset: 2px;
+}
+
+.modeButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.modeButtonActive {
+  background-color: var(--accent-primary, #0066cc);
+  color: var(--text-inverse, #ffffff);
+  border-color: var(--accent-primary, #0066cc);
+}
+
+.modeButtonActive:hover:not(:disabled) {
+  background-color: var(--accent-dark, #0052a3);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+.modeIcon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.modeName {
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.tooltip {
+  padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+  background-color: var(--bg-tertiary, #e8e8e8);
+  border-radius: var(--border-radius-sm, 4px);
+  border: 1px solid var(--border-default, #e0e0e0);
+  font-size: var(--font-size-xs, 11px);
+  color: var(--text-secondary, #666);
+  text-align: center;
+  animation: slideIn 0.15s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .modesGrid {
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: var(--spacing-xs, 4px);
+  }
+
+  .modeButton {
+    min-height: 70px;
+    padding: var(--spacing-sm, 8px);
+    gap: var(--spacing-xs, 4px);
+  }
+
+  .modeIcon {
+    font-size: 20px;
+  }
+
+  .modeName {
+    font-size: var(--font-size-xs, 11px);
+  }
+}
