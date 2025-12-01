@@ -21,6 +21,9 @@ export type WebSocketMessageType =
   | 'volume_changed'
   // Queue messages
   | 'queue_updated'
+  | 'queue_changed'
+  | 'queue_shuffled'
+  | 'repeat_mode_changed'
   // Library messages
   | 'library_updated'
   // Metadata messages
@@ -131,6 +134,39 @@ export interface QueueUpdatedMessage extends WebSocketMessage {
     track_path?: string; // For "added" action
     index?: number; // For "removed" action
     queue_size: number;
+  };
+}
+
+/**
+ * Broadcast when queue contents change (add, remove, reorder, or clear)
+ */
+export interface QueueChangedMessage extends WebSocketMessage {
+  type: 'queue_changed';
+  data: {
+    tracks: TrackInfo[]; // Full queue after change
+    currentIndex: number; // Current position in queue
+    action: 'added' | 'removed' | 'reordered' | 'cleared';
+  };
+}
+
+/**
+ * Broadcast when shuffle mode is toggled
+ */
+export interface QueueShuffledMessage extends WebSocketMessage {
+  type: 'queue_shuffled';
+  data: {
+    isShuffled: boolean;
+    tracks?: TrackInfo[]; // Reordered queue if shuffled
+  };
+}
+
+/**
+ * Broadcast when repeat mode changes
+ */
+export interface RepeatModeChangedMessage extends WebSocketMessage {
+  type: 'repeat_mode_changed';
+  data: {
+    repeatMode: 'off' | 'all' | 'one';
   };
 }
 
@@ -280,6 +316,9 @@ export type AnyWebSocketMessage =
   | PositionChangedMessage
   | VolumeChangedMessage
   | QueueUpdatedMessage
+  | QueueChangedMessage
+  | QueueShuffledMessage
+  | RepeatModeChangedMessage
   | LibraryUpdatedMessage
   | MetadataUpdatedMessage
   | MetadataBatchUpdatedMessage
@@ -328,6 +367,18 @@ export function isScanProgressMessage(msg: WebSocketMessage): msg is ScanProgres
   return msg.type === 'scan_progress';
 }
 
+export function isQueueChangedMessage(msg: WebSocketMessage): msg is QueueChangedMessage {
+  return msg.type === 'queue_changed';
+}
+
+export function isQueueShuffledMessage(msg: WebSocketMessage): msg is QueueShuffledMessage {
+  return msg.type === 'queue_shuffled';
+}
+
+export function isRepeatModeChangedMessage(msg: WebSocketMessage): msg is RepeatModeChangedMessage {
+  return msg.type === 'repeat_mode_changed';
+}
+
 // ============================================================================
 // Helper Types from Backend
 // ============================================================================
@@ -368,6 +419,9 @@ export const ALL_MESSAGE_TYPES: WebSocketMessageType[] = [
   'position_changed',
   'volume_changed',
   'queue_updated',
+  'queue_changed',
+  'queue_shuffled',
+  'repeat_mode_changed',
   'library_updated',
   'metadata_updated',
   'metadata_batch_updated',
@@ -390,6 +444,13 @@ export const PLAYER_STATE_TYPES: WebSocketMessageType[] = [
   'track_changed',
   'position_changed',
   'volume_changed',
+];
+
+export const QUEUE_TYPES: WebSocketMessageType[] = [
+  'queue_updated',
+  'queue_changed',
+  'queue_shuffled',
+  'repeat_mode_changed',
 ];
 
 export const ENHANCEMENT_TYPES: WebSocketMessageType[] = [
