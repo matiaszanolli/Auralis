@@ -149,6 +149,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
 
   // Render routed view for albums/artists or when navigating album/artist details
   if (view === 'albums' || view === 'artists' || selectedAlbumId !== null || selectedArtistId !== null) {
+    console.log('[CozyLibraryView] Rendering LibraryViewRouter for view:', view);
     return (
       <LibraryViewRouter
         view={view}
@@ -170,6 +171,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   // RENDER - Main Track List View
   // ============================================================
 
+  console.log('[CozyLibraryView] Rendering track list for view:', view);
   return (
     <>
       {/* Batch Actions Toolbar */}
