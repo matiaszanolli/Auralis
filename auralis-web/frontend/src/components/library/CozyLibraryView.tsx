@@ -45,6 +45,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   onTrackPlay,
   view = 'songs'
 }) => {
+  console.log('[CozyLibraryView] Rendered with view:', view);
+
   // ============================================================
   // DATA LAYER
   // ============================================================
