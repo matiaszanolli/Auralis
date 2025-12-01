@@ -19,7 +19,7 @@
  * ```
  */
 
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { tokens } from '@/design-system';
 
 // Phase 4 UI Components
@@ -29,6 +29,9 @@ import ProgressBar from './ProgressBar';
 import PlaybackControls from './PlaybackControls';
 import VolumeControl from './VolumeControl';
 import TrackDisplay from './TrackDisplay';
+
+// Phase 6 Queue Component
+import QueuePanel from './QueuePanel';
 
 // Core Phase 3 Hooks
 import { usePlayerStreaming, PlayerStreamingState } from '@/hooks/usePlayerStreaming';
@@ -53,6 +56,9 @@ import { useSelector } from 'react-redux';
 const Player: React.FC = () => {
   // Audio element reference for streaming synchronization
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
+
+  // Queue panel visibility state
+  const [queuePanelOpen, setQueuePanelOpen] = useState(false);
 
   // Redux state for current playback info
   const currentTrack = useCurrentTrack();
@@ -168,18 +174,34 @@ const Player: React.FC = () => {
         />
       </div>
 
-      {/* Bottom Section: Controls + Volume */}
+      {/* Bottom Section: Controls + Volume + Queue Button */}
       <div style={styles.controlsSection}>
-        {/* Playback Controls (Play, Pause, Next, Previous) */}
-        <PlaybackControls
-          isPlaying={streaming.isPlaying}
-          onPlay={controls.play}
-          onPause={controls.pause}
-          onNext={controls.nextTrack}
-          onPrevious={controls.previousTrack}
-          isLoading={controls.isLoading || streaming.isBuffering}
-          disabled={streaming.isError}
-        />
+        <div style={styles.controlsRow}>
+          {/* Playback Controls (Play, Pause, Next, Previous) */}
+          <PlaybackControls
+            isPlaying={streaming.isPlaying}
+            onPlay={controls.play}
+            onPause={controls.pause}
+            onNext={controls.nextTrack}
+            onPrevious={controls.previousTrack}
+            isLoading={controls.isLoading || streaming.isBuffering}
+            disabled={streaming.isError}
+          />
+
+          {/* Queue Button */}
+          <button
+            onClick={() => setQueuePanelOpen(!queuePanelOpen)}
+            style={{
+              ...styles.queueButton,
+              backgroundColor: queuePanelOpen ? tokens.colors.accent.primary : 'transparent',
+              color: queuePanelOpen ? tokens.colors.text.primary : tokens.colors.text.secondary,
+            }}
+            title="Toggle queue panel"
+            aria-label="Toggle queue panel"
+          >
+            ♪ Queue
+          </button>
+        </div>
 
         {/* Volume Control (Slider + Mute Button) */}
         <VolumeControl
@@ -195,6 +217,16 @@ const Player: React.FC = () => {
           disabled={streaming.isError}
         />
       </div>
+
+      {/* Queue Panel - Expands when opened */}
+      {queuePanelOpen && (
+        <div style={styles.queuePanelWrapper}>
+          <QueuePanel
+            collapsed={false}
+            onToggleCollapse={() => setQueuePanelOpen(false)}
+          />
+        </div>
+      )}
 
       {/* Error State Indicator */}
       {streaming.isError && (
@@ -285,6 +317,41 @@ const styles = {
     '@media (max-width: 768px)': {
       gap: tokens.spacing.sm,
     },
+  },
+
+  controlsRow: {
+    display: 'flex',
+    gap: tokens.spacing.md,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+
+    '@media (max-width: 768px)': {
+      gap: tokens.spacing.sm,
+    },
+  },
+
+  queueButton: {
+    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+    border: `1px solid ${tokens.colors.border.default}`,
+    borderRadius: tokens.borderRadius.md,
+    cursor: 'pointer',
+    fontSize: tokens.typography.fontSize.sm,
+    fontWeight: 500,
+    transition: 'all 0.2s ease-in-out',
+    whiteSpace: 'nowrap' as const,
+
+    '&:hover': {
+      borderColor: tokens.colors.accent.primary,
+      transform: 'scale(1.02)',
+    },
+  },
+
+  queuePanelWrapper: {
+    borderTop: `1px solid ${tokens.colors.border.default}`,
+    paddingTop: tokens.spacing.md,
+    marginTop: tokens.spacing.md,
+    maxHeight: '400px',
+    overflowY: 'auto' as const,
   },
 
   errorBanner: {
