@@ -61,10 +61,8 @@ export function useWebSocketSubscription(
     const manager = getWebSocketManager();
 
     if (!manager) {
-      console.warn(
-        'useWebSocketSubscription: WebSocket manager not initialized. ' +
-        'Call setWebSocketManager() in your App component.'
-      );
+      // Silently return - this hook is legacy code
+      // The new WebSocketContext handles subscriptions
       return;
     }
 
