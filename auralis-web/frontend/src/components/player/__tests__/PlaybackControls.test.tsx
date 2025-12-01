@@ -1,520 +1,680 @@
 /**
  * PlaybackControls Component Tests
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Comprehensive test suite for the PlaybackControls component.
- * Tests user interactions, loading states, and error handling.
- *
- * @module components/player/__tests__/PlaybackControls.test
+ * Tests for playback control buttons (play, pause, next, previous),
+ * button states, loading indicators, and accessibility features.
  */
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
-import PlaybackControls from '@/components/player/PlaybackControls';
-import { usePlaybackState } from '@/hooks/player/usePlaybackState';
-import { usePlaybackControl } from '@/hooks/player/usePlaybackControl';
-
-// Mock the hooks
-vi.mock('@/hooks/player/usePlaybackState');
-vi.mock('@/hooks/player/usePlaybackControl');
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@/test/test-utils';
+import PlaybackControls from '../PlaybackControls';
 
 describe('PlaybackControls', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+  describe('Basic Rendering', () => {
+    it('should render all control buttons', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
 
-  describe('rendering', () => {
-    it('should render play button when not playing', () => {
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
-
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
-
-      render(<PlaybackControls />);
-
-      expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
+      expect(screen.getByTestId('playback-controls')).toBeInTheDocument();
+      expect(screen.getByTestId('playback-controls-previous')).toBeInTheDocument();
+      expect(screen.getByTestId('playback-controls-play')).toBeInTheDocument();
+      expect(screen.getByTestId('playback-controls-next')).toBeInTheDocument();
     });
 
-    it('should render pause button when playing', () => {
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: true,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
+    it('should render with correct structure', () => {
+      const { container } = render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
 
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
-
-      render(<PlaybackControls />);
-
-      expect(screen.getByRole('button', { name: /pause/i })).toBeInTheDocument();
-    });
-
-    it('should render next and previous buttons', () => {
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
-
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
-
-      render(<PlaybackControls />);
-
-      expect(screen.getByRole('button', { name: /previous/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /next/i })).toBeInTheDocument();
+      const controls = screen.getByTestId('playback-controls');
+      expect(controls).toHaveStyle('display: flex');
     });
   });
 
-  describe('user interactions', () => {
-    it('should call play when play button is clicked', async () => {
-      const mockPlay = vi.fn().mockResolvedValue(undefined);
+  describe('Play/Pause State', () => {
+    it('should show play button when not playing', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
 
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
-
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: mockPlay,
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
-
-      render(<PlaybackControls />);
-
-      const playButton = screen.getByRole('button', { name: /play/i });
-      fireEvent.click(playButton);
-
-      await waitFor(() => {
-        expect(mockPlay).toHaveBeenCalled();
-      });
+      expect(screen.getByTestId('playback-controls-play')).toBeInTheDocument();
+      expect(screen.queryByTestId('playback-controls-pause')).not.toBeInTheDocument();
     });
 
-    it('should call pause when pause button is clicked', async () => {
-      const mockPause = vi.fn().mockResolvedValue(undefined);
+    it('should show pause button when playing', () => {
+      render(
+        <PlaybackControls
+          isPlaying={true}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
 
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: true,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
-
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: mockPause,
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
-
-      render(<PlaybackControls />);
-
-      const pauseButton = screen.getByRole('button', { name: /pause/i });
-      fireEvent.click(pauseButton);
-
-      await waitFor(() => {
-        expect(mockPause).toHaveBeenCalled();
-      });
+      expect(screen.getByTestId('playback-controls-pause')).toBeInTheDocument();
+      expect(screen.queryByTestId('playback-controls-play')).not.toBeInTheDocument();
     });
 
-    it('should call next when next button is clicked', async () => {
-      const mockNext = vi.fn().mockResolvedValue(undefined);
+    it('should toggle between play and pause icons', () => {
+      const { rerender } = render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
 
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
+      expect(screen.getByTestId('playback-controls-play')).toBeInTheDocument();
 
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: mockNext,
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
+      rerender(
+        <PlaybackControls
+          isPlaying={true}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
 
-      render(<PlaybackControls />);
-
-      const nextButton = screen.getByRole('button', { name: /next/i });
-      fireEvent.click(nextButton);
-
-      await waitFor(() => {
-        expect(mockNext).toHaveBeenCalled();
-      });
-    });
-
-    it('should call previous when previous button is clicked', async () => {
-      const mockPrevious = vi.fn().mockResolvedValue(undefined);
-
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
-
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: mockPrevious,
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
-
-      render(<PlaybackControls />);
-
-      const previousButton = screen.getByRole('button', { name: /previous/i });
-      fireEvent.click(previousButton);
-
-      await waitFor(() => {
-        expect(mockPrevious).toHaveBeenCalled();
-      });
+      expect(screen.getByTestId('playback-controls-pause')).toBeInTheDocument();
     });
   });
 
-  describe('loading state', () => {
-    it('should disable buttons when isLoading is true', () => {
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
+  describe('Button Clicks', () => {
+    it('should call onPlay when play button clicked', () => {
+      const mockPlay = vi.fn();
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={mockPlay}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
 
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: true,
-        error: null,
-        clearError: vi.fn(),
-      });
+      fireEvent.click(screen.getByTestId('playback-controls-play'));
 
-      render(<PlaybackControls />);
-
-      const buttons = screen.getAllByRole('button');
-      buttons.forEach((button) => {
-        expect(button).toBeDisabled();
-      });
+      expect(mockPlay).toHaveBeenCalledTimes(1);
     });
 
+    it('should call onPause when pause button clicked', () => {
+      const mockPause = vi.fn();
+      render(
+        <PlaybackControls
+          isPlaying={true}
+          onPlay={vi.fn()}
+          onPause={mockPause}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('playback-controls-pause'));
+
+      expect(mockPause).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onNext when next button clicked', () => {
+      const mockNext = vi.fn();
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={mockNext}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('playback-controls-next'));
+
+      expect(mockNext).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onPrevious when previous button clicked', () => {
+      const mockPrevious = vi.fn();
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={mockPrevious}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('playback-controls-previous'));
+
+      expect(mockPrevious).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not call callbacks when disabled', () => {
+      const mockPlay = vi.fn();
+      const mockNext = vi.fn();
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={mockPlay}
+          onPause={vi.fn()}
+          onNext={mockNext}
+          onPrevious={vi.fn()}
+          disabled={true}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('playback-controls-play'));
+      fireEvent.click(screen.getByTestId('playback-controls-next'));
+
+      expect(mockPlay).not.toHaveBeenCalled();
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it('should not call callbacks when loading', () => {
+      const mockPlay = vi.fn();
+      const mockPrevious = vi.fn();
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={mockPlay}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={mockPrevious}
+          isLoading={true}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('playback-controls-play'));
+      fireEvent.click(screen.getByTestId('playback-controls-previous'));
+
+      expect(mockPlay).not.toHaveBeenCalled();
+      expect(mockPrevious).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Loading State', () => {
     it('should show loading indicator when isLoading is true', () => {
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          isLoading={true}
+        />
+      );
 
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: true,
-        error: null,
-        clearError: vi.fn(),
-      });
+      expect(screen.getByTestId('playback-controls-loading')).toBeInTheDocument();
+      expect(screen.getByTestId('playback-controls-loading')).toHaveTextContent('Loading...');
+    });
 
-      render(<PlaybackControls />);
+    it('should not show loading indicator when isLoading is false', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          isLoading={false}
+        />
+      );
 
-      expect(screen.getByText(/loading/i)).toBeInTheDocument();
+      expect(screen.queryByTestId('playback-controls-loading')).not.toBeInTheDocument();
+    });
+
+    it('should disable all buttons when loading', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          isLoading={true}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).toBeDisabled();
+      expect(screen.getByTestId('playback-controls-previous')).toBeDisabled();
+      expect(screen.getByTestId('playback-controls-next')).toBeDisabled();
     });
   });
 
-  describe('error state', () => {
-    it('should display error message when error exists', () => {
-      const errorMessage = 'Failed to play';
+  describe('Disabled State', () => {
+    it('should disable all buttons when disabled is true', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={true}
+        />
+      );
 
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
-
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: { message: errorMessage, code: 'PLAY_ERROR', status: 500 },
-        clearError: vi.fn(),
-      });
-
-      render(<PlaybackControls />);
-
-      expect(screen.getByText(errorMessage)).toBeInTheDocument();
+      expect(screen.getByTestId('playback-controls-play')).toBeDisabled();
+      expect(screen.getByTestId('playback-controls-previous')).toBeDisabled();
+      expect(screen.getByTestId('playback-controls-next')).toBeDisabled();
     });
 
-    it('should not display error when error is null', () => {
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
+    it('should enable all buttons when disabled is false', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={false}
+        />
+      );
 
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
+      expect(screen.getByTestId('playback-controls-play')).not.toBeDisabled();
+      expect(screen.getByTestId('playback-controls-previous')).not.toBeDisabled();
+      expect(screen.getByTestId('playback-controls-next')).not.toBeDisabled();
+    });
 
-      const { container } = render(<PlaybackControls />);
+    it('should show disabled cursor when disabled', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={true}
+        />
+      );
 
-      const errorElements = container.querySelectorAll('[style*="error"]');
-      expect(errorElements.length).toBe(0);
+      const playButton = screen.getByTestId('playback-controls-play');
+      expect(playButton).toHaveStyle('cursor: not-allowed');
     });
   });
 
-  describe('accessibility', () => {
-    it('should have proper aria-labels on buttons', () => {
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
-
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
-
-      render(<PlaybackControls />);
-
-      expect(screen.getByRole('button', { name: /play/i })).toHaveAttribute(
-        'aria-label',
-        'Play'
+  describe('Accessibility', () => {
+    it('should have play aria-label', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
       );
-      expect(screen.getByRole('button', { name: /next/i })).toHaveAttribute(
-        'aria-label',
-        'Next track'
-      );
+
+      expect(screen.getByTestId('playback-controls-play')).toHaveAttribute('aria-label', 'Play');
     });
 
-    it('should have keyboard navigation support', () => {
-      vi.mocked(usePlaybackState).mockReturnValue({
-        currentTrack: null,
-        isPlaying: false,
-        volume: 0.5,
-        position: 0,
-        duration: 0,
-        queue: [],
-        queueIndex: -1,
-        gapless_enabled: false,
-        crossfade_enabled: false,
-        crossfade_duration: 0,
-        isLoading: false,
-        error: null,
-      });
+    it('should have pause aria-label', () => {
+      render(
+        <PlaybackControls
+          isPlaying={true}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
 
-      vi.mocked(usePlaybackControl).mockReturnValue({
-        play: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        seek: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        setVolume: vi.fn(),
-        isLoading: false,
-        error: null,
-        clearError: vi.fn(),
-      });
+      expect(screen.getByTestId('playback-controls-pause')).toHaveAttribute('aria-label', 'Pause');
+    });
 
-      render(<PlaybackControls />);
+    it('should have next aria-label', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
 
-      const playButton = screen.getByRole('button', { name: /play/i });
-      expect(playButton.tagName).toBe('BUTTON');
+      expect(screen.getByTestId('playback-controls-next')).toHaveAttribute('aria-label', 'Next track');
+    });
+
+    it('should have previous aria-label', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-previous')).toHaveAttribute('aria-label', 'Previous track');
+    });
+
+    it('should have title tooltips on buttons', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).toHaveAttribute('title', 'Play');
+      expect(screen.getByTestId('playback-controls-previous')).toHaveAttribute('title', 'Previous track');
+      expect(screen.getByTestId('playback-controls-next')).toHaveAttribute('title', 'Next track');
+    });
+  });
+
+  describe('CSS & Styling', () => {
+    it('should accept custom className', () => {
+      const { container } = render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          className="custom-controls"
+        />
+      );
+
+      expect(container.querySelector('.custom-controls')).toBeInTheDocument();
+    });
+
+    it('should have proper test IDs for all buttons', () => {
+      render(
+        <PlaybackControls
+          isPlaying={true}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls')).toBeInTheDocument();
+      expect(screen.getByTestId('playback-controls-previous')).toBeInTheDocument();
+      expect(screen.getByTestId('playback-controls-pause')).toBeInTheDocument();
+      expect(screen.getByTestId('playback-controls-next')).toBeInTheDocument();
+    });
+
+    it('should have pointer cursor when enabled', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={false}
+        />
+      );
+
+      const playButton = screen.getByTestId('playback-controls-play');
+      expect(playButton).toHaveStyle('cursor: pointer');
+    });
+
+    it('should have reduced opacity when disabled', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={true}
+        />
+      );
+
+      const playButton = screen.getByTestId('playback-controls-play');
+      expect(playButton).toHaveStyle('opacity: 0.5');
+    });
+
+    it('should have full opacity when enabled', () => {
+      render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={false}
+        />
+      );
+
+      const playButton = screen.getByTestId('playback-controls-play');
+      expect(playButton).toHaveStyle('opacity: 1');
+    });
+  });
+
+  describe('Realistic Scenarios', () => {
+    it('should handle play and pause sequence', () => {
+      const { rerender } = render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).toBeInTheDocument();
+
+      rerender(
+        <PlaybackControls
+          isPlaying={true}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-pause')).toBeInTheDocument();
+
+      rerender(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).toBeInTheDocument();
+    });
+
+    it('should handle loading state transitions', () => {
+      const { rerender } = render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          isLoading={false}
+        />
+      );
+
+      expect(screen.queryByTestId('playback-controls-loading')).not.toBeInTheDocument();
+
+      rerender(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          isLoading={true}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-loading')).toBeInTheDocument();
+
+      rerender(
+        <PlaybackControls
+          isPlaying={true}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          isLoading={false}
+        />
+      );
+
+      expect(screen.queryByTestId('playback-controls-loading')).not.toBeInTheDocument();
+    });
+
+    it('should handle disabled state changes', () => {
+      const { rerender } = render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={false}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).not.toBeDisabled();
+
+      rerender(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={true}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).toBeDisabled();
+
+      rerender(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={false}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).not.toBeDisabled();
+    });
+  });
+
+  describe('Props Updates', () => {
+    it('should update when isPlaying changes', () => {
+      const { rerender } = render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).toBeInTheDocument();
+
+      rerender(
+        <PlaybackControls
+          isPlaying={true}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-pause')).toBeInTheDocument();
+    });
+
+    it('should update when isLoading changes', () => {
+      const { rerender } = render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          isLoading={false}
+        />
+      );
+
+      expect(screen.queryByTestId('playback-controls-loading')).not.toBeInTheDocument();
+
+      rerender(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          isLoading={true}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-loading')).toBeInTheDocument();
+    });
+
+    it('should update when disabled changes', () => {
+      const { rerender } = render(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={false}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).not.toBeDisabled();
+
+      rerender(
+        <PlaybackControls
+          isPlaying={false}
+          onPlay={vi.fn()}
+          onPause={vi.fn()}
+          onNext={vi.fn()}
+          onPrevious={vi.fn()}
+          disabled={true}
+        />
+      );
+
+      expect(screen.getByTestId('playback-controls-play')).toBeDisabled();
     });
   });
 });
