@@ -173,7 +173,8 @@ export function usePlaybackControl(): PlaybackControlActions {
     const validPosition = Math.max(0, Math.min(position, playbackState.duration || position));
 
     try {
-      await api.post('/api/player/seek', { position: validPosition });
+      // Backend expects position as query parameter
+      await api.post('/api/player/seek', undefined, { position: validPosition });
       // Server broadcasts 'position_changed' message which updates usePlaybackState
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'SEEK_ERROR', status: 500 } : err as ApiError;
@@ -238,11 +239,12 @@ export function usePlaybackControl(): PlaybackControlActions {
     setError(null);
     executingCommand.current = 'setVolume';
 
-    // Clamp volume to valid range
-    const validVolume = Math.max(0.0, Math.min(1.0, volume));
+    // Clamp volume to valid range (convert to 0-100 for API)
+    const validVolume = Math.max(0.0, Math.min(1.0, volume)) * 100;
 
     try {
-      await api.post('/api/player/volume', { volume: validVolume });
+      // Backend expects volume as query parameter (0-100)
+      await api.post('/api/player/volume', undefined, { volume: Math.round(validVolume) });
       // Server broadcasts 'volume_changed' message which updates usePlaybackState
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'VOLUME_ERROR', status: 500 } : err as ApiError;

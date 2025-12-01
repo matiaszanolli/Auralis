@@ -183,7 +183,8 @@ export function useEnhancementControl(): EnhancementControlActions {
     const newEnabled = !state.enabled;
 
     try {
-      await api.post('/api/player/enhancement/toggle', { enabled: newEnabled });
+      // Backend expects enabled as query parameter
+      await api.post('/api/player/enhancement/toggle', undefined, { enabled: newEnabled });
 
       // Optimistic update - server will broadcast confirmation via WebSocket
       setState((prevState) => ({
@@ -226,7 +227,8 @@ export function useEnhancementControl(): EnhancementControlActions {
     }
 
     try {
-      await api.post('/api/player/enhancement/preset', { preset });
+      // Backend expects preset as query parameter
+      await api.post('/api/player/enhancement/preset', undefined, { preset });
 
       // Optimistic update - server will broadcast confirmation via WebSocket
       setState((prevState) => ({
@@ -260,7 +262,8 @@ export function useEnhancementControl(): EnhancementControlActions {
     const validIntensity = Math.max(0.0, Math.min(1.0, intensity));
 
     try {
-      await api.post('/api/player/enhancement/intensity', { intensity: validIntensity });
+      // Backend expects intensity as query parameter
+      await api.post('/api/player/enhancement/intensity', undefined, { intensity: validIntensity });
 
       // Optimistic update - server will broadcast confirmation via WebSocket
       setState((prevState) => ({

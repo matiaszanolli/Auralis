@@ -27,13 +27,22 @@ export function useRestAPI() {
   const [error, setError] = useState<ApiError | null>(null);
 
   /**
-   * Build full URL from endpoint path.
+   * Build full URL from endpoint path with optional query parameters.
    */
-  const buildUrl = useCallback((endpoint: string): string => {
-    if (endpoint.startsWith('http')) {
-      return endpoint;
+  const buildUrl = useCallback((endpoint: string, queryParams?: Record<string, any>): string => {
+    let url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+
+    if (queryParams && Object.keys(queryParams).length > 0) {
+      const params = new URLSearchParams();
+      Object.entries(queryParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          params.append(key, String(value));
+        }
+      });
+      url += `?${params.toString()}`;
     }
-    return `${API_BASE_URL}${endpoint}`;
+
+    return url;
   }, []);
 
   /**
@@ -93,14 +102,22 @@ export function useRestAPI() {
 
   /**
    * POST request.
+   * Supports both JSON body (for GET-like data) and query parameters (for Auralis backend).
+   *
+   * Usage:
+   *   // JSON body (legacy)
+   *   await api.post('/api/queue', { tracks: [1, 2, 3] });
+   *
+   *   // Query parameters (Auralis backend)
+   *   await api.post('/api/player/seek', undefined, { position: 120 });
    */
   const post = useCallback(
-    async <T = any>(endpoint: string, payload?: any): Promise<T> => {
+    async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
       setIsLoading(true);
       setError(null);
 
       try {
-        const url = buildUrl(endpoint);
+        const url = buildUrl(endpoint, queryParams);
         const response = await fetchWithTimeout(url, {
           method: 'POST',
           headers: {
@@ -128,14 +145,15 @@ export function useRestAPI() {
 
   /**
    * PUT request.
+   * Supports both JSON body and query parameters.
    */
   const put = useCallback(
-    async <T = any>(endpoint: string, payload?: any): Promise<T> => {
+    async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
       setIsLoading(true);
       setError(null);
 
       try {
-        const url = buildUrl(endpoint);
+        const url = buildUrl(endpoint, queryParams);
         const response = await fetchWithTimeout(url, {
           method: 'PUT',
           headers: {
@@ -163,14 +181,15 @@ export function useRestAPI() {
 
   /**
    * PATCH request.
+   * Supports both JSON body and query parameters.
    */
   const patch = useCallback(
-    async <T = any>(endpoint: string, payload?: any): Promise<T> => {
+    async <T = any>(endpoint: string, payload?: any, queryParams?: Record<string, any>): Promise<T> => {
       setIsLoading(true);
       setError(null);
 
       try {
-        const url = buildUrl(endpoint);
+        const url = buildUrl(endpoint, queryParams);
         const response = await fetchWithTimeout(url, {
           method: 'PATCH',
           headers: {
