@@ -6,11 +6,10 @@ import {
 } from '@mui/material';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
-import PlayerBarV2Connected from './components/player-bar-v2/PlayerBarV2Connected';
+import Player from './components/player/Player';
 import EnhancementPaneV2 from './components/enhancement-pane-v2';
 import CozyLibraryView from './components/library/CozyLibraryView';
 import SettingsDialog from './components/settings/SettingsDialog';
-import LyricsPanel from './components/player-bar-v2/lyrics/LyricsPanel';
 import KeyboardShortcutsHelp from './components/shared/KeyboardShortcutsHelp';
 
 // Core app layout components
@@ -56,7 +55,6 @@ function ComfortableApp() {
     setPresetPaneCollapsed,
   } = useAppLayout();
 
-  const [lyricsOpen, setLyricsOpen] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
@@ -207,8 +205,6 @@ function ComfortableApp() {
           info('Search cleared');
         } else if (settingsOpen) {
           setSettingsOpen(false);
-        } else if (lyricsOpen) {
-          setLyricsOpen(false);
         }
       }
     },
@@ -307,14 +303,6 @@ function ComfortableApp() {
         </AppEnhancementPane>
       )}
 
-      {/* Lyrics Panel - Optional */}
-      {lyricsOpen && currentTrack && (
-        <LyricsPanel
-          trackId={currentTrack.id}
-          onClose={() => setLyricsOpen(false)}
-        />
-      )}
-
       {/* Settings Dialog */}
       <SettingsDialog
         open={settingsOpen}
@@ -333,8 +321,8 @@ function ComfortableApp() {
         formatShortcut={formatShortcut}
       />
 
-      {/* Bottom Player Bar - Beta 13.0: PlayerBarV2 with design system */}
-      <PlayerBarV2Connected />
+      {/* Bottom Player Bar - Phase 5: New Player orchestration component */}
+      <Player />
     </AppContainer>
   );
 }
