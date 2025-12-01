@@ -215,13 +215,15 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
 
     try {
       // Create WebSocketManager with Phase 3c error handling
+      // In development, limit reconnection attempts to reduce console spam
+      const maxAttempts = process.env.NODE_ENV === 'development' ? 3 : 10;
       wsManagerRef.current = new WebSocketManager(url, {
-        maxReconnectAttempts: 10,
+        maxReconnectAttempts: maxAttempts,
         initialReconnectDelayMs: 1000,
         backoffMultiplier: 2,
         maxReconnectDelayMs: 30000,
         onReconnectAttempt: (attempt, delay) => {
-          console.log(`🔄 Reconnection attempt ${attempt}/10 (waiting ${delay}ms)`);
+          console.log(`🔄 Reconnection attempt ${attempt}/${maxAttempts} (waiting ${delay}ms)`);
         },
       });
 
