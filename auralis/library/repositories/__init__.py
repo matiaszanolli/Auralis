@@ -18,6 +18,7 @@ from .stats_repository import StatsRepository
 from .fingerprint_repository import FingerprintRepository
 from .queue_repository import QueueRepository
 from .queue_history_repository import QueueHistoryRepository
+from .queue_template_repository import QueueTemplateRepository
 
 __all__ = [
     'TrackRepository',
@@ -28,4 +29,5 @@ __all__ = [
     'FingerprintRepository',
     'QueueRepository',
     'QueueHistoryRepository',
+    'QueueTemplateRepository',
 ]

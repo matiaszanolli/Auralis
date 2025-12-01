@@ -404,3 +404,84 @@ class QueueHistory(Base, TimestampMixin):
         entry.state_snapshot = json.dumps(data.get('state_snapshot', {}))
         entry.operation_metadata = json.dumps(data.get('operation_metadata', {}))
         return entry
+
+
+class QueueTemplate(Base, TimestampMixin):
+    """
+    Model for saving and restoring queue configurations (templates).
+
+    Allows users to save their current queue configuration and restore it later.
+    Templates include tracks, shuffle mode, and repeat mode settings.
+    """
+    __tablename__ = 'queue_template'
+
+    id = Column(Integer, primary_key=True)
+
+    # Template name for user identification
+    name = Column(String, nullable=False)
+
+    # Track IDs in the template queue
+    track_ids = Column(Text, default='[]', nullable=False)
+
+    # Shuffle setting when template was saved
+    is_shuffled = Column(Boolean, default=False, nullable=False)
+
+    # Repeat mode when template was saved
+    repeat_mode = Column(String, default='off', nullable=False)
+
+    # Optional description/notes about the template
+    description = Column(Text, nullable=True)
+
+    # Template tags for organization
+    tags = Column(Text, default='[]', nullable=False)
+
+    # Whether this is a favorite/starred template
+    is_favorite = Column(Boolean, default=False, nullable=False)
+
+    # Number of times this template has been loaded
+    load_count = Column(Integer, default=0, nullable=False)
+
+    # Last time this template was loaded
+    last_loaded = Column(DateTime, nullable=True)
+
+    def to_dict(self) -> dict:
+        """Convert template to dictionary"""
+        import json
+        try:
+            track_ids = json.loads(self.track_ids) if self.track_ids else []
+        except (json.JSONDecodeError, TypeError):
+            track_ids = []
+
+        try:
+            tags = json.loads(self.tags) if self.tags else []
+        except (json.JSONDecodeError, TypeError):
+            tags = []
+
+        return {
+            'id': self.id,
+            'name': self.name,
+            'track_ids': track_ids,
+            'is_shuffled': self.is_shuffled,
+            'repeat_mode': self.repeat_mode,
+            'description': self.description,
+            'tags': tags,
+            'is_favorite': self.is_favorite,
+            'load_count': self.load_count,
+            'last_loaded': self.last_loaded.isoformat() if self.last_loaded else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    @staticmethod
+    def from_dict(data: dict) -> 'QueueTemplate':
+        """Create QueueTemplate from dictionary"""
+        import json
+        template = QueueTemplate()
+        template.name = data.get('name', 'Untitled Template')
+        template.track_ids = json.dumps(data.get('track_ids', []))
+        template.is_shuffled = data.get('is_shuffled', False)
+        template.repeat_mode = data.get('repeat_mode', 'off')
+        template.description = data.get('description', None)
+        template.tags = json.dumps(data.get('tags', []))
+        template.is_favorite = data.get('is_favorite', False)
+        return template
