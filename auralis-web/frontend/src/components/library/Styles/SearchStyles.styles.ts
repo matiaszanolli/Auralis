@@ -64,7 +64,7 @@ export const ResultsContainer = styled(Paper)(({ theme }) => ({
   marginTop: theme.spacing(1),
   maxHeight: 500,
   overflowY: 'auto',
-  background: tokens.colors.background.secondary,
+  background: tokens.colors.bg.secondary,
   backdropFilter: 'blur(20px)',
   border: `1px solid ${auroraOpacity.lighter}`,
   borderRadius: theme.spacing(2),

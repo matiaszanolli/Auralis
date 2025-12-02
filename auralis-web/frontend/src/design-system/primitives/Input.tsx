@@ -152,7 +152,7 @@ const StyledTextField = styled(MuiTextField, {
       marginLeft: tokens.spacing.sm,
       marginTop: tokens.spacing.xs,
       fontSize: tokens.typography.fontSize.xs,
-      color: error ? tokens.colors.accent.error : tokens.colors.text.tertiary,
+      color: error ? tokens.colors.semantic.error : tokens.colors.text.tertiary,
     },
   };
 });

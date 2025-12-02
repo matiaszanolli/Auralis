@@ -320,7 +320,7 @@ const styles = {
     width: '100%',
     height: '100%',
     backgroundColor: tokens.colors.bg.primary,
-    borderLeft: `1px solid ${tokens.colors.border.default}`,
+    borderLeft: `1px solid ${tokens.colors.border.light}`,
     overflow: 'hidden',
   },
 
@@ -334,7 +334,7 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
   },
 
   title: {
@@ -380,7 +380,7 @@ const styles = {
     fontWeight: tokens.typography.fontWeight.bold,
     color: tokens.colors.text.primary,
     paddingBottom: tokens.spacing.xs,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
   },
 
   summaryGrid: {
@@ -393,7 +393,7 @@ const styles = {
     padding: tokens.spacing.sm,
     backgroundColor: tokens.colors.bg.secondary,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     display: 'flex',
     flexDirection: 'column' as const,
     gap: tokens.spacing.xs,

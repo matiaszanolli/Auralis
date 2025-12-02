@@ -364,7 +364,7 @@ const styles = {
   panel: {
     backgroundColor: tokens.colors.bg.primary,
     borderRadius: tokens.borderRadius.lg,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     display: 'flex',
     flexDirection: 'column' as const,
     width: '90%',
@@ -378,7 +378,7 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: tokens.spacing.lg,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
     flexShrink: 0,
   },
 
@@ -406,7 +406,7 @@ const styles = {
 
   searchSection: {
     padding: tokens.spacing.lg,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
     flexShrink: 0,
     display: 'flex',
     flexDirection: 'column' as const,
@@ -423,7 +423,7 @@ const styles = {
     width: '100%',
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     backgroundColor: tokens.colors.bg.secondary,
     color: tokens.colors.text.primary,
     fontSize: tokens.typography.fontSize.md,
@@ -466,7 +466,7 @@ const styles = {
   filterButton: {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     backgroundColor: tokens.colors.bg.secondary,
     color: tokens.colors.text.primary,
     cursor: 'pointer',
@@ -505,7 +505,7 @@ const styles = {
   },
 
   resultItem: {
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
     transition: 'background-color 0.2s',
 
     ':hover': {
@@ -630,7 +630,7 @@ const styles = {
 
   footer: {
     padding: tokens.spacing.lg,
-    borderTop: `1px solid ${tokens.colors.border.default}`,
+    borderTop: `1px solid ${tokens.colors.border.light}`,
     display: 'flex',
     justifyContent: 'flex-end',
     flexShrink: 0,
@@ -639,7 +639,7 @@ const styles = {
   clearAllButton: {
     padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     backgroundColor: tokens.colors.bg.secondary,
     color: tokens.colors.text.primary,
     cursor: 'pointer',

@@ -202,7 +202,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
   },
 
   title: {
@@ -247,7 +247,7 @@ const styles = {
   input: {
     padding: tokens.spacing.sm,
     backgroundColor: tokens.colors.bg.secondary,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     borderRadius: tokens.borderRadius.md,
     color: tokens.colors.text.primary,
     fontSize: tokens.typography.fontSize.md,
@@ -265,14 +265,14 @@ const styles = {
     display: 'flex',
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
-    borderTop: `1px solid ${tokens.colors.border.default}`,
+    borderTop: `1px solid ${tokens.colors.border.light}`,
   },
 
   cancelButton: {
     flex: 1,
     padding: tokens.spacing.sm,
     backgroundColor: tokens.colors.bg.secondary,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     borderRadius: tokens.borderRadius.md,
     color: tokens.colors.text.primary,
     cursor: 'pointer',
@@ -285,7 +285,7 @@ const styles = {
     backgroundColor: tokens.colors.accent.primary,
     border: 'none',
     borderRadius: tokens.borderRadius.md,
-    color: tokens.colors.text.onAccent,
+    color: tokens.colors.text.primary,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     fontWeight: tokens.typography.fontWeight.bold,

@@ -356,7 +356,7 @@ const styles = {
     width: '100%',
     height: '100%',
     backgroundColor: tokens.colors.bg.primary,
-    borderLeft: `1px solid ${tokens.colors.border.default}`,
+    borderLeft: `1px solid ${tokens.colors.border.light}`,
     overflow: 'hidden',
   },
 
@@ -370,7 +370,7 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
   },
 
   title: {
@@ -399,14 +399,14 @@ const styles = {
     display: 'flex',
     gap: tokens.spacing.sm,
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
     flexWrap: 'wrap' as const,
   },
 
   modeButton: {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     backgroundColor: tokens.colors.bg.secondary,
     color: tokens.colors.text.primary,
     cursor: 'pointer',
@@ -433,7 +433,7 @@ const styles = {
   repeatModeButtons: {
     display: 'flex',
     gap: tokens.spacing.xs,
-    borderLeft: `1px solid ${tokens.colors.border.default}`,
+    borderLeft: `1px solid ${tokens.colors.border.light}`,
     paddingLeft: tokens.spacing.sm,
     marginLeft: tokens.spacing.sm,
   },
@@ -441,7 +441,7 @@ const styles = {
   repeatButton: {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     backgroundColor: tokens.colors.bg.secondary,
     color: tokens.colors.text.primary,
     cursor: 'pointer',
@@ -470,7 +470,7 @@ const styles = {
     marginLeft: 'auto',
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     backgroundColor: tokens.colors.bg.secondary,
     color: tokens.colors.text.primary,
     cursor: 'pointer',
@@ -513,7 +513,7 @@ const styles = {
     alignItems: 'center',
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
     cursor: 'move',
     transition: 'background-color 0.2s, opacity 0.2s',
 

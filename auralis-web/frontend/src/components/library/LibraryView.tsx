@@ -117,7 +117,7 @@ const styles = {
   tabs: {
     display: 'flex',
     gap: tokens.spacing.sm,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
   },
 
   tab: {
