@@ -85,9 +85,10 @@ export const TrackRow: React.FC<TrackRowProps> = ({
     handleCloseContextMenu,
     handleAddToPlaylist,
     handleCreatePlaylist,
-    contextMenuActions,
+    contextActions,
   } = useTrackContextMenu({
     track,
+    onPlay,
     onEditMetadata,
     onToggleFavorite,
     onShowAlbum,
@@ -153,7 +154,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
         open={Boolean(contextMenuPosition)}
         anchorPosition={contextMenuPosition || undefined}
         onClose={handleCloseContextMenu}
-        actions={contextMenuActions}
+        actions={contextActions}
         // Playlist support
         trackId={track.id}
         trackTitle={track.title}

@@ -16,7 +16,7 @@ export const useTrackImage = () => {
 
   const shouldShowImage = useCallback(
     (albumArt: string | undefined) => {
-      return albumArt && !imageError;
+      return !!(albumArt && !imageError);
     },
     [imageError]
   );
