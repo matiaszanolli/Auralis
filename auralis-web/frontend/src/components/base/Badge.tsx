@@ -14,19 +14,19 @@ const variantColors = {
     text: tokens.colors.text.primary,
   },
   success: {
-    bg: tokens.colors.accent.success,
+    bg: tokens.colors.semantic.success,
     text: tokens.colors.text.primary,
   },
   warning: {
-    bg: tokens.colors.accent.warning,
+    bg: tokens.colors.semantic.warning,
     text: tokens.colors.text.primary,
   },
   error: {
-    bg: tokens.colors.accent.error,
+    bg: tokens.colors.semantic.error,
     text: tokens.colors.text.primary,
   },
   info: {
-    bg: tokens.colors.accent.info,
+    bg: tokens.colors.semantic.info,
     text: tokens.colors.text.primary,
   },
 };

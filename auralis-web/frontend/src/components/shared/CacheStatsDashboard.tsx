@@ -36,10 +36,10 @@ function PercentageDisplay({ value, threshold = 70 }: { value: number; threshold
   const percentage = Math.round(value * 100);
   const color =
     percentage >= threshold
-      ? tokens.colors.accent.success
+      ? tokens.colors.semantic.success
       : percentage >= threshold * 0.7
-        ? tokens.colors.accent.warning
-        : tokens.colors.accent.error;
+        ? tokens.colors.semantic.warning
+        : tokens.colors.semantic.error;
 
   return (
     <div
@@ -217,7 +217,7 @@ export function CacheStatsDashboard({
           padding: tokens.spacing.lg,
           background: 'rgba(239, 68, 68, 0.1)',
           borderRadius: '8px',
-          color: tokens.colors.accent.error,
+          color: tokens.colors.semantic.error,
           fontSize: tokens.typography.fontSize.sm,
         }}
       >
@@ -392,8 +392,8 @@ export function CacheStatsDashboard({
                         height: '100%',
                         width: `${trackInfo.completion_percent}%`,
                         background: trackInfo.fully_cached
-                          ? tokens.colors.accent.success
-                          : tokens.colors.accent.warning,
+                          ? tokens.colors.semantic.success
+                          : tokens.colors.semantic.warning,
                       }}
                     />
                   </div>

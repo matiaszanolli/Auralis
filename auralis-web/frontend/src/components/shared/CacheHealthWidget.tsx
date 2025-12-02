@@ -106,12 +106,12 @@ export function CacheHealthWidget({
           padding: sizeStyles.padding,
           background: 'rgba(239, 68, 68, 0.1)',
           borderRadius: '12px',
-          border: `1px solid ${tokens.colors.accent.error}`,
+          border: `1px solid ${tokens.colors.semantic.error}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: tokens.typography.fontSize.xs,
-          color: tokens.colors.accent.error,
+          color: tokens.colors.semantic.error,
           textAlign: 'center',
         }}
       >
@@ -121,7 +121,7 @@ export function CacheHealthWidget({
   }
 
   const isActuallyHealthy = isHealthy ?? cacheHealth.healthy;
-  const statusColor = isActuallyHealthy ? tokens.colors.accent.success : tokens.colors.accent.error;
+  const statusColor = isActuallyHealthy ? tokens.colors.semantic.success : tokens.colors.semantic.error;
   const statusText = isActuallyHealthy ? 'Healthy' : 'Unhealthy';
   const statusEmoji = isActuallyHealthy ? '✅' : '⚠️';
 
@@ -209,7 +209,7 @@ export function CacheHealthWidget({
               width: '24px',
               height: '24px',
               borderRadius: '50%',
-              background: tokens.colors.accent.error,
+              background: tokens.colors.semantic.error,
               color: tokens.colors.text.primary,
               display: 'flex',
               alignItems: 'center',

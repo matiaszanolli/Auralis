@@ -28,7 +28,7 @@ export const DropZoneIcon: React.FC<DropZoneIconProps> = ({ isDragging, scanning
         <CheckCircle
           sx={{
             fontSize: 64,
-            color: tokens.colors.accent.success,
+            color: tokens.colors.semantic.success,
             animation: 'fadeIn 0.3s ease',
           }}
         />

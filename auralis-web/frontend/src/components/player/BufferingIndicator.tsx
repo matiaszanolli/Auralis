@@ -172,7 +172,7 @@ export const BufferingIndicator: React.FC<BufferingIndicatorProps> = ({
             alignItems: 'center',
             gap: tokens.spacing.xs,
             fontSize: tokens.typography.fontSize.xs,
-            color: isError ? tokens.colors.accent.error : tokens.colors.text.secondary,
+            color: isError ? tokens.colors.semantic.error : tokens.colors.text.secondary,
           }}
           data-testid="buffering-status"
         >

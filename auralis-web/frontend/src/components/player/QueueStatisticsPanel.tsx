@@ -248,12 +248,12 @@ interface QualityRatingProps {
 const QualityRating: React.FC<QualityRatingProps> = ({ assessment }) => {
   const ratingColor =
     assessment.rating === 'excellent'
-      ? tokens.colors.accent.success || '#00aa00'
+      ? tokens.colors.semantic.success || '#00aa00'
       : assessment.rating === 'good'
         ? tokens.colors.accent.primary || '#0066cc'
         : assessment.rating === 'fair'
-          ? tokens.colors.accent.warning || '#ffaa00'
-          : tokens.colors.accent.error || '#ff4444';
+          ? tokens.colors.semantic.warning || '#ffaa00'
+          : tokens.colors.semantic.error || '#ff4444';
 
   const ratingIcon =
     assessment.rating === 'excellent'

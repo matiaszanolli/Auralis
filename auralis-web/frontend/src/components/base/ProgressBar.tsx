@@ -13,9 +13,9 @@ interface ProgressBarProps {
 
 const colorMap = {
   primary: tokens.colors.accent.primary,
-  success: tokens.colors.accent.success,
-  warning: tokens.colors.accent.warning,
-  error: tokens.colors.accent.error,
+  success: tokens.colors.semantic.success,
+  warning: tokens.colors.semantic.warning,
+  error: tokens.colors.semantic.error,
 };
 
 const sizeMap = {

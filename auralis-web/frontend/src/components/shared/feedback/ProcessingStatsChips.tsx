@@ -31,11 +31,11 @@ export const ProcessingStatsChips: React.FC<ProcessingStatsChipsProps> = ({
           size="small"
           sx={{
             height: '22px',
-            backgroundColor: `${tokens.colors.accent.success}1A`,
-            color: tokens.colors.accent.success,
+            backgroundColor: `${tokens.colors.semantic.success}1A`,
+            color: tokens.colors.semantic.success,
             fontSize: tokens.typography.fontSize.xs,
             '& .MuiChip-icon': {
-              color: tokens.colors.accent.success,
+              color: tokens.colors.semantic.success,
             },
           }}
         />

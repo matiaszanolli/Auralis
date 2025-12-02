@@ -31,7 +31,7 @@ const variantStyles = {
     hover: { backgroundColor: tokens.colors.bg.secondary },
   },
   danger: {
-    backgroundColor: tokens.colors.accent.error,
+    backgroundColor: tokens.colors.semantic.error,
     color: tokens.colors.text.primary,
     border: 'none',
     hover: { backgroundColor: '#dc2626' },

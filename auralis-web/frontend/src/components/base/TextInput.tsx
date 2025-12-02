@@ -59,7 +59,7 @@ export const TextInput = React.forwardRef<
 
   const inputStylesWithError: React.CSSProperties = {
     ...inputStyles,
-    borderColor: error ? tokens.colors.accent.error : tokens.colors.border.light,
+    borderColor: error ? tokens.colors.semantic.error : tokens.colors.border.light,
   };
 
   const labelStyles: React.CSSProperties = {
@@ -70,7 +70,7 @@ export const TextInput = React.forwardRef<
 
   const errorStyles: React.CSSProperties = {
     fontSize: tokens.typography.fontSize.xs,
-    color: tokens.colors.accent.error,
+    color: tokens.colors.semantic.error,
   };
 
   const helperStyles: React.CSSProperties = {

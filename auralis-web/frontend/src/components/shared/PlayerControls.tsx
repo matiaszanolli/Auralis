@@ -385,7 +385,7 @@ export function PlayerControls({
             height: '32px',
             border: 'none',
             borderRadius: '6px',
-            background: playerState.isMuted ? tokens.colors.accent.warning : tokens.colors.bg.tertiary,
+            background: playerState.isMuted ? tokens.colors.semantic.warning : tokens.colors.bg.tertiary,
             color: tokens.colors.text.primary,
             cursor: 'pointer',
             fontSize: tokens.typography.fontSize.md,
