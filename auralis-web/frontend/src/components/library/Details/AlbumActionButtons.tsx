@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box, IconButton, Tooltip, Button } from '@mui/material';
 import {
   PlayArrow,
   Pause,
@@ -14,8 +14,6 @@ import {
   Favorite,
   FavoriteBorder,
 } from '@mui/icons-material';
-import { PlayButton } from '../Styles/Button.styles';
-import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface AlbumActionButtonsProps {
@@ -42,25 +40,58 @@ export const AlbumActionButtons: React.FC<AlbumActionButtonsProps> = ({
   onMoreOptions,
 }) => {
   return (
-    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-      <PlayButton
+    <Box sx={{ display: 'flex', gap: tokens.spacing.md, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Primary Play/Pause Button */}
+      <Button
+        variant="contained"
         startIcon={isPlaying && firstTrackId ? <Pause /> : <PlayArrow />}
         onClick={onPlay}
+        disabled={savingFavorite}
+        sx={{
+          background: tokens.gradients.aurora,
+          color: tokens.colors.text.primary,
+          fontWeight: tokens.typography.fontWeight.semibold,
+          padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
+          borderRadius: tokens.borderRadius.md,
+          border: 'none',
+          cursor: 'pointer',
+          transition: tokens.transitions.all,
+          boxShadow: tokens.shadows.md,
+          outline: 'none',
+          '&:hover': {
+            transform: 'translateY(-2px)',
+            boxShadow: tokens.shadows.glowMd,
+          },
+          '&:active': {
+            transform: 'translateY(0)',
+          },
+          '&:disabled': {
+            opacity: 0.5,
+            cursor: 'not-allowed',
+          },
+        }}
       >
         {isPlaying && firstTrackId ? 'Pause' : 'Play Album'}
-      </PlayButton>
+      </Button>
 
+      {/* Favorite Button */}
       <Tooltip title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
         <IconButton
           onClick={onToggleFavorite}
           disabled={savingFavorite}
           sx={{
-            color: isFavorite ? tokens.colors.accent.error : 'text.secondary',
+            color: isFavorite ? tokens.colors.semantic.error : tokens.colors.text.secondary,
+            border: `1px solid ${tokens.colors.border.light}`,
+            borderRadius: tokens.borderRadius.md,
+            padding: tokens.spacing.sm,
+            transition: tokens.transitions.all,
             '&:hover': {
-              backgroundColor: auroraOpacity.ultraLight,
+              backgroundColor: tokens.colors.bg.tertiary,
+              borderColor: tokens.colors.accent.primary,
+              transform: 'scale(1.05)',
             },
             '&:disabled': {
-              opacity: 0.6,
+              opacity: 0.5,
               cursor: 'not-allowed',
             },
           }}
@@ -69,12 +100,20 @@ export const AlbumActionButtons: React.FC<AlbumActionButtonsProps> = ({
         </IconButton>
       </Tooltip>
 
+      {/* Add to Queue Button */}
       <Tooltip title="Add to queue">
         <IconButton
           onClick={onAddToQueue}
           sx={{
+            color: tokens.colors.text.secondary,
+            border: `1px solid ${tokens.colors.border.light}`,
+            borderRadius: tokens.borderRadius.md,
+            padding: tokens.spacing.sm,
+            transition: tokens.transitions.all,
             '&:hover': {
-              backgroundColor: auroraOpacity.ultraLight,
+              backgroundColor: tokens.colors.bg.tertiary,
+              borderColor: tokens.colors.accent.primary,
+              transform: 'scale(1.05)',
             },
           }}
         >
@@ -82,12 +121,20 @@ export const AlbumActionButtons: React.FC<AlbumActionButtonsProps> = ({
         </IconButton>
       </Tooltip>
 
+      {/* More Options Button */}
       <Tooltip title="More options">
         <IconButton
           onClick={onMoreOptions}
           sx={{
+            color: tokens.colors.text.secondary,
+            border: `1px solid ${tokens.colors.border.light}`,
+            borderRadius: tokens.borderRadius.md,
+            padding: tokens.spacing.sm,
+            transition: tokens.transitions.all,
             '&:hover': {
-              backgroundColor: auroraOpacity.ultraLight,
+              backgroundColor: tokens.colors.bg.tertiary,
+              borderColor: tokens.colors.accent.primary,
+              transform: 'scale(1.05)',
             },
           }}
         >

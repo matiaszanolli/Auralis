@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Box, Typography } from '@mui/material';
+import { tokens } from '@/design-system/tokens';
 
 interface AlbumMetadataProps {
   year?: number;
@@ -31,14 +32,23 @@ export const AlbumMetadata: React.FC<AlbumMetadataProps> = ({
 }) => {
   return (
     <Box>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
+      <Typography variant="body2" sx={{
+        color: tokens.colors.text.tertiary,
+        mb: tokens.spacing.sm,
+        fontSize: tokens.typography.fontSize.sm,
+        fontWeight: tokens.typography.fontWeight.regular,
+      }}>
         {year && `${year} • `}
         {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
         {' • '}
         {formatTotalDuration(totalDuration)}
       </Typography>
       {genre && (
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        <Typography variant="body2" sx={{
+          color: tokens.colors.text.tertiary,
+          fontSize: tokens.typography.fontSize.sm,
+          fontWeight: tokens.typography.fontWeight.regular,
+        }}>
           Genre: {genre}
         </Typography>
       )}
