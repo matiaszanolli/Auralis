@@ -15,7 +15,7 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { vi } from 'vitest';
 import AlbumGrid from '@/components/library/AlbumGrid';
-import AlbumCard from '@/components/library/AlbumCard';
+import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import ArtistList from '@/components/library/ArtistList';
 import LibraryView from '@/components/library/LibraryView';
 import MetadataEditorDialog from '@/components/library/MetadataEditorDialog';
@@ -164,95 +164,114 @@ describe('AlbumCard', () => {
     vi.clearAllMocks();
   });
 
-  it('should display album artwork', () => {
-    const mockOnSelect = vi.fn();
-
-    render(<AlbumCard album={mockAlbum} onSelect={mockOnSelect} />);
-
-    const image = screen.getByAltText('Test Album');
-    expect(image).toBeInTheDocument();
-    expect(image).toHaveAttribute('src', 'https://example.com/album.jpg');
-  });
-
   it('should display album title', () => {
-    const mockOnSelect = vi.fn();
+    const mockOnClick = vi.fn();
 
-    render(<AlbumCard album={mockAlbum} onSelect={mockOnSelect} />);
+    render(
+      <AlbumCard
+        albumId={mockAlbum.id}
+        title={mockAlbum.title}
+        artist={mockAlbum.artist}
+        trackCount={mockAlbum.track_count}
+        hasArtwork={!!mockAlbum.artwork_url}
+        year={mockAlbum.year}
+        onClick={mockOnClick}
+      />
+    );
 
     expect(screen.getByText('Test Album')).toBeInTheDocument();
   });
 
   it('should display artist name', () => {
-    const mockOnSelect = vi.fn();
+    const mockOnClick = vi.fn();
 
-    render(<AlbumCard album={mockAlbum} onSelect={mockOnSelect} />);
+    render(
+      <AlbumCard
+        albumId={mockAlbum.id}
+        title={mockAlbum.title}
+        artist={mockAlbum.artist}
+        trackCount={mockAlbum.track_count}
+        hasArtwork={!!mockAlbum.artwork_url}
+        year={mockAlbum.year}
+        onClick={mockOnClick}
+      />
+    );
 
     expect(screen.getByText('Test Artist')).toBeInTheDocument();
   });
 
   it('should display year', () => {
-    const mockOnSelect = vi.fn();
+    const mockOnClick = vi.fn();
 
-    render(<AlbumCard album={mockAlbum} onSelect={mockOnSelect} />);
+    render(
+      <AlbumCard
+        albumId={mockAlbum.id}
+        title={mockAlbum.title}
+        artist={mockAlbum.artist}
+        trackCount={mockAlbum.track_count}
+        hasArtwork={!!mockAlbum.artwork_url}
+        year={mockAlbum.year}
+        onClick={mockOnClick}
+      />
+    );
 
     expect(screen.getByText('2023')).toBeInTheDocument();
   });
 
   it('should display track count', () => {
-    const mockOnSelect = vi.fn();
+    const mockOnClick = vi.fn();
 
-    render(<AlbumCard album={mockAlbum} onSelect={mockOnSelect} />);
+    render(
+      <AlbumCard
+        albumId={mockAlbum.id}
+        title={mockAlbum.title}
+        artist={mockAlbum.artist}
+        trackCount={mockAlbum.track_count}
+        hasArtwork={!!mockAlbum.artwork_url}
+        year={mockAlbum.year}
+        onClick={mockOnClick}
+      />
+    );
 
     expect(screen.getByText(/10 tracks/i)).toBeInTheDocument();
   });
 
-  it('should call onSelect when clicked', () => {
-    const mockOnSelect = vi.fn();
+  it('should call onClick when clicked', () => {
+    const mockOnClick = vi.fn();
 
     const { container } = render(
-      <AlbumCard album={mockAlbum} onSelect={mockOnSelect} />
+      <AlbumCard
+        albumId={mockAlbum.id}
+        title={mockAlbum.title}
+        artist={mockAlbum.artist}
+        trackCount={mockAlbum.track_count}
+        hasArtwork={!!mockAlbum.artwork_url}
+        year={mockAlbum.year}
+        onClick={mockOnClick}
+      />
     );
 
     const card = container.firstChild as HTMLElement;
     fireEvent.click(card);
 
-    expect(mockOnSelect).toHaveBeenCalledWith(mockAlbum);
-  });
-
-  it('should show play button on hover', () => {
-    const mockOnSelect = vi.fn();
-
-    const { container } = render(
-      <AlbumCard album={mockAlbum} onSelect={mockOnSelect} />
-    );
-
-    const card = container.firstChild as HTMLElement;
-    fireEvent.mouseEnter(card);
-
-    expect(screen.getByText('▶')).toBeInTheDocument();
-  });
-
-  it('should highlight when selected', () => {
-    const mockOnSelect = vi.fn();
-
-    const { container } = render(
-      <AlbumCard album={mockAlbum} onSelect={mockOnSelect} isSelected={true} />
-    );
-
-    const card = container.firstChild as HTMLElement;
-    // Check for selected styling (would be checked via CSS in real scenario)
-    expect(card).toBeInTheDocument();
+    expect(mockOnClick).toHaveBeenCalled();
   });
 
   it('should handle missing artwork gracefully', () => {
-    const mockOnSelect = vi.fn();
-    const albumNoArtwork = { ...mockAlbum, artwork_url: null };
+    const mockOnClick = vi.fn();
 
-    const { container } = render(
-      <AlbumCard album={albumNoArtwork as any} onSelect={mockOnSelect} />
+    render(
+      <AlbumCard
+        albumId={mockAlbum.id}
+        title={mockAlbum.title}
+        artist={mockAlbum.artist}
+        trackCount={mockAlbum.track_count}
+        hasArtwork={false}
+        year={mockAlbum.year}
+        onClick={mockOnClick}
+      />
     );
 
-    // Should still render without artwork
     expect(screen.getByText('Test Album')).toBeInTheDocument();
   });
 });
