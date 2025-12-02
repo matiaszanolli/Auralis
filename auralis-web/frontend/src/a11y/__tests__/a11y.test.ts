@@ -46,6 +46,7 @@ import {
   isArrowKey,
   canFocus,
   getFocusableElements,
+  type KeyboardShortcut,
 } from '../useKeyboardNavigation';
 
 describe('Accessibility Suite', () => {
@@ -320,9 +321,9 @@ describe('Accessibility Suite', () => {
         ctrlKey: true,
       });
 
-      const shortcut = {
+      const shortcut: KeyboardShortcut = {
         key: 's',
-        modifiers: ['ctrl'] as const,
+        modifiers: ['ctrl'],
         handler: vi.fn(),
       };
 
@@ -335,9 +336,9 @@ describe('Accessibility Suite', () => {
         ctrlKey: false,
       });
 
-      const shortcut = {
+      const shortcut: KeyboardShortcut = {
         key: 's',
-        modifiers: ['ctrl'] as const,
+        modifiers: ['ctrl'],
         handler: vi.fn(),
       };
 

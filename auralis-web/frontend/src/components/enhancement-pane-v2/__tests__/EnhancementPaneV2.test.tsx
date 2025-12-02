@@ -25,7 +25,7 @@ vi.mock('../../../contexts/EnhancementContext', () => {
     useEnhancement: mockUseEnhancement,
     EnhancementProvider: MockEnhancementProvider,
   };
-}, { virtual: true });
+});
 
 // Create mock fetch before test
 const mockFetch = vi.fn().mockResolvedValue({

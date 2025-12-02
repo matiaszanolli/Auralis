@@ -132,7 +132,7 @@ const wcagCriteria: Record<string, WCAGCriterion> = {
 // WCAG Audit Engine
 // ============================================================================
 
-class WCAGAudit {
+export class WCAGAudit {
   private issues: AuditIssue[] = [];
   private targetLevel: WCAGLevel = 'AA';
 

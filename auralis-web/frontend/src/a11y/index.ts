@@ -12,6 +12,15 @@
  */
 
 // ============================================================================
+// Internal Imports (for functions below)
+// ============================================================================
+
+import { wcagAudit, type AuditIssue } from './wcagAudit';
+import { contrastAuditor } from './contrastChecker';
+import { focusManager, injectFocusStyles, focusVisibilityMonitor } from './focusManagement';
+import { liveRegionManager } from './ariaUtilities';
+
+// ============================================================================
 // WCAG Audit
 // ============================================================================
 
@@ -142,7 +151,7 @@ export function enableA11yMonitoring(): void {
   injectFocusStyles();
 
   // Start focus visibility monitoring
-  focusVisibilityMonitor.onFocusChange((element) => {
+  focusVisibilityMonitor.onFocusChange((element: HTMLElement | null) => {
     if (element && process.env.NODE_ENV === 'development') {
       console.debug('[A11y] Focus moved to:', element);
     }
@@ -171,8 +180,8 @@ export function checkA11yCompliance(): {
 
   return {
     passed: audit.compliance.AA,
-    errors: audit.errors.map((e) => e.message),
-    warnings: audit.warnings.map((w) => w.message),
+    errors: audit.errors.map((e: AuditIssue) => e.message),
+    warnings: audit.warnings.map((w: AuditIssue) => w.message),
   };
 }
 

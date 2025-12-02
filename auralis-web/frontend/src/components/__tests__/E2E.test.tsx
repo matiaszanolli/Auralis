@@ -46,7 +46,6 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import playerReducer from '@/store/slices/playerSlice';
@@ -280,8 +279,10 @@ describe('End-to-End User Flows', () => {
       // 2. Set cache health
       const health = {
         healthy: true,
-        hit_rate: 0.95,
-        status: 'healthy',
+        tier1_size_mb: 100,
+        tier1_healthy: true,
+        tier2_size_mb: 500,
+        tier2_healthy: true,
       };
 
       store.dispatch(cacheActions.setCacheHealth(health));

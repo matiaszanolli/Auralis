@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@/test/test-utils'
-import RadialPresetSelector from '../RadialPresetSelector'
+import RadialPresetSelector from '../shared/ui/RadialPresetSelector'
 
 describe('RadialPresetSelector', () => {
   const mockOnPresetChange = vi.fn()
