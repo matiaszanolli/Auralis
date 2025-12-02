@@ -270,7 +270,7 @@ export function CacheHealthMonitor({
           </div>
         </div>
 
-        <HealthStatusIndicator isHealthy={isHealthy ?? cacheHealth.healthy} />
+        <HealthStatusIndicator healthy={isHealthy ?? cacheHealth.healthy} />
       </div>
 
       {/* Health Metrics */}
