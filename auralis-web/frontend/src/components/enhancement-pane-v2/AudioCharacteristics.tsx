@@ -25,9 +25,9 @@ interface AudioCharacteristicsProps {
 
 // Define gradients for each parameter using design system tokens
 const GRADIENTS = {
-  spectralBalance: `linear-gradient(135deg, ${tokens.colors.accent.purple} 0%, ${tokens.colors.accent.secondary} 100%)`, // Aurora gradient
-  dynamicRange: `linear-gradient(135deg, #4b7bec 0%, ${tokens.colors.accent.purple} 100%)`,     // Blue-Violet gradient
-  energyLevel: `linear-gradient(135deg, ${tokens.colors.accent.success} 0%, #26de81 100%)`,      // Teal-Cyan gradient
+  spectralBalance: `linear-gradient(135deg, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.secondary} 100%)`, // Soft Violet to Electric Aqua gradient
+  dynamicRange: `linear-gradient(135deg, #3B82F6 0%, ${tokens.colors.accent.primary} 100%)`,     // Blue to Soft Violet gradient
+  energyLevel: `linear-gradient(135deg, ${tokens.colors.semantic.success} 0%, #26de81 100%)`,      // Green gradient
 };
 
 const AudioCharacteristics: React.FC<AudioCharacteristicsProps> = React.memo(({ params }) => {

@@ -455,7 +455,7 @@ export function QueueManager({
                 onMouseOver={(e) => {
                   if (!queueState.isLoading) {
                     (e.target as HTMLButtonElement).style.opacity = '1';
-                    (e.target as HTMLButtonElement).style.background = tokens.colors.accent.error;
+                    (e.target as HTMLButtonElement).style.background = tokens.colors.semantic.error;
                     (e.target as HTMLButtonElement).style.color = tokens.colors.text.primary;
                   }
                 }}
@@ -562,7 +562,7 @@ export function QueueManager({
                 onClick={handleClearQueue}
                 style={{
                   padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-                  background: tokens.colors.accent.error,
+                  background: tokens.colors.semantic.error,
                   border: 'none',
                   borderRadius: '6px',
                   color: tokens.colors.text.primary,

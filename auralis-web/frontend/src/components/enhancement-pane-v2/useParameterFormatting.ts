@@ -54,7 +54,7 @@ export const useParameterFormatting = (params: ProcessingParams) => {
   // Get color for adjustment value (positive = success, negative = warning)
   const getAdjustmentColor = (value: number | undefined): string => {
     if (value === undefined || value === null) return tokens.colors.text.primary;
-    return value > 0 ? tokens.colors.accent.success : tokens.colors.accent.warning;
+    return value > 0 ? tokens.colors.semantic.success : tokens.colors.semantic.warning;
   };
 
   // Format all parameters
@@ -93,7 +93,7 @@ export const useParameterFormatting = (params: ProcessingParams) => {
   const formatExpansion = (): FormattedParameter => ({
     label: 'Expansion',
     value: formatPercent(params.expansion_amount),
-    valueColor: tokens.colors.accent.info,
+    valueColor: tokens.colors.semantic.info,
     shouldShow: shouldShowValue(params.expansion_amount, 0.05),
   });
 

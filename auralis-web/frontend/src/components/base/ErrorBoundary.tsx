@@ -44,14 +44,14 @@ export class ErrorBoundary extends React.Component<
 
       const containerStyles: React.CSSProperties = {
         padding: tokens.spacing.lg,
-        backgroundColor: tokens.colors.accent.error + '15',
-        border: `1px solid ${tokens.colors.accent.error}`,
+        backgroundColor: tokens.colors.semantic.error + '15',
+        border: `1px solid ${tokens.colors.semantic.error}`,
         borderRadius: tokens.borderRadius.md,
         margin: tokens.spacing.lg,
       };
 
       const titleStyles: React.CSSProperties = {
-        color: tokens.colors.accent.error,
+        color: tokens.colors.semantic.error,
         fontSize: tokens.typography.fontSize.lg,
         fontWeight: tokens.typography.fontWeight.semibold,
         marginBottom: tokens.spacing.md,

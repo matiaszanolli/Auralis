@@ -129,7 +129,7 @@ const styles = {
   },
 
   error: {
-    color: tokens.colors.accent.error,
+    color: tokens.colors.semantic.error,
     fontSize: tokens.typography.fontSize.sm,
   },
 };

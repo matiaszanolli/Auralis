@@ -471,7 +471,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.accent.error || '#ff4444',
+    backgroundColor: tokens.colors.semantic.error || '#ff4444',
     borderRadius: tokens.borderRadius.md,
     margin: tokens.spacing.sm,
   },

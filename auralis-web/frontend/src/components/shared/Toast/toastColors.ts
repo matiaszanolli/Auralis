@@ -22,11 +22,11 @@ const hexToRgba = (hex: string, alpha: number): string => {
 export const getToastBackgroundColor = (severity: AlertColor): string => {
   switch (severity) {
     case 'success':
-      return hexToRgba(tokens.colors.accent.success, 0.15);
+      return hexToRgba(tokens.colors.semantic.success, 0.15);
     case 'error':
-      return hexToRgba(tokens.colors.accent.error, 0.15);
+      return hexToRgba(tokens.colors.semantic.error, 0.15);
     case 'warning':
-      return hexToRgba(tokens.colors.accent.warning, 0.15);
+      return hexToRgba(tokens.colors.semantic.warning, 0.15);
     case 'info':
       return 'rgba(102, 126, 234, 0.1)';
     default:
@@ -42,11 +42,11 @@ export const getToastBackgroundColor = (severity: AlertColor): string => {
 export const getToastBorderColor = (severity: AlertColor): string => {
   switch (severity) {
     case 'success':
-      return tokens.colors.accent.success;
+      return tokens.colors.semantic.success;
     case 'error':
-      return tokens.colors.accent.error;
+      return tokens.colors.semantic.error;
     case 'warning':
-      return tokens.colors.accent.warning;
+      return tokens.colors.semantic.warning;
     case 'info':
       return '#667eea';
     default:

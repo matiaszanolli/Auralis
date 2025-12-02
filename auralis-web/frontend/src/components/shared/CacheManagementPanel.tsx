@@ -134,7 +134,7 @@ function ConfirmationModal({
             onClick={onConfirm}
             style={{
               padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-              background: isDangerous ? tokens.colors.accent.error : tokens.colors.accent.primary,
+              background: isDangerous ? tokens.colors.semantic.error : tokens.colors.accent.primary,
               border: 'none',
               borderRadius: '6px',
               color: tokens.colors.text.primary,
@@ -166,10 +166,10 @@ function MemoryGauge({ current, max }: { current: number; max: number }) {
   const percentage = (current / max) * 100;
   const color =
     percentage >= 90
-      ? tokens.colors.accent.error
+      ? tokens.colors.semantic.error
       : percentage >= 70
-        ? tokens.colors.accent.warning
-        : tokens.colors.accent.success;
+        ? tokens.colors.semantic.warning
+        : tokens.colors.semantic.success;
 
   return (
     <div
@@ -262,7 +262,7 @@ export function CacheManagementPanel({
           padding: tokens.spacing.lg,
           background: 'rgba(239, 68, 68, 0.1)',
           borderRadius: '8px',
-          color: tokens.colors.accent.error,
+          color: tokens.colors.semantic.error,
           fontSize: tokens.typography.fontSize.sm,
         }}
       >
@@ -344,7 +344,7 @@ export function CacheManagementPanel({
           disabled={clearLoading || cacheStats.overall.total_chunks === 0}
           style={{
             padding: tokens.spacing.md,
-            background: tokens.colors.accent.error,
+            background: tokens.colors.semantic.error,
             border: 'none',
             borderRadius: '8px',
             color: tokens.colors.text.primary,
@@ -470,8 +470,8 @@ export function CacheManagementPanel({
                 style={{
                   color:
                     cacheStats.tier1.hit_rate >= 0.7
-                      ? tokens.colors.accent.success
-                      : tokens.colors.accent.warning,
+                      ? tokens.colors.semantic.success
+                      : tokens.colors.semantic.warning,
                   fontWeight: tokens.typography.fontWeight.semibold,
                 }}
               >
@@ -545,8 +545,8 @@ export function CacheManagementPanel({
                 style={{
                   color:
                     cacheStats.tier2.hit_rate >= 0.7
-                      ? tokens.colors.accent.success
-                      : tokens.colors.accent.warning,
+                      ? tokens.colors.semantic.success
+                      : tokens.colors.semantic.warning,
                   fontWeight: tokens.typography.fontWeight.semibold,
                 }}
               >
@@ -642,8 +642,8 @@ export function CacheManagementPanel({
                     transition: 'all 0.2s',
                   }}
                   onMouseOver={(e) => {
-                    (e.target as HTMLButtonElement).style.color = tokens.colors.accent.error;
-                    (e.target as HTMLButtonElement).style.borderColor = tokens.colors.accent.error;
+                    (e.target as HTMLButtonElement).style.color = tokens.colors.semantic.error;
+                    (e.target as HTMLButtonElement).style.borderColor = tokens.colors.semantic.error;
                   }}
                   onMouseOut={(e) => {
                     (e.target as HTMLButtonElement).style.color = tokens.colors.text.secondary;

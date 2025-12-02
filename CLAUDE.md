@@ -9,21 +9,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Rust layer: `vendor/auralis-dsp` for performance-critical DSP (HPSS, YIN, Chroma via PyO3)
 - Graceful fallback to librosa when Rust module unavailable
 
-**⚠️ CRITICAL: DO NOT RUN MEMORY TESTS**
-```
-npm run test:memory   # ❌ WILL CRASH THE SYSTEM - DO NOT RUN
-```
-Memory tests consume 2GB+ and cause system crashes. Use specific test files instead:
-```bash
-# Run specific test file only
-npx vitest run src/hooks/player/__tests__/useQueueSearch.test.ts
-
-# Run component tests
-npx vitest run src/components/player/__tests__/QueueSearchPanel.test.ts
-
-# Run tests in watch mode (for development)
-npx vitest src/hooks/player/__tests__/useQueueSearch.test.ts
-```
+**Project**: Auralis - Professional music player with real-time audio enhancement (like iTunes + mastering studio)
+**License**: GPL-3.0
+**GitHub**: https://github.com/matiaszanolli/Auralis
 
 **Core Principles:**
 - **DRY (Don't Repeat Yourself)**: Always prioritize improving existing code rather than duplicating logic
@@ -81,8 +69,8 @@ python -m pytest tests/ -v
 # Backend - skip slow tests
 python -m pytest -m "not slow" -v
 
-# Frontend (requires memory management)
-cd auralis-web/frontend && npm run test:memory
+# Frontend watch mode (lightweight)
+cd auralis-web/frontend && npm test
 
 # Specific test file
 python -m pytest tests/backend/test_player.py -v
@@ -99,24 +87,22 @@ python -m pytest tests/backend/test_player.py -v
 
 | Task | Command |
 |------|---------|
+| Build + test + package | `python build_auralis.py` |
+| Build (skip tests) | `python build_auralis.py --skip-tests` |
+| Clean build artifacts | `make clean` |
 | Run all backend tests | `python -m pytest tests/ -v` |
 | Run with coverage | `python -m pytest tests/ --cov=auralis --cov-report=html` |
 | Run specific test | `python -m pytest tests/backend/test_player.py::test_play_track -vv -s` |
 | Run only fast tests | `python -m pytest -m "not slow" -v` |
-| Run invariant tests | `python -m pytest -m invariant -v` |
-| Run boundary tests | `python -m pytest tests/boundaries/ -v` |
-| Run integration tests | `python -m pytest -m integration -v` |
-| Frontend full test suite | `cd auralis-web/frontend && npm run test:memory` |
-| Frontend test watch mode | `cd auralis-web/frontend && npm test` |
-| Frontend coverage | `cd auralis-web/frontend && npm run test:coverage:memory` |
+| Frontend watch mode (lightweight) | `cd auralis-web/frontend && npm test` |
 | Type check Python | `mypy auralis/ auralis-web/backend/ --ignore-missing-imports` |
 | Type check TypeScript | `cd auralis-web/frontend && npx tsc --noEmit` |
-| Check Python syntax | `python -m py_compile auralis/ && python -m py_compile auralis-web/` |
+| Format Python code | `black auralis/ auralis-web/backend/` |
+| Sort Python imports | `isort auralis/ auralis-web/backend/` |
 | Free port 8765 | `lsof -ti:8765 \| xargs kill -9` |
 | Free port 3000 | `lsof -ti:3000 \| xargs kill -9` |
 | Database inspect | `sqlite3 ~/.auralis/library.db "SELECT COUNT(*) FROM tracks;"` |
-| Format Python code | `black auralis/ auralis-web/backend/` |
-| Import sort | `isort auralis/ auralis-web/backend/` |
+| Check Python syntax | `python -m py_compile auralis/ && python -m py_compile auralis-web/` |
 
 ---
 
@@ -183,14 +169,22 @@ python -m pytest tests/backend/test_player.py -v
   - `security/` - OWASP Top 10 coverage (SQL injection, XSS, path traversal)
 - **Pytest markers**: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.boundary`, `@pytest.mark.invariant`, etc.
 
+### Build & Launch Scripts
+- **`launch-auralis-web.py`** - Primary entry point for web interface development (manages backend + frontend start)
+- **`build_auralis.py`** - Build system: compile, test, package for distribution
+- **`sync_version.py`** - Update version numbers across all project files
+
 ---
 
 ## 🧪 Frontend Testing
 
-- **ALWAYS** use `npm run test:memory` for full suite (2GB heap prevents OOM)
-- Import `render` from `@/test/test-utils`, use `vi.*` (Vitest not Jest)
+- **Watch mode** (lightweight): `cd auralis-web/frontend && npm test` - For development iteration
+- **Single run**: `cd auralis-web/frontend && npm run test:run` - For CI or one-off testing
+- **With coverage**: `cd auralis-web/frontend && npm run test:coverage` - For coverage reports
+- Import `render` from `@/test/test-utils`, use `vi.*` (Vitest, not Jest)
 - Use `screen.getByRole()` or `screen.getByTestId()`, not implementation details
 - API Mocking: Use MSW in `src/test/mocks/handlers.ts` with WAV format (16/24-bit PCM)
+- **Known Issues**: 168 tests failing (12%) due to async cleanup and provider nesting - see [docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
 
 ## 🎨 Design System (MANDATORY)
 
@@ -377,6 +371,26 @@ assert chunk_samples % 2 == 0  # Even samples for stereo
 
 ---
 
+## 📋 Build System & Scripts
+
+This project uses a multi-faceted build system:
+
+### Main Build Scripts
+- **`build_auralis.py`** - Production build: Runs tests, compiles code, packages for all platforms
+  - `python build_auralis.py` - Full build with tests
+  - `python build_auralis.py --skip-tests` - Fast build (no tests)
+  - `python build_auralis.py --skip-tests --portable-only` - Portable package only
+- **`launch-auralis-web.py`** - Development launcher: Starts backend + frontend with hot reload
+- **`sync_version.py <version>`** - Version synchronization across all config files
+
+### Build Tools
+- **`Makefile`** - Standard targets: `make help`, `make clean`, `make build-linux`, `make build-windows`, `make build-macos`
+- **Python**: `pyproject.toml` (build config), `requirements.txt` (dependencies)
+- **Frontend**: `auralis-web/frontend/package.json` (npm scripts, build config)
+- **Desktop**: `desktop/package.json` (Electron build config)
+
+---
+
 ## 🔨 Build & Debugging
 
 ### Development Mode
@@ -489,21 +503,24 @@ PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop
 ### Build for Release
 ```bash
 # Full release (tests + build, all platforms)
-make release
+python build_auralis.py
 
 # Development build (skip tests)
-make build-fast
+python build_auralis.py --skip-tests
+
+# Portable package only
+python build_auralis.py --skip-tests --portable-only
 
 # Desktop app only (Electron)
 cd desktop && npm run package
 
-# Platform-specific builds
+# Platform-specific builds via Makefile
 make build-linux      # Linux AppImage/DEB
 make build-windows    # Windows .exe (Windows only)
 make build-macos      # macOS .dmg (macOS only)
 
 # Update version across files
-python sync_version.py 1.1.0-beta.4
+python sync_version.py 1.1.0-beta.6
 ```
 
 ---
@@ -567,17 +584,19 @@ python sync_version.py 1.1.0-beta.4
 
 ## 🎯 Current Development Phase
 
-**Phase**: 9B (Empirical Validation) - Auralis audio processing comparison against Matchering
+**Phase**: 9D (Audio Mastering Refinement) - Energy-adaptive LUFS targeting for Matchering compatibility
 
 **Completed Phases**:
 - ✅ **Phase 7.2**: Spectrum and Content Analysis Consolidation (eliminated 900 lines of duplicate code via Utilities Pattern)
 - ✅ **Phase 8**: Preset-Aware Peak Normalization (fixed preset differentiation bug, Gentle now 0.20 dB louder than Adaptive)
 - ✅ **Phase 9A**: Matchering Baseline Analysis (analyzed two Slayer albums, established content-aware scaling patterns)
+- ✅ **Phase 9D**: Audio Downsampling & Energy-Adaptive LUFS (5/10 tracks within target boost range, 65 sec/track processing at 48 kHz)
 
-**Active Phase 9B Tasks**:
-- ⏳ Process Slayer albums with Auralis and compare to Matchering baseline
-- ⏳ Update Paper Section 5.2 with empirical validation results
-- ⏳ Prepare Beta.2 release
+**Current Focus** (1.1.0-beta.6):
+- Fine-tune energy-LUFS scaling for 8/10+ track pass rate
+- Expand album validation to additional test suites
+- Performance profiling and optimization
+- Additional DSP refinements based on A/B testing
 
 **Research Folder**:
 - Location: `research/` (excluded from git via .gitignore)
@@ -585,10 +604,9 @@ python sync_version.py 1.1.0-beta.4
 - Publishing: Will be FOSS'd after paper completion (not ready for public yet)
 
 **Key Files This Phase**:
-- `PHASE_9A_SUMMARY.md` - Matchering baseline analysis documentation
-- `research/MATCHERING_BASELINE_ANALYSIS.md` - Detailed two-album analysis
+- `PHASE_9D_SUMMARY.md` - Complete Phase 9D documentation
+- `research/MATCHERING_BASELINE_ANALYSIS.md` - Detailed album analysis
 - `research/validate_with_real_audio.py` - Real audio processing script
-- `PHASE_8_COMPLETE_SUMMARY.md` - Phase 8 completion documentation
 
 ---
 

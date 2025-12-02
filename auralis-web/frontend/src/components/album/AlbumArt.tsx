@@ -62,12 +62,12 @@ const getGradientForAlbum = (albumId?: number): string => {
   const gradients = [
     `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 100%)`, // Purple-Violet
     `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.tertiary, 0.15)} 100%)`,  // Violet-Pink
-    `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.success, 0.15)} 0%, ${auroraOpacity.lighter} 100%)`,  // Teal-Blue
+    `linear-gradient(135deg, ${hexToRgba(tokens.colors.semantic.success, 0.15)} 0%, ${auroraOpacity.lighter} 100%)`,  // Teal-Blue
     `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.tertiary, 0.15)} 0%, ${hexToRgba('#FFB800', 0.15)} 100%)`,   // Pink-Orange
-    `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.purple, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.success, 0.15)} 100%)`,    // Blue-Teal
+    `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.purple, 0.15)} 0%, ${hexToRgba(tokens.colors.semantic.success, 0.15)} 100%)`,    // Blue-Teal
     `linear-gradient(135deg, ${hexToRgba('#FFB800', 0.15)} 0%, ${hexToRgba(tokens.colors.accent.tertiary, 0.15)} 100%)`,   // Orange-Pink
     `linear-gradient(135deg, ${hexToRgba(tokens.colors.accent.secondary, 0.15)} 0%, ${hexToRgba(tokens.colors.accent.purple, 0.15)} 100%)`,   // Violet-Blue
-    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${hexToRgba(tokens.colors.accent.success, 0.15)} 100%)`,  // Purple-Teal
+    `linear-gradient(135deg, ${auroraOpacity.lighter} 0%, ${hexToRgba(tokens.colors.semantic.success, 0.15)} 100%)`,  // Purple-Teal
   ];
 
   return gradients[albumId % gradients.length];

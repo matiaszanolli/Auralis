@@ -478,7 +478,7 @@ const styles = {
     transition: 'all 0.2s',
 
     ':hover': {
-      backgroundColor: tokens.colors.accent.error || '#ff4444',
+      backgroundColor: tokens.colors.semantic.error || '#ff4444',
       color: tokens.colors.text.inverse || '#ffffff',
     },
 
@@ -490,7 +490,7 @@ const styles = {
 
   errorBanner: {
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.accent.error || '#ff4444',
+    backgroundColor: tokens.colors.semantic.error || '#ff4444',
     color: tokens.colors.text.inverse || '#ffffff',
     fontSize: tokens.typography.fontSize.sm,
   },
@@ -593,7 +593,7 @@ const styles = {
     padding: tokens.spacing.xs,
     borderRadius: tokens.borderRadius.md,
     border: 'none',
-    backgroundColor: tokens.colors.accent.error || '#ff4444',
+    backgroundColor: tokens.colors.semantic.error || '#ff4444',
     color: tokens.colors.text.inverse || '#ffffff',
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,

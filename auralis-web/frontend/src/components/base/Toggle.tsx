@@ -55,7 +55,7 @@ export const Toggle = React.forwardRef<
 
   const errorStyles: React.CSSProperties = {
     fontSize: tokens.typography.fontSize.xs,
-    color: tokens.colors.accent.error,
+    color: tokens.colors.semantic.error,
     marginTop: tokens.spacing.xs,
   };
 

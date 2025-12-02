@@ -16,8 +16,8 @@ const InfoBox: React.FC = React.memo(() => {
       sx={{
         p: tokens.spacing.md,
         borderRadius: tokens.borderRadius.md,
-        background: `${tokens.colors.accent.info}22`, // 22 = ~13% opacity
-        border: `1px solid ${tokens.colors.accent.info}55`, // 55 = ~33% opacity
+        background: `${tokens.colors.semantic.info}22`, // 22 = ~13% opacity
+        border: `1px solid ${tokens.colors.semantic.info}55`, // 55 = ~33% opacity
       }}
     >
       <Typography

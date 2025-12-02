@@ -40,7 +40,7 @@ const MasteringRecommendation: React.FC<MasteringRecommendationProps> = React.me
     return (
       <div style={{
         padding: tokens.spacing.md,
-        background: tokens.colors.background.secondary,
+        background: tokens.colors.bg.secondary,
         borderRadius: tokens.borderRadius.md,
         textAlign: 'center',
         color: tokens.colors.text.secondary
@@ -59,9 +59,9 @@ const MasteringRecommendation: React.FC<MasteringRecommendationProps> = React.me
   return (
     <div style={{
       padding: tokens.spacing.md,
-      background: tokens.colors.background.secondary,
+      background: tokens.colors.bg.secondary,
       borderRadius: tokens.borderRadius.md,
-      border: `1px solid ${tokens.colors.border.default}`,
+      border: `1px solid ${tokens.colors.border.medium}`,
       display: 'flex',
       flexDirection: 'column',
       gap: tokens.spacing.md
@@ -107,9 +107,9 @@ const MasteringRecommendation: React.FC<MasteringRecommendationProps> = React.me
           flexDirection: 'column',
           gap: tokens.spacing.sm,
           padding: tokens.spacing.sm,
-          background: tokens.colors.background.primary,
+          background: tokens.colors.bg.level3,
           borderRadius: tokens.borderRadius.sm,
-          border: `1px solid ${tokens.colors.border.subtle}`
+          border: `1px solid ${tokens.colors.border.light}`
         }}>
           <div style={{
             fontSize: tokens.typography.fontSize.xs,
@@ -198,9 +198,9 @@ const ProcessingChangeItem: React.FC<ProcessingChangeItemProps> = ({ label, valu
     alignItems: 'center',
     gap: tokens.spacing.xs,
     padding: tokens.spacing.sm,
-    background: tokens.colors.background.primary,
+    background: tokens.colors.bg.level3,
     borderRadius: tokens.borderRadius.sm,
-    border: `1px solid ${tokens.colors.border.subtle}`
+    border: `1px solid ${tokens.colors.border.light}`
   }}>
     <div style={{
       fontSize: tokens.typography.fontSize.xs,
@@ -222,14 +222,14 @@ const ProcessingChangeItem: React.FC<ProcessingChangeItemProps> = ({ label, valu
 function getConfidenceColor(confidence: number): string {
   // High confidence (70%+): green
   if (confidence >= 0.7) {
-    return tokens.colors.feedback.success.subtle;
+    return `${tokens.colors.semantic.success}22`; // ~13% opacity
   }
   // Medium confidence (40-70%): yellow
   if (confidence >= 0.4) {
-    return tokens.colors.feedback.warning.subtle;
+    return `${tokens.colors.semantic.warning}22`; // ~13% opacity
   }
   // Low confidence (<40%): shows hybrid blend, neutral
-  return tokens.colors.background.tertiary;
+  return tokens.colors.bg.level3;
 }
 
 export default MasteringRecommendation;

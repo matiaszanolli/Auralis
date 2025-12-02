@@ -32,7 +32,7 @@ interface CacheHealthMonitorProps {
  */
 function HealthStatusIndicator({ healthy, isHealthy }: { healthy: boolean; isHealthy?: boolean }) {
   const actualHealthy = isHealthy !== undefined ? isHealthy : healthy;
-  const statusColor = actualHealthy ? tokens.colors.accent.success : tokens.colors.accent.error;
+  const statusColor = actualHealthy ? tokens.colors.semantic.success : tokens.colors.semantic.error;
   const statusText = actualHealthy ? 'Healthy' : 'Unhealthy';
 
   return (
@@ -78,10 +78,10 @@ function HealthMetricCard({
 }) {
   const statusColor =
     status === 'healthy'
-      ? tokens.colors.accent.success
+      ? tokens.colors.semantic.success
       : status === 'warning'
-        ? tokens.colors.accent.warning
-        : tokens.colors.accent.error;
+        ? tokens.colors.semantic.warning
+        : tokens.colors.semantic.error;
 
   return (
     <div
@@ -203,7 +203,7 @@ export function CacheHealthMonitor({
           padding: tokens.spacing.lg,
           background: 'rgba(239, 68, 68, 0.1)',
           borderRadius: '8px',
-          color: tokens.colors.accent.error,
+          color: tokens.colors.semantic.error,
           fontSize: tokens.typography.fontSize.sm,
         }}
       >
@@ -239,10 +239,10 @@ export function CacheHealthMonitor({
           borderRadius: '8px',
           border: `1px solid ${
             healthStatus === 'critical'
-              ? tokens.colors.accent.error
+              ? tokens.colors.semantic.error
               : healthStatus === 'warning'
-                ? tokens.colors.accent.warning
-                : tokens.colors.accent.success
+                ? tokens.colors.semantic.warning
+                : tokens.colors.semantic.success
           }`,
           display: 'flex',
           alignItems: 'center',
@@ -356,8 +356,8 @@ export function CacheHealthMonitor({
               fontWeight: tokens.typography.fontWeight.semibold,
               color:
                 healthStatus === 'critical'
-                  ? tokens.colors.accent.error
-                  : tokens.colors.accent.warning,
+                  ? tokens.colors.semantic.error
+                  : tokens.colors.semantic.warning,
               marginBottom: tokens.spacing.md,
             }}
           >

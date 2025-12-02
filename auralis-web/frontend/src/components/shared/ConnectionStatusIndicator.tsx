@@ -140,10 +140,10 @@ export function ConnectionStatusIndicator({
 
   const isHealthy = status.wsConnected && status.apiConnected;
   const statusColor = isHealthy
-    ? tokens.colors.accent.success
+    ? tokens.colors.semantic.success
     : status.isReconnecting
-      ? tokens.colors.accent.warning
-      : tokens.colors.accent.error;
+      ? tokens.colors.semantic.warning
+      : tokens.colors.semantic.error;
 
   const statusText = isHealthy
     ? 'Connected'
@@ -268,8 +268,8 @@ export function ConnectionStatusIndicator({
                   height: '8px',
                   borderRadius: '50%',
                   background: status.wsConnected
-                    ? tokens.colors.accent.success
-                    : tokens.colors.accent.error,
+                    ? tokens.colors.semantic.success
+                    : tokens.colors.semantic.error,
                 }}
               />
               <span
@@ -313,8 +313,8 @@ export function ConnectionStatusIndicator({
                   height: '8px',
                   borderRadius: '50%',
                   background: status.apiConnected
-                    ? tokens.colors.accent.success
-                    : tokens.colors.accent.error,
+                    ? tokens.colors.semantic.success
+                    : tokens.colors.semantic.error,
                 }}
               />
               <span
@@ -352,10 +352,10 @@ export function ConnectionStatusIndicator({
                   fontWeight: tokens.typography.fontWeight.semibold,
                   color:
                     status.latency < 50
-                      ? tokens.colors.accent.success
+                      ? tokens.colors.semantic.success
                       : status.latency < 100
-                        ? tokens.colors.accent.warning
-                        : tokens.colors.accent.error,
+                        ? tokens.colors.semantic.warning
+                        : tokens.colors.semantic.error,
                 }}
               >
                 {status.latency} ms
@@ -371,13 +371,13 @@ export function ConnectionStatusIndicator({
                 padding: tokens.spacing.sm,
                 background: 'rgba(239, 68, 68, 0.1)',
                 borderRadius: '4px',
-                border: `1px solid ${tokens.colors.accent.error}20`,
+                border: `1px solid ${tokens.colors.semantic.error}20`,
               }}
             >
               <div
                 style={{
                   fontSize: tokens.typography.fontSize.xs,
-                  color: tokens.colors.accent.error,
+                  color: tokens.colors.semantic.error,
                   wordBreak: 'break-word',
                 }}
               >

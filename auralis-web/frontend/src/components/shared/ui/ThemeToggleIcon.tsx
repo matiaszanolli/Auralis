@@ -24,8 +24,8 @@ export const ThemeToggleIcon: React.FC<ThemeToggleIconProps> = ({ isDark, iconSi
         <DarkMode
           sx={{
             fontSize: iconSize,
-            color: tokens.colors.accent.warning,
-            filter: `drop-shadow(0 0 8px ${tokens.colors.accent.warning}99)`,
+            color: tokens.colors.semantic.warning,
+            filter: `drop-shadow(0 0 8px ${tokens.colors.semantic.warning}99)`,
             transition: 'all 0.3s ease',
           }}
         />

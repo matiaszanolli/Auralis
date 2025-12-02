@@ -79,7 +79,7 @@ const styles = {
   toggleButton: {
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     backgroundColor: tokens.colors.bg.secondary,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     borderRadius: tokens.borderRadius.md,
     color: tokens.colors.text.primary,
     cursor: 'pointer',
@@ -89,7 +89,7 @@ const styles = {
   toggleButtonActive: {
     backgroundColor: tokens.colors.accent.primary,
     borderColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.onAccent,
+    color: tokens.colors.text.primary,
   },
 
   content: {

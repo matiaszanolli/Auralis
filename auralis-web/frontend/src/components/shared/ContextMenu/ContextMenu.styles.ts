@@ -31,7 +31,7 @@ export const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(
     padding: `${spacingXMedium} ${spacingXMedium}`,
     margin: `${spacingXSmall} 0`,
     fontSize: '14px',
-    color: destructive ? tokens.colors.accent.error : tokens.colors.text.primary,
+    color: destructive ? tokens.colors.semantic.error : tokens.colors.text.primary,
     transition: 'all 0.2s ease',
 
     '&:hover': {
@@ -44,7 +44,7 @@ export const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(
     },
 
     '& .MuiListItemIcon-root': {
-      color: destructive ? tokens.colors.accent.error : tokens.colors.text.secondary,
+      color: destructive ? tokens.colors.semantic.error : tokens.colors.text.secondary,
       minWidth: 36,
     },
   })

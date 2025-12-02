@@ -11,24 +11,24 @@ interface AlertProps {
 
 const variantStyles = {
   info: {
-    bg: `rgba(${parseInt(tokens.colors.accent.info.slice(1, 3), 16)}, ${parseInt(tokens.colors.accent.info.slice(3, 5), 16)}, ${parseInt(tokens.colors.accent.info.slice(5, 7), 16)}, 0.15)`,
-    border: tokens.colors.accent.info,
-    text: tokens.colors.accent.info,
+    bg: `rgba(${parseInt(tokens.colors.semantic.info.slice(1, 3), 16)}, ${parseInt(tokens.colors.semantic.info.slice(3, 5), 16)}, ${parseInt(tokens.colors.semantic.info.slice(5, 7), 16)}, 0.15)`,
+    border: tokens.colors.semantic.info,
+    text: tokens.colors.semantic.info,
   },
   success: {
     bg: `rgba(0, 212, 170, 0.15)`,
-    border: tokens.colors.accent.success,
-    text: tokens.colors.accent.success,
+    border: tokens.colors.semantic.success,
+    text: tokens.colors.semantic.success,
   },
   warning: {
     bg: `rgba(245, 158, 11, 0.15)`,
-    border: tokens.colors.accent.warning,
-    text: tokens.colors.accent.warning,
+    border: tokens.colors.semantic.warning,
+    text: tokens.colors.semantic.warning,
   },
   error: {
     bg: `rgba(239, 68, 68, 0.15)`,
-    border: tokens.colors.accent.error,
-    text: tokens.colors.accent.error,
+    border: tokens.colors.semantic.error,
+    text: tokens.colors.semantic.error,
   },
 };
 
