@@ -16,7 +16,7 @@ function App() {
           <WebSocketProvider>
             <EnhancementProvider>
               {/* Hidden audio element for browser autoplay policy compliance and audio streaming */}
-              <HiddenAudioElement debug={true} />
+              <HiddenAudioElement debug={false} />
               <ComfortableApp />
             </EnhancementProvider>
           </WebSocketProvider>
