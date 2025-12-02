@@ -47,7 +47,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
           startAdornment: (
             <InputAdornment position="start">
               {loading ? (
-                <CircularProgress size={20} sx={{ color: tokens.colors.accent.purple }} />
+                <CircularProgress size={20} sx={{ color: tokens.colors.accent.primary }} />
               ) : (
                 <SearchIcon sx={{ color: 'text.secondary' }} />
               )}

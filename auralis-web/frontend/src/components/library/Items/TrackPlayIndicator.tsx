@@ -25,7 +25,7 @@ export const TrackPlayIndicator: React.FC<TrackPlayIndicatorProps> = ({
     <TableCell>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {isCurrentTrack && isPlaying ? (
-          <Pause sx={{ fontSize: 20, color: tokens.colors.accent.purple }} />
+          <Pause sx={{ fontSize: 20, color: tokens.colors.accent.primary }} />
         ) : (
           <>
             <Typography

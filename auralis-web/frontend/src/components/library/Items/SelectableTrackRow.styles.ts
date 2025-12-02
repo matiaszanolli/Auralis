@@ -31,7 +31,7 @@ export const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
   opacity: 0,
   transition: 'opacity 0.2s ease',
   '&.Mui-checked': {
-    color: tokens.colors.accent.purple,
+    color: tokens.colors.accent.primary,
     opacity: 1,
   },
   '&.visible': {

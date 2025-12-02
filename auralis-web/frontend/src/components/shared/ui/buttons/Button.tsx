@@ -140,14 +140,14 @@ export const StyledOutlinedButton = styled(MuiButton)(({ theme }) => ({
 
   '&:hover': {
     backgroundColor: auroraOpacity.lighter,
-    borderColor: tokens.colors.accent.purple,
+    borderColor: tokens.colors.accent.primary,
     boxShadow: `0 4px 12px ${auroraOpacity.strong}`,
     transform: 'translateY(-2px)',
   },
 
   '&:active': {
     backgroundColor: auroraOpacity.standard,
-    borderColor: tokens.colors.accent.purple,
+    borderColor: tokens.colors.accent.primary,
     transform: 'scale(0.98)',
   },
 

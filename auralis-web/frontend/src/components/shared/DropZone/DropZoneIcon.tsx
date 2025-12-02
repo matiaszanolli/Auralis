@@ -36,7 +36,7 @@ export const DropZoneIcon: React.FC<DropZoneIconProps> = ({ isDragging, scanning
         <CloudUpload
           sx={{
             fontSize: 64,
-            color: tokens.colors.accent.purple,
+            color: tokens.colors.accent.primary,
             animation: 'bounce 1s ease infinite',
           }}
         />

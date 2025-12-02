@@ -38,7 +38,7 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) 
     },
 
     '& .track-title': {
-      color: tokens.colors.accent.purple,
+      color: tokens.colors.accent.primary,
     },
 
     '& .album-art': {
@@ -73,7 +73,7 @@ export const TrackNumberBox = styled(Box)({
 export const TrackNumber = styled(Typography)<{ iscurrent?: string }>(({ iscurrent }) => ({
   fontSize: '14px',
   fontWeight: 500,
-  color: iscurrent === 'true' ? tokens.colors.accent.purple : tokens.colors.text.secondary,
+  color: iscurrent === 'true' ? tokens.colors.accent.primary : tokens.colors.text.secondary,
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 }));
 
@@ -92,7 +92,7 @@ export const PlayButton = styled(IconButton)({
   opacity: 0,
   transform: 'scale(0.8)',
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-  color: tokens.colors.accent.purple,
+  color: tokens.colors.accent.primary,
 
   '& .MuiSvgIcon-root': {
     fontSize: '20px',
@@ -197,6 +197,6 @@ export const MoreButton = styled(IconButton)({
 
   '&:hover': {
     background: auroraOpacity.light,
-    color: tokens.colors.accent.purple,
+    color: tokens.colors.accent.primary,
   },
 });

@@ -20,7 +20,7 @@ export const DropZoneText: React.FC<DropZoneTextProps> = ({ isDragging, scanning
         variant="h6"
         sx={{
           fontWeight: 600,
-          color: isDragging ? tokens.colors.accent.purple : tokens.colors.text.primary,
+          color: isDragging ? tokens.colors.accent.primary : tokens.colors.text.primary,
           mb: 1,
           transition: 'color 0.3s ease',
         }}

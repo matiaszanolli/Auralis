@@ -49,10 +49,10 @@ export const ProcessingStatsChips: React.FC<ProcessingStatsChipsProps> = ({
           sx={{
             height: '22px',
             backgroundColor: `${tokens.colors.accent.primary}1A`,
-            color: tokens.colors.accent.purple,
+            color: tokens.colors.accent.primary,
             fontSize: tokens.typography.fontSize.xs,
             '& .MuiChip-icon': {
-              color: tokens.colors.accent.purple,
+              color: tokens.colors.accent.primary,
             },
           }}
         />

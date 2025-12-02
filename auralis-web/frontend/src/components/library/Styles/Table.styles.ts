@@ -24,10 +24,10 @@ export const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&.current-track': {
     backgroundColor: auroraOpacity.lighter,
     '& .track-number': {
-      color: tokens.colors.accent.purple
+      color: tokens.colors.accent.primary
     },
     '& .track-title': {
-      color: tokens.colors.accent.purple,
+      color: tokens.colors.accent.primary,
       fontWeight: 'bold'
     }
   }

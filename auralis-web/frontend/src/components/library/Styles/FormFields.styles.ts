@@ -25,7 +25,7 @@ export const StyledTextField = styled(TextField)({
     color: tokens.colors.text.primary,
     '& fieldset': { borderColor: auroraOpacity.light },
     '&:hover fieldset': { borderColor: auroraOpacity.standard },
-    '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.purple }
+    '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.primary }
   },
   '& .MuiInputLabel-root': { color: auroraOpacity.standard }
 });
@@ -89,7 +89,7 @@ export const CompactTextField = styled(TextField)(({ theme }) => ({
     color: tokens.colors.text.primary,
     '& fieldset': { borderColor: auroraOpacity.ultraLight },
     '&:hover fieldset': { borderColor: auroraOpacity.lighter },
-    '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.purple }
+    '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.primary }
   },
   '& .MuiOutlinedInput-input': {
     padding: '8px 12px',

@@ -39,7 +39,7 @@ export const SearchField = styled(TextField)(({ theme }) => ({
     '&.Mui-focused': {
       backgroundColor: auroraOpacity.veryLight,
       '& fieldset': {
-        borderColor: tokens.colors.accent.purple,
+        borderColor: tokens.colors.accent.primary,
         borderWidth: 2
       }
     },
@@ -81,7 +81,7 @@ export const StyledListItemButton = styled(ListItemButton)(({ theme }) => ({
   '&:hover': {
     backgroundColor: auroraOpacity.ultraLight,
     '& .result-title': {
-      color: tokens.colors.accent.purple
+      color: tokens.colors.accent.primary
     }
   }
 }));
@@ -96,7 +96,7 @@ export const TypeChip = styled(Chip)(({ theme }) => ({
   fontWeight: 600,
   '&.track': {
     backgroundColor: auroraOpacity.light,
-    color: tokens.colors.accent.purple
+    color: tokens.colors.accent.primary
   },
   '&.album': {
     backgroundColor: auroraOpacity.standard,

@@ -34,12 +34,12 @@ export const StyledListItemButton = styled(ListItemButton)({
   border: '1px solid transparent',
 
   '&:hover': {
-    backgroundColor: `${tokens.colors.accent.purple}14`,
-    border: `1px solid ${tokens.colors.accent.purple}4d`,
+    backgroundColor: `${tokens.colors.accent.primary}14`,
+    border: `1px solid ${tokens.colors.accent.primary}4d`,
     transform: 'translateX(4px)',
 
     '& .artist-name': {
-      color: tokens.colors.accent.purple,
+      color: tokens.colors.accent.primary,
     },
   },
 });
@@ -51,7 +51,7 @@ export const ArtistAvatar = styled(Avatar)({
   width: 56,
   height: 56,
   marginRight: '20px',
-  background: `linear-gradient(135deg, ${tokens.colors.accent.purple} 0%, ${tokens.colors.accent.secondary} 100%)`,
+  background: `linear-gradient(135deg, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.secondary} 100%)`,
   fontSize: '24px',
 });
 
@@ -89,7 +89,7 @@ export const SectionHeader = styled(Box)({
 export const AlphabetDivider = styled(Typography)({
   fontSize: '14px',
   fontWeight: 700,
-  color: tokens.colors.accent.purple,
+  color: tokens.colors.accent.primary,
   textTransform: 'uppercase',
   letterSpacing: '1px',
   marginTop: '32px',

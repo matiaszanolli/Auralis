@@ -35,7 +35,7 @@ const PlaylistMenuItem = styled(MenuItem)({
 
 const CreateNewMenuItem = styled(MenuItem)({
   fontSize: '13px',
-  color: tokens.colors.accent.purple,
+  color: tokens.colors.accent.primary,
   padding: '8px 16px 8px 48px',
   fontWeight: 600,
   transition: 'all 0.2s ease',
