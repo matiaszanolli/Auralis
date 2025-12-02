@@ -34,10 +34,13 @@ export const useAudioPolicyBridge = ({
     // Set up CORS for potential remote streaming
     audioElement.crossOrigin = 'anonymous';
 
-    // Configure for silent operation (used for policy only)
-    audioElement.muted = true;
+    // Configure for actual audio playback (NOT silent)
+    // - muted: false (MUST be false to hear audio)
+    // - playsInline: true (for mobile inline playback)
+    // - preload: 'auto' (allow browser to preload audio data)
+    audioElement.muted = false;
     audioElement.playsInline = true;
-    audioElement.preload = 'none';
+    audioElement.preload = 'auto';
 
     log('Audio element configured');
 
@@ -66,6 +69,9 @@ export const useAudioPolicyBridge = ({
   /**
    * Trigger play (this satisfies browser autoplay policy)
    * Call this from user gesture handlers (click, etc.)
+   *
+   * IMPORTANT: We do NOT pause immediately - audio should continue playing
+   * The gesture is just to satisfy browser autoplay policy
    */
   const triggerPlay = () => {
     if (audioRef.current) {
@@ -75,9 +81,8 @@ export const useAudioPolicyBridge = ({
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
-            log('Play gesture accepted');
-            // Immediately pause - we don't actually play audio here
-            audioRef.current?.pause();
+            log('Play gesture accepted - audio will play');
+            // DO NOT pause - let audio continue playing
           })
           .catch((err: any) => {
             log(`Play gesture rejected: ${err.message}`);
