@@ -42,11 +42,15 @@ interface SelectableTrackRowProps {
   onToggleSelect: (event: React.MouseEvent) => void;
   isPlaying?: boolean;
   isCurrent?: boolean;
-  onPlay?: (trackId: number) => void;
+  onPlay: (trackId: number) => void;
   onPause?: () => void;
+  onDoubleClick?: (trackId: number) => void;
   onEditMetadata?: (trackId: number) => void;
-  onAddToQueue?: (trackId: number) => void;
-  onAddToPlaylist?: (trackId: number) => void;
+  onToggleFavorite?: (trackId: number) => void;
+  onShowAlbum?: (albumId: number) => void;
+  onShowArtist?: (artistName: string) => void;
+  onShowInfo?: (trackId: number) => void;
+  onDelete?: (trackId: number) => void;
 }
 
 const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
@@ -58,9 +62,13 @@ const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
   isCurrent,
   onPlay,
   onPause,
+  onDoubleClick,
   onEditMetadata,
-  onAddToQueue,
-  onAddToPlaylist,
+  onToggleFavorite,
+  onShowAlbum,
+  onShowArtist,
+  onShowInfo,
+  onDelete,
 }) => {
   const { handleContainerClick, handleCheckboxClick } = useTrackRowSelection({
     onToggleSelect,
@@ -85,9 +93,13 @@ const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
           isCurrent={isCurrent}
           onPlay={onPlay}
           onPause={onPause}
+          onDoubleClick={onDoubleClick}
           onEditMetadata={onEditMetadata}
-          onAddToQueue={onAddToQueue}
-          onAddToPlaylist={onAddToPlaylist}
+          onToggleFavorite={onToggleFavorite}
+          onShowAlbum={onShowAlbum}
+          onShowArtist={onShowArtist}
+          onShowInfo={onShowInfo}
+          onDelete={onDelete}
         />
       </TrackContainer>
     </SelectableContainer>
