@@ -62,14 +62,14 @@ const StyledDialog = styled(MuiDialog, {
     '& .MuiDialog-paper': {
       ...sizeStyles[size as keyof typeof sizeStyles],
       width: '100%',
-      background: tokens.colors.bg.secondary,
+      background: tokens.colors.bg.level4,  // Surface elevation (modals)
       borderRadius: tokens.borderRadius.xl,
-      border: `1px solid ${tokens.colors.border.medium}`,
+      border: `1px solid ${tokens.colors.border.light}`,
       boxShadow: tokens.shadows['2xl'],
       backdropFilter: 'blur(20px)',
     },
     '& .MuiBackdrop-root': {
-      background: tokens.colors.bg.overlay,
+      background: 'rgba(0, 0, 0, 0.60)',  // Standard modal backdrop
       backdropFilter: 'blur(4px)',
     },
   };

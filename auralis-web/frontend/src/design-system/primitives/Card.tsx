@@ -78,7 +78,7 @@ const StyledCard = styled(MuiCard, {
         transition: tokens.transitions.all,
 
         '&:hover': {
-          transform: 'scale(1.02)',
+          transform: `scale(${tokens.components.albumCard.hoverScale})`,
           boxShadow: tokens.shadows.lg,
         },
 
@@ -103,6 +103,12 @@ const StyledCard = styled(MuiCard, {
     ...selectedStyles,
     borderRadius: tokens.borderRadius.lg,
     overflow: 'hidden',
+
+    // Focus ring for keyboard navigation
+    '&:focus-visible': {
+      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
+    },
   };
 });
 
