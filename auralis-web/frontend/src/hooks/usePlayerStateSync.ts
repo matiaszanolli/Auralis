@@ -2,14 +2,18 @@
  * usePlayerStateSync - Synchronize WebSocket player_state with Redux
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * This hook ensures that Redux playerSlice stays in sync with the authoritative
+ * This hook ensures that Redux playerSlice and queueSlice stay in sync with the authoritative
  * backend player state received via WebSocket.
  *
  * It subscribes to 'player_state' WebSocket messages and dispatches Redux actions
- * to keep the store up to date. This is the single synchronization point between
- * WebSocket broadcasts and Redux.
+ * to keep both player and queue state up to date. This is the single synchronization point
+ * between WebSocket broadcasts and Redux.
  *
- * Usage: Call this hook once in a provider or root component (e.g., in App or ComfortableApp)
+ * State synchronized:
+ * - Player: currentTrack, isPlaying, currentTime, duration, volume, isMuted, preset
+ * - Queue: tracks, currentIndex (queue position)
+ *
+ * Architecture: Backend → WebSocket broadcast → This hook → Redux dispatch → UI
  *
  * @copyright (C) 2025 Auralis Team
  * @license GPLv3
@@ -27,13 +31,13 @@ import {
   setMuted,
   setPreset,
 } from '../store/slices/playerSlice';
+import { setQueue, setCurrentIndex } from '../store/slices/queueSlice';
 
 /**
- * Hook to sync WebSocket player_state messages to Redux
+ * Hook to sync WebSocket player_state messages to Redux (player + queue)
  *
- * This ensures Redux is the single source of truth for UI components
- * All player state updates come through this pipeline:
- * Backend → WebSocket broadcast → This hook → Redux dispatch
+ * Dispatches actions to keep both player and queue state synchronized
+ * with the authoritative backend state.
  */
 export function usePlayerStateSync() {
   const dispatch = useDispatch();
@@ -50,7 +54,11 @@ export function usePlayerStateSync() {
       try {
         const state = message.data;
 
-        // Dispatch Redux actions for each state field
+        // ============================================================
+        // PLAYER STATE SYNCHRONIZATION
+        // ============================================================
+
+        // Sync current track
         if (state.current_track) {
           dispatch(
             setCurrentTrack({
@@ -66,28 +74,56 @@ export function usePlayerStateSync() {
           dispatch(setCurrentTrack(null));
         }
 
+        // Sync playback state
         if (state.is_playing !== undefined) {
           dispatch(setIsPlaying(state.is_playing));
         }
 
+        // Sync playback position
         if (state.current_time !== undefined) {
           dispatch(setCurrentTime(state.current_time));
         }
 
+        // Sync duration
         if (state.duration !== undefined) {
           dispatch(setDuration(state.duration));
         }
 
+        // Sync volume
         if (state.volume !== undefined) {
           dispatch(setVolume(state.volume));
         }
 
+        // Sync mute state
         if (state.is_muted !== undefined) {
           dispatch(setMuted(state.is_muted));
         }
 
+        // Sync audio preset
         if (state.current_preset) {
           dispatch(setPreset(state.current_preset));
+        }
+
+        // ============================================================
+        // QUEUE STATE SYNCHRONIZATION
+        // ============================================================
+
+        // Sync queue tracks
+        if (state.queue && Array.isArray(state.queue)) {
+          const tracks = state.queue.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            artist: t.artist,
+            album: t.album || '',
+            duration: t.duration || 0,
+            coverUrl: t.album_art,
+          }));
+          dispatch(setQueue(tracks));
+        }
+
+        // Sync queue position (index)
+        if (state.queue_index !== undefined) {
+          dispatch(setCurrentIndex(state.queue_index));
         }
 
         console.log('[usePlayerStateSync] Redux updated from WebSocket:', state);
