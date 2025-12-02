@@ -208,12 +208,12 @@ const styles = {
     alignItems: 'center',
     gap: tokens.spacing.md,
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    borderBottom: `1px solid ${tokens.colors.border.subtle}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
     cursor: 'pointer',
     transition: 'background-color 0.15s ease',
 
     '&:hover': {
-      backgroundColor: tokens.colors.bg.hover,
+      backgroundColor: tokens.colors.bg.level2,
     },
   },
 
@@ -298,7 +298,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: tokens.spacing.md,
-    borderTop: `1px solid ${tokens.colors.border.subtle}`,
+    borderTop: `1px solid ${tokens.colors.border.light}`,
   },
 
   loadingText: {
@@ -311,7 +311,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: tokens.spacing.md,
-    borderTop: `1px solid ${tokens.colors.border.subtle}`,
+    borderTop: `1px solid ${tokens.colors.border.light}`,
     fontSize: tokens.typography.fontSize.sm,
     color: tokens.colors.text.tertiary,
     fontStyle: 'italic' as const,

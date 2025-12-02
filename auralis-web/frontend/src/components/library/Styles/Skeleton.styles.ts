@@ -25,9 +25,9 @@ import { radiusMedium } from './BorderRadius.styles';
 export const SkeletonBox = styled(Box)({
   background: `linear-gradient(
     90deg,
-    ${tokens.colors.bg.surface} 0%,
-    ${tokens.colors.bg.hover} 50%,
-    ${tokens.colors.bg.surface} 100%
+    ${tokens.colors.bg.level2} 0%,
+    ${tokens.colors.bg.level3} 50%,
+    ${tokens.colors.bg.level2} 100%
   )`,
   backgroundSize: '1000px 100%',
   animation: `${shimmer} 2s infinite linear`,

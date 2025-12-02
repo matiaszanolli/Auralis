@@ -80,7 +80,7 @@ export const ArtistInfo = styled(Typography)({
 export const SectionHeader = styled(Box)({
   marginBottom: '24px',
   paddingBottom: '16px',
-  borderBottom: `1px solid ${tokens.colors.bg.hover}`,
+  borderBottom: `1px solid ${tokens.colors.border.light}`,
 });
 
 /**

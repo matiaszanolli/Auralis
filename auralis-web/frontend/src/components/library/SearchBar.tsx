@@ -166,7 +166,7 @@ const styles = {
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     backgroundColor: tokens.colors.bg.secondary,
     borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     transition: 'border-color 0.2s ease',
 
     '&:focus-within': {

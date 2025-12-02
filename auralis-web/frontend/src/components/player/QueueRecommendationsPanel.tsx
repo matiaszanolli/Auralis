@@ -373,7 +373,7 @@ const styles = {
     width: '100%',
     height: '100%',
     backgroundColor: tokens.colors.bg.primary,
-    borderLeft: `1px solid ${tokens.colors.border.default}`,
+    borderLeft: `1px solid ${tokens.colors.border.light}`,
     overflow: 'hidden',
   },
 
@@ -387,7 +387,7 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
   },
 
   title: {
@@ -416,14 +416,14 @@ const styles = {
     display: 'flex',
     gap: tokens.spacing.xs,
     padding: tokens.spacing.sm,
-    borderBottom: `1px solid ${tokens.colors.border.default}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
     overflow: 'auto',
   },
 
   tab: {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
     borderRadius: tokens.borderRadius.sm,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     backgroundColor: tokens.colors.bg.secondary,
     color: tokens.colors.text.primary,
     cursor: 'pointer',
@@ -560,7 +560,7 @@ const styles = {
     padding: tokens.spacing.md,
     backgroundColor: tokens.colors.bg.secondary,
     borderRadius: tokens.borderRadius.sm,
-    border: `1px solid ${tokens.colors.border.default}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     transition: 'all 0.2s',
   },
 

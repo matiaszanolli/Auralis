@@ -77,7 +77,7 @@ const styles = {
     backgroundColor: tokens.colors.accent.primary,
     border: 'none',
     borderRadius: tokens.borderRadius.md,
-    color: tokens.colors.text.onAccent,
+    color: tokens.colors.text.primary,
     cursor: 'pointer',
   },
 };
