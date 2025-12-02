@@ -1,21 +1,24 @@
 /**
- * PlayerBar Component
- * ~~~~~~~~~~~~~~~~~~~
+ * PlayerBar Component - Premium Glass-Effect Player Footer
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Main player bar - composite component combining all player sub-components.
- * Organizes TrackInfo, ProgressBar, PlaybackControls, and VolumeControl in a unified layout.
+ * Main player bar dock with glass morphism effect (semi-translucent with blur).
+ * Composite component organizing:
+ * - Album cover artwork (left)
+ * - Track info and progress bar (center)
+ * - Playback controls and volume (right)
  *
- * Usage:
- * ```typescript
- * <PlayerBar />
- * ```
- *
- * Props: None required (uses hooks internally)
+ * Design System:
+ * - Glass effect: rgba(13, 17, 26, 0.92) background with 12px blur
+ * - Elevation: Level 4 surface with soft shadow
+ * - Brand accent: Soft Violet (#7366F0) for controls, Electric Aqua for audio-reactive
+ * - Height: Fixed 96px with flexible content area
+ * - Border: Subtle soft violet top border (0.12 opacity)
  *
  * Responsive Layout:
- * - Desktop: Vertical stack with artwork on left, controls on right
- * - Tablet: Stacked vertically with full width
- * - Mobile: Minimal, horizontal layout with artwork at top
+ * - Desktop (1024px+): Horizontal layout - cover | info+progress | controls+volume
+ * - Tablet (768-1023px): Stacked layout - cover + info+progress centered, controls below
+ * - Mobile (<768px): Vertical stack - cover small, minimal controls, full-width progress
  *
  * @module components/player/PlayerBar
  */
@@ -28,30 +31,41 @@ import TrackInfo from './TrackInfo';
 import VolumeControl from './VolumeControl';
 
 /**
- * PlayerBar component
+ * PlayerBar component - Premium glass-effect player footer
  *
- * Main music player component with full playback controls.
- * Shows current track, progress, playback buttons, and volume.
- * Responsive design adapts to different screen sizes.
+ * Main music player component with glass morphism design.
+ * Composite/container component bringing together all player sub-components:
+ * - Album artwork (left, fixed 256px on desktop)
+ * - Track info and full-width progress bar (center, flex)
+ * - Playback controls and volume (right, fixed width on desktop)
  *
- * This is a composite/container component that brings together
- * all player sub-components in an organized layout.
+ * Responsive design:
+ * - Desktop (1024px+): Horizontal layout
+ * - Tablet (768-1023px): Stacked with horizontal controls
+ * - Mobile (<768px): Vertical stack
  */
 const PlayerBar: React.FC = () => {
   return (
     <div style={styles.playerBar}>
-      {/* Main player container */}
-      <div style={styles.mainContent}>
-        {/* Left: Track info and progress */}
-        <div style={styles.leftSection}>
-          <TrackInfo />
-          <ProgressBar />
-        </div>
+      {/* Glass-effect background container */}
+      <div style={styles.glassContainer}>
+        {/* Main content - three sections */}
+        <div style={styles.mainContent}>
+          {/* Left: Album artwork */}
+          <div style={styles.leftSection}>
+            <TrackInfo />
+          </div>
 
-        {/* Right: Controls and volume */}
-        <div style={styles.rightSection}>
-          <PlaybackControls />
-          <VolumeControl />
+          {/* Center: Progress bar (full width) */}
+          <div style={styles.centerSection}>
+            <ProgressBar />
+          </div>
+
+          {/* Right: Controls and volume */}
+          <div style={styles.rightSection}>
+            <PlaybackControls />
+            <VolumeControl />
+          </div>
         </div>
       </div>
     </div>
@@ -59,79 +73,122 @@ const PlayerBar: React.FC = () => {
 };
 
 /**
- * Memoize to prevent unnecessary re-renders of entire player
- * Even though this uses hooks, React's optimization still helps
+ * Memoize to prevent unnecessary re-renders
  */
 const MemoizedPlayerBar = memo(PlayerBar);
 
 /**
- * Component styles using design tokens
+ * Component styles with glass morphism and elevation hierarchy
  *
- * Responsive breakpoints:
- * - 1024px: Desktop (side-by-side layout)
- * - 768px: Tablet (stacked layout)
- * - 480px: Mobile (minimal layout)
+ * Desktop layout: artwork (fixed 256px) | progress (flex) | controls (fixed width)
+ * Responsive: Stacks vertically on tablet/mobile with adjusted sizing
  */
 const styles = {
   playerBar: {
+    position: 'fixed' as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    height: tokens.components.playerBar.height,
+    zIndex: tokens.zIndex.fixed,
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+
+  glassContainer: {
     display: 'flex',
     flexDirection: 'column' as const,
     width: '100%',
-    backgroundColor: tokens.colors.bg.primary,
-    borderTop: `1px solid ${tokens.colors.border.default}`,
-    boxShadow: tokens.shadows.lg,
-    zIndex: 1000, // Above other content
-
-    // Responsive: Mobile first, then scale up
-    '@media (max-width: 480px)': {
-      padding: tokens.spacing.sm,
-    },
-    '@media (min-width: 481px)': {
-      padding: tokens.spacing.md,
-    },
+    height: '100%',
+    // Glass morphism effect: semi-translucent background + blur
+    backgroundColor: 'rgba(13, 17, 26, 0.92)',
+    backdropFilter: 'blur(12px)',
+    borderTop: `1px solid ${tokens.colors.border.light}`,
+    boxShadow: tokens.components.playerBar.shadow,
+    padding: tokens.spacing.md,
+    boxSizing: 'border-box' as const,
   },
 
   mainContent: {
     display: 'flex',
-    gap: tokens.spacing.lg,
     flexDirection: 'row' as const,
-    alignItems: 'flex-start',
+    width: '100%',
+    height: '100%',
+    gap: tokens.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'space-between',
 
-    // Responsive: Stack on mobile/tablet
-    '@media (max-width: 1024px)': {
+    // Tablet: Stack vertically with smaller gaps
+    '@media (max-width: 1023px)': {
       flexDirection: 'column' as const,
       alignItems: 'stretch',
       gap: tokens.spacing.md,
+      overflow: 'auto',
+    },
+
+    // Mobile: Even more compact
+    '@media (max-width: 768px)': {
+      gap: tokens.spacing.sm,
+      padding: tokens.spacing.sm,
     },
   },
 
   leftSection: {
+    // Album artwork: 256px fixed on desktop, responsive on smaller screens
+    width: '256px',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+
+    // Tablet: Hide or minimize artwork
+    '@media (max-width: 1023px)': {
+      width: '100%',
+      height: 'auto',
+      minHeight: '60px',
+    },
+
+    // Mobile: Very compact
+    '@media (max-width: 768px)': {
+      minHeight: '48px',
+    },
+  },
+
+  centerSection: {
+    // Progress bar: Takes remaining space
+    flex: 1,
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: tokens.spacing.md,
-    flex: 1,
-    minWidth: '0', // Prevent flex overflow
+    justifyContent: 'center',
+    minWidth: 0, // Prevent flex overflow
 
-    '@media (max-width: 1024px)': {
+    '@media (max-width: 1023px)': {
       width: '100%',
     },
   },
 
   rightSection: {
+    // Controls + Volume: Fixed width on desktop, flex row on tablet/mobile
+    width: '320px',
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: tokens.spacing.md,
-    minWidth: '300px',
+    gap: tokens.spacing.sm,
+    flexShrink: 0,
 
-    '@media (max-width: 1024px)': {
+    // Tablet: Horizontal layout for controls + volume
+    '@media (max-width: 1023px)': {
       width: '100%',
-      minWidth: 'auto',
       flexDirection: 'row' as const,
       justifyContent: 'space-between',
+      gap: tokens.spacing.md,
     },
 
+    // Mobile: Stack vertically again for better thumb target
     '@media (max-width: 768px)': {
       flexDirection: 'column' as const,
+      gap: tokens.spacing.sm,
     },
   },
 };
