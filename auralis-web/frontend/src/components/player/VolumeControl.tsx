@@ -14,7 +14,7 @@
  * />
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { tokens } from '@/design-system';
 
 export interface VolumeControlProps {
@@ -70,6 +70,8 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
   className = '',
   ariaLabel,
 }) => {
+  const [isMuteButtonFocused, setIsMuteButtonFocused] = useState(false);
+  const [isSliderFocused, setIsSliderFocused] = useState(false);
   // Clamp volume to valid range (handle NaN)
   const clampedVolume = useMemo(() => {
     const val = Number.isNaN(volume) ? 0 : volume;
@@ -124,6 +126,8 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
         data-testid="volume-control-mute"
         aria-label={isMuted || clampedVolume === 0 ? 'Unmute (⌨ M )' : 'Mute (⌨ M )'}
         title={isMuted || clampedVolume === 0 ? 'Unmute (⌨ M )' : 'Mute (⌨ M )'}
+        onFocus={() => setIsMuteButtonFocused(true)}
+        onBlur={() => setIsMuteButtonFocused(false)}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -136,10 +140,15 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           borderRadius: tokens.borderRadius.md,
           cursor: disabled ? 'not-allowed' : 'pointer',
           transition: tokens.transitions.all,
-          color: tokens.colors.text.primary,
+          color: disabled ? tokens.colors.text.disabled : tokens.colors.text.primary,
           fontSize: tokens.typography.fontSize.base,
-          opacity: disabled ? 0.5 : 1,
+          opacity: disabled ? 0.7 : 1,
           outline: 'none',
+          ...(isMuteButtonFocused && !disabled && {
+            outline: `3px solid ${tokens.colors.accent.primary}`,
+            outlineOffset: '2px',
+            backgroundColor: tokens.colors.bg.tertiary,
+          }),
         }}
         onMouseEnter={(e) => {
           if (!disabled) {
@@ -149,7 +158,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.backgroundColor = isMuteButtonFocused ? tokens.colors.bg.tertiary : 'transparent';
           e.currentTarget.style.borderColor = tokens.colors.border.light;
           e.currentTarget.style.transform = 'scale(1)';
         }}
@@ -186,6 +195,8 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           data-testid="volume-control-slider"
           aria-label={finalAriaLabel}
           title={`Volume: ${volumePercentage}%`}
+          onFocus={() => setIsSliderFocused(true)}
+          onBlur={() => setIsSliderFocused(false)}
           style={{
             width: '100%',
             height: '6px',
@@ -194,11 +205,12 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
             WebkitAppearance: 'none',
             borderRadius: tokens.borderRadius.full,
             border: 'none',
-            outline: 'none',
+            outline: isSliderFocused && !disabled ? `3px solid ${tokens.colors.accent.primary}` : 'none',
+            outlineOffset: isSliderFocused && !disabled ? '2px' : '0',
             background: `linear-gradient(to right, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.primary} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} 100%)`,
             opacity: disabled ? 0.5 : 1,
-            transition: 'height 0.2s ease',
-          }}
+            transition: 'height 0.2s ease, outline 0.2s ease',
+          } as React.CSSProperties}
         />
       </div>
 

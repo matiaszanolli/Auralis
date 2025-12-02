@@ -50,46 +50,58 @@ export const AlbumGrid: React.FC<AlbumGridProps> = ({
 
   if (error) {
     return (
-      <div style={styles.errorContainer}>
+      <section style={styles.errorContainer} role="alert" aria-live="assertive">
         <p>Failed to load albums</p>
         <p style={styles.errorSubtext}>{error.message}</p>
-      </div>
+      </section>
     );
   }
 
   if (albums.length === 0 && !isLoading) {
     return (
-      <div style={styles.emptyContainer}>
+      <section style={styles.emptyContainer} role="status" aria-live="polite">
         <p>No albums found</p>
-      </div>
+      </section>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.grid}>
+    <section style={styles.container} aria-label="Albums library">
+      <div style={styles.grid} role="list">
         {albums.map((album) => (
-          <AlbumCard
-            key={album.id}
-            album={album}
-            onClick={handleAlbumSelect}
-            isSelected={selectedAlbumId === album.id}
-          />
+          <div key={album.id} role="listitem">
+            <AlbumCard
+              album={album}
+              onClick={handleAlbumSelect}
+              isSelected={selectedAlbumId === album.id}
+            />
+          </div>
         ))}
       </div>
 
-      {isLoading && <div style={styles.loadingMessage}>Loading more albums...</div>}
+      {isLoading && (
+        <div style={styles.loadingMessage} role="status" aria-live="polite" aria-atomic="true">
+          Loading more albums...
+        </div>
+      )}
 
       {!hasMore && albums.length > 0 && (
-        <div style={styles.endMessage}>End of list</div>
+        <div style={styles.endMessage} role="status" aria-live="polite">
+          End of list
+        </div>
       )}
 
       {hasMore && (
-        <button onClick={fetchMore} disabled={isLoading} style={styles.loadMoreButton}>
+        <button
+          onClick={fetchMore}
+          disabled={isLoading}
+          style={styles.loadMoreButton}
+          aria-label={`Load more albums (${albums.length} loaded)`}
+        >
           {isLoading ? 'Loading...' : 'Load More'}
         </button>
       )}
-    </div>
+    </section>
   );
 };
 

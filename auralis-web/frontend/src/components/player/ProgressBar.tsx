@@ -76,6 +76,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const [isHovering, setIsHovering] = useState(false);
   const [hoverPosition, setHoverPosition] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
   // Calculate progress percentage
   const progressPercentage = useMemo(() => {
@@ -167,6 +168,91 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     setIsDragging(false);
   }, []);
 
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (disabled || !Number.isFinite(duration) || duration <= 0) {
+        return;
+      }
+
+      const STEP = 1; // 1 second per arrow key
+      let newPosition: number | null = null;
+
+      switch (event.key) {
+        case 'ArrowLeft':
+        case 'ArrowDown':
+          event.preventDefault();
+          newPosition = Math.max(0, currentTime - STEP);
+          break;
+        case 'ArrowRight':
+        case 'ArrowUp':
+          event.preventDefault();
+          newPosition = Math.min(duration, currentTime + STEP);
+          break;
+        case 'Home':
+          event.preventDefault();
+          newPosition = 0;
+          break;
+        case 'End':
+          event.preventDefault();
+          newPosition = duration;
+          break;
+        default:
+          return;
+      }
+
+      if (newPosition !== null) {
+        onSeek(newPosition);
+      }
+    },
+    [disabled, duration, currentTime, onSeek]
+  );
+
+  // Handle touch start
+  const handleTouchStart = useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (disabled || !Number.isFinite(duration) || duration <= 0) {
+        return;
+      }
+
+      setIsDragging(true);
+      const touch = event.touches[0];
+      if (!touch || !containerRef.current) return;
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(1, x / rect.width));
+      const position = percentage * duration;
+      onSeek(position);
+    },
+    [disabled, duration, onSeek]
+  );
+
+  // Handle touch move
+  const handleTouchMove = useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (!isDragging || !containerRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      const touch = event.touches[0];
+      if (!touch) return;
+
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(1, x / rect.width));
+      const position = percentage * duration;
+      onSeek(position);
+    },
+    [isDragging, duration, onSeek]
+  );
+
+  // Handle touch end
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
   // Set up global event listeners during drag
   React.useEffect(() => {
     if (!isDragging) {
@@ -182,13 +268,17 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     };
   }, [isDragging, handleGlobalMouseMove, handleGlobalMouseUp]);
 
-  // Aria label
+  // Aria labels and values
   const finalAriaLabel = useMemo(() => {
     if (ariaLabel) {
       return ariaLabel;
     }
-    return `Progress: ${formatSecondToTime(currentTime, duration >= 3600)} of ${formatSecondToTime(duration, duration >= 3600)}`;
-  }, [ariaLabel, currentTime, duration]);
+    return `Track progress slider. Use arrow keys to seek.`;
+  }, [ariaLabel]);
+
+  const ariaValueText = useMemo(() => {
+    return `${formatSecondToTime(currentTime, duration >= 3600)} of ${formatSecondToTime(duration, duration >= 3600)}`;
+  }, [currentTime, duration]);
 
   return (
     <div
@@ -203,22 +293,37 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       <div
         ref={containerRef}
         role="slider"
+        tabIndex={disabled ? -1 : 0}
         aria-label={finalAriaLabel}
         aria-valuemin={0}
         aria-valuemax={Math.round(duration)}
         aria-valuenow={Math.round(currentTime)}
+        aria-valuetext={ariaValueText}
         aria-disabled={disabled}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         onMouseMove={handleMouseMove}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onKeyDown={handleKeyDown}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         style={{
           position: 'relative',
           height: '24px',
           cursor: disabled ? 'default' : 'pointer',
           padding: '8px 0',
           userSelect: 'none',
+          outline: 'none',
+          borderRadius: tokens.borderRadius.md,
+          transition: isFocused && !disabled ? '0.2s outline' : 'none',
+          ...(isFocused && !disabled && {
+            outline: `3px solid ${tokens.colors.accent.primary}`,
+            outlineOffset: '2px',
+          }),
         }}
         data-testid="progress-bar-container"
       >
