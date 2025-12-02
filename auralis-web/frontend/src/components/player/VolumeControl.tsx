@@ -108,12 +108,13 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: tokens.spacing.md,
-        padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+        gap: tokens.spacing.lg,
+        padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
         backgroundColor: tokens.colors.bg.secondary,
-        borderRadius: '4px',
+        borderRadius: tokens.borderRadius.lg,
+        border: `1px solid ${tokens.colors.border.light}`,
         width: '100%',
-        maxWidth: '300px',
+        maxWidth: '320px',
       }}
     >
       {/* Mute button */}
@@ -121,23 +122,36 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
         onClick={onMuteToggle}
         disabled={disabled}
         data-testid="volume-control-mute"
-        aria-label={isMuted || clampedVolume === 0 ? 'Unmute' : 'Mute'}
-        title={isMuted || clampedVolume === 0 ? 'Unmute' : 'Mute'}
+        aria-label={isMuted || clampedVolume === 0 ? 'Unmute (⌨ M )' : 'Mute (⌨ M )'}
+        title={isMuted || clampedVolume === 0 ? 'Unmute (⌨ M )' : 'Mute (⌨ M )'}
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: '40px',
-          height: '40px',
-          padding: tokens.spacing.xs,
+          width: '44px',
+          height: '44px',
+          padding: 0,
           backgroundColor: tokens.colors.bg.primary,
-          border: `1px solid ${tokens.colors.border.default}`,
-          borderRadius: '4px',
+          border: `1.5px solid ${tokens.colors.border.medium}`,
+          borderRadius: tokens.borderRadius.md,
           cursor: disabled ? 'not-allowed' : 'pointer',
-          transition: 'all 0.2s ease',
+          transition: tokens.transitions.all,
           color: tokens.colors.text.primary,
-          fontSize: '18px',
+          fontSize: tokens.typography.fontSize.lg,
           opacity: disabled ? 0.5 : 1,
+          outline: 'none',
+        }}
+        onMouseEnter={(e) => {
+          if (!disabled) {
+            e.currentTarget.style.backgroundColor = tokens.colors.bg.elevated;
+            e.currentTarget.style.borderColor = tokens.colors.accent.primary;
+            e.currentTarget.style.transform = 'scale(1.05)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = tokens.colors.bg.primary;
+          e.currentTarget.style.borderColor = tokens.colors.border.medium;
+          e.currentTarget.style.transform = 'scale(1)';
         }}
       >
         <span
@@ -158,7 +172,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           display: 'flex',
           alignItems: 'center',
           flex: 1,
-          minWidth: '80px',
+          minWidth: '100px',
         }}
       >
         <input
@@ -174,16 +188,16 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           title={`Volume: ${volumePercentage}%`}
           style={{
             width: '100%',
-            height: '4px',
+            height: '6px',
             cursor: disabled ? 'default' : 'pointer',
             appearance: 'none',
             WebkitAppearance: 'none',
-            borderRadius: '2px',
+            borderRadius: tokens.borderRadius.full,
             border: 'none',
             outline: 'none',
             background: `linear-gradient(to right, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.primary} ${clampedVolume * 100}%, ${tokens.colors.bg.tertiary} ${clampedVolume * 100}%, ${tokens.colors.bg.tertiary} 100%)`,
             opacity: disabled ? 0.5 : 1,
-            transition: 'opacity 0.2s ease',
+            transition: 'height 0.2s ease',
           }}
         />
       </div>
