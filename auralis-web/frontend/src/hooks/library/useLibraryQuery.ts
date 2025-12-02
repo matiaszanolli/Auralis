@@ -152,6 +152,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   // Constants
   const limit = options.limit || 50;
   const skip = options.skip || false;
+  const hasMore = (offset + data.length) < total;
 
   /**
    * Build endpoint from query type and options
@@ -299,8 +300,6 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       }
     };
   }, [queryType, skip, executeQuery]);
-
-  const hasMore = (offset + data.length) < total;
 
   return {
     data,
