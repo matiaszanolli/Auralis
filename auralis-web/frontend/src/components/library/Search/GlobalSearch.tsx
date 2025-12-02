@@ -3,7 +3,7 @@ import { SearchContainer } from '../Styles/SearchStyles.styles';
 import SearchInput from './SearchInput';
 import ResultsContainerComponent from './ResultsContainer';
 import ResultAvatar from './ResultAvatar';
-import { useSearchLogic } from './useSearchLogic';
+import { useSearchLogic } from '../Hooks/useSearchLogic';
 
 export interface SearchResult {
   type: 'track' | 'album' | 'artist';
