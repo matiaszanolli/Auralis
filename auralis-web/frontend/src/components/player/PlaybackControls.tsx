@@ -98,11 +98,12 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         onClick={onPrevious}
         disabled={isDisabled}
         data-testid="playback-controls-previous"
-        aria-label="Previous track"
+        aria-label="Previous track (← )"
         title="Previous track (⌨ ← )"
         style={{
           ...styles.secondaryButton,
-          opacity: isDisabled ? 0.5 : 1,
+          opacity: isDisabled ? 0.7 : 1,
+          color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.secondary,
           cursor: isDisabled ? 'not-allowed' : 'pointer',
         }}
         onMouseEnter={(e) => {
@@ -116,6 +117,15 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           e.currentTarget.style.backgroundColor = 'transparent';
           e.currentTarget.style.borderColor = tokens.colors.border.light;
           e.currentTarget.style.transform = 'scale(1)';
+        }}
+        onFocus={(e) => {
+          if (!isDisabled) {
+            e.currentTarget.style.outline = `3px solid ${tokens.colors.accent.primary}`;
+            e.currentTarget.style.outlineOffset = '2px';
+          }
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.outline = 'none';
         }}
       >
         ⏮
@@ -127,11 +137,12 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           onClick={onPause}
           disabled={isDisabled}
           data-testid="playback-controls-pause"
-          aria-label="Pause"
+          aria-label="Pause (Space )"
           title="Pause playback (⌨ Space )"
           style={{
             ...styles.primaryButton,
-            opacity: isDisabled ? 0.5 : 1,
+            opacity: isDisabled ? 0.7 : 1,
+            color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.primary,
             cursor: isDisabled ? 'not-allowed' : 'pointer',
           }}
           onMouseEnter={(e) => {
@@ -143,6 +154,15 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'scale(1)';
             e.currentTarget.style.boxShadow = tokens.shadows.md;
+          }}
+          onFocus={(e) => {
+            if (!isDisabled) {
+              e.currentTarget.style.outline = `3px solid ${tokens.colors.accent.primary}`;
+              e.currentTarget.style.outlineOffset = '2px';
+            }
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.outline = 'none';
           }}
         >
           ⏸
@@ -152,11 +172,12 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           onClick={onPlay}
           disabled={isDisabled}
           data-testid="playback-controls-play"
-          aria-label="Play"
+          aria-label="Play (Space )"
           title="Play (⌨ Space )"
           style={{
             ...styles.primaryButton,
-            opacity: isDisabled ? 0.5 : 1,
+            opacity: isDisabled ? 0.7 : 1,
+            color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.primary,
             cursor: isDisabled ? 'not-allowed' : 'pointer',
           }}
           onMouseEnter={(e) => {
@@ -168,6 +189,15 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'scale(1)';
             e.currentTarget.style.boxShadow = tokens.shadows.md;
+          }}
+          onFocus={(e) => {
+            if (!isDisabled) {
+              e.currentTarget.style.outline = `3px solid ${tokens.colors.accent.primary}`;
+              e.currentTarget.style.outlineOffset = '2px';
+            }
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.outline = 'none';
           }}
         >
           ▶
@@ -179,11 +209,12 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         onClick={onNext}
         disabled={isDisabled}
         data-testid="playback-controls-next"
-        aria-label="Next track"
+        aria-label="Next track (→ )"
         title="Next track (⌨ → )"
         style={{
           ...styles.secondaryButton,
-          opacity: isDisabled ? 0.5 : 1,
+          opacity: isDisabled ? 0.7 : 1,
+          color: isDisabled ? tokens.colors.text.disabled : tokens.colors.text.secondary,
           cursor: isDisabled ? 'not-allowed' : 'pointer',
         }}
         onMouseEnter={(e) => {
@@ -198,14 +229,26 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           e.currentTarget.style.borderColor = tokens.colors.border.light;
           e.currentTarget.style.transform = 'scale(1)';
         }}
+        onFocus={(e) => {
+          if (!isDisabled) {
+            e.currentTarget.style.outline = `3px solid ${tokens.colors.accent.primary}`;
+            e.currentTarget.style.outlineOffset = '2px';
+          }
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.outline = 'none';
+        }}
       >
         ⏭
       </button>
 
-      {/* Loading indicator */}
+      {/* Loading indicator with live region announcement */}
       {isLoading && (
         <div
           data-testid="playback-controls-loading"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
           style={styles.loadingIndicator}
         >
           Loading...
