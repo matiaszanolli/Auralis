@@ -14,7 +14,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
-import EnhancementToggle from '../EnhancementToggle';
+import EnhancementToggle from '../../shared/EnhancementToggle/EnhancementToggle';
 
 
 describe('EnhancementToggle (Enhancement Pane Variant)', () => {

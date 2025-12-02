@@ -130,7 +130,7 @@ export function canFocus(element: HTMLElement): boolean {
 
   // Elements with specific roles
   const role = element.getAttribute('role');
-  if (['button', 'link', 'menuitem', 'tab'].includes(role)) {
+  if (role && ['button', 'link', 'menuitem', 'tab'].includes(role)) {
     return true;
   }
 
