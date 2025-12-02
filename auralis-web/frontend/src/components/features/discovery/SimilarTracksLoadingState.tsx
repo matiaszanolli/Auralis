@@ -8,7 +8,7 @@ import { tokens } from '@/design-system/tokens';
 export const SimilarTracksLoadingState: React.FC = () => {
   return (
     <Box sx={{ p: 2, textAlign: 'center' }}>
-      <CircularProgress size={24} sx={{ color: tokens.colors.accent.purple }} />
+      <CircularProgress size={24} sx={{ color: tokens.colors.accent.primary }} />
       <Typography variant="body2" sx={{ mt: 1, color: tokens.colors.text.secondary }}>
         Finding similar tracks...
       </Typography>

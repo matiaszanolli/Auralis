@@ -53,7 +53,7 @@ export const FoldersList: React.FC<FoldersListProps> = ({
         )}
         {scanFolders.map((folder: string, index: number) => (
           <ListItem key={index} sx={{ px: 0, py: 1 }}>
-            <FolderIcon sx={{ mr: 2, color: tokens.colors.accent.purple }} />
+            <FolderIcon sx={{ mr: 2, color: tokens.colors.accent.primary }} />
             <ListItemText
               primary={folder}
               primaryTypographyProps={{ fontSize: '0.9rem' }}
@@ -84,10 +84,10 @@ export const FoldersList: React.FC<FoldersListProps> = ({
         onClick={onAddFolder}
         variant="outlined"
         sx={{
-          borderColor: tokens.colors.accent.purple,
-          color: tokens.colors.accent.purple,
+          borderColor: tokens.colors.accent.primary,
+          color: tokens.colors.accent.primary,
           '&:hover': {
-            borderColor: tokens.colors.accent.purple,
+            borderColor: tokens.colors.accent.primary,
             backgroundColor: auroraOpacity.standard,
           },
         }}

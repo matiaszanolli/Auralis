@@ -38,7 +38,7 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
           fontWeight="bold"
           gutterBottom
           sx={{
-            background: `linear-gradient(45deg, ${tokens.colors.accent.purple}, ${tokens.colors.accent.secondary})`,
+            background: `linear-gradient(45deg, ${tokens.colors.accent.primary}, ${tokens.colors.accent.secondary})`,
             backgroundClip: 'text',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',

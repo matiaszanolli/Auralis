@@ -29,7 +29,7 @@ export const AlbumCard = styled(Paper)(({ theme }) => ({
     transform: 'translateY(-4px)',
     boxShadow: '0 8px 24px rgba(0,0,0,0.19)',
     '& .album-title': {
-      color: tokens.colors.accent.purple
+      color: tokens.colors.accent.primary
     }
   }
 }));

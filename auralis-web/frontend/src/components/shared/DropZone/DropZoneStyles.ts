@@ -15,13 +15,13 @@ export const DropZonePaper = styled(Paper, {
     borderRadius: tokens.borderRadius.lg,
     border: `2px dashed ${
       $isDragging
-        ? tokens.colors.accent.purple
+        ? tokens.colors.accent.primary
         : $scanning
         ? alpha(tokens.colors.text.secondary, 0.3)
         : alpha(tokens.colors.text.disabled, 0.2)
     }`,
     background: $isDragging
-      ? alpha(tokens.colors.accent.purple, 0.05)
+      ? alpha(tokens.colors.accent.primary, 0.05)
       : $scanning
       ? alpha(tokens.colors.bg.elevated, 0.5)
       : 'transparent',
@@ -33,8 +33,8 @@ export const DropZonePaper = styled(Paper, {
 
     ...((!$disabled && !$scanning) && {
       '&:hover': {
-        borderColor: tokens.colors.accent.purple,
-        background: alpha(tokens.colors.accent.purple, 0.02),
+        borderColor: tokens.colors.accent.primary,
+        background: alpha(tokens.colors.accent.primary, 0.02),
         transform: 'scale(1.01)',
       },
     }),

@@ -17,7 +17,7 @@ export const SimilarTracksEmptyState: React.FC<SimilarTracksEmptyStateProps> = (
   if (!trackId) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
-        <MusicNoteIcon sx={{ fontSize: 48, color: tokens.colors.accent.purple, opacity: 0.5, mb: 1 }} />
+        <MusicNoteIcon sx={{ fontSize: 48, color: tokens.colors.accent.primary, opacity: 0.5, mb: 1 }} />
         <Typography variant="body2" sx={{ color: tokens.colors.text.secondary }}>
           Play a track to discover similar music
         </Typography>
@@ -27,7 +27,7 @@ export const SimilarTracksEmptyState: React.FC<SimilarTracksEmptyStateProps> = (
 
   return (
     <Box sx={{ p: 2, textAlign: 'center' }}>
-      <SparklesIcon sx={{ fontSize: 48, color: tokens.colors.accent.purple, opacity: 0.5, mb: 1 }} />
+      <SparklesIcon sx={{ fontSize: 48, color: tokens.colors.accent.primary, opacity: 0.5, mb: 1 }} />
       <Typography variant="body2" sx={{ color: tokens.colors.text.secondary }}>
         No similar tracks found
       </Typography>

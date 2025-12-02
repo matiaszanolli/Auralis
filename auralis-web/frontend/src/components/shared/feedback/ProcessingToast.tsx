@@ -42,7 +42,7 @@ export const ProcessingToast: React.FC<ProcessingToastProps> = ({ stats, show })
 
   const getStatusColor = () => {
     if (stats.cacheHit) return tokens.colors.semantic.success;
-    if (stats.status === 'analyzing') return tokens.colors.accent.purple;
+    if (stats.status === 'analyzing') return tokens.colors.accent.primary;
     return tokens.colors.accent.primary;
   };
 
