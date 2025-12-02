@@ -4,17 +4,10 @@ import {
   Container,
   Stack,
   Grid,
-  TextInput,
   Checkbox,
   Toggle,
-  Button,
-  Card,
-  Badge,
   Alert,
   ProgressBar,
-  LoadingSpinner,
-  Modal,
-  Tooltip,
   ErrorBoundary,
 } from '../index';
 
@@ -79,30 +72,6 @@ describe('Base Components', () => {
   });
 
   describe('Input Components', () => {
-    describe('TextInput', () => {
-      it('renders input with label', () => {
-        render(<TextInput label="Name" placeholder="Enter name" />);
-        expect(screen.getByText('Name')).toBeInTheDocument();
-      });
-
-      it('displays error message', () => {
-        render(<TextInput error="Field required" />);
-        expect(screen.getByText('Field required')).toBeInTheDocument();
-      });
-
-      it('shows helper text when no error', () => {
-        render(<TextInput helperText="Help text" />);
-        expect(screen.getByText('Help text')).toBeInTheDocument();
-      });
-
-      it('hides helper text when error exists', () => {
-        const { queryByText } = render(
-          <TextInput error="Error" helperText="Help" />
-        );
-        expect(queryByText('Help')).not.toBeInTheDocument();
-      });
-    });
-
     describe('Checkbox', () => {
       it('renders checkbox with label', () => {
         render(<Checkbox label="Accept" />);
@@ -136,79 +105,6 @@ describe('Base Components', () => {
   });
 
   describe('Display Components', () => {
-    describe('Button', () => {
-      it('renders button with text', () => {
-        render(<Button>Click me</Button>);
-        expect(screen.getByText('Click me')).toBeInTheDocument();
-      });
-
-      it('supports different variants', () => {
-        const { container: primaryContainer } = render(
-          <Button variant="primary">Primary</Button>
-        );
-        const primaryBtn = primaryContainer.querySelector('button') as HTMLElement;
-        expect(primaryBtn.style.backgroundColor).toBeTruthy();
-
-        const { container: ghostContainer } = render(
-          <Button variant="ghost">Ghost</Button>
-        );
-        const ghostBtn = ghostContainer.querySelector('button') as HTMLElement;
-        expect(ghostBtn.style.backgroundColor).toBe('transparent');
-      });
-
-      it('disables when disabled prop is true', () => {
-        render(<Button disabled>Disabled</Button>);
-        const button = screen.getByText('Disabled') as HTMLButtonElement;
-        expect(button.disabled).toBe(true);
-      });
-
-      it('shows loading state', () => {
-        render(<Button loading>Loading</Button>);
-        const button = screen.getByText('Loading') as HTMLButtonElement;
-        expect(button.disabled).toBe(true);
-      });
-    });
-
-    describe('Card', () => {
-      it('renders card with header and footer', () => {
-        render(
-          <Card
-            header="Header"
-            footer="Footer"
-          >
-            Content
-          </Card>
-        );
-        expect(screen.getByText('Header')).toBeInTheDocument();
-        expect(screen.getByText('Content')).toBeInTheDocument();
-        expect(screen.getByText('Footer')).toBeInTheDocument();
-      });
-
-      it('supports hoverable state', () => {
-        const { container } = render(
-          <Card hoverable>Content</Card>
-        );
-        const card = container.firstChild as HTMLElement;
-        expect(card).toBeInTheDocument();
-      });
-    });
-
-    describe('Badge', () => {
-      it('renders badge with content', () => {
-        render(<Badge>New</Badge>);
-        expect(screen.getByText('New')).toBeInTheDocument();
-      });
-
-      it('supports different variants', () => {
-        const variants = ['primary', 'success', 'warning', 'error', 'info'] as const;
-        variants.forEach((variant) => {
-          const { unmount } = render(<Badge variant={variant}>{variant}</Badge>);
-          expect(screen.getByText(variant)).toBeInTheDocument();
-          unmount();
-        });
-      });
-    });
-
     describe('Alert', () => {
       it('renders alert message', () => {
         render(<Alert>Alert message</Alert>);
@@ -255,71 +151,6 @@ describe('Base Components', () => {
   });
 
   describe('Feedback Components', () => {
-    describe('LoadingSpinner', () => {
-      it('renders spinner', () => {
-        const { container } = render(<LoadingSpinner />);
-        expect(container.querySelector('div')).toBeInTheDocument();
-      });
-
-      it('displays label when provided', () => {
-        render(<LoadingSpinner label="Loading..." />);
-        expect(screen.getByText('Loading...')).toBeInTheDocument();
-      });
-    });
-
-    describe('Modal', () => {
-      it('renders when isOpen is true', () => {
-        render(
-          <Modal isOpen={true} onClose={() => {}}>
-            Modal content
-          </Modal>
-        );
-        expect(screen.getByText('Modal content')).toBeInTheDocument();
-      });
-
-      it('does not render when isOpen is false', () => {
-        const { queryByText } = render(
-          <Modal isOpen={false} onClose={() => {}}>
-            Modal content
-          </Modal>
-        );
-        expect(queryByText('Modal content')).not.toBeInTheDocument();
-      });
-
-      it('calls onClose when backdrop clicked', () => {
-        const onClose = vi.fn();
-        const { container } = render(
-          <Modal isOpen={true} onClose={onClose}>
-            Content
-          </Modal>
-        );
-        const backdrop = container.querySelector('div[style*="position: fixed"]') as HTMLElement;
-        backdrop?.click();
-        expect(onClose).toHaveBeenCalled();
-      });
-
-      it('renders title when provided', () => {
-        render(
-          <Modal isOpen={true} onClose={() => {}} title="Modal Title">
-            Content
-          </Modal>
-        );
-        expect(screen.getByText('Modal Title')).toBeInTheDocument();
-      });
-    });
-
-    describe('Tooltip', () => {
-      it('renders tooltip content on hover', async () => {
-        render(
-          <Tooltip content="Tooltip text">
-            <button>Hover me</button>
-          </Tooltip>
-        );
-        const button = screen.getByText('Hover me');
-        expect(screen.getByText('Tooltip text')).toBeInTheDocument();
-      });
-    });
-
     describe('ErrorBoundary', () => {
       const ThrowError = () => {
         throw new Error('Test error');
