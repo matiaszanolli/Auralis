@@ -46,48 +46,64 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   isSelected = false,
 }) => {
   const [isHovering, setIsHovering] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
 
   const handleClick = useCallback(() => {
     onClick?.(album);
   }, [album, onClick]);
 
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onClick?.(album);
+      }
+    },
+    [album, onClick]
+  );
+
   return (
     <div
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
       style={{
         ...styles.card,
         ...(isSelected && styles.cardSelected),
+        ...(isFocused && styles.cardFocused),
       }}
       role="button"
       tabIndex={0}
       aria-selected={isSelected}
+      aria-label={`${album.title} by ${album.artist}`}
     >
       {/* Album artwork */}
       <div style={styles.artworkContainer}>
         {album.artwork_url ? (
           <img
             src={album.artwork_url}
-            alt={album.title}
+            alt={`${album.title} album cover`}
             style={styles.artwork}
             loading="lazy"
           />
         ) : (
-          <div style={styles.artworkPlaceholder}>
-            <span style={styles.placeholderIcon}>💿</span>
+          <div style={styles.artworkPlaceholder} aria-label="Album cover not available">
+            <span style={styles.placeholderIcon} aria-hidden="true">💿</span>
           </div>
         )}
 
-        {/* Overlay on hover */}
+        {/* Overlay on hover/focus */}
         <div
           style={{
             ...styles.overlay,
-            opacity: isHovering ? 1 : 0,
-            pointerEvents: isHovering ? 'auto' : 'none',
+            opacity: isHovering || isFocused ? 1 : 0,
+            pointerEvents: isHovering || isFocused ? 'auto' : 'none',
           }}
         >
-          <button style={styles.playButton} aria-label="Play album">
+          <button style={styles.playButton} aria-label={`Play ${album.title}`}>
             ▶
           </button>
         </div>
@@ -141,6 +157,12 @@ const styles = {
   cardSelected: {
     outline: `2px solid ${tokens.colors.accent.primary}`,
     outlineOffset: '2px',
+  },
+
+  cardFocused: {
+    outline: `3px solid ${tokens.colors.accent.primary}`,
+    outlineOffset: '4px',
+    boxShadow: tokens.shadows.glowMd,
   },
 
   artworkContainer: {
