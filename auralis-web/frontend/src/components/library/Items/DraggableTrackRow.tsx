@@ -117,3 +117,5 @@ export const DraggableTrackRow: React.FC<DraggableTrackRowProps> = ({
     </Draggable>
   );
 };
+
+export default DraggableTrackRow;
