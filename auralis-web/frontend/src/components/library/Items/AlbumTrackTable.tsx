@@ -8,6 +8,7 @@
 
 import React from 'react';
 import { Table, TableBody, TableContainer, TableRow, Paper, Typography, TableCell } from '@mui/material';
+import { tokens } from '@/design-system/tokens';
 import TrackTableHeader from './TrackTableHeader';
 import TrackTableRowItem from './TrackTableRowItem';
 
@@ -38,11 +39,13 @@ export const AlbumTrackTable: React.FC<AlbumTrackTableProps> = ({
   return (
     <TableContainer
       component={Paper}
-      elevation={2}
       sx={{
-        background: 'rgba(255,255,255,0.03)',
-        borderRadius: 2,
-        backdropFilter: 'blur(10px)'
+        background: `rgba(${parseInt(tokens.colors.bg.level2.slice(1, 3), 16)}, ${parseInt(tokens.colors.bg.level2.slice(3, 5), 16)}, ${parseInt(tokens.colors.bg.level2.slice(5, 7), 16)}, 0.92)`,
+        borderRadius: tokens.borderRadius.lg,
+        backdropFilter: 'blur(12px)',
+        border: `1px solid ${tokens.colors.border.light}`,
+        boxShadow: tokens.shadows.md,
+        overflow: 'hidden',
       }}
     >
       <Table>
@@ -62,8 +65,14 @@ export const AlbumTrackTable: React.FC<AlbumTrackTableProps> = ({
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                <Typography color="text.secondary">
+              <TableCell colSpan={4} align="center" sx={{
+                py: tokens.spacing.xl,
+                borderTop: `1px solid ${tokens.colors.border.light}`,
+              }}>
+                <Typography sx={{
+                  color: tokens.colors.text.tertiary,
+                  fontSize: tokens.typography.fontSize.md,
+                }}>
                   No tracks found for this album
                 </Typography>
               </TableCell>

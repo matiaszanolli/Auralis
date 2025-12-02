@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { TableCell, Typography } from '@mui/material';
+import { tokens } from '@/design-system/tokens';
 import { StyledTableRow } from '../Styles/Table.styles';
 import { TrackPlayIndicator } from './TrackPlayIndicator';
 
@@ -48,20 +49,28 @@ export const TrackTableRowItem: React.FC<TrackTableRowItemProps> = ({
         <Typography
           className="track-title"
           sx={{
-            fontSize: '0.95rem',
-            fontWeight: isCurrentTrack ? 'bold' : 'normal',
+            fontSize: tokens.typography.fontSize.md,
+            fontWeight: isCurrentTrack ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.regular,
+            color: isCurrentTrack ? tokens.colors.accent.primary : tokens.colors.text.primary,
           }}
         >
           {track.title}
         </Typography>
       </TableCell>
       <TableCell>
-        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
+        <Typography sx={{
+          fontSize: tokens.typography.fontSize.sm,
+          color: tokens.colors.text.secondary,
+        }}>
           {track.artist}
         </Typography>
       </TableCell>
       <TableCell align="right">
-        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>
+        <Typography sx={{
+          fontSize: tokens.typography.fontSize.sm,
+          color: tokens.colors.text.tertiary,
+          fontFamily: tokens.typography.fontFamily.mono,
+        }}>
           {formatDuration(track.duration)}
         </Typography>
       </TableCell>

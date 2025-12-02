@@ -7,7 +7,6 @@
 
 import React from 'react';
 import { Box, Typography, Button, styled } from '@mui/material';
-import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system/tokens';
 
 interface DetailViewHeaderProps {
@@ -25,61 +24,72 @@ interface DetailViewHeaderProps {
   direction?: 'row' | 'column';
 }
 
-const HeaderSection = styled(Box)(({ theme }) => ({
+const HeaderSection = styled(Box)({
   display: 'flex',
-  gap: theme.spacing(4),
-  marginBottom: theme.spacing(4),
-  padding: theme.spacing(4),
-  background: auroraOpacity.minimal,
-  borderRadius: theme.spacing(2),
-  backdropFilter: 'blur(10px)',
-  border: `1px solid ${auroraOpacity.ultraLight}`,
-}));
+  gap: tokens.spacing.xl,
+  marginBottom: tokens.spacing.xl,
+  padding: tokens.spacing.xl,
+  background: `rgba(${parseInt(tokens.colors.bg.level2.slice(1, 3), 16)}, ${parseInt(tokens.colors.bg.level2.slice(3, 5), 16)}, ${parseInt(tokens.colors.bg.level2.slice(5, 7), 16)}, 0.92)`,
+  borderRadius: tokens.borderRadius.lg,
+  backdropFilter: 'blur(12px)',
+  border: `1px solid ${tokens.colors.border.light}`,
+  boxShadow: tokens.shadows.md,
+  '@media (max-width: 768px)': {
+    flexDirection: 'column',
+    gap: tokens.spacing.lg,
+    padding: tokens.spacing.lg,
+  },
+});
 
 const ArtworkWrapper = styled(Box)({
   flexShrink: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  '@media (max-width: 768px)': {
+    alignSelf: 'center',
+  },
 });
 
-const InfoSection = styled(Box)(({ theme }) => ({
+const InfoSection = styled(Box)({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
   justifyContent: 'center',
-  gap: theme.spacing(2),
-}));
+  gap: tokens.spacing.md,
+});
 
 const Title = styled(Typography)({
-  fontSize: '2.5rem',
-  fontWeight: 'bold',
-  background: `linear-gradient(45deg, ${tokens.colors.accent.purple}, ${tokens.colors.accent.secondary})`,
+  fontSize: tokens.typography.fontSize.xxxl,
+  fontWeight: tokens.typography.fontWeight.bold,
+  background: tokens.gradients.aurora,
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  marginBottom: 8,
+  marginBottom: tokens.spacing.sm,
+  lineHeight: 1.2,
 });
 
-const Subtitle = styled(Typography)(({ theme }) => ({
-  fontSize: '1.5rem',
-  color: theme.palette.text.secondary,
-  marginBottom: 16,
-}));
+const Subtitle = styled(Typography)({
+  fontSize: tokens.typography.fontSize.lg,
+  color: tokens.colors.text.secondary,
+  marginBottom: tokens.spacing.md,
+  fontWeight: tokens.typography.fontWeight.semibold,
+});
 
-const Metadata = styled(Typography)(({ theme }) => ({
-  fontSize: '0.95rem',
-  color: theme.palette.text.secondary,
-  marginBottom: 4,
-}));
+const Metadata = styled(Typography)({
+  fontSize: tokens.typography.fontSize.sm,
+  color: tokens.colors.text.tertiary,
+  marginBottom: tokens.spacing.xs,
+});
 
-const ActionsContainer = styled(Box)(({ theme }) => ({
+const ActionsContainer = styled(Box)({
   display: 'flex',
-  gap: theme.spacing(2),
-  marginTop: theme.spacing(2),
+  gap: tokens.spacing.md,
+  marginTop: tokens.spacing.lg,
   alignItems: 'center',
   flexWrap: 'wrap',
-}));
+});
 
 export const DetailViewHeader: React.FC<DetailViewHeaderProps> = ({
   artwork,

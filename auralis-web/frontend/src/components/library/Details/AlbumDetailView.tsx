@@ -16,12 +16,12 @@ import {
   Skeleton,
   IconButton,
 } from '@mui/material';
+import { tokens } from '@/design-system/tokens';
 import { EmptyState } from '../../shared/ui/feedback';
 import AlbumTrackTable from '../Items/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
 import { useAlbumDetails, Track } from './useAlbumDetails';
 import { ArrowBack } from '@mui/icons-material';
-import { auroraOpacity } from '../Styles/Color.styles';
 
 interface AlbumDetailViewProps {
   albumId: number;
@@ -61,23 +61,59 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2, mb: 4 }} />
-        <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
+      <Container maxWidth="xl" sx={{
+        py: tokens.spacing.xl,
+        px: tokens.spacing.lg,
+      }}>
+        <Skeleton
+          variant="rectangular"
+          height={400}
+          sx={{
+            borderRadius: tokens.borderRadius.lg,
+            mb: tokens.spacing.xl,
+          }}
+        />
+        <Skeleton
+          variant="rectangular"
+          height={300}
+          sx={{
+            borderRadius: tokens.borderRadius.lg,
+          }}
+        />
       </Container>
     );
   }
 
   if (error || !album) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth="xl" sx={{
+        py: tokens.spacing.xl,
+        px: tokens.spacing.lg,
+      }}>
         <EmptyState
           title={error ? 'Error Loading Album' : 'Album not found'}
           description={error || undefined}
         />
         {onBack && (
-          <Box sx={{ textAlign: 'center', mt: 2 }}>
-            <Button onClick={onBack} startIcon={<ArrowBack />}>
+          <Box sx={{ textAlign: 'center', mt: tokens.spacing.lg }}>
+            <Button
+              onClick={onBack}
+              startIcon={<ArrowBack />}
+              sx={{
+                background: tokens.gradients.aurora,
+                color: tokens.colors.text.primary,
+                fontWeight: tokens.typography.fontWeight.semibold,
+                padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
+                borderRadius: tokens.borderRadius.md,
+                border: 'none',
+                transition: tokens.transitions.all,
+                boxShadow: tokens.shadows.md,
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: tokens.shadows.glowMd,
+                },
+              }}
+            >
               Back to Albums
             </Button>
           </Box>
@@ -87,16 +123,26 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{
+      py: tokens.spacing.xl,
+      px: tokens.spacing.lg,
+    }}>
       {/* Back Button */}
       {onBack && (
         <IconButton
           onClick={onBack}
           sx={{
-            mb: 2,
+            mb: tokens.spacing.lg,
+            color: tokens.colors.text.secondary,
+            border: `1px solid ${tokens.colors.border.light}`,
+            borderRadius: tokens.borderRadius.md,
+            padding: tokens.spacing.sm,
+            transition: tokens.transitions.all,
             '&:hover': {
-              backgroundColor: auroraOpacity.ultraLight
-            }
+              backgroundColor: tokens.colors.bg.tertiary,
+              borderColor: tokens.colors.accent.primary,
+              transform: 'scale(1.05)',
+            },
           }}
         >
           <ArrowBack />

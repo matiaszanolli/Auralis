@@ -22,6 +22,7 @@
 
 import React from 'react';
 import { Box } from '@mui/material';
+import { tokens } from '@/design-system/tokens';
 import DetailViewHeader from './DetailViewHeader';
 import AlbumArt from '../../album/AlbumArt';
 import { AlbumMetadata } from './AlbumMetadata';
@@ -50,7 +51,18 @@ export const AlbumHeaderActions: React.FC<AlbumHeaderActionsProps> = ({
   return (
     <DetailViewHeader
       artwork={
-        <Box sx={{ width: 280, height: 280, borderRadius: 1.5, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.19)' }}>
+        <Box sx={{
+          width: '280px',
+          height: '280px',
+          borderRadius: tokens.borderRadius.lg,
+          overflow: 'hidden',
+          boxShadow: tokens.shadows.lg,
+          transition: tokens.transitions.all,
+          '&:hover': {
+            transform: 'scale(1.02)',
+            boxShadow: tokens.shadows.glowMd,
+          },
+        }}>
           <AlbumArt
             albumId={album.id}
             size={280}
