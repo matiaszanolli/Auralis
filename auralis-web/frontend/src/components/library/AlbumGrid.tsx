@@ -13,10 +13,10 @@
  * @module components/library/AlbumGrid
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { tokens } from '@/design-system/tokens';
 import { useAlbumsQuery } from '@/hooks/library/useLibraryQuery';
-import AlbumCard from './AlbumCard';
+import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import type { Album } from '@/types/domain';
 
 interface AlbumGridProps {
@@ -38,11 +38,9 @@ export const AlbumGrid: React.FC<AlbumGridProps> = ({
   limit = 20,
 }) => {
   const { data: albums, isLoading, error, hasMore, fetchMore } = useAlbumsQuery({ limit });
-  const [selectedAlbumId, setSelectedAlbumId] = useState<number | null>(null);
 
   const handleAlbumSelect = useCallback(
     (album: Album) => {
-      setSelectedAlbumId(album.id);
       onAlbumSelect?.(album);
     },
     [onAlbumSelect]
@@ -71,9 +69,13 @@ export const AlbumGrid: React.FC<AlbumGridProps> = ({
         {albums.map((album) => (
           <div key={album.id} role="listitem">
             <AlbumCard
-              album={album}
-              onClick={handleAlbumSelect}
-              isSelected={selectedAlbumId === album.id}
+              albumId={album.id}
+              title={album.title}
+              artist={album.artist}
+              trackCount={album.track_count}
+              hasArtwork={!!album.artwork_url}
+              year={album.year}
+              onClick={() => handleAlbumSelect(album)}
             />
           </div>
         ))}
