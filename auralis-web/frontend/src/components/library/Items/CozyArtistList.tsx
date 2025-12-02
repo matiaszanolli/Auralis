@@ -23,7 +23,7 @@
  * ```
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { ArtistListLoading } from './ArtistListLoading';
 import { ArtistListEmptyState } from './ArtistListEmptyState';
 import { ArtistListContent } from './ArtistListContent';
@@ -52,6 +52,12 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
     groupedArtists,
     sortedLetters,
   } = useArtistListPagination({ onArtistClick });
+
+  // Adapt the hook's handler signature to what ArtistListContent expects
+  const adaptedArtistClickHandler = useCallback((artist: any) => {
+    // Call the hook's handleArtistClick with the adapted signature
+    handleArtistClick(artist);
+  }, [handleArtistClick]);
 
   const contextActions = useContextMenuActions({
     artist: contextMenuArtist,
@@ -82,7 +88,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
       sortedLetters={sortedLetters}
       contextMenuState={contextMenuState}
       contextActions={contextActions}
-      onArtistClick={handleArtistClick}
+      onArtistClick={adaptedArtistClickHandler}
       onContextMenuOpen={handleContextMenuOpen}
       onContextMenuClose={handleCloseContextMenu}
     />

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useContextMenu } from '../../shared/ContextMenu';
-import { useToast } from '../../shared/Toast';
 
 interface Artist {
   id: number;
@@ -71,7 +70,6 @@ export const useArtistListPagination = ({
 
   // Context menu and toast hooks
   const { contextMenuState, handleContextMenu, handleCloseContextMenu: closeContextMenu } = useContextMenu();
-  const { success, info } = useToast();
 
   // Initial fetch on mount
   useEffect(() => {
@@ -107,7 +105,9 @@ export const useArtistListPagination = ({
       scrollableParent.addEventListener('scroll', handleScroll);
       handleScroll();
       return () => {
-        scrollableParent.removeEventListener('scroll', handleScroll);
+        if (scrollableParent) {
+          scrollableParent.removeEventListener('scroll', handleScroll);
+        }
       };
     }
   }, [hasMore, isLoadingMore, loading, offset, artists.length]);
