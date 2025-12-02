@@ -24,14 +24,9 @@ export interface Track {
   id: number;
   title: string;
   artist: string;
-  album: string;
-  album_id?: number;
   duration: number;
-  albumArt?: string;
-  quality?: number;
-  isEnhanced?: boolean;
-  genre?: string;
-  year?: number;
+  track_number?: number;
+  disc_number?: number;
 }
 
 export interface LibraryViewRouterProps {
