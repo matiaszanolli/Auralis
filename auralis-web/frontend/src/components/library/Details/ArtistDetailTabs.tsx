@@ -59,6 +59,7 @@ export const ArtistDetailTabsSection: React.FC<ArtistDetailTabsProps> = ({
       <Tabs
         value={activeTab}
         onChange={(e, newValue) => onTabChange(newValue)}
+        aria-label="Artist content sections"
         sx={{
           borderBottom: `1px solid ${tokens.colors.border.light}`,
           marginBottom: tokens.spacing.lg,
@@ -82,24 +83,28 @@ export const ArtistDetailTabsSection: React.FC<ArtistDetailTabsProps> = ({
           },
         }}
       >
-        <Tab label={`Albums (${artist.albums?.length || 0})`} />
-        <Tab label={`All Tracks (${artist.tracks?.length || 0})`} />
+        <Tab label={`Albums (${artist.albums?.length || 0})`} id="albums-tab" aria-controls="albums-panel" />
+        <Tab label={`All Tracks (${artist.tracks?.length || 0})`} id="tracks-tab" aria-controls="tracks-panel" />
       </Tabs>
 
       {activeTab === 0 && (
-        <AlbumsTab
-          albums={artist.albums || []}
-          onAlbumClick={onAlbumClick}
-        />
+        <Box id="albums-panel" role="tabpanel" aria-labelledby="albums-tab">
+          <AlbumsTab
+            albums={artist.albums || []}
+            onAlbumClick={onAlbumClick}
+          />
+        </Box>
       )}
 
       {activeTab === 1 && (
-        <TracksTab
-          tracks={artist.tracks || []}
-          currentTrackId={currentTrackId}
-          isPlaying={isPlaying}
-          onTrackClick={onTrackClick}
-        />
+        <Box id="tracks-panel" role="tabpanel" aria-labelledby="tracks-tab">
+          <TracksTab
+            tracks={artist.tracks || []}
+            currentTrackId={currentTrackId}
+            isPlaying={isPlaying}
+            onTrackClick={onTrackClick}
+          />
+        </Box>
       )}
     </Box>
   );

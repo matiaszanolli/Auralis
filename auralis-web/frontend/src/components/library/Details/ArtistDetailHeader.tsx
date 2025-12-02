@@ -53,6 +53,7 @@ export const ArtistDetailHeaderSection: React.FC<ArtistDetailHeaderProps> = ({
       {onBack && (
         <IconButton
           onClick={onBack}
+          aria-label="Go back to artists library"
           sx={{
             mb: tokens.spacing.lg,
             color: tokens.colors.text.secondary,
@@ -64,6 +65,10 @@ export const ArtistDetailHeaderSection: React.FC<ArtistDetailHeaderProps> = ({
               backgroundColor: tokens.colors.bg.tertiary,
               borderColor: tokens.colors.accent.primary,
               transform: 'scale(1.05)',
+            },
+            '&:focus-visible': {
+              outline: `3px solid ${tokens.colors.accent.primary}`,
+              outlineOffset: '2px',
             },
           }}
         >

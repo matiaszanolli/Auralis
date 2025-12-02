@@ -64,7 +64,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
       <Container maxWidth="xl" sx={{
         py: tokens.spacing.xl,
         px: tokens.spacing.lg,
-      }}>
+      }} role="status" aria-live="polite" aria-label="Loading album details">
         <Skeleton
           variant="rectangular"
           height={400}
@@ -131,6 +131,7 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
       {onBack && (
         <IconButton
           onClick={onBack}
+          aria-label="Go back to albums library"
           sx={{
             mb: tokens.spacing.lg,
             color: tokens.colors.text.secondary,
@@ -142,6 +143,10 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
               backgroundColor: tokens.colors.bg.tertiary,
               borderColor: tokens.colors.accent.primary,
               transform: 'scale(1.05)',
+            },
+            '&:focus-visible': {
+              outline: `3px solid ${tokens.colors.accent.primary}`,
+              outlineOffset: '2px',
             },
           }}
         >
