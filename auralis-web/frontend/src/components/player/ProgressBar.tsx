@@ -103,7 +103,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       if (!containerRef.current) return currentTime;
 
       const rect = containerRef.current.getBoundingClientRect();
-      const x = ('clientX' in event ? event.clientX : event.pageX) - rect.left;
+      const x = ('clientX' in event ? event.clientX : (event as any).pageX) - rect.left;
       const percentage = Math.max(0, Math.min(1, x / rect.width));
       return percentage * duration;
     },

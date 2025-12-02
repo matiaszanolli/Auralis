@@ -134,6 +134,9 @@ export function useQueueHistory(): QueueHistoryActions {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
+  // Computed state
+  const canUndo = history.length > 0;
+
   /**
    * Fetch initial history on mount
    */

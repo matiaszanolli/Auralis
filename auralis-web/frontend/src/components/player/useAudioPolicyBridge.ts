@@ -39,7 +39,7 @@ export const useAudioPolicyBridge = ({
     // - playsInline: true (for mobile inline playback)
     // - preload: 'auto' (allow browser to preload audio data)
     audioElement.muted = false;
-    audioElement.playsInline = true;
+    (audioElement as any).playsInline = true;
     audioElement.preload = 'auto';
 
     log('Audio element configured');
