@@ -9,46 +9,56 @@
 
 export const tokens = {
   /**
-   * Color System
-   * Based on Aurora gradient aesthetic with dark navy backgrounds
+   * Color System - Premium Audio Player (Tidal + FabFilter + macOS aesthetic)
+   * Elevation-based backgrounds with Soft Violet + Electric Aqua brand colors
    */
   colors: {
-    // Background colors
+    // Background colors (Elevation Levels)
     bg: {
-      primary: '#0A0E27',      // Deep navy - main background
-      secondary: '#1a1f3a',    // Lighter navy - elevated surfaces
-      tertiary: '#252a47',     // Card backgrounds
-      elevated: '#2d3350',     // Hover/active states
-      overlay: 'rgba(10, 14, 39, 0.95)', // Modal/dialog overlays
+      level0: '#0A0C10',       // Root background (darkest void)
+      level1: '#0D111A',       // Primary background (main content area)
+      level2: '#131A24',       // Secondary background (panels, sidebars)
+      level3: '#1B232E',       // Tertiary background (cards, raised elements)
+      level4: '#1F2936',       // Surface background (overlays, modals)
+      // Backwards compatibility
+      primary: '#0D111A',
+      secondary: '#131A24',
+      tertiary: '#1B232E',
+      elevated: '#1F2936',
+      overlay: 'rgba(13, 17, 26, 0.95)',
     },
 
-    // Accent colors (Aurora gradient theme)
+    // Brand colors (Soft Violet + Electric Aqua)
     accent: {
-      primary: '#667eea',      // Primary purple
-      secondary: '#764ba2',    // Secondary purple
-      tertiary: '#f093fb',     // Pink accent
-      success: '#00d4aa',      // Turquoise - success states
-      warning: '#f59e0b',      // Amber - warnings
-      error: '#ef4444',        // Red - errors
-      info: '#3b82f6',         // Blue - info
-      purple: '#a855f7',       // Purple accent for processing
+      primary: '#7366F0',      // Soft Violet - primary brand accent
+      secondary: '#47D6FF',    // Electric Aqua - audio-reactive, glows
+      tertiary: '#C1C8EF',     // Lavender Smoke - secondary text
+    },
+
+    // Semantic accent colors
+    semantic: {
+      success: '#10B981',      // Success (positive)
+      warning: '#F59E0B',      // Warning (caution)
+      error: '#EF4444',        // Error (critical)
+      info: '#3B82F6',         // Info (informational)
     },
 
     // Text colors
     text: {
-      primary: '#ffffff',      // White - primary text
-      secondary: '#8b92b0',    // Muted purple-gray - secondary text
-      tertiary: '#6b7194',     // More muted - tertiary text
-      disabled: '#4a5073',     // Disabled text
-      inverse: '#0A0E27',      // For light backgrounds
+      primary: '#FFFFFF',      // Ultra White - titles, emphasis
+      secondary: '#C1C8EF',    // Lavender Smoke - secondary text, labels
+      tertiary: '#8B92B0',     // Muted purple-gray - tertiary text
+      muted: '#6B7194',        // Muted - disabled, hint text
+      disabled: '#4A5073',     // Disabled text (very muted)
+      inverse: '#0D111A',      // For light backgrounds
     },
 
-    // Border colors
+    // Border colors (using soft opacity + brand colors)
     border: {
-      light: 'rgba(139, 146, 176, 0.2)',   // Subtle borders
-      medium: 'rgba(139, 146, 176, 0.4)',  // Standard borders
-      heavy: 'rgba(139, 146, 176, 0.6)',   // Emphasized borders
-      accent: '#667eea',                    // Accent borders
+      light: 'rgba(115, 102, 240, 0.12)',   // Subtle borders (soft violet)
+      medium: 'rgba(115, 102, 240, 0.24)',  // Standard borders
+      heavy: 'rgba(115, 102, 240, 0.40)',   // Emphasized borders
+      accent: '#7366F0',                     // Accent borders (soft violet)
     },
   },
 
@@ -68,23 +78,26 @@ export const tokens = {
 
   /**
    * Typography System
+   * Plus Jakarta Sans (headers), Inter (body), JetBrains Mono (technical)
    */
   typography: {
     fontFamily: {
-      primary: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      mono: '"SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace',
+      primary: 'Inter, "Segoe UI", sans-serif',                                    // Body text
+      header: "'Plus Jakarta Sans', Arial, sans-serif",                            // Headers & titles
+      mono: "'JetBrains Mono', 'Courier New', monospace",                         // Technical readouts (dB, Hz, LUFS)
+      system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
     },
 
     fontSize: {
-      xs: '11px',
-      sm: '12px',
-      base: '14px',
-      md: '16px',
-      lg: '18px',
-      xl: '20px',
-      '2xl': '24px',
-      '3xl': '32px',
-      '4xl': '48px',
+      xs: '11px',      // Caption, tiny labels
+      sm: '12px',      // Small text, metadata
+      base: '14px',    // Standard body text
+      md: '16px',      // Larger body, input labels
+      lg: '18px',      // Subtitle, secondary headers
+      xl: '20px',      // Section headers (H3)
+      '2xl': '24px',   // Page headers (H2)
+      '3xl': '32px',   // Large headers (H1)
+      '4xl': '48px',   // Display, hero text
     },
 
     fontWeight: {
@@ -95,9 +108,15 @@ export const tokens = {
     },
 
     lineHeight: {
-      tight: 1.2,
-      normal: 1.5,
-      relaxed: 1.75,
+      tight: 1.2,      // Headers
+      normal: 1.5,     // Body text
+      relaxed: 1.75,   // Long-form
+    },
+
+    letterSpacing: {
+      normal: '0',
+      tight: '-0.01em',
+      loose: '0.02em',
     },
   },
 
@@ -114,35 +133,55 @@ export const tokens = {
   },
 
   /**
-   * Shadow System
+   * Shadow System (Ambient opacity - no harsh black)
+   * Elevation levels + audio-reactive glows
    */
   shadows: {
     none: 'none',
-    sm: '0 1px 2px rgba(0, 0, 0, 0.05)',
-    base: '0 2px 4px rgba(0, 0, 0, 0.1)',
-    md: '0 4px 8px rgba(0, 0, 0, 0.15)',
-    lg: '0 8px 16px rgba(0, 0, 0, 0.2)',
-    xl: '0 12px 24px rgba(0, 0, 0, 0.25)',
-    '2xl': '0 16px 32px rgba(0, 0, 0, 0.3)',
-    glow: '0 0 20px rgba(102, 126, 234, 0.3)',  // Aurora glow
-    glowStrong: '0 0 30px rgba(102, 126, 234, 0.5)',
+
+    // Elevation shadows (ambient opacity for depth)
+    xs: '0 1px 2px rgba(0, 0, 0, 0.05)',
+    sm: '0 2px 4px rgba(0, 0, 0, 0.08)',
+    base: '0 2px 4px rgba(0, 0, 0, 0.10)',
+    md: '0 4px 12px rgba(0, 0, 0, 0.16)',         // Card shadow (elevation 1)
+    lg: '0 8px 24px rgba(0, 0, 0, 0.20)',        // Raised panel (elevation 2)
+    xl: '0 12px 32px rgba(0, 0, 0, 0.28)',       // Modal (elevation 3)
+    '2xl': '0 16px 40px rgba(0, 0, 0, 0.32)',    // Top-level (elevation 4)
+
+    // Glow shadows (audio-reactive elements)
+    glowSoft: '0 0 16px rgba(115, 102, 240, 0.20)',      // Soft violet glow
+    glowMd: '0 0 24px rgba(115, 102, 240, 0.32)',        // Violet glow (medium)
+    glowAqua: '0 0 20px rgba(71, 214, 255, 0.24)',       // Electric Aqua glow
+    glowAquaIntense: '0 0 32px rgba(71, 214, 255, 0.40)', // Aqua glow (processing)
   },
 
   /**
-   * Transition System
+   * Transition System (smooth, intentional animations)
    */
   transitions: {
-    fast: '100ms ease',
-    base: '200ms ease',
-    slow: '300ms ease',
-    verySlow: '500ms ease',
+    // Durations
+    fast: '100ms',
+    base: '200ms',
+    slow: '300ms',
+    verySlow: '500ms',
 
-    // Specific properties
-    color: '200ms color ease',
-    background: '200ms background-color ease',
-    transform: '200ms transform ease',
-    opacity: '200ms opacity ease',
-    all: '200ms all ease',
+    // Easing functions
+    easeOut: 'cubic-bezier(0.4, 0, 0.2, 1)',    // Quick, sharp (100ms)
+    easeInOut: 'cubic-bezier(0.4, 0, 0.6, 1)',  // Natural (200ms)
+    easeSmooth: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Audio-like fluidity
+
+    // Combined (duration + easing)
+    fast_out: '100ms cubic-bezier(0.4, 0, 0.2, 1)',
+    base_inOut: '200ms cubic-bezier(0.4, 0, 0.6, 1)',
+    slow_inOut: '300ms cubic-bezier(0.4, 0, 0.6, 1)',
+    verySlow_inOut: '500ms cubic-bezier(0.4, 0, 0.6, 1)',
+
+    // Property-specific
+    color: '200ms color cubic-bezier(0.4, 0, 0.6, 1)',
+    background: '200ms background-color cubic-bezier(0.4, 0, 0.6, 1)',
+    transform: '200ms transform cubic-bezier(0.4, 0, 0.6, 1)',
+    opacity: '200ms opacity cubic-bezier(0.4, 0, 0.6, 1)',
+    all: '200ms all cubic-bezier(0.4, 0, 0.6, 1)',
   },
 
   /**
@@ -162,48 +201,77 @@ export const tokens = {
 
   /**
    * Component-Specific Tokens
+   * Predefined sizes and styles for major UI components
    */
   components: {
     playerBar: {
-      height: '90px',
+      height: '96px',
       zIndex: 1030,
-      background: 'rgba(26, 31, 58, 0.95)',
+      background: 'rgba(13, 17, 26, 0.92)',
+      backdropFilter: 'blur(12px)',
+      borderTop: '1px solid rgba(115, 102, 240, 0.12)',
+      shadow: '0 -8px 32px rgba(0, 0, 0, 0.24)',
     },
 
     sidebar: {
-      width: '240px',
-      background: '#1a1f3a',
+      width: '256px',
+      collapsedWidth: '72px',
+      background: '#131A24',
+      borderRight: '1px solid rgba(115, 102, 240, 0.08)',
+      shadow: '2px 0 16px rgba(0, 0, 0, 0.12)',
     },
 
     rightPanel: {
-      width: '320px',
-      background: '#1a1f3a',
+      width: '360px',
+      minWidth: '300px',
+      background: '#131A24',
+      borderLeft: '1px solid rgba(115, 102, 240, 0.08)',
+      shadow: '-2px 0 16px rgba(0, 0, 0, 0.12)',
     },
 
     albumCard: {
-      size: '160px',
-      borderRadius: '8px',
-      hoverScale: 1.05,
+      size: '200px',               // Increased from 160px
+      borderRadius: '12px',        // lg (12px minimum for cards)
+      hoverScale: 1.04,            // Increased from 1.05 for subtlety
+      hoverShadow: '0 8px 24px rgba(0, 0, 0, 0.24)',
+    },
+
+    albumCover: {
+      borderRadius: '16px',        // xl (large panels)
+      shadow: '0 12px 32px rgba(0, 0, 0, 0.28)',
+      hoverShadow: '0 16px 40px rgba(0, 0, 0, 0.32)',
+    },
+
+    button: {
+      primary: {
+        padding: '12px 24px',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: 500,
+      },
+      icon: {
+        size: '56px',
+        borderRadius: '9999px',  // full circle
+      },
     },
 
     searchBar: {
       height: '48px',
       borderRadius: '24px',  // Pill shape
-      background: 'rgba(37, 42, 71, 0.6)',
+      background: 'rgba(31, 41, 54, 0.60)',
+      padding: '0 16px',
     },
   },
 
   /**
-   * Gradient System
-   * Aurora-themed gradients
+   * Gradient System (Soft Violet + Electric Aqua + subtle dark)
    */
   gradients: {
-    aurora: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    auroraSoft: 'linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%)',
-    auroraVertical: 'linear-gradient(180deg, #667eea 0%, #764ba2 100%)',
-    pink: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    turquoise: 'linear-gradient(135deg, #00d4aa 0%, #00a896 100%)',
-    dark: 'linear-gradient(180deg, #1a1f3a 0%, #0A0E27 100%)',
+    aurora: 'linear-gradient(135deg, #7366F0 0%, #5A5CC4 100%)',              // Aurora (Soft Violet → darker)
+    auroraSoft: 'linear-gradient(135deg, rgba(115, 102, 240, 0.80) 0%, rgba(90, 92, 196, 0.80) 100%)', // Aurora soft (overlays)
+    auroraVertical: 'linear-gradient(180deg, #7366F0 0%, #5A5CC4 100%)',      // Aurora vertical (headers)
+    aqua: 'linear-gradient(135deg, #47D6FF 0%, #00BCC4 100%)',                // Aqua (audio-reactive)
+    darkSubtle: 'linear-gradient(180deg, #1B232E 0%, #131A24 100%)',          // Dark subtle (background transitions)
   },
 
   /**
