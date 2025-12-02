@@ -70,28 +70,17 @@ export const AppContainer: React.FC<AppContainerProps> = ({
     <DragDropContext onDragEnd={onDragEnd}>
       <Box
         sx={{
-          width: '100vw',
-          height: '100vh',
+          flex: 1,
           background: 'var(--midnight-blue)',
           color: 'var(--silver)',
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: 'row',
           overflow: 'hidden',
-          // Ensure nothing overflows the viewport
           position: 'relative',
         }}
       >
-        {/* Main layout area: flex grows to fill available space */}
-        <Box
-          sx={{
-            display: 'flex',
-            flex: 1,
-            overflow: 'hidden',
-            // Sidebar + Content + Enhancement pane arranged horizontally
-          }}
-        >
-          {children}
-        </Box>
+        {/* Main layout area: sidebar + content + enhancement pane arranged horizontally */}
+        {children}
       </Box>
     </DragDropContext>
   );
