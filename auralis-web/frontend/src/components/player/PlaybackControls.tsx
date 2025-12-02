@@ -1,8 +1,11 @@
 /**
- * PlaybackControls - Playback control buttons (play, pause, next, previous)
+ * PlaybackControls - Modern playback control buttons
  *
- * Provides interactive controls for playback with visual feedback.
- * Displays loading state during operations and supports disabled state.
+ * Provides interactive controls for playback with:
+ * - Smooth hover and active state transitions
+ * - Gradient accent for play button
+ * - Proper visual hierarchy between primary (play/pause) and secondary controls
+ * - Touch-friendly button sizing
  *
  * @component
  * @example
@@ -18,6 +21,7 @@
 
 import React, { useMemo } from 'react';
 import { tokens } from '@/design-system';
+import styles from './PlaybackControlsStyles';
 
 export interface PlaybackControlsProps {
   /**
@@ -87,12 +91,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
     <div
       className={className}
       data-testid="playback-controls"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: tokens.spacing.md,
-        justifyContent: 'center',
-      }}
+      style={styles.container}
     >
       {/* Previous button */}
       <button
@@ -100,22 +99,23 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         disabled={isDisabled}
         data-testid="playback-controls-previous"
         aria-label="Previous track"
-        title="Previous track"
+        title="Previous track (⌨ ← )"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '44px',
-          height: '44px',
-          padding: tokens.spacing.xs,
-          backgroundColor: tokens.colors.bg.primary,
-          border: `1px solid ${tokens.colors.border.default}`,
-          borderRadius: '4px',
-          cursor: isDisabled ? 'not-allowed' : 'pointer',
-          transition: 'all 0.2s ease',
-          color: tokens.colors.text.primary,
-          fontSize: '18px',
+          ...styles.secondaryButton,
           opacity: isDisabled ? 0.5 : 1,
+          cursor: isDisabled ? 'not-allowed' : 'pointer',
+        }}
+        onMouseEnter={(e) => {
+          if (!isDisabled) {
+            e.currentTarget.style.backgroundColor = tokens.colors.bg.elevated;
+            e.currentTarget.style.borderColor = tokens.colors.accent.primary;
+            e.currentTarget.style.transform = 'scale(1.05)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = tokens.colors.bg.primary;
+          e.currentTarget.style.borderColor = tokens.colors.border.medium;
+          e.currentTarget.style.transform = 'scale(1)';
         }}
       >
         ⏮
@@ -128,22 +128,21 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           disabled={isDisabled}
           data-testid="playback-controls-pause"
           aria-label="Pause"
-          title="Pause playback"
+          title="Pause playback (⌨ Space )"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '52px',
-            height: '52px',
-            padding: tokens.spacing.xs,
-            backgroundColor: tokens.colors.accent.primary,
-            border: `1px solid ${tokens.colors.accent.primary}`,
-            borderRadius: '4px',
-            cursor: isDisabled ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            color: tokens.colors.text.primary,
-            fontSize: '20px',
+            ...styles.primaryButton,
             opacity: isDisabled ? 0.5 : 1,
+            cursor: isDisabled ? 'not-allowed' : 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            if (!isDisabled) {
+              e.currentTarget.style.transform = 'scale(1.08)';
+              e.currentTarget.style.boxShadow = tokens.shadows.glowStrong;
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = tokens.shadows.glow;
           }}
         >
           ⏸
@@ -154,22 +153,21 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           disabled={isDisabled}
           data-testid="playback-controls-play"
           aria-label="Play"
-          title="Play"
+          title="Play (⌨ Space )"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '52px',
-            height: '52px',
-            padding: tokens.spacing.xs,
-            backgroundColor: tokens.colors.accent.primary,
-            border: `1px solid ${tokens.colors.accent.primary}`,
-            borderRadius: '4px',
-            cursor: isDisabled ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s ease',
-            color: tokens.colors.text.primary,
-            fontSize: '20px',
+            ...styles.primaryButton,
             opacity: isDisabled ? 0.5 : 1,
+            cursor: isDisabled ? 'not-allowed' : 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            if (!isDisabled) {
+              e.currentTarget.style.transform = 'scale(1.08)';
+              e.currentTarget.style.boxShadow = tokens.shadows.glowStrong;
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = tokens.shadows.glow;
           }}
         >
           ▶
@@ -182,22 +180,23 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         disabled={isDisabled}
         data-testid="playback-controls-next"
         aria-label="Next track"
-        title="Next track"
+        title="Next track (⌨ → )"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '44px',
-          height: '44px',
-          padding: tokens.spacing.xs,
-          backgroundColor: tokens.colors.bg.primary,
-          border: `1px solid ${tokens.colors.border.default}`,
-          borderRadius: '4px',
-          cursor: isDisabled ? 'not-allowed' : 'pointer',
-          transition: 'all 0.2s ease',
-          color: tokens.colors.text.primary,
-          fontSize: '18px',
+          ...styles.secondaryButton,
           opacity: isDisabled ? 0.5 : 1,
+          cursor: isDisabled ? 'not-allowed' : 'pointer',
+        }}
+        onMouseEnter={(e) => {
+          if (!isDisabled) {
+            e.currentTarget.style.backgroundColor = tokens.colors.bg.elevated;
+            e.currentTarget.style.borderColor = tokens.colors.accent.primary;
+            e.currentTarget.style.transform = 'scale(1.05)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = tokens.colors.bg.primary;
+          e.currentTarget.style.borderColor = tokens.colors.border.medium;
+          e.currentTarget.style.transform = 'scale(1)';
         }}
       >
         ⏭
@@ -207,11 +206,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
       {isLoading && (
         <div
           data-testid="playback-controls-loading"
-          style={{
-            fontSize: tokens.typography.fontSize.xs,
-            color: tokens.colors.text.secondary,
-            marginLeft: tokens.spacing.md,
-          }}
+          style={styles.loadingIndicator}
         >
           Loading...
         </div>

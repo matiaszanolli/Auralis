@@ -313,11 +313,24 @@ const Player: React.FC = () => {
             onClick={() => setQueuePanelOpen(!queuePanelOpen)}
             style={{
               ...styles.queueButton,
-              backgroundColor: queuePanelOpen ? tokens.colors.accent.primary : 'transparent',
-              color: queuePanelOpen ? tokens.colors.text.primary : tokens.colors.text.secondary,
+              backgroundColor: queuePanelOpen ? tokens.colors.accent.primary : tokens.colors.bg.elevated,
+              color: queuePanelOpen ? tokens.colors.text.primary : tokens.colors.text.primary,
+              borderColor: queuePanelOpen ? tokens.colors.accent.primary : tokens.colors.border.medium,
             }}
-            title="Toggle queue panel"
+            title="Toggle queue panel (⌨ Q )"
             aria-label="Toggle queue panel"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = tokens.colors.accent.primary;
+              e.currentTarget.style.borderColor = tokens.colors.accent.secondary;
+              e.currentTarget.style.boxShadow = tokens.shadows.md;
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = queuePanelOpen ? tokens.colors.accent.primary : tokens.colors.bg.elevated;
+              e.currentTarget.style.borderColor = tokens.colors.border.medium;
+              e.currentTarget.style.boxShadow = 'none';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
           >
             ♪ Queue
           </button>
@@ -379,22 +392,23 @@ const styles = {
     flexDirection: 'column' as const,
     width: '100%',
     backgroundColor: tokens.colors.bg.primary,
-    borderTop: `1px solid ${tokens.colors.border.default}`,
-    boxShadow: tokens.shadows.lg,
+    borderTop: `2px solid ${tokens.colors.accent.primary}`,
+    boxShadow: tokens.shadows.glowStrong,
     zIndex: 1000,
-    padding: tokens.spacing.md,
-    gap: tokens.spacing.md,
+    padding: `${tokens.spacing.lg} ${tokens.spacing.xl}`,
+    gap: tokens.spacing.lg,
 
     // Mobile: Compact
     '@media (max-width: 480px)': {
-      padding: tokens.spacing.sm,
-      gap: tokens.spacing.sm,
+      padding: `${tokens.spacing.md} ${tokens.spacing.md}`,
+      gap: tokens.spacing.md,
+      borderTop: `2px solid ${tokens.colors.accent.primary}`,
     },
 
     // Tablet
     '@media (max-width: 768px)': {
-      padding: tokens.spacing.md,
-      gap: tokens.spacing.sm,
+      padding: `${tokens.spacing.lg} ${tokens.spacing.lg}`,
+      gap: tokens.spacing.md,
     },
   },
 
@@ -411,65 +425,64 @@ const styles = {
   trackAndTimeContainer: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: tokens.spacing.md,
+    alignItems: 'center',
+    gap: tokens.spacing.xl,
 
     '@media (max-width: 768px)': {
       flexDirection: 'column' as const,
-      alignItems: 'stretch',
-      gap: tokens.spacing.sm,
+      alignItems: 'flex-start',
+      gap: tokens.spacing.md,
     },
   },
 
   progressSection: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: tokens.spacing.sm,
+    gap: tokens.spacing.md,
     position: 'relative' as const,
   },
 
   controlsSection: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: tokens.spacing.md,
+    gap: tokens.spacing.xl,
     alignItems: 'stretch',
 
     '@media (max-width: 768px)': {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.lg,
     },
   },
 
   controlsRow: {
     display: 'flex',
-    gap: tokens.spacing.md,
+    gap: tokens.spacing.xl,
     alignItems: 'center',
     justifyContent: 'space-between',
 
     '@media (max-width: 768px)': {
-      gap: tokens.spacing.sm,
+      gap: tokens.spacing.lg,
+      justifyContent: 'center',
     },
   },
 
   queueButton: {
-    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    border: `1px solid ${tokens.colors.border.default}`,
-    borderRadius: tokens.borderRadius.md,
+    padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
+    border: `1.5px solid ${tokens.colors.border.medium}`,
+    borderRadius: tokens.borderRadius.lg,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.sm,
-    fontWeight: 500,
-    transition: 'all 0.2s ease-in-out',
+    fontWeight: tokens.typography.fontWeight.medium,
+    transition: tokens.transitions.all,
     whiteSpace: 'nowrap' as const,
-
-    '&:hover': {
-      borderColor: tokens.colors.accent.primary,
-      transform: 'scale(1.02)',
-    },
+    backgroundColor: tokens.colors.bg.primary,
+    color: tokens.colors.text.primary,
+    outline: 'none',
   },
 
   queuePanelWrapper: {
-    borderTop: `1px solid ${tokens.colors.border.default}`,
-    paddingTop: tokens.spacing.md,
-    marginTop: tokens.spacing.md,
+    borderTop: `1px solid ${tokens.colors.border.medium}`,
+    paddingTop: tokens.spacing.lg,
+    marginTop: tokens.spacing.lg,
     maxHeight: '400px',
     overflowY: 'auto' as const,
   },
@@ -477,16 +490,17 @@ const styles = {
   errorBanner: {
     display: 'flex',
     alignItems: 'center',
-    padding: tokens.spacing.md,
+    padding: tokens.spacing.lg,
     backgroundColor: tokens.colors.accent.error || '#ff4444',
-    borderRadius: tokens.borderRadius.md,
-    marginTop: tokens.spacing.sm,
+    borderRadius: tokens.borderRadius.lg,
+    marginTop: tokens.spacing.md,
+    boxShadow: tokens.shadows.md,
   },
 
   errorText: {
     color: tokens.colors.text.primary,
     fontSize: tokens.typography.fontSize.sm,
-    fontWeight: 'bold',
+    fontWeight: tokens.typography.fontWeight.bold,
   },
 };
 
