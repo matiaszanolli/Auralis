@@ -26,3 +26,5 @@
 // - LargeIconButton (56px) → No longer needed after consolidation
 // - IconBox → No longer needed after consolidation
 // - iconSizes → Replaced with direct sx prop usage in components
+
+export {};

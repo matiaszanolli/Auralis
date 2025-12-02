@@ -255,8 +255,8 @@ const styles = {
 
   error: {
     padding: tokens.spacing.sm,
-    backgroundColor: tokens.colors.error,
-    color: tokens.colors.text.onError,
+    backgroundColor: tokens.colors.semantic.error,
+    color: tokens.colors.text.primary,
     borderRadius: tokens.borderRadius.md,
     fontSize: tokens.typography.fontSize.sm,
   },

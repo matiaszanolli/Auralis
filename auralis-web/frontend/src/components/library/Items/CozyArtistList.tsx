@@ -53,11 +53,14 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
     sortedLetters,
   } = useArtistListPagination({ onArtistClick });
 
-  // Adapt the hook's handler signature to what ArtistListContent expects
-  const adaptedArtistClickHandler = useCallback((artist: any) => {
-    // Call the hook's handleArtistClick with the adapted signature
+  // Adapt the hook's handler signatures to what ArtistListContent expects
+  const adaptedArtistClickHandler = useCallback((artist: { id: number; name: string; album_count?: number; track_count?: number }) => {
     handleArtistClick(artist);
   }, [handleArtistClick]);
+
+  const adaptedContextMenuOpen = useCallback((artist: { id: number; name: string; album_count?: number; track_count?: number }, event: React.MouseEvent) => {
+    handleContextMenuOpen(event, artist);
+  }, [handleContextMenuOpen]);
 
   const contextActions = useContextMenuActions({
     artist: contextMenuArtist,
@@ -89,7 +92,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
       contextMenuState={contextMenuState}
       contextActions={contextActions}
       onArtistClick={adaptedArtistClickHandler}
-      onContextMenuOpen={handleContextMenuOpen}
+      onContextMenuOpen={adaptedContextMenuOpen}
       onContextMenuClose={handleCloseContextMenu}
     />
   );

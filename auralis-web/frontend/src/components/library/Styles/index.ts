@@ -12,14 +12,11 @@
  */
 
 export * from './Animation.styles';
-export * from './ArtistDetail.styles';
-export * from './ArtistList.styles';
 export * from './Avatar.styles';
 export * from './BorderRadius.styles';
 export * from './Button.styles';
 export * from './Color.styles';
 export * from './Container.styles';
-export * from './Dialog.styles';
 export * from './EmptyState.styles';
 export * from './FormFields.styles';
 export * from './Grid.styles';
@@ -31,5 +28,9 @@ export * from './Spacing.styles';
 export * from './Spinner.styles';
 export * from './Table.styles';
 export * from './Tabs.styles';
-export * from './TrackRow.styles';
 export * from './Typography.styles';
+
+// Component-specific styles (avoid re-exporting to prevent conflicts)
+export { DetailViewTabs as StyledTabs, DetailViewTabs } from './ArtistDetail.styles';
+export { DialogTabs } from './Dialog.styles';
+export { StyledListItemButton, ArtistListContainer, LoadMoreTrigger, EndOfListIndicator } from './ArtistList.styles';

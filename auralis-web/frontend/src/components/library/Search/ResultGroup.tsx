@@ -1,5 +1,5 @@
 import React from 'react';
-import { List, Divider } from '@mui/material';
+import { Divider } from '@mui/material';
 import { CategoryHeader } from '../Styles/SearchStyles.styles';
 import SearchResultItem from './SearchResultItem';
 
@@ -17,7 +17,7 @@ interface ResultGroupProps {
   showDivider: boolean;
   getAvatar: (result: SearchResult) => React.ReactNode;
   chipLabel: string;
-  chipClass: string;
+  chipClass: 'track' | 'album' | 'artist';
   onResultClick: (result: SearchResult) => void;
 }
 

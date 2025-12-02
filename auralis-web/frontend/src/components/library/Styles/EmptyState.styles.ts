@@ -18,3 +18,5 @@
 // - EmptyStateContainer (Paper-based) → Inlined in ArtistDetailView.tsx
 // - SearchEmptyState (Box-based) → Inlined in GlobalSearch.tsx
 // - NoResultsBox (Box-based) → No longer needed after consolidation
+
+export {};

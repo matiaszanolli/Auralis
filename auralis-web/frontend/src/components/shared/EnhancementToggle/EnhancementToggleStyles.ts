@@ -14,7 +14,7 @@ export const ToggleButton = styled(IconButton, {
   color: $isEnabled ? tokens.colors.accent.primary : tokens.colors.text.tertiary,
   background: $isEnabled ? `${tokens.colors.accent.primary}15` : 'transparent',
   border: `2px solid ${$isEnabled ? tokens.colors.accent.primary : tokens.colors.border.medium}`,
-  boxShadow: $isEnabled ? tokens.shadows.glow : 'none',
+  boxShadow: $isEnabled ? tokens.shadows.glowSoft : 'none',
   transition: tokens.transitions.all,
 
   '&:hover': {
@@ -22,7 +22,7 @@ export const ToggleButton = styled(IconButton, {
     background: $isEnabled
       ? `${tokens.colors.accent.primary}25`
       : tokens.colors.bg.elevated,
-    boxShadow: $isEnabled ? tokens.shadows.glowStrong : tokens.shadows.md,
+    boxShadow: $isEnabled ? tokens.shadows.glowMd : tokens.shadows.md,
   },
 
   '&:active': {

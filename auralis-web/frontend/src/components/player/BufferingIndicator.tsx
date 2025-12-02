@@ -156,7 +156,7 @@ export const BufferingIndicator: React.FC<BufferingIndicatorProps> = ({
             textAlign: 'right',
             fontSize: tokens.typography.fontSize.xs,
             color: tokens.colors.text.tertiary,
-            fontFamily: tokens.typography.fontFamilyMono,
+            fontFamily: tokens.typography.fontFamily.mono,
           }}
           data-testid="buffered-percentage"
         >

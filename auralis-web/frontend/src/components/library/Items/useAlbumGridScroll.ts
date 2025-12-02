@@ -54,7 +54,9 @@ export const useAlbumGridScroll = ({
       scrollableParent.addEventListener('scroll', handleScroll);
       handleScroll();
       return () => {
-        scrollableParent.removeEventListener('scroll', handleScroll);
+        if (scrollableParent) {
+          scrollableParent.removeEventListener('scroll', handleScroll);
+        }
       };
     }
   }, [hasMore, isLoadingMore, loading, offset, albumsLength, onLoadMore]);
