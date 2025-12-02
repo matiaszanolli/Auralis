@@ -10,44 +10,7 @@
 import { Button, styled } from '@mui/material';
 import { gradients, auroraOpacity } from './Color.styles';
 import { buttonShadows } from './Shadow.styles';
-import { radiusMedium, radiusFull } from './BorderRadius.styles';
-
-/**
- * PlayButton - Gradient action button for playing tracks/albums
- * Used in AlbumDetailView and ArtistDetailView
- */
-export const PlayButton = styled(Button)(({ theme }) => ({
-  background: gradients.aurora45,
-  color: 'white',
-  padding: '12px 32px',
-  fontSize: '1rem',
-  fontWeight: 'bold',
-  borderRadius: radiusFull,
-  textTransform: 'none',
-  '&:hover': {
-    background: gradients.auroraHover,
-    transform: 'translateY(-2px)',
-    boxShadow: buttonShadows.primary
-  },
-  transition: 'all 0.2s ease'
-}));
-
-/**
- * ShuffleButton - Outlined button for shuffle/secondary actions
- * Used in ArtistDetailView
- */
-export const ShuffleButton = styled(Button)(({ theme }) => ({
-  borderColor: theme.palette.text.secondary,
-  color: theme.palette.text.secondary,
-  padding: '12px 24px',
-  borderRadius: radiusFull,
-  textTransform: 'none',
-  '&:hover': {
-    borderColor: theme.palette.primary.main,
-    color: theme.palette.primary.main,
-    backgroundColor: auroraOpacity.ultraLight
-  }
-}));
+import { radiusMedium } from './BorderRadius.styles';
 
 /**
  * GradientButton - Primary action button with aurora gradient (135deg variant)
