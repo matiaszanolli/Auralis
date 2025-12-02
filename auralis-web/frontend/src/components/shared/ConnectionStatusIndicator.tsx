@@ -37,7 +37,7 @@ interface ConnectionStatus {
   apiConnected: boolean;
   latency: number;
   isReconnecting: boolean;
-  lastError?: Error;
+  lastError: Error | null;
 }
 
 /**
@@ -77,6 +77,7 @@ export function ConnectionStatusIndicator({
     apiConnected: true,
     latency: 0,
     isReconnecting: false,
+    lastError: null,
   });
 
   const [showDetails, setShowDetails] = useState(false);
