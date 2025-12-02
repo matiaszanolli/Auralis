@@ -50,7 +50,7 @@ export const TrackTableRowItem: React.FC<TrackTableRowItemProps> = ({
           className="track-title"
           sx={{
             fontSize: tokens.typography.fontSize.md,
-            fontWeight: isCurrentTrack ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.regular,
+            fontWeight: isCurrentTrack ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.normal,
             color: isCurrentTrack ? tokens.colors.accent.primary : tokens.colors.text.primary,
           }}
         >
