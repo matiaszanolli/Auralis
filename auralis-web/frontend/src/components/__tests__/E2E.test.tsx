@@ -283,6 +283,11 @@ describe('End-to-End User Flows', () => {
         tier1_healthy: true,
         tier2_size_mb: 500,
         tier2_healthy: true,
+        total_size_mb: 600,
+        memory_healthy: true,
+        tier1_hit_rate: 0.9,
+        overall_hit_rate: 0.95,
+        timestamp: new Date().toISOString(),
       };
 
       store.dispatch(cacheActions.setCacheHealth(health));
