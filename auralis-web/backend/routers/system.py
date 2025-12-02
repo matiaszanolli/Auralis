@@ -17,7 +17,9 @@ def create_system_router(
     manager,
     get_library_manager,
     get_processing_engine,
-    HAS_AURALIS: bool
+    HAS_AURALIS: bool,
+    get_player_manager=None,
+    get_state_manager=None,
 ):
     """
     Create system router with dependencies.
@@ -27,6 +29,8 @@ def create_system_router(
         get_library_manager: Callable that returns LibraryManager instance
         get_processing_engine: Callable that returns ProcessingEngine instance
         HAS_AURALIS: Boolean indicating if Auralis is available
+        get_player_manager: Callable that returns PlayerManager instance
+        get_state_manager: Callable that returns PlayerStateManager instance
     """
 
     @router.get("/api/health")
