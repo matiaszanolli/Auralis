@@ -97,40 +97,72 @@ const styles = {
   container: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: tokens.spacing.md,
+    gap: tokens.spacing.lg,
     width: '100%',
+    padding: `0 ${tokens.spacing.lg}`,
   },
 
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-    gap: tokens.spacing.md,
+    // Responsive columns: 2 (mobile) → 3 (tablet) → 4 (desktop) → 5-6 (ultra)
+    // Album cards: 200×200px per spec (tokens.components.albumCard.size)
+    gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))',
+    gap: tokens.spacing.lg,
     width: '100%',
+
+    // Mobile: 2 columns
+    '@media (max-width: 640px)': {
+      gridTemplateColumns: 'repeat(2, 1fr)',
+      gap: tokens.spacing.md,
+      padding: `0 ${tokens.spacing.sm}`,
+    },
+
+    // Tablet: 3 columns
+    '@media (min-width: 641px) and (max-width: 1023px)': {
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: tokens.spacing.md,
+    },
+
+    // Desktop: 4 columns
+    '@media (min-width: 1024px) and (max-width: 1439px)': {
+      gridTemplateColumns: 'repeat(4, 1fr)',
+      gap: tokens.spacing.lg,
+    },
+
+    // Ultra-wide: 5+ columns
+    '@media (min-width: 1440px)': {
+      gridTemplateColumns: 'repeat(auto-fill, minmax(216px, 1fr))',
+      gap: tokens.spacing.lg,
+    },
   },
 
   errorContainer: {
     padding: tokens.spacing.lg,
-    backgroundColor: tokens.colors.error,
-    color: tokens.colors.text.onError,
-    borderRadius: tokens.borderRadius.md,
+    backgroundColor: tokens.colors.semantic.error,
+    color: tokens.colors.text.primary,
+    borderRadius: tokens.borderRadius.lg,
     textAlign: 'center' as const,
   },
 
   errorSubtext: {
     fontSize: tokens.typography.fontSize.sm,
     opacity: 0.8,
+    marginTop: tokens.spacing.sm,
   },
 
   emptyContainer: {
-    padding: tokens.spacing.lg,
+    padding: tokens.spacing.xl,
     textAlign: 'center' as const,
     color: tokens.colors.text.tertiary,
+    borderRadius: tokens.borderRadius.lg,
+    backgroundColor: tokens.colors.bg.level2,
   },
 
   loadingMessage: {
     textAlign: 'center' as const,
     color: tokens.colors.text.secondary,
     padding: tokens.spacing.md,
+    fontSize: tokens.typography.fontSize.sm,
   },
 
   endMessage: {
@@ -142,13 +174,31 @@ const styles = {
 
   loadMoreButton: {
     alignSelf: 'center' as const,
-    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.onAccent,
+    padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
+    background: tokens.gradients.aurora,
+    color: tokens.colors.text.primary,
     border: 'none',
     borderRadius: tokens.borderRadius.md,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
+    fontWeight: tokens.typography.fontWeight.semibold,
+    transition: tokens.transitions.all,
+    boxShadow: tokens.shadows.md,
+    outline: 'none',
+
+    ':hover': {
+      boxShadow: tokens.shadows.glowMd,
+      transform: 'translateY(-2px)',
+    },
+
+    ':active': {
+      transform: 'translateY(0)',
+    },
+
+    ':disabled': {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
   },
 };
 

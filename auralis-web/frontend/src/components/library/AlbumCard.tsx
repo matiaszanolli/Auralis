@@ -18,7 +18,7 @@
  * @module components/library/AlbumCard
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { tokens } from '@/design-system/tokens';
 import type { Album } from '@/types/domain';
 
@@ -37,14 +37,16 @@ interface AlbumCardProps {
  * AlbumCard component
  *
  * Displays album artwork, title, and artist in a card format.
- * Shows hover effects and selection state.
- * Responsive sizing for grid layouts.
+ * Shows hover effects with overlay play button and selection state.
+ * Premium design with glass morphism and soft hover scale.
  */
 export const AlbumCard: React.FC<AlbumCardProps> = ({
   album,
   onClick,
   isSelected = false,
 }) => {
+  const [isHovering, setIsHovering] = useState(false);
+
   const handleClick = useCallback(() => {
     onClick?.(album);
   }, [album, onClick]);
@@ -52,6 +54,8 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   return (
     <div
       onClick={handleClick}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
       style={{
         ...styles.card,
         ...(isSelected && styles.cardSelected),
@@ -76,7 +80,13 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
         )}
 
         {/* Overlay on hover */}
-        <div style={styles.overlay}>
+        <div
+          style={{
+            ...styles.overlay,
+            opacity: isHovering ? 1 : 0,
+            pointerEvents: isHovering ? 'auto' : 'none',
+          }}
+        >
           <button style={styles.playButton} aria-label="Play album">
             ▶
           </button>
@@ -98,35 +108,49 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
 
 /**
  * Component styles using design tokens
+ *
+ * Premium album card with glass-morphism hover effects
+ * - 200×200px cover (design spec: tokens.components.albumCard.size)
+ * - Soft hover scale 1.04 (tokens.components.albumCard.hoverScale)
+ * - Play button overlay on hover with Electric Aqua glow
+ * - Elevation shadows from design system
  */
 const styles = {
   card: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: tokens.spacing.sm,
+    gap: tokens.spacing.md,
     cursor: 'pointer',
-    borderRadius: tokens.borderRadius.md,
+    borderRadius: tokens.borderRadius.lg,
     overflow: 'hidden',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-    backgroundColor: tokens.colors.bg.secondary,
+    transition: tokens.transitions.all,
+    backgroundColor: 'transparent',
+    outline: 'none',
 
-    '&:hover': {
-      transform: 'translateY(-4px)',
-      boxShadow: tokens.shadows.lg,
+    ':hover': {
+      transform: `scale(${tokens.components.albumCard.hoverScale})`,
+      // Shadow escalation on hover
+    },
+
+    ':focus-visible': {
+      outline: `2px solid ${tokens.colors.accent.primary}`,
+      outlineOffset: '2px',
     },
   },
 
   cardSelected: {
-    boxShadow: `0 0 0 2px ${tokens.colors.accent.primary}`,
-    backgroundColor: tokens.colors.accent.subtle,
+    outline: `2px solid ${tokens.colors.accent.primary}`,
+    outlineOffset: '2px',
   },
 
   artworkContainer: {
     position: 'relative' as const,
-    paddingBottom: '100%', // Square aspect ratio
+    paddingBottom: '100%', // Square aspect ratio (200×200)
     width: '100%',
     overflow: 'hidden',
-    backgroundColor: tokens.colors.bg.tertiary,
+    backgroundColor: tokens.colors.bg.level3,
+    borderRadius: tokens.borderRadius.lg,
+    boxShadow: tokens.components.albumCard.hoverShadow,
   },
 
   artwork: {
@@ -136,6 +160,7 @@ const styles = {
     width: '100%',
     height: '100%',
     objectFit: 'cover' as const,
+    transition: tokens.transitions.all,
   },
 
   artworkPlaceholder: {
@@ -147,13 +172,14 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tokens.colors.bg.tertiary,
+    backgroundColor: tokens.colors.bg.level3,
     color: tokens.colors.text.tertiary,
+    borderRadius: tokens.borderRadius.lg,
   },
 
   placeholderIcon: {
-    fontSize: '48px',
-    opacity: 0.3,
+    fontSize: '64px',
+    opacity: 0.2,
   },
 
   overlay: {
@@ -165,27 +191,36 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.40)',
+    backdropFilter: 'blur(4px)',
     opacity: 0,
-    transition: 'opacity 0.2s ease',
+    transition: tokens.transitions.all,
+    borderRadius: tokens.borderRadius.lg,
   },
 
   playButton: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '48px',
-    height: '48px',
+    width: '56px',
+    height: '56px',
     borderRadius: tokens.borderRadius.full,
-    backgroundColor: tokens.colors.accent.primary,
+    background: tokens.gradients.aurora,
     border: 'none',
     cursor: 'pointer',
-    color: tokens.colors.text.onAccent,
-    fontSize: '20px',
-    transition: 'transform 0.2s ease',
+    color: tokens.colors.text.primary,
+    fontSize: '24px',
+    transition: tokens.transitions.all,
+    boxShadow: tokens.shadows.md,
+    outline: 'none',
 
-    '&:hover': {
-      transform: 'scale(1.1)',
+    ':hover': {
+      transform: 'scale(1.08)',
+      boxShadow: tokens.shadows.glowMd,
+    },
+
+    ':active': {
+      transform: 'scale(1.02)',
     },
   },
 
@@ -193,17 +228,18 @@ const styles = {
     display: 'flex',
     flexDirection: 'column' as const,
     gap: tokens.spacing.xs,
-    padding: `0 ${tokens.spacing.sm}`,
+    padding: `${tokens.spacing.sm} 0`,
   },
 
   title: {
     margin: 0,
     fontSize: tokens.typography.fontSize.md,
-    fontWeight: tokens.typography.fontWeight.bold,
+    fontWeight: tokens.typography.fontWeight.semibold,
     color: tokens.colors.text.primary,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
+    transition: tokens.transitions.color,
   },
 
   artist: {
@@ -213,6 +249,7 @@ const styles = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap' as const,
+    transition: tokens.transitions.color,
   },
 };
 
