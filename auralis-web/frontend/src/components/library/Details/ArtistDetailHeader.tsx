@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Box, Container, Button, IconButton } from '@mui/material';
+import { tokens } from '@/design-system/tokens';
 import { ArrowBack } from '@mui/icons-material';
 import ArtistHeader from './ArtistHeader';
 
@@ -53,9 +54,16 @@ export const ArtistDetailHeaderSection: React.FC<ArtistDetailHeaderProps> = ({
         <IconButton
           onClick={onBack}
           sx={{
-            mb: 2,
+            mb: tokens.spacing.lg,
+            color: tokens.colors.text.secondary,
+            border: `1px solid ${tokens.colors.border.light}`,
+            borderRadius: tokens.borderRadius.md,
+            padding: tokens.spacing.sm,
+            transition: tokens.transitions.all,
             '&:hover': {
-              backgroundColor: 'rgba(255,255,255,0.1)',
+              backgroundColor: tokens.colors.bg.tertiary,
+              borderColor: tokens.colors.accent.primary,
+              transform: 'scale(1.05)',
             },
           }}
         >
