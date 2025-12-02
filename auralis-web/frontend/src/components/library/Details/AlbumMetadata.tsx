@@ -36,7 +36,7 @@ export const AlbumMetadata: React.FC<AlbumMetadataProps> = ({
         color: tokens.colors.text.tertiary,
         mb: tokens.spacing.sm,
         fontSize: tokens.typography.fontSize.sm,
-        fontWeight: tokens.typography.fontWeight.regular,
+        fontWeight: tokens.typography.fontWeight.normal,
       }}>
         {year && `${year} • `}
         {trackCount} {trackCount === 1 ? 'track' : 'tracks'}
@@ -47,7 +47,7 @@ export const AlbumMetadata: React.FC<AlbumMetadataProps> = ({
         <Typography variant="body2" sx={{
           color: tokens.colors.text.tertiary,
           fontSize: tokens.typography.fontSize.sm,
-          fontWeight: tokens.typography.fontWeight.regular,
+          fontWeight: tokens.typography.fontWeight.normal,
         }}>
           Genre: {genre}
         </Typography>
