@@ -233,7 +233,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
             backgroundColor: tokens.colors.bg.tertiary,
             borderRadius: tokens.borderRadius.full,
             overflow: 'hidden',
-            boxShadow: tokens.shadows.inset,
+            boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.2)',
           }}
           data-testid="progress-bar-track"
         >
@@ -244,7 +244,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               height: '100%',
               width: `${clampedBufferedPercentage}%`,
               backgroundColor: tokens.colors.accent.secondary,
-              opacity: 0.6,
+              opacity: 0.4,
               transition: isDragging ? 'none' : 'width 0.1s ease-out',
             }}
             data-testid="progress-bar-buffered"
@@ -256,7 +256,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               position: 'absolute',
               height: '100%',
               width: `${progressPercentage}%`,
-              background: `linear-gradient(90deg, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.secondary} 100%)`,
+              background: tokens.gradients.aurora,
               transition: isDragging ? 'none' : 'width 0.1s ease-out',
             }}
             data-testid="progress-bar-played"
@@ -274,10 +274,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
             height: isDragging ? '16px' : '12px',
             backgroundColor: tokens.colors.accent.primary,
             borderRadius: '50%',
-            boxShadow: isDragging ? tokens.shadows.glowStrong : tokens.shadows.glow,
+            boxShadow: isDragging ? tokens.shadows.glowMd : tokens.shadows.glowSoft,
             transition: 'all 0.1s ease-out',
             pointerEvents: 'none',
-            border: `2px solid ${tokens.colors.bg.primary}`,
+            border: `2px solid ${tokens.colors.bg.level1}`,
           }}
           data-testid="progress-bar-thumb"
         />

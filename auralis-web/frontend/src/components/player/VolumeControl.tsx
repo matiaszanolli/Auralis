@@ -108,13 +108,13 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: tokens.spacing.lg,
-        padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
-        backgroundColor: tokens.colors.bg.secondary,
-        borderRadius: tokens.borderRadius.lg,
-        border: `1px solid ${tokens.colors.border.light}`,
+        gap: tokens.spacing.sm,
+        padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+        backgroundColor: 'transparent',
+        borderRadius: tokens.borderRadius.md,
+        border: 'none',
         width: '100%',
-        maxWidth: '320px',
+        maxWidth: '160px',
       }}
     >
       {/* Mute button */}
@@ -128,29 +128,29 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: '44px',
-          height: '44px',
+          width: '40px',
+          height: '40px',
           padding: 0,
-          backgroundColor: tokens.colors.bg.primary,
-          border: `1.5px solid ${tokens.colors.border.medium}`,
+          backgroundColor: 'transparent',
+          border: `1px solid ${tokens.colors.border.light}`,
           borderRadius: tokens.borderRadius.md,
           cursor: disabled ? 'not-allowed' : 'pointer',
           transition: tokens.transitions.all,
           color: tokens.colors.text.primary,
-          fontSize: tokens.typography.fontSize.lg,
+          fontSize: tokens.typography.fontSize.base,
           opacity: disabled ? 0.5 : 1,
           outline: 'none',
         }}
         onMouseEnter={(e) => {
           if (!disabled) {
-            e.currentTarget.style.backgroundColor = tokens.colors.bg.elevated;
+            e.currentTarget.style.backgroundColor = tokens.colors.bg.tertiary;
             e.currentTarget.style.borderColor = tokens.colors.accent.primary;
             e.currentTarget.style.transform = 'scale(1.05)';
           }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = tokens.colors.bg.primary;
-          e.currentTarget.style.borderColor = tokens.colors.border.medium;
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.borderColor = tokens.colors.border.light;
           e.currentTarget.style.transform = 'scale(1)';
         }}
       >
@@ -195,7 +195,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
             borderRadius: tokens.borderRadius.full,
             border: 'none',
             outline: 'none',
-            background: `linear-gradient(to right, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.primary} ${clampedVolume * 100}%, ${tokens.colors.bg.tertiary} ${clampedVolume * 100}%, ${tokens.colors.bg.tertiary} 100%)`,
+            background: `linear-gradient(to right, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.primary} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} ${clampedVolume * 100}%, ${tokens.colors.bg.level3} 100%)`,
             opacity: disabled ? 0.5 : 1,
             transition: 'height 0.2s ease',
           }}
