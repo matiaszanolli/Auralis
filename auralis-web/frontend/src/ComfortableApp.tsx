@@ -4,6 +4,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
+import { useSelector } from 'react-redux';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
 import Player from './components/player/Player';
@@ -28,7 +29,8 @@ import { useAppDragDrop } from './hooks/useAppDragDrop';
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts, KeyboardShortcut } from './hooks/useKeyboardShortcuts';
-import { usePlayerAPI } from './hooks/usePlayerAPI';
+import { selectIsPlaying, selectVolume } from './store/slices/playerSlice';
+import { getApiUrl } from './config/api';
 
 interface Track {
   id: number;
@@ -66,15 +68,47 @@ function ComfortableApp() {
   // Toast notifications
   const { success, info } = useToast();
 
-  // Player API for real playback control
-  const {
-    isPlaying: apiIsPlaying,
-    volume: apiVolume,
-    togglePlayPause,
-    next: nextTrack,
-    previous: previousTrack,
-    setVolume: setApiVolume
-  } = usePlayerAPI();
+  // Redux selectors for player state (read-only)
+  const isPlaying = useSelector(selectIsPlaying);
+  const volume = useSelector(selectVolume);
+
+  // Player API helpers for issuing commands to backend
+  const togglePlayPause = useCallback(async () => {
+    try {
+      const endpoint = isPlaying ? '/api/player/pause' : '/api/player/play';
+      await fetch(endpoint, { method: 'POST' });
+    } catch (err) {
+      console.error('Playback control error:', err);
+    }
+  }, [isPlaying]);
+
+  const nextTrack = useCallback(async () => {
+    try {
+      await fetch('/api/player/next', { method: 'POST' });
+    } catch (err) {
+      console.error('Next track error:', err);
+    }
+  }, []);
+
+  const previousTrack = useCallback(async () => {
+    try {
+      await fetch('/api/player/previous', { method: 'POST' });
+    } catch (err) {
+      console.error('Previous track error:', err);
+    }
+  }, []);
+
+  const setVolume = useCallback(async (newVolume: number) => {
+    try {
+      await fetch('/api/player/volume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume: newVolume })
+      });
+    } catch (err) {
+      console.error('Volume control error:', err);
+    }
+  }, []);
 
   // Drag-drop handler (useAppDragDrop handles all queue/playlist operations)
   const { handleDragEnd } = useAppDragDrop({ info, success });
@@ -95,7 +129,7 @@ function ComfortableApp() {
       category: 'Playback',
       handler: () => {
         togglePlayPause();
-        info(apiIsPlaying ? 'Paused' : 'Playing');
+        info(isPlaying ? 'Paused' : 'Playing');
       }
     },
     {
@@ -121,8 +155,8 @@ function ComfortableApp() {
       description: 'Volume up',
       category: 'Playback',
       handler: () => {
-        const newVolume = Math.min(apiVolume + 10, 100);
-        setApiVolume(newVolume);
+        const newVolume = Math.min(volume + 10, 100);
+        setVolume(newVolume);
         info(`Volume: ${newVolume}%`);
       }
     },
@@ -131,8 +165,8 @@ function ComfortableApp() {
       description: 'Volume down',
       category: 'Playback',
       handler: () => {
-        const newVolume = Math.max(apiVolume - 10, 0);
-        setApiVolume(newVolume);
+        const newVolume = Math.max(volume - 10, 0);
+        setVolume(newVolume);
         info(`Volume: ${newVolume}%`);
       }
     },
@@ -141,8 +175,8 @@ function ComfortableApp() {
       description: 'Mute/Unmute',
       category: 'Playback',
       handler: () => {
-        const newVolume = apiVolume > 0 ? 0 : 80;
-        setApiVolume(newVolume);
+        const newVolume = volume > 0 ? 0 : 80;
+        setVolume(newVolume);
         info(newVolume === 0 ? 'Muted' : 'Unmuted');
       }
     },
