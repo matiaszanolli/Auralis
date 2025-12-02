@@ -11,7 +11,7 @@ import { ActionButton } from './BatchActionsToolbarStyles';
 interface BatchActionButtonProps {
   icon: React.ReactNode;
   title: string;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLElement>) => void;
 }
 
 export const BatchActionButton: React.FC<BatchActionButtonProps> = ({
@@ -19,9 +19,13 @@ export const BatchActionButton: React.FC<BatchActionButtonProps> = ({
   title,
   onClick,
 }) => {
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    onClick(event);
+  };
+
   return (
     <Tooltip title={title}>
-      <ActionButton onClick={onClick} size="medium">
+      <ActionButton onClick={handleClick} size="medium">
         {icon}
       </ActionButton>
     </Tooltip>

@@ -3,7 +3,7 @@ import { Alert } from '@mui/material';
 import { AlertContainer } from './EditMetadataDialog.styles';
 
 interface MetadataDialogAlertsProps {
-  error?: string;
+  error?: string | null;
   success?: boolean;
 }
 

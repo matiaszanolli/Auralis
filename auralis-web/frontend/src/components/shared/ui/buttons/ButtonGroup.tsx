@@ -148,11 +148,11 @@ export const StyledButtonGroup = styled(Box, {
     transition: `all ${tokens.transitions.base}`,
 
     // Remove default MUI button margins if requested
-    ..($disableButtonMargin && {
+    ...($disableButtonMargin ? {
       '& button': {
         margin: '0',
       },
-    }),
+    } : {}),
   })
 );
 

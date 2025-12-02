@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Typography } from '@mui/material';
 import { ContextMenu, ContextMenuAction } from '../../shared/ContextMenu';
 import { ArtistListLoadingIndicator } from './ArtistListLoadingIndicator';
 import { ArtistListHeader } from './ArtistListHeader';
@@ -13,8 +13,8 @@ import {
 interface ArtistItem {
   id: number;
   name: string;
-  album_count: number;
-  track_count: number;
+  album_count?: number;
+  track_count?: number;
 }
 
 interface ArtistContextMenuState {
@@ -33,7 +33,7 @@ interface ArtistListContentProps {
   sortedLetters: string[];
   contextMenuState: ArtistContextMenuState;
   contextActions: ContextMenuAction[];
-  onArtistClick: (artistId: number, artistName: string) => void;
+  onArtistClick: (artist: ArtistItem) => void;
   onContextMenuOpen: (artist: ArtistItem, event: React.MouseEvent) => void;
   onContextMenuClose: () => void;
 }
@@ -83,7 +83,7 @@ export const ArtistListContent: React.FC<ArtistListContentProps> = ({
           letter={letter}
           artists={groupedArtists[letter]}
           onArtistClick={onArtistClick}
-          onContextMenu={onContextMenuOpen}
+          onContextMenu={(e, artist) => onContextMenuOpen(artist, e)}
         />
       ))}
 

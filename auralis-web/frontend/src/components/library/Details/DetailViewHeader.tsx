@@ -60,7 +60,7 @@ const InfoSection = styled(Box)({
 });
 
 const Title = styled(Typography)({
-  fontSize: tokens.typography.fontSize.xxxl,
+  fontSize: tokens.typography.fontSize['4xl'],
   fontWeight: tokens.typography.fontWeight.bold,
   background: tokens.gradients.aurora,
   backgroundClip: 'text',

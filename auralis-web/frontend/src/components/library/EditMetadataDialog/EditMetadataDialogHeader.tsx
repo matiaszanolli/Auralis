@@ -1,5 +1,5 @@
 import React from 'react';
-import { DialogTitle, Typography, CircularProgress } from '@mui/material';
+import { Typography, CircularProgress } from '@mui/material';
 import { DialogHeaderBox, DialogTitleStyled } from './EditMetadataDialog.styles';
 
 interface EditMetadataDialogHeaderProps {
@@ -15,12 +15,12 @@ interface EditMetadataDialogHeaderProps {
  */
 export const EditMetadataDialogHeader: React.FC<EditMetadataDialogHeaderProps> = ({ loading }) => {
   return (
-    <DialogTitle sx={DialogTitleStyled}>
+    <DialogTitleStyled component="div">
       <DialogHeaderBox>
         <Typography variant="h6">Edit Metadata</Typography>
         {loading && <CircularProgress size={24} />}
       </DialogHeaderBox>
-    </DialogTitle>
+    </DialogTitleStyled>
   );
 };
 

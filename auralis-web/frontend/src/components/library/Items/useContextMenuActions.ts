@@ -5,8 +5,8 @@ import { useToast } from '../../shared/Toast';
 interface ArtistInfo {
   id: number;
   name: string;
-  album_count: number;
-  track_count: number;
+  album_count?: number;
+  track_count?: number;
 }
 
 interface UseContextMenuActionsProps {

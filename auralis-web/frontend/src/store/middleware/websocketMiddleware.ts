@@ -428,8 +428,3 @@ export class OptimisticUpdateQueue {
   }
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export { OfflineMessageQueue, OptimisticUpdateQueue };

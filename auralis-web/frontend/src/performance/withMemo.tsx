@@ -261,9 +261,4 @@ export function useSelectiveMemo<T extends Record<string, any>>(
   );
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export { shallowEqual, compareProps, deepEqual };
 export type { MemoConfig, PropsAreEqual };

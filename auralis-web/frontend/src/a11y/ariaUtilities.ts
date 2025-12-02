@@ -397,25 +397,4 @@ export function validateContainerAria(container: HTMLElement): Map<HTMLElement, 
   return results;
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export {
-  liveRegionManager,
-  getButtonAriaProps,
-  getDialogAriaProps,
-  getMenuAriaProps,
-  getTabAriaProps,
-  getTabPanelAriaProps,
-  getComboboxAriaProps,
-  getListboxAriaProps,
-  getOptionAriaProps,
-  generateId,
-  createLabelForInput,
-  createSROnlyText,
-  validateAriaAttributes,
-  validateContainerAria,
-};
-
 export type { AriaRole, LiveRegionPoliteness };

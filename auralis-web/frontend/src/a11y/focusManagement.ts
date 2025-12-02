@@ -427,15 +427,3 @@ export function getAccessibleName(element: HTMLElement): string {
   return element.textContent || '';
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export {
-  focusManager,
-  focusModeDetector,
-  focusVisibilityMonitor,
-  injectFocusStyles,
-  announceFocus,
-  getAccessibleName,
-};
