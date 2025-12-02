@@ -7,13 +7,13 @@ export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) 
   alignItems: 'center',
   height: '48px',
   padding: `0 ${tokens.spacing.md}`,
-  borderRadius: tokens.borderRadius.xs,
+  borderRadius: tokens.borderRadius.sm,
   cursor: 'pointer',
   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
   background: iscurrent === 'true' ? auroraOpacity.light : 'transparent',
   border: iscurrent === 'true' ? `1px solid ${auroraOpacity.standard}` : '1px solid transparent',
   position: 'relative',
-  marginBottom: tokens.spacing.xs,
+  marginBottom: tokens.spacing.sm,
   boxShadow: iscurrent === 'true' ? `0 0 0 1px ${auroraOpacity.veryLight}` : 'none',
 
   '&:hover': {
@@ -59,7 +59,7 @@ export const ActiveIndicator = styled(Box)({
   bottom: 0,
   width: '3px',
   background: gradients.aurora,
-  borderRadius: `0 ${tokens.spacing.xs} ${tokens.spacing.xs} 0`,
+  borderRadius: `0 ${tokens.borderRadius.sm} ${tokens.borderRadius.sm} 0`,
 });
 
 export const TrackNumberBox = styled(Box)({
@@ -108,7 +108,7 @@ export const AlbumArtThumbnail = styled(Box)({
   width: '40px',
   height: '40px',
   marginRight: '12px',
-  borderRadius: tokens.borderRadius.xs,
+  borderRadius: tokens.borderRadius.sm,
   overflow: 'hidden',
   flexShrink: 0,
   background: gradients.aurora,
@@ -154,18 +154,24 @@ export const TrackArtist = styled(Typography)({
   lineHeight: 1.4,
 });
 
-export const TrackAlbum = styled(Typography)({
-  fontSize: '13px',
-  fontWeight: 400,
-  color: tokens.colors.text.secondary,
-  minWidth: '200px',
-  maxWidth: '300px',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  marginRight: tokens.spacing.md,
-  display: { xs: 'none', md: 'block' },
-});
+export const TrackAlbum = styled(Typography)(
+  {
+    fontSize: '13px',
+    fontWeight: 400,
+    color: tokens.colors.text.secondary,
+    minWidth: '200px',
+    maxWidth: '300px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    marginRight: tokens.spacing.md,
+  },
+  {
+    '@media (max-width: 960px)': {
+      display: 'none',
+    },
+  }
+);
 
 export const TrackDuration = styled(Typography)({
   fontSize: '13px',
