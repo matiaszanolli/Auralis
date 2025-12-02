@@ -22,7 +22,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should render toggle component when enabled', () => {
       render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -36,7 +36,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should render toggle component when disabled', () => {
       render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -49,7 +49,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should show enabled status message', () => {
       render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -61,7 +61,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should show disabled status message', () => {
       render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -78,7 +78,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -96,7 +96,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       const { rerender } = render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -109,7 +109,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       rerender(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -125,7 +125,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       const { rerender } = render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -138,7 +138,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       rerender(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -153,7 +153,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should show processing message when analyzing', () => {
       render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={true}
             onToggle={vi.fn()}
           />
@@ -165,7 +165,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should have visual indication when processing', () => {
       const { container } = render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={true}
             onToggle={vi.fn()}
           />
@@ -181,7 +181,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={true}
             onToggle={mockToggle}
           />
@@ -198,7 +198,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should reflect enabled state in checkbox', () => {
       const { rerender } = render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -209,7 +209,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       rerender(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -222,7 +222,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should update message when enabled changes', () => {
       const { rerender } = render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -232,7 +232,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       rerender(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -244,7 +244,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should update message when processing changes', () => {
       const { rerender } = render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -254,7 +254,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       rerender(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={true}
             onToggle={vi.fn()}
           />
@@ -271,7 +271,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -289,7 +289,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       const { rerender } = render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -300,7 +300,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
       await user.click(switchComponent);
       rerender(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -309,7 +309,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
       await user.click(switchComponent);
       rerender(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -325,7 +325,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       const { rerender } = render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -335,7 +335,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       rerender(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -349,7 +349,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       const { rerender } = render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -359,7 +359,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
 
       rerender(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={mockToggle}
           />
@@ -373,7 +373,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should have accessible checkbox role', () => {
       render(
         <EnhancementToggle
-            enabled={false}
+            isEnabled={false}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -386,7 +386,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should have proper aria attributes', () => {
       render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={vi.fn()}
           />
@@ -399,7 +399,7 @@ describe('EnhancementToggle (Enhancement Pane Variant)', () => {
     it('should have clear status message for screen readers', () => {
       render(
         <EnhancementToggle
-            enabled={true}
+            isEnabled={true}
             isProcessing={false}
             onToggle={vi.fn()}
           />
