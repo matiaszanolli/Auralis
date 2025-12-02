@@ -223,7 +223,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           minWidth: '45px',
           fontSize: tokens.typography.fontSize.sm,
           color: tokens.colors.text.secondary,
-          fontFamily: tokens.typography.fontFamily.monospace,
+          fontFamily: tokens.typography.fontFamily.mono,
           fontWeight: 'bold',
         }}
         data-testid="volume-control-percentage"

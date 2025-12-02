@@ -284,7 +284,6 @@ const Player: React.FC = () => {
           <TimeDisplay
             currentTime={streaming.currentTime}
             duration={streaming.duration}
-            isLive={display.isLiveContent}
           />
         </div>
 

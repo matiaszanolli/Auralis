@@ -218,7 +218,7 @@ const styles = {
   },
 
   trackItemSelected: {
-    backgroundColor: tokens.colors.accent.subtle,
+    backgroundColor: tokens.colors.bg.level2,
     borderLeftColor: tokens.colors.accent.primary,
     borderLeftWidth: '3px',
     paddingLeft: `calc(${tokens.spacing.md} - 3px)`,
@@ -282,7 +282,7 @@ const styles = {
   duration: {
     fontSize: tokens.typography.fontSize.sm,
     color: tokens.colors.text.tertiary,
-    fontFamily: tokens.typography.fontFamily.monospace,
+    fontFamily: tokens.typography.fontFamily.mono,
     flexShrink: 0,
     minWidth: '40px',
     textAlign: 'right' as const,
@@ -324,9 +324,9 @@ const styles = {
     justifyContent: 'center',
     padding: tokens.spacing.lg,
     gap: tokens.spacing.sm,
-    backgroundColor: tokens.colors.error,
+    backgroundColor: tokens.colors.semantic.error,
     borderRadius: tokens.borderRadius.md,
-    color: tokens.colors.text.onError,
+    color: tokens.colors.text.primary,
   },
 
   errorText: {

@@ -117,7 +117,7 @@ export const TimeDisplay: React.FC<TimeDisplayProps> = ({
       className={className}
       aria-label={finalAriaLabel}
       style={{
-        fontFamily: tokens.typography.fontFamilyMono,
+        fontFamily: tokens.typography.fontFamily.mono,
         fontSize: tokens.typography.fontSize.sm,
         color: tokens.colors.text.secondary,
         userSelect: 'none',

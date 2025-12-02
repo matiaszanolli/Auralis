@@ -171,7 +171,7 @@ const styles = {
 
     '&:focus-within': {
       borderColor: tokens.colors.accent.primary,
-      boxShadow: `0 0 0 2px ${tokens.colors.accent.subtle}`,
+      boxShadow: `0 0 0 2px rgba(115, 102, 240, 0.24)`,
     },
   },
 

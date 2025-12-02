@@ -25,7 +25,7 @@ export const PlayButton = styled(Button)(({ theme }) => ({
   borderRadius: radiusFull,
   textTransform: 'none',
   '&:hover': {
-    background: gradients.aurora45Hover,
+    background: gradients.auroraHover,
     transform: 'translateY(-2px)',
     boxShadow: buttonShadows.primary
   },
