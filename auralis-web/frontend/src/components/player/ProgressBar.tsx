@@ -229,10 +229,11 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
             top: '50%',
             transform: 'translateY(-50%)',
             width: '100%',
-            height: '4px',
+            height: '6px',
             backgroundColor: tokens.colors.bg.tertiary,
-            borderRadius: '2px',
+            borderRadius: tokens.borderRadius.full,
             overflow: 'hidden',
+            boxShadow: tokens.shadows.inset,
           }}
           data-testid="progress-bar-track"
         >
@@ -243,6 +244,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               height: '100%',
               width: `${clampedBufferedPercentage}%`,
               backgroundColor: tokens.colors.accent.secondary,
+              opacity: 0.6,
               transition: isDragging ? 'none' : 'width 0.1s ease-out',
             }}
             data-testid="progress-bar-buffered"
@@ -254,7 +256,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
               position: 'absolute',
               height: '100%',
               width: `${progressPercentage}%`,
-              backgroundColor: tokens.colors.accent.primary,
+              background: `linear-gradient(90deg, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.secondary} 100%)`,
               transition: isDragging ? 'none' : 'width 0.1s ease-out',
             }}
             data-testid="progress-bar-played"
@@ -268,13 +270,14 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
             top: '50%',
             left: `${progressPercentage}%`,
             transform: 'translate(-50%, -50%)',
-            width: isDragging ? '14px' : '10px',
-            height: isDragging ? '14px' : '10px',
+            width: isDragging ? '16px' : '12px',
+            height: isDragging ? '16px' : '12px',
             backgroundColor: tokens.colors.accent.primary,
             borderRadius: '50%',
-            boxShadow: isDragging ? `0 0 8px ${tokens.colors.accent.primary}` : 'none',
+            boxShadow: isDragging ? tokens.shadows.glowStrong : tokens.shadows.glow,
             transition: 'all 0.1s ease-out',
             pointerEvents: 'none',
+            border: `2px solid ${tokens.colors.bg.primary}`,
           }}
           data-testid="progress-bar-thumb"
         />
@@ -284,18 +287,20 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           <div
             style={{
               position: 'absolute',
-              top: '-30px',
+              top: '-40px',
               left: `${Math.min(Math.max((hoverPosition / duration) * 100, 0), 100)}%`,
               transform: 'translateX(-50%)',
               backgroundColor: tokens.colors.bg.secondary,
               color: tokens.colors.text.primary,
-              padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-              borderRadius: '4px',
+              padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+              borderRadius: tokens.borderRadius.md,
               fontSize: tokens.typography.fontSize.xs,
-              fontFamily: tokens.typography.fontFamilyMono,
+              fontFamily: tokens.typography.fontFamily.mono,
+              fontWeight: tokens.typography.fontWeight.semibold,
               whiteSpace: 'nowrap',
               pointerEvents: 'none',
-              border: `1px solid ${tokens.colors.border.medium}`,
+              border: `1px solid ${tokens.colors.accent.primary}`,
+              boxShadow: tokens.shadows.md,
               zIndex: 1000,
             }}
             data-testid="progress-bar-tooltip"
