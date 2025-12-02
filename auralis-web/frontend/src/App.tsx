@@ -10,17 +10,25 @@ import { usePlayerStateSync } from './hooks/usePlayerStateSync';
 import { store } from './store';
 
 /**
- * AppStateSync - Inner component that uses hooks
- * Wraps hook calls inside the Provider context
+ * PlayerStateSync - Inner component that uses WebSocket hook
+ * Must be nested inside WebSocketProvider
  */
-function AppStateSync() {
+function PlayerStateSync() {
   // Synchronize WebSocket player_state messages to Redux
   usePlayerStateSync();
+  return null; // This hook just sets up the sync, doesn't render anything
+}
 
+/**
+ * AppContent - Main app content with all providers
+ */
+function AppContent() {
   return (
     <ThemeProvider>
       <ToastProvider maxToasts={3}>
         <WebSocketProvider>
+          {/* PlayerStateSync hook must be inside WebSocketProvider */}
+          <PlayerStateSync />
           <EnhancementProvider>
             {/* Hidden audio element for browser autoplay policy compliance and audio streaming */}
             <HiddenAudioElement debug={true} />
@@ -35,7 +43,7 @@ function AppStateSync() {
 function App() {
   return (
     <Provider store={store}>
-      <AppStateSync />
+      <AppContent />
     </Provider>
   );
 }
