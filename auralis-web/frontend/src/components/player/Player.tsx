@@ -40,7 +40,6 @@ import { usePlayerDisplay, PlayerDisplayInfo } from '@/hooks/usePlayerDisplay';
 
 // Existing hooks for track info
 import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
-import { usePlayerAPI } from '@/hooks/usePlayerAPI';
 import { useSelector } from 'react-redux';
 
 /**
@@ -74,8 +73,62 @@ const Player: React.FC = () => {
     updateInterval: 100,
   });
 
-  // Get backend player API for play/pause/next/previous
-  const playerAPI = usePlayerAPI();
+  // Direct API command functions (no state management here, Redux handles that)
+  const apiPlay = async () => {
+    try {
+      await fetch('/api/player/play', { method: 'POST' });
+    } catch (err) {
+      console.error('[Player] Play command error:', err);
+    }
+  };
+
+  const apiPause = async () => {
+    try {
+      await fetch('/api/player/pause', { method: 'POST' });
+    } catch (err) {
+      console.error('[Player] Pause command error:', err);
+    }
+  };
+
+  const apiSeek = async (position: number) => {
+    try {
+      await fetch('/api/player/seek', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position })
+      });
+    } catch (err) {
+      console.error('[Player] Seek command error:', err);
+    }
+  };
+
+  const apiSetVolume = async (volume: number) => {
+    try {
+      await fetch('/api/player/volume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ volume })
+      });
+    } catch (err) {
+      console.error('[Player] Volume command error:', err);
+    }
+  };
+
+  const apiNext = async () => {
+    try {
+      await fetch('/api/player/next', { method: 'POST' });
+    } catch (err) {
+      console.error('[Player] Next command error:', err);
+    }
+  };
+
+  const apiPrevious = async () => {
+    try {
+      await fetch('/api/player/previous', { method: 'POST' });
+    } catch (err) {
+      console.error('[Player] Previous command error:', err);
+    }
+  };
 
   // Phase 3 Hook: Control operations
   // Provides play, pause, seek, volume, next, previous callbacks
@@ -122,7 +175,7 @@ const Player: React.FC = () => {
       }
 
       // Step 3: Tell backend to play (this broadcasts state to all clients)
-      await playerAPI.play();
+      await apiPlay();
 
       // Step 4: Play the HTML5 audio element
       if (audioElementRef.current) {
@@ -134,34 +187,34 @@ const Player: React.FC = () => {
       }
     },
     onPause: async () => {
-      // Sync with backend player state
-      await playerAPI.pause();
+      // Call backend API (Redux state will sync via WebSocket)
+      await apiPause();
       // Also pause the HTML5 audio element
       if (audioElementRef.current) {
         audioElementRef.current.pause();
       }
     },
     onSeek: async (position: number) => {
-      // Sync with backend player state
-      await playerAPI.seek(position);
+      // Call backend API (Redux state will sync via WebSocket)
+      await apiSeek(position);
       // Also seek the HTML5 audio element
       if (audioElementRef.current) {
         audioElementRef.current.currentTime = position;
       }
     },
     onSetVolume: async (volume: number) => {
-      // Sync with backend player state
-      await playerAPI.setVolume(volume);
+      // Call backend API (Redux state will sync via WebSocket)
+      await apiSetVolume(volume);
       // Also set HTML5 audio element volume
       if (audioElementRef.current) {
         audioElementRef.current.volume = volume / 100;
       }
     },
     onNextTrack: async () => {
-      await playerAPI.next();
+      await apiNext();
     },
     onPreviousTrack: async () => {
-      await playerAPI.previous();
+      await apiPrevious();
     },
   });
 
