@@ -31,6 +31,6 @@ export * from './Tabs.styles';
 export * from './Typography.styles';
 
 // Component-specific styles (avoid re-exporting to prevent conflicts)
-export { DetailViewTabs as StyledTabs, DetailViewTabs } from './ArtistDetail.styles';
-export { DialogTabs } from './Dialog.styles';
-export { StyledListItemButton, ArtistListContainer, LoadMoreTrigger, EndOfListIndicator } from './ArtistList.styles';
+export { DetailViewTabs as StyledTabs } from './Tabs.styles';
+export { DialogTabs } from './Tabs.styles';
+export { StyledListItemButton, ListContainer as ArtistListContainer, LoadMoreTrigger, EndOfListIndicator } from './ArtistList.styles';
