@@ -21,26 +21,26 @@ const styles = {
 
   /**
    * Primary button styling (Play/Pause)
-   * - Compact size for footer bar (48px)
-   * - Gradient background
-   * - Subtle glow on hover
+   * - Circular 56px button (design spec: audio parameter thumb)
+   * - Aurora gradient (Soft Violet → darker)
+   * - Subtle glow on hover, intense on active
    */
   primaryButton: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '48px',
-    height: '48px',
+    width: '56px',
+    height: '56px',
     padding: 0,
-    background: `linear-gradient(135deg, ${tokens.colors.accent.primary} 0%, ${tokens.colors.accent.secondary} 100%)`,
-    border: `1px solid ${tokens.colors.accent.primary}`,
-    borderRadius: tokens.borderRadius.md,
+    background: tokens.gradients.aurora,
+    border: 'none',
+    borderRadius: tokens.borderRadius.full,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.xl,
     fontWeight: tokens.typography.fontWeight.bold,
     color: tokens.colors.text.primary,
-    transition: `all ${tokens.transitions.base}`,
-    boxShadow: tokens.shadows.sm,
+    transition: tokens.transitions.all,
+    boxShadow: tokens.shadows.md,
     outline: 'none',
 
     ':disabled': {
@@ -51,8 +51,9 @@ const styles = {
 
   /**
    * Secondary button styling (Next/Previous)
-   * - Compact, minimal design
-   * - Transparent with subtle border
+   * - Compact 40px square
+   * - Ghost style (transparent background, soft border)
+   * - Hover: bg tint + accent border
    */
   secondaryButton: {
     display: 'flex',
@@ -62,12 +63,12 @@ const styles = {
     height: '40px',
     padding: 0,
     backgroundColor: 'transparent',
-    border: `1px solid ${tokens.colors.border.medium}`,
+    border: `1px solid ${tokens.colors.border.light}`,
     borderRadius: tokens.borderRadius.md,
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     color: tokens.colors.text.primary,
-    transition: `all ${tokens.transitions.base}`,
+    transition: tokens.transitions.all,
     outline: 'none',
 
     ':disabled': {

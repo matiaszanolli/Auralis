@@ -107,14 +107,14 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         }}
         onMouseEnter={(e) => {
           if (!isDisabled) {
-            e.currentTarget.style.backgroundColor = tokens.colors.bg.elevated;
+            e.currentTarget.style.backgroundColor = tokens.colors.bg.tertiary;
             e.currentTarget.style.borderColor = tokens.colors.accent.primary;
             e.currentTarget.style.transform = 'scale(1.05)';
           }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = tokens.colors.bg.primary;
-          e.currentTarget.style.borderColor = tokens.colors.border.medium;
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.borderColor = tokens.colors.border.light;
           e.currentTarget.style.transform = 'scale(1)';
         }}
       >
@@ -137,12 +137,12 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           onMouseEnter={(e) => {
             if (!isDisabled) {
               e.currentTarget.style.transform = 'scale(1.08)';
-              e.currentTarget.style.boxShadow = tokens.shadows.glowStrong;
+              e.currentTarget.style.boxShadow = tokens.shadows.glowMd;
             }
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = tokens.shadows.glow;
+            e.currentTarget.style.boxShadow = tokens.shadows.md;
           }}
         >
           ⏸
@@ -162,12 +162,12 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           onMouseEnter={(e) => {
             if (!isDisabled) {
               e.currentTarget.style.transform = 'scale(1.08)';
-              e.currentTarget.style.boxShadow = tokens.shadows.glowStrong;
+              e.currentTarget.style.boxShadow = tokens.shadows.glowMd;
             }
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = tokens.shadows.glow;
+            e.currentTarget.style.boxShadow = tokens.shadows.md;
           }}
         >
           ▶
@@ -188,14 +188,14 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         }}
         onMouseEnter={(e) => {
           if (!isDisabled) {
-            e.currentTarget.style.backgroundColor = tokens.colors.bg.elevated;
+            e.currentTarget.style.backgroundColor = tokens.colors.bg.tertiary;
             e.currentTarget.style.borderColor = tokens.colors.accent.primary;
             e.currentTarget.style.transform = 'scale(1.05)';
           }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = tokens.colors.bg.primary;
-          e.currentTarget.style.borderColor = tokens.colors.border.medium;
+          e.currentTarget.style.backgroundColor = 'transparent';
+          e.currentTarget.style.borderColor = tokens.colors.border.light;
           e.currentTarget.style.transform = 'scale(1)';
         }}
       >
