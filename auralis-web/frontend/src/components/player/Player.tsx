@@ -290,10 +290,10 @@ const Player: React.FC = () => {
         {/* Center: Playback Controls */}
         <PlaybackControls
           isPlaying={streaming.isPlaying}
-          onPlay={controls.play}
-          onPause={controls.pause}
-          onNext={controls.nextTrack}
-          onPrevious={controls.previousTrack}
+          onPlay={() => controls.play()}
+          onPause={() => controls.pause()}
+          onNext={() => controls.nextTrack()}
+          onPrevious={() => controls.previousTrack()}
           isLoading={controls.isLoading || streaming.isBuffering}
           disabled={streaming.isError}
         />
