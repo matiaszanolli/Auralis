@@ -15,8 +15,8 @@ function App() {
         <ToastProvider maxToasts={3}>
           <WebSocketProvider>
             <EnhancementProvider>
-              {/* Hidden audio element for browser autoplay policy compliance */}
-              <HiddenAudioElement debug={false} />
+              {/* Hidden audio element for browser autoplay policy compliance and audio streaming */}
+              <HiddenAudioElement debug={true} />
               <ComfortableApp />
             </EnhancementProvider>
           </WebSocketProvider>
