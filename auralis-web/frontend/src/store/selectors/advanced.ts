@@ -503,4 +503,3 @@ export const optimizedSelectors = {
   appSnapshot: selectAppSnapshot,
 };
 
-export { SelectorPerformanceTracker, selectorPerformance };

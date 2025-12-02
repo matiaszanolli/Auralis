@@ -58,7 +58,7 @@ export const ArtistHeader: React.FC<ArtistHeaderProps> = ({
         <Typography variant="body1" sx={{
           color: tokens.colors.text.tertiary,
           fontSize: tokens.typography.fontSize.sm,
-          fontWeight: tokens.typography.fontWeight.regular,
+          fontWeight: tokens.typography.fontWeight.normal,
         }}>
           {artist.album_count && `${artist.album_count} ${artist.album_count === 1 ? 'album' : 'albums'}`}
           {artist.album_count && artist.track_count && ' • '}

@@ -18,6 +18,7 @@ interface AlbumArtProps {
   borderRadius?: number | string;
   onClick?: () => void;
   showSkeleton?: boolean;
+  style?: React.CSSProperties;
 }
 
 const ArtworkContainer = styled(Box, {
@@ -92,6 +93,7 @@ export const AlbumArt: React.FC<AlbumArtProps> = ({
   borderRadius = 8,
   onClick,
   showSkeleton = true,
+  style,
 }) => {
   // Construct artwork URL
   const artworkUrl = albumId ? `/api/albums/${albumId}/artwork` : '';
@@ -102,6 +104,7 @@ export const AlbumArt: React.FC<AlbumArtProps> = ({
       clickable={!!onClick}
       onClick={onClick}
       sx={{ borderRadius }}
+      style={style}
     >
       <ProgressiveImage
         src={artworkUrl}

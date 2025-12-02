@@ -89,10 +89,10 @@ export const useMetadataForm = (
           if (['year', 'track', 'disc', 'bpm'].includes(key)) {
             const num = parseInt(String(value), 10);
             if (!isNaN(num)) {
-              updates[key as keyof MetadataFields] = num;
+              (updates as Record<string, any>)[key] = num;
             }
           } else {
-            updates[key as keyof MetadataFields] = value;
+            (updates as Record<string, any>)[key] = value;
           }
         }
       });

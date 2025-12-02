@@ -54,7 +54,7 @@ interface UseArtistListPaginationReturn {
  * - Grouping: groupedArtists, sortedLetters
  */
 export const useArtistListPagination = ({
-  onArtistClick
+  onArtistClick,
 }: UseArtistListPaginationProps): UseArtistListPaginationReturn => {
   const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);

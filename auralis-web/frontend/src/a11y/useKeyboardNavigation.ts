@@ -424,22 +424,6 @@ export function useEscapeKey(
   }, [onEscape, enabled]);
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export {
-  matchesShortcut,
-  isArrowKey,
-  getArrowDirection,
-  canFocus,
-  getFocusableElements,
-  focusNext,
-  focusPrevious,
-  focusFirst,
-  focusLast,
-};
-
 export type {
   KeyboardShortcut,
   FocusTrapOptions,

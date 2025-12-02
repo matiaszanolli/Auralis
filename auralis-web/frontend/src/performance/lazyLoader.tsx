@@ -332,15 +332,4 @@ export function useRoutePreload(
   };
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export {
-  createLazyComponent,
-  dynamicImport,
-  modulePreloader,
-  createLazyRoutes,
-  ErrorBoundary,
-};
 export type { LazyComponentConfig, PreloadConfig, RouteConfig };

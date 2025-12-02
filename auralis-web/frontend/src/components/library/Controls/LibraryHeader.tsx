@@ -40,3 +40,5 @@ export const LibraryHeader: React.FC<LibraryHeaderProps> = React.memo(({ view })
 });
 
 LibraryHeader.displayName = 'LibraryHeader';
+
+export default LibraryHeader;

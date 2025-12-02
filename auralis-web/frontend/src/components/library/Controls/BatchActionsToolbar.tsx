@@ -88,7 +88,7 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
         <BatchActionButton
           icon={<PlaylistAdd />}
           title="Add to Playlist"
-          onClick={onAddToPlaylist}
+          onClick={() => onAddToPlaylist()}
         />
       )}
 
@@ -96,7 +96,7 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
         <BatchActionButton
           icon={<QueueMusic />}
           title="Add to Queue"
-          onClick={onAddToQueue}
+          onClick={() => onAddToQueue()}
         />
       )}
 
@@ -104,7 +104,7 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
         <BatchActionButton
           icon={<Favorite />}
           title="Toggle Favorite"
-          onClick={onToggleFavorite}
+          onClick={() => onToggleFavorite()}
         />
       )}
 
@@ -112,7 +112,7 @@ const BatchActionsToolbar: React.FC<BatchActionsToolbarProps> = ({
         <BatchActionButton
           icon={<Delete />}
           title={getRemoveLabel(context)}
-          onClick={onRemove}
+          onClick={() => onRemove()}
         />
       )}
 

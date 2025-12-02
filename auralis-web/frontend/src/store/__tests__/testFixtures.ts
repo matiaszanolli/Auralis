@@ -424,18 +424,3 @@ export const testScenarios = {
   reconnecting: reconnectingState,
 };
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export {
-  createTestStore,
-  createStoreFromFixture,
-  assertPlayerState,
-  assertQueueState,
-  assertNoErrors,
-  assertConnected,
-  getStateDiff,
-  assertStateChanged,
-  assertStateUnchanged,
-};

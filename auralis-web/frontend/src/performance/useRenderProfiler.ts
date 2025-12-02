@@ -307,9 +307,4 @@ export function checkPerformanceWarnings(
   }
 }
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export { RenderMetricsStore, renderMetricsStore, RenderMetrics };
 export type { RenderProfilerConfig, PerformanceThreshold };

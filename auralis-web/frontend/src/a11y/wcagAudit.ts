@@ -628,9 +628,4 @@ class WCAGAudit {
 
 export const wcagAudit = new WCAGAudit();
 
-// ============================================================================
-// Exports
-// ============================================================================
-
-export { WCAGAudit, wcagAudit };
 export type { WCAGCriterion, AuditIssue, AuditResult, WCAGLevel };
