@@ -253,36 +253,12 @@ const Player: React.FC = () => {
       data-testid="player"
       style={styles.player}
     >
-      {/* Top Section: Track Display + Time */}
-      <div style={styles.topSection}>
-        <div style={styles.trackAndTimeContainer}>
-          {/* Track Information (Title, Artist, Album) */}
-          <TrackDisplay
-            title={currentTrack?.title ?? 'No track playing'}
-            artist={currentTrack?.artist}
-            album={currentTrack?.album}
-            isLoading={streaming.isBuffering}
-            className="player-track-display"
-          />
-
-          {/* Current Time Display */}
-          <TimeDisplay
-            currentTime={streaming.currentTime}
-            duration={streaming.duration}
-            isLive={display.isLiveContent}
-          />
-        </div>
-      </div>
-
-      {/* Middle Section: Progress Bar with Buffering Indicator */}
-      <div style={styles.progressSection}>
-        {/* Buffering Indicator Overlay */}
+      {/* Progress Bar - Full width at top */}
+      <div style={styles.progressBarContainer}>
         <BufferingIndicator
           isBuffering={streaming.isBuffering}
           bufferedPercentage={streaming.bufferedPercentage}
         />
-
-        {/* Seekable Progress Bar */}
         <ProgressBar
           currentTime={streaming.currentTime}
           duration={streaming.duration}
@@ -294,61 +270,77 @@ const Player: React.FC = () => {
         />
       </div>
 
-      {/* Bottom Section: Controls + Volume + Queue Button */}
-      <div style={styles.controlsSection}>
-        <div style={styles.controlsRow}>
-          {/* Playback Controls (Play, Pause, Next, Previous) */}
-          <PlaybackControls
-            isPlaying={streaming.isPlaying}
-            onPlay={controls.play}
-            onPause={controls.pause}
-            onNext={controls.nextTrack}
-            onPrevious={controls.previousTrack}
-            isLoading={controls.isLoading || streaming.isBuffering}
+      {/* Main compact player row */}
+      <div style={styles.mainRow}>
+        {/* Left: Track info + time */}
+        <div style={styles.trackInfoSection}>
+          <TrackDisplay
+            title={currentTrack?.title ?? 'No track'}
+            artist={currentTrack?.artist}
+            album={currentTrack?.album}
+            isLoading={streaming.isBuffering}
+            className="player-track-display"
+          />
+          <TimeDisplay
+            currentTime={streaming.currentTime}
+            duration={streaming.duration}
+            isLive={display.isLiveContent}
+          />
+        </div>
+
+        {/* Center: Playback Controls */}
+        <PlaybackControls
+          isPlaying={streaming.isPlaying}
+          onPlay={controls.play}
+          onPause={controls.pause}
+          onNext={controls.nextTrack}
+          onPrevious={controls.previousTrack}
+          isLoading={controls.isLoading || streaming.isBuffering}
+          disabled={streaming.isError}
+        />
+
+        {/* Right: Volume + Queue */}
+        <div style={styles.rightSection}>
+          <VolumeControl
+            volume={volume / 100}
+            onVolumeChange={async (vol) => {
+              await controls.setVolume(vol * 100);
+            }}
+            isMuted={isMuted}
+            onMuteToggle={async () => {
+              const newVolume = isMuted ? 50 : 0;
+              await controls.setVolume(newVolume);
+            }}
             disabled={streaming.isError}
           />
 
-          {/* Queue Button */}
+          {/* Queue Button - Compact */}
           <button
             onClick={() => setQueuePanelOpen(!queuePanelOpen)}
             style={{
               ...styles.queueButton,
-              backgroundColor: queuePanelOpen ? tokens.colors.accent.primary : tokens.colors.bg.elevated,
-              color: queuePanelOpen ? tokens.colors.text.primary : tokens.colors.text.primary,
+              backgroundColor: queuePanelOpen ? tokens.colors.accent.primary : 'transparent',
+              color: tokens.colors.text.primary,
               borderColor: queuePanelOpen ? tokens.colors.accent.primary : tokens.colors.border.medium,
             }}
-            title="Toggle queue panel (⌨ Q )"
-            aria-label="Toggle queue panel"
+            title="Toggle queue (Q)"
+            aria-label="Toggle queue"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = tokens.colors.accent.primary;
-              e.currentTarget.style.borderColor = tokens.colors.accent.secondary;
-              e.currentTarget.style.boxShadow = tokens.shadows.md;
-              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.borderColor = tokens.colors.accent.primary;
+              if (!queuePanelOpen) {
+                e.currentTarget.style.backgroundColor = tokens.colors.bg.secondary;
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = queuePanelOpen ? tokens.colors.accent.primary : tokens.colors.bg.elevated;
               e.currentTarget.style.borderColor = tokens.colors.border.medium;
-              e.currentTarget.style.boxShadow = 'none';
-              e.currentTarget.style.transform = 'translateY(0)';
+              if (!queuePanelOpen) {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
             }}
           >
-            ♪ Queue
+            ♪
           </button>
         </div>
-
-        {/* Volume Control (Slider + Mute Button) */}
-        <VolumeControl
-          volume={volume / 100}
-          onVolumeChange={async (vol) => {
-            await controls.setVolume(vol * 100);
-          }}
-          isMuted={isMuted}
-          onMuteToggle={async () => {
-            const newVolume = isMuted ? 50 : 0;
-            await controls.setVolume(newVolume);
-          }}
-          disabled={streaming.isError}
-        />
       </div>
 
       {/* Queue Panel - Expands when opened */}
@@ -392,109 +384,96 @@ const styles = {
     flexDirection: 'column' as const,
     width: '100%',
     backgroundColor: tokens.colors.bg.primary,
-    borderTop: `2px solid ${tokens.colors.accent.primary}`,
-    boxShadow: tokens.shadows.glowStrong,
+    borderTop: `1px solid ${tokens.colors.border.medium}`,
+    boxShadow: tokens.shadows.sm,
     zIndex: 1000,
-    padding: `${tokens.spacing.lg} ${tokens.spacing.xl}`,
-    gap: tokens.spacing.lg,
-
-    // Mobile: Compact
-    '@media (max-width: 480px)': {
-      padding: `${tokens.spacing.md} ${tokens.spacing.md}`,
-      gap: tokens.spacing.md,
-      borderTop: `2px solid ${tokens.colors.accent.primary}`,
-    },
-
-    // Tablet
-    '@media (max-width: 768px)': {
-      padding: `${tokens.spacing.lg} ${tokens.spacing.lg}`,
-      gap: tokens.spacing.md,
-    },
+    padding: 0,
+    gap: 0,
   },
 
-  topSection: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: tokens.spacing.md,
-
-    '@media (max-width: 768px)': {
-      gap: tokens.spacing.sm,
-    },
+  progressBarContainer: {
+    width: '100%',
+    height: 'auto',
+    padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
+    paddingBottom: tokens.spacing.xs,
   },
 
-  trackAndTimeContainer: {
+  mainRow: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: tokens.spacing.xl,
+    justifyContent: 'space-between',
+    gap: tokens.spacing.lg,
+    padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
+    minHeight: '64px',
 
     '@media (max-width: 768px)': {
       flexDirection: 'column' as const,
-      alignItems: 'flex-start',
+      alignItems: 'stretch',
+      padding: tokens.spacing.md,
+      minHeight: 'auto',
       gap: tokens.spacing.md,
     },
   },
 
-  progressSection: {
+  trackInfoSection: {
     display: 'flex',
-    flexDirection: 'column' as const,
+    alignItems: 'center',
     gap: tokens.spacing.md,
-    position: 'relative' as const,
-  },
-
-  controlsSection: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: tokens.spacing.xl,
-    alignItems: 'stretch',
+    minWidth: '200px',
+    flex: '1 1 auto',
 
     '@media (max-width: 768px)': {
-      gap: tokens.spacing.lg,
+      minWidth: 'auto',
+      width: '100%',
     },
   },
 
-  controlsRow: {
+  rightSection: {
     display: 'flex',
-    gap: tokens.spacing.xl,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: tokens.spacing.md,
+    flex: '1 1 auto',
+    justifyContent: 'flex-end',
 
     '@media (max-width: 768px)': {
-      gap: tokens.spacing.lg,
-      justifyContent: 'center',
+      width: '100%',
+      justifyContent: 'space-between',
     },
   },
 
   queueButton: {
-    padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
-    border: `1.5px solid ${tokens.colors.border.medium}`,
-    borderRadius: tokens.borderRadius.lg,
+    width: '40px',
+    height: '40px',
+    padding: 0,
+    border: `1px solid ${tokens.colors.border.medium}`,
+    borderRadius: tokens.borderRadius.md,
     cursor: 'pointer',
-    fontSize: tokens.typography.fontSize.sm,
+    fontSize: tokens.typography.fontSize.lg,
     fontWeight: tokens.typography.fontWeight.medium,
     transition: tokens.transitions.all,
-    whiteSpace: 'nowrap' as const,
-    backgroundColor: tokens.colors.bg.primary,
+    backgroundColor: 'transparent',
     color: tokens.colors.text.primary,
     outline: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   queuePanelWrapper: {
     borderTop: `1px solid ${tokens.colors.border.medium}`,
-    paddingTop: tokens.spacing.lg,
-    marginTop: tokens.spacing.lg,
+    padding: tokens.spacing.lg,
     maxHeight: '400px',
     overflowY: 'auto' as const,
+    backgroundColor: tokens.colors.bg.secondary,
   },
 
   errorBanner: {
     display: 'flex',
     alignItems: 'center',
-    padding: tokens.spacing.lg,
+    padding: tokens.spacing.md,
     backgroundColor: tokens.colors.accent.error || '#ff4444',
-    borderRadius: tokens.borderRadius.lg,
-    marginTop: tokens.spacing.md,
-    boxShadow: tokens.shadows.md,
+    borderRadius: tokens.borderRadius.md,
+    margin: tokens.spacing.sm,
   },
 
   errorText: {
