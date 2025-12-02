@@ -40,6 +40,7 @@ import { usePlayerDisplay, PlayerDisplayInfo } from '@/hooks/usePlayerDisplay';
 
 // Existing hooks for track info
 import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
+import { usePlayerAPI } from '@/hooks/usePlayerAPI';
 import { useSelector } from 'react-redux';
 
 /**
@@ -73,28 +74,53 @@ const Player: React.FC = () => {
     updateInterval: 100,
   });
 
+  // Get backend player API for play/pause/next/previous
+  const playerAPI = usePlayerAPI();
+
   // Phase 3 Hook: Control operations
   // Provides play, pause, seek, volume, next, previous callbacks
   const controls = usePlayerControls({
     onPlay: async () => {
+      // Sync with backend player state
+      await playerAPI.play();
+      // Also play the HTML5 audio element
       if (audioElementRef.current) {
-        audioElementRef.current.play();
+        try {
+          await audioElementRef.current.play();
+        } catch (err) {
+          console.warn('[Player] Audio element play failed:', err);
+        }
       }
     },
     onPause: async () => {
+      // Sync with backend player state
+      await playerAPI.pause();
+      // Also pause the HTML5 audio element
       if (audioElementRef.current) {
         audioElementRef.current.pause();
       }
     },
     onSeek: async (position: number) => {
+      // Sync with backend player state
+      await playerAPI.seek(position);
+      // Also seek the HTML5 audio element
       if (audioElementRef.current) {
         audioElementRef.current.currentTime = position;
       }
     },
     onSetVolume: async (volume: number) => {
+      // Sync with backend player state
+      await playerAPI.setVolume(volume);
+      // Also set HTML5 audio element volume
       if (audioElementRef.current) {
         audioElementRef.current.volume = volume / 100;
       }
+    },
+    onNextTrack: async () => {
+      await playerAPI.next();
+    },
+    onPreviousTrack: async () => {
+      await playerAPI.previous();
     },
   });
 
