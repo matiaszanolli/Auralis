@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Container } from '@mui/material';
+import { tokens } from '@/design-system/tokens';
 import { EmptyState } from '../../shared/ui/feedback';
 import DetailLoading from './DetailLoading';
 import { useArtistDetailsData } from './useArtistDetailsData';
@@ -83,7 +84,10 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
   // Error or not found state
   if (error || !artist) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth="xl" sx={{
+        py: tokens.spacing.xl,
+        px: tokens.spacing.lg,
+      }}>
         <EmptyState
           title={error ? 'Error Loading Artist' : 'Artist not found'}
           description={error || undefined}
@@ -94,7 +98,10 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
 
   // Main render - orchestrates header and tabs sections
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{
+      py: tokens.spacing.xl,
+      px: tokens.spacing.lg,
+    }}>
       <ArtistDetailHeaderSection
         artist={artist}
         onBack={onBack}

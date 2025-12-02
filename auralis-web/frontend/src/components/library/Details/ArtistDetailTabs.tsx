@@ -5,8 +5,8 @@
  */
 
 import React from 'react';
-import { Box, Tab } from '@mui/material';
-import { StyledTabs } from '../Styles/ArtistDetail.styles';
+import { Box, Tab, Tabs } from '@mui/material';
+import { tokens } from '@/design-system/tokens';
 import AlbumsTab from '../Views/AlbumsTab';
 import TracksTab from '../Views/TracksTab';
 
@@ -55,11 +55,36 @@ export const ArtistDetailTabsSection: React.FC<ArtistDetailTabsProps> = ({
   onAlbumClick,
 }) => {
   return (
-    <Box>
-      <StyledTabs value={activeTab} onChange={(e, newValue) => onTabChange(newValue)}>
+    <Box sx={{ mt: tokens.spacing.xl }}>
+      <Tabs
+        value={activeTab}
+        onChange={(e, newValue) => onTabChange(newValue)}
+        sx={{
+          borderBottom: `1px solid ${tokens.colors.border.light}`,
+          marginBottom: tokens.spacing.lg,
+          '& .MuiTabs-indicator': {
+            background: tokens.gradients.aurora,
+            height: '3px',
+            borderRadius: tokens.borderRadius.full,
+          },
+          '& .MuiTab-root': {
+            color: tokens.colors.text.secondary,
+            fontWeight: tokens.typography.fontWeight.semibold,
+            fontSize: tokens.typography.fontSize.md,
+            transition: tokens.transitions.all,
+            textTransform: 'none',
+            '&:hover': {
+              color: tokens.colors.text.primary,
+            },
+            '&.Mui-selected': {
+              color: tokens.colors.accent.primary,
+            },
+          },
+        }}
+      >
         <Tab label={`Albums (${artist.albums?.length || 0})`} />
         <Tab label={`All Tracks (${artist.tracks?.length || 0})`} />
-      </StyledTabs>
+      </Tabs>
 
       {activeTab === 0 && (
         <AlbumsTab
