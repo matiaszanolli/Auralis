@@ -69,9 +69,9 @@ const styles = {
     borderRadius: tokens.borderRadius.md,
     cursor: 'pointer',
   },
-  itemSelected: { backgroundColor: tokens.colors.accent.subtle },
+  itemSelected: { backgroundColor: tokens.colors.bg.level3 },
   itemName: { color: tokens.colors.text.primary, fontWeight: tokens.typography.fontWeight.bold },
-  error: { color: tokens.colors.error },
+  error: { color: tokens.colors.semantic.error },
   loadMore: {
     padding: tokens.spacing.sm,
     backgroundColor: tokens.colors.accent.primary,
