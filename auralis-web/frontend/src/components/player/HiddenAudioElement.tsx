@@ -25,6 +25,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAudioPolicyBridge } from './useAudioPolicyBridge';
 import { useWebSocketContext } from '../../contexts/WebSocketContext';
+import { useEnhancement } from '../../contexts/EnhancementContext';
 
 interface HiddenAudioElementProps {
   /** Called when audio context should be enabled (user gesture received) */
@@ -52,6 +53,7 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
 }) => {
   const { audioRef } = useAudioPolicyBridge({ onAudioContextEnabled, debug });
   const { subscribe } = useWebSocketContext();
+  const { settings: enhancementSettings } = useEnhancement();
   const [currentTrack, setCurrentTrack] = useState<TrackInfo | null>(null);
   const [audioSrc, setAudioSrc] = useState<string>('');
 
@@ -147,6 +149,7 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
 
   // Update audio element src when current track changes
   // This is the ONLY place where we modify audio.src
+  // Includes enhancement parameters if enhancement is enabled
   useEffect(() => {
     if (!audioRef.current) {
       console.warn('[HiddenAudioElement] Audio element not available');
@@ -154,11 +157,22 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
     }
 
     if (currentTrack?.id) {
-      const streamUrl = `/api/player/stream/${currentTrack.id}`;
+      // Build stream URL with enhancement parameters if enabled
+      const baseUrl = `/api/player/stream/${currentTrack.id}`;
+      let streamUrl = baseUrl;
+
+      if (enhancementSettings.enabled) {
+        const params = new URLSearchParams({
+          enhanced: 'true',
+          preset: enhancementSettings.preset,
+          intensity: enhancementSettings.intensity.toString(),
+        });
+        streamUrl = `${baseUrl}?${params.toString()}`;
+      }
 
       if (debug) {
         console.log(
-          `[HiddenAudioElement] Setting audio src: "${currentTrack.title}" → ${streamUrl}`
+          `[HiddenAudioElement] Setting audio src: "${currentTrack.title}" → ${streamUrl}${enhancementSettings.enabled ? ' (enhanced)' : ' (raw)'}`
         );
       }
 
@@ -176,7 +190,7 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
       audioRef.current.src = '';
       setAudioSrc('');
     }
-  }, [currentTrack?.id, currentTrack?.title, audioRef, debug]);
+  }, [currentTrack?.id, currentTrack?.title, enhancementSettings.enabled, enhancementSettings.preset, enhancementSettings.intensity, audioRef, debug]);
 
   return (
     <>
