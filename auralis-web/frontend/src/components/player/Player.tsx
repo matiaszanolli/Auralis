@@ -81,9 +81,50 @@ const Player: React.FC = () => {
   // Provides play, pause, seek, volume, next, previous callbacks
   const controls = usePlayerControls({
     onPlay: async () => {
-      // Sync with backend player state
+      // CRITICAL: Ensure audio element is ready before playing
+      // This prevents race condition where play() called before src is set
+      if (audioElementRef.current) {
+        // Step 1: Ensure audio element has a src
+        if (!audioElementRef.current.src) {
+          console.warn('[Player] Audio element has no src set, waiting for HiddenAudioElement...');
+          // Wait up to 2 seconds for HiddenAudioElement to set src
+          let waited = 0;
+          while (!audioElementRef.current.src && waited < 2000) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            waited += 100;
+          }
+          if (!audioElementRef.current.src) {
+            console.error('[Player] Audio src not set after 2s, cannot play');
+            return;
+          }
+        }
+
+        // Step 2: Wait for audio to be ready (canplay event)
+        // Only wait if not already ready or loading
+        if (
+          audioElementRef.current.readyState < 2 && // HAVE_CURRENT_DATA = 2
+          audioElementRef.current.networkState === 2 // LOADING
+        ) {
+          console.log('[Player] Waiting for audio to be ready (canplay)...');
+          await new Promise<void>((resolve) => {
+            const handler = () => {
+              audioElementRef.current?.removeEventListener('canplay', handler);
+              resolve();
+            };
+            audioElementRef.current?.addEventListener('canplay', handler);
+            // Timeout after 5 seconds
+            setTimeout(() => {
+              audioElementRef.current?.removeEventListener('canplay', handler);
+              resolve();
+            }, 5000);
+          });
+        }
+      }
+
+      // Step 3: Tell backend to play (this broadcasts state to all clients)
       await playerAPI.play();
-      // Also play the HTML5 audio element
+
+      // Step 4: Play the HTML5 audio element
       if (audioElementRef.current) {
         try {
           await audioElementRef.current.play();

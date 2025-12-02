@@ -7,20 +7,24 @@
  * 2. Actually streams audio from /api/player/stream/{track_id}
  * 3. Syncs with player state via WebSocket
  *
- * Audio Flow:
- * - Player component loads track via usePlayerAPI.playTrack()
- * - Backend sets current track in player state
- * - This element receives track ID via Redux or PlayerAPI
- * - Audio element src becomes /api/player/stream/{track_id}
- * - Browser policy: User click on play button → play() called → audio starts
+ * Architecture:
+ * - Fetches authoritative current track from /api/player/status on mount
+ * - Listens to WebSocket player_state messages for track changes
+ * - Sets audio element src = /api/player/stream/{track_id}
+ * - Ensures src is always set before play() is called
+ *
+ * Why Direct API Fetch?
+ * - usePlayerAPI hook state might be stale on startup
+ * - Backend /api/player/status is authoritative source
+ * - Prevents race condition where play() called before src set
  *
  * @copyright (C) 2025 Auralis Team
  * @license GPLv3
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAudioPolicyBridge } from './useAudioPolicyBridge';
-import { usePlayerAPI } from '../../hooks/usePlayerAPI';
+import { useWebSocketContext } from '../../contexts/WebSocketContext';
 
 interface HiddenAudioElementProps {
   /** Called when audio context should be enabled (user gesture received) */
@@ -29,18 +33,26 @@ interface HiddenAudioElementProps {
   debug?: boolean;
 }
 
+interface TrackInfo {
+  id: number;
+  title: string;
+  artist: string;
+  duration: number;
+}
+
 /**
  * HiddenAudioElement Component
  *
- * Actually streams audio from the backend player API.
- * Updates src when current track changes.
+ * Manages HTML5 audio element and streams from backend.
+ * Ensures audio src is set before playback attempts.
  */
 export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
   onAudioContextEnabled,
   debug = false,
 }) => {
   const { audioRef } = useAudioPolicyBridge({ onAudioContextEnabled, debug });
-  const { currentTrack } = usePlayerAPI();
+  const { subscribe } = useWebSocketContext();
+  const [currentTrack, setCurrentTrack] = useState<TrackInfo | null>(null);
   const [audioSrc, setAudioSrc] = useState<string>('');
 
   // Handle audio load errors
@@ -84,7 +96,57 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
     };
   }, [audioRef]);
 
+  // Fetch current track from backend on mount
+  // This ensures we have the authoritative state, not a stale hook state
+  useEffect(() => {
+    const fetchCurrentTrack = async () => {
+      try {
+        const response = await fetch('/api/player/status');
+        if (response.ok) {
+          const state = await response.json();
+          if (state.current_track?.id) {
+            setCurrentTrack(state.current_track);
+            if (debug) {
+              console.log(
+                `[HiddenAudioElement] Fetched current track on mount: "${state.current_track.title}"`
+              );
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[HiddenAudioElement] Failed to fetch current track:', err);
+      }
+    };
+
+    fetchCurrentTrack();
+  }, [debug]);
+
+  // Listen to WebSocket for track changes
+  // This keeps audio element in sync as user plays different tracks
+  useEffect(() => {
+    if (!subscribe) return;
+
+    const unsubscribe = subscribe('player_state', (message: any) => {
+      try {
+        const state = message.data;
+        if (state.current_track?.id) {
+          setCurrentTrack(state.current_track);
+          if (debug) {
+            console.log(
+              `[HiddenAudioElement] WebSocket: Track changed to "${state.current_track.title}"`
+            );
+          }
+        }
+      } catch (err) {
+        console.error('[HiddenAudioElement] Error processing player_state:', err);
+      }
+    });
+
+    return () => unsubscribe?.();
+  }, [subscribe, debug]);
+
   // Update audio element src when current track changes
+  // This is the ONLY place where we modify audio.src
   useEffect(() => {
     if (!audioRef.current) {
       console.warn('[HiddenAudioElement] Audio element not available');
@@ -94,23 +156,27 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
     if (currentTrack?.id) {
       const streamUrl = `/api/player/stream/${currentTrack.id}`;
 
-      console.log(
-        `[HiddenAudioElement] Loading track: "${currentTrack.title}" from ${streamUrl}`
-      );
+      if (debug) {
+        console.log(
+          `[HiddenAudioElement] Setting audio src: "${currentTrack.title}" → ${streamUrl}`
+        );
+      }
 
       // Set the audio source
       audioRef.current.src = streamUrl;
       setAudioSrc(streamUrl);
 
-      // Trigger loading
+      // Trigger loading - this initiates the HTTP request for audio
       audioRef.current.load();
     } else {
       // Clear source if no track
-      console.log('[HiddenAudioElement] No track to load, clearing source');
+      if (debug) {
+        console.log('[HiddenAudioElement] No track, clearing audio src');
+      }
       audioRef.current.src = '';
       setAudioSrc('');
     }
-  }, [currentTrack?.id, currentTrack?.title, audioRef]);
+  }, [currentTrack?.id, currentTrack?.title, audioRef, debug]);
 
   return (
     <>
