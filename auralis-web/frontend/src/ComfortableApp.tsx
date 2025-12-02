@@ -255,53 +255,55 @@ function ComfortableApp() {
   }, []);
 
   return (
-    <AppContainer onDragEnd={handleDragEnd}>
-      {/* Sidebar (desktop or mobile drawer) */}
-      <AppSidebar
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onNavigate={handleSidebarNavigation}
-        onOpenSettings={() => setSettingsOpen(true)}
-        mobileDrawerOpen={mobileDrawerOpen}
-        onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
-        isMobile={isMobile}
-      />
-
-      {/* Main content column */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-        {/* Top bar with search and title */}
-        <AppTopBar
-          onSearch={setSearchQuery}
-          onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
-          title="Your Music"
-          connectionStatus={isConnected ? 'connected' : 'connecting'}
+    <Box sx={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      <AppContainer onDragEnd={handleDragEnd}>
+        {/* Sidebar (desktop or mobile drawer) */}
+        <AppSidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onNavigate={handleSidebarNavigation}
+          onOpenSettings={() => setSettingsOpen(true)}
+          mobileDrawerOpen={mobileDrawerOpen}
+          onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
           isMobile={isMobile}
-          onSearchClear={() => setSearchQuery('')}
         />
 
-        {/* Main content area with library view */}
-        <AppMainContent>
-          <CozyLibraryView
-            onTrackPlay={handleTrackPlay}
-            view={currentView}
+        {/* Main content column */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          {/* Top bar with search and title */}
+          <AppTopBar
+            onSearch={setSearchQuery}
+            onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
+            title="Your Music"
+            connectionStatus={isConnected ? 'connected' : 'connecting'}
+            isMobile={isMobile}
+            onSearchClear={() => setSearchQuery('')}
           />
-        </AppMainContent>
-      </Box>
 
-      {/* Right enhancement pane - Hidden on tablet/mobile */}
-      {!isTablet && (
-        <AppEnhancementPane
-          useV2={true}
-          initiallyCollapsed={presetPaneCollapsed}
-          onToggleV2={() => {}} // V1 fallback removed, EnhancementPaneV2 is now default
-        >
-          <EnhancementPaneV2
-            collapsed={presetPaneCollapsed}
-            onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
-            onMasteringToggle={handleMasteringToggle}
-          />
-        </AppEnhancementPane>
-      )}
+          {/* Main content area with library view */}
+          <AppMainContent>
+            <CozyLibraryView
+              onTrackPlay={handleTrackPlay}
+              view={currentView}
+            />
+          </AppMainContent>
+        </Box>
+
+        {/* Right enhancement pane - Hidden on tablet/mobile */}
+        {!isTablet && (
+          <AppEnhancementPane
+            useV2={true}
+            initiallyCollapsed={presetPaneCollapsed}
+            onToggleV2={() => {}} // V1 fallback removed, EnhancementPaneV2 is now default
+          >
+            <EnhancementPaneV2
+              collapsed={presetPaneCollapsed}
+              onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
+              onMasteringToggle={handleMasteringToggle}
+            />
+          </AppEnhancementPane>
+        )}
+      </AppContainer>
 
       {/* Settings Dialog */}
       <SettingsDialog
@@ -321,9 +323,11 @@ function ComfortableApp() {
         formatShortcut={formatShortcut}
       />
 
-      {/* Bottom Player Bar - Phase 5: New Player orchestration component */}
-      <Player />
-    </AppContainer>
+      {/* Bottom Player Bar - Fixed at bottom of viewport, not inside flex layout */}
+      <Box sx={{ flexShrink: 0 }}>
+        <Player />
+      </Box>
+    </Box>
   );
 }
 
