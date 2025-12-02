@@ -125,7 +125,7 @@ const StyledIconButton = styled(MuiIconButton, {
 
       '&:hover': {
         color: tokens.colors.text.primary,
-        background: 'rgba(255, 255, 255, 0.05)',
+        background: tokens.colors.bg.tertiary,
       },
 
       ...(active && {

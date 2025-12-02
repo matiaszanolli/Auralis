@@ -74,21 +74,21 @@ const StyledTextField = styled(MuiTextField, {
   const variantStyles = {
     default: {
       '& .MuiInputBase-root': {
-        background: tokens.colors.bg.tertiary,
+        background: tokens.colors.bg.level3,
         borderRadius: tokens.borderRadius.md,
-        border: `1px solid ${error ? tokens.colors.accent.error : tokens.colors.border.medium}`,
+        border: `1px solid ${error ? tokens.colors.semantic.error : tokens.colors.border.medium}`,
         color: tokens.colors.text.primary,
         transition: tokens.transitions.all,
 
         '&:hover': {
-          borderColor: error ? tokens.colors.accent.error : tokens.colors.border.heavy,
+          borderColor: error ? tokens.colors.semantic.error : tokens.colors.border.heavy,
         },
 
         '&.Mui-focused': {
-          borderColor: error ? tokens.colors.accent.error : tokens.colors.accent.primary,
+          borderColor: error ? tokens.colors.semantic.error : tokens.colors.accent.primary,
           boxShadow: error
-            ? `0 0 0 3px rgba(239, 68, 68, 0.1)`
-            : `0 0 0 3px rgba(102, 126, 234, 0.1)`,
+            ? `0 0 12px ${tokens.colors.semantic.error}20`
+            : tokens.shadows.glowSoft,
         },
       },
 
@@ -109,7 +109,7 @@ const StyledTextField = styled(MuiTextField, {
 
     search: {
       '& .MuiInputBase-root': {
-        background: 'rgba(37, 42, 71, 0.6)',
+        background: 'rgba(31, 41, 54, 0.60)',
         borderRadius: tokens.borderRadius.full, // Pill shape
         border: `1px solid ${tokens.colors.border.light}`,
         color: tokens.colors.text.primary,
@@ -117,14 +117,14 @@ const StyledTextField = styled(MuiTextField, {
         backdropFilter: 'blur(10px)',
 
         '&:hover': {
-          background: 'rgba(37, 42, 71, 0.8)',
+          background: 'rgba(31, 41, 54, 0.80)',
           borderColor: tokens.colors.border.medium,
         },
 
         '&.Mui-focused': {
-          background: 'rgba(37, 42, 71, 0.95)',
+          background: 'rgba(31, 41, 54, 0.95)',
           borderColor: tokens.colors.accent.primary,
-          boxShadow: tokens.shadows.glow,
+          boxShadow: tokens.shadows.glowSoft,
         },
       },
 

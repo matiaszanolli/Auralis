@@ -77,7 +77,7 @@ const StyledSlider = styled(MuiSlider, {
         boxShadow: tokens.shadows.md,
 
         '&:hover, &.Mui-focusVisible': {
-          boxShadow: `0 0 0 8px rgba(139, 146, 176, 0.16)`,
+          boxShadow: tokens.shadows.glowSoft,
         },
       },
 
@@ -95,10 +95,10 @@ const StyledSlider = styled(MuiSlider, {
 
       '& .MuiSlider-thumb': {
         background: tokens.colors.text.primary,
-        boxShadow: tokens.shadows.glow,
+        boxShadow: tokens.shadows.glowSoft,
 
         '&:hover, &.Mui-focusVisible': {
-          boxShadow: tokens.shadows.glowStrong,
+          boxShadow: tokens.shadows.glowMd,
         },
       },
 
@@ -121,7 +121,7 @@ const StyledSlider = styled(MuiSlider, {
         boxShadow: tokens.shadows.md,
 
         '&:hover, &.Mui-focusVisible': {
-          boxShadow: `0 0 0 8px rgba(102, 126, 234, 0.16)`,
+          boxShadow: tokens.shadows.glowSoft,
         },
       },
 

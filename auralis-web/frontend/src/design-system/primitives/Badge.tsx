@@ -51,19 +51,19 @@ const StyledBadge = styled(MuiBadge, {
     },
     success: {
       '& .MuiBadge-badge': {
-        background: tokens.colors.accent.success,
+        background: tokens.colors.semantic.success,
         color: tokens.colors.text.primary,
       },
     },
     warning: {
       '& .MuiBadge-badge': {
-        background: tokens.colors.accent.warning,
+        background: tokens.colors.semantic.warning,
         color: tokens.colors.text.primary,
       },
     },
     error: {
       '& .MuiBadge-badge': {
-        background: tokens.colors.accent.error,
+        background: tokens.colors.semantic.error,
         color: tokens.colors.text.primary,
       },
     },

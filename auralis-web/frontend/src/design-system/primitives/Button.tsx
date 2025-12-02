@@ -141,16 +141,18 @@ const StyledButton = styled(MuiButton, {
     },
 
     danger: {
-      background: tokens.colors.accent.error,
+      background: tokens.colors.semantic.error,
       color: tokens.colors.text.primary,
 
       '&:hover': {
-        background: '#dc2626', // Darker red
+        background: tokens.colors.semantic.error,
+        opacity: 0.9,
         boxShadow: tokens.shadows.md,
       },
 
       '&:active': {
-        background: tokens.colors.accent.error,
+        background: tokens.colors.semantic.error,
+        opacity: 0.8,
       },
     },
   };
