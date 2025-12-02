@@ -87,7 +87,7 @@ export const ArtistDetailView: React.FC<ArtistDetailViewProps> = ({
       <Container maxWidth="xl" sx={{
         py: tokens.spacing.xl,
         px: tokens.spacing.lg,
-      }}>
+      }} role="alert" aria-live="assertive">
         <EmptyState
           title={error ? 'Error Loading Artist' : 'Artist not found'}
           description={error || undefined}

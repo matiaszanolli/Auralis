@@ -79,6 +79,8 @@ export const AlbumActionButtons: React.FC<AlbumActionButtonsProps> = ({
         <IconButton
           onClick={onToggleFavorite}
           disabled={savingFavorite}
+          aria-pressed={isFavorite}
+          aria-label={isFavorite ? 'Album is favorited. Press to remove' : 'Album is not favorited. Press to add'}
           sx={{
             color: isFavorite ? tokens.colors.semantic.error : tokens.colors.text.secondary,
             border: `1px solid ${tokens.colors.border.light}`,
