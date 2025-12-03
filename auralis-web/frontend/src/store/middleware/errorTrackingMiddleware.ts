@@ -19,8 +19,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import type { Middleware, AnyAction } from '@reduxjs/toolkit';
-import type { RootState } from '../index';
+import type { Middleware } from '@reduxjs/toolkit';
 import * as connectionActions from '../slices/connectionSlice';
 
 // ============================================================================
@@ -57,7 +56,7 @@ export interface ErrorTrackingConfig {
   onRecovery?: (error: TrackedError) => void;
   logToConsole?: boolean;
   logToServer?: boolean;
-  recoveryStrategies?: Map<string, () => AnyAction>;
+  recoveryStrategies?: Map<string, () => Record<string, any>>;
 }
 
 // ============================================================================
@@ -159,7 +158,9 @@ class ErrorStore {
     // Keep bounded
     if (this.errors.size > this.maxErrors) {
       const firstKey = this.errors.keys().next().value;
-      this.errors.delete(firstKey);
+      if (firstKey !== undefined) {
+        this.errors.delete(firstKey);
+      }
     }
   }
 
@@ -198,25 +199,26 @@ export function createErrorTrackingMiddleware(
   const errorStore = new ErrorStore(finalConfig.maxErrors);
 
   return (store) => {
-    return (next) => (action: AnyAction) => {
+    return (next) => (action: unknown) => {
+      const act = action as Record<string, any>;
       try {
         const result = next(action);
 
         // Check if action contains error
-        if (action.payload && typeof action.payload === 'object') {
-          const payload = action.payload as Record<string, any>;
+        if (act.payload && typeof act.payload === 'object') {
+          const payload = act.payload as Record<string, any>;
 
           // Look for error indicators
-          if (payload.error || action.type.includes('Error') || action.type.includes('Failure')) {
+          if (payload.error || act.type?.includes('Error') || act.type?.includes('Failure')) {
             const errorMessage =
-              payload.error || payload.message || action.type || 'Unknown error';
+              payload.error || payload.message || act.type || 'Unknown error';
 
             const trackedError: TrackedError = {
               id: generateErrorId(),
               timestamp: Date.now(),
               category: categorizeError(String(errorMessage)),
               message: String(errorMessage),
-              action: action.type,
+              action: act.type,
               context: payload,
               retryCount: 0,
               maxRetries: 3,
@@ -228,7 +230,7 @@ export function createErrorTrackingMiddleware(
             // Log if enabled
             if (finalConfig.logToConsole) {
               console.error(`[Error Tracked] ${trackedError.category}: ${trackedError.message}`, {
-                action: action.type,
+                action: act.type,
                 context: payload,
               });
             }
@@ -260,7 +262,7 @@ export function createErrorTrackingMiddleware(
           timestamp: Date.now(),
           category: categorizeError(errorMessage),
           message: errorMessage,
-          action: action.type,
+          action: act.type,
           stack: error instanceof Error ? error.stack : undefined,
           retryCount: 0,
           maxRetries: 3,
@@ -314,7 +316,7 @@ function captureErrorToServer(error: TrackedError): void {
  * Retry action with exponential backoff
  */
 export async function retryAction(
-  action: AnyAction,
+  action: Record<string, any>,
   maxRetries: number = 3
 ): Promise<any> {
   let lastError: Error | undefined;
@@ -402,4 +404,3 @@ export function getErrorStats(errors: TrackedError[]) {
 // ============================================================================
 
 export { ErrorStore, generateErrorId, categorizeError };
-export type { TrackedError };
