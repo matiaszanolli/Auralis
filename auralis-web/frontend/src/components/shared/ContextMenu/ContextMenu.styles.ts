@@ -1,21 +1,17 @@
 import { Menu, MenuItem, styled } from '@mui/material';
-import { cardShadows } from '../../library/Styles/Shadow.styles';
-import { radiusMedium, radiusSmall } from '../../library/Styles/BorderRadius.styles';
-import { spacingXSmall, spacingXMedium } from '../../library/Styles/Spacing.styles';
-import { auroraOpacity } from '../../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 /**
  * StyledMenu - Context menu background with backdrop blur
  */
 export const StyledMenu = styled(Menu)({
   '& .MuiPaper-root': {
-    background: tokens.colors.bg.secondary,
-    border: `1px solid ${auroraOpacity.standard}`,
-    boxShadow: cardShadows.dropdownDark,
-    borderRadius: radiusMedium,
+    background: tokens.colors.bg.level2,
+    border: `1px solid ${tokens.colors.border.light}`,
+    boxShadow: tokens.shadows.lg,
+    borderRadius: tokens.borderRadius.md,
     minWidth: '220px',
-    padding: spacingXSmall,
+    padding: tokens.spacing.sm,
     backdropFilter: 'blur(12px)',
   },
 });
@@ -27,15 +23,15 @@ export const StyledMenu = styled(Menu)({
  */
 export const StyledMenuItem = styled(MenuItem)<{ destructive?: boolean }>(
   ({ destructive }) => ({
-    borderRadius: radiusSmall,
-    padding: `${spacingXMedium} ${spacingXMedium}`,
-    margin: `${spacingXSmall} 0`,
-    fontSize: '14px',
+    borderRadius: tokens.borderRadius.sm,
+    padding: `${tokens.spacing.md} ${tokens.spacing.md}`,
+    margin: `${tokens.spacing.sm} 0`,
+    fontSize: tokens.typography.fontSize.base,
     color: destructive ? tokens.colors.semantic.error : tokens.colors.text.primary,
-    transition: 'all 0.2s ease',
+    transition: tokens.transitions.base_inOut,
 
     '&:hover': {
-      background: destructive ? auroraOpacity.ultraLight : auroraOpacity.lighter,
+      background: destructive ? tokens.colors.bg.level3 : tokens.colors.bg.level4,
     },
 
     '&.Mui-disabled': {
