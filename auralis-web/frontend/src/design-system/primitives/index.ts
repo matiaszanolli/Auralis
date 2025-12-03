@@ -32,6 +32,18 @@ export type { TooltipProps } from './Tooltip';
 export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
 
+export { Chip } from './Chip';
+export type { ChipProps } from './Chip';
+
+export { CircularProgress } from './CircularProgress';
+export type { CircularProgressProps } from './CircularProgress';
+
+export { LinearProgress } from './LinearProgress';
+export type { LinearProgressProps } from './LinearProgress';
+
+export { List } from './List';
+export type { ListProps } from './List';
+
 // Layout & Form Primitives (consolidated from components/base)
 export { Alert } from './Alert';
 export { Checkbox } from './Checkbox';

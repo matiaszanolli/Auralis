@@ -14,6 +14,26 @@
 export { tokens, withOpacity } from './tokens';
 export type { DesignTokens, ColorToken, SpacingToken, TypographyToken } from './tokens';
 
+// Animation system
+export {
+  fadeIn,
+  fadeOut,
+  slideUp,
+  slideDown,
+  slideInRight,
+  slideOutRight,
+  slideInLeft,
+  slideOutLeft,
+  scaleIn,
+  scaleOut,
+  pulse,
+  rotate,
+  bounce,
+  shimmer,
+  glow,
+  glowAqua,
+} from './animations';
+
 // Primitive components
 export {
   Button,
@@ -24,6 +44,11 @@ export {
   Badge,
   Tooltip,
   Modal,
+  Chip,
+  CircularProgress,
+  LinearProgress,
+  List,
+  Alert,
 } from './primitives';
 
 export type {
@@ -35,4 +60,8 @@ export type {
   BadgeProps,
   TooltipProps,
   ModalProps,
+  ChipProps,
+  CircularProgressProps,
+  LinearProgressProps,
+  ListProps,
 } from './primitives';
