@@ -1,7 +1,6 @@
 import React from 'react';
 import {
-  InputAdornment,
-  CircularProgress
+  InputAdornment
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -11,7 +10,7 @@ import {
   SearchContainer,
   SearchField
 } from '../Styles/SearchStyles.styles';
-import { tokens } from '@/design-system';
+import { tokens, CircularProgress } from '@/design-system';
 
 interface SearchInputProps {
   query: string;

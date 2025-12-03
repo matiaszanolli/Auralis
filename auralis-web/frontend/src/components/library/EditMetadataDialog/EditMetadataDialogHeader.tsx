@@ -1,5 +1,6 @@
 import React from 'react';
-import { Typography, CircularProgress } from '@mui/material';
+import { Typography } from '@mui/material';
+import { CircularProgress } from '@/design-system';
 import { DialogHeaderBox, DialogTitleStyled } from './EditMetadataDialog.styles';
 
 interface EditMetadataDialogHeaderProps {

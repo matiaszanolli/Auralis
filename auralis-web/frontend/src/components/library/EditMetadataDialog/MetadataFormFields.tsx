@@ -9,7 +9,8 @@
  */
 
 import React from 'react';
-import { Grid, CircularProgress, Box } from '@mui/material';
+import { Grid, Box } from '@mui/material';
+import { CircularProgress } from '@/design-system';
 import MetadataBasicFields from './MetadataBasicFields';
 import MetadataDetailFields from './MetadataDetailFields';
 import MetadataExtendedFields from './MetadataExtendedFields';
