@@ -1,59 +1,58 @@
 import { styled, Paper, Box, Typography } from '@mui/material';
-import { auroraOpacity, colorAuroraPrimary } from '../library/Styles/Color.styles';
-import { spacingSmall, spacingXSmall } from '../library/Styles/Spacing.styles';
+import { tokens } from '@/design-system';
 
 export const CategorySection = styled(Paper)(({ theme }) => ({
-  background: auroraOpacity.ultraLight,
-  border: `1px solid ${auroraOpacity.veryLight}`,
-  borderRadius: '12px',
-  padding: spacingSmall,
-  marginBottom: spacingSmall,
+  background: tokens.colors.bg.level3,
+  border: `1px solid ${tokens.colors.border.light}`,
+  borderRadius: tokens.borderRadius.lg,
+  padding: tokens.spacing.md,
+  marginBottom: tokens.spacing.md,
 }));
 
 export const ShortcutRow = styled(Box)(({ theme }) => ({
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: `${spacingXSmall} 0`,
-  borderBottom: `1px solid ${auroraOpacity.ultraLight}`,
+  padding: `${tokens.spacing.sm} 0`,
+  borderBottom: `1px solid ${tokens.colors.bg.level3}`,
   '&:last-child': {
     borderBottom: 'none',
   },
 }));
 
 export const ShortcutKey = styled(Box)(({ theme }) => ({
-  background: auroraOpacity.standard,
-  border: `1px solid ${auroraOpacity.veryStrong}`,
-  borderRadius: '6px',
-  padding: `${spacingXSmall} 12px`,
-  fontFamily: 'monospace',
-  fontSize: '14px',
-  fontWeight: 'bold',
-  color: colorAuroraPrimary,
+  background: tokens.colors.bg.level2,
+  border: `1px solid ${tokens.colors.border.heavy}`,
+  borderRadius: tokens.borderRadius.sm,
+  padding: `${tokens.spacing.sm} 12px`,
+  fontFamily: tokens.typography.fontFamily.mono,
+  fontSize: tokens.typography.fontSize.base,
+  fontWeight: tokens.typography.fontWeight.bold,
+  color: tokens.colors.accent.primary,
   minWidth: '80px',
   textAlign: 'center',
-  boxShadow: `0 2px 8px ${auroraOpacity.standard}`,
+  boxShadow: tokens.shadows.sm,
 }));
 
 export const ShortcutDescription = styled(Typography)(({ theme }) => ({
-  color: auroraOpacity.veryStrong,
-  fontSize: '14px',
+  color: tokens.colors.text.tertiary,
+  fontSize: tokens.typography.fontSize.base,
 }));
 
 export const CategoryTitle = styled(Typography)(({ theme }) => ({
-  color: colorAuroraPrimary,
-  fontWeight: 'bold',
-  fontSize: '16px',
-  marginBottom: spacingXSmall,
+  color: tokens.colors.accent.primary,
+  fontWeight: tokens.typography.fontWeight.bold,
+  fontSize: tokens.typography.fontSize.md,
+  marginBottom: tokens.spacing.sm,
   display: 'flex',
   alignItems: 'center',
-  gap: spacingXSmall,
+  gap: tokens.spacing.sm,
 }));
 
 export const EmptyStateBox = styled(Box)(({ theme }) => ({
   textAlign: 'center',
-  padding: `40px ${spacingSmall}`,
-  color: auroraOpacity.standard,
+  padding: `40px ${tokens.spacing.md}`,
+  color: tokens.colors.text.muted,
 }));
 
 export const DialogContentBoxStyles = {
