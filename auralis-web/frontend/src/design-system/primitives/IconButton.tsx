@@ -25,9 +25,9 @@ export interface IconButtonProps extends Omit<MuiIconButtonProps, 'size' | 'colo
   variant?: 'default' | 'primary' | 'secondary' | 'ghost';
 
   /**
-   * Size
+   * Size - supports both design system and MUI formats
    */
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'small' | 'medium' | 'large';
 
   /**
    * Tooltip text (optional)
