@@ -92,8 +92,8 @@ class SelectorPerformanceTracker {
     }
 
     const allMetrics = Array.from(this.metrics.values());
-    const totalCalls = allMetrics.reduce((sum, m) => sum + m.calls, 0);
-    const totalHits = allMetrics.reduce((sum, m) => sum + m.cacheHits, 0);
+    const totalCalls = allMetrics.reduce((sum: number, m) => sum + m.calls, 0);
+    const totalHits = allMetrics.reduce((sum: number, m) => sum + m.cacheHits, 0);
 
     if (totalCalls === 0) return 0;
     return (totalHits / totalCalls) * 100;
@@ -294,7 +294,7 @@ export const queueSelectors = {
     (tracks, currentIndex) => {
       return tracks
         .slice(currentIndex + 1)
-        .reduce((sum, track) => sum + track.duration, 0);
+        .reduce((sum: number, track: any) => sum + track.duration, 0);
     }
   ),
 
@@ -305,7 +305,7 @@ export const queueSelectors = {
     'selectQueueStats',
     (state: RootState) => [state.queue.tracks, state.queue.currentIndex],
     (tracks, currentIndex) => {
-      const totalTime = tracks.reduce((sum, track) => sum + track.duration, 0);
+      const totalTime = tracks.reduce((sum: number, track: any) => sum + track.duration, 0);
 
       return {
         length: tracks.length,
@@ -332,10 +332,10 @@ export const queueSelectors = {
     ],
     (tracks, currentIndex, isLoading, error) => {
       const currentTrack = tracks[currentIndex] || null;
-      const totalTime = tracks.reduce((sum, track) => sum + track.duration, 0);
+      const totalTime = tracks.reduce((sum: number, track: any) => sum + track.duration, 0);
       const remainingTime = tracks
         .slice(currentIndex + 1)
-        .reduce((sum, track) => sum + track.duration, 0);
+        .reduce((sum: number, track: any) => sum + track.duration, 0);
 
       return {
         tracks,
