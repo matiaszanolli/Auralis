@@ -128,7 +128,7 @@ export function withMemo<P extends Record<string, any>>(
             return isEqual;
           }
         : undefined
-  );
+  ) as React.MemoExoticComponent<ComponentType<P>>;
 
   const displayName = config.displayName || Component.displayName || Component.name;
   memoizedComponent.displayName = `memo(${displayName})`;
@@ -148,7 +148,7 @@ export function withDeepMemo<P extends Record<string, any>>(
   const memoizedComponent = memo(
     Component,
     (prevProps, nextProps) => deepEqual(prevProps, nextProps)
-  );
+  ) as React.MemoExoticComponent<ComponentType<P>>;
 
   memoizedComponent.displayName = `deepMemo(${displayName})`;
 
@@ -192,7 +192,7 @@ export function withTrackedMemo<P extends Record<string, any>>(
             return isEqual;
           }
         : undefined
-  );
+  ) as React.MemoExoticComponent<ComponentType<P>>;
 
   memoizedComponent.displayName = `trackedMemo(${displayName})`;
 
