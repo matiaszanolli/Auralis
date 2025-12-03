@@ -12,7 +12,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { EmptyState } from '../../shared/ui/feedback';
+import { EmptyState } from '../../../shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { AlbumGridContent } from './AlbumGridContent';
 import { useAlbumGridPagination } from './useAlbumGridPagination';

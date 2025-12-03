@@ -22,7 +22,7 @@ import { Typography } from '@mui/material';
 import {
   EndOfListIndicator as StyledContainer,
   EndOfListText as StyledText
-} from '../Styles/Grid.styles';
+} from '../../Styles/Grid.styles';
 
 interface EndOfListIndicatorProps {
   children?: React.ReactNode;

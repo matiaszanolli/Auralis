@@ -9,24 +9,31 @@ interface AlertProps {
   className?: string;
 }
 
+const hexToRgba = (hex: string, alpha: number): string => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const variantStyles = {
   info: {
-    bg: `rgba(${parseInt(tokens.colors.semantic.info.slice(1, 3), 16)}, ${parseInt(tokens.colors.semantic.info.slice(3, 5), 16)}, ${parseInt(tokens.colors.semantic.info.slice(5, 7), 16)}, 0.15)`,
+    bg: hexToRgba(tokens.colors.semantic.info, 0.15),
     border: tokens.colors.semantic.info,
     text: tokens.colors.semantic.info,
   },
   success: {
-    bg: `rgba(0, 212, 170, 0.15)`,
+    bg: hexToRgba(tokens.colors.semantic.success, 0.15),
     border: tokens.colors.semantic.success,
     text: tokens.colors.semantic.success,
   },
   warning: {
-    bg: `rgba(245, 158, 11, 0.15)`,
+    bg: hexToRgba(tokens.colors.semantic.warning, 0.15),
     border: tokens.colors.semantic.warning,
     text: tokens.colors.semantic.warning,
   },
   error: {
-    bg: `rgba(239, 68, 68, 0.15)`,
+    bg: hexToRgba(tokens.colors.semantic.error, 0.15),
     border: tokens.colors.semantic.error,
     text: tokens.colors.semantic.error,
   },
@@ -45,7 +52,7 @@ export const Alert = React.forwardRef<
   onClose,
   className = '',
 }, ref) => {
-  const variantStyle = variantStyles[variant];
+  const variantStyle = variantStyles[variant] || variantStyles.info;
 
   const containerStyles: React.CSSProperties = {
     display: 'flex',

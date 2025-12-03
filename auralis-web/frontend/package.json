@@ -92,7 +92,7 @@
     "happy-dom": "^20.0.2",
     "jsdom": "^27.0.0",
     "msw": "^2.6.5",
-    "vite": "^7.2.4",
+    "vite": "^7.2.6",
     "vite-tsconfig-paths": "^4.3.2",
     "vitest": "^3.2.4"
   },
