@@ -321,7 +321,7 @@ describe('useAppDragDrop', () => {
     });
 
     it('logs errors to console', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       // Set up MSW handler for error case
       server.use(
         http.post('/api/player/queue/add', () => {
