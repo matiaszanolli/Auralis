@@ -30,7 +30,7 @@
  * - Centralized error handling (Phase 3c integration)
  */
 
-import { useWebSocketContext } from '../contexts/WebSocketContext';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 /**
  * Adapter interface for backward compatibility
