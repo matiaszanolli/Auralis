@@ -25,7 +25,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import { ConnectionStatusIndicator } from '../ConnectionStatusIndicator';
-import * as hooks from '@/hooks/useWebSocketProtocol';
+import * as hooks from '@/hooks/websocket/useWebSocketProtocol';
 import { mockUseWebSocketProtocol } from './test-utils';
 
 // Mock the hooks

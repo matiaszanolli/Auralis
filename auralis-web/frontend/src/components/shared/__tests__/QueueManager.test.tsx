@@ -25,14 +25,14 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import { QueueManager } from '../QueueManager';
-import * as hooks from '@/hooks/useQueueCommands';
+import * as hooks from '@/hooks/websocket/useWebSocketProtocol';
 import {
   mockUseQueueCommands,
   mockTracks,
 } from './test-utils';
 
 // Mock the hooks
-vi.mock('@/hooks/useQueueCommands', () => ({
+vi.mock('@/hooks/websocket/useWebSocketProtocol', () => ({
   useQueueCommands: vi.fn(),
 }));
 

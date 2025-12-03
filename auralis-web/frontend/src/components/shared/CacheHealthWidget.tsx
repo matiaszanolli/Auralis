@@ -16,7 +16,7 @@
 
 import React, { useState } from 'react';
 import { tokens } from '@/design-system';
-import { useCacheHealth } from '@/hooks/useStandardizedAPI';
+import { useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import CacheHealthMonitor from './CacheHealthMonitor';
 
 type Size = 'small' | 'medium' | 'large';

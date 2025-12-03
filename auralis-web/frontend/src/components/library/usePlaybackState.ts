@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '../shared/Toast';
-import { Track } from '../../hooks/useLibraryWithStats';
+import { Track } from '@/hooks/library/useLibraryWithStats';
 
 export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
   const [currentTrackId, setCurrentTrackId] = useState<number | undefined>(undefined);

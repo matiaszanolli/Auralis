@@ -6,7 +6,7 @@ import { WebSocketProvider } from './contexts/WebSocketContext';
 import { EnhancementProvider } from './contexts/EnhancementContext';
 import ComfortableApp from './ComfortableApp';
 import HiddenAudioElement from './components/player/HiddenAudioElement';
-import { usePlayerStateSync } from './hooks/usePlayerStateSync';
+import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
 import { store } from './store';
 
 /**

@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { tokens } from '@/design-system';
-import { useWebSocketProtocol } from '@/hooks/useWebSocketProtocol';
+import { useWebSocketProtocol } from '@/hooks/websocket/useWebSocketProtocol';
 
 type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 

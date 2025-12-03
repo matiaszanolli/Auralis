@@ -16,8 +16,8 @@
 
 import React, { useState } from 'react';
 import { tokens } from '@/design-system';
-import { useCacheStats, useCacheHealth } from '@/hooks/useStandardizedAPI';
-import { useStandardizedAPI } from '@/hooks/useStandardizedAPI';
+import { useCacheStats, useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
+import { useStandardizedAPI } from '@/hooks/shared/useStandardizedAPI';
 import { CacheStats } from '@/services/api/standardizedAPIClient';
 
 interface CacheManagementPanelProps {

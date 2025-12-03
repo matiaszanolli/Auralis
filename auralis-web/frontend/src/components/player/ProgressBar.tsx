@@ -15,7 +15,7 @@
  */
 
 import React, { useRef, useCallback, useState, useMemo } from 'react';
-import { formatSecondToTime } from '@/hooks/usePlayerDisplay';
+import { formatSecondToTime } from '@/hooks/player/usePlayerDisplay';
 import { tokens } from '@/design-system';
 
 export interface ProgressBarProps {

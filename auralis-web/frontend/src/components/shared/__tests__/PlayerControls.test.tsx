@@ -26,8 +26,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import { PlayerControls } from '../PlayerControls';
-import * as hooks from '@/hooks/usePlayerCommands';
-import * as playerHooks from '@/hooks/usePlayerStateUpdates';
+import * as hooks from '@/hooks/websocket/useWebSocketProtocol';
+import * as playerHooks from '@/hooks/websocket/useWebSocketProtocol';
 import {
   mockUsePlayerCommands,
   mockUsePlayerStateUpdates,
@@ -35,11 +35,8 @@ import {
 } from './test-utils';
 
 // Mock the hooks
-vi.mock('@/hooks/usePlayerCommands', () => ({
+vi.mock('@/hooks/websocket/useWebSocketProtocol', () => ({
   usePlayerCommands: vi.fn(),
-}));
-
-vi.mock('@/hooks/usePlayerStateUpdates', () => ({
   usePlayerStateUpdates: vi.fn(),
 }));
 

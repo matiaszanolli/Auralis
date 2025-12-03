@@ -15,7 +15,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { tokens } from '@/design-system';
-import { useCacheStats } from '@/hooks/useStandardizedAPI';
+import { useCacheStats } from '@/hooks/shared/useStandardizedAPI';
 import { CacheStats } from '@/services/api/standardizedAPIClient';
 
 interface CacheStatsDashboardProps {

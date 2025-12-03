@@ -18,7 +18,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { tokens } from '@/design-system';
-import { useQueueCommands } from '@/hooks/useWebSocketProtocol';
+import { useQueueCommands } from '@/hooks/websocket/useWebSocketProtocol';
 
 interface Track {
   id: number;

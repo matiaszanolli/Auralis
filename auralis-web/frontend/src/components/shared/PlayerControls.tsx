@@ -17,7 +17,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { tokens } from '@/design-system';
-import { usePlayerCommands, usePlayerStateUpdates } from '@/hooks/useWebSocketProtocol';
+import { usePlayerCommands, usePlayerStateUpdates } from '@/hooks/websocket/useWebSocketProtocol';
 
 interface PlayerState {
   isPlaying: boolean;

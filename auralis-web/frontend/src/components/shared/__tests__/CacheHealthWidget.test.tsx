@@ -25,7 +25,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import { CacheHealthWidget } from '../CacheHealthWidget';
-import * as hooks from '@/hooks/useStandardizedAPI';
+import * as hooks from '@/hooks/shared/useStandardizedAPI';
 import {
   mockCacheHealth,
   mockUseCacheHealth,

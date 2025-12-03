@@ -34,9 +34,9 @@ import TrackDisplay from './TrackDisplay';
 import QueuePanel from './QueuePanel';
 
 // Core Phase 3 Hooks
-import { usePlayerStreaming, PlayerStreamingState } from '@/hooks/usePlayerStreaming';
-import { usePlayerControls, PlayerControls } from '@/hooks/usePlayerControls';
-import { usePlayerDisplay, PlayerDisplayInfo } from '@/hooks/usePlayerDisplay';
+import { usePlayerStreaming, PlayerStreamingState } from '@/hooks/player/usePlayerStreaming';
+import { usePlayerControls, PlayerControls } from '@/hooks/player/usePlayerControls';
+import { usePlayerDisplay, PlayerDisplayInfo } from '@/hooks/player/usePlayerDisplay';
 
 // Existing hooks for track info
 import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
