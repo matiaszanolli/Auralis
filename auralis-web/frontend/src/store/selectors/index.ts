@@ -193,7 +193,7 @@ export const makeSelectCacheHealth = () => (
 
   return {
     healthy: health?.healthy ?? false,
-    hitRate: health?.hit_rate ?? 0,
+    hitRate: health?.overall_hit_rate ?? 0,
     status: health?.status ?? 'unknown',
   };
 };
