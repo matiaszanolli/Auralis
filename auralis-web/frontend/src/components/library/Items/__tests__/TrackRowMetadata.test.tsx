@@ -10,7 +10,7 @@
 
 import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
-import { TrackRowMetadata } from '../TrackRowMetadata';
+import { TrackRowMetadata } from '../tracks/TrackRowMetadata';
 
 describe('TrackRowMetadata', () => {
   beforeEach(() => {

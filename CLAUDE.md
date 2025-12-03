@@ -95,8 +95,10 @@ python -m pytest tests/backend/test_player.py -v
 | Run specific test | `python -m pytest tests/backend/test_player.py::test_play_track -vv -s` |
 | Run only fast tests | `python -m pytest -m "not slow" -v` |
 | Frontend watch mode (lightweight) | `cd auralis-web/frontend && npm test` |
+| Frontend full suite (2GB heap) | `cd auralis-web/frontend && npm run test:memory` |
 | Type check Python | `mypy auralis/ auralis-web/backend/ --ignore-missing-imports` |
-| Type check TypeScript | `cd auralis-web/frontend && npx tsc --noEmit` |
+| Type check TypeScript | `cd auralis-web/frontend && npm run type-check` |
+| Build frontend (prod) | `cd auralis-web/frontend && npm run build` |
 | Format Python code | `black auralis/ auralis-web/backend/` |
 | Sort Python imports | `isort auralis/ auralis-web/backend/` |
 | Free port 8765 | `lsof -ti:8765 \| xargs kill -9` |
@@ -180,11 +182,13 @@ python -m pytest tests/backend/test_player.py -v
 
 - **Watch mode** (lightweight): `cd auralis-web/frontend && npm test` - For development iteration
 - **Single run**: `cd auralis-web/frontend && npm run test:run` - For CI or one-off testing
+- **With memory heap**: `cd auralis-web/frontend && npm run test:memory` - Full suite with 2GB heap (prevents OOM)
 - **With coverage**: `cd auralis-web/frontend && npm run test:coverage` - For coverage reports
+- **Type checking**: `cd auralis-web/frontend && npm run type-check` - TypeScript validation (0 critical errors)
 - Import `render` from `@/test/test-utils`, use `vi.*` (Vitest, not Jest)
 - Use `screen.getByRole()` or `screen.getByTestId()`, not implementation details
 - API Mocking: Use MSW in `src/test/mocks/handlers.ts` with WAV format (16/24-bit PCM)
-- **Known Issues**: 168 tests failing (12%) due to async cleanup and provider nesting - see [docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md](docs/guides/FRONTEND_TEST_MEMORY_IMPROVEMENTS_APPLIED.md)
+- **Known Issues**: Some tests may fail due to async cleanup and provider nesting - use `npm run test:memory` for stability
 
 ## 🎨 Design System (MANDATORY)
 
@@ -199,6 +203,43 @@ import { tokens } from '@/design-system'
 ```
 
 **Component Guidelines**: Keep < 300 lines, one purpose per component, no "Enhanced"/"V2" duplicates
+
+---
+
+## 🎯 Frontend Hook Architecture
+
+**Organization**: Hooks are organized by domain in `auralis-web/frontend/src/hooks/` (Phase 1.3 consolidation)
+
+**Hook Categories** (organized for maintainability):
+- **`usePlayer.ts`** - Playback control and state management
+- **`useLibrary.ts`** - Library browsing and search
+- **`usePlaylist.ts`** - Queue and playlist operations
+- **`useAudio.ts`** - Audio processing and visualization
+- **`useUI.ts`** - UI state (modals, sidebars, theme)
+- **`useWebSocket.ts`** - WebSocket communication
+- **`useKeyboardShortcuts.ts`** - Keyboard event handling
+- **`useSettings.ts`** - User preferences and configuration
+
+**Import Pattern**: Use absolute paths with `@/hooks`
+```typescript
+// ✅ Correct (absolute path)
+import { usePlayer } from '@/hooks'
+import { useLibrary } from '@/hooks'
+
+// ❌ Wrong (relative path)
+import { usePlayer } from '../../../hooks'
+```
+
+**Hook Size Limit**: Max 250 lines per hook (same as components)
+- If exceeding limit, split into smaller composable hooks
+- Example: `usePlayer.ts` (core) + `usePlayerQueue.ts` (queue-specific)
+
+**Hook Testing**: Test hooks with `renderHook` from `@testing-library/react`
+```typescript
+const { result } = renderHook(() => usePlayer())
+act(() => { result.current.play() })
+expect(result.current.isPlaying).toBe(true)
+```
 
 ---
 
@@ -264,8 +305,11 @@ WebSocket streaming → Frontend (Redux state + HTML5 Audio)
 - **State Management**: Redux for global player state, local React state for UI
 - **Styling**: Design tokens ONLY from `src/design-system/tokens.ts` (colors, spacing, typography)
 - **Components**: Keep < 300 lines, single responsibility (no "Enhanced"/"V2"/"Advanced" duplicates)
+- **Hooks**: Domain-organized in `hooks/` with 8 categories (Phase 1.3 consolidation)
+- **Imports**: Always use absolute paths (`@/components`, `@/hooks`, `@/services`) from TypeScript path aliases
 - **Build Tool**: Vite for fast development builds
 - **Testing**: Vitest + React Testing Library (use `npm run test:memory` for full suite)
+- **Type Safety**: 100% TypeScript (zero critical errors) - enforced via `npm run type-check`
 - **API Communication**: MSW mocks for tests, real WebSocket in production
 - **Performance**: React.memo for expensive components, useCallback for handler stability
 
@@ -318,6 +362,10 @@ assert chunk_samples % 2 == 0  # Even samples for stereo
 ### Backend (Python)
 - **Routers as modules**: Each `routers/*.py` file is auto-included in `main.py` via `include_router()` pattern
 - **Database access**: ALWAYS use repository pattern (`auralis/library/repositories/*.py`), never raw SQL in business logic
+  - **Repository Pattern**: Data access abstraction for testability and consistency
+    - Repository classes handle all database queries: `TracksRepository`, `ArtistsRepository`, `AlbumsRepository`
+    - Routers call repositories, never execute queries directly
+    - Example: `repo.find_by_id(track_id)` NOT `db.execute("SELECT * FROM tracks WHERE id = ?")`
 - **Async/Await**: FastAPI endpoints are async; use `async def` for all route handlers
 - **Pydantic models**: Define request/response shapes, let FastAPI handle serialization
 - **Error handling**: Raise `HTTPException` from `fastapi` with appropriate status codes (400, 404, 422, 500)
@@ -325,8 +373,13 @@ assert chunk_samples % 2 == 0  # Even samples for stereo
 - **Caching**: Only cache deterministic queries (no time-dependent results)—use `streamlined_cache.py`
 
 ### Frontend (React/TypeScript)
+- **Imports**: Use absolute paths from TypeScript path aliases
+  - ✅ `import { Button } from '@/components'`
+  - ❌ `import { Button } from '../../../components'`
 - **Design tokens**: ALWAYS use `import { tokens } from '@/design-system'` for colors, spacing, typography—never hardcode
 - **Component structure**: Keep components < 300 lines; split responsibilities if growing larger
+- **Hooks**: Domain-organized (player, library, playlist, audio, UI, WebSocket, keyboard, settings)
+- **Type safety**: Enforce with `npm run type-check` - zero critical errors required
 - **Testing**: Use `render` from `@/test/test-utils`, use Vitest (`vi.*`), NOT Jest
 - **Async/React**: Wrap state updates in `act()`, always clean up subscriptions in `afterEach`
 - **WebSocket**: Listen for updates via `WebSocketContext`, clean up listeners to prevent memory leaks
@@ -388,6 +441,69 @@ This project uses a multi-faceted build system:
 - **Python**: `pyproject.toml` (build config), `requirements.txt` (dependencies)
 - **Frontend**: `auralis-web/frontend/package.json` (npm scripts, build config)
 - **Desktop**: `desktop/package.json` (Electron build config)
+
+---
+
+## 🔍 Advanced Debugging
+
+### Python Debugging
+```bash
+# Debug a single test with breakpoints (pdb)
+python -m pytest tests/backend/test_player.py::test_play_track -vv -s --pdb
+
+# Run with detailed logging
+python -m pytest tests/ -v --log-cli-level=DEBUG --log-cli-format="%(asctime)s [%(levelname)8s] %(message)s"
+
+# Profile function execution times
+python -m cProfile -s cumtime -m pytest tests/audio/test_processing.py -v
+
+# Check for memory leaks in tests
+python -m pytest tests/ -v --benchmark-only --benchmark-compare
+```
+
+### Frontend Debugging
+```bash
+# Run tests with detailed output and source maps
+cd auralis-web/frontend && npm test -- --reporter=verbose
+
+# Debug a specific component
+cd auralis-web/frontend && npm test -- src/components/Player.test.tsx --watch
+
+# Check bundle size
+cd auralis-web/frontend && npm run build && npm run analyze-bundle
+
+# Inspect Redux state during tests
+# Add `console.log(store.getState())` in test and run with output
+cd auralis-web/frontend && npm test -- --reporter=default
+```
+
+### WebSocket Debugging
+```bash
+# Monitor WebSocket messages in real-time
+curl -i -N -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: SGVsbG8sIHdvcmxkIQ==" \
+  -H "Sec-WebSocket-Version: 13" \
+  http://localhost:8765/ws
+
+# Use websocat for interactive WebSocket testing
+# Install: cargo install websocat
+websocat ws://localhost:8765/ws
+```
+
+### Database Debugging
+```bash
+# Export database for inspection
+sqlite3 ~/.auralis/library.db ".dump tracks" > tracks_dump.sql
+
+# Performance analysis
+sqlite3 ~/.auralis/library.db "EXPLAIN QUERY PLAN SELECT * FROM tracks WHERE artist_id = 1;"
+
+# Check table indexes
+sqlite3 ~/.auralis/library.db ".schema tracks"
+
+# Analyze query performance
+sqlite3 ~/.auralis/library.db "PRAGMA table_info(tracks);"
+```
 
 ---
 
@@ -584,19 +700,21 @@ python sync_version.py 1.1.0-beta.6
 
 ## 🎯 Current Development Phase
 
-**Phase**: 9D (Audio Mastering Refinement) - Energy-adaptive LUFS targeting for Matchering compatibility
+**Phase**: Frontend Consolidation & Code Quality (1.1.0-beta.6)
 
 **Completed Phases**:
 - ✅ **Phase 7.2**: Spectrum and Content Analysis Consolidation (eliminated 900 lines of duplicate code via Utilities Pattern)
 - ✅ **Phase 8**: Preset-Aware Peak Normalization (fixed preset differentiation bug, Gentle now 0.20 dB louder than Adaptive)
 - ✅ **Phase 9A**: Matchering Baseline Analysis (analyzed two Slayer albums, established content-aware scaling patterns)
 - ✅ **Phase 9D**: Audio Downsampling & Energy-Adaptive LUFS (5/10 tracks within target boost range, 65 sec/track processing at 48 kHz)
+- ✅ **Phase 1-3 Frontend**: Hook consolidation (8 domain categories), 100% TypeScript type safety, absolute path imports (@/)
 
 **Current Focus** (1.1.0-beta.6):
 - Fine-tune energy-LUFS scaling for 8/10+ track pass rate
 - Expand album validation to additional test suites
 - Performance profiling and optimization
 - Additional DSP refinements based on A/B testing
+- Frontend quality improvements and component refactoring
 
 **Research Folder**:
 - Location: `research/` (excluded from git via .gitignore)

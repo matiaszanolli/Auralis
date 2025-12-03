@@ -9,7 +9,7 @@
 
 import { vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useTrackRowHandlers } from '../useTrackRowHandlers';
+import { useTrackRowHandlers } from '../tracks/useTrackRowHandlers';
 
 describe('useTrackRowHandlers', () => {
   const mockOnPlay = vi.fn();

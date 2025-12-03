@@ -10,7 +10,7 @@
 
 import { vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
-import { TrackRowAlbumArt } from '../TrackRowAlbumArt';
+import { TrackRowAlbumArt } from '../tracks/TrackRowAlbumArt';
 
 describe('TrackRowAlbumArt', () => {
   const mockOnImageError = vi.fn();

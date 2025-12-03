@@ -5,7 +5,7 @@ import {
   ListItem,
   Skeleton
 } from '@mui/material';
-import { ListContainer } from '../Styles/ArtistList.styles';
+import { ListContainer } from '../../Styles/ArtistList.styles';
 
 /**
  * ArtistListLoading - Loading skeleton for artist list

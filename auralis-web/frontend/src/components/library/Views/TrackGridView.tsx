@@ -2,7 +2,7 @@ import React from 'react';
 import { Grid } from '@mui/material';
 import { TrackCard } from '../../track/TrackCard';
 // import TrackQueue from '../../player-bar-v2/queue/TrackQueue'; // FIXME: Component not found
-import InfiniteScrollTrigger from '../Items/InfiniteScrollTrigger';
+import InfiniteScrollTrigger from '../Items/utilities/InfiniteScrollTrigger';
 import { Track } from './TrackListView';
 
 export interface TrackGridViewProps {

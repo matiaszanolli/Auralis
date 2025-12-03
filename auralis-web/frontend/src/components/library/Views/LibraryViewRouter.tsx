@@ -14,8 +14,8 @@
  */
 
 import React from 'react';
-import { CozyAlbumGrid } from '../Items/CozyAlbumGrid';
-import { CozyArtistList } from '../Items/CozyArtistList';
+import { CozyAlbumGrid } from '../Items/albums/CozyAlbumGrid';
+import { CozyArtistList } from '../Items/artists/CozyArtistList';
 import AlbumDetailView from '../Details/AlbumDetailView';
 import ArtistDetailView from '../Details/ArtistDetailView';
 import { ViewContainer } from './ViewContainer';

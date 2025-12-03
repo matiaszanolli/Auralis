@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
 import { EmptyState } from '../../shared/ui/feedback';
-import AlbumTrackTable from '../Items/AlbumTrackTable';
+import AlbumTrackTable from '../Items/tables/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
 import { useAlbumDetails, type Track } from './useAlbumDetails';
 import { ArrowBack } from '@mui/icons-material';

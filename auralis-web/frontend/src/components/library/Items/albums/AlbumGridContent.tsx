@@ -7,10 +7,10 @@
 import React from 'react';
 import { Grid } from '@mui/material';
 import { AlbumCard } from '../../album/AlbumCard/AlbumCard';
-import { GridContainer } from '../Styles/Grid.styles';
-import InfiniteScrollTrigger from './InfiniteScrollTrigger';
-import EndOfListIndicator from './EndOfListIndicator';
-import GridLoadingState from './GridLoadingState';
+import { GridContainer } from '../../Styles/Grid.styles';
+import InfiniteScrollTrigger from '../utilities/InfiniteScrollTrigger';
+import EndOfListIndicator from '../utilities/EndOfListIndicator';
+import GridLoadingState from '../utilities/GridLoadingState';
 
 interface Album {
   id: number;

@@ -27,7 +27,7 @@ import React, { useCallback } from 'react';
 import { ArtistListLoading } from './ArtistListLoading';
 import { ArtistListEmptyState } from './ArtistListEmptyState';
 import { ArtistListContent } from './ArtistListContent';
-import { useArtistListPagination } from '../Hooks/useArtistListPagination';
+import { useArtistListPagination } from '../../Hooks/useArtistListPagination';
 import { useContextMenuActions } from './useContextMenuActions';
 
 interface CozyArtistListProps {
