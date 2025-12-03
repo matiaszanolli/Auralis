@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Paper, Typography } from '@mui/material';
-import { tokens } from '../../design-system/tokens';
+import { tokens } from '@/design-system';
 
 const InfoBox: React.FC = React.memo(() => {
   return (
