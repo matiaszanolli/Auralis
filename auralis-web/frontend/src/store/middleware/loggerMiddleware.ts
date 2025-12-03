@@ -76,12 +76,14 @@ const style = (color: string) => `color: ${color}; font-weight: bold; font-size:
  * Format timestamp for logging
  */
 function formatTime(timestamp: number): string {
-  return new Intl.DateTimeFormat('en-US', {
+  const date = new Date(timestamp);
+  const timeStr = new Intl.DateTimeFormat('en-US', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    fractionalSecondDigits: 3,
-  }).format(timestamp);
+  }).format(date);
+  const ms = String(date.getMilliseconds()).padStart(3, '0');
+  return `${timeStr}.${ms}`;
 }
 
 /**
@@ -224,10 +226,17 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
       const groupMethod = finalConfig.collapsed ? 'groupCollapsed' : 'group';
       const titleSuffix = error ? '❌' : '✅';
 
-      console[groupMethod as keyof typeof console](
-        `${titleSuffix} ${sanitizedAction.type}`,
-        finalConfig.timestamps ? `@ ${formatTime(timestamp.getTime())}` : ''
-      );
+      if (groupMethod === 'groupCollapsed') {
+        console.groupCollapsed(
+          `${titleSuffix} ${sanitizedAction.type}`,
+          finalConfig.timestamps ? `@ ${formatTime(timestamp.getTime())}` : ''
+        );
+      } else {
+        console.group(
+          `${titleSuffix} ${sanitizedAction.type}`,
+          finalConfig.timestamps ? `@ ${formatTime(timestamp.getTime())}` : ''
+        );
+      }
 
       // Log action
       log('Action:', colors.action, sanitizedAction);
