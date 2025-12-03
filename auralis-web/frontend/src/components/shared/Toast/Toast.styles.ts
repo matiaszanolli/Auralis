@@ -1,5 +1,5 @@
 import { Alert, AlertColor, styled, keyframes } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { getToastBackgroundColor, getToastBorderColor } from './toastColors';
 
 /**
@@ -24,12 +24,12 @@ export const StyledAlert = styled(Alert)<{ severity: AlertColor }>(({ severity }
     background: getToastBackgroundColor(severity),
     color: tokens.colors.text.primary,
     border: `1px solid ${getToastBorderColor(severity)}`,
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.19)',
+    borderRadius: tokens.borderRadius.md,
+    boxShadow: tokens.shadows.md,
     backdropFilter: 'blur(12px)',
-    animation: `${slideIn} 0.3s ease-out`,
-    fontSize: '14px',
-    fontWeight: 500,
+    animation: `${slideIn} ${tokens.transitions.base}`,
+    fontSize: tokens.typography.fontSize.base,
+    fontWeight: tokens.typography.fontWeight.medium,
 
     '& .MuiAlert-icon': {
       color: getToastBorderColor(severity),
