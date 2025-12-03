@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Tooltip } from '@mui/material';
+import { Tooltip } from '@/design-system';
 import { ActionButton } from './BatchActionsToolbarStyles';
 
 interface BatchActionButtonProps {
