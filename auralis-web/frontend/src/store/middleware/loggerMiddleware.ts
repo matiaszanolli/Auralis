@@ -316,4 +316,4 @@ export function getDevToolsConfig() {
 // Exports
 // ============================================================================
 
-export type { LoggerConfig };
+// LoggerConfig, createLoggerMiddleware, and getDevToolsConfig are exported above
