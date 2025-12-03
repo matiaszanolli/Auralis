@@ -1,6 +1,6 @@
 import React from 'react';
-import { List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import { tokens } from '@/design-system';
+import { ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import { List, tokens } from '@/design-system';
 import { StyledListItemButton } from './SidebarStyles';
 
 interface NavItem {
