@@ -1,8 +1,10 @@
 import React from 'react';
-import { IconButton, Typography } from '@mui/material';
+
 import { Close, Keyboard } from '@mui/icons-material';
 import { StyledDialogTitle } from '../library/Styles/Dialog.styles';
 import { tokens } from '@/design-system';
+import { IconButton } from '@/design-system';
+import { Typography } from '@mui/material';
 
 interface KeyboardShortcutsHeaderProps {
   onClose: () => void;

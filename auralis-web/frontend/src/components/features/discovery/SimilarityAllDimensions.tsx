@@ -1,16 +1,10 @@
 import React from 'react';
-import {
-  Box,
-  Grid,
-  Typography,
-  LinearProgress,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-} from '@mui/material';
+
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { useSimilarityFormatting } from './useSimilarityFormatting';
+import { LinearProgress } from '@/design-system';
+import { Box, Grid, Typography, Accordion, AccordionSummary, AccordionDetails,  } from '@mui/material';
 
 export interface Contribution {
   dimension: string;

@@ -6,10 +6,12 @@
  */
 
 import React from 'react';
-import { Box, IconButton } from '@mui/material';
+
 import { PlayArrow } from '@mui/icons-material';
 import { gradients } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
+import { IconButton } from '@/design-system';
+import { Box } from '@mui/material';
 
 export interface PlayOverlayProps {
   isHovered: boolean;

@@ -4,9 +4,10 @@
  * Reusable styled components for TrackCard layout
  */
 
-import { Box, Card, CardContent, styled } from '@mui/material';
 import { auroraOpacity, gradients } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
+import { Card } from '@/design-system';
+import { Box, CardContent, styled } from '@mui/material';
 
 export const StyledTrackCard = styled(Card)(({ theme }) => ({
   position: 'relative',

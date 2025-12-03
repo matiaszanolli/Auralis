@@ -1,5 +1,7 @@
-import { Box, IconButton, Paper, styled } from '@mui/material';
+
 import { tokens } from '@/design-system';
+import { IconButton } from '@/design-system';
+import { Box, Paper, styled } from '@mui/material';
 
 /**
  * Styled components for EnhancementToggle variants

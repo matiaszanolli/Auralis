@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  Typography,
-  IconButton,
-  Button
-} from '@mui/material';
+
 import {
   PlayArrow,
   Shuffle,
@@ -13,6 +8,8 @@ import {
 import { tokens } from '@/design-system';
 import DetailViewHeader from './DetailViewHeader';
 import { ArtistAvatarCircle } from '../Styles/ArtistDetail.styles';
+import { IconButton, Button } from '@/design-system';
+import { Box, Typography } from '@mui/material';
 
 interface Artist {
   id: number;

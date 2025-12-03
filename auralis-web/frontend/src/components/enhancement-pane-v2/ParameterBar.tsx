@@ -6,9 +6,11 @@
  */
 
 import React from 'react';
-import { Box, Typography, LinearProgress } from '@mui/material';
+
 import { tokens } from '@/design-system';
 import ParameterChip from './ParameterChip';
+import { LinearProgress } from '@/design-system';
+import { Box, Typography } from '@mui/material';
 
 interface ParameterBarProps {
   label: string;

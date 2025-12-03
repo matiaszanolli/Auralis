@@ -1,6 +1,8 @@
-import { Alert, AlertColor, styled, keyframes } from '@mui/material';
+
 import { tokens } from '@/design-system';
 import { getToastBackgroundColor, getToastBorderColor } from './toastColors';
+import { Alert } from '@/design-system';
+import { AlertColor, styled, keyframes } from '@mui/material';
 
 /**
  * Toast animation - slide in from right

@@ -9,19 +9,15 @@
  */
 
 import React from 'react';
-import {
-  Box,
-  Container,
-  Button,
-  Skeleton,
-  IconButton,
-} from '@mui/material';
+
 import { tokens } from '@/design-system';
 import { EmptyState } from '../../shared/ui/feedback';
 import AlbumTrackTable from '../Items/tables/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
 import { useAlbumDetails, type Track } from './useAlbumDetails';
 import { ArrowBack } from '@mui/icons-material';
+import { Button, IconButton } from '@/design-system';
+import { Box, Container, Skeleton,  } from '@mui/material';
 
 interface AlbumDetailViewProps {
   albumId: number;

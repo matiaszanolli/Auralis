@@ -1,7 +1,9 @@
 import React, { useCallback } from 'react';
-import { Box, Tooltip } from '@mui/material';
+
 import { QueueMusic, Add, ExpandMore, ExpandLess } from '@mui/icons-material';
 import { SectionHeader, SectionTitle, AddButton } from './PlaylistList.styles';
+import { Tooltip } from '@/design-system';
+import { Box } from '@mui/material';
 
 interface PlaylistListHeaderProps {
   playlistCount: number;

@@ -2,9 +2,10 @@
  * SearchBar Styled Components
  */
 
-import { IconButton, styled, Typography } from '@mui/material';
 import { auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
+import { IconButton } from '@/design-system';
+import { styled, Typography } from '@mui/material';
 
 export const ClearButton = styled(IconButton)({
   padding: '8px',

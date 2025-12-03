@@ -1,7 +1,8 @@
 import React from 'react';
-import { Button } from '@mui/material';
+
 import { RestartAlt as ResetIcon } from '@mui/icons-material';
 import { SettingsDialogActions, SaveButtonGradient, FlexSpacer } from './SettingsDialog.styles';
+import { Button } from '@/design-system';
 
 interface SettingsDialogFooterProps {
   onReset: () => void;

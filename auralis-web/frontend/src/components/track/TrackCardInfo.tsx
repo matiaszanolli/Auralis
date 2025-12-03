@@ -8,9 +8,11 @@
  */
 
 import React from 'react';
-import { Typography, Tooltip } from '@mui/material';
+
 import { tokens } from '@/design-system';
 import { TrackCardContent } from './TrackCardStyles';
+import { Tooltip } from '@/design-system';
+import { Typography } from '@mui/material';
 
 interface TrackCardInfoProps {
   title: string;

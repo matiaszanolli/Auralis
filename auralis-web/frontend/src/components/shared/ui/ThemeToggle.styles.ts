@@ -1,5 +1,7 @@
-import { styled, Box, IconButton } from '@mui/material';
+
 import { tokens } from '@/design-system';
+import { IconButton } from '@/design-system';
+import { styled, Box } from '@mui/material';
 
 export const ThemeToggleContainer = styled(Box)({
   display: 'inline-flex',

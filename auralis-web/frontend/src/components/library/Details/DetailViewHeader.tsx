@@ -6,8 +6,10 @@
  */
 
 import React from 'react';
-import { Box, Typography, Button, styled } from '@mui/material';
+
 import { tokens } from '@/design-system';
+import { Button } from '@/design-system';
+import { Box, Typography, styled } from '@mui/material';
 
 interface DetailViewHeaderProps {
   /** Left side content (artwork or avatar) */

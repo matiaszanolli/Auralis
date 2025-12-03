@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  Paper,
-  Tooltip,
-  IconButton,
-  Typography
-} from '@mui/material';
+
 import {
   FolderOpen,
   Refresh
@@ -13,6 +7,8 @@ import {
 import SearchBar from '../navigation/SearchBar';
 import ViewToggle, { ViewMode } from '../navigation/ViewToggle';
 import { tokens } from '@/design-system';
+import { Tooltip, IconButton } from '@/design-system';
+import { Box, Paper, Typography } from '@mui/material';
 
 interface LibrarySearchControlsProps {
   searchQuery: string;

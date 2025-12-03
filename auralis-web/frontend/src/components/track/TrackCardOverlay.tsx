@@ -8,12 +8,14 @@
  */
 
 import React from 'react';
-import { Box, IconButton, Typography } from '@mui/material';
+
 import { PlayArrow, MusicNote } from '@mui/icons-material';
 import { auroraOpacity, gradients } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 import { PlayOverlay, DurationBadge, NoArtworkIcon } from './TrackCardStyles';
 import { formatDuration } from './TrackCardHelpers';
+import { IconButton } from '@/design-system';
+import { Box, Typography } from '@mui/material';
 
 interface TrackCardOverlayProps {
   duration: number;

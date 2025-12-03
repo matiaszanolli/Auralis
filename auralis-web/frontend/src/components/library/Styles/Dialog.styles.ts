@@ -7,8 +7,9 @@
  * Tab components (StyledTabs, DialogTabs) are imported from Tabs.styles.ts
  */
 
-import { Dialog, DialogTitle, DialogActions, Button, Box, styled } from '@mui/material';
 import { gradients } from './Color.styles';
+import { Button } from '@/design-system';
+import { Dialog, DialogTitle, DialogActions, Box, styled } from '@mui/material';
 export { DialogTabs as StyledTabs, DetailViewTabs } from './Tabs.styles';
 export { SaveButton, CancelButtonForDialog } from './Button.styles';
 export { SectionLabel, SectionDescription } from './Typography.styles';
@@ -44,7 +45,6 @@ export const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
 export const SectionContainer = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(3)
 }));
-
 
 /**
  * MetadataDialogActions - Dialog actions bar for EditMetadataDialog

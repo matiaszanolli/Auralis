@@ -6,9 +6,10 @@
  * Color presets are imported from Color.styles.ts for consistency.
  */
 
-import { Box, ListItem, ListItemButton, IconButton, Typography, styled } from '@mui/material';
 import { auroraOpacity, colorAuroraPrimary } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
+import { IconButton } from '@/design-system';
+import { Box, ListItem, ListItemButton, Typography, styled } from '@mui/material';
 
 /**
  * PlaylistSection - Root container for the playlists section
