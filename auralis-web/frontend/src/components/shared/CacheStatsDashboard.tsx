@@ -13,7 +13,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheStats } from '@/hooks/shared/useStandardizedAPI';
 import { CacheStats } from '@/services/api/standardizedAPIClient';
