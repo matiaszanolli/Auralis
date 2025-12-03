@@ -20,7 +20,7 @@
 
 import type { Dispatch, MiddlewareAPI } from '@reduxjs/toolkit';
 import type { RootState } from '../index';
-import type { WSMessage, MessageType } from '@/services/websocket/protocolClient';
+import type { WSMessage } from '@/services/websocket/protocolClient';
 import { MessageType } from '@/services/websocket/protocolClient';
 import * as playerActions from '../slices/playerSlice';
 import * as queueActions from '../slices/queueSlice';
