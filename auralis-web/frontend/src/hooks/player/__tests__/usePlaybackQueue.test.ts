@@ -7,9 +7,9 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { usePlaybackQueue, usePlaybackQueueView } from '../player/usePlaybackQueue';
-import * as useRestAPIModule from '../api/useRestAPI';
-import * as useWebSocketModule from '../websocket/useWebSocketSubscription';
+import { usePlaybackQueue, usePlaybackQueueView } from '../usePlaybackQueue';
+import * as useRestAPIModule from '../../api/useRestAPI';
+import * as useWebSocketModule from '../../websocket/useWebSocketSubscription';
 
 // Mock tracks for testing
 const mockTracks = [
