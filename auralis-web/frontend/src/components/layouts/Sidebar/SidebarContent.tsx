@@ -5,7 +5,7 @@
 import React from 'react';
 import { Box, Divider } from '@mui/material';
 import { LibraryMusic, Album, Person, Favorite, History } from '@mui/icons-material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { SectionLabel } from './SidebarStyles';
 import NavigationSection from './NavigationSection';
 import PlaylistList from '../../playlist/PlaylistList';

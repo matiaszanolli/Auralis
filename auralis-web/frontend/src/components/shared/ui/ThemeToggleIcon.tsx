@@ -2,7 +2,7 @@ import React from 'react';
 import { LightMode, DarkMode } from '@mui/icons-material';
 import { ThemeToggleIconContainer } from './ThemeToggle.styles';
 import { colorAuroraPrimary, auroraOpacity } from '../../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface ThemeToggleIconProps {
   isDark: boolean;

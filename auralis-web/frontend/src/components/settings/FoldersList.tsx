@@ -20,7 +20,7 @@ import {
 } from '@mui/icons-material';
 import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
 import { auroraOpacity } from '../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface FoldersListProps {
   scanFolders: string[];

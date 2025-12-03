@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import SearchBar from './SearchBar';
 import TrackList from './TrackList';
 import AlbumGrid from './AlbumGrid';

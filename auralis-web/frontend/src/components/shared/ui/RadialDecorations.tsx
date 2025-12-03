@@ -8,7 +8,7 @@ import React from 'react';
 import { Box } from '@mui/material';
 import { PRESETS, getCirclePosition } from './presetConfig';
 import { auroraOpacity, colorAuroraPrimary, gradients } from '../../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface RadialDecorationsProps {
   size: number; // Diameter of selector

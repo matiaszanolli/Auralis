@@ -24,7 +24,7 @@
  */
 
 import React, { memo } from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import PlaybackControls from './PlaybackControls';
 import ProgressBar from './ProgressBar';
 import TrackInfo from './TrackInfo';

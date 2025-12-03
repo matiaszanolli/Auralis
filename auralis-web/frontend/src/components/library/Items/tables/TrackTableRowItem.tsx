@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { TableCell, Typography } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { StyledTableRow } from '../../Styles/Table.styles';
 import { TrackPlayIndicator } from '../tracks/TrackPlayIndicator';
 

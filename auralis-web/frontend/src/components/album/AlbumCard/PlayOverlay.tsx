@@ -9,7 +9,7 @@ import React from 'react';
 import { Box, IconButton } from '@mui/material';
 import { PlayArrow } from '@mui/icons-material';
 import { gradients } from '../../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 export interface PlayOverlayProps {
   isHovered: boolean;

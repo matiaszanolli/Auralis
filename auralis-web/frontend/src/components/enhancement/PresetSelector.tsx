@@ -14,7 +14,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { usePresetControl } from '@/hooks/enhancement/useEnhancementControl';
 import { ENHANCEMENT_PRESET_DESCRIPTIONS } from '@/types/domain';
 import type { EnhancementPreset } from '@/types/domain';

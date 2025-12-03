@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Container, Box, Typography } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface ViewContainerProps {
   icon: string;

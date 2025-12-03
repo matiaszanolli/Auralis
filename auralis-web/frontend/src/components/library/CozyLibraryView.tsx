@@ -34,7 +34,7 @@ import { useBatchOperations } from './useBatchOperations';
 import { useNavigationState } from './useNavigationState';
 import { useMetadataEditing } from './useMetadataEditing';
 import { usePlaybackState } from './usePlaybackState';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface CozyLibraryViewProps {
   onTrackPlay?: (track: Track) => void;

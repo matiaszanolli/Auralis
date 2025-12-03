@@ -6,7 +6,7 @@
 
 import { Box, TableRow, styled } from '@mui/material';
 import { auroraOpacity } from './Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 /**
  * StyledTableRow - Interactive table row with hover effects and current track highlighting

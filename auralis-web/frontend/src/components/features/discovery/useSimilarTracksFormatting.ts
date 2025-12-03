@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 export const useSimilarTracksFormatting = () => {
   const getSimilarityColor = useCallback((score: number): string => {

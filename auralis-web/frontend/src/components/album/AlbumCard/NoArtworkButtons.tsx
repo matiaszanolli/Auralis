@@ -9,7 +9,7 @@ import React from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { CloudDownload, ImageSearch } from '@mui/icons-material';
 import { gradients, auroraOpacity } from '../../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 export interface NoArtworkButtonsProps {
   show: boolean;

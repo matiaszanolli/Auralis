@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { useEnhancementToggle } from '@/hooks/enhancement/useEnhancementControl';
 import PresetSelector from './PresetSelector';
 import IntensitySlider from './IntensitySlider';

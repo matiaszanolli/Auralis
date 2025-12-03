@@ -10,7 +10,7 @@ import {
   Shuffle,
   MoreVert
 } from '@mui/icons-material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import DetailViewHeader from './DetailViewHeader';
 import { ArtistAvatarCircle } from '../Styles/ArtistDetail.styles';
 

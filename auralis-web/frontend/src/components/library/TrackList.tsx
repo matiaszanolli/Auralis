@@ -23,7 +23,7 @@
  */
 
 import React, { useCallback, useRef, useEffect, useState } from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { useTracksQuery } from '@/hooks/library/useLibraryQuery';
 import { formatDuration } from '@/types/domain';
 import type { Track } from '@/types/domain';

@@ -5,7 +5,7 @@
 import React from 'react';
 import { Box, Divider, IconButton } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { AuroraLogo } from '../../navigation/AuroraLogo';
 
 interface SidebarHeaderProps {

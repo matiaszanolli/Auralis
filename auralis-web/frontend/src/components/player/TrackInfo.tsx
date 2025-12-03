@@ -16,7 +16,7 @@
  */
 
 import React from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
 
 /**

@@ -14,7 +14,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { useIntensityControl } from '@/hooks/enhancement/useEnhancementControl';
 
 /**

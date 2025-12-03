@@ -10,7 +10,7 @@ import React from 'react';
 import { Box, styled } from '@mui/material';
 import { ProgressiveImage } from '../shared/ui/media';
 import { auroraOpacity } from '../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface AlbumArtProps {
   albumId?: number;

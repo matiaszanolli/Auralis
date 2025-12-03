@@ -22,7 +22,7 @@
 
 import React from 'react';
 import { Box } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import DetailViewHeader from './DetailViewHeader';
 import AlbumArt from '../../album/AlbumArt';
 import { AlbumMetadata } from './AlbumMetadata';

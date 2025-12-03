@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { EmptyState } from '../../shared/ui/feedback';
 import DetailLoading from './DetailLoading';
 import { useArtistDetailsData, type Track } from './useArtistDetailsData';
