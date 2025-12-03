@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Chip } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { SectionDivider } from './SimilarityVisualization.styles';
 import { useSimilarityFormatting } from './useSimilarityFormatting';
 

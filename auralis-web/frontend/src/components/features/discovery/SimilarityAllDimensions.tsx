@@ -9,7 +9,7 @@ import {
   AccordionDetails,
 } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { useSimilarityFormatting } from './useSimilarityFormatting';
 
 export interface Contribution {

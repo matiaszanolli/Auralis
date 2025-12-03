@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, CircularProgress, Typography, Alert } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 
 interface SimilarityLoadingStateProps {

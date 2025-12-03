@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, LinearProgress } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 import { SectionDivider, DimensionRow, ValueComparisonBox } from './SimilarityVisualization.styles';
 import { useSimilarityFormatting } from './useSimilarityFormatting';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { AutoAwesome as SparklesIcon } from '@mui/icons-material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 /**
  * SimilarTracksHeader - Header with title and description
