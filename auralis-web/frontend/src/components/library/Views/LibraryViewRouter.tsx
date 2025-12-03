@@ -20,15 +20,6 @@ import AlbumDetailView from '../Details/AlbumDetailView';
 import ArtistDetailView from '../Details/ArtistDetailView';
 import { ViewContainer } from './ViewContainer';
 
-export interface Track {
-  id: number;
-  title: string;
-  artist: string;
-  duration: number;
-  track_number?: number;
-  disc_number?: number;
-}
-
 export interface LibraryViewRouterProps {
   view: string;
   selectedAlbumId: number | null;
@@ -43,8 +34,8 @@ export interface LibraryViewRouterProps {
   onAlbumClick: (albumId: number) => void;
   onArtistClick: (artistId: number, artistName: string) => void;
 
-  // Track actions
-  onTrackPlay: (track: Track) => void;
+  // Track actions (can be sync or async, accepts track objects with varying field subsets)
+  onTrackPlay?: ((track: any) => void | Promise<void>);
 }
 
 /**

@@ -6,15 +6,17 @@
 
 import { useState, useEffect } from 'react';
 
-interface Track {
+export interface Track {
   id: number;
   title: string;
-  album: string;
+  artist: string;
+  album?: string;
   duration: number;
   track_number?: number;
+  disc_number?: number;
 }
 
-interface Album {
+export interface Album {
   id: number;
   title: string;
   year?: number;
@@ -22,7 +24,7 @@ interface Album {
   total_duration: number;
 }
 
-interface Artist {
+export interface Artist {
   id: number;
   name: string;
   album_count?: number;
