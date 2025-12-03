@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, List } from '@mui/material';
+import { Box } from '@mui/material';
+import { List } from '@/design-system';
 import { AlphabetDivider } from '../../Styles/ArtistList.styles';
 import { ArtistListItem } from './ArtistListItem';
 
