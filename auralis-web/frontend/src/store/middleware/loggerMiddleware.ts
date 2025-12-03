@@ -96,27 +96,6 @@ function log(message: string, color: string, ...args: any[]): void {
 }
 
 /**
- * Deep clone object for state diff
- */
-function deepClone(obj: any): any {
-  if (typeof obj !== 'object' || obj === null) {
-    return obj;
-  }
-
-  if (Array.isArray(obj)) {
-    return obj.map(deepClone);
-  }
-
-  const cloned: any = {};
-  for (const key in obj) {
-    if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      cloned[key] = deepClone(obj[key]);
-    }
-  }
-  return cloned;
-}
-
-/**
  * Calculate state diff
  */
 function getStateDiff(prev: RootState, next: RootState): Record<string, any> {
@@ -134,24 +113,6 @@ function getStateDiff(prev: RootState, next: RootState): Record<string, any> {
   }
 
   return diff;
-}
-
-/**
- * Format value for console display
- */
-function formatValue(value: any, maxDepth: number = 2): string {
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  if (typeof value === 'string') return `"${value}"`;
-  if (typeof value === 'object') {
-    if (maxDepth === 0) return '[Object]';
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch {
-      return '[Circular]';
-    }
-  }
-  return String(value);
 }
 
 // ============================================================================

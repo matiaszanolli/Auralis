@@ -14,7 +14,6 @@
  */
 
 import React from 'react';
-import { Box } from '@mui/material';
 import { StyledTrackCard, ArtworkContainer } from './TrackCardStyles';
 import { TrackCardOverlay } from './TrackCardOverlay';
 import { TrackCardInfo } from './TrackCardInfo';
