@@ -20,13 +20,13 @@ import { tokens } from '@/design-system/tokens';
 import { EmptyState } from '../../shared/ui/feedback';
 import AlbumTrackTable from '../Items/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
-import { useAlbumDetails, Track } from './useAlbumDetails';
+import { useAlbumDetails, type Track } from './useAlbumDetails';
 import { ArrowBack } from '@mui/icons-material';
 
 interface AlbumDetailViewProps {
   albumId: number;
   onBack?: () => void;
-  onTrackPlay?: (track: Track) => void;
+  onTrackPlay?: (track: Track) => void | Promise<void>;
   currentTrackId?: number;
   isPlaying?: boolean;
 }

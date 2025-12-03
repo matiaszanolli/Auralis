@@ -9,31 +9,7 @@ import { Box, Container, Button, IconButton } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
 import { ArrowBack } from '@mui/icons-material';
 import ArtistHeader from './ArtistHeader';
-
-interface Track {
-  id: number;
-  title: string;
-  album: string;
-  duration: number;
-  track_number?: number;
-}
-
-interface Album {
-  id: number;
-  title: string;
-  year?: number;
-  track_count: number;
-  total_duration: number;
-}
-
-interface Artist {
-  id: number;
-  name: string;
-  album_count?: number;
-  track_count?: number;
-  albums?: Album[];
-  tracks?: Track[];
-}
+import { type Track, type Album, type Artist } from './useArtistDetailsData';
 
 interface ArtistDetailHeaderProps {
   artist: Artist;

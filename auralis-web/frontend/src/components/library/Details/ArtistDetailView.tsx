@@ -3,23 +3,15 @@ import { Container } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
 import { EmptyState } from '../../shared/ui/feedback';
 import DetailLoading from './DetailLoading';
-import { useArtistDetailsData } from './useArtistDetailsData';
+import { useArtistDetailsData, type Track } from './useArtistDetailsData';
 import { ArtistDetailHeaderSection } from './ArtistDetailHeader';
 import { ArtistDetailTabsSection } from './ArtistDetailTabs';
-
-interface Track {
-  id: number;
-  title: string;
-  album: string;
-  duration: number;
-  track_number?: number;
-}
 
 interface ArtistDetailViewProps {
   artistId: number;
   artistName?: string;
   onBack?: () => void;
-  onTrackPlay?: (track: Track) => void;
+  onTrackPlay?: (track: Track) => void | Promise<void>;
   onAlbumClick?: (albumId: number) => void;
   currentTrackId?: number;
   isPlaying?: boolean;

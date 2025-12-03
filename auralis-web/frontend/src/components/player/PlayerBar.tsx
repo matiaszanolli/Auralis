@@ -30,8 +30,25 @@ import ProgressBar from './ProgressBar';
 import TrackInfo from './TrackInfo';
 import VolumeControl from './VolumeControl';
 
+interface PlayerBarProps {
+  currentTime?: number;
+  duration?: number;
+  isPlaying?: boolean;
+  onSeek?: (time: number) => void;
+  onPlay?: () => void | Promise<void>;
+  onPause?: () => void | Promise<void>;
+  onNext?: () => void | Promise<void>;
+  onPrevious?: () => void | Promise<void>;
+  volume?: number;
+  onVolumeChange?: (volume: number) => void | Promise<void>;
+}
+
 /**
  * PlayerBar component - Premium glass-effect player footer
+ *
+ * DEPRECATED: Use PlayerBarV2Connected from @/components/player-bar-v2 instead.
+ * This is a simplified presentational component. For the full connected player,
+ * see PlayerBarV2Connected which integrates with Redux state and WebSocket.
  *
  * Main music player component with glass morphism design.
  * Composite/container component bringing together all player sub-components:
@@ -44,7 +61,18 @@ import VolumeControl from './VolumeControl';
  * - Tablet (768-1023px): Stacked with horizontal controls
  * - Mobile (<768px): Vertical stack
  */
-const PlayerBar: React.FC = () => {
+const PlayerBar: React.FC<PlayerBarProps> = ({
+  currentTime = 0,
+  duration = 0,
+  isPlaying = false,
+  onSeek = () => {},
+  onPlay = () => {},
+  onPause = () => {},
+  onNext = () => {},
+  onPrevious = () => {},
+  volume = 50,
+  onVolumeChange = () => {},
+}) => {
   return (
     <div style={styles.playerBar}>
       {/* Glass-effect background container */}
@@ -58,13 +86,26 @@ const PlayerBar: React.FC = () => {
 
           {/* Center: Progress bar (full width) */}
           <div style={styles.centerSection}>
-            <ProgressBar />
+            <ProgressBar
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={onSeek}
+            />
           </div>
 
           {/* Right: Controls and volume */}
           <div style={styles.rightSection}>
-            <PlaybackControls />
-            <VolumeControl />
+            <PlaybackControls
+              isPlaying={isPlaying}
+              onPlay={onPlay}
+              onPause={onPause}
+              onNext={onNext}
+              onPrevious={onPrevious}
+            />
+            <VolumeControl
+              volume={volume / 100}
+              onVolumeChange={onVolumeChange}
+            />
           </div>
         </div>
       </div>

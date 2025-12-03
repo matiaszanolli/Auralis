@@ -6,14 +6,7 @@ import React from 'react';
 import { TableCell, Typography, Box } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { StyledTableRow, PlayIcon } from '../Styles/Table.styles';
-
-interface Track {
-  id: number;
-  title: string;
-  album: string;
-  duration: number;
-  track_number?: number;
-}
+import { type Track } from '../Details/useArtistDetailsData';
 
 interface ArtistTrackRowProps {
   track: Track;

@@ -4,14 +4,7 @@ import { TracksTableContainer } from '../Styles/ArtistDetail.styles';
 import TracksTableHeader from './TracksTableHeader';
 import ArtistTrackRow from './ArtistTrackRow';
 import useDurationFormatter from './useDurationFormatter';
-
-interface Track {
-  id: number;
-  title: string;
-  album: string;
-  duration: number;
-  track_number?: number;
-}
+import { type Track } from '../Details/useArtistDetailsData';
 
 interface TracksTabProps {
   tracks: Track[];
