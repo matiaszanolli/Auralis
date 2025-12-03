@@ -21,7 +21,7 @@
 
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { useWebSocketContext } from '../contexts/WebSocketContext';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import {
   setCurrentTrack,
   setIsPlaying,

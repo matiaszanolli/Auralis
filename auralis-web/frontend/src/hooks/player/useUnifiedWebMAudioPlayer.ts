@@ -36,7 +36,7 @@ import {
   UnifiedWebMAudioPlayerConfig,
   PlaybackState,
   StreamMetadata
-} from '../services/UnifiedWebMAudioPlayer';
+} from '@/services/UnifiedWebMAudioPlayer';
 
 export interface UseUnifiedWebMAudioPlayerConfig extends UnifiedWebMAudioPlayerConfig {
   /** Auto-play after loading track */

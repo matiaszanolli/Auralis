@@ -24,8 +24,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useWebSocketContext } from '../contexts/WebSocketContext';
-import { getApiUrl } from '../config/api';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { getApiUrl } from '@/config/api';
 
 interface Track {
   id: number;

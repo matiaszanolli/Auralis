@@ -26,8 +26,8 @@ import {
   BatchItemResult,
   APIClientConfig,
   RequestOptions
-} from '../services/api/standardizedAPIClient';
-import { getAPIClient, initializeAPIClient } from '../services/api/standardizedAPIClient';
+} from '@/services/api/standardizedAPIClient';
+import { getAPIClient, initializeAPIClient } from '@/services/api/standardizedAPIClient';
 
 // ============================================================================
 // Hook State Types

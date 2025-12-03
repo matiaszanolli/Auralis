@@ -57,14 +57,14 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useWebSocketContext } from '../contexts/WebSocketContext';
-import { getApiUrl } from '../config/api';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { getApiUrl } from '@/config/api';
 import {
   UnifiedWebMAudioPlayer,
   UnifiedWebMAudioPlayerConfig,
   PlaybackState,
   StreamMetadata
-} from '../services/UnifiedWebMAudioPlayer';
+} from '@/services/UnifiedWebMAudioPlayer';
 
 // ============================================================================
 // Types

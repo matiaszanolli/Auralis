@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useWebSocketContext } from '../contexts/WebSocketContext';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 export interface MasteringRecommendationData {
   track_id: number;
