@@ -6,10 +6,10 @@ import {
   Box,
   Typography,
   Chip,
-  Tooltip,
   Divider
 } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { Tooltip } from '@/design-system';
+import { tokens } from '@/design-system';
 import { SimilarTrack } from '@/services/similarityService';
 
 interface SimilarTracksListItemProps {
@@ -41,7 +41,7 @@ export const SimilarTracksListItem: React.FC<SimilarTracksListItemProps> = ({
             px: 2,
             py: 1.5,
             '&:hover': {
-              backgroundColor: 'rgba(102, 126, 234, 0.08)'
+              backgroundColor: 'rgba(115, 102, 240, 0.08)'
             }
           }}
         >
@@ -100,7 +100,7 @@ export const SimilarTracksListItem: React.FC<SimilarTracksListItemProps> = ({
         </ListItemButton>
       </ListItem>
       {index < totalCount - 1 && (
-        <Divider sx={{ borderColor: 'rgba(102, 126, 234, 0.05)' }} />
+        <Divider sx={{ borderColor: 'rgba(115, 102, 240, 0.05)' }} />
       )}
     </>
   );
