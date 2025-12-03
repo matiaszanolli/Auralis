@@ -8,7 +8,7 @@
 
 import { Box, ListItem, ListItemButton, IconButton, Typography, styled } from '@mui/material';
 import { auroraOpacity, colorAuroraPrimary } from '../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 /**
  * PlaylistSection - Root container for the playlists section

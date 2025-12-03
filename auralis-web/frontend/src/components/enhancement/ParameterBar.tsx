@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import ParameterDisplay from './ParameterDisplay';
 
 export const ParameterBar: React.FC = () => {

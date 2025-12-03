@@ -19,7 +19,7 @@ import {
 import { PlaylistAdd, Add } from '@mui/icons-material';
 import * as playlistService from '../../../services/playlistService';
 import { auroraOpacity } from '../../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 const PlaylistMenuItem = styled(MenuItem)({
   fontSize: '13px',

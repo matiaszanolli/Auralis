@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { Typography, Tooltip } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { TrackCardContent } from './TrackCardStyles';
 
 interface TrackCardInfoProps {

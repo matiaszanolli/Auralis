@@ -1,5 +1,5 @@
 import { Box, ListItemButton, Typography, styled } from '@mui/material';
-import { tokens, withOpacity } from '@/design-system/tokens';
+import { tokens, withOpacity } from '@/design-system';
 
 /**
  * Styled components for Sidebar

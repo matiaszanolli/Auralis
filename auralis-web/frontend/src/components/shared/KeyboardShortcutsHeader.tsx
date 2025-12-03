@@ -2,7 +2,7 @@ import React from 'react';
 import { IconButton, Typography } from '@mui/material';
 import { Close, Keyboard } from '@mui/icons-material';
 import { StyledDialogTitle } from '../library/Styles/Dialog.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface KeyboardShortcutsHeaderProps {
   onClose: () => void;

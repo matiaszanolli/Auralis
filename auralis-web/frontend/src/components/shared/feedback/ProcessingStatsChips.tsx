@@ -7,7 +7,7 @@
 import React from 'react';
 import { Stack, Chip } from '@mui/material';
 import { TrendingUp, Speed, Memory } from '@mui/icons-material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface ProcessingStatsChipsProps {
   cacheHit?: boolean;

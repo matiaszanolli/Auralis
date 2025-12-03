@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Box, Tab, Tabs } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import AlbumsTab from '../Views/AlbumsTab';
 import TracksTab from '../Views/TracksTab';
 import { type Track, type Album, type Artist } from './useArtistDetailsData';

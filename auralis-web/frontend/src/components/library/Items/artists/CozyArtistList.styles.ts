@@ -1,5 +1,5 @@
 import { Box, styled } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 /**
  * ArtistListContainer - Main container with padding and width

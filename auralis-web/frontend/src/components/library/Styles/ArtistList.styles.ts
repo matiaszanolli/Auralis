@@ -6,7 +6,7 @@
  */
 
 import { Avatar, Box, ListItem, ListItemButton, Typography, styled } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 /**
  * ListContainer - Main container for artist list

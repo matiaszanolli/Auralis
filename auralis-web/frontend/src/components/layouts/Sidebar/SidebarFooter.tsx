@@ -5,7 +5,7 @@
 import React from 'react';
 import { Box, ListItemIcon, ListItemText } from '@mui/material';
 import { Settings } from '@mui/icons-material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import ThemeToggle from '../../shared/ui/ThemeToggle';
 import { StyledListItemButton } from './SidebarStyles';
 

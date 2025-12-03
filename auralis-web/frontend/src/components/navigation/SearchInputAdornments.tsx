@@ -8,7 +8,7 @@ import React from 'react';
 import { InputAdornment, Box, CircularProgress } from '@mui/material';
 import { Search, Close } from '@mui/icons-material';
 import { ClearButton, ResultCount } from './SearchBar.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface SearchInputAdornmentsEndProps {
   value: string;

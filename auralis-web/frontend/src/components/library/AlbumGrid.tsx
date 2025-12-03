@@ -14,7 +14,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { useAlbumsQuery } from '@/hooks/library/useLibraryQuery';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import type { Album } from '@/types/domain';

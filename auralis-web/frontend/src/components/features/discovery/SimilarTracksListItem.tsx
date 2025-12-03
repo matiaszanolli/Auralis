@@ -5,11 +5,9 @@ import {
   ListItemText,
   Box,
   Typography,
-  Chip,
   Divider
 } from '@mui/material';
-import { Tooltip } from '@/design-system';
-import { tokens } from '@/design-system';
+import { Tooltip, Chip, tokens } from '@/design-system';
 import { SimilarTrack } from '@/services/similarityService';
 
 interface SimilarTracksListItemProps {

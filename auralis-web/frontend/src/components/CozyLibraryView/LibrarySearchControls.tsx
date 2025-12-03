@@ -12,7 +12,7 @@ import {
 } from '@mui/icons-material';
 import SearchBar from '../navigation/SearchBar';
 import ViewToggle, { ViewMode } from '../navigation/ViewToggle';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface LibrarySearchControlsProps {
   searchQuery: string;

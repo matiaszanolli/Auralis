@@ -24,7 +24,7 @@
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import type { Track } from '@/types/domain';
 
 interface MetadataEditorDialogProps {

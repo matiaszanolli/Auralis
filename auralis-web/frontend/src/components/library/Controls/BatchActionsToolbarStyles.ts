@@ -6,7 +6,7 @@ import { Paper, Typography, IconButton, styled } from '@mui/material';
 import { cardShadows } from '../Styles/Shadow.styles';
 import { spacingPresets } from '../Styles/Spacing.styles';
 import { auroraOpacity } from '../Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 export const ToolbarContainer = styled(Paper)(({ theme }) => ({
   position: 'fixed',

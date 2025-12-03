@@ -11,7 +11,7 @@
 import { TextField, Paper, ListItemButton, Chip, styled, Box } from '@mui/material';
 import { containerShadows } from './Shadow.styles';
 import { auroraOpacity } from './Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 export { ArtistSearchAvatar, DefaultSearchAvatar } from './Avatar.styles';
 export { CategoryHeader, ResultTitle, ResultSubtitle } from './Typography.styles';
 

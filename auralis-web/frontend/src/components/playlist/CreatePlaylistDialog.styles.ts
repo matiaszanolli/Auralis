@@ -1,6 +1,6 @@
 import { styled, Box } from '@mui/material';
 import { auroraOpacity } from '../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 export const DialogContentBox = styled(Box)({
   pt: 2,

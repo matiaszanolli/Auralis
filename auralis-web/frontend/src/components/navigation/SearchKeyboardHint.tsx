@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Typography, Box } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface SearchKeyboardHintProps {
   show: boolean;

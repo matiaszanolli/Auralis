@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { TableHead, TableRow, TableCell } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 export const TrackTableHeader: React.FC = () => {
   return (

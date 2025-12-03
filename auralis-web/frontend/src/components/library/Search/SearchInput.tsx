@@ -11,7 +11,7 @@ import {
   SearchContainer,
   SearchField
 } from '../Styles/SearchStyles.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface SearchInputProps {
   query: string;

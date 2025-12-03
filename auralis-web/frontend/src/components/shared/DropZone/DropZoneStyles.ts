@@ -1,5 +1,5 @@
 import { Paper, styled, alpha } from '@mui/material';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 import { gradients } from '../../library/Styles/Color.styles';
 
 /**

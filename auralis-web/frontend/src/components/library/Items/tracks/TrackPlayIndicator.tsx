@@ -6,7 +6,7 @@ import React from 'react';
 import { TableCell, Box, Typography } from '@mui/material';
 import { PlayArrow, Pause } from '@mui/icons-material';
 import { PlayIcon } from '../../Styles/Table.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface TrackPlayIndicatorProps {
   isCurrentTrack: boolean;
