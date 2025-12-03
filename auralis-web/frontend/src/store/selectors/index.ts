@@ -187,14 +187,12 @@ export const makeSelectCacheHealth = () => (
 ): {
   healthy: boolean;
   hitRate: number;
-  status: string;
 } => {
   const health = state.cache.health;
 
   return {
     healthy: health?.healthy ?? false,
     hitRate: health?.overall_hit_rate ?? 0,
-    status: health?.status ?? 'unknown',
   };
 };
 
