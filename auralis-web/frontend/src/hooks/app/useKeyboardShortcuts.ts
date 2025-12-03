@@ -9,7 +9,13 @@
  */
 
 import { useEffect, useCallback, useState } from 'react';
-import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '../services/keyboardShortcutsService';
+import { keyboardShortcuts, ShortcutDefinition, ShortcutHandler } from '@/services/keyboardShortcutsService';
+import {
+  SHORTCUT_CONFIG_MAP,
+  PRESET_SHORTCUTS,
+  PRESET_NAMES,
+  createShortcutDefinition
+} from './keyboardShortcutDefinitions';
 
 export interface KeyboardShortcut extends ShortcutDefinition {
   handler: ShortcutHandler;
@@ -74,308 +80,34 @@ export interface UseKeyboardShortcutsReturn {
 /**
  * Convert config-based shortcuts (V1 pattern) to service-based shortcuts (V2 pattern)
  * Phase 3a: Unified handler that maintains backward compatibility
+ *
+ * Refactored to use configuration-driven approach (90% reduction in lines)
  */
-const configToServiceShortcuts = (config: KeyboardShortcutsConfig): Array<KeyboardShortcut & { definition: ShortcutDefinition }> => {
-  const shortcuts: Array<KeyboardShortcut & { definition: ShortcutDefinition }> = [];
+const configToServiceShortcuts = (config: KeyboardShortcutsConfig): Array<KeyboardShortcut> => {
+  const shortcuts: Array<KeyboardShortcut> = [];
 
-  // Playback controls
-  if (config.onPlayPause) {
-    shortcuts.push({
-      definition: { key: ' ', description: 'Play/Pause', category: 'Playback' },
-      handler: config.onPlayPause,
-      key: ' ',
-      description: 'Play/Pause',
-      category: 'Playback'
-    });
-  }
-  if (config.onNext) {
-    shortcuts.push({
-      definition: { key: 'ArrowRight', description: 'Next track', category: 'Playback' },
-      handler: config.onNext,
-      key: 'ArrowRight',
-      description: 'Next track',
-      category: 'Playback'
-    });
-  }
-  if (config.onPrevious) {
-    shortcuts.push({
-      definition: { key: 'ArrowLeft', description: 'Previous track', category: 'Playback' },
-      handler: config.onPrevious,
-      key: 'ArrowLeft',
-      description: 'Previous track',
-      category: 'Playback'
-    });
-  }
-  if (config.onSeekForward) {
-    shortcuts.push({
-      definition: { key: 'ArrowRight', shift: true, description: 'Seek forward', category: 'Playback' },
-      handler: config.onSeekForward,
-      key: 'ArrowRight',
-      shift: true,
-      description: 'Seek forward',
-      category: 'Playback'
-    });
-  }
-  if (config.onSeekBackward) {
-    shortcuts.push({
-      definition: { key: 'ArrowLeft', shift: true, description: 'Seek backward', category: 'Playback' },
-      handler: config.onSeekBackward,
-      key: 'ArrowLeft',
-      shift: true,
-      description: 'Seek backward',
-      category: 'Playback'
-    });
-  }
-  if (config.onVolumeUp) {
-    shortcuts.push({
-      definition: { key: 'ArrowUp', description: 'Volume up', category: 'Playback' },
-      handler: config.onVolumeUp,
-      key: 'ArrowUp',
-      description: 'Volume up',
-      category: 'Playback'
-    });
-  }
-  if (config.onVolumeDown) {
-    shortcuts.push({
-      definition: { key: 'ArrowDown', description: 'Volume down', category: 'Playback' },
-      handler: config.onVolumeDown,
-      key: 'ArrowDown',
-      description: 'Volume down',
-      category: 'Playback'
-    });
-  }
-  if (config.onMute) {
-    // Support both '0' and Ctrl+M for mute
-    shortcuts.push({
-      definition: { key: '0', description: 'Mute/Unmute', category: 'Playback' },
-      handler: config.onMute,
-      key: '0',
-      description: 'Mute/Unmute',
-      category: 'Playback'
-    });
-    shortcuts.push({
-      definition: { key: 'm', ctrl: true, description: 'Mute/Unmute', category: 'Playback' },
-      handler: config.onMute,
-      key: 'm',
-      ctrl: true,
-      description: 'Mute/Unmute',
-      category: 'Playback'
-    });
-  }
+  // Use SHORTCUT_CONFIG_MAP to eliminate repetitive if/push boilerplate
+  SHORTCUT_CONFIG_MAP.forEach((entry) => {
+    const handler = entry.handler(config);
+    if (!handler) return; // Skip if handler not provided
 
-  // Enhancement and display toggles
-  if (config.onToggleEnhancement) {
-    shortcuts.push({
-      definition: { key: 'm', description: 'Toggle enhancement', category: 'Global' },
-      handler: config.onToggleEnhancement,
-      key: 'm',
-      description: 'Toggle enhancement',
-      category: 'Global'
-    });
-  }
-
-  if (config.onToggleLyrics) {
-    shortcuts.push({
-      definition: { key: 'l', description: 'Toggle lyrics', category: 'Global' },
-      handler: config.onToggleLyrics,
-      key: 'l',
-      description: 'Toggle lyrics',
-      category: 'Global'
-    });
-  }
-
-  // Preset selection
-  if (config.onPresetChange) {
-    const presets = [
-      { key: '1', name: 'adaptive' },
-      { key: '2', name: 'gentle' },
-      { key: '3', name: 'warm' },
-      { key: '4', name: 'bright' },
-      { key: '5', name: 'punchy' },
-    ];
-
-    presets.forEach(({ key, name }) => {
+    entry.shortcuts.forEach((shortcutEntry) => {
+      const definition = createShortcutDefinition(shortcutEntry);
       shortcuts.push({
-        definition: { key, description: `${name} preset`, category: 'Global' },
-        handler: () => config.onPresetChange?.(name),
-        key,
-        description: `${name} preset`,
-        category: 'Global'
-      });
+        ...definition,
+        handler
+      } as KeyboardShortcut);
     });
-  }
+  });
 
-  // Navigation
-  if (config.onShowSongs) {
-    shortcuts.push({
-      definition: { key: '1', description: 'Show Songs', category: 'Navigation' },
-      handler: config.onShowSongs,
-      key: '1',
-      description: 'Show Songs',
-      category: 'Navigation'
-    });
-  }
-  if (config.onShowAlbums) {
-    shortcuts.push({
-      definition: { key: '2', description: 'Show Albums', category: 'Navigation' },
-      handler: config.onShowAlbums,
-      key: '2',
-      description: 'Show Albums',
-      category: 'Navigation'
-    });
-  }
-  if (config.onShowArtists) {
-    shortcuts.push({
-      definition: { key: '3', description: 'Show Artists', category: 'Navigation' },
-      handler: config.onShowArtists,
-      key: '3',
-      description: 'Show Artists',
-      category: 'Navigation'
-    });
-  }
-  if (config.onShowPlaylists) {
-    shortcuts.push({
-      definition: { key: '4', description: 'Show Playlists', category: 'Navigation' },
-      handler: config.onShowPlaylists,
-      key: '4',
-      description: 'Show Playlists',
-      category: 'Navigation'
-    });
-  }
-  if (config.onFocusSearch) {
-    // Support '/', Ctrl+K (Windows/Linux), and Cmd+K (Mac)
-    shortcuts.push({
-      definition: { key: '/', description: 'Focus search', category: 'Navigation' },
-      handler: config.onFocusSearch,
-      key: '/',
-      description: 'Focus search',
-      category: 'Navigation'
-    });
-    shortcuts.push({
-      definition: { key: 'k', ctrl: true, description: 'Quick search', category: 'Navigation' },
-      handler: config.onFocusSearch,
-      key: 'k',
-      ctrl: true,
-      description: 'Quick search',
-      category: 'Navigation'
-    });
-    shortcuts.push({
-      definition: { key: 'k', meta: true, description: 'Quick search', category: 'Navigation' },
-      handler: config.onFocusSearch,
-      key: 'k',
-      meta: true,
-      description: 'Quick search',
-      category: 'Navigation'
-    });
-  }
-  if (config.onEscape) {
-    shortcuts.push({
-      definition: { key: 'Escape', description: 'Clear search / Close dialogs', category: 'Navigation' },
-      handler: config.onEscape,
-      key: 'Escape',
-      description: 'Clear search / Close dialogs',
-      category: 'Navigation'
-    });
-  }
-
-  // Library actions
-  if (config.onPlaySelected) {
-    shortcuts.push({
-      definition: { key: 'Enter', description: 'Play selected', category: 'Library' },
-      handler: config.onPlaySelected,
-      key: 'Enter',
-      description: 'Play selected',
-      category: 'Library'
-    });
-  }
-  if (config.onToggleFavorite) {
-    shortcuts.push({
-      definition: { key: 'l', description: 'Toggle favorite', category: 'Library' },
-      handler: config.onToggleFavorite,
-      key: 'l',
-      description: 'Toggle favorite',
-      category: 'Library'
-    });
-  }
-  if (config.onAddToPlaylist) {
-    shortcuts.push({
-      definition: { key: 'p', description: 'Add to playlist', category: 'Library' },
-      handler: config.onAddToPlaylist,
-      key: 'p',
-      description: 'Add to playlist',
-      category: 'Library'
-    });
-  }
-  if (config.onAddToQueue) {
-    shortcuts.push({
-      definition: { key: 'q', description: 'Add to queue', category: 'Library' },
-      handler: config.onAddToQueue,
-      key: 'q',
-      description: 'Add to queue',
-      category: 'Library'
-    });
-  }
-  if (config.onShowInfo) {
-    shortcuts.push({
-      definition: { key: 'i', description: 'Show info', category: 'Library' },
-      handler: config.onShowInfo,
-      key: 'i',
-      description: 'Show info',
-      category: 'Library'
-    });
-  }
-  if (config.onDelete) {
-    shortcuts.push({
-      definition: { key: 'Delete', description: 'Delete', category: 'Library' },
-      handler: config.onDelete,
-      key: 'Delete',
-      description: 'Delete',
-      category: 'Library'
-    });
-  }
-
-  // Queue management
-  if (config.onClearQueue) {
-    shortcuts.push({
-      definition: { key: 'c', ctrl: true, shift: true, description: 'Clear queue', category: 'Queue' },
-      handler: config.onClearQueue,
-      key: 'c',
-      ctrl: true,
-      shift: true,
-      description: 'Clear queue',
-      category: 'Queue'
-    });
-  }
-  if (config.onShuffleQueue) {
-    shortcuts.push({
-      definition: { key: 's', ctrl: true, shift: true, description: 'Shuffle queue', category: 'Queue' },
-      handler: config.onShuffleQueue,
-      key: 's',
-      ctrl: true,
-      shift: true,
-      description: 'Shuffle queue',
-      category: 'Queue'
-    });
-  }
-
-  // Global
-  if (config.onShowHelp) {
-    shortcuts.push({
-      definition: { key: '?', description: 'Show keyboard shortcuts', category: 'Global' },
-      handler: config.onShowHelp,
-      key: '?',
-      description: 'Show keyboard shortcuts',
-      category: 'Global'
-    });
-  }
-  if (config.onOpenSettings) {
-    shortcuts.push({
-      definition: { key: ',', ctrl: true, description: 'Open settings', category: 'Global' },
-      handler: config.onOpenSettings,
-      key: ',',
-      ctrl: true,
-      description: 'Open settings',
-      category: 'Global'
+  // Special case: Preset selection (dynamic preset names)
+  if (config.onPresetChange) {
+    PRESET_SHORTCUTS.forEach((shortcutEntry, index) => {
+      const definition = createShortcutDefinition(shortcutEntry);
+      shortcuts.push({
+        ...definition,
+        handler: () => config.onPresetChange?.(PRESET_NAMES[index])
+      } as KeyboardShortcut);
     });
   }
 
