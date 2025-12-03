@@ -362,7 +362,7 @@ export function createWebSocketMiddleware(protocolClient: any) {
     // Middleware Return Function
     // ======================================================================
 
-    return (next) => (action) => {
+    return (next) => (action: unknown): unknown => {
       // Allow action to pass through
       const result = next(action);
 
@@ -372,7 +372,8 @@ export function createWebSocketMiddleware(protocolClient: any) {
 
       // Track state mutations for debugging
       if (process.env.NODE_ENV === 'development') {
-        console.debug('[Redux] Action:', action.type, 'Payload:', action.payload);
+        const act = action as Record<string, any>;
+        console.debug('[Redux] Action:', act.type, 'Payload:', act.payload);
       }
 
       return result;
