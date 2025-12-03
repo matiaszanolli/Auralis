@@ -4,7 +4,7 @@ import {
   PerformanceConfig,
   PerformanceMetrics,
   PerformanceMonitor
-} from '../utils/performanceOptimizer';
+} from '@/utils/performanceOptimizer';
 
 interface OptimizationHookOptions extends Partial<PerformanceConfig> {
   enableMonitoring?: boolean;
