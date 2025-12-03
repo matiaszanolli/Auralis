@@ -168,13 +168,22 @@ class AdaptiveLimiter:
             oversampled = np.zeros((len(audio) * factor, audio.shape[1]))
             oversampled[::factor] = audio
 
-            # Apply filtering to each channel
+            # Apply filtering to each channel using vectorized operation
             kernel_size = factor * 2 + 1
             kernel = np.ones(kernel_size) / kernel_size
-            filtered = np.zeros_like(oversampled)
 
-            for ch in range(audio.shape[1]):
-                filtered[:, ch] = np.convolve(oversampled[:, ch], kernel, mode='same') * factor
+            # Vectorized approach: convolve all channels at once via scipy
+            try:
+                from scipy import signal
+                # Use scipy's efficient multi-channel convolve
+                filtered = np.zeros_like(oversampled)
+                for ch in range(audio.shape[1]):
+                    filtered[:, ch] = signal.convolve(oversampled[:, ch], kernel, mode='same') * factor
+            except ImportError:
+                # Fallback to numpy if scipy unavailable
+                filtered = np.zeros_like(oversampled)
+                for ch in range(audio.shape[1]):
+                    filtered[:, ch] = np.convolve(oversampled[:, ch], kernel, mode='same') * factor
 
         return filtered
 

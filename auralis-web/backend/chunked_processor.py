@@ -374,6 +374,51 @@ class ChunkedAudioProcessor:
             self.chunk_gain_history.append(0.0)
             return chunk
 
+    def _trim_context(self, audio_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
+        """
+        Trim context from audio chunk to keep only the actual chunk content.
+
+        This method consolidates the duplicate context trimming logic that was
+        previously implemented in two places (process_chunk and process_chunk_synchronized).
+
+        Args:
+            audio_chunk: Audio chunk with context (potentially padded)
+            chunk_index: Index of the chunk being processed
+
+        Returns:
+            Audio chunk with context trimmed
+        """
+        context_samples = int(CONTEXT_DURATION * self.sample_rate)
+        actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
+        is_last = chunk_index == self.total_chunks - 1
+
+        # Safety: Ensure we have enough samples to trim
+        chunk_length = len(audio_chunk)
+
+        # For the last chunk, be more conservative with trimming
+        # since the audio is much shorter than expected
+        max_trim_samples = chunk_length // 4  # Never trim more than 1/4 of the chunk
+
+        if actual_start > 0:  # Not first chunk, trim start context
+            trim_start = min(context_samples, max_trim_samples)
+            if chunk_length > trim_start:
+                audio_chunk = audio_chunk[trim_start:]
+                logger.debug(f"Chunk {chunk_index}: trimmed {trim_start/self.sample_rate:.2f}s from start")
+            else:
+                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {trim_start}). Keeping as-is.")
+
+        # Don't trim end context for last chunk
+        if not is_last:
+            chunk_length = len(audio_chunk)  # Update after potential start trim
+            trim_end = min(context_samples, max_trim_samples)
+            if chunk_length > trim_end:
+                audio_chunk = audio_chunk[:-trim_end]
+                logger.debug(f"Chunk {chunk_index}: trimmed {trim_end/self.sample_rate:.2f}s from end")
+            else:
+                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {trim_end}). Keeping as-is.")
+
+        return audio_chunk
+
     def apply_crossfade(
         self,
         chunk: np.ndarray,
@@ -512,34 +557,7 @@ class ChunkedAudioProcessor:
                 processed_chunk = self.processor.process(audio_chunk)
 
         # Trim context (keep only the actual chunk)
-        context_samples = int(CONTEXT_DURATION * self.sample_rate)
-        actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
-        is_last = chunk_index == self.total_chunks - 1
-
-        # Safety: Ensure we have enough samples to trim
-        chunk_length = len(processed_chunk)
-
-        # For the last chunk, be more conservative with trimming
-        # since the audio is much shorter than expected
-        max_trim_samples = chunk_length // 4  # Never trim more than 1/4 of the chunk
-
-        if actual_start > 0:  # Not first chunk, trim start context
-            trim_start = min(context_samples, max_trim_samples)
-            if chunk_length > trim_start:
-                processed_chunk = processed_chunk[trim_start:]
-                logger.debug(f"Chunk {chunk_index}: trimmed {trim_start/self.sample_rate:.2f}s from start")
-            else:
-                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {trim_start}). Keeping as-is.")
-
-        # Don't trim end context for last chunk
-        if not is_last:
-            chunk_length = len(processed_chunk)  # Update after potential start trim
-            trim_end = min(context_samples, max_trim_samples)
-            if chunk_length > trim_end:
-                processed_chunk = processed_chunk[:-trim_end]
-                logger.debug(f"Chunk {chunk_index}: trimmed {trim_end/self.sample_rate:.2f}s from end")
-            else:
-                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {trim_end}). Keeping as-is.")
+        processed_chunk = self._trim_context(processed_chunk, chunk_index)
 
         # Apply intensity blending
         if self.intensity < 1.0:
@@ -547,19 +565,7 @@ class ChunkedAudioProcessor:
             original_chunk_with_context, _, _ = self.load_chunk(chunk_index, with_context=True)
 
             # Trim context from original to match processed chunk dimensions
-            context_samples = int(CONTEXT_DURATION * self.sample_rate)
-            actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
-
-            # Trim start context for non-first chunks
-            if actual_start > 0:
-                if len(original_chunk_with_context) > context_samples:
-                    original_chunk_with_context = original_chunk_with_context[context_samples:]
-
-            # Trim end context for non-last chunks
-            is_last_chunk = chunk_index == self.total_chunks - 1
-            if not is_last_chunk:
-                if len(original_chunk_with_context) > context_samples:
-                    original_chunk_with_context = original_chunk_with_context[:-context_samples]
+            original_chunk_with_context = self._trim_context(original_chunk_with_context, chunk_index)
 
             # Now both chunks should have the same length
             min_len = min(len(original_chunk_with_context), len(processed_chunk))
@@ -926,34 +932,7 @@ class ChunkedAudioProcessor:
                 processed_chunk = self.processor.process(audio_chunk)
 
         # Trim context (keep only the actual chunk)
-        context_samples = int(CONTEXT_DURATION * self.sample_rate)
-        actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
-        is_last = chunk_index == self.total_chunks - 1
-
-        # Safety: Ensure we have enough samples to trim
-        chunk_length = len(processed_chunk)
-
-        # For the last chunk, be more conservative with trimming
-        # since the audio is much shorter than expected
-        max_trim_samples = chunk_length // 4  # Never trim more than 1/4 of the chunk
-
-        if actual_start > 0:  # Not first chunk, trim start context
-            trim_start = min(context_samples, max_trim_samples)
-            if chunk_length > trim_start:
-                processed_chunk = processed_chunk[trim_start:]
-                logger.debug(f"Chunk {chunk_index}: trimmed {trim_start/self.sample_rate:.2f}s from start")
-            else:
-                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {trim_start}). Keeping as-is.")
-
-        # Don't trim end context for last chunk
-        if not is_last:
-            chunk_length = len(processed_chunk)  # Update after potential start trim
-            trim_end = min(context_samples, max_trim_samples)
-            if chunk_length > trim_end:
-                processed_chunk = processed_chunk[:-trim_end]
-                logger.debug(f"Chunk {chunk_index}: trimmed {trim_end/self.sample_rate:.2f}s from end")
-            else:
-                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {trim_end}). Keeping as-is.")
+        processed_chunk = self._trim_context(processed_chunk, chunk_index)
 
         # Apply intensity blending
         if self.intensity < 1.0:
@@ -961,19 +940,7 @@ class ChunkedAudioProcessor:
             original_chunk_with_context, _, _ = self.load_chunk(chunk_index, with_context=True)
 
             # Trim context from original to match processed chunk dimensions
-            context_samples = int(CONTEXT_DURATION * self.sample_rate)
-            actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
-
-            # Trim start context for non-first chunks
-            if actual_start > 0:
-                if len(original_chunk_with_context) > context_samples:
-                    original_chunk_with_context = original_chunk_with_context[context_samples:]
-
-            # Trim end context for non-last chunks
-            is_last_chunk = chunk_index == self.total_chunks - 1
-            if not is_last_chunk:
-                if len(original_chunk_with_context) > context_samples:
-                    original_chunk_with_context = original_chunk_with_context[:-context_samples]
+            original_chunk_with_context = self._trim_context(original_chunk_with_context, chunk_index)
 
             # Now both chunks should have the same length
             min_len = min(len(original_chunk_with_context), len(processed_chunk))

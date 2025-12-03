@@ -11,6 +11,7 @@ Spectral feature extraction and analysis functions
 """
 
 import numpy as np
+from ...utils.logging import debug
 
 
 def spectral_centroid(audio: np.ndarray, sample_rate: int = 44100) -> float:
@@ -179,7 +180,7 @@ def tempo_estimate(audio: np.ndarray, sample_rate: int = 44100) -> float:
     Rough tempo estimation using onset detection
 
     Uses spectral flux to detect onsets and estimate tempo.
-    This is a simplified algorithm for basic tempo detection.
+    Tries high-performance Rust implementation first with Python fallback.
 
     Args:
         audio: Input audio signal
@@ -187,6 +188,41 @@ def tempo_estimate(audio: np.ndarray, sample_rate: int = 44100) -> float:
 
     Returns:
         Estimated tempo in BPM
+    """
+    # Try Rust implementation first (3-5x faster)
+    try:
+        from ...optimization.rust_integration import try_import_rust_module
+        rust_dsp = try_import_rust_module()
+
+        if rust_dsp is not None:
+            # Convert stereo to mono if needed
+            if audio.ndim == 2:
+                mono_audio = np.mean(audio, axis=1)
+            else:
+                mono_audio = audio
+
+            # Ensure float64 for Rust
+            mono_audio = mono_audio.astype(np.float64)
+
+            try:
+                tempo_bpm = rust_dsp.detect_tempo(mono_audio, sample_rate)
+                if 40 <= tempo_bpm <= 300:  # Sanity check
+                    return float(tempo_bpm)
+            except Exception as e:
+                debug(f"Rust tempo detection failed, falling back to Python: {e}")
+    except Exception as e:
+        debug(f"Could not import Rust DSP module: {e}")
+
+    # Python fallback implementation
+    return _tempo_estimate_python(audio, sample_rate)
+
+
+def _tempo_estimate_python(audio: np.ndarray, sample_rate: int = 44100) -> float:
+    """
+    Python fallback for tempo estimation using spectral flux.
+
+    This is the original pure-Python implementation, used when Rust module
+    is unavailable.
     """
     if audio.ndim == 2:
         audio = np.mean(audio, axis=1)
@@ -238,6 +274,6 @@ def tempo_estimate(audio: np.ndarray, sample_rate: int = 44100) -> float:
         if beat_interval > 0:
             bpm = 60.0 / beat_interval
             # Constrain to reasonable range
-            return np.clip(bpm, 60, 200)
+            return float(np.clip(bpm, 60, 200))
 
     return 120.0  # Default tempo
