@@ -614,7 +614,7 @@ export class PerformanceOptimizer {
 
     let optimizedData = data;
 
-    if (data.length > this.currentProfile.quality.decimationThreshold) {
+    if (data.length > this.currentProfile.quality.maxDataPoints) {
       const targetPoints = Math.floor(this.currentProfile.quality.maxDataPoints * this.metrics.adaptiveQuality);
       optimizedData = this.dataDecimator.adaptiveDecimate(data, targetPoints);
     }
