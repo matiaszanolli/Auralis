@@ -11,6 +11,11 @@
  * @license GPLv3, see LICENSE for more details
  */
 
+// Internal imports for use in functions below
+import { selectorPerformance } from '../store/selectors/advanced';
+import { renderMetricsStore } from './useRenderProfiler';
+import { bundleAnalyzer } from './bundleAnalyzer';
+
 // ============================================================================
 // Render Profiling
 // ============================================================================
