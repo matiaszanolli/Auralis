@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tooltip } from '@mui/material';
+import { Tooltip } from '@/design-system';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { ToggleButton, EnhancementLabel, EnhancementContainer } from './EnhancementToggleStyles';
 import { EnhancementToggleProps } from './EnhancementToggle';
