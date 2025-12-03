@@ -6,8 +6,7 @@
  */
 
 import React from 'react';
-import { Chip } from '@mui/material';
-import { tokens } from '@/design-system';
+import { Chip, tokens } from '@/design-system';
 
 interface ParameterChipProps {
   label: string;
