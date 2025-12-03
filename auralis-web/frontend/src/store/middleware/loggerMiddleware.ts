@@ -19,7 +19,7 @@
  * @license GPLv3, see LICENSE for more details
  */
 
-import type { Middleware, AnyAction } from '@reduxjs/toolkit';
+import type { Middleware, UnknownAction } from '@reduxjs/toolkit';
 import type { RootState } from '../index';
 
 // ============================================================================
@@ -33,8 +33,8 @@ export interface LoggerConfig {
   timestamps?: boolean;
   colors?: boolean;
   diff?: boolean;
-  predicate?: (getState: () => RootState, action: AnyAction) => boolean;
-  actionSanitizer?: (action: AnyAction) => AnyAction;
+  predicate?: (getState: () => RootState, action: UnknownAction) => boolean;
+  actionSanitizer?: (action: UnknownAction) => UnknownAction;
   stateSanitizer?: (state: RootState) => RootState;
   ignoredActions?: string[];
   onlyActions?: string[];
@@ -167,14 +167,15 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
   return (store) => {
     let isDispatching = false;
 
-    return (next) => (action: AnyAction) => {
+    return (next) => (action: unknown): unknown => {
+      const act = action as UnknownAction;
       // Skip if disabled
       if (!finalConfig.enabled) {
         return next(action);
       }
 
       // Skip ignored actions
-      if (finalConfig.ignoredActions?.includes(action.type)) {
+      if (finalConfig.ignoredActions?.includes(act.type)) {
         return next(action);
       }
 
@@ -182,13 +183,13 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
       if (
         finalConfig.onlyActions &&
         finalConfig.onlyActions.length > 0 &&
-        !finalConfig.onlyActions.includes(action.type)
+        !finalConfig.onlyActions.includes(act.type)
       ) {
         return next(action);
       }
 
       // Check predicate
-      if (finalConfig.predicate && !finalConfig.predicate(store.getState, action)) {
+      if (finalConfig.predicate && !finalConfig.predicate(store.getState, act)) {
         return next(action);
       }
 
@@ -218,28 +219,29 @@ export function createLoggerMiddleware(config: LoggerConfig = {}): Middleware {
       const duration = performance.now() - startTime;
 
       // Sanitize if needed
-      const sanitizedAction = finalConfig.actionSanitizer?.(action) || action;
+      const sanitizedAction = finalConfig.actionSanitizer?.(act) || act;
       const sanitizedPrevState = finalConfig.stateSanitizer?.(prevState) || prevState;
       const sanitizedNextState = finalConfig.stateSanitizer?.(nextState) || nextState;
 
       // Log to console
       const groupMethod = finalConfig.collapsed ? 'groupCollapsed' : 'group';
       const titleSuffix = error ? '❌' : '✅';
+      const sanitizedAct = sanitizedAction as UnknownAction;
 
       if (groupMethod === 'groupCollapsed') {
         console.groupCollapsed(
-          `${titleSuffix} ${sanitizedAction.type}`,
+          `${titleSuffix} ${sanitizedAct.type}`,
           finalConfig.timestamps ? `@ ${formatTime(timestamp.getTime())}` : ''
         );
       } else {
         console.group(
-          `${titleSuffix} ${sanitizedAction.type}`,
+          `${titleSuffix} ${sanitizedAct.type}`,
           finalConfig.timestamps ? `@ ${formatTime(timestamp.getTime())}` : ''
         );
       }
 
       // Log action
-      log('Action:', colors.action, sanitizedAction);
+      log('Action:', colors.action, sanitizedAct);
 
       // Log previous state
       if (finalConfig.colors) {
