@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, IconButton, Typography, Stack } from '@mui/material';
 import { ChevronRight, AutoAwesome } from '@mui/icons-material';
-import { tokens } from '../../design-system/tokens';
+import { tokens } from '@/design-system';
 import { useEnhancement } from '../../contexts/EnhancementContext';
 import EnhancementToggle from '../shared/EnhancementToggle/EnhancementToggle';
 import AudioCharacteristics from './AudioCharacteristics';

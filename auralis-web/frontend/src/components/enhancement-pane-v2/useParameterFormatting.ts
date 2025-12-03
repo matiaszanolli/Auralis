@@ -5,7 +5,7 @@
  * Handles number formatting, threshold checking, and value validation.
  */
 
-import { tokens } from '../../design-system/tokens';
+import { tokens } from '@/design-system';
 
 interface ProcessingParams {
   target_lufs: number;

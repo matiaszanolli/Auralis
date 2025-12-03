@@ -8,7 +8,7 @@
 import React from 'react';
 import { Paper, Typography } from '@mui/material';
 import { AutoAwesome } from '@mui/icons-material';
-import { tokens } from '../../design-system/tokens';
+import { tokens } from '@/design-system';
 
 const LoadingState: React.FC = React.memo(() => {
   return (
