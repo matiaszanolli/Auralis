@@ -304,7 +304,7 @@ interface RouteConfig {
  */
 export function createLazyRoutes(
   routes: RouteConfig[]
-): Array<RouteConfig & { component: React.LazyExoticComponent<any> }> {
+): Array<{ path: string; component: React.LazyExoticComponent<any>; preload?: boolean }> {
   return routes.map((route) => ({
     ...route,
     component: lazy(route.component),
