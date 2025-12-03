@@ -10,7 +10,7 @@ import MasteringRecommendation from './MasteringRecommendation';
 import InfoBox from './InfoBox';
 import { EmptyState } from '../shared/ui/feedback';
 import LoadingState from './LoadingState';
-import useMasteringRecommendation from '../../hooks/useMasteringRecommendation';
+import useMasteringRecommendation from '@/hooks/enhancement/useMasteringRecommendation';
 import {
   ExpandedPaneContainer,
   PaneHeader,

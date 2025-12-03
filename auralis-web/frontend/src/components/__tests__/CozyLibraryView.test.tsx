@@ -15,8 +15,8 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import CozyLibraryView from '../library/CozyLibraryView';
-import { useLibraryWithStats } from '../../hooks/useLibraryWithStats';
-import { usePlayerAPI } from '../../hooks/usePlayerAPI';
+import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
+import { usePlayerAPI } from '@/hooks/player/usePlayerAPI';
 
 vi.mock('../../hooks/useLibraryWithStats');
 vi.mock('../../hooks/usePlayerAPI');

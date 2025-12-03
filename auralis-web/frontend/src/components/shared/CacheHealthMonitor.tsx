@@ -13,7 +13,7 @@
 
 import React, { useEffect } from 'react';
 import { tokens } from '@/design-system';
-import { useCacheHealth } from '@/hooks/useStandardizedAPI';
+import { useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import { CacheHealth } from '@/services/api/standardizedAPIClient';
 
 interface CacheHealthMonitorProps {

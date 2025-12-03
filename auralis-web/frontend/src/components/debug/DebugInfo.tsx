@@ -1,5 +1,5 @@
 import React from 'react'
-import { useCommitId, getVersionString } from '@/hooks/useCommitId'
+import { useCommitId, getVersionString } from '@/hooks/app/useCommitId'
 import { auroraOpacity, colorAuroraPrimary } from '../library/Styles/Color.styles'
 import { spacingSmall, spacingXSmall } from '../library/Styles/Spacing.styles'
 

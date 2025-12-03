@@ -15,7 +15,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import TrackRow from '../TrackRow';
-import { useTrackSelection } from '../../../hooks/useTrackSelection';
+import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 
 // Mock hooks and components
 vi.mock('../../../hooks/useTrackSelection');

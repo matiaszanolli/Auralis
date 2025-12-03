@@ -23,12 +23,12 @@ import {
 } from './components/core';
 
 // Custom hooks for business logic
-import { useAppLayout } from './hooks/useAppLayout';
-import { useAppDragDrop } from './hooks/useAppDragDrop';
+import { useAppLayout } from '@/hooks/app/useAppLayout';
+import { useAppDragDrop } from '@/hooks/app/useAppDragDrop';
 
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
-import { useKeyboardShortcuts, KeyboardShortcut } from './hooks/useKeyboardShortcuts';
+import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/app/useKeyboardShortcuts';
 import { selectIsPlaying, selectVolume } from './store/slices/playerSlice';
 import { getApiUrl } from './config/api';
 
