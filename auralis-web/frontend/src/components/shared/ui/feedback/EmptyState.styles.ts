@@ -5,8 +5,7 @@
  */
 
 import { Box, Typography, styled } from '@mui/material';
-import { auroraOpacity } from '../../../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 export const Container = styled(Box)({
   display: 'flex',
@@ -22,27 +21,27 @@ export const IconContainer = styled(Box)({
   marginBottom: tokens.spacing.lg,
   '& .MuiSvgIcon-root': {
     fontSize: '80px',
-    color: auroraOpacity.strong,
-    transition: 'all 200ms ease',
+    color: tokens.colors.text.tertiary,
+    transition: tokens.transitions.base_inOut,
   },
 
   '&:hover .MuiSvgIcon-root': {
-    color: auroraOpacity.veryStrong,
+    color: tokens.colors.accent.secondary,
     transform: 'scale(1.1)',
   },
 });
 
 export const Title = styled(Typography)({
-  fontSize: '24px',
-  fontWeight: 600,
+  fontSize: tokens.typography.fontSize['2xl'],
+  fontWeight: tokens.typography.fontWeight.semibold,
   color: tokens.colors.text.primary,
   marginBottom: tokens.spacing.sm,
 });
 
 export const Description = styled(Typography)({
-  fontSize: '14px',
+  fontSize: tokens.typography.fontSize.base,
   color: tokens.colors.text.secondary,
   marginBottom: tokens.spacing.lg,
   maxWidth: '400px',
-  lineHeight: 1.6,
+  lineHeight: tokens.typography.lineHeight.relaxed,
 });
