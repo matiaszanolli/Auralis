@@ -35,7 +35,7 @@ interface MasteringRecommendationCache {
 }
 
 export const useMasteringRecommendation = (trackId?: number) => {
-  const { subscribe, unsubscribe } = useWebSocketContext();
+  const { subscribe } = useWebSocketContext();
   const [recommendation, setRecommendation] = useState<MasteringRecommendationData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [cache] = useState<MasteringRecommendationCache>({});
@@ -60,15 +60,13 @@ export const useMasteringRecommendation = (trackId?: number) => {
     };
 
     // Subscribe to mastering recommendation messages
-    subscribe('mastering_recommendation', handleMasteringRecommendation);
+    const unsubscribe = subscribe('mastering_recommendation', handleMasteringRecommendation);
 
     // Start loading indicator
     setIsLoading(true);
 
-    return () => {
-      unsubscribe('mastering_recommendation', handleMasteringRecommendation);
-    };
-  }, [trackId, subscribe, unsubscribe, cache]);
+    return unsubscribe;
+  }, [trackId, subscribe, cache]);
 
   // Method to clear cached recommendation
   const clearRecommendation = useCallback(() => {
