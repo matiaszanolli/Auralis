@@ -162,7 +162,7 @@ const createMessageHandlers = (): MessageHandlerMap => ({
   // ========================================================================
 
   [MessageType.CACHE_STATS]: (message, dispatch) => {
-    const stats = message.payload;
+    const stats = message.payload as any;
     if (stats) {
       dispatch(cacheActions.setCacheStats(stats));
     }
