@@ -25,7 +25,7 @@ import type { RootState } from '../index';
 // Performance Metrics Tracking
 // ============================================================================
 
-interface SelectorMetrics {
+export interface SelectorMetrics {
   name: string;
   calls: number;
   cacheHits: number;
