@@ -6,7 +6,8 @@
  */
 
 import React from 'react';
-import { Box, CircularProgress } from '@mui/material';
+import { Box } from '@mui/material';
+import { CircularProgress } from '@/design-system';
 import { auroraOpacity } from '../../library/Styles/Color.styles';
 
 export interface LoadingOverlayProps {

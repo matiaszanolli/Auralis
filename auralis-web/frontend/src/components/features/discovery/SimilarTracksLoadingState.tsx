@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
-import { tokens } from '@/design-system';
+import { Box, Typography } from '@mui/material';
+import { tokens, CircularProgress } from '@/design-system';
 
 /**
  * SimilarTracksLoadingState - Shows loading spinner while fetching similar tracks
