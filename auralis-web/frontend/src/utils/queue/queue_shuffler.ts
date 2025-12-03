@@ -284,7 +284,7 @@ export class QueueShuffler {
   private static tracksAreSimilar(track1: Track, track2: Track): boolean {
     return (
       track1.artist === track2.artist ||
-      (track1.album && track1.album === track2.album)
+      track1.album === track2.album
     );
   }
 
