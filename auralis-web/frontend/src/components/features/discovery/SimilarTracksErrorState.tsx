@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Alert } from '@mui/material';
+import { Box } from '@mui/material';
+import { Alert } from '@/design-system';
 
 interface SimilarTracksErrorStateProps {
   error: string;
@@ -11,7 +12,7 @@ interface SimilarTracksErrorStateProps {
 export const SimilarTracksErrorState: React.FC<SimilarTracksErrorStateProps> = ({ error }) => {
   return (
     <Box sx={{ p: 2 }}>
-      <Alert severity="error" sx={{ fontSize: '0.875rem' }}>
+      <Alert variant="error">
         {error}
       </Alert>
     </Box>

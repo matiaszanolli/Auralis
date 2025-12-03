@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Typography, Alert } from '@mui/material';
-import { tokens, CircularProgress } from '@/design-system';
+import { Box, Typography } from '@mui/material';
+import { tokens, CircularProgress, Alert } from '@/design-system';
 import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 
 interface SimilarityLoadingStateProps {
@@ -24,7 +24,7 @@ interface SimilarityErrorStateProps {
 
 export const SimilarityErrorState: React.FC<SimilarityErrorStateProps> = ({ error }) => (
   <Box sx={{ p: 2 }}>
-    <Alert severity="error" sx={{ fontSize: '0.875rem' }}>
+    <Alert variant="error">
       {error}
     </Alert>
   </Box>
