@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Box, IconButton, Tooltip, Button } from '@mui/material';
+import { Box, IconButton, Button } from '@mui/material';
 import {
   PlayArrow,
   Pause,
@@ -14,7 +14,7 @@ import {
   Favorite,
   FavoriteBorder,
 } from '@mui/icons-material';
-import { tokens } from '@/design-system';
+import { Tooltip, tokens } from '@/design-system';
 
 interface AlbumActionButtonsProps {
   isPlaying: boolean;
