@@ -30,8 +30,8 @@ import {
   setVolume,
   setMuted,
   setPreset,
-} from '../store/slices/playerSlice';
-import { setQueue, setCurrentIndex } from '../store/slices/queueSlice';
+} from '@/store/slices/playerSlice';
+import { setQueue, setCurrentIndex } from '@/store/slices/queueSlice';
 
 /**
  * Hook to sync WebSocket player_state messages to Redux (player + queue)
