@@ -25,9 +25,9 @@ export interface ButtonProps extends Omit<MuiButtonProps, 'variant' | 'size' | '
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
 
   /**
-   * Size
+   * Size - supports both design system and MUI formats
    */
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'small' | 'medium' | 'large';
 
   /**
    * Loading state
@@ -53,7 +53,7 @@ export interface ButtonProps extends Omit<MuiButtonProps, 'variant' | 'size' | '
 const StyledButton = styled(MuiButton, {
   shouldForwardProp: (prop) =>
     !['variant', 'size', 'loading'].includes(prop as string),
-})<{ variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; size?: 'sm' | 'md' | 'lg'; loading?: boolean }>(({ variant = 'primary', size = 'md', disabled, loading }) => {
+})<{ variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; size?: 'sm' | 'md' | 'lg' | 'small' | 'medium' | 'large'; loading?: boolean }>(({ variant = 'primary', size = 'md', disabled, loading }) => {
   // Base styles
   const baseStyles = {
     fontFamily: tokens.typography.fontFamily.primary,
@@ -71,6 +71,16 @@ const StyledButton = styled(MuiButton, {
       textTransform: 'none',
     },
   };
+
+  // Map Material-UI sizes to design system sizes
+  const normalizedSize = (() => {
+    switch (size) {
+      case 'small': return 'sm';
+      case 'medium': return 'md';
+      case 'large': return 'lg';
+      default: return size as 'sm' | 'md' | 'lg';
+    }
+  })();
 
   // Size styles
   const sizeStyles = {
@@ -159,7 +169,7 @@ const StyledButton = styled(MuiButton, {
 
   return {
     ...baseStyles,
-    ...sizeStyles[size as keyof typeof sizeStyles],
+    ...sizeStyles[normalizedSize as keyof typeof sizeStyles],
     ...variantStyles[variant as keyof typeof variantStyles],
   };
 });

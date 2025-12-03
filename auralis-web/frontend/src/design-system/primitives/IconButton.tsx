@@ -44,6 +44,16 @@ const StyledIconButton = styled(MuiIconButton, {
   shouldForwardProp: (prop) =>
     !['variant', 'size', 'active'].includes(prop as string),
 })<IconButtonProps>(({ variant = 'default', size = 'md', active, disabled }) => {
+  // Map Material-UI sizes to design system sizes
+  const normalizedSize = (() => {
+    switch (size) {
+      case 'small': return 'sm';
+      case 'medium': return 'md';
+      case 'large': return 'lg';
+      default: return size as 'sm' | 'md' | 'lg';
+    }
+  })();
+
   // Size styles
   const sizeStyles = {
     sm: {
@@ -135,7 +145,7 @@ const StyledIconButton = styled(MuiIconButton, {
   };
 
   return {
-    ...sizeStyles[size as keyof typeof sizeStyles],
+    ...sizeStyles[normalizedSize as keyof typeof sizeStyles],
     ...variantStyles[variant as keyof typeof variantStyles],
     borderRadius: tokens.borderRadius.md,
     transition: tokens.transitions.all,
