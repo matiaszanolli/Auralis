@@ -169,7 +169,7 @@ const createMessageHandlers = (): MessageHandlerMap => ({
   },
 
   [MessageType.CACHE_STATUS]: (message, dispatch) => {
-    const health = message.payload;
+    const health = message.payload as any;
     if (health) {
       dispatch(cacheActions.setCacheHealth(health));
     }
