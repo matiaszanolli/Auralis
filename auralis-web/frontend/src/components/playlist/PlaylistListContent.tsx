@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, List, Collapse } from '@mui/material';
+import { Box, Collapse } from '@mui/material';
+import { List } from '@/design-system';
 import { ContextMenu, ContextMenuAction } from '../shared/ContextMenu';
 import { DroppablePlaylist } from './DroppablePlaylist';
 import { EmptyState } from './PlaylistList.styles';
