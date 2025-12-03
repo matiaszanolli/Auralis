@@ -1,11 +1,8 @@
 import React from 'react';
-import {
-  Box,
-  List,
-  ListItem,
-  Skeleton
-} from '@mui/material';
+
 import { ListContainer } from '../../Styles/ArtistList.styles';
+import { List } from '@/design-system';
+import { Box, ListItem, Skeleton } from '@mui/material';
 
 /**
  * ArtistListLoading - Loading skeleton for artist list

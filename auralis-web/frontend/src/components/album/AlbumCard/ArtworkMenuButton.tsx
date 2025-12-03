@@ -5,9 +5,10 @@
  */
 
 import React from 'react';
-import { IconButton } from '@mui/material';
+
 import { MoreVert } from '@mui/icons-material';
 import { tokens } from '@/design-system';
+import { IconButton } from '@/design-system';
 
 interface ArtworkMenuButtonProps {
   onClick: (e: React.MouseEvent<HTMLElement>) => void;

@@ -5,9 +5,10 @@
  */
 
 import React from 'react';
-import { Button, Tooltip } from '@mui/material';
+
 import { FooterArea } from './AppEnhancementPaneStyles';
 import { auroraOpacity } from '../library/Styles/Color.styles';
+import { Button, Tooltip } from '@/design-system';
 
 interface AppEnhancementPaneFooterProps {
   useV2: boolean;

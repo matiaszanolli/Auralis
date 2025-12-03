@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, IconButton, Typography, Stack } from '@mui/material';
+
 import { ChevronRight, AutoAwesome } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { useEnhancement } from '../../contexts/EnhancementContext';
@@ -18,6 +18,8 @@ import {
   DisabledStateContainer,
 } from './EnhancementPaneV2.styles';
 import { ProcessingParams } from './useEnhancementParameters';
+import { IconButton } from '@/design-system';
+import { Box, Typography, Stack } from '@mui/material';
 
 interface EnhancementPaneExpandedProps {
   params: ProcessingParams | null;

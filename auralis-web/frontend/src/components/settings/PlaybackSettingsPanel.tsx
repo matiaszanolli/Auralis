@@ -1,13 +1,9 @@
 import React from 'react';
-import {
-  Box,
-  Switch,
-  FormControlLabel,
-  Slider,
-  Divider
-} from '@mui/material';
+
 import { SettingsUpdate } from '../../services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
+import { Slider } from '@/design-system';
+import { Box, Switch, FormControlLabel, Divider } from '@mui/material';
 
 interface PlaybackSettingsPanelProps {
   gaplessEnabled: boolean;

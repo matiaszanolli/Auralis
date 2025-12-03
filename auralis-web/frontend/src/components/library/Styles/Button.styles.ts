@@ -7,10 +7,11 @@
  * Color presets are imported from Color.styles.ts for consistency.
  */
 
-import { Button, styled } from '@mui/material';
 import { gradients, auroraOpacity } from './Color.styles';
 import { buttonShadows } from './Shadow.styles';
 import { radiusMedium } from './BorderRadius.styles';
+import { Button } from '@/design-system';
+import { styled } from '@mui/material';
 
 /**
  * GradientButton - Primary action button with aurora gradient (135deg variant)

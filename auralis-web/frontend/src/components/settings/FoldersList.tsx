@@ -3,15 +3,7 @@
  */
 
 import React from 'react';
-import {
-  Box,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
-  Button,
-} from '@mui/material';
+
 import {
   Folder as FolderIcon,
   Delete as DeleteIcon,
@@ -21,6 +13,8 @@ import {
 import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
 import { auroraOpacity } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
+import { List, IconButton, Button } from '@/design-system';
+import { Box, ListItem, ListItemText, ListItemSecondaryAction,  } from '@mui/material';
 
 interface FoldersListProps {
   scanFolders: string[];

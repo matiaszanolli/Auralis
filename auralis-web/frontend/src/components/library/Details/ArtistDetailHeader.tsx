@@ -5,11 +5,13 @@
  */
 
 import React from 'react';
-import { Box, Container, Button, IconButton } from '@mui/material';
+
 import { tokens } from '@/design-system';
 import { ArrowBack } from '@mui/icons-material';
 import ArtistHeader from './ArtistHeader';
 import { type Track, type Album, type Artist } from './useArtistDetailsData';
+import { Button, IconButton } from '@/design-system';
+import { Box, Container } from '@mui/material';
 
 interface ArtistDetailHeaderProps {
   artist: Artist;

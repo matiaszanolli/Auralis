@@ -8,8 +8,10 @@
  */
 
 import React from 'react';
-import { CardContent, Typography, Tooltip } from '@mui/material';
+
 import { tokens } from '@/design-system';
+import { Tooltip } from '@/design-system';
+import { CardContent, Typography } from '@mui/material';
 
 interface AlbumInfoProps {
   title: string;

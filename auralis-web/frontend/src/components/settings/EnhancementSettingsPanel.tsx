@@ -1,17 +1,9 @@
 import React from 'react';
-import {
-  Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Switch,
-  FormControlLabel,
-  Slider,
-  Divider
-} from '@mui/material';
+
 import { SettingsUpdate } from '../../services/settingsService';
 import { SectionContainer, SectionLabel, SectionDescription } from '../library/Styles/Dialog.styles';
+import { Slider } from '@/design-system';
+import { Box, FormControl, InputLabel, Select, MenuItem, Switch, FormControlLabel, Divider } from '@mui/material';
 
 interface EnhancementSettingsPanelProps {
   defaultPreset: string;

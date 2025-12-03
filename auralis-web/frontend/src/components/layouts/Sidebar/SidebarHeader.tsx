@@ -3,10 +3,12 @@
  */
 
 import React from 'react';
-import { Box, Divider, IconButton } from '@mui/material';
+
 import { ChevronLeft } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { AuroraLogo } from '../../navigation/AuroraLogo';
+import { IconButton } from '@/design-system';
+import { Box, Divider } from '@mui/material';
 
 interface SidebarHeaderProps {
   onToggleCollapse?: () => void;

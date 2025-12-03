@@ -1,8 +1,9 @@
 import React from 'react';
-import { IconButton } from '@mui/material';
+
 import MenuIcon from '@mui/icons-material/Menu';
 import { auroraOpacity } from '../library/Styles/Color.styles';
 import { LeftSection, TitleBox } from './AppTopBar.styles';
+import { IconButton } from '@/design-system';
 
 interface AppTopBarLeftSectionProps {
   showMobileMenu: boolean;

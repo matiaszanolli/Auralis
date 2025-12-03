@@ -2,11 +2,12 @@
  * BatchActionsToolbar Styled Components
  */
 
-import { Paper, Typography, IconButton, styled } from '@mui/material';
 import { cardShadows } from '../Styles/Shadow.styles';
 import { spacingPresets } from '../Styles/Spacing.styles';
 import { auroraOpacity } from '../Styles/Color.styles';
 import { tokens } from '@/design-system';
+import { IconButton } from '@/design-system';
+import { Paper, Typography, styled } from '@mui/material';
 
 export const ToolbarContainer = styled(Paper)(({ theme }) => ({
   position: 'fixed',
