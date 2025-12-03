@@ -362,7 +362,7 @@ export function createWebSocketMiddleware(protocolClient: any) {
     // Middleware Return Function
     // ======================================================================
 
-    return (next) => (action: unknown): unknown => {
+    return (next: (action: unknown) => unknown) => (action: unknown): unknown => {
       // Allow action to pass through
       const result = next(action);
 
