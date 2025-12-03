@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography } from '@mui/material';
-import { ContextMenu, ContextMenuAction } from '../../shared/ContextMenu';
+import { ContextMenu, ContextMenuAction } from '../../../shared/ContextMenu';
 import { ArtistListLoadingIndicator } from './ArtistListLoadingIndicator';
 import { ArtistListHeader } from './ArtistListHeader';
 import { ArtistSection } from './ArtistSection';

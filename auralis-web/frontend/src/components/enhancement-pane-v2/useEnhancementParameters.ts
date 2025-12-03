@@ -39,13 +39,18 @@ export const useEnhancementParameters = ({ enabled }: UseEnhancementParametersPr
   const fetchParams = useCallback(async () => {
     try {
       setIsAnalyzing(true);
-      const response = await fetch('/api/processing/parameters');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+      const response = await fetch('/api/processing/parameters', { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         setParams(data);
       }
     } catch (err) {
-      // Silently ignore network errors (backend not ready yet)
+      // Silently ignore network errors and aborts (backend not ready yet)
     } finally {
       setIsAnalyzing(false);
     }
@@ -53,12 +58,17 @@ export const useEnhancementParameters = ({ enabled }: UseEnhancementParametersPr
 
   // Fetch params on mount and when enabled changes
   useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+
     if (enabled) {
       fetchParams();
       // Poll for updates every 2 seconds when enabled
-      const interval = setInterval(fetchParams, 2000);
-      return () => clearInterval(interval);
+      interval = setInterval(fetchParams, 2000);
     }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [enabled, fetchParams]);
 
   return {
