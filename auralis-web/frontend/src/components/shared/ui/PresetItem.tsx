@@ -1,7 +1,8 @@
 import React from 'react';
-import { Box, Tooltip, Typography } from '@mui/material';
-import { auroraOpacity, colorAuroraPrimary } from '../../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { Box, Typography } from '@mui/material';
+import { Tooltip } from '@/design-system';
+import { tokens } from '@/design-system';
+import { colorAuroraPrimary } from '../../library/Styles/Color.styles';
 import { Preset } from './presetConfig';
 
 interface PresetItemProps {
@@ -66,10 +67,10 @@ export const PresetItem: React.FC<PresetItemProps> = ({
           borderRadius: '50%',
           background: isActive ? preset.gradient : tokens.colors.bg.tertiary,
           border: isActive
-            ? `3px solid ${auroraOpacity.stronger}`
+            ? `3px solid ${tokens.colors.border.heavy}`
             : isHovered
             ? `2px solid ${presetColor}`
-            : `2px solid ${auroraOpacity.ultraLight}`,
+            : `2px solid ${tokens.colors.border.light}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
