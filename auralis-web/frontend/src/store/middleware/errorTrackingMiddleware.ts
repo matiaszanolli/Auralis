@@ -199,7 +199,7 @@ export function createErrorTrackingMiddleware(
   const errorStore = new ErrorStore(finalConfig.maxErrors);
 
   return (store) => {
-    return (next) => (action: unknown) => {
+    return (next) => (action: unknown): unknown => {
       const act = action as Record<string, any>;
       try {
         const result = next(action);
