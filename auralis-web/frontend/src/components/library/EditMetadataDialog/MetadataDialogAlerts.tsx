@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from '@mui/material';
+import { Alert } from '@/design-system';
 import { AlertContainer } from './EditMetadataDialog.styles';
 
 interface MetadataDialogAlertsProps {
@@ -19,12 +19,12 @@ export const MetadataDialogAlerts: React.FC<MetadataDialogAlertsProps> = ({ erro
     <>
       {error && (
         <AlertContainer>
-          <Alert severity="error">{error}</Alert>
+          <Alert variant="error">{error}</Alert>
         </AlertContainer>
       )}
       {success && (
         <AlertContainer>
-          <Alert severity="success">Metadata saved successfully!</Alert>
+          <Alert variant="success">Metadata saved successfully!</Alert>
         </AlertContainer>
       )}
     </>
