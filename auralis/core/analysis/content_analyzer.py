@@ -26,7 +26,7 @@ class ContentAnalyzer:
     """Enhanced content analysis for adaptive processing with ML genre classification"""
 
     def __init__(self, sample_rate: int = 44100, use_ml_classification: bool = True,
-                 use_fingerprint_analysis: bool = True):
+                 use_fingerprint_analysis: bool = True, use_tempo_detection: bool = True):
         """
         Initialize content analyzer
 
@@ -34,11 +34,13 @@ class ContentAnalyzer:
             sample_rate: Audio sample rate
             use_ml_classification: Whether to use ML-based genre classification
             use_fingerprint_analysis: Whether to extract 25D audio fingerprints
+            use_tempo_detection: Whether to perform tempo detection (can be disabled for speed)
         """
         self.sample_rate = sample_rate
         self.genre_confidence_threshold = 0.6
         self.use_ml_classification = use_ml_classification
         self.use_fingerprint_analysis = use_fingerprint_analysis
+        self.use_tempo_detection = use_tempo_detection
 
         # Initialize ML genre classifier
         if use_ml_classification:
@@ -92,8 +94,12 @@ class ContentAnalyzer:
         rolloff = spectral_rolloff(mono_audio, self.sample_rate)
         zcr = zero_crossing_rate(mono_audio)
 
-        # Temporal features
-        estimated_tempo = tempo_estimate(mono_audio, self.sample_rate)
+        # Temporal features (tempo detection can be disabled for speed)
+        if self.use_tempo_detection:
+            estimated_tempo = tempo_estimate(mono_audio, self.sample_rate)
+        else:
+            estimated_tempo = 120.0  # Default tempo when detection disabled
+            debug("Tempo detection disabled, using default 120 BPM")
 
         # Stereo analysis (if applicable)
         stereo_info = {}
@@ -285,7 +291,7 @@ class ContentAnalyzer:
         centroid = spectral_centroid(mono_audio, self.sample_rate)
         rolloff = spectral_rolloff(mono_audio, self.sample_rate)
         zcr = zero_crossing_rate(mono_audio)
-        tempo = tempo_estimate(mono_audio, self.sample_rate)
+        tempo = tempo_estimate(mono_audio, self.sample_rate) if self.use_tempo_detection else 120.0
         crest_factor_db = crest_factor(audio)
 
         return self._classify_genre(centroid, rolloff, zcr, tempo, crest_factor_db)
@@ -399,15 +405,17 @@ class ContentAnalyzer:
 
 
 def create_content_analyzer(sample_rate: int = 44100,
-                           use_ml_classification: bool = True) -> ContentAnalyzer:
+                           use_ml_classification: bool = True,
+                           use_tempo_detection: bool = True) -> ContentAnalyzer:
     """
     Factory function to create content analyzer
 
     Args:
         sample_rate: Audio sample rate
         use_ml_classification: Whether to use ML-based genre classification
+        use_tempo_detection: Whether to perform tempo detection (can be disabled for speed)
 
     Returns:
         Configured ContentAnalyzer instance
     """
-    return ContentAnalyzer(sample_rate, use_ml_classification)
+    return ContentAnalyzer(sample_rate, use_ml_classification, use_tempo_detection=use_tempo_detection)

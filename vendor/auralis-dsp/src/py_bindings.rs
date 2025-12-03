@@ -8,7 +8,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use numpy::{PyArray1, PyArray2, ToPyArray, IntoPyArray};
-use crate::{hpss, yin, chroma};
+use crate::{hpss, yin, chroma, tempo};
 
 /// PyO3 module initialization
 /// Exposes all DSP functions to Python
@@ -23,6 +23,9 @@ fn auralis_dsp(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(chroma_cqt_wrapper, m)?)?;
     m.add("chroma_cqt", m.getattr("chroma_cqt_wrapper")?)?;
+
+    m.add_function(wrap_pyfunction!(detect_tempo_wrapper, m)?)?;
+    m.add("detect_tempo", m.getattr("detect_tempo_wrapper")?)?;
 
     Ok(())
 }
@@ -161,4 +164,68 @@ fn chroma_cqt_wrapper(
     let chroma_py = chroma.into_pyarray_bound(py).unbind();
 
     Ok(chroma_py)
+}
+
+/// Python wrapper for Tempo Detection (Spectral Flux Onset Detection)
+///
+/// Estimates tempo in BPM using spectral flux onset detection.
+///
+/// Arguments:
+///     audio: numpy array of shape (n_samples,) with dtype float64
+///     sr: Sample rate in Hz (typically 44100)
+///     n_fft: FFT window size (default: 1024)
+///     hop_length: Hop length in samples (default: 512)
+///     threshold_multiplier: Peak detection threshold multiplier (default: 0.5)
+///     min_bpm: Minimum BPM to return (default: 60)
+///     max_bpm: Maximum BPM to return (default: 200)
+///
+/// Returns:
+///     Estimated tempo in BPM (float)
+///
+/// Example:
+///     >>> import numpy as np
+///     >>> import auralis_dsp
+///     >>> audio = np.random.randn(44100).astype(np.float64)  # 1 second
+///     >>> bpm = auralis_dsp.detect_tempo(audio, sr=44100)
+///     >>> print(f"Estimated tempo: {bpm:.1f} BPM")
+#[pyfunction]
+#[pyo3(signature = (audio, sr = 44100, n_fft = None, hop_length = None, threshold_multiplier = None, min_bpm = None, max_bpm = None))]
+fn detect_tempo_wrapper(
+    audio: &PyArray1<f64>,
+    sr: usize,
+    n_fft: Option<usize>,
+    hop_length: Option<usize>,
+    threshold_multiplier: Option<f64>,
+    min_bpm: Option<f64>,
+    max_bpm: Option<f64>,
+) -> PyResult<f64> {
+    // Convert numpy array to Rust vec
+    let audio_vec: Vec<f64> = audio.to_vec().map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            format!("Failed to convert audio array: {}", e),
+        )
+    })?;
+
+    // Build tempo config with optional parameters
+    let mut config = tempo::TempoConfig::default();
+    if let Some(nf) = n_fft {
+        config.n_fft = nf;
+    }
+    if let Some(hl) = hop_length {
+        config.hop_length = hl;
+    }
+    if let Some(tm) = threshold_multiplier {
+        config.threshold_multiplier = tm;
+    }
+    if let Some(min) = min_bpm {
+        config.min_bpm = min;
+    }
+    if let Some(max) = max_bpm {
+        config.max_bpm = max;
+    }
+
+    // Call Rust tempo detection function
+    let estimated_tempo = tempo::detect_tempo(&audio_vec, sr, &config);
+
+    Ok(estimated_tempo)
 }
