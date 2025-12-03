@@ -9,7 +9,7 @@
 
 import { vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useTrackContextMenu } from '../useTrackContextMenu';
+import { useTrackContextMenu } from '../tracks/useTrackContextMenu';
 
 // Mock dependencies
 vi.mock('@/components/shared/Toast', () => ({

@@ -5,8 +5,8 @@
 import React from 'react';
 import { TableCell, Typography } from '@mui/material';
 import { tokens } from '@/design-system/tokens';
-import { StyledTableRow } from '../Styles/Table.styles';
-import { TrackPlayIndicator } from './TrackPlayIndicator';
+import { StyledTableRow } from '../../Styles/Table.styles';
+import { TrackPlayIndicator } from '../tracks/TrackPlayIndicator';
 
 interface Track {
   id: number;

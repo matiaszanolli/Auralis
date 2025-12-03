@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Typography } from '@mui/material';
-import { SectionHeader } from '../Styles/ArtistList.styles';
+import { SectionHeader } from '../../Styles/ArtistList.styles';
 
 interface ArtistListHeaderProps {
   loadedCount: number;

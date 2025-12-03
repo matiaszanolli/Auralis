@@ -8,7 +8,7 @@
 
 import { vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useTrackImage } from '../useTrackImage';
+import { useTrackImage } from '../tracks/useTrackImage';
 
 describe('useTrackImage', () => {
   beforeEach(() => {
