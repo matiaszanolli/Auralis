@@ -1,11 +1,10 @@
 import { styled, Box, IconButton } from '@mui/material';
-import { gradients, auroraOpacity } from '../../library/Styles/Color.styles';
-import { tokens } from '@/design-system/tokens';
+import { tokens } from '@/design-system';
 
 export const ThemeToggleContainer = styled(Box)({
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 8,
+  gap: tokens.spacing.sm,
 });
 
 export const ThemeToggleButton = styled(IconButton, {
@@ -13,18 +12,18 @@ export const ThemeToggleButton = styled(IconButton, {
 })<{ buttonSize: number; isDark: boolean }>(({ buttonSize, isDark }) => ({
   width: buttonSize,
   height: buttonSize,
-  background: isDark ? tokens.colors.border.light : auroraOpacity.ultraLight,
+  background: isDark ? tokens.colors.border.light : tokens.colors.bg.level3,
   backdropFilter: 'blur(10px)',
-  border: `1px solid ${isDark ? tokens.colors.border.medium : auroraOpacity.lighter}`,
-  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+  border: `1px solid ${isDark ? tokens.colors.border.medium : tokens.colors.border.light}`,
+  transition: tokens.transitions.slow_inOut,
   overflow: 'hidden',
   position: 'relative',
   '&:hover': {
-    background: isDark ? tokens.colors.border.medium : auroraOpacity.light,
+    background: isDark ? tokens.colors.border.medium : tokens.colors.bg.level4,
     transform: 'scale(1.05) rotate(15deg)',
     boxShadow: isDark
-      ? `0 4px 20px ${auroraOpacity.strong}`
-      : `0 4px 20px ${auroraOpacity.standard}`,
+      ? tokens.shadows.lg
+      : tokens.shadows.md,
   },
   '&:active': {
     transform: 'scale(0.95) rotate(0deg)',
@@ -34,9 +33,9 @@ export const ThemeToggleButton = styled(IconButton, {
 export const ThemeToggleBackground = styled(Box)({
   position: 'absolute',
   inset: 0,
-  background: gradients.aurora,
+  background: tokens.gradients.aurora,
   opacity: 0,
-  transition: 'opacity 0.4s ease',
+  transition: tokens.transitions.slow_inOut,
 });
 
 export const ThemeToggleIconContainer = styled(Box)({
@@ -44,12 +43,12 @@ export const ThemeToggleIconContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: tokens.transitions.verySlow_inOut,
 });
 
 export const ThemeToggleLabel = styled(Box)({
-  fontSize: 12,
-  fontWeight: 600,
+  fontSize: tokens.typography.fontSize.xs,
+  fontWeight: tokens.typography.fontWeight.semibold,
   textTransform: 'uppercase',
-  letterSpacing: 1,
+  letterSpacing: tokens.typography.letterSpacing.loose,
 });
