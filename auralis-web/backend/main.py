@@ -220,19 +220,28 @@ async def startup_event():
 
     if HAS_AURALIS:
         try:
+            # Ensure database directory exists before initializing LibraryManager
+            music_dir = Path.home() / "Music" / "Auralis"
+            music_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"📁 Database directory ready: {music_dir}")
+
             library_manager = LibraryManager()
             logger.info("✅ Auralis LibraryManager initialized")
+            logger.info(f"📊 Database location: {library_manager.database_path}")
 
             # Auto-scan default music directory on startup
             try:
-                music_dir = Path.home() / "Music"
-                if music_dir.exists():
+                music_source_dir = Path.home() / "Music"
+                if music_source_dir.exists() and music_source_dir != music_dir:
+                    logger.info(f"🔍 Starting auto-scan of {music_source_dir}...")
                     scanner = LibraryScanner(library_manager)
-                    scan_result = scanner.scan_directories([str(music_dir)], recursive=True, skip_existing=True)
+                    scan_result = scanner.scan_directories([str(music_source_dir)], recursive=True, skip_existing=True)
                     if scan_result and scan_result.files_added > 0:
-                        logger.info(f"🎵 Auto-scanned ~/Music: {scan_result.files_added} files added")
+                        logger.info(f"✅ Auto-scanned ~/Music: {scan_result.files_added} files added")
                     elif scan_result:
-                        logger.info(f"🎵 ~/Music already scanned: {scan_result.files_found} total files")
+                        logger.info(f"✅ ~/Music already scanned: {scan_result.files_found} total files")
+                    else:
+                        logger.info("ℹ️  No new files to scan in ~/Music")
             except Exception as scan_e:
                 logger.warning(f"⚠️  Failed to auto-scan ~/Music: {scan_e}")
 
@@ -282,7 +291,10 @@ async def startup_event():
                     graph_builder = None
 
         except Exception as e:
+            import traceback
             logger.error(f"❌ Failed to initialize Auralis components: {e}")
+            logger.error(f"Traceback:\n{traceback.format_exc()}")
+            logger.error("⚠️  Auralis library initialization failed - API will return 503 errors")
     else:
         logger.warning("⚠️  Auralis not available - running in demo mode")
 
