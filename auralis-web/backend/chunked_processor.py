@@ -584,6 +584,9 @@ class ChunkedAudioProcessor:
         # This prevents volume jumps by limiting maximum RMS changes
         processed_chunk = self._smooth_level_transition(processed_chunk, chunk_index)
 
+        # Determine if this is the last chunk
+        is_last = chunk_index == self.total_chunks - 1
+
         # Apply crossfade
         processed_chunk = self.apply_crossfade(processed_chunk, chunk_index, is_last)
 
