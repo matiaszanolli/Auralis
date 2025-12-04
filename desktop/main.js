@@ -115,7 +115,7 @@ class AuralisApp {
           ? `${backendPath}.exe`
           : backendPath;
 
-        const pythonScript = path.join(process.resourcesPath, 'backend', 'backend', 'main.py');
+        const pythonScript = path.join(process.resourcesPath, 'backend', 'main.py');
 
         if (fs.existsSync(backendExe)) {
           // Use compiled binary if available
