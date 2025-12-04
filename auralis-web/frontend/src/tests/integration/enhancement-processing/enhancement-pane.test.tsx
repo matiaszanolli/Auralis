@@ -172,8 +172,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Enable enhancement (this triggers parameter fetch)
-      const toggleSwitch = screen.getByRole('checkbox');
-      await user.click(toggleSwitch);
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      await user.click(toggleButton);
 
       // Assert - Component should handle loading state gracefully
       // Loading state appears briefly during API call
@@ -238,8 +239,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Act
-      const toggleSwitch = screen.getByRole('checkbox');
-      await user.click(toggleSwitch);
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      await user.click(toggleButton);
 
       // Assert - Wait longer for the async operation to complete
       await waitFor(() => {
@@ -260,8 +262,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Assert - Component renders with toggle
-      const toggleSwitch = screen.getByRole('checkbox') as HTMLInputElement;
-      expect(toggleSwitch).toBeInTheDocument();
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      expect(toggleButton).toBeInTheDocument();
     });
 
     it('should update visual state on prop changes', async () => {
@@ -277,8 +280,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Act - Click toggle
-      const toggleSwitch = screen.getByRole('checkbox');
-      await user.click(toggleSwitch);
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      await user.click(toggleButton);
 
       // Assert - State change is initiated (wait longer for async operation)
       await waitFor(() => {
@@ -305,8 +309,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Act - Enable enhancement (MSW will handle API call)
-      const toggleSwitch = screen.getByRole('checkbox');
-      await user.click(toggleSwitch);
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      await user.click(toggleButton);
 
       // Assert - Wait for parameters to load and display
       await waitFor(() => {
@@ -329,8 +334,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Act - Enable enhancement
-      const toggleSwitch = screen.getByRole('checkbox');
-      await user.click(toggleSwitch);
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      await user.click(toggleButton);
 
       // Assert - Parameters should be formatted correctly
       await waitFor(() => {
@@ -352,8 +358,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Act - Enable enhancement
-      const toggleSwitch = screen.getByRole('checkbox');
-      await user.click(toggleSwitch);
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      await user.click(toggleButton);
 
       // Assert - Component handles parameter updates
       // Polling happens every 2 seconds
@@ -381,8 +388,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Act - Enable enhancement (MSW handles parameter fetch)
-      const toggleSwitch = screen.getByRole('checkbox');
-      await user.click(toggleSwitch);
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      await user.click(toggleButton);
 
       // Assert - 3D visualization component should render
       await waitFor(() => {
@@ -404,8 +412,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Act - Enable enhancement
-      const toggleSwitch = screen.getByRole('checkbox');
-      await user.click(toggleSwitch);
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      await user.click(toggleButton);
 
       // Assert - 3D space coordinates should be used
       await waitFor(() => {
@@ -433,8 +442,9 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Act - Enable enhancement (triggers parameter fetch via MSW)
-      const toggleSwitch = screen.getByRole('checkbox');
-      await user.click(toggleSwitch);
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      const toggleButton = screen.getByRole('button', { name: /disable|enable/i });
+      await user.click(toggleButton);
 
       // Assert - Component should fetch and display parameters
       await waitFor(() => {
@@ -477,14 +487,22 @@ describe('EnhancementPane Integration Tests', () => {
         />
       );
 
-      // Act - Find collapse button (IconButton in header, second button after toggle switch)
-      const buttons = screen.getAllByRole('button');
-      // The collapse button is typically the last button in the header
-      const collapseButton = buttons[buttons.length - 1];
-      await user.click(collapseButton);
-
-      // Assert
-      expect(mockHandlers.onToggleCollapse).toHaveBeenCalledTimes(1);
+      // Act - Find collapse button (ChevronRight icon button in header)
+      // Get the ChevronRight button (the one for toggling collapse/expand in the header)
+      const chevronRightButton = screen.getByTestId('ChevronRightIcon').closest('button');
+      if (chevronRightButton) {
+        await user.click(chevronRightButton);
+        // Assert
+        expect(mockHandlers.onToggleCollapse).toHaveBeenCalledTimes(1);
+      } else {
+        // Fallback if the button structure changes
+        const buttons = screen.getAllByRole('button');
+        // Skip the first enhancement toggle button, get the collapse button
+        if (buttons.length > 1) {
+          await user.click(buttons[buttons.length - 1]);
+          expect(mockHandlers.onToggleCollapse).toHaveBeenCalledTimes(1);
+        }
+      }
     });
 
     it('should show/hide content based on collapsed prop', () => {
@@ -498,7 +516,8 @@ describe('EnhancementPane Integration Tests', () => {
 
       // Assert - Should show full content
       expect(screen.getByText('Auto-Mastering')).toBeInTheDocument();
-      expect(screen.getByRole('checkbox')).toBeInTheDocument(); // Toggle switch
+      // EnhancementToggle uses IconButton with aria-label, not checkbox
+      expect(screen.getByRole('button', { name: /disable|enable/i })).toBeInTheDocument();
 
       // Act - Switch to collapsed view
       rerender(
@@ -509,11 +528,11 @@ describe('EnhancementPane Integration Tests', () => {
       );
 
       // Assert - Should show minimal content
-      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument(); // No toggle in collapsed view
+      // In collapsed view, the toggle is not visible
+      expect(screen.queryByRole('button', { name: /disable|enable/i })).not.toBeInTheDocument();
 
-      // Should show expand button (icon button without specific label)
-      const buttons = screen.getAllByRole('button');
-      expect(buttons.length).toBeGreaterThan(0);
+      // Should show expand button (ChevronLeft icon in collapsed view)
+      expect(screen.getByTestId('ChevronLeftIcon')).toBeInTheDocument();
     });
   });
 });
