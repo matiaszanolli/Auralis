@@ -3,7 +3,7 @@
  */
 
 import { Box, styled } from '@mui/material';
-import { auroraOpacity } from '../library/Styles/Color.styles';
+import { auroraOpacity } from '../../library/Styles/Color.styles';
 
 export const PaneContainer = styled(Box)<{ isCollapsed: boolean }>(
   ({ isCollapsed }) => ({
