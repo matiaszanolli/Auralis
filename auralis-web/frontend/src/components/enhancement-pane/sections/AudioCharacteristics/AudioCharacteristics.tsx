@@ -11,7 +11,7 @@ import React from 'react';
 import { Box, Typography, Stack } from '@mui/material';
 import { Audiotrack } from '@mui/icons-material';
 import { tokens } from '@/design-system';
-import ParameterBar from './ParameterBar';
+import ParameterBar from '../ProcessingParameters/ParameterBar';
 
 interface ProcessingParams {
   spectral_balance: number;

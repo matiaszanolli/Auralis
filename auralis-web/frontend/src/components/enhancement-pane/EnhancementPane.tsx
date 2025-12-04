@@ -1,5 +1,5 @@
 /**
- * EnhancementPaneV2 Component
+ * EnhancementPane Component
  *
  * Main container for the auto-mastering enhancement pane.
  * Displays real-time processing parameters and audio characteristics.
@@ -8,19 +8,19 @@
  * Refactored from AutoMasteringPane (585 lines) into 10 focused components.
  */
 
-import React, { useState } from 'react';
-import EnhancementPaneCollapsed from './EnhancementPaneCollapsed';
-import EnhancementPaneExpanded from './EnhancementPaneExpanded';
-import { useEnhancementParameters } from './useEnhancementParameters';
+import React from 'react';
+import Collapsed from './views/Collapsed';
+import Expanded from './views/Expanded';
+import { useEnhancementParameters } from './hooks/useEnhancementParameters';
 import { useEnhancement } from '../../contexts/EnhancementContext';
 
-interface EnhancementPaneV2Props {
+interface EnhancementPaneProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onMasteringToggle?: (enabled: boolean) => void;
 }
 
-const EnhancementPaneV2: React.FC<EnhancementPaneV2Props> = React.memo(({
+const EnhancementPane: React.FC<EnhancementPaneProps> = React.memo(({
   collapsed = false,
   onToggleCollapse,
   onMasteringToggle,
@@ -30,12 +30,12 @@ const EnhancementPaneV2: React.FC<EnhancementPaneV2Props> = React.memo(({
 
   // Collapsed view
   if (collapsed) {
-    return <EnhancementPaneCollapsed onToggleCollapse={onToggleCollapse} />;
+    return <Collapsed onToggleCollapse={onToggleCollapse} />;
   }
 
   // Expanded view
   return (
-    <EnhancementPaneExpanded
+    <Expanded
       params={params}
       isAnalyzing={isAnalyzing}
       onToggleCollapse={onToggleCollapse}
@@ -44,6 +44,6 @@ const EnhancementPaneV2: React.FC<EnhancementPaneV2Props> = React.memo(({
   );
 });
 
-EnhancementPaneV2.displayName = 'EnhancementPaneV2';
+EnhancementPane.displayName = 'EnhancementPane';
 
-export default EnhancementPaneV2;
+export default EnhancementPane;

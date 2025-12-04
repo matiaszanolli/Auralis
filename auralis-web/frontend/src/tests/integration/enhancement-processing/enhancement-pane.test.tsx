@@ -1,7 +1,7 @@
 /**
- * EnhancementPaneV2 Integration Tests
+ * EnhancementPane Integration Tests
  *
- * Complete integration tests for EnhancementPaneV2 component
+ * Complete integration tests for EnhancementPane component
  * Part of 200-test frontend integration suite
  *
  * Test Categories:
@@ -21,7 +21,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import EnhancementPaneV2 from '@/components/enhancement-pane-v2/EnhancementPaneV2';
+import EnhancementPane from '@/components/enhancement-pane';
 
 // Mock processing parameters
 const mockProcessingParams = {
@@ -43,7 +43,7 @@ const createMockHandlers = () => ({
   onMasteringToggle: vi.fn(),
 });
 
-describe('EnhancementPaneV2 Integration Tests', () => {
+describe('EnhancementPane Integration Tests', () => {
   let mockHandlers: ReturnType<typeof createMockHandlers>;
 
   beforeEach(() => {
@@ -61,7 +61,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -82,7 +82,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -109,7 +109,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -125,7 +125,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -141,7 +141,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -165,7 +165,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -191,7 +191,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -208,7 +208,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -231,7 +231,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const collapsed = false;
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -253,7 +253,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -270,7 +270,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const user = userEvent.setup();
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -298,7 +298,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const user = userEvent.setup();
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -322,7 +322,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const user = userEvent.setup();
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -345,7 +345,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const user = userEvent.setup();
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -374,7 +374,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const user = userEvent.setup();
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -397,7 +397,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const user = userEvent.setup();
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -426,7 +426,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const user = userEvent.setup();
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -448,14 +448,14 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const collapsed = false;
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
       );
 
       // Assert - Component renders without crashing even if API fails
-      // The component silently ignores network errors (see EnhancementPaneV2 line 70-72)
+      // The component silently ignores network errors (see EnhancementPane.tsx)
       expect(screen.getByText('Auto-Mastering')).toBeInTheDocument();
     });
   });
@@ -471,7 +471,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
       const collapsed = false;
 
       render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={collapsed}
           {...mockHandlers}
         />
@@ -490,7 +490,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
     it('should show/hide content based on collapsed prop', () => {
       // Arrange & Act - Expanded view
       const { rerender } = render(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={false}
           {...mockHandlers}
         />
@@ -502,7 +502,7 @@ describe('EnhancementPaneV2 Integration Tests', () => {
 
       // Act - Switch to collapsed view
       rerender(
-        <EnhancementPaneV2
+        <EnhancementPane
           collapsed={true}
           {...mockHandlers}
         />
