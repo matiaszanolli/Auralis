@@ -19,8 +19,8 @@ import {
   AppSidebar,
   AppTopBar,
   AppMainContent,
-  AppEnhancementPane,
 } from './components/core';
+import { AppEnhancementPane } from './components/enhancement-pane/container';
 
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';

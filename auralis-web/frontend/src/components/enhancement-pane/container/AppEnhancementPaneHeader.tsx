@@ -9,7 +9,7 @@ import React from 'react';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { PaneHeader, PaneTitle } from './AppEnhancementPaneStyles';
-import { auroraOpacity } from '../library/Styles/Color.styles';
+import { auroraOpacity } from '../../library/Styles/Color.styles';
 import { IconButton, Tooltip } from '@/design-system';
 
 interface AppEnhancementPaneHeaderProps {
