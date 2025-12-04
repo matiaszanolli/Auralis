@@ -6,18 +6,18 @@ import { IconButton, Tooltip } from '@/design-system';
 import {
   CollapsedPaneContainer,
   CollapsedIconContainer,
-} from './EnhancementPaneV2.styles';
+} from '../EnhancementPane.styles';
 
-interface EnhancementPaneCollapsedProps {
+interface CollapsedProps {
   onToggleCollapse?: () => void;
 }
 
 /**
- * EnhancementPaneCollapsed - Collapsed view of enhancement pane
+ * Collapsed - Collapsed view of enhancement pane
  *
  * Shows only icon and collapse button when collapsed.
  */
-export const EnhancementPaneCollapsed: React.FC<EnhancementPaneCollapsedProps> = ({
+export const Collapsed: React.FC<CollapsedProps> = ({
   onToggleCollapse,
 }) => {
   return (
@@ -34,4 +34,4 @@ export const EnhancementPaneCollapsed: React.FC<EnhancementPaneCollapsedProps> =
   );
 };
 
-export default EnhancementPaneCollapsed;
+export default Collapsed;

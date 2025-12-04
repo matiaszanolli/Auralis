@@ -2,26 +2,26 @@ import React from 'react';
 
 import { ChevronRight, AutoAwesome } from '@mui/icons-material';
 import { tokens } from '@/design-system';
-import { useEnhancement } from '../../contexts/EnhancementContext';
-import EnhancementToggle from '../shared/EnhancementToggle/EnhancementToggle';
-import AudioCharacteristics from './AudioCharacteristics';
-import ProcessingParameters from './ProcessingParameters';
-import MasteringRecommendation from './MasteringRecommendation';
-import InfoBox from './InfoBox';
-import { EmptyState } from '../shared/ui/feedback';
-import LoadingState from './LoadingState';
+import { useEnhancement } from '../../../contexts/EnhancementContext';
+import EnhancementToggle from '../../shared/EnhancementToggle/EnhancementToggle';
+import AudioCharacteristics from '../sections/AudioCharacteristics';
+import ProcessingParameters from '../sections/ProcessingParameters';
+import MasteringRecommendation from '../sections/MasteringRecommendation';
+import InfoBox from '../sections/MasteringRecommendation/InfoBox';
+import { EmptyState } from '../../shared/ui/feedback';
+import LoadingState from '../sections/LoadingState';
 import useMasteringRecommendation from '@/hooks/enhancement/useMasteringRecommendation';
 import {
   ExpandedPaneContainer,
   PaneHeader,
   PaneContent,
   DisabledStateContainer,
-} from './EnhancementPaneV2.styles';
-import { ProcessingParams } from './useEnhancementParameters';
+} from '../EnhancementPane.styles';
+import { ProcessingParams } from '../hooks/useEnhancementParameters';
 import { IconButton } from '@/design-system';
 import { Box, Typography, Stack } from '@mui/material';
 
-interface EnhancementPaneExpandedProps {
+interface ExpandedProps {
   params: ProcessingParams | null;
   isAnalyzing: boolean;
   onToggleCollapse?: () => void;
@@ -29,11 +29,11 @@ interface EnhancementPaneExpandedProps {
 }
 
 /**
- * EnhancementPaneExpanded - Expanded view showing enhancement parameters
+ * Expanded - Expanded view showing enhancement parameters
  *
  * Displays master toggle, audio characteristics, processing parameters, and info.
  */
-export const EnhancementPaneExpanded: React.FC<EnhancementPaneExpandedProps> = ({
+export const Expanded: React.FC<ExpandedProps> = ({
   params,
   isAnalyzing,
   onToggleCollapse,
@@ -168,4 +168,4 @@ export const EnhancementPaneExpanded: React.FC<EnhancementPaneExpandedProps> = (
   );
 };
 
-export default EnhancementPaneExpanded;
+export default Expanded;

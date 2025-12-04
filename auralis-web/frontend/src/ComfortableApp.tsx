@@ -8,7 +8,7 @@ import { useSelector } from 'react-redux';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
 import Player from './components/player/Player';
-import EnhancementPaneV2 from './components/enhancement-pane-v2';
+import EnhancementPane from './components/enhancement-pane';
 import CozyLibraryView from './components/library/CozyLibraryView';
 import SettingsDialog from './components/settings/SettingsDialog';
 import KeyboardShortcutsHelp from './components/shared/KeyboardShortcutsHelp';
@@ -328,9 +328,9 @@ function ComfortableApp() {
           <AppEnhancementPane
             useV2={true}
             initiallyCollapsed={presetPaneCollapsed}
-            onToggleV2={() => {}} // V1 fallback removed, EnhancementPaneV2 is now default
+            onToggleV2={() => {}} // V1 fallback removed, EnhancementPane is now default
           >
-            <EnhancementPaneV2
+            <EnhancementPane
               collapsed={presetPaneCollapsed}
               onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
               onMasteringToggle={handleMasteringToggle}
