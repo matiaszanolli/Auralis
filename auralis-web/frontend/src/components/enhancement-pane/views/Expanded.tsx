@@ -3,6 +3,7 @@ import React from 'react';
 import { ChevronRight, AutoAwesome } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { useEnhancement } from '../../../contexts/EnhancementContext';
+import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
 import EnhancementToggle from '../../shared/EnhancementToggle/EnhancementToggle';
 import AudioCharacteristics from '../sections/AudioCharacteristics';
 import ProcessingParameters from '../sections/ProcessingParameters';
@@ -40,8 +41,8 @@ export const Expanded: React.FC<ExpandedProps> = ({
   onMasteringToggle,
 }) => {
   const { settings, setEnabled, isProcessing } = useEnhancement();
-  // TODO: Get trackId from player state when PlayerStateContext becomes available
-  const trackId: number | undefined = undefined;
+  const currentTrack = useCurrentTrack();
+  const trackId = currentTrack?.id;
   const { recommendation, isLoading } = useMasteringRecommendation(trackId);
 
   const handleMasteringToggle = async (enabled: boolean) => {
