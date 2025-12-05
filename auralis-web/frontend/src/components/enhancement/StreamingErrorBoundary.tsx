@@ -147,12 +147,12 @@ const getErrorInfo = (
 const getSeverityColor = (severity: ErrorSeverity): string => {
   switch (severity) {
     case ErrorSeverity.WARNING:
-      return tokens.colors.warning;
+      return tokens.colors.semantic.warning;
     case ErrorSeverity.CRITICAL:
-      return tokens.colors.error;
+      return tokens.colors.semantic.error;
     case ErrorSeverity.ERROR:
     default:
-      return tokens.colors.error;
+      return tokens.colors.semantic.error;
   }
 };
 
@@ -360,8 +360,8 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.error + '08',
-    border: `1px solid ${tokens.colors.error}`,
+    backgroundColor: `${tokens.colors.semantic.error}08`,
+    border: `1px solid ${tokens.colors.semantic.error}`,
     borderLeftWidth: '4px',
     borderRadius: '6px',
     fontSize: '13px',
@@ -408,7 +408,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '11px',
     color: tokens.colors.text.secondary,
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-    backgroundColor: tokens.colors.background.secondary,
+    backgroundColor: tokens.colors.bg.level2,
     borderRadius: '3px',
     fontFamily: 'monospace',
     maxHeight: '60px',
@@ -418,7 +418,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   retryIndicator: {
     fontSize: '11px',
-    color: tokens.colors.warning,
+    color: tokens.colors.semantic.warning,
     fontWeight: 500,
   },
 
@@ -430,7 +430,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   retryButton: {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-    backgroundColor: tokens.colors.warning,
+    backgroundColor: tokens.colors.semantic.warning,
     color: tokens.colors.text.inverse,
     border: 'none',
     borderRadius: '4px',
@@ -443,9 +443,9 @@ const styles: Record<string, React.CSSProperties> = {
 
   fallbackButton: {
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-    backgroundColor: tokens.colors.secondary,
+    backgroundColor: tokens.colors.bg.level2,
     color: tokens.colors.text.primary,
-    border: `1px solid ${tokens.colors.border}`,
+    border: `1px solid ${tokens.colors.border.medium}`,
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '11px',
@@ -457,7 +457,7 @@ const styles: Record<string, React.CSSProperties> = {
   dismissButton: {
     padding: `${tokens.spacing.xs} 6px`,
     backgroundColor: 'transparent',
-    color: tokens.colors.error,
+    color: tokens.colors.semantic.error,
     border: 'none',
     cursor: 'pointer',
     fontSize: '16px',
@@ -467,7 +467,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   historySection: {
     paddingTop: tokens.spacing.md,
-    borderTop: `1px solid ${tokens.colors.border}`,
+    borderTop: `1px solid ${tokens.colors.border.medium}`,
     display: 'flex',
     flexDirection: 'column',
     gap: tokens.spacing.xs,
@@ -510,11 +510,11 @@ const styles: Record<string, React.CSSProperties> = {
 
   recoveryHint: {
     fontSize: '12px',
-    color: tokens.colors.warning,
+    color: tokens.colors.semantic.warning,
     padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
-    backgroundColor: tokens.colors.warning + '10',
+    backgroundColor: tokens.colors.semantic.warning + '10',
     borderRadius: '4px',
-    borderLeft: `2px solid ${tokens.colors.warning}`,
+    borderLeft: `2px solid ${tokens.colors.semantic.warning}`,
   },
 };
 
