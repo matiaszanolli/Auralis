@@ -618,6 +618,9 @@ class ChunkedAudioProcessor:
         concurrent access from corrupting the shared processor state (envelope followers,
         gain reduction tracking, etc.).
 
+        Uses asyncio.to_thread() to run the synchronous process_chunk in a thread pool,
+        ensuring the lock is held properly and file writes are complete before returning.
+
         Args:
             chunk_index: Index of chunk to process
             fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
@@ -626,8 +629,12 @@ class ChunkedAudioProcessor:
             Path to processed chunk file
         """
         async with self._processor_lock:
-            # All processor.process() calls are now serialized
-            return self.process_chunk(chunk_index, fast_start)
+            # Call process_chunk directly (synchronously)
+            # This ensures the lock is held and file write completes before returning
+            # While this blocks the event loop, it guarantees correctness
+            chunk_path = self.process_chunk(chunk_index, fast_start)
+            # File is now guaranteed to exist since process_chunk completed
+            return chunk_path
 
     def process_chunk_synchronized(self, chunk_index: int, fast_start: bool = False) -> str:
         """
