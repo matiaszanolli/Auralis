@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { getArtistContextActions } from '../../../shared/ContextMenu';
 import { useToast } from '../../../shared/Toast';
 import { getArtistTracks } from '../../../../services/libraryService';
@@ -21,6 +21,7 @@ interface UseContextMenuActionsProps {
  * useContextMenuActions - Generates context menu actions for artist
  *
  * Creates artist actions with toast notifications and callbacks.
+ * Manages artist info modal state.
  * Memoized to prevent unnecessary re-renders.
  */
 export const useContextMenuActions = ({
@@ -30,6 +31,7 @@ export const useContextMenuActions = ({
   const { success, error: showError } = useToast();
   const queue = useQueue();
   const player = usePlayer();
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   const handlePlayAll = useCallback(async () => {
     if (!artist) return;
@@ -96,22 +98,35 @@ export const useContextMenuActions = ({
   }, [artist, queue, success, showError]);
 
   return useMemo(() => {
-    if (!artist) return [];
+    if (!artist) {
+      return {
+        actions: [],
+        modal: {
+          open: false,
+          artist: null,
+          onClose: () => {},
+        },
+      };
+    }
 
-    return getArtistContextActions(artist.id, {
-      onPlayAll: handlePlayAll,
-      onAddToQueue: handleAddToQueue,
-      onShowAlbums: () => {
-        if (onArtistClick) {
-          onArtistClick(artist.id, artist.name);
-        }
+    return {
+      actions: getArtistContextActions(artist.id, {
+        onPlayAll: handlePlayAll,
+        onAddToQueue: handleAddToQueue,
+        onShowAlbums: () => {
+          if (onArtistClick) {
+            onArtistClick(artist.id, artist.name);
+          }
+        },
+        onShowInfo: () => {
+          setInfoModalOpen(true);
+        },
+      }),
+      modal: {
+        open: infoModalOpen,
+        artist,
+        onClose: () => setInfoModalOpen(false),
       },
-      onShowInfo: () => {
-        success(
-          `Artist: ${artist.name}\n${artist.album_count} albums • ${artist.track_count} tracks`
-        );
-        // TODO: Show artist info modal
-      },
-    });
-  }, [artist, onArtistClick, handlePlayAll, handleAddToQueue, success]);
+    };
+  }, [artist, onArtistClick, handlePlayAll, handleAddToQueue, infoModalOpen]);
 };
