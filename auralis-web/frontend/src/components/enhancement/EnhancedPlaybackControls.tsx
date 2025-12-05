@@ -382,9 +382,9 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.background.secondary,
+    backgroundColor: tokens.colors.bg.level2,
     borderRadius: '8px',
-    border: `1px solid ${tokens.colors.border}`,
+    border: `1px solid ${tokens.colors.border.medium}`,
   },
 
   controlRow: {
@@ -403,7 +403,7 @@ const styles: Record<string, React.CSSProperties> = {
   playButton: {
     flex: 1,
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    backgroundColor: tokens.colors.primary,
+    backgroundColor: tokens.colors.accent.primary,
     color: tokens.colors.text.inverse,
     border: 'none',
     borderRadius: '4px 0 0 4px',
@@ -415,11 +415,11 @@ const styles: Record<string, React.CSSProperties> = {
 
   presetMenuButton: {
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    backgroundColor: tokens.colors.primary,
+    backgroundColor: tokens.colors.accent.primary,
     color: tokens.colors.text.inverse,
     border: 'none',
     borderRadius: '0 4px 4px 0',
-    borderLeft: `1px solid ${tokens.colors.primaryDark}`,
+    borderLeft: `1px solid rgba(115, 102, 240, 0.4)`,
     cursor: 'pointer',
     fontSize: '12px',
     transition: 'opacity 200ms ease-in-out',
@@ -431,8 +431,8 @@ const styles: Record<string, React.CSSProperties> = {
     left: 0,
     right: 0,
     marginTop: tokens.spacing.xs,
-    backgroundColor: tokens.colors.background.primary,
-    border: `1px solid ${tokens.colors.border}`,
+    backgroundColor: tokens.colors.bg.level1,
+    border: `1px solid ${tokens.colors.border.medium}`,
     borderRadius: '4px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
     zIndex: 1000,
@@ -445,7 +445,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
-    borderBottom: `1px solid ${tokens.colors.border}`,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
     cursor: 'pointer',
     transition: 'background-color 150ms ease-in-out',
   },
@@ -478,9 +478,9 @@ const styles: Record<string, React.CSSProperties> = {
   controlButton: {
     flex: 1,
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    backgroundColor: tokens.colors.secondary,
+    backgroundColor: tokens.colors.bg.level2,
     color: tokens.colors.text.primary,
-    border: `1px solid ${tokens.colors.border}`,
+    border: `1px solid ${tokens.colors.border.medium}`,
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '14px',
@@ -504,7 +504,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     height: '4px',
     borderRadius: '2px',
-    backgroundColor: tokens.colors.border,
+    backgroundColor: tokens.colors.border.medium,
     cursor: 'pointer',
     appearance: 'none',
     outline: 'none',
@@ -512,8 +512,8 @@ const styles: Record<string, React.CSSProperties> = {
 
   statusDisplay: {
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.background.primary,
-    borderLeft: `3px solid ${tokens.colors.success}`,
+    backgroundColor: tokens.colors.bg.level1,
+    borderLeft: `3px solid ${tokens.colors.semantic.success}`,
     borderRadius: '4px',
     fontSize: '12px',
   },
@@ -534,7 +534,7 @@ const styles: Record<string, React.CSSProperties> = {
   progressBarContainer: {
     width: '100%',
     height: '4px',
-    backgroundColor: tokens.colors.border,
+    backgroundColor: tokens.colors.border.medium,
     borderRadius: '2px',
     overflow: 'hidden',
     marginBottom: tokens.spacing.xs,
@@ -542,7 +542,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   progressBar: {
     height: '100%',
-    backgroundColor: tokens.colors.success,
+    backgroundColor: tokens.colors.semantic.success,
     transition: 'width 300ms ease-out',
   },
 
@@ -553,8 +553,8 @@ const styles: Record<string, React.CSSProperties> = {
 
   errorDisplay: {
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.error + '10',
-    border: `1px solid ${tokens.colors.error}`,
+    backgroundColor: `${tokens.colors.semantic.error}10`,
+    border: `1px solid ${tokens.colors.semantic.error}`,
     borderRadius: '4px',
   },
 
@@ -572,7 +572,7 @@ const styles: Record<string, React.CSSProperties> = {
   errorMessage: {
     flex: 1,
     fontSize: '13px',
-    color: tokens.colors.error,
+    color: tokens.colors.semantic.error,
     fontWeight: 500,
   },
 
@@ -580,7 +580,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '2px 6px',
     backgroundColor: 'transparent',
     border: 'none',
-    color: tokens.colors.error,
+    color: tokens.colors.semantic.error,
     cursor: 'pointer',
     fontSize: '16px',
     minWidth: '24px',
