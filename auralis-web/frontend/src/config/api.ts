@@ -58,6 +58,7 @@ export const ENDPOINTS = {
   LIBRARY_TRACKS: '/api/library/tracks',
   LIBRARY_ALBUMS: '/api/library/albums',
   LIBRARY_ARTISTS: '/api/library/artists',
+  ARTIST_TRACKS: (artistId: number) => `/api/artists/${artistId}/tracks`,
 
   // Player
   PLAYER_STATUS: '/api/player/status',
