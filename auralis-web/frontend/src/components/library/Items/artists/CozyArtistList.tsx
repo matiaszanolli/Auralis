@@ -27,6 +27,7 @@ import React, { useCallback } from 'react';
 import { ArtistListLoading } from './ArtistListLoading';
 import { ArtistListEmptyState } from './ArtistListEmptyState';
 import { ArtistListContent } from './ArtistListContent';
+import { ArtistInfoModal } from './ArtistInfoModal';
 import { useArtistListPagination } from '../../Hooks/useArtistListPagination';
 import { useContextMenuActions } from './useContextMenuActions';
 
@@ -62,7 +63,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
     handleContextMenuOpen(event, artist);
   }, [handleContextMenuOpen]);
 
-  const contextActions = useContextMenuActions({
+  const { actions: contextActions, modal: infoModal } = useContextMenuActions({
     artist: contextMenuArtist,
     onArtistClick,
   });
@@ -80,21 +81,28 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
   }
 
   return (
-    <ArtistListContent
-      artists={artists}
-      totalArtists={totalArtists}
-      isLoadingMore={isLoadingMore}
-      hasMore={hasMore}
-      containerRef={containerRef}
-      loadMoreTriggerRef={loadMoreTriggerRef}
-      groupedArtists={groupedArtists}
-      sortedLetters={sortedLetters}
-      contextMenuState={contextMenuState}
-      contextActions={contextActions}
-      onArtistClick={adaptedArtistClickHandler}
-      onContextMenuOpen={adaptedContextMenuOpen}
-      onContextMenuClose={handleCloseContextMenu}
-    />
+    <>
+      <ArtistListContent
+        artists={artists}
+        totalArtists={totalArtists}
+        isLoadingMore={isLoadingMore}
+        hasMore={hasMore}
+        containerRef={containerRef}
+        loadMoreTriggerRef={loadMoreTriggerRef}
+        groupedArtists={groupedArtists}
+        sortedLetters={sortedLetters}
+        contextMenuState={contextMenuState}
+        contextActions={contextActions}
+        onArtistClick={adaptedArtistClickHandler}
+        onContextMenuOpen={adaptedContextMenuOpen}
+        onContextMenuClose={handleCloseContextMenu}
+      />
+      <ArtistInfoModal
+        open={infoModal.open}
+        artist={infoModal.artist}
+        onClose={infoModal.onClose}
+      />
+    </>
   );
 };
 
