@@ -989,39 +989,70 @@ import { useWebSocket } from '@/hooks/websocket/useWebSocket';
 
 ---
 
-## 🎙️ Frontend Streaming Architecture (Phases 2.2-3.4)
+## 🎙️ Frontend Streaming Architecture (Unified WebSocket, Phase 3 Consolidation)
 
-### WebSocket PCM Streaming
-- **Protocol**: WebSocket connection via `/ws` endpoint for real-time streaming
-- **Format**: 30-second WAV PCM chunks (16/24-bit, preserves sample count)
-- **Features**:
-  - Gapless playback via 3-second crossfade at chunk boundaries
-  - Lazy loading with sample-accurate seeking
-  - Real-time progress updates and error handling
-  - Progress bar component (`StreamingProgressBar`)
-  - Error boundary (`StreamingErrorBoundary`) for graceful error recovery
+### Unified Streaming Architecture
+- **Protocol**: WebSocket connection via `/ws` endpoint for all audio streaming (consolidated)
+- **Format**: PCM base64-encoded JSON messages (real-time, sample-accurate streaming)
+- **Architecture**: Single unified endpoint replaces dual REST/WebSocket implementations
+- **Data Flow**: Frontend (usePlayEnhanced) → WebSocket → Backend (audio_stream_controller.py) → PCM chunks
 
-### Enhanced Playback Controls
-- **Component**: `EnhancedPlaybackControls` - Streaming-specific UI controls
-- **Hook**: `usePlayEnhanced` - Manages streaming playback state and WebSocket communication
-- **Features**:
-  - Real-time playback progress display
-  - Chunk-aware position tracking
-  - Error recovery and reconnection
-  - Design system token integration (verified fix in recent commits)
-  - Keyboard shortcut support (Phase 3.4)
+### Features
+- **Real-time streaming**: Live PCM samples via WebSocket without latency from REST polling
+- **Server-side caching**: In-memory chunk cache (up to 50 chunks) prevents reprocessing
+- **Gapless playback**: 3-second crossfade at chunk boundaries
+- **Fast-start optimization**: First chunk processed with priority
+- **Real-time progress**: Live updates and error handling via WebSocket messages
+- **Comprehensive error recovery**: Graceful disconnect handling, reconnection support
+- **Design system integration**: All components use centralized design tokens
 
-### Key Files for Streaming
-- `auralis-web/frontend/src/components/enhancement/` - Enhancement UI components
-- `auralis-web/frontend/src/hooks/usePlayEnhanced.ts` - Streaming playback hook
-- `auralis-web/frontend/src/components/enhancement/StreamingProgressBar.tsx` - Progress UI
-- `auralis-web/frontend/src/components/enhancement/StreamingErrorBoundary.tsx` - Error handling
-- `auralis-web/backend/routers/webm_streaming.py` - WebSocket streaming endpoint
+### Key Components & Files
+**Frontend**:
+- `auralis-web/frontend/src/hooks/enhancement/usePlayEnhanced.ts` - Main streaming hook
+  - Handles `play_enhanced` WebSocket message
+  - Manages PCM decoding, audio buffer, playback state
+  - Real-time progress and error handling
+- `auralis-web/frontend/src/components/enhancement/EnhancedPlaybackControls.tsx` - UI controls
+- `auralis-web/frontend/src/components/enhancement/StreamingProgressBar.tsx` - Progress visualization
+- `auralis-web/frontend/src/components/enhancement/StreamingErrorBoundary.tsx` - Error handling UI
+
+**Backend**:
+- `auralis-web/backend/audio_stream_controller.py` - Core streaming logic
+  - `SimpleChunkCache`: In-memory LRU cache for processed chunks (50 chunks max)
+  - `stream_enhanced_audio()`: Main streaming handler
+  - `_process_and_stream_chunk()`: Chunk processing with cache lookup
+- `auralis-web/backend/routers/system.py` - WebSocket endpoint (handles `play_enhanced` message)
+
+### Message Protocol
+**Client → Server** (`play_enhanced`):
+```json
+{
+  "type": "play_enhanced",
+  "data": {
+    "track_id": 123,
+    "preset": "adaptive",
+    "intensity": 1.0
+  }
+}
+```
+
+**Server → Client** (stream messages):
+- `audio_stream_start`: Metadata (sample rate, channels, total chunks)
+- `audio_chunk`: PCM samples (base64-encoded, chunked for 1MB WebSocket limit)
+- `audio_stream_end`: Completion signal
+- `audio_stream_error`: Error details
+
+### Caching Strategy
+- **L1 (Server Memory)**: Recent chunks kept in SimpleChunkCache (50 chunks, ~500MB max)
+- **Cache Key**: `md5(track_id:chunk_idx:preset:intensity:0.2f)`
+- **Eviction**: LRU (Least Recently Used) when cache is full
+- **Hit Rate**: Reduces reprocessing time from 500ms to <10ms for cached chunks
+- **Benefit**: Smooth preset switching, seamless loop playback without reprocessing
 
 ### Design System for Streaming UI
-- All streaming components use `import { tokens } from '@/design-system'`
-- Color scheme, spacing, typography defined in `design-system/tokens.ts`
-- Recent work fixed remaining token references in `EnhancedPlaybackControls` container
+- All components use `import { tokens } from '@/design-system'`
+- Color scheme, spacing, typography centralized in `design-system/tokens.ts`
+- No hardcoded colors or spacing values
 
 ---
 

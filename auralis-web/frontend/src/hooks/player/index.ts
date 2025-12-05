@@ -16,13 +16,8 @@ export { useQueueSearch } from './useQueueSearch';
 export { useQueueStatistics } from './useQueueStatistics';
 
 // New hooks moved from root
-export { usePlayerWithAudio } from './usePlayerWithAudio';
 export { usePlayerControls } from './usePlayerControls';
 export { usePlayerStreaming } from './usePlayerStreaming';
 export { usePlayerStateSync } from './usePlayerStateSync';
 export { usePlayerDisplay } from './usePlayerDisplay';
-export { usePlayerEventHandlers } from './usePlayerEventHandlers';
-export { usePlayerEnhancementSync } from './usePlayerEnhancementSync';
-export { usePlayerTrackLoader } from './usePlayerTrackLoader';
 export { usePlayerAPI } from './usePlayerAPI';
-export { useUnifiedWebMAudioPlayer } from './useUnifiedWebMAudioPlayer';
