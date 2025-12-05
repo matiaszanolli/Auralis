@@ -7,6 +7,7 @@ Infrastructure endpoints for system monitoring and real-time communication.
 import json
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from audio_stream_controller import AudioStreamController
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,59 @@ def create_system_router(
                         "type": "ab_track_ready",
                         "data": track_data
                     })
+
+                elif message.get("type") == "play_enhanced":
+                    # Handle enhanced audio playback request via WebSocket streaming
+                    data = message.get("data", {})
+                    track_id = data.get("track_id")
+                    preset = data.get("preset", "adaptive")
+                    intensity = data.get("intensity", 1.0)
+
+                    logger.info(
+                        f"Received play_enhanced: track_id={track_id}, "
+                        f"preset={preset}, intensity={intensity}"
+                    )
+
+                    # Create audio stream controller and start streaming
+                    try:
+                        from chunked_processor import ChunkedAudioProcessor
+
+                        controller = AudioStreamController(
+                            chunked_processor_class=ChunkedAudioProcessor,
+                            library_manager=get_library_manager(),
+                        )
+
+                        # Stream enhanced audio to client
+                        await controller.stream_enhanced_audio(
+                            track_id=track_id,
+                            preset=preset,
+                            intensity=intensity,
+                            websocket=websocket,
+                        )
+                    except ImportError as e:
+                        logger.error(f"ChunkedAudioProcessor not available: {e}")
+                        await websocket.send_text(
+                            json.dumps({
+                                "type": "audio_stream_error",
+                                "data": {
+                                    "track_id": track_id,
+                                    "error": "Audio processing not available",
+                                    "code": "PROCESSOR_UNAVAILABLE"
+                                }
+                            })
+                        )
+                    except Exception as e:
+                        logger.error(f"Error handling play_enhanced: {e}", exc_info=True)
+                        await websocket.send_text(
+                            json.dumps({
+                                "type": "audio_stream_error",
+                                "data": {
+                                    "track_id": track_id,
+                                    "error": str(e),
+                                    "code": "STREAMING_ERROR"
+                                }
+                            })
+                        )
 
                 elif message.get("type") == "subscribe_job_progress":
                     # Subscribe to job progress updates

@@ -92,6 +92,7 @@ class ChunkedAudioProcessor:
         self.sample_rate = None
         self.total_duration = None
         self.total_chunks = None
+        self.channels = None
         self._load_metadata()
 
         # Temp directory for chunks
@@ -153,6 +154,16 @@ class ChunkedAudioProcessor:
             f"preset={preset}, intensity={intensity}"
         )
 
+    @property
+    def duration(self) -> float:
+        """Get total duration (alias for total_duration for AudioStreamController compatibility)"""
+        return self.total_duration
+
+    @property
+    def chunk_duration(self) -> float:
+        """Get chunk duration in seconds for crossfade calculations"""
+        return CHUNK_DURATION
+
     def _generate_file_signature(self) -> str:
         """
         Generate a unique signature for the audio file based on metadata.
@@ -183,18 +194,17 @@ class ChunkedAudioProcessor:
             import soundfile as sf
             with sf.SoundFile(self.filepath) as f:
                 self.sample_rate = f.samplerate
+                self.channels = f.channels
                 self.total_duration = len(f) / f.samplerate
                 # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
                 # This accounts for the 5s overlap between chunks
                 self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
         except Exception as e:
             logger.error(f"Failed to load audio metadata: {e}")
-            # Fallback: load entire audio with optional downsampling (slower)
-            audio, sr = load_audio(
-                self.filepath,
-                target_sample_rate=self.config.processing_sample_rate
-            )
+            # Fallback: load entire audio (slower)
+            audio, sr = load_audio(self.filepath)
             self.sample_rate = sr
+            self.channels = audio.ndim if audio.ndim == 1 else audio.shape[0] if audio.shape[0] <= 2 else audio.shape[1]  # Detect mono/stereo
             self.total_duration = len(audio) / sr
             # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
             self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
@@ -635,15 +645,17 @@ class ChunkedAudioProcessor:
         Returns:
             Path to processed chunk file
         """
-        # For synchronous calls, we need to run the async lock in an event loop
-        # This is less ideal but necessary for backward compatibility with sync methods
+        # For synchronous calls, we need to run the async method
+        # CRITICAL FIX: When called from async context, we MUST await the result,
+        # not just create a task. Otherwise chunk file won't exist when we try to load it.
         try:
-            # Try to get the running event loop
+            # If we're already in an async context, we need to schedule and wait
             loop = asyncio.get_running_loop()
-            # If we're already in an async context, schedule the coroutine
+            # Create a task and immediately return it - caller must await
+            # This is intentional - in async context, let the caller handle awaiting
             return asyncio.create_task(self.process_chunk_safe(chunk_index, fast_start))
         except RuntimeError:
-            # No event loop running, create a new one
+            # No event loop running, create a new one and wait for completion
             loop = asyncio.new_event_loop()
             try:
                 return loop.run_until_complete(self.process_chunk_safe(chunk_index, fast_start))
