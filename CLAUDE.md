@@ -727,6 +727,145 @@ python sync_version.py 1.1.0-beta.6
 
 ---
 
+## 🏗️ Undocumented Architectural Patterns
+
+### Utilities Pattern (Phase 7.2 - Code Deduplication)
+When multiple modules share similar logic, extract to a **static utility module** rather than duplicating code:
+```python
+# auralis/analysis/spectrum_operations.py - Centralized spectrum utilities
+class SpectrumOperations:
+    @staticmethod
+    def compute_magnitude(spectrum: np.ndarray) -> np.ndarray:
+        # Shared logic
+
+    @staticmethod
+    def analyze_peaks(spectrum: np.ndarray) -> List[Peak]:
+        # Shared logic
+
+# auralis/analysis/spectrum_analyzer.py - Thin wrapper
+class SpectrumAnalyzer:
+    def __init__(self):
+        self.ops = SpectrumOperations  # Delegate to utilities
+
+    def analyze(self, audio):
+        mag = self.ops.compute_magnitude(fft(audio))
+        return self.ops.analyze_peaks(mag)
+```
+**Result**: Phase 7.2 eliminated 900 lines of duplicate spectrum/content analysis.
+
+### Backend Router Factory Pattern
+All backend routers use a factory function to enable dependency injection:
+```python
+# routers/artists.py
+def create_artists_router(get_library_manager: Callable) -> APIRouter:
+    """Create and configure the artists API router"""
+    router = APIRouter(tags=["artists"])
+
+    @router.get("/api/artists")
+    async def get_artists(...):
+        manager = require_library_manager(get_library_manager)
+        # Implementation
+
+    return router
+
+# main.py
+from routers.artists import create_artists_router
+app.include_router(create_artists_router(get_library_manager))
+```
+**Benefit**: Testable routers with dependency injection (no global state).
+
+### Repository Pattern for Data Access
+**RULE**: ALL database access must use repository pattern. NO raw SQL in business logic.
+```python
+# auralis/library/repositories/tracks_repository.py
+class TracksRepository:
+    def __init__(self, session):
+        self.session = session
+
+    def find_by_id(self, track_id: int) -> Optional[Track]:
+        return self.session.query(Track).filter(Track.id == track_id).first()
+
+    def find_by_artist(self, artist_id: int) -> List[Track]:
+        return self.session.query(Track).filter(Track.artist_id == artist_id).all()
+
+# routers/library.py - USE REPOSITORY, NOT RAW QUERIES
+def get_artist_tracks(artist_id: int):
+    repo = TracksRepository(session)
+    tracks = repo.find_by_artist(artist_id)  # ✅ Correct
+    # NOT: session.execute("SELECT * FROM tracks WHERE artist_id = ?")  # ❌ Wrong
+```
+
+### Content-Aware Processing (DSP Adaptation)
+DSP parameters dynamically adapt based on source characteristics detected during analysis:
+```python
+# auralis/core/hybrid_processor.py
+class HybridProcessor:
+    def process(self, audio, analysis_result):
+        # Analyze source characteristics
+        loudness = analysis_result.loudness
+        dynamics_ratio = analysis_result.dynamics_ratio
+        frequency_content = analysis_result.frequency_content
+
+        # Adapt DSP parameters based on content
+        if loudness < -23 LUFS:  # Quiet content
+            eq_boost = 2.0 dB
+        elif dynamics_ratio > 8:  # Dynamic content
+            compressor_ratio = 4:1
+        else:
+            eq_boost = 1.0 dB
+            compressor_ratio = 2:1
+
+        # Apply adaptive parameters
+        return self.apply_dsp(audio, eq_boost, compressor_ratio)
+```
+**Example**: Gentle preset = +0.20 dB vs Adaptive = baseline (preset differentiation enforced).
+
+### Graceful Rust Module Fallback
+Rust modules (HPSS, YIN, Chroma) are optional via PyO3. If unavailable, gracefully fall back to librosa:
+```python
+# auralis/analysis/hpss_analyzer.py
+def try_import_rust_module():
+    try:
+        from vendor.auralis_dsp import hpss_decompose
+        return hpss_decompose
+    except ImportError:
+        logger.warning("Rust HPSS module not available, using librosa fallback")
+        from librosa.decompose import hpss as librosa_hpss
+        return lambda audio, sr: librosa_hpss(audio)
+
+hpss_fn = try_import_rust_module()
+# No loss of functionality, just slower (2-5x speedup when Rust available)
+```
+
+### Fingerprint Cache + Lazy Tempo Detection
+2GB SQLite cache stores pre-computed fingerprints; tempo detection runs lazily:
+```
+Workflow:
+1. Load track → Check if fingerprint in cache
+2. Cache hit? → Load pre-generated preset parameters (instant, 20-40x speedup)
+3. Cache miss? → Trigger async tempo detection (runs in background)
+4. Pre-generate all preset parameters once (Adaptive, Gentle, Warm, Bright, Punchy)
+5. Store in cache for future loads
+```
+**Result**: Phase 11 eliminated redundant tempo analysis across presets.
+
+### Chunked Processing (15s chunks, 5s overlap)
+Audio is processed in overlapping chunks to balance streaming latency and quality:
+```python
+# auralis-web/backend/chunked_processor.py
+CHUNK_DURATION = 15.0   # Process 15 seconds at a time
+CHUNK_INTERVAL = 10.0   # Start new chunk every 10 seconds (5s overlap)
+CROSSFADE_DURATION = 3.0  # Smooth blend at boundaries
+
+# Processing:
+# Chunk 1: [0-15s] → Output [0-10s] immediately
+# Chunk 2: [10-25s] → Crossfade [10-13s], Output [13-20s]
+# Chunk 3: [20-35s] → Crossfade [20-23s], Output [23-30s]
+```
+**Benefits**: Fast streaming start + smooth transitions + preset switching support.
+
+---
+
 ## 🎯 Current Development Phase
 
 **Phase**: Frontend Enhanced Playback Controls & Streaming (1.1.0-beta.5+)
@@ -756,6 +895,12 @@ python sync_version.py 1.1.0-beta.6
 - Phase 3.3: Integration of streaming controls into main player UI
 - Phase 3.4: Keyboard shortcuts for enhanced playback controls (active)
 
+**Recent Feature Implementations** (Latest commits):
+- **Resampling for Reference Mode**: `auralis.io.processing.resample_audio()` enables reference processing with mismatched sample rates
+- **Play All Artist Tracks**: Batch playback via new `libraryService.getArtistTracks()` + queue.setQueue()
+- **Library Selection Handlers**: Track playback trigger + album/artist detail view scaffolding in LibraryView
+- **Artist Context Menu**: Right-click "Play All" and "Add to Queue" actions for artists
+
 **Research Folder**:
 - Location: `research/` (excluded from git via .gitignore)
 - Contains: Audio analysis data, validation scripts, baseline comparisons
@@ -766,6 +911,81 @@ python sync_version.py 1.1.0-beta.6
 - `PHASE_11_HEAVY_OPTIMIZATIONS.md` - Performance optimization details
 - `PERFORMANCE_OPTIMIZATIONS_IMPLEMENTED.md` - Phase 10 optimizations breakdown
 - Phase 3.1-3.4 summaries - Frontend streaming architecture
+
+---
+
+## 🔗 Frontend Hook Architecture (Phase 1.3 - Domain Organization)
+
+Hooks are **strictly organized by domain** into 8 categories for maintainability:
+
+### Hook Categories & Structure
+
+| Category | Location | Purpose | Key Hooks |
+|----------|----------|---------|-----------|
+| **Player** | `hooks/player/` | Playback control & queue | `usePlaybackControl`, `usePlaybackQueue`, `usePlayerControls` |
+| **Library** | `hooks/library/` | Music library access | `useLibraryData`, `useLibraryQuery`, `useTrackSelection` |
+| **Enhancement** | `hooks/enhancement/` | Audio DSP & mastering | `usePlayEnhanced`, `useEnhancementControl`, `useMasteringRecommendation` |
+| **WebSocket** | `hooks/websocket/` | Real-time communication | `useWebSocket`, `useWebSocketProtocol`, `useWebSocketSubscription` |
+| **API** | `hooks/api/` | REST API calls | `useRestAPI`, (use libraryService for library calls) |
+| **App** | `hooks/app/` | Global UI state | `useAppKeyboardShortcuts`, `useAppLayout`, `useDragAndDrop` |
+| **Fingerprint** | `hooks/fingerprint/` | Audio fingerprinting | `useFingerprintCache`, `useSimilaritySearch` |
+| **Shared** | `hooks/shared/` | General utilities | `useReduxState`, `useInfiniteScroll`, `useOptimisticUpdate` |
+
+### Hook Size & Organization Limits
+- **Max 250 lines per hook** (same as components)
+- If exceeding, split into smaller composable hooks
+- Example: `usePlayer` (core) + `usePlayerQueue` (queue-specific)
+
+### Common Hook Patterns
+
+**Redux State Access** (`hooks/shared/useReduxState.ts`):
+```typescript
+// ✅ Correct - Memoized selectors prevent re-renders
+export const usePlayer = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const state = useSelector((state: RootState) => state.player);
+
+  return {
+    isPlaying: state.isPlaying,
+    play: useCallback(() => dispatch(setIsPlaying(true)), [dispatch]),
+  };
+};
+```
+
+**WebSocket Real-Time Updates** (`hooks/websocket/useWebSocketProtocol.ts`):
+```typescript
+export function usePlayerStateUpdates(onUpdate?: (state: any) => void) {
+  const ws = useContext(WebSocketContext);
+
+  useEffect(() => {
+    const unsubscribe = ws.subscribe('player_state', onUpdate);
+    return () => unsubscribe();  // Clean up on unmount
+  }, [ws, onUpdate]);
+}
+```
+
+**Streaming Playback** (`hooks/enhancement/usePlayEnhanced.ts`):
+```typescript
+export function usePlayEnhanced() {
+  const ws = useWebSocket();
+  const [buffer, setBuffer] = useState<PCMStreamBuffer>();
+
+  // Manages WebSocket PCM streaming + playback state
+  // Uses HTML5 Audio API for playback
+  // Handles chunk buffering & crossfade
+}
+```
+
+### Import Pattern (MANDATORY)
+```typescript
+// ✅ Always use absolute paths with @/ alias
+import { usePlayer } from '@/hooks/shared/useReduxState';
+import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
+import { useWebSocket } from '@/hooks/websocket/useWebSocket';
+
+// ❌ Never use relative paths
+// import { usePlayer } from '../../../hooks/shared/useReduxState';
+```
 
 ---
 
