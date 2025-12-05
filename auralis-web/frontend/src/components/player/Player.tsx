@@ -8,9 +8,9 @@
  *
  * This is a thin orchestration layer that:
  * - Wires hook data to component props
- * - Handles audio element reference
- * - Coordinates streaming, controls, and display
+ * - Coordinates streaming controls and display
  * - Provides responsive layout
+ * - Audio streaming handled exclusively via WebSocket (usePlayEnhanced hook)
  *
  * @component
  * @example
@@ -19,7 +19,7 @@
  * ```
  */
 
-import React, { useRef, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { tokens } from '@/design-system';
 
 // Phase 4 UI Components
@@ -55,11 +55,9 @@ import { useSelector } from 'react-redux';
  * - Layer 1: Hooks (usePlayerStreaming, usePlayerControls, usePlayerDisplay)
  * - Layer 2: 6 UI Components (props-based, no internal state)
  * - Layer 3: Responsive layout with design tokens
+ * - WebSocket Streaming: Audio playback via usePlayEnhanced hook (not HTML5 audio)
  */
 const Player: React.FC = () => {
-  // Audio element reference for streaming synchronization
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
-
   // Queue panel visibility state
   const [queuePanelOpen, setQueuePanelOpen] = useState(false);
 
@@ -70,7 +68,7 @@ const Player: React.FC = () => {
   // Phase 3 Hook: Core streaming synchronization
   // Handles timing, buffering, position tracking, and WebSocket sync
   const streaming = usePlayerStreaming({
-    audioElement: audioElementRef.current,
+    audioElement: null, // Audio streaming via WebSocket (usePlayEnhanced), not HTML5 audio
     syncInterval: 5000,
     driftThreshold: 500,
     updateInterval: 100,
@@ -135,83 +133,25 @@ const Player: React.FC = () => {
 
   // Phase 3 Hook: Control operations
   // Provides play, pause, seek, volume, next, previous callbacks
+  // Note: Audio playback is now handled via WebSocket (usePlayEnhanced hook)
+  // This hook just manages backend player state via REST API
   const controls = usePlayerControls({
     onPlay: async () => {
-      // CRITICAL: Ensure audio element is ready before playing
-      // This prevents race condition where play() called before src is set
-      if (audioElementRef.current) {
-        // Step 1: Ensure audio element has a src
-        if (!audioElementRef.current.src) {
-          console.warn('[Player] Audio element has no src set, waiting for HiddenAudioElement...');
-          // Wait up to 2 seconds for HiddenAudioElement to set src
-          let waited = 0;
-          while (!audioElementRef.current.src && waited < 2000) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            waited += 100;
-          }
-          if (!audioElementRef.current.src) {
-            console.error('[Player] Audio src not set after 2s, cannot play');
-            return;
-          }
-        }
-
-        // Step 2: Wait for audio to be ready (canplay event)
-        // Only wait if not already ready or loading
-        if (
-          audioElementRef.current.readyState < 2 && // HAVE_CURRENT_DATA = 2
-          audioElementRef.current.networkState === 2 // LOADING
-        ) {
-          console.log('[Player] Waiting for audio to be ready (canplay)...');
-          await new Promise<void>((resolve) => {
-            const handler = () => {
-              audioElementRef.current?.removeEventListener('canplay', handler);
-              resolve();
-            };
-            audioElementRef.current?.addEventListener('canplay', handler);
-            // Timeout after 5 seconds
-            setTimeout(() => {
-              audioElementRef.current?.removeEventListener('canplay', handler);
-              resolve();
-            }, 5000);
-          });
-        }
-      }
-
-      // Step 3: Tell backend to play (this broadcasts state to all clients)
+      // Tell backend to play (this broadcasts state to all clients via WebSocket)
+      // Audio playback is handled separately via usePlayEnhanced hook
       await apiPlay();
-
-      // Step 4: Play the HTML5 audio element
-      if (audioElementRef.current) {
-        try {
-          await audioElementRef.current.play();
-        } catch (err) {
-          console.warn('[Player] Audio element play failed:', err);
-        }
-      }
     },
     onPause: async () => {
       // Call backend API (Redux state will sync via WebSocket)
       await apiPause();
-      // Also pause the HTML5 audio element
-      if (audioElementRef.current) {
-        audioElementRef.current.pause();
-      }
     },
     onSeek: async (position: number) => {
       // Call backend API (Redux state will sync via WebSocket)
       await apiSeek(position);
-      // Also seek the HTML5 audio element
-      if (audioElementRef.current) {
-        audioElementRef.current.currentTime = position;
-      }
     },
     onSetVolume: async (volume: number) => {
       // Call backend API (Redux state will sync via WebSocket)
       await apiSetVolume(volume);
-      // Also set HTML5 audio element volume
-      if (audioElementRef.current) {
-        audioElementRef.current.volume = volume / 100;
-      }
     },
     onNextTrack: async () => {
       await apiNext();
@@ -230,19 +170,8 @@ const Player: React.FC = () => {
     bufferedPercentage: streaming.bufferedPercentage,
   });
 
-  // Set audio element reference when HiddenAudioElement is available
-  useEffect(() => {
-    const audioElement = document.querySelector('audio') as HTMLAudioElement;
-    if (audioElement) {
-      audioElementRef.current = audioElement;
-    }
-  }, []);
-
-  // Extract volume from state or audio element (0-1 range, convert to 0-100 for components)
+  // Extract volume from Redux state (0-1 range, convert to 0-100 for components)
   const volume = useMemo(() => {
-    if (audioElementRef.current) {
-      return audioElementRef.current.volume * 100;
-    }
     return state.volume ?? 50;
   }, [state.volume, streaming.isPlaying]);
 

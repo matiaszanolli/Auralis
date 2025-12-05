@@ -5,7 +5,6 @@ import { ToastProvider } from './components/shared/Toast';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import { EnhancementProvider } from './contexts/EnhancementContext';
 import ComfortableApp from './ComfortableApp';
-import HiddenAudioElement from './components/player/HiddenAudioElement';
 import { usePlayerStateSync } from '@/hooks/player/usePlayerStateSync';
 import { store } from './store';
 
@@ -30,8 +29,7 @@ function AppContent() {
           {/* PlayerStateSync hook must be inside WebSocketProvider */}
           <PlayerStateSync />
           <EnhancementProvider>
-            {/* Hidden audio element for browser autoplay policy compliance and audio streaming */}
-            <HiddenAudioElement debug={true} />
+            {/* Audio streaming handled exclusively via WebSocket using usePlayEnhanced hook */}
             <ComfortableApp />
           </EnhancementProvider>
         </WebSocketProvider>
