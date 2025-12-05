@@ -33,6 +33,9 @@ import TrackDisplay from './TrackDisplay';
 // Phase 6 Queue Component
 import QueuePanel from './QueuePanel';
 
+// Phase 3 Enhancement Components
+import { PlayerEnhancementPanel } from '@/components/enhancement';
+
 // Core Phase 3 Hooks
 import { usePlayerStreaming, PlayerStreamingState } from '@/hooks/player/usePlayerStreaming';
 import { usePlayerControls, PlayerControls } from '@/hooks/player/usePlayerControls';
@@ -352,6 +355,16 @@ const Player: React.FC = () => {
         </div>
       )}
 
+      {/* Enhancement Panel - Integrated streaming controls */}
+      {currentTrack && (
+        <div style={styles.enhancementPanelWrapper}>
+          <PlayerEnhancementPanel
+            trackId={currentTrack?.id}
+            isVisible={!!currentTrack}
+          />
+        </div>
+      )}
+
       {/* Error State Indicator */}
       {streaming.isError && (
         <div style={styles.errorBanner}>
@@ -464,6 +477,15 @@ const styles = {
     maxHeight: '400px',
     overflowY: 'auto' as const,
     backgroundColor: tokens.colors.bg.secondary,
+  },
+
+  enhancementPanelWrapper: {
+    borderTop: `1px solid ${tokens.colors.border.medium}`,
+    padding: tokens.spacing.lg,
+    backgroundColor: tokens.colors.bg.secondary,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: tokens.spacing.md,
   },
 
   errorBanner: {
