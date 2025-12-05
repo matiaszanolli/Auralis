@@ -116,6 +116,70 @@ export interface PlaylistDeletedMessage extends WebSocketMessage {
   };
 }
 
+// ============================================================================
+// Audio Streaming Messages (Phase 2.2)
+// ============================================================================
+
+/**
+ * Sent by backend when audio stream starts
+ * Contains metadata needed to initialize PCMStreamBuffer and playback
+ */
+export interface AudioStreamStartMessage extends WebSocketMessage {
+  type: 'audio_stream_start';
+  data: {
+    track_id: number;
+    preset: string;
+    intensity: number;
+    sample_rate: number;
+    channels: number;
+    total_chunks: number;
+    chunk_duration: number;
+    total_duration: number;
+  };
+}
+
+/**
+ * Sent by backend for each chunk of PCM audio
+ * Contains base64-encoded PCM samples and frame metadata
+ * Large chunks are split into multiple frames to stay under WebSocket 1MB limit
+ */
+export interface AudioChunkMessage extends WebSocketMessage {
+  type: 'audio_chunk';
+  data: {
+    chunk_index: number;
+    chunk_count: number;
+    frame_index: number;
+    frame_count: number;
+    samples: string; // Base64-encoded float32 PCM samples
+    sample_count: number; // Number of samples in this frame
+    crossfade_samples: number; // Overlap duration at chunk boundary (only for first frame)
+  };
+}
+
+/**
+ * Sent by backend when audio stream completes
+ */
+export interface AudioStreamEndMessage extends WebSocketMessage {
+  type: 'audio_stream_end';
+  data: {
+    track_id: number;
+    total_samples: number;
+    duration: number;
+  };
+}
+
+/**
+ * Sent by backend if stream fails
+ */
+export interface AudioStreamErrorMessage extends WebSocketMessage {
+  type: 'audio_stream_error';
+  data: {
+    track_id: number;
+    error: string;
+    code: string;
+  };
+}
+
 // Union type of all possible messages
 export type AuralisWebSocketMessage =
   | PlayerStateMessage
@@ -127,6 +191,10 @@ export type AuralisWebSocketMessage =
   | PlaylistCreatedMessage
   | PlaylistUpdatedMessage
   | PlaylistDeletedMessage
+  | AudioStreamStartMessage
+  | AudioChunkMessage
+  | AudioStreamEndMessage
+  | AudioStreamErrorMessage
   | WebSocketMessage; // Fallback for unknown messages
 
 // ============================================================================

@@ -27,6 +27,19 @@ export interface Track {
 
 export type PresetName = 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
 
+export type StreamingState = 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
+
+export interface StreamingInfo {
+  state: StreamingState;
+  trackId: number | null;
+  intensity: number;
+  progress: number; // 0-100
+  bufferedSamples: number;
+  totalChunks: number;
+  processedChunks: number;
+  error: string | null;
+}
+
 export interface PlayerState {
   isPlaying: boolean;
   currentTrack: Track | null;
@@ -38,7 +51,19 @@ export interface PlayerState {
   isLoading: boolean;
   error: string | null;
   lastUpdated: number;
+  streaming: StreamingInfo;
 }
+
+const initialStreamingInfo: StreamingInfo = {
+  state: 'idle',
+  trackId: null,
+  intensity: 1.0,
+  progress: 0,
+  bufferedSamples: 0,
+  totalChunks: 0,
+  processedChunks: 0,
+  error: null,
+};
 
 const initialState: PlayerState = {
   isPlaying: false,
@@ -51,6 +76,7 @@ const initialState: PlayerState = {
   isLoading: false,
   error: null,
   lastUpdated: 0,
+  streaming: initialStreamingInfo,
 };
 
 const playerSlice = createSlice({
@@ -168,6 +194,89 @@ const playerSlice = createSlice({
     resetPlayer(state) {
       Object.assign(state, initialState);
     },
+
+    // ========================================================================
+    // Streaming-specific reducers (Phase 2.2)
+    // ========================================================================
+
+    /**
+     * Start enhanced audio streaming
+     */
+    startStreaming(
+      state,
+      action: PayloadAction<{
+        trackId: number;
+        totalChunks: number;
+        intensity: number;
+      }>
+    ) {
+      state.streaming.state = 'buffering';
+      state.streaming.trackId = action.payload.trackId;
+      state.streaming.totalChunks = action.payload.totalChunks;
+      state.streaming.intensity = action.payload.intensity;
+      state.streaming.processedChunks = 0;
+      state.streaming.progress = 0;
+      state.streaming.bufferedSamples = 0;
+      state.streaming.error = null;
+      state.lastUpdated = Date.now();
+    },
+
+    /**
+     * Update streaming chunk progress
+     */
+    updateStreamingProgress(
+      state,
+      action: PayloadAction<{
+        processedChunks: number;
+        bufferedSamples: number;
+        progress: number;
+      }>
+    ) {
+      state.streaming.processedChunks = action.payload.processedChunks;
+      state.streaming.bufferedSamples = action.payload.bufferedSamples;
+      state.streaming.progress = action.payload.progress;
+      if (state.streaming.state === 'buffering' && action.payload.bufferedSamples > 0) {
+        state.streaming.state = 'streaming';
+      }
+      state.lastUpdated = Date.now();
+    },
+
+    /**
+     * Mark streaming as complete
+     */
+    completeStreaming(state) {
+      state.streaming.state = 'complete';
+      state.streaming.progress = 100;
+      state.lastUpdated = Date.now();
+    },
+
+    /**
+     * Set streaming error
+     */
+    setStreamingError(state, action: PayloadAction<string>) {
+      state.streaming.state = 'error';
+      state.streaming.error = action.payload;
+      state.lastUpdated = Date.now();
+    },
+
+    /**
+     * Reset streaming state
+     */
+    resetStreaming(state) {
+      state.streaming = initialStreamingInfo;
+      state.lastUpdated = Date.now();
+    },
+
+    /**
+     * Update entire streaming info (for WebSocket sync)
+     */
+    updateStreamingInfo(
+      state,
+      action: PayloadAction<Partial<Omit<StreamingInfo, 'error'>>>
+    ) {
+      Object.assign(state.streaming, action.payload);
+      state.lastUpdated = Date.now();
+    },
   },
 });
 
@@ -185,6 +294,12 @@ export const {
   clearError,
   updatePlaybackState,
   resetPlayer,
+  startStreaming,
+  updateStreamingProgress,
+  completeStreaming,
+  setStreamingError,
+  resetStreaming,
+  updateStreamingInfo,
 } = playerSlice.actions;
 
 // Selectors
@@ -198,5 +313,16 @@ export const selectPreset = (state: { player: PlayerState }) => state.player.pre
 export const selectIsLoading = (state: { player: PlayerState }) => state.player.isLoading;
 export const selectError = (state: { player: PlayerState }) => state.player.error;
 export const selectPlayerState = (state: { player: PlayerState }) => state.player;
+
+// Streaming selectors (Phase 2.2)
+export const selectStreaming = (state: { player: PlayerState }) => state.player.streaming;
+export const selectStreamingState = (state: { player: PlayerState }) => state.player.streaming.state;
+export const selectStreamingProgress = (state: { player: PlayerState }) => state.player.streaming.progress;
+export const selectStreamingTrackId = (state: { player: PlayerState }) => state.player.streaming.trackId;
+export const selectStreamingIntensity = (state: { player: PlayerState }) => state.player.streaming.intensity;
+export const selectBufferedSamples = (state: { player: PlayerState }) => state.player.streaming.bufferedSamples;
+export const selectStreamingError = (state: { player: PlayerState }) => state.player.streaming.error;
+export const selectIsStreaming = (state: { player: PlayerState }) =>
+  state.player.streaming.state === 'streaming' || state.player.streaming.state === 'buffering';
 
 export default playerSlice.reducer;
