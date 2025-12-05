@@ -79,7 +79,6 @@ from routers.albums import create_albums_router
 from routers.artists import create_artists_router
 from routers.player import create_player_router
 from routers.metadata import create_metadata_router
-from routers.webm_streaming import create_webm_streaming_router  # NEW unified architecture
 from routers.similarity import create_similarity_router
 
 # Configure logging
@@ -429,17 +428,8 @@ if HAS_STREAMLINED_CACHE and streamlined_cache:
     app.include_router(cache_router)
     logger.info("✅ Streamlined cache router included")
 
-# Include WebM streaming router (Unified Architecture - always WebM/Opus)
-# Replaces old MSE and Unified routers with single simplified endpoint
-webm_router = create_webm_streaming_router(
-    get_library_manager=lambda: library_manager,
-    get_multi_tier_buffer=lambda: streamlined_cache if HAS_STREAMLINED_CACHE else None,
-    chunked_audio_processor_class=ChunkedAudioProcessor,
-    chunk_duration=15,  # Beta 12.1: 15s chunks with 10s intervals for 5s natural crossfades
-    chunk_interval=10   # Beta 12.1: Chunks start every 10s (creating 5s overlaps)
-)
-app.include_router(webm_router)
-logger.info("✅ WebM streaming router included (Streamlined cache integration)")
+# WebSocket streaming handles all audio streaming (consolidated architecture)
+# See system.py for the 'play_enhanced' WebSocket message handler
 
 # Create and include similarity router (fingerprint-based music similarity)
 if HAS_SIMILARITY:

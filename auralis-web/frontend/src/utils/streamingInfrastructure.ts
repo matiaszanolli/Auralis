@@ -1,19 +1,18 @@
 /**
  * Streaming Infrastructure Module
  *
- * Provides unified streaming patterns for both MSE chunk streaming and real-time analysis,
- * eliminating duplicate metrics tracking, configuration management, and state handling.
- *
- * Consolidates shared infrastructure from:
- * - mseStreamingService.ts (HTTP chunk streaming)
- * - RealTimeAnalysisStream.ts (WebSocket real-time streaming)
+ * Provides unified streaming patterns for WebSocket-based audio streaming.
+ * Consolidated architecture (Phase 3 consolidation) uses WebSocket exclusively
+ * for real-time audio playback with PCM streaming.
  *
  * Includes:
  * - Unified streaming metrics
  * - Configuration management
  * - State management for streaming lifecycle
  * - Callback subscription system
- * - Error handling integration (Phase 3c)
+ * - Error handling integration
+ *
+ * Primary streaming: usePlayEnhanced hook + audio_stream_controller.py (WebSocket PCM)
  */
 
 // ============================================================================

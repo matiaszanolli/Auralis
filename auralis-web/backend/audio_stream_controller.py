@@ -6,13 +6,21 @@ Audio Stream Controller
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 Manages real-time audio streaming via WebSocket for enhanced audio playback.
+Unified architecture: single WebSocket endpoint for all audio streaming.
 
 Handles:
 - Loading tracks and creating ChunkedProcessor instances
 - Processing chunks on-demand with fast-start optimization
 - Streaming PCM samples to connected WebSocket clients
 - Managing crossfading at chunk boundaries
+- Caching processed chunks to avoid reprocessing
 - Error handling and recovery
+
+Features:
+- Multi-tier chunk caching (in-memory cache for recent processing)
+- Fast-start optimization for first chunk (priority processing)
+- Real-time progress callbacks via WebSocket
+- Graceful error recovery and client disconnection handling
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
@@ -22,32 +30,91 @@ import asyncio
 import json
 import numpy as np
 import logging
+import hashlib
+import os
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, Tuple, Dict
 from fastapi import WebSocket
+from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
+
+
+class SimpleChunkCache:
+    """Simple in-memory cache for processed audio chunks."""
+
+    def __init__(self, max_chunks: int = 50):
+        """
+        Initialize chunk cache.
+
+        Args:
+            max_chunks: Maximum number of chunks to keep in memory
+        """
+        self.cache: OrderedDict[str, Tuple[np.ndarray, int]] = OrderedDict()
+        self.max_chunks = max_chunks
+
+    def _make_key(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> str:
+        """Generate cache key from parameters."""
+        key_str = f"{track_id}:{chunk_idx}:{preset}:{intensity:.2f}"
+        return hashlib.md5(key_str.encode()).hexdigest()
+
+    def get(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> Optional[Tuple[np.ndarray, int]]:
+        """
+        Get chunk from cache.
+
+        Returns:
+            Tuple of (audio_samples, sample_rate) or None if not cached
+        """
+        key = self._make_key(track_id, chunk_idx, preset, intensity)
+        if key in self.cache:
+            # Move to end (LRU)
+            self.cache.move_to_end(key)
+            logger.debug(f"✅ Cache HIT: chunk {chunk_idx}, preset {preset}")
+            return self.cache[key]
+        return None
+
+    def put(self, track_id: int, chunk_idx: int, preset: str, intensity: float,
+            audio: np.ndarray, sample_rate: int) -> None:
+        """Store chunk in cache."""
+        key = self._make_key(track_id, chunk_idx, preset, intensity)
+
+        # Remove oldest if at capacity
+        if len(self.cache) >= self.max_chunks:
+            removed_key = next(iter(self.cache))
+            del self.cache[removed_key]
+            logger.debug(f"Cache evicted oldest chunk to make space")
+
+        self.cache[key] = (audio, sample_rate)
+        logger.debug(f"✅ Cached chunk {chunk_idx}, preset {preset}, cache size: {len(self.cache)}")
+
+    def clear(self) -> None:
+        """Clear all cached chunks."""
+        self.cache.clear()
 
 
 class AudioStreamController:
     """
     Manages real-time audio streaming via WebSocket.
 
+    Unified architecture: single WebSocket endpoint for all audio streaming.
+
     Streams processed audio chunks as PCM samples to frontend for playback.
     Handles fast-start optimization (first chunk processed quickly),
-    crossfading at boundaries, and error recovery.
+    crossfading at boundaries, caching for performance, and error recovery.
     """
 
-    def __init__(self, chunked_processor_class=None, library_manager=None):
+    def __init__(self, chunked_processor_class=None, library_manager=None, cache_manager=None):
         """
         Initialize AudioStreamController.
 
         Args:
             chunked_processor_class: ChunkedAudioProcessor class for processing
             library_manager: LibraryManager instance for track lookup
+            cache_manager: Optional cache manager for chunk caching
         """
         self.chunked_processor_class = chunked_processor_class
         self.library_manager = library_manager
+        self.cache_manager = cache_manager or SimpleChunkCache()
         self.active_streams = {}  # track_id -> streaming task
 
     async def stream_enhanced_audio(
@@ -174,6 +241,8 @@ class AudioStreamController:
         """
         Process single chunk and stream PCM samples to client.
 
+        Implements caching to avoid reprocessing chunks with same parameters.
+
         Args:
             chunk_index: Index of chunk to process (0-based)
             processor: ChunkedProcessor instance
@@ -188,22 +257,62 @@ class AudioStreamController:
             f"(fast_start={fast_start})"
         )
 
-        # Process chunk - use async version directly and await it
-        # This ensures the chunk file is created before we try to load it
-        await processor.process_chunk_safe(chunk_index, fast_start=fast_start)
+        # Try to get from cache first
+        pcm_samples = None
+        sr = None
+        cache_hit = False
 
-        # Load processed chunk from disk
-        chunk_path = processor._get_chunk_path(chunk_index)
         try:
-            from auralis.io.unified_loader import load_audio
-
-            pcm_samples, sr = load_audio(str(chunk_path))
-
-            logger.debug(
-                f"Chunk {chunk_index}: loaded {len(pcm_samples)} samples at {sr}Hz"
+            cached_result = self.cache_manager.get(
+                track_id=processor.track_id,
+                chunk_idx=chunk_index,
+                preset=processor.preset,
+                intensity=processor.intensity
             )
+            if cached_result:
+                pcm_samples, sr = cached_result
+                cache_hit = True
+                logger.info(f"✅ Cache HIT: chunk {chunk_index}, preset {processor.preset}")
+        except Exception as e:
+            logger.debug(f"Cache lookup failed (not critical): {e}")
 
-            # Stream PCM samples to client
+        # Process chunk if not cached
+        if not cache_hit:
+            logger.debug(f"❌ Cache MISS: Processing chunk {chunk_index}")
+            # Process chunk - use async version directly and await it
+            # This ensures the chunk file is created before we try to load it
+            await processor.process_chunk_safe(chunk_index, fast_start=fast_start)
+
+            # Load processed chunk from disk
+            chunk_path = processor._get_chunk_path(chunk_index)
+            try:
+                from auralis.io.unified_loader import load_audio
+
+                pcm_samples, sr = load_audio(str(chunk_path))
+
+                logger.debug(
+                    f"Chunk {chunk_index}: loaded {len(pcm_samples)} samples at {sr}Hz"
+                )
+
+                # Store in cache for future use
+                try:
+                    self.cache_manager.put(
+                        track_id=processor.track_id,
+                        chunk_idx=chunk_index,
+                        preset=processor.preset,
+                        intensity=processor.intensity,
+                        audio=pcm_samples,
+                        sample_rate=sr
+                    )
+                except Exception as e:
+                    logger.debug(f"Failed to cache chunk (not critical): {e}")
+
+            except Exception as e:
+                logger.error(f"Failed to load chunk {chunk_index}: {e}")
+                raise
+
+        # Stream PCM samples to client
+        try:
             await self._send_pcm_chunk(
                 websocket,
                 pcm_samples=pcm_samples,
@@ -213,9 +322,8 @@ class AudioStreamController:
                     processor.chunk_duration * processor.sample_rate
                 ),  # Overlap duration
             )
-
         except Exception as e:
-            logger.error(f"Failed to load/stream chunk {chunk_index}: {e}")
+            logger.error(f"Failed to stream chunk {chunk_index}: {e}")
             raise
 
     async def _send_pcm_chunk(

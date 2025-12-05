@@ -7,7 +7,8 @@
  * - Error recovery strategies
  * - Timeout management
  *
- * Used by: mseStreamingService, processingService, RealTimeAnalysisStream, AnalysisExportService
+ * Used by: processingService, RealTimeAnalysisStream, AnalysisExportService
+ * WebSocket streaming: handled by usePlayEnhanced hook + WebSocketContext
  */
 
 // ============================================================================
