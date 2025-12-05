@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { getTrackContextActions } from '../../../shared/ContextMenu';
 import { useToast } from '../../../shared/Toast';
+import { useQueue } from '@/hooks/shared/useReduxState';
 import * as playlistService from '@/services/playlistService';
 import { Track } from './TrackRow';
 
@@ -40,6 +41,7 @@ export const useTrackContextMenu = ({
   const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState(false);
   const { success, info, error } = useToast();
+  const queue = useQueue();
 
   const fetchPlaylists = useCallback(async () => {
     setIsLoadingPlaylists(true);
@@ -77,6 +79,26 @@ export const useTrackContextMenu = ({
     [track.id, success, error]
   );
 
+  const handleAddToQueue = useCallback(() => {
+    try {
+      // Convert track to queue track format
+      const queueTrack = {
+        id: track.id,
+        title: track.title,
+        album: track.album,
+        duration: track.duration,
+      };
+
+      // Add track to queue
+      queue.addMany([queueTrack] as any);
+      success(`Added "${track.title}" to queue`);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to add track to queue';
+      error(errorMessage);
+    }
+  }, [track.id, track.title, track.album, track.duration, queue, success, error]);
+
   const handleMoreClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setContextMenuPosition({ top: e.clientY, left: e.clientX });
@@ -99,10 +121,7 @@ export const useTrackContextMenu = ({
           onPlay(track.id);
           info(`Now playing: ${track.title}`);
         },
-        onAddToQueue: () => {
-          success(`Added "${track.title}" to queue`);
-          // TODO: Implement actual queue functionality
-        },
+        onAddToQueue: handleAddToQueue,
         onAddToPlaylist: handleCloseContextMenu,
         onToggleLove: onToggleFavorite
           ? () => {
@@ -157,6 +176,7 @@ export const useTrackContextMenu = ({
       info,
       success,
       handleCloseContextMenu,
+      handleAddToQueue,
     ]
   );
 
