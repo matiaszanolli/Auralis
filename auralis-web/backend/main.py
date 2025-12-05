@@ -379,9 +379,10 @@ playlists_router = create_playlists_router(
 )
 app.include_router(playlists_router)
 
-# Create and include library router (stats, tracks, albums, artists)
+# Create and include library router (stats, tracks, albums, artists, scan)
 library_router = create_library_router(
-    get_library_manager=lambda: library_manager
+    get_library_manager=lambda: library_manager,
+    connection_manager=manager
 )
 app.include_router(library_router)
 

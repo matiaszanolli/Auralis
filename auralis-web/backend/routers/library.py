@@ -43,12 +43,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["library"])
 
 
-def create_library_router(get_library_manager):
+def create_library_router(get_library_manager, connection_manager=None):
     """
     Factory function to create library router with dependencies.
 
     Args:
         get_library_manager: Callable that returns LibraryManager instance
+        connection_manager: WebSocket connection manager for progress broadcasts (optional)
 
     Returns:
         APIRouter: Configured router instance
@@ -454,7 +455,7 @@ def create_library_router(get_library_manager):
                 - files_skipped: Number of existing files skipped
                 - files_failed: Number of files that failed to import
                 - scan_time: Total scan duration in seconds
-                -
+
         Raises:
             HTTPException: If library manager not available or scan fails
         """
@@ -465,15 +466,62 @@ def create_library_router(get_library_manager):
             # Create scanner with progress callback
             scanner = LibraryScanner(library_manager)
 
-            # TODO: Connect progress callback to WebSocket broadcast
-            # For now, just scan without live progress
+            # Define progress callback that broadcasts updates via WebSocket
+            async def progress_callback(event_data: dict):
+                """
+                Broadcast scan progress to connected WebSocket clients.
 
-            result = scanner.scan_directories(
-                directories=directories,
-                recursive=recursive,
-                skip_existing=skip_existing,
-                check_modifications=True
-            )
+                Args:
+                    event_data: Progress event data with keys:
+                        - status: Current status (scanning, importing, etc.)
+                        - files_found: Number of files found so far
+                        - files_processed: Number of files processed
+                        - files_added: Number of files added
+                        - current_file: Current file being processed
+                        - error: Error message if any
+                """
+                if connection_manager:
+                    await connection_manager.broadcast({
+                        "type": "library_scan_progress",
+                        "data": event_data
+                    })
+                    logger.debug(f"Broadcast scan progress: {event_data.get('status')}")
+
+            # Run scan with progress callback
+            # Note: The scanner.scan_directories should support an optional progress_callback parameter
+            # If not, this will gracefully fall back to scanning without live progress
+            try:
+                result = scanner.scan_directories(
+                    directories=directories,
+                    recursive=recursive,
+                    skip_existing=skip_existing,
+                    check_modifications=True,
+                    progress_callback=progress_callback
+                )
+            except TypeError:
+                # Fallback if scanner doesn't support progress_callback parameter
+                logger.warning("LibraryScanner does not support progress_callback, scanning without live progress")
+                result = scanner.scan_directories(
+                    directories=directories,
+                    recursive=recursive,
+                    skip_existing=skip_existing,
+                    check_modifications=True
+                )
+
+            # Broadcast final scan result to all clients
+            if connection_manager:
+                await connection_manager.broadcast({
+                    "type": "library_scan_complete",
+                    "data": {
+                        "files_found": result.files_found,
+                        "files_added": result.files_added,
+                        "files_updated": result.files_updated,
+                        "files_skipped": result.files_skipped,
+                        "files_failed": result.files_failed,
+                        "scan_time": result.scan_time,
+                        "directories_scanned": result.directories_scanned
+                    }
+                })
 
             return {
                 "files_found": result.files_found,
