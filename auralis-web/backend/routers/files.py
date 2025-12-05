@@ -18,10 +18,14 @@ from pydantic import BaseModel
 from typing import List, Optional
 import logging
 import asyncio
+import shutil
+import tempfile
+from pathlib import Path
 
 # Import only if available
 try:
     from auralis.library.scanner import LibraryScanner
+    from auralis.io.unified_loader import load_audio
     HAS_LIBRARY = True
 except ImportError:
     HAS_LIBRARY = False
@@ -114,22 +118,29 @@ def create_files_router(get_library_manager, connection_manager):
         """
         Upload audio files for processing.
 
-        Validates file types and returns upload status for each file.
+        Saves uploaded files to library and extracts metadata.
 
         Args:
             files: List of uploaded files
 
         Returns:
-            dict: Upload results for each file
+            dict: Upload results for each file with metadata
 
         Raises:
-            HTTPException: If no files provided
+            HTTPException: If no files provided or library unavailable
         """
         if not files:
             raise HTTPException(status_code=400, detail="No files provided")
 
+        library_manager = get_library_manager()
+        if not library_manager:
+            raise HTTPException(status_code=503, detail="Library manager not available")
+
+        if not HAS_LIBRARY:
+            raise HTTPException(status_code=503, detail="Audio processing library not available")
+
         results = []
-        supported_extensions = ('.mp3', '.wav', '.flac', '.ogg', '.m4a')
+        supported_extensions = ('.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac')
 
         for file in files:
             try:
@@ -142,13 +153,65 @@ def create_files_router(get_library_manager, connection_manager):
                     })
                     continue
 
-                # For now, just acknowledge the upload
-                # TODO: Implement actual file processing
-                results.append({
-                    "filename": file.filename,
-                    "status": "success",
-                    "message": "File upload simulation - processing not yet implemented"
-                })
+                # Save uploaded file to temporary location
+                with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+                    content = await file.read()
+                    tmp.write(content)
+                    temp_path = tmp.name
+
+                try:
+                    # Load audio to get metadata (sample rate, duration)
+                    audio_data, sample_rate = load_audio(temp_path)
+                    duration = len(audio_data) / sample_rate
+
+                    # Extract file name without extension
+                    file_stem = Path(file.filename).stem
+
+                    # Create track info dictionary for library
+                    track_info = {
+                        "filepath": temp_path,
+                        "filename": file.filename,
+                        "title": file_stem,
+                        "duration": duration,
+                        "sample_rate": sample_rate,
+                        "channels": 1 if audio_data.ndim == 1 else audio_data.shape[1]
+                    }
+
+                    # Add track to library
+                    track = library_manager.add_track(track_info)
+
+                    if track:
+                        results.append({
+                            "filename": file.filename,
+                            "status": "success",
+                            "message": "File uploaded and added to library",
+                            "track_id": track.id,
+                            "title": track.title,
+                            "duration": float(track.duration),
+                            "sample_rate": track.sample_rate
+                        })
+                        logger.info(f"Successfully uploaded and processed: {file.filename}")
+                    else:
+                        results.append({
+                            "filename": file.filename,
+                            "status": "error",
+                            "message": "Failed to add track to library"
+                        })
+
+                except Exception as e:
+                    logger.error(f"Audio processing error for {file.filename}: {e}")
+                    results.append({
+                        "filename": file.filename,
+                        "status": "error",
+                        "message": f"Failed to process audio: {str(e)}"
+                    })
+
+                finally:
+                    # Clean up temporary file
+                    try:
+                        Path(temp_path).unlink()
+                    except Exception as e:
+                        logger.debug(f"Failed to clean temp file: {e}")
 
             except Exception as e:
                 logger.error(f"Upload error for {file.filename}: {e}")
