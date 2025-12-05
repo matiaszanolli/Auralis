@@ -20,6 +20,14 @@ def check(audio: np.ndarray, sample_rate: int, config, file_type: str = "audio")
     """
     Check and validate audio data
 
+    Performs comprehensive validation including:
+    - Empty audio check
+    - Sample rate validation
+    - Audio length and amplitude checks
+    - Clipping detection
+    - Data type conversion to float32/float64
+    - Automatic resampling to config.internal_sample_rate
+
     Args:
         audio: Audio data to check
         sample_rate: Sample rate of the audio
@@ -27,12 +35,26 @@ def check(audio: np.ndarray, sample_rate: int, config, file_type: str = "audio")
         file_type: Type of file being checked
 
     Returns:
-        tuple: (validated_audio, sample_rate)
+        tuple: (validated_audio, resampled_sample_rate)
+
+    Raises:
+        ModuleError: If audio validation fails (empty, invalid sample rate, etc.)
     """
     debug(f"Checking {file_type} audio: {audio.shape}, {sample_rate} Hz")
 
-    # For now, just return the audio as-is
-    # TODO: Implement full validation and resampling
+    # Import validation functions
+    from ..io.processing import validate_audio, resample_audio
+
+    # Validate audio (checks for empty, NaN, Inf, clipping, etc.)
+    audio, sample_rate = validate_audio(audio, sample_rate, file_type)
+
+    # Resample to internal sample rate if needed
+    if sample_rate != config.internal_sample_rate:
+        debug(f"Resampling from {sample_rate} Hz to {config.internal_sample_rate} Hz")
+        audio = resample_audio(audio, sample_rate, config.internal_sample_rate)
+        sample_rate = config.internal_sample_rate
+        debug(f"Resampling complete: {audio.shape}, {sample_rate} Hz")
+
     return audio, sample_rate
 
 
