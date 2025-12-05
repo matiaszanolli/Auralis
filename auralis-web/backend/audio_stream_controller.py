@@ -229,6 +229,9 @@ class AudioStreamController:
         """
         Send PCM samples as audio_chunk message to client.
 
+        Splits large PCM data into multiple messages if needed (WebSocket
+        client library has 1MB frame limit, so we split at ~500KB per message).
+
         Args:
             websocket: WebSocket connection
             pcm_samples: NumPy array of PCM samples (mono or stereo)
@@ -243,25 +246,42 @@ class AudioStreamController:
         # Convert to base64 for JSON transmission
         import base64
 
-        pcm_bytes = pcm_samples.tobytes()
-        pcm_base64 = base64.b64encode(pcm_bytes).decode("ascii")
+        # Split into smaller frames to avoid WebSocket client 1MB limit
+        # Each float32 sample = 4 bytes. Base64 encodes to 4/3 size.
+        # Target: ~400KB base64 per message (safe margin below 1MB limit)
+        TARGET_BASE64_SIZE = 400 * 1024  # 400 KB
+        BYTES_PER_SAMPLE = 4  # float32
+        samples_per_frame = int(TARGET_BASE64_SIZE / (BYTES_PER_SAMPLE * 4/3))
 
-        message = {
-            "type": "audio_chunk",
-            "data": {
-                "chunk_index": chunk_index,
-                "chunk_count": total_chunks,
-                "samples": pcm_base64,
-                "sample_count": len(pcm_samples),
-                "crossfade_samples": crossfade_samples,
-            },
-        }
+        total_samples = len(pcm_samples)
+        num_frames = (total_samples + samples_per_frame - 1) // samples_per_frame
 
-        await websocket.send_text(json.dumps(message))
-        logger.debug(
-            f"Streamed chunk {chunk_index}: {len(pcm_samples)} samples "
-            f"({len(pcm_base64) / 1024:.1f}KB base64)"
-        )
+        for frame_idx in range(num_frames):
+            start_idx = frame_idx * samples_per_frame
+            end_idx = min(start_idx + samples_per_frame, total_samples)
+            frame_samples = pcm_samples[start_idx:end_idx]
+
+            pcm_bytes = frame_samples.tobytes()
+            pcm_base64 = base64.b64encode(pcm_bytes).decode("ascii")
+
+            message = {
+                "type": "audio_chunk",
+                "data": {
+                    "chunk_index": chunk_index,
+                    "chunk_count": total_chunks,
+                    "frame_index": frame_idx,
+                    "frame_count": num_frames,
+                    "samples": pcm_base64,
+                    "sample_count": len(frame_samples),
+                    "crossfade_samples": crossfade_samples if frame_idx == 0 else 0,
+                },
+            }
+
+            await websocket.send_text(json.dumps(message))
+            logger.debug(
+                f"Streamed chunk {chunk_index} frame {frame_idx}/{num_frames}: "
+                f"{len(frame_samples)} samples ({len(pcm_base64) / 1024:.1f}KB base64)"
+            )
 
     async def _send_stream_start(
         self,
