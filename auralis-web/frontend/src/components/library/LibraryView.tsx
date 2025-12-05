@@ -19,6 +19,8 @@ import SearchBar from './SearchBar';
 import TrackList from './TrackList';
 import AlbumGrid from './AlbumGrid';
 import ArtistList from './ArtistList';
+import { usePlayer } from '@/hooks/shared/useReduxState';
+import { useToast } from '@/components/shared/Toast';
 import type { Track, Album, Artist } from '@/types/domain';
 
 type ViewMode = 'tracks' | 'albums' | 'artists';
@@ -32,21 +34,48 @@ type ViewMode = 'tracks' | 'albums' | 'artists';
 export const LibraryView: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('tracks');
   const [search, setSearch] = useState('');
+  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+  const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
 
-  const handleTrackSelect = useCallback((track: Track) => {
-    console.log('Track selected:', track);
-    // TODO: Trigger playback
-  }, []);
+  const player = usePlayer();
+  const { success, error: showError } = useToast();
 
+  /**
+   * Handle track selection - start playback of selected track
+   */
+  const handleTrackSelect = useCallback(
+    (track: Track) => {
+      try {
+        // Set the track as current and play it
+        player.setTrack(track);
+        player.play();
+        success(`Playing ${track.title}`);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to play track';
+        showError(errorMessage);
+      }
+    },
+    [player, success, showError]
+  );
+
+  /**
+   * Handle album selection - show album details/tracks
+   * Currently stores selected album state; can be extended with modal
+   */
   const handleAlbumSelect = useCallback((album: Album) => {
-    console.log('Album selected:', album);
-    // TODO: Show album details
-  }, []);
+    setSelectedAlbum(album);
+    success(`Viewing album: ${album.title}`);
+  }, [success]);
 
+  /**
+   * Handle artist selection - show artist details/albums
+   * Currently stores selected artist state; can be extended with modal
+   */
   const handleArtistSelect = useCallback((artist: Artist) => {
-    console.log('Artist selected:', artist);
-    // TODO: Show artist details
-  }, []);
+    setSelectedArtist(artist);
+    success(`Viewing artist: ${artist.name}`);
+  }, [success]);
 
   return (
     <div style={styles.container}>
