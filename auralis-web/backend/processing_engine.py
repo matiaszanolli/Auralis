@@ -29,6 +29,7 @@ from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig, AdaptiveConfig
 from auralis.io.unified_loader import load_audio
 from auralis.io.saver import save
+from auralis.io.processing import resample_audio
 from auralis.analysis.fingerprint.parameter_mapper import ParameterMapper
 import numpy as np
 
@@ -378,8 +379,9 @@ class ProcessingEngine:
                     reference_audio, reference_sr = load_audio(reference_path)
                     # Resample reference if needed
                     if reference_sr != sample_rate:
-                        # TODO: Implement resampling
-                        pass
+                        reference_audio = resample_audio(
+                            reference_audio, reference_sr, sample_rate
+                        )
                     result = processor.process(audio, reference_audio)
                 else:
                     # Fall back to adaptive mode if no reference
