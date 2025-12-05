@@ -4,9 +4,11 @@ Player Router
 
 Handles audio playback control and queue management.
 
+Note: Audio streaming is now handled exclusively via WebSocket using the WebSocket controller.
+      No REST streaming endpoints remain (consolidated to unified WebSocket architecture).
+
 Endpoints:
 - GET /api/player/status - Get current player status
-- GET /api/player/stream/{track_id} - Stream audio file (with optional enhancement)
 - POST /api/player/load - Load track
 - POST /api/player/play - Start playback
 - POST /api/player/pause - Pause playback
@@ -28,7 +30,6 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import logging
@@ -113,133 +114,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
-    @router.get("/api/player/stream/{track_id}")
-    async def stream_audio(
-        track_id: int,
-        enhanced: bool = False,
-        preset: str = "adaptive",
-        intensity: float = 1.0,
-        background_tasks: BackgroundTasks = None
-    ):
-        """
-        Stream audio file to frontend for playback via HTML5 Audio API.
-
-        Supports real-time audio enhancement with Auralis processing using
-        chunked streaming for fast playback start.
-
-        Args:
-            track_id: Track ID from library
-            enhanced: Enable Auralis processing (default: False)
-            preset: Processing preset - adaptive, gentle, warm, bright, punchy (default: adaptive)
-            intensity: Processing intensity 0.0-1.0 (default: 1.0)
-            background_tasks: FastAPI background tasks for async chunk processing
-
-        Returns:
-            FileResponse: Audio file stream with appropriate headers
-
-        Performance:
-            - Without enhancement: Streams original file immediately
-            - With enhancement (chunked): Processes first 30s chunk (~1s), then streams
-            - Background processes remaining chunks while user listens
-
-        Raises:
-            HTTPException: If library not available, track not found, or streaming fails
-        """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library not available")
-
-        try:
-            # Get track from library
-            track = library_manager.tracks.get_by_id(track_id)
-            if not track:
-                raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
-
-            # Check if file exists
-            if not os.path.exists(track.filepath):
-                raise HTTPException(status_code=404, detail=f"Audio file not found: {track.filepath}")
-
-            # If enhancement is requested, use chunked processing
-            if enhanced:
-                # OPTIMIZATION: Check if full file already exists FIRST
-                # This enables instant preset switching if chunks were pre-buffered
-                if chunked_audio_processor_class is None:
-                    raise HTTPException(status_code=503, detail="Chunked processing not available")
-
-                # Create processor to check for cached full file
-                processor = chunked_audio_processor_class(
-                    track_id=track_id,
-                    filepath=track.filepath,
-                    preset=preset,
-                    intensity=intensity,
-                    chunk_cache=get_processing_cache()
-                )
-
-                # Check if we have a cached full file
-                full_path = processor.chunk_dir / f"track_{track_id}_{processor.file_signature}_{preset}_{intensity}_full.wav"
-
-                if full_path.exists():
-                    # INSTANT! Fully processed file exists from previous playback or proactive buffering
-                    logger.info(f"⚡ INSTANT: Serving cached full file for preset '{preset}'")
-                    file_to_serve = str(full_path)
-                else:
-                    # Need to process - log which preset and how many chunks
-                    logger.info(f"Processing track {track_id} (preset: {preset}, {processor.total_chunks} chunks)")
-
-                    # Process all chunks and concatenate
-                    # This is needed because HTML5 Audio API requires complete files
-                    file_to_serve = processor.get_full_processed_audio_path()
-
-                    # Start proactive buffering of OTHER presets in background
-                    if background_tasks and buffer_presets_fn:
-                        background_tasks.add_task(
-                            buffer_presets_fn,
-                            track_id=track_id,
-                            filepath=track.filepath,
-                            intensity=intensity,
-                            total_chunks=processor.total_chunks
-                        )
-                        logger.info(f"🚀 Proactive buffering started for other presets")
-
-                # Cache the full file path
-                processing_cache = get_processing_cache()
-                cache_key = f"{track_id}_{preset}_{intensity}"
-                processing_cache[cache_key] = file_to_serve
-            else:
-                # No enhancement - serve original file
-                file_to_serve = track.filepath
-
-            # Determine MIME type based on file extension
-            ext = os.path.splitext(file_to_serve)[1].lower()
-            mime_types = {
-                '.mp3': 'audio/mpeg',
-                '.flac': 'audio/flac',
-                '.wav': 'audio/wav',
-                '.ogg': 'audio/ogg',
-                '.m4a': 'audio/mp4',
-                '.aac': 'audio/aac'
-            }
-            media_type = mime_types.get(ext, 'audio/wav')
-
-            # Return the audio file with proper headers for streaming
-            return FileResponse(
-                file_to_serve,
-                media_type=media_type,
-                headers={
-                    "Accept-Ranges": "bytes",
-                    "Content-Disposition": f"inline; filename=\"{os.path.basename(file_to_serve)}\"",
-                    "X-Enhanced": "true" if enhanced else "false",
-                    "X-Preset": preset if enhanced else "none",
-                    "X-Chunked": "true" if (enhanced and chunked_audio_processor_class) else "false"
-                }
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to stream audio: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to stream audio: {e}")
-
-    async def _generate_and_broadcast_mastering_recommendation(track_id: int, track_path: str):
+async def _generate_and_broadcast_mastering_recommendation(track_id: int, track_path: str):
         """
         Background task to generate mastering recommendation and broadcast via WebSocket (Priority 4).
 
