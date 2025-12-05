@@ -13,3 +13,7 @@ export { useMasteringRecommendation } from './useMasteringRecommendation';
 
 // WebSocket streaming hooks (Phase 2.3)
 export { usePlayEnhanced } from './usePlayEnhanced';
+
+// Keyboard shortcuts (Phase 3.4)
+export { useEnhancedPlaybackShortcuts } from './useEnhancedPlaybackShortcuts';
+export type { EnhancedPlaybackShortcutsConfig, UseEnhancedPlaybackShortcutsReturn } from './useEnhancedPlaybackShortcuts';
