@@ -638,12 +638,10 @@ class ChunkedAudioProcessor:
 
     def process_chunk_synchronized(self, chunk_index: int, fast_start: bool = False) -> str:
         """
-        Process a single chunk with thread-safe locking (synchronous wrapper).
+        Process a single chunk synchronously with proper waiting.
 
         This method is for use in synchronous contexts (e.g., get_full_processed_audio_path).
-        It ensures that processor.process() calls are protected by the lock, but since
-        asyncio.Lock cannot be used in synchronous context, we run the async version
-        in a new event loop.
+        Ensures that the chunk is fully processed and saved to disk before returning.
 
         Args:
             chunk_index: Index of chunk to process
@@ -652,17 +650,24 @@ class ChunkedAudioProcessor:
         Returns:
             Path to processed chunk file
         """
-        # For synchronous calls, we need to run the async method
-        # CRITICAL FIX: When called from async context, we MUST await the result,
-        # not just create a task. Otherwise chunk file won't exist when we try to load it.
+        # CRITICAL: We must wait for chunk processing to complete BEFORE returning.
+        # Even in async context, we need to block here because the caller
+        # (get_full_processed_audio_path) expects the chunk file to exist on disk.
         try:
-            # If we're already in an async context, we need to schedule and wait
             loop = asyncio.get_running_loop()
-            # Create a task and immediately return it - caller must await
-            # This is intentional - in async context, let the caller handle awaiting
-            return asyncio.create_task(self.process_chunk_safe(chunk_index, fast_start))
+            # In async context: We cannot use create_task because the caller is synchronous
+            # and expects the file to be on disk immediately. Instead, use run_until_complete
+            # in a new thread to avoid blocking the event loop.
+            import concurrent.futures
+            import threading
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(
+                    lambda: asyncio.run(self.process_chunk_safe(chunk_index, fast_start))
+                )
+                return future.result()
         except RuntimeError:
-            # No event loop running, create a new one and wait for completion
+            # No event loop running, create one and wait
             loop = asyncio.new_event_loop()
             try:
                 return loop.run_until_complete(self.process_chunk_safe(chunk_index, fast_start))

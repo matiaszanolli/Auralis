@@ -26,6 +26,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAudioPolicyBridge } from './useAudioPolicyBridge';
 import { useWebSocketContext } from '../../contexts/WebSocketContext';
 import { useEnhancement } from '../../contexts/EnhancementContext';
+import { getApiUrl } from '../../config/api';
 
 interface HiddenAudioElementProps {
   /** Called when audio context should be enabled (user gesture received) */
@@ -56,6 +57,8 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
   const { settings: enhancementSettings } = useEnhancement();
   const [currentTrack, setCurrentTrack] = useState<TrackInfo | null>(null);
   const [audioSrc, setAudioSrc] = useState<string>('');
+  const playbackPositionRef = useRef<number>(0);
+  const wasPlayingRef = useRef<boolean>(false);
 
   // Handle audio load errors
   useEffect(() => {
@@ -81,6 +84,30 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
 
     const handleCanPlay = () => {
       console.log(`[HiddenAudioElement] Audio loaded and ready to play`);
+      // Restore playback position when stream changes (e.g., enhancement toggle)
+      if (playbackPositionRef.current > 0 && audioRef.current) {
+        audioRef.current.currentTime = playbackPositionRef.current;
+        if (debug) {
+          console.log(
+            `[HiddenAudioElement] Restored playback position to ${playbackPositionRef.current.toFixed(2)}s`
+          );
+        }
+        playbackPositionRef.current = 0; // Reset after restore
+      }
+
+      // Resume playback if it was playing before the stream change (e.g., enhancement toggle)
+      if (wasPlayingRef.current && audioRef.current && audioRef.current.paused) {
+        audioRef.current.play().catch((err) => {
+          // Silently ignore play errors (may happen if autoplay is blocked)
+          if (debug) {
+            console.log(`[HiddenAudioElement] Could not auto-resume playback:`, err);
+          }
+        });
+        if (debug) {
+          console.log(`[HiddenAudioElement] Resumed playback after stream change`);
+        }
+        wasPlayingRef.current = false; // Reset after resume
+      }
     };
 
     const handlePlay = () => {
@@ -103,7 +130,7 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
   useEffect(() => {
     const fetchCurrentTrack = async () => {
       try {
-        const response = await fetch('/api/player/status');
+        const response = await fetch(getApiUrl('/api/player/status'));
         if (response.ok) {
           const state = await response.json();
           if (state.current_track?.id) {
@@ -158,7 +185,7 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
 
     if (currentTrack?.id) {
       // Build stream URL with enhancement parameters if enabled
-      const baseUrl = `/api/player/stream/${currentTrack.id}`;
+      const baseUrl = getApiUrl(`/api/player/stream/${currentTrack.id}`);
       let streamUrl = baseUrl;
 
       if (enhancementSettings.enabled) {
@@ -174,6 +201,18 @@ export const HiddenAudioElement: React.FC<HiddenAudioElementProps> = ({
         console.log(
           `[HiddenAudioElement] Setting audio src: "${currentTrack.title}" → ${streamUrl}${enhancementSettings.enabled ? ' (enhanced)' : ' (raw)'}`
         );
+      }
+
+      // Save current playback position and state if switching stream (e.g., enhancement toggle)
+      // Only save if we're changing the URL for the same track
+      if (audioRef.current.src && audioRef.current.src !== streamUrl && !isNaN(audioRef.current.currentTime)) {
+        playbackPositionRef.current = audioRef.current.currentTime;
+        wasPlayingRef.current = !audioRef.current.paused; // Track if audio was playing
+        if (debug) {
+          console.log(
+            `[HiddenAudioElement] Saved playback position: ${playbackPositionRef.current.toFixed(2)}s (was ${wasPlayingRef.current ? 'playing' : 'paused'})`
+          );
+        }
       }
 
       // Set the audio source

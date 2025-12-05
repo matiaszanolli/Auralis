@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**📌 Current Version**: 1.1.0-beta.5 | **🐍 Python**: 3.13+ | **📦 Node**: 20+ LTS | **🦀 Rust**: Optional (vendor/auralis-dsp via PyO3)
+**📌 Current Version**: 1.1.0-beta.5 (Python), 1.0.0-beta.12.1 (Desktop) | **🐍 Python**: 3.13+ | **📦 Node**: 20+ LTS | **🦀 Rust**: Optional (vendor/auralis-dsp via PyO3)
 
 **Architecture**: Hybrid Python + Rust
 - Python layer: Research, orchestration, REST API, database
@@ -85,26 +85,53 @@ python -m pytest tests/backend/test_player.py -v
 
 ## 🎯 Common Tasks
 
+### Via Build Scripts
 | Task | Command |
 |------|---------|
-| Build + test + package | `python build_auralis.py` |
-| Build (skip tests) | `python build_auralis.py --skip-tests` |
+| Build + test + package (all platforms) | `python build_auralis.py` |
+| Build (skip tests, faster) | `python build_auralis.py --skip-tests` |
+| Build portable package only | `python build_auralis.py --skip-tests --portable-only` |
+
+### Via Makefile
+| Task | Command |
+|------|---------|
+| Show all available targets | `make help` |
 | Clean build artifacts | `make clean` |
+| Install dependencies | `make install` |
+| Build for current platform | `make build` |
+| Build fast (skip tests) | `make build-fast` |
+| Build for Linux | `make build-linux` |
+| Build for Windows | `make build-windows` |
+| Build for macOS | `make build-macos` |
+| Run backend tests | `make test` |
+| Lint & check syntax | `make lint` |
+| Type check Python | `make typecheck` |
+
+### Testing & Quality
+| Task | Command |
+|------|---------|
 | Run all backend tests | `python -m pytest tests/ -v` |
-| Run with coverage | `python -m pytest tests/ --cov=auralis --cov-report=html` |
+| Run fast tests only (skip slow) | `python -m pytest -m "not slow" -v` |
+| Run with coverage report | `python -m pytest tests/ --cov=auralis --cov-report=html` |
+| Run specific test file | `python -m pytest tests/backend/test_player.py -v` |
 | Run specific test | `python -m pytest tests/backend/test_player.py::test_play_track -vv -s` |
-| Run only fast tests | `python -m pytest -m "not slow" -v` |
 | Frontend watch mode (lightweight) | `cd auralis-web/frontend && npm test` |
 | Frontend full suite (2GB heap) | `cd auralis-web/frontend && npm run test:memory` |
+| Frontend with coverage | `cd auralis-web/frontend && npm run test:coverage` |
 | Type check Python | `mypy auralis/ auralis-web/backend/ --ignore-missing-imports` |
 | Type check TypeScript | `cd auralis-web/frontend && npm run type-check` |
-| Build frontend (prod) | `cd auralis-web/frontend && npm run build` |
 | Format Python code | `black auralis/ auralis-web/backend/` |
 | Sort Python imports | `isort auralis/ auralis-web/backend/` |
-| Free port 8765 | `lsof -ti:8765 \| xargs kill -9` |
-| Free port 3000 | `lsof -ti:3000 \| xargs kill -9` |
-| Database inspect | `sqlite3 ~/.auralis/library.db "SELECT COUNT(*) FROM tracks;"` |
+
+### Development & Debugging
+| Task | Command |
+|------|---------|
+| Free port 8765 (backend) | `lsof -ti:8765 \| xargs kill -9` |
+| Free port 3000 (frontend) | `lsof -ti:3000 \| xargs kill -9` |
+| Inspect database | `sqlite3 ~/.auralis/library.db "SELECT COUNT(*) FROM tracks;"` |
 | Check Python syntax | `python -m py_compile auralis/ && python -m py_compile auralis-web/` |
+| Build frontend (production) | `cd auralis-web/frontend && npm run build` |
+| Update version across files | `python sync_version.py 1.1.0-beta.6` |
 
 ---
 
@@ -162,14 +189,16 @@ python -m pytest tests/backend/test_player.py -v
 - **850+ automated tests** organized by category:
   - `auralis/` - Core audio engine tests
   - `backend/` - FastAPI endpoint tests
-  - `boundaries/` - Edge case and limit tests (30-150 planned)
+  - `boundaries/` & `edge_cases/` - Edge case and limit tests (30-150 planned)
   - `integration/` - Cross-component behavior tests (85 tests)
   - `audio/` - Invariant property tests for audio processing (305 tests)
   - `mutation/` - Mutation testing (kill-testing for test quality)
   - `concurrency/` - Thread-safety and race condition tests
   - `performance/` - Performance and benchmark tests
+  - `stress/` & `load_stress/` - Load and stress testing for memory/concurrency
+  - `regression/` - Regression tests for previously fixed bugs
   - `security/` - OWASP Top 10 coverage (SQL injection, XSS, path traversal)
-- **Pytest markers**: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.boundary`, `@pytest.mark.invariant`, etc.
+- **Pytest markers**: `@pytest.mark.unit`, `@pytest.mark.integration`, `@pytest.mark.boundary`, `@pytest.mark.invariant`, `@pytest.mark.slow`, etc.
 
 ### Build & Launch Scripts
 - **`launch-auralis-web.py`** - Primary entry point for web interface development (manages backend + frontend start)
@@ -700,31 +729,110 @@ python sync_version.py 1.1.0-beta.6
 
 ## 🎯 Current Development Phase
 
-**Phase**: Frontend Consolidation & Code Quality (1.1.0-beta.6)
+**Phase**: Frontend Enhanced Playback Controls & Streaming (1.1.0-beta.5+)
 
 **Completed Phases**:
 - ✅ **Phase 7.2**: Spectrum and Content Analysis Consolidation (eliminated 900 lines of duplicate code via Utilities Pattern)
 - ✅ **Phase 8**: Preset-Aware Peak Normalization (fixed preset differentiation bug, Gentle now 0.20 dB louder than Adaptive)
 - ✅ **Phase 9A**: Matchering Baseline Analysis (analyzed two Slayer albums, established content-aware scaling patterns)
 - ✅ **Phase 9D**: Audio Downsampling & Energy-Adaptive LUFS (5/10 tracks within target boost range, 65 sec/track processing at 48 kHz)
+- ✅ **Phase 10**: Heavy Performance Optimizations (7 major improvements: Rust tempo detection, processor caching, channel-vectorized EQ, spectral flux onset detection, limiting optimization, 27-28ms per chunk tempo detection)
+- ✅ **Phase 11**: Persistent Fingerprint Cache (2GB SQLite cache, 500-1000ms savings per hit, lazy tempo detection, pre-generated preset parameters 20-40x speedup)
 - ✅ **Phase 1-3 Frontend**: Hook consolidation (8 domain categories), 100% TypeScript type safety, absolute path imports (@/)
 
-**Current Focus** (1.1.0-beta.6):
-- Fine-tune energy-LUFS scaling for 8/10+ track pass rate
-- Expand album validation to additional test suites
-- Performance profiling and optimization
-- Additional DSP refinements based on A/B testing
-- Frontend quality improvements and component refactoring
+**Current Focus** (Phase 3.4 - In Progress):
+- **Keyboard shortcuts for enhanced playback controls** (Phase 3.4)
+- Enhanced playback UI controls (streaming progress, error boundaries, visual feedback)
+- WebSocket PCM streaming infrastructure (30-second chunks, WAV PCM format)
+- Design system token refinements for streaming controls
+- Frontend quality improvements and design consistency across enhancement components
+
+**Recent Frontend Work** (Phases 2.2-3.4):
+- Phase 2.2: PCM streaming infrastructure via WebSocket
+- Phase 2.3: `usePlayEnhanced` hook for streaming playback
+- Phase 2.4: Unit tests for streaming services
+- Phase 3.1: Enhanced playback UI controls component
+- Phase 3.2: Streaming error boundary & progress bar components
+- Phase 3.3: Integration of streaming controls into main player UI
+- Phase 3.4: Keyboard shortcuts for enhanced playback controls (active)
 
 **Research Folder**:
 - Location: `research/` (excluded from git via .gitignore)
 - Contains: Audio analysis data, validation scripts, baseline comparisons
 - Publishing: Will be FOSS'd after paper completion (not ready for public yet)
 
-**Key Files This Phase**:
-- `PHASE_9D_SUMMARY.md` - Complete Phase 9D documentation
-- `research/MATCHERING_BASELINE_ANALYSIS.md` - Detailed album analysis
-- `research/validate_with_real_audio.py` - Real audio processing script
+**Key Documentation Files**:
+- `PHASE_11_COMPLETION_SUMMARY.md` - Phase 11 persistent cache implementation
+- `PHASE_11_HEAVY_OPTIMIZATIONS.md` - Performance optimization details
+- `PERFORMANCE_OPTIMIZATIONS_IMPLEMENTED.md` - Phase 10 optimizations breakdown
+- Phase 3.1-3.4 summaries - Frontend streaming architecture
+
+---
+
+## 🎙️ Frontend Streaming Architecture (Phases 2.2-3.4)
+
+### WebSocket PCM Streaming
+- **Protocol**: WebSocket connection via `/ws` endpoint for real-time streaming
+- **Format**: 30-second WAV PCM chunks (16/24-bit, preserves sample count)
+- **Features**:
+  - Gapless playback via 3-second crossfade at chunk boundaries
+  - Lazy loading with sample-accurate seeking
+  - Real-time progress updates and error handling
+  - Progress bar component (`StreamingProgressBar`)
+  - Error boundary (`StreamingErrorBoundary`) for graceful error recovery
+
+### Enhanced Playback Controls
+- **Component**: `EnhancedPlaybackControls` - Streaming-specific UI controls
+- **Hook**: `usePlayEnhanced` - Manages streaming playback state and WebSocket communication
+- **Features**:
+  - Real-time playback progress display
+  - Chunk-aware position tracking
+  - Error recovery and reconnection
+  - Design system token integration (verified fix in recent commits)
+  - Keyboard shortcut support (Phase 3.4)
+
+### Key Files for Streaming
+- `auralis-web/frontend/src/components/enhancement/` - Enhancement UI components
+- `auralis-web/frontend/src/hooks/usePlayEnhanced.ts` - Streaming playback hook
+- `auralis-web/frontend/src/components/enhancement/StreamingProgressBar.tsx` - Progress UI
+- `auralis-web/frontend/src/components/enhancement/StreamingErrorBoundary.tsx` - Error handling
+- `auralis-web/backend/routers/webm_streaming.py` - WebSocket streaming endpoint
+
+### Design System for Streaming UI
+- All streaming components use `import { tokens } from '@/design-system'`
+- Color scheme, spacing, typography defined in `design-system/tokens.ts`
+- Recent work fixed remaining token references in `EnhancedPlaybackControls` container
+
+---
+
+## 🚀 CI/CD & Automation
+
+### GitHub Actions Workflows
+Located in `.github/workflows/`:
+- **`ci.yml`** - Main CI pipeline (lint, test, build checks on every push)
+- **`backend-tests.yml`** - Backend test suite (850+ tests, ~2-3 minutes)
+- **`frontend-build.yml`** - Frontend build verification (Vite build, type-check)
+- **`desktop-build.yml`** - Desktop app builds (Electron packaging for all platforms)
+- **`build-release.yml`** - Release build (full packaging, all platforms: Windows .exe, Linux AppImage/DEB, macOS .dmg)
+
+### Pre-commit Hooks
+- **`.pre-commit-config.yaml`** - Automated checks before commit:
+  - Python syntax validation
+  - Black code formatting
+  - isort import sorting
+  - mypy type checking
+  - TypeScript type checking (frontend)
+
+### Build & Release Process
+- **Local development**: `python launch-auralis-web.py --dev` (hot reload)
+- **Production build**: `python build_auralis.py` (runs tests + package all platforms)
+- **Fast build**: `python build_auralis.py --skip-tests` (no test execution)
+- **Version sync**: `python sync_version.py <version>` (updates all config files)
+
+### Mutation Testing (Phase-specific quality assurance)
+- **Config**: `.mutmut-config.py` - Mutation testing configuration
+- **Purpose**: Kill-testing to verify test quality (tests catch code changes)
+- **Run**: `pytest --mutate` (requires mutmut library)
 
 ---
 
@@ -751,7 +859,24 @@ python sync_version.py 1.1.0-beta.6
   - `components/shared/` - Reusable UI components
   - `components/library/` - Library browsing components
   - `components/player/` - Player controls
+  - `components/enhancement/` - Streaming controls, progress bar, error boundary (Phases 2.2-3.4)
   - `design-system/tokens.ts` - Single source of truth for styling
+
+---
+
+## 🔧 Claude Code Configuration
+
+### Local Settings (`.claude/settings.local.json`)
+Claude Code in this repository has local configuration settings that allow safe execution of common development commands:
+
+**Permissions Allowed**:
+- Git operations: `git add`, `git commit`, `git status`, `git diff`, `git log`
+- Package management: `npm install`, `npm run`, `pip install`
+- Python testing: `pytest`, `python -m pytest`, test discovery and execution
+- Build tools: `make` targets, build scripts
+- Development utilities: Type checking, formatting, linting
+
+**Approved Commands**: See `.claude/settings.local.json` for full list of allowed commands that can be safely executed.
 
 ---
 

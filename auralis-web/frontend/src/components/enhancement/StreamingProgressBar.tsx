@@ -122,13 +122,13 @@ export const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({
    */
   const bufferStatus = useMemo(() => {
     if (bufferedDuration < 0.5) {
-      return { label: 'Critical', color: tokens.colors.error };
+      return { label: 'Critical', color: tokens.colors.semantic.error };
     } else if (bufferedDuration < 1.0) {
-      return { label: 'Low', color: tokens.colors.warning };
+      return { label: 'Low', color: tokens.colors.semantic.warning };
     } else if (bufferedDuration < 2.0) {
-      return { label: 'Adequate', color: tokens.colors.info };
+      return { label: 'Adequate', color: tokens.colors.semantic.info };
     } else {
-      return { label: 'Healthy', color: tokens.colors.success };
+      return { label: 'Healthy', color: tokens.colors.semantic.success };
     }
   }, [bufferedDuration]);
 
@@ -136,10 +136,10 @@ export const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({
    * Get progress bar color based on state
    */
   const progressBarColor = useMemo(() => {
-    if (progress >= 100) return tokens.colors.success;
-    if (progress >= 75) return tokens.colors.info;
-    if (progress >= 50) return tokens.colors.warning;
-    return tokens.colors.error;
+    if (progress >= 100) return tokens.colors.semantic.success;
+    if (progress >= 75) return tokens.colors.semantic.info;
+    if (progress >= 50) return tokens.colors.semantic.warning;
+    return tokens.colors.semantic.error;
   }, [progress]);
 
   /**
@@ -299,9 +299,9 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.background.primary,
+    backgroundColor: tokens.colors.bg.level1,
     borderRadius: '6px',
-    border: `1px solid ${tokens.colors.border}`,
+    border: `1px solid ${tokens.colors.border.medium}`,
     fontSize: '12px',
   },
 
@@ -327,7 +327,7 @@ const styles: Record<string, React.CSSProperties> = {
   progressBarOuter: {
     width: '100%',
     height: '6px',
-    backgroundColor: tokens.colors.border,
+    backgroundColor: tokens.colors.border.light,
     borderRadius: '3px',
     overflow: 'hidden',
   },
@@ -381,7 +381,7 @@ const styles: Record<string, React.CSSProperties> = {
   bufferBar: {
     width: '100%',
     height: '4px',
-    backgroundColor: tokens.colors.border,
+    backgroundColor: tokens.colors.border.light,
     borderRadius: '2px',
     overflow: 'hidden',
     marginBottom: tokens.spacing.xs,
@@ -405,7 +405,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '4px 8px',
-    backgroundColor: tokens.colors.background.secondary,
+    backgroundColor: tokens.colors.bg.level2,
     borderRadius: '4px',
   },
 
@@ -425,7 +425,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '2px',
     padding: '8px',
-    backgroundColor: tokens.colors.background.secondary,
+    backgroundColor: tokens.colors.bg.level2,
     borderRadius: '4px',
   },
 
@@ -434,7 +434,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '8px',
-    backgroundColor: tokens.colors.background.secondary,
+    backgroundColor: tokens.colors.bg.level2,
     borderRadius: '4px',
   },
 
@@ -443,7 +443,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: '4px',
     paddingTop: tokens.spacing.xs,
-    borderTop: `1px solid ${tokens.colors.border}`,
+    borderTop: `1px solid ${tokens.colors.border.light}`,
   },
 
   gaugeContainer: {
@@ -456,6 +456,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: '8px',
     borderRadius: '2px',
     transition: 'background-color 200ms ease-out',
+    backgroundColor: tokens.colors.border.light,
   },
 
   gaugeLabels: {
