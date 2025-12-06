@@ -15,7 +15,7 @@ Applies crossfade between chunks to avoid audible jumps.
 import numpy as np
 import logging
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any, List
 import tempfile
 import asyncio
 
@@ -67,8 +67,8 @@ class ChunkedAudioProcessor:
         filepath: str,
         preset: str = "adaptive",
         intensity: float = 1.0,
-        chunk_cache: Optional[dict] = None
-    ):
+        chunk_cache: Optional[Dict[str, Any]] = None
+    ) -> None:
         """
         Initialize chunked audio processor.
 
@@ -89,10 +89,10 @@ class ChunkedAudioProcessor:
         self.file_signature = self._generate_file_signature()
 
         # Load audio metadata
-        self.sample_rate = None
-        self.total_duration = None
-        self.total_chunks = None
-        self.channels = None
+        self.sample_rate: Optional[int] = None
+        self.total_duration: Optional[float] = None
+        self.total_chunks: Optional[int] = None
+        self.channels: Optional[int] = None
         self._load_metadata()
 
         # Temp directory for chunks
@@ -101,10 +101,11 @@ class ChunkedAudioProcessor:
 
         # Initialize new modular architecture (Phase 3.5)
         # These dependencies replace monolithic logic in process_chunk()
+        assert self.total_duration is not None and self.sample_rate is not None, "Metadata must be loaded first"
         self._boundary_manager = ChunkBoundaryManager(self.total_duration, self.sample_rate)
         self._level_manager = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
         self._wav_encoder = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
-        self._processor_manager = ProcessorManager()
+        self._processor_manager = ProcessorManager()  # type: ignore
 
         # CRITICAL: Async lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
@@ -148,9 +149,9 @@ class ChunkedAudioProcessor:
             self.processor = None  # No processing for original audio
 
         # Processing state tracking for smooth transitions
-        self.chunk_rms_history = []  # Track RMS levels of processed chunks
-        self.chunk_gain_history = []  # Track gain adjustments applied
-        self.previous_chunk_tail = None  # Last samples of previous chunk for analysis
+        self.chunk_rms_history: List[float] = []  # Track RMS levels of processed chunks
+        self.chunk_gain_history: List[float] = []  # Track gain adjustments applied
+        self.previous_chunk_tail: Optional[np.ndarray] = None  # Last samples of previous chunk for analysis
 
         logger.info(
             f"ChunkedAudioProcessor initialized: track_id={track_id}, "
@@ -159,7 +160,7 @@ class ChunkedAudioProcessor:
         )
 
     @property
-    def duration(self) -> float:
+    def duration(self) -> Optional[float]:
         """Get total duration (alias for total_duration for AudioStreamController compatibility)"""
         return self.total_duration
 
@@ -192,7 +193,7 @@ class ChunkedAudioProcessor:
             # Fallback: use filepath hash only
             return hashlib.md5(self.filepath.encode()).hexdigest()[:8]
 
-    def _load_metadata(self):
+    def _load_metadata(self) -> None:
         """Load audio file metadata without loading full audio"""
         try:
             import soundfile as sf
@@ -269,6 +270,7 @@ class ChunkedAudioProcessor:
         # Load audio segment
         try:
             import soundfile as sf
+            assert self.sample_rate is not None, "Sample rate not loaded"
             start_frame = int(load_start * self.sample_rate)
             frames_to_read = int((load_end - load_start) * self.sample_rate)
 
@@ -283,9 +285,10 @@ class ChunkedAudioProcessor:
         except Exception as e:
             logger.warning(f"Soundfile loading failed, using fallback: {e}")
             # Fallback: load entire audio and slice with optional downsampling
+            assert self.sample_rate is not None, "Sample rate not loaded"
             full_audio, _ = load_audio(
                 self.filepath,
-                target_sample_rate=self.config.processing_sample_rate
+                target_sample_rate=self.sample_rate
             )
             start_sample = int(load_start * self.sample_rate)
             end_sample = int(load_end * self.sample_rate)
@@ -302,6 +305,7 @@ class ChunkedAudioProcessor:
 
         # Validate that we loaded something
         if len(audio) == 0:
+            assert self.sample_rate is not None and self.total_duration is not None, "Metadata not loaded"
             logger.error(f"Chunk {chunk_index} resulted in empty audio (start={load_start:.1f}s, end={load_end:.1f}s, duration={self.total_duration:.1f}s)")
             # Return minimal silence instead of empty array to prevent downstream crashes
             num_channels = 2  # Default to stereo
@@ -381,6 +385,7 @@ class ChunkedAudioProcessor:
         Returns:
             Audio chunk with context trimmed
         """
+        assert self.sample_rate is not None, "Sample rate not loaded"
         # Get trim amounts from ChunkBoundaryManager
         trim_start_samples, trim_end_samples = self._boundary_manager.calculate_context_trim_samples(
             chunk_index=chunk_index
@@ -424,6 +429,7 @@ class ChunkedAudioProcessor:
         Returns:
             Processed audio chunk (context trimmed, intensity blended, levels smoothed)
         """
+        assert self.sample_rate is not None, "Sample rate not loaded"
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
 
@@ -493,7 +499,8 @@ class ChunkedAudioProcessor:
         if len(processed_chunk) == 0:
             logger.error(f"Chunk {chunk_index} is empty after context trimming. Returning silence.")
             num_channels = audio_chunk.shape[1] if audio_chunk.ndim > 1 else 2
-            processed_chunk = np.zeros((self.sample_rate // 10, num_channels))  # 100ms silence
+            assert self.sample_rate is not None, "Sample rate not loaded"
+            processed_chunk = np.zeros((self.sample_rate // 10, num_channels), dtype=np.float32)  # 100ms silence
 
         # CRITICAL FIX: Smooth level transitions between chunks
         # This prevents volume jumps by limiting maximum RMS changes
@@ -517,8 +524,9 @@ class ChunkedAudioProcessor:
         cached_path = self.chunk_cache.get(cache_key)
 
         if cached_path and Path(cached_path).exists():
+            assert self.total_chunks is not None, "Total chunks not loaded"
             logger.info(f"Serving cached chunk {chunk_index}/{self.total_chunks}")
-            return cached_path
+            return str(cached_path)
 
         logger.info(f"Processing chunk {chunk_index}/{self.total_chunks} (preset: {self.preset}, fast_start: {fast_start})")
 
@@ -537,9 +545,12 @@ class ChunkedAudioProcessor:
                 analyzer = AudioFingerprintAnalyzer()
 
                 # Add metadata for .25d file
-                from mutagen import File as MutagenFile
-                audio_file = MutagenFile(self.filepath)
-                duration = audio_file.info.length if audio_file else self.total_duration
+                try:
+                    from mutagen import File as MutagenFile  # type: ignore
+                    audio_file = MutagenFile(self.filepath)  # type: ignore[no-untyped-call]
+                    duration: float = float(audio_file.info.length) if audio_file else (self.total_duration if self.total_duration is not None else 0.0)
+                except Exception:
+                    duration = self.total_duration if self.total_duration is not None else 0.0
 
                 self.fingerprint = analyzer.analyze(full_audio, sr)
                 # Add metadata (will be stripped before saving)
@@ -571,6 +582,7 @@ class ChunkedAudioProcessor:
         processed_chunk = self._process_chunk_core(chunk_index, fast_start)
 
         # Save chunk using WAVEncoder (Phase 3.5 refactoring)
+        assert self.sample_rate is not None, "Sample rate not loaded"
         chunk_path = self._wav_encoder.encode_and_save_from_path(
             audio=processed_chunk,
             sample_rate=self.sample_rate,
@@ -661,7 +673,7 @@ class ChunkedAudioProcessor:
         """
         return f"fingerprint_{self.track_id}_{self.file_signature}"
 
-    def get_cached_fingerprint(self) -> Optional[dict]:
+    def get_cached_fingerprint(self) -> Optional[Dict[str, Any]]:
         """
         Get cached track-level fingerprint if available.
 
@@ -669,9 +681,9 @@ class ChunkedAudioProcessor:
             dict: Cached fingerprint or None if not cached
         """
         cache_key = self._get_track_fingerprint_cache_key()
-        return self.chunk_cache.get(cache_key)
+        return self.chunk_cache.get(cache_key)  # type: ignore[return-value]
 
-    def cache_fingerprint(self, fingerprint: dict):
+    def cache_fingerprint(self, fingerprint: Dict[str, Any]) -> None:
         """
         Cache track-level fingerprint for reuse across all chunks.
 
@@ -685,7 +697,7 @@ class ChunkedAudioProcessor:
         self.chunk_cache[cache_key] = fingerprint
         logger.info(f"Cached track-level fingerprint for track {self.track_id}")
 
-    def get_mastering_recommendation(self, confidence_threshold: float = 0.4):
+    def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Optional[Any]:
         """
         Get weighted mastering profile recommendation for this track (Priority 4).
 
@@ -717,17 +729,18 @@ class ChunkedAudioProcessor:
                     return None
 
             # Get weighted recommendation
-            if self.fingerprint:
+            if self.fingerprint is not None:
                 self.mastering_recommendation = self.adaptive_mastering_engine.recommend_weighted(
                     self.fingerprint,
                     confidence_threshold=confidence_threshold
                 )
-                logger.info(
-                    f"🎯 Mastering recommendation generated: "
-                    f"profile={self.mastering_recommendation.primary_profile.name}, "
-                    f"confidence={self.mastering_recommendation.confidence_score:.0%}, "
-                    f"blended={'yes' if self.mastering_recommendation.weighted_profiles else 'no'}"
-                )
+                if self.mastering_recommendation is not None:
+                    logger.info(
+                        f"🎯 Mastering recommendation generated: "
+                        f"profile={self.mastering_recommendation.primary_profile.name}, "
+                        f"confidence={self.mastering_recommendation.confidence_score:.0%}, "
+                        f"blended={'yes' if self.mastering_recommendation.weighted_profiles else 'no'}"
+                    )
                 return self.mastering_recommendation
 
         except Exception as e:
@@ -736,7 +749,7 @@ class ChunkedAudioProcessor:
 
         return None
 
-    def _generate_targets_from_fingerprint(self, fingerprint: dict) -> dict:
+    def _generate_targets_from_fingerprint(self, fingerprint: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate mastering targets from 25D fingerprint.
 
@@ -799,13 +812,14 @@ class ChunkedAudioProcessor:
         # Clamp to reasonable range
         return max(-6.0, min(6.0, adjustment))
 
-    async def process_all_chunks_async(self):
+    async def process_all_chunks_async(self) -> None:
         """
         Background task to process all remaining chunks.
 
         Processes chunks sequentially to avoid overwhelming the system.
         Uses thread-safe locking to prevent concurrent processor state corruption.
         """
+        assert self.total_chunks is not None, "Total chunks not loaded"
         logger.info(f"Starting background processing of {self.total_chunks - 1} remaining chunks")
 
         for chunk_idx in range(1, self.total_chunks):
@@ -833,6 +847,7 @@ class ChunkedAudioProcessor:
         Returns:
             Path to full concatenated audio file
         """
+        assert self.sample_rate is not None and self.total_chunks is not None, "Metadata not loaded"
         full_path = self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_full.wav"
 
         # Check if already exists
@@ -846,7 +861,7 @@ class ChunkedAudioProcessor:
 
         # Concatenate chunks with proper crossfading
         logger.info("Concatenating all processed chunks with crossfading")
-        all_chunks = []
+        all_chunks: List[np.ndarray] = []
 
         for chunk_idx in range(self.total_chunks):
             chunk_path = self._get_chunk_path(chunk_idx)
@@ -870,6 +885,7 @@ class ChunkedAudioProcessor:
             full_audio = result
 
         # Save full file
+        assert self.sample_rate is not None, "Sample rate not loaded"
         save_audio(str(full_path), full_audio, self.sample_rate, subtype='PCM_16')
         logger.info(f"Full audio saved to {full_path}")
 
@@ -891,6 +907,7 @@ class ChunkedAudioProcessor:
         Returns:
             Extracted segment ready for WAV encoding
         """
+        assert self.sample_rate is not None and self.total_chunks is not None and self.total_duration is not None, "Metadata not loaded"
         is_last = chunk_index == self.total_chunks - 1
         overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
 
@@ -919,13 +936,20 @@ class ChunkedAudioProcessor:
 
         # Verify and pad/trim if needed (edge case handling)
         current_samples = len(extracted)
-        expected_for_validation = int(CHUNK_DURATION * self.sample_rate) if not is_last else int(remaining_duration * self.sample_rate)
+        if is_last:
+            chunk_start_time = chunk_index * CHUNK_INTERVAL
+            remaining_duration = max(0, self.total_duration - chunk_start_time)
+            expected_for_validation = int(remaining_duration * self.sample_rate)
+        else:
+            expected_for_validation = int(CHUNK_DURATION * self.sample_rate)
 
         if current_samples < expected_for_validation:
             # Pad with silence if too short (edge case, shouldn't happen normally)
             padding_needed = expected_for_validation - current_samples
-            padding = np.zeros((padding_needed, extracted.shape[1] if extracted.ndim > 1 else 1))
+            num_channels = extracted.shape[1] if extracted.ndim > 1 else 1
+            padding = np.zeros((padding_needed, num_channels), dtype=np.float32)
             if extracted.ndim == 1:
+                extracted = extracted[:, np.newaxis]  # Ensure 2D
                 padding = padding.flatten()
             extracted = np.concatenate([extracted, padding])
             logger.warning(f"⚠️ Chunk {chunk_index} was {padding_needed} samples short, padded with silence")
@@ -950,6 +974,7 @@ class ChunkedAudioProcessor:
         Returns:
             Path to WAV chunk file
         """
+        assert self.sample_rate is not None, "Sample rate not loaded"
         # Check cache first
         cache_key = f"{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_wav_{chunk_index}"
         if cache_key in self.chunk_cache:
@@ -1023,7 +1048,7 @@ def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overl
 
     if actual_overlap <= 0:
         # No overlap possible, just concatenate
-        return np.concatenate([chunk1, chunk2], axis=0)
+        return np.concatenate([chunk1, chunk2], axis=0)  # type: ignore[return-value]
 
     # Get overlap regions
     chunk1_tail = chunk1[-actual_overlap:]
@@ -1049,10 +1074,10 @@ def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overl
         chunk2[actual_overlap:]     # Chunk2 without the head that was mixed
     ], axis=0)
 
-    return result
+    return result  # type: ignore[return-value]
 
 
-def get_last_content_profile(preset: str):
+def get_last_content_profile(preset: str) -> Optional[Dict[str, Any]]:
     """
     Get the last content profile for a given preset.
     Used by /api/processing/parameters endpoint to show real processing data.
@@ -1064,4 +1089,4 @@ def get_last_content_profile(preset: str):
         Last content profile dict or None if not available
     """
     global _last_content_profiles
-    return _last_content_profiles.get(preset.lower())
+    return _last_content_profiles.get(preset.lower())  # type: ignore[return-value]
