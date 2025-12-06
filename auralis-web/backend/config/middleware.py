@@ -1,0 +1,77 @@
+"""
+Middleware Configuration
+
+Sets up middleware for the FastAPI application including CORS, caching,
+and security headers.
+
+:copyright: (C) 2024 Auralis Team
+:license: GPLv3
+"""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to disable caching for frontend static files.
+
+    Only applies to frontend assets (.html, .js, .tsx, .jsx), not API responses.
+    API streaming responses must NOT have cache-control headers modified.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        # Only disable caching for frontend static files (not API endpoints)
+        # API streaming responses must NOT have cache-control headers modified
+        if not request.url.path.startswith('/api') and not request.url.path.startswith('/ws'):
+            if request.url.path.endswith(('.html', '.js', '.tsx', '.jsx')) or request.url.path == '/':
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+
+        return response
+
+
+def setup_middleware(app: FastAPI) -> None:
+    """
+    Add middleware to FastAPI application.
+
+    Configures middleware in the correct order:
+    1. NoCacheMiddleware - for frontend assets
+    2. CORSMiddleware - for cross-origin requests
+
+    Args:
+        app: FastAPI application instance (modified in-place)
+    """
+    # Add no-cache middleware first (innermost in processing order)
+    app.add_middleware(NoCacheMiddleware)
+
+    # CORS middleware for cross-origin requests
+    # Allow multiple dev server ports since Vite auto-increments if port is in use
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:3000",      # React dev server (default)
+            "http://127.0.0.1:3000",
+            "http://localhost:3001",      # React dev server (alt ports)
+            "http://localhost:3002",
+            "http://localhost:3003",
+            "http://localhost:3004",
+            "http://localhost:3005",
+            "http://localhost:3006",
+            "http://localhost:8765",      # Production (same-origin but explicit)
+            "http://127.0.0.1:8765",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    logger.debug("✅ Middleware configured: NoCacheMiddleware, CORSMiddleware")

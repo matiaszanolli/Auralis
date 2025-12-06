@@ -30,6 +30,12 @@ from auralis.io.saver import save as save_audio
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
 
+# Core modules (new modular architecture)
+from core.chunk_boundaries import ChunkBoundaryManager
+from core.level_manager import LevelManager
+from core.processor_manager import ProcessorManager
+from core.encoding import WAVEncoder
+
 logger = logging.getLogger(__name__)
 
 # Global cache for last content profiles (used by visualizer API)
@@ -93,6 +99,13 @@ class ChunkedAudioProcessor:
         self.chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
         self.chunk_dir.mkdir(exist_ok=True)
 
+        # Initialize new modular architecture (Phase 3.5)
+        # These dependencies replace monolithic logic in process_chunk()
+        self._boundary_manager = ChunkBoundaryManager(self.total_duration, self.sample_rate)
+        self._level_manager = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
+        self._wav_encoder = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
+        self._processor_manager = ProcessorManager()
+
         # CRITICAL: Async lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
         # (envelope followers, gain reduction tracking, etc.)
@@ -124,16 +137,13 @@ class ChunkedAudioProcessor:
         # envelope followers at chunk boundaries.
         # NOTE: If preset is None, we're serving original/unprocessed audio (no processor needed)
         if self.preset is not None:
-            config = UnifiedConfig()
-            config.set_processing_mode("adaptive")
-            config.mastering_profile = self.preset.lower()
-            self.processor = HybridProcessor(config)
-
-            # NEW (Beta.9): If we loaded mastering targets from .25d file, set them
-            # This enables fixed-target processing (8x faster, instant toggle)
-            if self.mastering_targets is not None:
-                self.processor.set_fixed_mastering_targets(self.mastering_targets)
-                logger.info(f"🎯 Fixed mastering targets applied to processor for track {track_id}")
+            self.processor = self._processor_manager.get_or_create(
+                track_id=track_id,
+                preset=preset,
+                intensity=intensity,
+                mastering_targets=self.mastering_targets
+            )
+            logger.info(f"🎯 Processor initialized via ProcessorManager for track {track_id}")
         else:
             self.processor = None  # No processing for original audio
 
@@ -216,10 +226,15 @@ class ChunkedAudioProcessor:
         """
         Get file path for chunk with file signature.
 
-        Includes file signature in filename to prevent serving wrong audio
-        if track file is modified or replaced.
+        Delegates to WAVEncoder for consistent path generation.
         """
-        return self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.wav"
+        return self._wav_encoder.get_chunk_path(
+            track_id=self.track_id,
+            file_signature=self.file_signature,
+            preset=self.preset,
+            intensity=self.intensity,
+            chunk_index=chunk_index
+        )
 
     def _get_wav_chunk_path(self, chunk_index: int) -> Path:
         """
@@ -227,8 +242,9 @@ class ChunkedAudioProcessor:
 
         This is the primary output format for the unified architecture
         (replaced WebM/Opus for Web Audio API compatibility).
+        Delegates to WAVEncoder.
         """
-        return self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}.wav"
+        return self._get_chunk_path(chunk_index)  # Uses WAVEncoder via _get_chunk_path()
 
     def load_chunk(self, chunk_index: int, with_context: bool = True) -> Tuple[np.ndarray, float, float]:
         """
@@ -244,22 +260,11 @@ class ChunkedAudioProcessor:
         Returns:
             Tuple of (audio_chunk, chunk_start_time, chunk_end_time)
         """
-        # Calculate chunk boundaries with 15s/10s model
-        # Chunk 0: 0s-15s (15s duration)
-        # Chunk 1: 10s-25s (15s duration, 5s overlap with chunk 0)
-        # Chunk 2: 20s-35s (15s duration, 5s overlap with chunk 1)
-        # Each chunk is CHUNK_DURATION (15s) long
-        # Each chunk starts CHUNK_INTERVAL (10s) after the previous
-        chunk_start = chunk_index * CHUNK_INTERVAL
-        chunk_end = min(chunk_start + CHUNK_DURATION, self.total_duration)
-
-        # Add context for processing (but trim later)
-        if with_context:
-            load_start = max(0, chunk_start - CONTEXT_DURATION)
-            load_end = min(self.total_duration, chunk_end + CONTEXT_DURATION)
-        else:
-            load_start = chunk_start
-            load_end = chunk_end
+        # Get boundaries from ChunkBoundaryManager (Phase 3.5 refactoring)
+        load_start, load_end, chunk_start, chunk_end = self._boundary_manager.get_chunk_boundaries(
+            chunk_index=chunk_index,
+            with_context=with_context
+        )
 
         # Load audio segment
         try:
@@ -306,9 +311,12 @@ class ChunkedAudioProcessor:
         return audio, chunk_start, chunk_end
 
     def _calculate_rms(self, audio: np.ndarray) -> float:
-        """Calculate RMS level of audio in dB."""
-        rms = np.sqrt(np.mean(audio ** 2))
-        return 20 * np.log10(rms + 1e-10)  # Add epsilon to avoid log(0)
+        """
+        Calculate RMS level of audio in dB.
+
+        Delegates to LevelManager (Phase 3.5 refactoring).
+        """
+        return self._level_manager.calculate_rms(audio)
 
     def _smooth_level_transition(
         self,
@@ -318,6 +326,7 @@ class ChunkedAudioProcessor:
         """
         Smooth level transitions between chunks by limiting maximum level changes.
 
+        Delegates to LevelManager (Phase 3.5 refactoring).
         This prevents volume jumps by ensuring the current chunk's RMS doesn't differ
         too much from the previous chunk's RMS.
 
@@ -328,60 +337,40 @@ class ChunkedAudioProcessor:
         Returns:
             Level-smoothed chunk
         """
-        # First chunk OR no history (processor was just created) - establish baseline
-        if chunk_index == 0 or len(self.chunk_rms_history) == 0:
-            chunk_rms = self._calculate_rms(chunk)
-            self.chunk_rms_history.append(chunk_rms)
-            self.chunk_gain_history.append(0.0)  # No adjustment for first chunk
-            return chunk
+        # Use LevelManager to smooth transitions
+        chunk_adjusted, gain_db, was_adjusted = self._level_manager.smooth_transition(
+            chunk=chunk,
+            chunk_index=chunk_index,
+            apply_adjustment=True
+        )
 
-        # Calculate current and previous RMS
-        current_rms = self._calculate_rms(chunk)
-        previous_rms = self.chunk_rms_history[-1]
-
-        # Calculate level difference
-        level_diff_db = current_rms - previous_rms
-
-        # Limit the level change
-        if abs(level_diff_db) > MAX_LEVEL_CHANGE_DB:
-            # Calculate required gain adjustment to stay within limits
-            target_diff = MAX_LEVEL_CHANGE_DB if level_diff_db > 0 else -MAX_LEVEL_CHANGE_DB
-            required_adjustment_db = target_diff - level_diff_db
-
-            # Convert dB to linear gain
-            gain_adjustment = 10 ** (required_adjustment_db / 20)
-
-            # Apply gain adjustment
-            chunk_adjusted = chunk * gain_adjustment
-
-            # Log the adjustment
+        # Log the adjustment for debugging
+        if was_adjusted:
+            current_rms = self._level_manager.current_rms
             adjusted_rms = self._calculate_rms(chunk_adjusted)
             logger.info(
                 f"Chunk {chunk_index}: Smoothed level transition "
                 f"(original RMS: {current_rms:.1f} dB, "
                 f"adjusted RMS: {adjusted_rms:.1f} dB, "
-                f"diff from previous: {level_diff_db:.1f} dB -> {target_diff:.1f} dB)"
+                f"gain adjustment: {gain_db:.2f} dB)"
             )
-
-            # Store adjusted values
-            self.chunk_rms_history.append(adjusted_rms)
-            self.chunk_gain_history.append(required_adjustment_db)
-
-            return chunk_adjusted
         else:
-            # Level change is acceptable, no adjustment needed
             logger.info(
                 f"Chunk {chunk_index}: Level transition OK "
-                f"(RMS: {current_rms:.1f} dB, diff: {level_diff_db:.1f} dB)"
+                f"(RMS: {self._level_manager.current_rms:.1f} dB)"
             )
-            self.chunk_rms_history.append(current_rms)
-            self.chunk_gain_history.append(0.0)
-            return chunk
+
+        # Update legacy history tracking for backward compatibility
+        self.chunk_rms_history = self._level_manager.history.copy()
+        self.chunk_gain_history = self._level_manager.gain_adjustments.copy()
+
+        return chunk_adjusted
 
     def _trim_context(self, audio_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
         """
         Trim context from audio chunk to keep only the actual chunk content.
 
+        Delegates to ChunkBoundaryManager (Phase 3.5 refactoring).
         This method consolidates the duplicate context trimming logic that was
         previously implemented in two places (process_chunk and process_chunk_synchronized).
 
@@ -392,34 +381,33 @@ class ChunkedAudioProcessor:
         Returns:
             Audio chunk with context trimmed
         """
-        context_samples = int(CONTEXT_DURATION * self.sample_rate)
-        actual_start = chunk_index * CHUNK_INTERVAL  # Use interval, not duration
-        is_last = chunk_index == self.total_chunks - 1
+        # Get trim amounts from ChunkBoundaryManager
+        trim_start_samples, trim_end_samples = self._boundary_manager.calculate_context_trim_samples(
+            chunk_index=chunk_index
+        )
 
         # Safety: Ensure we have enough samples to trim
         chunk_length = len(audio_chunk)
-
-        # For the last chunk, be more conservative with trimming
-        # since the audio is much shorter than expected
         max_trim_samples = chunk_length // 4  # Never trim more than 1/4 of the chunk
 
-        if actual_start > 0:  # Not first chunk, trim start context
-            trim_start = min(context_samples, max_trim_samples)
-            if chunk_length > trim_start:
-                audio_chunk = audio_chunk[trim_start:]
-                logger.debug(f"Chunk {chunk_index}: trimmed {trim_start/self.sample_rate:.2f}s from start")
+        # Trim start context if not first chunk
+        if trim_start_samples > 0:
+            actual_trim_start = min(trim_start_samples, max_trim_samples)
+            if chunk_length > actual_trim_start:
+                audio_chunk = audio_chunk[actual_trim_start:]
+                logger.debug(f"Chunk {chunk_index}: trimmed {actual_trim_start/self.sample_rate:.2f}s from start")
             else:
-                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {trim_start}). Keeping as-is.")
+                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {actual_trim_start}). Keeping as-is.")
 
-        # Don't trim end context for last chunk
-        if not is_last:
+        # Trim end context if not last chunk
+        if trim_end_samples > 0:
             chunk_length = len(audio_chunk)  # Update after potential start trim
-            trim_end = min(context_samples, max_trim_samples)
-            if chunk_length > trim_end:
-                audio_chunk = audio_chunk[:-trim_end]
-                logger.debug(f"Chunk {chunk_index}: trimmed {trim_end/self.sample_rate:.2f}s from end")
+            actual_trim_end = min(trim_end_samples, max_trim_samples)
+            if chunk_length > actual_trim_end:
+                audio_chunk = audio_chunk[:-actual_trim_end]
+                logger.debug(f"Chunk {chunk_index}: trimmed {actual_trim_end/self.sample_rate:.2f}s from end")
             else:
-                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {trim_end}). Keeping as-is.")
+                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {actual_trim_end}). Keeping as-is.")
 
         return audio_chunk
 
@@ -582,9 +570,17 @@ class ChunkedAudioProcessor:
         # Process chunk using shared core logic
         processed_chunk = self._process_chunk_core(chunk_index, fast_start)
 
-        # Save chunk
-        chunk_path = self._get_chunk_path(chunk_index)
-        save_audio(str(chunk_path), processed_chunk, self.sample_rate, subtype='PCM_16')
+        # Save chunk using WAVEncoder (Phase 3.5 refactoring)
+        chunk_path = self._wav_encoder.encode_and_save_from_path(
+            audio=processed_chunk,
+            sample_rate=self.sample_rate,
+            track_id=self.track_id,
+            file_signature=self.file_signature,
+            preset=self.preset,
+            intensity=self.intensity,
+            chunk_index=chunk_index,
+            subtype='PCM_16'
+        )
 
         # Cache the path
         self.chunk_cache[cache_key] = str(chunk_path)
