@@ -26,7 +26,7 @@ class LimiterConfig:
     release_filter_order: int = 1
     release_filter_coefficient: float = 800.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.attack > 0, "Attack time must be positive"
         assert self.hold > 0, "Hold time must be positive"
         assert self.release > 0, "Release time must be positive"
@@ -66,7 +66,7 @@ class AdaptiveConfig:
     enable_psychoacoustic_eq: bool = True
     critical_bands: int = 26  # Number of critical bands for analysis
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert 0.0 <= self.adaptation_strength <= 1.0, "Adaptation strength must be 0-1"
         assert 0.0 <= self.parameter_smoothing <= 1.0, "Parameter smoothing must be 0-1"
         assert 5.0 <= self.chunk_size_ms <= 100.0, "Chunk size must be 5-100ms"
@@ -87,7 +87,7 @@ class GenreProfile:
     stereo_width: float
     mastering_intensity: float
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert -30.0 <= self.target_lufs <= 0.0, "Target LUFS must be -30 to 0"
         assert -12.0 <= self.bass_boost_db <= 12.0, "Bass boost must be -12 to +12 dB"
         assert -12.0 <= self.midrange_clarity_db <= 12.0, "Midrange clarity must be -12 to +12 dB"
