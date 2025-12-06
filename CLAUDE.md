@@ -167,17 +167,17 @@ python -m pytest tests/backend/test_player.py -v
 - **`backend/`** - FastAPI REST API + WebSocket server
   - `main.py` - Entry point, router integration, health checks
   - `routers/` - Modular route handlers (auto-included in main.py)
-  - `chunked_processor.py` - Streaming audio processing (30s chunks, WAV PCM)
+  - `audio_stream_controller.py` - WebSocket PCM streaming with in-memory chunk caching
+  - `chunked_processor.py` - Audio processing (30s chunks, WAV PCM format)
   - `streamlined_cache.py` - Query caching with time-based invalidation
-  - `state_manager.py` - Player state synchronization
   - `processing_engine.py` - Real-time audio DSP processing
-  - `webm_encoder.py` - WebM/Opus encoding for efficient streaming
+  - `metrics_collector.py` - Performance and quality metrics collection
 - **`frontend/`** - React/TypeScript/Vite + Redux
   - `components/` - React components (keep < 300 lines, one purpose each)
   - `design-system/tokens.ts` - Single source of truth for colors, spacing, typography
   - `contexts/` - Redux store, WebSocket context, player context
-  - `hooks/` - Custom hooks (infinite scroll, playback, state management)
-  - `services/` - API calls, WebSocket communication
+  - `hooks/` - Custom hooks organized by domain (player, library, enhancement, websocket, api, app, fingerprint, shared)
+  - `services/` - API calls, WebSocket communication, library service
   - `test/` - Test utilities, mocks, setup
 
 ### Desktop App (`desktop/`)
@@ -237,35 +237,37 @@ import { tokens } from '@/design-system'
 
 ## 🎯 Frontend Hook Architecture
 
-**Organization**: Hooks are organized by domain in `auralis-web/frontend/src/hooks/` (Phase 1.3 consolidation)
+**Organization**: Hooks are organized by domain in `auralis-web/frontend/src/hooks/` with subdirectories for each category (Phase 1.3 consolidation)
 
-**Hook Categories** (organized for maintainability):
-- **`usePlayer.ts`** - Playback control and state management
-- **`useLibrary.ts`** - Library browsing and search
-- **`usePlaylist.ts`** - Queue and playlist operations
-- **`useAudio.ts`** - Audio processing and visualization
-- **`useUI.ts`** - UI state (modals, sidebars, theme)
-- **`useWebSocket.ts`** - WebSocket communication
-- **`useKeyboardShortcuts.ts`** - Keyboard event handling
-- **`useSettings.ts`** - User preferences and configuration
+**Hook Categories** (subdirectory structure):
+- **`hooks/player/`** - Playback control (13+ hooks: `usePlaybackControl`, `usePlaybackQueue`, `usePlayerAPI`, `usePlayerStreaming`, `useQueueSearch`, etc.)
+- **`hooks/library/`** - Library access and search (multiple library query and selection hooks)
+- **`hooks/enhancement/`** - Audio mastering (streaming hooks: `usePlayEnhanced`, `useEnhancementControl`, `useMasteringRecommendation`, `useEnhancedPlaybackShortcuts`)
+- **`hooks/websocket/`** - Real-time communication (`useWebSocket`, `useWebSocketProtocol`, `useWebSocketSubscription`)
+- **`hooks/api/`** - REST API calls (`useRestAPI`, though `libraryService` preferred for library queries)
+- **`hooks/app/`** - Global UI state (keyboard, layout, drag-drop)
+- **`hooks/fingerprint/`** - Audio fingerprinting and similarity search
+- **`hooks/shared/`** - General utilities (`useReduxState`, `useInfiniteScroll`, `useVisualizationOptimization`)
 
 **Import Pattern**: Use absolute paths with `@/hooks`
 ```typescript
-// ✅ Correct (absolute path)
-import { usePlayer } from '@/hooks'
-import { useLibrary } from '@/hooks'
+// ✅ Correct (absolute paths)
+import { usePlaybackControl } from '@/hooks/player'
+import { usePlayEnhanced } from '@/hooks/enhancement'
+import { useLibraryData } from '@/hooks/library'
 
-// ❌ Wrong (relative path)
-import { usePlayer } from '../../../hooks'
+// ❌ Wrong (relative paths)
+import { usePlaybackControl } from '../../../hooks/player'
 ```
 
 **Hook Size Limit**: Max 250 lines per hook (same as components)
 - If exceeding limit, split into smaller composable hooks
-- Example: `usePlayer.ts` (core) + `usePlayerQueue.ts` (queue-specific)
+- Example: `usePlaybackControl` (core) + `usePlaybackQueue` (queue-specific)
+- Organize related hooks in same subdirectory for cohesion
 
 **Hook Testing**: Test hooks with `renderHook` from `@testing-library/react`
 ```typescript
-const { result } = renderHook(() => usePlayer())
+const { result } = renderHook(() => usePlaybackControl())
 act(() => { result.current.play() })
 expect(result.current.isPlaying).toBe(true)
 ```
@@ -320,14 +322,17 @@ WebSocket streaming → Frontend (Redux state + HTML5 Audio)
 - **Routers**: Modular endpoints in `routers/` auto-discovered and included in `main.py`
   - `routers/library.py` - Library scanning and metadata
   - `routers/player.py` - Playback control, state management
-  - `routers/enhancement.py` - Audio processing presets
+  - `routers/enhancement.py` - Audio processing presets and enhancement endpoints
   - `routers/albums.py`, `artists.py` - Metadata browsing
   - `routers/similarity.py` - Audio fingerprinting and similarity search
-  - `routers/webm_streaming.py` - Efficient WebM/Opus streaming
+  - `routers/system.py` - System endpoints (WebSocket audio streaming, library progress)
+- **Audio Streaming**: Unified WebSocket-only architecture via `/ws` endpoint (Phase 3 consolidation)
+  - `audio_stream_controller.py` - Core PCM streaming logic with chunk caching
+  - `chunked_processor.py` - 30-second audio chunk processing with crossfade
+  - Server-side caching: In-memory LRU cache (up to 50 chunks, ~500MB max)
 - **Dependency Injection**: FastAPI deps for database connections, state, caching
-- **WebSocket**: Real-time player state sync via `/ws` endpoint
 - **Database**: SQLite with connection pooling (repository pattern only, no raw SQL in business logic)
-- **Caching**: Time-based invalidation in `streamlined_cache.py` (3-5 minute TTL)
+- **Caching**: Time-based invalidation in `streamlined_cache.py` (3-5 minute TTL); chunk cache for audio streaming
 - **Error Handling**: Custom exceptions in `routers/errors.py` with proper HTTP status codes
 
 ### Frontend Architecture (React + Redux)
@@ -622,10 +627,15 @@ black auralis/ auralis-web/backend/
 # Sort imports
 isort auralis/ auralis-web/backend/
 
+# Type check with mypy
+mypy auralis/ auralis-web/backend/ --ignore-missing-imports
+
 # Make target for linting
 make lint      # Basic syntax check
 make typecheck # mypy type checking (if available)
 ```
+
+**Note on Type Coverage**: Current status is **1761 mypy errors** across the codebase (as of Dec 2025). Core library modules (`auralis/`) are strict-typed, but backend services and utils need coverage. See "Mypy Coverage Improvements" below.
 
 ### Build Rust DSP Module (Optional)
 ```bash
@@ -644,6 +654,46 @@ PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop
 ```
 
 **Note**: The Rust module is optional. If not installed or compilation fails, the system gracefully falls back to librosa implementations with no loss of functionality (just slower performance on HPSS, YIN, Chroma analysis).
+
+### Mypy Coverage Improvements (Pending Phase)
+
+**Current Status**: 1761 mypy errors across codebase (Dec 2025)
+
+**Error Distribution** (top 20 modules):
+| Module | Errors | Priority |
+|--------|--------|----------|
+| `auralis-web/backend/chunked_processor.py` | 66 | 🔴 High |
+| `auralis/library/manager.py` | 44 | 🔴 High |
+| `auralis-web/backend/routers/player.py` | 43 | 🔴 High |
+| `auralis/player/enhanced_audio_player.py` | 40 | 🔴 High |
+| `auralis/core/hybrid_processor.py` | 32 | 🔴 High |
+| `auralis/library/models/core.py` | 30 | 🔴 High |
+| `auralis-web/backend/processing_engine.py` | 30 | 🔴 High |
+| `auralis/optimization/parallel_processor.py` | 29 | 🟡 Medium |
+| `auralis/core/processing/base_processing_mode.py` | 29 | 🟡 Medium |
+| `auralis/library/metadata_editor/writers.py` | 28 | 🟡 Medium |
+| `auralis/library/fingerprint_queue.py` | 28 | 🟡 Medium |
+| `auralis-web/backend/state_manager.py` | 27 | 🟡 Medium |
+| `auralis-web/backend/self_tuner.py` | 23 | 🟡 Medium |
+| `auralis-web/backend/routers/enhancement.py` | 22 | 🟡 Medium |
+| `auralis/library/scanner/scanner.py` | 21 | 🟡 Medium |
+| `auralis/io/unified_loader.py` | 21 | 🟡 Medium |
+| `auralis-web/backend/routers/library.py` | 20 | 🟡 Medium |
+| `auralis/optimization/performance_optimizer.py` | 19 | 🟡 Medium |
+| `auralis/analysis/profile_matcher.py` | 19 | 🟡 Medium |
+| `auralis-web/backend/cache/manager.py` | 19 | 🟡 Medium |
+
+**Common Error Patterns**:
+- Missing return type annotations on functions (most common)
+- Incompatible type assignments (None to typed fields)
+- Untyped function parameters
+- Optional types not properly marked with `Optional[]` or union types
+
+**Strategy**:
+1. **Phase 1**: Fix high-priority backend modules (chunked_processor, routers) - critical audio streaming
+2. **Phase 2**: Core library modules (manager, models, hybrid_processor) - foundation stability
+3. **Phase 3**: Utilities and helpers - reduce cascading type errors
+4. **Target**: Reach 0 mypy errors for production readiness
 
 ### Build for Release
 ```bash
@@ -878,6 +928,7 @@ CROSSFADE_DURATION = 3.0  # Smooth blend at boundaries
 - ✅ **Phase 10**: Heavy Performance Optimizations (7 major improvements: Rust tempo detection, processor caching, channel-vectorized EQ, spectral flux onset detection, limiting optimization, 27-28ms per chunk tempo detection)
 - ✅ **Phase 11**: Persistent Fingerprint Cache (2GB SQLite cache, 500-1000ms savings per hit, lazy tempo detection, pre-generated preset parameters 20-40x speedup)
 - ✅ **Phase 1-3 Frontend**: Hook consolidation (8 domain categories), 100% TypeScript type safety, absolute path imports (@/)
+- ✅ **Phase 0 (Dec 6)**: Pagination Consolidation - Unified pagination pattern across all library views (eliminated ~300-400 lines of duplicate code, 75% performance improvement in artist search, fixed backend N+1 query issue)
 
 **Current Focus** (Phase 3.4 - In Progress):
 - **Keyboard shortcuts for enhanced playback controls** (Phase 3.4)
