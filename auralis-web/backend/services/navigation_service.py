@@ -9,7 +9,7 @@ Coordinates with AudioPlayer and PlayerStateManager for state synchronization.
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Callable
 from auralis import EnhancedAudioPlayer
 from auralis.library import LibraryManager
 from config.globals import ConnectionManager
@@ -26,7 +26,14 @@ class NavigationService:
     Coordinates state synchronization and WebSocket broadcasting.
     """
 
-    def __init__(self, audio_player: EnhancedAudioPlayer, player_state_manager: PlayerStateManager, library_manager: LibraryManager, connection_manager: ConnectionManager, create_track_info_fn):
+    def __init__(
+        self,
+        audio_player: EnhancedAudioPlayer,
+        player_state_manager: PlayerStateManager,
+        library_manager: LibraryManager,
+        connection_manager: ConnectionManager,
+        create_track_info_fn: Callable[[Any], Any],
+    ) -> None:
         """
         Initialize NavigationService.
 
@@ -36,12 +43,15 @@ class NavigationService:
             library_manager: LibraryManager instance
             connection_manager: WebSocket connection manager for broadcasts
             create_track_info_fn: Function to convert DB track to TrackInfo
+
+        Raises:
+            ValueError: If any required component is not available
         """
-        self.audio_player = audio_player
-        self.player_state_manager = player_state_manager
-        self.library_manager = library_manager
-        self.connection_manager = connection_manager
-        self.create_track_info_fn = create_track_info_fn
+        self.audio_player: EnhancedAudioPlayer = audio_player
+        self.player_state_manager: PlayerStateManager = player_state_manager
+        self.library_manager: LibraryManager = library_manager
+        self.connection_manager: ConnectionManager = connection_manager
+        self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
 
     async def next_track(self) -> Dict[str, Any]:
         """

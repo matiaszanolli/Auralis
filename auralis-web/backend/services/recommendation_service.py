@@ -11,9 +11,17 @@ Performs background analysis of loaded tracks to suggest optimal audio profiles.
 import logging
 import os
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Protocol
 
 logger = logging.getLogger(__name__)
+
+
+class BroadcastManager(Protocol):
+    """Protocol for broadcast manager interface."""
+
+    async def broadcast(self, message: Dict[str, Any]) -> None:
+        """Broadcast message to connected clients."""
+        ...
 
 
 class RecommendationService:
@@ -24,14 +32,17 @@ class RecommendationService:
     Broadcasts recommendations via WebSocket to connected clients.
     """
 
-    def __init__(self, connection_manager):
+    def __init__(self, connection_manager: BroadcastManager) -> None:
         """
         Initialize RecommendationService.
 
         Args:
             connection_manager: WebSocket connection manager for broadcasts
+
+        Raises:
+            ValueError: If connection_manager is not available
         """
-        self.connection_manager = connection_manager
+        self.connection_manager: BroadcastManager = connection_manager
 
     async def generate_and_broadcast_recommendation(
         self,

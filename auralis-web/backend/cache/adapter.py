@@ -12,11 +12,38 @@ import logging
 import numpy as np
 import tempfile
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any, Dict, Protocol
+
 from auralis.io.unified_loader import load_audio
 from auralis.io.saver import save as save_audio
 
 logger = logging.getLogger(__name__)
+
+
+class CacheManager(Protocol):
+    """Protocol for cache manager interface."""
+
+    async def get_chunk(
+        self,
+        track_id: int,
+        chunk_idx: int,
+        preset: Optional[str] = None,
+        intensity: float = 1.0,
+    ) -> Tuple[Optional[Path], str]:
+        """Get chunk from cache."""
+        ...
+
+    async def add_chunk(
+        self,
+        track_id: int,
+        chunk_idx: int,
+        chunk_path: Path,
+        preset: Optional[str] = None,
+        intensity: float = 1.0,
+        tier: str = "auto",
+    ) -> bool:
+        """Add chunk to cache."""
+        ...
 
 
 class StreamlinedCacheAdapter:
@@ -30,15 +57,18 @@ class StreamlinedCacheAdapter:
     This adapter presents the SimpleChunkCache interface while delegating to StreamlinedCacheManager.
     """
 
-    def __init__(self, manager):
+    def __init__(self, manager: CacheManager) -> None:
         """
         Initialize adapter with a StreamlinedCacheManager instance.
 
         Args:
             manager: StreamlinedCacheManager instance to wrap
+
+        Raises:
+            ValueError: If manager is not a valid CacheManager
         """
-        self.manager = manager
-        self._temp_chunk_cache = {}  # Temporary in-memory cache for current session
+        self.manager: CacheManager = manager
+        self._temp_chunk_cache: Dict[str, Tuple[np.ndarray, int]] = {}  # Temporary in-memory cache for current session
 
     async def get(
         self,
