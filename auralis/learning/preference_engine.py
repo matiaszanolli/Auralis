@@ -13,8 +13,8 @@ Intelligent system that learns from user feedback and adjustments
 """
 
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Any, Union
-from dataclasses import dataclass, asdict
+from typing import Dict, Optional, Any
+from dataclasses import asdict
 from datetime import datetime, timedelta
 import json
 from pathlib import Path

@@ -97,7 +97,7 @@ async def process_audio(request: ProcessRequest):
         # Create processing job
         job = _processing_engine.create_job(
             input_path=request.input_path,
-            settings=request.settings.dict(),
+            settings=request.settings.model_dump(),
             mode=request.settings.mode,
             reference_path=request.reference_path
         )
@@ -150,7 +150,7 @@ async def upload_and_process(
         # Create and submit job
         job = _processing_engine.create_job(
             input_path=str(input_path),
-            settings=processing_settings.dict(),
+            settings=processing_settings.model_dump(),
             mode=processing_settings.mode
         )
 

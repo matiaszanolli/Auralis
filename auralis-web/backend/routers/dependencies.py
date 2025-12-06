@@ -10,11 +10,14 @@ reducing boilerplate and improving consistency.
 
 from fastapi import HTTPException
 import logging
+from typing import Callable, Any
+from auralis import EnhancedAudioPlayer
+from auralis.library import LibraryManager
 
 logger = logging.getLogger(__name__)
 
 
-def require_library_manager(get_library_manager):
+def require_library_manager(get_library_manager: Callable[[], Any]) -> LibraryManager:
     """
     Validate that library manager is available.
 
@@ -33,7 +36,7 @@ def require_library_manager(get_library_manager):
     return library_manager
 
 
-def require_audio_player(get_audio_player):
+def require_audio_player(get_audio_player: Callable[[], Any]) -> EnhancedAudioPlayer:
     """
     Validate that audio player is available.
 
@@ -52,7 +55,7 @@ def require_audio_player(get_audio_player):
     return audio_player
 
 
-def require_player_state_manager(get_player_state_manager):
+def require_player_state_manager(get_player_state_manager: Callable[[], Any]) -> Any:
     """
     Validate that player state manager is available.
 
@@ -71,7 +74,7 @@ def require_player_state_manager(get_player_state_manager):
     return state_manager
 
 
-def require_connection_manager(connection_manager):
+def require_connection_manager(connection_manager: Any) -> Any:
     """
     Validate that WebSocket connection manager is available.
 
