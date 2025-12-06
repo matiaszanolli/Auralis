@@ -37,20 +37,20 @@ class ParallelConfig:
 class ParallelFFTProcessor:
     """Parallel FFT processing for spectrum analysis"""
 
-    def __init__(self, config: ParallelConfig = None):
-        self.config = config or ParallelConfig()
-        self.fft_plan_cache = {}  # Cache FFT plans/windows for common sizes
-        self.lock = threading.Lock()
+    def __init__(self, config: Optional[ParallelConfig] = None) -> None:
+        self.config: ParallelConfig = config or ParallelConfig()
+        self.fft_plan_cache: Dict[int, Any] = {}  # Cache FFT plans/windows for common sizes
+        self.lock: threading.Lock = threading.Lock()
+        self.window_cache: Dict[int, np.ndarray] = {}
 
         # Pre-compute common window functions
         self._init_window_cache()
 
         debug(f"Parallel FFT processor initialized: max_workers={self.config.max_workers}")
 
-    def _init_window_cache(self):
+    def _init_window_cache(self) -> None:
         """Pre-compute common window functions"""
-        common_sizes = [512, 1024, 2048, 4096, 8192]
-        self.window_cache = {}
+        common_sizes: List[int] = [512, 1024, 2048, 4096, 8192]
 
         for size in common_sizes:
             self.window_cache[size] = np.hanning(size)
@@ -136,7 +136,7 @@ class ParallelFFTProcessor:
         return spectrum
 
     @staticmethod
-    def _process_fft_chunk_static(chunk_data: Tuple) -> np.ndarray:
+    def _process_fft_chunk_static(chunk_data: Tuple[np.ndarray, np.ndarray, int]) -> np.ndarray:
         """Static method for multiprocessing"""
         chunk, window, fft_size = chunk_data
         windowed = chunk * window
@@ -171,14 +171,14 @@ class ParallelFFTProcessor:
 class ParallelBandProcessor:
     """Parallel frequency band processing"""
 
-    def __init__(self, config: ParallelConfig = None):
-        self.config = config or ParallelConfig()
+    def __init__(self, config: Optional[ParallelConfig] = None) -> None:
+        self.config: ParallelConfig = config or ParallelConfig()
         debug(f"Parallel band processor initialized: max_workers={self.config.max_workers}")
 
     def process_bands_parallel(
         self,
         audio: np.ndarray,
-        band_filters: List[Callable],
+        band_filters: List[Callable[..., np.ndarray]],
         band_gains: np.ndarray,
         band_groups: Optional[List[List[int]]] = None
     ) -> np.ndarray:
@@ -221,7 +221,7 @@ class ParallelBandProcessor:
                 futures = [executor.submit(self._process_single_band_static, task) for task in tasks]
 
                 # Collect results
-                band_results = [None] * num_bands
+                band_results: List[np.ndarray] = [np.array([])] * num_bands
                 for future in as_completed(futures):
                     idx, result = future.result()
                     band_results[idx] = result
@@ -235,20 +235,20 @@ class ParallelBandProcessor:
                 ]
 
                 # Collect results
-                band_results = [None] * num_bands
+                band_results = [np.array([])] * num_bands
                 for future in as_completed(futures):
                     idx, result = future.result()
                     band_results[idx] = result
 
         # Sum all band results
-        output = np.sum(band_results, axis=0)
+        output: np.ndarray = np.sum(band_results, axis=0)
 
         return output
 
     def _process_single_band(
         self,
         audio: np.ndarray,
-        band_filter: Callable,
+        band_filter: Callable[..., np.ndarray],
         gain: float,
         band_idx: int
     ) -> Tuple[int, np.ndarray]:
@@ -262,7 +262,7 @@ class ParallelBandProcessor:
         return band_idx, result
 
     @staticmethod
-    def _process_single_band_static(task_data: Tuple) -> Tuple[int, np.ndarray]:
+    def _process_single_band_static(task_data: Tuple[np.ndarray, Callable[..., np.ndarray], float, int]) -> Tuple[int, np.ndarray]:
         """Static method for multiprocessing"""
         audio, band_filter, gain, band_idx = task_data
         filtered = band_filter(audio)
@@ -272,7 +272,7 @@ class ParallelBandProcessor:
     def _process_band_groups(
         self,
         audio: np.ndarray,
-        band_filters: List[Callable],
+        band_filters: List[Callable[..., np.ndarray]],
         band_gains: np.ndarray,
         band_groups: List[List[int]]
     ) -> np.ndarray:
@@ -288,17 +288,17 @@ class ParallelBandProcessor:
             ]
 
             # Collect group results
-            group_results = [future.result() for future in futures]
+            group_results: List[np.ndarray] = [future.result() for future in futures]
 
         # Sum all group results
-        output = np.sum(group_results, axis=0)
+        output: np.ndarray = np.sum(group_results, axis=0)
 
         return output
 
     def _process_band_group(
         self,
         audio: np.ndarray,
-        band_filters: List[Callable],
+        band_filters: List[Callable[..., np.ndarray]],
         band_gains: np.ndarray,
         band_indices: List[int]
     ) -> np.ndarray:
@@ -314,7 +314,7 @@ class ParallelBandProcessor:
     def _process_bands_sequential(
         self,
         audio: np.ndarray,
-        band_filters: List[Callable],
+        band_filters: List[Callable[..., np.ndarray]],
         band_gains: np.ndarray
     ) -> np.ndarray:
         """Sequential band processing fallback"""
@@ -330,14 +330,14 @@ class ParallelBandProcessor:
 class ParallelFeatureExtractor:
     """Parallel audio feature extraction"""
 
-    def __init__(self, config: ParallelConfig = None):
-        self.config = config or ParallelConfig()
+    def __init__(self, config: Optional[ParallelConfig] = None) -> None:
+        self.config: ParallelConfig = config or ParallelConfig()
         debug(f"Parallel feature extractor initialized")
 
     def extract_features_parallel(
         self,
         audio: np.ndarray,
-        feature_extractors: Dict[str, Callable]
+        feature_extractors: Dict[str, Callable[..., Any]]
     ) -> Dict[str, Any]:
         """
         Extract multiple audio features in parallel
@@ -360,13 +360,13 @@ class ParallelFeatureExtractor:
 
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             # Submit feature extraction tasks
-            futures = {
+            futures: Dict[Any, str] = {
                 executor.submit(extractor, audio): name
                 for name, extractor in feature_extractors.items()
             }
 
             # Collect results
-            features = {}
+            features: Dict[str, Any] = {}
             for future in as_completed(futures):
                 feature_name = futures[future]
                 features[feature_name] = future.result()
@@ -377,13 +377,13 @@ class ParallelFeatureExtractor:
 class ParallelAudioProcessor:
     """Main parallel audio processing orchestrator"""
 
-    def __init__(self, config: ParallelConfig = None):
-        self.config = config or ParallelConfig()
+    def __init__(self, config: Optional[ParallelConfig] = None) -> None:
+        self.config: ParallelConfig = config or ParallelConfig()
 
         # Initialize sub-processors
-        self.fft_processor = ParallelFFTProcessor(config)
-        self.band_processor = ParallelBandProcessor(config)
-        self.feature_extractor = ParallelFeatureExtractor(config)
+        self.fft_processor: ParallelFFTProcessor = ParallelFFTProcessor(config)
+        self.band_processor: ParallelBandProcessor = ParallelBandProcessor(config)
+        self.feature_extractor: ParallelFeatureExtractor = ParallelFeatureExtractor(config)
 
         info(f"Parallel audio processor initialized with {self.config.max_workers} workers")
 
@@ -425,7 +425,7 @@ class ParallelAudioProcessor:
         """Get current configuration"""
         return self.config
 
-    def update_config(self, **kwargs):
+    def update_config(self, **kwargs: Any) -> None:
         """Update configuration"""
         for key, value in kwargs.items():
             if hasattr(self.config, key):
@@ -434,10 +434,10 @@ class ParallelAudioProcessor:
 
 
 # Global parallel processor instance
-_global_parallel_processor = None
+_global_parallel_processor: Optional[ParallelAudioProcessor] = None
 
 
-def get_parallel_processor(config: ParallelConfig = None) -> ParallelAudioProcessor:
+def get_parallel_processor(config: Optional[ParallelConfig] = None) -> ParallelAudioProcessor:
     """Get global parallel processor instance"""
     global _global_parallel_processor
     if _global_parallel_processor is None:
@@ -445,20 +445,20 @@ def get_parallel_processor(config: ParallelConfig = None) -> ParallelAudioProces
     return _global_parallel_processor
 
 
-def create_parallel_processor(config: ParallelConfig = None) -> ParallelAudioProcessor:
+def create_parallel_processor(config: Optional[ParallelConfig] = None) -> ParallelAudioProcessor:
     """Create new parallel processor instance"""
     return ParallelAudioProcessor(config)
 
 
 # Convenience decorator for automatic parallelization
-def parallelize(max_workers: int = None):
+def parallelize(max_workers: Optional[int] = None) -> Callable[[Callable[[Any], Any]], Callable[[List[Any]], List[Any]]]:
     """Decorator to automatically parallelize a function over a list"""
-    def decorator(func):
+    def decorator(func: Callable[[Any], Any]) -> Callable[[List[Any]], List[Any]]:
         @wraps(func)
-        def wrapper(data_list: List[Any], *args, **kwargs):
+        def wrapper(data_list: List[Any], *args: Any, **kwargs: Any) -> List[Any]:
             processor = get_parallel_processor()
 
-            def process_item(item):
+            def process_item(item: Any) -> Any:
                 return func(item, *args, **kwargs)
 
             return processor.process_batch(data_list, process_item, max_workers)
