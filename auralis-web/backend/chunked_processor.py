@@ -37,12 +37,6 @@ logger = logging.getLogger(__name__)
 _last_content_profiles = {}
 
 # Chunk configuration
-# NEW (Beta 12.1): 15s chunks with 10s intervals = 5s overlap for natural crossfades
-# Benefits:
-# - 5-second overlap provides excellent crossfade material
-# - More natural transitions between chunks
-# - Better audio quality with proper blending
-# - Still fast enough for responsive preset switching
 CHUNK_DURATION = 15  # seconds - actual chunk length
 CHUNK_INTERVAL = 10  # seconds - playback interval (CHUNK_DURATION - OVERLAP_DURATION)
 OVERLAP_DURATION = 5  # seconds - overlap for natural crossfades (was 0.1s)
@@ -429,30 +423,6 @@ class ChunkedAudioProcessor:
 
         return audio_chunk
 
-    def apply_crossfade(
-        self,
-        chunk: np.ndarray,
-        chunk_index: int,
-        is_last: bool = False
-    ) -> np.ndarray:
-        """
-        No longer applies individual fades - chunks are crossfaded during concatenation.
-
-        This method is kept for compatibility but now just returns the chunk unmodified.
-        Crossfading happens in get_full_processed_audio_path() via apply_crossfade_between_chunks().
-
-        Args:
-            chunk: Audio chunk to process
-            chunk_index: Index of this chunk
-            is_last: Whether this is the last chunk
-
-        Returns:
-            Unmodified chunk (crossfading happens during concatenation)
-        """
-        # Crossfading is now handled during concatenation for better quality
-        # No individual fades needed
-        return chunk
-
     def process_chunk(self, chunk_index: int, fast_start: bool = False) -> str:
         """
         Process a single chunk with Auralis HybridProcessor.
@@ -593,12 +563,6 @@ class ChunkedAudioProcessor:
         # CRITICAL FIX: Smooth level transitions between chunks
         # This prevents volume jumps by limiting maximum RMS changes
         processed_chunk = self._smooth_level_transition(processed_chunk, chunk_index)
-
-        # Determine if this is the last chunk
-        is_last = chunk_index == self.total_chunks - 1
-
-        # Apply crossfade
-        processed_chunk = self.apply_crossfade(processed_chunk, chunk_index, is_last)
 
         # Save chunk
         chunk_path = self._get_chunk_path(chunk_index)
@@ -1048,33 +1012,6 @@ class ChunkedAudioProcessor:
             logger.debug(f"📊 Stored processing profile for preset '{self.preset}'")
 
         return str(wav_chunk_path)
-
-
-def _convert_to_webm_opus(input_wav: str, output_webm: str, bitrate: str = "128k") -> None:
-    """
-    Convert WAV audio to WebM/Opus format using ffmpeg.
-
-    Args:
-        input_wav: Path to input WAV file
-        output_webm: Path to output WebM file
-        bitrate: Opus bitrate (default: 128k for good quality)
-    """
-    import subprocess
-
-    try:
-        subprocess.run([
-            'ffmpeg',
-            '-i', input_wav,
-            '-c:a', 'libopus',
-            '-b:a', bitrate,
-            '-vbr', 'on',  # Variable bitrate for better quality
-            '-compression_level', '10',  # Maximum compression
-            '-y',  # Overwrite output file
-            output_webm
-        ], check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"FFmpeg conversion failed: {e.stderr}")
-        raise RuntimeError(f"Failed to convert WAV to WebM/Opus: {e.stderr}")
 
 
 def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overlap_samples: int) -> np.ndarray:
