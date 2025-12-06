@@ -26,16 +26,18 @@ Features:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import json
 import numpy as np
 import logging
 import hashlib
-import os
 from pathlib import Path
-from typing import Optional, Callable, Tuple, Dict
+from typing import Optional, Callable, Tuple
 from fastapi import WebSocket
 from collections import OrderedDict
+
+from auralis.library import LibraryManager
+from backend.cache import StreamlinedCacheManager, StreamlinedCacheAdapter
+from backend.chunked_processor import ChunkedAudioProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -103,18 +105,26 @@ class AudioStreamController:
     crossfading at boundaries, caching for performance, and error recovery.
     """
 
-    def __init__(self, chunked_processor_class=None, library_manager=None, cache_manager=None):
+    def __init__(self, chunked_processor_class=None, library_manager: LibraryManager=None, cache_manager=None):
         """
         Initialize AudioStreamController.
 
         Args:
             chunked_processor_class: ChunkedAudioProcessor class for processing
             library_manager: LibraryManager instance for track lookup
-            cache_manager: Optional cache manager for chunk caching
+            cache_manager: Optional cache manager for chunk caching.
+                          If StreamlinedCacheManager, will be automatically wrapped with adapter.
         """
         self.chunked_processor_class = chunked_processor_class
         self.library_manager = library_manager
-        self.cache_manager = cache_manager or SimpleChunkCache()
+
+        # Wrap StreamlinedCacheManager with adapter for compatibility
+        if isinstance(cache_manager, StreamlinedCacheManager):
+            self.cache_manager = StreamlinedCacheAdapter(cache_manager)
+            logger.info("StreamlinedCacheManager wrapped with StreamlinedCacheAdapter")
+        else:
+            self.cache_manager = cache_manager or SimpleChunkCache()
+
         self.active_streams = {}  # track_id -> streaming task
 
     async def stream_enhanced_audio(
@@ -164,7 +174,7 @@ class AudioStreamController:
 
         try:
             # Create processor for this track
-            processor = self.chunked_processor_class(
+            processor: ChunkedAudioProcessor = self.chunked_processor_class(
                 track_id=track_id,
                 filepath=track.filepath,
                 preset=preset,
@@ -234,7 +244,7 @@ class AudioStreamController:
     async def _process_and_stream_chunk(
         self,
         chunk_index: int,
-        processor,
+        processor: ChunkedAudioProcessor,
         websocket: WebSocket,
         on_progress: Optional[Callable] = None,
     ) -> None:
