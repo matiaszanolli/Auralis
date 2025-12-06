@@ -10,7 +10,7 @@ Core models for tracks, albums, artists, genres, and playlists
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text
 from sqlalchemy.orm import relationship
@@ -69,7 +69,7 @@ class Track(Base, TimestampMixin):
     genres = relationship("Genre", secondary=track_genre, back_populates="tracks")
     playlists = relationship("Playlist", secondary=track_playlist, back_populates="tracks")
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert track to dictionary for API/GUI use"""
         try:
             # Safe access to relationship attributes
@@ -168,7 +168,7 @@ class Album(Base, TimestampMixin):
     artist = relationship("Artist", back_populates="albums")
     tracks = relationship("Track", back_populates="album")
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert album to dictionary"""
         return {
             'id': self.id,
@@ -203,7 +203,7 @@ class Artist(Base, TimestampMixin):
     albums = relationship("Album", back_populates="artist")
     tracks = relationship("Track", secondary=track_artist, back_populates="artists")
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert artist to dictionary"""
         return {
             'id': self.id,
@@ -232,7 +232,7 @@ class Genre(Base, TimestampMixin):
     # Relationships
     tracks = relationship("Track", secondary=track_genre, back_populates="genres")
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert genre to dictionary"""
         return {
             'id': self.id,
@@ -264,7 +264,7 @@ class Playlist(Base, TimestampMixin):
     # Relationships
     tracks = relationship("Track", secondary=track_playlist, back_populates="playlists")
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert playlist to dictionary"""
         return {
             'id': self.id,
@@ -312,11 +312,11 @@ class QueueState(Base, TimestampMixin):
     # Timestamp for optimistic sync detection
     synced_at = Column(DateTime, default=datetime.utcnow)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert queue state to dictionary"""
         import json
         try:
-            track_ids = json.loads(self.track_ids) if self.track_ids else []
+            track_ids: List[int] = json.loads(self.track_ids) if self.track_ids else []
         except (json.JSONDecodeError, TypeError):
             track_ids = []
 
@@ -332,14 +332,14 @@ class QueueState(Base, TimestampMixin):
         }
 
     @staticmethod
-    def from_dict(data: dict) -> 'QueueState':
+    def from_dict(data: Dict[str, Any]) -> 'QueueState':
         """Create QueueState from dictionary"""
         import json
         state = QueueState()
         state.track_ids = json.dumps(data.get('track_ids', []))
-        state.current_index = data.get('current_index', 0)
-        state.is_shuffled = data.get('is_shuffled', False)
-        state.repeat_mode = data.get('repeat_mode', 'off')
+        state.current_index = int(data.get('current_index', 0))
+        state.is_shuffled = bool(data.get('is_shuffled', False))
+        state.repeat_mode = str(data.get('repeat_mode', 'off'))
         return state
 
 
@@ -371,16 +371,16 @@ class QueueHistory(Base, TimestampMixin):
     # For 'shuffle': contains shuffle_mode info
     operation_metadata = Column(Text, default='{}')
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert history entry to dictionary"""
         import json
         try:
-            state_snapshot = json.loads(self.state_snapshot) if self.state_snapshot else {}
+            state_snapshot: Dict[str, Any] = json.loads(self.state_snapshot) if self.state_snapshot else {}
         except (json.JSONDecodeError, TypeError):
             state_snapshot = {}
 
         try:
-            operation_metadata = json.loads(self.operation_metadata) if self.operation_metadata else {}
+            operation_metadata: Dict[str, Any] = json.loads(self.operation_metadata) if self.operation_metadata else {}
         except (json.JSONDecodeError, TypeError):
             operation_metadata = {}
 
@@ -395,12 +395,12 @@ class QueueHistory(Base, TimestampMixin):
         }
 
     @staticmethod
-    def from_dict(data: dict) -> 'QueueHistory':
+    def from_dict(data: Dict[str, Any]) -> 'QueueHistory':
         """Create QueueHistory from dictionary"""
         import json
         entry = QueueHistory()
-        entry.queue_state_id = data.get('queue_state_id', 1)
-        entry.operation = data.get('operation', 'set')
+        entry.queue_state_id = int(data.get('queue_state_id', 1))
+        entry.operation = str(data.get('operation', 'set'))
         entry.state_snapshot = json.dumps(data.get('state_snapshot', {}))
         entry.operation_metadata = json.dumps(data.get('operation_metadata', {}))
         return entry
@@ -444,16 +444,16 @@ class QueueTemplate(Base, TimestampMixin):
     # Last time this template was loaded
     last_loaded = Column(DateTime, nullable=True)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert template to dictionary"""
         import json
         try:
-            track_ids = json.loads(self.track_ids) if self.track_ids else []
+            track_ids: List[int] = json.loads(self.track_ids) if self.track_ids else []
         except (json.JSONDecodeError, TypeError):
             track_ids = []
 
         try:
-            tags = json.loads(self.tags) if self.tags else []
+            tags: List[str] = json.loads(self.tags) if self.tags else []
         except (json.JSONDecodeError, TypeError):
             tags = []
 
@@ -473,15 +473,15 @@ class QueueTemplate(Base, TimestampMixin):
         }
 
     @staticmethod
-    def from_dict(data: dict) -> 'QueueTemplate':
+    def from_dict(data: Dict[str, Any]) -> 'QueueTemplate':
         """Create QueueTemplate from dictionary"""
         import json
         template = QueueTemplate()
-        template.name = data.get('name', 'Untitled Template')
+        template.name = str(data.get('name', 'Untitled Template'))
         template.track_ids = json.dumps(data.get('track_ids', []))
-        template.is_shuffled = data.get('is_shuffled', False)
-        template.repeat_mode = data.get('repeat_mode', 'off')
+        template.is_shuffled = bool(data.get('is_shuffled', False))
+        template.repeat_mode = str(data.get('repeat_mode', 'off'))
         template.description = data.get('description', None)
         template.tags = json.dumps(data.get('tags', []))
-        template.is_favorite = data.get('is_favorite', False)
+        template.is_favorite = bool(data.get('is_favorite', False))
         return template
