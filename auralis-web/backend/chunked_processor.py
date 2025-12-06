@@ -423,72 +423,19 @@ class ChunkedAudioProcessor:
 
         return audio_chunk
 
-    def process_chunk(self, chunk_index: int, fast_start: bool = False) -> str:
+    def _process_chunk_core(self, chunk_index: int, fast_start: bool = False) -> np.ndarray:
         """
-        Process a single chunk with Auralis HybridProcessor.
+        Core chunk processing logic (shared by process_chunk and get_wav_chunk_path).
+
+        Extracted to eliminate code duplication between the two output methods.
 
         Args:
             chunk_index: Index of chunk to process
-            fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
+            fast_start: If True, skip fingerprint analysis for faster buffering
 
         Returns:
-            Path to processed chunk file
+            Processed audio chunk (context trimmed, intensity blended, levels smoothed)
         """
-        # Check cache first
-        cache_key = self._get_cache_key(chunk_index)
-        cached_path = self.chunk_cache.get(cache_key)
-
-        if cached_path and Path(cached_path).exists():
-            logger.info(f"Serving cached chunk {chunk_index}/{self.total_chunks}")
-            return cached_path
-
-        logger.info(f"Processing chunk {chunk_index}/{self.total_chunks} (preset: {self.preset}, fast_start: {fast_start})")
-
-        # NEW (Beta.9): Extract fingerprint on first chunk if not cached
-        # This creates the .25d file for future fast processing
-        if self.fingerprint is None and chunk_index == 0 and self.preset is not None:
-            logger.info(f"🔍 Extracting fingerprint for track {self.track_id} (first playback)...")
-
-            try:
-                # Load full audio for fingerprint extraction
-                from auralis.io.unified_loader import load_audio
-                full_audio, sr = load_audio(self.filepath)
-
-                # Extract complete 25D fingerprint
-                from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
-                analyzer = AudioFingerprintAnalyzer()
-
-                # Add metadata for .25d file
-                from mutagen import File as MutagenFile
-                audio_file = MutagenFile(self.filepath)
-                duration = audio_file.info.length if audio_file else self.total_duration
-
-                self.fingerprint = analyzer.analyze(full_audio, sr)
-                # Add metadata (will be stripped before saving)
-                self.fingerprint['_metadata'] = {
-                    'duration': duration,
-                    'sample_rate': sr
-                }
-
-                # Generate mastering targets from fingerprint
-                self.mastering_targets = self._generate_targets_from_fingerprint(self.fingerprint)
-
-                # Set targets on processor for fixed-target mode
-                if self.processor is not None:
-                    self.processor.set_fixed_mastering_targets(self.mastering_targets)
-                    logger.info(f"🎯 Applied newly extracted mastering targets to processor")
-
-                # Save to .25d file for future use
-                from auralis.analysis.fingerprint import FingerprintStorage
-                FingerprintStorage.save(Path(self.filepath), self.fingerprint, self.mastering_targets)
-                logger.info(f"💾 Saved fingerprint to .25d file for track {self.track_id}")
-
-            except Exception as e:
-                logger.error(f"Fingerprint extraction failed: {e}, using default processing")
-                # Continue with normal processing (HybridProcessor will analyze per-chunk)
-                self.fingerprint = None
-                self.mastering_targets = None
-
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
 
@@ -563,6 +510,77 @@ class ChunkedAudioProcessor:
         # CRITICAL FIX: Smooth level transitions between chunks
         # This prevents volume jumps by limiting maximum RMS changes
         processed_chunk = self._smooth_level_transition(processed_chunk, chunk_index)
+
+        return processed_chunk
+
+    def process_chunk(self, chunk_index: int, fast_start: bool = False) -> str:
+        """
+        Process a single chunk with Auralis HybridProcessor and save to WAV.
+
+        Args:
+            chunk_index: Index of chunk to process
+            fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
+
+        Returns:
+            Path to processed chunk file
+        """
+        # Check cache first
+        cache_key = self._get_cache_key(chunk_index)
+        cached_path = self.chunk_cache.get(cache_key)
+
+        if cached_path and Path(cached_path).exists():
+            logger.info(f"Serving cached chunk {chunk_index}/{self.total_chunks}")
+            return cached_path
+
+        logger.info(f"Processing chunk {chunk_index}/{self.total_chunks} (preset: {self.preset}, fast_start: {fast_start})")
+
+        # NEW (Beta.9): Extract fingerprint on first chunk if not cached
+        # This creates the .25d file for future fast processing
+        if self.fingerprint is None and chunk_index == 0 and self.preset is not None:
+            logger.info(f"🔍 Extracting fingerprint for track {self.track_id} (first playback)...")
+
+            try:
+                # Load full audio for fingerprint extraction
+                from auralis.io.unified_loader import load_audio
+                full_audio, sr = load_audio(self.filepath)
+
+                # Extract complete 25D fingerprint
+                from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
+                analyzer = AudioFingerprintAnalyzer()
+
+                # Add metadata for .25d file
+                from mutagen import File as MutagenFile
+                audio_file = MutagenFile(self.filepath)
+                duration = audio_file.info.length if audio_file else self.total_duration
+
+                self.fingerprint = analyzer.analyze(full_audio, sr)
+                # Add metadata (will be stripped before saving)
+                self.fingerprint['_metadata'] = {
+                    'duration': duration,
+                    'sample_rate': sr
+                }
+
+                # Generate mastering targets from fingerprint
+                self.mastering_targets = self._generate_targets_from_fingerprint(self.fingerprint)
+
+                # Set targets on processor for fixed-target mode
+                if self.processor is not None:
+                    self.processor.set_fixed_mastering_targets(self.mastering_targets)
+                    logger.info(f"🎯 Applied newly extracted mastering targets to processor")
+
+                # Save to .25d file for future use
+                from auralis.analysis.fingerprint import FingerprintStorage
+                FingerprintStorage.save(Path(self.filepath), self.fingerprint, self.mastering_targets)
+                logger.info(f"💾 Saved fingerprint to .25d file for track {self.track_id}")
+
+            except Exception as e:
+                logger.error(f"Fingerprint extraction failed: {e}, using default processing")
+                # Continue with normal processing (HybridProcessor will analyze per-chunk)
+                self.fingerprint = None
+                self.mastering_targets = None
+
+        # Process chunk using shared core logic
+        processed_chunk = self._process_chunk_core(chunk_index, fast_start)
 
         # Save chunk
         chunk_path = self._get_chunk_path(chunk_index)
@@ -861,6 +879,67 @@ class ChunkedAudioProcessor:
 
         return str(full_path)
 
+    def _extract_chunk_segment(self, processed_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
+        """
+        Extract the correct segment from a processed chunk based on its position.
+
+        Handles first chunk, last chunk, and middle chunks differently to ensure:
+        - No duplicate audio at boundaries
+        - Proper handling of overlap regions
+        - Correct duration for the final segment
+
+        Args:
+            processed_chunk: Full processed chunk (may include overlap/context)
+            chunk_index: Index of this chunk
+
+        Returns:
+            Extracted segment ready for WAV encoding
+        """
+        is_last = chunk_index == self.total_chunks - 1
+        overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
+
+        if chunk_index == 0:
+            # First chunk: extract exactly CHUNK_DURATION seconds (or full duration if shorter)
+            expected_samples = int(CHUNK_DURATION * self.sample_rate)
+            extracted = processed_chunk[:expected_samples]
+            logger.debug(f"✅ Chunk 0: extracted [0:{expected_samples}] samples ({expected_samples/self.sample_rate:.2f}s)")
+
+        elif is_last:
+            # Last chunk: skip the overlap, extract remaining duration
+            # Use CHUNK_INTERVAL (10s) for chunk position, not CHUNK_DURATION (15s)
+            chunk_start_time = chunk_index * CHUNK_INTERVAL
+            remaining_duration = max(0, self.total_duration - chunk_start_time)
+            expected_samples = int(remaining_duration * self.sample_rate)
+            # Skip the overlap region to avoid duplicate audio
+            extracted = processed_chunk[overlap_samples:overlap_samples + expected_samples]
+            logger.debug(f"✅ Chunk {chunk_index} (last): starts {chunk_start_time:.1f}s, remaining {remaining_duration:.1f}s, {expected_samples} samples")
+
+        else:
+            # Regular chunk: skip the overlap, extract exactly CHUNK_DURATION seconds
+            expected_samples = int(CHUNK_DURATION * self.sample_rate)
+            # Skip the overlap region to avoid duplicate audio
+            extracted = processed_chunk[overlap_samples:overlap_samples + expected_samples]
+            logger.debug(f"✅ Chunk {chunk_index}: skipped {overlap_samples} overlap, extracted {expected_samples} samples ({expected_samples/self.sample_rate:.2f}s)")
+
+        # Verify and pad/trim if needed (edge case handling)
+        current_samples = len(extracted)
+        expected_for_validation = int(CHUNK_DURATION * self.sample_rate) if not is_last else int(remaining_duration * self.sample_rate)
+
+        if current_samples < expected_for_validation:
+            # Pad with silence if too short (edge case, shouldn't happen normally)
+            padding_needed = expected_for_validation - current_samples
+            padding = np.zeros((padding_needed, extracted.shape[1] if extracted.ndim > 1 else 1))
+            if extracted.ndim == 1:
+                padding = padding.flatten()
+            extracted = np.concatenate([extracted, padding])
+            logger.warning(f"⚠️ Chunk {chunk_index} was {padding_needed} samples short, padded with silence")
+        elif current_samples > expected_for_validation:
+            # Trim if too long (shouldn't happen with the new logic, but be safe)
+            extracted = extracted[:expected_for_validation]
+            logger.warning(f"⚠️ Chunk {chunk_index} was {current_samples - expected_for_validation} samples too long, trimmed")
+
+        return extracted
+
     def get_wav_chunk_path(self, chunk_index: int) -> str:
         """
         Get WAV chunk for unified streaming architecture.
@@ -892,106 +971,19 @@ class ChunkedAudioProcessor:
             self.chunk_cache[cache_key] = str(wav_chunk_path)
             return str(wav_chunk_path)
 
-        # Process audio chunk
         logger.info(f"Processing chunk {chunk_index} directly to WAV")
 
-        # Load chunk with context
-        audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
-
-        # SPECIAL CASE: If preset is None, we're serving original/unprocessed audio
-        # Just trim context and encode without any processing
-        if self.processor is None:
-            logger.info(f"Serving original audio for chunk {chunk_index} (no processing)")
-            processed_chunk = audio_chunk
-        else:
-            # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
-            # This reduces initial buffering from ~30s to <5s
-            if chunk_index == 0:
-                # Temporarily disable fingerprint analysis
-                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
-                self.processor.content_analyzer.use_fingerprint_analysis = False
-                logger.info("⚡ Fast-start: Skipping fingerprint analysis for first chunk")
-
-                try:
-                    # Process with shared HybridProcessor instance
-                    processed_chunk = self.processor.process(audio_chunk)
-                finally:
-                    # Restore fingerprint analysis for subsequent chunks
-                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
-            else:
-                # Normal processing with fingerprint analysis
-                processed_chunk = self.processor.process(audio_chunk)
-
-        # Trim context (keep only the actual chunk)
-        processed_chunk = self._trim_context(processed_chunk, chunk_index)
-
-        # Apply intensity blending
-        if self.intensity < 1.0:
-            # Load the exact same chunk with context that we processed
-            original_chunk_with_context, _, _ = self.load_chunk(chunk_index, with_context=True)
-
-            # Trim context from original to match processed chunk dimensions
-            original_chunk_with_context = self._trim_context(original_chunk_with_context, chunk_index)
-
-            # Now both chunks should have the same length
-            min_len = min(len(original_chunk_with_context), len(processed_chunk))
-            processed_chunk = (
-                original_chunk_with_context[:min_len] * (1.0 - self.intensity) +
-                processed_chunk[:min_len] * self.intensity
-            )
+        # Use shared core processing logic (eliminates duplicate code)
+        processed_chunk = self._process_chunk_core(chunk_index, fast_start=False)
 
         # Extract the correct segment for this chunk
-        # NO windowing - perfectly continuous audio segments
-        is_last = chunk_index == self.total_chunks - 1
-        overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
-
-        if chunk_index == 0:
-            # First chunk: extract exactly 30 seconds (or full duration if shorter)
-            expected_samples = int(CHUNK_DURATION * self.sample_rate)
-            processed_chunk = processed_chunk[:expected_samples]
-            logger.debug(f"✅ Chunk 0: extracted [0:{expected_samples}] samples ({expected_samples/self.sample_rate:.2f}s)")
-
-        elif is_last:
-            # Last chunk: skip the overlap, extract remaining duration
-            # Use CHUNK_INTERVAL (10s) for chunk position, not CHUNK_DURATION (15s)
-            chunk_start_time = chunk_index * CHUNK_INTERVAL
-            remaining_duration = max(0, self.total_duration - chunk_start_time)
-            expected_samples = int(remaining_duration * self.sample_rate)
-            # Skip the overlap region to avoid duplicate audio
-            processed_chunk = processed_chunk[overlap_samples:overlap_samples + expected_samples]
-            logger.debug(f"✅ Chunk {chunk_index} (last): chunk starts at {chunk_start_time:.1f}s, remaining {remaining_duration:.1f}s, extracted {expected_samples} samples")
-
-        else:
-            # Regular chunk: skip the 3s overlap, extract exactly 30 seconds
-            expected_samples = int(CHUNK_DURATION * self.sample_rate)
-            # Skip the overlap region to avoid duplicate audio
-            processed_chunk = processed_chunk[overlap_samples:overlap_samples + expected_samples]
-            logger.debug(f"✅ Chunk {chunk_index}: skipped {overlap_samples} overlap, extracted {expected_samples} samples ({expected_samples/self.sample_rate:.2f}s)")
-
-        # CRITICAL FIX: Smooth level transitions between chunks
-        # This must come AFTER extraction to ensure consistent boundaries
-        processed_chunk = self._smooth_level_transition(processed_chunk, chunk_index)
-
-        # Verify final length (should never need padding with this logic)
-        current_samples = len(processed_chunk)
-        if current_samples < expected_samples:
-            # Pad with silence if too short (edge case, shouldn't happen)
-            padding_needed = expected_samples - current_samples
-            padding = np.zeros((padding_needed, processed_chunk.shape[1] if processed_chunk.ndim > 1 else 1))
-            if processed_chunk.ndim == 1:
-                padding = padding.flatten()
-            processed_chunk = np.concatenate([processed_chunk, padding])
-            logger.warning(f"⚠️ Chunk {chunk_index} was {padding_needed} samples short, padded with silence")
-        elif current_samples > expected_samples:
-            # This shouldn't happen with the new logic, but trim just in case
-            processed_chunk = processed_chunk[:expected_samples]
-            logger.warning(f"⚠️ Chunk {chunk_index} was {current_samples - expected_samples} samples too long, trimmed")
+        extracted_chunk = self._extract_chunk_segment(processed_chunk, chunk_index)
 
         # Encode directly to WAV (Web Audio API compatible)
         try:
             from encoding.wav_encoder import encode_to_wav, WAVEncoderError
 
-            wav_bytes = encode_to_wav(processed_chunk, self.sample_rate)
+            wav_bytes = encode_to_wav(extracted_chunk, self.sample_rate)
 
             # Write WAV file
             wav_chunk_path.write_bytes(wav_bytes)
