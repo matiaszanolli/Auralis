@@ -1,8 +1,9 @@
 """
 Player Router
-~~~~~~~~~~~~~
 
-Handles audio playback control and queue management.
+Handles audio playback control and queue management via FastAPI endpoints.
+Delegates business logic to service layer (PlaybackService, QueueService,
+RecommendationService, NavigationService).
 
 Note: Audio streaming is now handled exclusively via WebSocket using the WebSocket controller.
       No REST streaming endpoints remain (consolidated to unified WebSocket architecture).
@@ -34,6 +35,13 @@ from pydantic import BaseModel
 from typing import List, Optional
 import logging
 import os
+
+from services import (
+    PlaybackService,
+    QueueService,
+    RecommendationService,
+    NavigationService
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["player"])
@@ -92,6 +100,45 @@ def create_player_router(
         APIRouter: Configured router instance
     """
 
+    # Initialize services
+    def get_playback_service():
+        """Lazy service initialization"""
+        return PlaybackService(
+            audio_player=get_audio_player(),
+            player_state_manager=get_player_state_manager(),
+            connection_manager=connection_manager
+        )
+
+    def get_queue_service():
+        """Lazy service initialization"""
+        return QueueService(
+            audio_player=get_audio_player(),
+            player_state_manager=get_player_state_manager(),
+            library_manager=get_library_manager(),
+            connection_manager=connection_manager,
+            create_track_info_fn=create_track_info_fn
+        )
+
+    def get_recommendation_service():
+        """Lazy service initialization"""
+        return RecommendationService(
+            connection_manager=connection_manager
+        )
+
+    def get_navigation_service():
+        """Lazy service initialization"""
+        return NavigationService(
+            audio_player=get_audio_player(),
+            player_state_manager=get_player_state_manager(),
+            library_manager=get_library_manager(),
+            connection_manager=connection_manager,
+            create_track_info_fn=create_track_info_fn
+        )
+
+    # ============================================================================
+    # PLAYBACK ENDPOINTS
+    # ============================================================================
+
     @router.get("/api/player/status")
     async def get_player_status():
         """
@@ -103,60 +150,13 @@ def create_player_router(
         Raises:
             HTTPException: If player not available or query fails
         """
-        player_state_manager = get_player_state_manager()
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-
         try:
-            # Return current state from state manager
-            state = player_state_manager.get_state()
-            return state.model_dump()
+            service = get_playback_service()
+            return await service.get_status()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
-
-    async def _generate_and_broadcast_mastering_recommendation(track_id: int, track_path: str):
-        """
-        Background task to generate mastering recommendation and broadcast via WebSocket (Priority 4).
-
-        This is non-blocking - if analysis fails, playback continues normally.
-
-        Args:
-            track_id: Track database ID
-            track_path: Path to audio file
-        """
-        try:
-            # Import here to avoid circular dependencies
-            import sys
-            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-            from chunked_processor import ChunkedAudioProcessor
-
-            # Create processor to generate recommendation
-            processor = ChunkedAudioProcessor(
-                track_id=track_id,
-                filepath=track_path,
-                preset=None,  # No processing needed for analysis only
-                intensity=1.0,
-                chunk_cache={}
-            )
-
-            # Get weighted recommendation
-            rec = processor.get_mastering_recommendation(confidence_threshold=0.4)
-
-            if rec:
-                # Serialize and broadcast
-                rec_dict = rec.to_dict()
-                rec_dict['track_id'] = track_id
-                rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
-
-                await connection_manager.broadcast({
-                    "type": "mastering_recommendation",
-                    "data": rec_dict
-                })
-                logger.info(f"📊 Broadcasted mastering recommendation for track {track_id}")
-
-        except Exception as e:
-            # Log but don't fail - recommendations are optional
-            logger.warning(f"Failed to generate mastering recommendation for track {track_id}: {e}")
 
     @router.post("/api/player/load")
     async def load_track(track_path: str, track_id: int = None, background_tasks: BackgroundTasks = None):
@@ -181,7 +181,7 @@ def create_player_router(
             raise HTTPException(status_code=503, detail="Audio player not available")
 
         try:
-            # Add to queue with track info dict (add_to_queue expects dict, not string)
+            # Add to queue with track info dict
             track_info = {
                 'filepath': track_path,
                 'id': track_id
@@ -197,10 +197,10 @@ def create_player_router(
                 })
 
                 # Generate mastering recommendation in background (Priority 4)
-                # Only if track_id provided and background tasks available
                 if track_id is not None and background_tasks:
+                    service = get_recommendation_service()
                     background_tasks.add_task(
-                        _generate_and_broadcast_mastering_recommendation,
+                        service.generate_and_broadcast_recommendation,
                         track_id=track_id,
                         track_path=track_path
                     )
@@ -215,99 +215,34 @@ def create_player_router(
 
     @router.post("/api/player/play")
     async def play_audio():
-        """
-        Start playback (updates single source of truth).
-
-        Returns:
-            dict: Success message and playback state
-
-        Raises:
-            HTTPException: If player not available or playback fails
-        """
-        player_state_manager = get_player_state_manager()
-        audio_player = get_audio_player()
-
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
+        """Start playback (updates single source of truth)."""
         try:
-            audio_player.play()
-
-            # Update state (broadcasts automatically)
-            await player_state_manager.set_playing(True)
-
-            # Broadcast playback_started event
-            await connection_manager.broadcast({
-                "type": "playback_started",
-                "data": {"state": "playing"}
-            })
-
-            return {"message": "Playback started", "state": "playing"}
+            service = get_playback_service()
+            return await service.play()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to start playback: {e}")
 
     @router.post("/api/player/pause")
     async def pause_audio():
-        """
-        Pause playback (updates single source of truth).
-
-        Returns:
-            dict: Success message and playback state
-
-        Raises:
-            HTTPException: If player not available or pause fails
-        """
-        player_state_manager = get_player_state_manager()
-        audio_player = get_audio_player()
-
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
+        """Pause playback (updates single source of truth)."""
         try:
-            audio_player.pause()
-
-            # Update state (broadcasts automatically)
-            await player_state_manager.set_playing(False)
-
-            # Broadcast playback_paused event
-            await connection_manager.broadcast({
-                "type": "playback_paused",
-                "data": {"state": "paused"}
-            })
-
-            return {"message": "Playback paused", "state": "paused"}
+            service = get_playback_service()
+            return await service.pause()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to pause playback: {e}")
 
     @router.post("/api/player/stop")
     async def stop_audio():
-        """
-        Stop playback.
-
-        Returns:
-            dict: Success message and playback state
-
-        Raises:
-            HTTPException: If audio player not available or stop fails
-        """
-        audio_player = get_audio_player()
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
+        """Stop playback."""
         try:
-            audio_player.stop()
-
-            # Broadcast to all connected clients
-            await connection_manager.broadcast({
-                "type": "playback_stopped",
-                "data": {"state": "stopped"}
-            })
-
-            return {"message": "Playback stopped", "state": "stopped"}
+            service = get_playback_service()
+            return await service.stop()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to stop playback: {e}")
 
@@ -321,63 +256,42 @@ def create_player_router(
 
         Returns:
             dict: Success message and new position
-
-        Raises:
-            HTTPException: If audio player not available or seek fails
         """
-        audio_player = get_audio_player()
-        player_state_manager = get_player_state_manager()
-
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
         try:
-            if hasattr(audio_player, 'seek_to_position'):
-                audio_player.seek_to_position(position)
+            service = get_playback_service()
+            result = await service.seek(position)
 
             # Update multi-tier buffer with new position (for branch prediction)
-            if get_multi_tier_buffer and get_enhancement_settings and player_state_manager:
-                buffer_manager = get_multi_tier_buffer()
-                if buffer_manager:
-                    state = player_state_manager.get_state()
-                    # Only update if we have a current track
-                    if state.current_track:
-                        settings = get_enhancement_settings()
-                        await buffer_manager.update_position(
-                            track_id=state.current_track.id,
-                            position=position,
-                            preset=settings.get("preset", "adaptive"),
-                            intensity=settings.get("intensity", 1.0)
-                        )
-                        logger.debug(f"Buffer manager updated: track={state.current_track.id}, position={position:.1f}s")
+            if get_multi_tier_buffer and get_enhancement_settings:
+                player_state_manager = get_player_state_manager()
+                if player_state_manager:
+                    buffer_manager = get_multi_tier_buffer()
+                    if buffer_manager:
+                        state = player_state_manager.get_state()
+                        if state.current_track:
+                            settings = get_enhancement_settings()
+                            await buffer_manager.update_position(
+                                track_id=state.current_track.id,
+                                position=position,
+                                preset=settings.get("preset", "adaptive"),
+                                intensity=settings.get("intensity", 1.0)
+                            )
+                            logger.debug(f"Buffer manager updated: track={state.current_track.id}, position={position:.1f}s")
 
-            # Broadcast to all connected clients
-            await connection_manager.broadcast({
-                "type": "position_changed",
-                "data": {"position": position}
-            })
-
-            return {"message": "Position updated", "position": position}
+            return result
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to seek: {e}")
 
     @router.get("/api/player/volume")
     async def get_volume():
-        """
-        Get current playback volume (0.0 to 1.0).
-
-        Returns:
-            dict: Current volume level
-
-        Raises:
-            HTTPException: If audio player not available
-        """
+        """Get current playback volume (0.0 to 1.0)."""
         audio_player = get_audio_player()
         if not audio_player:
             raise HTTPException(status_code=503, detail="Audio player not available")
 
         try:
-            # Get current volume from audio player
             volume = getattr(audio_player, 'volume', 0.5)
             return {"volume": volume}
         except Exception as e:
@@ -385,168 +299,52 @@ def create_player_router(
 
     @router.post("/api/player/volume")
     async def set_volume(volume: float):
-        """
-        Set playback volume (0.0 to 1.0).
-
-        Args:
-            volume: Volume level (0.0 to 1.0)
-
-        Returns:
-            dict: Success message and new volume
-
-        Raises:
-            HTTPException: If audio player not available or volume change fails
-        """
-        audio_player = get_audio_player()
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
+        """Set playback volume (0.0 to 1.0)."""
         try:
-            # Clamp volume to valid range
-            volume = max(0.0, min(1.0, volume))
-
-            if hasattr(audio_player, 'set_volume'):
-                audio_player.set_volume(volume)
-
-            # Broadcast to all connected clients
-            await connection_manager.broadcast({
-                "type": "volume_changed",
-                "data": {"volume": volume}
-            })
-
-            return {"message": "Volume updated", "volume": volume}
+            service = get_playback_service()
+            return await service.set_volume(volume)
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to set volume: {e}")
 
+    # ============================================================================
+    # QUEUE ENDPOINTS
+    # ============================================================================
+
     @router.get("/api/player/queue")
     async def get_queue():
-        """
-        Get current playback queue.
-
-        Returns:
-            dict: Queue info with tracks and current index
-
-        Raises:
-            HTTPException: If audio player not available or query fails
-        """
-        audio_player = get_audio_player()
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
+        """Get current playback queue."""
         try:
-            if hasattr(audio_player, 'queue'):
-                queue_info = audio_player.queue.get_queue_info() if hasattr(audio_player.queue, 'get_queue_info') else {
-                    "tracks": list(audio_player.queue.queue),
-                    "current_index": audio_player.queue.current_index,
-                    "total_tracks": len(audio_player.queue.queue)
-                }
-                return queue_info
-            else:
-                return {"tracks": [], "current_index": 0, "total_tracks": 0}
+            service = get_queue_service()
+            return await service.get_queue_info()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get queue: {e}")
 
     @router.post("/api/player/queue")
     async def set_queue(request: SetQueueRequest):
-        """
-        Set the playback queue (updates single source of truth).
-
-        Args:
-            request: Queue data with track IDs and start index
-
-        Returns:
-            dict: Success message and queue info
-
-        Raises:
-            HTTPException: If player/library not available or operation fails
-        """
-        player_state_manager = get_player_state_manager()
-        library_manager = get_library_manager()
-        audio_player = get_audio_player()
-
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
+        """Set the playback queue (updates single source of truth)."""
         try:
-            # Get tracks from library by IDs
-            db_tracks = []
-            for track_id in request.tracks:
-                track = library_manager.tracks.get_by_id(track_id)
-                if track:
-                    db_tracks.append(track)
-
-            if not db_tracks:
-                raise HTTPException(status_code=400, detail="No valid tracks found")
-
-            # Convert to TrackInfo for state
-            track_infos = [create_track_info_fn(t) for t in db_tracks]
-            track_infos = [t for t in track_infos if t is not None]
-
-            # Update state manager (this broadcasts automatically)
-            await player_state_manager.set_queue(track_infos, request.start_index)
-
-            # Set queue in actual player
-            if hasattr(audio_player, 'queue'):
-                audio_player.queue.set_queue([t.filepath for t in db_tracks], request.start_index)
-
-            # Load and start playing if requested
-            if request.start_index >= 0 and request.start_index < len(db_tracks):
-                current_track = db_tracks[request.start_index]
-
-                # Update state with current track
-                await player_state_manager.set_track(current_track, library_manager)
-
-                # Load the track in player
-                audio_player.load_file(current_track.filepath)
-
-                # Start playback
-                audio_player.play()
-
-                # Update playing state
-                await player_state_manager.set_playing(True)
-
-            return {
-                "message": "Queue set successfully",
-                "track_count": len(track_infos),
-                "start_index": request.start_index
-            }
-        except HTTPException:
-            raise
+            service = get_queue_service()
+            return await service.set_queue(request.tracks, request.start_index)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e) if "valid" in str(e) else "Player not available")
         except Exception as e:
-            import traceback
-            logger.error(f"set_queue exception: {type(e).__name__}: {e}")
-            logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=f"Failed to set queue: {e}")
 
     @router.post("/api/player/queue/add")
     async def add_to_queue(track_path: str):
-        """
-        Add track to playback queue.
-
-        Args:
-            track_path: Path to audio file
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If audio player not available or operation fails
-        """
+        """Add track to playback queue."""
         audio_player = get_audio_player()
         if not audio_player:
             raise HTTPException(status_code=503, detail="Audio player not available")
 
         try:
-            # add_to_queue expects a dict with track info, not a string path
-            # Create a minimal track info dict with the filepath
             track_info = {"filepath": track_path}
             audio_player.add_to_queue(track_info)
 
-            # Broadcast queue update
             await connection_manager.broadcast({
                 "type": "queue_updated",
                 "data": {"action": "added", "track_path": track_path}
@@ -558,410 +356,95 @@ def create_player_router(
 
     @router.delete("/api/player/queue/{index}")
     async def remove_from_queue(index: int):
-        """
-        Remove track from queue at specified index.
-
-        Args:
-            index: Track index to remove
-
-        Returns:
-            dict: Success message and updated queue size
-
-        Raises:
-            HTTPException: If player not available, invalid index, or operation fails
-        """
-        player_state_manager = get_player_state_manager()
-        audio_player = get_audio_player()
-
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue'):
-            raise HTTPException(status_code=503, detail="Queue manager not available")
-
+        """Remove track from queue at specified index."""
         try:
-            queue_manager = audio_player.queue
-
-            # Validate index
-            if index < 0 or index >= queue_manager.get_queue_size():
-                raise HTTPException(status_code=400, detail=f"Invalid index: {index}")
-
-            # Remove track from queue
-            success = queue_manager.remove_track(index)
-
-            if not success:
-                raise HTTPException(status_code=400, detail="Failed to remove track")
-
-            # Get updated queue
-            updated_queue = queue_manager.get_queue()
-
-            # Broadcast queue update
-            await connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "removed",
-                    "index": index,
-                    "queue_size": len(updated_queue)
-                }
-            })
-
-            return {
-                "message": "Track removed from queue",
-                "index": index,
-                "queue_size": len(updated_queue)
-            }
-        except HTTPException:
-            raise
+            service = get_queue_service()
+            return await service.remove_track_from_queue(index)
+        except ValueError as e:
+            status_code = 400 if "Invalid" in str(e) else 503
+            raise HTTPException(status_code=status_code, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to remove from queue: {e}")
 
     @router.put("/api/player/queue/reorder")
     async def reorder_queue(request: ReorderQueueRequest):
-        """
-        Reorder the playback queue.
-
-        Args:
-            request: New order of track indices
-
-        Returns:
-            dict: Success message and queue size
-
-        Raises:
-            HTTPException: If player not available, invalid order, or operation fails
-        """
-        player_state_manager = get_player_state_manager()
-        audio_player = get_audio_player()
-
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue'):
-            raise HTTPException(status_code=503, detail="Queue manager not available")
-
+        """Reorder the playback queue."""
         try:
-            queue_manager = audio_player.queue
-
-            # Validate new_order
-            queue_size = queue_manager.get_queue_size()
-            if len(request.new_order) != queue_size:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"new_order length ({len(request.new_order)}) must match queue size ({queue_size})"
-                )
-
-            if set(request.new_order) != set(range(queue_size)):
-                raise HTTPException(
-                    status_code=400,
-                    detail="new_order must contain all indices from 0 to queue_size-1 exactly once"
-                )
-
-            # Reorder queue
-            success = queue_manager.reorder_tracks(request.new_order)
-
-            if not success:
-                raise HTTPException(status_code=400, detail="Failed to reorder queue")
-
-            # Get updated queue
-            updated_queue = queue_manager.get_queue()
-
-            # Broadcast queue update
-            await connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "reordered",
-                    "queue_size": len(updated_queue)
-                }
-            })
-
-            return {
-                "message": "Queue reordered successfully",
-                "queue_size": len(updated_queue)
-            }
-        except HTTPException:
-            raise
+            service = get_queue_service()
+            return await service.reorder_queue(request.new_order)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to reorder queue: {e}")
 
     @router.post("/api/player/queue/clear")
     async def clear_queue():
-        """
-        Clear the entire playback queue.
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If player not available or operation fails
-        """
-        player_state_manager = get_player_state_manager()
-        audio_player = get_audio_player()
-
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue'):
-            raise HTTPException(status_code=503, detail="Queue manager not available")
-
+        """Clear the entire playback queue."""
         try:
-            queue_manager = audio_player.queue
-
-            # Clear queue
-            queue_manager.clear()
-
-            # Stop playback
-            if hasattr(audio_player, 'stop'):
-                audio_player.stop()
-
-            # Update player state
-            await player_state_manager.set_playing(False)
-            await player_state_manager.set_track(None, None)
-
-            # Broadcast queue update
-            await connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "cleared",
-                    "queue_size": 0
-                }
-            })
-
-            return {"message": "Queue cleared successfully"}
-        except HTTPException:
-            raise
+            service = get_queue_service()
+            return await service.clear_queue()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to clear queue: {e}")
 
     @router.post("/api/player/queue/add-track")
     async def add_track_to_queue(request: AddTrackToQueueRequest):
-        """
-        Add a track to queue at specific position (for drag-and-drop).
-
-        Args:
-            request: Track ID and optional position
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If player/library not available or track not found
-        """
-        player_state_manager = get_player_state_manager()
-        library_manager = get_library_manager()
-        audio_player = get_audio_player()
-
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-        if not audio_player or not hasattr(audio_player, 'queue'):
-            raise HTTPException(status_code=503, detail="Queue manager not available")
-
+        """Add a track to queue at specific position (for drag-and-drop)."""
         try:
-            # Get track from library
-            track = library_manager.tracks.get_by_id(request.track_id)
-            if not track:
-                raise HTTPException(status_code=404, detail="Track not found")
-
-            queue_manager = audio_player.queue
-
-            # Add to queue at position
-            if request.position is not None:
-                # Insert at specific position
-                current_queue = queue_manager.get_queue()
-                current_queue.insert(request.position, track.filepath)
-                queue_manager.set_queue(current_queue, queue_manager.current_index)
-            else:
-                # Append to end
-                queue_manager.add_to_queue(track.filepath)
-
-            # Get updated queue for broadcasting
-            updated_queue = queue_manager.get_queue()
-
-            # Broadcast queue update
-            await connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "added",
-                    "track_id": request.track_id,
-                    "position": request.position,
-                    "queue_size": len(updated_queue)
-                }
-            })
-
-            return {
-                "message": "Track added to queue",
-                "track_id": request.track_id,
-                "position": request.position,
-                "queue_size": len(updated_queue)
-            }
-        except HTTPException:
-            raise
+            service = get_queue_service()
+            return await service.add_track_to_queue(request.track_id, request.position)
+        except ValueError as e:
+            status_code = 404 if "not found" in str(e).lower() else 503
+            raise HTTPException(status_code=status_code, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to add track to queue: {e}")
 
     @router.put("/api/player/queue/move")
     async def move_queue_track(request: MoveQueueTrackRequest):
-        """
-        Move a track within the queue (for drag-and-drop).
-
-        Args:
-            request: From and to indices
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If player not available, invalid indices, or operation fails
-        """
-        player_state_manager = get_player_state_manager()
-        audio_player = get_audio_player()
-
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue'):
-            raise HTTPException(status_code=503, detail="Queue manager not available")
-
+        """Move a track within the queue (for drag-and-drop)."""
         try:
-            queue_manager = audio_player.queue
-            current_queue = queue_manager.get_queue()
-
-            # Validate indices
-            if request.from_index < 0 or request.from_index >= len(current_queue):
-                raise HTTPException(status_code=400, detail=f"Invalid from_index: {request.from_index}")
-            if request.to_index < 0 or request.to_index >= len(current_queue):
-                raise HTTPException(status_code=400, detail=f"Invalid to_index: {request.to_index}")
-
-            # Move track
-            track = current_queue.pop(request.from_index)
-            current_queue.insert(request.to_index, track)
-
-            # Update queue
-            queue_manager.set_queue(current_queue, queue_manager.current_index)
-
-            # Broadcast queue update
-            await connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "moved",
-                    "from_index": request.from_index,
-                    "to_index": request.to_index,
-                    "queue_size": len(current_queue)
-                }
-            })
-
-            return {
-                "message": "Track moved successfully",
-                "from_index": request.from_index,
-                "to_index": request.to_index,
-                "queue_size": len(current_queue)
-            }
-        except HTTPException:
-            raise
+            service = get_queue_service()
+            return await service.move_track_in_queue(request.from_index, request.to_index)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to move track: {e}")
 
     @router.post("/api/player/queue/shuffle")
     async def shuffle_queue():
-        """
-        Shuffle the playback queue (keeps current track in place).
-
-        Returns:
-            dict: Success message and queue size
-
-        Raises:
-            HTTPException: If player not available or operation fails
-        """
-        player_state_manager = get_player_state_manager()
-        audio_player = get_audio_player()
-
-        if not player_state_manager:
-            raise HTTPException(status_code=503, detail="Player not available")
-        if not audio_player or not hasattr(audio_player, 'queue'):
-            raise HTTPException(status_code=503, detail="Queue manager not available")
-
+        """Shuffle the playback queue (keeps current track in place)."""
         try:
-            queue_manager = audio_player.queue
-
-            # Shuffle queue
-            queue_manager.shuffle()
-
-            # Get updated queue
-            updated_queue = queue_manager.get_queue()
-
-            # Broadcast queue update
-            await connection_manager.broadcast({
-                "type": "queue_updated",
-                "data": {
-                    "action": "shuffled",
-                    "queue_size": len(updated_queue)
-                }
-            })
-
-            return {
-                "message": "Queue shuffled successfully",
-                "queue_size": len(updated_queue)
-            }
-        except HTTPException:
-            raise
+            service = get_queue_service()
+            return await service.shuffle_queue()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to shuffle queue: {e}")
 
+    # ============================================================================
+    # NAVIGATION ENDPOINTS
+    # ============================================================================
+
     @router.post("/api/player/next")
     async def next_track():
-        """
-        Skip to next track.
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If audio player not available or operation fails
-        """
-        audio_player = get_audio_player()
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
+        """Skip to next track."""
         try:
-            if hasattr(audio_player, 'next_track'):
-                success = audio_player.next_track()
-                if success:
-                    await connection_manager.broadcast({
-                        "type": "track_changed",
-                        "data": {"action": "next"}
-                    })
-                    return {"message": "Skipped to next track"}
-                else:
-                    return {"message": "No next track available"}
-            else:
-                return {"message": "Next track function not available"}
+            service = get_navigation_service()
+            return await service.next_track()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to skip track: {e}")
 
     @router.post("/api/player/previous")
     async def previous_track():
-        """
-        Skip to previous track.
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If audio player not available or operation fails
-        """
-        audio_player = get_audio_player()
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
-
+        """Skip to previous track."""
         try:
-            if hasattr(audio_player, 'previous_track'):
-                success = audio_player.previous_track()
-                if success:
-                    await connection_manager.broadcast({
-                        "type": "track_changed",
-                        "data": {"action": "previous"}
-                    })
-                    return {"message": "Skipped to previous track"}
-                else:
-                    return {"message": "No previous track available"}
-            else:
-                return {"message": "Previous track function not available"}
+            service = get_navigation_service()
+            return await service.previous_track()
+        except ValueError as e:
+            raise HTTPException(status_code=503, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to skip track: {e}")
 
