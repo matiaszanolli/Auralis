@@ -9,9 +9,71 @@ Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchron
 """
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable, Protocol, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+class QueueManager(Protocol):
+    """Protocol for queue manager interface."""
+
+    def get_queue(self) -> List[Any]:
+        """Get current queue."""
+        ...
+
+    def get_queue_size(self) -> int:
+        """Get queue size."""
+        ...
+
+    def set_queue(self, queue: List[Any], index: int) -> None:
+        """Set queue with start index."""
+        ...
+
+    def add_to_queue(self, item: Any) -> None:
+        """Add item to queue."""
+        ...
+
+    def remove_track(self, index: int) -> bool:
+        """Remove track at index."""
+        ...
+
+    def reorder_tracks(self, new_order: List[int]) -> bool:
+        """Reorder tracks."""
+        ...
+
+    def shuffle(self) -> None:
+        """Shuffle queue."""
+        ...
+
+    def clear(self) -> None:
+        """Clear queue."""
+        ...
+
+    @property
+    def current_index(self) -> int:
+        """Get current index."""
+        ...
+
+
+class AudioPlayerWithQueue(Protocol):
+    """Protocol for audio player with queue support."""
+
+    @property
+    def queue(self) -> QueueManager:
+        """Get queue manager."""
+        ...
+
+    def load_file(self, path: str) -> None:
+        """Load audio file."""
+        ...
+
+    def play(self) -> None:
+        """Start playback."""
+        ...
+
+    def stop(self) -> None:
+        """Stop playback."""
+        ...
 
 
 class QueueService:
@@ -22,22 +84,32 @@ class QueueService:
     Coordinates between audio player queue and state manager.
     """
 
-    def __init__(self, audio_player, player_state_manager, library_manager, connection_manager, create_track_info_fn):
+    def __init__(
+        self,
+        audio_player: AudioPlayerWithQueue,
+        player_state_manager: Any,
+        library_manager: Any,
+        connection_manager: Any,
+        create_track_info_fn: Callable[[Any], Any],
+    ) -> None:
         """
         Initialize QueueService.
 
         Args:
-            audio_player: EnhancedAudioPlayer instance
+            audio_player: EnhancedAudioPlayer instance with queue support
             player_state_manager: PlayerStateManager instance
             library_manager: LibraryManager instance
             connection_manager: WebSocket connection manager for broadcasts
             create_track_info_fn: Function to convert DB track to TrackInfo
+
+        Raises:
+            ValueError: If any required component is not available
         """
-        self.audio_player = audio_player
-        self.player_state_manager = player_state_manager
-        self.library_manager = library_manager
-        self.connection_manager = connection_manager
-        self.create_track_info_fn = create_track_info_fn
+        self.audio_player: AudioPlayerWithQueue = audio_player
+        self.player_state_manager: Any = player_state_manager
+        self.library_manager: Any = library_manager
+        self.connection_manager: Any = connection_manager
+        self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
 
     async def get_queue_info(self) -> Dict[str, Any]:
         """

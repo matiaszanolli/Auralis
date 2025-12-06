@@ -31,7 +31,7 @@ import numpy as np
 import logging
 import hashlib
 from pathlib import Path
-from typing import Optional, Callable, Tuple
+from typing import Optional, Callable, Tuple, Union, Dict, Any, Type
 from fastapi import WebSocket
 from collections import OrderedDict
 
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 class SimpleChunkCache:
     """Simple in-memory cache for processed audio chunks."""
 
-    def __init__(self, max_chunks: int = 50):
+    def __init__(self, max_chunks: int = 50) -> None:
         """
         Initialize chunk cache.
 
@@ -53,14 +53,20 @@ class SimpleChunkCache:
             max_chunks: Maximum number of chunks to keep in memory
         """
         self.cache: OrderedDict[str, Tuple[np.ndarray, int]] = OrderedDict()
-        self.max_chunks = max_chunks
+        self.max_chunks: int = max_chunks
 
     def _make_key(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> str:
         """Generate cache key from parameters."""
         key_str = f"{track_id}:{chunk_idx}:{preset}:{intensity:.2f}"
         return hashlib.md5(key_str.encode()).hexdigest()
 
-    def get(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> Optional[Tuple[np.ndarray, int]]:
+    def get(
+        self,
+        track_id: int,
+        chunk_idx: int,
+        preset: str,
+        intensity: float
+    ) -> Optional[Tuple[np.ndarray, int]]:
         """
         Get chunk from cache.
 
@@ -75,8 +81,15 @@ class SimpleChunkCache:
             return self.cache[key]
         return None
 
-    def put(self, track_id: int, chunk_idx: int, preset: str, intensity: float,
-            audio: np.ndarray, sample_rate: int) -> None:
+    def put(
+        self,
+        track_id: int,
+        chunk_idx: int,
+        preset: str,
+        intensity: float,
+        audio: np.ndarray,
+        sample_rate: int
+    ) -> None:
         """Store chunk in cache."""
         key = self._make_key(track_id, chunk_idx, preset, intensity)
 
@@ -105,7 +118,12 @@ class AudioStreamController:
     crossfading at boundaries, caching for performance, and error recovery.
     """
 
-    def __init__(self, chunked_processor_class=None, library_manager: LibraryManager=None, cache_manager=None):
+    def __init__(
+        self,
+        chunked_processor_class: Optional[Type[ChunkedAudioProcessor]] = None,
+        library_manager: Optional[LibraryManager] = None,
+        cache_manager: Optional[Union[StreamlinedCacheManager, StreamlinedCacheAdapter, SimpleChunkCache]] = None
+    ) -> None:
         """
         Initialize AudioStreamController.
 
@@ -115,17 +133,17 @@ class AudioStreamController:
             cache_manager: Optional cache manager for chunk caching.
                           If StreamlinedCacheManager, will be automatically wrapped with adapter.
         """
-        self.chunked_processor_class = chunked_processor_class
-        self.library_manager = library_manager
+        self.chunked_processor_class: Optional[Type[ChunkedAudioProcessor]] = chunked_processor_class
+        self.library_manager: Optional[LibraryManager] = library_manager
 
         # Wrap StreamlinedCacheManager with adapter for compatibility
         if isinstance(cache_manager, StreamlinedCacheManager):
-            self.cache_manager = StreamlinedCacheAdapter(cache_manager)
+            self.cache_manager: Union[StreamlinedCacheAdapter, SimpleChunkCache] = StreamlinedCacheAdapter(cache_manager)
             logger.info("StreamlinedCacheManager wrapped with StreamlinedCacheAdapter")
         else:
             self.cache_manager = cache_manager or SimpleChunkCache()
 
-        self.active_streams = {}  # track_id -> streaming task
+        self.active_streams: Dict[int, Any] = {}  # track_id -> streaming task
 
     async def stream_enhanced_audio(
         self,
@@ -133,7 +151,7 @@ class AudioStreamController:
         preset: str,
         intensity: float,
         websocket: WebSocket,
-        on_progress: Optional[Callable] = None
+        on_progress: Optional[Callable[[int, float, str], Any]] = None
     ) -> None:
         """
         Stream enhanced audio chunks to client via WebSocket.
@@ -246,7 +264,7 @@ class AudioStreamController:
         chunk_index: int,
         processor: ChunkedAudioProcessor,
         websocket: WebSocket,
-        on_progress: Optional[Callable] = None,
+        on_progress: Optional[Callable[[int, float, str], Any]] = None,
     ) -> None:
         """
         Process single chunk and stream PCM samples to client.
@@ -260,7 +278,7 @@ class AudioStreamController:
             on_progress: Optional progress callback
         """
         # Use fast-start for first chunk (process quickly)
-        fast_start = chunk_index == 0
+        fast_start: bool = chunk_index == 0
 
         logger.debug(
             f"Processing chunk {chunk_index}/{processor.total_chunks} "
@@ -268,12 +286,12 @@ class AudioStreamController:
         )
 
         # Try to get from cache first
-        pcm_samples = None
-        sr = None
-        cache_hit = False
+        pcm_samples: Optional[np.ndarray] = None
+        sr: Optional[int] = None
+        cache_hit: bool = False
 
         try:
-            cached_result = self.cache_manager.get(
+            cached_result: Optional[Tuple[np.ndarray, int]] = self.cache_manager.get(
                 track_id=processor.track_id,
                 chunk_idx=chunk_index,
                 preset=processor.preset,
@@ -367,22 +385,22 @@ class AudioStreamController:
         # Split into smaller frames to avoid WebSocket client 1MB limit
         # Each float32 sample = 4 bytes. Base64 encodes to 4/3 size.
         # Target: ~400KB base64 per message (safe margin below 1MB limit)
-        TARGET_BASE64_SIZE = 400 * 1024  # 400 KB
-        BYTES_PER_SAMPLE = 4  # float32
-        samples_per_frame = int(TARGET_BASE64_SIZE / (BYTES_PER_SAMPLE * 4/3))
+        TARGET_BASE64_SIZE: int = 400 * 1024  # 400 KB
+        BYTES_PER_SAMPLE: int = 4  # float32
+        samples_per_frame: int = int(TARGET_BASE64_SIZE / (BYTES_PER_SAMPLE * 4/3))
 
-        total_samples = len(pcm_samples)
-        num_frames = (total_samples + samples_per_frame - 1) // samples_per_frame
+        total_samples: int = len(pcm_samples)
+        num_frames: int = (total_samples + samples_per_frame - 1) // samples_per_frame
 
         for frame_idx in range(num_frames):
-            start_idx = frame_idx * samples_per_frame
-            end_idx = min(start_idx + samples_per_frame, total_samples)
-            frame_samples = pcm_samples[start_idx:end_idx]
+            start_idx: int = frame_idx * samples_per_frame
+            end_idx: int = min(start_idx + samples_per_frame, total_samples)
+            frame_samples: np.ndarray = pcm_samples[start_idx:end_idx]
 
-            pcm_bytes = frame_samples.tobytes()
-            pcm_base64 = base64.b64encode(pcm_bytes).decode("ascii")
+            pcm_bytes: bytes = frame_samples.tobytes()
+            pcm_base64: str = base64.b64encode(pcm_bytes).decode("ascii")
 
-            message = {
+            message: Dict[str, Any] = {
                 "type": "audio_chunk",
                 "data": {
                     "chunk_index": chunk_index,
@@ -414,7 +432,7 @@ class AudioStreamController:
         total_duration: float,
     ) -> None:
         """Send audio_stream_start message to client."""
-        message = {
+        message: Dict[str, Any] = {
             "type": "audio_stream_start",
             "data": {
                 "track_id": track_id,
@@ -438,7 +456,7 @@ class AudioStreamController:
         duration: float,
     ) -> None:
         """Send audio_stream_end message to client."""
-        message = {
+        message: Dict[str, Any] = {
             "type": "audio_stream_end",
             "data": {
                 "track_id": track_id,
@@ -450,10 +468,13 @@ class AudioStreamController:
         logger.debug(f"Sent stream_end: {total_samples} samples, {duration}s duration")
 
     async def _send_error(
-        self, websocket: WebSocket, track_id: int, error_message: str
+        self,
+        websocket: WebSocket,
+        track_id: int,
+        error_message: str
     ) -> None:
         """Send audio_stream_error message to client."""
-        message = {
+        message: Dict[str, Any] = {
             "type": "audio_stream_error",
             "data": {
                 "track_id": track_id,
