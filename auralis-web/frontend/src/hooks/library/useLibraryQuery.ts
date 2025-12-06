@@ -155,6 +155,23 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   const hasMore = (offset + data.length) < total;
 
   /**
+   * Extract items from response based on query type
+   * Backend returns type-specific field names: tracks, albums, artists
+   */
+  const extractItemsFromResponse = useCallback((response: any, qType: LibraryQueryType): T[] => {
+    switch (qType) {
+      case 'tracks':
+        return response.tracks || response.items || [];
+      case 'albums':
+        return response.albums || response.items || [];
+      case 'artists':
+        return response.artists || response.items || [];
+      default:
+        return response.items || [];
+    }
+  }, []);
+
+  /**
    * Build endpoint from query type and options
    */
   const buildEndpoint = useCallback((): string => {
@@ -211,15 +228,16 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
           throw new Error('No response from server');
         }
 
+        const items = extractItemsFromResponse(response, queryType);
         setTotal(response.total);
         setOffset(response.offset);
 
         if (append) {
           // Append to existing data (infinite scroll)
-          setData(prev => [...prev, ...response.items]);
+          setData(prev => [...prev, ...items]);
         } else {
           // Replace data (first load or refetch)
-          setData(response.items);
+          setData(items);
         }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -257,7 +275,8 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       const response = await api.get<LibraryQueryResponse<T>>(newUrl);
 
       if (response) {
-        setData(prev => [...prev, ...response.items]);
+        const items = extractItemsFromResponse(response, queryType);
+        setData(prev => [...prev, ...items]);
         setTotal(response.total);
       }
     } catch (err) {
@@ -267,7 +286,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
       setError(apiError);
     }
-  }, [api, offset, limit, hasMore, isLoading, queryType, options.search, options.orderBy]);
+  }, [api, offset, limit, hasMore, isLoading, queryType, options.search, options.orderBy, extractItemsFromResponse]);
 
   /**
    * Refetch - Reset and fetch from beginning

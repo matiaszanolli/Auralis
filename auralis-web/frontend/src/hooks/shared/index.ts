@@ -12,3 +12,4 @@ export { useScrollAnimation } from './useScrollAnimation';
 export { useReduxState } from './useReduxState';
 export { useStandardizedAPI } from './useStandardizedAPI';
 export { useVisualizationOptimization } from './useVisualizationOptimization';
+export { useGroupedArtists } from './useGroupedArtists';

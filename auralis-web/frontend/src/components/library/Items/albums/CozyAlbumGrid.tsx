@@ -1,66 +1,56 @@
 /**
- * CozyAlbumGrid Component (Refactored)
+ * CozyAlbumGrid Component
  *
  * Displays albums in a responsive grid layout with infinite scroll.
- * Refactored from 232 lines using extracted components and hooks.
+ * Uses unified pagination pattern: useAlbumsQuery + useInfiniteScroll
  *
  * Extracted modules:
- * - useAlbumGridPagination - Data fetching and pagination
- * - useAlbumGridScroll - Infinite scroll logic
  * - AlbumGridLoadingState - Loading skeleton display
  * - AlbumGridContent - Album grid rendering
  */
 
-import React, { useEffect } from 'react';
+import React, { useRef } from 'react';
 import { EmptyState } from '../../../shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { AlbumGridContent } from './AlbumGridContent';
-import { useAlbumGridPagination } from './useAlbumGridPagination';
-import { useAlbumGridScroll } from './useAlbumGridScroll';
+import { useAlbumsQuery } from '@/hooks/library';
+import { useInfiniteScroll } from '@/hooks/shared';
 
 interface CozyAlbumGridProps {
   onAlbumClick?: (albumId: number) => void;
 }
 
 /**
- * CozyAlbumGrid - Main orchestrator component
+ * CozyAlbumGrid - Album grid with pagination
  *
- * Manages:
- * - Album data fetching with pagination
- * - Infinite scroll detection
- * - Loading and error states
- * - Grid rendering with album cards
+ * Uses unified pagination pattern consistent with Tracks view:
+ * - useAlbumsQuery: Data fetching with pagination
+ * - useInfiniteScroll: IntersectionObserver-based scroll detection
  */
 export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) => {
-  // Pagination logic
-  const {
-    albums,
-    loading,
-    error,
-    offset,
-    hasMore,
-    totalAlbums,
-    isLoadingMore,
-    fetchAlbums,
-    loadMore,
-  } = useAlbumGridPagination();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
-  // Scroll detection
-  const { containerRef, loadMoreTriggerRef } = useAlbumGridScroll({
+  // Data fetching with pagination
+  const {
+    data: albums,
+    isLoading,
+    error,
+    total: totalAlbums,
     hasMore,
-    isLoadingMore,
-    loading,
-    offset,
-    albumsLength: albums.length,
-    onLoadMore: loadMore,
+    fetchMore,
+  } = useAlbumsQuery({ limit: 50 });
+
+  // Infinite scroll detection
+  useInfiniteScroll({
+    ref: loadMoreTriggerRef,
+    threshold: 0.8,
+    onLoadMore: fetchMore,
+    hasMore,
+    isLoading,
   });
 
-  // Initial fetch
-  useEffect(() => {
-    fetchAlbums(true);
-  }, []);
-
-  // Handle click
+  // Handle album click
   const handleAlbumClick = (albumId: number) => {
     if (onAlbumClick) {
       onAlbumClick(albumId);
@@ -68,7 +58,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
   };
 
   // Loading state
-  if (loading) {
+  if (isLoading && albums.length === 0) {
     return <AlbumGridLoadingState />;
   }
 
@@ -77,7 +67,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     return (
       <EmptyState
         title="Error Loading Albums"
-        description={error}
+        description={error.message || 'Failed to load albums'}
       />
     );
   }
@@ -97,7 +87,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     <AlbumGridContent
       albums={albums}
       hasMore={hasMore}
-      isLoadingMore={isLoadingMore}
+      isLoadingMore={isLoading && albums.length > 0}
       totalAlbums={totalAlbums}
       containerRef={containerRef}
       loadMoreTriggerRef={loadMoreTriggerRef}
