@@ -9,8 +9,8 @@ Handles dependency injection for each router via lambdas.
 """
 
 import logging
-from fastapi import FastAPI
-from typing import Dict, Any, Callable
+from fastapi import FastAPI, APIRouter
+from typing import Dict, Any, Callable, Optional
 
 # Import router factories
 from routers.system import create_system_router
@@ -49,19 +49,19 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
             - globals: Dict with component instances
     """
 
-    HAS_PROCESSING = deps.get('HAS_PROCESSING', False)
-    HAS_STREAMLINED_CACHE = deps.get('HAS_STREAMLINED_CACHE', False)
-    HAS_SIMILARITY = deps.get('HAS_SIMILARITY', False)
-    manager = deps.get('manager')
-    enhancement_settings = deps.get('enhancement_settings', {})
-    processing_cache = deps.get('processing_cache', {})
-    chunked_audio_processor_class = deps.get('chunked_audio_processor_class')
-    create_track_info_fn = deps.get('create_track_info_fn')
-    buffer_presets_fn = deps.get('buffer_presets_fn')
-    globals_dict = deps.get('globals', {})
+    HAS_PROCESSING: bool = deps.get('HAS_PROCESSING', False)
+    HAS_STREAMLINED_CACHE: bool = deps.get('HAS_STREAMLINED_CACHE', False)
+    HAS_SIMILARITY: bool = deps.get('HAS_SIMILARITY', False)
+    manager: Any = deps.get('manager')
+    enhancement_settings: Dict[str, Any] = deps.get('enhancement_settings', {})
+    processing_cache: Dict[str, Any] = deps.get('processing_cache', {})
+    chunked_audio_processor_class: Any = deps.get('chunked_audio_processor_class')
+    create_track_info_fn: Any = deps.get('create_track_info_fn')
+    buffer_presets_fn: Any = deps.get('buffer_presets_fn')
+    globals_dict: Dict[str, Any] = deps.get('globals', {})
 
     # Helper to safely get global components
-    def get_component(key: str):
+    def get_component(key: str) -> Callable[[], Any]:
         return lambda: globals_dict.get(key)
 
     # Include processing API routes (if available)
@@ -74,7 +74,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
             logger.warning("⚠️  Processing API router not available")
 
     # Create and include system router (health, version, WebSocket)
-    system_router = create_system_router(
+    system_router: APIRouter = create_system_router(
         manager=manager,
         get_library_manager=get_component('library_manager'),
         get_processing_engine=get_component('processing_engine'),
@@ -84,7 +84,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     logger.debug("✅ System router registered")
 
     # Create and include files router (scan, upload, formats)
-    files_router = create_files_router(
+    files_router: APIRouter = create_files_router(
         get_library_manager=get_component('library_manager'),
         connection_manager=manager
     )
@@ -92,7 +92,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     logger.debug("✅ Files router registered")
 
     # Create and include enhancement router
-    enhancement_router = create_enhancement_router(
+    enhancement_router: APIRouter = create_enhancement_router(
         get_enhancement_settings=lambda: enhancement_settings,
         connection_manager=manager,
         get_processing_cache=lambda: processing_cache,
@@ -104,7 +104,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     logger.debug("✅ Enhancement router registered")
 
     # Create and include artwork router
-    artwork_router = create_artwork_router(
+    artwork_router: APIRouter = create_artwork_router(
         get_library_manager=get_component('library_manager'),
         connection_manager=manager
     )
@@ -112,7 +112,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     logger.debug("✅ Artwork router registered")
 
     # Create and include playlists router
-    playlists_router = create_playlists_router(
+    playlists_router: APIRouter = create_playlists_router(
         get_library_manager=get_component('library_manager'),
         connection_manager=manager
     )
@@ -120,7 +120,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     logger.debug("✅ Playlists router registered")
 
     # Create and include library router
-    library_router = create_library_router(
+    library_router: APIRouter = create_library_router(
         get_library_manager=get_component('library_manager'),
         connection_manager=manager
     )
@@ -128,7 +128,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     logger.debug("✅ Library router registered")
 
     # Create and include metadata router
-    metadata_router = create_metadata_router(
+    metadata_router: APIRouter = create_metadata_router(
         get_library_manager=get_component('library_manager'),
         broadcast_manager=manager
     )
@@ -136,21 +136,21 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     logger.debug("✅ Metadata router registered")
 
     # Create and include albums router
-    albums_router = create_albums_router(
+    albums_router: APIRouter = create_albums_router(
         get_library_manager=get_component('library_manager')
     )
     app.include_router(albums_router)
     logger.debug("✅ Albums router registered")
 
     # Create and include artists router
-    artists_router = create_artists_router(
+    artists_router: APIRouter = create_artists_router(
         get_library_manager=get_component('library_manager')
     )
     app.include_router(artists_router)
     logger.debug("✅ Artists router registered")
 
     # Create and include player router
-    player_router = create_player_router(
+    player_router: APIRouter = create_player_router(
         get_library_manager=get_component('library_manager'),
         get_audio_player=get_component('audio_player'),
         get_player_state_manager=get_component('player_state_manager'),
@@ -168,7 +168,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     # Include cache management router (if available)
     if HAS_STREAMLINED_CACHE and globals_dict.get('streamlined_cache'):
         try:
-            cache_router = create_streamlined_cache_router(
+            cache_router: APIRouter = create_streamlined_cache_router(
                 cache_manager=globals_dict['streamlined_cache'],
                 broadcast_manager=manager
             )
@@ -180,7 +180,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     # Create and include similarity router (if available)
     if HAS_SIMILARITY:
         try:
-            similarity_router = create_similarity_router(
+            similarity_router: APIRouter = create_similarity_router(
                 get_library_manager=get_component('library_manager'),
                 get_similarity_system=get_component('similarity_system'),
                 get_graph_builder=get_component('graph_builder'),

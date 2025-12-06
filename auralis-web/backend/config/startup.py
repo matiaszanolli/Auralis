@@ -20,11 +20,12 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Callable, Optional, Dict, Any
+from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
 
 
-def setup_startup_handlers(app, deps: Dict[str, Any]) -> None:
+def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
     """
     Register startup and shutdown event handlers with FastAPI app.
 
@@ -40,15 +41,15 @@ def setup_startup_handlers(app, deps: Dict[str, Any]) -> None:
     """
 
     # Extract dependencies
-    HAS_AURALIS = deps.get('HAS_AURALIS', False)
-    HAS_PROCESSING = deps.get('HAS_PROCESSING', False)
-    HAS_STREAMLINED_CACHE = deps.get('HAS_STREAMLINED_CACHE', False)
-    HAS_SIMILARITY = deps.get('HAS_SIMILARITY', False)
-    manager = deps.get('manager')
-    globals_dict = deps.get('globals', {})
+    HAS_AURALIS: bool = deps.get('HAS_AURALIS', False)
+    HAS_PROCESSING: bool = deps.get('HAS_PROCESSING', False)
+    HAS_STREAMLINED_CACHE: bool = deps.get('HAS_STREAMLINED_CACHE', False)
+    HAS_SIMILARITY: bool = deps.get('HAS_SIMILARITY', False)
+    manager: Any = deps.get('manager')
+    globals_dict: Dict[str, Any] = deps.get('globals', {})
 
     @app.on_event("startup")
-    async def startup_event():
+    async def startup_event() -> None:
         """Initialize Auralis components on startup"""
 
         # Clear processing cache on startup to avoid serving stale processed audio
@@ -209,7 +210,7 @@ def setup_startup_handlers(app, deps: Dict[str, Any]) -> None:
                 logger.warning("⚠️  Library manager not available - streamlined cache disabled")
 
     @app.on_event("shutdown")
-    async def shutdown_event():
+    async def shutdown_event() -> None:
         """Clean up resources on shutdown"""
         try:
             # Stop streamlined cache worker
