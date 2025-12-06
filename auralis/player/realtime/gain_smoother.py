@@ -14,13 +14,13 @@ Advanced gain smoothing to prevent audio artifacts
 class AdaptiveGainSmoother:
     """Advanced gain smoothing to prevent audio artifacts"""
 
-    def __init__(self, attack_alpha: float = 0.01, release_alpha: float = 0.001):
+    def __init__(self, attack_alpha: float = 0.01, release_alpha: float = 0.001) -> None:
         self.attack_alpha = attack_alpha    # How fast to increase gain
         self.release_alpha = release_alpha  # How fast to decrease gain
         self.current_gain = 1.0
         self.target_gain = 1.0
 
-    def set_target(self, target: float):
+    def set_target(self, target: float) -> None:
         """Set target gain"""
         self.target_gain = max(0.0, min(10.0, target))  # Clamp to reasonable range
 

@@ -12,6 +12,7 @@ Configuration classes for dynamics processing
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
 
 
 class DynamicsMode(Enum):
@@ -58,17 +59,17 @@ class DynamicsSettings:
     gate_ratio: float = 10.0
 
     enable_compressor: bool = True
-    compressor: CompressorSettings = None
+    compressor: Optional[CompressorSettings] = None
 
     enable_limiter: bool = True
-    limiter: LimiterSettings = None
+    limiter: Optional[LimiterSettings] = None
 
     # Adaptive settings
     adaptation_speed: float = 0.1
     target_lufs: float = -14.0
     target_lra: float = 7.0  # Loudness Range
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.compressor is None:
             self.compressor = CompressorSettings()
         if self.limiter is None:

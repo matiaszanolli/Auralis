@@ -11,7 +11,7 @@ Defines mastering preset configurations for different sonic characters.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -300,7 +300,7 @@ def get_preset_profile(preset_name: str) -> Optional[PresetProfile]:
     return profiles.get(preset_name.lower())
 
 
-def get_available_presets() -> list:
+def get_available_presets() -> List[str]:
     """
     Get list of available preset names.
 
