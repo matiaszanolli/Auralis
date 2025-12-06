@@ -9,9 +9,57 @@ Coordinates with PlayerStateManager to keep single source of truth.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Protocol
 
 logger = logging.getLogger(__name__)
+
+
+class AudioPlayer(Protocol):
+    """Protocol for audio player interface."""
+
+    def play(self) -> None:
+        """Start playback."""
+        ...
+
+    def pause(self) -> None:
+        """Pause playback."""
+        ...
+
+    def stop(self) -> None:
+        """Stop playback."""
+        ...
+
+    def seek(self, position: float) -> None:
+        """Seek to position in seconds."""
+        ...
+
+    def set_volume(self, volume: float) -> None:
+        """Set volume (0.0-1.0)."""
+        ...
+
+
+class PlayerStateManager(Protocol):
+    """Protocol for player state manager interface."""
+
+    async def set_playing(self, playing: bool) -> None:
+        """Update playing state."""
+        ...
+
+    async def set_track(self, track: Any, library_manager: Any) -> None:
+        """Set current track."""
+        ...
+
+    def get_state(self) -> Any:
+        """Get current state."""
+        ...
+
+
+class ConnectionManager(Protocol):
+    """Protocol for connection manager interface."""
+
+    async def broadcast(self, message: Dict[str, Any]) -> None:
+        """Broadcast message to connected clients."""
+        ...
 
 
 class PlaybackService:
@@ -22,18 +70,26 @@ class PlaybackService:
     Acts as coordinator between audio player and state manager.
     """
 
-    def __init__(self, audio_player, player_state_manager, connection_manager):
+    def __init__(
+        self,
+        audio_player: AudioPlayer,
+        player_state_manager: PlayerStateManager,
+        connection_manager: ConnectionManager,
+    ) -> None:
         """
         Initialize PlaybackService.
 
         Args:
-            audio_player: EnhancedAudioPlayer instance
-            player_state_manager: PlayerStateManager instance
-            connection_manager: WebSocket connection manager for broadcasts
+            audio_player: EnhancedAudioPlayer instance implementing AudioPlayer protocol
+            player_state_manager: PlayerStateManager instance implementing PlayerStateManager protocol
+            connection_manager: WebSocket connection manager implementing ConnectionManager protocol
+
+        Raises:
+            ValueError: If any required component is not available
         """
-        self.audio_player = audio_player
-        self.player_state_manager = player_state_manager
-        self.connection_manager = connection_manager
+        self.audio_player: AudioPlayer = audio_player
+        self.player_state_manager: PlayerStateManager = player_state_manager
+        self.connection_manager: ConnectionManager = connection_manager
 
     async def get_status(self) -> Dict[str, Any]:
         """

@@ -50,11 +50,16 @@ lint:		## Run code linting
 	@echo "Running basic Python syntax check..."
 	python -m py_compile auralis_gui.py
 	find auralis/ -name "*.py" -exec python -m py_compile {} \;
+	find auralis-web/backend/ -name "*.py" -exec python -m py_compile {} \;
 
 typecheck:	## Run type checking (if mypy available)
 	@if command -v mypy >/dev/null 2>&1; then \
-		echo "Running mypy type checking..."; \
-		mypy auralis_gui.py --ignore-missing-imports; \
+		echo "Running mypy type checking on auralis core..."; \
+		mypy auralis/ --ignore-missing-imports --warn-unused-configs; \
+		echo "Running mypy type checking on backend services..."; \
+		mypy auralis-web/backend/services/ --ignore-missing-imports --warn-unused-configs; \
+		echo "Running mypy type checking on backend cache..."; \
+		mypy auralis-web/backend/cache/ --ignore-missing-imports --warn-unused-configs; \
 	else \
 		echo "mypy not available, skipping type checking"; \
 	fi

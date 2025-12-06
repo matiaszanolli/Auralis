@@ -70,6 +70,31 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
+pretty = true
+show_error_codes = true
+show_error_context = true
+
+# Core library type checking (strict)
+[[tool.mypy.overrides]]
+module = "auralis.*"
+strict = true
+
+# Backend services type checking (strict - our new code)
+[[tool.mypy.overrides]]
+module = "auralis-web.backend.services.*"
+strict = true
+
+# Backend cache type checking (strict)
+[[tool.mypy.overrides]]
+module = "auralis-web.backend.cache.*"
+strict = true
+
+# Optional: Gradual typing for other backend modules (less strict during migration)
+[[tool.mypy.overrides]]
+module = "auralis-web.backend.*"
+ignore_missing_imports = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
 
 [tool.hatch.build.targets.wheel]
 packages = ["auralis"]
