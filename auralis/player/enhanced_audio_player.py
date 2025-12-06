@@ -60,9 +60,9 @@ class EnhancedAudioPlayer:
 
     def __init__(
         self,
-        config: PlayerConfig = None,
-        library_manager: LibraryManager = None
-    ):
+        config: Optional[PlayerConfig] = None,
+        library_manager: Optional[LibraryManager] = None
+    ) -> None:
         """Initialize the enhanced audio player with components"""
         if config is None:
             config = PlayerConfig()
@@ -70,7 +70,7 @@ class EnhancedAudioPlayer:
         self.config = config
 
         # Initialize components
-        self.playback = PlaybackController()
+        self.playback = PlaybackController()  # type: ignore[no-untyped-call]
         self.file_manager = AudioFileManager(config.sample_rate)
         self.queue = QueueController(library_manager)
         self.processor = RealtimeProcessor(config)
@@ -130,7 +130,7 @@ class EnhancedAudioPlayer:
         return self.playback.state
 
     @state.setter
-    def state(self, value: PlaybackState):
+    def state(self, value: PlaybackState) -> None:
         """Set playback state (for compatibility)"""
         self.playback.state = value
 
@@ -150,7 +150,7 @@ class EnhancedAudioPlayer:
         Returns:
             bool: True if successful
         """
-        self.playback.set_loading()
+        self.playback.set_loading()  # type: ignore[no-untyped-call]
 
         if self.file_manager.load_file(file_path):
             # Explicitly set state to STOPPED (stop() doesn't work when state is LOADING)
@@ -158,7 +158,7 @@ class EnhancedAudioPlayer:
             self.playback.position = 0
 
             # Start prebuffering next track
-            self.gapless.start_prebuffering()
+            self.gapless.start_prebuffering()  # type: ignore[no-untyped-call]
 
             self.integration._notify_callbacks({
                 'action': 'file_loaded',
@@ -166,7 +166,7 @@ class EnhancedAudioPlayer:
             })
             return True
         else:
-            self.playback.set_error()
+            self.playback.set_error()  # type: ignore[no-untyped-call]
             return False
 
     def load_reference(self, file_path: str) -> bool:
@@ -181,7 +181,7 @@ class EnhancedAudioPlayer:
         """
         success = self.file_manager.load_reference(file_path)
         if success:
-            self.processor.set_reference_audio(self.file_manager.reference_data)
+            self.processor.set_reference_audio(self.file_manager.reference_data)  # type: ignore[arg-type]
             self.integration._notify_callbacks({
                 'action': 'reference_loaded',
                 'file': file_path
@@ -198,14 +198,14 @@ class EnhancedAudioPlayer:
         Returns:
             bool: True if successful
         """
-        self.playback.set_loading()
+        self.playback.set_loading()  # type: ignore[no-untyped-call]
 
         if self.integration.load_track_from_library(track_id):
             self.playback.stop()
-            self.gapless.start_prebuffering()
+            self.gapless.start_prebuffering()  # type: ignore[no-untyped-call]
             return True
         else:
-            self.playback.set_error()
+            self.playback.set_error()  # type: ignore[no-untyped-call]
             return False
 
     # ========== Queue Management (delegates to QueueController) ==========
@@ -220,7 +220,7 @@ class EnhancedAudioPlayer:
         was_playing = self.playback.is_playing()
 
         if self.gapless.advance_with_prebuffer(was_playing):
-            self.integration.record_track_completion()
+            self.integration.record_track_completion()  # type: ignore[no-untyped-call]
 
             if was_playing:
                 self.playback.play()
@@ -240,7 +240,7 @@ class EnhancedAudioPlayer:
                 return True
         return False
 
-    def add_to_queue(self, track_info: Dict[str, Any]):
+    def add_to_queue(self, track_info: Dict[str, Any]) -> None:
         """Add a track to the playback queue"""
         self.queue.add_track(track_info)
 
@@ -272,14 +272,14 @@ class EnhancedAudioPlayer:
                     return self.load_track_from_library(track_id)
         return False
 
-    def clear_queue(self):
+    def clear_queue(self) -> None:
         """Clear the playback queue"""
-        self.queue.clear_queue()
-        self.gapless.invalidate_prebuffer()
+        self.queue.clear_queue()  # type: ignore[no-untyped-call]
+        self.gapless.invalidate_prebuffer()  # type: ignore[no-untyped-call]
 
     # ========== Audio Output (delegates to AudioFileManager + Processor) ==========
 
-    def get_audio_chunk(self, chunk_size: int = None) -> np.ndarray:
+    def get_audio_chunk(self, chunk_size: Optional[int] = None) -> np.ndarray:
         """
         Get a chunk of processed audio for playback.
 
@@ -320,7 +320,7 @@ class EnhancedAudioPlayer:
 
         return processed_chunk
 
-    def _auto_advance_delayed(self):
+    def _auto_advance_delayed(self) -> None:
         """Delayed auto-advance to next track (background thread)"""
         import time
         time.sleep(0.1)  # Small delay to avoid race conditions
@@ -329,22 +329,22 @@ class EnhancedAudioPlayer:
 
     # ========== Effects Control (delegates to IntegrationManager) ==========
 
-    def set_effect_enabled(self, effect_name: str, enabled: bool):
+    def set_effect_enabled(self, effect_name: str, enabled: bool) -> None:
         """Enable/disable specific DSP effects"""
         self.integration.set_effect_enabled(effect_name, enabled)
 
-    def set_auto_master_profile(self, profile: str):
+    def set_auto_master_profile(self, profile: str) -> None:
         """Set auto-mastering profile"""
         self.integration.set_auto_master_profile(profile)
 
     # ========== Callbacks and State (delegates to various components) ==========
 
-    def add_callback(self, callback: Callable):
+    def add_callback(self, callback: Callable[..., Any]) -> None:
         """Add callback for state updates"""
         self.integration.add_callback(callback)
         self.playback.add_callback(callback)
 
-    def _notify_callbacks(self, info: Dict[str, Any] = None):
+    def _notify_callbacks(self, info: Optional[Dict[str, Any]] = None) -> None:
         """
         Notify all registered callbacks with current playback information.
 
@@ -385,12 +385,12 @@ class EnhancedAudioPlayer:
 
     # ========== Shuffle and Repeat (delegates to QueueController) ==========
 
-    def set_shuffle(self, enabled: bool):
+    def set_shuffle(self, enabled: bool) -> None:
         """Enable/disable shuffle mode"""
         self.queue.set_shuffle(enabled)
         self.integration._notify_callbacks({'action': 'shuffle_changed', 'enabled': enabled})
 
-    def set_repeat(self, enabled: bool):
+    def set_repeat(self, enabled: bool) -> None:
         """Enable/disable repeat mode"""
         self.queue.set_repeat(enabled)
         self.integration._notify_callbacks({'action': 'repeat_changed', 'enabled': enabled})
@@ -408,12 +408,12 @@ class EnhancedAudioPlayer:
         return self.file_manager.current_file
 
     @property
-    def current_track(self):
+    def current_track(self) -> Any:
         """Get current track object from library"""
         return self.integration.current_track
 
     @current_track.setter
-    def current_track(self, value):
+    def current_track(self, value: Any) -> None:
         """Set current track (for compatibility)"""
         self.integration.current_track = value
 
@@ -423,22 +423,22 @@ class EnhancedAudioPlayer:
         return self.file_manager.reference_file
 
     @property
-    def audio_data(self):
+    def audio_data(self) -> Any:
         """Get raw audio data"""
         return self.file_manager.audio_data
 
     @audio_data.setter
-    def audio_data(self, value):
+    def audio_data(self, value: Any) -> None:
         """Set audio data (for compatibility)"""
         self.file_manager.audio_data = value
 
     @property
-    def reference_data(self):
+    def reference_data(self) -> Any:
         """Get raw reference audio data"""
         return self.file_manager.reference_data
 
     @reference_data.setter
-    def reference_data(self, value):
+    def reference_data(self, value: Any) -> None:
         """Set reference data (for compatibility)"""
         self.file_manager.reference_data = value
 
@@ -448,7 +448,7 @@ class EnhancedAudioPlayer:
         return self.playback.position
 
     @position.setter
-    def position(self, value: int):
+    def position(self, value: int) -> None:
         """Set position (for compatibility)"""
         self.playback.position = value
 
@@ -458,15 +458,15 @@ class EnhancedAudioPlayer:
         return self.file_manager.sample_rate
 
     @sample_rate.setter
-    def sample_rate(self, value: int):
+    def sample_rate(self, value: int) -> None:
         """Set sample rate (for compatibility)"""
         self.file_manager.sample_rate = value
 
     # ========== Cleanup ==========
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up resources"""
         self.stop()
-        self.gapless.cleanup()
-        self.integration.cleanup()
+        self.gapless.cleanup()  # type: ignore[no-untyped-call]
+        self.integration.cleanup()  # type: ignore[no-untyped-call]
         info("AudioPlayer cleanup completed")
