@@ -151,7 +151,7 @@ class StreamlinedCacheAdapter:
             chunk_path = temp_dir / f"chunk_{track_id}_{chunk_idx}_{preset}_{intensity:.2f}.wav"
 
             # Save audio to temporary file
-            save_audio(audio, sample_rate, str(chunk_path))
+            save_audio(str(chunk_path), audio, sample_rate)
 
             # Add to StreamlinedCacheManager
             try:

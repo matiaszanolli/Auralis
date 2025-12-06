@@ -341,6 +341,10 @@ class AudioStreamController:
 
         # Stream PCM samples to client
         try:
+            # pcm_samples should never be None at this point (either from cache or loaded from disk)
+            assert pcm_samples is not None, "PCM samples must be loaded before streaming"
+            assert sr is not None, "Sample rate must be set before streaming"
+
             await self._send_pcm_chunk(
                 websocket,
                 pcm_samples=pcm_samples,
