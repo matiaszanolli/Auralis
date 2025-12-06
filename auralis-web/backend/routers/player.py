@@ -32,7 +32,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Callable, Any, Dict
 import logging
 import os
 
@@ -71,17 +71,17 @@ class AddTrackToQueueRequest(BaseModel):
 
 
 def create_player_router(
-    get_library_manager,
-    get_audio_player,
-    get_player_state_manager,
-    get_processing_cache,
-    connection_manager,
-    chunked_audio_processor_class,
-    create_track_info_fn,
-    buffer_presets_fn,
-    get_multi_tier_buffer=None,
-    get_enhancement_settings=None
-):
+    get_library_manager: Callable[[], Any],
+    get_audio_player: Callable[[], Any],
+    get_player_state_manager: Callable[[], Any],
+    get_processing_cache: Callable[[], Dict[str, Any]],
+    connection_manager: Any,
+    chunked_audio_processor_class: Optional[type],
+    create_track_info_fn: Callable[[Any], Any],
+    buffer_presets_fn: Callable[..., Any],
+    get_multi_tier_buffer: Optional[Callable[[], Any]] = None,
+    get_enhancement_settings: Optional[Callable[[], Any]] = None
+) -> APIRouter:
     """
     Factory function to create player router with dependencies.
 
@@ -101,17 +101,17 @@ def create_player_router(
     """
 
     # Initialize services
-    def get_playback_service():
+    def get_playback_service() -> PlaybackService:  # type: ignore[no-untyped-def]
         """Lazy service initialization"""
-        return PlaybackService(
+        return PlaybackService(  # type: ignore[no-untyped-call]
             audio_player=get_audio_player(),
             player_state_manager=get_player_state_manager(),
             connection_manager=connection_manager
         )
 
-    def get_queue_service():
+    def get_queue_service() -> QueueService:  # type: ignore[no-untyped-def]
         """Lazy service initialization"""
-        return QueueService(
+        return QueueService(  # type: ignore[no-untyped-call]
             audio_player=get_audio_player(),
             player_state_manager=get_player_state_manager(),
             library_manager=get_library_manager(),
@@ -119,15 +119,15 @@ def create_player_router(
             create_track_info_fn=create_track_info_fn
         )
 
-    def get_recommendation_service():
+    def get_recommendation_service() -> RecommendationService:  # type: ignore[no-untyped-def]
         """Lazy service initialization"""
-        return RecommendationService(
+        return RecommendationService(  # type: ignore[no-untyped-call]
             connection_manager=connection_manager
         )
 
-    def get_navigation_service():
+    def get_navigation_service() -> NavigationService:  # type: ignore[no-untyped-def]
         """Lazy service initialization"""
-        return NavigationService(
+        return NavigationService(  # type: ignore[no-untyped-call]
             audio_player=get_audio_player(),
             player_state_manager=get_player_state_manager(),
             library_manager=get_library_manager(),
@@ -159,7 +159,7 @@ def create_player_router(
             raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
     @router.post("/api/player/load")
-    async def load_track(track_path: str, track_id: int = None, background_tasks: BackgroundTasks = None):
+    async def load_track(track_path: str, track_id: Optional[int] = None, background_tasks: Optional[BackgroundTasks] = None) -> Dict[str, Any]:
         """
         Load a track into the player.
 
