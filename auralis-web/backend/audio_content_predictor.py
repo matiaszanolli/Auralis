@@ -15,11 +15,9 @@ Enhances the BranchPredictor with audio-informed predictions:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import logging
 import numpy as np
 from typing import Dict, List, Tuple, Optional
-from pathlib import Path
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
