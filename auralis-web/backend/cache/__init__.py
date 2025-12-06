@@ -40,6 +40,8 @@ from .endpoints import (
     create_cache_aware_handler,
 )
 
+from .adapter import StreamlinedCacheAdapter
+
 __all__ = [
     # Manager exports
     "StreamlinedCacheManager",
@@ -53,6 +55,8 @@ __all__ = [
     "TIER1_MAX_SIZE_MB",
     "TIER2_MAX_TRACKS",
     "TIER2_MAX_SIZE_MB",
+    # Adapter exports
+    "StreamlinedCacheAdapter",
     # Monitoring exports
     "CacheMonitor",
     "CacheMetrics",
