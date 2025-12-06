@@ -16,7 +16,7 @@ DEPRECATED: Use repository classes directly for new code
 import os
 import threading
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple, Set
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -49,7 +49,7 @@ class LibraryManager:
     - Statistics and analysis
     """
 
-    def __init__(self, database_path: Optional[str] = None):
+    def __init__(self, database_path: Optional[str] = None) -> None:
         """
         Initialize library manager
 
@@ -77,18 +77,18 @@ class LibraryManager:
         Base.metadata.create_all(self.engine)
 
         # Initialize repositories (album repository first for artwork extraction)
-        self.albums = AlbumRepository(self.SessionLocal)
-        self.tracks = TrackRepository(self.SessionLocal, album_repository=self.albums)
-        self.artists = ArtistRepository(self.SessionLocal)
-        self.playlists = PlaylistRepository(self.SessionLocal)
-        self.stats = StatsRepository(self.SessionLocal)
-        self.fingerprints = FingerprintRepository(self.SessionLocal)
-        self.queue = QueueRepository(self.SessionLocal)
+        self.albums = AlbumRepository(self.SessionLocal)  # type: ignore[no-untyped-call]
+        self.tracks = TrackRepository(self.SessionLocal, album_repository=self.albums)  # type: ignore[no-untyped-call]
+        self.artists = ArtistRepository(self.SessionLocal)  # type: ignore[no-untyped-call]
+        self.playlists = PlaylistRepository(self.SessionLocal)  # type: ignore[no-untyped-call]
+        self.stats = StatsRepository(self.SessionLocal)  # type: ignore[no-untyped-call]
+        self.fingerprints = FingerprintRepository(self.SessionLocal)  # type: ignore[no-untyped-call]
+        self.queue = QueueRepository(self.SessionLocal)  # type: ignore[no-untyped-call]
 
         # Thread-safe locking for delete operations (prevents race conditions)
         self._delete_lock = threading.RLock()
         # Track IDs that have been successfully deleted (for race condition prevention)
-        self._deleted_track_ids = set()
+        self._deleted_track_ids: Set[int] = set()
 
         info(f"Auralis Library Manager initialized: {database_path}")
 
@@ -142,7 +142,7 @@ class LibraryManager:
         return self.tracks.update_by_filepath(filepath, track_info)
 
     @cached_query(ttl=60)  # Cache for 1 minute (search results change frequently)
-    def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+    def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
         """Search tracks by title, artist, album, or genre
 
         Returns:
@@ -161,7 +161,7 @@ class LibraryManager:
         return self.tracks.get_by_artist(artist_name, limit)
 
     @cached_query(ttl=180)  # Cache for 3 minutes (recent tracks don't change often)
-    def get_recent_tracks(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+    def get_recent_tracks(self, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
         """Get recently added tracks (cached for 3 minutes)
 
         Returns:
@@ -170,7 +170,7 @@ class LibraryManager:
         return self.tracks.get_recent(limit, offset)
 
     @cached_query(ttl=120)  # Cache for 2 minutes (play counts change more frequently)
-    def get_popular_tracks(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+    def get_popular_tracks(self, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
         """Get most played tracks (cached for 2 minutes)
 
         Returns:
@@ -179,7 +179,7 @@ class LibraryManager:
         return self.tracks.get_popular(limit, offset)
 
     @cached_query(ttl=180)  # Cache for 3 minutes
-    def get_favorite_tracks(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+    def get_favorite_tracks(self, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
         """Get favorite tracks (cached for 3 minutes)
 
         Returns:
@@ -188,7 +188,7 @@ class LibraryManager:
         return self.tracks.get_favorites(limit, offset)
 
     @cached_query(ttl=300)  # Cache for 5 minutes
-    def get_all_tracks(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[List[Track], int]:
+    def get_all_tracks(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> Tuple[List[Track], int]:
         """Get all tracks with pagination (cached for 5 minutes)
 
         Args:
