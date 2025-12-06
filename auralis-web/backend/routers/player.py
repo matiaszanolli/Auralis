@@ -114,7 +114,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
-async def _generate_and_broadcast_mastering_recommendation(track_id: int, track_path: str):
+    async def _generate_and_broadcast_mastering_recommendation(track_id: int, track_path: str):
         """
         Background task to generate mastering recommendation and broadcast via WebSocket (Priority 4).
 
