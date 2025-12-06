@@ -5,17 +5,19 @@
  * pagination, alphabetic grouping, and context menu support.
  *
  * Features:
- * - Infinite scroll pagination (2000px threshold)
+ * - Infinite scroll pagination via IntersectionObserver
  * - Alphabetically grouped artist sections
  * - Context menu with artist actions
  * - Loading skeleton and loading indicator
  * - End-of-list feedback
  *
- * Uses:
- * - useArtistListPagination hook for data and pagination
- * - useContextMenuActions hook for context menu
- * - ArtistListContent component for rendering
- * - ArtistListEmptyState component for empty/error states
+ * Uses unified pagination pattern:
+ * - useArtistsQuery: Data fetching with pagination
+ * - useInfiniteScroll: IntersectionObserver-based scroll detection
+ * - useGroupedArtists: Alphabetical grouping logic
+ * - useContextMenuActions: Context menu state and actions
+ * - ArtistListContent: Rendering component
+ * - ArtistListEmptyState: Empty/error state
  *
  * Usage:
  * ```tsx
@@ -23,57 +25,75 @@
  * ```
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ArtistListLoading } from './ArtistListLoading';
 import { ArtistListEmptyState } from './ArtistListEmptyState';
 import { ArtistListContent } from './ArtistListContent';
 import { ArtistInfoModal } from './ArtistInfoModal';
-import { useArtistListPagination } from '../../Hooks/useArtistListPagination';
+import { useArtistsQuery } from '@/hooks/library';
+import { useInfiniteScroll, useGroupedArtists } from '@/hooks/shared';
 import { useContextMenuActions } from './useContextMenuActions';
+import { useContextMenu } from '../../shared/ContextMenu';
+import type { Artist } from '@/types/domain';
 
 interface CozyArtistListProps {
   onArtistClick?: (artistId: number, artistName: string) => void;
 }
 
 export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const [contextMenuArtist, setContextMenuArtist] = useState<Artist | null>(null);
+
+  // Data fetching with pagination
   const {
-    artists,
-    loading,
+    data: artists,
+    isLoading,
     error,
+    total: totalArtists,
     hasMore,
-    totalArtists,
-    isLoadingMore,
-    containerRef,
-    loadMoreTriggerRef,
-    contextMenuState,
-    contextMenuArtist,
-    handleCloseContextMenu,
-    handleArtistClick,
-    handleContextMenuOpen,
-    groupedArtists,
-    sortedLetters,
-  } = useArtistListPagination({ onArtistClick });
+    fetchMore,
+  } = useArtistsQuery({ limit: 50 });
 
-  // Adapt the hook's handler signatures to what ArtistListContent expects
-  const adaptedArtistClickHandler = useCallback((artist: { id: number; name: string; album_count?: number; track_count?: number }) => {
-    handleArtistClick(artist);
-  }, [handleArtistClick]);
+  // Artist grouping by first letter
+  const { groupedArtists, sortedLetters } = useGroupedArtists(artists);
 
-  const adaptedContextMenuOpen = useCallback((artist: { id: number; name: string; album_count?: number; track_count?: number }, event: React.MouseEvent) => {
-    handleContextMenuOpen(event, artist);
-  }, [handleContextMenuOpen]);
+  // Infinite scroll detection
+  useInfiniteScroll({
+    ref: loadMoreTriggerRef,
+    threshold: 0.8,
+    onLoadMore: fetchMore,
+    hasMore,
+    isLoading,
+  });
+
+  // Context menu
+  const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
+
+  const handleArtistClick = useCallback((artist: Artist) => {
+    if (onArtistClick) {
+      onArtistClick(artist.id, artist.name);
+    }
+  }, [onArtistClick]);
+
+  const handleContextMenuOpen = useCallback((event: React.MouseEvent, artist: Artist) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setContextMenuArtist(artist);
+    handleContextMenu(event);
+  }, [handleContextMenu]);
 
   const { actions: contextActions, modal: infoModal } = useContextMenuActions({
     artist: contextMenuArtist,
     onArtistClick,
   });
 
-  if (loading) {
+  if (isLoading && artists.length === 0) {
     return <ArtistListLoading />;
   }
 
   const emptyState = (
-    <ArtistListEmptyState loading={loading} error={error} />
+    <ArtistListEmptyState loading={isLoading} error={error?.message} />
   );
 
   if (error || artists.length === 0) {
@@ -85,7 +105,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
       <ArtistListContent
         artists={artists}
         totalArtists={totalArtists}
-        isLoadingMore={isLoadingMore}
+        isLoadingMore={isLoading && artists.length > 0}
         hasMore={hasMore}
         containerRef={containerRef}
         loadMoreTriggerRef={loadMoreTriggerRef}
@@ -93,9 +113,12 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
         sortedLetters={sortedLetters}
         contextMenuState={contextMenuState}
         contextActions={contextActions}
-        onArtistClick={adaptedArtistClickHandler}
-        onContextMenuOpen={adaptedContextMenuOpen}
-        onContextMenuClose={handleCloseContextMenu}
+        onArtistClick={handleArtistClick}
+        onContextMenuOpen={handleContextMenuOpen}
+        onContextMenuClose={() => {
+          setContextMenuArtist(null);
+          handleCloseContextMenu();
+        }}
       />
       <ArtistInfoModal
         open={infoModal.open}

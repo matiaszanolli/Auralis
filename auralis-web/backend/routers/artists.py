@@ -101,11 +101,8 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
             manager = require_library_manager(get_library_manager)
 
             if search:
-                # Search artists by name
-                artists = manager.artists.search(search, limit=limit, offset=offset)
-                # For search, we need to count total results
-                all_search_results = manager.artists.search(search, limit=10000, offset=0)
-                total = len(all_search_results)
+                # Search artists by name (now returns tuple with count)
+                artists, total = manager.artists.search(search, limit=limit, offset=offset)
             else:
                 # Get paginated artists
                 artists, total = manager.artists.get_all(

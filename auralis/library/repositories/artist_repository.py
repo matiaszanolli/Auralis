@@ -120,7 +120,7 @@ class ArtistRepository:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> List[Artist]:
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[List[Artist], int]:
         """Search artists by name with pagination
 
         Args:
@@ -129,13 +129,22 @@ class ArtistRepository:
             offset: Number of results to skip
 
         Returns:
-            List of matching artists
+            Tuple of (artists list, total count of matching artists)
         """
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
             from ..models import Track
-            return (
+
+            # Get total count of matching artists
+            total = (
+                session.query(Artist)
+                .filter(Artist.name.ilike(f'%{query}%'))
+                .count()
+            )
+
+            # Get paginated results
+            artists = (
                 session.query(Artist)
                 .options(
                     joinedload(Artist.tracks).joinedload(Track.genres),
@@ -147,5 +156,7 @@ class ArtistRepository:
                 .offset(offset)
                 .all()
             )
+
+            return artists, total
         finally:
             session.close()

@@ -43,8 +43,6 @@ export {
   CozyAlbumGrid,
   AlbumGridContent,
   AlbumGridLoadingState,
-  useAlbumGridPagination,
-  useAlbumGridScroll,
 } from './albums';
 
 // Album track table components

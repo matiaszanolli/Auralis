@@ -72,7 +72,6 @@ export * from './Styles';
 
 // Hooks submodule
 export {
-  useArtistListPagination,
   useSearchLogic,
 } from './Hooks';
 
