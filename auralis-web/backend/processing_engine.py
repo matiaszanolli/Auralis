@@ -17,7 +17,7 @@ import uuid
 import tempfile
 import shutil
 from pathlib import Path
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 from datetime import datetime
 from enum import Enum
 import sys
@@ -92,22 +92,22 @@ class ProcessingEngine:
     adaptive mastering using the HybridProcessor
     """
 
-    def __init__(self, max_concurrent_jobs: int = 2):
+    def __init__(self, max_concurrent_jobs: int = 2) -> None:
         self.jobs: Dict[str, ProcessingJob] = {}
-        self.max_concurrent_jobs = max_concurrent_jobs
-        self.active_jobs = 0
-        self.job_queue = asyncio.Queue()
+        self.max_concurrent_jobs: int = max_concurrent_jobs
+        self.active_jobs: int = 0
+        self.job_queue: asyncio.Queue[ProcessingJob] = asyncio.Queue()
 
         # Processing components
         self.processors: Dict[str, HybridProcessor] = {}
-        self.parameter_mapper = ParameterMapper()
+        self.parameter_mapper = ParameterMapper()  # type: ignore[no-untyped-call]
 
         # Temporary file management
-        self.temp_dir = Path(tempfile.gettempdir()) / "auralis_processing"
+        self.temp_dir: Path = Path(tempfile.gettempdir()) / "auralis_processing"
         self.temp_dir.mkdir(exist_ok=True)
 
         # Progress callbacks
-        self.progress_callbacks: Dict[str, Callable] = {}
+        self.progress_callbacks: Dict[str, Callable[..., Any]] = {}
 
     def create_job(
         self,
@@ -150,11 +150,11 @@ class ProcessingEngine:
         """Get job by ID"""
         return self.jobs.get(job_id)
 
-    def register_progress_callback(self, job_id: str, callback: Callable):
+    def register_progress_callback(self, job_id: str, callback: Callable[..., Any]) -> None:
         """Register a callback for job progress updates"""
         self.progress_callbacks[job_id] = callback
 
-    async def _notify_progress(self, job_id: str, progress: float, message: str = ""):
+    async def _notify_progress(self, job_id: str, progress: float, message: str = "") -> None:
         """Notify progress callback"""
         job = self.jobs.get(job_id)
         if job:
@@ -183,9 +183,9 @@ class ProcessingEngine:
         """
         # Create a simple key based on mode and key config params
         # Sample rate is critical, as are the key tuning parameters
-        key_parts = [
+        key_parts: List[str] = [
             mode,
-            str(config.sample_rate),
+            str(config.sample_rate),  # type: ignore[attr-defined]
             config.processing_mode if hasattr(config, 'processing_mode') else 'unknown',
         ]
         return "|".join(key_parts)
@@ -285,11 +285,11 @@ class ProcessingEngine:
             # Apply level matching settings
             if "levelMatching" in job.settings and job.settings["levelMatching"].get("enabled"):
                 level_settings = job.settings["levelMatching"]
-                config.adaptive.target_lufs = level_settings.get("targetLufs", -16.0)
+                config.adaptive.target_lufs = level_settings.get("targetLufs", -16.0)  # type: ignore[attr-defined]
 
         # Genre override
         if "genre_override" in job.settings:
-            config.adaptive.genre_override = job.settings["genre_override"]
+            config.adaptive.genre_override = job.settings["genre_override"]  # type: ignore[attr-defined]
 
         return config
 
@@ -298,8 +298,8 @@ class ProcessingEngine:
         if eq_params.get("enabled") and "gains" in eq_params:
             # Store EQ gains in adaptive config for HybridProcessor
             if not hasattr(config.adaptive, "eq_gains"):
-                config.adaptive.eq_gains = {}
-            config.adaptive.eq_gains = eq_params["gains"]
+                config.adaptive.eq_gains = {}  # type: ignore[attr-defined]
+            config.adaptive.eq_gains = eq_params["gains"]  # type: ignore[attr-defined]
 
     def _apply_dynamics_to_config(self, config: UnifiedConfig, dynamics_params: Dict[str, Any]) -> None:
         """Apply generated dynamics parameters to config"""
@@ -307,9 +307,9 @@ class ProcessingEngine:
             # Apply standard compressor settings
             comp = dynamics_params["standard"]
             if not hasattr(config.adaptive, "compressor"):
-                config.adaptive.compressor = {}
+                config.adaptive.compressor = {}  # type: ignore[attr-defined]
 
-            config.adaptive.compressor = {
+            config.adaptive.compressor = {  # type: ignore[attr-defined]
                 "threshold": comp.get("threshold", -20.0),
                 "ratio": comp.get("ratio", 2.0),
                 "attack_ms": comp.get("attack_ms", 30.0),
@@ -319,26 +319,26 @@ class ProcessingEngine:
 
     def _apply_level_to_config(self, config: UnifiedConfig, level_params: Dict[str, Any]) -> None:
         """Apply generated level parameters to config"""
-        config.adaptive.target_lufs = level_params.get("target_lufs", -16.0)
+        config.adaptive.target_lufs = level_params.get("target_lufs", -16.0)  # type: ignore[attr-defined]
         if "gain" in level_params:
             if not hasattr(config.adaptive, "gain"):
-                config.adaptive.gain = 0.0
-            config.adaptive.gain = level_params["gain"]
+                config.adaptive.gain = 0.0  # type: ignore[attr-defined]
+            config.adaptive.gain = level_params["gain"]  # type: ignore[attr-defined]
 
     def _apply_ui_eq_to_config(self, config: UnifiedConfig, eq_settings: Dict[str, Any]) -> None:
         """Apply manual UI EQ settings to config"""
         # This handles direct UI EQ input (31-band gains or parametric EQ)
         if "gains" in eq_settings:
             if not hasattr(config.adaptive, "eq_gains"):
-                config.adaptive.eq_gains = {}
-            config.adaptive.eq_gains = eq_settings["gains"]
+                config.adaptive.eq_gains = {}  # type: ignore[attr-defined]
+            config.adaptive.eq_gains = eq_settings["gains"]  # type: ignore[attr-defined]
 
     def _apply_ui_dynamics_to_config(self, config: UnifiedConfig, dynamics_settings: Dict[str, Any]) -> None:
         """Apply manual UI dynamics settings to config"""
         if not hasattr(config.adaptive, "compressor"):
-            config.adaptive.compressor = {}
+            config.adaptive.compressor = {}  # type: ignore[attr-defined]
 
-        config.adaptive.compressor = {
+        config.adaptive.compressor = {  # type: ignore[attr-defined]
             "threshold": dynamics_settings.get("threshold", -20.0),
             "ratio": dynamics_settings.get("ratio", 2.0),
             "attack_ms": dynamics_settings.get("attack_ms", 30.0),
@@ -346,7 +346,7 @@ class ProcessingEngine:
             "makeup_gain": dynamics_settings.get("makeup_gain", 0.0)
         }
 
-    async def process_job(self, job: ProcessingJob):
+    async def process_job(self, job: ProcessingJob) -> None:
         """
         Process a single job using the HybridProcessor
         """
@@ -397,12 +397,12 @@ class ProcessingEngine:
             bit_depth = job.settings.get("bit_depth", 16)
 
             # Determine subtype based on bit depth
-            subtype_map = {16: 'PCM_16', 24: 'PCM_24', 32: 'PCM_32'}
+            subtype_map: Dict[int, str] = {16: 'PCM_16', 24: 'PCM_24', 32: 'PCM_32'}
             subtype = subtype_map.get(bit_depth, 'PCM_16')
 
             save(
                 file_path=job.output_path,
-                audio_data=result.audio,
+                audio_data=result.audio,  # type: ignore[union-attr]
                 sample_rate=sample_rate,
                 subtype=subtype
             )
@@ -413,12 +413,12 @@ class ProcessingEngine:
             job.result_data = {
                 "output_path": job.output_path,
                 "sample_rate": int(sample_rate),
-                "duration": float(len(result.audio) / sample_rate),
+                "duration": float(len(result.audio) / sample_rate),  # type: ignore[union-attr]
                 "format": output_format,
                 "bit_depth": bit_depth,
-                "processing_time": result.processing_time if hasattr(result, "processing_time") else None,
-                "genre_detected": result.genre if hasattr(result, "genre") else None,
-                "lufs": float(result.lufs) if hasattr(result, "lufs") else None,
+                "processing_time": result.processing_time if hasattr(result, "processing_time") else None,  # type: ignore[union-attr]
+                "genre_detected": result.genre if hasattr(result, "genre") else None,  # type: ignore[union-attr]
+                "lufs": float(result.lufs) if hasattr(result, "lufs") else None,  # type: ignore[union-attr]
             }
 
             job.status = ProcessingStatus.COMPLETED
@@ -434,7 +434,7 @@ class ProcessingEngine:
         finally:
             self.active_jobs -= 1
 
-    async def start_worker(self):
+    async def start_worker(self) -> None:
         """Start the job processing worker"""
         while True:
             try:
@@ -472,16 +472,17 @@ class ProcessingEngine:
             int: Number of jobs removed
         """
         now = datetime.now()
-        jobs_to_remove = []
+        jobs_to_remove: List[str] = []
 
         for job_id, job in self.jobs.items():
             if job.status in [ProcessingStatus.COMPLETED, ProcessingStatus.FAILED, ProcessingStatus.CANCELLED]:
-                age_hours = (now - job.completed_at).total_seconds() / 3600
-                if age_hours > max_age_hours:
-                    # Remove output file
-                    if Path(job.output_path).exists():
-                        Path(job.output_path).unlink()
-                    jobs_to_remove.append(job_id)
+                if job.completed_at is not None:
+                    age_hours = (now - job.completed_at).total_seconds() / 3600
+                    if age_hours > max_age_hours:
+                        # Remove output file
+                        if Path(job.output_path).exists():
+                            Path(job.output_path).unlink()
+                        jobs_to_remove.append(job_id)
 
         for job_id in jobs_to_remove:
             del self.jobs[job_id]
@@ -490,7 +491,7 @@ class ProcessingEngine:
 
         return len(jobs_to_remove)
 
-    def get_all_jobs(self) -> list[ProcessingJob]:
+    def get_all_jobs(self) -> List[ProcessingJob]:
         """Get all jobs"""
         return list(self.jobs.values())
 
