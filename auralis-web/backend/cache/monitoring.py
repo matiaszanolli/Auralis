@@ -12,7 +12,7 @@ Phase B.2: Cache Integration and Monitoring
 
 import logging
 import time
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime, timedelta
@@ -72,29 +72,29 @@ class CacheMonitor:
     - Health status calculation
     """
 
-    def __init__(self, cache_manager):
+    def __init__(self, cache_manager: Any) -> None:
         """
         Initialize cache monitor.
 
         Args:
             cache_manager: StreamlinedCacheManager instance
         """
-        self.cache_manager = cache_manager
+        self.cache_manager: Any = cache_manager
 
         # Configuration thresholds
-        self.tier1_size_limit_mb = 15
-        self.tier2_size_limit_mb = 250
-        self.total_size_limit_mb = 260
+        self.tier1_size_limit_mb: int = 15
+        self.tier2_size_limit_mb: int = 250
+        self.total_size_limit_mb: int = 260
 
-        self.min_hit_rate_warning = 0.70
-        self.min_hit_rate_critical = 0.50
+        self.min_hit_rate_warning: float = 0.70
+        self.min_hit_rate_critical: float = 0.50
 
-        self.tier1_memory_warning_percent = 0.80
-        self.tier1_memory_critical_percent = 0.95
+        self.tier1_memory_warning_percent: float = 0.80
+        self.tier1_memory_critical_percent: float = 0.95
 
         # Metrics history (keep last 100 measurements)
         self.metrics_history: List[CacheMetrics] = []
-        self.max_history = 100
+        self.max_history: int = 100
 
         # Alerts
         self.active_alerts: Dict[str, CacheAlert] = {}
@@ -108,9 +108,9 @@ class CacheMonitor:
         Returns:
             CacheMetrics object with current state
         """
-        stats = self.cache_manager.get_stats()
+        stats: Dict[str, Any] = self.cache_manager.get_stats()
 
-        metrics = CacheMetrics(
+        metrics: CacheMetrics = CacheMetrics(
             tier1_hit_rate=stats["tier1"].get("hit_rate", 0.0),
             tier2_hit_rate=stats["tier2"].get("hit_rate", 0.0),
             overall_hit_rate=stats["overall"].get("overall_hit_rate", 0.0),
@@ -258,7 +258,7 @@ class CacheMonitor:
 
         return HealthStatus.WARNING, active_alerts
 
-    def get_trend(self, metric_name: str, window: int = 10) -> Dict:
+    def get_trend(self, metric_name: str, window: int = 10) -> Dict[str, Any]:
         """
         Get trend for a metric over the last N measurements.
 
@@ -272,17 +272,18 @@ class CacheMonitor:
         if not self.metrics_history:
             return {"value": 0, "trend": "none", "change": 0}
 
-        recent = self.metrics_history[-window:]
+        recent: List[CacheMetrics] = self.metrics_history[-window:]
 
         if len(recent) < 2:
             return {"value": getattr(recent[0], metric_name, 0), "trend": "none", "change": 0}
 
-        current = getattr(recent[-1], metric_name, 0)
-        previous = getattr(recent[0], metric_name, 0)
+        current: float = getattr(recent[-1], metric_name, 0)
+        previous: float = getattr(recent[0], metric_name, 0)
 
-        change = current - previous
-        change_percent = (change / previous * 100) if previous != 0 else 0
+        change: float = current - previous
+        change_percent: float = (change / previous * 100) if previous != 0 else 0
 
+        trend: str
         if change > 0:
             trend = "up"
         elif change < 0:
@@ -299,7 +300,7 @@ class CacheMonitor:
             "window": len(recent)
         }
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> Dict[str, Any]:
         """
         Get comprehensive cache system summary.
 
@@ -309,7 +310,9 @@ class CacheMonitor:
         if not self.metrics_history:
             return {"status": "no_data"}
 
-        latest = self.metrics_history[-1]
+        latest: CacheMetrics = self.metrics_history[-1]
+        health_status: HealthStatus
+        alerts: List[CacheAlert]
         health_status, alerts = self.get_health_status()
 
         return {

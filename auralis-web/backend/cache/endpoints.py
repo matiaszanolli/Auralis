@@ -12,7 +12,7 @@ Phase B.2: Cache Integration and Monitoring
 
 import logging
 import time
-from typing import Callable, Any, Optional, Awaitable, TypeVar, Dict
+from typing import Callable, Any, Optional, Awaitable, TypeVar, Dict, Coroutine
 from functools import wraps
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class CacheAwareEndpoint:
     - Response source (tier1, tier2, miss)
     """
 
-    def __init__(self, cache_manager, monitor=None):
+    def __init__(self, cache_manager: Any, monitor: Optional[Any] = None) -> None:
         """
         Initialize cache-aware endpoint wrapper.
 
@@ -38,13 +38,13 @@ class CacheAwareEndpoint:
             cache_manager: StreamlinedCacheManager instance
             monitor: Optional CacheMonitor instance for tracking
         """
-        self.cache_manager = cache_manager
-        self.monitor = monitor
+        self.cache_manager: Any = cache_manager
+        self.monitor: Optional[Any] = monitor
 
     def track_request(
         self,
         handler: Callable[..., Awaitable[tuple[Any, str]]],
-    ) -> Callable:
+    ) -> Callable[..., Awaitable[Dict[str, Any]]]:
         """
         Decorator to track endpoint request metrics.
 
@@ -57,7 +57,7 @@ class CacheAwareEndpoint:
             Wrapped handler with metrics tracking
         """
         @wraps(handler)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Dict[str, Any]:
             start_time = time.time()
 
             try:
@@ -93,7 +93,11 @@ class CacheQueryBuilder:
     - Fallback to database on miss
     """
 
-    def __init__(self, cache_manager, db_handler: Callable):
+    def __init__(
+        self,
+        cache_manager: Any,
+        db_handler: Callable[..., Awaitable[Any]]
+    ) -> None:
         """
         Initialize cache query builder.
 
@@ -101,8 +105,8 @@ class CacheQueryBuilder:
             cache_manager: StreamlinedCacheManager instance
             db_handler: Function to call on cache miss
         """
-        self.cache_manager = cache_manager
-        self.db_handler = db_handler
+        self.cache_manager: Any = cache_manager
+        self.db_handler: Callable[..., Awaitable[Any]] = db_handler
 
     async def get_with_cache(
         self,
@@ -149,16 +153,16 @@ class EndpointMetrics:
     Collect and analyze endpoint performance metrics.
     """
 
-    def __init__(self, max_history: int = 1000):
+    def __init__(self, max_history: int = 1000) -> None:
         """
         Initialize metrics collector.
 
         Args:
             max_history: Maximum metrics to keep in history
         """
-        self.max_history = max_history
-        self.metrics: list = []
-        self.summary = {
+        self.max_history: int = max_history
+        self.metrics: list[Dict[str, Any]] = []
+        self.summary: Dict[str, Any] = {
             "total_requests": 0,
             "cache_hits": 0,
             "cache_misses": 0,
@@ -183,7 +187,7 @@ class EndpointMetrics:
             processing_time_ms: Processing time in milliseconds
             success: Whether request succeeded
         """
-        metric = {
+        metric: Dict[str, Any] = {
             "endpoint": endpoint,
             "cache_source": cache_source,
             "processing_time_ms": processing_time_ms,
@@ -255,7 +259,7 @@ class EndpointMetrics:
         Returns:
             Dictionary with performance trends
         """
-        recent = self.metrics[-window:] if len(self.metrics) >= window else self.metrics
+        recent: list[Dict[str, Any]] = self.metrics[-window:] if len(self.metrics) >= window else self.metrics
 
         if not recent:
             return {"avg_time_ms": 0.0, "trend": "none"}
@@ -291,10 +295,10 @@ class EndpointMetrics:
 
 
 def create_cache_aware_handler(
-    cache_manager,
+    cache_manager: Any,
     handler: Callable[..., Awaitable[tuple[Any, str]]],
     metrics: Optional[EndpointMetrics] = None
-) -> Callable:
+) -> Callable[..., Awaitable[Dict[str, Any]]]:
     """
     Create a cache-aware handler with automatic metrics.
 
@@ -307,7 +311,7 @@ def create_cache_aware_handler(
         Wrapped handler with caching and metrics
     """
     @wraps(handler)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Dict[str, Any]:
         start_time = time.time()
 
         try:
