@@ -9,7 +9,11 @@ Coordinates with AudioPlayer and PlayerStateManager for state synchronization.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+from auralis import EnhancedAudioPlayer
+from auralis.library import LibraryManager
+from config.globals import ConnectionManager
+from state_manager import PlayerStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +26,7 @@ class NavigationService:
     Coordinates state synchronization and WebSocket broadcasting.
     """
 
-    def __init__(self, audio_player, player_state_manager, library_manager, connection_manager, create_track_info_fn):
+    def __init__(self, audio_player: EnhancedAudioPlayer, player_state_manager: PlayerStateManager, library_manager: LibraryManager, connection_manager: ConnectionManager, create_track_info_fn):
         """
         Initialize NavigationService.
 
