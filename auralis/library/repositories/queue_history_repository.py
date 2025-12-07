@@ -11,7 +11,7 @@ Data access layer for queue history and undo/redo operations
 """
 
 import json
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from sqlalchemy.orm import Session
 
 from ..models import QueueHistory, QueueState
@@ -23,7 +23,7 @@ class QueueHistoryRepository:
     # Limit history to 20 operations for memory efficiency
     HISTORY_LIMIT = 20
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
         """
         Initialize queue history repository
 

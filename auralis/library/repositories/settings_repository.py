@@ -11,7 +11,7 @@ Data access layer for user settings operations
 """
 
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 from sqlalchemy.orm import Session
 
 from ..models import UserSettings
@@ -20,7 +20,7 @@ from ..models import UserSettings
 class SettingsRepository:
     """Repository for user settings database operations"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
         """
         Initialize settings repository
 

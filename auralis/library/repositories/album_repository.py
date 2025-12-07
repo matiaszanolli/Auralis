@@ -10,7 +10,7 @@ Data access layer for album operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Callable
 from pathlib import Path
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,7 @@ from ..artwork import create_artwork_extractor
 class AlbumRepository:
     """Repository for album database operations"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
         self.session_factory = session_factory
 
         # Initialize artwork extractor

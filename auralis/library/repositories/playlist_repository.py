@@ -10,7 +10,7 @@ Data access layer for playlist operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from sqlalchemy.orm import Session, selectinload
 
 from ..models import Playlist, Track
@@ -20,7 +20,7 @@ from ...utils.logging import info, error, debug
 class PlaylistRepository:
     """Repository for playlist database operations"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
         """
         Initialize playlist repository
 

@@ -11,7 +11,7 @@ Data access layer for queue state persistence operations
 """
 
 import json
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from sqlalchemy.orm import Session
 
 from ..models import QueueState
@@ -20,7 +20,7 @@ from ..models import QueueState
 class QueueRepository:
     """Repository for queue state database operations"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
         """
         Initialize queue repository
 

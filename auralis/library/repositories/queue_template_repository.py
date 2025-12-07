@@ -11,7 +11,7 @@ Data access layer for queue template persistence and management
 """
 
 import json
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,7 @@ from ..models import QueueTemplate
 class QueueTemplateRepository:
     """Repository for queue template CRUD operations"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
         """
         Initialize queue template repository
 
