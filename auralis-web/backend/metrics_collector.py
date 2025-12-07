@@ -11,7 +11,7 @@ Collects and aggregates performance metrics for the multi-tier buffer system.
 import time
 import logging
 from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Deque
+from typing import Dict, List, Optional, Deque, Any, Tuple
 from collections import deque
 
 logger = logging.getLogger(__name__)
@@ -88,13 +88,13 @@ class MetricsCollector:
 
     def set_components(
         self,
-        buffer_manager,
-        worker,
-        learning_system,
-        weight_tuner,
-        memory_monitor,
-        degradation_manager
-    ):
+        buffer_manager: Any,
+        worker: Any,
+        learning_system: Any,
+        weight_tuner: Any,
+        memory_monitor: Any,
+        degradation_manager: Any
+    ) -> None:
         """Set references to system components."""
         self.buffer_manager = buffer_manager
         self.worker = worker
@@ -114,7 +114,7 @@ class MetricsCollector:
             raise RuntimeError("Components not set. Call set_components() first.")
 
         # Get cache statistics
-        cache_stats = self.buffer_manager.get_cache_stats()
+        cache_stats = self.buffer_manager.get_cache_stats()  # type: ignore[unreachable]
 
         # Calculate hit rates
         l1_hit_rate = self._calculate_hit_rate(cache_stats['l1'])
@@ -182,32 +182,32 @@ class MetricsCollector:
 
         return metrics
 
-    def _calculate_hit_rate(self, cache_stats: Dict) -> float:
+    def _calculate_hit_rate(self, cache_stats: Dict[str, Any]) -> float:
         """Calculate hit rate for a cache tier."""
-        hits = cache_stats.get('hits', 0)
-        misses = cache_stats.get('misses', 0)
+        hits = int(cache_stats.get('hits', 0))
+        misses = int(cache_stats.get('misses', 0))
         total = hits + misses
 
         if total == 0:
             return 0.0
 
-        return hits / total
+        return float(hits / total)
 
-    def _calculate_overall_hit_rate(self, cache_stats: Dict) -> float:
+    def _calculate_overall_hit_rate(self, cache_stats: Dict[str, Any]) -> float:
         """Calculate overall hit rate across all tiers."""
         total_hits = sum(
-            cache_stats[tier].get('hits', 0)
+            int(cache_stats[tier].get('hits', 0))
             for tier in ['l1', 'l2', 'l3']
         )
         total_requests = sum(
-            cache_stats[tier].get('hits', 0) + cache_stats[tier].get('misses', 0)
+            int(cache_stats[tier].get('hits', 0)) + int(cache_stats[tier].get('misses', 0))
             for tier in ['l1', 'l2', 'l3']
         )
 
         if total_requests == 0:
             return 0.0
 
-        return total_hits / total_requests
+        return float(total_hits / total_requests)
 
     def _estimate_avg_switch_latency(
         self,
@@ -243,7 +243,7 @@ class MetricsCollector:
 
         return avg_latency
 
-    def _get_worker_stats(self) -> Dict:
+    def _get_worker_stats(self) -> Dict[str, Any]:
         """Get worker statistics.
 
         Collects metrics about cache building worker:
@@ -260,7 +260,7 @@ class MetricsCollector:
                 'is_running': False
             }
 
-        is_running = getattr(self.worker, 'running', False)
+        is_running = getattr(self.worker, 'running', False)  # type: ignore[unreachable]
 
         if not is_running:
             return {
@@ -318,12 +318,12 @@ class MetricsCollector:
             'is_running': is_running
         }
 
-    def get_recent_metrics(self, count: int = 100) -> List[Dict]:
+    def get_recent_metrics(self, count: int = 100) -> List[Dict[str, Any]]:
         """Get N most recent metrics snapshots as dicts."""
         recent = list(self.metrics_history)[-count:]
         return [asdict(m) for m in recent]
 
-    def get_summary_statistics(self) -> Dict:
+    def get_summary_statistics(self) -> Dict[str, Any]:
         """Get summary statistics across all collected metrics."""
         if not self.metrics_history:
             return {"error": "No metrics collected yet"}
@@ -366,12 +366,12 @@ class HealthChecker:
 
     def __init__(
         self,
-        buffer_manager,
-        learning_system,
-        memory_monitor,
-        degradation_manager,
-        worker=None
-    ):
+        buffer_manager: Any,
+        learning_system: Any,
+        memory_monitor: Any,
+        degradation_manager: Any,
+        worker: Optional[Any] = None
+    ) -> None:
         """
         Initialize health checker.
 
@@ -388,7 +388,7 @@ class HealthChecker:
         self.degradation_manager = degradation_manager
         self.worker = worker
 
-    def check_health(self) -> Dict:
+    def check_health(self) -> Dict[str, Any]:
         """
         Perform comprehensive health check.
 
@@ -415,7 +415,7 @@ class HealthChecker:
             "timestamp": time.time()
         }
 
-    def _check_cache_health(self) -> Dict:
+    def _check_cache_health(self) -> Dict[str, Any]:
         """Check cache system health."""
         cache_stats = self.buffer_manager.get_cache_stats()
 
@@ -455,7 +455,7 @@ class HealthChecker:
                 "l1_entries": cache_stats['l1']['entries']
             }
 
-    def _check_prediction_health(self) -> Dict:
+    def _check_prediction_health(self) -> Dict[str, Any]:
         """Check prediction system health."""
         stats = self.learning_system.get_statistics()
         accuracy = stats['overall_accuracy']
@@ -489,7 +489,7 @@ class HealthChecker:
                 "total_predictions": stats['total_predictions']
             }
 
-    def _check_memory_health(self) -> Dict:
+    def _check_memory_health(self) -> Dict[str, Any]:
         """Check memory system health."""
         memory_status = self.memory_monitor.get_memory_status()
 
@@ -518,7 +518,7 @@ class HealthChecker:
                 "degradation_level": self.degradation_manager.current_level
             }
 
-    def _check_worker_health(self) -> Dict:
+    def _check_worker_health(self) -> Dict[str, Any]:
         """Check worker health."""
         if not self.worker:
             return {
@@ -557,11 +557,11 @@ def get_metrics_collector() -> MetricsCollector:
 
 
 def create_health_checker(
-    buffer_manager,
-    learning_system,
-    memory_monitor,
-    degradation_manager,
-    worker=None
+    buffer_manager: Any,
+    learning_system: Any,
+    memory_monitor: Any,
+    degradation_manager: Any,
+    worker: Optional[Any] = None
 ) -> HealthChecker:
     """Create health checker instance."""
     return HealthChecker(
