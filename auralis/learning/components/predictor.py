@@ -38,8 +38,8 @@ class PreferencePredictor:
             'compression_ratio': np.zeros(len(self.feature_weights))
         }
 
-        self.training_data = []
-        self.is_trained = False
+        self.training_data: List[Tuple[Any, Dict[str, float]]] = []
+        self.is_trained: bool = False
 
     def add_training_sample(self, audio_features: Dict[str, float],
                           parameter_adjustments: Dict[str, float]) -> None:
