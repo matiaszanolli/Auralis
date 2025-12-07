@@ -15,6 +15,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException
+from typing import Dict, Any, Optional, Callable
 import logging
 import asyncio
 import os
@@ -30,7 +31,14 @@ VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
 CHUNK_DURATION = 10  # seconds per chunk (reduced from 30s for Phase 2)
 
 
-def create_enhancement_router(get_enhancement_settings, connection_manager, get_processing_cache=None, get_multi_tier_buffer=None, get_player_state_manager=None, get_processing_engine=None):
+def create_enhancement_router(
+    get_enhancement_settings: Callable[[], Dict[str, Any]],
+    connection_manager: Any,
+    get_processing_cache: Optional[Callable[[], Dict[str, Any]]] = None,
+    get_multi_tier_buffer: Optional[Callable[[], Any]] = None,
+    get_player_state_manager: Optional[Callable[[], Any]] = None,
+    get_processing_engine: Optional[Callable[[], Any]] = None
+) -> APIRouter:
     """
     Factory function to create enhancement router with dependencies.
 
@@ -45,7 +53,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         APIRouter: Configured router instance
     """
 
-    async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time: float, preset: str, intensity: float):
+    async def _preprocess_upcoming_chunks(track_id: int, filepath: str, current_time: float, preset: str, intensity: float) -> None:
         """
         Background task to pre-process upcoming chunks when enhancement is enabled mid-playback.
         This prevents audio stopping while waiting for on-demand processing.
@@ -110,7 +118,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
             logger.error(f"❌ Background chunk pre-processing failed: {e}")
 
     @router.post("/api/player/enhancement/toggle")
-    async def toggle_enhancement(enabled: bool):
+    async def toggle_enhancement(enabled: bool) -> Dict[str, Any]:
         """
         Enable or disable real-time audio enhancement.
 
@@ -167,7 +175,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
             raise HTTPException(status_code=500, detail=f"Failed to toggle enhancement: {e}")
 
     @router.post("/api/player/enhancement/preset")
-    async def set_enhancement_preset(preset: str):
+    async def set_enhancement_preset(preset: str) -> Dict[str, Any]:
         """
         Change the enhancement preset.
 
@@ -232,7 +240,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
             raise HTTPException(status_code=500, detail=f"Failed to change preset: {e}")
 
     @router.post("/api/player/enhancement/intensity")
-    async def set_enhancement_intensity(intensity: float):
+    async def set_enhancement_intensity(intensity: float) -> Dict[str, Any]:
         """
         Adjust the enhancement intensity.
 
@@ -287,7 +295,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
             raise HTTPException(status_code=500, detail=f"Failed to set intensity: {e}")
 
     @router.get("/api/player/enhancement/status")
-    async def get_enhancement_status():
+    async def get_enhancement_status() -> Dict[str, Any]:
         """
         Get current enhancement settings.
 
@@ -297,7 +305,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         return get_enhancement_settings()
 
     @router.get("/api/player/mastering/recommendation/{track_id}")
-    async def get_mastering_recommendation(track_id: int, filepath: str = None, confidence_threshold: float = 0.4):
+    async def get_mastering_recommendation(track_id: int, filepath: Optional[str] = None, confidence_threshold: float = 0.4) -> Dict[str, Any]:
         """
         Get weighted mastering profile recommendation for a track (Priority 4).
 
@@ -342,7 +350,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
             processor = ChunkedAudioProcessor(
                 track_id=track_id,
                 filepath=filepath,
-                preset=None,  # No processing needed for analysis only
+                preset="adaptive",  # Default for analysis-only mode
                 intensity=1.0,
                 chunk_cache={}
             )
@@ -354,7 +362,8 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
                 raise HTTPException(status_code=500, detail="Failed to analyze audio file")
 
             # Return serialized recommendation
-            return rec.to_dict()
+            result = rec.to_dict()
+            return result if isinstance(result, dict) else {}
 
         except HTTPException:
             raise
@@ -363,7 +372,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
             raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
     @router.get("/api/processing/parameters")
-    async def get_processing_parameters():
+    async def get_processing_parameters() -> Dict[str, Any]:
         """
         Get current processing parameters from the continuous space system.
         This shows what the auto-mastering engine is doing in real-time.
@@ -423,7 +432,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
                 }
 
             # Extract values (handle both dataclass and dict formats)
-            def get_attr(obj, attr, default=0.0):
+            def get_attr(obj: Any, attr: str, default: Any = 0.0) -> Any:
                 """Get attribute from dataclass or dict"""
                 if isinstance(obj, dict):
                     return obj.get(attr, default)
@@ -465,7 +474,7 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
             }
 
     @router.post("/api/player/enhancement/cache/clear")
-    async def clear_processing_cache():
+    async def clear_processing_cache() -> Dict[str, Any]:
         """
         Clear the processing cache (all cached enhanced audio files).
         Useful when testing or when cache becomes stale.
