@@ -18,7 +18,7 @@ from sqlalchemy.orm import relationship
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist
 
 
-class Track(Base, TimestampMixin):
+class Track(Base, TimestampMixin):  # type: ignore[misc]
     """Model for audio tracks."""
     __tablename__ = 'tracks'
 
@@ -145,7 +145,7 @@ class Track(Base, TimestampMixin):
             }
 
 
-class Album(Base, TimestampMixin):
+class Album(Base, TimestampMixin):  # type: ignore[misc]
     """Model for albums."""
     __tablename__ = 'albums'
 
@@ -188,7 +188,7 @@ class Album(Base, TimestampMixin):
         }
 
 
-class Artist(Base, TimestampMixin):
+class Artist(Base, TimestampMixin):  # type: ignore[misc]
     """Model for artists."""
     __tablename__ = 'artists'
 
@@ -200,8 +200,8 @@ class Artist(Base, TimestampMixin):
     avg_mastering_quality = Column(Float)
 
     # Relationships
-    albums = relationship("Album", back_populates="artist")
-    tracks = relationship("Track", secondary=track_artist, back_populates="artists")
+    albums = relationship("Album", back_populates="artist")  # type: ignore[assignment]
+    tracks = relationship("Track", secondary=track_artist, back_populates="artists")  # type: ignore[assignment]
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert artist to dictionary"""
@@ -217,7 +217,7 @@ class Artist(Base, TimestampMixin):
         }
 
 
-class Genre(Base, TimestampMixin):
+class Genre(Base, TimestampMixin):  # type: ignore[misc]
     """Model for music genres."""
     __tablename__ = 'genres'
 
@@ -230,7 +230,7 @@ class Genre(Base, TimestampMixin):
     typical_lufs_range = Column(String)  # "-14 to -10" for example
 
     # Relationships
-    tracks = relationship("Track", secondary=track_genre, back_populates="genres")
+    tracks = relationship("Track", secondary=track_genre, back_populates="genres")  # type: ignore[assignment]
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert genre to dictionary"""
@@ -246,7 +246,7 @@ class Genre(Base, TimestampMixin):
         }
 
 
-class Playlist(Base, TimestampMixin):
+class Playlist(Base, TimestampMixin):  # type: ignore[misc]
     """Model for playlists."""
     __tablename__ = 'playlists'
 
@@ -262,7 +262,7 @@ class Playlist(Base, TimestampMixin):
     normalize_levels = Column(Boolean, default=True)
 
     # Relationships
-    tracks = relationship("Track", secondary=track_playlist, back_populates="playlists")
+    tracks = relationship("Track", secondary=track_playlist, back_populates="playlists")  # type: ignore[assignment]
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert playlist to dictionary"""
@@ -282,7 +282,7 @@ class Playlist(Base, TimestampMixin):
         }
 
 
-class QueueState(Base, TimestampMixin):
+class QueueState(Base, TimestampMixin):  # type: ignore[misc]
     """
     Model for persisting playback queue state.
 
@@ -316,7 +316,8 @@ class QueueState(Base, TimestampMixin):
         """Convert queue state to dictionary"""
         import json
         try:
-            track_ids: List[int] = json.loads(self.track_ids) if self.track_ids else []
+            parsed_track_ids = json.loads(self.track_ids) if self.track_ids else []  # type: ignore[arg-type]
+            track_ids: List[int] = parsed_track_ids if isinstance(parsed_track_ids, list) else []
         except (json.JSONDecodeError, TypeError):
             track_ids = []
 
@@ -326,24 +327,24 @@ class QueueState(Base, TimestampMixin):
             'current_index': self.current_index,
             'is_shuffled': self.is_shuffled,
             'repeat_mode': self.repeat_mode,
-            'synced_at': self.synced_at.isoformat() if self.synced_at else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'synced_at': self.synced_at.isoformat() if self.synced_at else None,  # type: ignore[attr-defined]
+            'created_at': self.created_at.isoformat() if self.created_at else None,  # type: ignore[attr-defined]
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,  # type: ignore[attr-defined]
         }
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> 'QueueState':
         """Create QueueState from dictionary"""
         import json
-        state = QueueState()
-        state.track_ids = json.dumps(data.get('track_ids', []))
-        state.current_index = int(data.get('current_index', 0))
-        state.is_shuffled = bool(data.get('is_shuffled', False))
-        state.repeat_mode = str(data.get('repeat_mode', 'off'))
+        state = QueueState()  # type: ignore[call-arg]
+        state.track_ids = json.dumps(data.get('track_ids', []))  # type: ignore[attr-defined]
+        state.current_index = int(data.get('current_index', 0))  # type: ignore[attr-defined]
+        state.is_shuffled = bool(data.get('is_shuffled', False))  # type: ignore[attr-defined]
+        state.repeat_mode = str(data.get('repeat_mode', 'off'))  # type: ignore[attr-defined]
         return state
 
 
-class QueueHistory(Base, TimestampMixin):
+class QueueHistory(Base, TimestampMixin):  # type: ignore[misc]
     """
     Model for tracking queue state history for undo/redo operations.
 
@@ -375,12 +376,14 @@ class QueueHistory(Base, TimestampMixin):
         """Convert history entry to dictionary"""
         import json
         try:
-            state_snapshot: Dict[str, Any] = json.loads(self.state_snapshot) if self.state_snapshot else {}
+            parsed_snapshot = json.loads(self.state_snapshot) if self.state_snapshot else {}  # type: ignore[arg-type]
+            state_snapshot: Dict[str, Any] = parsed_snapshot if isinstance(parsed_snapshot, dict) else {}
         except (json.JSONDecodeError, TypeError):
             state_snapshot = {}
 
         try:
-            operation_metadata: Dict[str, Any] = json.loads(self.operation_metadata) if self.operation_metadata else {}
+            parsed_metadata = json.loads(self.operation_metadata) if self.operation_metadata else {}  # type: ignore[arg-type]
+            operation_metadata: Dict[str, Any] = parsed_metadata if isinstance(parsed_metadata, dict) else {}
         except (json.JSONDecodeError, TypeError):
             operation_metadata = {}
 
@@ -390,23 +393,23 @@ class QueueHistory(Base, TimestampMixin):
             'operation': self.operation,
             'state_snapshot': state_snapshot,
             'operation_metadata': operation_metadata,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,  # type: ignore[attr-defined]
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,  # type: ignore[attr-defined]
         }
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> 'QueueHistory':
         """Create QueueHistory from dictionary"""
         import json
-        entry = QueueHistory()
-        entry.queue_state_id = int(data.get('queue_state_id', 1))
-        entry.operation = str(data.get('operation', 'set'))
-        entry.state_snapshot = json.dumps(data.get('state_snapshot', {}))
-        entry.operation_metadata = json.dumps(data.get('operation_metadata', {}))
+        entry = QueueHistory()  # type: ignore[call-arg]
+        entry.queue_state_id = int(data.get('queue_state_id', 1))  # type: ignore[attr-defined]
+        entry.operation = str(data.get('operation', 'set'))  # type: ignore[attr-defined]
+        entry.state_snapshot = json.dumps(data.get('state_snapshot', {}))  # type: ignore[attr-defined]
+        entry.operation_metadata = json.dumps(data.get('operation_metadata', {}))  # type: ignore[attr-defined]
         return entry
 
 
-class QueueTemplate(Base, TimestampMixin):
+class QueueTemplate(Base, TimestampMixin):  # type: ignore[misc]
     """
     Model for saving and restoring queue configurations (templates).
 
@@ -448,12 +451,14 @@ class QueueTemplate(Base, TimestampMixin):
         """Convert template to dictionary"""
         import json
         try:
-            track_ids: List[int] = json.loads(self.track_ids) if self.track_ids else []
+            parsed_track_ids = json.loads(self.track_ids) if self.track_ids else []  # type: ignore[arg-type]
+            track_ids: List[int] = parsed_track_ids if isinstance(parsed_track_ids, list) else []
         except (json.JSONDecodeError, TypeError):
             track_ids = []
 
         try:
-            tags: List[str] = json.loads(self.tags) if self.tags else []
+            parsed_tags = json.loads(self.tags) if self.tags else []  # type: ignore[arg-type]
+            tags: List[str] = parsed_tags if isinstance(parsed_tags, list) else []
         except (json.JSONDecodeError, TypeError):
             tags = []
 
@@ -467,21 +472,21 @@ class QueueTemplate(Base, TimestampMixin):
             'tags': tags,
             'is_favorite': self.is_favorite,
             'load_count': self.load_count,
-            'last_loaded': self.last_loaded.isoformat() if self.last_loaded else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'last_loaded': self.last_loaded.isoformat() if self.last_loaded else None,  # type: ignore[attr-defined]
+            'created_at': self.created_at.isoformat() if self.created_at else None,  # type: ignore[attr-defined]
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,  # type: ignore[attr-defined]
         }
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> 'QueueTemplate':
         """Create QueueTemplate from dictionary"""
         import json
-        template = QueueTemplate()
-        template.name = str(data.get('name', 'Untitled Template'))
-        template.track_ids = json.dumps(data.get('track_ids', []))
-        template.is_shuffled = bool(data.get('is_shuffled', False))
-        template.repeat_mode = str(data.get('repeat_mode', 'off'))
-        template.description = data.get('description', None)
-        template.tags = json.dumps(data.get('tags', []))
-        template.is_favorite = bool(data.get('is_favorite', False))
+        template = QueueTemplate()  # type: ignore[call-arg]
+        template.name = str(data.get('name', 'Untitled Template'))  # type: ignore[attr-defined]
+        template.track_ids = json.dumps(data.get('track_ids', []))  # type: ignore[attr-defined]
+        template.is_shuffled = bool(data.get('is_shuffled', False))  # type: ignore[attr-defined]
+        template.repeat_mode = str(data.get('repeat_mode', 'off'))  # type: ignore[attr-defined]
+        template.description = data.get('description', None)  # type: ignore[attr-defined]
+        template.tags = json.dumps(data.get('tags', []))  # type: ignore[attr-defined]
+        template.is_favorite = bool(data.get('is_favorite', False))  # type: ignore[attr-defined]
         return template
