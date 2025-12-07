@@ -11,14 +11,14 @@ ML-based preference prediction
 """
 
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 from ...utils.logging import debug
 
 
 class PreferencePredictor:
     """Predict user preferences using lightweight ML"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Simple linear model for preference prediction
         self.feature_weights = {
             'spectral_centroid': 0.0,
@@ -42,7 +42,7 @@ class PreferencePredictor:
         self.is_trained = False
 
     def add_training_sample(self, audio_features: Dict[str, float],
-                          parameter_adjustments: Dict[str, float]):
+                          parameter_adjustments: Dict[str, float]) -> None:
         """Add training sample from user action"""
 
         # Convert features to array
@@ -61,7 +61,7 @@ class PreferencePredictor:
         if len(self.training_data) >= 10:
             self._retrain_model()
 
-    def _retrain_model(self):
+    def _retrain_model(self) -> None:
         """Retrain the preference prediction model"""
         if len(self.training_data) < 5:
             return
@@ -112,7 +112,7 @@ class PreferencePredictor:
 
         return predictions
 
-    def get_model_info(self) -> Dict:
+    def get_model_info(self) -> Dict[str, Any]:
         """Get model training information"""
         return {
             'is_trained': self.is_trained,
