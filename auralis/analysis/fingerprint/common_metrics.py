@@ -20,7 +20,7 @@ Provides single source of truth for:
 """
 
 import numpy as np
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Callable, Union, Tuple
 import librosa
 
 
@@ -45,7 +45,7 @@ class FingerprintConstants:
     CV_DEFAULT_SCALE = 1.0    # Standard coefficient of variation scaling
 
     @staticmethod
-    def validate_vector(vector, expected_dims: int = None) -> bool:
+    def validate_vector(vector: Any, expected_dims: Optional[int] = None) -> bool:
         """
         Validate fingerprint vector dimensions.
 
@@ -59,12 +59,11 @@ class FingerprintConstants:
         Raises:
             ValueError: If dimensions don't match
         """
-        if expected_dims is None:
-            expected_dims = FingerprintConstants.FINGERPRINT_DIMENSIONS
+        dims: int = expected_dims if expected_dims is not None else FingerprintConstants.FINGERPRINT_DIMENSIONS
 
-        if len(vector) != expected_dims:
+        if len(vector) != dims:
             raise ValueError(
-                f"Expected {expected_dims}-element vector, got {len(vector)}"
+                f"Expected {dims}-element vector, got {len(vector)}"
             )
 
         return True
@@ -272,12 +271,12 @@ class MetricUtils:
         Returns:
             Normalized array
         """
-        ref_value = np.percentile(values, percentile)
+        ref_value: float = float(np.percentile(values, percentile))
 
         if ref_value <= SafeOperations.EPSILON:
-            return np.ones_like(values) * 0.5
+            return np.ones_like(values, dtype=float) * 0.5
 
-        normalized = values / ref_value
+        normalized: np.ndarray = values / ref_value
 
         if clip:
             normalized = np.clip(normalized, 0, 1)
@@ -705,7 +704,7 @@ class AudioMetrics:
     @staticmethod
     def rms_to_db(
         rms: np.ndarray,
-        ref: float = None
+        ref: Optional[float] = None
     ) -> np.ndarray:
         """
         Convert RMS to dB using librosa standard.
@@ -717,15 +716,15 @@ class AudioMetrics:
         Returns:
             RMS values in dB
         """
-        if ref is None:
-            ref = np.max(np.abs(rms)) if np.any(rms) else 1.0
+        rms_array: np.ndarray = np.asarray(rms)
+        ref_val: float = ref if ref is not None else (np.max(np.abs(rms_array)) if np.any(rms_array) else 1.0)
 
-        return librosa.amplitude_to_db(np.asarray(rms), ref=ref)
+        return librosa.amplitude_to_db(rms_array, ref=ref_val)  # type: ignore[no-any-return]
 
     @staticmethod
     def loudness_variation(
         rms: np.ndarray,
-        ref: float = None
+        ref: Optional[float] = None
     ) -> float:
         """
         Calculate loudness variation (standard deviation of dB values).
@@ -739,14 +738,14 @@ class AudioMetrics:
         Returns:
             Loudness variation in dB
         """
-        rms_db = AudioMetrics.rms_to_db(rms, ref=ref)
+        rms_db: np.ndarray = AudioMetrics.rms_to_db(rms, ref=ref)
         return float(np.std(rms_db))
 
     @staticmethod
     def silence_ratio(
         rms: np.ndarray,
         threshold_db: float = -40.0,
-        ref: float = None
+        ref: Optional[float] = None
     ) -> float:
         """
         Calculate ratio of silent frames.
@@ -761,8 +760,8 @@ class AudioMetrics:
         Returns:
             Ratio of silent frames in [0, 1]
         """
-        rms_db = AudioMetrics.rms_to_db(rms, ref=ref)
-        silent_frames = np.sum(rms_db < threshold_db)
+        rms_db: np.ndarray = AudioMetrics.rms_to_db(rms, ref=ref)
+        silent_frames: np.intp = np.sum(rms_db < threshold_db)
 
         return float(silent_frames / len(rms_db))
 
@@ -837,7 +836,7 @@ class AggregationUtils:
     @staticmethod
     def aggregate_multiple(
         frame_values: np.ndarray,
-        methods: list = None
+        methods: Optional[List[str]] = None
     ) -> Dict[str, float]:
         """
         Aggregate frame values using multiple methods.
@@ -851,12 +850,11 @@ class AggregationUtils:
         Returns:
             Dictionary with aggregation method as key
         """
-        if methods is None:
-            methods = ["median", "std"]
+        method_list: List[str] = methods if methods is not None else ["median", "std"]
 
         return {
             method: AggregationUtils.aggregate_frames_to_track(frame_values, method)
-            for method in methods
+            for method in method_list
         }
 
 
@@ -881,10 +879,10 @@ class SpectralOperations:
         Returns:
             Normalized magnitude spectrogram
         """
-        norm = np.sum(np.abs(magnitude), axis=axis, keepdims=True)
+        norm: np.ndarray = np.sum(np.abs(magnitude), axis=axis, keepdims=True)
         norm = np.maximum(norm, SafeOperations.EPSILON)
 
-        return magnitude / norm
+        return magnitude / norm  # type: ignore[no-any-return]
 
     @staticmethod
     def spectral_flatness(
@@ -1102,16 +1100,16 @@ class BandNormalizationTable:
         (26, 30, "6k-20k", "air_pct", -12, 12),
     ]
 
-    def __init__(self, band_definitions=None):
+    def __init__(self, band_definitions: Optional[List[Tuple[int, int, str, str, int, int]]] = None) -> None:
         """
         Initialize band normalization table.
 
         Args:
             band_definitions: List of band tuples or None for standard
         """
-        self.bands = band_definitions if band_definitions is not None else self.STANDARD_BANDS
+        self.bands: List[Tuple[int, int, str, str, int, int]] = band_definitions if band_definitions is not None else self.STANDARD_BANDS
 
-    def apply_to_fingerprint(self, fingerprint: dict, normalize_func) -> dict:
+    def apply_to_fingerprint(self, fingerprint: Dict[str, Any], normalize_func: Callable[[float, float, float], float]) -> Dict[int, float]:
         """
         Apply band normalization to fingerprint using vectorized operations.
 
@@ -1122,13 +1120,13 @@ class BandNormalizationTable:
         Returns:
             Dictionary mapping band index to gain in dB
         """
-        eq_gains = {}
+        eq_gains: Dict[int, float] = {}
 
         for band_start, band_end, freq_range, fp_key, min_db, max_db in self.bands:
-            energy_value = fingerprint.get(fp_key, 0.1)
+            energy_value: float = float(fingerprint.get(fp_key, 0.1))
 
             # Calculate gain using provided normalization function
-            gain = normalize_func(energy_value, min_db, max_db)
+            gain: float = normalize_func(energy_value, min_db, max_db)
 
             # Apply to all bands in range (vectorized via direct assignment)
             for i in range(band_start, band_end + 1):
@@ -1149,5 +1147,6 @@ class BandNormalizationTable:
         Returns:
             Gain in dB
         """
-        value_clipped = np.clip(value, 0.0, 1.0)
-        return min_db + (value_clipped * (max_db - min_db))
+        value_clipped: Union[float, np.ndarray] = np.clip(value, 0.0, 1.0)
+        result: float = float(min_db + (value_clipped * (max_db - min_db)))
+        return result

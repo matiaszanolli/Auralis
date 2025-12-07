@@ -10,10 +10,10 @@ Responsibilities:
 - Playlist loading
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from .components import QueueManager
 from ..library.manager import LibraryManager
-from ..utils.logging import debug, info, warning, error
+from ..utils.logging import info, warning, error
 
 
 class QueueController:
@@ -24,52 +24,52 @@ class QueueController:
     Only responsible for queue operations and track sequencing.
     """
 
-    def __init__(self, library_manager: Optional[LibraryManager] = None):
-        self.queue = QueueManager()
-        self.library = library_manager or LibraryManager()
+    def __init__(self, library_manager: Optional[LibraryManager] = None) -> None:
+        self.queue: Any = QueueManager()  # type: ignore[no-untyped-call]
+        self.library: LibraryManager = library_manager or LibraryManager()
 
     # Backward compatibility properties for old test code
     @property
     def tracks(self) -> List[Dict[str, Any]]:
         """Get list of tracks in queue"""
-        return self.queue.tracks
+        return self.queue.tracks  # type: ignore[no-any-return]
 
     @property
     def current_index(self) -> int:
         """Get current track index"""
-        return self.queue.current_index
+        return self.queue.current_index  # type: ignore[no-any-return]
 
     @current_index.setter
-    def current_index(self, value: int):
+    def current_index(self, value: int) -> None:
         """Set current track index"""
         self.queue.current_index = value
 
     @property
     def shuffle_enabled(self) -> bool:
         """Get shuffle mode status"""
-        return self.queue.shuffle_enabled
+        return self.queue.shuffle_enabled  # type: ignore[no-any-return]
 
     @shuffle_enabled.setter
-    def shuffle_enabled(self, value: bool):
+    def shuffle_enabled(self, value: bool) -> None:
         """Set shuffle mode"""
         self.queue.shuffle_enabled = value
 
     @property
     def repeat_enabled(self) -> bool:
         """Get repeat mode status"""
-        return self.queue.repeat_enabled
+        return self.queue.repeat_enabled  # type: ignore[no-any-return]
 
     @repeat_enabled.setter
-    def repeat_enabled(self, value: bool):
+    def repeat_enabled(self, value: bool) -> None:
         """Set repeat mode"""
         self.queue.repeat_enabled = value
 
-    def add_tracks(self, track_list: List[Dict[str, Any]]):
+    def add_tracks(self, track_list: List[Dict[str, Any]]) -> None:
         """Add multiple tracks to queue"""
         for track_info in track_list:
             self.add_track(track_info)
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all tracks from queue (backward compatibility alias)"""
         self.clear_queue()
 
@@ -80,12 +80,12 @@ class QueueController:
         Returns:
             Track info dict or None if queue empty
         """
-        next_track = self.queue.next_track()
+        next_track: Any = self.queue.next_track()
         if next_track:
             info(f"Advancing to next track: {next_track.get('title', 'Unknown')}")
         else:
             info("No next track in queue")
-        return next_track
+        return next_track  # type: ignore[no-any-return]
 
     def previous_track(self) -> Optional[Dict[str, Any]]:
         """
@@ -94,16 +94,16 @@ class QueueController:
         Returns:
             Track info dict or None if at start
         """
-        prev_track = self.queue.previous_track()
+        prev_track: Any = self.queue.previous_track()
         if prev_track:
             info(f"Moved to previous track: {prev_track.get('title', 'Unknown')}")
         else:
             info("No previous track in queue")
-        return prev_track
+        return prev_track  # type: ignore[no-any-return]
 
     def get_current_track(self) -> Optional[Dict[str, Any]]:
         """Get current track from queue"""
-        return self.queue.get_current_track()
+        return self.queue.get_current_track()  # type: ignore[no-any-return]
 
     def peek_next_track(self) -> Optional[Dict[str, Any]]:
         """
@@ -111,9 +111,9 @@ class QueueController:
 
         Useful for prebuffering the next track.
         """
-        return self.queue.peek_next()
+        return self.queue.peek_next()  # type: ignore[no-any-return]
 
-    def add_track(self, track_info: Dict[str, Any]):
+    def add_track(self, track_info: Dict[str, Any]) -> None:
         """Add a track to the queue"""
         self.queue.add_track(track_info)
         info(f"Added to queue: {track_info.get('title', 'Unknown')}")
@@ -188,14 +188,14 @@ class QueueController:
             error(f"Failed to load playlist: {e}")
             return False
 
-    def clear_queue(self):
+    def clear_queue(self) -> None:
         """Clear all tracks from queue"""
         self.queue.clear()
         info("Queue cleared")
 
     def get_queue_info(self) -> Dict[str, Any]:
         """Get detailed queue information"""
-        current = self.get_current_track()
+        current: Optional[Dict[str, Any]] = self.get_current_track()
         return {
             'tracks': self.queue.tracks.copy(),
             'current_index': self.queue.current_index,
@@ -207,12 +207,12 @@ class QueueController:
             'repeat_enabled': self.queue.repeat_enabled,
         }
 
-    def set_shuffle(self, enabled: bool):
+    def set_shuffle(self, enabled: bool) -> None:
         """Enable/disable shuffle mode"""
         self.queue.shuffle_enabled = enabled
         info(f"Shuffle {'enabled' if enabled else 'disabled'}")
 
-    def set_repeat(self, enabled: bool):
+    def set_repeat(self, enabled: bool) -> None:
         """Enable/disable repeat mode"""
         self.queue.repeat_enabled = enabled
         info(f"Repeat {'enabled' if enabled else 'disabled'}")
@@ -231,17 +231,17 @@ class QueueController:
 
     def remove_track(self, index: int) -> bool:
         """Remove track at specified index"""
-        return self.queue.remove_track(index)
+        return self.queue.remove_track(index)  # type: ignore[no-any-return]
 
     def get_queue(self) -> List[Dict[str, Any]]:
         """Get full queue as list"""
-        return self.queue.get_queue()
+        return self.queue.get_queue()  # type: ignore[no-any-return]
 
     def reorder_tracks(self, new_order: List[int]) -> bool:
         """Reorder tracks according to new index order"""
-        return self.queue.reorder_tracks(new_order)
+        return self.queue.reorder_tracks(new_order)  # type: ignore[no-any-return]
 
-    def set_queue(self, track_list: List[str], start_index: int = 0):
+    def set_queue(self, track_list: List[Union[str, Dict[str, Any]]], start_index: int = 0) -> None:
         """Set queue with track list (for backward compatibility)"""
         # Clear existing queue
         self.queue.clear()
