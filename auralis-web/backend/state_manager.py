@@ -12,7 +12,7 @@ Single source of truth that broadcasts state changes via WebSocket.
 import asyncio
 import threading
 import logging
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Dict, Any
 from player_state import PlayerState, PlaybackState, TrackInfo, create_track_info
 
 logger = logging.getLogger(__name__)
@@ -26,24 +26,24 @@ class PlayerStateManager:
     changes to all connected clients via WebSocket.
     """
 
-    def __init__(self, websocket_manager):
+    def __init__(self, websocket_manager: Any) -> None:
         """
         Initialize state manager
 
         Args:
             websocket_manager: WebSocket connection manager for broadcasting
         """
-        self.state = PlayerState()
-        self.ws_manager = websocket_manager
-        self._lock = threading.Lock()
-        self._position_update_task = None
+        self.state: PlayerState = PlayerState()
+        self.ws_manager: Any = websocket_manager
+        self._lock: threading.Lock = threading.Lock()
+        self._position_update_task: Optional[asyncio.Task[Any]] = None
 
     def get_state(self) -> PlayerState:
         """Get current player state (thread-safe)"""
         with self._lock:
             return self.state.model_copy(deep=True)
 
-    async def update_state(self, **kwargs):
+    async def update_state(self, **kwargs: Any) -> None:
         """
         Update player state and broadcast changes
 
@@ -69,7 +69,7 @@ class PlayerStateManager:
         # Broadcast to all connected clients
         await self._broadcast_state(state_snapshot)
 
-    async def set_track(self, track, library_manager):
+    async def set_track(self, track: Any, library_manager: Any) -> None:
         """
         Set current track and broadcast
 
@@ -96,7 +96,7 @@ class PlayerStateManager:
             state=PlaybackState.LOADING
         )
 
-    async def set_playing(self, playing: bool):
+    async def set_playing(self, playing: bool) -> None:
         """Set playing state"""
         new_state = PlaybackState.PLAYING if playing else PlaybackState.PAUSED
         await self.update_state(state=new_state)
@@ -107,18 +107,18 @@ class PlayerStateManager:
         else:
             self._stop_position_updates()
 
-    async def set_position(self, position: float):
+    async def set_position(self, position: float) -> None:
         """Set playback position"""
         await self.update_state(current_time=position)
 
-    async def set_volume(self, volume: int):
+    async def set_volume(self, volume: int) -> None:
         """Set volume level"""
         await self.update_state(
             volume=max(0, min(100, volume)),
             is_muted=(volume == 0)
         )
 
-    async def set_queue(self, tracks: List[TrackInfo], start_index: int = 0):
+    async def set_queue(self, tracks: List[TrackInfo], start_index: int = 0) -> None:
         """Set playback queue"""
         current_track = tracks[start_index] if tracks and 0 <= start_index < len(tracks) else None
         await self.update_state(
@@ -128,9 +128,13 @@ class PlayerStateManager:
             current_track=current_track
         )
 
-    async def next_track(self):
+    async def next_track(self) -> Optional[TrackInfo]:
         """Move to next track in queue"""
         # Determine next track while holding lock (don't await inside lock)
+        new_index: Optional[int] = None
+        next_track: Optional[TrackInfo] = None
+        has_next: bool = False
+
         with self._lock:
             if self.state.queue_index < len(self.state.queue) - 1:
                 new_index = self.state.queue_index + 1
@@ -139,12 +143,7 @@ class PlayerStateManager:
             elif self.state.repeat_mode == "all":
                 new_index = 0
                 next_track = self.state.queue[0] if self.state.queue else None
-                has_next = True
-            else:
-                # No next track
-                has_next = False
-                new_index = None
-                next_track = None
+                has_next = bool(next_track)  # Has next only if queue is not empty
 
         # Update state outside lock to avoid deadlock
         if not has_next:
@@ -158,18 +157,21 @@ class PlayerStateManager:
         )
         return next_track
 
-    async def previous_track(self):
+    async def previous_track(self) -> Optional[TrackInfo]:
         """Move to previous track in queue"""
         # Determine action while holding lock (don't await inside lock)
         with self._lock:
             if self.state.current_time > 3.0:
                 # Restart current track if > 3 seconds
-                should_restart = True
-                current_track = self.state.current_track
+                should_restart: bool = True
+                current_track_var: Optional[TrackInfo] = self.state.current_track
+                new_index_var: Optional[int] = None
+                prev_track_var: Optional[TrackInfo] = None
             elif self.state.queue_index > 0:
                 should_restart = False
-                new_index = self.state.queue_index - 1
-                prev_track = self.state.queue[new_index]
+                new_index_var = self.state.queue_index - 1
+                prev_track_var = self.state.queue[new_index_var]
+                current_track_var = None
             else:
                 # No previous track
                 return None
@@ -177,34 +179,34 @@ class PlayerStateManager:
         # Execute state changes outside lock to avoid deadlock
         if should_restart:
             await self.set_position(0.0)
-            return current_track
+            return current_track_var
 
         await self.update_state(
-            queue_index=new_index,
-            current_track=prev_track,
+            queue_index=new_index_var,
+            current_track=prev_track_var,
             current_time=0.0
         )
-        return prev_track
+        return prev_track_var
 
-    async def _broadcast_state(self, state: PlayerState):
+    async def _broadcast_state(self, state: PlayerState) -> None:
         """Broadcast state to all WebSocket clients"""
         await self.ws_manager.broadcast({
             "type": "player_state",
             "data": state.model_dump()
         })
 
-    def _start_position_updates(self):
+    def _start_position_updates(self) -> None:
         """Start periodic position updates (called when playback starts)"""
         if self._position_update_task is None or self._position_update_task.done():
             self._position_update_task = asyncio.create_task(self._position_update_loop())
 
-    def _stop_position_updates(self):
+    def _stop_position_updates(self) -> None:
         """Stop position updates (called when playback pauses)"""
         if self._position_update_task and not self._position_update_task.done():
             self._position_update_task.cancel()
             self._position_update_task = None
 
-    async def _position_update_loop(self):
+    async def _position_update_loop(self) -> None:
         """Update position every second while playing"""
         try:
             while True:
