@@ -16,7 +16,7 @@ predictable caching strategy (~150 lines).
 import asyncio
 import logging
 import time
-from typing import Dict, Optional, Set, Tuple, List
+from typing import Dict, Optional, Set, Tuple, List, Any
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -58,7 +58,7 @@ class CachedChunk:
         """Check if this is an original (unprocessed) chunk."""
         return self.preset is None
 
-    def mark_accessed(self):
+    def mark_accessed(self) -> None:
         """Update access statistics."""
         self.access_count += 1
         self.last_access = time.time()
@@ -102,7 +102,7 @@ class StreamlinedCacheManager:
     - LRU eviction (keep last 2 tracks)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Cache storage: key -> CachedChunk
         self.tier1_cache: Dict[str, CachedChunk] = {}
         self.tier2_cache: Dict[str, CachedChunk] = {}
@@ -112,7 +112,7 @@ class StreamlinedCacheManager:
 
         # NEW (Priority 4): Mastering recommendations cache
         # Maps track_id -> serialized MasteringRecommendation dict
-        self.mastering_recommendations: Dict[int, dict] = {}
+        self.mastering_recommendations: Dict[int, Dict[str, Any]] = {}
 
         # Playback state
         self.current_track_id: Optional[int] = None
@@ -122,13 +122,13 @@ class StreamlinedCacheManager:
         self.auto_mastering_enabled: bool = True
 
         # Statistics
-        self.tier1_hits = 0
-        self.tier1_misses = 0
-        self.tier2_hits = 0
-        self.tier2_misses = 0
+        self.tier1_hits: int = 0
+        self.tier1_misses: int = 0
+        self.tier2_hits: int = 0
+        self.tier2_misses: int = 0
 
         # Thread safety
-        self._lock = asyncio.Lock()
+        self._lock: asyncio.Lock = asyncio.Lock()
 
         logger.info("StreamlinedCacheManager initialized (12 MB Tier 1)")
 
@@ -149,7 +149,7 @@ class StreamlinedCacheManager:
         preset: str = "adaptive",
         intensity: float = 1.0,
         track_duration: Optional[float] = None
-    ):
+    ) -> None:
         """
         Update current playback position.
 
@@ -308,7 +308,7 @@ class StreamlinedCacheManager:
 
             return True
 
-    async def _evict_tier1_lru(self):
+    async def _evict_tier1_lru(self) -> None:
         """Evict least recently used chunk from Tier 1."""
         if not self.tier1_cache:
             return
@@ -320,7 +320,7 @@ class StreamlinedCacheManager:
         del self.tier1_cache[lru_key]
         logger.debug(f"Evicted from Tier 1: {lru_key}")
 
-    async def _evict_tier2_lru(self):
+    async def _evict_tier2_lru(self) -> None:
         """Evict least recently used track from Tier 2."""
         if not self.tier2_cache:
             return
@@ -358,11 +358,11 @@ class StreamlinedCacheManager:
 
         logger.info(f"Evicted track {oldest_track} from Tier 2 ({len(keys_to_remove)} chunks)")
 
-    async def _clear_tier1_cache(self):
+    async def _clear_tier1_cache(self) -> None:
         """Clear entire Tier 1 cache."""
         self.tier1_cache.clear()
 
-    async def _clear_tier2_processed_chunks(self, track_id: int):
+    async def _clear_tier2_processed_chunks(self, track_id: int) -> None:
         """Clear processed chunks for a track (keep original)."""
         keys_to_remove = [
             k for k, chunk in self.tier2_cache.items()
@@ -386,7 +386,7 @@ class StreamlinedCacheManager:
         status = self.track_status.get(track_id)
         return status.cache_complete if status else False
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""
         tier1_size_mb = len(self.tier1_cache) * CHUNK_SIZE_MB
         tier2_size_mb = len(self.tier2_cache) * CHUNK_SIZE_MB
@@ -477,7 +477,7 @@ class StreamlinedCacheManager:
 
             return loaded_count
 
-    def set_mastering_recommendation(self, track_id: int, recommendation: dict) -> None:
+    def set_mastering_recommendation(self, track_id: int, recommendation: Dict[str, Any]) -> None:
         """
         Cache a mastering recommendation for a track (Priority 4).
 
@@ -493,7 +493,7 @@ class StreamlinedCacheManager:
             f"blended={'yes' if recommendation.get('weighted_profiles') else 'no'}"
         )
 
-    def get_mastering_recommendation(self, track_id: int) -> Optional[dict]:
+    def get_mastering_recommendation(self, track_id: int) -> Optional[Dict[str, Any]]:
         """
         Retrieve cached mastering recommendation for a track (Priority 4).
 
@@ -510,7 +510,7 @@ class StreamlinedCacheManager:
         self.mastering_recommendations.clear()
         logger.info("Cleared all mastering recommendations from cache")
 
-    async def clear_all(self):
+    async def clear_all(self) -> None:
         """Clear all caches."""
         async with self._lock:
             self.tier1_cache.clear()
