@@ -18,7 +18,7 @@ Without normalization, high-range dimensions dominate distance calculations.
 """
 
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -36,7 +36,7 @@ class DimensionStats:
     std: float
     count: int  # Number of samples used to calculate stats
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
             'name': self.name,
@@ -48,7 +48,7 @@ class DimensionStats:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'DimensionStats':
+    def from_dict(cls, data: Dict[str, Any]) -> 'DimensionStats':
         """Create from dictionary"""
         return cls(
             name=data['name'],
@@ -114,7 +114,7 @@ class FingerprintNormalizer:
         self.stats: Dict[str, DimensionStats] = {}
         self.fitted = False
 
-    def fit(self, fingerprint_repository, min_samples: int = 10) -> bool:
+    def fit(self, fingerprint_repository: Any, min_samples: int = 10) -> bool:
         """
         Calculate normalization statistics from library fingerprints
 
