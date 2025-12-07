@@ -17,7 +17,7 @@ Enhances the BranchPredictor with audio-informed predictions:
 
 import logging
 import numpy as np
-from typing import Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -67,10 +67,10 @@ class AudioContentAnalyzer:
     that correlate with preset preferences.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize analyzer."""
         self.analysis_cache: Dict[str, AudioFeatures] = {}  # Cache results
-        self._cache_max_size = 100
+        self._cache_max_size: int = 100
 
     async def analyze_chunk_fast(
         self,
@@ -128,7 +128,9 @@ class AudioContentAnalyzer:
             logger.error(f"Error analyzing chunk {filepath}:{chunk_idx}: {e}", exc_info=True)
             return self._get_default_features()
 
-    async def _load_chunk_fast(self, filepath: str, chunk_idx: int) -> Optional[np.ndarray]:
+    async def _load_chunk_fast(
+        self, filepath: str, chunk_idx: int
+    ) -> Optional[np.ndarray]:
         """
         Fast load of audio chunk (lightweight, no full processing).
 
@@ -149,11 +151,11 @@ class AudioContentAnalyzer:
                 num_frames = int(chunk_duration * sample_rate)
 
                 f.seek(start_frame)
-                audio = f.read(num_frames)
+                audio: np.ndarray = f.read(num_frames)
 
                 # Convert to mono if stereo
                 if len(audio.shape) > 1:
-                    audio = np.mean(audio, axis=1)
+                    audio = np.mean(audio, axis=1).astype(np.float32)
 
                 return audio
 
@@ -293,7 +295,7 @@ class AudioContentPredictor:
     Enhances BranchPredictor with audio-content-aware predictions.
     """
 
-    def __init__(self, analyzer: Optional[AudioContentAnalyzer] = None):
+    def __init__(self, analyzer: Optional[AudioContentAnalyzer] = None) -> None:
         """
         Initialize audio-content predictor.
 

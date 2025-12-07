@@ -11,9 +11,43 @@ Automatically optimizes system parameters based on observed behavior.
 import asyncio
 import logging
 import time
-from typing import Optional, Any, Dict
+from typing import Optional, Dict, Any, Protocol
+
+# Import actual implementations for type hints (not Protocols)
+from learning_system import LearningSystem, AdaptiveWeightTuner, AffinityRuleLearner
+from memory_monitor import MemoryPressureMonitor, DegradationManager
 
 logger = logging.getLogger(__name__)
+
+
+class CacheLayer(Protocol):
+    """Protocol for a cache layer (L1, L2, or L3)."""
+
+    max_size_mb: float
+
+    async def clear(self) -> None:
+        """Clear all items from this cache layer."""
+        ...
+
+
+class BufferManager(Protocol):
+    """Protocol for buffer manager with multi-tier caching."""
+
+    l1_cache: CacheLayer
+    l2_cache: CacheLayer
+    l3_cache: CacheLayer
+
+
+class Worker(Protocol):
+    """Protocol for background worker that can be paused/resumed."""
+
+    async def resume(self) -> None:
+        """Resume worker processing."""
+        ...
+
+    async def pause(self) -> None:
+        """Pause worker processing."""
+        ...
 
 
 class SelfTuner:
@@ -29,40 +63,40 @@ class SelfTuner:
 
     def __init__(
         self,
-        buffer_manager: Any,
-        worker: Any,
-        learning_system: Any,
-        weight_tuner: Any,
-        affinity_learner: Any,
-        memory_monitor: Any,
-        degradation_manager: Any,
-        tuning_interval: int = 300
+        buffer_manager: BufferManager,
+        worker: Worker,
+        learning_system: LearningSystem,
+        weight_tuner: AdaptiveWeightTuner,
+        affinity_learner: AffinityRuleLearner,
+        memory_monitor: MemoryPressureMonitor,
+        degradation_manager: DegradationManager,
+        tuning_interval: int = 300,
     ) -> None:
         """
         Initialize self-tuner.
 
         Args:
-            buffer_manager: Buffer manager instance
-            worker: Worker instance
-            learning_system: LearningSystem instance
-            weight_tuner: AdaptiveWeightTuner instance
-            affinity_learner: AffinityRuleLearner instance
-            memory_monitor: MemoryPressureMonitor instance
-            degradation_manager: DegradationManager instance
+            buffer_manager: Buffer manager instance with multi-tier caching
+            worker: Background worker that can be paused/resumed
+            learning_system: Tracks prediction accuracy and learns from outcomes
+            weight_tuner: Dynamically adjusts user/audio weighting
+            affinity_learner: Learns which audio features predict which presets
+            memory_monitor: Monitors system memory and determines cache sizing
+            degradation_manager: Manages graceful degradation under resource constraints
             tuning_interval: Seconds between tuning cycles (default: 300 = 5 minutes)
         """
-        self.buffer_manager: Any = buffer_manager
-        self.worker: Any = worker
-        self.learning_system: Any = learning_system
-        self.weight_tuner: Any = weight_tuner
-        self.affinity_learner: Any = affinity_learner
-        self.memory_monitor: Any = memory_monitor
-        self.degradation_manager: Any = degradation_manager
+        self.buffer_manager: BufferManager = buffer_manager
+        self.worker: Worker = worker
+        self.learning_system: LearningSystem = learning_system
+        self.weight_tuner: AdaptiveWeightTuner = weight_tuner
+        self.affinity_learner: AffinityRuleLearner = affinity_learner
+        self.memory_monitor: MemoryPressureMonitor = memory_monitor
+        self.degradation_manager: DegradationManager = degradation_manager
         self.tuning_interval: int = tuning_interval
 
         self.is_enabled: bool = True
         self.is_running: bool = False
-        self.tuning_task: Optional[asyncio.Task[Any]] = None
+        self.tuning_task: Optional[asyncio.Task[None]] = None
 
         self.tuning_cycle_count: int = 0
         self.last_tuning_time: float = 0.0
@@ -255,19 +289,23 @@ class SelfTuner:
 
     def get_statistics(self) -> Dict[str, Any]:
         """Get self-tuner statistics."""
+        seconds_since_last: float = (
+            time.time() - self.last_tuning_time
+            if self.last_tuning_time > 0
+            else 0
+        )
         return {
             "is_enabled": self.is_enabled,
             "is_running": self.is_running,
             "tuning_cycle_count": self.tuning_cycle_count,
             "last_tuning_time": self.last_tuning_time,
             "tuning_interval": self.tuning_interval,
-            "seconds_since_last_tuning": time.time() - self.last_tuning_time if self.last_tuning_time > 0 else 0,
-
+            "seconds_since_last_tuning": seconds_since_last,
             # Component statistics
             "weight_tuner": self.weight_tuner.get_statistics(),
             "affinity_learner": self.affinity_learner.get_statistics(),
             "memory_monitor": self.memory_monitor.get_statistics(),
-            "degradation_manager": self.degradation_manager.get_statistics()
+            "degradation_manager": self.degradation_manager.get_statistics(),
         }
 
 
@@ -276,16 +314,16 @@ _self_tuner_instance: Optional[SelfTuner] = None
 
 
 def create_self_tuner(
-    buffer_manager: Any,
-    worker: Any,
-    learning_system: Any,
-    weight_tuner: Any,
-    affinity_learner: Any,
-    memory_monitor: Any,
-    degradation_manager: Any,
-    tuning_interval: int = 300
+    buffer_manager: BufferManager,
+    worker: Worker,
+    learning_system: LearningSystem,
+    weight_tuner: AdaptiveWeightTuner,
+    affinity_learner: AffinityRuleLearner,
+    memory_monitor: MemoryPressureMonitor,
+    degradation_manager: DegradationManager,
+    tuning_interval: int = 300,
 ) -> SelfTuner:
-    """Create self-tuner instance."""
+    """Create self-tuner instance with dependencies."""
     return SelfTuner(
         buffer_manager,
         worker,
@@ -294,7 +332,7 @@ def create_self_tuner(
         affinity_learner,
         memory_monitor,
         degradation_manager,
-        tuning_interval
+        tuning_interval,
     )
 
 

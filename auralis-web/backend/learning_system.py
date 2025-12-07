@@ -12,7 +12,7 @@ import time
 import logging
 import copy
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Deque, Optional
+from typing import Any, Dict, List, Tuple, Deque, Optional
 from collections import deque, defaultdict
 
 logger = logging.getLogger(__name__)
@@ -67,8 +67,8 @@ class LearningSystem:
         actual_preset: str,
         confidence: float,
         context: str,
-        audio_features: Optional[Dict[str, float]] = None
-    ):
+        audio_features: Optional[Dict[str, float]] = None,
+    ) -> None:
         """
         Record a prediction and its outcome.
 
@@ -154,7 +154,7 @@ class LearningSystem:
         """Get N most recent predictions."""
         return list(self.prediction_history)[-count:]
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """Get comprehensive statistics."""
         return {
             "total_predictions": self.total_predictions,
@@ -169,10 +169,10 @@ class LearningSystem:
             "accuracy_by_context": {
                 context: self.get_accuracy_by_context(context)
                 for context in self.accuracy_by_context.keys()
-            }
+            },
         }
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset all learning data."""
         self.prediction_history.clear()
         self.accuracy_by_preset.clear()
@@ -221,7 +221,7 @@ class AdaptiveWeightTuner:
         self.tuning_history: List[Tuple[float, float, float]] = []  # (timestamp, user_weight, audio_weight)
         self.last_tuning_time = time.time()
 
-    def update_weights(self, learning_system: LearningSystem):
+    def update_weights(self, learning_system: LearningSystem) -> None:
         """
         Update weights based on recent prediction accuracy.
 
@@ -294,14 +294,14 @@ class AdaptiveWeightTuner:
         """Get current (user_weight, audio_weight) tuple."""
         return (self.user_weight, self.audio_weight)
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """Get tuning statistics."""
         return {
             "user_weight": self.user_weight,
             "audio_weight": self.audio_weight,
             "tuning_count": len(self.tuning_history),
             "last_tuning_time": self.last_tuning_time,
-            "tuning_history": self.tuning_history[-10:]  # Last 10 tunings
+            "tuning_history": self.tuning_history[-10:],  # Last 10 tunings
         }
 
 
@@ -313,7 +313,7 @@ class AffinityRuleLearner:
     observed outcomes.
     """
 
-    def __init__(self, default_rules: Optional[Dict] = None):
+    def __init__(self, default_rules: Optional[Dict[str, Any]] = None) -> None:
         """
         Initialize affinity rule learner.
 
@@ -340,8 +340,8 @@ class AffinityRuleLearner:
         self,
         audio_features: Dict[str, float],
         predicted_preset: str,
-        actual_preset: str
-    ):
+        actual_preset: str,
+    ) -> None:
         """
         Record whether an audio-based prediction was correct.
 
@@ -386,7 +386,7 @@ class AffinityRuleLearner:
 
         return active
 
-    def update_affinity_rules(self):
+    def update_affinity_rules(self) -> None:
         """Update affinity rules based on observed success rates."""
         updated_count = 0
 
@@ -428,7 +428,7 @@ class AffinityRuleLearner:
         if updated_count > 0:
             logger.info(f"Updated {updated_count} affinity rules")
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """Get affinity rule learning statistics."""
         return {
             "total_rules": len(self.affinity_rules),
@@ -439,14 +439,14 @@ class AffinityRuleLearner:
             "rule_success_rates": {
                 f"{feature} -> {preset}": {
                     "samples": len(outcomes),
-                    "success_rate": sum(outcomes) / len(outcomes) if outcomes else 0.0
+                    "success_rate": sum(outcomes) / len(outcomes) if outcomes else 0.0,
                 }
                 for (feature, preset), outcomes in self.rule_success_rates.items()
                 if len(outcomes) >= self.min_samples_for_update
-            }
+            },
         }
 
-    def reset_to_defaults(self):
+    def reset_to_defaults(self) -> None:
         """Reset affinity rules to original defaults."""
         self.affinity_rules = copy.deepcopy(self.original_rules)
         self.rule_success_rates.clear()
