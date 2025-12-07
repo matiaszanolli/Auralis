@@ -37,13 +37,13 @@ export const StyledTextField = styled(TextField)({
  */
 export const SearchTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
-    height: '48px',
-    borderRadius: '24px',
+    height: tokens.components.searchBar.height,
+    borderRadius: tokens.components.searchBar.borderRadius,
     background: auroraOpacity.ultraLight,
     backdropFilter: 'blur(8px)',
     border: '1px solid transparent',
-    transition: 'all 0.3s ease',
-    paddingRight: '8px',
+    transition: tokens.transitions.all,
+    paddingRight: tokens.spacing.sm,
 
     '& fieldset': {
       border: 'none',
@@ -62,9 +62,9 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
   },
 
   '& .MuiOutlinedInput-input': {
-    fontSize: '16px',
+    fontSize: tokens.typography.fontSize.md,
     color: tokens.colors.text.primary,
-    padding: '12px 16px',
+    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
 
     '&::placeholder': {
       color: auroraOpacity.standard,
@@ -73,7 +73,7 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
   },
 
   '& .MuiInputAdornment-root': {
-    marginRight: '8px',
+    marginRight: tokens.spacing.sm,
     color: auroraOpacity.standard,
   },
 }));
@@ -85,18 +85,18 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
  */
 export const CompactTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
-    fontSize: '0.875rem',
+    fontSize: tokens.typography.fontSize.sm,
     color: tokens.colors.text.primary,
     '& fieldset': { borderColor: auroraOpacity.ultraLight },
     '&:hover fieldset': { borderColor: auroraOpacity.lighter },
     '&.Mui-focused fieldset': { borderColor: tokens.colors.accent.primary }
   },
   '& .MuiOutlinedInput-input': {
-    padding: '8px 12px',
+    padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,
   },
   '& .MuiInputLabel-root': {
     color: auroraOpacity.lighter,
-    fontSize: '0.875rem'
+    fontSize: tokens.typography.fontSize.sm
   }
 }));
 

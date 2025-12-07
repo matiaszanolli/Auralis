@@ -15,6 +15,7 @@ import { Avatar, Box, styled } from '@mui/material';
 import { glowShadows } from './Shadow.styles';
 import { radiusCircle } from './BorderRadius.styles';
 import { gradients, auroraOpacity } from './Color.styles';
+import { tokens } from '@/design-system';
 
 /**
  * ArtistAvatarCircle - Large circular artist avatar with aurora gradient background
@@ -30,8 +31,8 @@ export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'center',
   fontSize: '5rem',
-  fontWeight: 'bold',
-  color: 'white',
+  fontWeight: tokens.typography.fontWeight.bold,
+  color: tokens.colors.text.primary,
   boxShadow: glowShadows.purple,
 }));
 
@@ -44,8 +45,8 @@ export const ArtistSearchAvatar = styled(Avatar)(({ theme }) => ({
   width: 40,
   height: 40,
   background: gradients.aurora,
-  fontSize: '1rem',
-  fontWeight: 'bold'
+  fontSize: tokens.typography.fontSize.md,
+  fontWeight: tokens.typography.fontWeight.bold
 }));
 
 /**

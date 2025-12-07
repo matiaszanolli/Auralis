@@ -23,11 +23,11 @@ export const AlbumCard = styled(Paper)(({ theme }) => ({
   borderRadius: theme.spacing(2),
   overflow: 'hidden',
   cursor: 'pointer',
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.all,
   border: `1px solid ${auroraOpacity.ultraLight}`,
   '&:hover': {
     transform: 'translateY(-4px)',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.19)',
+    boxShadow: tokens.shadows.lg,
     '& .album-title': {
       color: tokens.colors.accent.primary
     }
@@ -38,19 +38,19 @@ export const AlbumCard = styled(Paper)(({ theme }) => ({
  * AlbumTitle - Title typography for album cards
  */
 export const AlbumTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '1rem',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
+  fontSize: tokens.typography.fontSize.md,
+  fontWeight: tokens.typography.fontWeight.semibold,
+  color: tokens.colors.text.primary,
   marginBottom: 4,
-  transition: 'color 0.2s ease'
+  transition: tokens.transitions.color
 }));
 
 /**
  * AlbumInfo - Secondary information typography for album cards (year, track count)
  */
 export const AlbumInfo = styled(Typography)(({ theme }) => ({
-  fontSize: '0.875rem',
-  color: theme.palette.text.secondary
+  fontSize: tokens.typography.fontSize.sm,
+  color: tokens.colors.text.secondary
 }));
 
 /**

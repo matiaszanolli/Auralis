@@ -33,7 +33,7 @@ export const SearchContainer = styled(Box)(({ theme }) => ({
 export const SearchField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     backgroundColor: auroraOpacity.ultraLight,
-    borderRadius: 24,
+    borderRadius: tokens.borderRadius.full,
     '&:hover': {
       backgroundColor: auroraOpacity.veryLight
     },
@@ -49,8 +49,8 @@ export const SearchField = styled(TextField)(({ theme }) => ({
     }
   },
   '& .MuiOutlinedInput-input': {
-    padding: '12px 16px',
-    fontSize: '1rem'
+    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+    fontSize: tokens.typography.fontSize.md
   }
 }));
 
@@ -93,8 +93,8 @@ export const StyledListItemButton = styled(ListItemButton)(({ theme }) => ({
  */
 export const TypeChip = styled(Chip)(({ theme }) => ({
   height: 20,
-  fontSize: '0.7rem',
-  fontWeight: 600,
+  fontSize: tokens.typography.fontSize.xs,
+  fontWeight: tokens.typography.fontWeight.semibold,
   '&.track': {
     backgroundColor: auroraOpacity.light,
     color: tokens.colors.accent.primary

@@ -15,6 +15,7 @@
  */
 
 import { Typography, styled } from '@mui/material';
+import { tokens } from '@/design-system';
 
 /**
  * SectionLabel - Section header typography
@@ -22,9 +23,9 @@ import { Typography, styled } from '@mui/material';
  * Features: bold weight, primary color, margin-bottom
  */
 export const SectionLabel = styled(Typography)(({ theme }) => ({
-  fontSize: '0.875rem',
-  fontWeight: 600,
-  color: theme.palette.text.primary,
+  fontSize: tokens.typography.fontSize.sm,
+  fontWeight: tokens.typography.fontWeight.semibold,
+  color: tokens.colors.text.primary,
   marginBottom: theme.spacing(1),
 }));
 
@@ -34,8 +35,8 @@ export const SectionLabel = styled(Typography)(({ theme }) => ({
  * Features: dimmed color, small font, reduced margin
  */
 export const SectionDescription = styled(Typography)(({ theme }) => ({
-  fontSize: '0.75rem',
-  color: theme.palette.text.secondary,
+  fontSize: tokens.typography.fontSize.xs,
+  color: tokens.colors.text.secondary,
   marginTop: theme.spacing(0.5),
 }));
 
@@ -45,12 +46,12 @@ export const SectionDescription = styled(Typography)(({ theme }) => ({
  * Features: uppercase, bold, letter-spacing, padding
  */
 export const CategoryHeader = styled(Typography)(({ theme }) => ({
-  fontSize: '0.75rem',
-  fontWeight: 'bold',
+  fontSize: tokens.typography.fontSize.xs,
+  fontWeight: tokens.typography.fontWeight.bold,
   textTransform: 'uppercase',
-  color: theme.palette.text.secondary,
+  color: tokens.colors.text.secondary,
   padding: theme.spacing(2, 2, 1, 2),
-  letterSpacing: 1,
+  letterSpacing: tokens.typography.letterSpacing.loose,
 }));
 
 /**
@@ -59,9 +60,9 @@ export const CategoryHeader = styled(Typography)(({ theme }) => ({
  * Features: medium weight, smooth color transition
  */
 export const ResultTitle = styled(Typography)({
-  fontSize: '0.95rem',
-  fontWeight: 500,
-  transition: 'color 0.2s ease',
+  fontSize: tokens.typography.fontSize.base,
+  fontWeight: tokens.typography.fontWeight.medium,
+  transition: tokens.transitions.color,
 });
 
 /**
@@ -70,8 +71,8 @@ export const ResultTitle = styled(Typography)({
  * Features: dimmed color, slightly smaller font
  */
 export const ResultSubtitle = styled(Typography)(({ theme }) => ({
-  fontSize: '0.85rem',
-  color: theme.palette.text.secondary,
+  fontSize: tokens.typography.fontSize.sm,
+  color: tokens.colors.text.secondary,
 }));
 
 /**
@@ -80,9 +81,9 @@ export const ResultSubtitle = styled(Typography)(({ theme }) => ({
  * Features: small font, secondary color
  */
 export const SmallText = styled(Typography)(({ theme }) => ({
-  fontSize: '0.75rem',
-  color: theme.palette.text.secondary,
-  fontWeight: 400,
+  fontSize: tokens.typography.fontSize.xs,
+  color: tokens.colors.text.secondary,
+  fontWeight: tokens.typography.fontWeight.normal,
 }));
 
 /**
@@ -91,9 +92,9 @@ export const SmallText = styled(Typography)(({ theme }) => ({
  * Features: disabled color, normal weight
  */
 export const SecondaryText = styled(Typography)(({ theme }) => ({
-  color: theme.palette.text.secondary,
-  fontSize: '0.875rem',
-  fontWeight: 400,
+  color: tokens.colors.text.secondary,
+  fontSize: tokens.typography.fontSize.sm,
+  fontWeight: tokens.typography.fontWeight.normal,
 }));
 
 /**
@@ -102,7 +103,7 @@ export const SecondaryText = styled(Typography)(({ theme }) => ({
  * Features: very small, disabled color, reduced line height
  */
 export const HelperText = styled(Typography)(({ theme }) => ({
-  fontSize: '0.7rem',
-  color: theme.palette.text.disabled,
-  lineHeight: 1.3,
+  fontSize: tokens.typography.fontSize.xs,
+  color: tokens.colors.text.muted,
+  lineHeight: tokens.typography.lineHeight.tight,
 }));

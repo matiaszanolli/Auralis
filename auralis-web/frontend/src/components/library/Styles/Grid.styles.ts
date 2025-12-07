@@ -7,13 +7,14 @@
 
 import { Box, Paper, Typography, styled } from '@mui/material';
 import { spin } from './Animation.styles';
+import { tokens } from '@/design-system';
 
 /**
  * ListLoadingContainer - Paper container for list view loading state
  * Used when displaying track row skeletons
  */
 export const ListLoadingContainer = styled(Paper)(({ theme }) => ({
-  background: 'rgba(255,255,255,0.05)',
+  background: tokens.colors.bg.level2,
   borderRadius: theme.spacing(3),
   overflow: 'hidden',
   padding: theme.spacing(2)
