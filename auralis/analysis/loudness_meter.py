@@ -9,7 +9,7 @@ ITU-R BS.1770-4 compliant loudness measurement implementation.
 
 import numpy as np
 from scipy import signal
-from typing import Dict, Optional, List, Any, Tuple
+from typing import Dict, Optional, List, Any, Tuple, cast
 from dataclasses import dataclass
 
 
@@ -81,8 +81,8 @@ class LoudnessMeter:
         self.rlb_filter_a = np.array([1, a1, a2]) / a0
 
         # Initialize filter states
-        self.pre_filter_zi = None
-        self.rlb_filter_zi = None
+        self.pre_filter_zi: Optional[Any] = None
+        self.rlb_filter_zi: Optional[Any] = None
 
     def _init_true_peak_filter(self) -> None:
         """Initialize 4x oversampling filter for true peak measurement"""
@@ -95,24 +95,24 @@ class LoudnessMeter:
         if audio_chunk.ndim == 1:
             # Mono
             if self.pre_filter_zi is None:
-                self.pre_filter_zi = signal.lfilter_zi(  # type: ignore[no-untyped-call]
+                self.pre_filter_zi = signal.lfilter_zi(
                     self.pre_filter_b, self.pre_filter_a)
-                self.rlb_filter_zi = signal.lfilter_zi(  # type: ignore[no-untyped-call]
+                self.rlb_filter_zi = signal.lfilter_zi(
                     self.rlb_filter_b, self.rlb_filter_a)
 
             # Apply pre-filter
-            filtered_tuple = signal.lfilter(  # type: ignore[no-untyped-call]
+            filtered_tuple = signal.lfilter(
                 self.pre_filter_b, self.pre_filter_a, audio_chunk, zi=self.pre_filter_zi
             )
-            filtered: np.ndarray = filtered_tuple[0]  # type: ignore[index]
-            self.pre_filter_zi = filtered_tuple[1]  # type: ignore[index]
+            filtered: np.ndarray = cast(np.ndarray, filtered_tuple[0])
+            self.pre_filter_zi = filtered_tuple[1]
 
             # Apply RLB filter
-            k_weighted_tuple = signal.lfilter(  # type: ignore[no-untyped-call]
+            k_weighted_tuple = signal.lfilter(
                 self.rlb_filter_b, self.rlb_filter_a, filtered, zi=self.rlb_filter_zi
             )
-            k_weighted: np.ndarray = k_weighted_tuple[0]  # type: ignore[index]
-            self.rlb_filter_zi = k_weighted_tuple[1]  # type: ignore[index]
+            k_weighted: np.ndarray = cast(np.ndarray, k_weighted_tuple[0])
+            self.rlb_filter_zi = k_weighted_tuple[1]
 
             return k_weighted
 
@@ -120,15 +120,15 @@ class LoudnessMeter:
             # Stereo - apply to each channel
             if self.pre_filter_zi is None:
                 self.pre_filter_zi = np.column_stack([
-                    signal.lfilter_zi(  # type: ignore[no-untyped-call]
+                    signal.lfilter_zi(
                         self.pre_filter_b, self.pre_filter_a),
-                    signal.lfilter_zi(  # type: ignore[no-untyped-call]
+                    signal.lfilter_zi(
                         self.pre_filter_b, self.pre_filter_a)
                 ])
                 self.rlb_filter_zi = np.column_stack([
-                    signal.lfilter_zi(  # type: ignore[no-untyped-call]
+                    signal.lfilter_zi(
                         self.rlb_filter_b, self.rlb_filter_a),
-                    signal.lfilter_zi(  # type: ignore[no-untyped-call]
+                    signal.lfilter_zi(
                         self.rlb_filter_b, self.rlb_filter_a)
                 ])
 
@@ -136,16 +136,20 @@ class LoudnessMeter:
 
             for ch in range(audio_chunk.shape[1]):
                 # Apply pre-filter
-                filtered, self.pre_filter_zi[:, ch] = signal.lfilter(
+                filtered_result = signal.lfilter(
                     self.pre_filter_b, self.pre_filter_a,
-                    audio_chunk[:, ch], zi=self.pre_filter_zi[:, ch]
+                    audio_chunk[:, ch], zi=self.pre_filter_zi[:, ch]  # type: ignore[index]
                 )
+                filtered = cast(np.ndarray, filtered_result[0])
+                self.pre_filter_zi[:, ch] = filtered_result[1]  # type: ignore[index]
 
                 # Apply RLB filter
-                k_weighted[:, ch], self.rlb_filter_zi[:, ch] = signal.lfilter(
+                k_weighted_result = signal.lfilter(
                     self.rlb_filter_b, self.rlb_filter_a,
-                    filtered, zi=self.rlb_filter_zi[:, ch]
+                    filtered, zi=self.rlb_filter_zi[:, ch]  # type: ignore[index]
                 )
+                k_weighted[:, ch] = cast(np.ndarray, k_weighted_result[0])
+                self.rlb_filter_zi[:, ch] = k_weighted_result[1]  # type: ignore[index]
 
             return k_weighted
 
@@ -164,11 +168,11 @@ class LoudnessMeter:
 
         # Convert to LUFS
         if mean_square > 0:
-            lufs = -0.691 + 10 * np.log10(mean_square)
+            lufs = float(-0.691 + 10 * np.log10(mean_square))
         else:
             lufs = -np.inf
 
-        return lufs
+        return float(lufs)
 
     def measure_chunk(self, audio_chunk: np.ndarray) -> Dict[str, Any]:
         """
@@ -213,40 +217,40 @@ class LoudnessMeter:
     def _calculate_momentary(self) -> float:
         """Calculate momentary loudness (400ms)"""
         if not self.block_buffer:
-            return -np.inf
+            return float(-np.inf)
 
         # Use the most recent block for momentary
         recent_blocks = self.block_buffer[-self.momentary_blocks:]
         valid_blocks = [b for b in recent_blocks if np.isfinite(b)]
 
         if not valid_blocks:
-            return -np.inf
+            return float(-np.inf)
 
         # Average in linear domain, then convert back to log
         linear_sum = sum(10**(b/10) for b in valid_blocks)
-        return 10 * np.log10(linear_sum / len(valid_blocks))
+        return float(10 * np.log10(linear_sum / len(valid_blocks)))
 
     def _calculate_short_term(self) -> float:
         """Calculate short-term loudness (3s)"""
         if len(self.block_buffer) < 3:  # Need at least 3 blocks
-            return -np.inf
+            return float(-np.inf)
 
         valid_blocks = [b for b in self.block_buffer if np.isfinite(b)]
 
         if not valid_blocks:
-            return -np.inf
+            return float(-np.inf)
 
         # Average in linear domain
         linear_sum = sum(10**(b/10) for b in valid_blocks)
-        return 10 * np.log10(linear_sum / len(valid_blocks))
+        return float(10 * np.log10(linear_sum / len(valid_blocks)))
 
     def _calculate_peak(self, audio_chunk: np.ndarray) -> float:
         """Calculate peak level in dBFS"""
-        peak = np.max(np.abs(audio_chunk))
+        peak = float(np.max(np.abs(audio_chunk)))
         if peak > 0:
-            return 20 * np.log10(peak)
+            return float(20 * np.log10(peak))
         else:
-            return -np.inf
+            return float(-np.inf)
 
     def _calculate_true_peak(self, audio_chunk: np.ndarray) -> float:
         """Calculate true peak with oversampling"""
@@ -257,12 +261,12 @@ class LoudnessMeter:
         else:
             oversampled = np.repeat(audio_chunk, self.oversample_factor, axis=0)
 
-        true_peak = np.max(np.abs(oversampled))
+        true_peak = float(np.max(np.abs(oversampled)))
 
         if true_peak > 0:
-            return 20 * np.log10(true_peak)
+            return float(20 * np.log10(true_peak))
         else:
-            return -np.inf
+            return float(-np.inf)
 
     def finalize_measurement(self) -> LUFSMeasurement:
         """
@@ -328,7 +332,7 @@ class LoudnessMeter:
             measurement_duration=len(self.block_buffer) * 0.1  # 100ms per block
         )
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the meter for a new measurement"""
         self.block_buffer.clear()
         self.gated_blocks.clear()
