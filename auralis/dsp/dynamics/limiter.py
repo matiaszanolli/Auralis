@@ -11,12 +11,13 @@ Advanced lookahead limiter with ISR and oversampling
 """
 
 import numpy as np
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, Any, cast
 
 from .settings import LimiterSettings
 from ...utils.logging import debug
 
 # Use vectorized envelope follower for 40-70x speedup
+EnvelopeFollower: Any  # Will be assigned below
 try:
     from .vectorized_envelope import VectorizedEnvelopeFollower as EnvelopeFollower
 except ImportError:
@@ -28,7 +29,7 @@ except ImportError:
 class AdaptiveLimiter:
     """Advanced lookahead limiter with ISR and oversampling"""
 
-    def __init__(self, settings: LimiterSettings, sample_rate: int):
+    def __init__(self, settings: LimiterSettings, sample_rate: int) -> None:
         """
         Initialize adaptive limiter
 
@@ -41,7 +42,7 @@ class AdaptiveLimiter:
 
         # Lookahead buffer (will be initialized on first use)
         self.lookahead_samples = int(settings.lookahead_ms * sample_rate / 1000)
-        self.lookahead_buffer = None
+        self.lookahead_buffer: Optional[np.ndarray] = None
 
         # Gain smoothing
         self.gain_smoother = EnvelopeFollower(sample_rate, 0.1, settings.release_ms)
@@ -124,29 +125,34 @@ class AdaptiveLimiter:
             else:
                 self.lookahead_buffer = np.zeros((self.lookahead_samples, audio.shape[1]))
 
-        buffer_size = len(self.lookahead_buffer)
+        # Buffer is guaranteed to be non-None after initialization
+        buffer_size = self.lookahead_buffer.shape[0]
+        audio_len = len(audio)
 
-        if len(audio) >= buffer_size:
+        if audio_len >= buffer_size:
             delayed_audio = np.concatenate([self.lookahead_buffer, audio[:-buffer_size]], axis=0)
             self.lookahead_buffer = audio[-buffer_size:].copy()
         else:
-            delayed_audio = np.concatenate([self.lookahead_buffer[:len(audio)], audio], axis=0)
-            self.lookahead_buffer = np.roll(self.lookahead_buffer, -len(audio), axis=0)
-            self.lookahead_buffer[-len(audio):] = audio
+            delayed_audio = np.concatenate([
+                self.lookahead_buffer[:audio_len],
+                audio
+            ], axis=0)
+            self.lookahead_buffer = np.roll(self.lookahead_buffer, -audio_len, axis=0)
+            self.lookahead_buffer[-audio_len:, ...] = audio
 
-        return delayed_audio[:len(audio)]
+        return cast(np.ndarray, delayed_audio[:audio_len])
 
     def _detect_isr_peaks(self, audio: np.ndarray) -> float:
         """Detect inter-sample peaks using simple interpolation"""
         if len(audio) < 2:
-            return np.max(np.abs(audio))
+            return float(np.max(np.abs(audio)))
 
         # Simple linear interpolation between samples
         interpolated = (audio[:-1] + audio[1:]) / 2
 
         # Find maximum including interpolated points
-        sample_peaks = np.max(np.abs(audio))
-        interp_peaks = np.max(np.abs(interpolated))
+        sample_peaks = float(np.max(np.abs(audio)))
+        interp_peaks = float(np.max(np.abs(interpolated)))
 
         return max(sample_peaks, interp_peaks)
 
@@ -201,16 +207,13 @@ class AdaptiveLimiter:
             'lookahead_ms': self.settings.lookahead_ms
         }
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset limiter state"""
         self.gain_smoother.reset()
         self.current_gain = 1.0
         self.peak_hold = 0.0
         if self.lookahead_buffer is not None:
             self.lookahead_buffer.fill(0)
-        else:
-            # Reset buffer to None so it gets re-initialized with correct shape
-            self.lookahead_buffer = None
 
 
 def create_adaptive_limiter(settings: LimiterSettings,
