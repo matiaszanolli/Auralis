@@ -34,42 +34,42 @@ from ..utils.logging import info, debug
 class PerformanceOptimizer:
     """Main performance optimization system"""
 
-    def __init__(self, config: PerformanceConfig = None):
-        self.config = config or PerformanceConfig()
+    def __init__(self, config: Optional[PerformanceConfig] = None) -> None:
+        self.config: PerformanceConfig = config or PerformanceConfig()
 
         # Initialize components
-        self.memory_pool = MemoryPool(self.config.memory_pool_size_mb) if self.config.enable_caching else None
-        self.cache = SmartCache(self.config.cache_size_mb, self.config.cache_ttl_seconds) if self.config.enable_caching else None
-        self.simd = SIMDAccelerator() if self.config.enable_simd else None
-        self.parallel = ParallelProcessor(self.config.max_threads) if self.config.enable_parallel else None
-        self.profiler = PerformanceProfiler()
+        self.memory_pool: Optional[MemoryPool] = MemoryPool(self.config.memory_pool_size_mb) if self.config.enable_caching else None
+        self.cache: Optional[SmartCache] = SmartCache(self.config.cache_size_mb, self.config.cache_ttl_seconds) if self.config.enable_caching else None
+        self.simd: Optional[SIMDAccelerator] = SIMDAccelerator() if self.config.enable_simd else None
+        self.parallel: Optional[ParallelProcessor] = ParallelProcessor(self.config.max_threads) if self.config.enable_parallel else None
+        self.profiler: PerformanceProfiler = PerformanceProfiler()  # type: ignore[no-untyped-call]
 
         # Optimization state
-        self.optimization_enabled = True
-        self.gc_counter = 0
+        self.optimization_enabled: bool = True
+        self.gc_counter: int = 0
 
         info(f"Performance optimizer initialized with config: {self.config}")
 
-    def cached_function(self, func_name: str = None):
+    def cached_function(self, func_name: Optional[str] = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Decorator for caching function results"""
-        def decorator(func):
-            actual_name = func_name or func.__name__
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            actual_name: str = func_name or func.__name__
 
             @wraps(func)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
                 if not self.config.enable_caching or not self.cache:
                     return func(*args, **kwargs)
 
                 # Generate cache key
-                cache_key = self.cache._generate_key(actual_name, args, kwargs)
+                cache_key: str = self.cache._generate_key(actual_name, args, kwargs)
 
                 # Try to get from cache
-                cached_result = self.cache.get(cache_key)
+                cached_result: Any = self.cache.get(cache_key)
                 if cached_result is not None:
                     return cached_result
 
                 # Execute function and cache result
-                result = func(*args, **kwargs)
+                result: Any = func(*args, **kwargs)
                 self.cache.put(cache_key, result)
 
                 return result
@@ -91,32 +91,32 @@ class PerformanceOptimizer:
         else:
             return np.convolve(signal, kernel, mode='same')
 
-    def get_audio_buffer(self, shape: Tuple[int, ...], dtype=np.float32) -> np.ndarray:
+    def get_audio_buffer(self, shape: Tuple[int, ...], dtype: Any = np.float32) -> np.ndarray:
         """Get optimized audio buffer"""
         if self.memory_pool:
             return self.memory_pool.get_buffer(shape, dtype)
         else:
             return np.zeros(shape, dtype=dtype)
 
-    def return_audio_buffer(self, buffer: np.ndarray):
+    def return_audio_buffer(self, buffer: np.ndarray) -> None:
         """Return audio buffer to pool"""
         if self.memory_pool:
             self.memory_pool.return_buffer(buffer)
 
-    def optimize_real_time_processing(self, process_func: Callable) -> Callable:
+    def optimize_real_time_processing(self, process_func: Callable[..., Any]) -> Callable[..., Any]:
         """Optimize function for real-time processing"""
 
         # Add profiling
-        timed_func = self.profiler.time_function(process_func.__name__)(process_func)
+        timed_func: Callable[..., Any] = self.profiler.time_function(process_func.__name__)(process_func)
 
         # Add caching if beneficial
         if self.config.enable_caching:
-            cached_func = self.cached_function(process_func.__name__)(timed_func)
+            cached_func: Callable[..., Any] = self.cached_function(process_func.__name__)(timed_func)
         else:
             cached_func = timed_func
 
         @wraps(process_func)
-        def optimized_wrapper(*args, **kwargs):
+        def optimized_wrapper(*args: Any, **kwargs: Any) -> Any:
             # Periodic garbage collection
             self.gc_counter += 1
             if self.gc_counter >= self.config.garbage_collect_interval:
@@ -127,10 +127,10 @@ class PerformanceOptimizer:
 
         return optimized_wrapper
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Perform periodic cleanup"""
         if self.cache:
-            self.cache.clear_expired()
+            self.cache.clear_expired()  # type: ignore[no-untyped-call]
 
     def get_optimization_stats(self) -> Dict[str, Any]:
         """Get comprehensive optimization statistics"""
@@ -153,19 +153,19 @@ class PerformanceOptimizer:
 
         return stats
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Shutdown optimizer and cleanup resources"""
         if self.parallel:
-            self.parallel.shutdown()
+            self.parallel.shutdown()  # type: ignore[no-untyped-call]
 
         info("Performance optimizer shutdown complete")
 
 
 # Global performance optimizer instance
-_global_optimizer = None
+_global_optimizer: Optional[PerformanceOptimizer] = None
 
 
-def get_performance_optimizer(config: PerformanceConfig = None) -> PerformanceOptimizer:
+def get_performance_optimizer(config: Optional[PerformanceConfig] = None) -> PerformanceOptimizer:
     """Get global performance optimizer instance"""
     global _global_optimizer
     if _global_optimizer is None:
@@ -173,19 +173,19 @@ def get_performance_optimizer(config: PerformanceConfig = None) -> PerformanceOp
     return _global_optimizer
 
 
-def create_performance_optimizer(config: PerformanceConfig = None) -> PerformanceOptimizer:
+def create_performance_optimizer(config: Optional[PerformanceConfig] = None) -> PerformanceOptimizer:
     """Create new performance optimizer instance"""
     return PerformanceOptimizer(config)
 
 
 # Convenience decorators
-def optimized(func):
+def optimized(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator to apply all optimizations to a function"""
-    optimizer = get_performance_optimizer()
+    optimizer: PerformanceOptimizer = get_performance_optimizer()
     return optimizer.optimize_real_time_processing(func)
 
 
-def cached(func):
+def cached(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator to add caching to a function"""
-    optimizer = get_performance_optimizer()
+    optimizer: PerformanceOptimizer = get_performance_optimizer()
     return optimizer.cached_function()(func)
