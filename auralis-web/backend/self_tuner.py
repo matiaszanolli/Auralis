@@ -11,7 +11,7 @@ Automatically optimizes system parameters based on observed behavior.
 import asyncio
 import logging
 import time
-from typing import Optional
+from typing import Optional, Any, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +29,15 @@ class SelfTuner:
 
     def __init__(
         self,
-        buffer_manager,
-        worker,
-        learning_system,
-        weight_tuner,
-        affinity_learner,
-        memory_monitor,
-        degradation_manager,
+        buffer_manager: Any,
+        worker: Any,
+        learning_system: Any,
+        weight_tuner: Any,
+        affinity_learner: Any,
+        memory_monitor: Any,
+        degradation_manager: Any,
         tuning_interval: int = 300
-    ):
+    ) -> None:
         """
         Initialize self-tuner.
 
@@ -51,25 +51,25 @@ class SelfTuner:
             degradation_manager: DegradationManager instance
             tuning_interval: Seconds between tuning cycles (default: 300 = 5 minutes)
         """
-        self.buffer_manager = buffer_manager
-        self.worker = worker
-        self.learning_system = learning_system
-        self.weight_tuner = weight_tuner
-        self.affinity_learner = affinity_learner
-        self.memory_monitor = memory_monitor
-        self.degradation_manager = degradation_manager
-        self.tuning_interval = tuning_interval
+        self.buffer_manager: Any = buffer_manager
+        self.worker: Any = worker
+        self.learning_system: Any = learning_system
+        self.weight_tuner: Any = weight_tuner
+        self.affinity_learner: Any = affinity_learner
+        self.memory_monitor: Any = memory_monitor
+        self.degradation_manager: Any = degradation_manager
+        self.tuning_interval: int = tuning_interval
 
-        self.is_enabled = True
-        self.is_running = False
-        self.tuning_task: Optional[asyncio.Task] = None
+        self.is_enabled: bool = True
+        self.is_running: bool = False
+        self.tuning_task: Optional[asyncio.Task[Any]] = None
 
-        self.tuning_cycle_count = 0
-        self.last_tuning_time = 0.0
+        self.tuning_cycle_count: int = 0
+        self.last_tuning_time: float = 0.0
 
         logger.info(f"Self-tuner initialized (interval={tuning_interval}s)")
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the self-tuning background loop."""
         if self.is_running:
             logger.warning("Self-tuner already running")
@@ -79,7 +79,7 @@ class SelfTuner:
         self.tuning_task = asyncio.create_task(self._tuning_loop())
         logger.info("Self-tuner started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the self-tuning background loop."""
         if not self.is_running:
             return
@@ -94,17 +94,17 @@ class SelfTuner:
 
         logger.info("Self-tuner stopped")
 
-    def enable(self):
+    def enable(self) -> None:
         """Enable self-tuning."""
         self.is_enabled = True
         logger.info("Self-tuning enabled")
 
-    def disable(self):
+    def disable(self) -> None:
         """Disable self-tuning."""
         self.is_enabled = False
         logger.info("Self-tuning disabled")
 
-    async def _tuning_loop(self):
+    async def _tuning_loop(self) -> None:
         """Main tuning loop (runs in background)."""
         logger.info("Self-tuning loop started")
 
@@ -126,7 +126,7 @@ class SelfTuner:
                 # Continue loop despite error
                 await asyncio.sleep(60)  # Wait 1 minute before retrying
 
-    async def _run_tuning_cycle(self):
+    async def _run_tuning_cycle(self) -> None:
         """Run a single tuning cycle."""
         cycle_start = time.time()
         logger.info(f"Running tuning cycle #{self.tuning_cycle_count + 1}")
@@ -154,7 +154,7 @@ class SelfTuner:
         except Exception as e:
             logger.error(f"Error in tuning cycle: {e}", exc_info=True)
 
-    async def _tune_weights(self):
+    async def _tune_weights(self) -> None:
         """Tune user/audio weight split."""
         try:
             old_user_weight = self.weight_tuner.user_weight
@@ -173,7 +173,7 @@ class SelfTuner:
         except Exception as e:
             logger.error(f"Error tuning weights: {e}")
 
-    async def _update_affinity_rules(self):
+    async def _update_affinity_rules(self) -> None:
         """Update audio-content affinity rules."""
         try:
             # Update rules based on observed outcomes
@@ -189,7 +189,7 @@ class SelfTuner:
         except Exception as e:
             logger.error(f"Error updating affinity rules: {e}")
 
-    async def _adjust_cache_sizes(self):
+    async def _adjust_cache_sizes(self) -> None:
         """Adjust cache sizes based on memory pressure."""
         try:
             # Check if memory check is needed
@@ -226,7 +226,7 @@ class SelfTuner:
         except Exception as e:
             logger.error(f"Error adjusting cache sizes: {e}")
 
-    async def _enforce_cache_size_limits(self):
+    async def _enforce_cache_size_limits(self) -> None:
         """Evict excess cache entries if caches shrunk."""
         # This would call eviction methods on cache tiers
         # For now, clear excess tiers if size is 0
@@ -236,7 +236,7 @@ class SelfTuner:
         if self.buffer_manager.l2_cache.max_size_mb == 0.0:
             await self.buffer_manager.l2_cache.clear()
 
-    async def _check_and_apply_degradation(self):
+    async def _check_and_apply_degradation(self) -> None:
         """Check degradation level and apply if changed."""
         try:
             new_level = self.degradation_manager.get_degradation_level()
@@ -253,7 +253,7 @@ class SelfTuner:
         except Exception as e:
             logger.error(f"Error checking degradation: {e}")
 
-    def get_statistics(self) -> dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """Get self-tuner statistics."""
         return {
             "is_enabled": self.is_enabled,
@@ -276,13 +276,13 @@ _self_tuner_instance: Optional[SelfTuner] = None
 
 
 def create_self_tuner(
-    buffer_manager,
-    worker,
-    learning_system,
-    weight_tuner,
-    affinity_learner,
-    memory_monitor,
-    degradation_manager,
+    buffer_manager: Any,
+    worker: Any,
+    learning_system: Any,
+    weight_tuner: Any,
+    affinity_learner: Any,
+    memory_monitor: Any,
+    degradation_manager: Any,
     tuning_interval: int = 300
 ) -> SelfTuner:
     """Create self-tuner instance."""
@@ -303,7 +303,7 @@ def get_self_tuner() -> Optional[SelfTuner]:
     return _self_tuner_instance
 
 
-def set_self_tuner(tuner: SelfTuner):
+def set_self_tuner(tuner: SelfTuner) -> None:
     """Set global self-tuner instance."""
     global _self_tuner_instance
     _self_tuner_instance = tuner
