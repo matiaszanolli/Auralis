@@ -21,7 +21,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Callable
 import logging
 
 from .dependencies import require_library_manager
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["library"])
 
 
-def create_library_router(get_library_manager, connection_manager=None):
+def create_library_router(get_library_manager: Callable[[], Any], connection_manager: Optional[Any] = None) -> APIRouter:
     """
     Factory function to create library router with dependencies.
 
@@ -56,7 +56,7 @@ def create_library_router(get_library_manager, connection_manager=None):
     """
 
     @router.get("/api/library/stats")
-    async def get_library_stats():
+    async def get_library_stats() -> Dict[str, Any]:
         """
         Get library statistics.
 
@@ -81,7 +81,7 @@ def create_library_router(get_library_manager, connection_manager=None):
         offset: int = 0,
         search: Optional[str] = None,
         order_by: str = 'created_at'
-    ):
+    ) -> Dict[str, Any]:
         """
         Get tracks from library with optional search and pagination.
 
@@ -128,7 +128,7 @@ def create_library_router(get_library_manager, connection_manager=None):
             raise handle_query_error("get tracks", e)
 
     @router.get("/api/library/tracks/favorites")
-    async def get_favorite_tracks(limit: int = 50, offset: int = 0):
+    async def get_favorite_tracks(limit: int = 50, offset: int = 0) -> Dict[str, Any]:
         """
         Get all favorite tracks with pagination.
 
@@ -162,7 +162,7 @@ def create_library_router(get_library_manager, connection_manager=None):
             raise handle_query_error("get favorite tracks", e)
 
     @router.post("/api/library/tracks/{track_id}/favorite")
-    async def set_track_favorite(track_id: int):
+    async def set_track_favorite(track_id: int) -> Dict[str, Any]:
         """
         Mark track as favorite.
 
@@ -186,7 +186,7 @@ def create_library_router(get_library_manager, connection_manager=None):
             raise handle_query_error("set track favorite", e)
 
     @router.delete("/api/library/tracks/{track_id}/favorite")
-    async def remove_track_favorite(track_id: int):
+    async def remove_track_favorite(track_id: int) -> Dict[str, Any]:
         """
         Remove track from favorites.
 
@@ -210,7 +210,7 @@ def create_library_router(get_library_manager, connection_manager=None):
             raise handle_query_error("remove track favorite", e)
 
     @router.get("/api/library/tracks/{track_id}/lyrics")
-    async def get_track_lyrics(track_id: int):
+    async def get_track_lyrics(track_id: int) -> Dict[str, Any]:
         """
         Get lyrics for a track.
 
@@ -242,7 +242,7 @@ def create_library_router(get_library_manager, connection_manager=None):
             # If no lyrics in database, try to extract from file
             try:
                 import mutagen
-                audio_file = mutagen.File(track.filepath)
+                audio_file = mutagen.File(track.filepath)  # type: ignore[attr-defined]
 
                 lyrics_text = None
 
@@ -272,8 +272,8 @@ def create_library_router(get_library_manager, connection_manager=None):
 
                 if lyrics_text:
                     # Save to database for future requests
-                    track.lyrics = lyrics_text
-                    library_manager.tracks.update(track)
+                    track.lyrics = lyrics_text  # type: ignore[assignment]
+                    library_manager.tracks.update(track)  # type: ignore[call-arg]
 
                     return {
                         "track_id": track_id,
@@ -301,7 +301,7 @@ def create_library_router(get_library_manager, connection_manager=None):
         limit: int = 50,
         offset: int = 0,
         order_by: str = "name"
-    ):
+    ) -> Dict[str, Any]:
         """
         Get paginated list of artists.
 
@@ -357,7 +357,7 @@ def create_library_router(get_library_manager, connection_manager=None):
             raise handle_query_error("get artists", e)
 
     @router.get("/api/library/artists/{artist_id}")
-    async def get_artist(artist_id: int):
+    async def get_artist(artist_id: int) -> Dict[str, Any]:
         """
         Get artist details by ID with albums and tracks.
 
@@ -383,7 +383,7 @@ def create_library_router(get_library_manager, connection_manager=None):
             raise handle_query_error("get artist", e)
 
     @router.get("/api/library/albums")
-    async def get_albums():
+    async def get_albums() -> Dict[str, Any]:
         """
         Get all albums.
 
@@ -395,10 +395,10 @@ def create_library_router(get_library_manager, connection_manager=None):
         """
         try:
             library_manager = require_library_manager(get_library_manager)
-            albums = library_manager.albums.get_all()
+            albums, total = library_manager.albums.get_all()
             return {
                 "albums": serialize_albums(albums),
-                "total": len(albums)
+                "total": total
             }
         except HTTPException:
             raise
@@ -406,7 +406,7 @@ def create_library_router(get_library_manager, connection_manager=None):
             raise handle_query_error("get albums", e)
 
     @router.get("/api/library/albums/{album_id}")
-    async def get_album(album_id: int):
+    async def get_album(album_id: int) -> Dict[str, Any]:
         """
         Get album details by ID with tracks.
 
@@ -436,7 +436,7 @@ def create_library_router(get_library_manager, connection_manager=None):
         directories: List[str],
         recursive: bool = True,
         skip_existing: bool = True
-    ):
+    ) -> Dict[str, Any]:
         """
         Scan directories for audio files and add them to the library.
 
@@ -467,7 +467,7 @@ def create_library_router(get_library_manager, connection_manager=None):
             scanner = LibraryScanner(library_manager)
 
             # Define progress callback that broadcasts updates via WebSocket
-            async def progress_callback(event_data: dict):
+            async def progress_callback(event_data: Dict[str, Any]) -> None:
                 """
                 Broadcast scan progress to connected WebSocket clients.
 
@@ -496,7 +496,7 @@ def create_library_router(get_library_manager, connection_manager=None):
                     recursive=recursive,
                     skip_existing=skip_existing,
                     check_modifications=True,
-                    progress_callback=progress_callback
+                    progress_callback=progress_callback  # type: ignore[call-arg]
                 )
             except TypeError:
                 # Fallback if scanner doesn't support progress_callback parameter
