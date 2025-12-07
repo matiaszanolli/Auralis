@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 # Global cache for last content profiles (used by visualizer API)
 # Maps preset name -> last_content_profile dict
-_last_content_profiles = {}
+_last_content_profiles: Dict[str, Any] = {}
 
 # Chunk configuration
 CHUNK_DURATION = 15  # seconds - actual chunk length
@@ -101,11 +101,15 @@ class ChunkedAudioProcessor:
 
         # Initialize new modular architecture (Phase 3.5)
         # These dependencies replace monolithic logic in process_chunk()
-        assert self.total_duration is not None and self.sample_rate is not None, "Metadata must be loaded first"
-        self._boundary_manager = ChunkBoundaryManager(self.total_duration, self.sample_rate)
-        self._level_manager = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
-        self._wav_encoder = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
-        self._processor_manager = ProcessorManager()  # type: ignore
+        # Type: ignore for untyped core modules (ChunkBoundaryManager, LevelManager, WAVEncoder, ProcessorManager)
+        assert self.total_duration is not None, "Total duration must be loaded first"
+        assert self.sample_rate is not None, "Sample rate must be loaded first"
+        total_duration_valid: float = self.total_duration
+        sample_rate_valid: int = self.sample_rate
+        self._boundary_manager: Any = ChunkBoundaryManager(total_duration_valid, sample_rate_valid)  # type: ignore[name-defined,no-untyped-call]
+        self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)  # type: ignore[name-defined,no-untyped-call]
+        self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')  # type: ignore[name-defined,no-untyped-call]
+        self._processor_manager: Any = ProcessorManager()  # type: ignore[name-defined,no-untyped-call]
 
         # CRITICAL: Async lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
@@ -229,13 +233,14 @@ class ChunkedAudioProcessor:
 
         Delegates to WAVEncoder for consistent path generation.
         """
-        return self._wav_encoder.get_chunk_path(
+        path = self._wav_encoder.get_chunk_path(  # type: ignore[no-untyped-call]
             track_id=self.track_id,
             file_signature=self.file_signature,
             preset=self.preset,
             intensity=self.intensity,
             chunk_index=chunk_index
         )
+        return Path(path)  # type: ignore[arg-type]
 
     def _get_wav_chunk_path(self, chunk_index: int) -> Path:
         """
@@ -320,7 +325,8 @@ class ChunkedAudioProcessor:
 
         Delegates to LevelManager (Phase 3.5 refactoring).
         """
-        return self._level_manager.calculate_rms(audio)
+        rms_value = self._level_manager.calculate_rms(audio)  # type: ignore[no-untyped-call]
+        return float(rms_value)  # type: ignore[arg-type]
 
     def _smooth_level_transition(
         self,
@@ -342,15 +348,16 @@ class ChunkedAudioProcessor:
             Level-smoothed chunk
         """
         # Use LevelManager to smooth transitions
-        chunk_adjusted, gain_db, was_adjusted = self._level_manager.smooth_transition(
+        result_tuple = self._level_manager.smooth_transition(  # type: ignore[no-untyped-call]
             chunk=chunk,
             chunk_index=chunk_index,
             apply_adjustment=True
         )
+        chunk_adjusted, gain_db, was_adjusted = result_tuple
 
         # Log the adjustment for debugging
         if was_adjusted:
-            current_rms = self._level_manager.current_rms
+            current_rms = self._level_manager.current_rms  # type: ignore[attr-defined]
             adjusted_rms = self._calculate_rms(chunk_adjusted)
             logger.info(
                 f"Chunk {chunk_index}: Smoothed level transition "
@@ -359,16 +366,19 @@ class ChunkedAudioProcessor:
                 f"gain adjustment: {gain_db:.2f} dB)"
             )
         else:
+            current_rms = self._level_manager.current_rms  # type: ignore[attr-defined]
             logger.info(
                 f"Chunk {chunk_index}: Level transition OK "
-                f"(RMS: {self._level_manager.current_rms:.1f} dB)"
+                f"(RMS: {current_rms:.1f} dB)"
             )
 
         # Update legacy history tracking for backward compatibility
-        self.chunk_rms_history = self._level_manager.history.copy()
-        self.chunk_gain_history = self._level_manager.gain_adjustments.copy()
+        history = self._level_manager.history  # type: ignore[attr-defined]
+        gain_adjustments = self._level_manager.gain_adjustments  # type: ignore[attr-defined]
+        self.chunk_rms_history = list(history) if hasattr(history, '__iter__') else []
+        self.chunk_gain_history = list(gain_adjustments) if hasattr(gain_adjustments, '__iter__') else []
 
-        return chunk_adjusted
+        return chunk_adjusted  # type: ignore[no-any-return]
 
     def _trim_context(self, audio_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
         """
@@ -387,9 +397,10 @@ class ChunkedAudioProcessor:
         """
         assert self.sample_rate is not None, "Sample rate not loaded"
         # Get trim amounts from ChunkBoundaryManager
-        trim_start_samples, trim_end_samples = self._boundary_manager.calculate_context_trim_samples(
+        trim_result = self._boundary_manager.calculate_context_trim_samples(  # type: ignore[no-untyped-call]
             chunk_index=chunk_index
         )
+        trim_start_samples, trim_end_samples = trim_result  # type: ignore[misc]
 
         # Safety: Ensure we have enough samples to trim
         chunk_length = len(audio_chunk)
@@ -445,37 +456,37 @@ class ChunkedAudioProcessor:
                 logger.info(f"⚡ Processing chunk {chunk_index} with fixed targets from fingerprint")
 
                 # Disable per-chunk fingerprint analysis (we already have the targets)
-                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
-                self.processor.content_analyzer.use_fingerprint_analysis = False
+                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis  # type: ignore[attr-defined]
+                self.processor.content_analyzer.use_fingerprint_analysis = False  # type: ignore[attr-defined]
 
                 try:
                     # Process with fixed targets (no per-chunk analysis)
                     # The processor will use the pre-computed mastering targets
-                    processed_chunk = self.processor.process(audio_chunk)
+                    processed_chunk = self.processor.process(audio_chunk)  # type: ignore[no-untyped-call]
                 finally:
                     # Restore fingerprint analysis setting
-                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting  # type: ignore[attr-defined]
 
             elif fast_start and chunk_index == 0:
                 # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
                 # This reduces initial buffering from ~30s to <5s by avoiding slow librosa.beat.tempo call
                 # Fingerprint can be extracted later in background for subsequent chunks
                 # Temporarily disable fingerprint analysis
-                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
-                self.processor.content_analyzer.use_fingerprint_analysis = False
+                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis  # type: ignore[attr-defined]
+                self.processor.content_analyzer.use_fingerprint_analysis = False  # type: ignore[attr-defined]
                 logger.info("⚡ Fast-start: Skipping fingerprint analysis for first chunk")
 
                 try:
                     # Process with shared HybridProcessor instance
                     # This maintains compressor state (envelope followers, gain reduction)
                     # across chunk boundaries, preventing audio artifacts
-                    processed_chunk = self.processor.process(audio_chunk)
+                    processed_chunk = self.processor.process(audio_chunk)  # type: ignore[no-untyped-call]
                 finally:
                     # Restore fingerprint analysis for subsequent chunks
-                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting  # type: ignore[attr-defined]
             else:
                 # Normal processing with fingerprint analysis
-                processed_chunk = self.processor.process(audio_chunk)
+                processed_chunk = self.processor.process(audio_chunk)  # type: ignore[no-untyped-call]
 
         # Trim context (keep only the actual chunk)
         processed_chunk = self._trim_context(processed_chunk, chunk_index)
@@ -546,31 +557,33 @@ class ChunkedAudioProcessor:
 
                 # Add metadata for .25d file
                 try:
-                    from mutagen import File as MutagenFile  # type: ignore
+                    from mutagen import File as MutagenFile  # type: ignore[import-untyped]
                     audio_file = MutagenFile(self.filepath)  # type: ignore[no-untyped-call]
-                    duration: float = float(audio_file.info.length) if audio_file else (self.total_duration if self.total_duration is not None else 0.0)
+                    duration_value: float = float(audio_file.info.length) if audio_file else (self.total_duration if self.total_duration is not None else 0.0)  # type: ignore[union-attr]
                 except Exception:
-                    duration = self.total_duration if self.total_duration is not None else 0.0
+                    duration_value = self.total_duration if self.total_duration is not None else 0.0
 
-                self.fingerprint = analyzer.analyze(full_audio, sr)
-                # Add metadata (will be stripped before saving)
-                self.fingerprint['_metadata'] = {
-                    'duration': duration,
-                    'sample_rate': sr
-                }
+                fingerprint_data = analyzer.analyze(full_audio, sr)  # type: ignore[no-untyped-call]
+                if fingerprint_data is not None:
+                    self.fingerprint = fingerprint_data
+                    # Add metadata (will be stripped before saving)
+                    self.fingerprint['_metadata'] = {  # type: ignore[index]
+                        'duration': duration_value,
+                        'sample_rate': sr
+                    }
 
-                # Generate mastering targets from fingerprint
-                self.mastering_targets = self._generate_targets_from_fingerprint(self.fingerprint)
+                    # Generate mastering targets from fingerprint
+                    self.mastering_targets = self._generate_targets_from_fingerprint(self.fingerprint)
 
-                # Set targets on processor for fixed-target mode
-                if self.processor is not None:
-                    self.processor.set_fixed_mastering_targets(self.mastering_targets)
-                    logger.info(f"🎯 Applied newly extracted mastering targets to processor")
+                    # Set targets on processor for fixed-target mode
+                    if self.processor is not None:
+                        self.processor.set_fixed_mastering_targets(self.mastering_targets)  # type: ignore[attr-defined,no-untyped-call]
+                        logger.info(f"🎯 Applied newly extracted mastering targets to processor")
 
-                # Save to .25d file for future use
-                from auralis.analysis.fingerprint import FingerprintStorage
-                FingerprintStorage.save(Path(self.filepath), self.fingerprint, self.mastering_targets)
-                logger.info(f"💾 Saved fingerprint to .25d file for track {self.track_id}")
+                    # Save to .25d file for future use
+                    from auralis.analysis.fingerprint import FingerprintStorage
+                    FingerprintStorage.save(Path(self.filepath), self.fingerprint, self.mastering_targets)  # type: ignore[no-untyped-call]
+                    logger.info(f"💾 Saved fingerprint to .25d file for track {self.track_id}")
 
             except Exception as e:
                 logger.error(f"Fingerprint extraction failed: {e}, using default processing")
@@ -618,7 +631,7 @@ class ChunkedAudioProcessor:
         Returns:
             Path to processed chunk file
         """
-        async with self._processor_lock:
+        async with self._processor_lock:  # type: ignore[attr-defined]
             # Call process_chunk directly (synchronously)
             # This ensures the lock is held and file write completes before returning
             # While this blocks the event loop, it guarantees correctness
@@ -681,7 +694,10 @@ class ChunkedAudioProcessor:
             dict: Cached fingerprint or None if not cached
         """
         cache_key = self._get_track_fingerprint_cache_key()
-        return self.chunk_cache.get(cache_key)  # type: ignore[return-value]
+        cached_value = self.chunk_cache.get(cache_key)
+        if isinstance(cached_value, dict):
+            return cached_value
+        return None
 
     def cache_fingerprint(self, fingerprint: Dict[str, Any]) -> None:
         """
@@ -717,29 +733,30 @@ class ChunkedAudioProcessor:
         try:
             # Initialize engine on first use
             if self.adaptive_mastering_engine is None:
-                self.adaptive_mastering_engine = AdaptiveMasteringEngine()
+                self.adaptive_mastering_engine = AdaptiveMasteringEngine()  # type: ignore[no-untyped-call]
 
             # Get or extract fingerprint
             if self.fingerprint is None:
                 logger.info(f"📊 Extracting mastering fingerprint for recommendation analysis...")
                 try:
-                    self.fingerprint = MasteringFingerprint.from_audio_file(self.filepath)
+                    self.fingerprint = MasteringFingerprint.from_audio_file(self.filepath)  # type: ignore[no-untyped-call]
                 except Exception as e:
                     logger.warning(f"Failed to extract fingerprint for recommendations: {e}")
                     return None
 
             # Get weighted recommendation
             if self.fingerprint is not None:
-                self.mastering_recommendation = self.adaptive_mastering_engine.recommend_weighted(
+                recommendation = self.adaptive_mastering_engine.recommend_weighted(  # type: ignore[no-untyped-call]
                     self.fingerprint,
                     confidence_threshold=confidence_threshold
                 )
+                self.mastering_recommendation = recommendation
                 if self.mastering_recommendation is not None:
                     logger.info(
                         f"🎯 Mastering recommendation generated: "
-                        f"profile={self.mastering_recommendation.primary_profile.name}, "
-                        f"confidence={self.mastering_recommendation.confidence_score:.0%}, "
-                        f"blended={'yes' if self.mastering_recommendation.weighted_profiles else 'no'}"
+                        f"profile={self.mastering_recommendation.primary_profile.name}, "  # type: ignore[attr-defined]
+                        f"confidence={self.mastering_recommendation.confidence_score:.0%}, "  # type: ignore[attr-defined]
+                        f"blended={'yes' if self.mastering_recommendation.weighted_profiles else 'no'}"  # type: ignore[attr-defined]
                     )
                 return self.mastering_recommendation
 
@@ -950,8 +967,8 @@ class ChunkedAudioProcessor:
             padding = np.zeros((padding_needed, num_channels), dtype=np.float32)
             if extracted.ndim == 1:
                 extracted = extracted[:, np.newaxis]  # Ensure 2D
-                padding = padding.flatten()
-            extracted = np.concatenate([extracted, padding])
+                padding = padding.reshape(-1, num_channels)
+            extracted = np.vstack([extracted, padding]) if extracted.ndim > 1 else np.concatenate([extracted, padding])
             logger.warning(f"⚠️ Chunk {chunk_index} was {padding_needed} samples short, padded with silence")
         elif current_samples > expected_for_validation:
             # Trim if too long (shouldn't happen with the new logic, but be safe)
@@ -1020,9 +1037,11 @@ class ChunkedAudioProcessor:
         # Store last_content_profile globally for visualizer API access
         # This allows the /api/processing/parameters endpoint to show real processing data
         global _last_content_profiles
-        if hasattr(self.processor, 'last_content_profile') and self.processor.last_content_profile:
-            _last_content_profiles[self.preset.lower()] = self.processor.last_content_profile
-            logger.debug(f"📊 Stored processing profile for preset '{self.preset}'")
+        if self.processor is not None:
+            processor_profile = getattr(self.processor, 'last_content_profile', None)  # type: ignore[attr-defined]
+            if processor_profile:
+                _last_content_profiles[self.preset.lower()] = processor_profile
+                logger.debug(f"📊 Stored processing profile for preset '{self.preset}'")
 
         return str(wav_chunk_path)
 
@@ -1048,7 +1067,8 @@ def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overl
 
     if actual_overlap <= 0:
         # No overlap possible, just concatenate
-        return np.concatenate([chunk1, chunk2], axis=0)  # type: ignore[return-value]
+        result: np.ndarray = np.concatenate([chunk1, chunk2], axis=0)
+        return result
 
     # Get overlap regions
     chunk1_tail = chunk1[-actual_overlap:]
@@ -1074,7 +1094,7 @@ def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overl
         chunk2[actual_overlap:]     # Chunk2 without the head that was mixed
     ], axis=0)
 
-    return result  # type: ignore[return-value]
+    return result
 
 
 def get_last_content_profile(preset: str) -> Optional[Dict[str, Any]]:
@@ -1089,4 +1109,7 @@ def get_last_content_profile(preset: str) -> Optional[Dict[str, Any]]:
         Last content profile dict or None if not available
     """
     global _last_content_profiles
-    return _last_content_profiles.get(preset.lower())  # type: ignore[return-value]
+    value = _last_content_profiles.get(preset.lower())
+    if isinstance(value, dict):
+        return value
+    return None
