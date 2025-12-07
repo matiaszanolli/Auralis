@@ -43,7 +43,7 @@ import hashlib
 import logging
 import threading
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List, Tuple, Any
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ class PersistentFingerprintCache:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         # In-memory cache for recently used fingerprints
-        self._memory_cache: Dict[str, Dict] = {}
+        self._memory_cache: Dict[str, Dict[str, Any]] = {}
         self._cache_lock = threading.RLock()
 
         # SQLite connection
@@ -125,7 +125,7 @@ class PersistentFingerprintCache:
                 self._conn.execute("PRAGMA cache_size=10000")
             return self._conn
 
-    def _initialize_db(self):
+    def _initialize_db(self) -> None:
         """Create database schema if not exists."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -179,7 +179,7 @@ class PersistentFingerprintCache:
         cache_key = hashlib.sha256(combined).hexdigest()[:16]
         return cache_key
 
-    def get(self, audio_bytes: bytes) -> Optional[Dict]:
+    def get(self, audio_bytes: bytes) -> Optional[Dict[str, Any]]:
         """
         Get fingerprint from cache.
 
@@ -225,7 +225,7 @@ class PersistentFingerprintCache:
                 conn.commit()
 
                 # Parse and cache in memory
-                fingerprint = json.loads(row[0])
+                fingerprint: Dict[str, Any] = json.loads(row[0])
                 with self._cache_lock:
                     self._memory_cache[cache_key] = fingerprint
 
@@ -239,7 +239,7 @@ class PersistentFingerprintCache:
         self.misses += 1
         return None
 
-    def set(self, audio_bytes: bytes, fingerprint: Dict, audio_length: Optional[int] = None) -> bool:
+    def set(self, audio_bytes: bytes, fingerprint: Dict[str, Any], audio_length: Optional[int] = None) -> bool:
         """
         Store fingerprint in cache.
 
@@ -286,7 +286,7 @@ class PersistentFingerprintCache:
             logger.error(f"Error writing to cache: {e}")
             return False
 
-    def _evict_if_needed(self):
+    def _evict_if_needed(self) -> None:
         """Evict oldest fingerprints if cache exceeds size limit (LRU)."""
         try:
             conn = self._get_connection()
@@ -337,7 +337,7 @@ class PersistentFingerprintCache:
         except Exception as e:
             logger.warning(f"Error during cache eviction: {e}")
 
-    def _preload_recent_fingerprints(self):
+    def _preload_recent_fingerprints(self) -> None:
         """Preload recently accessed fingerprints into memory."""
         try:
             conn = self._get_connection()
@@ -363,7 +363,7 @@ class PersistentFingerprintCache:
         except Exception as e:
             logger.debug(f"Could not preload fingerprints: {e}")
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""
         try:
             conn = self._get_connection()
@@ -397,7 +397,7 @@ class PersistentFingerprintCache:
             logger.error(f"Error getting cache stats: {e}")
             return {}
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all cached fingerprints."""
         try:
             conn = self._get_connection()
@@ -417,7 +417,7 @@ class PersistentFingerprintCache:
         except Exception as e:
             logger.error(f"Error clearing cache: {e}")
 
-    def cleanup_old_entries(self, days: int = 30):
+    def cleanup_old_entries(self, days: int = 30) -> int:
         """Remove fingerprints not accessed in N days."""
         try:
             conn = self._get_connection()
@@ -442,7 +442,7 @@ class PersistentFingerprintCache:
             logger.error(f"Error cleaning up old entries: {e}")
             return 0
 
-    def close(self):
+    def close(self) -> None:
         """Close database connection."""
         if self._conn:
             self._conn.close()
