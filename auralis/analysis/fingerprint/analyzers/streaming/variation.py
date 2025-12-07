@@ -22,7 +22,7 @@ Dependencies:
 
 import numpy as np
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Deque
 from collections import deque
 
 logger = logging.getLogger(__name__)
@@ -38,13 +38,13 @@ class RunningStatistics:
     corrected sums of squares and products." Technometrics.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize running statistics."""
         self.count = 0
         self.mean = 0.0
         self.m2 = 0.0  # Sum of squared differences from mean
 
-    def update(self, value: float):
+    def update(self, value: float) -> None:
         """Update statistics with a single value.
 
         Args:
@@ -68,9 +68,9 @@ class RunningStatistics:
 
     def get_std(self) -> float:
         """Get current standard deviation."""
-        return np.sqrt(self.get_variance())
+        return float(np.sqrt(self.get_variance()))
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset to initial state."""
         self.count = 0
         self.mean = 0.0
@@ -84,16 +84,16 @@ class WindowedBuffer:
     when new values are added beyond capacity.
     """
 
-    def __init__(self, window_size: int):
+    def __init__(self, window_size: int) -> None:
         """Initialize windowed buffer.
 
         Args:
             window_size: Maximum number of values to maintain
         """
-        self.buffer = deque(maxlen=window_size)
+        self.buffer: Deque[float] = deque(maxlen=window_size)
         self.window_size = window_size
 
-    def append(self, value: float):
+    def append(self, value: float) -> None:
         """Add value to buffer (oldest removed if at capacity).
 
         Args:
@@ -109,7 +109,7 @@ class WindowedBuffer:
         """Check if buffer is at capacity."""
         return len(self.buffer) == self.window_size
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear buffer."""
         self.buffer.clear()
 
@@ -127,7 +127,7 @@ class StreamingVariationAnalyzer:
     """
 
     def __init__(self, sr: int = 44100, hop_length: float = 0.25,
-                 frame_length: float = 0.5, window_duration: float = 5.0):
+                 frame_length: float = 0.5, window_duration: float = 5.0) -> None:
         """Initialize streaming variation analyzer.
 
         Args:
@@ -151,12 +151,12 @@ class StreamingVariationAnalyzer:
         self.peak_stats = RunningStatistics()
 
         # Audio buffer for RMS/peak calculation
-        self.audio_buffer = deque(maxlen=self.frame_length)
+        self.audio_buffer: Deque[float] = deque(maxlen=self.frame_length)
 
         # Frame counter tracking input updates (not metric updates)
         self.frame_count = 0
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset analyzer state."""
         self.rms_window.clear()
         self.peak_window.clear()

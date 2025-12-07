@@ -11,7 +11,7 @@ High-performance spectrum analysis with parallel FFT processing
 """
 
 import numpy as np
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -42,13 +42,13 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
     Extends BaseSpectrumAnalyzer with parallel processing capabilities.
     """
 
-    def __init__(self, settings: ParallelSpectrumSettings = None):
+    def __init__(self, settings: Optional[ParallelSpectrumSettings] = None) -> None:
         # Ensure we have ParallelSpectrumSettings
         if settings is None:
             settings = ParallelSpectrumSettings()
         elif not isinstance(settings, ParallelSpectrumSettings):
             # Convert SpectrumSettings to ParallelSpectrumSettings if needed
-            settings = ParallelSpectrumSettings(
+            settings_obj: ParallelSpectrumSettings = ParallelSpectrumSettings(  # type: ignore[unreachable]
                 fft_size=settings.fft_size,
                 window_type=settings.window_type,
                 overlap=settings.overlap,
@@ -59,17 +59,18 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
                 min_frequency=settings.min_frequency,
                 max_frequency=settings.max_frequency
             )
+            settings = settings_obj
 
         # Call parent constructor
         super().__init__(settings)
 
         # Initialize parallel FFT processor
-        parallel_config = ParallelConfig(
+        parallel_config: ParallelConfig = ParallelConfig(
             enable_parallel=settings.enable_parallel,
             max_workers=settings.max_workers,
             use_multiprocessing=False  # Threading works well for FFT
         )
-        self.fft_processor = ParallelFFTProcessor(parallel_config)
+        self.fft_processor: Any = ParallelFFTProcessor(parallel_config)
 
         # Pre-compute band masks for vectorized processing
         self._init_band_masks()
@@ -77,16 +78,16 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
         debug(f"Parallel spectrum analyzer initialized: {self.settings.frequency_bands} bands, "
               f"{settings.max_workers} workers")
 
-    def _init_band_masks(self):
+    def _init_band_masks(self) -> None:
         """Pre-compute band masks for vectorized band mapping"""
-        freqs = np.fft.rfftfreq(self.settings.fft_size, 1/self.settings.sample_rate)
+        freqs: np.ndarray = np.fft.rfftfreq(self.settings.fft_size, 1/self.settings.sample_rate)
 
         # Create masks for each band (vectorized)
-        self.band_masks = []
+        self.band_masks: List[np.ndarray] = []
         for i in range(len(self.frequency_bins) - 1):
-            start_freq = self.frequency_bins[i]
-            end_freq = self.frequency_bins[i + 1]
-            mask = (freqs >= start_freq) & (freqs < end_freq)
+            start_freq: float = self.frequency_bins[i]
+            end_freq: float = self.frequency_bins[i + 1]
+            mask: np.ndarray = (freqs >= start_freq) & (freqs < end_freq)
             self.band_masks.append(mask)
 
         # Last band
@@ -95,7 +96,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
 
         debug(f"Pre-computed {len(self.band_masks)} band masks for vectorized processing")
 
-    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict:
+    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict[str, Any]:
         """
         Analyze a single chunk of audio (for real-time processing)
 
@@ -108,7 +109,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
         """
         return self._create_chunk_result(audio_chunk, channel, self.settings.sample_rate)
 
-    def analyze_file(self, audio_data: np.ndarray, sample_rate: int = None) -> Dict:
+    def analyze_file(self, audio_data: np.ndarray, sample_rate: Optional[int] = None) -> Dict[str, Any]:
         """
         Analyze an entire audio file with parallel FFT processing
 
@@ -139,8 +140,8 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
         num_chunks = (len(audio_data) - self.settings.fft_size) // hop_size + 1
 
         # Determine if we should use parallel processing
-        use_parallel = (num_chunks >= self.settings.min_chunks_for_parallel and
-                       self.settings.enable_parallel)
+        use_parallel = (num_chunks >= self.settings.min_chunks_for_parallel and  # type: ignore[attr-defined]
+                       self.settings.enable_parallel)  # type: ignore[attr-defined]
 
         if use_parallel:
             # Parallel FFT processing
@@ -152,7 +153,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
             )
 
             # Process FFT results in parallel
-            with ThreadPoolExecutor(max_workers=self.settings.max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=self.settings.max_workers) as executor:  # type: ignore[attr-defined]
                 chunk_results = list(executor.map(self._process_fft_to_spectrum, fft_results))
         else:
             # Sequential fallback for small files
@@ -190,28 +191,28 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
             }
         }
 
-    def _process_chunks_sequential(self, audio_data: np.ndarray, hop_size: int, num_chunks: int) -> List[Dict]:
+    def _process_chunks_sequential(self, audio_data: np.ndarray, hop_size: int, num_chunks: int) -> List[Dict[str, Any]]:
         """Process chunks sequentially (fallback for small files)"""
-        chunk_results = []
+        chunk_results: List[Dict[str, Any]] = []
 
         for i in range(num_chunks):
-            start_idx = i * hop_size
-            end_idx = start_idx + self.settings.fft_size
+            start_idx: int = i * hop_size
+            end_idx: int = start_idx + self.settings.fft_size
 
             if end_idx <= len(audio_data):
-                chunk = audio_data[start_idx:end_idx]
+                chunk: np.ndarray = audio_data[start_idx:end_idx]
 
                 # Apply window and compute FFT
-                windowed = chunk * self.window
-                fft_result = np.fft.fft(windowed, self.settings.fft_size)
+                windowed: np.ndarray = chunk * self.window
+                fft_result: np.ndarray = np.fft.fft(windowed, self.settings.fft_size)
 
                 # Process to spectrum
-                result = self._process_fft_to_spectrum(fft_result)
+                result: Dict[str, Any] = self._process_fft_to_spectrum(fft_result)
                 chunk_results.append(result)
 
         return chunk_results
 
-    def _process_fft_to_spectrum(self, fft_result: np.ndarray) -> Dict:
+    def _process_fft_to_spectrum(self, fft_result: np.ndarray) -> Dict[str, Any]:
         """
         Process single FFT result to spectrum (vectorized with band masks)
 
@@ -232,7 +233,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
 
         # Apply smoothing if we have a buffer
         if self.smoothing_buffer is not None:
-            weighted_spectrum = (
+            weighted_spectrum = (  # type: ignore[unreachable]
                 self.settings.smoothing_factor * self.smoothing_buffer +
                 (1 - self.settings.smoothing_factor) * weighted_spectrum
             )
@@ -268,7 +269,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
         Returns:
             Band energies in dB
         """
-        spectrum = np.zeros(len(self.frequency_bins))
+        spectrum: np.ndarray = np.zeros(len(self.frequency_bins))
 
         # Vectorized band mapping using pre-computed masks
         for i, mask in enumerate(self.band_masks):
@@ -293,22 +294,22 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
             Rolloff frequency in Hz
         """
         # Convert to linear energy
-        energy = 10 ** (spectrum / 20)
+        energy: np.ndarray = 10 ** (spectrum / 20)
 
         # Cumulative sum (vectorized)
-        cumulative_energy = np.cumsum(energy)
-        total_energy = cumulative_energy[-1]
-        rolloff_energy = total_energy * rolloff_threshold
+        cumulative_energy: np.ndarray = np.cumsum(energy)
+        total_energy: Any = cumulative_energy[-1]
+        rolloff_energy: Any = total_energy * rolloff_threshold
 
         # Find rolloff point (vectorized)
-        rolloff_idx = np.searchsorted(cumulative_energy, rolloff_energy)
+        rolloff_idx: Any = np.searchsorted(cumulative_energy, rolloff_energy)
         rolloff_idx = min(rolloff_idx, len(self.frequency_bins) - 1)
 
-        return self.frequency_bins[rolloff_idx]
+        return float(self.frequency_bins[rolloff_idx])
 
 
 # Factory function
-def create_parallel_spectrum_analyzer(settings: ParallelSpectrumSettings = None) -> ParallelSpectrumAnalyzer:
+def create_parallel_spectrum_analyzer(settings: Optional[ParallelSpectrumSettings] = None) -> ParallelSpectrumAnalyzer:
     """
     Create parallel spectrum analyzer instance
 

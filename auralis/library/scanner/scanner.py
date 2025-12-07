@@ -11,7 +11,7 @@ Main scanner orchestrator
 """
 
 import time
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict, Optional, Callable, Any
 
 from ...utils.logging import info, warning
 from ..scan_models import ScanResult
@@ -36,7 +36,7 @@ class LibraryScanner:
     - Intelligent file filtering
     """
 
-    def __init__(self, library_manager, fingerprint_queue=None):
+    def __init__(self, library_manager: Any, fingerprint_queue: Optional[Any] = None) -> None:
         """
         Initialize scanner with library manager
 
@@ -44,30 +44,30 @@ class LibraryScanner:
             library_manager: Library manager instance
             fingerprint_queue: Optional FingerprintExtractionQueue for background fingerprinting
         """
-        self.library_manager = library_manager
-        self.fingerprint_queue = fingerprint_queue
-        self.progress_callback: Optional[Callable] = None
-        self.should_stop = False
+        self.library_manager: Any = library_manager
+        self.fingerprint_queue: Optional[Any] = fingerprint_queue
+        self.progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+        self.should_stop: bool = False
 
         # Initialize components
-        self.file_discovery = FileDiscovery()
-        self.audio_analyzer = AudioAnalyzer()
-        self.metadata_extractor = MetadataExtractor()
-        self.batch_processor = BatchProcessor(
+        self.file_discovery: Any = FileDiscovery()  # type: ignore[no-untyped-call]
+        self.audio_analyzer: Any = AudioAnalyzer()
+        self.metadata_extractor: Any = MetadataExtractor()
+        self.batch_processor: Any = BatchProcessor(  # type: ignore[no-untyped-call]
             library_manager,
             self.audio_analyzer,
             self.metadata_extractor
         )
-        self.duplicate_detector = DuplicateDetector(
+        self.duplicate_detector: Any = DuplicateDetector(  # type: ignore[no-untyped-call]
             self.file_discovery,
             self.audio_analyzer
         )
 
-    def set_progress_callback(self, callback: Callable[[Dict], None]):
+    def set_progress_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Set callback for progress updates"""
         self.progress_callback = callback
 
-    def stop_scan(self):
+    def stop_scan(self) -> None:
         """Signal scanner to stop"""
         self.should_stop = True
         self.file_discovery.stop()
@@ -91,19 +91,19 @@ class LibraryScanner:
         Returns:
             ScanResult with scan statistics
         """
-        start_time = time.time()
-        result = ScanResult()
+        start_time: float = time.time()
+        result: ScanResult = ScanResult()
 
         info(f"Starting library scan of {len(directories)} directories")
 
         try:
             # Discover all audio files
-            all_files = []
+            all_files: List[str] = []
             for directory in directories:
                 if self.should_stop:
                     break
 
-                files = list(self.file_discovery.discover_audio_files(directory, recursive))
+                files: List[str] = list(self.file_discovery.discover_audio_files(directory, recursive))
                 all_files.extend(files)
                 result.directories_scanned += 1
 
@@ -123,10 +123,10 @@ class LibraryScanner:
             # Process files in batches for better performance
             for i in range(0, len(all_files), batch_size):
                 if self.should_stop:
-                    break
+                    break  # type: ignore[unreachable]
 
-                batch = all_files[i:i + batch_size]
-                batch_result = self.batch_processor.process_file_batch(
+                batch: List[str] = all_files[i:i + batch_size]
+                batch_result: Any = self.batch_processor.process_file_batch(
                     batch, skip_existing, check_modifications
                 )
 
@@ -138,10 +138,12 @@ class LibraryScanner:
 
                 # Enqueue fingerprints for newly added/updated tracks
                 if self.fingerprint_queue and batch_result.added_tracks:
-                    self._enqueue_fingerprints(batch_result.added_tracks)
+                    # Create async task without awaiting (fire and forget)
+                    import asyncio
+                    asyncio.create_task(self._enqueue_fingerprints(batch_result.added_tracks))
 
                 # Report progress
-                progress = (i + len(batch)) / len(all_files)
+                progress: float = (i + len(batch)) / len(all_files)
                 self._report_progress({
                     'stage': 'processing',
                     'progress': progress,
@@ -163,11 +165,11 @@ class LibraryScanner:
             result.scan_time = time.time() - start_time
             return result
 
-    def scan_single_directory(self, directory: str, **kwargs) -> ScanResult:
+    def scan_single_directory(self, directory: str, **kwargs: Any) -> ScanResult:
         """Scan a single directory"""
         return self.scan_directories([directory], **kwargs)
 
-    def scan_folder(self, folder_path: str, recursive: bool = True, **kwargs) -> List[Dict]:
+    def scan_folder(self, folder_path: str, recursive: bool = True, **kwargs: Any) -> List[Dict[str, Any]]:
         """
         Backward compatibility method for scanning a folder.
 
@@ -181,16 +183,16 @@ class LibraryScanner:
         """
         # Use FileDiscovery to find all audio files in the folder
         # This is compatible with the old test expectations
-        files = []
+        files: List[Dict[str, Any]] = []
 
         try:
             for filepath in self.file_discovery.discover_audio_files(folder_path, recursive):
                 # Extract metadata for each file
-                file_info = self.audio_analyzer.extract_audio_info(filepath)
+                file_info: Any = self.audio_analyzer.extract_audio_info(filepath)
 
                 if file_info:
                     # Convert AudioFileInfo to dict for backward compatibility
-                    file_dict = {
+                    file_dict: Dict[str, Any] = {
                         'filepath': filepath,
                         'duration': file_info.duration,
                         'sample_rate': file_info.sample_rate,
@@ -207,7 +209,7 @@ class LibraryScanner:
 
         return files
 
-    def find_duplicates(self, directories: List[str] = None) -> List[List[str]]:
+    def find_duplicates(self, directories: Optional[List[str]] = None) -> List[List[str]]:
         """
         Find duplicate audio files based on content hash
 
@@ -217,9 +219,9 @@ class LibraryScanner:
         Returns:
             List of lists, where each inner list contains paths of duplicate files
         """
-        return self.duplicate_detector.find_duplicates(directories)
+        return self.duplicate_detector.find_duplicates(directories)  # type: ignore[no-any-return]
 
-    def _update_library_stats(self, scan_result: ScanResult):
+    def _update_library_stats(self, scan_result: ScanResult) -> None:
         """Update library statistics after scan"""
         try:
             # This would update the LibraryStats table
@@ -228,7 +230,7 @@ class LibraryScanner:
         except Exception as e:
             warning(f"Failed to update library stats: {e}")
 
-    def _report_progress(self, progress_data: Dict):
+    def _report_progress(self, progress_data: Dict[str, Any]) -> None:
         """Report progress to callback if set"""
         if self.progress_callback:
             try:
@@ -236,7 +238,7 @@ class LibraryScanner:
             except Exception as e:
                 warning(f"Progress callback failed: {e}")
 
-    async def _enqueue_fingerprints(self, track_records: List):
+    async def _enqueue_fingerprints(self, track_records: List[Any]) -> None:
         """
         Enqueue fingerprints for newly added tracks
 
@@ -246,10 +248,10 @@ class LibraryScanner:
         if not self.fingerprint_queue or not track_records:
             return
 
-        enqueued_count = 0
+        enqueued_count: int = 0
         for track in track_records:
             try:
-                success = await self.fingerprint_queue.enqueue(
+                success: bool = await self.fingerprint_queue.enqueue(
                     track_id=track.id,
                     filepath=track.filepath,
                     priority=0  # Normal priority for scan operations

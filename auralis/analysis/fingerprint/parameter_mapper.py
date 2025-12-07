@@ -19,7 +19,7 @@ Maps fingerprint dimensions to processor configuration:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 import numpy as np
 from ...utils.logging import debug, info
 from .common_metrics import BandNormalizationTable
@@ -28,7 +28,7 @@ from .common_metrics import BandNormalizationTable
 class EQParameterMapper:
     """Maps frequency fingerprint dimensions to 31-band EQ gains"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize EQ mapper with standard 31-band frequencies and normalization table"""
         # ISO 31-band EQ center frequencies (Hz)
         self.eq_bands = [
@@ -39,7 +39,7 @@ class EQParameterMapper:
         # Initialize band normalization table for vectorized band gain application
         self.band_table = BandNormalizationTable()
 
-    def map_frequency_to_eq(self, fingerprint: Dict) -> Dict[str, float]:
+    def map_frequency_to_eq(self, fingerprint: Dict[str, Any]) -> Dict[int, float]:
         """
         Map 7D frequency distribution to 31-band EQ gains
 
@@ -61,7 +61,7 @@ class EQParameterMapper:
         """
         return self.band_table.apply_to_fingerprint(fingerprint, self._normalize_to_db)
 
-    def map_spectral_to_eq(self, fingerprint: Dict) -> Dict[str, float]:
+    def map_spectral_to_eq(self, fingerprint: Dict[str, Any]) -> Dict[int, float]:
         """
         Map spectral dimensions to targeted EQ adjustments
 
@@ -155,7 +155,7 @@ class EQParameterMapper:
 class DynamicsParameterMapper:
     """Maps dynamics fingerprint dimensions to compressor/limiter settings"""
 
-    def map_to_compressor(self, fingerprint: Dict) -> Dict[str, float]:
+    def map_to_compressor(self, fingerprint: Dict[str, Any]) -> Dict[str, float]:
         """
         Map dynamics dimensions to compressor settings
 
@@ -203,7 +203,7 @@ class DynamicsParameterMapper:
             'makeup_gain': makeup_gain
         }
 
-    def map_to_multiband(self, fingerprint: Dict) -> Dict[str, Dict]:
+    def map_to_multiband(self, fingerprint: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
         """
         Map dynamics to multiband compression settings
 
@@ -281,7 +281,7 @@ class DynamicsParameterMapper:
 class LevelParameterMapper:
     """Maps loudness dimensions to level matching settings"""
 
-    def map_to_level_matching(self, fingerprint: Dict, target_lufs: Optional[float] = None) -> Dict[str, float]:
+    def map_to_level_matching(self, fingerprint: Dict[str, Any], target_lufs: Optional[float] = None) -> Dict[str, float]:
         """
         Map loudness dimensions to level matching parameters
 
@@ -321,7 +321,7 @@ class LevelParameterMapper:
 class HarmonicParameterMapper:
     """Maps harmonic dimensions to harmonic enhancement and saturation"""
 
-    def map_to_harmonic_enhancement(self, fingerprint: Dict) -> Dict[str, float]:
+    def map_to_harmonic_enhancement(self, fingerprint: Dict[str, Any]) -> Dict[str, Any]:
         """
         Map harmonic dimensions to enhancement settings
 
@@ -358,7 +358,7 @@ class HarmonicParameterMapper:
 class ParameterMapper:
     """Main parameter mapper: orchestrates all mapping operations"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize all sub-mappers"""
         self.eq_mapper = EQParameterMapper()
         self.dynamics_mapper = DynamicsParameterMapper()
@@ -367,10 +367,10 @@ class ParameterMapper:
 
     def generate_mastering_parameters(
         self,
-        fingerprint: Dict,
+        fingerprint: Dict[str, Any],
         target_lufs: Optional[float] = None,
         enable_multiband: bool = False
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Generate complete mastering parameters from 25D fingerprint
 
@@ -402,13 +402,13 @@ class ParameterMapper:
 
         return params
 
-    def _generate_eq_params(self, fingerprint: Dict) -> Dict:
+    def _generate_eq_params(self, fingerprint: Dict[str, Any]) -> Dict[str, Any]:
         """Generate EQ parameters from frequency fingerprint"""
-        freq_gains = self.eq_mapper.map_frequency_to_eq(fingerprint)
-        spectral_gains = self.eq_mapper.map_spectral_to_eq(fingerprint)
+        freq_gains: Dict[int, float] = self.eq_mapper.map_frequency_to_eq(fingerprint)
+        spectral_gains: Dict[int, float] = self.eq_mapper.map_spectral_to_eq(fingerprint)
 
         # Merge gains (spectral adjustments on top of frequency mapping)
-        all_gains = freq_gains.copy()
+        all_gains: Dict[int, float] = freq_gains.copy()
         for band, gain in spectral_gains.items():
             if band in all_gains:
                 all_gains[band] += gain * 0.5  # Weight spectral adjustments lower
@@ -429,11 +429,11 @@ class ParameterMapper:
             'gains': saturated_gains
         }
 
-    def _generate_dynamics_params(self, fingerprint: Dict, enable_multiband: bool) -> Dict:
+    def _generate_dynamics_params(self, fingerprint: Dict[str, Any], enable_multiband: bool) -> Dict[str, Any]:
         """Generate dynamics parameters"""
-        standard = self.dynamics_mapper.map_to_compressor(fingerprint)
+        standard: Dict[str, float] = self.dynamics_mapper.map_to_compressor(fingerprint)
 
-        params = {
+        params: Dict[str, Any] = {
             'enabled': True,
             'standard': standard
         }
