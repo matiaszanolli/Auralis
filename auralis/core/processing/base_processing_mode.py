@@ -23,7 +23,7 @@ from ...utils.logging import debug
 class AudioMeasurement:
     """Represents audio measurements (peak, RMS, crest factor)"""
 
-    def __init__(self, peak: float, rms_val: float, peak_db: float = None, rms_db: float = None):
+    def __init__(self, peak: float, rms_val: float, peak_db: Optional[float] = None, rms_db: Optional[float] = None) -> None:
         """
         Initialize audio measurement
 
@@ -33,11 +33,11 @@ class AudioMeasurement:
             peak_db: Peak in dB (optional, calculated if not provided)
             rms_db: RMS in dB (optional, calculated if not provided)
         """
-        self.peak = peak
-        self.rms = rms_val
-        self.peak_db = peak_db if peak_db is not None else (20 * np.log10(peak) if peak > 0 else -np.inf)
-        self.rms_db = rms_db if rms_db is not None else (20 * np.log10(rms_val) if rms_val > 0 else -np.inf)
-        self.crest = self.peak_db - self.rms_db
+        self.peak: float = peak
+        self.rms: float = rms_val
+        self.peak_db: float = peak_db if peak_db is not None else (20 * np.log10(peak) if peak > 0 else -np.inf)
+        self.rms_db: float = rms_db if rms_db is not None else (20 * np.log10(rms_val) if rms_val > 0 else -np.inf)
+        self.crest: float = self.peak_db - self.rms_db
 
     def to_dict(self) -> Dict[str, float]:
         """Convert to dictionary"""
@@ -358,7 +358,7 @@ class ProcessingLogger:
     """
 
     @staticmethod
-    def pre_stage(stage_name: str, peak_db: float, rms_db: float, crest_db: float = None):
+    def pre_stage(stage_name: str, peak_db: float, rms_db: float, crest_db: Optional[float] = None) -> None:
         """Log measurements before a processing stage."""
         if crest_db is not None:
             print(f"[{stage_name}] Peak: {peak_db:.2f} dB, RMS: {rms_db:.2f} dB, Crest: {crest_db:.2f} dB")
@@ -366,13 +366,13 @@ class ProcessingLogger:
             print(f"[{stage_name}] Peak: {peak_db:.2f} dB, LUFS: {rms_db:.1f}")
 
     @staticmethod
-    def post_stage(stage_name: str, before_db: float, after_db: float, metric_type: str = "Peak"):
+    def post_stage(stage_name: str, before_db: float, after_db: float, metric_type: str = "Peak") -> None:
         """Log measurement change after a processing stage."""
         delta = after_db - before_db
         print(f"[{stage_name}] {metric_type}: {before_db:.2f} → {after_db:.2f} dB (change: {delta:+.2f} dB)")
 
     @staticmethod
-    def safety_check(reason: str, peak_db: float = None):
+    def safety_check(reason: str, peak_db: Optional[float] = None) -> None:
         """Log safety check decisions."""
         if peak_db is not None:
             print(f"[{reason}] Peak {peak_db:.2f} dB")
@@ -381,7 +381,7 @@ class ProcessingLogger:
 
     @staticmethod
     def stereo_width_change(stage_name: str, before_width: float, after_width: float,
-                           before_peak_db: float = None, after_peak_db: float = None):
+                           before_peak_db: Optional[float] = None, after_peak_db: Optional[float] = None) -> None:
         """Log stereo width adjustments."""
         if before_peak_db is not None and after_peak_db is not None:
             print(f"[{stage_name}] Peak: {before_peak_db:.2f} → {after_peak_db:.2f} dB "
@@ -390,7 +390,7 @@ class ProcessingLogger:
             print(f"[{stage_name}] {before_width:.2f} → {after_width:.2f} (target: {after_width:.2f})")
 
     @staticmethod
-    def gain_applied(stage_name: str, gain_db: float, target_db: float = None):
+    def gain_applied(stage_name: str, gain_db: float, target_db: Optional[float] = None) -> None:
         """Log gain/boost application."""
         if target_db is not None:
             print(f"[{stage_name}] Applied {gain_db:+.2f} dB (target: {target_db:.1f} dB)")
@@ -398,7 +398,7 @@ class ProcessingLogger:
             print(f"[{stage_name}] Applied {gain_db:+.2f} dB")
 
     @staticmethod
-    def skipped(reason: str, detail: str = None):
+    def skipped(reason: str, detail: Optional[str] = None) -> None:
         """Log when an operation is skipped."""
         if detail:
             print(f"[{reason}] SKIPPED - {detail}")
@@ -406,7 +406,7 @@ class ProcessingLogger:
             print(f"[{reason}] SKIPPED")
 
     @staticmethod
-    def limited(reason: str, original: float, limited: float):
+    def limited(reason: str, original: float, limited: float) -> None:
         """Log when a value is limited/clamped."""
         print(f"[{reason}] Limited: {original:.2f} → {limited:.2f}")
 
@@ -459,7 +459,7 @@ class PeakNormalizer:
 
     @staticmethod
     def normalize_to_target(audio: np.ndarray, target_peak_db: float,
-                           preset_name: str = None) -> Tuple[np.ndarray, float]:
+                           preset_name: Optional[str] = None) -> Tuple[np.ndarray, float]:
         """
         Normalize audio peak to target level.
 
@@ -492,7 +492,7 @@ class NormalizationStep:
     Consolidates the measure-adjust-remeasure pattern.
     """
 
-    def __init__(self, step_name: str, stage_label: str = None):
+    def __init__(self, step_name: str, stage_label: Optional[str] = None) -> None:
         """
         Initialize normalization step.
 
@@ -500,14 +500,14 @@ class NormalizationStep:
             step_name: Name of the step (e.g., "RMS Boost", "LUFS Normalization")
             stage_label: Optional pre-logging label (e.g., "Pre-Final")
         """
-        self.step_name = step_name
-        self.stage_label = stage_label
-        self.before_measurement = None
-        self.after_measurement = None
-        self.gain_applied_db = 0.0
+        self.step_name: str = step_name
+        self.stage_label: Optional[str] = stage_label
+        self.before_measurement: Optional[Dict[str, float]] = None
+        self.after_measurement: Optional[Dict[str, float]] = None
+        self.gain_applied_db: float = 0.0
 
     def measure_before(self, audio: np.ndarray, use_lufs: bool = False,
-                      sample_rate: int = None) -> Dict[str, float]:
+                      sample_rate: Optional[int] = None) -> Dict[str, float]:
         """
         Measure audio before adjustment.
 
@@ -566,7 +566,7 @@ class NormalizationStep:
         return audio
 
     def measure_after(self, audio: np.ndarray, use_lufs: bool = False,
-                     sample_rate: int = None) -> Dict[str, float]:
+                     sample_rate: Optional[int] = None) -> Dict[str, float]:
         """
         Measure audio after adjustment.
 
@@ -584,7 +584,7 @@ class NormalizationStep:
         rms_db = DBConversion.to_db(rms_val)
         crest = peak_db - rms_db
 
-        measurement = {
+        measurement: Dict[str, float] = {
             'peak_db': peak_db,
             'rms_db': rms_db,
             'crest': crest,
@@ -633,7 +633,7 @@ class FullAudioMeasurement:
     Consolidates all measurement types (peak, RMS, crest, LUFS) in one place.
     """
 
-    def __init__(self, audio: np.ndarray, sample_rate: int = None, label: str = None):
+    def __init__(self, audio: np.ndarray, sample_rate: Optional[int] = None, label: Optional[str] = None) -> None:
         """
         Initialize with comprehensive audio analysis.
 
@@ -642,13 +642,13 @@ class FullAudioMeasurement:
             sample_rate: Sample rate (optional, for LUFS calculation)
             label: Optional label for identification
         """
-        self.label = label
-        self.peak = np.max(np.abs(audio))
-        self.peak_db = DBConversion.to_db(self.peak)
-        self.rms = rms(audio)
-        self.rms_db = DBConversion.to_db(self.rms)
-        self.crest = self.peak_db - self.rms_db
-        self.lufs = None
+        self.label: Optional[str] = label
+        self.peak: float = np.max(np.abs(audio))
+        self.peak_db: float = DBConversion.to_db(self.peak)
+        self.rms: float = rms(audio)
+        self.rms_db: float = DBConversion.to_db(self.rms)
+        self.crest: float = self.peak_db - self.rms_db
+        self.lufs: Optional[float] = None
 
         if sample_rate:
             from ...dsp.unified import calculate_loudness_units
@@ -656,7 +656,7 @@ class FullAudioMeasurement:
 
     def to_dict(self) -> Dict[str, float]:
         """Convert measurement to dictionary."""
-        data = {
+        data: Dict[str, float] = {
             'peak': self.peak,
             'peak_db': self.peak_db,
             'rms': self.rms,
