@@ -6,6 +6,7 @@ Infrastructure endpoints for system monitoring and real-time communication.
 
 import json
 import logging
+from typing import Callable, Optional, Any, Dict
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from audio_stream_controller import AudioStreamController
 
@@ -15,13 +16,13 @@ router = APIRouter(tags=["system"])
 
 
 def create_system_router(
-    manager,
-    get_library_manager,
-    get_processing_engine,
+    manager: Any,
+    get_library_manager: Callable[..., Any],
+    get_processing_engine: Callable[..., Any],
     HAS_AURALIS: bool,
-    get_player_manager=None,
-    get_state_manager=None,
-):
+    get_player_manager: Optional[Callable[..., Any]] = None,
+    get_state_manager: Optional[Callable[..., Any]] = None,
+) -> APIRouter:
     """
     Create system router with dependencies.
 
@@ -35,7 +36,7 @@ def create_system_router(
     """
 
     @router.get("/api/health")
-    async def health_check():
+    async def health_check() -> Dict[str, Any]:
         """Health check endpoint"""
         return {
             "status": "healthy",
@@ -44,7 +45,7 @@ def create_system_router(
         }
 
     @router.get("/api/version")
-    async def get_version():
+    async def get_version() -> Dict[str, Any]:
         """
         Get version information.
 
@@ -78,7 +79,7 @@ def create_system_router(
             }
 
     @router.websocket("/ws")
-    async def websocket_endpoint(websocket: WebSocket):
+    async def websocket_endpoint(websocket: WebSocket) -> None:
         """
         WebSocket endpoint for real-time communication.
 
@@ -179,7 +180,7 @@ def create_system_router(
                     job_id = message.get("job_id")
                     processing_engine = get_processing_engine()
                     if job_id and processing_engine:
-                        async def progress_callback(job_id, progress, message):
+                        async def progress_callback(job_id: str, progress: float, message: str) -> None:
                             await websocket.send_text(json.dumps({
                                 "type": "job_progress",
                                 "data": {

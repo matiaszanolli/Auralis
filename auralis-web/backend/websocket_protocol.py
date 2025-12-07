@@ -293,7 +293,7 @@ class WebSocketProtocol:
         self.connections: Dict[str, ConnectionInfo] = {}
         self.message_queue: Dict[str, List[WSMessage]] = {}
         self.pending_responses: Dict[str, Dict[str, Any]] = {}
-        self.message_handlers: Dict[MessageType, List[Callable]] = {}
+        self.message_handlers: Dict[MessageType, List[Callable[..., Any]]] = {}
         self.max_message_queue = max_message_queue
 
         self.rate_limiter = RateLimiter(rate_limit_per_minute)
@@ -301,7 +301,7 @@ class WebSocketProtocol:
 
         logger.info("WebSocketProtocol initialized")
 
-    def register_handler(self, message_type: MessageType, handler: Callable) -> None:
+    def register_handler(self, message_type: MessageType, handler: Callable[..., Any]) -> None:
         """
         Register a message handler for a specific message type.
 
