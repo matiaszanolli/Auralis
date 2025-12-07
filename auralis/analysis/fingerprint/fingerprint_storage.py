@@ -17,7 +17,7 @@ using content-based hashing for cache keys.
 import json
 import hashlib
 from pathlib import Path
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple, Dict, Any
 from datetime import datetime
 import os
 
@@ -68,7 +68,7 @@ class FingerprintStorage:
         return cache_key
 
     @staticmethod
-    def save(audio_path: Path, fingerprint: Dict, targets: Dict) -> Path:
+    def save(audio_path: Path, fingerprint: Dict[str, Any], targets: Dict[str, Any]) -> Path:
         """
         Save fingerprint and mastering targets to cache.
 
@@ -118,7 +118,7 @@ class FingerprintStorage:
         return cache_path
 
     @staticmethod
-    def load(audio_path: Path) -> Optional[Tuple[Dict, Dict]]:
+    def load(audio_path: Path) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
         """
         Load fingerprint and targets from cache if valid.
 
