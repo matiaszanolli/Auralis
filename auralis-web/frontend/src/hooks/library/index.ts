@@ -6,7 +6,8 @@
  */
 
 // Existing organized hooks
-export { useLibraryQuery } from './useLibraryQuery';
+export { useLibraryQuery, useArtistsQuery, useTracksQuery, useAlbumsQuery as useAlbumsQueryLegacy } from './useLibraryQuery';
+export { useAlbumsQuery } from './useAlbumsQuery';
 
 // New hooks moved from root
 export { useLibraryWithStats } from './useLibraryWithStats';

@@ -230,8 +230,8 @@ class DegradationManager:
 
         Args:
             level: Degradation level (0-3)
-            buffer_manager: MultiTierBufferManager instance
-            worker: MultiTierBufferWorker instance
+            buffer_manager: Buffer manager instance
+            worker: Worker instance
         """
         if level == self.current_level:
             return  # No change needed
