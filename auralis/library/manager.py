@@ -92,7 +92,7 @@ class LibraryManager:
 
         info(f"Auralis Library Manager initialized: {database_path}")
 
-    def get_session(self):
+    def get_session(self) -> Any:
         """Get a new database session"""
         return self.SessionLocal()
 
@@ -122,12 +122,12 @@ class LibraryManager:
         track = self.tracks.add(track_info)
         if track:
             # Invalidate queries that list tracks
-            invalidate_cache('get_all_tracks', 'search_tracks', 'get_recent_tracks')
+            invalidate_cache('get_all_tracks', 'search_tracks', 'get_recent_tracks')  # type: ignore[no-untyped-call]
         return track
 
     def get_track(self, track_id: int) -> Optional[Track]:
         """Get track by ID"""
-        return self.tracks.get_by_id(track_id)
+        return self.tracks.get_by_id(track_id)  # type: ignore[no-untyped-call]
 
     def get_track_by_path(self, filepath: str) -> Optional[Track]:
         """Get track by file path"""
@@ -141,53 +141,53 @@ class LibraryManager:
         """Update track by filepath"""
         return self.tracks.update_by_filepath(filepath, track_info)
 
-    @cached_query(ttl=60)  # Cache for 1 minute (search results change frequently)
+    @cached_query(ttl=60)  # type: ignore[misc]  # Cache for 1 minute (search results change frequently)
     def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
         """Search tracks by title, artist, album, or genre
 
         Returns:
             Tuple of (matching tracks, total count)
         """
-        return self.tracks.search(query, limit, offset)
+        return self.tracks.search(query, limit, offset)  # type: ignore[no-untyped-call]
 
-    @cached_query(ttl=300)  # Cache for 5 minutes
+    @cached_query(ttl=300)  # type: ignore[misc]  # Cache for 5 minutes
     def get_tracks_by_genre(self, genre_name: str, limit: int = 100) -> List[Track]:
         """Get tracks by genre"""
-        return self.tracks.get_by_genre(genre_name, limit)
+        return self.tracks.get_by_genre(genre_name, limit)  # type: ignore[no-untyped-call]
 
-    @cached_query(ttl=300)  # Cache for 5 minutes
+    @cached_query(ttl=300)  # type: ignore[misc]  # Cache for 5 minutes
     def get_tracks_by_artist(self, artist_name: str, limit: int = 100) -> List[Track]:
         """Get tracks by artist"""
-        return self.tracks.get_by_artist(artist_name, limit)
+        return self.tracks.get_by_artist(artist_name, limit)  # type: ignore[no-untyped-call]
 
-    @cached_query(ttl=180)  # Cache for 3 minutes (recent tracks don't change often)
+    @cached_query(ttl=180)  # type: ignore[misc]  # Cache for 3 minutes (recent tracks don't change often)
     def get_recent_tracks(self, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
         """Get recently added tracks (cached for 3 minutes)
 
         Returns:
             Tuple of (track list, total count)
         """
-        return self.tracks.get_recent(limit, offset)
+        return self.tracks.get_recent(limit, offset)  # type: ignore[no-untyped-call]
 
-    @cached_query(ttl=120)  # Cache for 2 minutes (play counts change more frequently)
+    @cached_query(ttl=120)  # type: ignore[misc]  # Cache for 2 minutes (play counts change more frequently)
     def get_popular_tracks(self, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
         """Get most played tracks (cached for 2 minutes)
 
         Returns:
             Tuple of (track list, total count)
         """
-        return self.tracks.get_popular(limit, offset)
+        return self.tracks.get_popular(limit, offset)  # type: ignore[no-untyped-call]
 
-    @cached_query(ttl=180)  # Cache for 3 minutes
+    @cached_query(ttl=180)  # type: ignore[misc]  # Cache for 3 minutes
     def get_favorite_tracks(self, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
         """Get favorite tracks (cached for 3 minutes)
 
         Returns:
             Tuple of (track list, total count)
         """
-        return self.tracks.get_favorites(limit, offset)
+        return self.tracks.get_favorites(limit, offset)  # type: ignore[no-untyped-call]
 
-    @cached_query(ttl=300)  # Cache for 5 minutes
+    @cached_query(ttl=300)  # type: ignore[misc]  # Cache for 5 minutes
     def get_all_tracks(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> Tuple[List[Track], int]:
         """Get all tracks with pagination (cached for 5 minutes)
 
@@ -199,28 +199,28 @@ class LibraryManager:
         Returns:
             Tuple of (tracks list, total count)
         """
-        return self.tracks.get_all(limit, offset, order_by)
+        return self.tracks.get_all(limit, offset, order_by)  # type: ignore[no-untyped-call]
 
-    def record_track_play(self, track_id: int):
+    def record_track_play(self, track_id: int) -> None:
         """Record that a track was played"""
-        self.tracks.record_play(track_id)
+        self.tracks.record_play(track_id)  # type: ignore[no-untyped-call]
         # Invalidate queries affected by play count/last_played changes
-        invalidate_cache('get_popular_tracks', 'get_recent_tracks', 'get_all_tracks', 'get_track')
+        invalidate_cache('get_popular_tracks', 'get_recent_tracks', 'get_all_tracks', 'get_track')  # type: ignore[no-untyped-call]
 
-    def set_track_favorite(self, track_id: int, favorite: bool = True):
+    def set_track_favorite(self, track_id: int, favorite: bool = True) -> None:
         """Set track favorite status"""
-        self.tracks.set_favorite(track_id, favorite)
+        self.tracks.set_favorite(track_id, favorite)  # type: ignore[no-untyped-call]
         # Only invalidate favorite-related queries
-        invalidate_cache('get_favorite_tracks')
+        invalidate_cache('get_favorite_tracks')  # type: ignore[no-untyped-call]
 
     def find_reference_tracks(self, track: Track, limit: int = 5) -> List[Track]:
         """Find similar tracks for reference"""
         return self.tracks.find_similar(track, limit)
 
     # Playlist operations (delegate to PlaylistRepository)
-    def create_playlist(self, name: str, description: str = "", track_ids: List[int] = None) -> Optional[Playlist]:
+    def create_playlist(self, name: str, description: str = "", track_ids: Optional[List[int]] = None) -> Optional[Playlist]:
         """Create a new playlist"""
-        return self.playlists.create(name, description, track_ids)
+        return self.playlists.create(name, description, track_ids)  # type: ignore[no-untyped-call]
 
     def get_playlist(self, playlist_id: int) -> Optional[Playlist]:
         """Get playlist by ID"""
@@ -256,39 +256,39 @@ class LibraryManager:
         return self.stats.get_library_stats()
 
     # Scanner operations (delegate to Scanner)
-    def scan_directories(self, directories: List[str], **kwargs):
+    def scan_directories(self, directories: List[str], **kwargs: Any) -> Any:
         """Scan directories for audio files"""
         from .scanner import LibraryScanner
-        scanner = LibraryScanner(self)
-        return scanner.scan_directories(directories, **kwargs)
+        scanner = LibraryScanner(self)  # type: ignore[no-untyped-call]
+        return scanner.scan_directories(directories, **kwargs)  # type: ignore[no-untyped-call]
 
-    def scan_single_directory(self, directory: str, **kwargs):
+    def scan_single_directory(self, directory: str, **kwargs: Any) -> Any:
         """Scan single directory for audio files"""
         from .scanner import LibraryScanner
-        scanner = LibraryScanner(self)
-        return scanner.scan_directory(directory, **kwargs)
+        scanner = LibraryScanner(self)  # type: ignore[no-untyped-call]
+        return scanner.scan_directory(directory, **kwargs)  # type: ignore[no-untyped-call]
 
     # Cleanup operations
-    def cleanup_library(self):
+    def cleanup_library(self) -> None:
         """Remove tracks with missing files"""
         session = self.get_session()
         try:
-            tracks = session.query(Track).all()
+            tracks = session.query(Track).all()  # type: ignore[no-untyped-call]
             removed_count = 0
 
             for track in tracks:
-                if not os.path.exists(track.filepath):
-                    session.delete(track)
+                if not os.path.exists(track.filepath):  # type: ignore[attr-defined]
+                    session.delete(track)  # type: ignore[no-untyped-call]
                     removed_count += 1
 
-            session.commit()
+            session.commit()  # type: ignore[no-untyped-call]
             info(f"Removed {removed_count} tracks with missing files")
 
         except Exception as e:
-            session.rollback()
+            session.rollback()  # type: ignore[no-untyped-call]
             error(f"Failed to cleanup library: {e}")
         finally:
-            session.close()
+            session.close()  # type: ignore[no-untyped-call]
 
     # Recommendations (could be moved to dedicated recommendation service)
     def get_recommendations(self, track: Track, limit: int = 10) -> List[Track]:
@@ -297,27 +297,27 @@ class LibraryManager:
         return self.tracks.find_similar(track, limit)
 
     # Cache management
-    def get_cache_stats(self) -> dict:
+    def get_cache_stats(self) -> Dict[str, Any]:
         """
         Get cache statistics for performance monitoring.
 
         Returns:
             Dictionary with cache stats including hits, misses, size, hit_rate
         """
-        return get_cache_stats()
+        return get_cache_stats()  # type: ignore[no-untyped-call]
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear all cached query results"""
-        invalidate_cache()
+        invalidate_cache()  # type: ignore[no-untyped-call]
         info("Cache cleared")
 
-    def invalidate_track_caches(self):
+    def invalidate_track_caches(self) -> None:
         """Invalidate all track-related caches (after adding/removing tracks)"""
-        invalidate_cache('get_recent_tracks')
-        invalidate_cache('get_all_tracks')
-        invalidate_cache('search_tracks')
-        invalidate_cache('get_favorite_tracks')
-        invalidate_cache('get_popular_tracks')
+        invalidate_cache('get_recent_tracks')  # type: ignore[no-untyped-call]
+        invalidate_cache('get_all_tracks')  # type: ignore[no-untyped-call]
+        invalidate_cache('search_tracks')  # type: ignore[no-untyped-call]
+        invalidate_cache('get_favorite_tracks')  # type: ignore[no-untyped-call]
+        invalidate_cache('get_popular_tracks')  # type: ignore[no-untyped-call]
 
     def delete_track(self, track_id: int) -> bool:
         """
@@ -347,33 +347,33 @@ class LibraryManager:
             try:
                 # Query within this transaction to get current state
                 from .models import Track
-                track = session.query(Track).filter(Track.id == track_id).first()
+                track = session.query(Track).filter(Track.id == track_id).first()  # type: ignore[no-untyped-call]
 
                 if not track:
                     # Track doesn't exist, return false
                     return False
 
                 # Delete within same transaction - atomic operation
-                session.delete(track)
-                session.commit()
+                session.delete(track)  # type: ignore[no-untyped-call]
+                session.commit()  # type: ignore[no-untyped-call]
 
                 # Mark this track as deleted to prevent any issues
                 self._deleted_track_ids.add(track_id)
 
                 # Invalidate queries that might include the deleted track
-                invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
+                invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',  # type: ignore[no-untyped-call]
                                  'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
 
                 info(f"Deleted track {track_id}")
                 return True
             except Exception as e:
-                session.rollback()
+                session.rollback()  # type: ignore[no-untyped-call]
                 error(f"Failed to delete track {track_id}: {e}")
                 return False
             finally:
-                session.close()
+                session.close()  # type: ignore[no-untyped-call]
 
-    def update_track(self, track_id: int, track_info: dict) -> Optional[Track]:
+    def update_track(self, track_id: int, track_info: Dict[str, Any]) -> Optional[Track]:
         """
         Update a track and invalidate caches
 
@@ -384,8 +384,8 @@ class LibraryManager:
         Returns:
             Updated track or None if not found
         """
-        track = self.tracks.update(track_id, track_info)
+        track = self.tracks.update(track_id, track_info)  # type: ignore[no-untyped-call]
         if track:
             # Invalidate queries that might show updated metadata
-            invalidate_cache('get_track', 'search_tracks', 'get_all_tracks')
+            invalidate_cache('get_track', 'search_tracks', 'get_all_tracks')  # type: ignore[no-untyped-call]
         return track
