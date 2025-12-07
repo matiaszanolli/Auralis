@@ -10,6 +10,7 @@
 import { gradients } from './Color.styles';
 import { Button } from '@/design-system';
 import { Dialog, DialogTitle, DialogActions, Box, styled } from '@mui/material';
+import { tokens } from '@/design-system';
 export { DialogTabs as StyledTabs, DetailViewTabs } from './Tabs.styles';
 export { SaveButton, CancelButtonForDialog } from './Button.styles';
 export { SectionLabel, SectionDescription } from './Typography.styles';
@@ -20,9 +21,9 @@ export { SectionLabel, SectionDescription } from './Typography.styles';
  */
 export const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
-    background: 'rgba(26, 31, 58, 0.98)',
+    background: tokens.colors.bg.level4,
     backdropFilter: 'blur(20px)',
-    border: '1px solid rgba(255,255,255,0.1)',
+    border: `1px solid ${tokens.colors.border.light}`,
     borderRadius: theme.spacing(2),
   }
 }));
@@ -32,7 +33,7 @@ export const StyledDialog = styled(Dialog)(({ theme }) => ({
  */
 export const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
   background: gradients.aurora,
-  color: 'white',
+  color: tokens.colors.text.primary,
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
@@ -51,7 +52,7 @@ export const SectionContainer = styled(Box)(({ theme }) => ({
  * Features border-top separator and padding
  */
 export const MetadataDialogActions = styled(DialogActions)(({ theme }) => ({
-  borderTop: '1px solid rgba(255,255,255,0.1)',
+  borderTop: `1px solid ${tokens.colors.border.light}`,
   padding: theme.spacing(2)
 }));
 
@@ -61,8 +62,8 @@ export const MetadataDialogActions = styled(DialogActions)(({ theme }) => ({
  */
 export const DialogPaperProps = {
   sx: {
-    bgcolor: '#1a1f3a',
-    backgroundImage: 'linear-gradient(135deg, #1a1f3a 0%, #0f1228 100%)',
+    bgcolor: tokens.colors.bg.level3,
+    backgroundImage: tokens.gradients.darkSubtle,
   },
 };
 

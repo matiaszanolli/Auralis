@@ -63,7 +63,7 @@ export const CreatePlaylistDialog: React.FC<CreatePlaylistDialogProps> = ({
           description={description}
           onDescriptionChange={setDescription}
           loading={loading}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyPress}
           initialTrackIds={initialTrackIds}
         />
       </DialogContent>

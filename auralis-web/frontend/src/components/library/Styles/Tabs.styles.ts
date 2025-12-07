@@ -13,6 +13,7 @@
 
 import { Tabs, styled } from '@mui/material';
 import { colorAuroraPrimary } from './Color.styles';
+import { tokens } from '@/design-system';
 
 /**
  * DialogTabs - Tab navigation for dialog interfaces
@@ -20,11 +21,11 @@ import { colorAuroraPrimary } from './Color.styles';
  * Used by: SettingsDialog, CreatePlaylistDialog, EditPlaylistDialog
  */
 export const DialogTabs = styled(Tabs)(({ theme }) => ({
-  borderBottom: '1px solid rgba(255,255,255,0.1)',
+  borderBottom: `1px solid ${tokens.colors.border.light}`,
   minHeight: 48,
   '& .MuiTab-root': {
     textTransform: 'none',
-    fontSize: '0.95rem',
+    fontSize: tokens.typography.fontSize.base,
     minHeight: 48,
     color: theme.palette.text.secondary,
     '&.Mui-selected': {
@@ -42,12 +43,12 @@ export const DialogTabs = styled(Tabs)(({ theme }) => ({
  * Used by: ArtistDetailView, AlbumDetailView
  */
 export const DetailViewTabs = styled(Tabs)(({ theme }) => ({
-  borderBottom: '1px solid rgba(255,255,255,0.1)',
+  borderBottom: `1px solid ${tokens.colors.border.light}`,
   marginBottom: theme.spacing(3),
   '& .MuiTab-root': {
     textTransform: 'none',
-    fontSize: '1rem',
-    fontWeight: 500,
+    fontSize: tokens.typography.fontSize.md,
+    fontWeight: tokens.typography.fontWeight.medium,
     minWidth: 120,
     '&.Mui-selected': {
       color: colorAuroraPrimary

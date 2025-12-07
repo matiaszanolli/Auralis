@@ -12,6 +12,7 @@ import { buttonShadows } from './Shadow.styles';
 import { radiusMedium } from './BorderRadius.styles';
 import { Button } from '@/design-system';
 import { styled } from '@mui/material';
+import { tokens } from '@/design-system';
 
 /**
  * GradientButton - Primary action button with aurora gradient (135deg variant)
@@ -19,10 +20,10 @@ import { styled } from '@mui/material';
  */
 export const GradientButton = styled(Button)({
   background: gradients.aurora,
-  color: '#ffffff',
+  color: tokens.colors.text.primary,
   textTransform: 'none',
-  fontWeight: 600,
-  padding: '10px 24px',
+  fontWeight: tokens.typography.fontWeight.semibold,
+  padding: `${tokens.spacing.xs} ${tokens.spacing.lg}`,
   borderRadius: radiusMedium,
   '&:hover': {
     background: gradients.auroraHover,
@@ -33,7 +34,7 @@ export const GradientButton = styled(Button)({
     background: auroraOpacity.strong,
     color: 'rgba(255, 255, 255, 0.5)',
   },
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.all,
 });
 
 /**
@@ -41,13 +42,13 @@ export const GradientButton = styled(Button)({
  * Used in dialog action bars
  */
 export const CancelButton = styled(Button)(({ theme }) => ({
-  color: theme.palette.text.secondary,
+  color: tokens.colors.text.secondary,
   textTransform: 'none',
   '&:hover': {
     backgroundColor: auroraOpacity.veryLight,
-    color: theme.palette.text.primary,
+    color: tokens.colors.text.primary,
   },
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.all,
 }));
 
 /**
@@ -56,9 +57,9 @@ export const CancelButton = styled(Button)(({ theme }) => ({
  */
 export const SaveButton = styled(Button)(({ theme }) => ({
   background: gradients.aurora,
-  color: '#ffffff',
+  color: tokens.colors.text.primary,
   textTransform: 'none',
-  fontWeight: 600,
+  fontWeight: tokens.typography.fontWeight.semibold,
   '&:hover': {
     background: gradients.auroraHover,
     transform: 'translateY(-1px)',
@@ -68,7 +69,7 @@ export const SaveButton = styled(Button)(({ theme }) => ({
     background: auroraOpacity.strong,
     color: 'rgba(255, 255, 255, 0.5)',
   },
-  transition: 'all 0.2s ease',
+  transition: tokens.transitions.all,
 }));
 
 /**

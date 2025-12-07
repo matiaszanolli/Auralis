@@ -9,7 +9,7 @@ interface CreatePlaylistFormFieldsProps {
   description: string;
   onDescriptionChange: (value: string) => void;
   loading: boolean;
-  onKeyPress: (e: React.KeyboardEvent) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
   initialTrackIds?: number[];
 }
 
@@ -28,7 +28,7 @@ export const CreatePlaylistFormFields: React.FC<CreatePlaylistFormFieldsProps> =
   description,
   onDescriptionChange,
   loading,
-  onKeyPress,
+  onKeyDown,
   initialTrackIds,
 }) => {
   return (
@@ -39,7 +39,7 @@ export const CreatePlaylistFormFields: React.FC<CreatePlaylistFormFieldsProps> =
         fullWidth
         value={name}
         onChange={(e) => onNameChange(e.target.value)}
-        onKeyPress={onKeyPress}
+        onKeyDown={onKeyDown}
         disabled={loading}
         placeholder="Enter playlist name"
       />
