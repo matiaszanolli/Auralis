@@ -190,10 +190,16 @@ class AudioStreamController:
             # Create processor for this track
             processor: ChunkedAudioProcessor = self.chunked_processor_class(
                 track_id=track_id,
-                filepath=track.filepath,
+                filepath=str(track.filepath),
                 preset=preset,
                 intensity=intensity,
             )
+
+            # Ensure processor has loaded metadata
+            assert processor.total_chunks is not None
+            assert processor.sample_rate is not None
+            assert processor.channels is not None
+            assert processor.duration is not None
 
             logger.info(
                 f"Starting audio stream: track={track_id}, preset={preset}, "
@@ -227,6 +233,7 @@ class AudioStreamController:
 
                     # Progress update
                     if on_progress:
+                        # total_chunks is guaranteed non-None due to assertion above
                         progress = ((chunk_idx + 1) / processor.total_chunks) * 100
                         await on_progress(track_id, progress, f"Processed chunk {chunk_idx + 1}")
 
@@ -244,6 +251,7 @@ class AudioStreamController:
 
             # Stream complete
             logger.info(f"Audio stream complete: track={track_id}")
+            # Both are guaranteed non-None due to assertions above
             await self._send_stream_end(
                 websocket,
                 track_id=track_id,

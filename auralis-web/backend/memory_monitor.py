@@ -11,7 +11,7 @@ Monitors system memory and adjusts cache sizes for graceful degradation.
 import psutil
 import logging
 import time
-from typing import Tuple, Dict, Optional
+from typing import Any, Tuple, Dict, Optional
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -59,8 +59,8 @@ class MemoryPressureMonitor:
         }
 
         # Track memory status history
-        self.status_history = []
-        self.last_check_time = 0.0
+        self.status_history: list[MemoryStatus] = []
+        self.last_check_time: float = 0.0
 
         logger.info(
             f"Memory monitor initialized: "
@@ -133,7 +133,7 @@ class MemoryPressureMonitor:
         """
         return (time.time() - self.last_check_time) >= check_interval
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """Get memory monitoring statistics."""
         if not self.status_history:
             current = self.get_memory_status()
@@ -141,7 +141,7 @@ class MemoryPressureMonitor:
                 "current_status": current.status,
                 "used_percent": current.used_percent,
                 "available_mb": current.available_mb,
-                "history_count": 0
+                "history_count": 0,
             }
 
         recent = self.status_history[-1]
@@ -154,8 +154,8 @@ class MemoryPressureMonitor:
             "status_distribution": {
                 "normal": sum(1 for s in self.status_history if s.status == "normal"),
                 "warning": sum(1 for s in self.status_history if s.status == "warning"),
-                "critical": sum(1 for s in self.status_history if s.status == "critical")
-            }
+                "critical": sum(1 for s in self.status_history if s.status == "critical"),
+            },
         }
 
 
@@ -177,13 +177,13 @@ class DegradationManager:
         Args:
             memory_monitor: MemoryPressureMonitor instance
         """
-        self.memory_monitor = memory_monitor
-        self.current_level = 0
-        self.degradation_history = []
+        self.memory_monitor: MemoryPressureMonitor = memory_monitor
+        self.current_level: int = 0
+        self.degradation_history: list[Dict[str, Any]] = []
 
         # Track if worker is causing latency
-        self.worker_latency_samples = []
-        self.latency_threshold_ms = 100.0  # 100ms threshold
+        self.worker_latency_samples: list[float] = []
+        self.latency_threshold_ms: float = 100.0  # 100ms threshold
 
         logger.info("Degradation manager initialized at level 0 (normal)")
 
@@ -218,13 +218,15 @@ class DegradationManager:
         avg_latency = sum(self.worker_latency_samples[-10:]) / 10
         return avg_latency > self.latency_threshold_ms
 
-    def record_worker_latency(self, latency_ms: float):
+    def record_worker_latency(self, latency_ms: float) -> None:
         """Record worker processing latency."""
         self.worker_latency_samples.append(latency_ms)
         if len(self.worker_latency_samples) > 100:
             self.worker_latency_samples.pop(0)
 
-    async def apply_degradation(self, level: int, buffer_manager, worker):
+    async def apply_degradation(
+        self, level: int, buffer_manager: Any, worker: Any
+    ) -> None:
         """
         Apply degradation strategy to buffer system.
 
@@ -286,7 +288,7 @@ class DegradationManager:
             await buffer_manager.l3_cache.clear()
             logger.warning("Degradation level 3: Worker paused due to latency")
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """Get degradation statistics."""
         return {
             "current_level": self.current_level,
@@ -294,7 +296,7 @@ class DegradationManager:
                 "Normal (L1+L2+L3)",
                 "Warning (L1+L2)",
                 "Critical (L1 only)",
-                "Emergency (worker paused)"
+                "Emergency (worker paused)",
             ][self.current_level],
             "degradation_event_count": len(self.degradation_history),
             "recent_events": self.degradation_history[-5:],  # Last 5 events
@@ -302,7 +304,7 @@ class DegradationManager:
                 sum(self.worker_latency_samples[-10:]) / len(self.worker_latency_samples[-10:])
                 if self.worker_latency_samples
                 else 0.0
-            )
+            ),
         }
 
 

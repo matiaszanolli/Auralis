@@ -102,14 +102,13 @@ class ChunkedAudioProcessor:
         # Initialize new modular architecture (Phase 3.5)
         # These dependencies replace monolithic logic in process_chunk()
         # Type: ignore for untyped core modules (ChunkBoundaryManager, LevelManager, WAVEncoder, ProcessorManager)
-        assert self.total_duration is not None, "Total duration must be loaded first"
-        assert self.sample_rate is not None, "Sample rate must be loaded first"
-        total_duration_valid: float = self.total_duration
-        sample_rate_valid: int = self.sample_rate
-        self._boundary_manager: Any = ChunkBoundaryManager(total_duration_valid, sample_rate_valid)  # type: ignore[name-defined,no-untyped-call]
-        self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)  # type: ignore[name-defined,no-untyped-call]
-        self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')  # type: ignore[name-defined,no-untyped-call]
-        self._processor_manager: Any = ProcessorManager()  # type: ignore[name-defined,no-untyped-call]
+        # Metadata was loaded in _load_metadata(), so both should be non-None by this point
+        total_duration_valid: float = self.total_duration or 0.0  # Fallback to 0 if somehow None
+        sample_rate_valid: int = self.sample_rate or 44100  # Fallback to standard sample rate
+        self._boundary_manager: Any = ChunkBoundaryManager(total_duration_valid, sample_rate_valid)  # type: ignore[no-untyped-call]
+        self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)  # type: ignore[no-untyped-call]
+        self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')  # type: ignore[no-untyped-call]
+        self._processor_manager: Any = ProcessorManager()  # type: ignore[no-untyped-call]
 
         # CRITICAL: Async lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
@@ -240,7 +239,7 @@ class ChunkedAudioProcessor:
             intensity=self.intensity,
             chunk_index=chunk_index
         )
-        return Path(path)  # type: ignore[arg-type]
+        return Path(path)  # type: ignore[return-value]
 
     def _get_wav_chunk_path(self, chunk_index: int) -> Path:
         """
@@ -275,7 +274,7 @@ class ChunkedAudioProcessor:
         # Load audio segment
         try:
             import soundfile as sf
-            assert self.sample_rate is not None, "Sample rate not loaded"
+            assert self.sample_rate is not None
             start_frame = int(load_start * self.sample_rate)
             frames_to_read = int((load_end - load_start) * self.sample_rate)
 
@@ -290,7 +289,7 @@ class ChunkedAudioProcessor:
         except Exception as e:
             logger.warning(f"Soundfile loading failed, using fallback: {e}")
             # Fallback: load entire audio and slice with optional downsampling
-            assert self.sample_rate is not None, "Sample rate not loaded"
+            assert self.sample_rate is not None
             full_audio, _ = load_audio(
                 self.filepath,
                 target_sample_rate=self.sample_rate
@@ -310,7 +309,7 @@ class ChunkedAudioProcessor:
 
         # Validate that we loaded something
         if len(audio) == 0:
-            assert self.sample_rate is not None and self.total_duration is not None, "Metadata not loaded"
+            assert self.sample_rate is not None and self.total_duration is not None
             logger.error(f"Chunk {chunk_index} resulted in empty audio (start={load_start:.1f}s, end={load_end:.1f}s, duration={self.total_duration:.1f}s)")
             # Return minimal silence instead of empty array to prevent downstream crashes
             num_channels = 2  # Default to stereo
@@ -326,7 +325,7 @@ class ChunkedAudioProcessor:
         Delegates to LevelManager (Phase 3.5 refactoring).
         """
         rms_value = self._level_manager.calculate_rms(audio)  # type: ignore[no-untyped-call]
-        return float(rms_value)  # type: ignore[arg-type]
+        return float(rms_value)  # type: ignore[return-value]
 
     def _smooth_level_transition(
         self,
@@ -353,7 +352,7 @@ class ChunkedAudioProcessor:
             chunk_index=chunk_index,
             apply_adjustment=True
         )
-        chunk_adjusted, gain_db, was_adjusted = result_tuple
+        chunk_adjusted, gain_db, was_adjusted = result_tuple  # type: ignore[misc]
 
         # Log the adjustment for debugging
         if was_adjusted:
@@ -378,7 +377,7 @@ class ChunkedAudioProcessor:
         self.chunk_rms_history = list(history) if hasattr(history, '__iter__') else []
         self.chunk_gain_history = list(gain_adjustments) if hasattr(gain_adjustments, '__iter__') else []
 
-        return chunk_adjusted  # type: ignore[no-any-return]
+        return chunk_adjusted  # type: ignore[return-value]
 
     def _trim_context(self, audio_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
         """
@@ -395,7 +394,7 @@ class ChunkedAudioProcessor:
         Returns:
             Audio chunk with context trimmed
         """
-        assert self.sample_rate is not None, "Sample rate not loaded"
+        assert self.sample_rate is not None
         # Get trim amounts from ChunkBoundaryManager
         trim_result = self._boundary_manager.calculate_context_trim_samples(  # type: ignore[no-untyped-call]
             chunk_index=chunk_index
@@ -440,7 +439,7 @@ class ChunkedAudioProcessor:
         Returns:
             Processed audio chunk (context trimmed, intensity blended, levels smoothed)
         """
-        assert self.sample_rate is not None, "Sample rate not loaded"
+        assert self.sample_rate is not None
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
 
@@ -510,7 +509,7 @@ class ChunkedAudioProcessor:
         if len(processed_chunk) == 0:
             logger.error(f"Chunk {chunk_index} is empty after context trimming. Returning silence.")
             num_channels = audio_chunk.shape[1] if audio_chunk.ndim > 1 else 2
-            assert self.sample_rate is not None, "Sample rate not loaded"
+            assert self.sample_rate is not None
             processed_chunk = np.zeros((self.sample_rate // 10, num_channels), dtype=np.float32)  # 100ms silence
 
         # CRITICAL FIX: Smooth level transitions between chunks
@@ -535,7 +534,7 @@ class ChunkedAudioProcessor:
         cached_path = self.chunk_cache.get(cache_key)
 
         if cached_path and Path(cached_path).exists():
-            assert self.total_chunks is not None, "Total chunks not loaded"
+            assert self.total_chunks is not None
             logger.info(f"Serving cached chunk {chunk_index}/{self.total_chunks}")
             return str(cached_path)
 
@@ -567,7 +566,7 @@ class ChunkedAudioProcessor:
                 if fingerprint_data is not None:
                     self.fingerprint = fingerprint_data
                     # Add metadata (will be stripped before saving)
-                    self.fingerprint['_metadata'] = {  # type: ignore[index]
+                    self.fingerprint['_metadata'] = {  # type: ignore[index,no-untyped-call]
                         'duration': duration_value,
                         'sample_rate': sr
                     }
@@ -582,7 +581,7 @@ class ChunkedAudioProcessor:
 
                     # Save to .25d file for future use
                     from auralis.analysis.fingerprint import FingerprintStorage
-                    FingerprintStorage.save(Path(self.filepath), self.fingerprint, self.mastering_targets)  # type: ignore[no-untyped-call]
+                    FingerprintStorage.save(Path(self.filepath), self.fingerprint, self.mastering_targets)  # type: ignore[attr-defined,no-untyped-call]
                     logger.info(f"💾 Saved fingerprint to .25d file for track {self.track_id}")
 
             except Exception as e:
@@ -595,8 +594,8 @@ class ChunkedAudioProcessor:
         processed_chunk = self._process_chunk_core(chunk_index, fast_start)
 
         # Save chunk using WAVEncoder (Phase 3.5 refactoring)
-        assert self.sample_rate is not None, "Sample rate not loaded"
-        chunk_path = self._wav_encoder.encode_and_save_from_path(
+        assert self.sample_rate is not None
+        chunk_path = self._wav_encoder.encode_and_save_from_path(  # type: ignore[no-untyped-call]
             audio=processed_chunk,
             sample_rate=self.sample_rate,
             track_id=self.track_id,
@@ -836,7 +835,7 @@ class ChunkedAudioProcessor:
         Processes chunks sequentially to avoid overwhelming the system.
         Uses thread-safe locking to prevent concurrent processor state corruption.
         """
-        assert self.total_chunks is not None, "Total chunks not loaded"
+        assert self.total_chunks is not None
         logger.info(f"Starting background processing of {self.total_chunks - 1} remaining chunks")
 
         for chunk_idx in range(1, self.total_chunks):
@@ -864,7 +863,7 @@ class ChunkedAudioProcessor:
         Returns:
             Path to full concatenated audio file
         """
-        assert self.sample_rate is not None and self.total_chunks is not None, "Metadata not loaded"
+        assert self.sample_rate is not None and self.total_chunks is not None
         full_path = self.chunk_dir / f"track_{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_full.wav"
 
         # Check if already exists
@@ -902,7 +901,7 @@ class ChunkedAudioProcessor:
             full_audio = result
 
         # Save full file
-        assert self.sample_rate is not None, "Sample rate not loaded"
+        assert self.sample_rate is not None
         save_audio(str(full_path), full_audio, self.sample_rate, subtype='PCM_16')
         logger.info(f"Full audio saved to {full_path}")
 
@@ -924,7 +923,7 @@ class ChunkedAudioProcessor:
         Returns:
             Extracted segment ready for WAV encoding
         """
-        assert self.sample_rate is not None and self.total_chunks is not None and self.total_duration is not None, "Metadata not loaded"
+        assert self.sample_rate is not None and self.total_chunks is not None and self.total_duration is not None
         is_last = chunk_index == self.total_chunks - 1
         overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
 
@@ -991,7 +990,7 @@ class ChunkedAudioProcessor:
         Returns:
             Path to WAV chunk file
         """
-        assert self.sample_rate is not None, "Sample rate not loaded"
+        assert self.sample_rate is not None
         # Check cache first
         cache_key = f"{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_wav_{chunk_index}"
         if cache_key in self.chunk_cache:
