@@ -20,7 +20,7 @@ import asyncio
 import threading
 import time
 from queue import Queue, PriorityQueue, Empty
-from typing import Optional, Dict, Callable, List
+from typing import Optional, Dict, Callable, List, Tuple, Any
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
@@ -34,19 +34,21 @@ class FingerprintJob:
     track_id: int
     filepath: str
     priority: int = 0  # 0=normal, higher=more urgent
-    created_at: float = None
+    created_at: Optional[float] = None
     retry_count: int = 0
     max_retries: int = 3
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.created_at is None:
             self.created_at = time.time()
 
-    def __lt__(self, other):
+    def __lt__(self, other: "FingerprintJob") -> bool:
         """Priority queue ordering (higher priority first)"""
         if self.priority != other.priority:
             return self.priority > other.priority
-        return self.created_at < other.created_at
+        created_at_self: float = self.created_at if self.created_at is not None else 0.0
+        created_at_other: float = other.created_at if other.created_at is not None else 0.0
+        return created_at_self < created_at_other
 
 
 class FingerprintExtractionQueue:
@@ -75,10 +77,10 @@ class FingerprintExtractionQueue:
     """
 
     def __init__(self,
-                 fingerprint_extractor,
-                 library_manager,
+                 fingerprint_extractor: Any,
+                 library_manager: Any,
                  num_workers: int = 4,
-                 max_queue_size: int = 500):
+                 max_queue_size: int = 500) -> None:
         """
         Initialize fingerprint extraction queue
 
@@ -88,21 +90,21 @@ class FingerprintExtractionQueue:
             num_workers: Number of background worker threads (default: 4)
             max_queue_size: Maximum queue size before blocking (default: 500)
         """
-        self.extractor = fingerprint_extractor
-        self.library_manager = library_manager
-        self.num_workers = num_workers
-        self.max_queue_size = max_queue_size
+        self.extractor: Any = fingerprint_extractor
+        self.library_manager: Any = library_manager
+        self.num_workers: int = num_workers
+        self.max_queue_size: int = max_queue_size
 
         # Thread-safe queue for job distribution
-        # Using PriorityQueue for job priority support
-        self.job_queue: Queue = Queue(maxsize=max_queue_size)
+        # Using Queue for job distribution
+        self.job_queue: Queue[FingerprintJob] = Queue(maxsize=max_queue_size)
 
         # Worker threads
         self.workers: List[threading.Thread] = []
-        self.should_stop = False
+        self.should_stop: bool = False
 
         # Statistics
-        self.stats = {
+        self.stats: Dict[str, Any] = {
             'queued': 0,
             'processing': 0,
             'completed': 0,
@@ -110,16 +112,16 @@ class FingerprintExtractionQueue:
             'cached': 0,
             'total_time': 0.0
         }
-        self.stats_lock = threading.RLock()
+        self.stats_lock: threading.RLock = threading.RLock()
 
         # Progress callback
-        self.progress_callback: Optional[Callable] = None
+        self.progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
 
-    def set_progress_callback(self, callback: Callable[[Dict], None]):
+    def set_progress_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Set callback for progress updates"""
         self.progress_callback = callback
 
-    async def start(self):
+    async def start(self) -> None:
         """Start background worker threads"""
         info(f"Starting {self.num_workers} fingerprint extraction workers")
 
@@ -135,7 +137,7 @@ class FingerprintExtractionQueue:
 
         info(f"All {self.num_workers} workers started")
 
-    async def stop(self, timeout: float = 30.0):
+    async def stop(self, timeout: float = 30.0) -> bool:
         """
         Stop all worker threads gracefully
 
@@ -200,7 +202,7 @@ class FingerprintExtractionQueue:
             return False
 
     async def enqueue_batch(self,
-                            track_paths: List[tuple],
+                            track_paths: List[Tuple[int, str]],
                             priority: int = 0) -> int:
         """
         Enqueue multiple jobs in batch
@@ -222,7 +224,7 @@ class FingerprintExtractionQueue:
         info(f"Enqueued {enqueued}/{len(track_paths)} batch jobs")
         return enqueued
 
-    def _worker_loop(self, worker_id: int):
+    def _worker_loop(self, worker_id: int) -> None:
         """
         Main loop for background worker thread
 
@@ -236,22 +238,19 @@ class FingerprintExtractionQueue:
                 try:
                     # Get job from queue with timeout
                     job = self.job_queue.get(timeout=1.0)
+                    # Process job
+                    self._process_job(job, worker_id)
 
                 except Empty:
-                    # Queue is empty, check if should stop
-                    if self.should_stop:
-                        break
+                    # Queue is empty, loop will check should_stop on next iteration
                     continue
-
-                # Process job
-                self._process_job(job, worker_id)
 
         except Exception as e:
             error(f"Worker {worker_id} encountered error: {e}")
         finally:
             info(f"Worker {worker_id} stopped")
 
-    def _process_job(self, job: FingerprintJob, worker_id: int):
+    def _process_job(self, job: FingerprintJob, worker_id: int) -> None:
         """
         Process a single fingerprint extraction job
 
@@ -336,7 +335,7 @@ class FingerprintExtractionQueue:
     def _update_track_status(self,
                             track_id: int,
                             status: str,
-                            error_message: str = None):
+                            error_message: Optional[str] = None) -> None:
         """
         Update track fingerprint status in database
 
@@ -353,7 +352,7 @@ class FingerprintExtractionQueue:
         except Exception as e:
             error(f"Failed to update track status: {e}")
 
-    def _report_progress(self, progress_data: Dict):
+    def _report_progress(self, progress_data: Dict[str, Any]) -> None:
         """Report progress to callback if set"""
         if self.progress_callback:
             try:
@@ -361,7 +360,7 @@ class FingerprintExtractionQueue:
             except Exception as e:
                 error(f"Progress callback error: {e}")
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """Get current queue statistics"""
         with self.stats_lock:
             return self.stats.copy()
@@ -383,25 +382,25 @@ class FingerprintQueueManager:
     """
 
     def __init__(self,
-                 fingerprint_extractor,
-                 library_manager,
-                 num_workers: int = 4):
+                 fingerprint_extractor: Any,
+                 library_manager: Any,
+                 num_workers: int = 4) -> None:
         """Initialize queue manager"""
-        self.queue = FingerprintExtractionQueue(
+        self.queue: FingerprintExtractionQueue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
             library_manager=library_manager,
             num_workers=num_workers
         )
-        self.is_running = False
+        self.is_running: bool = False
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         """Initialize and start the queue"""
         if not self.is_running:
             await self.queue.start()
             self.is_running = True
             info("Fingerprint queue manager initialized and started")
 
-    async def shutdown(self, timeout: float = 30.0):
+    async def shutdown(self, timeout: float = 30.0) -> bool:
         """Shutdown the queue gracefully"""
         if self.is_running:
             success = await self.queue.stop(timeout=timeout)
@@ -413,14 +412,14 @@ class FingerprintQueueManager:
             return success
         return True
 
-    async def enqueue_during_scan(self, track_id: int, filepath: str):
+    async def enqueue_during_scan(self, track_id: int, filepath: str) -> bool:
         """Enqueue during library scan (async)"""
         return await self.queue.enqueue(track_id, filepath, priority=0)
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> Dict[str, Any]:
         """Get queue statistics"""
         return self.queue.get_stats()
 
-    def set_progress_callback(self, callback: Callable[[Dict], None]):
+    def set_progress_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Set progress callback"""
         self.queue.set_progress_callback(callback)
