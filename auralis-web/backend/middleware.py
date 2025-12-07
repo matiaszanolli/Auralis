@@ -18,9 +18,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 import logging
 import time
-from typing import Callable, Optional
-import datetime
-
+from typing import Callable
 from schemas import ErrorResponse, ErrorType
 
 logger = logging.getLogger(__name__)

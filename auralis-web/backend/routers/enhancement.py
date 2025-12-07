@@ -38,7 +38,6 @@ def create_enhancement_router(get_enhancement_settings, connection_manager, get_
         get_enhancement_settings: Callable that returns enhancement settings dict
         connection_manager: WebSocket connection manager for broadcasts
         get_processing_cache: Optional callable that returns processing cache dict
-        get_multi_tier_buffer: Optional callable that returns MultiTierBufferManager
         get_player_state_manager: Optional callable that returns PlayerStateManager
         get_processing_engine: Optional callable that returns ProcessingEngine
 

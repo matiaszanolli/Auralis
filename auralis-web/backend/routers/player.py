@@ -79,7 +79,6 @@ def create_player_router(
     chunked_audio_processor_class: Optional[type],
     create_track_info_fn: Callable[[Any], Any],
     buffer_presets_fn: Callable[..., Any],
-    get_multi_tier_buffer: Optional[Callable[[], Any]] = None,
     get_enhancement_settings: Optional[Callable[[], Any]] = None
 ) -> APIRouter:
     """
@@ -94,7 +93,6 @@ def create_player_router(
         chunked_audio_processor_class: ChunkedAudioProcessor class (or None if not available)
         create_track_info_fn: Function to create TrackInfo from database track
         buffer_presets_fn: Function for proactive preset buffering
-        get_multi_tier_buffer: Callable that returns MultiTierBufferManager (optional)
 
     Returns:
         APIRouter: Configured router instance
@@ -159,7 +157,7 @@ def create_player_router(
             raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
     @router.post("/api/player/load")
-    async def load_track(track_path: str, track_id: Optional[int] = None, background_tasks: Optional[BackgroundTasks] = None) -> Dict[str, Any]:
+    async def load_track(track_path: str, track_id: Optional[int] = None, background_tasks: BackgroundTasks = ...) -> Dict[str, Any]:
         """
         Load a track into the player.
 
@@ -260,24 +258,6 @@ def create_player_router(
         try:
             service = get_playback_service()
             result = await service.seek(position)
-
-            # Update multi-tier buffer with new position (for branch prediction)
-            if get_multi_tier_buffer and get_enhancement_settings:
-                player_state_manager = get_player_state_manager()
-                if player_state_manager:
-                    buffer_manager = get_multi_tier_buffer()
-                    if buffer_manager:
-                        state = player_state_manager.get_state()
-                        if state.current_track:
-                            settings = get_enhancement_settings()
-                            await buffer_manager.update_position(
-                                track_id=state.current_track.id,
-                                position=position,
-                                preset=settings.get("preset", "adaptive"),
-                                intensity=settings.get("intensity", 1.0)
-                            )
-                            logger.debug(f"Buffer manager updated: track={state.current_track.id}, position={position:.1f}s")
-
             return result
         except ValueError as e:
             raise HTTPException(status_code=503, detail=str(e))

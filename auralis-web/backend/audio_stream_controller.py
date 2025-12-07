@@ -36,8 +36,8 @@ from fastapi import WebSocket
 from collections import OrderedDict
 
 from auralis.library import LibraryManager
-from backend.cache import StreamlinedCacheManager, StreamlinedCacheAdapter
-from backend.chunked_processor import ChunkedAudioProcessor
+from cache.manager import StreamlinedCacheManager
+from chunked_processor import ChunkedAudioProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class AudioStreamController:
         self,
         chunked_processor_class: Optional[Type[ChunkedAudioProcessor]] = None,
         library_manager: Optional[LibraryManager] = None,
-        cache_manager: Optional[Union[StreamlinedCacheManager, StreamlinedCacheAdapter, SimpleChunkCache]] = None
+        cache_manager: Optional[Union[StreamlinedCacheManager, SimpleChunkCache]] = None
     ) -> None:
         """
         Initialize AudioStreamController.
@@ -131,17 +131,13 @@ class AudioStreamController:
             chunked_processor_class: ChunkedAudioProcessor class for processing
             library_manager: LibraryManager instance for track lookup
             cache_manager: Optional cache manager for chunk caching.
-                          If StreamlinedCacheManager, will be automatically wrapped with adapter.
         """
         self.chunked_processor_class: Optional[Type[ChunkedAudioProcessor]] = chunked_processor_class
         self.library_manager: Optional[LibraryManager] = library_manager
 
-        # Wrap StreamlinedCacheManager with adapter for compatibility
-        if isinstance(cache_manager, StreamlinedCacheManager):
-            self.cache_manager: Union[StreamlinedCacheAdapter, SimpleChunkCache] = StreamlinedCacheAdapter(cache_manager)
-            logger.info("StreamlinedCacheManager wrapped with StreamlinedCacheAdapter")
-        else:
-            self.cache_manager = cache_manager or SimpleChunkCache()
+        # Use provided cache manager or fallback to SimpleChunkCache
+        self.cache_manager: Union[StreamlinedCacheManager, SimpleChunkCache] = cache_manager or SimpleChunkCache()
+        logger.info(f"AudioStreamController initialized with cache manager: {type(self.cache_manager).__name__}")
 
         self.active_streams: Dict[int, Any] = {}  # track_id -> streaming task
 

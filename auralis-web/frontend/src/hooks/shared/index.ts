@@ -9,7 +9,23 @@
 export { useInfiniteScroll } from './useInfiniteScroll';
 export { useOptimisticUpdate } from './useOptimisticUpdate';
 export { useScrollAnimation } from './useScrollAnimation';
-export { useReduxState } from './useReduxState';
 export { useStandardizedAPI } from './useStandardizedAPI';
 export { useVisualizationOptimization } from './useVisualizationOptimization';
 export { useGroupedArtists } from './useGroupedArtists';
+// Redux state hooks - exported from useReduxState.ts
+export {
+  usePlayerState,
+  usePlayer,
+  useQueueState,
+  useQueue,
+  useCacheState,
+  useCache,
+  useConnectionState,
+  useConnection,
+  useAppState,
+  useIsLoading,
+  useAppErrors,
+  useConnectionHealth,
+  usePlaybackProgress,
+  useQueueTimeRemaining,
+} from './useReduxState';

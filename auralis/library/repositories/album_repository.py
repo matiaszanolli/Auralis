@@ -89,6 +89,10 @@ class AlbumRepository:
                 .all()
             )
 
+            # Expunge from session to detach while keeping loaded data
+            for album in albums:
+                session.expunge(album)
+
             return albums, total
         finally:
             session.close()

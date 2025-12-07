@@ -376,11 +376,11 @@ class HealthChecker:
         Initialize health checker.
 
         Args:
-            buffer_manager: MultiTierBufferManager instance
+            buffer_manager: Buffer manager instance
             learning_system: LearningSystem instance
             memory_monitor: MemoryPressureMonitor instance
             degradation_manager: DegradationManager instance
-            worker: MultiTierBufferWorker instance (optional)
+            worker: Worker instance (optional)
         """
         self.buffer_manager = buffer_manager
         self.learning_system = learning_system

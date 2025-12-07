@@ -33,7 +33,7 @@ import { ArtistInfoModal } from './ArtistInfoModal';
 import { useArtistsQuery } from '@/hooks/library';
 import { useInfiniteScroll, useGroupedArtists } from '@/hooks/shared';
 import { useContextMenuActions } from './useContextMenuActions';
-import { useContextMenu } from '../../shared/ContextMenu';
+import { useContextMenu } from '../../../shared/ContextMenu';
 import type { Artist } from '@/types/domain';
 
 interface CozyArtistListProps {

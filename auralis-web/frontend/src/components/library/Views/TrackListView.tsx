@@ -21,7 +21,7 @@ import { ListLoadingContainer } from '../Styles/Grid.styles';
 import TrackGridView from './TrackGridView';
 import TrackListViewContent from './TrackListViewContent';
 import { useQueueOperations } from './useQueueOperations';
-import { useInfiniteScroll } from './useInfiniteScroll';
+import { useInfiniteScroll } from '@/hooks/shared';
 
 export interface Track {
   id: number;

@@ -42,8 +42,8 @@ class SelfTuner:
         Initialize self-tuner.
 
         Args:
-            buffer_manager: MultiTierBufferManager instance
-            worker: MultiTierBufferWorker instance
+            buffer_manager: Buffer manager instance
+            worker: Worker instance
             learning_system: LearningSystem instance
             weight_tuner: AdaptiveWeightTuner instance
             affinity_learner: AffinityRuleLearner instance
