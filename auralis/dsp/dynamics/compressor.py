@@ -11,24 +11,25 @@ Content-aware compressor with multiple detection modes
 """
 
 import numpy as np
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, Any, Union, cast
 
 from .settings import CompressorSettings
 from ...utils.logging import debug
 
 # Use vectorized envelope follower for 40-70x speedup
+EnvelopeFollower: Any  # Will be assigned below
 try:
-    from .vectorized_envelope import VectorizedEnvelopeFollower as EnvelopeFollower
+    from .vectorized_envelope import VectorizedEnvelopeFollower as EnvelopeFollower  # type: ignore[assignment]
 except ImportError:
     # Fallback to original if vectorized version not available
-    from .envelope import EnvelopeFollower
+    from .envelope import EnvelopeFollower  # type: ignore[assignment]
     debug("Vectorized envelope not available, using standard version")
 
 
 class AdaptiveCompressor:
     """Content-aware compressor with multiple detection modes"""
 
-    def __init__(self, settings: CompressorSettings, sample_rate: int):
+    def __init__(self, settings: CompressorSettings, sample_rate: int) -> None:
         """
         Initialize adaptive compressor
 
@@ -45,12 +46,10 @@ class AdaptiveCompressor:
         self.gain_follower = EnvelopeFollower(sample_rate, settings.attack_ms, settings.release_ms)
 
         # Lookahead buffer (will be initialized on first use to match audio dimensions)
+        self.lookahead_buffer: Optional[np.ndarray] = None
         if settings.enable_lookahead:
             self.lookahead_samples = int(settings.lookahead_ms * sample_rate / 1000)
-            self.lookahead_buffer = None  # Will be initialized with correct shape
-            self.lookahead_index = 0
         else:
-            self.lookahead_buffer = None
             self.lookahead_samples = 0
 
         # State variables
@@ -83,16 +82,16 @@ class AdaptiveCompressor:
         """Detect input level using specified mode"""
         if detection_mode == "peak":
             peak_level = np.max(np.abs(audio))
-            return self.peak_follower.process(peak_level)
+            return float(self.peak_follower.process(peak_level))
         elif detection_mode == "rms":
             rms_level = np.sqrt(np.mean(audio ** 2))
-            return self.rms_follower.process(rms_level)
+            return float(self.rms_follower.process(rms_level))
         else:  # hybrid
             peak_level = np.max(np.abs(audio))
             rms_level = np.sqrt(np.mean(audio ** 2))
             # Weighted combination
             combined = 0.7 * rms_level + 0.3 * peak_level
-            return combined
+            return float(combined)
 
     def process(self, audio: np.ndarray, detection_mode: str = "rms") -> Tuple[np.ndarray, Dict[str, float]]:
         """
@@ -160,22 +159,24 @@ class AdaptiveCompressor:
             else:
                 self.lookahead_buffer = np.zeros((self.lookahead_samples, audio.shape[1]))
 
-        buffer_size = len(self.lookahead_buffer)
+        # Buffer is guaranteed to be non-None after initialization
+        buffer_size = self.lookahead_buffer.shape[0]
+        audio_len = len(audio)
 
-        if len(audio) >= buffer_size:
+        if audio_len >= buffer_size:
             # Replace buffer with end of current audio
             delayed_audio = np.concatenate([self.lookahead_buffer, audio[:-buffer_size]], axis=0)
             self.lookahead_buffer = audio[-buffer_size:].copy()
         else:
             # Partial buffer update
             delayed_audio = np.concatenate([
-                self.lookahead_buffer[:len(audio)],
+                self.lookahead_buffer[:audio_len],
                 audio
             ], axis=0)
-            self.lookahead_buffer = np.roll(self.lookahead_buffer, -len(audio), axis=0)
-            self.lookahead_buffer[-len(audio):] = audio
+            self.lookahead_buffer = np.roll(self.lookahead_buffer, -audio_len, axis=0)
+            self.lookahead_buffer[-audio_len:, ...] = audio
 
-        return delayed_audio[:len(audio)]
+        return cast(np.ndarray, delayed_audio[:audio_len])
 
     def get_current_state(self) -> Dict[str, float]:
         """Get current compressor state"""
@@ -188,18 +189,15 @@ class AdaptiveCompressor:
             'release_ms': self.settings.release_ms
         }
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset compressor state"""
-        self.peak_follower.reset()
-        self.rms_follower.reset()
-        self.gain_follower.reset()
+        self.peak_follower.reset()  # type: ignore[no-untyped-call]
+        self.rms_follower.reset()  # type: ignore[no-untyped-call]
+        self.gain_follower.reset()  # type: ignore[no-untyped-call]
         self.gain_reduction = 0.0
         self.previous_gain = 1.0
         if self.lookahead_buffer is not None:
             self.lookahead_buffer.fill(0)
-        else:
-            # Reset buffer to None so it gets re-initialized with correct shape
-            self.lookahead_buffer = None
 
 
 def create_adaptive_compressor(settings: CompressorSettings,
