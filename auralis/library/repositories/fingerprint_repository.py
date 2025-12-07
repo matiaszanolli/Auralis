@@ -10,7 +10,7 @@ Data access layer for track fingerprint operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
@@ -21,7 +21,7 @@ from ...utils.logging import info, warning, error, debug
 class FingerprintRepository:
     """Repository for fingerprint database operations"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
         """
         Initialize fingerprint repository
 

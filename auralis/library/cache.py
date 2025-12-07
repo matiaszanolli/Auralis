@@ -178,7 +178,7 @@ class QueryCache:
 _global_cache = QueryCache(max_size=256, default_ttl=300)  # 5-minute TTL
 
 
-def cached_query(ttl: Optional[int] = None):
+def cached_query(ttl: Optional[int] = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator to cache query results.
 
@@ -190,9 +190,9 @@ def cached_query(ttl: Optional[int] = None):
         def get_recent_tracks(limit=50, offset=0):
             return repository.get_recent(limit, offset)
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Create cache key
             cache_key = _global_cache._make_key(func.__name__, args, kwargs)
 
@@ -220,7 +220,7 @@ def cached_query(ttl: Optional[int] = None):
     return decorator
 
 
-def invalidate_cache(*patterns):
+def invalidate_cache(*patterns: str) -> None:
     """
     Invalidate cached queries by function name(s).
 
@@ -240,7 +240,7 @@ def invalidate_cache(*patterns):
     _global_cache.invalidate(*patterns)
 
 
-def get_cache_stats() -> dict:
+def get_cache_stats() -> Dict[str, Any]:
     """
     Get cache statistics.
 
@@ -250,6 +250,6 @@ def get_cache_stats() -> dict:
     return _global_cache.get_stats()
 
 
-def clear_cache():
+def clear_cache() -> None:
     """Clear all cached queries."""
     _global_cache.invalidate()

@@ -10,7 +10,7 @@ Data access layer for track operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
 
@@ -21,7 +21,7 @@ from ...utils.logging import info, warning, error, debug
 class TrackRepository:
     """Repository for track database operations"""
 
-    def __init__(self, session_factory, album_repository=None):
+    def __init__(self, session_factory: Callable[[], Session], album_repository: Optional[Any] = None) -> None:
         """
         Initialize track repository
 

@@ -10,7 +10,7 @@ Data access layer for library statistics
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Callable
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -20,7 +20,7 @@ from ..models import Track, Album, Artist, Genre, Playlist
 class StatsRepository:
     """Repository for library statistics operations"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
         self.session_factory = session_factory
 
     def get_session(self) -> Session:

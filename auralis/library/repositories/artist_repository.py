@@ -10,7 +10,7 @@ Data access layer for artist operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Callable
 from sqlalchemy.orm import Session
 
 from ..models import Artist
@@ -19,7 +19,7 @@ from ..models import Artist
 class ArtistRepository:
     """Repository for artist database operations"""
 
-    def __init__(self, session_factory):
+    def __init__(self, session_factory: Callable[[], Session]) -> None:
         self.session_factory = session_factory
 
     def get_session(self) -> Session:
