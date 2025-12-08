@@ -13,9 +13,9 @@ Album artwork extraction and management for music library
 import os
 import hashlib
 from pathlib import Path
-from typing import Optional, Tuple
-from mutagen import File as MutagenFile
-from mutagen.id3 import ID3, APIC
+from typing import Optional, Tuple, Any
+from mutagen import File as MutagenFile  # type: ignore[attr-defined]
+from mutagen.id3 import ID3, APIC  # type: ignore[attr-defined]
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.flac import FLAC, Picture
 
@@ -158,7 +158,7 @@ class ArtworkExtractor:
 
         return None
 
-    def _extract_from_id3(self, audio_file) -> Tuple[Optional[bytes], Optional[str]]:
+    def _extract_from_id3(self, audio_file: Any) -> Tuple[Optional[bytes], Optional[str]]:
         """Extract artwork from ID3 tags (MP3)"""
         try:
             tags = audio_file if isinstance(audio_file, ID3) else audio_file.tags
@@ -179,8 +179,8 @@ class ArtworkExtractor:
     def _extract_from_mp4(self, audio_file: MP4) -> Tuple[Optional[bytes], Optional[str]]:
         """Extract artwork from MP4/M4A files"""
         try:
-            if 'covr' in audio_file.tags:
-                cover = audio_file.tags['covr'][0]
+            if audio_file.tags and 'covr' in audio_file.tags:  # type: ignore[unreachable]
+                cover = audio_file.tags['covr'][0]  # type: ignore[unreachable]
                 # MP4Cover has imageformat attribute
                 if cover.imageformat == MP4Cover.FORMAT_JPEG:
                     mime_type = 'image/jpeg'
@@ -207,7 +207,7 @@ class ArtworkExtractor:
 
         return None, None
 
-    def _extract_from_generic(self, audio_file) -> Tuple[Optional[bytes], Optional[str]]:
+    def _extract_from_generic(self, audio_file: Any) -> Tuple[Optional[bytes], Optional[str]]:
         """Extract artwork from generic tag formats (OGG, etc.)"""
         try:
             tags = audio_file.tags
@@ -222,7 +222,7 @@ class ArtworkExtractor:
                         import base64
                         picture_data = base64.b64decode(tags[key][0])
                         # Parse FLAC Picture block
-                        picture = Picture(picture_data)
+                        picture = Picture(picture_data)  # type: ignore[no-untyped-call]
                         return picture.data, picture.mime
                     else:
                         return tags[key][0], 'image/jpeg'
