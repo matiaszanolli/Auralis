@@ -13,6 +13,8 @@ import logging
 import time
 from typing import Any, Tuple, Dict, Optional
 from dataclasses import dataclass
+import resource
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +68,39 @@ class MemoryPressureMonitor:
             f"Memory monitor initialized: "
             f"warning={warning_threshold:.0%}, critical={critical_threshold:.0%}"
         )
+
+        # Attempt to set process RAM limit at 90% of system memory
+        self._set_process_memory_limit(limit_fraction=0.90)
+
+    def _set_process_memory_limit(self, limit_fraction: float = 0.90) -> None:
+        """
+        Set process-level memory limit using resource module.
+
+        Args:
+            limit_fraction: Fraction of system memory to limit to (0.90 = 90%)
+        """
+        try:
+            # Get total system memory
+            total_memory = psutil.virtual_memory().total
+            limit_bytes = int(total_memory * limit_fraction)
+
+            # Set soft and hard limits
+            resource.setrlimit(
+                resource.RLIMIT_AS,
+                (limit_bytes, limit_bytes)
+            )
+
+            limit_gb = limit_bytes / (1024 ** 3)
+            logger.info(
+                f"Process memory limit set to {limit_fraction:.0%} of system RAM "
+                f"({limit_gb:.1f}GB)"
+            )
+        except (AttributeError, ValueError, resource.error) as e:
+            # resource module may not be available on all platforms
+            logger.warning(
+                f"Could not set process memory limit: {e} "
+                f"(resource module may not be available on this platform)"
+            )
 
     def get_memory_status(self) -> MemoryStatus:
         """Get current memory status."""
