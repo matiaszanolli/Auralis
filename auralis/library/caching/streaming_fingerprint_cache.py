@@ -26,7 +26,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any, cast
 
 import numpy as np
 
@@ -65,12 +65,12 @@ class StreamingFingerprintCache:
         self.ttl_seconds = ttl_seconds
 
         # Always use in-memory cache for simplicity (can use SmartCache backend later)
-        self._memory_cache = {}
+        self._memory_cache: Dict[str, Any] = {}
         self.backend = None
 
         # Validation tracking
-        self.validators = {}  # file_path -> validation state
-        self.validation_results = {}  # file_path -> validation score
+        self.validators: Dict[str, Any] = {}  # file_path -> validation state
+        self.validation_results: Dict[str, float] = {}  # file_path -> validation score
 
         # Statistics
         self.stats = {
@@ -128,7 +128,7 @@ class StreamingFingerprintCache:
         self._memory_cache[key] = value
         self.stats['insertions'] += 1
 
-    def get_streaming_fingerprint(self, file_path: str) -> Optional[Dict]:
+    def get_streaming_fingerprint(self, file_path: str) -> Optional[Dict[str, Any]]:
         """Retrieve cached streaming fingerprint.
 
         Args:
@@ -144,7 +144,7 @@ class StreamingFingerprintCache:
 
         if value is not None:
             self.stats['hits'] += 1
-            return value
+            return cast(Dict[str, Any], value)
         else:
             self.stats['misses'] += 1
             return None
@@ -216,7 +216,7 @@ class StreamingFingerprintCache:
         cached = self.get_streaming_fingerprint(file_path)
         return cached is not None and cached.get('validated', False)
 
-    def get_cache_statistics(self) -> Dict[str, any]:
+    def get_cache_statistics(self) -> Dict[str, Any]:
         """Get cache statistics and performance metrics.
 
         Returns:
@@ -273,8 +273,6 @@ class StreamingFingerprintCache:
         Returns:
             Number of items in cache
         """
-        if self.backend:
-            return len(self._memory_cache)  # Fallback estimate
         return len(self._memory_cache)
 
     def __repr__(self) -> str:
