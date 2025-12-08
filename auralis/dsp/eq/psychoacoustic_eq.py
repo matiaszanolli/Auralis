@@ -11,7 +11,7 @@ Main orchestrator for psychoacoustic EQ processing
 """
 
 import numpy as np
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 from dataclasses import dataclass
 
 from .critical_bands import (
@@ -80,7 +80,7 @@ class PsychoacousticEQ:
         # Processing state
         self.current_gains = np.ones(len(self.critical_bands))
         self.target_gains = np.ones(len(self.critical_bands))
-        self.processing_history = []
+        self.processing_history: List[Dict[str, Any]] = []
 
         # Pre-compute frequency mapping
         self.freq_to_band_map = create_frequency_mapping(
@@ -91,7 +91,7 @@ class PsychoacousticEQ:
 
         # Initialize vectorized EQ processor (1.7x speedup)
         if VECTORIZED_EQ_AVAILABLE:
-            self.vectorized_processor = VectorizedEQProcessor()
+            self.vectorized_processor: Optional[Any] = VectorizedEQProcessor()  # type: ignore[no-untyped-call]
             debug(f"Psychoacoustic EQ initialized: {len(self.critical_bands)} critical bands (vectorized)")
         else:
             self.vectorized_processor = None
@@ -161,9 +161,9 @@ class PsychoacousticEQ:
         return band_energies
 
     def calculate_adaptive_gains(self,
-                                spectrum_analysis: Dict[str, np.ndarray],
+                                spectrum_analysis: Dict[str, Any],
                                 target_curve: np.ndarray,
-                                content_profile: Optional[Dict] = None) -> np.ndarray:
+                                content_profile: Optional[Dict[str, Any]] = None) -> np.ndarray:
         """
         Calculate adaptive EQ gains based on spectrum analysis
 
@@ -257,12 +257,12 @@ class PsychoacousticEQ:
         """
         # Use vectorized processor if available (1.7x faster)
         if self.vectorized_processor is not None:
-            return self.vectorized_processor.apply_eq_gains_vectorized(
+            return cast(np.ndarray, self.vectorized_processor.apply_eq_gains_vectorized(
                 audio_chunk,
                 gains,
                 self.freq_to_band_map,
                 self.fft_size
-            )
+            ))
         else:
             # Fall back to standard implementation
             return apply_eq_gains(audio_chunk, gains, self.freq_to_band_map, self.fft_size)
@@ -270,7 +270,7 @@ class PsychoacousticEQ:
     def process_realtime_chunk(self,
                               audio_chunk: np.ndarray,
                               target_curve: np.ndarray,
-                              content_profile: Optional[Dict] = None) -> np.ndarray:
+                              content_profile: Optional[Dict[str, Any]] = None) -> np.ndarray:
         """
         Process audio chunk with real-time adaptive EQ
 
@@ -300,8 +300,8 @@ class PsychoacousticEQ:
 
     def _update_history(self,
                        gains: np.ndarray,
-                       spectrum_analysis: Dict,
-                       content_profile: Optional[Dict]):
+                       spectrum_analysis: Dict[str, Any],
+                       content_profile: Optional[Dict[str, Any]]) -> None:
         """Update processing history for learning"""
         self.processing_history.append({
             'gains': gains.copy(),
@@ -313,7 +313,7 @@ class PsychoacousticEQ:
         if len(self.processing_history) > 100:
             self.processing_history.pop(0)
 
-    def get_current_response(self) -> Dict[str, np.ndarray]:
+    def get_current_response(self) -> Dict[str, Any]:
         """
         Get current EQ response
 
@@ -329,7 +329,7 @@ class PsychoacousticEQ:
             'bands': [(band.low_freq, band.high_freq) for band in self.critical_bands]
         }
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset EQ to flat response"""
         self.current_gains = np.ones(len(self.critical_bands))
         self.target_gains = np.ones(len(self.critical_bands))
