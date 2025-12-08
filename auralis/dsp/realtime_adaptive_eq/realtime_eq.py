@@ -12,7 +12,7 @@ Real-time adaptive EQ system with critical band analysis
 
 import numpy as np
 import time
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 from collections import deque
 
 from .settings import RealtimeEQSettings
@@ -46,14 +46,14 @@ class RealtimeAdaptiveEQ:
 
         # Processing state
         self.processing_active = False
-        self.input_buffer = deque(maxlen=10)
-        self.output_buffer = deque(maxlen=5)
+        self.input_buffer: deque[Any] = deque(maxlen=10)
+        self.output_buffer: deque[Any] = deque(maxlen=5)
 
         # Lookahead buffer for latency optimization
         if settings.enable_look_ahead:
             lookahead_ms = getattr(settings, 'lookahead_ms', 5.0)
             lookahead_samples = int(lookahead_ms * settings.sample_rate / 1000)
-            self.lookahead_buffer = deque(maxlen=lookahead_samples)
+            self.lookahead_buffer: Optional[deque[Any]] = deque(maxlen=lookahead_samples)
         else:
             self.lookahead_buffer = None
 
@@ -156,7 +156,7 @@ class RealtimeAdaptiveEQ:
             self.performance_stats['buffer_underruns'] += 1
             return np.zeros_like(audio_chunk)
 
-    def set_adaptation_parameters(self, **kwargs):
+    def set_adaptation_parameters(self, **kwargs: Any) -> None:
         """Update adaptation parameters dynamically"""
 
         if 'adaptation_rate' in kwargs:
@@ -167,22 +167,22 @@ class RealtimeAdaptiveEQ:
             smoothing_factor = kwargs['smoothing_factor']
             # Add smoothing_factor to settings if it doesn't exist
             if not hasattr(self.settings, 'smoothing_factor'):
-                self.settings.smoothing_factor = smoothing_factor
+                self.settings.smoothing_factor = smoothing_factor  # type: ignore[attr-defined]
             else:
                 self.settings.smoothing_factor = smoothing_factor
-            self.adaptation_engine.settings.smoothing_factor = smoothing_factor
+            self.adaptation_engine.settings.smoothing_factor = smoothing_factor  # type: ignore[attr-defined]
 
         if 'max_gain_db' in kwargs:
             max_gain_db = kwargs['max_gain_db']
             # Add max_gain_db to settings if it doesn't exist
             if not hasattr(self.settings, 'max_gain_db'):
-                self.settings.max_gain_db = max_gain_db
+                self.settings.max_gain_db = max_gain_db  # type: ignore[attr-defined]
             else:
                 self.settings.max_gain_db = max_gain_db
 
         debug(f"Updated adaptation parameters: {kwargs}")
 
-    def get_current_eq_curve(self) -> Dict[str, np.ndarray]:
+    def get_current_eq_curve(self) -> Dict[str, Any]:
         """Get current EQ curve and adaptation state"""
 
         adaptation_info = self.adaptation_engine.get_adaptation_info()
@@ -202,10 +202,10 @@ class RealtimeAdaptiveEQ:
 
         return self.performance_stats.copy()
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset EQ state and buffers"""
 
-        self.psychoacoustic_eq.reset()
+        self.psychoacoustic_eq.reset()  # type: ignore[no-untyped-call]
         self.adaptation_engine = AdaptationEngine(self.settings)
         self.input_buffer.clear()
         self.output_buffer.clear()
