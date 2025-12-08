@@ -9,7 +9,7 @@ the backend, reducing boilerplate and improving consistency.
 """
 
 from fastapi import HTTPException
-from typing import Optional, Any
+from typing import Optional, Any, NoReturn
 import logging
 
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ class ConnectionManagerUnavailableError(ServiceUnavailableError):
         super().__init__("Connection manager not available")
 
 
-def handle_query_error(operation: str, error: Exception) -> None:
+def handle_query_error(operation: str, error: Exception) -> NoReturn:
     """
     Centralized error handler for query operations.
 
