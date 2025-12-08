@@ -87,12 +87,50 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                 logger.info("✅ Auralis LibraryManager initialized")
                 logger.info(f"📊 Database location: {globals_dict['library_manager'].database_path}")
 
+                # Initialize GPU-enhanced fingerprinting system
+                try:
+                    from auralis.library.fingerprint_extractor import FingerprintExtractor
+                    from auralis.library.fingerprint_queue_gpu import create_gpu_enhanced_queue
+
+                    # Create fingerprint extractor with library manager's fingerprint repository
+                    fingerprint_extractor = FingerprintExtractor(
+                        fingerprint_repository=globals_dict['library_manager'].fingerprints
+                    )
+                    logger.info("✅ Fingerprint Extractor initialized")
+
+                    # Create GPU-enhanced fingerprint queue
+                    fingerprint_queue, gpu_processor = create_gpu_enhanced_queue(
+                        fingerprint_extractor=fingerprint_extractor,
+                        library_manager=globals_dict['library_manager'],
+                        num_workers=None,  # Auto-detect CPU cores
+                        batch_size=50,  # Optimal for RTX 4070Ti
+                        gpu_enabled=None  # Auto-detect GPU
+                    )
+
+                    # Start background workers
+                    await fingerprint_queue.start()
+                    logger.info(f"✅ Fingerprint extraction queue started ({fingerprint_queue.num_workers} workers)")
+
+                    # Store for later reference
+                    globals_dict['fingerprint_queue'] = fingerprint_queue
+                    globals_dict['gpu_processor'] = gpu_processor
+
+                    if gpu_processor:
+                        logger.info(f"✅ GPU batch processor initialized (batch_size={gpu_processor.batch_size})")
+
+                except Exception as fp_e:
+                    logger.warning(f"⚠️  Failed to initialize fingerprinting system: {fp_e}")
+                    fingerprint_queue = None
+
                 # Auto-scan default music directory on startup
                 try:
                     music_source_dir = Path.home() / "Music"
                     if music_source_dir.exists() and music_source_dir != music_dir:
                         logger.info(f"🔍 Starting auto-scan of {music_source_dir}...")
-                        scanner = LibraryScanner(globals_dict['library_manager'])
+                        scanner = LibraryScanner(
+                            globals_dict['library_manager'],
+                            fingerprint_queue=globals_dict.get('fingerprint_queue')
+                        )
                         scan_result = scanner.scan_directories(
                             [str(music_source_dir)],
                             recursive=True,
@@ -213,6 +251,11 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
     async def shutdown_event() -> None:
         """Clean up resources on shutdown"""
         try:
+            # Stop fingerprint extraction queue
+            if 'fingerprint_queue' in globals_dict and globals_dict['fingerprint_queue']:
+                await globals_dict['fingerprint_queue'].stop(timeout=30.0)
+                logger.info("✅ Fingerprint extraction queue stopped")
+
             # Stop streamlined cache worker
             if 'streamlined_worker' in globals_dict and globals_dict['streamlined_worker']:
                 await globals_dict['streamlined_worker'].stop()
