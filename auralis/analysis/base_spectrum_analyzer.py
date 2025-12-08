@@ -14,7 +14,7 @@ analyzer implementations (sequential, parallel, real-time, etc.).
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import numpy as np
 from dataclasses import dataclass
 from .spectrum_operations import SpectrumOperations
@@ -39,7 +39,7 @@ class SpectrumSettings:
 class BaseSpectrumAnalyzer(ABC):
     """Abstract base class for spectrum analyzers"""
 
-    def __init__(self, settings: SpectrumSettings = None):
+    def __init__(self, settings: Optional[SpectrumSettings] = None) -> None:
         """
         Initialize base spectrum analyzer
 
@@ -56,7 +56,7 @@ class BaseSpectrumAnalyzer(ABC):
         )
 
         # Smoothing buffer for real-time analysis
-        self.smoothing_buffer = None
+        self.smoothing_buffer: Optional[np.ndarray] = None
 
         # Window function
         self.window = SpectrumOperations.create_window(
@@ -71,7 +71,7 @@ class BaseSpectrumAnalyzer(ABC):
         )
 
     @abstractmethod
-    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict:
+    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict[str, Any]:
         """
         Analyze a chunk of audio data
 
@@ -92,7 +92,7 @@ class BaseSpectrumAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def analyze_file(self, audio_data: np.ndarray, sample_rate: int = None) -> Dict:
+    def analyze_file(self, audio_data: np.ndarray, sample_rate: Optional[int] = None) -> Dict[str, Any]:
         """
         Analyze an entire audio file
 
@@ -117,7 +117,7 @@ class BaseSpectrumAnalyzer(ABC):
     def _create_chunk_result(self,
                             audio_chunk: np.ndarray,
                             channel: int = 0,
-                            sample_rate: Optional[int] = None) -> Dict:
+                            sample_rate: Optional[int] = None) -> Dict[str, Any]:
         """
         Create analysis result for a single audio chunk
 
@@ -191,11 +191,11 @@ class BaseSpectrumAnalyzer(ABC):
         """
         return SpectrumOperations.get_band_names(self.frequency_bins)
 
-    def reset_smoothing(self):
+    def reset_smoothing(self) -> None:
         """Reset smoothing buffer for new analysis session"""
         self.smoothing_buffer = None
 
-    def update_settings(self, settings: SpectrumSettings):
+    def update_settings(self, settings: SpectrumSettings) -> None:
         """
         Update analyzer settings and rebuild state
 
