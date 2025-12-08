@@ -15,7 +15,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Callable
 import logging
 import asyncio
 import shutil
@@ -39,7 +39,7 @@ class ScanRequest(BaseModel):
     directory: str
 
 
-def create_files_router(get_library_manager, connection_manager):
+def create_files_router(get_library_manager: Callable[[], Any], connection_manager: Any) -> APIRouter:
     """
     Factory function to create files router with dependencies.
 
@@ -52,7 +52,7 @@ def create_files_router(get_library_manager, connection_manager):
     """
 
     @router.post("/api/library/scan")
-    async def scan_directory(request: ScanRequest):
+    async def scan_directory(request: ScanRequest) -> Dict[str, Any]:
         """
         Scan directory for audio files.
 
@@ -80,7 +80,7 @@ def create_files_router(get_library_manager, connection_manager):
             scanner = LibraryScanner(library_manager)
 
             # Start scan in background
-            async def scan_worker():
+            async def scan_worker() -> None:
                 try:
                     result = scanner.scan_single_directory(directory, recursive=True)
 
@@ -114,7 +114,7 @@ def create_files_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to start scan: {e}")
 
     @router.post("/api/files/upload")
-    async def upload_files(files: List[UploadFile] = File(...)):
+    async def upload_files(files: List[UploadFile] = File(...)) -> Dict[str, Any]:
         """
         Upload audio files for processing.
 
@@ -139,22 +139,23 @@ def create_files_router(get_library_manager, connection_manager):
         if not HAS_LIBRARY:
             raise HTTPException(status_code=503, detail="Audio processing library not available")
 
-        results = []
+        results: List[Dict[str, Any]] = []
         supported_extensions = ('.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac')
 
         for file in files:
             try:
                 # Validate file type
-                if not file.filename.lower().endswith(supported_extensions):
+                if not file.filename or not file.filename.lower().endswith(supported_extensions):
                     results.append({
-                        "filename": file.filename,
+                        "filename": file.filename or "",
                         "status": "error",
                         "message": "Unsupported file type"
                     })
                     continue
 
                 # Save uploaded file to temporary location
-                with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+                suffix = Path(file.filename).suffix if file.filename else ""
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                     content = await file.read()
                     tmp.write(content)
                     temp_path = tmp.name
@@ -165,7 +166,7 @@ def create_files_router(get_library_manager, connection_manager):
                     duration = len(audio_data) / sample_rate
 
                     # Extract file name without extension
-                    file_stem = Path(file.filename).stem
+                    file_stem = Path(file.filename).stem if file.filename else "track"
 
                     # Create track info dictionary for library
                     track_info = {
@@ -182,7 +183,7 @@ def create_files_router(get_library_manager, connection_manager):
 
                     if track:
                         results.append({
-                            "filename": file.filename,
+                            "filename": file.filename or "",
                             "status": "success",
                             "message": "File uploaded and added to library",
                             "track_id": track.id,
@@ -193,7 +194,7 @@ def create_files_router(get_library_manager, connection_manager):
                         logger.info(f"Successfully uploaded and processed: {file.filename}")
                     else:
                         results.append({
-                            "filename": file.filename,
+                            "filename": file.filename or "",
                             "status": "error",
                             "message": "Failed to add track to library"
                         })
@@ -201,7 +202,7 @@ def create_files_router(get_library_manager, connection_manager):
                 except Exception as e:
                     logger.error(f"Audio processing error for {file.filename}: {e}")
                     results.append({
-                        "filename": file.filename,
+                        "filename": file.filename or "",
                         "status": "error",
                         "message": f"Failed to process audio: {str(e)}"
                     })
@@ -216,7 +217,7 @@ def create_files_router(get_library_manager, connection_manager):
             except Exception as e:
                 logger.error(f"Upload error for {file.filename}: {e}")
                 results.append({
-                    "filename": file.filename,
+                    "filename": file.filename or "",
                     "status": "error",
                     "message": str(e)
                 })
@@ -224,7 +225,7 @@ def create_files_router(get_library_manager, connection_manager):
         return {"results": results}
 
     @router.get("/api/audio/formats")
-    async def get_supported_formats():
+    async def get_supported_formats() -> Dict[str, Any]:
         """
         Get supported audio formats.
 
