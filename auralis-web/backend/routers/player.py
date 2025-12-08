@@ -79,7 +79,8 @@ def create_player_router(
     chunked_audio_processor_class: Optional[type],
     create_track_info_fn: Callable[[Any], Any],
     buffer_presets_fn: Callable[..., Any],
-    get_enhancement_settings: Optional[Callable[[], Any]] = None
+    get_enhancement_settings: Optional[Callable[[], Any]] = None,
+    get_multi_tier_buffer: Optional[Callable[[], Any]] = None
 ) -> APIRouter:
     """
     Factory function to create player router with dependencies.
