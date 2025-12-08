@@ -37,7 +37,7 @@ class ContinuousMode:
     for that specific position.
     """
 
-    def __init__(self, config, content_analyzer, fingerprint_analyzer, recording_type_detector=None):
+    def __init__(self, config: Any, content_analyzer: Any, fingerprint_analyzer: Any, recording_type_detector: Optional[Any] = None) -> None:
         """
         Initialize continuous space processor.
 
@@ -60,7 +60,7 @@ class ContinuousMode:
             self.recording_type_detector = recording_type_detector
         else:
             # Fallback for backwards compatibility (when called without detector)
-            self.recording_type_detector = RecordingTypeDetector()
+            self.recording_type_detector = RecordingTypeDetector()  # type: ignore[no-untyped-call]
 
         # Store last fingerprint and parameters for debugging/learning
         self.last_fingerprint = None
@@ -132,7 +132,7 @@ class ContinuousMode:
             stereo_width_target=1.0  # Default: preserve width
         )
 
-    def process(self, target_audio: np.ndarray, eq_processor,
+    def process(self, target_audio: np.ndarray, eq_processor: Any,
                 fixed_params: Optional[Dict[str, Any]] = None) -> np.ndarray:
         """
         Process audio using continuous parameter space.
@@ -219,7 +219,7 @@ class ContinuousMode:
 
         return processed_audio
 
-    def _apply_eq(self, audio: np.ndarray, eq_processor, params) -> np.ndarray:
+    def _apply_eq(self, audio: np.ndarray, eq_processor: Any, params: Any) -> np.ndarray:
         """Apply EQ using generated parameters with adaptive guidance"""
 
         eq_curve = params.eq_curve
@@ -278,7 +278,7 @@ class ContinuousMode:
 
         return audio
 
-    def _apply_dynamics(self, audio: np.ndarray, params) -> np.ndarray:
+    def _apply_dynamics(self, audio: np.ndarray, params: Any) -> np.ndarray:
         """Apply dynamics processing with adaptive guidance"""
 
         # Adjust compression parameters based on adaptive guidance
@@ -339,7 +339,7 @@ class ContinuousMode:
 
         return audio
 
-    def _apply_compression(self, audio: np.ndarray, comp_params: Dict) -> np.ndarray:
+    def _apply_compression(self, audio: np.ndarray, comp_params: Dict[str, Any]) -> np.ndarray:
         """Apply simple compression to reduce crest factor"""
 
         # Validate input - handle empty or very short audio gracefully
@@ -348,11 +348,11 @@ class ContinuousMode:
 
         return CompressionStrategies.apply_clip_blend_compression(audio, comp_params)
 
-    def _apply_expansion(self, audio: np.ndarray, exp_params: Dict) -> np.ndarray:
+    def _apply_expansion(self, audio: np.ndarray, exp_params: Dict[str, Any]) -> np.ndarray:
         """Apply expansion to increase crest factor (de-mastering)"""
         return ExpansionStrategies.apply_rms_reduction_expansion(audio, exp_params)
 
-    def _apply_stereo_width(self, audio: np.ndarray, params) -> np.ndarray:
+    def _apply_stereo_width(self, audio: np.ndarray, params: Any) -> np.ndarray:
         """Apply stereo width adjustment with adaptive guidance"""
 
         # Only process stereo audio
@@ -406,7 +406,7 @@ class ContinuousMode:
 
         return audio
 
-    def _apply_final_normalization(self, audio: np.ndarray, params) -> np.ndarray:
+    def _apply_final_normalization(self, audio: np.ndarray, params: Any) -> np.ndarray:
         """Apply final loudness and peak normalization using unified pipeline"""
 
         # Step 1: RMS-based normalization (to target loudness)

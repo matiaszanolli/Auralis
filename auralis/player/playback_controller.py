@@ -11,7 +11,7 @@ Responsibilities:
 """
 
 from enum import Enum
-from typing import Callable, List
+from typing import Any, Callable, Dict, List, Optional
 from ..utils.logging import debug, info
 
 
@@ -32,16 +32,16 @@ class PlaybackController:
     Only responsible for state machine and playback timeline.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.state = PlaybackState.STOPPED
         self.position = 0  # Position in samples
-        self.callbacks: List[Callable] = []
+        self.callbacks: List[Callable[[Optional[Dict[str, Any]]], None]] = []
 
-    def add_callback(self, callback: Callable):
+    def add_callback(self, callback: Callable[[Optional[Dict[str, Any]]], None]) -> None:
         """Register a callback for state changes"""
         self.callbacks.append(callback)
 
-    def _notify_callbacks(self, state_info: dict = None):
+    def _notify_callbacks(self, state_info: Optional[Dict[str, Any]] = None) -> None:
         """Notify all callbacks of state change"""
         for callback in self.callbacks:
             try:
@@ -120,12 +120,12 @@ class PlaybackController:
         })
         return True
 
-    def set_loading(self):
+    def set_loading(self) -> None:
         """Set state to LOADING"""
         self.state = PlaybackState.LOADING
         self._notify_callbacks({"state": self.state.value, "action": "loading"})
 
-    def set_error(self):
+    def set_error(self) -> None:
         """Set state to ERROR"""
         self.state = PlaybackState.ERROR
         self._notify_callbacks({"state": self.state.value, "action": "error"})
