@@ -25,7 +25,7 @@ Dependencies:
 import numpy as np
 import librosa
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 from collections import deque
 from ...common_metrics import MetricUtils, SafeOperations
 
@@ -39,14 +39,14 @@ class SpectralMoments:
     centroid and rolloff calculation without storing full history.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize spectral moments."""
         self.count = 0
         self.centroid_sum = 0.0  # Sum of (frequency * magnitude) weighted
         self.magnitude_sum = 0.0  # Sum of magnitudes
         self.flatness_sum = 0.0  # Sum of flatness values
 
-    def update(self, magnitude_spectrum: np.ndarray, sr: int):
+    def update(self, magnitude_spectrum: np.ndarray, sr: int) -> None:
         """Update moments with new STFT frame magnitude.
 
         Args:
@@ -67,7 +67,7 @@ class SpectralMoments:
         geom_mean = np.exp(np.mean(np.log(magnitude_safe)))
         arith_mean = np.mean(magnitude_safe)
         flatness = SafeOperations.safe_divide(geom_mean, arith_mean)
-        self.flatness_sum += flatness
+        self.flatness_sum += flatness  # type: ignore[assignment]
 
     def get_centroid(self) -> float:
         """Get current average spectral centroid in Hz."""
@@ -81,7 +81,7 @@ class SpectralMoments:
             return self.flatness_sum / self.count
         return 0.3
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset moments to initial state."""
         self.count = 0
         self.centroid_sum = 0.0
@@ -102,7 +102,7 @@ class StreamingSpectralAnalyzer:
     """
 
     def __init__(self, sr: int = 44100, n_fft: int = 2048, hop_length: Optional[int] = None,
-                 window_duration: float = 5.0):
+                 window_duration: float = 5.0) -> None:
         """Initialize streaming spectral analyzer.
 
         Args:
@@ -117,11 +117,11 @@ class StreamingSpectralAnalyzer:
 
         # Audio buffer for STFT calculation
         # We need to buffer full frames for STFT computation
-        self.audio_buffer = deque(maxlen=self.hop_length * 2)
+        self.audio_buffer: deque[Any] = deque(maxlen=self.hop_length * 2)
 
         # STFT magnitude buffer for rolloff (needs recent history)
         window_frames = max(1, int(sr * window_duration / self.hop_length))
-        self.magnitude_buffer = deque(maxlen=window_frames)
+        self.magnitude_buffer: deque[Any] = deque(maxlen=window_frames)
 
         # Running moments for centroid and flatness
         self.spectral_moments = SpectralMoments()
@@ -129,7 +129,7 @@ class StreamingSpectralAnalyzer:
         # Frame counter
         self.frame_count = 0
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset analyzer state."""
         self.audio_buffer.clear()
         self.magnitude_buffer.clear()

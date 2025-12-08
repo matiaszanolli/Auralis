@@ -83,10 +83,10 @@ class TrackRepository:
             album = None
             album_is_new = False
             if track_info.get('album'):
-                album = session.query(Album).filter(
-                    Album.title == track_info['album'],
-                    Album.artist_id == artists[0].id if artists else None
-                ).first()
+                album_filter = Album.title == track_info['album']
+                if artists:
+                    album_filter = and_(album_filter, Album.artist_id == artists[0].id)
+                album = session.query(Album).filter(album_filter).first()
                 if not album and artists:
                     album = Album(
                         title=track_info['album'],
@@ -286,7 +286,7 @@ class TrackRepository:
             genre = session.query(Genre).filter(Genre.name == genre_name).first()
             if not genre:
                 return []
-            return genre.tracks[:limit]
+            return genre.tracks[:limit]  # type: ignore[no-any-return]
         finally:
             session.close()
 
@@ -439,14 +439,14 @@ class TrackRepository:
         finally:
             session.close()
 
-    def record_play(self, track_id: int):
+    def record_play(self, track_id: int) -> None:
         """Record a track play"""
         session = self.get_session()
         try:
             track = session.query(Track).filter(Track.id == track_id).first()
             if track:
-                track.play_count = (track.play_count or 0) + 1
-                track.last_played = func.now()
+                track.play_count = (track.play_count or 0) + 1  # type: ignore[assignment]
+                track.last_played = func.now()  # type: ignore[assignment]
                 session.commit()
                 debug(f"Recorded play for track: {track.title}")
         except Exception as e:
@@ -455,13 +455,13 @@ class TrackRepository:
         finally:
             session.close()
 
-    def set_favorite(self, track_id: int, favorite: bool = True):
+    def set_favorite(self, track_id: int, favorite: bool = True) -> None:
         """Set track favorite status"""
         session = self.get_session()
         try:
             track = session.query(Track).filter(Track.id == track_id).first()
             if track:
-                track.favorite = favorite
+                track.favorite = favorite  # type: ignore[assignment]
                 session.commit()
                 debug(f"Set favorite={favorite} for track: {track.title}")
         except Exception as e:
@@ -509,7 +509,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def _update_artists(self, session: Session, track: Track, artist_names: List[str]):
+    def _update_artists(self, session: Session, track: Track, artist_names: List[str]) -> None:
         """Update track artists"""
         track.artists = []
         for artist_name in artist_names:
@@ -519,7 +519,7 @@ class TrackRepository:
                 session.add(artist)
             track.artists.append(artist)
 
-    def _update_genres(self, session: Session, track: Track, genre_names: List[str]):
+    def _update_genres(self, session: Session, track: Track, genre_names: List[str]) -> None:
         """Update track genres"""
         track.genres = []
         for genre_name in genre_names:
