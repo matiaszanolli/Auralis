@@ -30,7 +30,7 @@ router = APIRouter(prefix="/api/processing", tags=["audio-processing"])
 _processing_engine: Optional[ProcessingEngine] = None
 
 
-def set_processing_engine(engine: ProcessingEngine):
+def set_processing_engine(engine: ProcessingEngine) -> None:
     """Set the global processing engine"""
     global _processing_engine
     _processing_engine = engine
@@ -81,7 +81,7 @@ class JobStatusResponse(BaseModel):
 
 
 @router.post("/process", response_model=ProcessResponse)
-async def process_audio(request: ProcessRequest):
+async def process_audio(request: ProcessRequest) -> ProcessResponse:
     """
     Submit an audio file for processing.
     Returns a job ID that can be used to track progress.
@@ -118,11 +118,11 @@ async def process_audio(request: ProcessRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/upload-and-process")
+@router.post("/upload-and-process", response_model=ProcessResponse)
 async def upload_and_process(
     file: UploadFile = File(...),
     settings: str = Form(...)  # JSON string of ProcessingSettings
-):
+) -> ProcessResponse:
     """
     Upload an audio file and immediately submit for processing.
     Combines file upload and processing submission in one request.
@@ -140,7 +140,8 @@ async def upload_and_process(
         temp_dir = Path(tempfile.gettempdir()) / "auralis_uploads"
         temp_dir.mkdir(exist_ok=True)
 
-        input_path = temp_dir / file.filename
+        filename = file.filename or "audio_file"
+        input_path = temp_dir / filename
         with open(input_path, "wb") as f:
             content = await file.read()
             f.write(content)
@@ -168,7 +169,7 @@ async def upload_and_process(
 
 
 @router.get("/job/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(job_id: str):
+async def get_job_status(job_id: str) -> JobStatusResponse:
     """Get the status of a processing job"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
@@ -187,7 +188,7 @@ async def get_job_status(job_id: str):
 
 
 @router.get("/job/{job_id}/download")
-async def download_result(job_id: str):
+async def download_result(job_id: str) -> FileResponse:
     """
     Download the processed audio file.
     Only available when job status is 'completed'.
@@ -222,7 +223,7 @@ async def download_result(job_id: str):
 
 
 @router.post("/job/{job_id}/cancel")
-async def cancel_job(job_id: str):
+async def cancel_job(job_id: str) -> Dict[str, Any]:
     """Cancel a queued or processing job"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
@@ -239,7 +240,7 @@ async def cancel_job(job_id: str):
 
 
 @router.get("/jobs")
-async def list_jobs(status: Optional[str] = None, limit: int = 50):
+async def list_jobs(status: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
     """List all processing jobs, optionally filtered by status"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
@@ -264,7 +265,7 @@ async def list_jobs(status: Optional[str] = None, limit: int = 50):
 
 
 @router.get("/queue/status")
-async def get_queue_status():
+async def get_queue_status() -> Dict[str, Any]:
     """Get current processing queue status"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
@@ -273,7 +274,7 @@ async def get_queue_status():
 
 
 @router.get("/presets")
-async def get_processing_presets():
+async def get_processing_presets() -> Dict[str, Any]:
     """Get available processing presets"""
     presets = {
         "adaptive": {
@@ -388,7 +389,7 @@ async def get_processing_presets():
 
 
 @router.delete("/jobs/cleanup")
-async def cleanup_old_jobs(max_age_hours: int = 24):
+async def cleanup_old_jobs(max_age_hours: int = 24) -> Dict[str, Any]:
     """Clean up completed jobs older than specified hours"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
