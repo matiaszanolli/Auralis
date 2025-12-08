@@ -10,7 +10,7 @@ Goal: Learn from the best to match their standards.
 
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 import json
 
@@ -66,7 +66,7 @@ class MasteringProfile:
     side_energy: float  # dB, energy in side channel
 
     # Detailed frequency response (1/3 octave bands)
-    third_octave_response: Dict[int, float]  # center_freq_hz -> level_db
+    third_octave_response: Dict[float, float]  # center_freq_hz -> level_db
 
     # Quality indicators
     has_clipping: bool
@@ -82,7 +82,7 @@ class ReferenceAnalyzer:
     Analyzes reference tracks to extract mastering profiles.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.spectrum_analyzer = SpectrumAnalyzer()
         self.loudness_meter = LoudnessMeter()
         self.phase_analyzer = PhaseCorrelationAnalyzer()
@@ -116,7 +116,7 @@ class ReferenceAnalyzer:
 
         # === Loudness Analysis ===
         print("  - Analyzing loudness...")
-        loudness_metrics = self.loudness_meter.measure(audio, sr)
+        loudness_metrics = self.loudness_meter.measure(audio, sr)  # type: ignore[attr-defined]
         integrated_lufs = loudness_metrics['integrated_lufs']
         loudness_range = loudness_metrics['loudness_range']
         true_peak = loudness_metrics['true_peak']
@@ -181,7 +181,7 @@ class ReferenceAnalyzer:
         print(f"  ✓ Complete - LUFS: {integrated_lufs:.1f}, DR: {dynamic_range:.1f}")
         return profile
 
-    def _analyze_frequency_response(self, audio: np.ndarray, sr: int) -> Dict:
+    def _analyze_frequency_response(self, audio: np.ndarray, sr: int) -> Dict[str, Any]:
         """Analyze frequency response characteristics."""
         # Convert to mono for frequency analysis
         if audio.ndim == 2:
@@ -244,7 +244,7 @@ class ReferenceAnalyzer:
             'third_octave_response': third_octave_response,
         }
 
-    def _analyze_stereo_field(self, audio: np.ndarray, sr: int) -> Dict:
+    def _analyze_stereo_field(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
         """Analyze stereo field characteristics."""
         if audio.ndim != 2:
             return {
@@ -259,7 +259,7 @@ class ReferenceAnalyzer:
         side = (left - right) / 2
 
         # Stereo correlation
-        correlation = self.phase_analyzer.analyze(audio, sr)
+        correlation = self.phase_analyzer.analyze(audio, sr)  # type: ignore[attr-defined]
         stereo_width = 1.0 - np.abs(correlation['average_correlation'])
 
         # Side channel energy
@@ -327,7 +327,7 @@ class ReferenceAnalyzer:
 
         return profiles
 
-    def create_genre_target(self, profiles: List[MasteringProfile]) -> Dict:
+    def create_genre_target(self, profiles: List[MasteringProfile]) -> Dict[str, Any]:
         """
         Create an average target profile for a genre based on multiple references.
 
@@ -375,7 +375,7 @@ class ReferenceAnalyzer:
 
         return target
 
-    def save_profiles(self, profiles: List[MasteringProfile], output_path: Path):
+    def save_profiles(self, profiles: List[MasteringProfile], output_path: Path) -> None:
         """Save mastering profiles to JSON file."""
         profiles_dict = [asdict(p) for p in profiles]
 
@@ -394,7 +394,7 @@ class ReferenceAnalyzer:
         return profiles
 
 
-def main():
+def main() -> None:
     """Example usage: Analyze high-priority references."""
     analyzer = ReferenceAnalyzer()
 
