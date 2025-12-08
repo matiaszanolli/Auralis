@@ -56,9 +56,15 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
         library_manager = LibraryManager()
         logger.info(f"✅ Library initialized: {library_manager.database_path}")
 
-        # Get unfingerprinted tracks
-        logger.info("Querying unfingerprinted tracks...")
-        unfingerprinted_tracks = library_manager.get_unfingerprinted_tracks()
+        # Get all tracks for fingerprinting
+        logger.info("Querying all tracks...")
+        all_tracks, total_count = library_manager.get_all_tracks(limit=999999)  # Get all tracks
+
+        # Use all tracks with valid filepaths
+        unfingerprinted_tracks = [
+            track for track in all_tracks
+            if track.filepath
+        ]
         total_tracks = len(unfingerprinted_tracks)
 
         if total_tracks == 0:
@@ -102,7 +108,7 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
         for track in unfingerprinted_tracks:
             success = await fingerprint_queue.enqueue(
                 track_id=track.id,
-                filepath=track.file_path,
+                filepath=track.filepath,
                 priority=0
             )
             if success:
