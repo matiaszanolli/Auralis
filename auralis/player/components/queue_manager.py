@@ -17,18 +17,18 @@ import random
 class QueueManager:
     """Simple queue management for track playback"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize queue manager"""
         self.tracks: List[Dict[str, Any]] = []
         self.current_index = -1
         self.shuffle_enabled = False
         self.repeat_enabled = False
 
-    def add_track(self, track_info: Dict[str, Any]):
+    def add_track(self, track_info: Dict[str, Any]) -> None:
         """Add a track to the queue"""
         self.tracks.append(track_info)
 
-    def add_tracks(self, track_list: List[Dict[str, Any]]):
+    def add_tracks(self, track_list: List[Dict[str, Any]]) -> None:
         """Add multiple tracks to the queue"""
         self.tracks.extend(track_list)
 
@@ -86,7 +86,7 @@ class QueueManager:
 
         return self.get_current_track()
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear the queue"""
         self.tracks.clear()
         self.current_index = -1
@@ -169,7 +169,7 @@ class QueueManager:
 
         return True
 
-    def shuffle(self):
+    def shuffle(self) -> None:
         """Shuffle the queue, keeping the current track in place"""
         if len(self.tracks) <= 1:
             return

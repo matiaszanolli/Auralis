@@ -16,7 +16,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Callable
 import logging
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
@@ -58,7 +58,7 @@ class BatchMetadataRequest(BaseModel):
     backup: bool = Field(True, description="Create backup before modification")
 
 
-def create_metadata_router(get_library_manager, broadcast_manager, metadata_editor=None):
+def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_manager: Any, metadata_editor: Optional[MetadataEditor] = None) -> APIRouter:
     """
     Factory function to create metadata router with dependencies.
 
@@ -76,10 +76,10 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
 
     # Initialize metadata editor (shared instance) or use provided one
     if metadata_editor is None:
-        metadata_editor = MetadataEditor()
+        metadata_editor = MetadataEditor()  # type: ignore[no-untyped-call]
 
     @router.get("/api/metadata/tracks/{track_id}/fields")
-    async def get_editable_fields(track_id: int):
+    async def get_editable_fields(track_id: int) -> Dict[str, Any]:
         """
         Get list of editable metadata fields for a track.
 
@@ -106,10 +106,10 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
                 raise HTTPException(status_code=404, detail="Track not found")
 
             # Get editable fields for this file format
-            editable_fields = metadata_editor.get_editable_fields(track.filepath)
+            editable_fields = metadata_editor.get_editable_fields(str(track.filepath))
 
             # Get current metadata
-            current_metadata = metadata_editor.read_metadata(track.filepath)
+            current_metadata = metadata_editor.read_metadata(str(track.filepath))
 
             return {
                 "track_id": track_id,
@@ -128,7 +128,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
             raise HTTPException(status_code=500, detail=f"Failed to get editable fields: {e}")
 
     @router.get("/api/metadata/tracks/{track_id}")
-    async def get_track_metadata(track_id: int):
+    async def get_track_metadata(track_id: int) -> Dict[str, Any]:
         """
         Get current metadata for a track.
 
@@ -155,7 +155,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
                 raise HTTPException(status_code=404, detail="Track not found")
 
             # Read metadata from file
-            metadata = metadata_editor.read_metadata(track.filepath)
+            metadata = metadata_editor.read_metadata(str(track.filepath))
 
             return {
                 "track_id": track_id,
@@ -173,7 +173,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
             raise HTTPException(status_code=500, detail=f"Failed to get metadata: {e}")
 
     @router.put("/api/metadata/tracks/{track_id}")
-    async def update_track_metadata(track_id: int, request: MetadataUpdateRequest, backup: bool = True):
+    async def update_track_metadata(track_id: int, request: MetadataUpdateRequest, backup: bool = True) -> Dict[str, Any]:
         """
         Update metadata for a track.
 
@@ -212,7 +212,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
 
             # Write metadata to file
             success = metadata_editor.write_metadata(
-                track.filepath,
+                str(track.filepath),
                 metadata_updates,
                 backup=backup
             )
@@ -244,7 +244,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
                 })
 
             # Read updated metadata
-            updated_metadata = metadata_editor.read_metadata(track.filepath)
+            updated_metadata = metadata_editor.read_metadata(str(track.filepath))
 
             logger.info(f"Updated metadata for track {track_id}: {list(metadata_updates.keys())}")
 
@@ -268,7 +268,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
             raise HTTPException(status_code=500, detail=f"Failed to update metadata: {e}")
 
     @router.post("/api/metadata/batch")
-    async def batch_update_metadata(request: BatchMetadataRequest):
+    async def batch_update_metadata(request: BatchMetadataRequest) -> Dict[str, Any]:
         """
         Batch update metadata for multiple tracks.
 
@@ -306,7 +306,7 @@ def create_metadata_router(get_library_manager, broadcast_manager, metadata_edit
 
                 batch_updates.append(MetadataUpdate(
                     track_id=update_req.track_id,
-                    filepath=track.filepath,
+                    filepath=str(track.filepath),
                     updates=update_req.metadata,
                     backup=request.backup
                 ))

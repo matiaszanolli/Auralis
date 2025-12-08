@@ -287,7 +287,8 @@ class StreamlinedCacheWorker:
             timeout_seconds = 20 if tier == "tier1" else 60  # Tier 1 is urgent
 
             try:
-                chunk_path = await asyncio.wait_for(
+                # process_chunk_safe now returns (path, audio_array) tuple
+                chunk_path, audio_array = await asyncio.wait_for(
                     processor.process_chunk_safe(chunk_idx),
                     timeout=timeout_seconds
                 )

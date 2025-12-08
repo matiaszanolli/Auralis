@@ -12,7 +12,7 @@ Responsibilities:
 
 import os
 import numpy as np
-from typing import Tuple, Optional
+from typing import Tuple, Optional, cast
 from ..io.loader import load
 from ..utils.logging import debug, info, warning, error
 
@@ -148,7 +148,7 @@ class AudioFileManager:
             return 0
         if len(self.audio_data.shape) == 1:
             return 1
-        return self.audio_data.shape[1]
+        return cast(int, self.audio_data.shape[1])
 
     def is_loaded(self) -> bool:
         """Check if audio file is loaded"""
@@ -158,17 +158,17 @@ class AudioFileManager:
         """Check if reference audio is loaded"""
         return self.reference_data is not None
 
-    def clear_audio(self):
+    def clear_audio(self) -> None:
         """Clear loaded audio data"""
         self.audio_data = None
         self.current_file = None
 
-    def clear_reference(self):
+    def clear_reference(self) -> None:
         """Clear loaded reference data"""
         self.reference_data = None
         self.reference_file = None
 
-    def clear_all(self):
+    def clear_all(self) -> None:
         """Clear all loaded audio"""
         self.clear_audio()
         self.clear_reference()

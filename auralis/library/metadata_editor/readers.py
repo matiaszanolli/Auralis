@@ -10,7 +10,7 @@ Format-specific metadata reading functions
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 
 from .tag_mappings import TAG_MAPPINGS
 
@@ -19,7 +19,7 @@ class MetadataReaders:
     """Format-specific metadata readers"""
 
     @staticmethod
-    def read_mp3_metadata(audio_file) -> Dict[str, Any]:
+    def read_mp3_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
         """
         Read metadata from MP3 file
 
@@ -44,7 +44,7 @@ class MetadataReaders:
         return metadata
 
     @staticmethod
-    def read_flac_metadata(audio_file) -> Dict[str, Any]:
+    def read_flac_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
         """
         Read metadata from FLAC file
 
@@ -67,7 +67,7 @@ class MetadataReaders:
         return metadata
 
     @staticmethod
-    def read_mp4_metadata(audio_file) -> Dict[str, Any]:
+    def read_mp4_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
         """
         Read metadata from MP4/M4A file
 
@@ -77,7 +77,7 @@ class MetadataReaders:
         Returns:
             Dictionary of metadata fields
         """
-        metadata = {}
+        metadata: Dict[str, Optional[str]] = {}
         tag_map = TAG_MAPPINGS['m4a']
 
         for field, tag_key in tag_map.items():
@@ -95,7 +95,7 @@ class MetadataReaders:
         return metadata
 
     @staticmethod
-    def read_ogg_metadata(audio_file) -> Dict[str, Any]:
+    def read_ogg_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
         """
         Read metadata from OGG file
 
@@ -109,7 +109,7 @@ class MetadataReaders:
         return MetadataReaders.read_flac_metadata(audio_file)
 
     @staticmethod
-    def read_generic_metadata(audio_file) -> Dict[str, Any]:
+    def read_generic_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
         """
         Read metadata using generic method
 

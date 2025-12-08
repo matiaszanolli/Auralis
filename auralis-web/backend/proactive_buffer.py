@@ -73,7 +73,8 @@ async def buffer_presets_for_track(
 
                         # Process chunk with thread-safe locking
                         logger.info(f"🔄 Buffering: {preset} chunk {chunk_idx}/{chunks_to_buffer-1}")
-                        await processor.process_chunk_safe(chunk_idx)
+                        # process_chunk_safe now returns (path, audio_array) tuple
+                        chunk_path, audio_array = await processor.process_chunk_safe(chunk_idx)
                         logger.info(f"✅ Buffered: {preset} chunk {chunk_idx}")
 
                         # Small delay to avoid CPU saturation
