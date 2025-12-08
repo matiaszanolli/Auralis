@@ -31,7 +31,7 @@ class AdaptiveMode:
     Uses spectrum-based analysis to determine optimal processing parameters
     """
 
-    def __init__(self, config, content_analyzer, target_generator, spectrum_mapper):
+    def __init__(self, config: Any, content_analyzer: Any, target_generator: Any, spectrum_mapper: Any) -> None:
         """
         Initialize adaptive mode processor
 
@@ -47,7 +47,7 @@ class AdaptiveMode:
         self.spectrum_mapper = spectrum_mapper
         self.last_content_profile = None
 
-    def process(self, target_audio: np.ndarray, eq_processor) -> np.ndarray:
+    def process(self, target_audio: np.ndarray, eq_processor: Any) -> np.ndarray:
         """
         Process audio using adaptive mastering
 
@@ -133,7 +133,7 @@ class AdaptiveMode:
         return processed_audio
 
     def _apply_dynamics_processing(self, audio: np.ndarray,
-                                   spectrum_params, spectrum_position) -> np.ndarray:
+                                   spectrum_params: Any, spectrum_position: Any) -> np.ndarray:
         """Apply compression and expansion based on spectrum parameters"""
 
         # SIMPLE DIY COMPRESSOR - Direct crest factor reduction
@@ -146,14 +146,14 @@ class AdaptiveMode:
 
         return audio
 
-    def _apply_compression(self, audio: np.ndarray, spectrum_params) -> np.ndarray:
+    def _apply_compression(self, audio: np.ndarray, spectrum_params: Any) -> np.ndarray:
         """Apply DIY compression to reduce crest factor"""
         return CompressionStrategies.apply_soft_knee_compression(
             audio,
             spectrum_params.compression_amount
         )
 
-    def _apply_expansion(self, audio: np.ndarray, spectrum_params) -> np.ndarray:
+    def _apply_expansion(self, audio: np.ndarray, spectrum_params: Any) -> np.ndarray:
         """Apply DIY expansion to increase crest factor (de-mastering)"""
         return ExpansionStrategies.apply_peak_enhancement_expansion(
             audio,
@@ -161,7 +161,7 @@ class AdaptiveMode:
         )
 
     def _apply_stereo_width(self, audio: np.ndarray, targets: Dict[str, Any],
-                           spectrum_position) -> np.ndarray:
+                           spectrum_position: Any) -> np.ndarray:
         """Apply stereo width adjustment with safety checks"""
 
         if not StereoWidthProcessor.validate_stereo(audio):
@@ -185,7 +185,7 @@ class AdaptiveMode:
 
         return audio
 
-    def _apply_final_normalization(self, audio: np.ndarray, spectrum_params) -> np.ndarray:
+    def _apply_final_normalization(self, audio: np.ndarray, spectrum_params: Any) -> np.ndarray:
         """Apply final RMS boost and peak normalization using unified pipeline"""
         from ..config.preset_profiles import get_preset_profile
 
@@ -194,7 +194,7 @@ class AdaptiveMode:
         rms_boost_step.measure_before(audio)
 
         target_rms_db = spectrum_params.output_target_rms
-        current_rms_db = rms_boost_step.before_measurement['rms_db']
+        current_rms_db = rms_boost_step.before_measurement['rms_db']  # type: ignore[index]
         rms_diff_from_target = target_rms_db - current_rms_db
 
         # Only boost RMS if material is significantly under-leveled
