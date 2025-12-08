@@ -13,7 +13,7 @@ Intelligent system that learns from user feedback and adjustments
 """
 
 import numpy as np
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 from dataclasses import asdict
 from datetime import datetime, timedelta
 import json
@@ -39,7 +39,7 @@ class PreferenceLearningEngine:
         self.predictors: Dict[str, PreferencePredictor] = {}
 
         # Action history for analysis
-        self.action_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
+        self.action_history: Dict[str, deque[Any]] = defaultdict(lambda: deque(maxlen=1000))
 
         # Learning parameters
         self.min_actions_for_learning = 5
@@ -69,7 +69,7 @@ class PreferenceLearningEngine:
 
             return self.user_profiles[user_id]
 
-    def record_user_action(self, user_id: str, action: UserAction):
+    def record_user_action(self, user_id: str, action: UserAction) -> None:
         """Record a user action for learning"""
         with self.lock:
             profile = self.get_or_create_user(user_id)
@@ -123,7 +123,7 @@ class PreferenceLearningEngine:
         return adjustments
 
     def _update_preference_biases(self, profile: UserProfile, action: UserAction,
-                                adjustments: Dict[str, float]):
+                                adjustments: Dict[str, float]) -> None:
         """Update user preference biases based on action"""
 
         # Update EQ preferences
@@ -155,7 +155,7 @@ class PreferenceLearningEngine:
         self._update_high_level_preferences(profile, adjustments)
 
     def _update_high_level_preferences(self, profile: UserProfile,
-                                     adjustments: Dict[str, float]):
+                                     adjustments: Dict[str, float]) -> None:
         """Update high-level preference indicators"""
 
         # Brightness preference (based on treble adjustments)
@@ -187,7 +187,7 @@ class PreferenceLearningEngine:
                 profile.learning_rate
             )
 
-    def _update_confidence_score(self, profile: UserProfile):
+    def _update_confidence_score(self, profile: UserProfile) -> None:
         """Update confidence score based on learning history"""
 
         # Confidence increases with number of actions and consistency
@@ -236,7 +236,7 @@ class PreferenceLearningEngine:
             debug(f"Applied user preferences for {user_id} (confidence: {profile.confidence_score:.2f})")
             return adapted_params
 
-    def _apply_preference_biases(self, parameters: Dict[str, float], profile: UserProfile):
+    def _apply_preference_biases(self, parameters: Dict[str, float], profile: UserProfile) -> None:
         """Apply learned preference biases to parameters"""
 
         # Apply EQ biases
@@ -250,7 +250,7 @@ class PreferenceLearningEngine:
                 parameters[param] += bias * profile.confidence_score
 
     def _apply_predictions(self, parameters: Dict[str, float],
-                         predictions: Dict[str, float], confidence: float):
+                         predictions: Dict[str, float], confidence: float) -> None:
         """Apply ML predictions with confidence weighting"""
 
         prediction_weight = confidence * 0.5  # Conservative weighting
@@ -340,7 +340,7 @@ class PreferenceLearningEngine:
             debug(f"Failed to load user profile {user_id}: {e}")
             return False
 
-    def cleanup_old_data(self, days_threshold: int = 90):
+    def cleanup_old_data(self, days_threshold: int = 90) -> None:
         """Clean up old learning data"""
         cutoff_date = datetime.now() - timedelta(days=days_threshold)
 
