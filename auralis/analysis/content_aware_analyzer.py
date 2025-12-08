@@ -16,7 +16,7 @@ Key Discovery: Bass/Mid Ratio is the strongest differentiator (8.9 dB range)
 """
 
 import numpy as np
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, Any
 import logging
 from .fingerprint.common_metrics import SafeOperations, AudioMetrics
 
@@ -37,15 +37,15 @@ class ContentAwareAnalyzer:
     4. Mid Energy: 21.3% to 66.9% (classic vs modern indicator)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize content analyzer."""
-        self.frequency_bands = {
+        self.frequency_bands: Dict[str, Tuple[int, int]] = {
             'bass': (20, 250),      # Bass fundamentals
             'mid': (250, 4000),     # Vocals, guitars, core musical content
             'high': (4000, 20000)   # Cymbals, air, presence
         }
 
-    def analyze(self, audio: np.ndarray, sr: int) -> Dict:
+    def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, Any]:
         """
         Complete content analysis of audio.
 
@@ -82,7 +82,7 @@ class ContentAwareAnalyzer:
             'characteristics': self._describe_characteristics(spectral, dynamic, energy)
         }
 
-    def _analyze_spectral_content(self, audio: np.ndarray, sr: int) -> Dict:
+    def _analyze_spectral_content(self, audio: np.ndarray, sr: int) -> Dict[str, Any]:
         """
         Analyze frequency content.
 
@@ -132,7 +132,7 @@ class ContentAwareAnalyzer:
             'spectral_centroid': spectral_centroid
         }
 
-    def _analyze_dynamic_content(self, audio: np.ndarray) -> Dict:
+    def _analyze_dynamic_content(self, audio: np.ndarray) -> Dict[str, Any]:
         """
         Analyze dynamic range characteristics.
 
@@ -177,7 +177,7 @@ class ContentAwareAnalyzer:
             'rms_variation_db': rms_variation_db
         }
 
-    def _analyze_energy_content(self, audio: np.ndarray, sr: int) -> Dict:
+    def _analyze_energy_content(self, audio: np.ndarray, sr: int) -> Dict[str, Any]:
         """
         Analyze energy and intensity characteristics.
         """
@@ -192,7 +192,7 @@ class ContentAwareAnalyzer:
             'spectral_flux': spectral_flux
         }
 
-    def _match_to_profile(self, spectral: Dict, dynamic: Dict, energy: Dict) -> Tuple[str, float]:
+    def _match_to_profile(self, spectral: Dict[str, Any], dynamic: Dict[str, Any], energy: Dict[str, Any]) -> Tuple[str, float]:
         """
         Match content to one of the 7 profiles based on audio characteristics.
 
@@ -279,7 +279,7 @@ class ContentAwareAnalyzer:
 
         return profile, confidence
 
-    def _describe_characteristics(self, spectral: Dict, dynamic: Dict, energy: Dict) -> Dict:
+    def _describe_characteristics(self, spectral: Dict[str, Any], dynamic: Dict[str, Any], energy: Dict[str, Any]) -> Dict[str, str]:
         """
         Describe audio characteristics in human-readable terms.
         """
@@ -329,7 +329,7 @@ class ContentAwareAnalyzer:
     def _calculate_spectral_centroid(self, magnitude: np.ndarray, freqs: np.ndarray) -> float:
         """Calculate spectral centroid (brightness measure)."""
         if np.sum(magnitude) > 0:
-            return np.sum(freqs * magnitude) / np.sum(magnitude)
+            return np.sum(freqs * magnitude) / np.sum(magnitude)  # type: ignore[no-any-return]
         return 0.0
 
     def _calculate_spectral_flux(self, audio: np.ndarray, sr: int) -> float:
@@ -358,7 +358,7 @@ class ContentAwareAnalyzer:
         return np.mean(flux_values) if flux_values else 0.0
 
 
-def analyze_audio_content(audio: np.ndarray, sr: int) -> Dict:
+def analyze_audio_content(audio: np.ndarray, sr: int) -> Dict[str, Any]:
     """
     Convenience function for content-aware analysis.
 

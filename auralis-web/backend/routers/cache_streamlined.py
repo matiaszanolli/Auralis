@@ -12,6 +12,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from cache import StreamlinedCacheManager
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class TrackCacheStatus(BaseModel):
     fully_cached: bool
 
 
-def create_streamlined_cache_router(cache_manager, broadcast_manager=None):
+def create_streamlined_cache_router(cache_manager: StreamlinedCacheManager, broadcast_manager=None):
     """
     Create streamlined cache management router.
 

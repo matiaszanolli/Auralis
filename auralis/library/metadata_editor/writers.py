@@ -15,7 +15,7 @@ from typing import Dict, Any
 from .tag_mappings import TAG_MAPPINGS
 
 try:
-    from mutagen.id3 import TIT2, TPE1, TALB, TPE2, TDRC, TCON, TRCK, TPOS, COMM  # type: ignore[import-untyped]
+    from mutagen.id3 import TIT2, TPE1, TALB, TPE2, TDRC, TCON, TRCK, TPOS, COMM  # type: ignore[attr-defined]
     MUTAGEN_ID3_AVAILABLE: bool = True
 except ImportError:
     MUTAGEN_ID3_AVAILABLE = False

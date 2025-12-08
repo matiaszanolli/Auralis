@@ -20,7 +20,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -43,18 +43,6 @@ class UpdatePlaylistRequest(BaseModel):
 class AddTracksRequest(BaseModel):
     """Request model for adding tracks to playlist"""
     track_ids: List[int]
-
-
-class AddTrackRequest(BaseModel):
-    """Request model for adding a single track to playlist with position"""
-    track_id: int
-    position: Optional[int] = None  # None = append to end
-
-
-class ReorderTrackRequest(BaseModel):
-    """Request model for reordering track within playlist"""
-    from_index: int
-    to_index: int
 
 
 def create_playlists_router(get_library_manager: Callable[[], Any], connection_manager: Any) -> APIRouter:
@@ -391,105 +379,5 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
         except Exception as e:
             logger.error(f"Failed to clear playlist: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to clear playlist: {e}")
-
-    @router.post("/api/playlists/{playlist_id}/tracks/add")
-    async def add_track_to_playlist(playlist_id: int, request: AddTrackRequest) -> Dict[str, Any]:
-        """
-        Add a single track to playlist at specific position (for drag-and-drop).
-
-        Args:
-            playlist_id: Playlist ID
-            request: Track ID and optional position
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If library manager not available or track/playlist not found
-        """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
-        try:
-            success = library_manager.playlists.add_track(
-                playlist_id,
-                request.track_id,
-                request.position
-            )
-
-            if not success:
-                raise HTTPException(status_code=404, detail="Playlist or track not found")
-
-            # Broadcast playlist updated event
-            await connection_manager.broadcast({
-                "type": "playlist_track_added",
-                "data": {
-                    "playlist_id": playlist_id,
-                    "track_id": request.track_id,
-                    "position": request.position
-                }
-            })
-
-            return {
-                "message": "Track added to playlist",
-                "track_id": request.track_id,
-                "position": request.position
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to add track to playlist: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to add track: {e}")
-
-    @router.put("/api/playlists/{playlist_id}/tracks/reorder")
-    async def reorder_playlist_track(playlist_id: int, request: ReorderTrackRequest) -> Dict[str, Any]:
-        """
-        Reorder track within playlist (for drag-and-drop).
-
-        Args:
-            playlist_id: Playlist ID
-            request: From and to indices
-
-        Returns:
-            dict: Success message
-
-        Raises:
-            HTTPException: If library manager not available, invalid indices, or playlist not found
-        """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
-        try:
-            success = library_manager.playlists.reorder_track(
-                playlist_id,
-                request.from_index,
-                request.to_index
-            )
-
-            if not success:
-                raise HTTPException(status_code=400, detail="Failed to reorder track (invalid indices or playlist not found)")
-
-            # Broadcast playlist reordered event
-            await connection_manager.broadcast({
-                "type": "playlist_track_reordered",
-                "data": {
-                    "playlist_id": playlist_id,
-                    "from_index": request.from_index,
-                    "to_index": request.to_index
-                }
-            })
-
-            return {
-                "message": "Track reordered successfully",
-                "from_index": request.from_index,
-                "to_index": request.to_index
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to reorder track: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to reorder track: {e}")
 
     return router
