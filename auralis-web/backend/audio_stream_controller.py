@@ -311,19 +311,15 @@ class AudioStreamController:
         # Process chunk if not cached
         if not cache_hit:
             logger.debug(f"❌ Cache MISS: Processing chunk {chunk_index}")
-            # Process chunk - use async version directly and await it
-            # This ensures the chunk file is created before we try to load it
-            await processor.process_chunk_safe(chunk_index, fast_start=fast_start)
-
-            # Load processed chunk from disk
-            chunk_path = processor._get_chunk_path(chunk_index)
+            # Process chunk - returns both path (for durability) and audio array (for streaming)
+            # This avoids the disk round-trip of saving then immediately reading back
             try:
-                from auralis.io.unified_loader import load_audio
-
-                pcm_samples, sr = load_audio(str(chunk_path))
+                chunk_path, pcm_samples = await processor.process_chunk_safe(chunk_index, fast_start=fast_start)
+                sr = processor.sample_rate
 
                 logger.debug(
-                    f"Chunk {chunk_index}: loaded {len(pcm_samples)} samples at {sr}Hz"
+                    f"Chunk {chunk_index}: processed {len(pcm_samples)} samples at {sr}Hz "
+                    f"(skipped disk read, used array directly)"
                 )
 
                 # Store in cache for future use
@@ -340,7 +336,7 @@ class AudioStreamController:
                     logger.debug(f"Failed to cache chunk (not critical): {e}")
 
             except Exception as e:
-                logger.error(f"Failed to load chunk {chunk_index}: {e}")
+                logger.error(f"Failed to process chunk {chunk_index}: {e}")
                 raise
 
         # Stream PCM samples to client

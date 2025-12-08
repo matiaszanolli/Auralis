@@ -11,7 +11,7 @@ Assess audio frequency response quality
 """
 
 import numpy as np
-from typing import Dict
+from typing import Any, Dict
 from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
 from auralis.analysis.quality_assessors.utilities.frequency_ops import FrequencyOperations
 from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOperations
@@ -54,7 +54,7 @@ class FrequencyResponseAssessor(BaseAssessor):
 
         return reference
 
-    def assess(self, spectrum_result: Dict) -> float:
+    def assess(self, spectrum_result: Dict[str, Any]) -> float:  # type: ignore[override]
         """
         Assess frequency response quality (0-100)
 
@@ -80,7 +80,7 @@ class FrequencyResponseAssessor(BaseAssessor):
 
         return float(score)
 
-    def detailed_analysis(self, spectrum_result: Dict) -> Dict:
+    def detailed_analysis(self, spectrum_result: Dict[str, Any]) -> Dict[str, Any]:  # type: ignore[override]
         """
         Perform detailed frequency response analysis
 
@@ -120,8 +120,8 @@ class FrequencyResponseAssessor(BaseAssessor):
 
         return weights
 
-    def identify_frequency_issues(self, spectrum_result: Dict,
-                                 threshold_db: float = 6.0) -> Dict:
+    def identify_frequency_issues(self, spectrum_result: Dict[str, Any],
+                                 threshold_db: float = 6.0) -> Dict[str, Any]:
         """
         Identify specific frequency response issues
 
@@ -135,7 +135,7 @@ class FrequencyResponseAssessor(BaseAssessor):
         spectrum = np.array(spectrum_result['spectrum'])
         deviation = spectrum - self.reference_curve
 
-        issues = {
+        issues: Dict[str, Any] = {
             'excessive_bass': False,
             'lacking_bass': False,
             'harsh_mids': False,

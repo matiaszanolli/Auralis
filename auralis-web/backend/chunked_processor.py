@@ -518,16 +518,19 @@ class ChunkedAudioProcessor:
 
         return processed_chunk
 
-    def process_chunk(self, chunk_index: int, fast_start: bool = False) -> str:
+    def process_chunk(self, chunk_index: int, fast_start: bool = False) -> Tuple[str, np.ndarray]:
         """
         Process a single chunk with Auralis HybridProcessor and save to WAV.
+
+        Returns both the path (for caching) and the numpy array (for streaming).
+        This avoids the disk round-trip of saving then immediately reading back.
 
         Args:
             chunk_index: Index of chunk to process
             fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
 
         Returns:
-            Path to processed chunk file
+            Tuple of (path_to_chunk_file, processed_audio_array)
         """
         # Check cache first
         cache_key = self._get_cache_key(chunk_index)
@@ -536,7 +539,11 @@ class ChunkedAudioProcessor:
         if cached_path and Path(cached_path).exists():
             assert self.total_chunks is not None
             logger.info(f"Serving cached chunk {chunk_index}/{self.total_chunks}")
-            return str(cached_path)
+            # Load from disk only if cached (for subsequent requests)
+            # For initial streaming, audio array is already in memory cache
+            from auralis.io.unified_loader import load_audio
+            audio, _ = load_audio(str(cached_path))
+            return (str(cached_path), audio)
 
         logger.info(f"Processing chunk {chunk_index}/{self.total_chunks} (preset: {self.preset}, fast_start: {fast_start})")
 
@@ -594,6 +601,7 @@ class ChunkedAudioProcessor:
         processed_chunk = self._process_chunk_core(chunk_index, fast_start)
 
         # Save chunk using WAVEncoder (Phase 3.5 refactoring)
+        # NOTE: Saved for durability/caching, but we return the array directly to avoid disk I/O
         assert self.sample_rate is not None
         chunk_path = self._wav_encoder.encode_and_save_from_path(
             audio=processed_chunk,
@@ -610,9 +618,10 @@ class ChunkedAudioProcessor:
         self.chunk_cache[cache_key] = str(chunk_path)
 
         logger.info(f"Chunk {chunk_index} processed and saved to {chunk_path}")
-        return str(chunk_path)
+        # Return both path (for caching) and audio array (for immediate streaming)
+        return (str(chunk_path), processed_chunk)
 
-    async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> str:
+    async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> Tuple[str, np.ndarray]:
         """
         Process a single chunk with thread-safe locking (async version).
 
@@ -628,15 +637,17 @@ class ChunkedAudioProcessor:
             fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
 
         Returns:
-            Path to processed chunk file
+            Tuple of (path_to_chunk_file, processed_audio_array)
+            - path: for caching/durability
+            - audio: numpy array for immediate streaming (avoids disk round-trip)
         """
         async with self._processor_lock:
             # Call process_chunk directly (synchronously)
             # This ensures the lock is held and file write completes before returning
             # While this blocks the event loop, it guarantees correctness
-            chunk_path = self.process_chunk(chunk_index, fast_start)
+            chunk_path, audio_array = self.process_chunk(chunk_index, fast_start)
             # File is now guaranteed to exist since process_chunk completed
-            return chunk_path
+            return (chunk_path, audio_array)
 
     def process_chunk_synchronized(self, chunk_index: int, fast_start: bool = False) -> str:
         """

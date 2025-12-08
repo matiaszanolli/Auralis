@@ -13,7 +13,7 @@ functions used across sequential and parallel spectrum analyzers.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 import numpy as np
 from scipy import signal
 from .fingerprint.common_metrics import AudioMetrics, AggregationUtils, MetricUtils
@@ -56,7 +56,7 @@ class SpectrumOperations:
         Returns:
             Window array
         """
-        return signal.get_window(window_type, fft_size)
+        return cast(np.ndarray, signal.get_window(window_type, fft_size))
 
     @staticmethod
     def compute_a_weighting(frequencies: np.ndarray) -> np.ndarray:
@@ -88,7 +88,7 @@ class SpectrumOperations:
         else:
             response_normalized = response
 
-        return 20 * np.log10(np.maximum(response_normalized, 1e-10))
+        return cast(np.ndarray, 20 * np.log10(np.maximum(response_normalized, 1e-10)))
 
     @staticmethod
     def compute_c_weighting(frequencies: np.ndarray) -> np.ndarray:
@@ -120,7 +120,7 @@ class SpectrumOperations:
         else:
             response_normalized = response
 
-        return 20 * np.log10(np.maximum(response_normalized, 1e-10))
+        return cast(np.ndarray, 20 * np.log10(np.maximum(response_normalized, 1e-10)))
 
     @staticmethod
     def get_weighting_curve(frequencies: np.ndarray,
@@ -147,7 +147,7 @@ class SpectrumOperations:
     def compute_fft(audio_data: np.ndarray,
                    window: np.ndarray,
                    fft_size: int,
-                   channel: int = 0) -> Tuple[np.ndarray, np.ndarray]:
+                   channel: int = 0) -> Tuple[np.ndarray, int]:
         """
         Compute FFT for audio chunk
 
@@ -255,9 +255,9 @@ class SpectrumOperations:
         """
         denominator = np.sum(spectrum)
         if denominator == 0:
-            return frequency_bins[len(frequency_bins) // 2]
+            return float(frequency_bins[len(frequency_bins) // 2])
 
-        return float(np.sum(frequency_bins * spectrum) / denominator)
+        return float(cast(np.ndarray, np.sum(frequency_bins * spectrum) / denominator))
 
     @staticmethod
     def calculate_spectral_rolloff(frequency_bins: np.ndarray,
@@ -287,12 +287,12 @@ class SpectrumOperations:
         total_energy = cumulative_energy[-1]
 
         if total_energy == 0:
-            return frequency_bins[-1]
+            return float(frequency_bins[-1])
 
         rolloff_energy = total_energy * rolloff_threshold
         rolloff_idx = np.argmax(cumulative_energy >= rolloff_energy)
 
-        return float(frequency_bins[rolloff_idx])
+        return float(cast(np.ndarray, frequency_bins[rolloff_idx]))
 
     @staticmethod
     def calculate_spectral_spread(frequency_bins: np.ndarray,
@@ -365,7 +365,7 @@ class SpectrumOperations:
         return band_names
 
     @staticmethod
-    def aggregate_analysis_results(chunk_results: List[Dict]) -> Dict:
+    def aggregate_analysis_results(chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Aggregate spectrum analysis results across multiple chunks
 
