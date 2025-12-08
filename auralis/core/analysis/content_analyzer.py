@@ -11,7 +11,7 @@ Enhanced content analysis for adaptive audio processing
 """
 
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from ...dsp.unified import (
     rms, spectral_centroid, spectral_rolloff, zero_crossing_rate,
@@ -49,10 +49,10 @@ class ContentAnalyzer:
                 debug("ML genre classifier initialized successfully")
             except Exception as e:
                 debug(f"Failed to initialize ML classifier, falling back to rule-based: {e}")
-                self.ml_classifier = None
+                self.ml_classifier = None  # type: ignore[assignment]
                 self.use_ml_classification = False
         else:
-            self.ml_classifier = None
+            self.ml_classifier = None  # type: ignore[assignment]
 
         # Initialize 25D audio fingerprint analyzer
         if use_fingerprint_analysis:
@@ -61,10 +61,10 @@ class ContentAnalyzer:
                 debug("Audio fingerprint analyzer (25D) initialized successfully")
             except Exception as e:
                 debug(f"Failed to initialize fingerprint analyzer: {e}")
-                self.fingerprint_analyzer = None
+                self.fingerprint_analyzer = None  # type: ignore[assignment]
                 self.use_fingerprint_analysis = False
         else:
-            self.fingerprint_analyzer = None
+            self.fingerprint_analyzer = None  # type: ignore[assignment]
 
     def analyze_content(self, audio: np.ndarray) -> Dict[str, Any]:
         """
@@ -344,7 +344,7 @@ class ContentAnalyzer:
             genre_scores["pop"] += 0.2
 
         # Find the genre with highest score
-        primary_genre = max(genre_scores, key=genre_scores.get)
+        primary_genre = max(genre_scores, key=lambda x: genre_scores[x])
         confidence = genre_scores[primary_genre]
 
         # If confidence is too low, use "pop" as safe default
@@ -387,15 +387,15 @@ class ContentAnalyzer:
         if len(rms_values) < 2:
             return 20.0  # Default dynamic range
 
-        rms_values = np.array(rms_values)
-        rms_values = rms_values[rms_values > 1e-6]  # Remove silence
+        rms_values_array = np.array(rms_values)
+        rms_values_array = rms_values_array[rms_values_array > 1e-6]  # Remove silence
 
-        if len(rms_values) == 0:
+        if len(rms_values_array) == 0:
             return 20.0
 
         # Calculate dynamic range as difference between 95th and 10th percentile
-        loud_level = np.percentile(rms_values, 95)
-        quiet_level = np.percentile(rms_values, 10)
+        loud_level = np.percentile(rms_values_array, 95)
+        quiet_level = np.percentile(rms_values_array, 10)
 
         if quiet_level > 0:
             dynamic_range = 20 * np.log10(loud_level / quiet_level)
