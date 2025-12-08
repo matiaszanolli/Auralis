@@ -16,7 +16,7 @@ import logging
 import sys
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -46,13 +46,13 @@ HAS_STREAMLINED_CACHE = True
 HAS_SIMILARITY = True
 
 # Import core components for router setup
+ProcessingEngine: Any = None
+ChunkedAudioProcessor: Any = None
 try:
     from processing_engine import ProcessingEngine
     from chunked_processor import ChunkedAudioProcessor
 except ImportError:
     HAS_PROCESSING = False
-    ProcessingEngine = None
-    ChunkedAudioProcessor = None
     logger.warning("⚠️  Processing components not available")
 
 try:
@@ -75,7 +75,7 @@ app = create_app()
 setup_middleware(app)
 
 # Create global state dictionary with all dependencies
-manager = ConnectionManager()
+manager = ConnectionManager()  # type: ignore[no-untyped-call]
 globals_dict = {
     # Components (initialized during startup)
     'library_manager': None,
@@ -120,12 +120,14 @@ setup_routers(app, deps)
 # Frontend static file serving
 if hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS'):
     # PyInstaller bundle (production or Electron)
-    frontend_path = Path(sys._MEIPASS) / "frontend"
-    logger.info(f"PyInstaller mode: _MEIPASS={sys._MEIPASS}")
+    meipass = getattr(sys, '_MEIPASS')
+    frontend_path = Path(meipass) / "frontend"
+    logger.info(f"PyInstaller mode: _MEIPASS={meipass}")
 elif hasattr(sys, '_MEIPASS'):
     # PyInstaller bundle but not Electron - frontend might be bundled
-    frontend_path = Path(sys._MEIPASS) / "frontend"
-    logger.info(f"PyInstaller mode: _MEIPASS={sys._MEIPASS}")
+    meipass = getattr(sys, '_MEIPASS')
+    frontend_path = Path(meipass) / "frontend"
+    logger.info(f"PyInstaller mode: _MEIPASS={meipass}")
 else:
     # Development mode - look in regular location
     frontend_path = Path(__file__).parent.parent / "frontend" / "build"
@@ -144,7 +146,7 @@ elif is_dev_mode:
     logger.info("ℹ️  Development mode: Vite serves frontend, StaticFiles NOT mounted (preserves WebSocket routes)")
 
     @app.get("/")
-    async def root():
+    async def root() -> HTMLResponse:
         return HTMLResponse("""
         <html>
             <head><title>Auralis Web</title></head>
@@ -160,7 +162,7 @@ else:
     logger.warning(f"⚠️  Frontend not found at {frontend_path}")
 
     @app.get("/")
-    async def root():
+    async def root() -> HTMLResponse:
         return HTMLResponse(f"""
         <html>
             <head><title>Auralis Web</title></head>

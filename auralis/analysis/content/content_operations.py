@@ -14,7 +14,7 @@ genre classification, and mood analysis.
 import numpy as np
 from scipy.fft import fft, fftfreq
 from scipy.signal import find_peaks
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple, Optional, cast
 
 from ...dsp.unified import (
     spectral_centroid, spectral_rolloff, zero_crossing_rate,
@@ -41,22 +41,22 @@ class ContentAnalysisOperations:
         window_size = int(0.5 * sample_rate)  # 500ms windows
         hop_size = window_size // 2
 
-        rms_values = []
+        rms_values_list: List[Any] = []
         for i in range(0, len(audio) - window_size, hop_size):
             window = audio[i:i + window_size]
             rms_val = np.sqrt(np.mean(window ** 2))
             if rms_val > 1e-6:  # Avoid silence
-                rms_values.append(rms_val)
+                rms_values_list.append(rms_val)
 
-        if len(rms_values) < 2:
+        if len(rms_values_list) < 2:
             return 20.0
 
-        rms_values = np.array(rms_values)
+        rms_values = np.array(rms_values_list)
         loud_level = np.percentile(rms_values, 95)
         quiet_level = np.percentile(rms_values, 10)
 
         if quiet_level > 0:
-            return 20 * np.log10(loud_level / quiet_level)
+            return float(20 * np.log10(loud_level / quiet_level))
         else:
             return 20.0
 
@@ -81,7 +81,7 @@ class ContentAnalysisOperations:
             centroid = np.sum(freqs * magnitude) / np.sum(magnitude)
             # Calculate spread around centroid
             spread = np.sqrt(np.sum(((freqs - centroid) ** 2) * magnitude) / np.sum(magnitude))
-            return spread
+            return float(spread)
         return 1000.0  # Default spread
 
     @staticmethod
@@ -243,7 +243,7 @@ class ContentAnalysisOperations:
         total_energy = np.sum(magnitude)
 
         if total_energy > 0:
-            return harmonic_energy / total_energy
+            return float(harmonic_energy / total_energy)
         else:
             return 0.0
 
@@ -271,18 +271,18 @@ class ContentAnalysisOperations:
         # Expected harmonic frequencies
         harmonics = [fundamental * i for i in range(1, 11)]  # First 10 harmonics
 
-        deviations = []
+        deviations: List[Any] = []
         for harmonic_freq in harmonics:
             if harmonic_freq < sample_rate / 2:
                 # Find closest frequency bin
-                closest_idx = np.argmin(np.abs(freqs - harmonic_freq))
+                closest_idx = int(np.argmin(np.abs(freqs - harmonic_freq)))
 
                 # Look for peak near expected harmonic
                 search_range = 10  # bins
-                start_idx = max(0, closest_idx - search_range)
-                end_idx = min(len(magnitude), closest_idx + search_range)
+                start_idx = int(max(0, closest_idx - search_range))
+                end_idx = int(min(len(magnitude), closest_idx + search_range))
 
-                local_peak_idx = np.argmax(magnitude[start_idx:end_idx]) + start_idx
+                local_peak_idx = int(np.argmax(magnitude[start_idx:end_idx])) + start_idx
                 actual_freq = freqs[local_peak_idx]
 
                 if magnitude[local_peak_idx] > np.max(magnitude) * 0.05:
@@ -330,7 +330,7 @@ class ContentAnalysisOperations:
         rhythm_range = autocorr[min_period:max_period]
         rhythm_strength = np.max(rhythm_range) / (np.mean(autocorr) + 1e-6)
 
-        return min(rhythm_strength / 10.0, 1.0)  # Normalize
+        return float(min(rhythm_strength / 10.0, 1.0))
 
     @staticmethod
     def calculate_beat_consistency(audio: np.ndarray, sample_rate: int = 44100) -> float:
@@ -361,7 +361,7 @@ class ContentAnalysisOperations:
 
         if mean_interval > 0:
             consistency = 1.0 / (1.0 + std_interval / mean_interval)
-            return consistency
+            return float(consistency)
         else:
             return 0.0
 
