@@ -11,7 +11,7 @@ Data access layer for user settings operations
 """
 
 import json
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, List
 from sqlalchemy.orm import Session
 
 from ..models import UserSettings
@@ -74,7 +74,7 @@ class SettingsRepository:
             # Handle scan_folders separately as it needs JSON serialization
             if 'scan_folders' in updates:
                 if isinstance(updates['scan_folders'], list):
-                    settings.scan_folders = json.dumps(updates['scan_folders'])
+                    settings.scan_folders = json.dumps(updates['scan_folders'])  # type: ignore[assignment]
                 else:
                     settings.scan_folders = updates['scan_folders']
                 del updates['scan_folders']
@@ -82,7 +82,7 @@ class SettingsRepository:
             # Handle file_types as comma-separated string
             if 'file_types' in updates:
                 if isinstance(updates['file_types'], list):
-                    settings.file_types = ','.join(updates['file_types'])
+                    settings.file_types = ','.join(updates['file_types'])  # type: ignore[assignment]
                 else:
                     settings.file_types = updates['file_types']
                 del updates['file_types']
@@ -119,7 +119,7 @@ class SettingsRepository:
         finally:
             session.close()
 
-    def update_scan_folders(self, folders: list) -> UserSettings:
+    def update_scan_folders(self, folders: List[str]) -> UserSettings:
         """
         Update the list of scan folders
 
@@ -142,7 +142,10 @@ class SettingsRepository:
             Updated UserSettings object
         """
         settings = self.get_settings()
-        folders = json.loads(settings.scan_folders) if settings.scan_folders else []
+        if settings and settings.scan_folders:
+            folders = json.loads(str(settings.scan_folders))
+        else:
+            folders = []
 
         if folder not in folders:
             folders.append(folder)
@@ -160,7 +163,10 @@ class SettingsRepository:
             Updated UserSettings object
         """
         settings = self.get_settings()
-        folders = json.loads(settings.scan_folders) if settings.scan_folders else []
+        if settings and settings.scan_folders:
+            folders = json.loads(str(settings.scan_folders))
+        else:
+            folders = []
 
         if folder in folders:
             folders.remove(folder)
