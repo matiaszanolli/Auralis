@@ -10,7 +10,7 @@ Phase B.1: Backend Endpoint Standardization
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, TypeVar, Callable, Any, Optional
+from typing import List, TypeVar, Callable, Any, Optional, Dict
 from schemas import (
     PaginationMeta,
     PaginatedResponse,
@@ -119,7 +119,7 @@ def validate_pagination_params(
 
 async def execute_batch_operation(
     batch_request: BatchRequest,
-    handlers: dict[str, Callable],
+    handlers: Dict[str, Callable[..., Any]],
     atomic: bool = False
 ) -> BatchResponse:
     """
@@ -198,7 +198,7 @@ async def execute_batch_operation(
 
 async def execute_batch_operation_sync(
     batch_request: BatchRequest,
-    handlers: dict[str, Callable],
+    handlers: Dict[str, Callable[..., Any]],
     atomic: bool = False
 ) -> BatchResponse:
     """
@@ -291,9 +291,9 @@ def paginate_list(
 
 
 def apply_filters(
-    items: List[dict],
-    filters: dict[str, Any]
-) -> List[dict]:
+    items: List[Dict[str, Any]],
+    filters: Dict[str, Any]
+) -> List[Dict[str, Any]]:
     """
     Apply filters to a list of items.
 
@@ -323,10 +323,10 @@ def apply_filters(
 
 
 def apply_search(
-    items: List[dict],
+    items: List[Dict[str, Any]],
     query: str,
     search_fields: List[str]
-) -> List[dict]:
+) -> List[Dict[str, Any]]:
     """
     Apply text search to a list of items.
 
@@ -364,8 +364,8 @@ def apply_search(
 
 def create_success_response(
     data: Any,
-    message: Optional[str] = None
-) -> SuccessResponse:
+    message: Optional[str] = None,
+) -> SuccessResponse[Any]:
     """
     Create a standardized success response.
 
@@ -445,7 +445,7 @@ def calculate_cache_hit_probability(
     return total_hits / max(1, total_requests)
 
 
-def format_cache_stats(stats: dict) -> dict:
+def format_cache_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
     """
     Format cache statistics for API response.
 
@@ -528,8 +528,8 @@ def create_cache_aware_response(
     data: Any,
     cache_source: str = "miss",
     processing_time_ms: float = 0.0,
-    message: Optional[str] = None
-) -> dict:
+    message: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Create a cache-aware response with timing information.
 
