@@ -12,6 +12,7 @@ Main audio processing and mastering engine
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
+from typing import List, Optional, Any, Tuple
 from ..utils.logging import Code, info, debug, debug_line, ModuleError
 from .config import UnifiedConfig
 from ..io.results import Result
@@ -27,11 +28,11 @@ from ..dsp.basic import channel_count, size
 def process(
     target: str,
     reference: str,
-    results: list,
-    config: UnifiedConfig = None,
-    preview_target: Result = None,
-    preview_result: Result = None,
-):
+    results: Any,
+    config: Optional[UnifiedConfig] = None,
+    preview_target: Optional[Result] = None,
+    preview_result: Optional[Result] = None,
+) -> None:
     """
     Process audio files with reference-based mastering
 
@@ -70,7 +71,7 @@ def process(
         raise RuntimeError("The result list is empty")
 
     # Get a temporary folder for converting audio files
-    temp_folder = config.temp_folder if config.temp_folder else get_temp_folder(results)
+    temp_folder = config.temp_folder if config.temp_folder else get_temp_folder(results)  # type: ignore[no-untyped-call]
 
     # Load both files and capture original target rate for output
     target_audio, target_sample_rate = load(target, "target", temp_folder)
