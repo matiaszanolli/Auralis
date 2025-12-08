@@ -70,7 +70,7 @@ class EnhancedAudioPlayer:
         self.config = config
 
         # Initialize components
-        self.playback = PlaybackController()  # type: ignore[no-untyped-call]
+        self.playback = PlaybackController()
         self.file_manager = AudioFileManager(config.sample_rate)
         self.queue = QueueController(library_manager)
         self.processor = RealtimeProcessor(config)
@@ -150,7 +150,7 @@ class EnhancedAudioPlayer:
         Returns:
             bool: True if successful
         """
-        self.playback.set_loading()  # type: ignore[no-untyped-call]
+        self.playback.set_loading()
 
         if self.file_manager.load_file(file_path):
             # Explicitly set state to STOPPED (stop() doesn't work when state is LOADING)
@@ -158,7 +158,7 @@ class EnhancedAudioPlayer:
             self.playback.position = 0
 
             # Start prebuffering next track
-            self.gapless.start_prebuffering()  # type: ignore[no-untyped-call]
+            self.gapless.start_prebuffering()
 
             self.integration._notify_callbacks({
                 'action': 'file_loaded',
@@ -166,7 +166,7 @@ class EnhancedAudioPlayer:
             })
             return True
         else:
-            self.playback.set_error()  # type: ignore[no-untyped-call]
+            self.playback.set_error()
             return False
 
     def load_reference(self, file_path: str) -> bool:
@@ -198,14 +198,14 @@ class EnhancedAudioPlayer:
         Returns:
             bool: True if successful
         """
-        self.playback.set_loading()  # type: ignore[no-untyped-call]
+        self.playback.set_loading()
 
         if self.integration.load_track_from_library(track_id):
             self.playback.stop()
-            self.gapless.start_prebuffering()  # type: ignore[no-untyped-call]
+            self.gapless.start_prebuffering()
             return True
         else:
-            self.playback.set_error()  # type: ignore[no-untyped-call]
+            self.playback.set_error()
             return False
 
     # ========== Queue Management (delegates to QueueController) ==========
@@ -220,7 +220,7 @@ class EnhancedAudioPlayer:
         was_playing = self.playback.is_playing()
 
         if self.gapless.advance_with_prebuffer(was_playing):
-            self.integration.record_track_completion()  # type: ignore[no-untyped-call]
+            self.integration.record_track_completion()
 
             if was_playing:
                 self.playback.play()
@@ -274,8 +274,8 @@ class EnhancedAudioPlayer:
 
     def clear_queue(self) -> None:
         """Clear the playback queue"""
-        self.queue.clear_queue()  # type: ignore[no-untyped-call]
-        self.gapless.invalidate_prebuffer()  # type: ignore[no-untyped-call]
+        self.queue.clear_queue()
+        self.gapless.invalidate_prebuffer()
 
     # ========== Audio Output (delegates to AudioFileManager + Processor) ==========
 
@@ -467,6 +467,6 @@ class EnhancedAudioPlayer:
     def cleanup(self) -> None:
         """Clean up resources"""
         self.stop()
-        self.gapless.cleanup()  # type: ignore[no-untyped-call]
-        self.integration.cleanup()  # type: ignore[no-untyped-call]
+        self.gapless.cleanup()
+        self.integration.cleanup()
         info("AudioPlayer cleanup completed")
