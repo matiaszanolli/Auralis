@@ -10,7 +10,7 @@ REST API endpoints for artist browsing and management
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, Callable
+from typing import Optional, Callable, Any, List, cast
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
@@ -74,7 +74,7 @@ class ArtistTracksResponse(BaseModel):
     total_tracks: int
 
 
-def create_artists_router(get_library_manager: Callable) -> APIRouter:
+def create_artists_router(get_library_manager: Callable[[], Any]) -> APIRouter:
     """Create and configure the artists API router
 
     Args:
@@ -91,7 +91,7 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
         offset: int = Query(0, ge=0, description="Number of artists to skip"),
         search: Optional[str] = Query(None, description="Search query for artist name"),
         order_by: str = Query('name', description="Sort by: name, album_count, track_count")
-    ):
+    ) -> ArtistsListResponse:
         """Get paginated list of artists
 
         Returns artists with album and track counts, supporting pagination,
@@ -126,8 +126,8 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
                 genres_list = list(genres) if genres else None
 
                 artist_responses.append(ArtistResponse(
-                    id=artist.id,
-                    name=artist.name,
+                    id=cast(int, artist.id),
+                    name=cast(str, artist.name),
                     album_count=len(artist.albums) if artist.albums else 0,
                     track_count=len(artist.tracks) if artist.tracks else 0,
                     genres=genres_list
@@ -149,7 +149,7 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
             raise handle_query_error("fetch artists", e)
 
     @router.get("/api/artists/{artist_id}", response_model=ArtistDetailResponse)
-    async def get_artist(artist_id: int):
+    async def get_artist(artist_id: int) -> ArtistDetailResponse:
         """Get detailed information about a specific artist
 
         Returns artist information with all their albums.
@@ -180,8 +180,8 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
             albums.sort(key=lambda a: (-(a.year or 0), a.title))
 
             return ArtistDetailResponse(
-                artist_id=artist.id,
-                artist_name=artist.name,
+                artist_id=cast(int, artist.id),
+                artist_name=cast(str, artist.name),
                 albums=albums,
                 total_albums=len(albums),
                 total_tracks=len(artist.tracks) if artist.tracks else 0
@@ -193,7 +193,7 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
             raise handle_query_error("fetch artist", e)
 
     @router.get("/api/artists/{artist_id}/tracks", response_model=ArtistTracksResponse)
-    async def get_artist_tracks(artist_id: int):
+    async def get_artist_tracks(artist_id: int) -> ArtistTracksResponse:
         """Get all tracks for a specific artist
 
         Returns all tracks by the artist, sorted by album and track number.
@@ -226,8 +226,8 @@ def create_artists_router(get_library_manager: Callable) -> APIRouter:
             ))
 
             return ArtistTracksResponse(
-                artist_id=artist.id,
-                artist_name=artist.name,
+                artist_id=cast(int, artist.id),
+                artist_name=cast(str, artist.name),
                 tracks=tracks,
                 total_tracks=len(tracks)
             )
