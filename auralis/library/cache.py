@@ -45,7 +45,7 @@ class QueryCache:
         self._hits = 0
         self._misses = 0
 
-    def _make_key(self, func_name: str, args: tuple, kwargs: dict) -> str:
+    def _make_key(self, func_name: str, args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> str:
         """
         Create cache key from function name and arguments.
 
@@ -91,7 +91,7 @@ class QueryCache:
         self._hits += 1
         return value
 
-    def set(self, key: str, value: Any, ttl: Optional[int] = None, metadata: Optional[Dict[str, Any]] = None):
+    def set(self, key: str, value: Any, ttl: Optional[int] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
         """
         Store value in cache.
 
@@ -120,7 +120,7 @@ class QueryCache:
 
         self._cache[key] = (value, expiry, metadata)
 
-    def invalidate(self, *patterns):
+    def invalidate(self, *patterns: str) -> None:
         """
         Invalidate cache entries by function name(s).
 
@@ -154,7 +154,7 @@ class QueryCache:
             else:
                 logger.debug(f"🔍 No cache entries found for {patterns}")
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> Dict[str, Any]:
         """
         Get cache statistics.
 
