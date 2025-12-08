@@ -14,7 +14,7 @@ the best matching mastering strategy, rather than using preset configurations.
 """
 
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 import json
 from pathlib import Path
@@ -22,7 +22,7 @@ import numpy as np
 from .fingerprint.common_metrics import MetricUtils
 
 try:
-    import yaml
+    import yaml  # type: ignore[import-untyped]
 except ImportError:
     yaml = None
 
@@ -40,7 +40,7 @@ class DetectionRules:
     centroid_min: Optional[float] = None  # Optional centroid bounds
     centroid_max: Optional[float] = None
 
-    def matches(self, fingerprint) -> bool:
+    def matches(self, fingerprint: Any) -> bool:
         """Check if a fingerprint matches these rules."""
         return (
             self.loudness_min <= fingerprint.loudness_dbfs <= self.loudness_max and
@@ -50,7 +50,7 @@ class DetectionRules:
             (self.centroid_max is None or fingerprint.spectral_centroid <= self.centroid_max)
         )
 
-    def similarity_score(self, fingerprint, confidence_weight: float = 1.0) -> float:
+    def similarity_score(self, fingerprint: Any, confidence_weight: float = 1.0) -> float:
         """
         Calculate how well a fingerprint matches these rules (0-1).
 
@@ -135,7 +135,7 @@ class MasteringProfile:
 
     notes: str = ""                    # Additional context
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             'profile_id': self.profile_id,
@@ -158,12 +158,12 @@ class MasteringProfile:
         """Convert to YAML string (or JSON if YAML not available)."""
         data = self.to_dict()
         if yaml:
-            return yaml.dump(data, default_flow_style=False, sort_keys=False)
+            return str(yaml.dump(data, default_flow_style=False, sort_keys=False))
         else:
             return json.dumps(data, indent=2)
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "MasteringProfile":
+    def from_dict(cls, data: Dict[str, Any]) -> "MasteringProfile":
         """Create from dictionary."""
         dr = DetectionRules(**data['detection_rules'])
         pt = ProcessingTargets(**data['processing_targets'])
@@ -203,7 +203,7 @@ class MasteringProfileDatabase:
     - Ranking profiles by similarity to incoming audio
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.profiles: Dict[str, MasteringProfile] = {}
         self.profile_history: Dict[str, List[MasteringProfile]] = {}  # For versioning
 
@@ -215,7 +215,7 @@ class MasteringProfileDatabase:
         self.profiles[profile.profile_id] = profile
         print(f"Added profile: {profile.name} (v{profile.version})")
 
-    def rank_profiles(self, fingerprint, top_k: int = 5) -> List[Tuple[MasteringProfile, float]]:
+    def rank_profiles(self, fingerprint: Any, top_k: int = 5) -> List[Tuple[MasteringProfile, float]]:
         """
         Rank profiles by similarity to incoming fingerprint.
 
@@ -234,7 +234,7 @@ class MasteringProfileDatabase:
 
         return rankings[:top_k]
 
-    def find_best_profile(self, fingerprint) -> Optional[Tuple[MasteringProfile, float]]:
+    def find_best_profile(self, fingerprint: Any) -> Optional[Tuple[MasteringProfile, float]]:
         """Find the single best matching profile."""
         rankings = self.rank_profiles(fingerprint, top_k=1)
         return rankings[0] if rankings else None
