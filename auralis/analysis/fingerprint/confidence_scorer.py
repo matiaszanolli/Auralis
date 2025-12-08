@@ -20,7 +20,7 @@ Feature Scoring:
 """
 
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class ConfidenceScorer:
     stability metrics and chunk variance analysis.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize confidence scorer with default thresholds."""
         # Confidence thresholds
         self.high_confidence_threshold = 0.90
@@ -52,7 +52,7 @@ class ConfidenceScorer:
         self,
         sampled_features: Dict[str, float],
         full_track_features: Dict[str, float],
-    ) -> Tuple[float, Dict]:
+    ) -> Tuple[float, Dict[str, Any]]:
         """
         Compute overall confidence score by comparing sampled vs full-track features.
 
@@ -96,7 +96,7 @@ class ConfidenceScorer:
 
     def _score_temporal_features(
         self, sampled: Dict[str, float], full_track: Dict[str, float]
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """Score temporal feature stability (centroid, spread, flux)."""
         score = self._compute_feature_similarity(
             sampled, full_track, ["temporal_centroid", "spectral_centroid_time"]
@@ -110,7 +110,7 @@ class ConfidenceScorer:
 
     def _score_spectral_features(
         self, sampled: Dict[str, float], full_track: Dict[str, float]
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """Score spectral feature stability (centroid, bandwidth, contrast)."""
         score = self._compute_feature_similarity(
             sampled, full_track, ["spectral_centroid", "spectral_bandwidth", "spectral_contrast"]
@@ -124,7 +124,7 @@ class ConfidenceScorer:
 
     def _score_harmonic_features(
         self, sampled: Dict[str, float], full_track: Dict[str, float]
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """Score harmonic feature stability (CQT, pitch)."""
         score = self._compute_feature_similarity(
             sampled, full_track, ["cqt_energy", "pitch_mean", "pitch_stability"]
@@ -138,7 +138,7 @@ class ConfidenceScorer:
 
     def _score_percussive_features(
         self, sampled: Dict[str, float], full_track: Dict[str, float]
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """Score percussive feature stability (HPSS, dynamics)."""
         score = self._compute_feature_similarity(
             sampled, full_track, ["percussive_energy", "dynamic_range", "rms_energy"]
@@ -151,7 +151,7 @@ class ConfidenceScorer:
         }
 
     def _compute_feature_similarity(
-        self, sampled: Dict, full_track: Dict, feature_names: list
+        self, sampled: Dict[str, Any], full_track: Dict[str, Any], feature_names: List[str]
     ) -> float:
         """
         Compute similarity between sampled and full-track features.
@@ -184,16 +184,16 @@ class ConfidenceScorer:
 
         # Return average similarity if we found any matching features
         if similarities:
-            return np.mean(similarities)
+            return float(np.mean(similarities))
         else:
             # No matching features found - return neutral score
             return 0.5
 
     def score_chunk_variance(
         self,
-        sampled_chunks: list,
+        sampled_chunks: List[Dict[str, float]],
         full_track_features: Dict[str, float],
-    ) -> Tuple[float, Dict]:
+    ) -> Tuple[float, Dict[str, Any]]:
         """
         Assess confidence based on chunk-to-chunk variance in sampled analysis.
 
@@ -225,15 +225,16 @@ class ConfidenceScorer:
         # Score based on consistency (lower CV = higher consistency = higher confidence)
         # CV > 0.5 = high variance = low confidence
         # CV < 0.1 = low variance = high confidence
+        avg_cv: Optional[float] = None
         if variations:
-            avg_cv = np.mean(variations)
+            avg_cv = float(np.mean(variations))
             # Convert CV to confidence: score = max(0, 1 - (cv * 2))
             variance_score = max(0.0, 1.0 - (avg_cv * 2))
         else:
             variance_score = 0.5  # Neutral if no features
 
         details = {
-            "coefficient_of_variation": avg_cv if variations else None,
+            "coefficient_of_variation": avg_cv,
             "score": variance_score,
             "tier": self._determine_confidence_tier(variance_score),
         }
