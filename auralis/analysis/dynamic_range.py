@@ -8,7 +8,7 @@ Comprehensive dynamic range measurement and analysis tools.
 """
 
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 from scipy import signal
 from auralis.analysis.fingerprint.common_metrics import SafeOperations, AudioMetrics, MetricUtils, AggregationUtils
 
@@ -25,10 +25,10 @@ class DynamicRangeAnalyzer:
         self.gate_threshold = -70.0  # dBFS gating threshold
 
         # Crest factor analysis
-        self.crest_history = []
+        self.crest_history: List[float] = []
         self.max_crest_history = 200  # Keep 10 seconds at 20Hz
 
-    def analyze_dynamic_range(self, audio_data: np.ndarray) -> Dict:
+    def analyze_dynamic_range(self, audio_data: np.ndarray) -> Dict[str, Any]:
         """
         Comprehensive dynamic range analysis
 
@@ -88,7 +88,7 @@ class DynamicRangeAnalyzer:
         """Calculate peak level in dBFS"""
         peak = np.max(np.abs(audio))
         if peak > 0:
-            return 20 * np.log10(peak)
+            return 20 * np.log10(peak)  # type: ignore[no-any-return]
         else:
             return -np.inf
 
@@ -96,7 +96,7 @@ class DynamicRangeAnalyzer:
         """Calculate RMS level in dBFS"""
         rms = np.sqrt(np.mean(audio**2))
         if rms > 0:
-            return 20 * np.log10(rms)
+            return 20 * np.log10(rms)  # type: ignore[no-any-return]
         else:
             return -np.inf
 
@@ -135,7 +135,7 @@ class DynamicRangeAnalyzer:
 
         dr_value = peak_95th - rms_average
 
-        return max(0.0, dr_value)  # DR cannot be negative
+        return max(0.0, dr_value)  # type: ignore[return-value]  # DR cannot be negative
 
     def _calculate_plr(self, audio: np.ndarray) -> float:
         """Calculate Peak-to-Loudness Ratio"""
@@ -150,7 +150,7 @@ class DynamicRangeAnalyzer:
         else:
             return 0.0
 
-    def _analyze_rms_variation(self, audio: np.ndarray) -> Dict:
+    def _analyze_rms_variation(self, audio: np.ndarray) -> Dict[str, Any]:
         """Analyze RMS variation over time"""
         # Calculate RMS in sliding windows
         hop_size = self.rms_window_size // 2
@@ -170,7 +170,7 @@ class DynamicRangeAnalyzer:
                 'rms_stability': 1.0
             }
 
-        rms_values = np.array(rms_values)
+        rms_values = np.array(rms_values)  # type: ignore[assignment]
         finite_rms = rms_values[np.isfinite(rms_values)]
 
         if len(finite_rms) == 0:
@@ -195,7 +195,7 @@ class DynamicRangeAnalyzer:
             }
         }
 
-    def _analyze_peak_distribution(self, audio: np.ndarray) -> Dict:
+    def _analyze_peak_distribution(self, audio: np.ndarray) -> Dict[str, Any]:
         """Analyze distribution of peak levels"""
         # Find peaks using scipy
         peaks, properties = signal.find_peaks(np.abs(audio), height=0.01, distance=100)
@@ -311,7 +311,7 @@ class DynamicRangeAnalyzer:
         else:
             return 0.01  # Default 10ms
 
-    def _analyze_envelope(self, audio: np.ndarray) -> Dict:
+    def _analyze_envelope(self, audio: np.ndarray) -> Dict[str, Any]:
         """Analyze audio envelope characteristics"""
         # Calculate envelope using Hilbert transform
         # Flatten audio in case it's 2D
@@ -363,7 +363,7 @@ class DynamicRangeAnalyzer:
         else:
             return "Very Poor"
 
-    def _assess_loudness_war(self, crest_factor: float, dr_value: float) -> Dict:
+    def _assess_loudness_war(self, crest_factor: float, dr_value: float) -> Dict[str, Any]:
         """Assess if audio shows signs of loudness war processing"""
         # Indicators of loudness war:
         # - Very low crest factor (< 6dB)
@@ -425,6 +425,6 @@ class DynamicRangeAnalyzer:
         """Get crest factor history for temporal analysis"""
         return self.crest_history.copy()
 
-    def reset_history(self):
+    def reset_history(self) -> None:
         """Reset analysis history"""
         self.crest_history.clear()
