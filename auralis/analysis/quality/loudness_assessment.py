@@ -10,7 +10,7 @@ Assess audio loudness quality and compliance
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict
+from typing import Dict, Any
 from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
 from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOperations
 from auralis.analysis.quality_assessors.utilities.assessment_constants import AssessmentConstants
@@ -19,7 +19,7 @@ from auralis.analysis.quality_assessors.utilities.assessment_constants import As
 class LoudnessAssessor(BaseAssessor):
     """Assess loudness quality and standards compliance"""
 
-    def assess(self, loudness_result) -> float:
+    def assess(self, loudness_result: Any) -> float:  # type: ignore[override]
         """
         Assess loudness quality (0-100)
 
@@ -63,7 +63,7 @@ class LoudnessAssessor(BaseAssessor):
 
         return float(total_score)
 
-    def detailed_analysis(self, loudness_result) -> Dict:
+    def detailed_analysis(self, loudness_result: Any) -> Dict[str, Any]:  # type: ignore[override]
         """
         Perform detailed loudness analysis
 
@@ -98,7 +98,7 @@ class LoudnessAssessor(BaseAssessor):
             )
         }
 
-    def check_standards_compliance(self, loudness_result) -> Dict:
+    def check_standards_compliance(self, loudness_result: Any) -> Dict[str, Any]:
         """
         Check compliance with various loudness standards
 
@@ -123,7 +123,7 @@ class LoudnessAssessor(BaseAssessor):
         return compliance
 
     def _check_compliance(self, standard: str, lufs: float, lra: float,
-                         peak: float, targets: Dict) -> Dict:
+                         peak: float, targets: Dict[str, Any]) -> Dict[str, Any]:
         """Check compliance with standard using target values"""
         target_lufs = targets.get('target_lufs')
         tolerance = targets.get('tolerance', 0.0)
