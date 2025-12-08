@@ -49,13 +49,13 @@ class DynamicsProcessor:
         self.sample_rate = settings.sample_rate
 
         # Initialize processing components
-        if settings.enable_compressor:
-            self.compressor = AdaptiveCompressor(settings.compressor, settings.sample_rate)
+        if settings.enable_compressor and settings.compressor is not None:
+            self.compressor: Optional[AdaptiveCompressor] = AdaptiveCompressor(settings.compressor, settings.sample_rate)
         else:
             self.compressor = None
 
-        if settings.enable_limiter:
-            self.limiter = AdaptiveLimiter(settings.limiter, settings.sample_rate)
+        if settings.enable_limiter and settings.limiter is not None:
+            self.limiter: Optional[AdaptiveLimiter] = AdaptiveLimiter(settings.limiter, settings.sample_rate)
         else:
             self.limiter = None
 
@@ -64,10 +64,12 @@ class DynamicsProcessor:
         self.gate_gain = 1.0
 
         # Adaptive state
-        self.content_history = []
+        self.content_history: list[Dict[str, Any]] = []
+        threshold_db = settings.compressor.threshold_db if settings.compressor else -18.0
+        ratio = settings.compressor.ratio if settings.compressor else 4.0
         self.adaptation_state = {
-            'target_threshold': settings.compressor.threshold_db,
-            'target_ratio': settings.compressor.ratio,
+            'target_threshold': threshold_db,
+            'target_ratio': ratio,
             'current_lufs': -14.0,
             'current_lra': 7.0
         }
@@ -156,7 +158,7 @@ class DynamicsProcessor:
         else:
             return "hybrid"  # Balanced approach
 
-    def _adapt_to_content(self, content_info: Dict[str, Any]):
+    def _adapt_to_content(self, content_info: Dict[str, Any]) -> None:
         """Adapt dynamics settings based on content analysis and processing targets"""
         # Check if we have processing targets from AdaptiveTargetGenerator
         processing_targets = content_info.get('processing_targets', {})
@@ -239,7 +241,7 @@ class DynamicsProcessor:
             debug(f"Auto makeup gain: {auto_makeup_gain:.2f}dB (threshold={new_threshold:.1f}dB, ratio={new_ratio:.1f}:1)")
 
     def _update_adaptation_state(self, processed_audio: np.ndarray,
-                                content_info: Optional[Dict[str, Any]]):
+                                content_info: Optional[Dict[str, Any]]) -> None:
         """Update adaptation state with processed audio"""
         # Calculate current loudness metrics
         current_lufs = content_info.get('estimated_lufs', -14.0) if content_info else -14.0
@@ -273,12 +275,12 @@ class DynamicsProcessor:
 
         return info
 
-    def set_mode(self, mode: DynamicsMode):
+    def set_mode(self, mode: DynamicsMode) -> None:
         """Change dynamics processing mode"""
         self.settings.mode = mode
         debug(f"Dynamics mode changed to: {mode.value}")
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset all dynamics processing state"""
         if self.compressor:
             self.compressor.reset()
