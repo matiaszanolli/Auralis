@@ -15,19 +15,19 @@ and dynamic range metrics.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple, List
 import numpy as np
 
 
 class BaseAssessor(ABC):
     """Abstract base class for quality assessors"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize base assessor"""
-        self._cached_analysis = None
+        self._cached_analysis: Optional[Dict[str, Any]] = None
 
     @abstractmethod
-    def assess(self, audio_data: np.ndarray, **kwargs) -> float:
+    def assess(self, audio_data: np.ndarray, **kwargs: Any) -> float:
         """
         Assess audio quality on a 0-100 scale
 
@@ -41,7 +41,7 @@ class BaseAssessor(ABC):
         pass
 
     @abstractmethod
-    def detailed_analysis(self, audio_data: np.ndarray, **kwargs) -> Dict[str, Any]:
+    def detailed_analysis(self, audio_data: np.ndarray, **kwargs: Any) -> Dict[str, Any]:
         """
         Perform detailed quality analysis
 
@@ -66,7 +66,7 @@ class BaseAssessor(ABC):
         return class_name.replace('Assessor', '').lower()
 
     def _normalize_audio(self, audio_data: np.ndarray,
-                        target_dtype: type = np.float32) -> np.ndarray:
+                        target_dtype: type[Any] = np.float32) -> np.ndarray:  # type: ignore[assignment]
         """
         Normalize audio to target format
 
@@ -79,7 +79,7 @@ class BaseAssessor(ABC):
         Returns:
             Normalized audio array
         """
-        audio = np.array(audio_data, dtype=target_dtype)
+        audio: np.ndarray = np.array(audio_data, dtype=target_dtype)  # type: ignore[assignment]
 
         # Ensure audio is finite
         if not np.all(np.isfinite(audio)):
@@ -99,10 +99,10 @@ class BaseAssessor(ABC):
             Mono audio array
         """
         if audio_data.ndim == 2:
-            return np.mean(audio_data, axis=1)
+            return np.mean(audio_data, axis=1)  # type: ignore[no-any-return]
         return audio_data
 
-    def _get_stereo_channels(self, audio_data: np.ndarray) -> tuple:
+    def _get_stereo_channels(self, audio_data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Extract left and right channels from stereo audio
 
@@ -182,7 +182,7 @@ class BaseAssessor(ABC):
 
     def _compute_spectrum(self, audio_data: np.ndarray,
                          sr: int = 44100,
-                         fft_size: int = 2048) -> tuple:
+                         fft_size: int = 2048) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Compute frequency spectrum
 
@@ -216,8 +216,8 @@ class BaseAssessor(ABC):
         return frequencies, magnitude, magnitude_db
 
     def _interpolate_score(self, value: float,
-                          thresholds: list,
-                          scores: list) -> float:
+                          thresholds: List[float],
+                          scores: List[float]) -> float:
         """
         Interpolate score based on thresholds
 
@@ -240,6 +240,6 @@ class BaseAssessor(ABC):
 
         return float(scores[-1])
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear any cached analysis results"""
         self._cached_analysis = None

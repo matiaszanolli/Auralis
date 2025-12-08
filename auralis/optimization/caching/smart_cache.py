@@ -15,29 +15,29 @@ import time
 import hashlib
 import pickle
 from collections import OrderedDict
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Callable
 from auralis.utils.logging import debug
 
 
 class SmartCache:
     """Intelligent caching system with LRU and TTL"""
 
-    def __init__(self, max_size_mb: int = 128, ttl_seconds: int = 300):
-        self.max_size_bytes = max_size_mb * 1024 * 1024
-        self.ttl_seconds = ttl_seconds
-        self.cache = OrderedDict()
-        self.access_times = {}
-        self.sizes = {}
-        self.current_size = 0
-        self.lock = threading.RLock()
+    def __init__(self, max_size_mb: int = 128, ttl_seconds: int = 300) -> None:
+        self.max_size_bytes: int = max_size_mb * 1024 * 1024
+        self.ttl_seconds: int = ttl_seconds
+        self.cache: OrderedDict[str, Any] = OrderedDict()
+        self.access_times: Dict[str, float] = {}
+        self.sizes: Dict[str, int] = {}
+        self.current_size: int = 0
+        self.lock: threading.RLock = threading.RLock()
 
         # Statistics
-        self.hits = 0
-        self.misses = 0
+        self.hits: int = 0
+        self.misses: int = 0
 
         debug(f"Smart cache initialized: {max_size_mb}MB, TTL: {ttl_seconds}s")
 
-    def _generate_key(self, func_name: str, args: Tuple, kwargs: Dict) -> str:
+    def _generate_key(self, func_name: str, args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> str:
         """Generate cache key from function arguments"""
         # Create a stable hash from arguments
         key_data = (func_name, args, sorted(kwargs.items()))
@@ -64,7 +64,7 @@ class SmartCache:
             self.misses += 1
             return None
 
-    def put(self, key: str, value: Any):
+    def put(self, key: str, value: Any) -> None:
         """Put item in cache"""
         with self.lock:
             # Estimate size
@@ -90,7 +90,7 @@ class SmartCache:
                 self.sizes[key] = size
                 self.current_size += size
 
-    def _remove_item(self, key: str):
+    def _remove_item(self, key: str) -> None:
         """Remove item from cache"""
         if key in self.cache:
             del self.cache[key]
@@ -98,13 +98,13 @@ class SmartCache:
             self.current_size -= self.sizes[key]
             del self.sizes[key]
 
-    def _remove_oldest(self):
+    def _remove_oldest(self) -> None:
         """Remove least recently used item"""
         if self.cache:
             oldest_key = next(iter(self.cache))
             self._remove_item(oldest_key)
 
-    def clear_expired(self):
+    def clear_expired(self) -> None:
         """Remove expired items"""
         with self.lock:
             current_time = time.time()
