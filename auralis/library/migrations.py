@@ -12,7 +12,7 @@ import logging
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -53,7 +53,7 @@ class MigrationManager:
             ).first()
 
             if result:
-                return result.version
+                return int(result.version)
             else:
                 # Table exists but is empty - this is a fresh database
                 return 0
@@ -62,7 +62,7 @@ class MigrationManager:
             logger.debug(f"Schema version table not found: {e}")
             return 0
 
-    def _record_migration(self, version: int, description: str, migration_script: str = ""):
+    def _record_migration(self, version: int, description: str, migration_script: str = "") -> None:
         """
         Record a migration in the schema_version table.
 
@@ -197,7 +197,7 @@ class MigrationManager:
         logger.info(f"✅ Database successfully migrated to v{target_version}")
         return True
 
-    def close(self):
+    def close(self) -> None:
         """Close database connection."""
         self.session.close()
 
@@ -213,25 +213,25 @@ def backup_database(db_path: str, backup_dir: Optional[str] = None) -> str:
     Returns:
         Path to the backup file
     """
-    db_path = Path(db_path)
+    db_path_obj = Path(db_path)
 
-    if not db_path.exists():
+    if not db_path_obj.exists():
         raise FileNotFoundError(f"Database file not found: {db_path}")
 
     # Determine backup directory
     if backup_dir:
         backup_path = Path(backup_dir)
     else:
-        backup_path = db_path.parent
+        backup_path = db_path_obj.parent
 
     backup_path.mkdir(parents=True, exist_ok=True)
 
     # Create timestamped backup filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = backup_path / f"{db_path.stem}.backup_{timestamp}{db_path.suffix}"
+    backup_file = backup_path / f"{db_path_obj.stem}.backup_{timestamp}{db_path_obj.suffix}"
 
     # Copy database file
-    shutil.copy2(db_path, backup_file)
+    shutil.copy2(db_path_obj, backup_file)
 
     logger.info(f"✅ Database backed up to: {backup_file}")
     return str(backup_file)
@@ -248,15 +248,15 @@ def restore_database(backup_path: str, db_path: str) -> bool:
     Returns:
         True if successful
     """
-    backup_path = Path(backup_path)
-    db_path = Path(db_path)
+    backup_path_obj = Path(backup_path)
+    db_path_obj = Path(db_path)
 
-    if not backup_path.exists():
+    if not backup_path_obj.exists():
         raise FileNotFoundError(f"Backup file not found: {backup_path}")
 
     try:
         # Copy backup over current database
-        shutil.copy2(backup_path, db_path)
+        shutil.copy2(backup_path_obj, db_path_obj)
         logger.info(f"✅ Database restored from: {backup_path}")
         return True
 

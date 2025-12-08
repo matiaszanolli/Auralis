@@ -19,7 +19,7 @@ Sidecar files provide:
 import json
 import hashlib
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Union, Callable, cast
 from datetime import datetime
 import os
 
@@ -43,11 +43,11 @@ class SidecarManager:
     FORMAT_VERSION = "1.0"
     AURALIS_VERSION = "1.0.0-beta.5"  # TODO: Read from auralis.version
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize sidecar manager"""
         pass
 
-    def get_sidecar_path(self, audio_path: Path) -> Path:
+    def get_sidecar_path(self, audio_path: Union[str, Path]) -> Path:
         """
         Get the sidecar file path for an audio file.
 
@@ -61,7 +61,7 @@ class SidecarManager:
             audio_path = Path(audio_path)
         return audio_path.with_suffix(audio_path.suffix + self.SIDECAR_EXTENSION)
 
-    def exists(self, audio_path: Path) -> bool:
+    def exists(self, audio_path: Union[str, Path]) -> bool:
         """
         Check if sidecar file exists.
 
@@ -74,7 +74,7 @@ class SidecarManager:
         sidecar_path = self.get_sidecar_path(audio_path)
         return sidecar_path.exists()
 
-    def is_valid(self, audio_path: Path) -> bool:
+    def is_valid(self, audio_path: Union[str, Path]) -> bool:
         """
         Validate sidecar file against audio file.
 
@@ -144,7 +144,7 @@ class SidecarManager:
             error(f"Failed to validate sidecar file: {e}")
             return False
 
-    def read(self, audio_path: Path) -> Optional[Dict[str, Any]]:
+    def read(self, audio_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
         """
         Read sidecar file.
 
@@ -158,7 +158,7 @@ class SidecarManager:
 
         try:
             with open(sidecar_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+                data: Dict[str, Any] = json.load(f)
             debug(f"Read sidecar file: {sidecar_path}")
             return data
 
@@ -166,7 +166,7 @@ class SidecarManager:
             error(f"Failed to read sidecar file {sidecar_path}: {e}")
             return None
 
-    def write(self, audio_path: Path, data: Dict[str, Any]) -> bool:
+    def write(self, audio_path: Union[str, Path], data: Dict[str, Any]) -> bool:
         """
         Write sidecar file.
 
@@ -254,14 +254,14 @@ class SidecarManager:
         # Flatten nested structure if needed
         if isinstance(fingerprint, dict) and 'frequency' in fingerprint:
             # Nested format (from spec example)
-            flat = {}
+            flat: Dict[str, float] = {}
             for category in ['frequency', 'dynamics', 'temporal', 'spectral', 'harmonic', 'variation', 'stereo']:
                 if category in fingerprint:
                     flat.update(fingerprint[category])
             return flat
         else:
             # Already flat format
-            return fingerprint
+            return cast(Dict[str, float], fingerprint)
 
     def get_processing_cache(self, audio_path: Path) -> Optional[Dict[str, Any]]:
         """
@@ -327,7 +327,7 @@ class SidecarManager:
             error(f"Failed to compute checksum for {audio_path}: {e}")
             return None
 
-    def bulk_generate(self, audio_paths: list, progress_callback=None) -> Dict[str, int]:
+    def bulk_generate(self, audio_paths: List[Union[str, Path]], progress_callback: Optional[Callable[[int, int], None]] = None) -> Dict[str, int]:
         """
         Generate .25d files for multiple audio files.
 
@@ -360,7 +360,7 @@ class SidecarManager:
 
         return stats
 
-    def bulk_delete(self, audio_paths: list) -> int:
+    def bulk_delete(self, audio_paths: List[Union[str, Path]]) -> int:
         """
         Delete .25d files for multiple audio files.
 

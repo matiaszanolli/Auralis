@@ -12,13 +12,14 @@ Phase B.1: Backend Endpoint Standardization
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
+from fastapi.applications import FastAPI
 from pydantic import ValidationError
 import logging
 import time
-from typing import Callable
+from typing import Callable, Awaitable, Dict, List, Tuple, Any
 from schemas import ErrorResponse, ErrorType
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class ValidationErrorMiddleware(BaseHTTPMiddleware):
     Converts Pydantic ValidationError to standardized ErrorResponse.
     """
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         try:
             response = await call_next(request)
             return response
@@ -82,7 +83,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
     Converts HTTPException to standardized ErrorResponse.
     """
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         try:
             response = await call_next(request)
             return response
@@ -129,12 +130,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Limits requests per client based on IP address.
     """
 
-    def __init__(self, app, requests_per_minute: int = 100):
+    def __init__(self, app: Any, requests_per_minute: int = 100) -> None:
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
-        self.request_log = {}  # {ip: [(timestamp, request_count)]}
+        self.request_log: Dict[str, List[Tuple[float, int]]] = {}  # {ip: [(timestamp, request_count)]}
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
         minute_ago = now - 60
@@ -177,7 +178,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     Includes timing information.
     """
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         start_time = time.time()
         request_id = request.headers.get("X-Request-ID", "unknown")
 
@@ -215,7 +216,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     Useful for tracing and debugging.
     """
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         import uuid
 
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
@@ -232,7 +233,7 @@ class CORSPreflightMiddleware(BaseHTTPMiddleware):
     Works alongside FastAPI's CORSMiddleware for better control.
     """
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         if request.method == "OPTIONS":
             return JSONResponse(
                 status_code=200,
@@ -248,7 +249,7 @@ class CORSPreflightMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def setup_middleware(app):
+def setup_middleware(app: FastAPI) -> None:
     """
     Setup all middleware for the FastAPI application.
     Order matters: request processing goes bottom-to-top.

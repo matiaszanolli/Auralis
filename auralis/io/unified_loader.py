@@ -13,8 +13,10 @@ Unified audio loading system combining Matchering and Auralis capabilities
 """
 
 import numpy as np
+import subprocess
+import soundfile as sf  # type: ignore[import-untyped]
 from pathlib import Path
-from typing import Tuple, Optional, Union, List
+from typing import Tuple, Optional, Union, List, Dict, Any
 
 from .loaders import load_with_soundfile, load_with_ffmpeg, check_ffmpeg
 from .processing import validate_audio, resample_audio
@@ -72,7 +74,7 @@ def load_audio(
     # Check file size
     file_size = file_path.stat().st_size
     if file_size == 0:
-        raise ModuleError(f"{Code.ERROR_EMPTY_FILE}: {file_path}")
+        raise ModuleError(f"{Code.ERROR_EMPTY_FILE}: {file_path}")  # type: ignore[attr-defined]
 
     debug(f"File size: {file_size / (1024*1024):.2f} MB")
 
@@ -80,7 +82,7 @@ def load_audio(
     file_ext = file_path.suffix.lower()
 
     if file_ext not in SUPPORTED_FORMATS:
-        raise ModuleError(f"{Code.ERROR_UNSUPPORTED_FORMAT}: {file_ext}")
+        raise ModuleError(f"{Code.ERROR_UNSUPPORTED_FORMAT}: {file_ext}")  # type: ignore[attr-defined]
 
     info(f"Detected format: {SUPPORTED_FORMATS[file_ext]}")
 
@@ -120,7 +122,7 @@ def load_audio(
     return audio_data, sample_rate
 
 
-def get_audio_info(file_path: Union[str, Path]) -> dict:
+def get_audio_info(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Get information about an audio file without fully loading it
 
@@ -163,7 +165,7 @@ def get_audio_info(file_path: Union[str, Path]) -> dict:
     return info_dict
 
 
-def _get_info_with_soundfile(file_path: Path) -> dict:
+def _get_info_with_soundfile(file_path: Path) -> Dict[str, Any]:
     """Get audio info using soundfile"""
     info = sf.info(str(file_path))
 
@@ -177,10 +179,10 @@ def _get_info_with_soundfile(file_path: Path) -> dict:
     }
 
 
-def _get_info_with_ffprobe(file_path: Path) -> dict:
+def _get_info_with_ffprobe(file_path: Path) -> Dict[str, Any]:
     """Get audio info using FFprobe"""
     if not check_ffmpeg():
-        raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFprobe required")
+        raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFprobe required")  # type: ignore[attr-defined]
 
     try:
         ffprobe_cmd = [
@@ -231,7 +233,7 @@ def _get_info_with_ffprobe(file_path: Path) -> dict:
         raise ModuleError("Invalid FFprobe output")
 
 
-def batch_load_info(file_paths: List[Union[str, Path]]) -> List[dict]:
+def batch_load_info(file_paths: List[Union[str, Path]]) -> List[Dict[str, Any]]:
     """
     Get information for multiple audio files
 
@@ -257,12 +259,12 @@ def batch_load_info(file_paths: List[Union[str, Path]]) -> List[dict]:
 
 
 # Convenience functions
-def load_target(file_path: Union[str, Path], **kwargs) -> Tuple[np.ndarray, int]:
+def load_target(file_path: Union[str, Path], **kwargs: Any) -> Tuple[np.ndarray, int]:
     """Load target audio file"""
     return load_audio(file_path, file_type="target", **kwargs)
 
 
-def load_reference(file_path: Union[str, Path], **kwargs) -> Tuple[np.ndarray, int]:
+def load_reference(file_path: Union[str, Path], **kwargs: Any) -> Tuple[np.ndarray, int]:
     """Load reference audio file"""
     return load_audio(file_path, file_type="reference", **kwargs)
 

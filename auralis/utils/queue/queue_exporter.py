@@ -14,7 +14,7 @@ Supported Formats:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, Dict, Any, Tuple, Literal
+from typing import List, Dict, Any, Tuple, Literal, Optional, cast
 from pathlib import Path
 import logging
 
@@ -33,7 +33,7 @@ class QueueExporter:
     @staticmethod
     def export(tracks: List[Dict[str, Any]],
                format: Literal['m3u', 'xspf'] = 'm3u',
-               **kwargs) -> str:
+               **kwargs: Any) -> str:
         """
         Export queue to specified format
 
@@ -55,24 +55,26 @@ class QueueExporter:
             >>> m3u_content = QueueExporter.export(tracks, format='m3u')
             >>> xspf_content = QueueExporter.export(tracks, format='xspf', title='My Queue')
         """
-        format = format.lower()
+        format_lower = format.lower()
 
-        if format not in QueueExporter.SUPPORTED_FORMATS:
-            raise ValueError(f'Unsupported format: {format}. Supported: {QueueExporter.SUPPORTED_FORMATS}')
+        if format_lower not in QueueExporter.SUPPORTED_FORMATS:
+            raise ValueError(f'Unsupported format: {format_lower}. Supported: {QueueExporter.SUPPORTED_FORMATS}')
 
         if not tracks:
             logger.warning('Exporting empty queue')
 
-        if format == 'm3u':
+        if format_lower == 'm3u':
             extended = kwargs.get('extended', True)
             return M3UHandler.export(tracks, extended=extended)
-        elif format == 'xspf':
+        elif format_lower == 'xspf':
             title = kwargs.get('title', 'Queue')
             return XSPFHandler.export(tracks, title=title)
+        else:
+            raise ValueError(f'Unsupported format: {format_lower}')
 
     @staticmethod
     def export_to_file(tracks: List[Dict[str, Any]], filepath: str,
-                       format: str = None, **kwargs) -> Tuple[bool, str]:
+                       format: Optional[str] = None, **kwargs: Any) -> Tuple[bool, str]:
         """
         Export queue to file
 
@@ -94,19 +96,20 @@ class QueueExporter:
             file_path = Path(filepath)
 
             # Auto-detect format from extension if not specified
-            if format is None:
+            format_lower = format
+            if format_lower is None:
                 if M3UHandler.supports_format(str(file_path)):
-                    format = 'm3u'
+                    format_lower = 'm3u'
                 elif XSPFHandler.supports_format(str(file_path)):
-                    format = 'xspf'
+                    format_lower = 'xspf'
                 else:
-                    format = QueueExporter.DEFAULT_FORMAT
+                    format_lower = QueueExporter.DEFAULT_FORMAT
 
             # Create parent directories if needed
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Generate content
-            content = QueueExporter.export(tracks, format=format, **kwargs)
+            content = QueueExporter.export(tracks, format=cast(Literal['m3u', 'xspf'], format_lower), **kwargs)
 
             # Write to file
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -120,7 +123,7 @@ class QueueExporter:
             return False, error_msg
 
     @staticmethod
-    def import_from_string(content: str, format: str = None) -> Tuple[List[str], List[str]]:
+    def import_from_string(content: str, format: Optional[str] = None) -> Tuple[List[str], List[str]]:
         """
         Import queue from string content
 
@@ -135,24 +138,25 @@ class QueueExporter:
             >>> m3u_content = '#EXTM3U\\n/music/song.mp3'
             >>> paths, errors = QueueExporter.import_from_string(m3u_content)
         """
-        if format is None:
+        format_lower = format
+        if format_lower is None:
             # Auto-detect format
             if content.strip().startswith('<?xml') or content.strip().startswith('<playlist'):
-                format = 'xspf'
+                format_lower = 'xspf'
             else:
-                format = 'm3u'
+                format_lower = 'm3u'
 
-        format = format.lower()
+        format_lower = format_lower.lower()
 
-        if format == 'm3u':
+        if format_lower == 'm3u':
             return M3UHandler.import_from_string(content)
-        elif format == 'xspf':
+        elif format_lower == 'xspf':
             return XSPFHandler.import_from_string(content)
         else:
-            return [], [f'Unsupported format: {format}']
+            return [], [f'Unsupported format: {format_lower}']
 
     @staticmethod
-    def import_from_file(filepath: str, format: str = None) -> Tuple[List[str], List[str]]:
+    def import_from_file(filepath: str, format: Optional[str] = None) -> Tuple[List[str], List[str]]:
         """
         Import queue from file
 
@@ -177,22 +181,23 @@ class QueueExporter:
                 raise FileNotFoundError(f'Playlist file not found: {filepath}')
 
             # Auto-detect format from extension if not specified
-            if format is None:
+            format_lower = format
+            if format_lower is None:
                 if M3UHandler.supports_format(str(file_path)):
-                    format = 'm3u'
+                    format_lower = 'm3u'
                 elif XSPFHandler.supports_format(str(file_path)):
-                    format = 'xspf'
+                    format_lower = 'xspf'
                 else:
                     raise ValueError(f'Cannot auto-detect format for file: {filepath}')
 
-            format = format.lower()
+            format_lower = format_lower.lower()
 
-            if format == 'm3u':
+            if format_lower == 'm3u':
                 return M3UHandler.import_from_file(filepath)
-            elif format == 'xspf':
+            elif format_lower == 'xspf':
                 return XSPFHandler.import_from_file(filepath)
             else:
-                raise ValueError(f'Unsupported format: {format}')
+                raise ValueError(f'Unsupported format: {format_lower}')
 
         except (FileNotFoundError, ValueError) as e:
             raise e
@@ -200,7 +205,7 @@ class QueueExporter:
             raise ValueError(f'Failed to import playlist: {str(e)}')
 
     @staticmethod
-    def validate(content: str, format: str = None) -> Tuple[bool, List[str]]:
+    def validate(content: str, format: Optional[str] = None) -> Tuple[bool, List[str]]:
         """
         Validate playlist content
 
@@ -214,21 +219,22 @@ class QueueExporter:
         Example:
             >>> is_valid, errors = QueueExporter.validate(content)
         """
-        if format is None:
+        format_lower = format
+        if format_lower is None:
             # Auto-detect format
             if content.strip().startswith('<?xml') or content.strip().startswith('<playlist'):
-                format = 'xspf'
+                format_lower = 'xspf'
             else:
-                format = 'm3u'
+                format_lower = 'm3u'
 
-        format = format.lower()
+        format_lower = format_lower.lower()
 
-        if format == 'm3u':
+        if format_lower == 'm3u':
             return M3UHandler.validate(content)
-        elif format == 'xspf':
+        elif format_lower == 'xspf':
             return XSPFHandler.validate(content)
         else:
-            return False, [f'Unsupported format: {format}']
+            return False, [f'Unsupported format: {format_lower}']
 
     @staticmethod
     def detect_format(filepath: str) -> str:
