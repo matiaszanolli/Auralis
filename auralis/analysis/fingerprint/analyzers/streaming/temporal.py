@@ -26,7 +26,7 @@ Dependencies:
 import numpy as np
 import librosa
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, cast
 from collections import deque
 from ...utilities.base_streaming_analyzer import BaseStreamingAnalyzer
 from ...common_metrics import MetricUtils, StabilityMetrics, SafeOperations
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 class OnsetBuffer:
     """Running buffer for onset detection across frames."""
 
-    def __init__(self, sr: int = 44100, buffer_duration: float = 2.0):
+    def __init__(self, sr: int = 44100, buffer_duration: float = 2.0) -> None:
         """Initialize onset buffer.
 
         Args:
@@ -48,11 +48,11 @@ class OnsetBuffer:
         self.sr = sr
         self.buffer_duration = buffer_duration
         self.buffer_size = int(sr * buffer_duration)
-        self.audio_buffer = deque(maxlen=self.buffer_size)
-        self.onset_times = deque()  # Times of detected onsets
+        self.audio_buffer: deque[Any] = deque(maxlen=self.buffer_size)
+        self.onset_times: deque[float] = deque()  # Times of detected onsets
         self.last_analysis_pos = 0  # Position of last analysis
 
-    def append(self, frame: np.ndarray):
+    def append(self, frame: np.ndarray) -> None:
         """Add audio frame to buffer.
 
         Args:
@@ -84,7 +84,7 @@ class OnsetBuffer:
             # Convert frames to time
             onset_times = librosa.frames_to_time(onset_frames, sr=self.sr)
 
-            return onset_times
+            return cast(np.ndarray, onset_times)
 
         except Exception as e:
             logger.debug(f"Onset detection failed: {e}")
@@ -96,7 +96,7 @@ class OnsetBuffer:
             return np.array(list(self.audio_buffer))
         return None
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear buffer."""
         self.audio_buffer.clear()
         self.onset_times.clear()
@@ -124,7 +124,7 @@ class StreamingTemporalAnalyzer(BaseStreamingAnalyzer):
     - get_analysis_count() - Analysis run counting
     """
 
-    def __init__(self, sr: int = 44100, buffer_duration: float = 2.0, hop_length: float = 0.25):
+    def __init__(self, sr: int = 44100, buffer_duration: float = 2.0, hop_length: float = 0.25) -> None:
         """Initialize streaming temporal analyzer.
 
         Args:
@@ -141,12 +141,12 @@ class StreamingTemporalAnalyzer(BaseStreamingAnalyzer):
         self.onset_buffer = OnsetBuffer(sr, buffer_duration)
 
         # RMS tracking for silence ratio
-        self.rms_buffer = deque()
-        self.frame_rms_values = deque(maxlen=int(sr * 10 / self.hop_length))  # 10 second history
+        self.rms_buffer: deque[float] = deque()
+        self.frame_rms_values: deque[float] = deque(maxlen=int(sr * 10 / self.hop_length))  # 10 second history
 
         # Metric tracking
         self.tempo_estimate = 120.0
-        self.recent_onsets = deque(maxlen=100)  # Track recent onsets
+        self.recent_onsets: deque[float] = deque(maxlen=100)  # Track recent onsets
         self.rhythm_stability_estimate = 0.5
         self.transient_density_estimate = 0.5
         self.silence_ratio_estimate = 0.1
@@ -156,7 +156,7 @@ class StreamingTemporalAnalyzer(BaseStreamingAnalyzer):
         self.analysis_counter = 0  # Counter for periodic re-analysis
         self.analysis_runs = 0  # Required by BaseStreamingAnalyzer (used in get_confidence())
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset analyzer state."""
         self.onset_buffer.clear()
         self.rms_buffer.clear()
@@ -204,7 +204,7 @@ class StreamingTemporalAnalyzer(BaseStreamingAnalyzer):
             logger.debug(f"Streaming temporal update failed: {e}")
             return self.get_metrics()
 
-    def _perform_analysis(self):
+    def _perform_analysis(self) -> None:
         """Perform expensive analysis on buffered audio using TemporalOperations."""
         try:
             audio = self.onset_buffer.get_audio()

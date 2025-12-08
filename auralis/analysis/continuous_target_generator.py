@@ -24,7 +24,7 @@ Based on 7 reference points analysis (October 26, 2025):
 """
 
 import numpy as np
-from typing import Dict, Tuple, Optional
+from typing import Any, Dict, Tuple, Optional
 import logging
 from .fingerprint.common_metrics import MetricUtils
 
@@ -39,7 +39,7 @@ class ContinuousTargetGenerator:
     analysis of 7 diverse reference recordings.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize with parameter space bounds from reference analysis."""
 
         # Observed ranges from 7 references (these define our parameter space)
@@ -57,9 +57,9 @@ class ContinuousTargetGenerator:
         self.dynamics_loudness_correlation = -0.85  # Strong inverse correlation
 
     def generate_target(self,
-                       audio_analysis: Dict,
+                       audio_analysis: Dict[str, Any],
                        user_intent: Optional[str] = None,
-                       preserve_character: float = 0.7) -> Dict:
+                       preserve_character: float = 0.7) -> Dict[str, Any]:
         """
         Generate processing target from continuous parameter space.
 
@@ -141,7 +141,7 @@ class ContinuousTargetGenerator:
                                  source_crest: float,
                                  source_bass_mid: float,
                                  source_bass_pct: float,
-                                 source_mid_pct: float) -> Dict:
+                                 source_mid_pct: float) -> Dict[str, float]:
         """
         Compute optimal targets based on discovered relationships.
 
@@ -214,7 +214,7 @@ class ContinuousTargetGenerator:
             'mid_pct': target_mid_pct
         }
 
-    def _apply_user_intent(self, target_params: Dict, intent: str) -> Dict:
+    def _apply_user_intent(self, target_params: Dict[str, float], intent: str) -> Dict[str, float]:
         """
         Modify targets based on user intent.
 
@@ -247,9 +247,9 @@ class ContinuousTargetGenerator:
         return modified
 
     def _blend_source_target(self,
-                            source: Dict,
-                            target: Dict,
-                            preserve: float) -> Dict:
+                            source: Dict[str, float],
+                            target: Dict[str, float],
+                            preserve: float) -> Dict[str, float]:
         """
         Blend source and target parameters based on preservation amount.
 
@@ -295,7 +295,7 @@ class ContinuousTargetGenerator:
         # Normalize to 0-1 using MetricUtils
         return MetricUtils.normalize_to_range(intensity, 1.0, clip=True)
 
-    def get_parameter_space_info(self) -> Dict:
+    def get_parameter_space_info(self) -> Dict[str, Any]:
         """
         Get information about the multi-dimensional parameter space.
 
@@ -314,9 +314,9 @@ class ContinuousTargetGenerator:
         }
 
 
-def generate_adaptive_target(audio_analysis: Dict,
+def generate_adaptive_target(audio_analysis: Dict[str, Any],
                             user_intent: Optional[str] = None,
-                            preserve_character: float = 0.7) -> Dict:
+                            preserve_character: float = 0.7) -> Dict[str, Any]:
     """
     Convenience function for continuous target generation.
 
