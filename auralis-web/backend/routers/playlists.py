@@ -20,7 +20,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class ReorderTrackRequest(BaseModel):
     to_index: int
 
 
-def create_playlists_router(get_library_manager, connection_manager):
+def create_playlists_router(get_library_manager: Callable[[], Any], connection_manager: Any) -> APIRouter:
     """
     Factory function to create playlists router with dependencies.
 
@@ -70,7 +70,7 @@ def create_playlists_router(get_library_manager, connection_manager):
     """
 
     @router.get("/api/playlists")
-    async def get_playlists():
+    async def get_playlists() -> Dict[str, Any]:
         """
         Get all playlists.
 
@@ -95,7 +95,7 @@ def create_playlists_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to get playlists: {e}")
 
     @router.get("/api/playlists/{playlist_id}")
-    async def get_playlist(playlist_id: int):
+    async def get_playlist(playlist_id: int) -> Dict[str, Any]:
         """
         Get playlist by ID with all tracks.
 
@@ -129,7 +129,7 @@ def create_playlists_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to get playlist: {e}")
 
     @router.post("/api/playlists")
-    async def create_playlist(request: CreatePlaylistRequest):
+    async def create_playlist(request: CreatePlaylistRequest) -> Dict[str, Any]:
         """
         Create a new playlist.
 
@@ -176,7 +176,7 @@ def create_playlists_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to create playlist: {e}")
 
     @router.put("/api/playlists/{playlist_id}")
-    async def update_playlist(playlist_id: int, request: UpdatePlaylistRequest):
+    async def update_playlist(playlist_id: int, request: UpdatePlaylistRequest) -> Dict[str, Any]:
         """
         Update playlist name or description.
 
@@ -227,7 +227,7 @@ def create_playlists_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to update playlist: {e}")
 
     @router.delete("/api/playlists/{playlist_id}")
-    async def delete_playlist(playlist_id: int):
+    async def delete_playlist(playlist_id: int) -> Dict[str, Any]:
         """
         Delete a playlist.
 
@@ -266,7 +266,7 @@ def create_playlists_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to delete playlist: {e}")
 
     @router.post("/api/playlists/{playlist_id}/tracks")
-    async def add_tracks_to_playlist(playlist_id: int, request: AddTracksRequest):
+    async def add_tracks_to_playlist(playlist_id: int, request: AddTracksRequest) -> Dict[str, Any]:
         """
         Add tracks to playlist.
 
@@ -313,7 +313,7 @@ def create_playlists_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to add tracks: {e}")
 
     @router.delete("/api/playlists/{playlist_id}/tracks/{track_id}")
-    async def remove_track_from_playlist(playlist_id: int, track_id: int):
+    async def remove_track_from_playlist(playlist_id: int, track_id: int) -> Dict[str, Any]:
         """
         Remove a track from playlist.
 
@@ -354,7 +354,7 @@ def create_playlists_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to remove track: {e}")
 
     @router.delete("/api/playlists/{playlist_id}/tracks")
-    async def clear_playlist(playlist_id: int):
+    async def clear_playlist(playlist_id: int) -> Dict[str, Any]:
         """
         Remove all tracks from playlist.
 
@@ -393,7 +393,7 @@ def create_playlists_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to clear playlist: {e}")
 
     @router.post("/api/playlists/{playlist_id}/tracks/add")
-    async def add_track_to_playlist(playlist_id: int, request: AddTrackRequest):
+    async def add_track_to_playlist(playlist_id: int, request: AddTrackRequest) -> Dict[str, Any]:
         """
         Add a single track to playlist at specific position (for drag-and-drop).
 
@@ -443,7 +443,7 @@ def create_playlists_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=500, detail=f"Failed to add track: {e}")
 
     @router.put("/api/playlists/{playlist_id}/tracks/reorder")
-    async def reorder_playlist_track(playlist_id: int, request: ReorderTrackRequest):
+    async def reorder_playlist_track(playlist_id: int, request: ReorderTrackRequest) -> Dict[str, Any]:
         """
         Reorder track within playlist (for drag-and-drop).
 
