@@ -12,6 +12,7 @@ Responsibilities:
 
 import threading
 import time
+import numpy as np
 from typing import Optional, Dict, Any, Callable
 from .audio_file_manager import AudioFileManager
 from .queue_controller import QueueController
@@ -32,26 +33,26 @@ class GaplessPlaybackEngine:
         file_manager: AudioFileManager,
         queue_controller: QueueController,
         prebuffer_enabled: bool = True
-    ):
+    ) -> None:
         self.file_manager = file_manager
         self.queue = queue_controller
         self.prebuffer_enabled = prebuffer_enabled
 
         # Prebuffer state
-        self.next_track_buffer: Optional[bytes] = None
+        self.next_track_buffer: Optional[np.ndarray] = None
         self.next_track_info: Optional[Dict[str, Any]] = None
         self.next_track_sample_rate: Optional[int] = None
         self.prebuffer_thread: Optional[threading.Thread] = None
 
         # Threading
         self.update_lock = threading.Lock()
-        self.prebuffer_callbacks: list[Callable] = []
+        self.prebuffer_callbacks: list[Callable[[Dict[str, Any]], None]] = []
 
-    def add_prebuffer_callback(self, callback: Callable):
+    def add_prebuffer_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Register callback when prebuffering completes"""
         self.prebuffer_callbacks.append(callback)
 
-    def _notify_prebuffer_callbacks(self, track_info: Dict[str, Any]):
+    def _notify_prebuffer_callbacks(self, track_info: Dict[str, Any]) -> None:
         """Notify callbacks that prebuffering completed"""
         for callback in self.prebuffer_callbacks:
             try:
@@ -59,7 +60,7 @@ class GaplessPlaybackEngine:
             except Exception as e:
                 debug(f"Prebuffer callback error: {e}")
 
-    def start_prebuffering(self):
+    def start_prebuffering(self) -> None:
         """
         Start background prebuffering of next track.
 
@@ -82,7 +83,7 @@ class GaplessPlaybackEngine:
         self.prebuffer_thread.start()
         debug("Started prebuffer thread")
 
-    def _prebuffer_worker(self):
+    def _prebuffer_worker(self) -> None:
         """
         Background worker thread for prebuffering.
 
@@ -127,7 +128,7 @@ class GaplessPlaybackEngine:
             return (self.next_track_buffer is not None and
                     self.next_track_info is not None)
 
-    def get_prebuffered_track(self) -> tuple[Optional[bytes], Optional[int]]:
+    def get_prebuffered_track(self) -> tuple[Optional[np.ndarray], Optional[int]]:
         """
         Get prebuffered track data if available.
 
@@ -193,7 +194,7 @@ class GaplessPlaybackEngine:
 
         return True
 
-    def invalidate_prebuffer(self):
+    def invalidate_prebuffer(self) -> None:
         """
         Invalidate prebuffered track.
 
@@ -205,7 +206,7 @@ class GaplessPlaybackEngine:
             self.next_track_sample_rate = None
         info("Prebuffer invalidated")
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up threads and resources"""
         if self.prebuffer_thread and self.prebuffer_thread.is_alive():
             # Give thread time to finish
