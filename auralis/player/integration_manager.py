@@ -13,7 +13,7 @@ Responsibilities:
 
 import time
 import os
-from typing import Dict, Any, Optional, Callable, List
+from typing import Dict, Any, Optional, Callable, List, cast
 from .playback_controller import PlaybackController
 from .audio_file_manager import AudioFileManager
 from .queue_controller import QueueController
@@ -49,7 +49,7 @@ class IntegrationManager:
         self.auto_reference_selection = True
 
         # External callbacks (application-level)
-        self.callbacks: List[Callable] = []
+        self.callbacks: List[Callable[[Dict[str, Any]], None]] = []
 
         # Statistics
         self.tracks_played = 0
@@ -59,11 +59,11 @@ class IntegrationManager:
         # Register to receive playback state changes
         self.playback.add_callback(self._on_playback_state_change)
 
-    def add_callback(self, callback: Callable):
+    def add_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Register callback for integration events"""
         self.callbacks.append(callback)
 
-    def _notify_callbacks(self, state_info: Dict[str, Any]):
+    def _notify_callbacks(self, state_info: Dict[str, Any]) -> None:
         """Notify all callbacks"""
         for callback in self.callbacks:
             try:
@@ -71,7 +71,7 @@ class IntegrationManager:
             except Exception as e:
                 debug(f"Callback error: {e}")
 
-    def _on_playback_state_change(self, state_info: Dict[str, Any]):
+    def _on_playback_state_change(self, state_info: Dict[str, Any]) -> None:
         """Receive and propagate playback state changes"""
         # Enrich state info with current context
         state_info.update({
@@ -99,7 +99,7 @@ class IntegrationManager:
                 return False
 
             # Load the audio file
-            if not self.file_manager.load_file(track.filepath):
+            if not self.file_manager.load_file(cast(str, track.filepath)):
                 return False
 
             # Store track reference
@@ -123,12 +123,12 @@ class IntegrationManager:
             error(f"Failed to load track from library: {e}")
             return False
 
-    def _auto_select_reference(self, track: Track):
+    def _auto_select_reference(self, track: Track) -> None:
         """Automatically select a suitable reference track"""
         try:
             # Try recommended reference first
             if track.recommended_reference and os.path.exists(track.recommended_reference):
-                if self.file_manager.load_reference(track.recommended_reference):
+                if self.file_manager.load_reference(cast(str, track.recommended_reference)):
                     info(f"Using recommended reference: {track.recommended_reference}")
                     self._notify_callbacks({
                         'action': 'reference_loaded',
@@ -139,8 +139,8 @@ class IntegrationManager:
             # Find and try similar tracks as references
             references = self.library.find_reference_tracks(track, limit=3)
             for ref_track in references:
-                if os.path.exists(ref_track.filepath):
-                    if self.file_manager.load_reference(ref_track.filepath):
+                if os.path.exists(cast(str, ref_track.filepath)):
+                    if self.file_manager.load_reference(cast(str, ref_track.filepath)):
                         ref_name = f"{ref_track.title} by {ref_track.artists[0].name if ref_track.artists else 'Unknown'}"
                         info(f"Auto-selected reference: {ref_name}")
                         self._notify_callbacks({
@@ -154,7 +154,7 @@ class IntegrationManager:
         except Exception as e:
             warning(f"Auto reference selection failed: {e}")
 
-    def set_effect_enabled(self, effect_name: str, enabled: bool):
+    def set_effect_enabled(self, effect_name: str, enabled: bool) -> None:
         """Enable/disable specific DSP effect"""
         self.processor.set_effect_enabled(effect_name, enabled)
         self._notify_callbacks({
@@ -163,7 +163,7 @@ class IntegrationManager:
             'enabled': enabled
         })
 
-    def set_auto_master_profile(self, profile: str):
+    def set_auto_master_profile(self, profile: str) -> None:
         """Set auto-mastering profile"""
         self.processor.set_auto_master_profile(profile)
         self._notify_callbacks({
@@ -197,7 +197,7 @@ class IntegrationManager:
             },
         }
 
-    def record_track_completion(self):
+    def record_track_completion(self) -> None:
         """Record that current track completed"""
         self.tracks_played += 1
         self._notify_callbacks({
@@ -211,7 +211,7 @@ class IntegrationManager:
             return 0.0
         return self.playback.position / self.file_manager.sample_rate
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up resources"""
         self.processor.reset_all_effects()
         info("IntegrationManager cleaned up")

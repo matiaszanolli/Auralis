@@ -26,7 +26,7 @@ Dependencies:
 import numpy as np
 import librosa
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, cast, Any
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from ...utilities.base_streaming_analyzer import BaseStreamingAnalyzer
@@ -39,14 +39,14 @@ logger = logging.getLogger(__name__)
 class HarmonicRunningStats:
     """Running statistics for harmonic metrics."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize harmonic stats."""
         self.count = 0
         self.harmonic_sum = 0.0
-        self.pitch_values = deque(maxlen=1000)  # Keep recent pitch values
+        self.pitch_values: deque[np.floating[Any]] = deque(maxlen=1000)  # Keep recent pitch values
         self.chroma_sum = 0.0
 
-    def update_harmonic(self, ratio: float):
+    def update_harmonic(self, ratio: float) -> None:
         """Update with harmonic ratio.
 
         Args:
@@ -55,7 +55,7 @@ class HarmonicRunningStats:
         self.count += 1
         self.harmonic_sum += ratio
 
-    def update_pitch(self, f0: np.ndarray):
+    def update_pitch(self, f0: np.ndarray) -> None:
         """Update with pitch values.
 
         Args:
@@ -66,7 +66,7 @@ class HarmonicRunningStats:
         if len(voiced_f0) > 0:
             self.pitch_values.extend(voiced_f0)
 
-    def update_chroma(self, energy: float):
+    def update_chroma(self, energy: float) -> None:
         """Update with chroma energy.
 
         Args:
@@ -102,7 +102,7 @@ class HarmonicRunningStats:
             return float(normalized)
         return 0.5
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset stats."""
         self.count = 0
         self.harmonic_sum = 0.0
@@ -145,17 +145,17 @@ class StreamingHarmonicAnalyzer(BaseStreamingAnalyzer):
         self.interval_samples = int(sr * interval_duration)
 
         # Audio buffer for chunk accumulation
-        self.audio_buffer = deque(maxlen=int(sr * 5))  # 5 second history max
+        self.audio_buffer: deque[np.floating[Any]] = deque(maxlen=int(sr * 5))  # 5 second history max
 
         # Running statistics
-        self.stats = HarmonicRunningStats()
+        self.stats: HarmonicRunningStats = HarmonicRunningStats()
 
         # Frame counter (required by BaseStreamingAnalyzer)
         self.frame_count = 0
         self.chunk_count = 0
         self.analysis_runs = 0  # Required by BaseStreamingAnalyzer (used in get_confidence())
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset analyzer state."""
         self.audio_buffer.clear()
         self.stats.reset()
@@ -195,7 +195,7 @@ class StreamingHarmonicAnalyzer(BaseStreamingAnalyzer):
             logger.debug(f"Streaming harmonic update failed: {e}")
             return self.get_metrics()
 
-    def _analyze_chunk(self, chunk: np.ndarray):
+    def _analyze_chunk(self, chunk: np.ndarray) -> None:
         """Analyze single chunk using centralized HarmonicOperations.
 
         Args:
@@ -213,8 +213,8 @@ class StreamingHarmonicAnalyzer(BaseStreamingAnalyzer):
                 f0 = DSPBackend.yin(
                     chunk,
                     sr=self.sr,
-                    fmin=librosa.note_to_hz('C2'),
-                    fmax=librosa.note_to_hz('C7')
+                    fmin=cast(float, librosa.note_to_hz('C2')),
+                    fmax=cast(float, librosa.note_to_hz('C7'))
                 )
             except Exception:
                 f0 = np.array([0])

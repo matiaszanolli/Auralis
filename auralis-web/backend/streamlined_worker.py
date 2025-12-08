@@ -15,7 +15,7 @@ Replaces complex multi-tier worker (373 lines) with simple predictive logic (~15
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, Any, Tuple, List
 from pathlib import Path
 
 from cache import streamlined_cache_manager, CHUNK_DURATION
@@ -33,7 +33,7 @@ class StreamlinedCacheWorker:
     3. Keep previous track cached for instant back button
     """
 
-    def __init__(self, cache_manager, library_manager):
+    def __init__(self, cache_manager: Any, library_manager: Any) -> None:
         """
         Initialize streamlined cache worker.
 
@@ -44,20 +44,20 @@ class StreamlinedCacheWorker:
         self.cache_manager = cache_manager
         self.library_manager = library_manager
         self.running = False
-        self._worker_task = None
+        self._worker_task: Optional[asyncio.Task[None]] = None
 
         # Track what we're currently building
         self._building_track_id: Optional[int] = None
         self._building_chunk_idx: int = 0
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the background worker."""
         if not self.running:
             self.running = True
             self._worker_task = asyncio.create_task(self._worker_loop())
             logger.info("🚀 Streamlined cache worker started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the background worker."""
         self.running = False
         if self._worker_task:
@@ -68,7 +68,7 @@ class StreamlinedCacheWorker:
                 pass
         logger.info("🛑 Streamlined cache worker stopped")
 
-    async def _worker_loop(self):
+    async def _worker_loop(self) -> None:
         """
         Main worker loop - runs continuously.
 
@@ -87,7 +87,7 @@ class StreamlinedCacheWorker:
             logger.info("Cache worker loop cancelled")
             raise
 
-    async def _process_priorities(self):
+    async def _process_priorities(self) -> None:
         """
         Process caching priorities:
         1. Next chunk (Tier 1 - critical)
@@ -120,12 +120,12 @@ class StreamlinedCacheWorker:
 
     async def _ensure_tier1_chunk(
         self,
-        track,
+        track: Any,
         track_id: int,
         chunk_idx: int,
         preset: str,
         intensity: float
-    ):
+    ) -> None:
         """
         Ensure a chunk is cached in Tier 1 (both original and processed).
 
@@ -140,7 +140,7 @@ class StreamlinedCacheWorker:
             intensity: Processing intensity
         """
         # Collect chunk paths to warm Tier 1 after processing
-        tier1_chunks_to_warm = []
+        tier1_chunks_to_warm: List[Tuple[int, Path, Optional[str]]] = []
 
         # Check if original chunk is cached
         original_path, tier = await self.cache_manager.get_chunk(
@@ -185,12 +185,12 @@ class StreamlinedCacheWorker:
 
     async def _build_tier2_cache(
         self,
-        track,
+        track: Any,
         track_id: int,
         current_chunk: int,
         preset: str,
         intensity: float
-    ):
+    ) -> None:
         """
         Build full track cache (Tier 2) in background.
 
@@ -242,7 +242,7 @@ class StreamlinedCacheWorker:
 
     async def _process_chunk(
         self,
-        track,
+        track: Any,
         track_id: int,
         chunk_idx: int,
         preset: Optional[str],
@@ -279,7 +279,7 @@ class StreamlinedCacheWorker:
             processor = ChunkedAudioProcessor(
                 track_id=track_id,
                 filepath=track.filepath,
-                preset=preset,  # None for original
+                preset=preset,  # type: ignore[arg-type]  # None for original
                 intensity=intensity
             )
 
