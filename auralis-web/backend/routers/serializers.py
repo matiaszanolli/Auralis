@@ -8,7 +8,7 @@ dictionaries for JSON serialization, with fallback handling and validation.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List, Optional, get_type_hints
+from typing import Any, Dict, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)

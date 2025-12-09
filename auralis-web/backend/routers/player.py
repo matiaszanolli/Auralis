@@ -34,7 +34,6 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Optional, Callable, Any, Dict
 import logging
-import os
 
 from services import (
     PlaybackService,

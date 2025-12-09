@@ -15,10 +15,9 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any, Callable
+from typing import List, Dict, Any, Callable
 import logging
 import asyncio
-import shutil
 import tempfile
 from pathlib import Path
 

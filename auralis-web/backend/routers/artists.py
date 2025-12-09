@@ -10,7 +10,7 @@ REST API endpoints for artist browsing and management
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, Callable, Any, List, cast
+from typing import Optional, Callable, Any, cast
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 

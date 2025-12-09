@@ -14,7 +14,6 @@ Phase B.3: WebSocket Enhancement
 import logging
 import uuid
 import time
-import asyncio
 from typing import Dict, List, Optional, Callable, Any, Awaitable
 from dataclasses import dataclass, field
 from enum import Enum

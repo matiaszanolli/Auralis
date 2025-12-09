@@ -14,7 +14,6 @@ import time
 from typing import Any, Tuple, Dict, Optional
 from dataclasses import dataclass
 import resource
-import os
 
 logger = logging.getLogger(__name__)
 
