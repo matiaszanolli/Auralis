@@ -11,6 +11,7 @@ Extracts 25D audio fingerprints during library scanning
 """
 
 import numpy as np
+import gc
 from typing import Optional, Dict, List
 from pathlib import Path
 
@@ -94,8 +95,15 @@ class FingerprintExtractor:
                 debug(f"Loading audio for fingerprint: {filepath}")
                 audio, sr = load_audio(filepath)
 
-                debug(f"Extracting fingerprint for track {track_id}")
-                fingerprint = self.analyzer.analyze(audio, sr)
+                try:
+                    debug(f"Extracting fingerprint for track {track_id}")
+                    fingerprint = self.analyzer.analyze(audio, sr)
+                finally:
+                    # CRITICAL: Explicitly free audio array immediately after analysis
+                    # With 16 concurrent workers, audio arrays can accumulate (50-150MB each)
+                    # Without explicit cleanup, this causes unbounded memory growth
+                    del audio
+                    gc.collect()
 
             # Store in database
             result = self.fingerprint_repo.upsert(track_id, fingerprint)
