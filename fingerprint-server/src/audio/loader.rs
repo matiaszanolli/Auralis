@@ -42,13 +42,36 @@ fn load_audio_sync(filepath: &str) -> Result<AudioData> {
     let source = ReadOnlySource::new(file);
     let mss = MediaSourceStream::new(Box::new(source), Default::default());
 
-    // Create hint for format detection
+    // Create hint for format detection using file extension
+    // Symphonia supports all common formats: FLAC, MP3, WAV, OGG, M4A, AAC, AIFF, WMA, MKV, WebM, etc.
     let mut hint = Hint::new();
     if let Some(ext) = std::path::Path::new(filepath).extension() {
-        hint.with_extension(&ext.to_string_lossy());
+        let ext_str = ext.to_string_lossy().to_lowercase();
+
+        // Normalize common extension variations to standard Symphonia extensions
+        let normalized_ext = match ext_str.as_str() {
+            "wave" => "wav",
+            "mpeg" | "mpg" => "mp3",
+            "aif" | "aifc" | "aiffc" => "aiff",
+            "oga" | "ogx" => "ogg",
+            "m4b" => "m4a",
+            "adts" => "aac",
+            "wmv" => "wma",
+            "mka" | "mks" => "mkv",
+            "qt" => "mov",
+            "m4v" | "f4a" | "f4b" => "m4a",
+            "snd" => "au",
+            "dsf" | "dff" => "dsd",
+            "weba" => "webm",
+            _ => ext_str.as_str(),
+        };
+
+        hint.with_extension(normalized_ext);
+        tracing::debug!("Using extension hint: {} (original: {})", normalized_ext, ext_str);
     }
 
-    // Probe format
+    // Probe format with extension hint
+    // Symphonia will use the hint and also check magic bytes for robust detection
     let probed = symphonia::default::get_probe()
         .format(
             &hint,
@@ -59,6 +82,8 @@ fn load_audio_sync(filepath: &str) -> Result<AudioData> {
         .map_err(|e| {
             FingerprintError::UnsupportedFormat(format!("Failed to probe format: {}", e))
         })?;
+
+    tracing::debug!("Format probed successfully from: {}", filepath);
 
     let mut format = probed.format;
 
