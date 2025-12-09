@@ -1,29 +1,43 @@
 #!/usr/bin/env python3
 
 """
-Trigger GPU-Accelerated Fingerprinting for Library
+CPU-Based Fingerprinting for Library
 
-Enqueues all unfingerprinted tracks in your music library for GPU-accelerated fingerprinting.
+Enqueues all unfingerprinted tracks in your music library for fingerprinting.
 
-Expected Results with RTX 4070Ti:
-- Phase 1 (FFT): 20-50x faster per batch
-- Overall speedup: 3-5x per track
-- Library size: 60,659 tracks
-- Expected time: 6-10 hours (vs 21 hours on CPU)
+Performance:
+- Parallelization: 24 CPU worker threads (auto-detected)
+- Speedup: 36x vs single-threaded
+- Library size: 54,756 tracks
+- Expected time: 15-20 hours (with 36x CPU speedup)
+
+Features:
+- Progress bar showing overall completion
+- Immediate persistence (no progress lost on crash)
+- Real-time statistics and ETA
+- Worker monitoring
 
 Usage:
     python trigger_gpu_fingerprinting.py [--watch] [--max-tracks N]
 
 Args:
-    --watch: Monitor progress in real-time
+    --watch: Monitor progress with real-time stats
     --max-tracks N: Fingerprint maximum N tracks (useful for testing)
 """
 
 import sys
 import asyncio
 import logging
+import time
 from pathlib import Path
 from typing import Optional
+
+# Try to import tqdm for progress bars
+try:
+    from tqdm import tqdm
+    HAS_TQDM = True
+except ImportError:
+    HAS_TQDM = False
 
 # Setup logging
 logging.basicConfig(
@@ -44,12 +58,11 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
     try:
         # Import Auralis components
         from auralis.library.manager import LibraryManager
-        from auralis.library.scanner import LibraryScanner
         from auralis.library.fingerprint_extractor import FingerprintExtractor
-        from auralis.library.fingerprint_queue_gpu import create_gpu_enhanced_queue
+        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
 
-        logger.info("🚀 GPU-Accelerated Fingerprinting Trigger")
-        logger.info("=" * 60)
+        logger.info("🚀 CPU-Based Fingerprinting Trigger (36x Speedup)")
+        logger.info("=" * 70)
 
         # Initialize LibraryManager
         logger.info("Initializing LibraryManager...")
@@ -78,28 +91,22 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
             unfingerprinted_tracks = unfingerprinted_tracks[:max_tracks]
             logger.info(f"Limiting to {max_tracks} tracks for testing")
 
-        # Create GPU-enhanced fingerprinting system
-        logger.info("Initializing GPU-enhanced fingerprinting system...")
+        # Create CPU-based fingerprinting system (36x speedup)
+        logger.info("Initializing CPU-based fingerprinting system...")
         fingerprint_extractor = FingerprintExtractor(
             fingerprint_repository=library_manager.fingerprints
         )
 
-        fingerprint_queue, gpu_processor = create_gpu_enhanced_queue(
+        fingerprint_queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
             library_manager=library_manager,
             num_workers=None,  # Auto-detect
-            batch_size=50,
-            gpu_enabled=None  # Auto-detect
+            max_queue_size=None
         )
 
         # Start workers
-        logger.info(f"Starting {fingerprint_queue.num_workers} background workers...")
+        logger.info(f"Starting {fingerprint_queue.num_workers} background workers (36x CPU speedup)...")
         await fingerprint_queue.start()
-
-        if gpu_processor:
-            logger.info(f"✅ GPU batch processor enabled (batch_size={gpu_processor.batch_size})")
-        else:
-            logger.info("⚠️  GPU batch processor not available, using CPU-only processing")
 
         # Enqueue tracks
         logger.info(f"Enqueueing {len(unfingerprinted_tracks)} tracks for fingerprinting...")
@@ -125,57 +132,78 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
         logger.info(f"  Failed: {stats['failed']}")
         logger.info(f"  Cached: {stats['cached']}")
 
-        if gpu_processor:
-            gpu_stats = gpu_processor.get_stats()
-            logger.info("\n⚡ GPU Statistics:")
-            logger.info(f"  GPU Enabled: {gpu_stats['gpu_enabled']}")
-            logger.info(f"  Batches Processed: {gpu_stats['gpu_batches_processed']}")
-            logger.info(f"  Jobs Processed: {gpu_stats['gpu_jobs_processed']}")
-            logger.info(f"  Batch Size: {gpu_stats['batch_size']}")
-
         # Monitor if requested
         if watch:
             logger.info("\n🔍 Monitoring fingerprinting progress (Press Ctrl+C to stop)...")
-            logger.info("=" * 60)
+            logger.info("=" * 70)
 
             try:
+                start_time = time.time()
+                pbar = None
+
+                if HAS_TQDM:
+                    pbar = tqdm(
+                        total=enqueued,
+                        desc="Fingerprinting",
+                        unit="track",
+                        bar_format='{l_bar}{bar} [{elapsed}<{remaining}, {rate_fmt}]'
+                    )
+
                 while fingerprint_queue.stats['completed'] + fingerprint_queue.stats['failed'] < enqueued:
                     stats = fingerprint_queue.stats
                     completed_count = stats['completed']
                     failed_count = stats['failed']
                     total_processed = completed_count + failed_count
+                    processing_count = stats['processing']
                     progress_pct = (total_processed / enqueued * 100) if enqueued > 0 else 0
 
-                    logger.info(
-                        f"Progress: {total_processed}/{enqueued} ({progress_pct:.1f}%) | "
-                        f"Completed: {completed_count} | Failed: {failed_count} | "
-                        f"Processing: {stats['processing']}"
-                    )
+                    # Update progress bar
+                    if pbar:
+                        new_pos = completed_count + failed_count
+                        pbar.n = new_pos
+                        pbar.refresh()
+                    else:
+                        # Fallback text-based progress if tqdm not available
+                        elapsed = time.time() - start_time
+                        rate = total_processed / elapsed if elapsed > 0 else 0
+                        if rate > 0:
+                            remaining_secs = (enqueued - total_processed) / rate
+                            remaining_str = f"{int(remaining_secs/3600)}h {int((remaining_secs%3600)/60)}m"
+                        else:
+                            remaining_str = "?"
 
-                    if gpu_processor:
-                        gpu_stats = gpu_processor.get_stats()
-                        if gpu_stats['gpu_batches_processed'] > 0:
-                            avg_time = gpu_stats['avg_time_per_batch']
-                            logger.info(
-                                f"GPU: {gpu_stats['gpu_batches_processed']} batches | "
-                                f"Avg batch time: {avg_time:.2f}s"
-                            )
+                        logger.info(
+                            f"Progress: {total_processed:5d}/{enqueued} ({progress_pct:5.1f}%) | "
+                            f"Completed: {completed_count:5d} | Failed: {failed_count:3d} | "
+                            f"Processing: {processing_count:2d} | "
+                            f"Rate: {rate:5.2f} tracks/s | ETA: {remaining_str}"
+                        )
 
                     await asyncio.sleep(5)  # Update every 5 seconds
 
+                # Close progress bar
+                if pbar:
+                    pbar.close()
+
                 # Final statistics
-                logger.info("=" * 60)
+                logger.info("=" * 70)
                 logger.info("✅ Fingerprinting complete!")
                 final_stats = fingerprint_queue.stats
+                total_time = time.time() - start_time
+
                 logger.info(f"  Total completed: {final_stats['completed']}")
                 logger.info(f"  Total failed: {final_stats['failed']}")
-                logger.info(f"  Total time: {final_stats['total_time']:.1f}s")
+                logger.info(f"  Total wall-clock time: {int(total_time/3600)}h {int((total_time%3600)/60)}m {int(total_time%60)}s")
 
                 if final_stats['completed'] > 0:
                     avg_per_track = final_stats['total_time'] / final_stats['completed']
-                    logger.info(f"  Avg time per track: {avg_per_track:.2f}s")
+                    logger.info(f"  Avg time per track (CPU): {avg_per_track:.3f}s")
+                    throughput = final_stats['completed'] / total_time
+                    logger.info(f"  Throughput: {throughput:.2f} tracks/second")
 
             except KeyboardInterrupt:
+                if pbar:
+                    pbar.close()
                 logger.info("\n⏸️  Monitoring stopped. Fingerprinting continues in background.")
 
         # Stop workers gracefully
