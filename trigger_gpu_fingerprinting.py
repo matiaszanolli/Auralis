@@ -29,6 +29,8 @@ import sys
 import asyncio
 import logging
 import time
+import gc
+import psutil
 from pathlib import Path
 from typing import Optional
 
@@ -97,11 +99,14 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
             fingerprint_repository=library_manager.fingerprints
         )
 
+        # Limit queue size to prevent memory buildup
+        # This ensures jobs are only queued as workers become available
+        # Instead of queuing all 54K tracks at once into memory
         fingerprint_queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
             library_manager=library_manager,
-            num_workers=None,  # Auto-detect
-            max_queue_size=None
+            num_workers=None,  # Auto-detect CPU cores (24)
+            max_queue_size=50  # CRITICAL: Limit queue to 50 jobs max
         )
 
         # Start workers first
