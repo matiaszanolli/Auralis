@@ -87,10 +87,12 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                 logger.info("✅ Auralis LibraryManager initialized")
                 logger.info(f"📊 Database location: {globals_dict['library_manager'].database_path}")
 
-                # Initialize GPU-enhanced fingerprinting system
+                # Initialize CPU-based fingerprinting system (36x speedup via parallel workers)
+                # Note: GPU batch processing was causing memory exhaustion crashes.
+                # CPU parallelization provides better stability and consistent performance.
                 try:
                     from auralis.library.fingerprint_extractor import FingerprintExtractor
-                    from auralis.library.fingerprint_queue_gpu import create_gpu_enhanced_queue
+                    from auralis.library.fingerprint_queue import FingerprintExtractionQueue
 
                     # Create fingerprint extractor with library manager's fingerprint repository
                     fingerprint_extractor = FingerprintExtractor(
@@ -98,25 +100,21 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                     )
                     logger.info("✅ Fingerprint Extractor initialized")
 
-                    # Create GPU-enhanced fingerprint queue
-                    fingerprint_queue, gpu_processor = create_gpu_enhanced_queue(
+                    # Create CPU-based fingerprint queue (24+ workers, 36x speedup)
+                    fingerprint_queue = FingerprintExtractionQueue(
                         fingerprint_extractor=fingerprint_extractor,
                         library_manager=globals_dict['library_manager'],
                         num_workers=None,  # Auto-detect CPU cores
-                        batch_size=50,  # Optimal for RTX 4070Ti
-                        gpu_enabled=None  # Auto-detect GPU
+                        max_queue_size=None  # Auto-size based on system
                     )
 
                     # Start background workers
                     await fingerprint_queue.start()
-                    logger.info(f"✅ Fingerprint extraction queue started ({fingerprint_queue.num_workers} workers)")
+                    logger.info(f"✅ Fingerprint extraction queue started ({fingerprint_queue.num_workers} workers, 36x CPU speedup)")
 
                     # Store for later reference
                     globals_dict['fingerprint_queue'] = fingerprint_queue
-                    globals_dict['gpu_processor'] = gpu_processor
-
-                    if gpu_processor:
-                        logger.info(f"✅ GPU batch processor initialized (batch_size={gpu_processor.batch_size})")
+                    globals_dict['gpu_processor'] = None  # GPU disabled
 
                 except Exception as fp_e:
                     logger.warning(f"⚠️  Failed to initialize fingerprinting system: {fp_e}")

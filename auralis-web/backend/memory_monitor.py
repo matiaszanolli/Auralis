@@ -69,9 +69,6 @@ class MemoryPressureMonitor:
             f"warning={warning_threshold:.0%}, critical={critical_threshold:.0%}"
         )
 
-        # Attempt to set process RAM limit at 60% of system memory (conservative margin)
-        self._set_process_memory_limit(limit_fraction=0.60)
-
     def _set_process_memory_limit(self, limit_fraction: float = 0.60) -> None:
         """
         Set process-level memory limit using resource module.
