@@ -200,7 +200,7 @@ class FingerprintExtractionQueue:
             priority: Job priority (0=normal, higher=more urgent)
 
         Returns:
-            True if enqueued successfully, False if queue is full
+            True if enqueued successfully, False if queue is full after timeout
         """
         job = FingerprintJob(
             track_id=track_id,
@@ -209,8 +209,10 @@ class FingerprintExtractionQueue:
         )
 
         try:
-            # Non-blocking put with max_queue_size limit
-            self.job_queue.put_nowait(job)
+            # Blocking put with timeout - wait for space in queue
+            # This ensures jobs are queued as workers finish processing
+            # 30 second timeout to unblock if something is stuck
+            self.job_queue.put(job, block=True, timeout=30.0)
 
             with self.stats_lock:
                 self.stats['queued'] += 1
@@ -219,7 +221,7 @@ class FingerprintExtractionQueue:
             return True
 
         except:
-            warning(f"Fingerprint queue full, skipping track {track_id}")
+            warning(f"Fingerprint queue timeout for track {track_id}")
             return False
 
     async def enqueue_batch(self,
