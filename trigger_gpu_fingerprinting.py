@@ -104,24 +104,37 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
             max_queue_size=None
         )
 
-        # Start workers
+        # Start workers first
         logger.info(f"Starting {fingerprint_queue.num_workers} background workers (36x CPU speedup)...")
         await fingerprint_queue.start()
 
-        # Enqueue tracks
-        logger.info(f"Enqueueing {len(unfingerprinted_tracks)} tracks for fingerprinting...")
-        enqueued = 0
+        # Create async task to stream tracks continuously (don't enqueue all at once)
+        async def stream_tracks():
+            """Stream tracks to queue continuously for continuous processing."""
+            enqueued = 0
+            for track in unfingerprinted_tracks:
+                try:
+                    success = await fingerprint_queue.enqueue(
+                        track_id=track.id,
+                        filepath=track.filepath,
+                        priority=0
+                    )
+                    if success:
+                        enqueued += 1
+                        # Yield control to allow workers to start processing
+                        if enqueued % 10 == 0:
+                            await asyncio.sleep(0.01)
+                except Exception as e:
+                    logger.error(f"Failed to enqueue track {track.id}: {e}")
 
-        for track in unfingerprinted_tracks:
-            success = await fingerprint_queue.enqueue(
-                track_id=track.id,
-                filepath=track.filepath,
-                priority=0
-            )
-            if success:
-                enqueued += 1
+            logger.info(f"✅ Enqueued {enqueued}/{len(unfingerprinted_tracks)} tracks")
+            return enqueued
 
-        logger.info(f"✅ Enqueued {enqueued}/{len(unfingerprinted_tracks)} tracks")
+        # Start streaming tracks in background (don't wait for all to enqueue first)
+        enqueue_task = asyncio.create_task(stream_tracks())
+
+        # Give enqueueing a head start but don't wait for completion
+        await asyncio.sleep(0.1)
 
         # Print statistics
         stats = fingerprint_queue.stats
@@ -205,6 +218,13 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
                 if pbar:
                     pbar.close()
                 logger.info("\n⏸️  Monitoring stopped. Fingerprinting continues in background.")
+
+        # Wait for all tracks to be enqueued
+        try:
+            enqueued = await asyncio.wait_for(enqueue_task, timeout=300.0)
+            logger.info(f"All {enqueued} tracks enqueued, waiting for processing to complete...")
+        except asyncio.TimeoutError:
+            logger.warning("Timeout waiting for tracks to be enqueued, continuing anyway...")
 
         # Stop workers gracefully
         logger.info("Stopping fingerprint workers...")
