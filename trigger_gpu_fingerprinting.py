@@ -3,19 +3,25 @@
 """
 CPU-Based Fingerprinting for Library
 
-Enqueues all unfingerprinted tracks in your music library for fingerprinting.
+Workers automatically fetch unfingerprinted tracks from database as they finish.
+
+Architecture:
+- No job queue: Eliminates pre-loading and queue accumulation
+- Database-pull: Workers fetch next track directly from DB when ready
+- Natural rate limiting: Workers block only on DB access, not queue ops
+- Bounded memory: Only one audio file per worker in memory at a time
 
 Performance:
-- Parallelization: 24 CPU worker threads (auto-detected)
+- Parallelization: 16 CPU worker threads (50% of 32 cores)
 - Speedup: 36x vs single-threaded
 - Library size: 54,756 tracks
 - Expected time: 15-20 hours (with 36x CPU speedup)
 
 Features:
 - Progress bar showing overall completion
-- Immediate persistence (no progress lost on crash)
 - Real-time statistics and ETA
 - Worker monitoring
+- Automatic memory management (no unbounded growth)
 
 Usage:
     python trigger_gpu_fingerprinting.py [--watch] [--max-tracks N]
@@ -30,7 +36,6 @@ import asyncio
 import logging
 import time
 import gc
-import psutil
 from pathlib import Path
 from typing import Optional
 
@@ -99,64 +104,29 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
             fingerprint_repository=library_manager.fingerprints
         )
 
-        # Queue backpressure mechanism to prevent unbounded memory growth
-        # Root cause analysis (see MEMORY_LEAK_ROOT_CAUSE_ANALYSIS.md):
-        # - Without max_queue_size, stream_tracks() would enqueue all 54K tracks instantly
-        # - This caused 49GB accumulation with 24 workers + unlimited queue
-        # - Fix: max_queue_size=25 + blocking put() ensures queue never exceeds ~30 jobs
-        # - Worker count doesn't affect memory safety, only throughput
+        # Database-pull worker architecture (no queue, natural rate limiting)
+        # Workers fetch unfingerprinted tracks directly from database as they finish
+        # Benefits:
+        # - No job queue = no queue accumulation or memory buildup
+        # - Natural rate limiting: workers only fetch when ready
+        # - Bounded memory: only one audio file per worker in memory at a time
+        # - Eliminates pre-loading and enqueue overhead
         fingerprint_queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
             library_manager=library_manager,
-            num_workers=16,  # CPU-efficient: 50% of 32 cores, leaves headroom for I/O
-            max_queue_size=25  # CRITICAL: Backpressure limit prevents queue overflow
+            num_workers=16  # CPU-efficient: 50% of 32 cores, leaves headroom for I/O
         )
 
         # Start workers first
         logger.info(f"Starting {fingerprint_queue.num_workers} background workers (36x CPU speedup)...")
         await fingerprint_queue.start()
 
-        # Create async task to stream tracks continuously (don't enqueue all at once)
-        async def stream_tracks():
-            """Stream tracks to queue continuously for continuous processing."""
-            enqueued = 0
-
-            for track in unfingerprinted_tracks:
-                try:
-                    # Simple enqueue without retry - let gc.collect() handle memory
-                    success = await fingerprint_queue.enqueue(
-                        track_id=track.id,
-                        filepath=track.filepath,
-                        priority=0
-                    )
-                    if success:
-                        enqueued += 1
-
-                    # Yield control every 5 tracks and check memory
-                    if enqueued % 5 == 0:
-                        mem = psutil.virtual_memory()
-                        mem_pct = mem.percent
-                        await asyncio.sleep(0.1)  # Small yield
-                        if mem_pct > 80:
-                            logger.warning(f"Memory pressure ({mem_pct:.1f}%), pausing...")
-                            await asyncio.sleep(1.0)
-                except Exception as e:
-                    logger.error(f"Failed to enqueue track {track.id}: {e}")
-
-            logger.info(f"✅ Enqueued {enqueued}/{len(unfingerprinted_tracks)} tracks")
-            return enqueued
-
-        # Start streaming tracks in background (don't wait for all to enqueue first)
-        enqueue_task = asyncio.create_task(stream_tracks())
-        total_to_enqueue = len(unfingerprinted_tracks)
-
-        # Give enqueueing a head start but don't wait for completion
-        await asyncio.sleep(0.1)
+        # Workers fetch tracks directly from database (no pre-loading needed)
+        total_to_process = len(unfingerprinted_tracks)
 
         # Print statistics
         stats = fingerprint_queue.stats
         logger.info("\n📊 Fingerprinting Status:")
-        logger.info(f"  Queued: {stats['queued']}")
         logger.info(f"  Processing: {stats['processing']}")
         logger.info(f"  Completed: {stats['completed']}")
         logger.info(f"  Failed: {stats['failed']}")
@@ -173,19 +143,19 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
 
                 if HAS_TQDM:
                     pbar = tqdm(
-                        total=total_to_enqueue,
+                        total=total_to_process,
                         desc="Fingerprinting",
                         unit="track",
                         bar_format='{l_bar}{bar} [{elapsed}<{remaining}, {rate_fmt}]'
                     )
 
-                while fingerprint_queue.stats['completed'] + fingerprint_queue.stats['failed'] < total_to_enqueue:
+                while fingerprint_queue.stats['completed'] + fingerprint_queue.stats['failed'] < total_to_process:
                     stats = fingerprint_queue.stats
                     completed_count = stats['completed']
                     failed_count = stats['failed']
                     total_processed = completed_count + failed_count
                     processing_count = stats['processing']
-                    progress_pct = (total_processed / total_to_enqueue * 100) if total_to_enqueue > 0 else 0
+                    progress_pct = (total_processed / total_to_process * 100) if total_to_process > 0 else 0
 
                     # Update progress bar
                     if pbar:
@@ -197,13 +167,13 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
                         elapsed = time.time() - start_time
                         rate = total_processed / elapsed if elapsed > 0 else 0
                         if rate > 0:
-                            remaining_secs = (total_to_enqueue - total_processed) / rate
+                            remaining_secs = (total_to_process - total_processed) / rate
                             remaining_str = f"{int(remaining_secs/3600)}h {int((remaining_secs%3600)/60)}m"
                         else:
                             remaining_str = "?"
 
                         logger.info(
-                            f"Progress: {total_processed:5d}/{total_to_enqueue} ({progress_pct:5.1f}%) | "
+                            f"Progress: {total_processed:5d}/{total_to_process} ({progress_pct:5.1f}%) | "
                             f"Completed: {completed_count:5d} | Failed: {failed_count:3d} | "
                             f"Processing: {processing_count:2d} | "
                             f"Rate: {rate:5.2f} tracks/s | ETA: {remaining_str}"
@@ -236,12 +206,8 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
                     pbar.close()
                 logger.info("\n⏸️  Monitoring stopped. Fingerprinting continues in background.")
 
-        # Wait for all tracks to be enqueued
-        try:
-            enqueued = await asyncio.wait_for(enqueue_task, timeout=300.0)
-            logger.info(f"All {enqueued} tracks enqueued, waiting for processing to complete...")
-        except asyncio.TimeoutError:
-            logger.warning("Timeout waiting for tracks to be enqueued, continuing anyway...")
+        # Wait a moment for any remaining workers to finish naturally
+        await asyncio.sleep(1.0)
 
         # Stop workers gracefully
         logger.info("Stopping fingerprint workers...")

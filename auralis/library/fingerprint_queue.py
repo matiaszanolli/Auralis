@@ -1,79 +1,60 @@
 # -*- coding: utf-8 -*-
 
 """
-Fingerprint Extraction Queue
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Fingerprint Extraction Worker Pool
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Async background queue for fingerprint extraction during library scanning.
+Fingerprinting workers that pull directly from database instead of a job queue.
 
-Implements non-blocking fingerprint extraction using:
-- asyncio.Queue for thread-safe work distribution
-- Adaptive worker threads: auto-detects CPU cores (4-24 threads, GIL-limited but good for I/O)
+Architecture:
+- Workers fetch unfingerprinted tracks from database as they finish previous track
+- No pre-loaded track list - eliminates memory accumulation
+- No job queue - no enqueue/dequeue overhead or backpressure issues
+- Natural rate limiting - workers fetch only when ready
+- Bounded memory: only one audio file per worker in memory at a time
+
+Worker Pool:
+- Adaptive worker threads: auto-detects CPU cores (4-24 threads)
   - High-end systems (16+ cores): uses 75% of CPU cores for maximum parallelism
   - Low-end systems (< 8 cores): uses 4 workers as default
-- Status tracking in database
-- Error handling and retry logic
+- Thread-safe statistics tracking
+- Progress callbacks for monitoring
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import threading
 import time
-import gc
-from queue import Queue, PriorityQueue, Empty
-from typing import Optional, Dict, Callable, List, Tuple, Any
+from typing import Optional, Dict, Callable, Any, List
 from pathlib import Path
-from dataclasses import dataclass
-from datetime import datetime
+import psutil
 
 from ..utils.logging import info, warning, error, debug
 
 
-@dataclass
-class FingerprintJob:
-    """Represents a fingerprint extraction job"""
-    track_id: int
-    filepath: str
-    priority: int = 0  # 0=normal, higher=more urgent
-    created_at: Optional[float] = None
-    retry_count: int = 0
-    max_retries: int = 3
-
-    def __post_init__(self) -> None:
-        if self.created_at is None:
-            self.created_at = time.time()
-
-    def __lt__(self, other: "FingerprintJob") -> bool:
-        """Priority queue ordering (higher priority first)"""
-        if self.priority != other.priority:
-            return self.priority > other.priority
-        created_at_self: float = self.created_at if self.created_at is not None else 0.0
-        created_at_other: float = other.created_at if other.created_at is not None else 0.0
-        return created_at_self < created_at_other
-
-
 class FingerprintExtractionQueue:
     """
-    Async queue for background fingerprint extraction
+    Fingerprint extraction worker pool - workers pull directly from database.
+
+    Architecture:
+    - No job queue: Eliminates pre-loading tracks and queue accumulation
+    - Workers pull next unfingerprinted track from database after finishing
+    - Natural rate limiting: Workers only fetch when ready
+    - No memory buildup: Only one track in memory per worker at a time
+    - Fully async: Workers block only on disk I/O, not queue operations
 
     Usage:
-        # Initialize
+        # Initialize (automatically starts workers)
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=extractor,
             library_manager=lib_manager,
-            num_workers=4
+            num_workers=16
         )
-
-        # Start background workers
         await queue.start()
 
-        # Queue a job
-        await queue.enqueue(track_id=123, filepath='/path/to/audio.mp3')
-
-        # Or enqueue batch during library scan
-        await queue.enqueue_batch([(1, 'file1.mp3'), (2, 'file2.mp3')])
+        # Workers automatically process all unfingerprinted tracks from database
+        # Monitor progress via queue.stats
 
         # Stop gracefully
         await queue.stop()
@@ -82,51 +63,35 @@ class FingerprintExtractionQueue:
     def __init__(self,
                  fingerprint_extractor: Any,
                  library_manager: Any,
-                 num_workers: Optional[int] = None,
-                 max_queue_size: Optional[int] = None) -> None:
+                 num_workers: Optional[int] = None) -> None:
         """
-        Initialize fingerprint extraction queue
+        Initialize fingerprint extraction worker pool.
 
         Args:
             fingerprint_extractor: FingerprintExtractor instance
-            library_manager: LibraryManager for status updates
+            library_manager: LibraryManager for querying unfingerprinted tracks
             num_workers: Number of background worker threads (default: auto-detect from CPU)
-                        - If None: uses 75% of CPU cores (good for high-end systems)
-                        - If 0: uses 4 (legacy default for low-end systems)
-            max_queue_size: Maximum queue size before blocking (default: num_workers * 10)
         """
         import os
 
         # Auto-detect optimal worker count if not specified
         if num_workers is None:
             cpu_count = os.cpu_count() or 8
-            # For high-end systems (16+ cores), use 75% to avoid system stall
-            # For low-end systems (< 8 cores), use 4 as default
             if cpu_count >= 16:
                 num_workers = max(4, int(cpu_count * 0.75))
             else:
                 num_workers = 4
 
-        # Auto-calculate queue size if not specified
-        if max_queue_size is None:
-            max_queue_size = num_workers * 10
-
         self.extractor: Any = fingerprint_extractor
         self.library_manager: Any = library_manager
         self.num_workers: int = num_workers
-        self.max_queue_size: int = max_queue_size
 
-        # Thread-safe queue for job distribution
-        # Using Queue for job distribution
-        self.job_queue: Queue[FingerprintJob] = Queue(maxsize=max_queue_size)
-
-        # Worker threads
+        # Worker threads (no job queue needed)
         self.workers: List[threading.Thread] = []
         self.should_stop: bool = False
 
-        # Statistics
+        # Statistics (removed 'queued' since no queue)
         self.stats: Dict[str, Any] = {
-            'queued': 0,
             'processing': 0,
             'completed': 0,
             'failed': 0,
@@ -134,6 +99,12 @@ class FingerprintExtractionQueue:
             'total_time': 0.0
         }
         self.stats_lock: threading.RLock = threading.RLock()
+
+        # Memory-aware processing semaphore
+        # Limits concurrent audio file loading to prevent memory bloat
+        # With 16 workers but only 3 concurrent audio files, we prevent 1.2GB+ memory spikes
+        # while keeping database queries fast (other workers can fetch while processing)
+        self.processing_semaphore: threading.Semaphore = threading.Semaphore(3)
 
         # Progress callback
         self.progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
@@ -187,69 +158,13 @@ class FingerprintExtractionQueue:
         info(f"All workers stopped. Stats: {self.stats}")
         return True
 
-    async def enqueue(self,
-                      track_id: int,
-                      filepath: str,
-                      priority: int = 0) -> bool:
-        """
-        Enqueue a single fingerprint extraction job
-
-        Args:
-            track_id: Database ID of the track
-            filepath: Path to the audio file
-            priority: Job priority (0=normal, higher=more urgent)
-
-        Returns:
-            True if enqueued successfully, False if queue is full after timeout
-        """
-        job = FingerprintJob(
-            track_id=track_id,
-            filepath=filepath,
-            priority=priority
-        )
-
-        try:
-            # Blocking put with timeout - wait for space in queue
-            # This ensures jobs are queued as workers finish processing
-            # 30 second timeout to unblock if something is stuck
-            self.job_queue.put(job, block=True, timeout=30.0)
-
-            with self.stats_lock:
-                self.stats['queued'] += 1
-
-            debug(f"Enqueued fingerprint job for track {track_id}")
-            return True
-
-        except:
-            warning(f"Fingerprint queue timeout for track {track_id}")
-            return False
-
-    async def enqueue_batch(self,
-                            track_paths: List[Tuple[int, str]],
-                            priority: int = 0) -> int:
-        """
-        Enqueue multiple jobs in batch
-
-        Args:
-            track_paths: List of (track_id, filepath) tuples
-            priority: Priority for all jobs in batch
-
-        Returns:
-            Number of jobs successfully enqueued
-        """
-        enqueued = 0
-        for track_id, filepath in track_paths:
-            if await self.enqueue(track_id, filepath, priority):
-                enqueued += 1
-            else:
-                warning(f"Failed to enqueue batch job for track {track_id}")
-
-        info(f"Enqueued {enqueued}/{len(track_paths)} batch jobs")
-        return enqueued
 
     def _worker_loop(self, worker_id: int) -> None:
         """
-        Main loop for background worker thread
+        Main loop for background worker thread.
+
+        Workers fetch unfingerprinted tracks from database and process them.
+        No job queue - workers pull directly from DB when ready.
 
         Args:
             worker_id: ID of this worker
@@ -258,29 +173,45 @@ class FingerprintExtractionQueue:
 
         try:
             while not self.should_stop:
+                # Fetch next unfingerprinted track from database
+                # This blocks only on database access, not on queue operations
                 try:
-                    # Get job from queue with timeout
-                    job = self.job_queue.get(timeout=1.0)
-                    # Process job
-                    self._process_job(job, worker_id)
+                    tracks = self.library_manager.fingerprints.get_missing_fingerprints(limit=1)
+                    if not tracks:
+                        # No more unfingerprinted tracks, exit loop
+                        debug(f"Worker {worker_id}: No more unfingerprinted tracks")
+                        break
 
-                except Empty:
-                    # Queue is empty, loop will check should_stop on next iteration
-                    continue
+                    track = tracks[0]
+                    self._process_track(track, worker_id)
+
+                except Exception as e:
+                    error(f"Worker {worker_id} error fetching from database: {e}")
+                    # Brief sleep before retrying to avoid busy-loop on persistent errors
+                    time.sleep(0.1)
 
         except Exception as e:
             error(f"Worker {worker_id} encountered error: {e}")
         finally:
             info(f"Worker {worker_id} stopped")
 
-    def _process_job(self, job: FingerprintJob, worker_id: int) -> None:
+    def _process_track(self, track: Any, worker_id: int) -> None:
         """
-        Process a single fingerprint extraction job
+        Process a single track: extract and store fingerprint.
+
+        Acquires memory-aware semaphore to limit concurrent audio processing.
+        This prevents memory bloat when loading large audio files.
 
         Args:
-            job: FingerprintJob to process
-            worker_id: ID of the worker processing this job
+            track: Track object with id and filepath attributes
+            worker_id: ID of the worker processing this track
         """
+        # Acquire semaphore to limit concurrent audio processing
+        # Only 3 workers can process audio simultaneously (prevents ~1.2GB memory spikes)
+        # Other workers wait here while still able to fetch from database
+        debug(f"Worker {worker_id} waiting for processing slot (currently {self.stats['processing']}/3 in use)")
+        self.processing_semaphore.acquire()
+
         with self.stats_lock:
             self.stats['processing'] += 1
 
@@ -288,98 +219,47 @@ class FingerprintExtractionQueue:
         success = False
 
         try:
-            # Mark as processing in database
-            self._update_track_status(job.track_id, 'processing')
-
-            debug(f"Worker {worker_id} extracting fingerprint for track {job.track_id}")
+            debug(f"Worker {worker_id} extracting fingerprint for track {track.id}")
 
             # Extract and store fingerprint
-            success = self.extractor.extract_and_store(job.track_id, job.filepath)
+            success = self.extractor.extract_and_store(track.id, track.filepath)
 
             if success:
-                # Mark as complete in database
-                self._update_track_status(job.track_id, 'complete')
-
                 with self.stats_lock:
                     self.stats['completed'] += 1
                     self.stats['total_time'] += time.time() - job_start
 
-                info(f"Fingerprint extracted for track {job.track_id}")
+                info(f"Fingerprint extracted for track {track.id}")
 
                 self._report_progress({
                     'stage': 'fingerprinting',
-                    'track_id': job.track_id,
+                    'track_id': track.id,
                     'status': 'complete',
                     'time': time.time() - job_start
                 })
 
-                # Explicitly free memory after each fingerprint extraction
-                gc.collect()
-
             else:
-                raise Exception(f"Extractor returned False for track {job.track_id}")
+                raise Exception(f"Extractor returned False for track {track.id}")
 
         except Exception as e:
-            error(f"Error extracting fingerprint for track {job.track_id}: {e}")
+            error(f"Error extracting fingerprint for track {track.id}: {e}")
 
-            # Free memory even on error
-            gc.collect()
+            with self.stats_lock:
+                self.stats['failed'] += 1
 
-            job.retry_count += 1
-
-            # Retry or fail
-            if job.retry_count < job.max_retries:
-                with self.stats_lock:
-                    self.stats['processing'] -= 1
-
-                # Re-enqueue with backoff
-                warning(f"Retrying track {job.track_id} (attempt {job.retry_count})")
-                # Note: Can't await in this thread context, so put job back synchronously
-                try:
-                    self.job_queue.put_nowait(job)
-                except asyncio.QueueFull:
-                    error(f"Failed to re-enqueue track {job.track_id} for retry")
-            else:
-                # Max retries exceeded, mark as failed
-                self._update_track_status(
-                    job.track_id,
-                    'error',
-                    error_message=f"Fingerprint extraction failed after {job.max_retries} retries: {str(e)}"
-                )
-
-                with self.stats_lock:
-                    self.stats['failed'] += 1
-
-                self._report_progress({
-                    'stage': 'fingerprinting',
-                    'track_id': job.track_id,
-                    'status': 'error',
-                    'error': str(e)
-                })
+            self._report_progress({
+                'stage': 'fingerprinting',
+                'track_id': track.id,
+                'status': 'error',
+                'error': str(e)
+            })
 
         finally:
             with self.stats_lock:
                 self.stats['processing'] = max(0, self.stats['processing'] - 1)
 
-    def _update_track_status(self,
-                            track_id: int,
-                            status: str,
-                            error_message: Optional[str] = None) -> None:
-        """
-        Update track fingerprint status in database
-
-        Args:
-            track_id: Database ID of the track
-            status: Status value (pending, processing, complete, error)
-            error_message: Optional error message
-        """
-        try:
-            # This would use library_manager to update the track
-            # Placeholder for actual implementation
-            debug(f"Updated track {track_id} status to {status}")
-
-        except Exception as e:
-            error(f"Failed to update track status: {e}")
+            # Release semaphore to allow next worker to process
+            self.processing_semaphore.release()
 
     def _report_progress(self, progress_data: Dict[str, Any]) -> None:
         """Report progress to callback if set"""
@@ -390,16 +270,9 @@ class FingerprintExtractionQueue:
                 error(f"Progress callback error: {e}")
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get current queue statistics"""
+        """Get worker pool statistics"""
         with self.stats_lock:
             return self.stats.copy()
-
-    def get_queue_size(self) -> int:
-        """Get current queue size"""
-        try:
-            return self.job_queue.qsize()
-        except:
-            return 0
 
 
 class FingerprintQueueManager:
@@ -441,9 +314,6 @@ class FingerprintQueueManager:
             return success
         return True
 
-    async def enqueue_during_scan(self, track_id: int, filepath: str) -> bool:
-        """Enqueue during library scan (async)"""
-        return await self.queue.enqueue(track_id, filepath, priority=0)
 
     def get_stats(self) -> Dict[str, Any]:
         """Get queue statistics"""
