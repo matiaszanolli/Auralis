@@ -100,13 +100,13 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
         )
 
         # Limit queue size and reduce workers to manage memory
-        # With gc.collect() after each track, 12 workers + 50 job queue is stable
-        # This ensures jobs are only queued as workers complete processing
+        # With gc.collect() after each track, 6 workers + 25 job queue is stable
+        # Conservative settings to prevent OOM while maintaining throughput
         fingerprint_queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
             library_manager=library_manager,
-            num_workers=12,  # Reduced from 24 to allow gc.collect() to keep up
-            max_queue_size=50  # CRITICAL: Limit queue to 50 jobs max
+            num_workers=6,  # Conservative: 6 workers allow gc to catch up
+            max_queue_size=25  # CRITICAL: Limit queue to 25 jobs max (~100MB in flight)
         )
 
         # Start workers first
