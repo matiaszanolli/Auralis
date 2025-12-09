@@ -99,14 +99,17 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
             fingerprint_repository=library_manager.fingerprints
         )
 
-        # Limit queue size and reduce workers to manage memory
-        # With gc.collect() after each track, 6 workers + 25 job queue is stable
-        # Conservative settings to prevent OOM while maintaining throughput
+        # Queue backpressure mechanism to prevent unbounded memory growth
+        # Root cause analysis (see MEMORY_LEAK_ROOT_CAUSE_ANALYSIS.md):
+        # - Without max_queue_size, stream_tracks() would enqueue all 54K tracks instantly
+        # - This caused 49GB accumulation with 24 workers + unlimited queue
+        # - Fix: max_queue_size=25 + blocking put() ensures queue never exceeds ~30 jobs
+        # - Worker count doesn't affect memory safety, only throughput
         fingerprint_queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
             library_manager=library_manager,
-            num_workers=6,  # Conservative: 6 workers allow gc to catch up
-            max_queue_size=25  # CRITICAL: Limit queue to 25 jobs max (~100MB in flight)
+            num_workers=12,  # CPU-efficient: 50% of 24 cores, leaves headroom for I/O
+            max_queue_size=25  # CRITICAL: Backpressure limit prevents queue overflow
         )
 
         # Start workers first
