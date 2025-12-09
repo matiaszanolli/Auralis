@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException
 
 from .dependencies import require_library_manager
 from .errors import NotFoundError, handle_query_error
-from .serializers import serialize_albums, serialize_album, serialize_tracks
+from .serializers import serialize_tracks
 
 logger = logging.getLogger(__name__)
 

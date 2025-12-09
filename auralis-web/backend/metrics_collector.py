@@ -11,7 +11,7 @@ Collects and aggregates performance metrics for the multi-tier buffer system.
 import time
 import logging
 from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Deque, Any, Tuple
+from typing import Dict, List, Optional, Deque, Any
 from collections import deque
 
 logger = logging.getLogger(__name__)

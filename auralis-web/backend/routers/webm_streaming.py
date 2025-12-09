@@ -27,13 +27,10 @@ Architecture:
 
 from fastapi import APIRouter, HTTPException, Response, Query
 from pydantic import BaseModel
-from typing import Optional
 import logging
 import os
 import math
 import time
-import numpy as np
-from pathlib import Path
 
 # Import WAV encoder (replacing WebM for browser compatibility)
 from encoding.wav_encoder import encode_to_wav, WAVEncoderError

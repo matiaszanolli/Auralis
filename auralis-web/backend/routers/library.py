@@ -538,4 +538,64 @@ def create_library_router(get_library_manager: Callable[[], Any], connection_man
         except Exception as e:
             raise handle_query_error("scan library", e)
 
+    @router.get("/api/library/fingerprints/status")
+    async def get_fingerprinting_status() -> Dict[str, Any]:
+        """
+        Get fingerprinting progress for library.
+
+        Returns:
+            dict: Fingerprinting status with:
+                - total_tracks: Total number of tracks in library
+                - fingerprinted_tracks: Number of tracks with fingerprints
+                - pending_tracks: Number of tracks waiting for fingerprinting
+                - progress_percent: Percentage of fingerprinting complete
+                - status: Current status message
+        """
+        try:
+            library_manager = require_library_manager(get_library_manager)
+
+            # Get total track count
+            total_tracks = library_manager.session.query(
+                library_manager.models.Track
+            ).count()
+
+            # Get fingerprinted track count
+            # Check if fingerprint_cache or track_fingerprints table exists
+            from sqlalchemy import func
+
+            try:
+                # Try to count tracks with fingerprints in track_fingerprints table
+                fingerprinted_count = library_manager.session.query(
+                    func.count(library_manager.models.TrackFingerprint.id)
+                ).scalar() or 0
+            except Exception:
+                # Fallback if TrackFingerprint model doesn't exist
+                fingerprinted_count = 0
+
+            pending_count = total_tracks - fingerprinted_count
+            progress_percent = int((fingerprinted_count / max(1, total_tracks)) * 100)
+
+            # Determine status message
+            if total_tracks == 0:
+                status = "No tracks in library"
+            elif fingerprinted_count == total_tracks:
+                status = "✅ All tracks fingerprinted"
+            elif fingerprinted_count == 0:
+                status = "⏳ Waiting to start fingerprinting..."
+            else:
+                status = f"🔄 Fingerprinting in progress ({fingerprinted_count}/{total_tracks})"
+
+            return {
+                "total_tracks": total_tracks,
+                "fingerprinted_tracks": fingerprinted_count,
+                "pending_tracks": pending_count,
+                "progress_percent": progress_percent,
+                "status": status,
+                "estimated_remaining_seconds": int(pending_count * 30) if pending_count > 0 else 0  # Rough estimate: 30s per track
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise handle_query_error("get fingerprinting status", e)
+
     return router

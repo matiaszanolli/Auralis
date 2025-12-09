@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, List, cast
 import tempfile
 import asyncio
+from datetime import datetime
 
 # Auralis imports
 import sys
@@ -35,6 +36,9 @@ from core.chunk_boundaries import ChunkBoundaryManager
 from core.level_manager import LevelManager
 from core.processor_manager import ProcessorManager
 from core.encoding import WAVEncoder
+
+# Phase 2 (Analysis caching) modules created but not yet integrated
+# To be integrated after resolving import structure issues
 
 logger = logging.getLogger(__name__)
 
@@ -125,16 +129,16 @@ class ChunkedAudioProcessor:
         self.mastering_recommendation = None
         self.adaptive_mastering_engine = None
 
+        # Phase 1 only: Load from .25d file if available
+        # Phase 2 (analysis caching) can be integrated after resolving import structure
         if self.preset is not None:
             from auralis.analysis.fingerprint import FingerprintStorage
 
-            # Try to load from .25d file
+            # Load from .25d file (Phase 1 optimization)
             cached_data = FingerprintStorage.load(Path(filepath))
             if cached_data:
                 self.fingerprint, self.mastering_targets = cached_data
                 logger.info(f"✅ Loaded fingerprint from .25d file for track {track_id}")
-            else:
-                logger.info(f"⏳ No .25d file found for track {track_id}, will extract on first chunk")
 
         # CRITICAL FIX: Create single shared processor instance to maintain state
         # across chunks. This prevents audio artifacts from resetting compressor

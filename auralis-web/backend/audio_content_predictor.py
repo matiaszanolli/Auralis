@@ -17,7 +17,7 @@ Enhances the BranchPredictor with audio-informed predictions:
 
 import logging
 import numpy as np
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
