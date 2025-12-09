@@ -132,6 +132,7 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
 
         # Start streaming tracks in background (don't wait for all to enqueue first)
         enqueue_task = asyncio.create_task(stream_tracks())
+        total_to_enqueue = len(unfingerprinted_tracks)
 
         # Give enqueueing a head start but don't wait for completion
         await asyncio.sleep(0.1)
@@ -156,19 +157,19 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
 
                 if HAS_TQDM:
                     pbar = tqdm(
-                        total=enqueued,
+                        total=total_to_enqueue,
                         desc="Fingerprinting",
                         unit="track",
                         bar_format='{l_bar}{bar} [{elapsed}<{remaining}, {rate_fmt}]'
                     )
 
-                while fingerprint_queue.stats['completed'] + fingerprint_queue.stats['failed'] < enqueued:
+                while fingerprint_queue.stats['completed'] + fingerprint_queue.stats['failed'] < total_to_enqueue:
                     stats = fingerprint_queue.stats
                     completed_count = stats['completed']
                     failed_count = stats['failed']
                     total_processed = completed_count + failed_count
                     processing_count = stats['processing']
-                    progress_pct = (total_processed / enqueued * 100) if enqueued > 0 else 0
+                    progress_pct = (total_processed / total_to_enqueue * 100) if total_to_enqueue > 0 else 0
 
                     # Update progress bar
                     if pbar:
@@ -180,7 +181,7 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
                         elapsed = time.time() - start_time
                         rate = total_processed / elapsed if elapsed > 0 else 0
                         if rate > 0:
-                            remaining_secs = (enqueued - total_processed) / rate
+                            remaining_secs = (total_to_enqueue - total_processed) / rate
                             remaining_str = f"{int(remaining_secs/3600)}h {int((remaining_secs%3600)/60)}m"
                         else:
                             remaining_str = "?"
