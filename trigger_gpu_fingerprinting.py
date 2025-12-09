@@ -117,18 +117,39 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
         async def stream_tracks():
             """Stream tracks to queue continuously for continuous processing."""
             enqueued = 0
+            retry_count = 0
+            max_retries = 3
+
             for track in unfingerprinted_tracks:
                 try:
-                    success = await fingerprint_queue.enqueue(
-                        track_id=track.id,
-                        filepath=track.filepath,
-                        priority=0
-                    )
-                    if success:
-                        enqueued += 1
-                        # Yield control to allow workers to start processing
-                        if enqueued % 10 == 0:
-                            await asyncio.sleep(0.01)
+                    # Try to enqueue with backoff if queue is full
+                    success = False
+                    for attempt in range(max_retries):
+                        success = await fingerprint_queue.enqueue(
+                            track_id=track.id,
+                            filepath=track.filepath,
+                            priority=0
+                        )
+                        if success:
+                            enqueued += 1
+                            retry_count = 0
+                            break
+                        else:
+                            # Queue is full, wait longer before retry
+                            await asyncio.sleep(0.5 + (attempt * 0.5))
+
+                    if not success:
+                        logger.warning(f"Could not enqueue track {track.id} after {max_retries} attempts")
+
+                    # Yield control periodically to let workers process
+                    if enqueued % 5 == 0:
+                        mem = psutil.virtual_memory()
+                        mem_pct = mem.percent
+                        if mem_pct > 85:
+                            logger.warning(f"Memory pressure high ({mem_pct:.1f}%), pausing enqueueing...")
+                            await asyncio.sleep(2.0)
+                        else:
+                            await asyncio.sleep(0.05)
                 except Exception as e:
                     logger.error(f"Failed to enqueue track {track.id}: {e}")
 

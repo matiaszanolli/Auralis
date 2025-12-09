@@ -8,7 +8,9 @@ Async background queue for fingerprint extraction during library scanning.
 
 Implements non-blocking fingerprint extraction using:
 - asyncio.Queue for thread-safe work distribution
-- 4 background worker threads (GIL-limited but good for I/O)
+- Adaptive worker threads: auto-detects CPU cores (4-24 threads, GIL-limited but good for I/O)
+  - High-end systems (16+ cores): uses 75% of CPU cores for maximum parallelism
+  - Low-end systems (< 8 cores): uses 4 workers as default
 - Status tracking in database
 - Error handling and retry logic
 
@@ -19,6 +21,7 @@ Implements non-blocking fingerprint extraction using:
 import asyncio
 import threading
 import time
+import gc
 from queue import Queue, PriorityQueue, Empty
 from typing import Optional, Dict, Callable, List, Tuple, Any
 from pathlib import Path
@@ -79,17 +82,35 @@ class FingerprintExtractionQueue:
     def __init__(self,
                  fingerprint_extractor: Any,
                  library_manager: Any,
-                 num_workers: int = 4,
-                 max_queue_size: int = 500) -> None:
+                 num_workers: Optional[int] = None,
+                 max_queue_size: Optional[int] = None) -> None:
         """
         Initialize fingerprint extraction queue
 
         Args:
             fingerprint_extractor: FingerprintExtractor instance
             library_manager: LibraryManager for status updates
-            num_workers: Number of background worker threads (default: 4)
-            max_queue_size: Maximum queue size before blocking (default: 500)
+            num_workers: Number of background worker threads (default: auto-detect from CPU)
+                        - If None: uses 75% of CPU cores (good for high-end systems)
+                        - If 0: uses 4 (legacy default for low-end systems)
+            max_queue_size: Maximum queue size before blocking (default: num_workers * 10)
         """
+        import os
+
+        # Auto-detect optimal worker count if not specified
+        if num_workers is None:
+            cpu_count = os.cpu_count() or 8
+            # For high-end systems (16+ cores), use 75% to avoid system stall
+            # For low-end systems (< 8 cores), use 4 as default
+            if cpu_count >= 16:
+                num_workers = max(4, int(cpu_count * 0.75))
+            else:
+                num_workers = 4
+
+        # Auto-calculate queue size if not specified
+        if max_queue_size is None:
+            max_queue_size = num_workers * 10
+
         self.extractor: Any = fingerprint_extractor
         self.library_manager: Any = library_manager
         self.num_workers: int = num_workers
@@ -290,11 +311,17 @@ class FingerprintExtractionQueue:
                     'time': time.time() - job_start
                 })
 
+                # Explicitly free memory after each fingerprint extraction
+                gc.collect()
+
             else:
                 raise Exception(f"Extractor returned False for track {job.track_id}")
 
         except Exception as e:
             error(f"Error extracting fingerprint for track {job.track_id}: {e}")
+
+            # Free memory even on error
+            gc.collect()
 
             job.retry_count += 1
 
