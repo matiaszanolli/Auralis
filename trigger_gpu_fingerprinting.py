@@ -187,7 +187,7 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
                             remaining_str = "?"
 
                         logger.info(
-                            f"Progress: {total_processed:5d}/{enqueued} ({progress_pct:5.1f}%) | "
+                            f"Progress: {total_processed:5d}/{total_to_enqueue} ({progress_pct:5.1f}%) | "
                             f"Completed: {completed_count:5d} | Failed: {failed_count:3d} | "
                             f"Processing: {processing_count:2d} | "
                             f"Rate: {rate:5.2f} tracks/s | ETA: {remaining_str}"
