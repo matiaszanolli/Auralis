@@ -99,13 +99,13 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
             fingerprint_repository=library_manager.fingerprints
         )
 
-        # Limit queue size to prevent memory buildup
-        # This ensures jobs are only queued as workers become available
-        # Instead of queuing all 54K tracks at once into memory
+        # Limit queue size and reduce workers to manage memory
+        # With gc.collect() after each track, 12 workers + 50 job queue is stable
+        # This ensures jobs are only queued as workers complete processing
         fingerprint_queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
             library_manager=library_manager,
-            num_workers=None,  # Auto-detect CPU cores (24)
+            num_workers=12,  # Reduced from 24 to allow gc.collect() to keep up
             max_queue_size=50  # CRITICAL: Limit queue to 50 jobs max
         )
 
@@ -117,39 +117,26 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
         async def stream_tracks():
             """Stream tracks to queue continuously for continuous processing."""
             enqueued = 0
-            retry_count = 0
-            max_retries = 3
 
             for track in unfingerprinted_tracks:
                 try:
-                    # Try to enqueue with backoff if queue is full
-                    success = False
-                    for attempt in range(max_retries):
-                        success = await fingerprint_queue.enqueue(
-                            track_id=track.id,
-                            filepath=track.filepath,
-                            priority=0
-                        )
-                        if success:
-                            enqueued += 1
-                            retry_count = 0
-                            break
-                        else:
-                            # Queue is full, wait longer before retry
-                            await asyncio.sleep(0.5 + (attempt * 0.5))
+                    # Simple enqueue without retry - let gc.collect() handle memory
+                    success = await fingerprint_queue.enqueue(
+                        track_id=track.id,
+                        filepath=track.filepath,
+                        priority=0
+                    )
+                    if success:
+                        enqueued += 1
 
-                    if not success:
-                        logger.warning(f"Could not enqueue track {track.id} after {max_retries} attempts")
-
-                    # Yield control periodically to let workers process
+                    # Yield control every 5 tracks and check memory
                     if enqueued % 5 == 0:
                         mem = psutil.virtual_memory()
                         mem_pct = mem.percent
-                        if mem_pct > 85:
-                            logger.warning(f"Memory pressure high ({mem_pct:.1f}%), pausing enqueueing...")
-                            await asyncio.sleep(2.0)
-                        else:
-                            await asyncio.sleep(0.05)
+                        await asyncio.sleep(0.1)  # Small yield
+                        if mem_pct > 80:
+                            logger.warning(f"Memory pressure ({mem_pct:.1f}%), pausing...")
+                            await asyncio.sleep(1.0)
                 except Exception as e:
                     logger.error(f"Failed to enqueue track {track.id}: {e}")
 
