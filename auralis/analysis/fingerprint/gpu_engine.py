@@ -71,12 +71,12 @@ class GPUMemoryManager:
     - Monitor VRAM usage to prevent OOM
     """
 
-    def __init__(self, vram_fraction: float = 0.60, max_cached_blocks: int = 10):
+    def __init__(self, vram_fraction: float = 0.80, max_cached_blocks: int = 10):
         """
         Initialize GPU memory manager.
 
         Args:
-            vram_fraction: Fraction of GPU VRAM to use (0.60 = 60%, conservative margin)
+            vram_fraction: Fraction of GPU VRAM to use (0.80 = 80%)
             max_cached_blocks: Maximum blocks to cache for reuse
         """
         self.vram_fraction = vram_fraction
@@ -173,13 +173,13 @@ class GPUFingerprintEngine:
     Processes multiple tracks in parallel for 3-5x speedup.
     """
 
-    def __init__(self, batch_size: int = 25, vram_fraction: float = 0.60):
+    def __init__(self, batch_size: int = 50, vram_fraction: float = 0.80):
         """
         Initialize GPU fingerprint engine.
 
         Args:
-            batch_size: Number of tracks per batch (25 conservative, 50-100 optimal)
-            vram_fraction: Fraction of GPU VRAM to use (0.60 = 60%, conservative margin)
+            batch_size: Number of tracks per batch (50-100 optimal)
+            vram_fraction: Fraction of GPU VRAM to use (0.80 = 80%)
         """
         self.batch_size = batch_size
         self.memory_manager = GPUMemoryManager(vram_fraction=vram_fraction)
