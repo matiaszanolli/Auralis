@@ -108,7 +108,7 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
         fingerprint_queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
             library_manager=library_manager,
-            num_workers=12,  # CPU-efficient: 50% of 24 cores, leaves headroom for I/O
+            num_workers=16,  # CPU-efficient: 50% of 32 cores, leaves headroom for I/O
             max_queue_size=25  # CRITICAL: Backpressure limit prevents queue overflow
         )
 
