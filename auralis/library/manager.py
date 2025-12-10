@@ -17,7 +17,7 @@ import os
 import threading
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Set
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from .models import Base, Track, Album, Artist, Genre, Playlist
@@ -70,7 +70,38 @@ class LibraryManager:
             error("Database migration failed!")
             raise Exception("Failed to migrate database to current version")
 
-        self.engine = create_engine(f"sqlite:///{database_path}", echo=False)
+        # CRITICAL: Configure SQLite for safe, frequent fingerprint writes
+        # WAL mode + synchronous=NORMAL enables fast writes with durability guarantees
+        connect_args = {
+            'timeout': 30,
+            'check_same_thread': False,
+        }
+
+        self.engine = create_engine(
+            f"sqlite:///{database_path}",
+            echo=False,
+            connect_args=connect_args,
+            pool_pre_ping=True,  # Verify connections before use
+        )
+
+        # Configure SQLite pragmas for reliable fingerprinting persistence
+        @event.listens_for(self.engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            """Set SQLite pragmas for safe, fast writes"""
+            cursor = dbapi_connection.cursor()
+            # Enable Write-Ahead Logging for better concurrent write performance
+            cursor.execute("PRAGMA journal_mode=WAL")
+            # Set synchronous to NORMAL (safer than OFF, faster than FULL)
+            # Ensures fingerprints are durably written to WAL before returning
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            # Increase cache size for faster queries
+            cursor.execute("PRAGMA cache_size=-64000")  # 64MB cache
+            # Optimize for frequent writes
+            cursor.execute("PRAGMA temp_store=MEMORY")
+            # Foreign key enforcement for data integrity
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
         self.SessionLocal = sessionmaker(bind=self.engine)
 
         # Create tables if they don't exist (for fresh databases)
@@ -90,7 +121,55 @@ class LibraryManager:
         # Track IDs that have been successfully deleted (for race condition prevention)
         self._deleted_track_ids: Set[int] = set()
 
+        # Clean up incomplete fingerprints from interrupted sessions (crash recovery)
+        self._cleanup_incomplete_fingerprints()
+
         info(f"Auralis Library Manager initialized: {database_path}")
+
+    def _cleanup_incomplete_fingerprints(self) -> None:
+        """
+        Clean up incomplete fingerprints from interrupted fingerprinting sessions.
+
+        When workers claim tracks, they create placeholder fingerprints (with LUFS=-100)
+        to prevent race conditions. If the system crashes before processing completes,
+        these placeholders remain in the database and must be cleaned up on restart
+        so those tracks can be re-processed.
+
+        This is CRITICAL for resumable large-scale fingerprinting jobs.
+        """
+        session = self.SessionLocal()
+        try:
+            from .models import TrackFingerprint
+
+            # Find incomplete placeholders (fingerprints with LUFS=-100.0)
+            incomplete_fps = session.query(TrackFingerprint).filter(
+                TrackFingerprint.lufs == -100.0
+            ).all()
+
+            if incomplete_fps:
+                incomplete_count = len(incomplete_fps)
+                incomplete_track_ids = [fp.track_id for fp in incomplete_fps]
+
+                # Delete incomplete fingerprints to allow re-processing
+                for fp in incomplete_fps:
+                    session.delete(fp)
+
+                session.commit()
+
+                warning(
+                    f"Cleaned up {incomplete_count} incomplete fingerprints from "
+                    f"interrupted session. These tracks will be re-processed: "
+                    f"{incomplete_track_ids[:20]}{'...' if incomplete_count > 20 else ''}"
+                )
+            else:
+                info("No incomplete fingerprints found - resuming clean session")
+
+        except Exception as e:
+            session.rollback()
+            error(f"Error cleaning up incomplete fingerprints: {e}")
+        finally:
+            session.expunge_all()
+            session.close()
 
     def get_session(self) -> Any:
         """Get a new database session"""
