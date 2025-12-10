@@ -19,8 +19,10 @@ pub fn analyze_fingerprint(samples: &[f64], sample_rate: u32) -> Result<Fingerpr
     // Pre-compute FFT for frequency and dynamics analysis
     let (magnitude_spec, freqs) = compute_fft_spectrum(samples, sample_rate)?;
 
-    // Compute STFT for spectral analysis
-    let stft_frames = compute_stft(samples, sample_rate)?;
+    // CRITICAL: Compute spectral statistics on-the-fly instead of storing all STFT frames
+    // Storing 56K frames of 2048 samples = 900MB for 10min songs with 16 workers = 14GB memory leak!
+    // Instead: compute average spectrum and stats in single pass (no frame storage)
+    let spec_analysis = compute_stft_spectral_analysis(samples, sample_rate)?;
 
     // Analyze each dimension
     let mut fingerprint = Fingerprint::default();
@@ -48,8 +50,7 @@ pub fn analyze_fingerprint(samples: &[f64], sample_rate: u32) -> Result<Fingerpr
     fingerprint.transient_density = temp_analysis.2;
     fingerprint.silence_ratio = temp_analysis.3;
 
-    // Spectral analysis (3D)
-    let spec_analysis = analyze_spectral(&stft_frames)?;
+    // Spectral analysis (3D) - computed from on-the-fly stats, no frame storage
     fingerprint.spectral_centroid = spec_analysis.0;
     fingerprint.spectral_rolloff = spec_analysis.1;
     fingerprint.spectral_flatness = spec_analysis.2;
@@ -324,14 +325,19 @@ fn estimate_tempo(samples: &[f64], sample_rate: u32) -> Result<f64> {
     Ok(bpm)
 }
 
-fn compute_stft(samples: &[f64], _sample_rate: u32) -> Result<Vec<Vec<f64>>> {
-    let mut frames = Vec::new();
+/// CRITICAL: Compute spectral statistics on-the-fly without storing all frames
+/// Avoids 900MB+ memory allocation for 10-minute tracks
+fn compute_stft_spectral_analysis(samples: &[f64], _sample_rate: u32) -> Result<(f64, f64, f64)> {
     let window: Vec<f64> = (0..FFT_SIZE)
         .map(|n| 0.5 * (1.0 - (2.0 * PI * n as f64 / (FFT_SIZE as f64 - 1.0)).cos()))
         .collect();
 
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(FFT_SIZE);
+
+    // Accumulate spectrum statistics on-the-fly (no frame storage)
+    let mut avg_spectrum = vec![0.0; FFT_SIZE / 2];
+    let mut frame_count = 0u64;
 
     for start in (0..samples.len()).step_by(HOP_LENGTH) {
         let end = (start + FFT_SIZE).min(samples.len());
@@ -354,15 +360,65 @@ fn compute_stft(samples: &[f64], _sample_rate: u32) -> Result<Vec<Vec<f64>>> {
 
         fft.process(&mut input);
 
-        let magnitude: Vec<f64> = input
-            .iter()
-            .map(|c| (c.norm() / FFT_SIZE as f64).max(1e-10))
-            .collect();
-
-        frames.push(magnitude);
+        // Add magnitude to running average (don't store frame)
+        for (i, c) in input.iter().take(FFT_SIZE / 2).enumerate() {
+            avg_spectrum[i] += (c.norm() / FFT_SIZE as f64).max(1e-10);
+        }
+        frame_count += 1;
     }
 
-    Ok(frames)
+    if frame_count == 0 {
+        return Ok((0.5, 0.5, 0.5));
+    }
+
+    // Normalize average
+    for val in &mut avg_spectrum {
+        *val /= frame_count as f64;
+    }
+
+    // Compute spectral statistics from average
+    analyze_spectral_stats(&avg_spectrum)
+}
+
+/// Analyze spectral statistics without storing frames
+fn analyze_spectral_stats(avg_spectrum: &[f64]) -> Result<(f64, f64, f64)> {
+    if avg_spectrum.is_empty() {
+        return Ok((0.5, 0.5, 0.5));
+    }
+
+    let total_energy: f64 = avg_spectrum.iter().sum();
+    if total_energy == 0.0 {
+        return Ok((0.5, 0.5, 0.5));
+    }
+
+    // Spectral centroid
+    let mut weighted_sum = 0.0;
+    for (k, &energy) in avg_spectrum.iter().enumerate() {
+        weighted_sum += (k as f64) * energy;
+    }
+    let centroid = (weighted_sum / total_energy / (FFT_SIZE as f64 / 2.0)).min(1.0);
+
+    // Spectral rolloff (frequency containing 95% of energy)
+    let mut cumsum = 0.0;
+    let mut rolloff = 0.5;
+    for (k, &energy) in avg_spectrum.iter().enumerate() {
+        cumsum += energy;
+        if cumsum > total_energy * 0.95 {
+            rolloff = (k as f64 / (FFT_SIZE as f64 / 2.0)).min(1.0);
+            break;
+        }
+    }
+
+    // Spectral flatness (entropy measure)
+    let geometric_mean = avg_spectrum.iter().fold(1.0, |acc, &x| acc * (x + 1e-10)).powf(1.0 / avg_spectrum.len() as f64);
+    let arithmetic_mean = total_energy / avg_spectrum.len() as f64;
+    let flatness = if arithmetic_mean > 0.0 {
+        (geometric_mean / arithmetic_mean).min(1.0).max(0.0)
+    } else {
+        0.5
+    };
+
+    Ok((centroid, rolloff, flatness))
 }
 
 fn analyze_spectral(stft_frames: &[Vec<f64>]) -> Result<(f64, f64, f64)> {

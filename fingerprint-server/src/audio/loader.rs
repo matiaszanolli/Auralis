@@ -6,9 +6,13 @@ use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
 
+use std::sync::Arc;
+
 #[derive(Debug, Clone)]
 pub struct AudioData {
-    pub samples: Vec<f64>,
+    // Use Arc to enable cheap cloning without duplicating samples
+    // Multiple workers can share the same audio buffer without copies
+    pub samples: Arc<Vec<f64>>,
     pub sample_rate: u32,
     pub channels: u16,
 }
@@ -68,11 +72,21 @@ fn load_audio_sync(filepath: &str) -> Result<AudioData> {
             &Default::default(),
         )
         .map_err(|e| {
-            tracing::error!("Failed to probe format '{}' for {}: {}", detected_format, filepath, e);
-            FingerprintError::UnsupportedFormat(format!(
-                "Failed to probe format '{}': {}",
-                detected_format, e
-            ))
+            let error_msg = format!("{}", e);
+            tracing::error!("Failed to probe format '{}' for {}: {}", detected_format, filepath, error_msg);
+
+            // Detect if file is corrupted (end of stream, truncated, etc.)
+            if error_msg.contains("end of stream") || error_msg.contains("truncated") || error_msg.contains("unexpected end") {
+                FingerprintError::InvalidAudio(format!(
+                    "File appears corrupted or truncated ({}): {}",
+                    detected_format, error_msg
+                ))
+            } else {
+                FingerprintError::UnsupportedFormat(format!(
+                    "Failed to probe format '{}': {}",
+                    detected_format, error_msg
+                ))
+            }
         })?;
 
     tracing::info!("Successfully probed format '{}' for: {}", detected_format, filepath);
@@ -152,7 +166,7 @@ fn load_audio_sync(filepath: &str) -> Result<AudioData> {
     );
 
     Ok(AudioData {
-        samples,
+        samples: Arc::new(samples),
         sample_rate,
         channels,
     })

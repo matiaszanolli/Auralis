@@ -14,6 +14,7 @@ import numpy as np
 import gc
 import requests
 import json
+import sqlite3
 from typing import Optional, Dict, List
 from pathlib import Path
 
@@ -25,6 +26,11 @@ from .sidecar_manager import SidecarManager
 # Rust fingerprinting server endpoint
 RUST_SERVER_URL = "http://localhost:8766"
 FINGERPRINT_ENDPOINT = f"{RUST_SERVER_URL}/fingerprint"
+
+
+class CorruptedTrackError(Exception):
+    """Exception raised when a track file is corrupted and will be deleted"""
+    pass
 
 
 class FingerprintExtractor:
@@ -85,6 +91,55 @@ class FingerprintExtractor:
 
         return self._rust_server_available
 
+    def _delete_corrupted_track(self, track_id: int, filepath: str) -> bool:
+        """
+        Delete corrupted track from the database
+
+        Args:
+            track_id: ID of the track to delete
+            filepath: Path to the audio file (for logging)
+
+        Returns:
+            True if successfully deleted, False otherwise
+        """
+        try:
+            # Get database connection from the repository (it has the DB connection info)
+            # Most repositories use the auralis library database
+            import os
+            from pathlib import Path as PathlibPath
+
+            # Determine database path - try to get it from the repository or use default
+            db_path = os.path.expanduser("~/.auralis/library.db")
+
+            # Alternative: check if there's a production database in Music/Auralis
+            production_db = os.path.expanduser("~/Music/Auralis/auralis_library.db")
+            if os.path.exists(production_db):
+                db_path = production_db
+
+            if not os.path.exists(db_path):
+                warning(f"Could not find database to delete corrupted track {track_id}")
+                return False
+
+            conn = sqlite3.connect(db_path)
+            try:
+                cursor = conn.cursor()
+                # Delete the track record
+                cursor.execute("DELETE FROM tracks WHERE id = ?", (track_id,))
+                conn.commit()
+
+                if cursor.rowcount > 0:
+                    info(f"Automatically deleted corrupted track {track_id} from database: {filepath}")
+                    return True
+                else:
+                    warning(f"Track {track_id} not found in database for deletion")
+                    return False
+            finally:
+                conn.close()
+
+        except Exception as e:
+            error(f"Failed to delete corrupted track {track_id} from database: {e}")
+            return False
+
     def _get_fingerprint_from_rust_server(self, track_id: int, filepath: str) -> Optional[Dict]:
         """
         Call Rust fingerprinting server to extract fingerprint
@@ -95,6 +150,9 @@ class FingerprintExtractor:
 
         Returns:
             Dictionary with 25 fingerprint dimensions, or None on error
+
+        Raises:
+            CorruptedTrackError: If the file is detected as corrupted (will be deleted from database)
         """
         try:
             payload = {"track_id": track_id, "filepath": filepath}
@@ -107,7 +165,14 @@ class FingerprintExtractor:
             response = session.send(prepared, timeout=60.0)
 
             if response.status_code != 200:
-                error(f"Rust server error for track {track_id}: HTTP {response.status_code} - {response.text}")
+                error_text = response.text
+
+                # Check if file is corrupted (HTTP 400 with corruption message)
+                if response.status_code == 400 and "appears corrupted" in error_text.lower():
+                    error(f"Corrupted audio file detected for track {track_id}: {filepath}")
+                    raise CorruptedTrackError(f"File appears corrupted: {filepath}")
+
+                error(f"Rust server error for track {track_id}: HTTP {response.status_code} - {error_text}")
                 return None
 
             data = response.json()
@@ -121,6 +186,8 @@ class FingerprintExtractor:
             debug(f"Extracted fingerprint via Rust server for track {track_id} in {data.get('processing_time_ms', '?')}ms")
             return fingerprint
 
+        except CorruptedTrackError:
+            raise  # Re-raise corruption errors to be handled at higher level
         except requests.RequestException as e:
             error(f"Failed to call Rust fingerprint server for track {track_id}: {e}")
             return None
@@ -164,7 +231,12 @@ class FingerprintExtractor:
             if not fingerprint:
                 # Try Rust server first (much faster, ~25ms vs ~2000ms for Python)
                 if self.use_rust_server and self._is_rust_server_available():
-                    fingerprint = self._get_fingerprint_from_rust_server(track_id, filepath)
+                    try:
+                        fingerprint = self._get_fingerprint_from_rust_server(track_id, filepath)
+                    except CorruptedTrackError:
+                        # File is corrupted - delete from database and return False (skip)
+                        self._delete_corrupted_track(track_id, filepath)
+                        return False
 
                 # Fall back to Python analyzer if Rust server unavailable or failed
                 if not fingerprint:
