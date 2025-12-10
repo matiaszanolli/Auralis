@@ -124,10 +124,14 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
         # - Natural rate limiting: workers only fetch when ready
         # - Bounded memory: only one audio file per worker in memory at a time
         # - Eliminates pre-loading and enqueue overhead
+        # AGGRESSIVE: Use all available CPU cores for maximum throughput
+        # Memory profiling shows safe headroom even with 2x resource consumption
+        import os
+        num_workers = os.cpu_count() or 16  # Use all available cores
         fingerprint_queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
             library_manager=library_manager,
-            num_workers=16  # CPU-efficient: 50% of 32 cores, leaves headroom for I/O
+            num_workers=num_workers  # AGGRESSIVE: Use 100% of cores (was 16, now 32+)
         )
 
         # Start workers first
