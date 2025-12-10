@@ -98,10 +98,23 @@ class FingerprintExtractor:
         """
         try:
             payload = {"track_id": track_id, "filepath": filepath}
-            response = requests.post(FINGERPRINT_ENDPOINT, json=payload, timeout=60.0)
+
+            # Build request explicitly and send it to ensure headers are preserved
+            session = requests.Session()
+            req = requests.Request('POST', FINGERPRINT_ENDPOINT, json=payload)
+            prepared = session.prepare_request(req)
+            print(f"[WORKER {track_id}] Endpoint: {FINGERPRINT_ENDPOINT}", flush=True)
+            print(f"[WORKER {track_id}] Filepath: {filepath}", flush=True)
+            print(f"[WORKER {track_id}] Payload: {payload}", flush=True)
+            print(f"[WORKER {track_id}] Headers: {dict(prepared.headers)}", flush=True)
+
+            response = session.send(prepared, timeout=60.0)
+            print(f"[WORKER {track_id}] Response status: {response.status_code}", flush=True)
+            if response.status_code != 200:
+                print(f"[WORKER {track_id}] Response: {response.text[:200]}", flush=True)
 
             if response.status_code != 200:
-                error(f"Rust server error for track {track_id}: {response.status_code} - {response.text}")
+                error(f"Rust server error for track {track_id}: HTTP {response.status_code} - {response.text}")
                 return None
 
             data = response.json()

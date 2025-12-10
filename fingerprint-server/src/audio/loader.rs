@@ -33,45 +33,33 @@ pub async fn load_audio(filepath: &str) -> Result<AudioData> {
 fn load_audio_sync(filepath: &str) -> Result<AudioData> {
     tracing::debug!("Loading audio from: {}", filepath);
 
-    // Open file
+    // Detect format from file extension FIRST
+    let detected_format = detect_format_from_extension(filepath)?;
+    tracing::info!("Detected format from extension '{}': {}",
+        std::path::Path::new(filepath)
+            .extension()
+            .map(|e| e.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "no extension".to_string()),
+        detected_format
+    );
+
+    // MP3 support enabled - Symphonia handles MP3 decoding
+
+    // Create hint with detected format to guide Symphonia's probe
+    let mut hint = Hint::new();
+    hint.with_extension(&detected_format);
+    tracing::debug!("Using format hint: {}", detected_format);
+
+    // Open file for probing
     let file = File::open(filepath)
         .map_err(|e| FingerprintError::FileNotFound(format!("{}: {}", filepath, e)))?;
 
-    // Symphonia expects a ReadOnlySource for file I/O
     use symphonia::core::io::ReadOnlySource;
     let source = ReadOnlySource::new(file);
     let mss = MediaSourceStream::new(Box::new(source), Default::default());
 
-    // Create hint for format detection using file extension
-    // Symphonia supports all common formats: FLAC, MP3, WAV, OGG, M4A, AAC, AIFF, WMA, MKV, WebM, etc.
-    let mut hint = Hint::new();
-    if let Some(ext) = std::path::Path::new(filepath).extension() {
-        let ext_str = ext.to_string_lossy().to_lowercase();
-
-        // Normalize common extension variations to standard Symphonia extensions
-        let normalized_ext = match ext_str.as_str() {
-            "wave" => "wav",
-            "mpeg" | "mpg" => "mp3",
-            "aif" | "aifc" | "aiffc" => "aiff",
-            "oga" | "ogx" => "ogg",
-            "m4b" => "m4a",
-            "adts" => "aac",
-            "wmv" => "wma",
-            "mka" | "mks" => "mkv",
-            "qt" => "mov",
-            "m4v" | "f4a" | "f4b" => "m4a",
-            "snd" => "au",
-            "dsf" | "dff" => "dsd",
-            "weba" => "webm",
-            _ => ext_str.as_str(),
-        };
-
-        hint.with_extension(normalized_ext);
-        tracing::debug!("Using extension hint: {} (original: {})", normalized_ext, ext_str);
-    }
-
-    // Probe format with extension hint
-    // Symphonia will use the hint and also check magic bytes for robust detection
+    // Probe format with detected format hint
+    // Note: Symphonia's probe will try formats internally, but the hint guides prioritization
     let probed = symphonia::default::get_probe()
         .format(
             &hint,
@@ -80,12 +68,17 @@ fn load_audio_sync(filepath: &str) -> Result<AudioData> {
             &Default::default(),
         )
         .map_err(|e| {
-            FingerprintError::UnsupportedFormat(format!("Failed to probe format: {}", e))
+            tracing::error!("Failed to probe format '{}' for {}: {}", detected_format, filepath, e);
+            FingerprintError::UnsupportedFormat(format!(
+                "Failed to probe format '{}': {}",
+                detected_format, e
+            ))
         })?;
 
-    tracing::debug!("Format probed successfully from: {}", filepath);
-
+    tracing::info!("Successfully probed format '{}' for: {}", detected_format, filepath);
     let mut format = probed.format;
+
+    tracing::debug!("Format reader created successfully for: {}", filepath);
 
     let track = format
         .tracks()
@@ -227,4 +220,79 @@ fn collect_samples(
         }
     }
     Ok(())
+}
+
+/// Detect audio format from file extension
+///
+/// Uses file extension to determine the audio format before passing to Symphonia.
+/// This ensures the correct format decoder is used and prevents format detection errors.
+///
+/// Supports: WAV, FLAC, MP3, AAC, OGG, M4A, AIFF, WMA, MKV, WebM, DSD, OPUS, AU, MOV, etc.
+fn detect_format_from_extension(filepath: &str) -> Result<String> {
+    let ext = std::path::Path::new(filepath)
+        .extension()
+        .ok_or_else(|| FingerprintError::InvalidAudio(
+            format!("File has no extension: {}", filepath)
+        ))?
+        .to_string_lossy()
+        .to_lowercase();
+
+    // Normalize common extension variations to standard format names
+    // These are the exact format names Symphonia expects
+    let normalized = match ext.as_str() {
+        // WAV variants
+        "wav" | "wave" => "wav",
+
+        // FLAC (most common in music libraries)
+        "flac" => "flac",
+
+        // MP3 variants
+        "mp3" | "mpeg" | "mpg" => "mp3",
+
+        // MPEG-4 variants
+        "m4a" | "m4b" | "m4v" | "mp4" => "m4a",
+
+        // OGG variants (Vorbis)
+        "ogg" | "oga" | "ogx" => "ogg",
+
+        // OPUS (OGG container)
+        "opus" => "ogg",
+
+        // AAC variants (ADTS)
+        "aac" | "adts" => "aac",
+
+        // AIFF variants
+        "aiff" | "aif" | "aifc" | "aiffc" => "aiff",
+
+        // WMA
+        "wma" | "wmv" => "wma",
+
+        // Matroska
+        "mkv" | "mka" | "mks" => "mkv",
+
+        // WebM
+        "webm" | "weba" => "webm",
+
+        // DSD (often used for hi-res audio)
+        "dsd" | "dsf" | "dff" => "dsd",
+
+        // MOV (QuickTime)
+        "mov" | "qt" => "mov",
+
+        // AU (Sun audio)
+        "au" | "snd" => "au",
+
+        // ALAC (Apple Lossless)
+        "alac" => "alac",
+
+        // Other formats
+        "flv" => "flv",
+        "mxf" => "mxf",
+        "vorbis" => "ogg",
+
+        // Fallback: use the extension as-is and let Symphonia handle it
+        unknown => unknown,
+    };
+
+    Ok(normalized.to_string())
 }

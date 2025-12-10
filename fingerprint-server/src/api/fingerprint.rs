@@ -1,14 +1,22 @@
-use axum::{Json, http::StatusCode};
+use axum::{Json, http::StatusCode, body::to_bytes};
 use std::time::Instant;
 use crate::models::request::{FingerprintRequest, FingerprintResponse, AudioMetadata};
 use crate::audio::loader::load_audio;
 use crate::analysis::analyzer::analyze_fingerprint;
-use crate::error::Result;
+use crate::error::{Result, FingerprintError};
 
 pub async fn fingerprint_handler(
-    Json(req): Json<FingerprintRequest>,
+    body: axum::body::Body,
 ) -> Result<(StatusCode, Json<FingerprintResponse>)> {
     let start = Instant::now();
+
+    // Manually parse body to avoid Content-Type strictness issues
+    let bytes = to_bytes(body, usize::MAX)
+        .await
+        .map_err(|e| FingerprintError::InvalidAudio(format!("Failed to read request body: {}", e)))?;
+
+    let req: FingerprintRequest = serde_json::from_slice(&bytes)
+        .map_err(|e| FingerprintError::InvalidAudio(format!("Failed to parse JSON: {}", e)))?;
 
     tracing::debug!("Processing fingerprint request for track {}: {}", req.track_id, req.filepath);
 
