@@ -163,8 +163,12 @@ class FingerprintExtractionQueue:
         """
         Main loop for background worker thread.
 
-        Workers fetch unfingerprinted tracks from database and process them.
+        Workers atomically claim unfingerprinted tracks from database and process them.
         No job queue - workers pull directly from DB when ready.
+
+        CRITICAL FIX FOR RACE CONDITION: Uses atomic database transaction
+        to claim tracks before processing, preventing multiple workers from
+        processing the same track simultaneously.
 
         Args:
             worker_id: ID of this worker
@@ -173,25 +177,25 @@ class FingerprintExtractionQueue:
 
         try:
             while not self.should_stop:
-                # Fetch next unfingerprinted track from database
-                # This blocks only on database access, not on queue operations
+                # Atomically claim next unfingerprinted track from database
+                # This prevents race condition where multiple workers fetch the same track
                 try:
-                    tracks = self.library_manager.fingerprints.get_missing_fingerprints(limit=1)
-                    if not tracks:
+                    track = self.library_manager.fingerprints.claim_next_unfingerprinted_track()
+                    if not track:
                         # No more unfingerprinted tracks, exit loop
                         debug(f"Worker {worker_id}: No more unfingerprinted tracks")
                         break
 
-                    track = tracks[0]
+                    # Process the claimed track
                     self._process_track(track, worker_id)
 
                 except Exception as e:
-                    error(f"Worker {worker_id} error fetching from database: {e}")
+                    error(f"Worker {worker_id} error during processing: {e}")
                     # Brief sleep before retrying to avoid busy-loop on persistent errors
                     time.sleep(0.1)
 
         except Exception as e:
-            error(f"Worker {worker_id} encountered error: {e}")
+            error(f"Worker {worker_id} encountered critical error: {e}")
         finally:
             info(f"Worker {worker_id} stopped")
 

@@ -54,6 +54,7 @@ class FingerprintRepository:
 
             if existing:
                 debug(f"Fingerprint already exists for track {track_id}, updating")
+                session.close()
                 return self.update(track_id, fingerprint_data)
 
             # Create new fingerprint
@@ -66,6 +67,9 @@ class FingerprintRepository:
             session.commit()
             session.refresh(fingerprint)
 
+            # CRITICAL: Detach object from session before returning
+            session.expunge(fingerprint)
+
             info(f"Added fingerprint for track {track_id}")
             return fingerprint
 
@@ -74,6 +78,8 @@ class FingerprintRepository:
             error(f"Failed to add fingerprint for track {track_id}: {e}")
             return None
         finally:
+            # CRITICAL: Explicitly clear session to free memory
+            session.expunge_all()
             session.close()
 
     def get_by_track_id(self, track_id: int) -> Optional[TrackFingerprint]:
@@ -124,6 +130,9 @@ class FingerprintRepository:
             session.commit()
             session.refresh(fingerprint)
 
+            # CRITICAL: Detach object from session before returning
+            session.expunge(fingerprint)
+
             info(f"Updated fingerprint for track {track_id}")
             return fingerprint
 
@@ -132,6 +141,8 @@ class FingerprintRepository:
             error(f"Failed to update fingerprint for track {track_id}: {e}")
             return None
         finally:
+            # CRITICAL: Explicitly clear session to free memory
+            session.expunge_all()
             session.close()
 
     def delete(self, track_id: int) -> bool:
@@ -337,14 +348,121 @@ class FingerprintRepository:
             if limit:
                 query = query.limit(limit)
 
-            return query.all()
+            tracks = query.all()
+
+            # CRITICAL: Detach all Track objects from session before returning
+            # Prevents memory accumulation when workers process tracks from multiple queries
+            # Without detaching, each worker holds a session reference for the entire track lifetime
+            for track in tracks:
+                session.expunge(track)
+
+            return tracks
 
         finally:
+            # CRITICAL: Clear session to free memory
+            session.expunge_all()
+            session.close()
+
+    def claim_next_unfingerprinted_track(self) -> Optional[Track]:
+        """
+        Atomically claim the next unfingerprinted track for processing.
+
+        CRITICAL FIX FOR RACE CONDITION: Prevents multiple workers from processing the same track.
+        Uses database transaction to atomically:
+        1. Find an unfingerprinted track
+        2. Create a placeholder fingerprint to "claim" it
+        3. Return the track only if claiming succeeded
+
+        If another worker already claimed the track, INSERT fails with UNIQUE constraint
+        and we return None (next iteration will fetch a different track).
+
+        Returns:
+            Track object if successfully claimed, None if no tracks available
+        """
+        session = self.get_session()
+        try:
+            # Find first unfingerprinted track
+            unfingerprinted = session.query(Track).outerjoin(
+                TrackFingerprint,
+                Track.id == TrackFingerprint.track_id
+            ).filter(
+                TrackFingerprint.id == None
+            ).order_by(Track.id).first()
+
+            if not unfingerprinted:
+                # No unfingerprinted tracks left
+                return None
+
+            # Try to "claim" this track by creating a placeholder fingerprint
+            # Initialize with zeros for all 27 dimensions (will be overwritten during upsert)
+            try:
+                placeholder = TrackFingerprint(
+                    track_id=unfingerprinted.id,
+                    # Frequency Distribution (7D)
+                    sub_bass_pct=0.0,
+                    bass_pct=0.0,
+                    low_mid_pct=0.0,
+                    mid_pct=0.0,
+                    upper_mid_pct=0.0,
+                    presence_pct=0.0,
+                    air_pct=0.0,
+                    # Dynamics (3D)
+                    lufs=-100.0,
+                    crest_db=0.0,
+                    bass_mid_ratio=0.0,
+                    # Temporal (4D)
+                    tempo_bpm=0.0,
+                    rhythm_stability=0.0,
+                    transient_density=0.0,
+                    silence_ratio=0.0,
+                    # Spectral (3D)
+                    spectral_centroid=0.0,
+                    spectral_rolloff=0.0,
+                    spectral_flatness=0.0,
+                    # Harmonic (3D)
+                    harmonic_ratio=0.0,
+                    pitch_stability=0.0,
+                    chroma_energy=0.0,
+                    # Variation (3D)
+                    dynamic_range_variation=0.0,
+                    loudness_variation_std=0.0,
+                    peak_consistency=0.0,
+                    # Stereo (2D)
+                    stereo_width=0.0,
+                    phase_correlation=0.0,
+                    # Metadata
+                    fingerprint_version=1,
+                )
+                session.add(placeholder)
+                session.commit()
+
+                # Successfully claimed! Refresh to ensure all Track fields are loaded
+                # before detaching, so the track object is fully functional for processing
+                session.refresh(unfingerprinted)
+                session.expunge(unfingerprinted)
+                debug(f"Track {unfingerprinted.id} claimed by worker")
+                return unfingerprinted
+
+            except Exception as claim_error:
+                # Another worker already claimed this track (UNIQUE constraint)
+                # Rollback and return None - next iteration will get a different track
+                session.rollback()
+                debug(f"Track {unfingerprinted.id} already claimed: {claim_error}")
+                return None
+
+        except Exception as e:
+            session.rollback()
+            error(f"Error claiming next unfingerprinted track: {e}")
+            return None
+        finally:
+            session.expunge_all()
             session.close()
 
     def upsert(self, track_id: int, fingerprint_data: Dict[str, float]) -> Optional[TrackFingerprint]:
         """
         Insert or update a fingerprint (upsert operation)
+
+        Optimized to do single database round-trip with immediate session cleanup
 
         Args:
             track_id: ID of the track
@@ -353,7 +471,42 @@ class FingerprintRepository:
         Returns:
             TrackFingerprint object if successful, None if failed
         """
-        if self.exists(track_id):
-            return self.update(track_id, fingerprint_data)
-        else:
-            return self.add(track_id, fingerprint_data)
+        session = self.get_session()
+        try:
+            # Try update first (single query, works for both insert and update)
+            fingerprint = session.query(TrackFingerprint).filter(
+                TrackFingerprint.track_id == track_id
+            ).first()
+
+            if fingerprint:
+                # Update existing
+                for key, value in fingerprint_data.items():
+                    if hasattr(fingerprint, key):
+                        setattr(fingerprint, key, value)
+            else:
+                # Insert new
+                fingerprint = TrackFingerprint(
+                    track_id=track_id,
+                    **fingerprint_data
+                )
+                session.add(fingerprint)
+
+            session.commit()
+            session.refresh(fingerprint)
+
+            # CRITICAL: Detach object from session before returning
+            # Prevents memory accumulation with multi-threaded workers
+            session.expunge(fingerprint)
+
+            info(f"Upserted fingerprint for track {track_id}")
+            return fingerprint
+
+        except Exception as e:
+            session.rollback()
+            error(f"Failed to upsert fingerprint for track {track_id}: {e}")
+            return None
+        finally:
+            # CRITICAL: Explicitly clear session to free memory
+            # With 16 concurrent workers, this prevents unbounded memory growth
+            session.expunge_all()
+            session.close()
