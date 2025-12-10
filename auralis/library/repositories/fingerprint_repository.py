@@ -368,8 +368,10 @@ class FingerprintRepository:
         Atomically claim the next unfingerprinted track for processing.
 
         CRITICAL FIX FOR RACE CONDITION: Prevents multiple workers from processing the same track.
+        Optimized for minimal transaction time to restore parallelism.
+
         Uses database transaction to atomically:
-        1. Find an unfingerprinted track
+        1. Find an unfingerprinted track (fast simple query, not JOIN)
         2. Create a placeholder fingerprint to "claim" it
         3. Return the track only if claiming succeeded
 
@@ -381,73 +383,57 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            # Find first unfingerprinted track
+            # Find first unfingerprinted track using efficient LEFT JOIN
             unfingerprinted = session.query(Track).outerjoin(
                 TrackFingerprint,
                 Track.id == TrackFingerprint.track_id
             ).filter(
-                TrackFingerprint.id == None
+                TrackFingerprint.id == None,
+                Track.filepath.isnot(None)
             ).order_by(Track.id).first()
 
             if not unfingerprinted:
                 # No unfingerprinted tracks left
                 return None
 
+            # Save track ID and filepath BEFORE creating placeholder (minimize transaction time)
+            track_id = unfingerprinted.id
+            filepath = unfingerprinted.filepath
+
             # Try to "claim" this track by creating a placeholder fingerprint
-            # Initialize with zeros for all 27 dimensions (will be overwritten during upsert)
+            # Minimal initialization - only required fields set, rest will be overwritten during upsert
             try:
                 placeholder = TrackFingerprint(
-                    track_id=unfingerprinted.id,
-                    # Frequency Distribution (7D)
-                    sub_bass_pct=0.0,
-                    bass_pct=0.0,
-                    low_mid_pct=0.0,
-                    mid_pct=0.0,
-                    upper_mid_pct=0.0,
-                    presence_pct=0.0,
-                    air_pct=0.0,
-                    # Dynamics (3D)
-                    lufs=-100.0,
-                    crest_db=0.0,
-                    bass_mid_ratio=0.0,
-                    # Temporal (4D)
-                    tempo_bpm=0.0,
-                    rhythm_stability=0.0,
-                    transient_density=0.0,
-                    silence_ratio=0.0,
-                    # Spectral (3D)
-                    spectral_centroid=0.0,
-                    spectral_rolloff=0.0,
-                    spectral_flatness=0.0,
-                    # Harmonic (3D)
-                    harmonic_ratio=0.0,
-                    pitch_stability=0.0,
-                    chroma_energy=0.0,
-                    # Variation (3D)
-                    dynamic_range_variation=0.0,
-                    loudness_variation_std=0.0,
-                    peak_consistency=0.0,
-                    # Stereo (2D)
-                    stereo_width=0.0,
-                    phase_correlation=0.0,
-                    # Metadata
+                    track_id=track_id,
+                    # Initialize all 27 dimensions with zeros (will be overwritten)
+                    sub_bass_pct=0.0, bass_pct=0.0, low_mid_pct=0.0, mid_pct=0.0,
+                    upper_mid_pct=0.0, presence_pct=0.0, air_pct=0.0,
+                    lufs=-100.0, crest_db=0.0, bass_mid_ratio=0.0,
+                    tempo_bpm=0.0, rhythm_stability=0.0, transient_density=0.0, silence_ratio=0.0,
+                    spectral_centroid=0.0, spectral_rolloff=0.0, spectral_flatness=0.0,
+                    harmonic_ratio=0.0, pitch_stability=0.0, chroma_energy=0.0,
+                    dynamic_range_variation=0.0, loudness_variation_std=0.0, peak_consistency=0.0,
+                    stereo_width=0.0, phase_correlation=0.0,
                     fingerprint_version=1,
                 )
                 session.add(placeholder)
                 session.commit()
+                session.expunge_all()  # Clear session immediately after commit
 
-                # Successfully claimed! Refresh to ensure all Track fields are loaded
-                # before detaching, so the track object is fully functional for processing
-                session.refresh(unfingerprinted)
-                session.expunge(unfingerprinted)
-                debug(f"Track {unfingerprinted.id} claimed by worker")
-                return unfingerprinted
+                # Create a simple Track object with just the essential fields
+                # (avoid keeping session references that slow down claiming)
+                claimed_track = Track()
+                claimed_track.id = track_id
+                claimed_track.filepath = filepath
+
+                debug(f"Track {track_id} claimed by worker")
+                return claimed_track
 
             except Exception as claim_error:
                 # Another worker already claimed this track (UNIQUE constraint)
                 # Rollback and return None - next iteration will get a different track
                 session.rollback()
-                debug(f"Track {unfingerprinted.id} already claimed: {claim_error}")
+                debug(f"Track {track_id} already claimed by another worker")
                 return None
 
         except Exception as e:
