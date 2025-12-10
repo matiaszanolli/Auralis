@@ -72,16 +72,21 @@ class LibraryManager:
 
         # CRITICAL: Configure SQLite for safe, frequent fingerprint writes
         # WAL mode + synchronous=NORMAL enables fast writes with durability guarantees
+        # AGGRESSIVE: Longer timeout for higher contention with 32 workers
         connect_args = {
-            'timeout': 30,
+            'timeout': 60,  # Increased from 30s (2x workers = 2x timeout)
             'check_same_thread': False,
         }
 
+        # AGGRESSIVE: Increase connection pool size to support 32 concurrent workers
+        # Each worker may need its own connection during database operations
         self.engine = create_engine(
             f"sqlite:///{database_path}",
             echo=False,
             connect_args=connect_args,
             pool_pre_ping=True,  # Verify connections before use
+            pool_size=32,  # Match number of workers (was 5 default)
+            max_overflow=32,  # Allow up to 32 additional connections if needed
         )
 
         # Configure SQLite pragmas for reliable fingerprinting persistence
@@ -94,12 +99,15 @@ class LibraryManager:
             # Set synchronous to NORMAL (safer than OFF, faster than FULL)
             # Ensures fingerprints are durably written to WAL before returning
             cursor.execute("PRAGMA synchronous=NORMAL")
-            # Increase cache size for faster queries
-            cursor.execute("PRAGMA cache_size=-64000")  # 64MB cache
+            # AGGRESSIVE: Increase cache size to 256MB for 4x faster queries
+            # With 32 workers all querying database, larger cache reduces disk I/O
+            cursor.execute("PRAGMA cache_size=-262144")  # 256MB cache (4x from 64MB)
             # Optimize for frequent writes
             cursor.execute("PRAGMA temp_store=MEMORY")
             # Foreign key enforcement for data integrity
             cursor.execute("PRAGMA foreign_keys=ON")
+            # Increase max page count for larger working set
+            cursor.execute("PRAGMA max_page_count=1073741823")  # ~4GB max database
             cursor.close()
 
         self.SessionLocal = sessionmaker(bind=self.engine)
