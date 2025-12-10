@@ -102,9 +102,10 @@ class FingerprintExtractionQueue:
 
         # Memory-aware processing semaphore
         # Limits concurrent audio file loading to prevent memory bloat
-        # With 16 workers but only 3 concurrent audio files, we prevent 1.2GB+ memory spikes
-        # while keeping database queries fast (other workers can fetch while processing)
-        self.processing_semaphore: threading.Semaphore = threading.Semaphore(3)
+        # Increased to 8 workers now that memory leaks are fixed (Arc<> buffers, on-the-fly STFT)
+        # Previous: 3 workers to prevent 1.2GB+ spikes
+        # Now: 8 workers with stable 1.5GB baseline + controlled incremental growth
+        self.processing_semaphore: threading.Semaphore = threading.Semaphore(8)
 
         # Progress callback
         self.progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
