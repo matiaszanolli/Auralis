@@ -459,40 +459,40 @@ class FingerprintRepository:
         """
         session = self.get_session()
         try:
-            # Try update first (single query, works for both insert and update)
-            fingerprint = session.query(TrackFingerprint).filter(
-                TrackFingerprint.track_id == track_id
-            ).first()
+            # CRITICAL FIX: SQLAlchemy 2.0 session commit issues - use raw SQLite directly
+            # The ORM session is silently failing to commit even with begin() context
+            # Workaround: Use raw sqlite3 directly to bypass broken ORM layer
 
-            if fingerprint:
-                # Update existing
-                for key, value in fingerprint_data.items():
-                    if hasattr(fingerprint, key):
-                        setattr(fingerprint, key, value)
-            else:
-                # Insert new
-                fingerprint = TrackFingerprint(
-                    track_id=track_id,
-                    **fingerprint_data
-                )
-                session.add(fingerprint)
+            import sqlite3
+            from pathlib import Path
 
-            session.commit()
-            session.refresh(fingerprint)
+            db_path = Path.home() / '.auralis' / 'library.db'
+            conn = sqlite3.connect(str(db_path))
+            cursor = conn.cursor()
 
-            # CRITICAL: Detach object from session before returning
-            # Prevents memory accumulation with multi-threaded workers
-            session.expunge(fingerprint)
+            try:
+                # Get column names from fingerprint_data
+                cols = list(fingerprint_data.keys())
+                placeholders = ', '.join(['?'] * len(cols))
+                cols_str = ', '.join(cols)
+                vals = [fingerprint_data[col] for col in cols]
 
+                # Use INSERT OR REPLACE (upsert) - much simpler than ORM
+                sql = f"INSERT OR REPLACE INTO track_fingerprints (track_id, {cols_str}) VALUES (?, {placeholders})"
+                cursor.execute(sql, [track_id] + vals)
+                conn.commit()
+            finally:
+                cursor.close()
+                conn.close()
+
+            # Return a dummy object to indicate success (compatibility with interface)
+            fingerprint = TrackFingerprint(track_id=track_id, **fingerprint_data)
             info(f"Upserted fingerprint for track {track_id}")
             return fingerprint
 
         except Exception as e:
-            session.rollback()
             error(f"Failed to upsert fingerprint for track {track_id}: {e}")
             return None
         finally:
-            # CRITICAL: Explicitly clear session to free memory
-            # With 16 concurrent workers, this prevents unbounded memory growth
             session.expunge_all()
             session.close()

@@ -171,6 +171,7 @@ vendor/auralis-dsp/target/
 vendor/auralis-dsp/Cargo.lock
 vendor/**/target/
 vendor/**/Cargo.lock
+fingerprint-server/**/target/
 *.rlib
 *.rmeta
 *.d
