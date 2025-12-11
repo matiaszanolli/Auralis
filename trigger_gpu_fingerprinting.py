@@ -44,19 +44,12 @@ Note:
 """
 
 import sys
-import asyncio
 import logging
-import time
 import gc
 from pathlib import Path
 from typing import Optional
-
-# Try to import tqdm for progress bars
-try:
-    from tqdm import tqdm
-    HAS_TQDM = True
-except ImportError:
-    HAS_TQDM = False
+from threading import Lock, Thread
+import time
 
 # Setup logging
 logging.basicConfig(
@@ -66,19 +59,180 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool = False) -> None:
+class SimpleBatchWorker:
     """
-    Trigger GPU fingerprinting for unfingerprinted tracks.
+    Simple batch processing with timestamp-based locking.
+
+    - Workers grab 5 unprocessed tracks at a time
+    - Mark them with fingerprint_started_at timestamp
+    - If not finished within 5 minutes, tracks become available again
+    - No queue duplication, natural rate limiting, no shared state
+    """
+
+    def __init__(self, library_manager, fingerprint_extractor, num_workers=2):
+        self.library = library_manager
+        self.extractor = fingerprint_extractor
+        self.num_workers = num_workers
+        self.batch_size = 5
+        self.timeout_minutes = 5
+
+        self.stats = {
+            'total_processed': 0,
+            'total_success': 0,
+            'total_failed': 0,
+        }
+        self.stats_lock = Lock()
+        self.stop_flag = False
+
+    def _get_next_batch(self):
+        """Grab next 5 unprocessed tracks and mark them started"""
+        import sqlite3
+        from datetime import datetime, timedelta, timezone
+
+        db_path = self.library.database_path
+
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+
+            # Get tracks that are either:
+            # 1. Never started (fingerprint_started_at IS NULL)
+            # 2. Timed out (started > 5 minutes ago)
+            now = datetime.now(timezone.utc)
+            timeout_threshold = now.replace(second=0, microsecond=0)
+            timeout_threshold -= timedelta(minutes=self.timeout_minutes)
+
+            query = """
+                SELECT id, filepath
+                FROM tracks
+                WHERE fingerprint_status = 'pending'
+                  AND (fingerprint_started_at IS NULL
+                       OR fingerprint_started_at < datetime(?))
+                LIMIT ?
+            """
+
+            cursor.execute(query, (timeout_threshold.isoformat(), self.batch_size))
+            tracks = cursor.fetchall()
+
+            if not tracks:
+                conn.close()
+                return []
+
+            # Mark these tracks as started
+            track_ids = [t[0] for t in tracks]
+            placeholders = ','.join('?' * len(track_ids))
+            update_query = f"""
+                UPDATE tracks
+                SET fingerprint_started_at = datetime('now')
+                WHERE id IN ({placeholders})
+            """
+            cursor.execute(update_query, track_ids)
+            conn.commit()
+            conn.close()
+
+            # Return as track-like objects
+            class Track:
+                def __init__(self, track_id, filepath):
+                    self.id = track_id
+                    self.filepath = filepath
+
+            return [Track(t[0], t[1]) for t in tracks]
+
+        except Exception as e:
+            logger.error(f"Error fetching batch: {e}")
+            return []
+
+    def _worker(self, worker_id):
+        """Worker loop: fetch batch of 5 tracks, process them"""
+        logger.info(f"👷 Worker {worker_id} started")
+
+        while not self.stop_flag:
+            batch = self._get_next_batch()
+
+            if not batch:
+                logger.info(f"👷 Worker {worker_id}: No tracks available")
+                time.sleep(2)
+                continue
+
+            for track in batch:
+                try:
+                    success = self.extractor.extract_and_store(track.id, track.filepath)
+
+                    # Always clear the fingerprint_started_at after processing (success or fail)
+                    # This prevents the track from timing out and being reprocessed
+                    try:
+                        import sqlite3
+                        conn = sqlite3.connect(self.library.database_path)
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "UPDATE tracks SET fingerprint_started_at = NULL WHERE id = ?",
+                            (track.id,)
+                        )
+                        conn.commit()
+                        conn.close()
+                    except Exception as db_error:
+                        logger.warning(f"Could not clear fingerprint_started_at for track {track.id}: {db_error}")
+
+                    with self.stats_lock:
+                        self.stats['total_processed'] += 1
+                        if success:
+                            self.stats['total_success'] += 1
+                        else:
+                            self.stats['total_failed'] += 1
+
+                except Exception as e:
+                    logger.error(f"❌ Error processing track {track.id}: {e}")
+                    with self.stats_lock:
+                        self.stats['total_processed'] += 1
+                        self.stats['total_failed'] += 1
+
+    def run(self):
+        """Run workers"""
+        logger.info("🎯 BATCH PROCESSING MODE (5 tracks/worker, 5-minute timeout)")
+        logger.info(f"   Workers: {self.num_workers}")
+
+        # Start worker threads
+        workers = [Thread(target=self._worker, args=(i,), daemon=False) for i in range(self.num_workers)]
+        for w in workers:
+            w.start()
+
+        start_time = time.time()
+
+        try:
+            while all(w.is_alive() for w in workers):
+                time.sleep(5)
+
+                with self.stats_lock:
+                    elapsed = time.time() - start_time
+                    rate = self.stats['total_processed'] / elapsed if elapsed > 0 else 0
+
+                    logger.info(
+                        f"Progress: {self.stats['total_processed']:6d} | "
+                        f"Success: {self.stats['total_success']:6d} | "
+                        f"Failed: {self.stats['total_failed']:3d} | "
+                        f"Rate: {rate:6.2f} tracks/s"
+                    )
+
+        except KeyboardInterrupt:
+            logger.info("\n⏸️  Interrupted")
+
+        finally:
+            self.stop_flag = True
+            for w in workers:
+                w.join(timeout=5)
+
+
+def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
+    """
+    Trigger GPU fingerprinting for unfingerprinted tracks using batch processing with timestamp locking.
 
     Args:
         max_tracks: Maximum number of tracks to fingerprint (None = all)
-        watch: Monitor progress in real-time
     """
     try:
         # Import Auralis components
         from auralis.library.manager import LibraryManager
         from auralis.library.fingerprint_extractor import FingerprintExtractor
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
 
         logger.info("🚀 Rust-Accelerated Fingerprinting Trigger (1500x+ Speedup)")
         logger.info("=" * 70)
@@ -88,15 +242,12 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
         library_manager = LibraryManager()
         logger.info(f"✅ Library initialized: {library_manager.database_path}")
 
-        # Get all tracks for fingerprinting
-        logger.info("Querying all tracks...")
-        all_tracks, total_count = library_manager.get_all_tracks(limit=999999)  # Get all tracks
+        # Get only unfingerprinted tracks (skip already fingerprinted)
+        logger.info("Querying unfingerprinted tracks...")
 
-        # Use all tracks with valid filepaths
-        unfingerprinted_tracks = [
-            track for track in all_tracks
-            if track.filepath
-        ]
+        # Use repository method to efficiently get missing fingerprints
+        # This does a LEFT JOIN to find tracks WITHOUT fingerprints
+        unfingerprinted_tracks = library_manager.fingerprints.get_missing_fingerprints(limit=None)
         total_tracks = len(unfingerprinted_tracks)
 
         if total_tracks == 0:
@@ -117,126 +268,36 @@ async def trigger_fingerprinting(max_tracks: Optional[int] = None, watch: bool =
             use_rust_server=True  # Automatically use Rust server
         )
 
-        # Database-pull worker architecture (no queue, natural rate limiting)
-        # Workers fetch unfingerprinted tracks directly from database as they finish
+        # Batch processing with timestamp-based locking
         # Benefits:
-        # - No job queue = no queue accumulation or memory buildup
-        # - Natural rate limiting: workers only fetch when ready
-        # - Bounded memory: only one audio file per worker in memory at a time
-        # - Eliminates pre-loading and enqueue overhead
-        # ADAPTIVE SCALING: Worker ratio = 0.5 to 2.0 per physical core
-        # Min: 0.5 ratio (e.g., 8 workers on 16-core), Max: 2.0 ratio (e.g., 32 workers)
-        # AdaptiveResourceMonitor scales dynamically based on RAM usage (75% threshold)
+        # - Workers grab 5 tracks at a time (minimal database queries)
+        # - Timestamp-based timeout: if worker dies, tracks available again after 5 minutes
+        # - No queue duplication or shared state
+        # - Natural rate limiting
+        logger.info("💡 Ensure Rust server is running: cd fingerprint-server && ./target/release/fingerprint-server")
+        logger.info("\n🚀 Starting fingerprinting workers...")
+
         import os
         cpu_count = os.cpu_count() or 16
-        min_workers = max(4, int(cpu_count * 0.5))  # 0.5 ratio: conservative start
-        max_workers = int(cpu_count * 2.0)          # 2.0 ratio: aggressive ceiling
+        num_workers = max(2, int(cpu_count * 0.5))  # 0.5 ratio: 2-16 workers for 4-32 cores
 
-        fingerprint_queue = FingerprintExtractionQueue(
-            fingerprint_extractor=fingerprint_extractor,
+        processor = SimpleBatchWorker(
             library_manager=library_manager,
-            num_workers=min_workers,  # Start at 0.5 ratio
-            max_workers=max_workers,  # Scale up to 2.0 ratio based on RAM
-            enable_adaptive_scaling=True  # Enable adaptive resource monitoring
+            fingerprint_extractor=fingerprint_extractor,
+            num_workers=num_workers
         )
 
-        # Start workers first
-        logger.info(f"Starting {fingerprint_queue.num_workers} background workers (1500x+ with Rust server)...")
-        logger.info("💡 Ensure Rust server is running: cd fingerprint-server && ./target/release/fingerprint-server")
-        await fingerprint_queue.start()
+        processor.run()
 
-        # Workers fetch tracks directly from database (no pre-loading needed)
-        total_to_process = len(unfingerprinted_tracks)
-
-        # Print statistics
-        stats = fingerprint_queue.stats
-        logger.info("\n📊 Fingerprinting Status:")
-        logger.info(f"  Processing: {stats['processing']}")
-        logger.info(f"  Completed: {stats['completed']}")
-        logger.info(f"  Failed: {stats['failed']}")
-        logger.info(f"  Cached: {stats['cached']}")
-
-        # Monitor if requested
-        if watch:
-            logger.info("\n🔍 Monitoring fingerprinting progress (Press Ctrl+C to stop)...")
-            logger.info("=" * 70)
-
-            try:
-                start_time = time.time()
-                pbar = None
-
-                if HAS_TQDM:
-                    pbar = tqdm(
-                        total=total_to_process,
-                        desc="Fingerprinting",
-                        unit="track",
-                        bar_format='{l_bar}{bar} [{elapsed}<{remaining}, {rate_fmt}]'
-                    )
-
-                while fingerprint_queue.stats['completed'] + fingerprint_queue.stats['failed'] < total_to_process:
-                    stats = fingerprint_queue.stats
-                    completed_count = stats['completed']
-                    failed_count = stats['failed']
-                    total_processed = completed_count + failed_count
-                    processing_count = stats['processing']
-                    progress_pct = (total_processed / total_to_process * 100) if total_to_process > 0 else 0
-
-                    # Update progress bar
-                    if pbar:
-                        new_pos = completed_count + failed_count
-                        pbar.n = new_pos
-                        pbar.refresh()
-                    else:
-                        # Fallback text-based progress if tqdm not available
-                        elapsed = time.time() - start_time
-                        rate = total_processed / elapsed if elapsed > 0 else 0
-                        if rate > 0:
-                            remaining_secs = (total_to_process - total_processed) / rate
-                            remaining_str = f"{int(remaining_secs/3600)}h {int((remaining_secs%3600)/60)}m"
-                        else:
-                            remaining_str = "?"
-
-                        logger.info(
-                            f"Progress: {total_processed:5d}/{total_to_process} ({progress_pct:5.1f}%) | "
-                            f"Completed: {completed_count:5d} | Failed: {failed_count:3d} | "
-                            f"Processing: {processing_count:2d} | "
-                            f"Rate: {rate:5.2f} tracks/s | ETA: {remaining_str}"
-                        )
-
-                    await asyncio.sleep(5)  # Update every 5 seconds
-
-                # Close progress bar
-                if pbar:
-                    pbar.close()
-
-                # Final statistics
-                logger.info("=" * 70)
-                logger.info("✅ Fingerprinting complete!")
-                final_stats = fingerprint_queue.stats
-                total_time = time.time() - start_time
-
-                logger.info(f"  Total completed: {final_stats['completed']}")
-                logger.info(f"  Total failed: {final_stats['failed']}")
-                logger.info(f"  Total wall-clock time: {int(total_time/3600)}h {int((total_time%3600)/60)}m {int(total_time%60)}s")
-
-                if final_stats['completed'] > 0:
-                    avg_per_track = final_stats['total_time'] / final_stats['completed']
-                    logger.info(f"  Avg time per track (CPU): {avg_per_track:.3f}s")
-                    throughput = final_stats['completed'] / total_time
-                    logger.info(f"  Throughput: {throughput:.2f} tracks/second")
-
-            except KeyboardInterrupt:
-                if pbar:
-                    pbar.close()
-                logger.info("\n⏸️  Monitoring stopped. Fingerprinting continues in background.")
-
-        # Wait a moment for any remaining workers to finish naturally
-        await asyncio.sleep(1.0)
-
-        # Stop workers gracefully
-        logger.info("Stopping fingerprint workers...")
-        await fingerprint_queue.stop(timeout=60.0)
-        logger.info("✅ All workers stopped")
+        # Final statistics
+        logger.info("\n" + "=" * 70)
+        logger.info("✅ FINGERPRINTING COMPLETE")
+        logger.info("=" * 70)
+        with processor.stats_lock:
+            stats = processor.stats
+            logger.info(f"Total processed: {stats['total_processed']}")
+            logger.info(f"Total success: {stats['total_success']}")
+            logger.info(f"Total failed: {stats['total_failed']}")
 
     except Exception as e:
         logger.error(f"❌ Error during fingerprinting: {e}", exc_info=True)
@@ -247,14 +308,13 @@ def main() -> None:
     """Main entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Trigger GPU-accelerated fingerprinting")
-    parser.add_argument("--watch", action="store_true", help="Monitor progress in real-time")
+    parser = argparse.ArgumentParser(description="Trigger GPU-accelerated fingerprinting with batch processing")
     parser.add_argument("--max-tracks", type=int, default=None, help="Maximum tracks to fingerprint (for testing)")
 
     args = parser.parse_args()
 
-    # Run async fingerprinting
-    asyncio.run(trigger_fingerprinting(max_tracks=args.max_tracks, watch=args.watch))
+    # Run fingerprinting with thread workers
+    trigger_fingerprinting(max_tracks=args.max_tracks)
 
 
 if __name__ == "__main__":
