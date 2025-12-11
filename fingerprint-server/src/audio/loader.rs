@@ -47,7 +47,23 @@ fn load_audio_sync(filepath: &str) -> Result<AudioData> {
         detected_format
     );
 
-    // MP3 support enabled - Symphonia handles MP3 decoding
+    // Try Claxon for FLAC files first (faster, handles most variants)
+    // Fall back to Symphonia if Claxon fails (for edge cases/corrupted FLACs)
+    let mut claxon_failed = false;
+    if detected_format == "flac" {
+        tracing::info!("Attempting Claxon decoder for FLAC file: {}", filepath);
+        match load_flac_with_claxon(filepath) {
+            Ok(audio) => return Ok(audio),
+            Err(e) => {
+                claxon_failed = true;
+                tracing::warn!("Claxon decoder failed for FLAC: {}, falling back to Symphonia: {}", filepath, e);
+                // Continue to Symphonia decoder below
+            }
+        }
+    }
+
+    // Use Symphonia for all other formats (WAV, MP3, M4A, OGG, etc.)
+    tracing::info!("Using Symphonia decoder for {} format", detected_format);
 
     // Create hint with detected format to guide Symphonia's probe
     let mut hint = Hint::new();
@@ -74,6 +90,15 @@ fn load_audio_sync(filepath: &str) -> Result<AudioData> {
         .map_err(|e| {
             let error_msg = format!("{}", e);
             tracing::error!("Failed to probe format '{}' for {}: {}", detected_format, filepath, error_msg);
+
+            // CRITICAL: If Claxon failed AND Symphonia failed, file is genuinely corrupted
+            // This indicates a problem with the file itself, not just unsupported features
+            if claxon_failed && detected_format == "flac" {
+                tracing::error!("CORRUPTED FILE DETECTED: Both Claxon and Symphonia failed for FLAC: {}", filepath);
+                return FingerprintError::InvalidAudio(format!(
+                    "File appears corrupted: Both FLAC decoders failed"
+                ));
+            }
 
             // Detect if file is corrupted (end of stream, truncated, etc.)
             if error_msg.contains("end of stream") || error_msg.contains("truncated") || error_msg.contains("unexpected end") {
@@ -234,6 +259,108 @@ fn collect_samples(
         }
     }
     Ok(())
+}
+
+/// Load FLAC audio using pure Rust Claxon decoder
+///
+/// Claxon handles all FLAC variants including non-standard metadata,
+/// custom compression, and edge cases that Symphonia struggles with.
+///
+/// Returns: AudioData with mono samples normalized to [-1.0, +1.0]
+fn load_flac_with_claxon(filepath: &str) -> Result<AudioData> {
+    use std::fs::File;
+    use std::io::BufReader;
+
+    tracing::debug!("Loading FLAC with Claxon: {}", filepath);
+
+    // Open file
+    let file = File::open(filepath)
+        .map_err(|e| FingerprintError::FileNotFound(format!("{}: {}", filepath, e)))?;
+
+    let buffered = BufReader::new(file);
+
+    // Create FLAC reader
+    let mut reader = claxon::FlacReader::new(buffered)
+        .map_err(|e| FingerprintError::DecodingError(format!("FLAC reader error: {}", e)))?;
+
+    // Extract metadata
+    let streaminfo = reader.streaminfo();
+    let sample_rate = streaminfo.sample_rate;
+    let channels = streaminfo.channels as u16;
+
+    tracing::debug!(
+        "FLAC metadata: {} Hz, {} channels",
+        sample_rate,
+        channels
+    );
+
+    if channels == 0 {
+        return Err(FingerprintError::InvalidAudio(
+            "FLAC file has 0 channels".to_string(),
+        ));
+    }
+
+    // Decode all samples using Claxon's sample iterator
+    // Claxon returns raw i32 samples in interleaved format (L, R, L, R, ... for stereo)
+    let mut raw_samples: Vec<f64> = Vec::new();
+
+    for sample_result in reader.samples() {
+        let sample_i32 = sample_result
+            .map_err(|e| FingerprintError::DecodingError(format!("FLAC sample decode error: {}", e)))?;
+
+        // Normalize i32 to f64 [-1.0, +1.0] range
+        let normalized = sample_i32 as f64 / i32::MAX as f64;
+        raw_samples.push(normalized);
+    }
+
+    if raw_samples.is_empty() {
+        return Err(FingerprintError::InvalidAudio(
+            "No audio samples decoded from FLAC file".to_string(),
+        ));
+    }
+
+    // De-interleave channels and average to mono
+    // Assume samples are in interleaved format: [L, R, L, R, ...] for stereo
+    let num_channels = channels as usize;
+    let num_frames = raw_samples.len() / num_channels;
+
+    let mut samples = Vec::with_capacity(num_frames);
+    for frame_idx in 0..num_frames {
+        let mut sum = 0.0f64;
+        for ch in 0..num_channels {
+            let sample_idx = frame_idx * num_channels + ch;
+            if sample_idx < raw_samples.len() {
+                sum += raw_samples[sample_idx];
+            }
+        }
+        let avg = sum / num_channels as f64;
+        samples.push(avg);
+    }
+
+    // Validate audio
+    if samples.is_empty() {
+        return Err(FingerprintError::InvalidAudio(
+            "No audio samples decoded from FLAC file".to_string(),
+        ));
+    }
+
+    if !samples.iter().all(|s| s.is_finite()) {
+        return Err(FingerprintError::InvalidAudio(
+            "FLAC audio contains NaN or infinite values".to_string(),
+        ));
+    }
+
+    tracing::debug!(
+        "Loaded {} samples at {} Hz from FLAC file",
+        samples.len(),
+        sample_rate
+    );
+
+    Ok(AudioData {
+        samples: Arc::new(samples),
+        sample_rate,
+        channels,
+    })
 }
 
 /// Detect audio format from file extension
