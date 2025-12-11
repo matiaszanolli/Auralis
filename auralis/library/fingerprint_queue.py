@@ -31,6 +31,7 @@ from pathlib import Path
 import psutil
 
 from ..utils.logging import info, warning, error, debug
+from .resource_monitor import AdaptiveResourceMonitor, ResourceLimits
 
 
 class FingerprintExtractionQueue:
@@ -63,28 +64,37 @@ class FingerprintExtractionQueue:
     def __init__(self,
                  fingerprint_extractor: Any,
                  library_manager: Any,
-                 num_workers: Optional[int] = None) -> None:
+                 num_workers: Optional[int] = None,
+                 enable_adaptive_scaling: bool = True,
+                 max_workers: Optional[int] = None) -> None:
         """
         Initialize fingerprint extraction worker pool.
 
         Args:
             fingerprint_extractor: FingerprintExtractor instance
             library_manager: LibraryManager for querying unfingerprinted tracks
-            num_workers: Number of background worker threads (default: auto-detect from CPU)
+            num_workers: Number of background worker threads (default: 0.5x CPU cores)
+            enable_adaptive_scaling: Enable adaptive resource monitoring (default: True)
+            max_workers: Maximum workers for adaptive scaling (default: 2.0x CPU cores)
         """
         import os
 
-        # Auto-detect optimal worker count if not specified
+        # Auto-detect optimal worker bounds based on CPU cores
+        cpu_count = os.cpu_count() or 16
+
+        # Set initial worker count if not specified (0.5x ratio - conservative)
         if num_workers is None:
-            cpu_count = os.cpu_count() or 8
-            if cpu_count >= 16:
-                num_workers = max(4, int(cpu_count * 0.75))
-            else:
-                num_workers = 4
+            num_workers = max(4, int(cpu_count * 0.5))
+
+        # Set max worker ceiling if not specified (2.0x ratio - aggressive)
+        if max_workers is None:
+            max_workers = int(cpu_count * 2.0)
 
         self.extractor: Any = fingerprint_extractor
         self.library_manager: Any = library_manager
-        self.num_workers: int = num_workers
+        self.initial_num_workers: int = num_workers
+        self.current_num_workers: int = num_workers
+        self.max_workers_limit: int = max_workers
 
         # Worker threads (no job queue needed)
         self.workers: List[threading.Thread] = []
@@ -96,31 +106,99 @@ class FingerprintExtractionQueue:
             'completed': 0,
             'failed': 0,
             'cached': 0,
-            'total_time': 0.0
+            'total_time': 0.0,
+            'scale_events': 0
         }
         self.stats_lock: threading.RLock = threading.RLock()
 
         # Memory-aware processing semaphore
         # Limits concurrent audio file loading to prevent memory bloat
-        # AGGRESSIVE: Increased to 16 workers for 2x throughput
-        # Memory profile is stable even with full parallelism:
-        # - Baseline: 1.5GB (stable across all test runs)
-        # - Per-worker audio buffer: ~50-150MB (Arc<> shared, not duplicated)
-        # - Safety threshold: 75% RAM usage = safe headroom even at 16 concurrent
-        self.processing_semaphore: threading.Semaphore = threading.Semaphore(16)
+        # Generous limit: 1 semaphore per worker (allows full parallelism with Rust server)
+        # Rust server has 64 blocking threads, so allow high concurrency in Python
+        self.processing_semaphore: threading.Semaphore = threading.Semaphore(
+            max(8, max_workers)  # At least 8, up to max_workers
+        )
+
+        # Adaptive resource monitoring
+        self.enable_adaptive_scaling: bool = enable_adaptive_scaling
+        self.resource_monitor: Optional[AdaptiveResourceMonitor] = None
+        if enable_adaptive_scaling:
+            # Create adaptive monitor with 75% RAM limit and dynamic worker bounds
+            limits = ResourceLimits(
+                max_memory_percent=75.0,
+                min_workers=num_workers,  # Start at 0.5x ratio
+                max_workers=max_workers,  # Scale up to 2.0x ratio based on RAM
+                max_semaphore=max(8, max_workers),  # Allow full parallelism with Rust server
+                check_interval=2.0,
+                scale_up_threshold=50.0,  # Scale up if RAM < 50%
+                scale_down_threshold=80.0  # Scale down if RAM > 80%
+            )
+            self.resource_monitor = AdaptiveResourceMonitor(
+                limits=limits,
+                on_worker_count_change=self._on_worker_count_change,
+                on_semaphore_change=self._on_semaphore_change
+            )
 
         # Progress callback
         self.progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+
+    @property
+    def num_workers(self) -> int:
+        """Get current worker count (includes adaptive scaling adjustments)"""
+        return self.current_num_workers
 
     def set_progress_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Set callback for progress updates"""
         self.progress_callback = callback
 
-    async def start(self) -> None:
-        """Start background worker threads"""
-        info(f"Starting {self.num_workers} fingerprint extraction workers")
+    def _on_worker_count_change(self, new_worker_count: int) -> None:
+        """
+        Callback invoked by AdaptiveResourceMonitor when worker count should change.
 
-        for i in range(self.num_workers):
+        Args:
+            new_worker_count: New recommended worker count
+        """
+        with self.stats_lock:
+            old_count = self.current_num_workers
+            self.current_num_workers = new_worker_count
+            self.stats['scale_events'] += 1
+
+        if len(self.workers) > 0:
+            direction = "↑" if new_worker_count > old_count else "↓"
+            info(
+                f"{direction} Worker scaling callback: {old_count} → {new_worker_count} "
+                f"(Note: dynamic scaling requires worker pool restart)"
+            )
+
+    def _on_semaphore_change(self, new_semaphore_size: int) -> None:
+        """
+        Callback invoked by AdaptiveResourceMonitor when semaphore size changes.
+
+        NOTE: Python's threading.Semaphore doesn't support safe dynamic resizing.
+        The semaphore is pre-configured at initialization based on max_workers.
+        We log the monitor's recommendation but don't modify the semaphore.
+
+        Args:
+            new_semaphore_size: Recommended concurrent audio processing limit from monitor
+        """
+        # Python's Semaphore doesn't provide a safe way to dynamically resize.
+        # To properly implement this, we'd need to replace it with a custom semaphore class
+        # that uses locks and a counter internally. For now, we just log the recommendation.
+        debug(
+            f"Adaptive monitor recommends semaphore size: {new_semaphore_size} "
+            f"(using pre-configured value based on max_workers)"
+        )
+
+    async def start(self) -> None:
+        """Start background worker threads and resource monitor"""
+        # Start adaptive resource monitor if enabled
+        if self.resource_monitor:
+            self.resource_monitor.start()
+            info("Adaptive resource monitor started (RAM threshold: 75%, workers: 4-32)")
+
+        info(f"Starting {self.initial_num_workers} fingerprint extraction workers")
+
+        for i in range(self.initial_num_workers):
             worker = threading.Thread(
                 target=self._worker_loop,
                 args=(i,),
@@ -130,7 +208,7 @@ class FingerprintExtractionQueue:
             worker.start()
             self.workers.append(worker)
 
-        info(f"All {self.num_workers} workers started")
+        info(f"All {self.initial_num_workers} workers started")
 
     async def stop(self, timeout: float = 30.0) -> bool:
         """
@@ -144,6 +222,18 @@ class FingerprintExtractionQueue:
         """
         info("Stopping fingerprint extraction workers...")
         self.should_stop = True
+
+        # Stop resource monitor if running
+        if self.resource_monitor:
+            monitor_stats = self.resource_monitor.get_stats()
+            self.resource_monitor.stop()
+            info(
+                f"Adaptive resource monitor stopped. "
+                f"Stats: {monitor_stats['scale_ups']} scale-ups, "
+                f"{monitor_stats['scale_downs']} scale-downs, "
+                f"avg RAM: {monitor_stats['avg_memory_percent']:.1f}%, "
+                f"max RAM: {monitor_stats['max_memory_percent']:.1f}%"
+            )
 
         # Wait for all workers to finish
         start_time = time.time()

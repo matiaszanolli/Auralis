@@ -107,21 +107,22 @@ fn compute_fft_spectrum(samples: &[f64], sample_rate: u32) -> Result<(Vec<f64>, 
     // Compute FFT
     fft.process(&mut input);
 
-    // Extract magnitude spectrum
+    // Extract magnitude spectrum (LINEAR scale, not dB)
+    // CRITICAL: Keep as linear magnitude. Do NOT convert to dB here!
+    // If you convert to dB, you get negative values like -200dB.
+    // Then when analysis functions do m.max(0.0), they clip all negative dB to zero.
+    // This kills all data and results in zero fingerprints!
     let magnitude: Vec<f64> = input
         .iter()
         .map(|c| (c.norm() / FFT_SIZE as f64).max(1e-10))
         .collect();
-
-    // Convert to dB
-    let magnitude_db: Vec<f64> = magnitude.iter().map(|&m| 20.0 * m.log10()).collect();
 
     // Compute frequency bins
     let freqs: Vec<f64> = (0..FFT_SIZE / 2)
         .map(|k| (k as f64 * sample_rate as f64) / FFT_SIZE as f64)
         .collect();
 
-    Ok((magnitude_db, freqs))
+    Ok((magnitude, freqs))
 }
 
 fn analyze_frequency(magnitude_spec: &[f64], freqs: &[f64]) -> Result<(f64, f64, f64, f64, f64, f64, f64)> {
