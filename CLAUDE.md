@@ -14,13 +14,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **GitHub**: https://github.com/matiaszanolli/Auralis
 
 **Core Principles:**
+- **💪 MAKE EVERY CYCLE COUNT**: Every allocated resource—worker thread, CPU core, I/O bandwidth—must earn its keep. Waste (idle workers, blocked threads, underutilized capacity) is the enemy.
+  - **The Real Problem**: Synchronous blocking calls in concurrent contexts = idle capacity. Example: 16 Python workers + 64-thread Rust server should yield 80+ concurrent operations, but synchronous HTTP requests yielded only 1-2. That's **98% waste**.
+  - **Utilization First**: Always monitor *actual utilization*, not theoretical capacity. If you see:
+    - Server logs: "Processing: 2" (max 2 concurrent) despite 64 threads available → RED FLAG
+    - Profiler: 14/16 worker threads blocked on I/O → RED FLAG
+    - Queue depth growing while worker threads idle → RED FLAG
+  - **The Fix Pattern**: For concurrent workloads:
+    - ❌ **WRONG**: `requests.Session()` in worker thread → thread blocks on HTTP → idle waiting
+    - ✅ **RIGHT**: `aiohttp` async HTTP → thread queues request, continues processing → full utilization
+  - **Example of Waste**: fingerprint_extractor.py fingerprinting 0.4-0.6 tracks/sec with idle workers despite 64-thread Rust server waiting for requests. Solution: async HTTP restored 10-20x throughput potential.
+  - **When Sequential Code is Okay**: Single-threaded contexts (scripts, CLI tools, non-concurrent code paths) don't need async. Only worry about resource utilization when you have multiple workers competing for capacity.
+  - **The Principle**: Design so allocated resources are always *doing something*. Don't add workers if they'll sit idle. Don't spin up threads that will block. Measure utilization; don't assume concurrency works.
+
 - **DRY (Don't Repeat Yourself)**: Always prioritize improving existing code rather than duplicating logic
   - Use **Utilities Pattern** when multiple modules share similar logic: Extract to static utility methods, refactor modules to thin wrappers
   - Example: Phase 7.2 consolidated 900 lines of duplicate spectrum/content analysis via SpectrumOperations + BaseSpectrumAnalyzer
+
 - **Coverage ≠ Quality**: Test behavior and invariants, not implementation details
+
 - **Modular Design**: Keep modules under 300 lines, one clear purpose per component
+
 - **No Component Duplication**: Avoid "Enhanced"/"V2"/"Advanced" variants—refactor shared logic in-place instead
+
 - **Content-Aware Processing**: Adapt DSP parameters based on source characteristics (loudness, dynamics, frequency content)
+
 - **No Sugar-Coating, No Timelines**: Be honest about what's done vs. what's uncertain. Never suggest production readiness without validation. For audio, quality and testing are not optional—they are the foundation of improvement. No dates without confidence. Test rigorously or don't claim readiness.
 
 ---

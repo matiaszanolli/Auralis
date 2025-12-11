@@ -12,7 +12,8 @@ Extracts 25D audio fingerprints during library scanning
 
 import numpy as np
 import gc
-import requests
+import asyncio
+import aiohttp
 import json
 import sqlite3
 from typing import Optional, Dict, List
@@ -22,6 +23,9 @@ from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..io.unified_loader import load_audio
 from ..utils.logging import info, warning, error, debug
 from .sidecar_manager import SidecarManager
+
+# NOTE: requests library removed in favor of async aiohttp for true concurrent HTTP
+# (synchronous requests were causing 98% worker idle time with 16 workers + 64-thread Rust server)
 
 # Rust fingerprinting server endpoint
 RUST_SERVER_URL = "http://localhost:8766"
@@ -70,6 +74,7 @@ class FingerprintExtractor:
         self.sampling_interval = sampling_interval
         self.use_rust_server = use_rust_server
         self._rust_server_available = None  # Cache availability check
+        self._aiohttp_session = None  # Async HTTP client session (lazy-initialized)
 
         debug(f"FingerprintExtractor initialized with strategy={fingerprint_strategy}, use_rust_server={use_rust_server}")
 
@@ -79,17 +84,93 @@ class FingerprintExtractor:
             return self._rust_server_available
 
         try:
-            response = requests.get(f"{RUST_SERVER_URL}/health", timeout=2.0)
-            self._rust_server_available = response.status_code == 200
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2.0)
+            result = sock.connect_ex(('127.0.0.1', 8766))
+            sock.close()
+            self._rust_server_available = result == 0
             if self._rust_server_available:
                 debug("Rust fingerprinting server is available")
             else:
-                warning("Rust server health check failed")
-        except requests.RequestException as e:
+                warning("Rust server not available")
+        except Exception as e:
             warning(f"Rust fingerprinting server not available: {e}")
             self._rust_server_available = False
 
         return self._rust_server_available
+
+    async def _get_fingerprint_from_rust_server_async(self, track_id: int, filepath: str) -> Optional[Dict]:
+        """
+        Async version: Call Rust fingerprinting server to extract fingerprint using aiohttp
+
+        Args:
+            track_id: Track ID for logging
+            filepath: Path to audio file
+
+        Returns:
+            Dictionary with 25 fingerprint dimensions, or None on error
+
+        Raises:
+            CorruptedTrackError: If the file is detected as corrupted (will be deleted from database)
+        """
+        try:
+            payload = {"track_id": track_id, "filepath": filepath}
+
+            # Create session if needed
+            if self._aiohttp_session is None:
+                self._aiohttp_session = aiohttp.ClientSession()
+
+            async with self._aiohttp_session.post(FINGERPRINT_ENDPOINT, json=payload, timeout=aiohttp.ClientTimeout(total=60.0)) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+
+                    # Check if file is corrupted (HTTP 400 with corruption message)
+                    if response.status == 400 and "appears corrupted" in error_text.lower():
+                        error(f"Corrupted audio file detected for track {track_id}: {filepath}")
+                        raise CorruptedTrackError(f"File appears corrupted: {filepath}")
+
+                    error(f"Rust server error for track {track_id}: HTTP {response.status} - {error_text}")
+                    return None
+
+                data = await response.json()
+                fingerprint = data.get("fingerprint", {})
+
+                # Validate we got all 25 dimensions
+                if len(fingerprint) != 25:
+                    warning(f"Rust server returned {len(fingerprint)} dimensions, expected 25")
+                    return None
+
+                debug(f"Extracted fingerprint via Rust server for track {track_id} in {data.get('processing_time_ms', '?')}ms")
+                return fingerprint
+
+        except CorruptedTrackError:
+            raise  # Re-raise corruption errors to be handled at higher level
+        except asyncio.TimeoutError as e:
+            error(f"Timeout calling Rust fingerprint server for track {track_id}: {e}")
+            return None
+        except Exception as e:
+            error(f"Failed to call Rust fingerprint server for track {track_id}: {e}")
+            return None
+
+    def _get_fingerprint_from_rust_server_sync(self, track_id: int, filepath: str) -> Optional[Dict]:
+        """
+        Synchronous wrapper that runs async HTTP requests in a new event loop (for threading).
+
+        This allows synchronous worker threads to make concurrent async HTTP requests.
+        """
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(
+                    self._get_fingerprint_from_rust_server_async(track_id, filepath)
+                )
+            finally:
+                loop.close()
+        except Exception as e:
+            error(f"Error in async wrapper for track {track_id}: {e}")
+            return None
 
     def _delete_corrupted_track(self, track_id: int, filepath: str) -> bool:
         """
@@ -140,57 +221,6 @@ class FingerprintExtractor:
             error(f"Failed to delete corrupted track {track_id} from database: {e}")
             return False
 
-    def _get_fingerprint_from_rust_server(self, track_id: int, filepath: str) -> Optional[Dict]:
-        """
-        Call Rust fingerprinting server to extract fingerprint
-
-        Args:
-            track_id: Track ID for logging
-            filepath: Path to audio file
-
-        Returns:
-            Dictionary with 25 fingerprint dimensions, or None on error
-
-        Raises:
-            CorruptedTrackError: If the file is detected as corrupted (will be deleted from database)
-        """
-        try:
-            payload = {"track_id": track_id, "filepath": filepath}
-
-            # Build request explicitly and send it to ensure headers are preserved
-            session = requests.Session()
-            req = requests.Request('POST', FINGERPRINT_ENDPOINT, json=payload)
-            prepared = session.prepare_request(req)
-
-            response = session.send(prepared, timeout=60.0)
-
-            if response.status_code != 200:
-                error_text = response.text
-
-                # Check if file is corrupted (HTTP 400 with corruption message)
-                if response.status_code == 400 and "appears corrupted" in error_text.lower():
-                    error(f"Corrupted audio file detected for track {track_id}: {filepath}")
-                    raise CorruptedTrackError(f"File appears corrupted: {filepath}")
-
-                error(f"Rust server error for track {track_id}: HTTP {response.status_code} - {error_text}")
-                return None
-
-            data = response.json()
-            fingerprint = data.get("fingerprint", {})
-
-            # Validate we got all 25 dimensions
-            if len(fingerprint) != 25:
-                warning(f"Rust server returned {len(fingerprint)} dimensions, expected 25")
-                return None
-
-            debug(f"Extracted fingerprint via Rust server for track {track_id} in {data.get('processing_time_ms', '?')}ms")
-            return fingerprint
-
-        except CorruptedTrackError:
-            raise  # Re-raise corruption errors to be handled at higher level
-        except requests.RequestException as e:
-            error(f"Failed to call Rust fingerprint server for track {track_id}: {e}")
-            return None
 
     def extract_and_store(self, track_id: int, filepath: str) -> bool:
         """
@@ -230,9 +260,11 @@ class FingerprintExtractor:
             # Extraction path: Try Rust server first, fall back to Python if needed
             if not fingerprint:
                 # Try Rust server first (much faster, ~25ms vs ~2000ms for Python)
+                # Uses async HTTP (_get_fingerprint_from_rust_server_sync wrapper) for true parallelism
+                # This allows 16 workers to make concurrent requests to the 64-thread Rust server
                 if self.use_rust_server and self._is_rust_server_available():
                     try:
-                        fingerprint = self._get_fingerprint_from_rust_server(track_id, filepath)
+                        fingerprint = self._get_fingerprint_from_rust_server_sync(track_id, filepath)
                     except CorruptedTrackError:
                         # File is corrupted - delete from database and return False (skip)
                         self._delete_corrupted_track(track_id, filepath)
