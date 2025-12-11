@@ -38,7 +38,17 @@ pub async fn fingerprint_handler(
     .await
     .map_err(|e| crate::error::FingerprintError::AnalysisError(format!("Task join error: {}", e)))??;
 
-    tracing::debug!("Fingerprint analysis complete for track {}", req.track_id);
+    let valid_dims = fingerprint.valid_dimensions();
+    tracing::debug!("Fingerprint analysis complete for track {}: {}/25 valid dimensions", req.track_id, valid_dims);
+
+    // CRITICAL: Check if fingerprint is invalid (has NaN or zero dimensions)
+    if !fingerprint.is_valid() {
+        tracing::error!("CRITICAL: Fingerprint analysis returned INVALID for track {}: {} only {}/25 dimensions - {}",
+            req.track_id, req.filepath, valid_dims, req.filepath);
+        return Err(crate::error::FingerprintError::AnalysisError(
+            format!("Fingerprint invalid: only {}/25 dimensions", valid_dims)
+        ));
+    }
 
     // Calculate duration
     let duration_sec = audio_data.samples.len() as f64 / audio_data.sample_rate as f64;

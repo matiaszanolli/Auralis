@@ -12,6 +12,7 @@ tower-http = { version = "0.5", features = ["cors", "trace", "timeout"] }
 
 # Audio I/O
 symphonia = { version = "0.5", features = ["all"] }
+claxon = "0.4"  # Pure Rust FLAC decoder (handles all FLAC variants)
 
 # DSP operations
 ndarray = "0.15"
