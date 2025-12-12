@@ -168,8 +168,12 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                     enable_advanced_smoothing=True,
                     max_db_change_per_second=2.0
                 )
-                globals_dict['audio_player'] = EnhancedAudioPlayer(player_config)
-                logger.info("✅ Enhanced Audio Player initialized")
+                globals_dict['audio_player'] = EnhancedAudioPlayer(
+                    player_config,
+                    library_manager=globals_dict['library_manager'],
+                    get_repository_factory=lambda: globals_dict.get('repository_factory')
+                )
+                logger.info("✅ Enhanced Audio Player initialized (Phase 4 RepositoryFactory support enabled)")
 
                 # Initialize state manager (must be after library_manager is created)
                 globals_dict['player_state_manager'] = PlayerStateManager(manager)

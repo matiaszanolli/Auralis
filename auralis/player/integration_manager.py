@@ -18,6 +18,7 @@ from .playback_controller import PlaybackController
 from .audio_file_manager import AudioFileManager
 from .queue_controller import QueueController
 from ..library.manager import LibraryManager
+from ..library.repositories.factory import RepositoryFactory
 from ..library.models import Track
 from ..utils.logging import debug, info, warning, error
 
@@ -28,6 +29,7 @@ class IntegrationManager:
 
     Decoupled from playback state, file I/O, and queue operations.
     Handles library integration and effect management.
+    Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
     """
 
     def __init__(
@@ -36,13 +38,15 @@ class IntegrationManager:
         file_manager: AudioFileManager,
         queue: QueueController,
         processor: Any,  # RealtimeProcessor
-        library_manager: Optional[LibraryManager] = None
+        library_manager: Optional[LibraryManager] = None,
+        get_repository_factory: Optional[Callable[[], Any]] = None
     ):
         self.playback = playback
         self.file_manager = file_manager
         self.queue = queue
         self.processor = processor
         self.library = library_manager or LibraryManager()
+        self.get_repository_factory = get_repository_factory
 
         # Library integration
         self.current_track: Optional[Track] = None
@@ -58,6 +62,17 @@ class IntegrationManager:
 
         # Register to receive playback state changes
         self.playback.add_callback(self._on_playback_state_change)
+
+    def _get_repos(self) -> Any:
+        """Get repository factory or LibraryManager for data access."""
+        if self.get_repository_factory:
+            try:
+                factory = self.get_repository_factory()
+                if factory:
+                    return factory
+            except (TypeError, AttributeError):
+                pass
+        return self.library
 
     def add_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Register callback for integration events"""
@@ -93,7 +108,8 @@ class IntegrationManager:
             bool: True if successful
         """
         try:
-            track = self.library.get_track(track_id)
+            repos = self._get_repos()
+            track = repos.tracks.get_by_id(track_id)
             if not track:
                 error(f"Track not found in library: {track_id}")
                 return False
@@ -106,7 +122,11 @@ class IntegrationManager:
             self.current_track = track
 
             # Record play count
-            self.library.record_track_play(track_id)
+            if hasattr(repos, 'tracks') and hasattr(repos.tracks, 'record_play'):
+                repos.tracks.record_play(track_id)
+            else:
+                # Fallback to LibraryManager for backward compatibility
+                self.library.record_track_play(track_id)
 
             # Auto-select reference if enabled
             if self.auto_reference_selection:
@@ -137,7 +157,15 @@ class IntegrationManager:
                     return
 
             # Find and try similar tracks as references
-            references = self.library.find_reference_tracks(track, limit=3)
+            repos = self._get_repos()
+            references = []
+
+            if hasattr(repos, 'tracks') and hasattr(repos.tracks, 'find_similar'):
+                references, _ = repos.tracks.find_similar(track, limit=3)
+            else:
+                # Fallback to LibraryManager for backward compatibility
+                references = self.library.find_reference_tracks(track, limit=3)
+
             for ref_track in references:
                 if os.path.exists(cast(str, ref_track.filepath)):
                     if self.file_manager.load_reference(cast(str, ref_track.filepath)):
