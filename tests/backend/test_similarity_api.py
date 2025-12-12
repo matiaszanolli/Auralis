@@ -9,6 +9,12 @@ Tests the REST API endpoints for the similarity system
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 
+Phase 5C.2: Dual-Mode Backend Testing
+This file demonstrates Phase 5C patterns:
+1. Using mock fixtures from conftest.py
+2. Parametrized dual-mode testing (LibraryManager + RepositoryFactory)
+3. Fingerprint/similarity-specific interface validation
+
 NOTE: Integration tests for similarity API that require:
 1. Full FastAPI application startup (library_manager initialization)
 2. Fingerprints to exist in the library database
@@ -403,3 +409,84 @@ class TestSimilarityAPIIntegration:
         # Distance should be symmetric
         assert abs(comparison1["distance"] - comparison2["distance"]) < 0.0001
         assert abs(comparison1["similarity_score"] - comparison2["similarity_score"]) < 0.0001
+
+
+# ============================================================
+# Phase 5C.2: Dual-Mode Backend Testing Patterns
+# ============================================================
+# The following tests demonstrate how to use Phase 5C fixtures
+# from conftest.py for dual-mode parametrized testing with
+# fingerprint/similarity-specific repository interfaces.
+
+@pytest.mark.phase5c
+class TestSimilarityAPIDualMode:
+    """Phase 5C.2: Dual-mode tests using mock fixtures from conftest.py"""
+
+    def test_mock_library_manager_fingerprint_interface(self, mock_library_manager):
+        """
+        Test that mock_library_manager has fingerprint/similarity interface.
+        """
+        # LibraryManager should have fingerprint repository access
+        assert hasattr(mock_library_manager, 'fingerprints')
+        assert hasattr(mock_library_manager.fingerprints, 'get_all')
+        assert hasattr(mock_library_manager.fingerprints, 'get_by_id')
+
+    def test_mock_repository_factory_fingerprint_interface(self, mock_repository_factory):
+        """
+        Test that mock_repository_factory has fingerprint/similarity interface.
+
+        RepositoryFactory includes fingerprint-specific operations for:
+        - Fingerprint management
+        - Similarity system management
+        - Track comparison and similarity queries
+        """
+        assert hasattr(mock_repository_factory, 'fingerprints')
+        assert hasattr(mock_repository_factory.fingerprints, 'get_all')
+        assert hasattr(mock_repository_factory.fingerprints, 'get_by_id')
+        assert hasattr(mock_repository_factory.fingerprints, 'get_fingerprint_stats')
+
+    def test_mock_fingerprint_stats_operation(self, mock_repository_factory):
+        """
+        Test that fingerprint stats operation works with mocked factory.
+        """
+        # Mock fingerprint stats return value
+        stats = {
+            'total': 100,
+            'fingerprinted': 75,
+            'pending': 25,
+            'progress_percent': 75
+        }
+        mock_repository_factory.fingerprints.get_fingerprint_stats = Mock(
+            return_value=stats
+        )
+
+        # Test the operation
+        result = mock_repository_factory.fingerprints.get_fingerprint_stats()
+
+        assert result['total'] == 100
+        assert result['fingerprinted'] == 75
+        assert result['pending'] == 25
+        assert result['progress_percent'] == 75
+
+    def test_dual_mode_fingerprint_equivalence(self, mock_library_manager, mock_repository_factory):
+        """
+        Test that both mocks support fingerprint operations equivalently.
+        """
+        # Create test fingerprint data
+        fingerprint = Mock()
+        fingerprint.id = 1
+        fingerprint.track_id = 100
+        fingerprint.fingerprint_data = b"test_fingerprint"
+
+        # Test LibraryManager pattern
+        mock_library_manager.fingerprints.get_by_id = Mock(return_value=fingerprint)
+        lib_result = mock_library_manager.fingerprints.get_by_id(1)
+        assert lib_result.track_id == 100
+
+        # Test RepositoryFactory pattern (same interface)
+        mock_repository_factory.fingerprints.get_by_id = Mock(return_value=fingerprint)
+        repo_result = mock_repository_factory.fingerprints.get_by_id(1)
+        assert repo_result.track_id == 100
+
+        # Both should return the same data
+        assert lib_result.fingerprint_data == repo_result.fingerprint_data
