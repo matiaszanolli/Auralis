@@ -86,10 +86,11 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     # Create and include files router (scan, upload, formats)
     files_router: APIRouter = create_files_router(
         get_library_manager=get_component('library_manager'),
-        connection_manager=manager
+        connection_manager=manager,
+        get_repository_factory=get_component('repository_factory')
     )
     app.include_router(files_router)
-    logger.debug("✅ Files router registered")
+    logger.debug("✅ Files router registered (Phase 2 RepositoryFactory enabled)")
 
     # Create and include enhancement router
     enhancement_router: APIRouter = create_enhancement_router(
