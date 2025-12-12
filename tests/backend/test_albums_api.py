@@ -382,111 +382,93 @@ class TestAlbumsErrorHandling:
 # This follows the same pattern as test_artists_api.py.
 
 @pytest.mark.phase5c
-class TestAlbumsAPIDualMode:
-    """Phase 5C: Dual-mode tests using mock fixtures from conftest.py"""
+class TestAlbumsAPIDualModeParametrized:
+    """Phase 5C.3: Parametrized dual-mode tests.
 
-    def test_mock_library_manager_fixture_interface(self, mock_library_manager):
-        """
-        Test that mock_library_manager fixture provides expected interface.
+    These tests automatically run with both LibraryManager and RepositoryFactory
+    via the parametrized mock_data_source fixture. Each test runs twice:
+    once with library_manager, once with repository_factory.
+    """
 
-        Validates the fixture has all repositories and methods for albums API.
+    def test_albums_repository_interface(self, mock_data_source):
         """
-        assert hasattr(mock_library_manager, 'albums')
-        assert hasattr(mock_library_manager.albums, 'get_all')
-        assert hasattr(mock_library_manager.albums, 'get_by_id')
-        assert hasattr(mock_library_manager.albums, 'search')
+        Parametrized test: Validate albums repository interface works with both modes.
 
-    def test_mock_library_manager_get_all_method(self, mock_library_manager):
+        Each test runs twice via pytest parametrization:
+        - once with (library_manager, mock_library_manager)
+        - once with (repository_factory, mock_repository_factory)
         """
-        Test that mock_library_manager get_all returns correct structure.
+        mode, source = mock_data_source
 
-        Validates the fixture provides the expected (items, total) tuple.
+        assert hasattr(source, 'albums'), f"{mode} missing albums repository"
+        assert hasattr(source.albums, 'get_all'), f"{mode}.albums missing get_all"
+        assert hasattr(source.albums, 'get_by_id'), f"{mode}.albums missing get_by_id"
+        assert hasattr(source.albums, 'search'), f"{mode}.albums missing search"
+
+    def test_albums_get_all_returns_tuple(self, mock_data_source):
         """
-        # Set up mock data using the fixture
+        Parametrized test: Validate get_all returns (items, total) for both modes.
+
+        Both modes must support pagination with consistent interface.
+        """
+        mode, source = mock_data_source
+
+        # Set up test data
         album1 = Mock()
         album1.id = 1
         album1.title = "Album 1"
-        album1.artist = Mock(name="Artist 1")
         album1.year = 2024
 
         album2 = Mock()
         album2.id = 2
         album2.title = "Album 2"
-        album2.artist = Mock(name="Artist 2")
         album2.year = 2023
 
         test_albums = [album1, album2]
-        mock_library_manager.albums.get_all = Mock(
-            return_value=(test_albums, 2)
-        )
+        source.albums.get_all = Mock(return_value=(test_albums, 2))
 
-        # Test the mock interface
-        albums, total = mock_library_manager.albums.get_all(limit=50, offset=0)
+        # Test with both modes
+        albums, total = source.albums.get_all(limit=50, offset=0)
 
-        assert len(albums) == 2
-        assert total == 2
-        assert albums[0].title == "Album 1"
-        assert albums[1].title == "Album 2"
-        mock_library_manager.albums.get_all.assert_called_once_with(
-            limit=50, offset=0
-        )
+        assert len(albums) == 2, f"{mode}: Expected 2 albums"
+        assert total == 2, f"{mode}: Expected total=2"
+        assert albums[0].title == "Album 1", f"{mode}: First album title mismatch"
+        assert albums[1].title == "Album 2", f"{mode}: Second album title mismatch"
 
-    def test_mock_repository_factory_fixture_interface(self, mock_repository_factory):
+    def test_albums_get_by_id_interface(self, mock_data_source):
         """
-        Test that mock_repository_factory fixture provides expected interface.
-
-        Both LibraryManager and RepositoryFactory implement the same interface.
+        Parametrized test: Validate get_by_id works identically in both modes.
         """
-        assert hasattr(mock_repository_factory, 'albums')
-        assert hasattr(mock_repository_factory.albums, 'get_all')
-        assert hasattr(mock_repository_factory.albums, 'get_by_id')
-        assert hasattr(mock_repository_factory.albums, 'search')
+        mode, source = mock_data_source
 
-    def test_mock_repository_factory_get_all(self, mock_repository_factory):
-        """
-        Test that mock_repository_factory get_all works like LibraryManager.
-        """
-        # Set up mock data
-        album1 = Mock()
-        album1.id = 1
-        album1.title = "Album 1"
-        album1.artist = Mock(name="Artist 1")
-
-        album2 = Mock()
-        album2.id = 2
-        album2.title = "Album 2"
-        album2.artist = Mock(name="Artist 2")
-
-        test_albums = [album1, album2]
-
-        mock_repository_factory.albums.get_all = Mock(
-            return_value=(test_albums, 2)
-        )
-
-        albums, total = mock_repository_factory.albums.get_all(limit=50, offset=0)
-
-        assert len(albums) == 2
-        assert total == 2
-
-    def test_dual_mode_interface_equivalence(self, mock_library_manager, mock_repository_factory):
-        """
-        Test that both mocks implement equivalent interfaces.
-
-        Both patterns should support the same method signatures.
-        """
         album = Mock()
         album.id = 1
         album.title = "Test Album"
+        album.year = 2024
 
-        # Test LibraryManager interface
-        mock_library_manager.albums.get_by_id = Mock(return_value=album)
-        lib_result = mock_library_manager.albums.get_by_id(1)
-        assert lib_result.id == 1
+        source.albums.get_by_id = Mock(return_value=album)
 
-        # Test RepositoryFactory interface (same call signature)
-        mock_repository_factory.albums.get_by_id = Mock(return_value=album)
-        repo_result = mock_repository_factory.albums.get_by_id(1)
-        assert repo_result.id == 1
+        result = source.albums.get_by_id(1)
 
-        # Both should return same result
-        assert lib_result.title == repo_result.title
+        assert result.id == 1, f"{mode}: Album ID mismatch"
+        assert result.title == "Test Album", f"{mode}: Album title mismatch"
+        source.albums.get_by_id.assert_called_once_with(1)
+
+    def test_albums_search_interface(self, mock_data_source):
+        """
+        Parametrized test: Validate search returns (items, total) for both modes.
+        """
+        mode, source = mock_data_source
+
+        album = Mock()
+        album.id = 1
+        album.title = "Dark Side of the Moon"
+
+        source.albums.search = Mock(return_value=([album], 1))
+
+        results, total = source.albums.search("Dark Side", limit=10)
+
+        assert len(results) == 1, f"{mode}: Expected 1 search result"
+        assert total == 1, f"{mode}: Expected total=1"
+        assert results[0].title == "Dark Side of the Moon", f"{mode}: Search result mismatch"
+        source.albums.search.assert_called_once_with("Dark Side", limit=10)

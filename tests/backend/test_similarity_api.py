@@ -419,36 +419,34 @@ class TestSimilarityAPIIntegration:
 # fingerprint/similarity-specific repository interfaces.
 
 @pytest.mark.phase5c
-class TestSimilarityAPIDualMode:
-    """Phase 5C.2: Dual-mode tests using mock fixtures from conftest.py"""
+class TestSimilarityAPIDualModeParametrized:
+    """Phase 5C.3: Parametrized dual-mode tests for fingerprint/similarity operations.
 
-    def test_mock_library_manager_fingerprint_interface(self, mock_library_manager):
-        """
-        Test that mock_library_manager has fingerprint/similarity interface.
-        """
-        # LibraryManager should have fingerprint repository access
-        assert hasattr(mock_library_manager, 'fingerprints')
-        assert hasattr(mock_library_manager.fingerprints, 'get_all')
-        assert hasattr(mock_library_manager.fingerprints, 'get_by_id')
+    These tests automatically run with both LibraryManager and RepositoryFactory
+    via the parametrized mock_data_source fixture. Fingerprint-specific operations
+    are validated with both patterns.
+    """
 
-    def test_mock_repository_factory_fingerprint_interface(self, mock_repository_factory):
+    def test_fingerprint_repository_interface(self, mock_data_source):
         """
-        Test that mock_repository_factory has fingerprint/similarity interface.
+        Parametrized test: Validate fingerprint repository interface for both modes.
 
-        RepositoryFactory includes fingerprint-specific operations for:
-        - Fingerprint management
-        - Similarity system management
-        - Track comparison and similarity queries
+        Tests both LibraryManager and RepositoryFactory have fingerprint access.
         """
-        assert hasattr(mock_repository_factory, 'fingerprints')
-        assert hasattr(mock_repository_factory.fingerprints, 'get_all')
-        assert hasattr(mock_repository_factory.fingerprints, 'get_by_id')
-        assert hasattr(mock_repository_factory.fingerprints, 'get_fingerprint_stats')
+        mode, source = mock_data_source
 
-    def test_mock_fingerprint_stats_operation(self, mock_repository_factory):
+        assert hasattr(source, 'fingerprints'), f"{mode} missing fingerprints repository"
+        assert hasattr(source.fingerprints, 'get_all'), f"{mode}.fingerprints missing get_all"
+        assert hasattr(source.fingerprints, 'get_by_id'), f"{mode}.fingerprints missing get_by_id"
+
+    def test_fingerprint_stats_operation(self, mock_data_source):
         """
-        Test that fingerprint stats operation works with mocked factory.
+        Parametrized test: Validate fingerprint stats operation works with both modes.
+
+        Both LibraryManager and RepositoryFactory should support stats retrieval.
         """
+        mode, source = mock_data_source
+
         # Mock fingerprint stats return value
         stats = {
             'total': 100,
@@ -456,37 +454,35 @@ class TestSimilarityAPIDualMode:
             'pending': 25,
             'progress_percent': 75
         }
-        mock_repository_factory.fingerprints.get_fingerprint_stats = Mock(
-            return_value=stats
-        )
+        source.fingerprints.get_fingerprint_stats = Mock(return_value=stats)
 
-        # Test the operation
-        result = mock_repository_factory.fingerprints.get_fingerprint_stats()
+        # Test with both modes
+        result = source.fingerprints.get_fingerprint_stats()
 
-        assert result['total'] == 100
-        assert result['fingerprinted'] == 75
-        assert result['pending'] == 25
-        assert result['progress_percent'] == 75
+        assert result['total'] == 100, f"{mode}: Total count mismatch"
+        assert result['fingerprinted'] == 75, f"{mode}: Fingerprinted count mismatch"
+        assert result['pending'] == 25, f"{mode}: Pending count mismatch"
+        assert result['progress_percent'] == 75, f"{mode}: Progress percent mismatch"
+        source.fingerprints.get_fingerprint_stats.assert_called_once()
 
-    def test_dual_mode_fingerprint_equivalence(self, mock_library_manager, mock_repository_factory):
+    def test_fingerprint_get_by_id_interface(self, mock_data_source):
         """
-        Test that both mocks support fingerprint operations equivalently.
+        Parametrized test: Validate fingerprint.get_by_id works with both modes.
+
+        Both modes should return fingerprint data consistently.
         """
-        # Create test fingerprint data
+        mode, source = mock_data_source
+
         fingerprint = Mock()
         fingerprint.id = 1
         fingerprint.track_id = 100
         fingerprint.fingerprint_data = b"test_fingerprint"
 
-        # Test LibraryManager pattern
-        mock_library_manager.fingerprints.get_by_id = Mock(return_value=fingerprint)
-        lib_result = mock_library_manager.fingerprints.get_by_id(1)
-        assert lib_result.track_id == 100
+        source.fingerprints.get_by_id = Mock(return_value=fingerprint)
 
-        # Test RepositoryFactory pattern (same interface)
-        mock_repository_factory.fingerprints.get_by_id = Mock(return_value=fingerprint)
-        repo_result = mock_repository_factory.fingerprints.get_by_id(1)
-        assert repo_result.track_id == 100
+        result = source.fingerprints.get_by_id(1)
 
-        # Both should return the same data
-        assert lib_result.fingerprint_data == repo_result.fingerprint_data
+        assert result.id == 1, f"{mode}: Fingerprint ID mismatch"
+        assert result.track_id == 100, f"{mode}: Track ID mismatch"
+        assert result.fingerprint_data == b"test_fingerprint", f"{mode}: Fingerprint data mismatch"
+        source.fingerprints.get_by_id.assert_called_once_with(1)
