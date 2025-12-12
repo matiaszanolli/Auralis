@@ -554,26 +554,13 @@ def create_library_router(get_library_manager: Callable[[], Any], connection_man
         try:
             library_manager = require_library_manager(get_library_manager)
 
-            # Get total track count
-            total_tracks = library_manager.session.query(
-                library_manager.models.Track
-            ).count()
+            # Get fingerprint statistics from repository
+            stats = library_manager.fingerprints.get_fingerprint_stats()
 
-            # Get fingerprinted track count
-            # Check if fingerprint_cache or track_fingerprints table exists
-            from sqlalchemy import func
-
-            try:
-                # Try to count tracks with fingerprints in track_fingerprints table
-                fingerprinted_count = library_manager.session.query(
-                    func.count(library_manager.models.TrackFingerprint.id)
-                ).scalar() or 0
-            except Exception:
-                # Fallback if TrackFingerprint model doesn't exist
-                fingerprinted_count = 0
-
-            pending_count = total_tracks - fingerprinted_count
-            progress_percent = int((fingerprinted_count / max(1, total_tracks)) * 100)
+            total_tracks = stats['total']
+            fingerprinted_count = stats['fingerprinted']
+            pending_count = stats['pending']
+            progress_percent = stats['progress_percent']
 
             # Determine status message
             if total_tracks == 0:

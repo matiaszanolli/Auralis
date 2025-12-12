@@ -220,18 +220,13 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
             if not success:
                 raise HTTPException(status_code=500, detail="Failed to write metadata to file")
 
-            # Update database record in the existing session
-            for field, value in metadata_updates.items():
-                if hasattr(track, field):
-                    setattr(track, field, value)
+            # Update database record using repository
+            updated_track = library_manager.tracks.update_metadata(track_id, **metadata_updates)
+            if not updated_track:
+                raise HTTPException(status_code=404, detail="Track not found for update")
 
-            # The track is already in the session, just need to flush/commit
-            # Get the session that contains the track
-            from sqlalchemy.orm import object_session, Session
-            session = object_session(track)
-            # Only use it if it's a real SQLAlchemy Session, not a Mock
-            if isinstance(session, Session):
-                session.commit()
+            # Use the updated track for subsequent operations
+            track = updated_track
 
             # Broadcast metadata updated event
             if broadcast_manager:
@@ -314,36 +309,19 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
             # Execute batch update
             results = metadata_editor.batch_update(batch_updates)
 
-            # Update database for successful updates
+            # Update database for successful updates using repository
             successful_track_ids = []
-            from sqlalchemy.orm import object_session, Session
-            session = None
 
             for result in results.get('results', []):
                 if result['success']:
                     track_id = result['track_id']
-                    track = track_map.get(track_id)
+                    updates = result.get('updates', {})
 
-                    if track:
-                        # Update database record
-                        for field, value in result.get('updates', {}).items():
-                            if hasattr(track, field):
-                                setattr(track, field, value)
-                        successful_track_ids.append(track_id)
-
-                        # Get session from the track object (same session as when loaded)
-                        if session is None:
-                            obj_session = object_session(track)
-                            # Only use it if it's a real SQLAlchemy Session, not a Mock
-                            if isinstance(obj_session, Session):
-                                session = obj_session
-
-            if successful_track_ids:
-                if session and isinstance(session, Session):
-                    session.commit()
-                else:
-                    # Fallback to library manager session
-                    library_manager.session.commit()
+                    if updates:
+                        # Update database record using repository (handles session commit)
+                        updated_track = library_manager.tracks.update_metadata(track_id, **updates)
+                        if updated_track:
+                            successful_track_ids.append(track_id)
 
             # Broadcast batch update event
             if broadcast_manager and successful_track_ids:

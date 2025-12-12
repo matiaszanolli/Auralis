@@ -53,29 +53,23 @@ def create_artwork_router(get_library_manager, connection_manager):
             raise HTTPException(status_code=503, detail="Library manager not available")
 
         try:
-            # Get album to find artwork path
-            session = library_manager.get_session()
-            try:
-                from auralis.library.models import Album
-                album = session.query(Album).filter(Album.id == album_id).first()
+            # Get album to find artwork path using repository
+            album = library_manager.albums.get_by_id(album_id)
 
-                if not album:
-                    raise HTTPException(status_code=404, detail="Album not found")
+            if not album:
+                raise HTTPException(status_code=404, detail="Album not found")
 
-                if not album.artwork_path or not Path(album.artwork_path).exists():
-                    raise HTTPException(status_code=404, detail="Artwork not found")
+            if not album.artwork_path or not Path(album.artwork_path).exists():
+                raise HTTPException(status_code=404, detail="Artwork not found")
 
-                # Return artwork file
-                return FileResponse(
-                    album.artwork_path,
-                    media_type="image/jpeg",
-                    headers={
-                        "Cache-Control": "public, max-age=31536000",  # Cache for 1 year
-                    }
-                )
-
-            finally:
-                session.close()
+            # Return artwork file
+            return FileResponse(
+                album.artwork_path,
+                media_type="image/jpeg",
+                headers={
+                    "Cache-Control": "public, max-age=31536000",  # Cache for 1 year
+                }
+            )
 
         except HTTPException:
             raise
@@ -193,20 +187,15 @@ def create_artwork_router(get_library_manager, connection_manager):
 
         try:
             # Get album info
-            session = library_manager.get_session()
-            try:
-                from auralis.library.models import Album
-                album = session.query(Album).filter(Album.id == album_id).first()
+            # Get album using repository (includes eager loading of artist)
+            album = library_manager.albums.get_by_id(album_id)
 
-                if not album:
-                    raise HTTPException(status_code=404, detail="Album not found")
+            if not album:
+                raise HTTPException(status_code=404, detail="Album not found")
 
-                # Get artist name (from first track if available)
-                artist_name = album.artist.name if album.artist else "Unknown Artist"
-                album_name = album.title
-
-            finally:
-                session.close()
+            # Get artist name (from first track if available)
+            artist_name = album.artist.name if album.artist else "Unknown Artist"
+            album_name = album.title
 
             # Download artwork using the artwork downloader service
             from services.artwork_downloader import get_artwork_downloader
@@ -224,14 +213,10 @@ def create_artwork_router(get_library_manager, connection_manager):
                     detail=f"No artwork found online for '{album_name}' by '{artist_name}'"
                 )
 
-            # Save artwork path to database
-            session = library_manager.get_session()
-            try:
-                album = session.query(Album).filter(Album.id == album_id).first()
-                album.artwork_path = artwork_path
-                session.commit()
-            finally:
-                session.close()
+            # Save artwork path to database using repository
+            updated_album = library_manager.albums.update_artwork_path(album_id, artwork_path)
+            if not updated_album:
+                raise HTTPException(status_code=404, detail="Album not found")
 
             # Broadcast artwork downloaded event
             await connection_manager.broadcast({
