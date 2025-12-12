@@ -91,9 +91,16 @@ class SimpleBatchWorker:
             'total_failed': 0,
             'skipped_cached': 0,  # Tracks skipped because they have valid .25d files
             'throttled_due_to_memory': 0,  # Tracks that were throttled due to memory pressure
+            'worker_cache_hits': 0,  # Fingerprints loaded from worker-local cache
+            'worker_cache_misses': 0,  # Fingerprints computed (not in worker cache)
         }
         self.stats_lock = Lock()
         self.stop_flag = False
+
+        # Worker-local caches: dict of {worker_id -> {filepath -> result}}
+        # Each worker maintains its own cache to avoid redundant Rust calls
+        # on duplicate tracks in the same batch or consecutive batches
+        self.worker_caches = {}
 
     def _check_memory_pressure(self) -> float:
         """
@@ -117,6 +124,23 @@ class SimpleBatchWorker:
         """
         memory_percent = self._check_memory_pressure()
         return memory_percent >= self.MEMORY_PRESSURE_HARD_LIMIT
+
+    def _get_cached_fingerprint(self, worker_id: int, filepath: str) -> Optional[bool]:
+        """
+        Check if fingerprint for this filepath is cached in worker-local cache.
+
+        Returns:
+            True if cached (success), False if cached (failed), None if not cached
+        """
+        if worker_id not in self.worker_caches:
+            return None
+        return self.worker_caches[worker_id].get(filepath)
+
+    def _cache_fingerprint(self, worker_id: int, filepath: str, success: bool) -> None:
+        """Cache fingerprint result in worker-local cache."""
+        if worker_id not in self.worker_caches:
+            self.worker_caches[worker_id] = {}
+        self.worker_caches[worker_id][filepath] = success
 
     def _get_next_batch(self):
         """Grab next 5 unprocessed tracks with ATOMIC claiming to prevent race conditions"""
@@ -240,7 +264,22 @@ class SimpleBatchWorker:
                     break
                 conn = None
                 try:
-                    success = self.extractor.extract_and_store(track.id, track.filepath)
+                    # OPTIMIZATION: Check worker-local cache first to avoid redundant Rust calls
+                    # If same file appears twice in queue, use cached result
+                    cached_result = self._get_cached_fingerprint(worker_id, track.filepath)
+
+                    if cached_result is not None:
+                        # Cache hit! Use cached result
+                        success = cached_result
+                        with self.stats_lock:
+                            self.stats['worker_cache_hits'] += 1
+                        logger.debug(f"👷 Worker {worker_id}: Cache hit for track {track.id}")
+                    else:
+                        # Cache miss - compute fingerprint via Rust server
+                        success = self.extractor.extract_and_store(track.id, track.filepath)
+                        self._cache_fingerprint(worker_id, track.filepath, success)
+                        with self.stats_lock:
+                            self.stats['worker_cache_misses'] += 1
 
                     # Update track status based on extraction result
                     # CRITICAL: Mark track as completed/failed to prevent reprocessing
@@ -313,12 +352,16 @@ class SimpleBatchWorker:
                     rate = self.stats['total_processed'] / elapsed if elapsed > 0 else 0
                     memory_percent = self._check_memory_pressure()
 
+                    # Calculate cache hit rate
+                    total_cache_ops = self.stats['worker_cache_hits'] + self.stats['worker_cache_misses']
+                    cache_hit_rate = (self.stats['worker_cache_hits'] / total_cache_ops * 100) if total_cache_ops > 0 else 0
+
                     logger.info(
                         f"Progress: {self.stats['total_processed']:6d} | "
                         f"Success: {self.stats['total_success']:6d} | "
                         f"Failed: {self.stats['total_failed']:3d} | "
                         f"Skipped(cached): {self.stats['skipped_cached']:6d} | "
-                        f"Throttled(mem): {self.stats['throttled_due_to_memory']:3d} | "
+                        f"Cache(H/M): {self.stats['worker_cache_hits']:3d}/{self.stats['worker_cache_misses']:3d} ({cache_hit_rate:5.1f}%) | "
                         f"Memory: {memory_percent:5.1f}% | "
                         f"Rate: {rate:6.2f} tracks/s"
                     )
@@ -504,6 +547,15 @@ def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
             logger.info(f"Total success: {stats['total_success']}")
             logger.info(f"Total failed: {stats['total_failed']}")
             logger.info(f"Total skipped (cached .25d): {stats['skipped_cached']}")
+
+            # Cache statistics
+            total_cache_ops = stats['worker_cache_hits'] + stats['worker_cache_misses']
+            if total_cache_ops > 0:
+                cache_hit_rate = (stats['worker_cache_hits'] / total_cache_ops * 100)
+                logger.info(f"Worker-local cache: {stats['worker_cache_hits']} hits / {stats['worker_cache_misses']} misses ({cache_hit_rate:.1f}% hit rate)")
+                if stats['worker_cache_hits'] > 0:
+                    logger.info(f"  💾 Avoided {stats['worker_cache_hits']} redundant Rust server calls (~{stats['worker_cache_hits'] * 25:.0f}ms saved)")
+
             if stats['throttled_due_to_memory'] > 0:
                 logger.info(f"Total throttled (memory pressure): {stats['throttled_due_to_memory']}")
                 logger.info(f"  ℹ️  Workers paused when memory > {SimpleBatchWorker.MEMORY_PRESSURE_HARD_LIMIT}% to prevent OOM")
