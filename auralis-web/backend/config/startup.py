@@ -87,6 +87,14 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                 logger.info("✅ Auralis LibraryManager initialized")
                 logger.info(f"📊 Database location: {globals_dict['library_manager'].database_path}")
 
+                # Initialize RepositoryFactory for dependency injection
+                # This enables gradual migration from LibraryManager to repositories
+                from auralis.library.repositories import RepositoryFactory
+                globals_dict['repository_factory'] = RepositoryFactory(
+                    globals_dict['library_manager'].SessionLocal
+                )
+                logger.info("✅ Repository Factory initialized (Phase 2 support)")
+
                 # Initialize CPU-based fingerprinting system (36x speedup via parallel workers)
                 # Note: GPU batch processing was causing memory exhaustion crashes.
                 # CPU parallelization provides better stability and consistent performance.

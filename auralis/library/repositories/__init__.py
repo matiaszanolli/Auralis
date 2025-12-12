@@ -21,6 +21,7 @@ from .settings_repository import SettingsRepository
 from .queue_repository import QueueRepository
 from .queue_history_repository import QueueHistoryRepository
 from .queue_template_repository import QueueTemplateRepository
+from .factory import RepositoryFactory
 
 __all__ = [
     'TrackRepository',
@@ -34,4 +35,5 @@ __all__ = [
     'QueueRepository',
     'QueueHistoryRepository',
     'QueueTemplateRepository',
+    'RepositoryFactory',
 ]
