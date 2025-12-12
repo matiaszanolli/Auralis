@@ -27,12 +27,11 @@ Worker Pool:
 import threading
 import time
 from typing import Optional, Dict, Callable, Any, List
-from pathlib import Path
-import psutil
 
 from ..utils.logging import info, warning, error, debug
 from .resource_monitor import AdaptiveResourceMonitor, ResourceLimits
-
+from auralis.library.fingerprint_extractor import FingerprintExtractor
+from auralis.library import LibraryManager
 
 class FingerprintExtractionQueue:
     """
@@ -62,8 +61,8 @@ class FingerprintExtractionQueue:
     """
 
     def __init__(self,
-                 fingerprint_extractor: Any,
-                 library_manager: Any,
+                 fingerprint_extractor: FingerprintExtractor,
+                 library_manager: LibraryManager,
                  num_workers: Optional[int] = None,
                  enable_adaptive_scaling: bool = True,
                  max_workers: Optional[int] = None) -> None:
@@ -90,8 +89,8 @@ class FingerprintExtractionQueue:
         if max_workers is None:
             max_workers = int(cpu_count * 2.0)
 
-        self.extractor: Any = fingerprint_extractor
-        self.library_manager: Any = library_manager
+        self.extractor: FingerprintExtractor = fingerprint_extractor
+        self.library_manager: LibraryManager = library_manager
         self.initial_num_workers: int = num_workers
         self.current_num_workers: int = num_workers
         self.max_workers_limit: int = max_workers
