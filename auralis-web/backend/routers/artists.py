@@ -14,7 +14,7 @@ from typing import Optional, Callable, Any, cast
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from .dependencies import require_library_manager
+from .dependencies import require_library_manager, require_repository_factory
 from .errors import NotFoundError, handle_query_error
 
 
@@ -74,16 +74,32 @@ class ArtistTracksResponse(BaseModel):
     total_tracks: int
 
 
-def create_artists_router(get_library_manager: Callable[[], Any]) -> APIRouter:
+def create_artists_router(
+    get_library_manager: Callable[[], Any],
+    get_repository_factory: Optional[Callable[[], Any]] = None
+) -> APIRouter:
     """Create and configure the artists API router
 
     Args:
         get_library_manager: Callable that returns the LibraryManager instance
+        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         Configured APIRouter instance
+
+    Note:
+        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
     """
     router = APIRouter()
+
+    def get_repos() -> Any:
+        """Get repository factory or LibraryManager for accessing repositories."""
+        if get_repository_factory:
+            try:
+                return require_repository_factory(get_repository_factory)
+            except (TypeError, AttributeError):
+                pass
+        return require_library_manager(get_library_manager)
 
     @router.get("/api/artists", response_model=ArtistsListResponse)
     async def get_artists(
@@ -98,14 +114,14 @@ def create_artists_router(get_library_manager: Callable[[], Any]) -> APIRouter:
         search, and multiple sort options.
         """
         try:
-            manager = require_library_manager(get_library_manager)
+            repos = get_repos()
 
             if search:
                 # Search artists by name (now returns tuple with count)
-                artists, total = manager.artists.search(search, limit=limit, offset=offset)
+                artists, total = repos.artists.search(search, limit=limit, offset=offset)
             else:
                 # Get paginated artists
-                artists, total = manager.artists.get_all(
+                artists, total = repos.artists.get_all(
                     limit=limit,
                     offset=offset,
                     order_by=order_by
@@ -155,8 +171,8 @@ def create_artists_router(get_library_manager: Callable[[], Any]) -> APIRouter:
         Returns artist information with all their albums.
         """
         try:
-            manager = require_library_manager(get_library_manager)
-            artist = manager.artists.get_by_id(artist_id)
+            repos = get_repos()
+            artist = repos.artists.get_by_id(artist_id)
 
             if not artist:
                 raise NotFoundError("Artist", artist_id)
@@ -199,8 +215,8 @@ def create_artists_router(get_library_manager: Callable[[], Any]) -> APIRouter:
         Returns all tracks by the artist, sorted by album and track number.
         """
         try:
-            manager = require_library_manager(get_library_manager)
-            artist = manager.artists.get_by_id(artist_id)
+            repos = get_repos()
+            artist = repos.artists.get_by_id(artist_id)
 
             if not artist:
                 raise NotFoundError("Artist", artist_id)
