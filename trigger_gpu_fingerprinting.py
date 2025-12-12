@@ -47,7 +47,7 @@ import sys
 import logging
 import gc
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
 from threading import Lock, Thread
 import time
 
@@ -69,24 +69,26 @@ class SimpleBatchWorker:
     - No queue duplication, natural rate limiting, no shared state
     """
 
-    def __init__(self, library_manager, fingerprint_extractor, num_workers=2, max_tracks=None):
+    def __init__(self, library_manager, fingerprint_extractor, num_workers=2, max_tracks=None, skip_track_ids: Optional[Set[int]] = None):
         self.library = library_manager
         self.extractor = fingerprint_extractor
         self.num_workers = num_workers
         self.batch_size = 5
         self.timeout_minutes = 5
         self.max_tracks = max_tracks
+        self.skip_track_ids = skip_track_ids or set()
 
         self.stats = {
             'total_processed': 0,
             'total_success': 0,
             'total_failed': 0,
+            'skipped_cached': 0,  # Tracks skipped because they have valid .25d files
         }
         self.stats_lock = Lock()
         self.stop_flag = False
 
     def _get_next_batch(self):
-        """Grab next 5 unprocessed tracks and mark them started"""
+        """Grab next 5 unprocessed tracks and mark them started, excluding tracks with valid .25d cache files"""
         import sqlite3
         from datetime import datetime, timedelta, timezone
 
@@ -99,20 +101,37 @@ class SimpleBatchWorker:
             # Get tracks that are either:
             # 1. Never started (fingerprint_started_at IS NULL)
             # 2. Timed out (started > 5 minutes ago)
+            # EXCLUDE: Tracks that have valid .25d cache files (already in skip_track_ids)
             now = datetime.now(timezone.utc)
             timeout_threshold = now.replace(second=0, microsecond=0)
             timeout_threshold -= timedelta(minutes=self.timeout_minutes)
 
-            query = """
-                SELECT id, filepath
-                FROM tracks
-                WHERE fingerprint_status = 'pending'
-                  AND (fingerprint_started_at IS NULL
-                       OR fingerprint_started_at < datetime(?))
-                LIMIT ?
-            """
+            # Build WHERE clause to exclude skip_track_ids
+            # If no skip tracks, use simple query. Otherwise, use NOT IN clause
+            if self.skip_track_ids:
+                placeholders = ','.join('?' * len(self.skip_track_ids))
+                query = f"""
+                    SELECT id, filepath
+                    FROM tracks
+                    WHERE fingerprint_status = 'pending'
+                      AND id NOT IN ({placeholders})
+                      AND (fingerprint_started_at IS NULL
+                           OR fingerprint_started_at < datetime(?))
+                    LIMIT ?
+                """
+                params = list(self.skip_track_ids) + [timeout_threshold.isoformat(), self.batch_size]
+            else:
+                query = """
+                    SELECT id, filepath
+                    FROM tracks
+                    WHERE fingerprint_status = 'pending'
+                      AND (fingerprint_started_at IS NULL
+                           OR fingerprint_started_at < datetime(?))
+                    LIMIT ?
+                """
+                params = [timeout_threshold.isoformat(), self.batch_size]
 
-            cursor.execute(query, (timeout_threshold.isoformat(), self.batch_size))
+            cursor.execute(query, params)
             tracks = cursor.fetchall()
 
             if not tracks:
@@ -243,6 +262,7 @@ class SimpleBatchWorker:
                         f"Progress: {self.stats['total_processed']:6d} | "
                         f"Success: {self.stats['total_success']:6d} | "
                         f"Failed: {self.stats['total_failed']:3d} | "
+                        f"Skipped(cached): {self.stats['skipped_cached']:6d} | "
                         f"Rate: {rate:6.2f} tracks/s"
                     )
 
@@ -253,6 +273,83 @@ class SimpleBatchWorker:
             self.stop_flag = True
             for w in workers:
                 w.join(timeout=5)
+
+
+def _scan_for_valid_sidecar_caches(library_manager) -> Set[int]:
+    """
+    Scan for tracks that already have valid .25d sidecar cache files.
+
+    This reduces the processing list by identifying tracks that don't need fingerprinting
+    because they already have cached fingerprints in .25d sidecar files.
+
+    Performance: ~50-200ms to scan entire library
+
+    Returns:
+        Set of track IDs that have valid .25d cache files (should be skipped)
+    """
+    import sqlite3
+
+    logger.info("🔍 Scanning for valid .25d sidecar cache files...")
+
+    db_path = library_manager.database_path
+    skip_track_ids = set()
+    scanned_count = 0
+    valid_cache_count = 0
+    invalid_cache_count = 0
+
+    try:
+        # Import SidecarManager
+        try:
+            from auralis.library.sidecar_manager import SidecarManager
+        except ImportError:
+            logger.warning("⚠️  SidecarManager not available, skipping .25d scan")
+            return set()
+
+        sidecar_manager = SidecarManager()
+
+        # Get all pending tracks with their filepaths
+        conn = sqlite3.connect(db_path, timeout=10.0)
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, filepath FROM tracks WHERE fingerprint_status = 'pending' ORDER BY id"
+            )
+            pending_tracks = cursor.fetchall()
+        finally:
+            conn.close()
+
+        if not pending_tracks:
+            logger.info("  No pending tracks to scan")
+            return set()
+
+        logger.info(f"  Scanning {len(pending_tracks)} pending tracks for .25d cache files...")
+
+        # Check each pending track for valid .25d sidecar
+        for track_id, filepath in pending_tracks:
+            scanned_count += 1
+
+            # Check if .25d file exists and is valid
+            if sidecar_manager.is_valid(Path(filepath)):
+                skip_track_ids.add(track_id)
+                valid_cache_count += 1
+            else:
+                invalid_cache_count += 1
+
+            # Progress indicator every 1000 tracks
+            if scanned_count % 1000 == 0:
+                logger.info(f"  Scanned {scanned_count}/{len(pending_tracks)} tracks...")
+
+        logger.info(f"✅ .25d Cache Scan Complete:")
+        logger.info(f"   Scanned: {scanned_count}")
+        logger.info(f"   Valid caches: {valid_cache_count} (will skip these)")
+        logger.info(f"   Need processing: {invalid_cache_count}")
+
+    except Exception as e:
+        logger.error(f"⚠️  Error scanning for .25d cache files: {e}")
+        # Don't fail the entire process if scanning fails, just continue without optimization
+        return set()
+
+    return skip_track_ids
 
 
 def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
@@ -299,8 +396,19 @@ def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
         else:
             logger.info(f"Found {total_tracks} pending tracks ready to fingerprint")
 
+        # OPTIMIZATION: Scan for tracks with valid .25d cache files to shrink processing list
+        # This eliminates the 15-minute wait on cached tracks
+        logger.info("\n📦 Optimizing processing list...")
+        skip_track_ids = _scan_for_valid_sidecar_caches(library_manager)
+        tracks_to_process = total_tracks - len(skip_track_ids)
+
+        if skip_track_ids:
+            logger.info(f"✅ Optimization result: Reduced from {total_tracks} to {tracks_to_process} tracks")
+        else:
+            logger.info(f"   No .25d cache files found, processing all {total_tracks} tracks")
+
         # Create Rust-accelerated fingerprinting system
-        logger.info("Initializing fingerprint extractor (Rust server will be used if available)...")
+        logger.info("\nInitializing fingerprint extractor (Rust server will be used if available)...")
         fingerprint_extractor = FingerprintExtractor(
             fingerprint_repository=library_manager.fingerprints,
             use_rust_server=True  # Automatically use Rust server
@@ -323,7 +431,8 @@ def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
             library_manager=library_manager,
             fingerprint_extractor=fingerprint_extractor,
             num_workers=num_workers,
-            max_tracks=max_tracks
+            max_tracks=max_tracks,
+            skip_track_ids=skip_track_ids  # Pass the skip set to avoid cached tracks
         )
 
         processor.run()
@@ -337,6 +446,7 @@ def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
             logger.info(f"Total processed: {stats['total_processed']}")
             logger.info(f"Total success: {stats['total_success']}")
             logger.info(f"Total failed: {stats['total_failed']}")
+            logger.info(f"Total skipped (cached .25d): {stats['skipped_cached']}")
 
     except Exception as e:
         logger.error(f"❌ Error during fingerprinting: {e}", exc_info=True)
