@@ -145,39 +145,20 @@ class LibraryManager:
 
         This is CRITICAL for resumable large-scale fingerprinting jobs.
         """
-        session = self.SessionLocal()
         try:
-            from .models import TrackFingerprint
+            # Use repository pattern for database operation
+            count = self.fingerprints.cleanup_incomplete_fingerprints()
 
-            # Find incomplete placeholders (fingerprints with LUFS=-100.0)
-            incomplete_fps = session.query(TrackFingerprint).filter(
-                TrackFingerprint.lufs == -100.0
-            ).all()
-
-            if incomplete_fps:
-                incomplete_count = len(incomplete_fps)
-                incomplete_track_ids = [fp.track_id for fp in incomplete_fps]
-
-                # Delete incomplete fingerprints to allow re-processing
-                for fp in incomplete_fps:
-                    session.delete(fp)
-
-                session.commit()
-
+            if count > 0:
                 warning(
-                    f"Cleaned up {incomplete_count} incomplete fingerprints from "
-                    f"interrupted session. These tracks will be re-processed: "
-                    f"{incomplete_track_ids[:20]}{'...' if incomplete_count > 20 else ''}"
+                    f"Cleaned up {count} incomplete fingerprints from "
+                    f"interrupted session. These tracks will be re-processed."
                 )
             else:
                 info("No incomplete fingerprints found - resuming clean session")
 
         except Exception as e:
-            session.rollback()
             error(f"Error cleaning up incomplete fingerprints: {e}")
-        finally:
-            session.expunge_all()
-            session.close()
 
     def get_session(self) -> Any:
         """Get a new database session"""
@@ -357,25 +338,14 @@ class LibraryManager:
 
     # Cleanup operations
     def cleanup_library(self) -> None:
-        """Remove tracks with missing files"""
-        session = self.get_session()
+        """Remove tracks with missing files (uses repository pattern)."""
         try:
-            tracks = session.query(Track).all()
-            removed_count = 0
-
-            for track in tracks:
-                if not os.path.exists(track.filepath):
-                    session.delete(track)
-                    removed_count += 1
-
-            session.commit()
+            # Use repository pattern for database operation
+            removed_count = self.tracks.cleanup_missing_files()
             info(f"Removed {removed_count} tracks with missing files")
 
         except Exception as e:
-            session.rollback()
             error(f"Failed to cleanup library: {e}")
-        finally:
-            session.close()
 
     # Recommendations (could be moved to dedicated recommendation service)
     def get_recommendations(self, track: Track, limit: int = 10) -> List[Track]:
@@ -408,7 +378,7 @@ class LibraryManager:
 
     def delete_track(self, track_id: int) -> bool:
         """
-        Delete a track and invalidate caches (thread-safe)
+        Delete a track and invalidate caches (thread-safe with cache invalidation).
 
         Args:
             track_id: Track ID to delete
@@ -420,45 +390,32 @@ class LibraryManager:
             - Uses mutual exclusion lock to prevent race conditions
             - Only one delete operation per track ID can succeed
             - Multiple concurrent deletes will serialize safely
-            - Atomic check-and-delete within single transaction
+            - Delegates DB operation to TrackRepository.delete()
+            - Preserves cache invalidation after successful deletion
         """
         with self._delete_lock:
             # Check if this track has already been deleted by another thread
             if track_id in self._deleted_track_ids:
-                # Already deleted, return false
                 return False
 
-            # Perform atomic check-and-delete within single transaction
-            # to ensure only one thread can successfully delete
-            session = self.get_session()
+            # Use repository for database operation (repositories handle sessions)
             try:
-                # Query within this transaction to get current state
-                from .models import Track
-                track = session.query(Track).filter(Track.id == track_id).first()
+                success = self.tracks.delete(track_id)
 
-                if not track:
-                    # Track doesn't exist, return false
-                    return False
+                if success:
+                    # Mark this track as deleted to prevent any issues
+                    self._deleted_track_ids.add(track_id)
 
-                # Delete within same transaction - atomic operation
-                session.delete(track)
-                session.commit()
+                    # Invalidate queries that might include the deleted track
+                    invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
+                                     'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
 
-                # Mark this track as deleted to prevent any issues
-                self._deleted_track_ids.add(track_id)
+                    info(f"Deleted track {track_id}")
 
-                # Invalidate queries that might include the deleted track
-                invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
-                                 'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
-
-                info(f"Deleted track {track_id}")
-                return True
+                return success
             except Exception as e:
-                session.rollback()
                 error(f"Failed to delete track {track_id}: {e}")
                 return False
-            finally:
-                session.close()
 
     def update_track(self, track_id: int, track_info: Dict[str, Any]) -> Optional[Track]:
         """
