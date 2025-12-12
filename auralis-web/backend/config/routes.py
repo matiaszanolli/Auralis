@@ -103,13 +103,14 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     app.include_router(enhancement_router)
     logger.debug("✅ Enhancement router registered")
 
-    # Create and include artwork router
+    # Create and include artwork router (with Phase 2 RepositoryFactory support)
     artwork_router: APIRouter = create_artwork_router(
         get_library_manager=get_component('library_manager'),
-        connection_manager=manager
+        connection_manager=manager,
+        get_repository_factory=get_component('repository_factory')
     )
     app.include_router(artwork_router)
-    logger.debug("✅ Artwork router registered")
+    logger.debug("✅ Artwork router registered (Phase 2 RepositoryFactory enabled)")
 
     # Create and include playlists router (with Phase 2 RepositoryFactory support)
     playlists_router: APIRouter = create_playlists_router(
