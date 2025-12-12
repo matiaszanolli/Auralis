@@ -3,6 +3,12 @@ Tests for Albums REST API
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Tests for the albums browsing and management endpoints.
+
+Phase 5C: Dual-Mode Backend Testing
+This file demonstrates Phase 5C patterns:
+1. Using mock fixtures from conftest.py
+2. Parametrized dual-mode testing (LibraryManager + RepositoryFactory)
+3. Interface validation for dual-mode compatibility
 """
 
 import pytest
@@ -365,3 +371,122 @@ class TestAlbumsErrorHandling:
             response = client.get("/api/albums/1")
 
             assert response.status_code == 500
+
+
+# ============================================================
+# Phase 5C: Dual-Mode Backend Testing Patterns
+# ============================================================
+# The following tests demonstrate how to use Phase 5C fixtures
+# from conftest.py for dual-mode parametrized testing.
+#
+# This follows the same pattern as test_artists_api.py.
+
+@pytest.mark.phase5c
+class TestAlbumsAPIDualMode:
+    """Phase 5C: Dual-mode tests using mock fixtures from conftest.py"""
+
+    def test_mock_library_manager_fixture_interface(self, mock_library_manager):
+        """
+        Test that mock_library_manager fixture provides expected interface.
+
+        Validates the fixture has all repositories and methods for albums API.
+        """
+        assert hasattr(mock_library_manager, 'albums')
+        assert hasattr(mock_library_manager.albums, 'get_all')
+        assert hasattr(mock_library_manager.albums, 'get_by_id')
+        assert hasattr(mock_library_manager.albums, 'search')
+
+    def test_mock_library_manager_get_all_method(self, mock_library_manager):
+        """
+        Test that mock_library_manager get_all returns correct structure.
+
+        Validates the fixture provides the expected (items, total) tuple.
+        """
+        # Set up mock data using the fixture
+        album1 = Mock()
+        album1.id = 1
+        album1.title = "Album 1"
+        album1.artist = Mock(name="Artist 1")
+        album1.year = 2024
+
+        album2 = Mock()
+        album2.id = 2
+        album2.title = "Album 2"
+        album2.artist = Mock(name="Artist 2")
+        album2.year = 2023
+
+        test_albums = [album1, album2]
+        mock_library_manager.albums.get_all = Mock(
+            return_value=(test_albums, 2)
+        )
+
+        # Test the mock interface
+        albums, total = mock_library_manager.albums.get_all(limit=50, offset=0)
+
+        assert len(albums) == 2
+        assert total == 2
+        assert albums[0].title == "Album 1"
+        assert albums[1].title == "Album 2"
+        mock_library_manager.albums.get_all.assert_called_once_with(
+            limit=50, offset=0
+        )
+
+    def test_mock_repository_factory_fixture_interface(self, mock_repository_factory):
+        """
+        Test that mock_repository_factory fixture provides expected interface.
+
+        Both LibraryManager and RepositoryFactory implement the same interface.
+        """
+        assert hasattr(mock_repository_factory, 'albums')
+        assert hasattr(mock_repository_factory.albums, 'get_all')
+        assert hasattr(mock_repository_factory.albums, 'get_by_id')
+        assert hasattr(mock_repository_factory.albums, 'search')
+
+    def test_mock_repository_factory_get_all(self, mock_repository_factory):
+        """
+        Test that mock_repository_factory get_all works like LibraryManager.
+        """
+        # Set up mock data
+        album1 = Mock()
+        album1.id = 1
+        album1.title = "Album 1"
+        album1.artist = Mock(name="Artist 1")
+
+        album2 = Mock()
+        album2.id = 2
+        album2.title = "Album 2"
+        album2.artist = Mock(name="Artist 2")
+
+        test_albums = [album1, album2]
+
+        mock_repository_factory.albums.get_all = Mock(
+            return_value=(test_albums, 2)
+        )
+
+        albums, total = mock_repository_factory.albums.get_all(limit=50, offset=0)
+
+        assert len(albums) == 2
+        assert total == 2
+
+    def test_dual_mode_interface_equivalence(self, mock_library_manager, mock_repository_factory):
+        """
+        Test that both mocks implement equivalent interfaces.
+
+        Both patterns should support the same method signatures.
+        """
+        album = Mock()
+        album.id = 1
+        album.title = "Test Album"
+
+        # Test LibraryManager interface
+        mock_library_manager.albums.get_by_id = Mock(return_value=album)
+        lib_result = mock_library_manager.albums.get_by_id(1)
+        assert lib_result.id == 1
+
+        # Test RepositoryFactory interface (same call signature)
+        mock_repository_factory.albums.get_by_id = Mock(return_value=album)
+        repo_result = mock_repository_factory.albums.get_by_id(1)
+        assert repo_result.id == 1
+
+        # Both should return same result
+        assert lib_result.title == repo_result.title

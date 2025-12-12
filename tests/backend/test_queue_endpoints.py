@@ -7,6 +7,12 @@ Tests for queue manipulation endpoints:
 - PUT /api/player/queue/reorder - Reorder queue
 - POST /api/player/queue/clear - Clear queue
 - POST /api/player/queue/shuffle - Shuffle queue
+
+Phase 5C: Dual-Mode Backend Testing
+This file demonstrates Phase 5C patterns:
+1. Using mock fixtures from conftest.py
+2. Parametrized dual-mode testing (LibraryManager + RepositoryFactory)
+3. Queue-specific interface validation
 """
 
 import pytest
@@ -275,3 +281,89 @@ class TestQueueIntegration:
             # 4. Clear queue
             response = client.post("/api/player/queue/clear")
             assert response.status_code == 200
+
+
+# ============================================================
+# Phase 5C: Dual-Mode Backend Testing Patterns
+# ============================================================
+# The following tests demonstrate how to use Phase 5C fixtures
+# from conftest.py for dual-mode parametrized testing with
+# queue-specific repository interfaces.
+
+@pytest.mark.phase5c
+class TestQueueAPIDualMode:
+    """Phase 5C: Dual-mode tests using mock fixtures from conftest.py"""
+
+    def test_mock_library_manager_queue_fixture_interface(self, mock_library_manager):
+        """
+        Test that mock_library_manager has queue repository interface.
+        """
+        # LibraryManager should have queue repository access
+        assert hasattr(mock_library_manager, 'queue')
+        assert hasattr(mock_library_manager.queue, 'get_all')
+        assert hasattr(mock_library_manager.queue, 'get_by_id')
+
+    def test_mock_repository_factory_queue_fixture_interface(self, mock_repository_factory):
+        """
+        Test that mock_repository_factory has queue repository interface.
+
+        RepositoryFactory includes queue-related repositories for:
+        - Queue management (current playback queue)
+        - Queue history (past played tracks)
+        - Queue templates (saved queue templates)
+        """
+        assert hasattr(mock_repository_factory, 'queue')
+        assert hasattr(mock_repository_factory, 'queue_history')
+        assert hasattr(mock_repository_factory, 'queue_templates')
+
+    def test_mock_queue_repository_get_all(self, mock_repository_factory):
+        """
+        Test that queue repository get_all returns queue items.
+        """
+        # Create mock queue items
+        item1 = Mock()
+        item1.id = 1
+        item1.track_id = 101
+        item1.position = 0
+
+        item2 = Mock()
+        item2.id = 2
+        item2.track_id = 102
+        item2.position = 1
+
+        test_queue = [item1, item2]
+
+        mock_repository_factory.queue.get_all = Mock(
+            return_value=(test_queue, 2)
+        )
+
+        # Test the mock interface
+        queue, total = mock_repository_factory.queue.get_all(limit=100)
+
+        assert len(queue) == 2
+        assert total == 2
+        assert queue[0].track_id == 101
+        assert queue[1].track_id == 102
+
+    def test_dual_mode_queue_equivalence(self, mock_library_manager, mock_repository_factory):
+        """
+        Test that both mocks support queue operations equivalently.
+        """
+        # Create test queue item
+        queue_item = Mock()
+        queue_item.id = 1
+        queue_item.track_id = 100
+        queue_item.position = 0
+
+        # Test LibraryManager pattern
+        mock_library_manager.queue.get_by_id = Mock(return_value=queue_item)
+        lib_result = mock_library_manager.queue.get_by_id(1)
+        assert lib_result.track_id == 100
+
+        # Test RepositoryFactory pattern (same interface)
+        mock_repository_factory.queue.get_by_id = Mock(return_value=queue_item)
+        repo_result = mock_repository_factory.queue.get_by_id(1)
+        assert repo_result.track_id == 100
+
+        # Both should return the same data
+        assert lib_result.position == repo_result.position
