@@ -139,12 +139,13 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     app.include_router(metadata_router)
     logger.debug("✅ Metadata router registered (Phase 2 RepositoryFactory enabled)")
 
-    # Create and include albums router
+    # Create and include albums router (with Phase 2 RepositoryFactory support)
     albums_router: APIRouter = create_albums_router(
-        get_library_manager=get_component('library_manager')
+        get_library_manager=get_component('library_manager'),
+        get_repository_factory=get_component('repository_factory')
     )
     app.include_router(albums_router)
-    logger.debug("✅ Albums router registered")
+    logger.debug("✅ Albums router registered (Phase 2 RepositoryFactory enabled)")
 
     # Create and include artists router
     artists_router: APIRouter = create_artists_router(

@@ -9,27 +9,43 @@ REST API endpoints for album browsing and management
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Callable, Any
 from fastapi import APIRouter, HTTPException
 
-from .dependencies import require_library_manager
+from .dependencies import require_library_manager, require_repository_factory
 from .errors import NotFoundError, handle_query_error
 from .serializers import serialize_tracks
 
 logger = logging.getLogger(__name__)
 
 
-def create_albums_router(get_library_manager):
+def create_albums_router(
+    get_library_manager: Callable[[], Any],
+    get_repository_factory: Optional[Callable[[], Any]] = None
+):
     """
     Create albums router with dependency injection.
 
     Args:
         get_library_manager: Function that returns LibraryManager instance
+        get_repository_factory: Function that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         Configured APIRouter
+
+    Note:
+        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
     """
     router = APIRouter()
+
+    def get_repos() -> Any:
+        """Get repository factory or LibraryManager for accessing repositories."""
+        if get_repository_factory:
+            try:
+                return require_repository_factory(get_repository_factory)
+            except (TypeError, AttributeError):
+                pass
+        return require_library_manager(get_library_manager)
 
     @router.get("/api/albums")
     async def get_albums(
@@ -59,16 +75,16 @@ def create_albums_router(get_library_manager):
             HTTPException: If library manager not available or query fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
+            repos = get_repos()
 
             # Get albums with pagination
             if search:
-                albums = library_manager.albums.search(search, limit=limit, offset=offset)
+                albums = repos.albums.search(search, limit=limit, offset=offset)
                 # For search, we don't have total count yet, so estimate
                 total = len(albums) + offset
                 has_more = len(albums) >= limit
             else:
-                albums, total = library_manager.albums.get_all(limit=limit, offset=offset, order_by=order_by)
+                albums, total = repos.albums.get_all(limit=limit, offset=offset, order_by=order_by)
                 has_more = (offset + len(albums)) < total
 
             # Convert to dicts for JSON serialization
@@ -132,8 +148,8 @@ def create_albums_router(get_library_manager):
             HTTPException: If album not found or query fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            album = library_manager.albums.get_by_id(album_id)
+            repos = get_repos()
+            album = repos.albums.get_by_id(album_id)
 
             if not album:
                 raise NotFoundError("Album", album_id)
@@ -171,8 +187,8 @@ def create_albums_router(get_library_manager):
             HTTPException: If album not found or query fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            album = library_manager.albums.get_by_id(album_id)
+            repos = get_repos()
+            album = repos.albums.get_by_id(album_id)
 
             if not album:
                 raise NotFoundError("Album", album_id)
