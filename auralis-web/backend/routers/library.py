@@ -24,7 +24,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Optional, List, Dict, Any, Callable
 import logging
 
-from .dependencies import require_library_manager
+from .dependencies import require_library_manager, require_repository_factory
 from .errors import (
     LibraryManagerUnavailableError,
     InternalServerError,
@@ -43,17 +43,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["library"])
 
 
-def create_library_router(get_library_manager: Callable[[], Any], connection_manager: Optional[Any] = None) -> APIRouter:
+def create_library_router(
+    get_library_manager: Callable[[], Any],
+    connection_manager: Optional[Any] = None,
+    get_repository_factory: Optional[Callable[[], Any]] = None
+) -> APIRouter:
     """
     Factory function to create library router with dependencies.
 
     Args:
         get_library_manager: Callable that returns LibraryManager instance
         connection_manager: WebSocket connection manager for progress broadcasts (optional)
+        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         APIRouter: Configured router instance
+
+    Note:
+        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
     """
+
+    def get_repos() -> Any:
+        """
+        Get repository factory, using fallback to LibraryManager if needed.
+
+        Returns:
+            RepositoryFactory if available, otherwise LibraryManager for accessing .tracks, .stats, etc.
+        """
+        if get_repository_factory:
+            try:
+                return require_repository_factory(get_repository_factory)
+            except (TypeError, AttributeError):
+                pass
+        # Fallback: return LibraryManager which has same interface (.stats, .tracks, etc.)
+        return require_library_manager(get_library_manager)
 
     @router.get("/api/library/stats")
     async def get_library_stats() -> Dict[str, Any]:
@@ -64,11 +87,11 @@ def create_library_router(get_library_manager: Callable[[], Any], connection_man
             dict: Library statistics (track count, album count, etc.)
 
         Raises:
-            HTTPException: If library manager not available or query fails
+            HTTPException: If library manager/factory not available or query fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            stats = library_manager.get_library_stats()
+            repos = get_repos()
+            stats = repos.stats.get_library_stats()
             return stats
         except HTTPException:
             raise
@@ -100,19 +123,17 @@ def create_library_router(get_library_manager: Callable[[], Any], connection_man
                 - has_more: Boolean indicating if more tracks are available
 
         Raises:
-            HTTPException: If library manager not available or query fails
+            HTTPException: If library manager/factory not available or query fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
+            repos = get_repos()
 
             # Get tracks with pagination
             if search:
-                tracks = library_manager.search_tracks(search, limit=limit, offset=offset)
-                # For search, we don't have total count yet, so estimate
-                total = len(tracks) + offset
-                has_more = len(tracks) >= limit
+                tracks, total = repos.tracks.search(search, limit=limit, offset=offset)
+                has_more = (offset + len(tracks)) < total
             else:
-                tracks, total = library_manager.get_all_tracks(limit=limit, offset=offset, order_by=order_by)
+                tracks, total = repos.tracks.get_all(limit=limit, offset=offset, order_by=order_by)
                 has_more = (offset + len(tracks)) < total
 
             return {
@@ -140,18 +161,16 @@ def create_library_router(get_library_manager: Callable[[], Any], connection_man
             dict: List of favorite tracks with pagination info
 
         Raises:
-            HTTPException: If library manager not available or query fails
+            HTTPException: If library manager/factory not available or query fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            tracks = library_manager.get_favorite_tracks(limit=limit, offset=offset)
-
-            # Calculate has_more (we don't have total count for favorites, so estimate)
-            has_more = len(tracks) >= limit
+            repos = get_repos()
+            tracks, total = repos.tracks.get_favorites(limit=limit, offset=offset)
+            has_more = (offset + len(tracks)) < total
 
             return {
                 "tracks": serialize_tracks(tracks),
-                "total": len(tracks) + offset,
+                "total": total,
                 "limit": limit,
                 "offset": offset,
                 "has_more": has_more
@@ -173,11 +192,11 @@ def create_library_router(get_library_manager: Callable[[], Any], connection_man
             dict: Success message
 
         Raises:
-            HTTPException: If library manager not available or operation fails
+            HTTPException: If library manager/factory not available or operation fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            library_manager.tracks.set_favorite(track_id, True)
+            repos = get_repos()
+            repos.tracks.set_favorite(track_id, True)
             logger.info(f"Track {track_id} marked as favorite")
             return {"message": "Track marked as favorite", "track_id": track_id, "favorite": True}
         except HTTPException:
@@ -197,11 +216,11 @@ def create_library_router(get_library_manager: Callable[[], Any], connection_man
             dict: Success message
 
         Raises:
-            HTTPException: If library manager not available or operation fails
+            HTTPException: If library manager/factory not available or operation fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            library_manager.tracks.set_favorite(track_id, False)
+            repos = get_repos()
+            repos.tracks.set_favorite(track_id, False)
             logger.info(f"Track {track_id} removed from favorites")
             return {"message": "Track removed from favorites", "track_id": track_id, "favorite": False}
         except HTTPException:

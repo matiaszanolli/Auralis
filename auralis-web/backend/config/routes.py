@@ -119,13 +119,14 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     app.include_router(playlists_router)
     logger.debug("✅ Playlists router registered")
 
-    # Create and include library router
+    # Create and include library router (with Phase 2 RepositoryFactory support)
     library_router: APIRouter = create_library_router(
         get_library_manager=get_component('library_manager'),
-        connection_manager=manager
+        connection_manager=manager,
+        get_repository_factory=get_component('repository_factory')
     )
     app.include_router(library_router)
-    logger.debug("✅ Library router registered")
+    logger.debug("✅ Library router registered (Phase 2 RepositoryFactory enabled)")
 
     # Create and include metadata router
     metadata_router: APIRouter = create_metadata_router(
