@@ -41,6 +41,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from auralis.library.manager import LibraryManager
 from auralis.library.models import Track, Album, Artist
+from auralis.library.repositories.factory import RepositoryFactory
 from auralis.io.saver import save as save_audio
 
 
@@ -94,6 +95,88 @@ def populated_manager(test_db):
         manager.add_track(track_info)
 
     return manager, temp_dir
+
+
+# ============================================================================
+# Phase 5B: Dual-Mode Fixtures (Repository Factory Support)
+# ============================================================================
+
+@pytest.fixture
+def repository_factory_with_test_db():
+    """Create RepositoryFactory with test database for Phase 5B dual-mode testing."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    import shutil
+
+    temp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(temp_dir, "test_repository.db")
+
+    from auralis.library.models import Base
+    engine = create_engine(f'sqlite:///{db_path}', connect_args={'check_same_thread': False})
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    factory = RepositoryFactory(SessionLocal)
+
+    yield factory, temp_dir
+
+    # Cleanup
+    try:
+        engine.dispose()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    except Exception:
+        pass
+
+
+@pytest.fixture
+def populated_repository_factory(repository_factory_with_test_db):
+    """Create repository factory populated with test tracks for Phase 5B."""
+    factory, temp_dir = repository_factory_with_test_db
+    track_repo = factory.tracks
+
+    # Create test audio directory
+    audio_dir = os.path.join(temp_dir, "audio")
+    os.makedirs(audio_dir, exist_ok=True)
+
+    # Create 20 test tracks
+    for i in range(20):
+        # Create minimal audio file
+        audio = np.random.randn(44100, 2)  # 1 second stereo
+        filepath = os.path.join(audio_dir, f"track_{i:02d}.wav")
+        save_audio(filepath, audio, 44100, subtype='PCM_16')
+
+        # Add to database
+        track_info = {
+            'filepath': filepath,
+            'title': f'Track {i:02d}',
+            'artists': [f'Artist {i % 5}'],  # 5 artists total
+            'album': f'Album {i % 10}',      # 10 albums total
+            'duration': 1.0,
+            'sample_rate': 44100,
+            'channels': 2,
+            'format': 'WAV',
+            'track_number': (i % 10) + 1,
+            'year': 2020 + (i % 3),
+        }
+        track_repo.create(track_info)
+
+    return factory, temp_dir
+
+
+@pytest.fixture(params=["library_manager", "repository_factory"])
+def dual_mode_populated_source(request, populated_manager, populated_repository_factory):
+    """
+    Phase 5B: Dual-mode fixture for invariant tests.
+
+    Automatically parametrizes tests to run with both LibraryManager and
+    RepositoryFactory patterns, validating that invariants hold for both.
+    """
+    if request.param == "library_manager":
+        manager, temp_dir = populated_manager
+        return ("library_manager", manager, temp_dir)
+    else:
+        factory, temp_dir = populated_repository_factory
+        return ("repository_factory", factory, temp_dir)
 
 
 # ============================================================================

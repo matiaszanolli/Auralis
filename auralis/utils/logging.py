@@ -24,6 +24,8 @@ class Code:
     ERROR_LOADING = "Error loading audio file"
     ERROR_INVALID_AUDIO = "Invalid audio file format"
     ERROR_FILE_NOT_FOUND = "File not found"
+    ERROR_EMPTY_AUDIO = "Empty audio file"
+    ERROR_INVALID_SAMPLE_RATE = "Invalid sample rate"
 
 
 class ModuleError(Exception):
