@@ -271,19 +271,18 @@ def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
 
         # Use repository method to efficiently get missing fingerprints
         # This does a LEFT JOIN to find tracks WITHOUT fingerprints
-        unfingerprinted_tracks = library_manager.fingerprints.get_missing_fingerprints(limit=None)
+        # Only fetch the limit we need to avoid loading unnecessary data into memory
+        unfingerprinted_tracks = library_manager.fingerprints.get_missing_fingerprints(limit=max_tracks)
         total_tracks = len(unfingerprinted_tracks)
 
         if total_tracks == 0:
             logger.info("✅ All tracks are already fingerprinted!")
             return
 
-        logger.info(f"Found {total_tracks} unfingerprinted tracks")
-
-        # Limit if requested
         if max_tracks:
-            unfingerprinted_tracks = unfingerprinted_tracks[:max_tracks]
-            logger.info(f"Limiting to {max_tracks} tracks for testing")
+            logger.info(f"Found {total_tracks} unfingerprinted tracks (limiting to {max_tracks} for testing)")
+        else:
+            logger.info(f"Found {total_tracks} unfingerprinted tracks")
 
         # Create Rust-accelerated fingerprinting system
         logger.info("Initializing fingerprint extractor (Rust server will be used if available)...")
