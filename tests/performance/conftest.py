@@ -120,6 +120,84 @@ def benchmark_results():
     return {}
 
 
+# ============================================================================
+# Phase 5D: Parametrized Dual-Mode Performance Fixtures
+# ============================================================================
+
+@pytest.fixture
+def repository_factory_performance():
+    """
+    Create RepositoryFactory with in-memory database for performance testing.
+
+    Phase 5D: Enables performance comparison between different data access
+    patterns using the RepositoryFactory pattern.
+    """
+    from auralis.library.repositories.factory import RepositoryFactory
+
+    engine = create_engine('sqlite:///:memory:',
+                          connect_args={'check_same_thread': False})
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+
+    factory = RepositoryFactory(SessionLocal)
+    yield factory
+
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+
+
+@pytest.fixture
+def repository_factory_performance_v2():
+    """
+    Create second instance of RepositoryFactory for dual-mode testing.
+
+    Phase 5D: Separate instance allows testing same operations against
+    different database instances (useful for comparison testing).
+    """
+    from auralis.library.repositories.factory import RepositoryFactory
+
+    engine = create_engine('sqlite:///:memory:',
+                          connect_args={'check_same_thread': False})
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+
+    factory = RepositoryFactory(SessionLocal)
+    yield factory
+
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+
+
+@pytest.fixture(params=["factory_instance1", "factory_instance2"])
+def performance_data_source(request, repository_factory_performance, repository_factory_performance_v2):
+    """
+    Parametrized fixture for dual-mode performance testing.
+
+    Automatically provides two RepositoryFactory instances for performance
+    comparison testing and validation.
+
+    Phase 5D: Enables performance tests to validate that patterns meet
+    the same benchmark thresholds under identical conditions.
+
+    Example:
+        def test_query_performance_both_modes(performance_data_source, timer):
+            mode, source = performance_data_source
+            # Performance test runs with both factory instances
+            with timer() as t:
+                tracks, total = source.tracks.get_all(limit=1000)
+            # Both instances should meet same performance threshold
+            assert t.elapsed < 0.5  # 500ms max
+    """
+    if request.param == "factory_instance1":
+        return ("factory_instance1", repository_factory_performance)
+    else:
+        return ("factory_instance2", repository_factory_performance_v2)
+
+
 def create_test_tracks(track_repo, count):
     """Helper to create multiple test tracks."""
     tracks = []
@@ -145,3 +223,79 @@ def populated_db(temp_db):
     track_repo = TrackRepository(temp_db)
     create_test_tracks(track_repo, 1000)
     yield temp_db
+
+
+@pytest.fixture
+def populated_repository_factory():
+    """
+    Create populated RepositoryFactory with 1000 test tracks.
+
+    Phase 5D: Enables performance comparison for repository operations.
+    """
+    from auralis.library.repositories.factory import RepositoryFactory
+
+    engine = create_engine('sqlite:///:memory:',
+                          connect_args={'check_same_thread': False})
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+
+    factory = RepositoryFactory(SessionLocal)
+
+    # Populate with 1000 test tracks
+    create_test_tracks(factory.tracks, 1000)
+
+    yield factory
+
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+
+
+@pytest.fixture
+def populated_repository_factory_v2():
+    """
+    Create second populated RepositoryFactory instance for dual-mode testing.
+
+    Phase 5D: Separate instance allows comparing performance across instances.
+    """
+    from auralis.library.repositories.factory import RepositoryFactory
+
+    engine = create_engine('sqlite:///:memory:',
+                          connect_args={'check_same_thread': False})
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+
+    factory = RepositoryFactory(SessionLocal)
+
+    # Populate with 1000 test tracks
+    create_test_tracks(factory.tracks, 1000)
+
+    yield factory
+
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+
+
+@pytest.fixture(params=["factory_instance1", "factory_instance2"])
+def populated_data_source(request, populated_repository_factory, populated_repository_factory_v2):
+    """
+    Parametrized fixture providing populated RepositoryFactory instances.
+
+    Phase 5D: Automatically provides two instances for dual-mode performance testing.
+    Runs tests twice - once with each instance.
+
+    Example:
+        def test_latency(populated_data_source, timer):
+            mode, source = populated_data_source
+            # Performance test runs with both factory instances
+            with timer() as t:
+                tracks, total = source.tracks.get_all(limit=100)
+            assert t.elapsed < 0.1
+    """
+    if request.param == "factory_instance1":
+        return ("factory_instance1", populated_repository_factory)
+    else:
+        return ("factory_instance2", populated_repository_factory_v2)
