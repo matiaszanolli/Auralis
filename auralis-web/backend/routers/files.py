@@ -15,11 +15,13 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
-from typing import List, Dict, Any, Callable
+from typing import List, Dict, Any, Callable, Optional
 import logging
 import asyncio
 import tempfile
 from pathlib import Path
+
+from .dependencies import require_library_manager, require_repository_factory
 
 # Import only if available
 try:
@@ -38,17 +40,35 @@ class ScanRequest(BaseModel):
     directory: str
 
 
-def create_files_router(get_library_manager: Callable[[], Any], connection_manager: Any) -> APIRouter:
+def create_files_router(
+    get_library_manager: Callable[[], Any],
+    connection_manager: Any,
+    get_repository_factory: Optional[Callable[[], Any]] = None
+) -> APIRouter:
     """
     Factory function to create files router with dependencies.
 
     Args:
         get_library_manager: Callable that returns current LibraryManager instance
         connection_manager: WebSocket connection manager for broadcasts
+        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         APIRouter: Configured router instance
+
+    Note:
+        Uses LibraryManager for scanning operations as LibraryScanner is tightly coupled to it.
+        File upload uses library_manager.add_track() for backward compatibility.
     """
+
+    def get_repos() -> Any:
+        """Get repository factory or LibraryManager for accessing repositories."""
+        if get_repository_factory:
+            try:
+                return require_repository_factory(get_repository_factory)
+            except (TypeError, AttributeError):
+                pass
+        return require_library_manager(get_library_manager)
 
     @router.post("/api/library/scan")
     async def scan_directory(request: ScanRequest) -> Dict[str, Any]:
