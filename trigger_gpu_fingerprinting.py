@@ -69,12 +69,13 @@ class SimpleBatchWorker:
     - No queue duplication, natural rate limiting, no shared state
     """
 
-    def __init__(self, library_manager, fingerprint_extractor, num_workers=2):
+    def __init__(self, library_manager, fingerprint_extractor, num_workers=2, max_tracks=None):
         self.library = library_manager
         self.extractor = fingerprint_extractor
         self.num_workers = num_workers
         self.batch_size = 5
         self.timeout_minutes = 5
+        self.max_tracks = max_tracks
 
         self.stats = {
             'total_processed': 0,
@@ -148,6 +149,11 @@ class SimpleBatchWorker:
         logger.info(f"👷 Worker {worker_id} started")
 
         while not self.stop_flag:
+            # Check if we've reached max_tracks limit
+            if self.max_tracks and self.stats['total_processed'] >= self.max_tracks:
+                logger.info(f"👷 Worker {worker_id}: Reached max_tracks limit ({self.max_tracks})")
+                break
+
             batch = self._get_next_batch()
 
             if not batch:
@@ -156,6 +162,9 @@ class SimpleBatchWorker:
                 continue
 
             for track in batch:
+                # Double-check limit before processing each track
+                if self.max_tracks and self.stats['total_processed'] >= self.max_tracks:
+                    break
                 conn = None
                 try:
                     success = self.extractor.extract_and_store(track.id, track.filepath)
@@ -266,23 +275,29 @@ def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
         library_manager = LibraryManager()
         logger.info(f"✅ Library initialized: {library_manager.database_path}")
 
-        # Get only unfingerprinted tracks (skip already fingerprinted)
-        logger.info("Querying unfingerprinted tracks...")
+        # Get count of unfingerprinted tracks (skip object fetching for fast startup)
+        logger.info("Counting unfingerprinted tracks...")
 
-        # Use repository method to efficiently get missing fingerprints
-        # This does a LEFT JOIN to find tracks WITHOUT fingerprints
-        # Only fetch the limit we need to avoid loading unnecessary data into memory
-        unfingerprinted_tracks = library_manager.fingerprints.get_missing_fingerprints(limit=max_tracks)
-        total_tracks = len(unfingerprinted_tracks)
+        # Query just the COUNT to avoid loading track objects into memory
+        # Workers will fetch batches on-demand via _get_next_batch()
+        import sqlite3
+        db_path = library_manager.database_path
+        conn = sqlite3.connect(db_path, timeout=10.0)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM tracks WHERE fingerprint_status = 'pending'")
+            total_tracks = cursor.fetchone()[0]
+        finally:
+            conn.close()
 
         if total_tracks == 0:
             logger.info("✅ All tracks are already fingerprinted!")
             return
 
         if max_tracks:
-            logger.info(f"Found {total_tracks} unfingerprinted tracks (limiting to {max_tracks} for testing)")
+            logger.info(f"Found {total_tracks} pending tracks (processing up to {max_tracks} for testing)")
         else:
-            logger.info(f"Found {total_tracks} unfingerprinted tracks")
+            logger.info(f"Found {total_tracks} pending tracks ready to fingerprint")
 
         # Create Rust-accelerated fingerprinting system
         logger.info("Initializing fingerprint extractor (Rust server will be used if available)...")
@@ -307,7 +322,8 @@ def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
         processor = SimpleBatchWorker(
             library_manager=library_manager,
             fingerprint_extractor=fingerprint_extractor,
-            num_workers=num_workers
+            num_workers=num_workers,
+            max_tracks=max_tracks
         )
 
         processor.run()
