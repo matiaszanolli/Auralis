@@ -20,6 +20,7 @@ from typing import Dict, List, Optional, Any, Callable
 import logging
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
+from .dependencies import require_library_manager, require_repository_factory
 
 logger = logging.getLogger(__name__)
 # Note: router is created inside create_metadata_router() for better testability
@@ -58,7 +59,12 @@ class BatchMetadataRequest(BaseModel):
     backup: bool = Field(True, description="Create backup before modification")
 
 
-def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_manager: Any, metadata_editor: Optional[MetadataEditor] = None) -> APIRouter:
+def create_metadata_router(
+    get_library_manager: Callable[[], Any],
+    broadcast_manager: Any,
+    metadata_editor: Optional[MetadataEditor] = None,
+    get_repository_factory: Optional[Callable[[], Any]] = None
+) -> APIRouter:
     """
     Factory function to create metadata router with dependencies.
 
@@ -66,9 +72,13 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
         get_library_manager: Callable that returns LibraryManager instance
         broadcast_manager: WebSocket broadcast manager
         metadata_editor: Optional MetadataEditor instance (for testing)
+        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         APIRouter: Configured router instance
+
+    Note:
+        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
     """
 
     # Create a fresh router instance (important for testing - avoids route pollution)
@@ -77,6 +87,15 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
     # Initialize metadata editor (shared instance) or use provided one
     if metadata_editor is None:
         metadata_editor = MetadataEditor()  # type: ignore[no-untyped-call]
+
+    def get_repos() -> Any:
+        """Get repository factory or LibraryManager for accessing repositories."""
+        if get_repository_factory:
+            try:
+                return require_repository_factory(get_repository_factory)
+            except (TypeError, AttributeError):
+                pass
+        return require_library_manager(get_library_manager)
 
     @router.get("/api/metadata/tracks/{track_id}/fields")
     async def get_editable_fields(track_id: int) -> Dict[str, Any]:
@@ -92,15 +111,10 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
         Raises:
             HTTPException: If track not found or file doesn't exist
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            repos = get_repos()
             # Get track from database
-            from auralis.library.repositories import TrackRepository
-            track_repo = TrackRepository(library_manager.SessionLocal)
-            track = track_repo.get_by_id(track_id)
+            track = repos.tracks.get_by_id(track_id)
 
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
@@ -141,15 +155,10 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
         Raises:
             HTTPException: If track not found or file doesn't exist
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            repos = get_repos()
             # Get track from database
-            from auralis.library.repositories import TrackRepository
-            track_repo = TrackRepository(library_manager.SessionLocal)
-            track = track_repo.get_by_id(track_id)
+            track = repos.tracks.get_by_id(track_id)
 
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
@@ -188,15 +197,10 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
         Raises:
             HTTPException: If track not found, file doesn't exist, or update fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            repos = get_repos()
             # Get track from database
-            from auralis.library.repositories import TrackRepository
-            track_repo = TrackRepository(library_manager.SessionLocal)
-            track = track_repo.get_by_id(track_id)
+            track = repos.tracks.get_by_id(track_id)
 
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
@@ -221,7 +225,7 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
                 raise HTTPException(status_code=500, detail="Failed to write metadata to file")
 
             # Update database record using repository
-            updated_track = library_manager.tracks.update_metadata(track_id, **metadata_updates)
+            updated_track = repos.tracks.update_metadata(track_id, **metadata_updates)
             if not updated_track:
                 raise HTTPException(status_code=404, detail="Track not found for update")
 
@@ -274,25 +278,20 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
             dict: Batch update results (success/failure per track)
 
         Raises:
-            HTTPException: If library manager not available or validation fails
+            HTTPException: If library manager/factory not available or validation fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         if not request.updates:
             raise HTTPException(status_code=400, detail="No updates provided")
 
         try:
-            from auralis.library.repositories import TrackRepository
-            track_repo = TrackRepository(library_manager.SessionLocal)
+            repos = get_repos()
 
             # Prepare batch updates
             batch_updates = []
             track_map = {}  # Map track_id to track object
 
             for update_req in request.updates:
-                track = track_repo.get_by_id(update_req.track_id)
+                track = repos.tracks.get_by_id(update_req.track_id)
                 if not track:
                     logger.warning(f"Track {update_req.track_id} not found, skipping")
                     continue
@@ -318,8 +317,8 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
                     updates = result.get('updates', {})
 
                     if updates:
-                        # Update database record using repository (handles session commit)
-                        updated_track = library_manager.tracks.update_metadata(track_id, **updates)
+                        # Update database record using repository
+                        updated_track = repos.tracks.update_metadata(track_id, **updates)
                         if updated_track:
                             successful_track_ids.append(track_id)
 
@@ -346,11 +345,6 @@ def create_metadata_router(get_library_manager: Callable[[], Any], broadcast_man
             }
 
         except Exception as e:
-            # Rollback on any exception
-            try:
-                library_manager.session.rollback()
-            except:
-                pass
             logger.error(f"Batch metadata update failed: {e}")
             raise HTTPException(status_code=500, detail=f"Batch update failed: {e}")
 
