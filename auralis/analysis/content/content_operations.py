@@ -14,13 +14,10 @@ genre classification, and mood analysis.
 import numpy as np
 from scipy.fft import fft, fftfreq
 from scipy.signal import find_peaks
-from typing import Dict, Any, List, Tuple, Optional, cast
+from typing import Any, List
 
-from ...dsp.unified import (
-    spectral_centroid, spectral_rolloff, zero_crossing_rate,
-    crest_factor, tempo_estimate, rms, energy_profile
-)
-from ..fingerprint.common_metrics import AggregationUtils, MetricUtils
+from ...dsp.unified import energy_profile
+from ..fingerprint.common_metrics import AggregationUtils
 
 
 class ContentAnalysisOperations:

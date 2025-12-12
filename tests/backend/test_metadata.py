@@ -489,39 +489,73 @@ if __name__ == "__main__":
 # Following the same pattern as Phase 5C.1 API tests.
 
 @pytest.mark.phase5c
-class TestAPIEndpointDualMode:
-    """Phase 5C.2: Dual-mode tests using mock fixtures from conftest.py"""
+class TestMetadataDualModeParametrized:
+    """Phase 5C.3: Parametrized dual-mode tests for metadata operations.
 
-    def test_mock_library_manager_fixture_interface(self, mock_library_manager):
-        """Test that mock_library_manager has required interface."""
-        assert hasattr(mock_library_manager, 'tracks')
-        assert hasattr(mock_library_manager.tracks, 'get_all')
-        assert hasattr(mock_library_manager.tracks, 'get_by_id')
+    These tests automatically run with both LibraryManager and RepositoryFactory
+    via the parametrized mock_data_source fixture.
+    """
 
-    def test_mock_repository_factory_fixture_interface(self, mock_repository_factory):
-        """Test that mock_repository_factory has required interface."""
-        assert hasattr(mock_repository_factory, 'tracks')
-        assert hasattr(mock_repository_factory.tracks, 'get_all')
-        assert hasattr(mock_repository_factory.tracks, 'get_by_id')
+    def test_metadata_tracks_interface(self, mock_data_source):
+        """
+        Parametrized test: Validate tracks repository for metadata operations.
 
-    def test_dual_mode_interface_equivalence(self, mock_library_manager, mock_repository_factory):
-        """Test that both mocks implement equivalent interfaces."""
-        from unittest.mock import Mock
-        
-        # Create test data
-        item = Mock()
-        item.id = 1
-        item.name = "Test"
+        Both modes must support track metadata retrieval and editing.
+        """
+        mode, source = mock_data_source
 
-        # Test LibraryManager pattern
-        mock_library_manager.tracks.get_by_id = Mock(return_value=item)
-        lib_result = mock_library_manager.tracks.get_by_id(1)
-        assert lib_result.id == 1
+        assert hasattr(source, 'tracks'), f"{mode} missing tracks repository"
+        assert hasattr(source.tracks, 'get_all'), f"{mode}.tracks missing get_all"
+        assert hasattr(source.tracks, 'get_by_id'), f"{mode}.tracks missing get_by_id"
 
-        # Test RepositoryFactory pattern
-        mock_repository_factory.tracks.get_by_id = Mock(return_value=item)
-        repo_result = mock_repository_factory.tracks.get_by_id(1)
-        assert repo_result.id == 1
+    def test_metadata_get_all_returns_tuple(self, mock_data_source):
+        """
+        Parametrized test: Validate tracks.get_all returns (items, total) for both modes.
 
-        # Both should return same result
-        assert lib_result.name == repo_result.name
+        Metadata editing requires track list pagination to work with both patterns.
+        """
+        mode, source = mock_data_source
+
+        # Create mock tracks with metadata
+        track1 = Mock()
+        track1.id = 1
+        track1.title = "Track 1"
+        track1.artist = "Artist 1"
+
+        track2 = Mock()
+        track2.id = 2
+        track2.title = "Track 2"
+        track2.artist = "Artist 2"
+
+        test_tracks = [track1, track2]
+        source.tracks.get_all = Mock(return_value=(test_tracks, 2))
+
+        # Test with both modes
+        tracks, total = source.tracks.get_all(limit=50, offset=0)
+
+        assert len(tracks) == 2, f"{mode}: Expected 2 tracks"
+        assert total == 2, f"{mode}: Expected total=2"
+        assert tracks[0].title == "Track 1", f"{mode}: First track title mismatch"
+        assert tracks[1].title == "Track 2", f"{mode}: Second track title mismatch"
+
+    def test_metadata_get_by_id_interface(self, mock_data_source):
+        """
+        Parametrized test: Validate tracks.get_by_id works with both modes.
+
+        Track metadata editing depends on retrieving track by ID.
+        """
+        mode, source = mock_data_source
+
+        track = Mock()
+        track.id = 1
+        track.title = "Test Track"
+        track.artist = "Test Artist"
+
+        source.tracks.get_by_id = Mock(return_value=track)
+
+        result = source.tracks.get_by_id(1)
+
+        assert result.id == 1, f"{mode}: Track ID mismatch"
+        assert result.title == "Test Track", f"{mode}: Track title mismatch"
+        assert result.artist == "Test Artist", f"{mode}: Track artist mismatch"
+        source.tracks.get_by_id.assert_called_once_with(1)

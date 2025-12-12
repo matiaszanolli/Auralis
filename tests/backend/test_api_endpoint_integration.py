@@ -651,3 +651,47 @@ def test_summary_stats():
     print("4. State persistence across API calls")
     print("5. Error handling")
     print("=" * 80 + "\n")
+
+
+# ============================================================
+# Phase 5C.2: Dual-Mode Backend Testing Patterns
+# ============================================================
+# Following the same pattern as Phase 5C.1 API tests.
+
+@pytest.mark.phase5c
+class TestAPIEndpointDualMode:
+    """Phase 5C.2: Dual-mode tests using mock fixtures from conftest.py"""
+
+    def test_mock_library_manager_fixture_interface(self, mock_library_manager):
+        """Test that mock_library_manager has required interface."""
+        assert hasattr(mock_library_manager, 'library')
+        assert hasattr(mock_library_manager.library, 'get_all')
+        assert hasattr(mock_library_manager.library, 'get_by_id')
+
+    def test_mock_repository_factory_fixture_interface(self, mock_repository_factory):
+        """Test that mock_repository_factory has required interface."""
+        assert hasattr(mock_repository_factory, 'library')
+        assert hasattr(mock_repository_factory.library, 'get_all')
+        assert hasattr(mock_repository_factory.library, 'get_by_id')
+
+    def test_dual_mode_interface_equivalence(self, mock_library_manager, mock_repository_factory):
+        """Test that both mocks implement equivalent interfaces."""
+        from unittest.mock import Mock
+        
+        # Create test data
+        item = Mock()
+        item.id = 1
+        item.name = "Test"
+
+        # Test LibraryManager pattern
+        mock_library_manager.library.get_by_id = Mock(return_value=item)
+        lib_result = mock_library_manager.library.get_by_id(1)
+        assert lib_result.id == 1
+
+        # Test RepositoryFactory pattern
+        mock_repository_factory.library.get_by_id = Mock(return_value=item)
+        repo_result = mock_repository_factory.library.get_by_id(1)
+        assert repo_result.id == 1
+
+        # Both should return same result
+        assert lib_result.name == repo_result.name

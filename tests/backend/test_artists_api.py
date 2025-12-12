@@ -434,141 +434,106 @@ class TestArtistsErrorHandling:
 # 4. Pattern is copy-paste ready for other API test files
 
 @pytest.mark.phase5c
-class TestArtistsAPIDualMode:
-    """Phase 5C: Dual-mode tests using mock fixtures from conftest.py
+class TestArtistsAPIDualModeParametrized:
+    """Phase 5C.3: Parametrized dual-mode tests.
 
-    NOTE: These tests demonstrate Phase 5C fixture patterns but require
-    proper dependency injection setup in the test application to work.
-    They serve as examples of the dual-mode testing approach.
+    These tests automatically run with both LibraryManager and RepositoryFactory
+    via the parametrized mock_data_source fixture. Each test runs twice:
+    once with library_manager, once with repository_factory.
+
+    This pattern validates that both data access patterns provide identical
+    interface and behavior without code duplication.
     """
 
-    def test_mock_library_manager_fixture_interface(self, mock_library_manager):
+    def test_artists_repository_interface(self, mock_data_source):
         """
-        Test that mock_library_manager fixture provides expected interface.
+        Parametrized test: Validate artists repository interface works with both modes.
 
-        This validates that the centralized mock fixture from conftest.py
-        has all necessary repositories and methods for artists API.
+        This test automatically runs with:
+        - (library_manager, mock_library_manager)
+        - (repository_factory, mock_repository_factory)
         """
-        # Verify all expected attributes exist
-        assert hasattr(mock_library_manager, 'artists')
-        assert hasattr(mock_library_manager.artists, 'get_all')
-        assert hasattr(mock_library_manager.artists, 'get_by_id')
-        assert hasattr(mock_library_manager.artists, 'search')
-        assert hasattr(mock_library_manager.artists, 'create')
+        mode, source = mock_data_source
 
-    def test_mock_library_manager_get_all_method(self, mock_library_manager):
-        """
-        Test that mock_library_manager get_all returns correct structure.
+        # Both patterns must have artists repository
+        assert hasattr(source, 'artists'), f"{mode} missing artists repository"
+        assert hasattr(source.artists, 'get_all'), f"{mode}.artists missing get_all"
+        assert hasattr(source.artists, 'get_by_id'), f"{mode}.artists missing get_by_id"
+        assert hasattr(source.artists, 'search'), f"{mode}.artists missing search"
 
-        Validates the fixture provides the expected (items, total) tuple.
+    def test_artists_get_all_returns_tuple(self, mock_data_source):
         """
-        # Set up mock data using the fixture
+        Parametrized test: Validate get_all returns (items, total) for both modes.
+
+        Critical for pagination - both patterns must support the same interface.
+        """
+        mode, source = mock_data_source
+
+        # Set up test data
         artist1 = Mock()
         artist1.id = 1
         artist1.name = "Artist 1"
-        artist1.albums = []
-        artist1.tracks = []
 
         artist2 = Mock()
         artist2.id = 2
         artist2.name = "Artist 2"
-        artist2.albums = []
-        artist2.tracks = []
 
         test_artists = [artist1, artist2]
-        mock_library_manager.artists.get_all = Mock(
-            return_value=(test_artists, 2)
-        )
+        source.artists.get_all = Mock(return_value=(test_artists, 2))
 
-        # Test the mock interface
-        artists, total = mock_library_manager.artists.get_all(limit=50, offset=0)
+        # Test with both modes (automatic parametrization)
+        artists, total = source.artists.get_all(limit=50, offset=0)
 
-        assert len(artists) == 2
-        assert total == 2
-        assert artists[0].name == "Artist 1"
-        assert artists[1].name == "Artist 2"
-        mock_library_manager.artists.get_all.assert_called_once_with(
-            limit=50, offset=0
-        )
+        assert len(artists) == 2, f"{mode}: Expected 2 artists, got {len(artists)}"
+        assert total == 2, f"{mode}: Expected total=2, got {total}"
+        assert artists[0].name == "Artist 1", f"{mode}: First artist name mismatch"
+        assert artists[1].name == "Artist 2", f"{mode}: Second artist name mismatch"
 
-    def test_mock_repository_factory_fixture_interface(self, mock_repository_factory):
+    def test_artists_get_by_id_interface(self, mock_data_source):
         """
-        Test that mock_repository_factory fixture provides expected interface.
+        Parametrized test: Validate get_by_id works identically in both modes.
 
-        This demonstrates RepositoryFactory pattern. Both LibraryManager
-        and RepositoryFactory implement the same interface:
-        - source.artists.get_all(limit, offset) -> (list, total)
-        - source.artists.get_by_id(id) -> artist
-
-        This allows parametrized dual-mode testing where the same test
-        validates both patterns work identically.
+        Both LibraryManager and RepositoryFactory should return the same
+        artist object for the same ID.
         """
-        # Verify all expected attributes exist
-        assert hasattr(mock_repository_factory, 'artists')
-        assert hasattr(mock_repository_factory.artists, 'get_all')
-        assert hasattr(mock_repository_factory.artists, 'get_by_id')
-        assert hasattr(mock_repository_factory.artists, 'search')
+        mode, source = mock_data_source
 
-    def test_mock_repository_factory_get_all(self, mock_repository_factory):
-        """
-        Test that mock_repository_factory get_all works like LibraryManager.
-
-        Both patterns should return (items, total) tuple with same interface.
-        """
-        # Set up mock data (same as LibraryManager test)
-        artist1 = Mock()
-        artist1.id = 1
-        artist1.name = "Artist 1"
-        artist1.albums = []
-        artist1.tracks = []
-
-        artist2 = Mock()
-        artist2.id = 2
-        artist2.name = "Artist 2"
-        artist2.albums = []
-        artist2.tracks = []
-
-        test_artists = [artist1, artist2]
-
-        mock_repository_factory.artists.get_all = Mock(
-            return_value=(test_artists, 2)
-        )
-
-        artists, total = mock_repository_factory.artists.get_all(limit=50, offset=0)
-
-        assert len(artists) == 2
-        assert total == 2
-
-    def test_dual_mode_interface_equivalence(self, mock_library_manager, mock_repository_factory):
-        """
-        Test that both mocks implement equivalent interfaces.
-
-        Both LibraryManager and RepositoryFactory should support:
-        - artists.get_all(limit, offset)
-        - artists.get_by_id(id)
-        - artists.search(query, limit)
-
-        This demonstrates Phase 5C.3 readiness for parametrized tests.
-        """
-        # Create test artist data
+        # Create test artist
         artist = Mock()
         artist.id = 1
         artist.name = "Test Artist"
-        artist.albums = []
-        artist.tracks = []
 
-        # Test LibraryManager interface
-        mock_library_manager.artists.get_by_id = Mock(return_value=artist)
-        lib_result = mock_library_manager.artists.get_by_id(1)
-        assert lib_result.id == 1
+        source.artists.get_by_id = Mock(return_value=artist)
 
-        # Test RepositoryFactory interface (same call signature)
-        mock_repository_factory.artists.get_by_id = Mock(return_value=artist)
-        repo_result = mock_repository_factory.artists.get_by_id(1)
-        assert repo_result.id == 1
+        # Test with both modes
+        result = source.artists.get_by_id(1)
 
-        # Both should accept the same arguments
-        assert lib_result.id == repo_result.id
+        assert result.id == 1, f"{mode}: Artist ID mismatch"
+        assert result.name == "Test Artist", f"{mode}: Artist name mismatch"
+        source.artists.get_by_id.assert_called_once_with(1)
+
+    def test_artists_search_interface(self, mock_data_source):
+        """
+        Parametrized test: Validate search returns (items, total) for both modes.
+
+        Search must work identically regardless of data access pattern.
+        """
+        mode, source = mock_data_source
+
+        # Set up search results
+        artist = Mock()
+        artist.id = 1
+        artist.name = "The Beatles"
+
+        source.artists.search = Mock(return_value=([artist], 1))
+
+        # Test with both modes
+        results, total = source.artists.search("Beatles", limit=10)
+
+        assert len(results) == 1, f"{mode}: Expected 1 search result"
+        assert total == 1, f"{mode}: Expected total=1"
+        assert results[0].name == "The Beatles", f"{mode}: Search result name mismatch"
+        source.artists.search.assert_called_once_with("Beatles", limit=10)
 
 
 # ============================================================

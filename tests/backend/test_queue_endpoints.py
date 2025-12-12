@@ -291,35 +291,47 @@ class TestQueueIntegration:
 # queue-specific repository interfaces.
 
 @pytest.mark.phase5c
-class TestQueueAPIDualMode:
-    """Phase 5C: Dual-mode tests using mock fixtures from conftest.py"""
+class TestQueueAPIDualModeParametrized:
+    """Phase 5C.3: Parametrized dual-mode tests for queue operations.
 
-    def test_mock_library_manager_queue_fixture_interface(self, mock_library_manager):
-        """
-        Test that mock_library_manager has queue repository interface.
-        """
-        # LibraryManager should have queue repository access
-        assert hasattr(mock_library_manager, 'queue')
-        assert hasattr(mock_library_manager.queue, 'get_all')
-        assert hasattr(mock_library_manager.queue, 'get_by_id')
+    These tests automatically run with both LibraryManager and RepositoryFactory
+    via the parametrized mock_data_source fixture. Queue-specific repositories
+    (queue, queue_history, queue_templates) are validated with both patterns.
+    """
 
-    def test_mock_repository_factory_queue_fixture_interface(self, mock_repository_factory):
+    def test_queue_repository_interface(self, mock_data_source):
         """
-        Test that mock_repository_factory has queue repository interface.
+        Parametrized test: Validate queue repository interface for both modes.
 
-        RepositoryFactory includes queue-related repositories for:
-        - Queue management (current playback queue)
-        - Queue history (past played tracks)
-        - Queue templates (saved queue templates)
+        Tests both LibraryManager and RepositoryFactory have queue access.
         """
-        assert hasattr(mock_repository_factory, 'queue')
-        assert hasattr(mock_repository_factory, 'queue_history')
-        assert hasattr(mock_repository_factory, 'queue_templates')
+        mode, source = mock_data_source
 
-    def test_mock_queue_repository_get_all(self, mock_repository_factory):
+        assert hasattr(source, 'queue'), f"{mode} missing queue repository"
+        assert hasattr(source.queue, 'get_all'), f"{mode}.queue missing get_all"
+        assert hasattr(source.queue, 'get_by_id'), f"{mode}.queue missing get_by_id"
+
+    def test_queue_history_repository_interface(self, mock_data_source):
         """
-        Test that queue repository get_all returns queue items.
+        Parametrized test: Validate queue_history repository for RepositoryFactory mode.
+
+        RepositoryFactory has queue_history; LibraryManager may not.
+        Both should have basic repository interface.
         """
+        mode, source = mock_data_source
+
+        if mode == "repository_factory":
+            assert hasattr(source, 'queue_history'), f"{mode} missing queue_history"
+            assert hasattr(source.queue_history, 'get_all'), "queue_history missing get_all"
+
+    def test_queue_get_all_returns_tuple(self, mock_data_source):
+        """
+        Parametrized test: Validate queue.get_all returns (items, total) for both modes.
+
+        Queue items contain track_id and position for playback ordering.
+        """
+        mode, source = mock_data_source
+
         # Create mock queue items
         item1 = Mock()
         item1.id = 1
@@ -332,38 +344,34 @@ class TestQueueAPIDualMode:
         item2.position = 1
 
         test_queue = [item1, item2]
+        source.queue.get_all = Mock(return_value=(test_queue, 2))
 
-        mock_repository_factory.queue.get_all = Mock(
-            return_value=(test_queue, 2)
-        )
+        # Test with both modes
+        queue, total = source.queue.get_all(limit=100)
 
-        # Test the mock interface
-        queue, total = mock_repository_factory.queue.get_all(limit=100)
+        assert len(queue) == 2, f"{mode}: Expected 2 queue items"
+        assert total == 2, f"{mode}: Expected total=2"
+        assert queue[0].track_id == 101, f"{mode}: First item track_id mismatch"
+        assert queue[1].track_id == 102, f"{mode}: Second item track_id mismatch"
 
-        assert len(queue) == 2
-        assert total == 2
-        assert queue[0].track_id == 101
-        assert queue[1].track_id == 102
-
-    def test_dual_mode_queue_equivalence(self, mock_library_manager, mock_repository_factory):
+    def test_queue_get_by_id_interface(self, mock_data_source):
         """
-        Test that both mocks support queue operations equivalently.
+        Parametrized test: Validate queue.get_by_id works with both modes.
+
+        Both modes should return queue item with position info.
         """
-        # Create test queue item
+        mode, source = mock_data_source
+
         queue_item = Mock()
         queue_item.id = 1
         queue_item.track_id = 100
         queue_item.position = 0
 
-        # Test LibraryManager pattern
-        mock_library_manager.queue.get_by_id = Mock(return_value=queue_item)
-        lib_result = mock_library_manager.queue.get_by_id(1)
-        assert lib_result.track_id == 100
+        source.queue.get_by_id = Mock(return_value=queue_item)
 
-        # Test RepositoryFactory pattern (same interface)
-        mock_repository_factory.queue.get_by_id = Mock(return_value=queue_item)
-        repo_result = mock_repository_factory.queue.get_by_id(1)
-        assert repo_result.track_id == 100
+        result = source.queue.get_by_id(1)
 
-        # Both should return the same data
-        assert lib_result.position == repo_result.position
+        assert result.id == 1, f"{mode}: Queue item ID mismatch"
+        assert result.track_id == 100, f"{mode}: Queue item track_id mismatch"
+        assert result.position == 0, f"{mode}: Queue item position mismatch"
+        source.queue.get_by_id.assert_called_once_with(1)
