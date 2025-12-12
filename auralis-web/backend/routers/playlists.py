@@ -23,6 +23,8 @@ from pydantic import BaseModel
 from typing import Any, Callable, Dict, List, Optional
 import logging
 
+from .dependencies import require_library_manager, require_repository_factory
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["playlists"])
 
@@ -45,17 +47,34 @@ class AddTracksRequest(BaseModel):
     track_ids: List[int]
 
 
-def create_playlists_router(get_library_manager: Callable[[], Any], connection_manager: Any) -> APIRouter:
+def create_playlists_router(
+    get_library_manager: Callable[[], Any],
+    connection_manager: Any,
+    get_repository_factory: Optional[Callable[[], Any]] = None
+) -> APIRouter:
     """
     Factory function to create playlists router with dependencies.
 
     Args:
         get_library_manager: Callable that returns LibraryManager instance
         connection_manager: WebSocket connection manager for broadcasts
+        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         APIRouter: Configured router instance
+
+    Note:
+        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
     """
+
+    def get_repos() -> Any:
+        """Get repository factory or LibraryManager for accessing repositories."""
+        if get_repository_factory:
+            try:
+                return require_repository_factory(get_repository_factory)
+            except (TypeError, AttributeError):
+                pass
+        return require_library_manager(get_library_manager)
 
     @router.get("/api/playlists")
     async def get_playlists() -> Dict[str, Any]:
@@ -66,14 +85,11 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
             dict: List of playlists and total count
 
         Raises:
-            HTTPException: If library manager not available or query fails
+            HTTPException: If library manager/factory not available or query fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
-            playlists = library_manager.playlists.get_all()
+            repos = get_repos()
+            playlists = repos.playlists.get_all()
             return {
                 "playlists": [p.to_dict() for p in playlists],
                 "total": len(playlists)
@@ -94,14 +110,11 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
             dict: Playlist data with full track details
 
         Raises:
-            HTTPException: If library manager not available or playlist not found
+            HTTPException: If library manager/factory not available or playlist not found
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
-            playlist = library_manager.playlists.get_by_id(playlist_id)
+            repos = get_repos()
+            playlist = repos.playlists.get_by_id(playlist_id)
             if not playlist:
                 raise HTTPException(status_code=404, detail="Playlist not found")
 
@@ -128,14 +141,11 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
             dict: Success message and created playlist data
 
         Raises:
-            HTTPException: If library manager not available or creation fails
+            HTTPException: If library manager/factory not available or creation fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
-            playlist = library_manager.playlists.create(
+            repos = get_repos()
+            playlist = repos.playlists.create(
                 name=request.name,
                 description=request.description,
                 track_ids=request.track_ids if request.track_ids else None
@@ -176,13 +186,10 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
             dict: Success message
 
         Raises:
-            HTTPException: If library manager not available, no data provided, or update fails
+            HTTPException: If library manager/factory not available, no data provided, or update fails
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            repos = get_repos()
             # Build update data dictionary
             update_data = {}
             if request.name is not None:
@@ -193,7 +200,7 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
             if not update_data:
                 raise HTTPException(status_code=400, detail="No update data provided")
 
-            success = library_manager.playlists.update(playlist_id, update_data)
+            success = repos.playlists.update(playlist_id, update_data)
 
             if not success:
                 raise HTTPException(status_code=404, detail="Playlist not found or update failed")
@@ -226,14 +233,11 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
             dict: Success message
 
         Raises:
-            HTTPException: If library manager not available or playlist not found
+            HTTPException: If library manager/factory not available or playlist not found
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
-            success = library_manager.playlists.delete(playlist_id)
+            repos = get_repos()
+            success = repos.playlists.delete(playlist_id)
 
             if not success:
                 raise HTTPException(status_code=404, detail="Playlist not found")
@@ -266,16 +270,13 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
             dict: Success message and count of added tracks
 
         Raises:
-            HTTPException: If library manager not available or no tracks added
+            HTTPException: If library manager/factory not available or no tracks added
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
+            repos = get_repos()
             added_count = 0
             for track_id in request.track_ids:
-                if library_manager.playlists.add_track(playlist_id, track_id):
+                if repos.playlists.add_track(playlist_id, track_id):
                     added_count += 1
 
             if added_count == 0:
@@ -313,14 +314,11 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
             dict: Success message
 
         Raises:
-            HTTPException: If library manager not available or track/playlist not found
+            HTTPException: If library manager/factory not available or track/playlist not found
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
-            success = library_manager.playlists.remove_track(playlist_id, track_id)
+            repos = get_repos()
+            success = repos.playlists.remove_track(playlist_id, track_id)
 
             if not success:
                 raise HTTPException(status_code=404, detail="Playlist or track not found")
@@ -353,14 +351,11 @@ def create_playlists_router(get_library_manager: Callable[[], Any], connection_m
             dict: Success message
 
         Raises:
-            HTTPException: If library manager not available or playlist not found
+            HTTPException: If library manager/factory not available or playlist not found
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
         try:
-            success = library_manager.playlists.clear(playlist_id)
+            repos = get_repos()
+            success = repos.playlists.clear(playlist_id)
 
             if not success:
                 raise HTTPException(status_code=404, detail="Playlist not found")
