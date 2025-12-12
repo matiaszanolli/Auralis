@@ -158,20 +158,35 @@ class SimpleBatchWorker:
                 try:
                     success = self.extractor.extract_and_store(track.id, track.filepath)
 
-                    # Always clear the fingerprint_started_at after processing (success or fail)
-                    # This prevents the track from timing out and being reprocessed
+                    # Update track status based on extraction result
+                    # CRITICAL: Mark track as completed/failed to prevent reprocessing
                     try:
                         import sqlite3
+                        from datetime import datetime, timezone
+
                         conn = sqlite3.connect(self.library.database_path)
                         cursor = conn.cursor()
-                        cursor.execute(
-                            "UPDATE tracks SET fingerprint_started_at = NULL WHERE id = ?",
-                            (track.id,)
-                        )
+
+                        if success:
+                            # Success: Mark track as completed with timestamp
+                            cursor.execute(
+                                "UPDATE tracks SET fingerprint_status = 'completed', "
+                                "fingerprint_computed_at = ?, fingerprint_started_at = NULL "
+                                "WHERE id = ?",
+                                (datetime.now(timezone.utc).isoformat(), track.id)
+                            )
+                        else:
+                            # Failure: Mark track as failed, clear started timestamp
+                            cursor.execute(
+                                "UPDATE tracks SET fingerprint_status = 'failed', "
+                                "fingerprint_started_at = NULL WHERE id = ?",
+                                (track.id,)
+                            )
+
                         conn.commit()
                         conn.close()
                     except Exception as db_error:
-                        logger.warning(f"Could not clear fingerprint_started_at for track {track.id}: {db_error}")
+                        logger.warning(f"Could not update track status for track {track.id}: {db_error}")
 
                     with self.stats_lock:
                         self.stats['total_processed'] += 1
