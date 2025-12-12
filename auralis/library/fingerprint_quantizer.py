@@ -23,7 +23,7 @@ Accuracy Guarantees:
 """
 
 import struct
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 
 
 class FingerprintQuantizer:

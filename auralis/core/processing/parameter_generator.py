@@ -12,7 +12,7 @@ Implements intelligent parameter selection based on audio characteristics.
 """
 
 import numpy as np
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from .continuous_space import (
     ProcessingCoordinates,
     ProcessingParameters,
