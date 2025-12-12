@@ -90,3 +90,37 @@ def require_connection_manager(connection_manager: Any) -> Any:
     if not connection_manager:
         raise HTTPException(status_code=503, detail="Connection manager not available")
     return connection_manager
+
+
+def require_repository_factory(get_repository_factory: Callable[[], Any]) -> Any:
+    """
+    Validate that repository factory is available.
+
+    This is the Phase 2 dependency injection mechanism that enables
+    gradual migration from LibraryManager to direct repository usage.
+
+    Args:
+        get_repository_factory: Callable that returns RepositoryFactory instance
+
+    Returns:
+        RepositoryFactory: The repository factory instance
+
+    Raises:
+        HTTPException: 503 if repository factory is not available
+
+    Example:
+        ```python
+        @router.get("/api/tracks")
+        async def get_tracks(factory_getter=Depends(get_repository_factory)):
+            repos = require_repository_factory(factory_getter)
+            tracks, total = repos.tracks.get_all(limit=50)
+            return {"tracks": tracks, "total": total}
+        ```
+    """
+    repository_factory = get_repository_factory()
+    if not repository_factory:
+        raise HTTPException(
+            status_code=503,
+            detail="Repository factory not available"
+        )
+    return repository_factory
