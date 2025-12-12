@@ -88,7 +88,7 @@ class SimpleBatchWorker:
         self.stop_flag = False
 
     def _get_next_batch(self):
-        """Grab next 5 unprocessed tracks and mark them started, excluding tracks with valid .25d cache files"""
+        """Grab next 5 unprocessed tracks with ATOMIC claiming to prevent race conditions"""
         import sqlite3
         from datetime import datetime, timedelta, timezone
 
@@ -96,57 +96,70 @@ class SimpleBatchWorker:
         conn = None
         try:
             conn = sqlite3.connect(db_path, timeout=10.0)
+            # Enable WAL mode for better concurrency and busy timeout
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=10000")
             cursor = conn.cursor()
 
-            # Get tracks that are either:
-            # 1. Never started (fingerprint_started_at IS NULL)
-            # 2. Timed out (started > 5 minutes ago)
-            # EXCLUDE: Tracks that have valid .25d cache files (already in skip_track_ids)
-            now = datetime.now(timezone.utc)
-            timeout_threshold = now.replace(second=0, microsecond=0)
-            timeout_threshold -= timedelta(minutes=self.timeout_minutes)
+            # ATOMIC CLAIMING PATTERN:
+            # 1. Start transaction (implicit in SQLite)
+            # 2. Update to claim unclaimed tracks (WHERE fingerprint_started_at IS NULL)
+            # 3. Return ONLY the tracks we successfully claimed
+            # 4. Commit transaction
+            # This prevents multiple workers from claiming the same track
 
-            # Build WHERE clause to exclude skip_track_ids
-            # If no skip tracks, use simple query. Otherwise, use NOT IN clause
+            now = datetime.now(timezone.utc)
+            now_iso = now.isoformat()
+
+            # Step 1: ATOMIC UPDATE - claim unclaimed tracks in a single operation
+            # The key insight: only update tracks that have fingerprint_started_at = NULL
+            # If another worker claims them first, our UPDATE won't affect them
             if self.skip_track_ids:
                 placeholders = ','.join('?' * len(self.skip_track_ids))
-                query = f"""
-                    SELECT id, filepath
-                    FROM tracks
+                claim_query = f"""
+                    UPDATE tracks
+                    SET fingerprint_started_at = ?
                     WHERE fingerprint_status = 'pending'
                       AND id NOT IN ({placeholders})
-                      AND (fingerprint_started_at IS NULL
-                           OR fingerprint_started_at < datetime(?))
+                      AND fingerprint_started_at IS NULL
                     LIMIT ?
                 """
-                params = list(self.skip_track_ids) + [timeout_threshold.isoformat(), self.batch_size]
+                params = [now_iso] + list(self.skip_track_ids) + [self.batch_size]
             else:
-                query = """
+                claim_query = """
+                    UPDATE tracks
+                    SET fingerprint_started_at = ?
+                    WHERE fingerprint_status = 'pending'
+                      AND fingerprint_started_at IS NULL
+                    LIMIT ?
+                """
+                params = [now_iso, self.batch_size]
+
+            # Execute the update within a transaction
+            cursor.execute("BEGIN IMMEDIATE")  # Ensure exclusive access during update
+            try:
+                cursor.execute(claim_query, params)
+                claimed_count = cursor.rowcount
+
+                if claimed_count == 0:
+                    cursor.execute("ROLLBACK")
+                    return []
+
+                # Step 2: Fetch the claimed tracks (identified by having fingerprint_started_at = now_iso)
+                fetch_query = """
                     SELECT id, filepath
                     FROM tracks
                     WHERE fingerprint_status = 'pending'
-                      AND (fingerprint_started_at IS NULL
-                           OR fingerprint_started_at < datetime(?))
+                      AND fingerprint_started_at = ?
                     LIMIT ?
                 """
-                params = [timeout_threshold.isoformat(), self.batch_size]
+                cursor.execute(fetch_query, (now_iso, claimed_count))
+                tracks = cursor.fetchall()
 
-            cursor.execute(query, params)
-            tracks = cursor.fetchall()
-
-            if not tracks:
-                return []
-
-            # Mark these tracks as started
-            track_ids = [t[0] for t in tracks]
-            placeholders = ','.join('?' * len(track_ids))
-            update_query = f"""
-                UPDATE tracks
-                SET fingerprint_started_at = datetime('now')
-                WHERE id IN ({placeholders})
-            """
-            cursor.execute(update_query, track_ids)
-            conn.commit()
+                cursor.execute("COMMIT")
+            except Exception as e:
+                cursor.execute("ROLLBACK")
+                raise e
 
             # Return as track-like objects
             class Track:
