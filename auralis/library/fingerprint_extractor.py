@@ -315,27 +315,22 @@ class FingerprintExtractor:
                         self._delete_corrupted_track(track_id, filepath)
                         return False
 
-                # DISABLED: Python fallback temporarily disabled for Rust server debugging
-                # If Rust server fails, return False instead of falling back to slow Python analyzer
+                # Python fallback enabled: If Rust server fails, fall back to Python analyzer
                 if not fingerprint:
-                    if self.use_rust_server:
-                        error(f"Rust server failed to fingerprint track {track_id}: {filepath} - Python fallback disabled")
-                        return False
-                    else:
-                        # Only use Python analyzer if Rust server is explicitly disabled
-                        debug(f"Using Python analyzer for fingerprint: {filepath}")
-                        debug(f"Loading audio for fingerprint: {filepath}")
-                        audio, sr = load_audio(filepath)
+                    # Fall back to Python analyzer (slower but reliable)
+                    debug(f"Using Python analyzer for fingerprint: {filepath}")
+                    debug(f"Loading audio for fingerprint: {filepath}")
+                    audio, sr = load_audio(filepath)
 
-                        try:
-                            debug(f"Extracting fingerprint for track {track_id}")
-                            fingerprint = self.analyzer.analyze(audio, sr)
-                        finally:
-                            # CRITICAL: Explicitly free audio array immediately after analysis
-                            # With 16 concurrent workers, audio arrays can accumulate (50-150MB each)
-                            # Without explicit cleanup, this causes unbounded memory growth
-                            del audio
-                            gc.collect()
+                    try:
+                        debug(f"Extracting fingerprint for track {track_id}")
+                        fingerprint = self.analyzer.analyze(audio, sr)
+                    finally:
+                        # CRITICAL: Explicitly free audio array immediately after analysis
+                        # With 16 concurrent workers, audio arrays can accumulate (50-150MB each)
+                        # Without explicit cleanup, this causes unbounded memory growth
+                        del audio
+                        gc.collect()
 
             # Filter out metadata keys (like '_harmonic_analysis_method') that shouldn't be stored
             # Keep only the 25 actual fingerprint dimensions
