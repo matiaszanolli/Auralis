@@ -242,11 +242,11 @@ def create_library_router(
             dict: Lyrics text and format (lrc or plain), or None if not found
 
         Raises:
-            HTTPException: If library manager not available, track not found, or query fails
+            HTTPException: If library manager/factory not available, track not found, or query fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            track = library_manager.tracks.get_by_id(track_id)
+            repos = get_repos()
+            track = repos.tracks.get_by_id(track_id)
             if not track:
                 raise NotFoundError("Track", track_id)
 
@@ -291,8 +291,7 @@ def create_library_router(
 
                 if lyrics_text:
                     # Save to database for future requests
-                    track.lyrics = lyrics_text  # type: ignore[assignment]
-                    library_manager.tracks.update(track)  # type: ignore[call-arg]
+                    repos.tracks.update(track_id, lyrics=lyrics_text)
 
                     return {
                         "track_id": track_id,
@@ -340,10 +339,10 @@ def create_library_router(
             }
 
         Raises:
-            HTTPException: If library manager not available or query fails
+            HTTPException: If library manager/factory not available or query fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
+            repos = get_repos()
 
             # Validate and limit pagination parameters
             limit = min(max(limit, 1), 200)  # Between 1-200
@@ -354,7 +353,7 @@ def create_library_router(
             if order_by not in valid_order_by:
                 order_by = "name"
 
-            artists, total = library_manager.artists.get_all(
+            artists, total = repos.artists.get_all(
                 limit=limit,
                 offset=offset,
                 order_by=order_by
@@ -387,11 +386,11 @@ def create_library_router(
             dict: Artist data with albums and tracks
 
         Raises:
-            HTTPException: If library manager not available or artist not found
+            HTTPException: If library manager/factory not available or artist not found
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            artist = library_manager.artists.get_by_id(artist_id)
+            repos = get_repos()
+            artist = repos.artists.get_by_id(artist_id)
             if not artist:
                 raise NotFoundError("Artist", artist_id)
 
@@ -410,11 +409,11 @@ def create_library_router(
             dict: List of albums
 
         Raises:
-            HTTPException: If library manager not available or query fails
+            HTTPException: If library manager/factory not available or query fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            albums, total = library_manager.albums.get_all()
+            repos = get_repos()
+            albums, total = repos.albums.get_all()
             return {
                 "albums": serialize_albums(albums),
                 "total": total
@@ -436,11 +435,11 @@ def create_library_router(
             dict: Album data with tracks
 
         Raises:
-            HTTPException: If library manager not available or album not found
+            HTTPException: If library manager/factory not available or album not found
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
-            album = library_manager.albums.get_by_id(album_id)
+            repos = get_repos()
+            album = repos.albums.get_by_id(album_id)
             if not album:
                 raise NotFoundError("Album", album_id)
 
@@ -571,10 +570,10 @@ def create_library_router(
                 - status: Current status message
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
+            repos = get_repos()
 
             # Get fingerprint statistics from repository
-            stats = library_manager.fingerprints.get_fingerprint_stats()
+            stats = repos.fingerprints.get_fingerprint_stats()
 
             total_tracks = stats['total']
             fingerprinted_count = stats['fingerprinted']
