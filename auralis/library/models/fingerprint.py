@@ -10,7 +10,7 @@ Models for 25D audio fingerprints and similarity graph
 :license: GPLv3, see LICENSE for more details.
 """
 
-from sqlalchemy import Column, Integer, Float, ForeignKey
+from sqlalchemy import Column, Integer, Float, ForeignKey, LargeBinary
 from sqlalchemy.orm import relationship
 
 from .base import Base, TimestampMixin
@@ -77,6 +77,11 @@ class TrackFingerprint(Base, TimestampMixin):
 
     # Metadata
     fingerprint_version = Column(Integer, nullable=False, default=1)
+
+    # Phase 3A: 8-bit quantized fingerprint storage (25 bytes, 8x compression)
+    # Stores quantized uint8 values for space efficiency
+    # Auto-dequantized on retrieval to restore float values (~1% accuracy loss)
+    fingerprint_blob = Column(LargeBinary(25), nullable=True)
 
     # Relationship
     track = relationship("Track", backref="fingerprint", uselist=False)
