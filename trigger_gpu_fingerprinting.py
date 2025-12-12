@@ -90,9 +90,9 @@ class SimpleBatchWorker:
         from datetime import datetime, timedelta, timezone
 
         db_path = self.library.database_path
-
+        conn = None
         try:
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(db_path, timeout=10.0)
             cursor = conn.cursor()
 
             # Get tracks that are either:
@@ -115,7 +115,6 @@ class SimpleBatchWorker:
             tracks = cursor.fetchall()
 
             if not tracks:
-                conn.close()
                 return []
 
             # Mark these tracks as started
@@ -128,7 +127,6 @@ class SimpleBatchWorker:
             """
             cursor.execute(update_query, track_ids)
             conn.commit()
-            conn.close()
 
             # Return as track-like objects
             class Track:
@@ -141,6 +139,9 @@ class SimpleBatchWorker:
         except Exception as e:
             logger.error(f"Error fetching batch: {e}")
             return []
+        finally:
+            if conn:
+                conn.close()
 
     def _worker(self, worker_id):
         """Worker loop: fetch batch of 5 tracks, process them"""
@@ -155,38 +156,35 @@ class SimpleBatchWorker:
                 continue
 
             for track in batch:
+                conn = None
                 try:
                     success = self.extractor.extract_and_store(track.id, track.filepath)
 
                     # Update track status based on extraction result
                     # CRITICAL: Mark track as completed/failed to prevent reprocessing
-                    try:
-                        import sqlite3
-                        from datetime import datetime, timezone
+                    import sqlite3
+                    from datetime import datetime, timezone
 
-                        conn = sqlite3.connect(self.library.database_path)
-                        cursor = conn.cursor()
+                    conn = sqlite3.connect(self.library.database_path, timeout=10.0)
+                    cursor = conn.cursor()
 
-                        if success:
-                            # Success: Mark track as completed with timestamp
-                            cursor.execute(
-                                "UPDATE tracks SET fingerprint_status = 'completed', "
-                                "fingerprint_computed_at = ?, fingerprint_started_at = NULL "
-                                "WHERE id = ?",
-                                (datetime.now(timezone.utc).isoformat(), track.id)
-                            )
-                        else:
-                            # Failure: Mark track as failed, clear started timestamp
-                            cursor.execute(
-                                "UPDATE tracks SET fingerprint_status = 'failed', "
-                                "fingerprint_started_at = NULL WHERE id = ?",
-                                (track.id,)
-                            )
+                    if success:
+                        # Success: Mark track as completed with timestamp
+                        cursor.execute(
+                            "UPDATE tracks SET fingerprint_status = 'completed', "
+                            "fingerprint_computed_at = ?, fingerprint_started_at = NULL "
+                            "WHERE id = ?",
+                            (datetime.now(timezone.utc).isoformat(), track.id)
+                        )
+                    else:
+                        # Failure: Mark track as failed, clear started timestamp
+                        cursor.execute(
+                            "UPDATE tracks SET fingerprint_status = 'failed', "
+                            "fingerprint_started_at = NULL WHERE id = ?",
+                            (track.id,)
+                        )
 
-                        conn.commit()
-                        conn.close()
-                    except Exception as db_error:
-                        logger.warning(f"Could not update track status for track {track.id}: {db_error}")
+                    conn.commit()
 
                     with self.stats_lock:
                         self.stats['total_processed'] += 1
@@ -200,6 +198,17 @@ class SimpleBatchWorker:
                     with self.stats_lock:
                         self.stats['total_processed'] += 1
                         self.stats['total_failed'] += 1
+                finally:
+                    # CRITICAL: Always close connection immediately to prevent resource leaks
+                    if conn:
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
+
+                    # Force garbage collection after each track to prevent memory accumulation
+                    import gc
+                    gc.collect()
 
     def run(self):
         """Run workers"""
