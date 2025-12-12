@@ -617,3 +617,102 @@ class FingerprintRepository:
         except Exception as e:
             error(f"Failed to update status for track {track_id}: {e}")
             return False
+
+    def get_fingerprint_status(self, track_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get fingerprint status for a specific track.
+
+        Args:
+            track_id: ID of the track
+
+        Returns:
+            Dict with fingerprint status details or None if not found
+        """
+        session = self.get_session()
+        try:
+            fingerprint = (
+                session.query(TrackFingerprint)
+                .filter(TrackFingerprint.track_id == track_id)
+                .first()
+            )
+
+            if not fingerprint:
+                return None
+
+            return {
+                'track_id': fingerprint.track_id,
+                'status': getattr(fingerprint, 'status', 'unknown'),
+                'created_at': fingerprint.created_at,
+                'updated_at': getattr(fingerprint, 'updated_at', None),
+                'has_fingerprint': fingerprint is not None
+            }
+        finally:
+            session.close()
+
+    def get_fingerprint_stats(self) -> Dict[str, int]:
+        """
+        Get overall fingerprint statistics.
+
+        Returns:
+            Dict with 'total', 'fingerprinted', and 'pending' counts
+        """
+        session = self.get_session()
+        try:
+            from sqlalchemy import func
+
+            # Count total tracks
+            total_tracks = session.query(func.count(Track.id)).scalar() or 0
+
+            # Count tracks with fingerprints
+            fingerprinted_count = (
+                session.query(func.count(TrackFingerprint.id))
+                .scalar() or 0
+            )
+
+            pending_count = max(0, total_tracks - fingerprinted_count)
+            progress_percent = int((fingerprinted_count / max(1, total_tracks)) * 100)
+
+            return {
+                'total': total_tracks,
+                'fingerprinted': fingerprinted_count,
+                'pending': pending_count,
+                'progress_percent': progress_percent
+            }
+        finally:
+            session.close()
+
+    def cleanup_incomplete_fingerprints(self) -> int:
+        """
+        Clean up incomplete fingerprints (placeholders with LUFS=-100.0).
+
+        Returns:
+            Number of incomplete fingerprints deleted
+
+        Raises:
+            Exception: If cleanup fails
+        """
+        session = self.get_session()
+        try:
+            # Find incomplete placeholders (fingerprints with LUFS=-100.0)
+            incomplete_fps = (
+                session.query(TrackFingerprint)
+                .filter(TrackFingerprint.lufs == -100.0)
+                .all()
+            )
+
+            if not incomplete_fps:
+                return 0
+
+            incomplete_count = len(incomplete_fps)
+
+            # Delete incomplete fingerprints
+            for fp in incomplete_fps:
+                session.delete(fp)
+
+            session.commit()
+            return incomplete_count
+        except Exception as e:
+            session.rollback()
+            raise
+        finally:
+            session.close()

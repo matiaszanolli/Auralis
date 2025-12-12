@@ -609,3 +609,72 @@ class TrackRepository:
             return None
         finally:
             session.close()
+
+    def update_metadata(self, track_id: int, **fields) -> Optional[Track]:
+        """
+        Update track metadata fields.
+
+        Args:
+            track_id: Track ID
+            **fields: Fields to update (only non-None values used)
+
+        Returns:
+            Updated track or None if not found
+
+        Raises:
+            Exception: If update fails
+        """
+        session = self.get_session()
+        try:
+            track = session.query(Track).filter(Track.id == track_id).first()
+            if not track:
+                return None
+
+            # Update only provided fields
+            for key, value in fields.items():
+                if hasattr(track, key) and value is not None:
+                    setattr(track, key, value)
+
+            session.commit()
+            session.refresh(track)
+            session.expunge(track)
+            debug(f"Updated track metadata: {track.title}")
+            return track
+        except Exception as e:
+            session.rollback()
+            error(f"Failed to update track metadata {track_id}: {e}")
+            raise
+        finally:
+            session.close()
+
+    def cleanup_missing_files(self) -> int:
+        """
+        Remove tracks with missing audio files from the database.
+
+        Returns:
+            Number of tracks removed
+
+        Raises:
+            Exception: If cleanup fails
+        """
+        import os
+
+        session = self.get_session()
+        try:
+            tracks = session.query(Track).all()
+            removed_count = 0
+
+            for track in tracks:
+                if not os.path.exists(track.filepath):
+                    session.delete(track)
+                    removed_count += 1
+
+            session.commit()
+            debug(f"Removed {removed_count} tracks with missing files")
+            return removed_count
+        except Exception as e:
+            session.rollback()
+            error(f"Failed to cleanup missing files: {e}")
+            raise
+        finally:
+            session.close()

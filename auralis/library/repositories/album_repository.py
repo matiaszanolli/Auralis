@@ -238,3 +238,34 @@ class AlbumRepository:
             return False
         finally:
             session.close()
+
+    def update_artwork_path(self, album_id: int, artwork_path: str) -> Optional[Album]:
+        """
+        Update album artwork path.
+
+        Args:
+            album_id: Album ID
+            artwork_path: Path to artwork file
+
+        Returns:
+            Updated album or None if not found
+
+        Raises:
+            Exception: If update fails
+        """
+        session = self.get_session()
+        try:
+            album = session.query(Album).filter(Album.id == album_id).first()
+            if not album:
+                return None
+
+            album.artwork_path = artwork_path
+            session.commit()
+            session.refresh(album)
+            session.expunge(album)
+            return album
+        except Exception as e:
+            session.rollback()
+            raise
+        finally:
+            session.close()
