@@ -435,6 +435,74 @@ class FingerprintExtractor:
 
         return results
 
+    async def extract_batch_concurrent(self, track_ids_paths: List[tuple], batch_size: int = 5) -> Dict[str, int]:
+        """
+        Extract and store fingerprints concurrently for multiple tracks (Phase 3D).
+
+        Extracts all fingerprints concurrently using asyncio, reducing total time from
+        N*T (sequential) to ceil(N/batch_size)*T (concurrent with batching).
+        Expected improvement: 5-10x throughput increase (28.7 tracks/sec → 140+ tracks/sec).
+
+        Args:
+            track_ids_paths: List of (track_id, filepath) tuples
+            batch_size: Number of concurrent requests per batch (default: 5)
+
+        Returns:
+            Dictionary with counts: {'success': N, 'failed': M, 'corrupted': K}
+        """
+        from datetime import datetime, timezone
+
+        stats = {'success': 0, 'failed': 0, 'corrupted': 0}
+
+        # Extract all fingerprints concurrently
+        fingerprints = await self._get_fingerprints_concurrent(track_ids_paths, batch_size)
+
+        # Store results in database
+        for track_id, fingerprint in fingerprints.items():
+            try:
+                if fingerprint is None:
+                    # Fingerprint extraction failed
+                    stats['failed'] += 1
+                    # Mark as failed in database
+                    self.fingerprint_repo.update_status(track_id, 'failed', None)
+                else:
+                    # Success - store fingerprint
+                    self.fingerprint_repo.store_fingerprint(
+                        track_id,
+                        fingerprint['sub_bass_pct'],
+                        fingerprint['bass_pct'],
+                        fingerprint['low_mid_pct'],
+                        fingerprint['mid_pct'],
+                        fingerprint['upper_mid_pct'],
+                        fingerprint['presence_pct'],
+                        fingerprint['air_pct'],
+                        fingerprint['lufs'],
+                        fingerprint['crest_db'],
+                        fingerprint['bass_mid_ratio'],
+                        fingerprint['tempo_bpm'],
+                        fingerprint['rhythm_stability'],
+                        fingerprint['transient_density'],
+                        fingerprint['silence_ratio'],
+                        fingerprint['spectral_centroid'],
+                        fingerprint['spectral_rolloff'],
+                        fingerprint['spectral_flatness'],
+                        fingerprint['harmonic_ratio'],
+                        fingerprint['pitch_stability'],
+                        fingerprint['chroma_energy'],
+                        fingerprint['dynamic_range_variation'],
+                        fingerprint['loudness_variation_std'],
+                        fingerprint['peak_consistency'],
+                        fingerprint['stereo_width'],
+                        fingerprint['phase_correlation'],
+                    )
+                    self.fingerprint_repo.update_status(track_id, 'completed', datetime.now(timezone.utc).isoformat())
+                    stats['success'] += 1
+            except Exception as e:
+                error(f"Error storing fingerprint for track {track_id}: {e}")
+                stats['failed'] += 1
+
+        return stats
+
     def extract_batch(self, track_ids_paths: List[tuple], max_failures: int = 10) -> Dict[str, int]:
         """
         Extract fingerprints for multiple tracks in batch
