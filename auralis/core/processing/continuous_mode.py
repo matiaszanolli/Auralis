@@ -13,6 +13,8 @@ Generates optimal parameters from audio fingerprints.
 
 import numpy as np
 from typing import Dict, Any, Optional
+from auralis.core.config import UnifiedConfig
+from auralis.core.analysis import ContentAnalyzer
 from ...dsp.basic import rms, amplify
 from ...dsp.unified import (
     calculate_loudness_units, stereo_width_analysis, adjust_stereo_width
@@ -22,8 +24,7 @@ from .continuous_space import ProcessingSpaceMapper, PreferenceVector, Processin
 from .parameter_generator import ContinuousParameterGenerator
 from .base_processing_mode import (
     CompressionStrategies, ExpansionStrategies,
-    DBConversion, StereoWidthProcessor, ProcessingLogger,
-    SafetyLimiter, NormalizationStep
+    DBConversion, StereoWidthProcessor, SafetyLimiter
 )
 from ..recording_type_detector import RecordingTypeDetector
 
@@ -47,8 +48,8 @@ class ContinuousMode:
             fingerprint_analyzer: AudioFingerprintAnalyzer for 25D fingerprints
             recording_type_detector: Optional RecordingTypeDetector instance (shared from parent)
         """
-        self.config = config
-        self.content_analyzer = content_analyzer
+        self.config: UnifiedConfig = config
+        self.content_analyzer: ContentAnalyzer = content_analyzer
         self.fingerprint_analyzer = fingerprint_analyzer
 
         # Initialize continuous space components

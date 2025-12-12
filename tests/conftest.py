@@ -8,7 +8,8 @@ import sys
 import os
 from pathlib import Path
 import tempfile
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Callable, Any
+import shutil
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -204,6 +205,187 @@ def audio_pair():
     reference = create_audio(2.0, 44100, 440, 0.8)  # Loud
 
     return target, reference, 44100
+
+
+# ============================================================
+# Phase 5A: Repository Factory Fixtures (Test Suite Migration)
+# ============================================================
+
+@pytest.fixture
+def temp_test_db():
+    """Create a temporary database directory for testing.
+
+    Yields:
+        tuple: (database_path: str, temp_dir: Path)
+    """
+    temp_dir = Path(tempfile.mkdtemp(prefix="auralis_test_db_"))
+    db_path = str(temp_dir / "test_library.db")
+
+    yield db_path, temp_dir
+
+    # Cleanup
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def session_factory(temp_test_db):
+    """Create SQLAlchemy session factory for testing.
+
+    This fixture creates a temporary SQLite database and returns
+    a session factory for creating database sessions.
+
+    Yields:
+        Callable: SQLAlchemy sessionmaker instance
+    """
+    db_path, temp_dir = temp_test_db
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from auralis.library.models import Base
+
+    # Create engine with in-memory or file-based SQLite
+    engine = create_engine(f'sqlite:///{db_path}', connect_args={'check_same_thread': False})
+
+    # Create all tables
+    Base.metadata.create_all(engine)
+
+    # Create session factory
+    SessionLocal = sessionmaker(bind=engine)
+
+    yield SessionLocal
+
+    # Cleanup
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+
+
+@pytest.fixture
+def library_manager(temp_test_db):
+    """Create LibraryManager instance with temporary database.
+
+    This fixture provides backward compatibility for tests using
+    LibraryManager pattern. Use session_factory and repository_factory
+    for new tests.
+
+    Yields:
+        LibraryManager: Configured manager instance
+    """
+    from auralis.library.manager import LibraryManager
+
+    db_path, temp_dir = temp_test_db
+
+    manager = LibraryManager(database_path=db_path)
+    yield manager
+
+    # Cleanup
+    try:
+        # LibraryManager handles session cleanup internally
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+    except Exception:
+        pass
+
+
+@pytest.fixture
+def repository_factory(session_factory):
+    """Create RepositoryFactory instance for testing.
+
+    This is the Phase 5A fixture that enables the new repository
+    pattern in tests. Use this in new tests and migrated tests.
+
+    Args:
+        session_factory: SQLAlchemy session factory
+
+    Yields:
+        RepositoryFactory: Configured factory instance
+    """
+    from auralis.library.repositories.factory import RepositoryFactory
+
+    factory = RepositoryFactory(session_factory)
+
+    yield factory
+
+
+# Individual repository fixtures for convenience
+@pytest.fixture
+def track_repository(repository_factory):
+    """Get TrackRepository from factory for testing."""
+    return repository_factory.tracks
+
+
+@pytest.fixture
+def album_repository(repository_factory):
+    """Get AlbumRepository from factory for testing."""
+    return repository_factory.albums
+
+
+@pytest.fixture
+def artist_repository(repository_factory):
+    """Get ArtistRepository from factory for testing."""
+    return repository_factory.artists
+
+
+@pytest.fixture
+def genre_repository(repository_factory):
+    """Get GenreRepository from factory for testing."""
+    return repository_factory.genres
+
+
+@pytest.fixture
+def playlist_repository(repository_factory):
+    """Get PlaylistRepository from factory for testing."""
+    return repository_factory.playlists
+
+
+@pytest.fixture
+def fingerprint_repository(repository_factory):
+    """Get FingerprintRepository from factory for testing."""
+    return repository_factory.fingerprints
+
+
+@pytest.fixture
+def stats_repository(repository_factory):
+    """Get StatsRepository from factory for testing."""
+    return repository_factory.stats
+
+
+@pytest.fixture
+def settings_repository(repository_factory):
+    """Get SettingsRepository from factory for testing."""
+    return repository_factory.settings
+
+
+# Dual-mode testing fixture (Phase 5A)
+@pytest.fixture(params=["library_manager", "repository_factory"])
+def dual_mode_data_source(request, library_manager, repository_factory):
+    """Parametrized fixture providing both LibraryManager and RepositoryFactory modes.
+
+    Use this fixture to run tests in both modes, validating that both
+    LibraryManager and RepositoryFactory patterns work correctly.
+
+    Args:
+        request: pytest request object
+        library_manager: LibraryManager fixture
+        repository_factory: RepositoryFactory fixture
+
+    Yields:
+        Union[LibraryManager, RepositoryFactory]: Data source in current mode
+
+    Example:
+        def test_get_tracks_both_modes(dual_mode_data_source):
+            # Test automatically runs with both library_manager and repository_factory
+            source = dual_mode_data_source
+            if hasattr(source, 'tracks'):  # Check if it's a factory or manager
+                tracks, total = source.tracks.get_all(limit=10)
+    """
+    if request.param == "library_manager":
+        return library_manager
+    else:
+        return repository_factory
+
 
 # Pytest hooks and markers
 

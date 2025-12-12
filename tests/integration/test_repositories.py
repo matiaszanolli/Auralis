@@ -19,6 +19,7 @@ from auralis.library.repositories import (
     FingerprintRepository,
     PlaylistRepository,
 )
+from auralis.library.repositories.factory import RepositoryFactory
 from auralis.library.models import Track, Album, Artist, Genre, Playlist
 
 
@@ -348,3 +349,162 @@ class TestErrorHandling:
             except AttributeError:
                 # If it raises, that's expected for invalid fields
                 pass
+
+
+# ============================================================
+# Phase 5A: RepositoryFactory Pattern Tests
+# ============================================================
+
+@pytest.mark.integration
+class TestRepositoryFactory:
+    """Test RepositoryFactory for Phase 5A (Test Suite Migration).
+
+    These tests verify that the RepositoryFactory pattern enables
+    dependency injection of repositories in tests while maintaining
+    backward compatibility with static repository methods.
+    """
+
+    def test_factory_creation_via_fixture(self, repository_factory):
+        """Verify RepositoryFactory can be created from fixture."""
+        assert repository_factory is not None
+        assert isinstance(repository_factory, RepositoryFactory)
+
+    def test_factory_provides_all_repositories(self, repository_factory):
+        """Verify factory creates all repository instances."""
+        # Verify all repositories are accessible
+        assert repository_factory.tracks is not None
+        assert repository_factory.albums is not None
+        assert repository_factory.artists is not None
+        assert repository_factory.genres is not None
+        assert repository_factory.playlists is not None
+        assert repository_factory.fingerprints is not None
+        assert repository_factory.stats is not None
+        assert repository_factory.settings is not None
+
+    def test_factory_repositories_have_expected_methods(self, repository_factory):
+        """Verify factory-created repositories have expected methods."""
+        tracks_repo = repository_factory.tracks
+        albums_repo = repository_factory.albums
+        artists_repo = repository_factory.artists
+
+        # Verify key methods exist
+        assert hasattr(tracks_repo, 'get_by_id')
+        assert hasattr(tracks_repo, 'get_all')
+        assert hasattr(tracks_repo, 'search')
+        assert hasattr(tracks_repo, 'create')
+        assert hasattr(tracks_repo, 'update_metadata')
+
+        assert hasattr(albums_repo, 'get_by_id')
+        assert hasattr(albums_repo, 'get_all')
+        assert hasattr(albums_repo, 'update_artwork_path')
+
+        assert hasattr(artists_repo, 'get_by_id')
+        assert hasattr(artists_repo, 'get_all')
+
+    def test_factory_session_management(self, repository_factory):
+        """Verify factory manages sessions correctly."""
+        # Get objects from different repositories
+        track_repo = repository_factory.tracks
+        album_repo = repository_factory.albums
+
+        # Should be able to get IDs without errors
+        tracks, total_tracks = track_repo.get_all(limit=1)
+        albums, total_albums = album_repo.get_all(limit=1)
+
+        assert isinstance(total_tracks, int)
+        assert isinstance(total_albums, int)
+        assert total_tracks >= 0
+        assert total_albums >= 0
+
+    def test_factory_lazy_initialization(self, session_factory):
+        """Verify factory uses lazy initialization for repositories."""
+        factory = RepositoryFactory(session_factory)
+
+        # Verify repositories are not created until accessed
+        assert factory._track_repo is None
+        assert factory._album_repo is None
+
+        # Access one repository
+        _ = factory.tracks
+        assert factory._track_repo is not None
+        assert factory._album_repo is None  # Should still be None
+
+        # Access another
+        _ = factory.albums
+        assert factory._album_repo is not None
+
+    def test_factory_repository_caching(self, repository_factory):
+        """Verify factory caches repository instances."""
+        # Get repository twice
+        tracks_repo1 = repository_factory.tracks
+        tracks_repo2 = repository_factory.tracks
+
+        # Should be the same instance (cached)
+        assert tracks_repo1 is tracks_repo2
+
+    def test_factory_from_library_manager_session(self, library_manager):
+        """Verify factory works with LibraryManager's session factory."""
+        # Create factory from library manager's session factory
+        factory = RepositoryFactory(library_manager.SessionLocal)
+
+        # Verify it works
+        assert factory.tracks is not None
+        tracks, total = factory.tracks.get_all(limit=10)
+
+        assert isinstance(tracks, list)
+        assert isinstance(total, int)
+
+    def test_factory_multiple_instances_independent(self, session_factory):
+        """Verify multiple factory instances are independent."""
+        factory1 = RepositoryFactory(session_factory)
+        factory2 = RepositoryFactory(session_factory)
+
+        # Create two different factory instances
+        tracks_repo1 = factory1.tracks
+        tracks_repo2 = factory2.tracks
+
+        # They should be different instances
+        assert tracks_repo1 is not tracks_repo2
+
+        # But should both work
+        results1, total1 = tracks_repo1.get_all(limit=1)
+        results2, total2 = tracks_repo2.get_all(limit=1)
+
+        assert total1 == total2
+
+
+@pytest.mark.integration
+class TestDualModeCompatibility:
+    """Test backward compatibility between LibraryManager and RepositoryFactory.
+
+    These tests verify that both access patterns return equivalent results.
+    """
+
+    def test_static_and_factory_repositories_equivalent(self, repository_factory):
+        """Verify static and factory-based repository access are compatible."""
+        # Static method (old pattern)
+        tracks_static, total_static = TrackRepository.get_all(limit=5)
+
+        # Factory method (new pattern)
+        tracks_factory, total_factory = repository_factory.tracks.get_all(limit=5)
+
+        # Should have same total
+        assert total_static == total_factory
+
+        # Should have same number of results
+        assert len(tracks_static) == len(tracks_factory)
+
+    def test_library_manager_and_factory_equivalent(self, library_manager, repository_factory):
+        """Verify LibraryManager and RepositoryFactory return equivalent results."""
+        # Get results from LibraryManager
+        tracks_manager, total_manager = library_manager.tracks.get_all(limit=5)
+
+        # Get results from RepositoryFactory
+        tracks_factory, total_factory = repository_factory.tracks.get_all(limit=5)
+
+        # Should have same total
+        assert total_manager == total_factory
+
+        # Should have same data
+        if tracks_manager and tracks_factory:
+            assert len(tracks_manager) == len(tracks_factory)

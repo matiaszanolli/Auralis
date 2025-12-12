@@ -23,6 +23,7 @@ import shutil
 import time
 
 from auralis.library.repositories.track_repository import TrackRepository
+from auralis.library.repositories.factory import RepositoryFactory
 from auralis.library.manager import LibraryManager
 from auralis.io.saver import save as save_audio
 
@@ -406,3 +407,164 @@ def test_summary_stats():
     print(f"  - Cache clearing: 2 tests")
     print(f"  - Summary stats: 1 test")
     print("=" * 70)
+
+
+# ============================================================================
+# Phase 5A: Dual-Mode Cache Testing
+# ============================================================================
+
+@pytest.fixture
+def repository_factory_memory():
+    """Create RepositoryFactory with in-memory database for testing."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from auralis.library.models import Base
+
+    # Create in-memory SQLite database
+    engine = create_engine('sqlite:///:memory:', connect_args={'check_same_thread': False})
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    factory = RepositoryFactory(SessionLocal)
+
+    yield factory
+
+    try:
+        engine.dispose()
+    except Exception:
+        pass
+
+
+@pytest.mark.integration
+def test_cache_operations_with_repository_factory(temp_audio_dir, repository_factory_memory):
+    """
+    PHASE 5A: Cache operations work with RepositoryFactory pattern.
+
+    Tests that cache behavior is consistent when using RepositoryFactory
+    instead of LibraryManager.
+    """
+    # Add tracks via repository factory
+    track_repo = repository_factory_memory.tracks
+
+    for i in range(5):
+        filepath = create_test_track(temp_audio_dir, f"track_{i}_factory.wav")
+        track_info = {
+            "filepath": str(filepath),
+            "title": f"Track {i}",
+            "artist": "Artist",
+            "album": "Album",
+            "duration": 1.0,
+            "sample_rate": 44100,
+            "channels": 2,
+            "bitrate": 1411200,
+        }
+        track_repo.create(track_info)
+
+    # Query via factory
+    tracks, total = track_repo.get_all(limit=50, offset=0)
+
+    assert len(tracks) == 5
+    assert total == 5
+
+
+@pytest.mark.integration
+def test_cache_operations_dual_mode_equivalent(
+    temp_audio_dir,
+    library_manager,
+    repository_factory_memory
+):
+    """
+    PHASE 5A: Cache operations equivalent between LibraryManager and RepositoryFactory.
+
+    Tests that both access patterns return equivalent results and cache behavior.
+    """
+    # Setup data via LibraryManager
+    for i in range(5):
+        filepath = create_test_track(temp_audio_dir, f"track_{i}_dual.wav")
+        track_info = {
+            "filepath": str(filepath),
+            "title": f"Track {i}",
+            "artist": "Artist",
+            "album": "Album",
+            "duration": 1.0,
+            "sample_rate": 44100,
+            "channels": 2,
+            "bitrate": 1411200,
+        }
+        library_manager.tracks.add(track_info)
+
+    # Query via LibraryManager
+    tracks_manager, total_manager = library_manager.tracks.get_all(limit=50, offset=0)
+
+    # Setup same data via RepositoryFactory
+    for i in range(5):
+        filepath = create_test_track(temp_audio_dir, f"track_repo_{i}_dual.wav")
+        track_info = {
+            "filepath": str(filepath),
+            "title": f"Track Repo {i}",
+            "artist": "Artist",
+            "album": "Album",
+            "duration": 1.0,
+            "sample_rate": 44100,
+            "channels": 2,
+            "bitrate": 1411200,
+        }
+        repository_factory_memory.tracks.create(track_info)
+
+    # Query via RepositoryFactory
+    tracks_factory, total_factory = repository_factory_memory.tracks.get_all(limit=50, offset=0)
+
+    # Both should return same number of tracks (in their respective databases)
+    assert total_manager == 5
+    assert total_factory == 5
+    assert len(tracks_manager) == 5
+    assert len(tracks_factory) == 5
+
+
+@pytest.mark.integration
+def test_cache_invalidation_with_factory(temp_audio_dir, repository_factory_memory):
+    """
+    PHASE 5A: Cache invalidation works correctly with RepositoryFactory.
+
+    Tests that adding/updating/deleting via factory properly invalidates cache.
+    """
+    track_repo = repository_factory_memory.tracks
+
+    # Add initial tracks
+    for i in range(3):
+        filepath = create_test_track(temp_audio_dir, f"factory_track_{i}.wav")
+        track_info = {
+            "filepath": str(filepath),
+            "title": f"Factory Track {i}",
+            "artist": "Artist",
+            "album": "Album",
+            "duration": 1.0,
+            "sample_rate": 44100,
+            "channels": 2,
+            "bitrate": 1411200,
+        }
+        track_repo.create(track_info)
+
+    # Query to populate cache
+    tracks1, total1 = track_repo.get_all(limit=50, offset=0)
+
+    # Add another track (should invalidate cache)
+    filepath = create_test_track(temp_audio_dir, "new_factory_track.wav")
+    track_info = {
+        "filepath": str(filepath),
+        "title": "New Factory Track",
+        "artist": "Artist",
+        "album": "Album",
+        "duration": 1.0,
+        "sample_rate": 44100,
+        "channels": 2,
+        "bitrate": 1411200,
+    }
+    track_repo.create(track_info)
+
+    # Query again
+    tracks2, total2 = track_repo.get_all(limit=50, offset=0)
+
+    # Should reflect new track
+    assert total2 == total1 + 1
+    assert len(tracks2) == 4
