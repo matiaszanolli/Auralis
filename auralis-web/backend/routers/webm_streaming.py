@@ -27,6 +27,7 @@ Architecture:
 
 from fastapi import APIRouter, HTTPException, Response, Query
 from pydantic import BaseModel
+from typing import Callable, Optional, Any
 import logging
 import os
 import math
@@ -34,6 +35,7 @@ import time
 
 # Import WAV encoder (replacing WebM for browser compatibility)
 from encoding.wav_encoder import encode_to_wav, WAVEncoderError
+from .dependencies import require_library_manager, require_repository_factory
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["webm-streaming"])
@@ -59,11 +61,12 @@ class StreamMetadata(BaseModel):
 
 
 def create_webm_streaming_router(
-    get_library_manager,
-    get_multi_tier_buffer,
-    chunked_audio_processor_class,
+    get_library_manager: Callable[[], Any],
+    get_multi_tier_buffer: Callable[[], Any],
+    chunked_audio_processor_class: Any,
     chunk_duration: int = 10,
-    chunk_interval: int = 10
+    chunk_interval: int = 10,
+    get_repository_factory: Optional[Callable[[], Any]] = None
 ):
     """
     Factory function to create unified WebM streaming router with dependencies.
@@ -76,10 +79,23 @@ def create_webm_streaming_router(
         chunked_audio_processor_class: ChunkedAudioProcessor class (now outputs WebM)
         chunk_duration: Duration of each chunk in seconds (default: 10, reduced from 30s for Phase 2)
         chunk_interval: Interval between chunk starts in seconds (default: 10, same as duration for no overlap)
+        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         APIRouter: Configured router instance
+
+    Note:
+        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
     """
+
+    def get_repos() -> Any:
+        """Get repository factory or LibraryManager for accessing repositories."""
+        if get_repository_factory:
+            try:
+                return require_repository_factory(get_repository_factory)
+            except (TypeError, AttributeError):
+                pass
+        return require_library_manager(get_library_manager)
 
     @router.get("/api/stream/{track_id}/metadata", response_model=StreamMetadata)
     async def get_stream_metadata(track_id: int):
@@ -100,13 +116,10 @@ def create_webm_streaming_router(
         Raises:
             HTTPException: If library not available or track not found
         """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library not available")
-
         try:
+            repos = get_repos()
             # Get track from library
-            track = library_manager.tracks.get_by_id(track_id)
+            track = repos.tracks.get_by_id(track_id)
             if not track:
                 raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
 
@@ -213,15 +226,12 @@ def create_webm_streaming_router(
         """
         start_time = time.time()
 
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library not available")
-
         multi_tier_buffer = get_multi_tier_buffer()
 
         try:
+            repos = get_repos()
             # Get track from library
-            track = library_manager.tracks.get_by_id(track_id)
+            track = repos.tracks.get_by_id(track_id)
             if not track:
                 raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
 
