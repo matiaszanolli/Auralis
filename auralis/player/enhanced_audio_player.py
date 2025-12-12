@@ -30,6 +30,7 @@ from .queue_controller import QueueController
 from .gapless_playback_engine import GaplessPlaybackEngine
 from .integration_manager import IntegrationManager
 from ..library.manager import LibraryManager
+from ..library.repositories.factory import RepositoryFactory
 from ..utils.logging import debug, info, warning, error
 
 # Backward compatibility alias for old test code
@@ -56,23 +57,26 @@ class EnhancedAudioPlayer:
     - Performance monitoring and statistics
 
     API compatible with original EnhancedAudioPlayer.
+    Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
     """
 
     def __init__(
         self,
         config: Optional[PlayerConfig] = None,
-        library_manager: Optional[LibraryManager] = None
+        library_manager: Optional[LibraryManager] = None,
+        get_repository_factory: Optional[Callable[[], Any]] = None
     ) -> None:
         """Initialize the enhanced audio player with components"""
         if config is None:
             config = PlayerConfig()
 
         self.config = config
+        self.get_repository_factory = get_repository_factory
 
         # Initialize components
         self.playback = PlaybackController()
         self.file_manager = AudioFileManager(config.sample_rate)
-        self.queue = QueueController(library_manager)
+        self.queue = QueueController(library_manager, get_repository_factory)
         self.processor = RealtimeProcessor(config)
         self.gapless = GaplessPlaybackEngine(self.file_manager, self.queue)
         self.integration = IntegrationManager(
@@ -80,13 +84,14 @@ class EnhancedAudioPlayer:
             self.file_manager,
             self.queue,
             self.processor,
-            library_manager
+            library_manager,
+            get_repository_factory
         )
 
         # Control flags
         self.auto_advance = True
 
-        info("Enhanced AudioPlayer initialized (refactored architecture)")
+        info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled)")
 
     # ========== Playback Control (delegates to PlaybackController) ==========
 

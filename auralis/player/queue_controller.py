@@ -10,9 +10,10 @@ Responsibilities:
 - Playlist loading
 """
 
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, Callable
 from .components import QueueManager
 from ..library.manager import LibraryManager
+from ..library.repositories.factory import RepositoryFactory
 from ..utils.logging import info, warning, error
 
 
@@ -22,11 +23,28 @@ class QueueController:
 
     Decoupled from playback state, audio I/O, and prebuffering.
     Only responsible for queue operations and track sequencing.
+    Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
     """
 
-    def __init__(self, library_manager: Optional[LibraryManager] = None) -> None:
+    def __init__(
+        self,
+        library_manager: Optional[LibraryManager] = None,
+        get_repository_factory: Optional[Callable[[], Any]] = None
+    ) -> None:
         self.queue: Any = QueueManager()  # type: ignore[no-untyped-call]
         self.library: LibraryManager = library_manager or LibraryManager()
+        self.get_repository_factory = get_repository_factory
+
+    def _get_repos(self) -> Any:
+        """Get repository factory or LibraryManager for data access."""
+        if self.get_repository_factory:
+            try:
+                factory = self.get_repository_factory()
+                if factory:
+                    return factory
+            except (TypeError, AttributeError):
+                pass
+        return self.library
 
     # Backward compatibility properties for old test code
     @property
@@ -126,7 +144,8 @@ class QueueController:
             bool: True if successful
         """
         try:
-            track = self.library.get_track(track_id)
+            repos = self._get_repos()
+            track = repos.tracks.get_by_id(track_id)
             if track:
                 self.add_track(track.to_dict())
                 return True
@@ -143,7 +162,8 @@ class QueueController:
             Number of tracks added
         """
         try:
-            tracks = self.library.search_tracks(query, limit)
+            repos = self._get_repos()
+            tracks, _ = repos.tracks.search(query, limit=limit)
             for track in tracks:
                 self.add_track(track.to_dict())
             info(f"Added {len(tracks)} tracks to queue from search: {query}")
@@ -164,7 +184,8 @@ class QueueController:
             bool: True if successful
         """
         try:
-            playlist = self.library.get_playlist(playlist_id)
+            repos = self._get_repos()
+            playlist = repos.playlists.get_by_id(playlist_id)
             if not playlist:
                 error(f"Playlist not found: {playlist_id}")
                 return False
