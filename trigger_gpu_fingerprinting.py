@@ -46,6 +46,8 @@ Note:
 import sys
 import logging
 import gc
+import os
+import psutil
 from pathlib import Path
 from typing import Optional, Set
 from threading import Lock, Thread
@@ -67,7 +69,12 @@ class SimpleBatchWorker:
     - Mark them with fingerprint_started_at timestamp
     - If not finished within 5 minutes, tracks become available again
     - No queue duplication, natural rate limiting, no shared state
+    - Memory-aware: Throttles workers when system memory pressure is high
     """
+
+    # Memory pressure limits
+    MEMORY_PRESSURE_SOFT_LIMIT = 75.0  # Pause new workers if memory > 75%
+    MEMORY_PRESSURE_HARD_LIMIT = 85.0  # Pause ALL workers if memory > 85%
 
     def __init__(self, library_manager, fingerprint_extractor, num_workers=2, max_tracks=None, skip_track_ids: Optional[Set[int]] = None):
         self.library = library_manager
@@ -83,9 +90,33 @@ class SimpleBatchWorker:
             'total_success': 0,
             'total_failed': 0,
             'skipped_cached': 0,  # Tracks skipped because they have valid .25d files
+            'throttled_due_to_memory': 0,  # Tracks that were throttled due to memory pressure
         }
         self.stats_lock = Lock()
         self.stop_flag = False
+
+    def _check_memory_pressure(self) -> float:
+        """
+        Check system memory pressure.
+
+        Returns:
+            Memory usage percentage (0-100)
+        """
+        try:
+            return psutil.virtual_memory().percent
+        except Exception as e:
+            logger.warning(f"Failed to check memory pressure: {e}")
+            return 0.0
+
+    def _should_throttle_workers(self) -> bool:
+        """
+        Check if workers should be throttled due to memory pressure.
+
+        Returns:
+            True if workers should throttle/pause, False otherwise
+        """
+        memory_percent = self._check_memory_pressure()
+        return memory_percent >= self.MEMORY_PRESSURE_HARD_LIMIT
 
     def _get_next_batch(self):
         """Grab next 5 unprocessed tracks with ATOMIC claiming to prevent race conditions"""
@@ -186,6 +217,16 @@ class SimpleBatchWorker:
                 logger.info(f"👷 Worker {worker_id}: Reached max_tracks limit ({self.max_tracks})")
                 break
 
+            # CRITICAL: Check memory pressure - pause workers to prevent OOM crashes
+            # If memory usage > 85%, all workers pause until memory is freed (GC or I/O completion)
+            memory_percent = self._check_memory_pressure()
+            if memory_percent >= self.MEMORY_PRESSURE_HARD_LIMIT:
+                logger.warning(f"⚠️  Worker {worker_id}: Memory pressure {memory_percent:.1f}% >= {self.MEMORY_PRESSURE_HARD_LIMIT}% - pausing")
+                with self.stats_lock:
+                    self.stats['throttled_due_to_memory'] += 1
+                time.sleep(3)  # Wait for memory to be freed by other workers completing I/O
+                continue
+
             batch = self._get_next_batch()
 
             if not batch:
@@ -270,12 +311,15 @@ class SimpleBatchWorker:
                 with self.stats_lock:
                     elapsed = time.time() - start_time
                     rate = self.stats['total_processed'] / elapsed if elapsed > 0 else 0
+                    memory_percent = self._check_memory_pressure()
 
                     logger.info(
                         f"Progress: {self.stats['total_processed']:6d} | "
                         f"Success: {self.stats['total_success']:6d} | "
                         f"Failed: {self.stats['total_failed']:3d} | "
                         f"Skipped(cached): {self.stats['skipped_cached']:6d} | "
+                        f"Throttled(mem): {self.stats['throttled_due_to_memory']:3d} | "
+                        f"Memory: {memory_percent:5.1f}% | "
                         f"Rate: {rate:6.2f} tracks/s"
                     )
 
@@ -460,6 +504,9 @@ def trigger_fingerprinting(max_tracks: Optional[int] = None) -> None:
             logger.info(f"Total success: {stats['total_success']}")
             logger.info(f"Total failed: {stats['total_failed']}")
             logger.info(f"Total skipped (cached .25d): {stats['skipped_cached']}")
+            if stats['throttled_due_to_memory'] > 0:
+                logger.info(f"Total throttled (memory pressure): {stats['throttled_due_to_memory']}")
+                logger.info(f"  ℹ️  Workers paused when memory > {SimpleBatchWorker.MEMORY_PRESSURE_HARD_LIMIT}% to prevent OOM")
 
     except Exception as e:
         logger.error(f"❌ Error during fingerprinting: {e}", exc_info=True)

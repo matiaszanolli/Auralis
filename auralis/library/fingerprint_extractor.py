@@ -285,6 +285,7 @@ class FingerprintExtractor:
             True if successful, False otherwise
         """
         import time
+        import os
         try:
             start_time = time.time()
             filepath_obj = Path(filepath)
@@ -316,8 +317,21 @@ class FingerprintExtractor:
                         return False
 
                 # Python fallback enabled: If Rust server fails, fall back to Python analyzer
+                # CRITICAL: Skip Python fallback for large files to prevent OOM crashes
+                # Large FLAC files (>300MB) uncompresses to 1.8-3.6GB, causing peak memory usage
+                # of 32-48GB with 16 concurrent workers. Rust server uses efficient Claxon
+                # decoder (200-300MB), so just skip Python fallback for large files.
                 if not fingerprint:
-                    # Fall back to Python analyzer (slower but reliable)
+                    file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
+
+                    # Hard limit: Skip Python fallback for files > 300MB to prevent OOM
+                    if file_size_mb > 300:
+                        warning(f"Skipping Python fallback for large file ({file_size_mb:.1f}MB): {filepath}")
+                        warning(f"Track {track_id} requires Rust server (Claxon decoder more efficient)")
+                        # Return False to mark as failed and re-queue if Rust server wasn't available
+                        return False
+
+                    # Fall back to Python analyzer (slower but reliable for small files)
                     debug(f"Using Python analyzer for fingerprint: {filepath}")
                     debug(f"Loading audio for fingerprint: {filepath}")
                     audio, sr = load_audio(filepath)
