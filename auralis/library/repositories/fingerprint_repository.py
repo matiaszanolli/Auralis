@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
 from ..models import TrackFingerprint, Track
+from ..fingerprint_quantizer import FingerprintQuantizer
 from ...utils.logging import info, warning, error, debug
 
 
@@ -496,3 +497,123 @@ class FingerprintRepository:
         finally:
             session.expunge_all()
             session.close()
+
+    def store_fingerprint(
+        self,
+        track_id: int,
+        sub_bass_pct: float, bass_pct: float, low_mid_pct: float, mid_pct: float,
+        upper_mid_pct: float, presence_pct: float, air_pct: float,
+        lufs: float, crest_db: float, bass_mid_ratio: float,
+        tempo_bpm: float, rhythm_stability: float, transient_density: float, silence_ratio: float,
+        spectral_centroid: float, spectral_rolloff: float, spectral_flatness: float,
+        harmonic_ratio: float, pitch_stability: float, chroma_energy: float,
+        dynamic_range_variation: float, loudness_variation_std: float, peak_consistency: float,
+        stereo_width: float, phase_correlation: float,
+    ) -> Optional[TrackFingerprint]:
+        """
+        Store fingerprint with automatic quantization (Phase 3A).
+
+        Stores both the quantized blob (25 bytes) and the float values for backward compatibility.
+
+        Args:
+            track_id: Track ID
+            (25 float parameters for each fingerprint dimension)
+
+        Returns:
+            TrackFingerprint object if successful, None if failed
+        """
+        try:
+            # Build fingerprint dict
+            fingerprint_dict = {
+                'sub_bass_pct': sub_bass_pct, 'bass_pct': bass_pct, 'low_mid_pct': low_mid_pct,
+                'mid_pct': mid_pct, 'upper_mid_pct': upper_mid_pct, 'presence_pct': presence_pct,
+                'air_pct': air_pct, 'lufs': lufs, 'crest_db': crest_db, 'bass_mid_ratio': bass_mid_ratio,
+                'tempo_bpm': tempo_bpm, 'rhythm_stability': rhythm_stability, 'transient_density': transient_density,
+                'silence_ratio': silence_ratio, 'spectral_centroid': spectral_centroid,
+                'spectral_rolloff': spectral_rolloff, 'spectral_flatness': spectral_flatness,
+                'harmonic_ratio': harmonic_ratio, 'pitch_stability': pitch_stability, 'chroma_energy': chroma_energy,
+                'dynamic_range_variation': dynamic_range_variation, 'loudness_variation_std': loudness_variation_std,
+                'peak_consistency': peak_consistency, 'stereo_width': stereo_width, 'phase_correlation': phase_correlation,
+            }
+
+            # Quantize fingerprint
+            quantized_blob = FingerprintQuantizer.quantize(fingerprint_dict)
+
+            # Store both blob and float values
+            import sqlite3
+            from pathlib import Path
+
+            db_path = Path.home() / '.auralis' / 'library.db'
+            conn = sqlite3.connect(str(db_path))
+            cursor = conn.cursor()
+
+            try:
+                # Use INSERT OR REPLACE to store both quantized blob and float values
+                cols = list(fingerprint_dict.keys())
+                placeholders = ', '.join(['?'] * len(cols))
+                cols_str = ', '.join(cols)
+                vals = [fingerprint_dict[col] for col in cols]
+
+                sql = f"""
+                    INSERT OR REPLACE INTO track_fingerprints
+                    (track_id, {cols_str}, fingerprint_blob, fingerprint_version)
+                    VALUES (?, {placeholders}, ?, 1)
+                """
+                cursor.execute(sql, [track_id] + vals + [quantized_blob])
+                conn.commit()
+
+                info(f"Stored fingerprint for track {track_id} (quantized blob: 25 bytes)")
+                return fingerprint_dict
+
+            finally:
+                cursor.close()
+                conn.close()
+
+        except Exception as e:
+            error(f"Failed to store fingerprint for track {track_id}: {e}")
+            return None
+
+    def update_status(self, track_id: int, status: str, completed_at: Optional[str] = None) -> bool:
+        """
+        Update fingerprint processing status for a track.
+
+        Args:
+            track_id: Track ID
+            status: Status ('completed' or 'failed')
+            completed_at: ISO timestamp when processing completed (for completed status)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            import sqlite3
+            from pathlib import Path
+
+            db_path = Path.home() / '.auralis' / 'library.db'
+            conn = sqlite3.connect(str(db_path))
+            cursor = conn.cursor()
+
+            try:
+                if status == 'completed':
+                    cursor.execute(
+                        """UPDATE track_fingerprints
+                           SET fingerprint_status = ?, fingerprint_computed_at = ?, fingerprint_started_at = NULL
+                           WHERE track_id = ?""",
+                        (status, completed_at, track_id)
+                    )
+                else:
+                    cursor.execute(
+                        """UPDATE track_fingerprints
+                           SET fingerprint_status = ?, fingerprint_started_at = NULL
+                           WHERE track_id = ?""",
+                        (status, track_id)
+                    )
+                conn.commit()
+                return True
+            finally:
+                cursor.close()
+                conn.close()
+
+        except Exception as e:
+            error(f"Failed to update status for track {track_id}: {e}")
+            return False
