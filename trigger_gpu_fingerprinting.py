@@ -51,7 +51,7 @@ import psutil
 import json
 import tempfile
 from pathlib import Path
-from typing import Optional, Set, Dict
+from typing import Optional, Set, Dict, List
 from threading import Lock, Thread
 import time
 
@@ -295,6 +295,31 @@ class SimpleBatchWorker:
         """
         memory_percent = self._check_memory_pressure()
         return memory_percent >= self.MEMORY_PRESSURE_HARD_LIMIT
+
+    def _extract_batch_async(self, worker_id: int, batch: List[tuple]) -> Dict[int, int]:
+        """
+        Extract fingerprints for a batch using async concurrent requests (Phase 3D).
+
+        Runs the async extraction from within a worker thread using asyncio.run().
+        This enables true concurrent HTTP requests to the Rust server.
+
+        Args:
+            worker_id: Worker thread ID for logging
+            batch: List of (track_id, filepath) tuples
+
+        Returns:
+            Dictionary with counts: {'success': N, 'failed': M}
+        """
+        import asyncio
+
+        try:
+            # Use asyncio.run() to execute async code from threaded context
+            # Creates a fresh event loop, runs the concurrent extraction, then closes the loop
+            stats = asyncio.run(self.extractor.extract_batch_concurrent(batch, batch_size=5))
+            return stats
+        except Exception as e:
+            logger.error(f"❌ Worker {worker_id}: Error in async batch extraction: {e}")
+            return {'success': 0, 'failed': len(batch)}
 
     def _get_cached_fingerprint(self, worker_id: int, filepath: str) -> Optional[bool]:
         """
