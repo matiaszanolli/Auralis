@@ -309,6 +309,33 @@ def repository_factory(session_factory):
     yield factory
 
 
+@pytest.fixture
+def get_repository_factory_callable(repository_factory):
+    """Return a callable that provides RepositoryFactory (for DI pattern).
+
+    This fixture enables dependency injection pattern where components
+    accept a callable that returns a RepositoryFactory instance.
+    This is used in Phase 5 test migration to pass the factory to
+    refactored components like QueueController, IntegrationManager, etc.
+
+    Args:
+        repository_factory: RepositoryFactory fixture
+
+    Returns:
+        Callable: Function that returns the RepositoryFactory instance
+
+    Example:
+        def test_queue_controller(get_repository_factory_callable):
+            controller = QueueController(get_repository_factory_callable)
+            # controller now has access to repositories via factory
+    """
+    def _get_factory():
+        """Get repository factory instance."""
+        return repository_factory
+
+    return _get_factory
+
+
 # Individual repository fixtures for convenience
 @pytest.fixture
 def track_repository(repository_factory):
