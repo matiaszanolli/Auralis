@@ -414,6 +414,73 @@ def dual_mode_data_source(request, library_manager, repository_factory):
         return repository_factory
 
 
+# ============================================================
+# Phase 5B.2: E2E Testing Fixtures
+# ============================================================
+
+@pytest.fixture
+def temp_library(temp_test_db):
+    """Create temporary library for E2E tests with separate audio directory.
+
+    This fixture is used by integration tests that need to create test audio
+    files and access them through a LibraryManager instance.
+
+    Yields:
+        tuple: (library_manager, audio_dir, temp_dir)
+            - library_manager: LibraryManager instance with test database
+            - audio_dir: Path to directory for test audio files
+            - temp_dir: Root temporary directory path
+
+    Example:
+        def test_e2e_workflow(temp_library):
+            manager, audio_dir, temp_dir = temp_library
+            # Create and process audio files in audio_dir
+            # Use manager to add/query tracks
+    """
+    db_path, temp_dir = temp_test_db
+    audio_dir = str(temp_dir / "audio")
+    os.makedirs(audio_dir, exist_ok=True)
+
+    manager = LibraryManager(database_path=str(db_path))
+
+    yield manager, audio_dir, str(temp_dir)
+
+
+@pytest.fixture
+def sample_audio_file(temp_library):
+    """Create a sample audio file for E2E testing.
+
+    Generates a 3-second stereo 440 Hz tone in WAV format.
+
+    Args:
+        temp_library: temp_library fixture providing audio directory
+
+    Returns:
+        str: Path to the created audio file
+
+    Example:
+        def test_audio_workflow(sample_audio_file):
+            assert os.path.exists(sample_audio_file)
+            # Use audio file in tests
+    """
+    _, audio_dir, _ = temp_library
+
+    # Generate 3-second stereo audio (440 Hz tone)
+    duration = 3.0
+    sample_rate = 44100
+    num_samples = int(duration * sample_rate)
+
+    t = np.linspace(0, duration, num_samples)
+    audio = np.sin(2 * np.pi * 440.0 * t) * 0.5
+    audio = np.column_stack([audio, audio])  # Stereo
+
+    filepath = os.path.join(audio_dir, "test_track.wav")
+    from auralis.io.saver import save as save_audio
+    save_audio(filepath, audio, sample_rate, subtype='PCM_16')
+
+    return filepath
+
+
 # Pytest hooks and markers
 
 def pytest_configure(config):

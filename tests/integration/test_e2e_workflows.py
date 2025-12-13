@@ -28,8 +28,6 @@ See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
 import pytest
-import numpy as np
-import tempfile
 import os
 import time
 from pathlib import Path
@@ -40,50 +38,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.library.manager import LibraryManager
 from auralis.library.models import Track
-from auralis.io.saver import save as save_audio
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 
 
-# ============================================================================
-# Fixtures
-# ============================================================================
-
-@pytest.fixture
-def temp_library():
-    """Create temporary library for E2E tests."""
-    temp_dir = tempfile.mkdtemp()
-    db_path = os.path.join(temp_dir, "test_library.db")
-    audio_dir = os.path.join(temp_dir, "audio")
-    os.makedirs(audio_dir, exist_ok=True)
-
-    manager = LibraryManager(database_path=db_path)
-
-    yield manager, audio_dir, temp_dir
-
-    # Cleanup
-    import shutil
-    shutil.rmtree(temp_dir, ignore_errors=True)
-
-
-@pytest.fixture
-def sample_audio_file(temp_library):
-    """Create a sample audio file for testing."""
-    _, audio_dir, _ = temp_library
-
-    # Generate 3-second stereo audio (440 Hz tone)
-    duration = 3.0
-    sample_rate = 44100
-    num_samples = int(duration * sample_rate)
-
-    t = np.linspace(0, duration, num_samples)
-    audio = np.sin(2 * np.pi * 440.0 * t) * 0.5
-    audio = np.column_stack([audio, audio])  # Stereo
-
-    filepath = os.path.join(audio_dir, "test_track.wav")
-    save_audio(filepath, audio, sample_rate, subtype='PCM_16')
-
-    return filepath
+# Fixtures are now provided by conftest.py:
+# - temp_library: Creates temporary library with audio directory
+# - sample_audio_file: Creates sample 440 Hz tone WAV file
+#
+# Phase 5B.2: Consolidated fixtures for broader test reuse
 
 
 # ============================================================================
