@@ -178,8 +178,4 @@ def player_config():
     """
     from auralis.player.config import PlayerConfig
 
-    return PlayerConfig(
-        buffer_size=1024,
-        sample_rate=44100,
-        channels=2
-    )
+    return PlayerConfig()
