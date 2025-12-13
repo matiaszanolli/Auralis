@@ -337,7 +337,31 @@ npm run test -- -t "Player"
 # IMPORTANT: Run with memory management for CI
 npm run test:memory
 # This sets 2GB heap to prevent OOM
+
+# Run tests from backend (Phase 5 fixtures)
+# Frontend tests can use backend fixtures for integration testing
+pytest tests/ -v  # Backend includes Phase 5 fixture patterns
 ```
+
+### Phase 5: Frontend & Backend Test Integration
+
+**Phase 5 Complete - Test Suite Migration**
+
+The entire test infrastructure now uses a comprehensive **pytest fixture hierarchy** with **RepositoryFactory pattern** for dependency injection. This benefits both backend and frontend testing:
+
+**Fixture Organization:**
+- **Main fixtures** (`tests/conftest.py`) - Available to all tests
+- **Backend fixtures** (`tests/backend/conftest.py`) - API endpoint testing
+- **Player fixtures** (`tests/auralis/player/conftest.py`) - Player component testing
+- **Performance fixtures** (`tests/performance/conftest.py`) - Load and performance testing
+
+**Key Patterns:**
+- ✅ **Dependency Injection** - Components receive callables for factory access
+- ✅ **Parametrized Testing** - Single test runs with both LibraryManager and RepositoryFactory
+- ✅ **Fixture Composition** - Fixtures build on each other in clean hierarchy
+- ✅ **Automatic Cleanup** - No manual setUp/tearDown needed
+
+See [DEVELOPMENT_SETUP_BACKEND.md](DEVELOPMENT_SETUP_BACKEND.md#testing-with-phase-5-fixtures-pytest) for complete fixture documentation and examples.
 
 ### Building for Production
 

@@ -533,6 +533,272 @@ sqlite> .quit
 
 ---
 
+## Testing with Phase 5 Fixtures (Pytest)
+
+**Phase 5 Complete Test Suite Migration - ✅ COMPLETE**
+
+The backend test suite has been migrated to use the **RepositoryFactory pattern** with comprehensive pytest fixtures for dependency injection. This enables:
+- ✅ Cleaner test code without direct database initialization
+- ✅ Automatic cleanup between tests
+- ✅ Parametrized dual-mode testing (both LibraryManager and RepositoryFactory patterns)
+- ✅ Better test isolation and fixture reuse
+
+### Available Fixtures (20+ in hierarchy)
+
+**Main Test Fixtures** (`tests/conftest.py`):
+```python
+# Dependency injection pattern
+get_repository_factory_callable  # DI callable that returns RepositoryFactory
+repository_factory              # RepositoryFactory instance for tests
+library_manager                 # LibraryManager for backward compatibility
+track_repository                # Direct access to TrackRepository
+album_repository                # Direct access to AlbumRepository
+artist_repository               # Direct access to ArtistRepository
+playlist_repository             # Direct access to PlaylistRepository
+fingerprint_repository          # Direct access to FingerprintRepository
+# ... and 3 more repository fixtures
+```
+
+**Backend API Test Fixtures** (`tests/backend/conftest.py`):
+```python
+# Mock fixtures for API endpoint testing
+mock_repository_factory         # Mock RepositoryFactory for routers
+mock_repository_factory_callable # Mock callable for DI pattern
+mock_data_source               # Parametrized dual-mode fixture (runs tests twice)
+client                         # FastAPI TestClient
+event_loop                     # Async event loop for async tests
+```
+
+**Player Component Fixtures** (`tests/auralis/player/conftest.py`):
+```python
+queue_controller               # QueueController with DI
+playback_controller            # PlaybackController for state tests
+audio_file_manager             # AudioFileManager for file I/O tests
+realtime_processor             # RealtimeProcessor for DSP tests
+gapless_playback_engine        # GaplessPlaybackEngine for playback tests
+integration_manager            # IntegrationManager with all components
+enhanced_player                # EnhancedAudioPlayer main facade
+player_config                  # PlayerConfig for configuration tests
+```
+
+**Performance Test Fixtures** (`tests/performance/conftest.py`):
+```python
+performance_data_source        # Dual-mode performance testing
+populated_data_source          # Large dataset (1000 tracks) for load tests
+timer                          # Timer context manager for benchmarking
+```
+
+### Using Phase 5 Fixtures in Tests
+
+**Example 1: Simple Repository Test**
+```python
+def test_track_creation(track_repository):
+    """Test creating a track using repository fixture."""
+    track = track_repository.add({
+        'filepath': '/tmp/test.wav',
+        'title': 'Test Track',
+        'artists': ['Test Artist'],
+        'sample_rate': 44100
+    })
+    assert track.id is not None
+    assert track.title == 'Test Track'
+```
+
+**Example 2: Player Component Test**
+```python
+def test_enhanced_player_initialization(enhanced_player, player_config):
+    """Test player initialization with fixtures."""
+    assert enhanced_player is not None
+    assert player_config.buffer_size > 0
+    # No setup/teardown needed - fixtures handle cleanup
+```
+
+**Example 3: Dual-Mode Testing (Both Patterns)**
+```python
+@pytest.mark.phase5c
+def test_get_tracks_both_modes(mock_data_source):
+    """Test works with both LibraryManager and RepositoryFactory."""
+    mode, source = mock_data_source
+    # Test logic runs twice - once per mode
+    # mode will be "library_manager" or "repository_factory"
+    tracks, total = source.tracks.get_all(limit=10)
+    assert isinstance(tracks, list)
+    assert isinstance(total, int)
+```
+
+**Example 4: Backend Router Test**
+```python
+def test_get_artists_api(client, mock_data_source):
+    """Test API endpoint with mock fixtures."""
+    mode, mock_factory = mock_data_source
+    # Mock factory is pre-configured with proper mocks
+    response = client.get("/api/artists")
+    assert response.status_code == 200
+    assert "artists" in response.json()
+```
+
+### Running Phase 5 Tests
+
+```bash
+# Run all Phase 5 tests
+pytest tests/ -m phase5 -v
+
+# Run specific Phase 5 sub-phase
+pytest tests/ -m phase5c -v   # Backend API tests (Phase 5C)
+pytest tests/ -m phase5d -v   # Performance tests (Phase 5D)
+pytest tests/ -m phase5e -v   # Player component tests (Phase 5E)
+
+# Run with fixture dependency injection
+pytest tests/backend/ -v --tb=short
+
+# Run player component tests
+pytest tests/auralis/player/ -v
+
+# Run performance benchmarks
+pytest tests/performance/test_latency_benchmarks.py -v
+```
+
+### Phase 5 Architecture Patterns
+
+**Dependency Injection Pattern:**
+Components receive a callable that returns RepositoryFactory:
+```python
+# Components accept callable, not direct instance
+class QueueController:
+    def __init__(self, get_repository_factory: Callable[[], RepositoryFactory]):
+        self.get_factory = get_repository_factory
+
+    def load_track(self, track_id: int):
+        factory = self.get_factory()
+        track = factory.tracks.get_by_id(track_id)
+        # Use track...
+```
+
+**Fixture Composition:**
+Fixtures build on each other, creating a clean hierarchy:
+```python
+@pytest.fixture
+def repository_factory(session_factory):
+    """Create RepositoryFactory from session factory."""
+    return RepositoryFactory(session_factory)
+
+@pytest.fixture
+def get_repository_factory_callable(repository_factory):
+    """Create callable that returns RepositoryFactory."""
+    def get_factory():
+        return repository_factory
+    return get_factory
+
+@pytest.fixture
+def enhanced_player(get_repository_factory_callable):
+    """Create player with DI callable."""
+    config = PlayerConfig()
+    return EnhancedAudioPlayer(
+        config=config,
+        get_repository_factory=get_repository_factory_callable
+    )
+```
+
+**Parametrized Dual-Mode Testing:**
+Single test runs with both patterns automatically:
+```python
+@pytest.fixture(params=["library_manager", "repository_factory"])
+def mock_data_source(request, mock_library_manager, mock_repository_factory):
+    """Parametrized fixture provides both patterns."""
+    if request.param == "library_manager":
+        return ("library_manager", mock_library_manager)
+    else:
+        return ("repository_factory", mock_repository_factory)
+
+@pytest.mark.phase5c
+def test_api_both_modes(mock_data_source):
+    """Test automatically runs twice - once with each pattern."""
+    mode, source = mock_data_source
+    # Implementation...
+```
+
+### Common Phase 5 Testing Patterns
+
+**Pattern 1: Direct Repository Testing**
+```python
+def test_repository_operations(track_repository):
+    """Test repository methods directly."""
+    # Repositories are properly initialized with fixtures
+    tracks = track_repository.get_all(limit=10)
+    assert len(tracks) >= 0
+```
+
+**Pattern 2: Integration Testing**
+```python
+def test_player_with_database(enhanced_player, library_manager):
+    """Test multiple components working together."""
+    # Both fixtures available - good for integration tests
+    success = enhanced_player.load_file("/path/to/file.wav")
+    assert isinstance(success, bool)
+```
+
+**Pattern 3: Performance Testing**
+```python
+def test_query_performance(performance_data_source, timer):
+    """Test performance with both patterns."""
+    mode, source = performance_data_source
+    with timer() as t:
+        tracks, total = source.tracks.get_all(limit=100)
+    # Both patterns should meet same benchmark
+    assert t.elapsed < 0.5  # 500ms max
+```
+
+**Pattern 4: Mock-Based Testing**
+```python
+def test_router_endpoint(client, mock_data_source):
+    """Test API route with mocked database."""
+    mode, factory = mock_data_source
+    # Mock is pre-configured and ready to use
+    response = client.get("/api/endpoint")
+    assert response.status_code == 200
+```
+
+### Troubleshooting Phase 5 Tests
+
+**Issue: "TypeError: QueueController() missing required argument 'get_repository_factory'"**
+
+**Solution**: Use the fixture instead of instantiating directly
+```python
+# ❌ Wrong
+def test_queue(self):
+    queue = QueueController()  # Missing required parameter
+
+# ✅ Correct
+def test_queue(queue_controller):
+    queue = queue_controller  # Fixture provides proper initialization
+```
+
+**Issue: "AttributeError: 'NoneType' object has no attribute 'tracks'"**
+
+**Solution**: Check fixture is available in conftest.py location
+```python
+# Fixture must be in same directory or parent conftest.py
+# tests/conftest.py - ✅ Available to all tests
+# tests/backend/conftest.py - ✅ Available to backend tests only
+# tests/auralis/player/conftest.py - ✅ Available to player tests only
+```
+
+**Issue: "Test passes locally but fails in CI"**
+
+**Solution**: Fixture cleanup might differ in CI environment
+```python
+# Use pytest tmp_path fixture for file operations
+def test_with_files(tmp_path):
+    """Files auto-cleaned after test in CI."""
+    test_file = tmp_path / "test.wav"
+    # Use test_file...
+    # Automatically removed after test
+```
+
+See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](../../PHASE_5_FINAL_COMPLETION_SUMMARY.md) for comprehensive architecture documentation.
+
+---
+
 ## Advanced Configuration
 
 ### Custom Music Directory
