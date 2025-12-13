@@ -171,12 +171,12 @@ class UnifiedConfig:
         """Get processing profile for a specific genre"""
         return get_genre_profile(genre, self.genre_profiles)
 
-    def set_processing_mode(self, mode: Literal["reference", "adaptive", "hybrid"]):
+    def set_processing_mode(self, mode: Literal["reference", "adaptive", "hybrid"]) -> None:
         """Change the processing mode"""
         self.adaptive.mode = mode
         debug(f"Processing mode changed to: {mode}")
 
-    def update_adaptive_settings(self, **kwargs):
+    def update_adaptive_settings(self, **kwargs: Any) -> None:
         """Update adaptive processing settings"""
         for key, value in kwargs.items():
             if hasattr(self.adaptive, key):
@@ -214,7 +214,7 @@ class UnifiedConfig:
         """
         return get_preset_profile(self.mastering_profile)
 
-    def set_mastering_preset(self, preset_name: str):
+    def set_mastering_preset(self, preset_name: str) -> None:
         """
         Set the mastering preset.
 
@@ -232,7 +232,7 @@ class UnifiedConfig:
         self.mastering_profile = preset_name.lower()
         debug(f"Mastering preset changed to: {preset_name}")
 
-    def set_fingerprint_strategy(self, strategy: str, sampling_interval: float = 20.0):
+    def set_fingerprint_strategy(self, strategy: str, sampling_interval: float = 20.0) -> None:
         """
         Set fingerprint analysis strategy.
 
@@ -299,7 +299,7 @@ class UnifiedConfig:
         # Create main config
         return cls(adaptive=adaptive, **config_dict)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"UnifiedConfig(mode={self.adaptive.mode}, "
             f"sample_rate={self.internal_sample_rate}Hz, "

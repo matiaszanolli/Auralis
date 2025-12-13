@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 def create_albums_router(
     get_repository_factory: Callable[[], Any]
-):
+) -> APIRouter:
     """
     Create albums router with dependency injection.
 
@@ -42,7 +42,7 @@ def create_albums_router(
         offset: int = 0,
         search: Optional[str] = None,
         order_by: str = 'title'
-    ):
+    ) -> Any:
         """
         Get albums from library with optional search and pagination.
 
@@ -123,7 +123,7 @@ def create_albums_router(
             raise handle_query_error("get albums", e)
 
     @router.get("/api/albums/{album_id}")
-    async def get_album(album_id: int):
+    async def get_album(album_id: int) -> Any:
         """
         Get album details by ID.
 
@@ -162,7 +162,7 @@ def create_albums_router(
             raise handle_query_error("get album", e)
 
     @router.get("/api/albums/{album_id}/tracks")
-    async def get_album_tracks(album_id: int):
+    async def get_album_tracks(album_id: int) -> Any:
         """
         Get all tracks for a specific album.
 
