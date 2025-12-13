@@ -11,7 +11,7 @@ Main quality assessment orchestrator using specialized assessors
 """
 
 import numpy as np
-from typing import Dict
+from typing import Dict, Any, List
 from dataclasses import dataclass
 
 from ..spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
@@ -42,7 +42,7 @@ class QualityScores:
     quality_category: str  # Excellent, Very Good, Good, Fair, Poor
 
     # Detailed metrics
-    detailed_metrics: Dict
+    detailed_metrics: Dict[str, Any]
 
 
 class QualityMetrics:
@@ -190,7 +190,7 @@ class QualityMetrics:
                                 dynamic_score: float,
                                 stereo_score: float,
                                 distortion_score: float,
-                                loudness_score: float) -> list:
+                                loudness_score: float) -> List[str]:
         """Identify specific quality issues based on sub-scores"""
         issues = []
 
@@ -207,7 +207,7 @@ class QualityMetrics:
 
         return issues
 
-    def compare_quality(self, audio1: np.ndarray, audio2: np.ndarray) -> Dict:
+    def compare_quality(self, audio1: np.ndarray, audio2: np.ndarray) -> Dict[str, Any]:
         """
         Compare quality between two audio files
 
