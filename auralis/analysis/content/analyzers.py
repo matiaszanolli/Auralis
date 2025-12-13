@@ -69,7 +69,7 @@ class MoodAnalysis:
 class GenreAnalyzer:
     """Rule-based genre classification"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize genre analyzer with classification rules"""
         self.genre_rules = self._create_genre_classification_rules()
 
@@ -101,7 +101,7 @@ class GenreAnalyzer:
             genre_scores[genre] = score
 
         # Find best genre
-        primary_genre = max(genre_scores, key=genre_scores.get)
+        primary_genre = max(genre_scores, key=lambda g: genre_scores.get(g, 0.0))
         total_score = max(sum(genre_scores.values()), 1.0)
         # Normalize confidence to 0-1 using MetricUtils
         confidence = MetricUtils.normalize_to_range(genre_scores[primary_genre], total_score, clip=True)
@@ -124,7 +124,7 @@ class GenreAnalyzer:
             features_used=list(set(all_features_used))
         )
 
-    def _create_genre_classification_rules(self) -> Dict[str, List[Dict]]:
+    def _create_genre_classification_rules(self) -> Dict[str, List[Dict[str, Any]]]:
         """Create rule-based genre classification system"""
         return {
             "classical": [
@@ -168,7 +168,7 @@ class GenreAnalyzer:
 class MoodAnalyzer:
     """Mood and energy analysis"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize mood analyzer with parameters"""
         self.mood_parameters = self._create_mood_parameters()
 
@@ -233,9 +233,9 @@ class MoodAnalyzer:
 
 def create_genre_analyzer() -> GenreAnalyzer:
     """Factory function to create genre analyzer"""
-    return GenreAnalyzer()
+    return GenreAnalyzer()  # type: ignore[no-untyped-call]
 
 
 def create_mood_analyzer() -> MoodAnalyzer:
     """Factory function to create mood analyzer"""
-    return MoodAnalyzer()
+    return MoodAnalyzer()  # type: ignore[no-untyped-call]

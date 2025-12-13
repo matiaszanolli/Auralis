@@ -13,23 +13,24 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import numpy as np
+from typing import Tuple
 
 
 def channel_count(audio: np.ndarray) -> int:
     """Get the number of audio channels"""
     if audio.ndim == 1:
         return 1
-    return audio.shape[1]
+    return int(audio.shape[1])
 
 
 def size(audio: np.ndarray) -> int:
     """Get the number of audio samples"""
-    return audio.shape[0]
+    return int(audio.shape[0])
 
 
 def rms(audio: np.ndarray) -> float:
     """Calculate RMS (Root Mean Square) of audio signal"""
-    return np.sqrt(np.mean(audio ** 2))
+    return float(np.sqrt(np.mean(audio ** 2)))
 
 
 def normalize(audio: np.ndarray, target_level: float = 1.0) -> np.ndarray:
@@ -45,7 +46,7 @@ def normalize(audio: np.ndarray, target_level: float = 1.0) -> np.ndarray:
     """
     peak = np.max(np.abs(audio))
     if peak > 0:
-        return audio * (target_level / peak)
+        return audio * float(target_level / peak)
     return audio
 
 
@@ -64,7 +65,7 @@ def amplify(audio: np.ndarray, gain_db: float) -> np.ndarray:
     return audio * gain_linear
 
 
-def mid_side_encode(stereo_audio: np.ndarray) -> tuple:
+def mid_side_encode(stereo_audio: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
     Convert stereo audio to mid-side encoding
 
