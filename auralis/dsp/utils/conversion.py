@@ -23,7 +23,7 @@ def to_db(linear_value: float) -> float:
     Returns:
         Value in decibels (dB)
     """
-    return 20 * np.log10(max(linear_value, 1e-10))
+    return float(20 * np.log10(max(linear_value, 1e-10)))
 
 
 def from_db(db_value: float) -> float:

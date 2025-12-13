@@ -24,7 +24,7 @@ def size(audio: np.ndarray) -> int:
     Returns:
         Number of samples
     """
-    return audio.shape[0]
+    return int(audio.shape[0])
 
 
 def channel_count(audio: np.ndarray) -> int:
@@ -39,7 +39,7 @@ def channel_count(audio: np.ndarray) -> int:
     """
     if audio.ndim == 1:
         return 1
-    return audio.shape[1]
+    return int(audio.shape[1])
 
 
 def is_mono(audio: np.ndarray) -> bool:
