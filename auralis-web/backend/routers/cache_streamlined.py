@@ -9,7 +9,7 @@ API endpoints for streamlined two-tier cache management and statistics.
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from cache import StreamlinedCacheManager
@@ -35,7 +35,10 @@ class TrackCacheStatus(BaseModel):
     fully_cached: bool
 
 
-def create_streamlined_cache_router(cache_manager: StreamlinedCacheManager, broadcast_manager=None):
+def create_streamlined_cache_router(
+    cache_manager: StreamlinedCacheManager,
+    broadcast_manager: Optional[Any] = None
+) -> APIRouter:
     """
     Create streamlined cache management router.
 
@@ -49,7 +52,7 @@ def create_streamlined_cache_router(cache_manager: StreamlinedCacheManager, broa
     router = APIRouter(prefix="/api/cache", tags=["cache"])
 
     @router.get("/stats", response_model=CacheStatsResponse)
-    async def get_cache_stats():
+    async def get_cache_stats() -> CacheStatsResponse:
         """
         Get comprehensive cache statistics.
 
@@ -67,7 +70,7 @@ def create_streamlined_cache_router(cache_manager: StreamlinedCacheManager, broa
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/track/{track_id}/status", response_model=TrackCacheStatus)
-    async def get_track_cache_status(track_id: int):
+    async def get_track_cache_status(track_id: int) -> TrackCacheStatus:
         """
         Get cache status for a specific track.
 
@@ -101,7 +104,7 @@ def create_streamlined_cache_router(cache_manager: StreamlinedCacheManager, broa
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.post("/clear")
-    async def clear_cache():
+    async def clear_cache() -> Dict[str, str]:
         """
         Clear all caches (Tier 1 and Tier 2).
 
@@ -123,7 +126,7 @@ def create_streamlined_cache_router(cache_manager: StreamlinedCacheManager, broa
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/health")
-    async def cache_health():
+    async def cache_health() -> Dict[str, Any]:
         """
         Get cache system health status.
 
