@@ -121,7 +121,7 @@ class LibraryManager:
 
         # Configure SQLite pragmas for reliable fingerprinting persistence
         @event.listens_for(self.engine, "connect")
-        def set_sqlite_pragma(dbapi_connection, connection_record):
+        def set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
             """Set SQLite pragmas for safe, fast writes"""
             cursor = dbapi_connection.cursor()
             # Enable Write-Ahead Logging for better concurrent write performance

@@ -100,7 +100,7 @@ class ProcessingEngine:
 
         # Processing components
         self.processors: Dict[str, HybridProcessor] = {}
-        self.parameter_mapper = ParameterMapper()  # type: ignore[no-untyped-call]
+        self.parameter_mapper = ParameterMapper()
 
         # Temporary file management
         self.temp_dir: Path = Path(tempfile.gettempdir()) / "auralis_processing"

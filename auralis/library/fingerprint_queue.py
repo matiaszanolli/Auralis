@@ -387,7 +387,7 @@ class FingerprintQueueManager:
         """Initialize queue manager"""
         self.queue: FingerprintExtractionQueue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor,
-            library_manager=library_manager,
+            get_repository_factory=lambda: library_manager.repository_factory,
             num_workers=num_workers
         )
         self.is_running: bool = False

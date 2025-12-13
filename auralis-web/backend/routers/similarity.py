@@ -80,7 +80,7 @@ def create_similarity_router(
         limit: int = Query(10, ge=1, le=100, description="Number of similar tracks to return"),
         use_graph: bool = Query(True, description="Use pre-computed graph if available"),
         include_details: bool = Query(False, description="Include track title/artist/album")
-    ):
+    ) -> List[SimilarTrack]:
         """
         Get similar tracks to a given track
 
@@ -113,39 +113,34 @@ def create_similarity_router(
 
             results = []
 
-            if use_graph:
-                # Use pre-computed graph (fastest)
-                graph_builder = get_graph_builder()
+            # Try to use pre-computed graph if available
+            graph_builder = get_graph_builder() if use_graph else None
+            if graph_builder is not None:
+                neighbors = graph_builder.get_neighbors(track_id, limit=limit)
 
-                # Check if graph_builder exists (may be None if not fitted)
-                if graph_builder is None:
-                    use_graph = False
+                if neighbors:
+                    # Convert to SimilarTrack objects
+                    for neighbor in neighbors:
+                        result = SimilarTrack(
+                            track_id=neighbor['similar_track_id'],
+                            distance=neighbor['distance'],
+                            similarity_score=neighbor['similarity_score'],
+                            rank=neighbor['rank']
+                        )
+
+                        if include_details:
+                            similar_track = repos.tracks.get_by_id(neighbor['similar_track_id'])
+                            if similar_track:
+                                result.title = similar_track.title
+                                result.artist = similar_track.artists[0].name if similar_track.artists else None
+                                result.album = similar_track.album.title if similar_track.album else None
+
+                        results.append(result)
                 else:
-                    neighbors = graph_builder.get_neighbors(track_id, limit=limit)
+                    # Graph not built yet, fall back to real-time calculation
+                    graph_builder = None
 
-                    if neighbors:
-                        # Convert to SimilarTrack objects
-                        for neighbor in neighbors:
-                            result = SimilarTrack(
-                                track_id=neighbor['similar_track_id'],
-                                distance=neighbor['distance'],
-                                similarity_score=neighbor['similarity_score'],
-                                rank=neighbor['rank']
-                            )
-
-                            if include_details:
-                                similar_track = repos.tracks.get_by_id(neighbor['similar_track_id'])
-                                if similar_track:
-                                    result.title = similar_track.title
-                                    result.artist = similar_track.artists[0].name if similar_track.artists else None
-                                    result.album = similar_track.album.title if similar_track.album else None
-
-                            results.append(result)
-                    else:
-                        # Graph not built yet, fall back to real-time calculation
-                        use_graph = False
-
-            if not use_graph:
+            if graph_builder is None:
                 # Real-time calculation (slower but always available)
                 similarity = get_similarity_system()
 
@@ -155,10 +150,10 @@ def create_similarity_router(
                         detail="Similarity system not initialized. Please wait for initialization."
                     )
 
-                similarity_results = similarity.find_similar(track_id, n=limit)
+                similarity_results: List[SimilarityResult] = similarity.find_similar(track_id, n=limit)
 
-                for i, result in enumerate(similarity_results, start=1):
-                    similar_track_model = SimilarTrack(
+                for i, result in enumerate(similarity_results, start=1):  # type: ignore[assignment]
+                    similar_track_model: SimilarTrack = SimilarTrack(
                         track_id=result.track_id,
                         distance=result.distance,
                         similarity_score=result.similarity_score,
@@ -185,7 +180,7 @@ def create_similarity_router(
     async def compare_tracks(
         track_id1: int,
         track_id2: int
-    ):
+    ) -> SimilarTrack:
         """
         Compare two specific tracks for similarity
 
@@ -229,6 +224,7 @@ def create_similarity_router(
                 track_id=track_id2,
                 distance=result.distance,
                 similarity_score=result.similarity_score,
+                rank=None,
                 title=track2.title,
                 artist=track2.artists[0].name if track2.artists else None,
                 album=track2.album.title if track2.album else None
@@ -244,7 +240,7 @@ def create_similarity_router(
         track_id1: int,
         track_id2: int,
         top_n: int = Query(5, ge=1, le=25, description="Number of top contributing dimensions")
-    ):
+    ) -> SimilarityExplanation:
         """
         Explain why two tracks are similar/different
 
@@ -301,7 +297,7 @@ def create_similarity_router(
 
             # Check if already fitted
             if similarity.is_fitted():
-                count = similarity.get_fitted_track_count()
+                count = repos.fingerprints.get_count()
                 return {
                     "fitted": True,
                     "total_fingerprints": count,
@@ -368,7 +364,7 @@ def create_similarity_router(
             raise HTTPException(status_code=500, detail=f"Error building graph: {str(e)}")
 
     @router.get("/graph/stats", response_model=Optional[GraphStatsResponse])
-    async def get_graph_stats():
+    async def get_graph_stats() -> Optional[GraphStatsResponse]:
         """
         Get statistics about current similarity graph
 
@@ -379,14 +375,12 @@ def create_similarity_router(
             graph_builder = get_graph_builder()
 
             if graph_builder is None:
-                return None
+                return None  # type: ignore[unreachable]
 
             stats = graph_builder.get_graph_stats()
-
             if stats:
                 return GraphStatsResponse(**stats.to_dict())
-            else:
-                return None
+            return None
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error getting graph stats: {str(e)}")
@@ -403,10 +397,9 @@ def create_similarity_router(
             graph_builder = get_graph_builder()
 
             if graph_builder is None:
-                return {"edges_deleted": 0}
+                return {"edges_deleted": 0}  # type: ignore[unreachable]
 
             count = graph_builder.clear_graph()
-
             return {"edges_deleted": count}
 
         except Exception as e:

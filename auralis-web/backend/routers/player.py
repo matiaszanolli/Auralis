@@ -128,7 +128,6 @@ def create_player_router(
         return NavigationService(
             audio_player=get_audio_player(),
             player_state_manager=get_player_state_manager(),
-            library_manager=get_library_manager(),
             connection_manager=connection_manager,
             create_track_info_fn=create_track_info_fn
         )
@@ -157,7 +156,7 @@ def create_player_router(
             raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
     @router.post("/api/player/load")
-    async def load_track(track_path: str, track_id: Optional[int] = None, background_tasks: BackgroundTasks = ...) -> Dict[str, Any]:
+    async def load_track(track_path: str, track_id: Optional[int] = None, background_tasks: Optional[BackgroundTasks] = None) -> Dict[str, Any]:
         """
         Load a track into the player.
 

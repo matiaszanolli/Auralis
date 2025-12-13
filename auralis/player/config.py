@@ -36,7 +36,7 @@ class PlayerConfig:
         self.enable_advanced_smoothing = enable_advanced_smoothing
         self.max_db_change_per_second = max_db_change_per_second
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"PlayerConfig(sample_rate={self.sample_rate}, "
                 f"buffer_size={self.buffer_size}, "
                 f"level_matching={self.enable_level_matching})")

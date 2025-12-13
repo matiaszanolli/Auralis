@@ -10,7 +10,8 @@ Assess stereo imaging and spatial quality
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict
+from typing import Dict, Any
+import numpy as np
 from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
 from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOperations
 from auralis.analysis.quality_assessors.utilities.assessment_constants import AssessmentConstants
@@ -19,7 +20,7 @@ from auralis.analysis.quality_assessors.utilities.assessment_constants import As
 class StereoImagingAssessor(BaseAssessor):
     """Assess stereo imaging quality"""
 
-    def assess(self, phase_result: Dict) -> float:
+    def assess(self, phase_result: Dict[str, Any]) -> float:  # type: ignore[override]
         """
         Assess stereo imaging quality (0-100)
 
@@ -65,7 +66,7 @@ class StereoImagingAssessor(BaseAssessor):
 
         return float(total_score)
 
-    def detailed_analysis(self, phase_result: Dict) -> Dict:
+    def detailed_analysis(self, phase_result: Dict[str, Any]) -> Dict[str, Any]:  # type: ignore[override]
         """
         Perform detailed stereo imaging analysis
 
@@ -91,7 +92,7 @@ class StereoImagingAssessor(BaseAssessor):
             ])
         }
 
-    def identify_stereo_issues(self, phase_result: Dict) -> Dict:
+    def identify_stereo_issues(self, phase_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Identify specific stereo imaging issues
 
@@ -139,7 +140,7 @@ class StereoImagingAssessor(BaseAssessor):
 
         return issues
 
-    def categorize_stereo_image(self, phase_result: Dict) -> Dict:
+    def categorize_stereo_image(self, phase_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Categorize stereo image characteristics
 

@@ -10,7 +10,7 @@ Philosophy:
 """
 
 from dataclasses import dataclass, asdict, field
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 import json
 from pathlib import Path
 from datetime import datetime
@@ -53,12 +53,12 @@ class PersonalPreferences:
     samples_analyzed: int = 0
     average_satisfaction: float = 0.0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Initialize metadata if not provided."""
         if self.created_at is None:
             self.created_at = datetime.now().isoformat()
 
-    def apply_to_parameters(self, base_params: dict) -> dict:
+    def apply_to_parameters(self, base_params: Dict[str, Any]) -> Dict[str, Any]:
         """Apply personal preferences to base model parameters.
 
         Args:
@@ -96,7 +96,7 @@ class PersonalPreferences:
 
         return adjusted
 
-    def record_feedback(self, rating: int, comment: str = ""):
+    def record_feedback(self, rating: int, comment: str = "") -> None:
         """Record user feedback to update satisfaction metrics.
 
         Args:
@@ -178,7 +178,7 @@ class PersonalPreferences:
         # Default: no adjustments
         return PersonalPreferences()
 
-    def save(self, user_data_dir: Path, version: Optional[str] = None):
+    def save(self, user_data_dir: Path, version: Optional[str] = None) -> None:
         """Save personal preferences with version.
 
         Args:
@@ -222,7 +222,7 @@ class PersonalPreferences:
         current_file = prefs_dir / "current.json"
         current_file.write_text(version_file.read_text())
 
-    def export_for_sharing(self) -> dict:
+    def export_for_sharing(self) -> Dict[str, Any]:
         """Export profile for optional sharing (anonymized).
 
         Returns:
@@ -242,7 +242,7 @@ class PersonalPreferences:
         }
 
     @staticmethod
-    def import_shared_profile(shared_data: dict) -> "PersonalPreferences":
+    def import_shared_profile(shared_data: Dict[str, Any]) -> "PersonalPreferences":
         """Import a shared profile from another user.
 
         This creates a new profile based on someone else's shared preferences,

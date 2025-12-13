@@ -48,7 +48,7 @@ class Result:
         self.use_limiter = use_limiter
         self.normalize = normalize
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"Result(file='{self.file}', subtype='{self.subtype}', "
                 f"use_limiter={self.use_limiter}, normalize={self.normalize})")
 

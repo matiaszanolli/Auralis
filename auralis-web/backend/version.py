@@ -1,5 +1,7 @@
 """Auralis Backend API version information."""
 
+from typing import Dict, Any
+
 # Import version from main auralis package
 from auralis.__version__ import __version__, __version_info__, __db_schema_version__
 
@@ -14,7 +16,7 @@ MIN_CLIENT_VERSION = "1.0.0"
 DB_SCHEMA_VERSION = __db_schema_version__
 
 
-def get_version_info() -> dict:
+def get_version_info() -> Dict[str, Any]:
     """
     Get comprehensive version information.
 

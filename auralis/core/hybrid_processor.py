@@ -54,7 +54,7 @@ class HybridProcessor:
         self.fingerprint_analyzer = AudioFingerprintAnalyzer()
 
         # Initialize 25D-guided recording type detector
-        self.recording_type_detector = RecordingTypeDetector()  # type: ignore[no-untyped-call]
+        self.recording_type_detector = RecordingTypeDetector()
         debug("✅ Recording type detector initialized")
 
         # Initialize psychoacoustic EQ
@@ -101,11 +101,11 @@ class HybridProcessor:
 
         # Initialize mode processors
         self.eq_processor = EQProcessor(self.psychoacoustic_eq)
-        self.adaptive_mode = AdaptiveMode(  # type: ignore[no-untyped-call]
+        self.adaptive_mode = AdaptiveMode(
             config, self.content_analyzer, self.target_generator,
             self.spectrum_mapper
         )
-        self.continuous_mode = ContinuousMode(  # type: ignore[no-untyped-call]
+        self.continuous_mode = ContinuousMode(
             config, self.content_analyzer, self.fingerprint_analyzer,
             self.recording_type_detector
         )

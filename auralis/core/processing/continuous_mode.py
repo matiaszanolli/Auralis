@@ -12,7 +12,7 @@ Generates optimal parameters from audio fingerprints.
 """
 
 import numpy as np
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from auralis.core.config import UnifiedConfig
 from auralis.core.analysis import ContentAnalyzer
 from ...dsp.basic import rms, amplify
@@ -61,14 +61,14 @@ class ContinuousMode:
             self.recording_type_detector = recording_type_detector
         else:
             # Fallback for backwards compatibility (when called without detector)
-            self.recording_type_detector = RecordingTypeDetector()  # type: ignore[no-untyped-call]
+            self.recording_type_detector = RecordingTypeDetector()
 
         # Store last fingerprint and parameters for debugging/learning
-        self.last_fingerprint = None
-        self.last_coordinates = None
-        self.last_parameters = None
-        self.last_recording_type = None
-        self.last_adaptive_params = None
+        self.last_fingerprint: Optional[Dict[str, Any]] = None
+        self.last_coordinates: Optional[Any] = None  # ProcessingCoordinates
+        self.last_parameters: Optional[ProcessingParameters] = None
+        self.last_recording_type: Optional[Any] = None
+        self.last_adaptive_params: Optional[Any] = None
 
     def _convert_targets_to_parameters(self, targets: Dict[str, Any]) -> ProcessingParameters:
         """

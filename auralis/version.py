@@ -3,6 +3,8 @@ Auralis version information.
 Single source of truth for version across the entire project.
 """
 
+from typing import Dict, Any
+
 __version__ = "1.1.0-beta.2"
 __version_info__ = (1, 1, 0, "beta", 2)
 __build_date__ = "2025-11-22"
@@ -36,7 +38,7 @@ def get_version() -> str:
     return __version__
 
 
-def get_version_info() -> dict:
+def get_version_info() -> Dict[str, Any]:
     """
     Get detailed version information.
 

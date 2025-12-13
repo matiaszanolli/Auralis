@@ -13,6 +13,8 @@ for consistent evaluation against industry standards.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Dict, Any
+
 
 class AssessmentConstants:
     """Target values and ranges for quality assessments"""
@@ -155,7 +157,7 @@ class AssessmentConstants:
     # ========== UTILITY METHODS ==========
 
     @classmethod
-    def get_standard_compliance_targets(cls, standard: str) -> dict:
+    def get_standard_compliance_targets(cls, standard: str) -> Dict[str, Any]:
         """Get target values for a specific standard"""
         standards = {
             'spotify': {
@@ -193,7 +195,7 @@ class AssessmentConstants:
         return standards.get(standard.lower(), {})
 
     @classmethod
-    def is_compliant_with_standard(cls, standard: str, **kwargs) -> bool:
+    def is_compliant_with_standard(cls, standard: str, **kwargs: Any) -> bool:
         """Check if values meet standard compliance"""
         targets = cls.get_standard_compliance_targets(standard)
         if not targets:

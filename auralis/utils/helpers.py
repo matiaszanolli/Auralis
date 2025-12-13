@@ -14,9 +14,10 @@ Refactored from Matchering 2.0 by Sergree and contributors
 
 import tempfile
 import os
+from typing import Any
 
 
-def get_temp_folder(results):
+def get_temp_folder(results: Any) -> str:
     """
     Get a temporary folder for processing
 
@@ -67,9 +68,10 @@ def format_filesize(bytes_size: int) -> str:
     if bytes_size < 0:
         return "0 B"
 
+    size: float = float(bytes_size)
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if bytes_size < 1024.0:
-            return f"{bytes_size:.1f} {unit}"
-        bytes_size /= 1024.0
+        if size < 1024.0:
+            return f"{size:.1f} {unit}"
+        size /= 1024.0
 
-    return f"{bytes_size:.1f} PB"
+    return f"{size:.1f} PB"

@@ -17,7 +17,7 @@ Uses the reference data from three world-class masters:
 """
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 from enum import Enum
 import numpy as np
 
@@ -93,7 +93,7 @@ class RecordingTypeDetector:
     3. Metal: Iron Maiden (Matchering) - bright, compressed, punchy
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize detector with fingerprint analyzer."""
         self.fingerprint_analyzer = AudioFingerprintAnalyzer()
         self.confidence_threshold = 0.65  # Minimum confidence to classify
@@ -195,7 +195,7 @@ class RecordingTypeDetector:
 
         return min(score, 1.0)
 
-    def _score_metal(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: float = None) -> float:
+    def _score_metal(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: Optional[float] = None) -> float:
         """
         Score likelihood of metal recording.
 
@@ -227,7 +227,7 @@ class RecordingTypeDetector:
 
         return min(score, 1.0)
 
-    def _score_studio(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: float = None) -> float:
+    def _score_studio(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: Optional[float] = None) -> float:
         """
         Score likelihood of studio recording.
 

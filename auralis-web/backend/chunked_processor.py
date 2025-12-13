@@ -653,7 +653,7 @@ class ChunkedAudioProcessor:
             # File is now guaranteed to exist since process_chunk completed
             return (chunk_path, audio_array)
 
-    def process_chunk_synchronized(self, chunk_index: int, fast_start: bool = False) -> str:
+    def process_chunk_synchronized(self, chunk_index: int, fast_start: bool = False) -> Tuple[str, np.ndarray]:
         """
         Process a single chunk synchronously with proper waiting.
 
@@ -665,7 +665,7 @@ class ChunkedAudioProcessor:
             fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
 
         Returns:
-            Path to processed chunk file
+            Tuple of (path_to_chunk_file, processed_audio_array)
         """
         # CRITICAL: We must wait for chunk processing to complete BEFORE returning.
         # Even in async context, we need to block here because the caller

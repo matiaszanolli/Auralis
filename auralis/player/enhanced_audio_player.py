@@ -77,6 +77,10 @@ class EnhancedAudioPlayer:
         if config is None:
             config = PlayerConfig()
 
+        # Validate required parameter
+        if get_repository_factory is None:
+            raise ValueError("get_repository_factory is required")
+
         self.config = config
         self.get_repository_factory = get_repository_factory
 
