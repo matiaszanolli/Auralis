@@ -47,12 +47,6 @@ def temp_audio_dir():
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-@pytest.fixture
-def library_manager():
-    """Create a library manager with in-memory database."""
-    manager = LibraryManager(database_path=":memory:")
-    yield manager
-    # SQLite in-memory DB is cleaned up automatically
 
 
 def create_test_track(directory: Path, filename: str, title: str = None,
