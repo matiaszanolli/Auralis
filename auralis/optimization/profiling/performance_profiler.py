@@ -15,23 +15,23 @@ import threading
 import time
 from collections import defaultdict, deque
 from functools import wraps
-from typing import Dict, Any
+from typing import Dict, Any, Callable, List
 
 
 class PerformanceProfiler:
     """Performance profiling and monitoring"""
 
-    def __init__(self):
-        self.timings = defaultdict(list)
-        self.counters = defaultdict(int)
-        self.memory_usage = deque(maxlen=1000)
+    def __init__(self) -> None:
+        self.timings: Dict[str, List[float]] = defaultdict(list)
+        self.counters: Dict[str, int] = defaultdict(int)
+        self.memory_usage: deque[float] = deque(maxlen=1000)
         self.lock = threading.RLock()
 
-    def time_function(self, func_name: str):
+    def time_function(self, func_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Decorator for timing function execution"""
-        def decorator(func):
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             @wraps(func)
-            def wrapper(*args, **kwargs):
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
                 start_time = time.perf_counter()
                 try:
                     result = func(*args, **kwargs)
