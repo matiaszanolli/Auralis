@@ -26,8 +26,8 @@ import time
 from pathlib import Path
 from fastapi.testclient import TestClient
 
-# Import test fixtures
-from tests.integration.test_e2e_workflows import temp_library, sample_audio_file
+# Note: Test fixtures (temp_library, sample_audio_file) are now provided by conftest.py
+# Phase 5B.2: Consolidated fixtures for broader test reuse
 
 # Note: These tests require the FastAPI app to be importable
 # They test API endpoints using TestClient
