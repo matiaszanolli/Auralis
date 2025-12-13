@@ -47,12 +47,9 @@ pytestmark = pytest.mark.skip(
 # Add backend to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-
-@pytest.fixture(scope="module")
-def client():
-    """Create test client for FastAPI app"""
-    from main import app
-    return TestClient(app)
+# Phase 5B.1: Migration to conftest.py fixtures
+# Removed local client() fixture - now using conftest.py fixture
+# Tests automatically use the fixture from parent backend/conftest.py
 
 
 @pytest.fixture(scope="module")
