@@ -285,6 +285,35 @@ def mock_repository_factory():
     return factory
 
 
+@pytest.fixture
+def mock_repository_factory_callable(mock_repository_factory):
+    """Return a callable that provides mock RepositoryFactory (for DI pattern).
+
+    This fixture enables dependency injection pattern for testing router endpoints
+    with mock repositories. Use this to test components that accept a callable
+    returning a RepositoryFactory.
+
+    Phase 5A.2: Mock variant for backend API router testing.
+
+    Args:
+        mock_repository_factory: Mock RepositoryFactory fixture
+
+    Returns:
+        Callable: Function that returns the mock RepositoryFactory instance
+
+    Example:
+        def test_get_artists(mock_repository_factory_callable):
+            from auralis.player.queue_controller import QueueController
+            controller = QueueController(mock_repository_factory_callable)
+            # controller now has access to mocked repositories
+    """
+    def _get_factory():
+        """Get mock repository factory instance."""
+        return mock_repository_factory
+
+    return _get_factory
+
+
 @pytest.fixture(params=["library_manager", "repository_factory"])
 def mock_data_source(request, mock_library_manager, mock_repository_factory):
     """
