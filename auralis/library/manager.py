@@ -15,6 +15,7 @@ DEPRECATED: Use repository classes directly for new code
 
 import os
 import threading
+import warnings
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Set
 from sqlalchemy import create_engine, event
@@ -37,25 +38,54 @@ from ..utils.logging import info, warning, error
 
 class LibraryManager:
     """
-    High-level library management system for Auralis
+    ⚠️ DEPRECATED: Use RepositoryFactory directly for new code.
 
-    This class now acts as a facade to the repository layer.
-    For new code, consider using repositories directly.
+    This class is maintained for backward compatibility only.
+    All operations delegate to the repository layer.
 
-    Provides API for:
-    - Database operations
-    - Track/playlist management
-    - Search and filtering
-    - Statistics and analysis
+    For new code, use auralis.library.repositories.factory.RepositoryFactory instead:
+
+    ```python
+    from auralis.library.repositories import RepositoryFactory
+    from sqlalchemy.orm import sessionmaker
+
+    factory = RepositoryFactory(SessionLocal)
+    tracks, total = factory.tracks.get_all(limit=50)
+    ```
+
+    Migration Timeline:
+    - v1.1.0: LibraryManager marked deprecated (this version)
+    - v1.2.0: Deprecation warnings in all methods
+    - v2.0.0+: Removal or minimal facade only
+
+    Backward Compatibility:
+    - All existing LibraryManager methods continue to work
+    - Deprecation warnings guide users to RepositoryFactory
+    - See MIGRATION_GUIDE.md for upgrade instructions
+
+    Legacy API:
+    - Track operations: add_track(), get_track(), search_tracks()
+    - Playlist operations: create_playlist(), add_track_to_playlist()
+    - Statistics: get_library_stats(), record_track_play()
+    - Scanning: scan_directories()
     """
 
     def __init__(self, database_path: Optional[str] = None) -> None:
         """
-        Initialize library manager
+        Initialize library manager (deprecated - use RepositoryFactory instead).
 
         Args:
             database_path: Path to SQLite database file
         """
+        # Emit deprecation warning on initialization
+        warnings.warn(
+            "LibraryManager is deprecated. Use RepositoryFactory instead. "
+            "See MIGRATION_GUIDE.md for migration instructions. "
+            "This class will be removed in v2.0.0.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
         if database_path is None:
             # Default to user's music directory
             music_dir = Path.home() / "Music" / "Auralis"

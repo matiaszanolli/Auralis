@@ -11,7 +11,7 @@ REST API endpoints for fingerprint-based music similarity
 """
 
 from fastapi import APIRouter, HTTPException, Query, Depends
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import (
@@ -19,7 +19,7 @@ from auralis.analysis.fingerprint import (
     KNNGraphBuilder,
     SimilarityResult
 )
-from auralis.library import LibraryManager
+from .dependencies import require_repository_factory
 
 
 # Response models
@@ -57,17 +57,17 @@ class GraphStatsResponse(BaseModel):
 
 
 def create_similarity_router(
-    get_library_manager,
-    get_similarity_system,
-    get_graph_builder
+    get_similarity_system: Callable[[], FingerprintSimilarity],
+    get_graph_builder: Callable[[], KNNGraphBuilder],
+    get_repository_factory: Callable[[], Any]
 ) -> APIRouter:
     """
     Create similarity API router with dependency injection
 
     Args:
-        get_library_manager: Callable that returns LibraryManager instance
         get_similarity_system: Callable that returns FingerprintSimilarity instance
         get_graph_builder: Callable that returns KNNGraphBuilder instance
+        get_repository_factory: Callable that returns RepositoryFactory instance
 
     Returns:
         Configured FastAPI router
@@ -97,15 +97,15 @@ def create_similarity_router(
             List of similar tracks sorted by similarity (most similar first)
         """
         try:
-            library = get_library_manager()
+            repos = require_repository_factory(get_repository_factory)
 
             # Check if track exists
-            track = library.get_track(track_id)
+            track = repos.tracks.get_by_id(track_id)
             if not track:
                 raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
 
             # Check if track has fingerprint
-            if not library.fingerprints.exists(track_id):
+            if not repos.fingerprints.exists(track_id):
                 raise HTTPException(
                     status_code=400,
                     detail=f"Track {track_id} does not have a fingerprint. Run fingerprint extraction first."
@@ -134,7 +134,7 @@ def create_similarity_router(
                             )
 
                             if include_details:
-                                similar_track = library.get_track(neighbor['similar_track_id'])
+                                similar_track = repos.tracks.get_by_id(neighbor['similar_track_id'])
                                 if similar_track:
                                     result.title = similar_track.title
                                     result.artist = similar_track.artists[0].name if similar_track.artists else None
@@ -166,7 +166,7 @@ def create_similarity_router(
                     )
 
                     if include_details:
-                        similar_track = library.get_track(result.track_id)
+                        similar_track = repos.tracks.get_by_id(result.track_id)
                         if similar_track:
                             similar_track_model.title = similar_track.title
                             similar_track_model.artist = similar_track.artists[0].name if similar_track.artists else None
@@ -197,11 +197,11 @@ def create_similarity_router(
             Similarity between the two tracks
         """
         try:
-            library = get_library_manager()
+            repos = require_repository_factory(get_repository_factory)
 
             # Check if tracks exist
-            track1 = library.get_track(track_id1)
-            track2 = library.get_track(track_id2)
+            track1 = repos.tracks.get_by_id(track_id1)
+            track2 = repos.tracks.get_by_id(track_id2)
 
             if not track1:
                 raise HTTPException(status_code=404, detail=f"Track {track_id1} not found")
@@ -209,9 +209,9 @@ def create_similarity_router(
                 raise HTTPException(status_code=404, detail=f"Track {track_id2} not found")
 
             # Check fingerprints
-            if not library.fingerprints.exists(track_id1):
+            if not repos.fingerprints.exists(track_id1):
                 raise HTTPException(status_code=400, detail=f"Track {track_id1} missing fingerprint")
-            if not library.fingerprints.exists(track_id2):
+            if not repos.fingerprints.exists(track_id2):
                 raise HTTPException(status_code=400, detail=f"Track {track_id2} missing fingerprint")
 
             # Calculate similarity
@@ -293,7 +293,7 @@ def create_similarity_router(
             Status and fitted track count
         """
         try:
-            library = get_library_manager()
+            repos = require_repository_factory(get_repository_factory)
             similarity = get_similarity_system()
 
             if similarity is None:
@@ -309,7 +309,7 @@ def create_similarity_router(
                 }
 
             # Get fingerprint count
-            fingerprint_count = library.fingerprints.get_count()
+            fingerprint_count = repos.fingerprints.get_count()
 
             if fingerprint_count < min_samples:
                 raise HTTPException(

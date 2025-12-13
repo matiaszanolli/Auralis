@@ -12,7 +12,6 @@ Responsibilities:
 
 from typing import Dict, Any, Optional, List, Union, Callable
 from .components import QueueManager
-from ..library.manager import LibraryManager
 from ..library.repositories.factory import RepositoryFactory
 from ..utils.logging import info, warning, error
 
@@ -23,28 +22,38 @@ class QueueController:
 
     Decoupled from playback state, audio I/O, and prebuffering.
     Only responsible for queue operations and track sequencing.
-    Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
+
+    Phase 6C: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
 
     def __init__(
         self,
-        library_manager: Optional[LibraryManager] = None,
-        get_repository_factory: Optional[Callable[[], Any]] = None
+        get_repository_factory: Callable[[], Any],
+        library_manager: Optional[Any] = None
     ) -> None:
+        """
+        Initialize queue controller.
+
+        Args:
+            get_repository_factory: Callable that returns RepositoryFactory instance (REQUIRED)
+            library_manager: Deprecated, kept for backward compatibility only
+        """
         self.queue: Any = QueueManager()  # type: ignore[no-untyped-call]
-        self.library: LibraryManager = library_manager or LibraryManager()
         self.get_repository_factory = get_repository_factory
 
     def _get_repos(self) -> Any:
-        """Get repository factory or LibraryManager for data access."""
-        if self.get_repository_factory:
-            try:
-                factory = self.get_repository_factory()
-                if factory:
-                    return factory
-            except (TypeError, AttributeError):
-                pass
-        return self.library
+        """Get repository factory for data access."""
+        try:
+            factory = self.get_repository_factory()
+            if factory:
+                return factory
+        except (TypeError, AttributeError) as e:
+            error(f"Failed to get repository factory: {e}")
+
+        raise RuntimeError(
+            "Repository factory not available. "
+            "Ensure get_repository_factory is properly configured during startup."
+        )
 
     # Backward compatibility properties for old test code
     @property

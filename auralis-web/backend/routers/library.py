@@ -20,13 +20,12 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, List, Dict, Any, Callable
 import logging
 
-from .dependencies import require_library_manager, require_repository_factory
+from .dependencies import require_repository_factory
 from .errors import (
-    LibraryManagerUnavailableError,
     InternalServerError,
     NotFoundError,
     handle_query_error
@@ -44,39 +43,22 @@ router = APIRouter(tags=["library"])
 
 
 def create_library_router(
-    get_library_manager: Callable[[], Any],
-    connection_manager: Optional[Any] = None,
-    get_repository_factory: Optional[Callable[[], Any]] = None
+    get_repository_factory: Callable[[], Any],
+    connection_manager: Optional[Any] = None
 ) -> APIRouter:
     """
     Factory function to create library router with dependencies.
 
     Args:
-        get_library_manager: Callable that returns LibraryManager instance
+        get_repository_factory: Callable that returns RepositoryFactory instance
         connection_manager: WebSocket connection manager for progress broadcasts (optional)
-        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         APIRouter: Configured router instance
 
     Note:
-        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
+        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
-
-    def get_repos() -> Any:
-        """
-        Get repository factory, using fallback to LibraryManager if needed.
-
-        Returns:
-            RepositoryFactory if available, otherwise LibraryManager for accessing .tracks, .stats, etc.
-        """
-        if get_repository_factory:
-            try:
-                return require_repository_factory(get_repository_factory)
-            except (TypeError, AttributeError):
-                pass
-        # Fallback: return LibraryManager which has same interface (.stats, .tracks, etc.)
-        return require_library_manager(get_library_manager)
 
     @router.get("/api/library/stats")
     async def get_library_stats() -> Dict[str, Any]:
@@ -87,11 +69,11 @@ def create_library_router(
             dict: Library statistics (track count, album count, etc.)
 
         Raises:
-            HTTPException: If library manager/factory not available or query fails
+            HTTPException: If repository factory not available or query fails
         """
         try:
-            repos = get_repos()
-            stats = repos.stats.get_library_stats()
+            factory = require_repository_factory(get_repository_factory)
+            stats = factory.stats.get_library_stats()
             return stats
         except HTTPException:
             raise
@@ -126,7 +108,7 @@ def create_library_router(
             HTTPException: If library manager/factory not available or query fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
 
             # Get tracks with pagination
             if search:
@@ -164,7 +146,7 @@ def create_library_router(
             HTTPException: If library manager/factory not available or query fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             tracks, total = repos.tracks.get_favorites(limit=limit, offset=offset)
             has_more = (offset + len(tracks)) < total
 
@@ -195,7 +177,7 @@ def create_library_router(
             HTTPException: If library manager/factory not available or operation fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             repos.tracks.set_favorite(track_id, True)
             logger.info(f"Track {track_id} marked as favorite")
             return {"message": "Track marked as favorite", "track_id": track_id, "favorite": True}
@@ -219,7 +201,7 @@ def create_library_router(
             HTTPException: If library manager/factory not available or operation fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             repos.tracks.set_favorite(track_id, False)
             logger.info(f"Track {track_id} removed from favorites")
             return {"message": "Track removed from favorites", "track_id": track_id, "favorite": False}
@@ -245,7 +227,7 @@ def create_library_router(
             HTTPException: If library manager/factory not available, track not found, or query fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             track = repos.tracks.get_by_id(track_id)
             if not track:
                 raise NotFoundError("Track", track_id)
@@ -342,7 +324,7 @@ def create_library_router(
             HTTPException: If library manager/factory not available or query fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
 
             # Validate and limit pagination parameters
             limit = min(max(limit, 1), 200)  # Between 1-200
@@ -389,7 +371,7 @@ def create_library_router(
             HTTPException: If library manager/factory not available or artist not found
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             artist = repos.artists.get_by_id(artist_id)
             if not artist:
                 raise NotFoundError("Artist", artist_id)
@@ -412,7 +394,7 @@ def create_library_router(
             HTTPException: If library manager/factory not available or query fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             albums, total = repos.albums.get_all()
             return {
                 "albums": serialize_albums(albums),
@@ -438,7 +420,7 @@ def create_library_router(
             HTTPException: If library manager/factory not available or album not found
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             album = repos.albums.get_by_id(album_id)
             if not album:
                 raise NotFoundError("Album", album_id)
@@ -570,7 +552,7 @@ def create_library_router(
                 - status: Current status message
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
 
             # Get fingerprint statistics from repository
             stats = repos.fingerprints.get_fingerprint_stats()

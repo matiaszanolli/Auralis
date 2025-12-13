@@ -20,7 +20,7 @@ from typing import Dict, List, Optional, Any, Callable
 import logging
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
-from .dependencies import require_library_manager, require_repository_factory
+from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)
 # Note: router is created inside create_metadata_router() for better testability
@@ -60,25 +60,23 @@ class BatchMetadataRequest(BaseModel):
 
 
 def create_metadata_router(
-    get_library_manager: Callable[[], Any],
+    get_repository_factory: Callable[[], Any],
     broadcast_manager: Any,
-    metadata_editor: Optional[MetadataEditor] = None,
-    get_repository_factory: Optional[Callable[[], Any]] = None
+    metadata_editor: Optional[MetadataEditor] = None
 ) -> APIRouter:
     """
     Factory function to create metadata router with dependencies.
 
     Args:
-        get_library_manager: Callable that returns LibraryManager instance
+        get_repository_factory: Callable that returns RepositoryFactory instance
         broadcast_manager: WebSocket broadcast manager
         metadata_editor: Optional MetadataEditor instance (for testing)
-        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         APIRouter: Configured router instance
 
     Note:
-        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
+        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback).
     """
 
     # Create a fresh router instance (important for testing - avoids route pollution)
@@ -87,15 +85,6 @@ def create_metadata_router(
     # Initialize metadata editor (shared instance) or use provided one
     if metadata_editor is None:
         metadata_editor = MetadataEditor()  # type: ignore[no-untyped-call]
-
-    def get_repos() -> Any:
-        """Get repository factory or LibraryManager for accessing repositories."""
-        if get_repository_factory:
-            try:
-                return require_repository_factory(get_repository_factory)
-            except (TypeError, AttributeError):
-                pass
-        return require_library_manager(get_library_manager)
 
     @router.get("/api/metadata/tracks/{track_id}/fields")
     async def get_editable_fields(track_id: int) -> Dict[str, Any]:
@@ -112,7 +101,7 @@ def create_metadata_router(
             HTTPException: If track not found or file doesn't exist
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             # Get track from database
             track = repos.tracks.get_by_id(track_id)
 
@@ -156,7 +145,7 @@ def create_metadata_router(
             HTTPException: If track not found or file doesn't exist
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             # Get track from database
             track = repos.tracks.get_by_id(track_id)
 
@@ -198,7 +187,7 @@ def create_metadata_router(
             HTTPException: If track not found, file doesn't exist, or update fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             # Get track from database
             track = repos.tracks.get_by_id(track_id)
 
@@ -284,7 +273,7 @@ def create_metadata_router(
             raise HTTPException(status_code=400, detail="No updates provided")
 
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
 
             # Prepare batch updates
             batch_updates = []
