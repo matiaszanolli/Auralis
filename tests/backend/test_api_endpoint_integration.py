@@ -34,7 +34,6 @@ import tempfile
 import os
 import asyncio
 from pathlib import Path
-from fastapi.testclient import TestClient
 
 # Import the modules under test
 import sys
@@ -44,35 +43,9 @@ sys.path.insert(0, str(backend_path))
 from main import app, startup_event
 from auralis.io.saver import save as save_audio
 
-
-# ============================================================================
-# Fixtures
-# ============================================================================
-
-@pytest.fixture
-def client():
-    """
-    Create FastAPI test client with proper startup initialization.
-
-    The deprecated @app.on_event("startup") does NOT trigger automatically
-    with TestClient, so we manually call startup_event() to initialize
-    LibraryManager and other global dependencies.
-    """
-    # Manually trigger startup initialization
-    # (TestClient doesn't automatically call on_event("startup") handlers)
-    try:
-        asyncio.run(startup_event())
-    except RuntimeError:
-        # If there's already an event loop running, use it
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Create task to run startup_event
-            asyncio.create_task(startup_event())
-        else:
-            loop.run_until_complete(startup_event())
-
-    # Now create the TestClient
-    return TestClient(app)
+# Phase 5B.1: Migration to conftest.py fixtures
+# Removed local client() fixture - now using conftest.py fixture
+# Tests automatically use the fixture from parent backend/conftest.py
 
 
 @pytest.fixture
