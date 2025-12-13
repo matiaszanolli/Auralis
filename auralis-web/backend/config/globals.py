@@ -23,11 +23,11 @@ class ConnectionManager:
     Tracks active connections and broadcasts messages to all connected clients.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize connection manager with empty connections list."""
         self.active_connections: List[WebSocket] = []
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket) -> None:
         """
         Register a new WebSocket connection.
 
@@ -38,7 +38,7 @@ class ConnectionManager:
         self.active_connections.append(websocket)
         logger.info(f"WebSocket connected. Total connections: {len(self.active_connections)}")
 
-    def disconnect(self, websocket: WebSocket):
+    def disconnect(self, websocket: WebSocket) -> None:
         """
         Unregister a WebSocket connection.
 
@@ -48,7 +48,7 @@ class ConnectionManager:
         self.active_connections.remove(websocket)
         logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
 
-    async def broadcast(self, message: dict):
+    async def broadcast(self, message: Dict[str, Any]) -> None:
         """
         Broadcast message to all connected clients.
 
