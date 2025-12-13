@@ -233,9 +233,9 @@ class MoodAnalyzer:
 
 def create_genre_analyzer() -> GenreAnalyzer:
     """Factory function to create genre analyzer"""
-    return GenreAnalyzer()  # type: ignore[no-untyped-call]
+    return GenreAnalyzer()
 
 
 def create_mood_analyzer() -> MoodAnalyzer:
     """Factory function to create mood analyzer"""
-    return MoodAnalyzer()  # type: ignore[no-untyped-call]
+    return MoodAnalyzer()

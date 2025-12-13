@@ -75,7 +75,7 @@ app = create_app()
 setup_middleware(app)
 
 # Create global state dictionary with all dependencies
-manager = ConnectionManager()  # type: ignore[no-untyped-call]
+manager = ConnectionManager()
 globals_dict = {
     # Components (initialized during startup)
     'library_manager': None,

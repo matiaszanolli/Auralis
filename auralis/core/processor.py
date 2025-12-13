@@ -103,7 +103,7 @@ def process(
         raise RuntimeError("The result list is empty")
 
     # Get a temporary folder for converting audio files
-    temp_folder = config.temp_folder if config.temp_folder else get_temp_folder(results)  # type: ignore[no-untyped-call]
+    temp_folder = config.temp_folder if config.temp_folder else get_temp_folder(results)
 
     # Load both files and capture original target rate for output
     target_audio, target_sample_rate = load(target, "target", temp_folder)

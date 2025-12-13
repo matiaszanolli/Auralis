@@ -42,7 +42,7 @@ class PerformanceOptimizer:
         self.cache: Optional[SmartCache] = SmartCache(self.config.cache_size_mb, self.config.cache_ttl_seconds) if self.config.enable_caching else None
         self.simd: Optional[SIMDAccelerator] = SIMDAccelerator() if self.config.enable_simd else None
         self.parallel: Optional[ParallelProcessor] = ParallelProcessor(self.config.max_threads) if self.config.enable_parallel else None
-        self.profiler: PerformanceProfiler = PerformanceProfiler()  # type: ignore[no-untyped-call]
+        self.profiler: PerformanceProfiler = PerformanceProfiler()
 
         # Optimization state
         self.optimization_enabled: bool = True
@@ -130,7 +130,7 @@ class PerformanceOptimizer:
     def _cleanup(self) -> None:
         """Perform periodic cleanup"""
         if self.cache:
-            self.cache.clear_expired()  # type: ignore[no-untyped-call]
+            self.cache.clear_expired()
 
     def get_optimization_stats(self) -> Dict[str, Any]:
         """Get comprehensive optimization statistics"""
@@ -156,7 +156,7 @@ class PerformanceOptimizer:
     def shutdown(self) -> None:
         """Shutdown optimizer and cleanup resources"""
         if self.parallel:
-            self.parallel.shutdown()  # type: ignore[no-untyped-call]
+            self.parallel.shutdown()
 
         info("Performance optimizer shutdown complete")
 

@@ -14,7 +14,7 @@ Unified audio loading system combining Matchering and Auralis capabilities
 
 import numpy as np
 import subprocess
-import soundfile as sf  # type: ignore[import-untyped]
+import soundfile as sf
 from pathlib import Path
 from typing import Tuple, Optional, Union, List, Dict, Any
 

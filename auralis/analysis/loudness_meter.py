@@ -138,10 +138,10 @@ class LoudnessMeter:
                 # Apply pre-filter
                 filtered_result = signal.lfilter(
                     self.pre_filter_b, self.pre_filter_a,
-                    audio_chunk[:, ch], zi=self.pre_filter_zi[:, ch]  # type: ignore[index]
+                    audio_chunk[:, ch], zi=self.pre_filter_zi[:, ch]
                 )
                 filtered = cast(np.ndarray, filtered_result[0])
-                self.pre_filter_zi[:, ch] = filtered_result[1]  # type: ignore[index]
+                self.pre_filter_zi[:, ch] = filtered_result[1]
 
                 # Apply RLB filter
                 k_weighted_result = signal.lfilter(

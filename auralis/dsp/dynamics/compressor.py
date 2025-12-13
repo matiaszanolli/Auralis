@@ -19,10 +19,10 @@ from ...utils.logging import debug
 # Use vectorized envelope follower for 40-70x speedup
 EnvelopeFollower: Any  # Will be assigned below
 try:
-    from .vectorized_envelope import VectorizedEnvelopeFollower as EnvelopeFollower  # type: ignore[assignment]
+    from .vectorized_envelope import VectorizedEnvelopeFollower as EnvelopeFollower
 except ImportError:
     # Fallback to original if vectorized version not available
-    from .envelope import EnvelopeFollower  # type: ignore[assignment]
+    from .envelope import EnvelopeFollower
     debug("Vectorized envelope not available, using standard version")
 
 
@@ -191,9 +191,9 @@ class AdaptiveCompressor:
 
     def reset(self) -> None:
         """Reset compressor state"""
-        self.peak_follower.reset()  # type: ignore[no-untyped-call]
-        self.rms_follower.reset()  # type: ignore[no-untyped-call]
-        self.gain_follower.reset()  # type: ignore[no-untyped-call]
+        self.peak_follower.reset()
+        self.rms_follower.reset()
+        self.gain_follower.reset()
         self.gain_reduction = 0.0
         self.previous_gain = 1.0
         if self.lookahead_buffer is not None:

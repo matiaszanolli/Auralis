@@ -38,7 +38,7 @@ class QueueController:
             get_repository_factory: Callable that returns RepositoryFactory instance (REQUIRED)
             library_manager: Deprecated, kept for backward compatibility only
         """
-        self.queue: Any = QueueManager()  # type: ignore[no-untyped-call]
+        self.queue: Any = QueueManager()
         self.get_repository_factory = get_repository_factory
 
     def _get_repos(self) -> Any:
