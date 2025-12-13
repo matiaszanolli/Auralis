@@ -12,19 +12,14 @@ documented endpoint status and commit 38be81c for details.
 import pytest
 import sys
 from pathlib import Path
-from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, AsyncMock
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-
-@pytest.fixture
-def client():
-    """Create test client for main app"""
-    # Import after adding to path
-    from main import app
-    return TestClient(app)
+# Phase 5B.1: Migration to conftest.py fixtures
+# Removed local client() fixture - now using conftest.py fixture
+# All tests automatically use the fixture from parent conftest.py
 
 
 class TestHealthEndpoint:
