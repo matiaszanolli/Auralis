@@ -29,7 +29,6 @@ from .audio_file_manager import AudioFileManager
 from .queue_controller import QueueController
 from .gapless_playback_engine import GaplessPlaybackEngine
 from .integration_manager import IntegrationManager
-from ..library.manager import LibraryManager
 from ..library.repositories.factory import RepositoryFactory
 from ..utils.logging import debug, info, warning, error
 
@@ -57,16 +56,24 @@ class EnhancedAudioPlayer:
     - Performance monitoring and statistics
 
     API compatible with original EnhancedAudioPlayer.
-    Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
+
+    Phase 6C: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
 
     def __init__(
         self,
         config: Optional[PlayerConfig] = None,
-        library_manager: Optional[LibraryManager] = None,
-        get_repository_factory: Optional[Callable[[], Any]] = None
+        get_repository_factory: Optional[Callable[[], Any]] = None,
+        library_manager: Optional[Any] = None
     ) -> None:
-        """Initialize the enhanced audio player with components"""
+        """
+        Initialize the enhanced audio player with components.
+
+        Args:
+            config: Player configuration (PlayerConfig)
+            get_repository_factory: Callable that returns RepositoryFactory instance (REQUIRED)
+            library_manager: Deprecated, kept for backward compatibility only
+        """
         if config is None:
             config = PlayerConfig()
 
@@ -76,7 +83,7 @@ class EnhancedAudioPlayer:
         # Initialize components
         self.playback = PlaybackController()
         self.file_manager = AudioFileManager(config.sample_rate)
-        self.queue = QueueController(library_manager, get_repository_factory)
+        self.queue = QueueController(get_repository_factory, library_manager)
         self.processor = RealtimeProcessor(config)
         self.gapless = GaplessPlaybackEngine(self.file_manager, self.queue)
         self.integration = IntegrationManager(
@@ -84,8 +91,8 @@ class EnhancedAudioPlayer:
             self.file_manager,
             self.queue,
             self.processor,
-            library_manager,
-            get_repository_factory
+            get_repository_factory,
+            library_manager
         )
 
         # Control flags
@@ -401,11 +408,6 @@ class EnhancedAudioPlayer:
         self.integration._notify_callbacks({'action': 'repeat_changed', 'enabled': enabled})
 
     # ========== Properties for backward compatibility ==========
-
-    @property
-    def library(self) -> LibraryManager:
-        """Get the library manager instance"""
-        return self.integration.library
 
     @property
     def current_file(self) -> Optional[str]:

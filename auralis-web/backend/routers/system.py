@@ -17,7 +17,6 @@ router = APIRouter(tags=["system"])
 
 def create_system_router(
     manager: Any,
-    get_library_manager: Callable[..., Any],
     get_processing_engine: Callable[..., Any],
     HAS_AURALIS: bool,
     get_player_manager: Optional[Callable[..., Any]] = None,
@@ -28,7 +27,6 @@ def create_system_router(
 
     Args:
         manager: WebSocket ConnectionManager instance
-        get_library_manager: Callable that returns LibraryManager instance
         get_processing_engine: Callable that returns ProcessingEngine instance
         HAS_AURALIS: Boolean indicating if Auralis is available
         get_player_manager: Callable that returns PlayerManager instance
@@ -40,8 +38,7 @@ def create_system_router(
         """Health check endpoint"""
         return {
             "status": "healthy",
-            "auralis_available": HAS_AURALIS,
-            "library_manager": get_library_manager() is not None
+            "auralis_available": HAS_AURALIS
         }
 
     @router.get("/api/version")

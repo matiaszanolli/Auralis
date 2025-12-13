@@ -17,7 +17,6 @@ from typing import Dict, Any, Optional, Callable, List, cast
 from .playback_controller import PlaybackController
 from .audio_file_manager import AudioFileManager
 from .queue_controller import QueueController
-from ..library.manager import LibraryManager
 from ..library.repositories.factory import RepositoryFactory
 from ..library.models import Track
 from ..utils.logging import debug, info, warning, error
@@ -29,7 +28,8 @@ class IntegrationManager:
 
     Decoupled from playback state, file I/O, and queue operations.
     Handles library integration and effect management.
-    Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
+
+    Phase 6C: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
 
     def __init__(
@@ -38,14 +38,24 @@ class IntegrationManager:
         file_manager: AudioFileManager,
         queue: QueueController,
         processor: Any,  # RealtimeProcessor
-        library_manager: Optional[LibraryManager] = None,
-        get_repository_factory: Optional[Callable[[], Any]] = None
+        get_repository_factory: Callable[[], Any],
+        library_manager: Optional[Any] = None
     ):
+        """
+        Initialize integration manager.
+
+        Args:
+            playback: PlaybackController instance
+            file_manager: AudioFileManager instance
+            queue: QueueController instance
+            processor: RealtimeProcessor instance
+            get_repository_factory: Callable that returns RepositoryFactory instance (REQUIRED)
+            library_manager: Deprecated, kept for backward compatibility only
+        """
         self.playback = playback
         self.file_manager = file_manager
         self.queue = queue
         self.processor = processor
-        self.library = library_manager or LibraryManager()
         self.get_repository_factory = get_repository_factory
 
         # Library integration
@@ -64,15 +74,18 @@ class IntegrationManager:
         self.playback.add_callback(self._on_playback_state_change)
 
     def _get_repos(self) -> Any:
-        """Get repository factory or LibraryManager for data access."""
-        if self.get_repository_factory:
-            try:
-                factory = self.get_repository_factory()
-                if factory:
-                    return factory
-            except (TypeError, AttributeError):
-                pass
-        return self.library
+        """Get repository factory for data access."""
+        try:
+            factory = self.get_repository_factory()
+            if factory:
+                return factory
+        except (TypeError, AttributeError) as e:
+            error(f"Failed to get repository factory: {e}")
+
+        raise RuntimeError(
+            "Repository factory not available. "
+            "Ensure get_repository_factory is properly configured during startup."
+        )
 
     def add_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
         """Register callback for integration events"""
@@ -122,11 +135,7 @@ class IntegrationManager:
             self.current_track = track
 
             # Record play count
-            if hasattr(repos, 'tracks') and hasattr(repos.tracks, 'record_play'):
-                repos.tracks.record_play(track_id)
-            else:
-                # Fallback to LibraryManager for backward compatibility
-                self.library.record_track_play(track_id)
+            repos.tracks.record_play(track_id)
 
             # Auto-select reference if enabled
             if self.auto_reference_selection:
@@ -158,13 +167,7 @@ class IntegrationManager:
 
             # Find and try similar tracks as references
             repos = self._get_repos()
-            references = []
-
-            if hasattr(repos, 'tracks') and hasattr(repos.tracks, 'find_similar'):
-                references, _ = repos.tracks.find_similar(track, limit=3)
-            else:
-                # Fallback to LibraryManager for backward compatibility
-                references = self.library.find_reference_tracks(track, limit=3)
+            references, _ = repos.tracks.find_similar(track, limit=3)
 
             for ref_track in references:
                 if os.path.exists(cast(str, ref_track.filepath)):
@@ -215,7 +218,6 @@ class IntegrationManager:
             'library': {
                 'current_track': self.current_track.to_dict() if self.current_track else None,
                 'auto_reference_selection': self.auto_reference_selection,
-                'database_path': self.library.database_path,
             },
             'processing': self.processor.get_processing_info(),
             'session': {

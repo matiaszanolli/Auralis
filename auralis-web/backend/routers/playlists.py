@@ -23,7 +23,7 @@ from pydantic import BaseModel
 from typing import Any, Callable, Dict, List, Optional
 import logging
 
-from .dependencies import require_library_manager, require_repository_factory
+from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["playlists"])
@@ -48,33 +48,22 @@ class AddTracksRequest(BaseModel):
 
 
 def create_playlists_router(
-    get_library_manager: Callable[[], Any],
-    connection_manager: Any,
-    get_repository_factory: Optional[Callable[[], Any]] = None
+    get_repository_factory: Callable[[], Any],
+    connection_manager: Any
 ) -> APIRouter:
     """
     Factory function to create playlists router with dependencies.
 
     Args:
-        get_library_manager: Callable that returns LibraryManager instance
+        get_repository_factory: Callable that returns RepositoryFactory instance
         connection_manager: WebSocket connection manager for broadcasts
-        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
 
     Returns:
         APIRouter: Configured router instance
 
     Note:
-        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
+        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
-
-    def get_repos() -> Any:
-        """Get repository factory or LibraryManager for accessing repositories."""
-        if get_repository_factory:
-            try:
-                return require_repository_factory(get_repository_factory)
-            except (TypeError, AttributeError):
-                pass
-        return require_library_manager(get_library_manager)
 
     @router.get("/api/playlists")
     async def get_playlists() -> Dict[str, Any]:
@@ -88,7 +77,7 @@ def create_playlists_router(
             HTTPException: If library manager/factory not available or query fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             playlists = repos.playlists.get_all()
             return {
                 "playlists": [p.to_dict() for p in playlists],
@@ -113,7 +102,7 @@ def create_playlists_router(
             HTTPException: If library manager/factory not available or playlist not found
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             playlist = repos.playlists.get_by_id(playlist_id)
             if not playlist:
                 raise HTTPException(status_code=404, detail="Playlist not found")
@@ -144,7 +133,7 @@ def create_playlists_router(
             HTTPException: If library manager/factory not available or creation fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             playlist = repos.playlists.create(
                 name=request.name,
                 description=request.description,
@@ -189,7 +178,7 @@ def create_playlists_router(
             HTTPException: If library manager/factory not available, no data provided, or update fails
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             # Build update data dictionary
             update_data = {}
             if request.name is not None:
@@ -236,7 +225,7 @@ def create_playlists_router(
             HTTPException: If library manager/factory not available or playlist not found
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             success = repos.playlists.delete(playlist_id)
 
             if not success:
@@ -273,7 +262,7 @@ def create_playlists_router(
             HTTPException: If library manager/factory not available or no tracks added
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             added_count = 0
             for track_id in request.track_ids:
                 if repos.playlists.add_track(playlist_id, track_id):
@@ -317,7 +306,7 @@ def create_playlists_router(
             HTTPException: If library manager/factory not available or track/playlist not found
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             success = repos.playlists.remove_track(playlist_id, track_id)
 
             if not success:
@@ -354,7 +343,7 @@ def create_playlists_router(
             HTTPException: If library manager/factory not available or playlist not found
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             success = repos.playlists.clear(playlist_id)
 
             if not success:

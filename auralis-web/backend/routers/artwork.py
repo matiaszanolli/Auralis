@@ -19,40 +19,33 @@ from pathlib import Path
 from typing import Callable, Optional, Any
 import logging
 
-from .dependencies import require_library_manager, require_repository_factory
+from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["artwork"])
 
 
 def create_artwork_router(
-    get_library_manager: Callable[[], Any],
     connection_manager: Any,
-    get_repository_factory: Optional[Callable[[], Any]] = None
+    get_repository_factory: Callable[[], Any]
 ):
     """
     Factory function to create artwork router with dependencies.
 
     Args:
-        get_library_manager: Callable that returns LibraryManager instance
         connection_manager: WebSocket connection manager for broadcasts
-        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
+        get_repository_factory: Callable that returns RepositoryFactory instance
 
     Returns:
         APIRouter: Configured router instance
 
     Note:
-        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
+        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
 
     def get_repos() -> Any:
-        """Get repository factory or LibraryManager for accessing repositories."""
-        if get_repository_factory:
-            try:
-                return require_repository_factory(get_repository_factory)
-            except (TypeError, AttributeError):
-                pass
-        return require_library_manager(get_library_manager)
+        """Get repository factory for accessing repositories."""
+        return require_repository_factory(get_repository_factory)
 
     @router.get("/api/albums/{album_id}/artwork")
     async def get_album_artwork(album_id: int):

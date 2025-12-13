@@ -76,7 +76,6 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     # Create and include system router (health, version, WebSocket)
     system_router: APIRouter = create_system_router(
         manager=manager,
-        get_library_manager=get_component('library_manager'),
         get_processing_engine=get_component('processing_engine'),
         HAS_AURALIS=deps.get('HAS_AURALIS', False)
     )
@@ -104,9 +103,8 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     app.include_router(enhancement_router)
     logger.debug("✅ Enhancement router registered")
 
-    # Create and include artwork router (with Phase 2 RepositoryFactory support)
+    # Create and include artwork router (with Phase 6B RepositoryFactory refactoring)
     artwork_router: APIRouter = create_artwork_router(
-        get_library_manager=get_component('library_manager'),
         connection_manager=manager,
         get_repository_factory=get_component('repository_factory')
     )
@@ -115,42 +113,37 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
 
     # Create and include playlists router (with Phase 2 RepositoryFactory support)
     playlists_router: APIRouter = create_playlists_router(
-        get_library_manager=get_component('library_manager'),
-        connection_manager=manager,
-        get_repository_factory=get_component('repository_factory')
+        get_repository_factory=get_component('repository_factory'),
+        connection_manager=manager
     )
     app.include_router(playlists_router)
     logger.debug("✅ Playlists router registered (Phase 2 RepositoryFactory enabled)")
 
-    # Create and include library router (with Phase 2 RepositoryFactory support)
+    # Create and include library router (with Phase 6B RepositoryFactory refactoring)
     library_router: APIRouter = create_library_router(
-        get_library_manager=get_component('library_manager'),
-        connection_manager=manager,
-        get_repository_factory=get_component('repository_factory')
+        get_repository_factory=get_component('repository_factory'),
+        connection_manager=manager
     )
     app.include_router(library_router)
     logger.debug("✅ Library router registered (Phase 2 RepositoryFactory enabled)")
 
-    # Create and include metadata router (with Phase 2 RepositoryFactory support)
+    # Create and include metadata router (with Phase 6B RepositoryFactory refactoring)
     metadata_router: APIRouter = create_metadata_router(
-        get_library_manager=get_component('library_manager'),
-        broadcast_manager=manager,
-        get_repository_factory=get_component('repository_factory')
+        get_repository_factory=get_component('repository_factory'),
+        broadcast_manager=manager
     )
     app.include_router(metadata_router)
     logger.debug("✅ Metadata router registered (Phase 2 RepositoryFactory enabled)")
 
-    # Create and include albums router (with Phase 2 RepositoryFactory support)
+    # Create and include albums router (with Phase 6B RepositoryFactory refactoring)
     albums_router: APIRouter = create_albums_router(
-        get_library_manager=get_component('library_manager'),
         get_repository_factory=get_component('repository_factory')
     )
     app.include_router(albums_router)
     logger.debug("✅ Albums router registered (Phase 2 RepositoryFactory enabled)")
 
-    # Create and include artists router (with Phase 2 RepositoryFactory support)
+    # Create and include artists router (with Phase 6B RepositoryFactory refactoring)
     artists_router: APIRouter = create_artists_router(
-        get_library_manager=get_component('library_manager'),
         get_repository_factory=get_component('repository_factory')
     )
     app.include_router(artists_router)
@@ -188,10 +181,9 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     if HAS_SIMILARITY:
         try:
             similarity_router: APIRouter = create_similarity_router(
-                get_library_manager=get_component('library_manager'),
                 get_similarity_system=get_component('similarity_system'),
                 get_graph_builder=get_component('graph_builder'),
-                connection_manager=manager
+                get_repository_factory=get_component('repository_factory')
             )
             app.include_router(similarity_router)
             logger.info("✅ Similarity router registered")

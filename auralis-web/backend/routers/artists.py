@@ -14,7 +14,7 @@ from typing import Optional, Callable, Any, cast
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from .dependencies import require_library_manager, require_repository_factory
+from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
 
 
@@ -75,31 +75,20 @@ class ArtistTracksResponse(BaseModel):
 
 
 def create_artists_router(
-    get_library_manager: Callable[[], Any],
-    get_repository_factory: Optional[Callable[[], Any]] = None
+    get_repository_factory: Callable[[], Any]
 ) -> APIRouter:
     """Create and configure the artists API router
 
     Args:
-        get_library_manager: Callable that returns the LibraryManager instance
-        get_repository_factory: Callable that returns RepositoryFactory instance (Phase 2 support)
+        get_repository_factory: Callable that returns RepositoryFactory instance
 
     Returns:
         Configured APIRouter instance
 
     Note:
-        Uses RepositoryFactory if available, falls back to LibraryManager for backward compatibility.
+        Phase 6B: Fully migrated to RepositoryFactory pattern (no LibraryManager fallback)
     """
     router = APIRouter()
-
-    def get_repos() -> Any:
-        """Get repository factory or LibraryManager for accessing repositories."""
-        if get_repository_factory:
-            try:
-                return require_repository_factory(get_repository_factory)
-            except (TypeError, AttributeError):
-                pass
-        return require_library_manager(get_library_manager)
 
     @router.get("/api/artists", response_model=ArtistsListResponse)
     async def get_artists(
@@ -114,7 +103,7 @@ def create_artists_router(
         search, and multiple sort options.
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
 
             if search:
                 # Search artists by name (now returns tuple with count)
@@ -171,7 +160,7 @@ def create_artists_router(
         Returns artist information with all their albums.
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             artist = repos.artists.get_by_id(artist_id)
 
             if not artist:
@@ -215,7 +204,7 @@ def create_artists_router(
         Returns all tracks by the artist, sorted by album and track number.
         """
         try:
-            repos = get_repos()
+            repos = require_repository_factory(get_repository_factory)
             artist = repos.artists.get_by_id(artist_id)
 
             if not artist:
