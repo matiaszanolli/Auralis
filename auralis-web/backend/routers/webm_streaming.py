@@ -27,7 +27,7 @@ Architecture:
 
 from fastapi import APIRouter, HTTPException, Response, Query
 from pydantic import BaseModel
-from typing import Callable, Optional, Any
+from typing import Callable, Optional, Any, Tuple
 import logging
 import os
 import math
@@ -65,8 +65,8 @@ def create_webm_streaming_router(
     chunked_audio_processor_class: Any,
     chunk_duration: int = 10,
     chunk_interval: int = 10,
-    get_repository_factory: Callable[[], Any] = None
-):
+    get_repository_factory: Optional[Callable[[], Any]] = None
+) -> APIRouter:
     """
     Factory function to create unified WebM streaming router with dependencies.
 
@@ -88,10 +88,12 @@ def create_webm_streaming_router(
 
     def get_repos() -> Any:
         """Get repository factory for accessing repositories."""
+        if get_repository_factory is None:
+            raise ValueError("Repository factory not configured")
         return require_repository_factory(get_repository_factory)
 
     @router.get("/api/stream/{track_id}/metadata", response_model=StreamMetadata)
-    async def get_stream_metadata(track_id: int):
+    async def get_stream_metadata(track_id: int) -> StreamMetadata:
         """
         Get stream metadata for player initialization.
 
@@ -179,7 +181,7 @@ def create_webm_streaming_router(
         preset: str = Query("adaptive", description="Processing preset (for cache key)"),
         intensity: float = Query(1.0, ge=0.0, le=1.0, description="Processing intensity (for cache key)"),
         enhanced: bool = Query(True, description="Whether enhancement was requested (for cache key)")
-    ):
+    ) -> Response:
         """
         Stream a single WAV audio chunk.
 
@@ -296,7 +298,7 @@ def create_webm_streaming_router(
                                 # Get track duration for cache planning
                                 import mutagen
                                 audio_file = mutagen.File(track.filepath)
-                                track_duration = audio_file.info.length if audio_file else None
+                                track_duration: Optional[float] = audio_file.info.length if audio_file else None
 
                                 # Update position for cache tier detection
                                 await multi_tier_buffer.update_position(
@@ -329,6 +331,9 @@ def create_webm_streaming_router(
             logger.info(f"Chunk {chunk_idx} delivered: {cache_tier} cache, {latency_ms:.1f}ms latency, WAV/PCM")
 
             # Return audio chunk with metadata headers
+            if wav_bytes is None:
+                raise HTTPException(status_code=500, detail="Failed to generate audio chunk")
+
             return Response(
                 content=wav_bytes,
                 media_type="audio/wav",
