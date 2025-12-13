@@ -12,6 +12,7 @@ Main audio processing and mastering engine
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
+import warnings
 from typing import List, Optional, Any, Tuple
 from ..utils.logging import Code, info, debug, debug_line, ModuleError
 from .config import UnifiedConfig
@@ -34,7 +35,28 @@ def process(
     preview_result: Optional[Result] = None,
 ) -> None:
     """
-    Process audio files with reference-based mastering
+    ⚠️ DEPRECATED: Process audio files with reference-based mastering
+
+    This function is deprecated and will be removed in v2.0.0.
+    Use HybridProcessor with reference mode instead.
+
+    **Migration Guide:**
+
+    Old (deprecated):
+    ```python
+    from auralis.core import process
+    process(target, reference, results)
+    ```
+
+    New (recommended):
+    ```python
+    from auralis.core import HybridProcessor
+    from auralis.library import RepositoryFactory
+
+    processor = HybridProcessor(config)
+    result = processor.process(target_audio, reference_audio)
+    # Then save result with save() function
+    ```
 
     Args:
         target: Path to target audio file to be mastered
@@ -43,7 +65,17 @@ def process(
         config: Processing configuration (optional, defaults to UnifiedConfig)
         preview_target: Preview target result (optional)
         preview_result: Preview result output (optional)
+
+    .. deprecated:: 1.1.0
+        Use :class:`HybridProcessor` instead. This function will be removed in v2.0.0.
     """
+    warnings.warn(
+        "auralis.core.process is deprecated and will be removed in v2.0.0. "
+        "Use HybridProcessor instead. See documentation for migration guide.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+
     if config is None:
         config = UnifiedConfig()
 
