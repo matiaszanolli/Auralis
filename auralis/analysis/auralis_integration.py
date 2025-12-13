@@ -14,7 +14,7 @@ Architecture:
     IncomingAudio → fingerprint extraction → engine recommendation → HybridProcessor config → process
 """
 
-from typing import Dict, Optional, Tuple, Any
+from typing import Dict, Optional, Tuple, Any, List
 from pathlib import Path
 import numpy as np
 
@@ -30,7 +30,7 @@ class AuralisAdaptiveMasteringBridge:
     Converts adaptive engine recommendations into HybridProcessor configurations.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize bridge with adaptive mastering engine."""
         self.engine = AdaptiveMasteringEngine()
         self.last_recommendation: Optional[MasteringRecommendation] = None
@@ -181,9 +181,9 @@ class AuralisAdaptiveMasteringBridge:
         return shelves
 
     @staticmethod
-    def _get_processing_order(profile: MasteringProfile) -> list:
+    def _get_processing_order(profile: MasteringProfile) -> List[str]:
         """Determine optimal processing order."""
-        order = []
+        order: List[str] = []
 
         # Dynamics first (expander/compressor)
         if profile.processing_targets.crest_change_db != 0:
@@ -214,7 +214,7 @@ class AdaptiveMasteringPipeline:
     This integrates adaptive mastering with Auralis workflow.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize pipeline."""
         self.bridge = AuralisAdaptiveMasteringBridge()
         self.last_config: Optional[Dict[str, Any]] = None

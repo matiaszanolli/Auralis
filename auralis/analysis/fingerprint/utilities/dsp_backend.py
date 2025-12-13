@@ -58,8 +58,8 @@ class DSPBackend:
             Tuple of (harmonic, percussive) components
         """
         try:
-            if cls.AVAILABLE:
-                return cls._module.hpss(audio)
+            if cls.AVAILABLE and cls._module is not None:
+                return cls._module.hpss(audio)  # type: ignore[no-any-return]
             else:
                 return librosa.effects.hpss(audio)
         except Exception as e:
@@ -83,8 +83,8 @@ class DSPBackend:
             Array of pitch estimates (f0 in Hz), 0 for unvoiced frames
         """
         try:
-            if cls.AVAILABLE:
-                return cls._module.yin(audio, sr=sr, fmin=fmin, fmax=fmax)
+            if cls.AVAILABLE and cls._module is not None:
+                return cls._module.yin(audio, sr=sr, fmin=fmin, fmax=fmax)  # type: ignore[no-any-return]
             else:
                 return librosa.yin(audio, fmin=fmin, fmax=fmax, sr=sr)
         except Exception as e:
@@ -106,8 +106,8 @@ class DSPBackend:
             Chromagram array (12 x time_frames)
         """
         try:
-            if cls.AVAILABLE:
-                return cls._module.chroma_cqt(audio, sr=sr)
+            if cls.AVAILABLE and cls._module is not None:
+                return cls._module.chroma_cqt(audio, sr=sr)  # type: ignore[no-any-return]
             else:
                 return librosa.feature.chroma_cqt(y=audio, sr=sr)
         except Exception as e:
