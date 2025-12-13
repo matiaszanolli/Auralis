@@ -46,14 +46,9 @@ def patch_track_repository(mock_track):
         yield MockTrackRepo
 
 
-@pytest.fixture
-def mock_library_manager():
-    """Create a mock library manager"""
-    manager = Mock()
-    manager.session = Mock()
-    manager.session.commit = Mock()
-    manager.session.rollback = Mock()
-    return manager
+# Phase 5B.1: Migration to conftest.py fixtures
+# Removed local mock_library_manager fixture - now using conftest.py fixture
+# This fixture was shadowing conftest.py - tests now use parent fixture
 
 
 @pytest.fixture
