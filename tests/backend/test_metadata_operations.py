@@ -42,12 +42,9 @@ def temp_audio_dir():
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-@pytest.fixture
-def library_manager():
-    """Create an in-memory library manager."""
-    manager = LibraryManager(database_path=":memory:")
-    yield manager
-    # SQLite in-memory DB is cleaned up automatically
+# Phase 5B.1: Migration to conftest.py fixtures
+# Removed local library_manager fixture - now using conftest.py fixture
+# Tests automatically use the fixture from parent conftest.py
 
 
 @pytest.fixture
