@@ -8,7 +8,7 @@ Stereo phase correlation and spatial analysis tools.
 """
 
 import numpy as np
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Any
 from scipy import signal
 from .fingerprint.common_metrics import SafeOperations, MetricUtils
 
@@ -22,14 +22,14 @@ class PhaseCorrelationAnalyzer:
         self.window_samples = int(analysis_window * sample_rate)
 
         # Correlation history for temporal analysis
-        self.correlation_history = []
+        self.correlation_history: List[float] = []
         self.max_history_length = 100  # Keep 10 seconds at 10Hz update rate
 
         # Phase analysis settings
         self.phase_bins = 64
         self.phase_histogram = np.zeros(self.phase_bins)
 
-    def analyze_correlation(self, stereo_audio: np.ndarray) -> Dict:
+    def analyze_correlation(self, stereo_audio: np.ndarray) -> Dict[str, Any]:
         """
         Analyze phase correlation of stereo audio
 
@@ -190,7 +190,7 @@ class PhaseCorrelationAnalyzer:
         mono_compatibility = (correlation + 1) / 2
         return float(mono_compatibility)
 
-    def _calculate_stereo_balance(self, left: np.ndarray, right: np.ndarray) -> Dict:
+    def _calculate_stereo_balance(self, left: np.ndarray, right: np.ndarray) -> Dict[str, Any]:
         """Calculate stereo balance information"""
         left_rms = np.sqrt(np.mean(left**2))
         right_rms = np.sqrt(np.mean(right**2))
@@ -214,7 +214,7 @@ class PhaseCorrelationAnalyzer:
             'balance_offset': float(balance_offset)
         }
 
-    def _calculate_phase_coherence(self, left: np.ndarray, right: np.ndarray) -> Dict:
+    def _calculate_phase_coherence(self, left: np.ndarray, right: np.ndarray) -> Dict[str, Any]:
         """Calculate frequency-dependent phase coherence"""
         # Use welch method for frequency domain analysis
         f, left_psd = signal.welch(left, self.sample_rate, nperseg=1024)
@@ -250,7 +250,7 @@ class PhaseCorrelationAnalyzer:
             'coherence_spectrum': coherence.tolist()
         }
 
-    def analyze_stereo_field(self, stereo_audio: np.ndarray, num_positions: int = 16) -> Dict:
+    def analyze_stereo_field(self, stereo_audio: np.ndarray, num_positions: int = 16) -> Dict[str, Any]:
         """
         Analyze stereo field positioning
 
@@ -323,6 +323,6 @@ class PhaseCorrelationAnalyzer:
         """Get correlation history for temporal visualization"""
         return self.correlation_history.copy()
 
-    def reset_history(self):
+    def reset_history(self) -> None:
         """Reset correlation history"""
         self.correlation_history.clear()

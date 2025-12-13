@@ -13,7 +13,7 @@ to ensure consistency and reduce code duplication.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 import numpy as np
 
 
@@ -116,7 +116,7 @@ class ScoringOperations:
         return float(penalty_factor * 100)
 
     @staticmethod
-    def weighted_score(*scores_and_weights) -> float:
+    def weighted_score(*scores_and_weights: Any) -> float:
         """
         Combine multiple scores with weights
 
@@ -145,7 +145,7 @@ class ScoringOperations:
         return float(weighted_sum / total_weight)
 
     @staticmethod
-    def percentile_score(value: float, percentiles: dict) -> float:
+    def percentile_score(value: float, percentiles: Dict[int, Tuple[float, float]]) -> float:
         """
         Score based on percentile distribution
 
@@ -251,20 +251,20 @@ class ScoringOperations:
             return 100.0
 
         deviations = [abs(v - target) / max(abs(target), 0.001) for v in values]
-        mean_deviation = np.mean(deviations)
-        std_deviation = np.std(deviations)
+        mean_deviation = float(np.mean(deviations))
+        std_deviation = float(np.std(deviations))
 
         # Score based on how well values cluster around target
         if mean_deviation <= tolerance:
             consistency_score = 100.0
         else:
             # Penalize for average deviation
-            penalty = min(100, mean_deviation * 100 / tolerance)
+            penalty = min(100.0, mean_deviation * 100 / tolerance)
             consistency_score = 100 - penalty
 
         # Additional penalty for high variance
         variance_penalty = std_deviation * 100 / max(1.0, mean_deviation)
-        final_score = consistency_score - min(30, variance_penalty)
+        final_score = consistency_score - min(30.0, variance_penalty)
 
         return float(np.clip(final_score, 0, 100))
 
