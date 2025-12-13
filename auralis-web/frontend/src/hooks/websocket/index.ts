@@ -8,5 +8,4 @@
 export { useWebSocketSubscription } from './useWebSocketSubscription';
 
 // New hooks moved from root
-export { useWebSocket } from './useWebSocket';
 export { useWebSocketProtocol } from './useWebSocketProtocol';

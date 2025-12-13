@@ -17,14 +17,13 @@ import soundfile as sf
 from ..utils.logging import debug, info, Code
 
 
-def load(file_path: str, file_type: str = "audio", temp_folder: str = None):
+def load(file_path: str, file_type: str = "audio"):
     """
     Load an audio file
 
     Args:
         file_path: Path to the audio file
         file_type: Type of file being loaded ("target", "reference", or "audio")
-        temp_folder: Temporary folder for processing (unused for now)
 
     Returns:
         tuple: (audio_data, sample_rate)
