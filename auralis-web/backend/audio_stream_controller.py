@@ -35,7 +35,7 @@ from typing import Optional, Callable, Tuple, Union, Dict, Any, Type
 from fastapi import WebSocket
 from collections import OrderedDict
 
-from auralis.library import LibraryManager
+from auralis.library.repositories.factory import RepositoryFactory
 from cache.manager import StreamlinedCacheManager
 from chunked_processor import ChunkedAudioProcessor
 
@@ -121,7 +121,7 @@ class AudioStreamController:
     def __init__(
         self,
         chunked_processor_class: Optional[Type[ChunkedAudioProcessor]] = None,
-        library_manager: Optional[LibraryManager] = None,
+        get_repository_factory: Optional[Callable[[], RepositoryFactory]] = None,
         cache_manager: Optional[Union[StreamlinedCacheManager, SimpleChunkCache]] = None
     ) -> None:
         """
@@ -129,11 +129,11 @@ class AudioStreamController:
 
         Args:
             chunked_processor_class: ChunkedAudioProcessor class for processing
-            library_manager: LibraryManager instance for track lookup
+            get_repository_factory: Callable that returns RepositoryFactory for track lookup
             cache_manager: Optional cache manager for chunk caching.
         """
         self.chunked_processor_class: Optional[Type[ChunkedAudioProcessor]] = chunked_processor_class
-        self.library_manager: Optional[LibraryManager] = library_manager
+        self._get_repository_factory: Optional[Callable[[], RepositoryFactory]] = get_repository_factory
 
         # Use provided cache manager or fallback to SimpleChunkCache
         self.cache_manager: Union[StreamlinedCacheManager, SimpleChunkCache] = cache_manager or SimpleChunkCache()
@@ -166,12 +166,13 @@ class AudioStreamController:
         if not self.chunked_processor_class:
             raise ValueError("ChunkedProcessor not available")
 
-        if not self.library_manager:
-            raise ValueError("LibraryManager not available")
+        if not self._get_repository_factory:
+            raise ValueError("RepositoryFactory not available")
 
         # Get track from library
         try:
-            track = self.library_manager.tracks.get_by_id(track_id)
+            factory = self._get_repository_factory()
+            track = factory.tracks.get_by_id(track_id)
             if not track:
                 await self._send_error(websocket, track_id, "Track not found")
                 return

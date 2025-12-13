@@ -109,12 +109,10 @@ class AuralisApp {
         cwd = path.join(__dirname, '..');
       } else {
         // Production: Run Python backend from resources
-        // Try to use compiled binary first, fallback to Python script
+        // Platform-specific backend selection
+        const isWindows = process.platform === 'win32';
         const backendPath = path.join(process.resourcesPath, 'backend', 'auralis-backend');
-        const backendExe = process.platform === 'win32'
-          ? `${backendPath}.exe`
-          : backendPath;
-
+        const backendExe = isWindows ? `${backendPath}.exe` : backendPath;
         const pythonScript = path.join(process.resourcesPath, 'backend', 'main.py');
 
         if (fs.existsSync(backendExe)) {
@@ -122,14 +120,25 @@ class AuralisApp {
           pythonCmd = backendExe;
           pythonArgs = [];
           cwd = path.join(process.resourcesPath, 'backend');
-        } else if (fs.existsSync(pythonScript)) {
-          // Fallback: Use Python script from resources
+        } else if (!isWindows && fs.existsSync(pythonScript)) {
+          // macOS/Linux: Fallback to Python script from resources
           console.log('Binary not found, using Python script from resources');
           pythonCmd = 'python3';
           pythonArgs = [pythonScript];
           cwd = path.join(process.resourcesPath, 'backend');
         } else {
-          console.error(`Backend not found. Tried:\n  Binary: ${backendExe}\n  Script: ${pythonScript}`);
+          // Error: Backend not available
+          const errorMessage = isWindows
+            ? `Auralis backend not found.\n\nPlease reinstall Auralis.\n\nAlternatively, install Python 3.13+:\nhttps://python.org`
+            : `Backend not found. Tried:\n  Binary: ${backendExe}\n  Script: ${pythonScript}`;
+
+          console.error(errorMessage);
+
+          if (isWindows) {
+            // Show user-friendly dialog for Windows
+            dialog.showErrorBox('Backend Not Found', errorMessage);
+          }
+
           reject(new Error('Backend executable or script not found'));
           return;
         }

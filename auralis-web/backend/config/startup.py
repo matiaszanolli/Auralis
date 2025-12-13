@@ -111,7 +111,7 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                     # Create CPU-based fingerprint queue (24+ workers, 36x speedup)
                     fingerprint_queue = FingerprintExtractionQueue(
                         fingerprint_extractor=fingerprint_extractor,
-                        library_manager=globals_dict['library_manager'],
+                        get_repository_factory=lambda: globals_dict.get('repository_factory'),
                         num_workers=None,  # Auto-detect CPU cores
                         max_queue_size=None  # Auto-size based on system
                     )

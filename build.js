@@ -311,14 +311,34 @@ coll = COLLECT(
       this.log('BUILD', '  ✓ Frontend resources copied');
     }
 
-    // Copy backend build if it exists
+    // Copy backend build with platform-specific strategy
     if (fs.existsSync(this.backendDistDir)) {
       const backendResourceDir = path.join(resourcesDir, 'backend');
       if (fs.existsSync(backendResourceDir)) {
         fs.rmSync(backendResourceDir, { recursive: true, force: true });
       }
-      this.copyRecursive(this.backendDistDir, backendResourceDir);
-      this.log('BUILD', '  ✓ Backend resources copied');
+      fs.mkdirSync(backendResourceDir, { recursive: true });
+
+      const isWindows = process.platform === 'win32';
+
+      if (isWindows) {
+        // Windows: Binary-only distribution (save ~216 MB)
+        const binaryName = 'auralis-backend.exe';
+        const binaryPath = path.join(this.backendDistDir, binaryName);
+
+        if (fs.existsSync(binaryPath)) {
+          fs.copyFileSync(binaryPath, path.join(backendResourceDir, binaryName));
+          this.log('BUILD', '  ✓ Windows: Binary-only distribution prepared (216 MB saved)');
+        } else {
+          // Fallback: Copy entire directory if binary not found
+          this.copyRecursive(this.backendDistDir, backendResourceDir);
+          this.log('BUILD', '  ⚠ Windows: Binary not found, falling back to full directory copy');
+        }
+      } else {
+        // macOS/Linux: Copy both binary + source (safety fallback)
+        this.copyRecursive(this.backendDistDir, backendResourceDir);
+        this.log('BUILD', '  ✓ macOS/Linux: Binary + source fallback prepared');
+      }
     }
 
     this.log('BUILD', '✓ Electron resources prepared');

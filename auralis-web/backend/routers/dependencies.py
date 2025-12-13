@@ -10,6 +10,7 @@ reducing boilerplate and improving consistency.
 
 from fastapi import HTTPException
 import logging
+import warnings
 from typing import Callable, Any
 from auralis import EnhancedAudioPlayer
 from auralis.library import LibraryManager
@@ -21,6 +22,10 @@ def require_library_manager(get_library_manager: Callable[[], Any]) -> LibraryMa
     """
     Validate that library manager is available.
 
+    .. deprecated:: 1.1.0
+        Use :func:`require_repository_factory` instead. LibraryManager will be
+        removed in version 2.0.0. See MIGRATION_GUIDE.md for migration instructions.
+
     Args:
         get_library_manager: Callable that returns LibraryManager instance
 
@@ -30,6 +35,13 @@ def require_library_manager(get_library_manager: Callable[[], Any]) -> LibraryMa
     Raises:
         HTTPException: 503 if library manager is not available
     """
+    warnings.warn(
+        "require_library_manager is deprecated and will be removed in v2.0.0. "
+        "Use require_repository_factory instead. "
+        "See MIGRATION_GUIDE.md for migration instructions.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     library_manager = get_library_manager()
     if not library_manager:
         raise HTTPException(status_code=503, detail="Library manager not available")

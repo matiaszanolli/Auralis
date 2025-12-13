@@ -31,7 +31,7 @@ from typing import Optional, Dict, Callable, Any, List
 from ..utils.logging import info, warning, error, debug
 from .resource_monitor import AdaptiveResourceMonitor, ResourceLimits
 from auralis.library.fingerprint_extractor import FingerprintExtractor
-from auralis.library import LibraryManager
+from auralis.library.repositories.factory import RepositoryFactory
 
 class FingerprintExtractionQueue:
     """
@@ -62,7 +62,7 @@ class FingerprintExtractionQueue:
 
     def __init__(self,
                  fingerprint_extractor: FingerprintExtractor,
-                 library_manager: LibraryManager,
+                 get_repository_factory: Callable[[], RepositoryFactory],
                  num_workers: Optional[int] = None,
                  enable_adaptive_scaling: bool = True,
                  max_workers: Optional[int] = None) -> None:
@@ -71,7 +71,7 @@ class FingerprintExtractionQueue:
 
         Args:
             fingerprint_extractor: FingerprintExtractor instance
-            library_manager: LibraryManager for querying unfingerprinted tracks
+            get_repository_factory: Callable that returns RepositoryFactory for querying tracks
             num_workers: Number of background worker threads (default: 0.5x CPU cores)
             enable_adaptive_scaling: Enable adaptive resource monitoring (default: True)
             max_workers: Maximum workers for adaptive scaling (default: 2.0x CPU cores)
@@ -90,7 +90,7 @@ class FingerprintExtractionQueue:
             max_workers = int(cpu_count * 2.0)
 
         self.extractor: FingerprintExtractor = fingerprint_extractor
-        self.library_manager: LibraryManager = library_manager
+        self._get_repository_factory: Callable[[], RepositoryFactory] = get_repository_factory
         self.initial_num_workers: int = num_workers
         self.current_num_workers: int = num_workers
         self.max_workers_limit: int = max_workers
@@ -272,7 +272,8 @@ class FingerprintExtractionQueue:
                 # Atomically claim next unfingerprinted track from database
                 # This prevents race condition where multiple workers fetch the same track
                 try:
-                    track = self.library_manager.fingerprints.claim_next_unfingerprinted_track()
+                    factory = self._get_repository_factory()
+                    track = factory.fingerprints.claim_next_unfingerprinted_track()
                     if not track:
                         # No more unfingerprinted tracks, exit loop
                         debug(f"Worker {worker_id}: No more unfingerprinted tracks")
