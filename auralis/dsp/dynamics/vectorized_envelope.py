@@ -142,7 +142,7 @@ class VectorizedEnvelopeFollower:
 
 
 # Numba JIT-compiled function for maximum speed
-@jit(nopython=True, cache=True)
+@jit(nopython=True, cache=True)  # type: ignore[untyped-decorator,misc]
 def _process_envelope_numba(
     input_levels: np.ndarray,
     initial_envelope: float,
