@@ -39,14 +39,14 @@ def adaptive_gain_calculation(target_rms: float,
 
         # Special case: if adaptation_factor is 1.0, return raw gain
         if adaptation_factor >= 0.99:
-            return np.clip(raw_gain, 0.1, 10.0)
+            return float(np.clip(raw_gain, 0.1, 10.0))
 
         # Apply adaptation factor for smoother transitions
         # adaptation_factor of 0.8 means 80% of the way to the target
         gain = 1.0 + (raw_gain - 1.0) * adaptation_factor
 
         # Limit gain to reasonable range
-        return np.clip(gain, 0.1, 10.0)
+        return float(np.clip(gain, 0.1, 10.0))
     return 1.0
 
 

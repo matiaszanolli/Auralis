@@ -11,7 +11,7 @@ Combines reference-based matching with adaptive intelligence
 """
 
 import numpy as np
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Optional, Union, cast
 from ...dsp.unified import normalize
 from ...utils.logging import debug, info
 from ..processors.reference_mode import apply_reference_matching
@@ -64,7 +64,7 @@ class HybridMode:
         else:
             # Fall back to pure adaptive mode
             debug("No reference provided, falling back to adaptive mode")
-            return self.adaptive_processor.process(target_audio, eq_processor)
+            return cast(np.ndarray, self.adaptive_processor.process(target_audio, eq_processor))
 
     def _apply_hybrid_processing(self, target_audio: np.ndarray,
                                 reference_audio: np.ndarray,

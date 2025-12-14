@@ -38,17 +38,17 @@ class MemoryPool:
             if shape in self.available_buffers and self.available_buffers[shape]:
                 buffer = self.available_buffers[shape].popleft()
                 self.allocated_buffers.add(id(buffer))
-                return buffer
+                return np.asarray(buffer, dtype=dtype)
 
             # Allocate new buffer if we have space
             if self.total_allocated + buffer_size <= self.pool_size_bytes:
                 buffer = np.zeros(shape, dtype=dtype)
                 self.allocated_buffers.add(id(buffer))
                 self.total_allocated += buffer_size
-                return buffer
+                return np.asarray(buffer, dtype=dtype)
 
             # Pool is full, return temporary buffer (will be GC'd)
-            return np.zeros(shape, dtype=dtype)
+            return np.asarray(np.zeros(shape, dtype=dtype), dtype=dtype)
 
     def return_buffer(self, buffer: np.ndarray) -> None:
         """Return buffer to the pool"""

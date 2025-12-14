@@ -64,15 +64,15 @@ class SIMDAccelerator:
         """Apply gains using vectorized operations"""
         if audio.ndim == 1:
             # Mono audio
-            return audio * gains
+            return np.asarray(audio * gains, dtype=np.float32)
         else:
             # Multi-channel audio
             if len(gains) == audio.shape[1]:
                 # Per-channel gains
-                return audio * gains[np.newaxis, :]
+                return np.asarray(audio * gains[np.newaxis, :], dtype=np.float32)
             else:
                 # Single gain for all channels
-                return audio * gains
+                return np.asarray(audio * gains, dtype=np.float32)
 
     @staticmethod
     def fast_rms_calculation(audio: np.ndarray, window_size: int = 1024) -> np.ndarray:

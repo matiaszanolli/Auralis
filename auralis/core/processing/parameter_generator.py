@@ -170,7 +170,7 @@ class ContinuousParameterGenerator:
         # Clamp to reasonable range
         # Minimum: -28 dB (very quiet material)
         # Maximum: -2 dB (prevent excessive clipping risk)
-        return np.clip(target_lufs, -28.0, -2.0)
+        return float(np.clip(target_lufs, -28.0, -2.0))
 
     def _calculate_peak_target(
         self,
@@ -207,7 +207,7 @@ class ContinuousParameterGenerator:
         peak_target = base_peak + preference_adjustment
 
         # Clamp to safe range
-        return np.clip(peak_target, -1.5, -0.2)
+        return float(np.clip(peak_target, -1.5, -0.2))
 
     def _generate_eq_curve(
         self,
@@ -314,7 +314,7 @@ class ContinuousParameterGenerator:
         # More imbalance = more EQ (0.5 to 1.0 range)
         eq_blend = 0.5 + (np.clip(imbalance, 0, 1) * 0.5)
 
-        return eq_blend
+        return float(eq_blend)
 
     def _generate_compression(
         self,
@@ -447,7 +447,7 @@ class ContinuousParameterGenerator:
             # Negative bias (allow compression) → more processing
             base_blend -= preference.dynamic_bias * 0.2
 
-        return np.clip(base_blend, 0.2, 0.9)
+        return float(np.clip(base_blend, 0.2, 0.9))
 
     def _generate_limiter(self, coords: ProcessingCoordinates) -> Dict[str, float]:
         """
@@ -513,4 +513,4 @@ class ContinuousParameterGenerator:
             # Stereo bias shifts target (-1 = narrower, +1 = wider)
             target_width += preference.stereo_bias * 0.2
 
-        return np.clip(target_width, 0.5, 0.9)
+        return float(np.clip(target_width, 0.5, 0.9))

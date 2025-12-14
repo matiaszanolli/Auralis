@@ -130,7 +130,7 @@ class FeatureExtractor:
             fallback=0.0
         ))
 
-        return bandwidth
+        return float(bandwidth)
 
     def _spectral_contrast(self, audio: np.ndarray, n_bands: int = 6) -> List[float]:
         """Calculate spectral contrast across frequency bands"""
@@ -162,7 +162,7 @@ class FeatureExtractor:
         geometric_mean = np.exp(np.mean(np.log(magnitude)))
         arithmetic_mean = np.mean(magnitude)
 
-        return geometric_mean / arithmetic_mean
+        return float(geometric_mean / arithmetic_mean)
 
     def _tempo_stability(self, audio: np.ndarray) -> float:
         """Estimate tempo stability"""
@@ -212,7 +212,7 @@ class FeatureExtractor:
         peak_energy = np.sum(autocorr[peaks])
         total_energy = np.sum(autocorr)
 
-        return peak_energy / (total_energy + 1e-10)
+        return float(peak_energy / (total_energy + 1e-10))
 
     def _fundamental_frequency(self, audio: np.ndarray) -> float:
         """Estimate fundamental frequency"""
