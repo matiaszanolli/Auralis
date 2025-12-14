@@ -84,7 +84,7 @@ def create_metadata_router(
 
     # Initialize metadata editor (shared instance) or use provided one
     if metadata_editor is None:
-        metadata_editor = MetadataEditor()  # type: ignore[no-untyped-call]
+        metadata_editor = MetadataEditor()
 
     @router.get("/api/metadata/tracks/{track_id}/fields")
     async def get_editable_fields(track_id: int) -> Dict[str, Any]:

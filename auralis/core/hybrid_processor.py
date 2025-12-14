@@ -50,7 +50,7 @@ class HybridProcessor:
         # Initialize analyzers
         self.content_analyzer = ContentAnalyzer(config.internal_sample_rate)
         self.target_generator = AdaptiveTargetGenerator(config, self)
-        self.spectrum_mapper = SpectrumMapper()  # type: ignore[no-untyped-call]
+        self.spectrum_mapper = SpectrumMapper()
         self.fingerprint_analyzer = AudioFingerprintAnalyzer()
 
         # Initialize 25D-guided recording type detector
