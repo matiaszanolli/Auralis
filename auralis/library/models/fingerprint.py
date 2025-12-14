@@ -12,6 +12,7 @@ Models for 25D audio fingerprints and similarity graph
 
 from sqlalchemy import Column, Integer, Float, ForeignKey, LargeBinary
 from sqlalchemy.orm import relationship
+from typing import Dict, Any, List
 
 from .base import Base, TimestampMixin
 
@@ -86,7 +87,7 @@ class TrackFingerprint(Base, TimestampMixin):
     # Relationship
     track = relationship("Track", backref="fingerprint", uselist=False)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert fingerprint to dictionary"""
         return {
             'id': self.id,
@@ -142,7 +143,7 @@ class TrackFingerprint(Base, TimestampMixin):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
 
-    def to_vector(self) -> list:
+    def to_vector(self) -> List[Any]:
         """Convert fingerprint to 25D vector for distance calculations.
 
         Returns:
@@ -203,7 +204,7 @@ class SimilarityGraph(Base, TimestampMixin):
     track = relationship("Track", foreign_keys=[track_id], backref="similar_tracks")
     similar_track = relationship("Track", foreign_keys=[similar_track_id])
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert similarity edge to dictionary"""
         return {
             'id': self.id,

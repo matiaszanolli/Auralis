@@ -11,6 +11,7 @@ Models for user settings and preferences
 """
 
 from sqlalchemy import Column, Integer, String, Float, Boolean, Text
+from typing import Dict, Any
 
 from .base import Base, TimestampMixin
 
@@ -56,7 +57,7 @@ class UserSettings(Base, TimestampMixin):
     enable_analytics = Column(Boolean, default=False)
     debug_mode = Column(Boolean, default=False)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert settings to dictionary"""
         import json
 
