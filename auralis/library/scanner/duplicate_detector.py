@@ -10,7 +10,7 @@ Audio file duplicate detection based on content hashing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 
 from ...utils.logging import error
 
@@ -25,7 +25,7 @@ class DuplicateDetector:
     - Can scan directories or entire library
     """
 
-    def __init__(self, file_discovery, audio_analyzer):
+    def __init__(self, file_discovery: Any, audio_analyzer: Any) -> None:
         """
         Initialize duplicate detector
 
@@ -36,7 +36,7 @@ class DuplicateDetector:
         self.file_discovery = file_discovery
         self.audio_analyzer = audio_analyzer
 
-    def find_duplicates(self, directories: List[str] = None) -> List[List[str]]:
+    def find_duplicates(self, directories: Optional[List[str]] = None) -> List[List[str]]:
         """
         Find duplicate audio files based on content hash
 

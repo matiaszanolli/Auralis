@@ -10,11 +10,13 @@ Convenience functions for creating common configurations
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any
+
 from .settings import AdaptiveConfig
 from .unified_config import UnifiedConfig
 
 
-def create_adaptive_config(**kwargs) -> UnifiedConfig:
+def create_adaptive_config(**kwargs: Any) -> UnifiedConfig:
     """Create configuration optimized for adaptive processing"""
     adaptive_settings = {
         "mode": "adaptive",
@@ -26,7 +28,7 @@ def create_adaptive_config(**kwargs) -> UnifiedConfig:
     return UnifiedConfig(adaptive=AdaptiveConfig(**adaptive_settings))
 
 
-def create_reference_config(**kwargs) -> UnifiedConfig:
+def create_reference_config(**kwargs: Any) -> UnifiedConfig:
     """Create configuration for traditional reference-based processing"""
     adaptive_settings = {
         "mode": "reference",
@@ -38,7 +40,7 @@ def create_reference_config(**kwargs) -> UnifiedConfig:
     return UnifiedConfig(adaptive=AdaptiveConfig(**adaptive_settings))
 
 
-def create_hybrid_config(**kwargs) -> UnifiedConfig:
+def create_hybrid_config(**kwargs: Any) -> UnifiedConfig:
     """Create configuration for hybrid processing mode"""
     adaptive_settings = {
         "mode": "hybrid",
