@@ -7,7 +7,7 @@ This enables instant preset switching with zero wait time.
 
 import asyncio
 import logging
-from typing import Optional, Set
+from typing import Optional, Set, cast
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ async def buffer_presets_for_track(
                         # Process chunk with thread-safe locking
                         logger.info(f"🔄 Buffering: {preset} chunk {chunk_idx}/{chunks_to_buffer-1}")
                         # process_chunk_safe now returns (path, audio_array) tuple
-                        chunk_path, audio_array = await processor.process_chunk_safe(chunk_idx)
+                        chunk_path, audio_array = cast(tuple, await processor.process_chunk_safe(chunk_idx))
                         logger.info(f"✅ Buffered: {preset} chunk {chunk_idx}")
 
                         # Small delay to avoid CPU saturation

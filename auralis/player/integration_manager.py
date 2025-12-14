@@ -99,8 +99,11 @@ class IntegrationManager:
             except Exception as e:
                 debug(f"Callback error: {e}")
 
-    def _on_playback_state_change(self, state_info: Dict[str, Any]) -> None:
+    def _on_playback_state_change(self, state_info: Optional[Dict[str, Any]]) -> None:
         """Receive and propagate playback state changes"""
+        # Initialize state_info if None
+        if state_info is None:
+            state_info = {}
         # Enrich state info with current context
         state_info.update({
             'position_seconds': self._get_position_seconds(),

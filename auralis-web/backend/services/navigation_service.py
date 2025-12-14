@@ -172,7 +172,7 @@ class NavigationService:
                 if track_index < len(queue):
                     track_path = queue[track_index]
                     if hasattr(self.audio_player, 'load_file'):
-                        self.audio_player.load_file(track_path)
+                        self.audio_player.load_file(track_path)  # type: ignore[arg-type]
 
             # Start playback
             if hasattr(self.audio_player, 'play'):

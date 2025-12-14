@@ -104,6 +104,7 @@ class VariationOperations:
 
             # Use pre-computed peaks if provided, otherwise compute
             if frame_peaks is None:
+                assert hop_length is not None and frame_length is not None
                 frame_peaks = VariationOperations.get_frame_peaks(audio, hop_length, frame_length)
 
             # Vectorized crest factor calculation (peak/RMS in dB)

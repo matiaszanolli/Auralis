@@ -100,8 +100,8 @@ class HarmonicOperations:
             else:
                 f0 = librosa.yin(
                     audio,
-                    fmin=librosa.note_to_hz('C2'),
-                    fmax=librosa.note_to_hz('C7'),
+                    fmin=float(librosa.note_to_hz('C2')),
+                    fmax=float(librosa.note_to_hz('C7')),
                     sr=sr
                 )
 
@@ -157,7 +157,7 @@ class HarmonicOperations:
             # Typical range: 0.1-0.4
             # Simple tonal: 0.1-0.2
             # Rich tonal: 0.3-0.4
-            normalized = MetricUtils.normalize_to_range(chroma_energy, max_val=0.4, clip=True)
+            normalized = MetricUtils.normalize_to_range(float(chroma_energy), max_val=0.4, clip=True)
 
             return float(normalized)
 

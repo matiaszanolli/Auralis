@@ -71,7 +71,7 @@ class MLGenreClassifier:
         genre_probs = dict(zip(self.genres, probabilities))
 
         # Find the most likely genre
-        primary_genre = max(genre_probs, key=genre_probs.get)
+        primary_genre = max(genre_probs, key=lambda g: genre_probs[g])
         confidence = genre_probs[primary_genre]
 
         # If confidence is too low, fall back to "pop" as safe default

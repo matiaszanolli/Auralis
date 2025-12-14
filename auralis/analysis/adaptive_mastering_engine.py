@@ -249,7 +249,7 @@ class AdaptiveMasteringEngine:
 
         return rec
 
-    def _fallback_recommendation(self, fingerprint: MasteringFingerprint) -> MasteringRecommendation:
+    def _fallback_recommendation(self, fingerprint: Optional[MasteringFingerprint]) -> MasteringRecommendation:
         """Fallback when no profiles match."""
         # Default to quiet-reference profile for safety
         profile = self.profile_db.get_profile("quiet-reference-modernization-v1")

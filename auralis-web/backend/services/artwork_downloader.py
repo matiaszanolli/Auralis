@@ -116,7 +116,7 @@ class ArtworkDownloader:
                     "User-Agent": "Auralis/1.0 (https://github.com/matiaszanolli/Auralis)"
                 }
 
-                async with session.get(search_url, params=params, headers=headers) as resp:
+                async with session.get(search_url, params=params, headers=headers) as resp:  # type: ignore[arg-type]
                     if resp.status != 200:
                         return None
 
@@ -170,7 +170,7 @@ class ArtworkDownloader:
                     "limit": 1
                 }
 
-                async with session.get(self.itunes_api, params=params) as resp:
+                async with session.get(self.itunes_api, params=params) as resp:  # type: ignore[arg-type]
                     if resp.status != 200:
                         return None
 

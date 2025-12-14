@@ -230,9 +230,9 @@ class AlbumRepository:
             album = session.query(Album).filter(Album.id == album_id).first()
             if album and album.artwork_path:
                 # Delete file
-                self.artwork_extractor.delete_artwork(album.artwork_path)
+                self.artwork_extractor.delete_artwork(album.artwork_path)  # type: ignore[arg-type]
                 # Clear database reference
-                album.artwork_path = None
+                album.artwork_path = None  # type: ignore[assignment]
                 session.commit()
                 return True
             return False
@@ -259,7 +259,7 @@ class AlbumRepository:
             if not album:
                 return None
 
-            album.artwork_path = artwork_path
+            album.artwork_path = artwork_path  # type: ignore[assignment]
             session.commit()
             session.refresh(album)
             session.expunge(album)

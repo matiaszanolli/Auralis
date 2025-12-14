@@ -13,7 +13,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import warnings
-from typing import List, Optional, Any, Tuple
+from typing import List, Optional, Any, Tuple, cast
 from ..utils.logging import Code, info, debug, debug_line, ModuleError
 from .config import UnifiedConfig
 from ..io.results import Result
@@ -171,7 +171,7 @@ def process(
                 correct_result = result_no_limiter
         save(
             required_result.file,
-            correct_result,
+            cast(Any, correct_result),
             output_sample_rate,  # Use original target rate for output
             required_result.subtype,
         )
