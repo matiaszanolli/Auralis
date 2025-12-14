@@ -11,7 +11,7 @@ Genre-specific and content-aware EQ curve generation
 """
 
 import numpy as np
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, List
 
 
 # Genre-specific EQ curves (25 bands)
@@ -55,8 +55,8 @@ def generate_genre_eq_curve(genre: str, num_bands: int = 25) -> np.ndarray:
 
 
 def apply_content_adaptation(gains: np.ndarray,
-                            content_profile: Dict,
-                            critical_bands: list) -> np.ndarray:
+                            content_profile: Dict[str, Any],
+                            critical_bands: List[Any]) -> np.ndarray:
     """
     Apply content-aware adaptations to EQ gains
 
@@ -92,7 +92,7 @@ def apply_content_adaptation(gains: np.ndarray,
 
 def _apply_genre_adaptation(gains: np.ndarray,
                            genre: str,
-                           critical_bands: list) -> np.ndarray:
+                           critical_bands: List[Any]) -> np.ndarray:
     """Apply genre-specific EQ adaptations"""
     adapted_gains = gains.copy()
 
@@ -157,7 +157,7 @@ def _apply_energy_adaptation(gains: np.ndarray, energy_level: str) -> np.ndarray
 
 def _apply_spectral_adaptation(gains: np.ndarray,
                               spectral_centroid: float,
-                              critical_bands: list) -> np.ndarray:
+                              critical_bands: List[Any]) -> np.ndarray:
     """Apply spectral balance-based adaptations"""
     adapted_gains = gains.copy()
 
