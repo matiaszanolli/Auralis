@@ -44,6 +44,7 @@ router = APIRouter(tags=["library"])
 
 def create_library_router(
     get_repository_factory: Callable[[], Any],
+    get_library_manager: Optional[Callable[[], Any]] = None,
     connection_manager: Optional[Any] = None
 ) -> APIRouter:
     """
@@ -51,6 +52,7 @@ def create_library_router(
 
     Args:
         get_repository_factory: Callable that returns RepositoryFactory instance
+        get_library_manager: Optional callable that returns LibraryManager instance (for scanning)
         connection_manager: WebSocket connection manager for progress broadcasts (optional)
 
     Returns:
@@ -460,8 +462,12 @@ def create_library_router(
             HTTPException: If library manager not available or scan fails
         """
         try:
-            library_manager = require_library_manager(get_library_manager)
             from auralis.library.scanner import LibraryScanner
+
+            if not get_library_manager:
+                raise HTTPException(status_code=503, detail="Library manager not available")
+
+            library_manager = get_library_manager()
 
             # Create scanner with progress callback
             scanner = LibraryScanner(library_manager)

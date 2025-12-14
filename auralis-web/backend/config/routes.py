@@ -77,7 +77,8 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     system_router: APIRouter = create_system_router(
         manager=manager,
         get_processing_engine=get_component('processing_engine'),
-        HAS_AURALIS=deps.get('HAS_AURALIS', False)
+        HAS_AURALIS=deps.get('HAS_AURALIS', False),
+        get_repository_factory=get_component('repository_factory')
     )
     app.include_router(system_router)
     logger.debug("✅ System router registered")
@@ -122,6 +123,7 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     # Create and include library router (with Phase 6B RepositoryFactory refactoring)
     library_router: APIRouter = create_library_router(
         get_repository_factory=get_component('repository_factory'),
+        get_library_manager=get_component('library_manager'),
         connection_manager=manager
     )
     app.include_router(library_router)

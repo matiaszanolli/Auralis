@@ -19,6 +19,7 @@ def create_system_router(
     manager: Any,
     get_processing_engine: Callable[..., Any],
     HAS_AURALIS: bool,
+    get_repository_factory: Optional[Callable[..., Any]] = None,
     get_player_manager: Optional[Callable[..., Any]] = None,
     get_state_manager: Optional[Callable[..., Any]] = None,
 ) -> APIRouter:
@@ -29,6 +30,7 @@ def create_system_router(
         manager: WebSocket ConnectionManager instance
         get_processing_engine: Callable that returns ProcessingEngine instance
         HAS_AURALIS: Boolean indicating if Auralis is available
+        get_repository_factory: Optional callable that returns RepositoryFactory instance
         get_player_manager: Callable that returns PlayerManager instance
         get_state_manager: Callable that returns PlayerStateManager instance
     """
@@ -137,7 +139,7 @@ def create_system_router(
 
                         controller = AudioStreamController(
                             chunked_processor_class=ChunkedAudioProcessor,
-                            library_manager=get_library_manager(),
+                            get_repository_factory=get_repository_factory,
                         )
 
                         # Stream enhanced audio to client
