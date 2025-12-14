@@ -130,9 +130,6 @@ class AdaptiveStrategySelector:
             return "sampling"
         elif mode == ProcessingMode.FINGERPRINT_EXTRACTION:
             return "sampling"  # Standard extraction uses sampling
-        else:
-            # Default: use sampling for efficiency on longer tracks
-            return "sampling"
 
     def set_user_preference(self, preference: StrategyPreference) -> None:
         """
