@@ -22,7 +22,15 @@ from datetime import datetime
 
 # Auralis imports
 import sys
-sys.path.append(str(Path(__file__).parent.parent.parent))
+from pathlib import Path
+
+# Ensure both project root and backend are in path
+backend_path = str(Path(__file__).parent)
+project_root = str(Path(__file__).parent.parent.parent)
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
