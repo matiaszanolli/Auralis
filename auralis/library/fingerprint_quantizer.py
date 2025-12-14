@@ -23,7 +23,7 @@ Accuracy Guarantees:
 """
 
 import struct
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 
 
 class FingerprintQuantizer:
@@ -194,7 +194,7 @@ class FingerprintQuantizer:
         return [fingerprint_dict[dim] for dim in FingerprintQuantizer.DIMENSION_NAMES]
 
     @staticmethod
-    def calculate_quantization_error(original: List[float], dequantized: List[float]) -> Dict[str, float]:
+    def calculate_quantization_error(original: List[float], dequantized: List[float]) -> Dict[str, Any]:
         """
         Calculate quantization error statistics.
 

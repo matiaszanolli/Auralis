@@ -235,7 +235,7 @@ class QueueTemplateRepository:
             if not template:
                 return None
 
-            template.is_favorite = not template.is_favorite
+            template.is_favorite = not template.is_favorite  # type: ignore[assignment]
             session.commit()
             session.refresh(template)
             return template
@@ -262,7 +262,7 @@ class QueueTemplateRepository:
                 return None
 
             template.load_count += 1
-            template.last_loaded = datetime.utcnow()
+            template.last_loaded = datetime.utcnow()  # type: ignore[assignment]
             session.commit()
             session.refresh(template)
             return template
