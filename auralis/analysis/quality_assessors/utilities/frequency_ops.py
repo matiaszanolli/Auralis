@@ -316,7 +316,7 @@ class FrequencyOperations:
     def detect_frequency_anomalies(audio: np.ndarray,
                                   sr: int = 44100,
                                  reference_audio: Optional[np.ndarray] = None,
-                                  threshold_db: float = 3.0) -> Dict[str, any]:
+                                  threshold_db: float = 3.0) -> Dict[str, Any]:
         """
         Detect frequency anomalies (unexpected peaks or valleys)
 

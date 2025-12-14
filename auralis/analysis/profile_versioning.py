@@ -187,7 +187,7 @@ class ProfileVersionManager:
 
     def compare_versions(
         self, profile_id: str, version1: str, version2: str
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Compare two versions of a profile.
 

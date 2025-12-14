@@ -26,7 +26,7 @@ try:
     import auralis_dsp
     RUST_DSP_AVAILABLE: bool = True
 except ImportError:
-    RUST_DSP_AVAILABLE: bool = False
+    RUST_DSP_AVAILABLE = False
 
 
 class HarmonicOperations:
