@@ -208,13 +208,8 @@ class GPUFingerprintQueueWrapper:
             for filepath in batch.filepaths:
                 try:
                     audio, sr = load_audio(filepath)
-                    if audio is not None:
-                        batch_audios.append(audio)
-                        batch_sr.append(sr)
-                    else:
-                        logger.warning(f"Failed to load audio: {filepath}")
-                        batch_audios.append(np.zeros((44100,)))
-                        batch_sr.append(44100)
+                    batch_audios.append(audio)
+                    batch_sr.append(sr)
                 except Exception as e:
                     logger.error(f"Error loading {filepath}: {e}")
                     batch_audios.append(np.zeros((44100,)))

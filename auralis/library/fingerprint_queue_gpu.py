@@ -136,16 +136,11 @@ class GPUBatchProcessor:
 
                     try:
                         audio, sr = load_audio(filepath)
-                        if audio is not None:
-                            # Ensure mono
-                            if audio.ndim == 2:
-                                audio = np.mean(audio, axis=0)
-                            audios.append(audio)
-                            sample_rates.append(sr)
-                        else:
-                            logger.warning(f"Failed to load audio: {filepath}")
-                            audios.append(np.zeros((44100,)))
-                            sample_rates.append(44100)
+                        # Ensure mono
+                        if audio.ndim == 2:
+                            audio = np.mean(audio, axis=0)
+                        audios.append(audio)
+                        sample_rates.append(sr)
                     except Exception as e:
                         logger.error(f"Error loading {filepath}: {e}")
                         audios.append(np.zeros((44100,)))
