@@ -31,6 +31,10 @@ class BaseStreamingAnalyzer:
     - Call get_confidence() for confidence scoring
     """
 
+    # Attributes that subclasses must initialize
+    frame_count: int
+    analysis_runs: int
+
     def get_confidence(self) -> Dict[str, float]:
         """Get confidence scores for metrics.
 

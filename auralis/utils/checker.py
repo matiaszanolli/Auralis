@@ -13,11 +13,11 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Any
 from .logging import debug, ModuleError, Code
 
 
-def check(audio: np.ndarray, sample_rate: int, config: object, file_type: str = "audio") -> Tuple[np.ndarray, int]:
+def check(audio: np.ndarray, sample_rate: int, config: Any, file_type: str = "audio") -> Tuple[np.ndarray, int]:
     """
     Check and validate audio data
 

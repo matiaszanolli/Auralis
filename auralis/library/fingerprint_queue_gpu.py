@@ -187,7 +187,7 @@ class GPUBatchProcessor:
                 # Re-enqueue failed jobs back to CPU
                 for job, filepath in batch_jobs:
                     try:
-                        self.queue.job_queue.put_nowait(job)
+                        self.queue.job_queue.put_nowait(job)  # type: ignore[attr-defined]
                     except:
                         logger.error(f"Failed to re-enqueue job {job.track_id}")
 

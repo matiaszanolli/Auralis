@@ -192,7 +192,7 @@ class MetadataEditor:
         Returns:
             Dictionary with success/failure counts and errors
         """
-        results = {
+        results: Dict[str, Any] = {
             'success': 0,
             'failed': 0,
             'errors': []
