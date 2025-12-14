@@ -106,11 +106,11 @@ def process(
     temp_folder = config.temp_folder if config.temp_folder else get_temp_folder(results)
 
     # Load both files and capture original target rate for output
-    target_audio, target_sample_rate = load(target, "target", temp_folder)
+    target_audio, target_sample_rate = load(target, "target")
     output_sample_rate = target_sample_rate  # Save original target rate for output
 
     # Load reference
-    reference_audio, reference_sample_rate = load(reference, "reference", temp_folder)
+    reference_audio, reference_sample_rate = load(reference, "reference")
 
     # Set internal rate to the maximum for best quality
     config.internal_sample_rate = max(target_sample_rate, reference_sample_rate)

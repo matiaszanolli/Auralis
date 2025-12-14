@@ -258,9 +258,9 @@ def create_gpu_enhanced_queue(
     # Create base queue
     queue = FingerprintExtractionQueue(
         fingerprint_extractor=fingerprint_extractor,
-        library_manager=library_manager,
+        get_repository_factory=lambda: library_manager,
         num_workers=num_workers,
-        max_queue_size=max_queue_size
+        max_workers=max_queue_size
     )
 
     # Add GPU batch processor if available
