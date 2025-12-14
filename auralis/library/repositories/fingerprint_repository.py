@@ -10,7 +10,7 @@ Data access layer for track fingerprint operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Dict, Any, Callable
+from typing import Optional, List, Dict, Any, Callable, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 

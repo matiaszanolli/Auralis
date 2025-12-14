@@ -26,7 +26,7 @@ Presets:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import json
 from pathlib import Path
 

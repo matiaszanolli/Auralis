@@ -10,7 +10,7 @@ Assess audio dynamic range quality
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict
+from typing import Dict, Any
 from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
 from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOperations
 from auralis.analysis.quality_assessors.utilities.assessment_constants import AssessmentConstants

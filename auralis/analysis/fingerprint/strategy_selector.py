@@ -28,7 +28,7 @@ Implementation follows Phase 7B validation findings:
 """
 
 import logging
-from typing import Literal, Optional
+from typing import Literal, Optional, Dict, Any
 from enum import Enum
 
 logger = logging.getLogger(__name__)

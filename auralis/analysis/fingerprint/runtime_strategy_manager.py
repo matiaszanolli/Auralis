@@ -21,7 +21,7 @@ Fallback Strategies:
 """
 
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 from enum import Enum
 
 from auralis.analysis.fingerprint.strategy_selector import (
