@@ -21,7 +21,7 @@ from auralis.analysis.quality_assessors.utilities.assessment_constants import As
 class DistortionAssessor(BaseAssessor):
     """Assess distortion and noise quality"""
 
-    def assess(self, audio_data: np.ndarray) -> float:
+    def assess(self, audio_data: np.ndarray) -> float:  # type: ignore[override]
         """
         Assess distortion levels (0-100)
 
@@ -65,7 +65,7 @@ class DistortionAssessor(BaseAssessor):
 
         return float(total_score)
 
-    def detailed_analysis(self, audio_data: np.ndarray) -> Dict[str, Any]:
+    def detailed_analysis(self, audio_data: np.ndarray) -> Dict[str, Any]:  # type: ignore[override]
         """
         Perform detailed distortion analysis
 
