@@ -14,7 +14,7 @@ Designed to be flexible enough for different buffering strategies
 """
 
 import numpy as np
-from typing import Dict, cast
+from typing import Dict
 
 
 class BaseStreamingAnalyzer:
@@ -62,7 +62,7 @@ class BaseStreamingAnalyzer:
         Returns:
             Number of audio frames processed
         """
-        return cast(int, self.frame_count)
+        return self.frame_count
 
     def get_analysis_count(self) -> int:
         """Get total analyses performed so far.
@@ -72,7 +72,7 @@ class BaseStreamingAnalyzer:
         Returns:
             Number of analyses completed
         """
-        return cast(int, self.analysis_runs)
+        return self.analysis_runs
 
     def get_metrics(self) -> Dict[str, float]:
         """Get current metric estimates.
