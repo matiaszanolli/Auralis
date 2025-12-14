@@ -53,7 +53,7 @@ class EstimationOperations:
 
         # Estimate fundamental frequency if not provided
         if fundamental_idx is None:
-            fundamental_idx = np.argmax(magnitude[10:len(magnitude)//2]) + 10
+            fundamental_idx = int(np.argmax(magnitude[10:len(magnitude)//2]) + 10)
 
         fundamental_power = magnitude[fundamental_idx] ** 2
 
@@ -65,7 +65,7 @@ class EstimationOperations:
 
         # Calculate THD
         if fundamental_power > 0:
-            thd = np.sqrt(harmonic_power / fundamental_power)
+            thd = float(np.sqrt(harmonic_power / fundamental_power))
         else:
             thd = 0.0
 
