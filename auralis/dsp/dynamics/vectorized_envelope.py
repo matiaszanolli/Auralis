@@ -115,7 +115,7 @@ class VectorizedEnvelopeFollower:
         if len(output) > 0:
             self.envelope = output[-1]
 
-        return output
+        return np.asarray(output, dtype=np.float32)
 
     def process_buffer(self, input_levels: np.ndarray) -> np.ndarray:
         """
