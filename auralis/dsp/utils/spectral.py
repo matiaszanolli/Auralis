@@ -59,7 +59,7 @@ def spectral_centroid(audio: np.ndarray, sample_rate: int = 44100) -> float:
     else:
         centroid = sample_rate // 4  # Default to quarter of sample rate
 
-    return centroid
+    return float(centroid)
 
 
 def spectral_rolloff(audio: np.ndarray,
@@ -96,9 +96,9 @@ def spectral_rolloff(audio: np.ndarray,
         rolloff_threshold = rolloff_percent * total_energy
         rolloff_idx = np.where(cumulative_energy >= rolloff_threshold)[0]
         if len(rolloff_idx) > 0:
-            return freqs[rolloff_idx[0]]
+            return float(freqs[rolloff_idx[0]])
 
-    return sample_rate // 2  # Default to Nyquist frequency
+    return float(sample_rate // 2)  # Default to Nyquist frequency
 
 
 def zero_crossing_rate(audio: np.ndarray) -> float:
@@ -119,7 +119,7 @@ def zero_crossing_rate(audio: np.ndarray) -> float:
 
     # Count zero crossings
     zero_crossings = np.sum(np.diff(np.sign(audio)) != 0)
-    return zero_crossings / (2 * len(audio))
+    return float(zero_crossings / (2 * len(audio)))
 
 
 def crest_factor(audio: np.ndarray) -> float:

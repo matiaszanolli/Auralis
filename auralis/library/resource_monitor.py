@@ -14,7 +14,7 @@ to maximize throughput while staying within safe memory limits.
 import psutil
 import threading
 import time
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict, Any
 from dataclasses import dataclass
 
 from ..utils.logging import info, warning, error, debug
@@ -202,7 +202,7 @@ class AdaptiveResourceMonitor:
         with self._lock:
             return self.current_semaphore_size
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> Dict[str, Any]:
         """Get monitoring statistics"""
         with self._lock:
             return self._stats.copy()

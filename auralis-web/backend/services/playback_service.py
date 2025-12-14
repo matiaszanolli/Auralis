@@ -9,7 +9,7 @@ Coordinates with PlayerStateManager to keep single source of truth.
 """
 
 import logging
-from typing import Dict, Any, Protocol
+from typing import Dict, Any, Protocol, cast
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ class PlaybackService:
 
         try:
             state = self.player_state_manager.get_state()
-            return state.model_dump()
+            return cast(Dict[str, Any], state.model_dump())
         except Exception as e:
             logger.error(f"Failed to get player status: {e}")
             raise

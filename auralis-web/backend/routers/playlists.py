@@ -20,7 +20,7 @@ Endpoints:
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 import logging
 
 from .dependencies import require_repository_factory
@@ -111,7 +111,7 @@ def create_playlists_router(
             # Add full track details
             playlist_dict['tracks'] = [track.to_dict() for track in playlist.tracks]
 
-            return playlist_dict
+            return cast(Dict[str, Any], playlist_dict)
         except HTTPException:
             raise
         except Exception as e:

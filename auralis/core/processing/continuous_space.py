@@ -232,7 +232,7 @@ class ProcessingSpaceMapper:
             0.15 * presence_normalized      # Secondary: presence
         )
 
-        return spectral_balance
+        return float(spectral_balance)
 
     def _calculate_dynamic_range(self, fp: Dict[str, float]) -> float:
         """
@@ -266,7 +266,7 @@ class ProcessingSpaceMapper:
             0.2 * loudness_var            # Tertiary: loudness variation
         )
 
-        return dynamic_range
+        return float(dynamic_range)
 
     def _calculate_energy_level(self, fp: Dict[str, float]) -> float:
         """
@@ -287,4 +287,4 @@ class ProcessingSpaceMapper:
         # Quieter material has lower energy score
         energy_level = np.clip((fp['lufs'] + 30.0) / 20.0, 0.0, 1.0)
 
-        return energy_level
+        return float(energy_level)

@@ -11,7 +11,7 @@ Prevents audible volume jumps during chunk transitions.
 
 import numpy as np
 import logging
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +188,7 @@ class LevelManager:
         gain_linear = 10 ** (gain_db / 20)
         return audio * gain_linear
 
-    def get_statistics(self) -> dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """
         Get statistics about level history.
 

@@ -9,7 +9,7 @@ Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchron
 """
 
 import logging
-from typing import Dict, Any, List, Optional, Callable, Protocol, Tuple
+from typing import Dict, Any, List, Optional, Callable, Protocol, Tuple, cast
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ class QueueService:
             if hasattr(self.audio_player, 'queue'):
                 queue_obj = self.audio_player.queue
                 if hasattr(queue_obj, 'get_queue_info'):
-                    return queue_obj.get_queue_info()
+                    return cast(Dict[str, Any], queue_obj.get_queue_info())
                 else:
                     return {
                         "tracks": list(queue_obj.queue),

@@ -15,7 +15,7 @@ This module bridges ContentAnalyzer with TrackAnalysisCache to provide:
 """
 
 import logging
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, cast
 from pathlib import Path
 import numpy as np
 
@@ -113,7 +113,7 @@ class AnalysisExtractor:
             cached = self.cache.get(track_id)
             if cached is not None:
                 logger.info(f"Using cached analysis for track {track_id}")
-                return cached
+                return cast(Dict[str, Any], cached)
 
         # Cache miss - extract analysis
         logger.info(f"Extracting analysis for track {track_id} (not cached)")
@@ -138,7 +138,7 @@ class AnalysisExtractor:
         Returns:
             Cached analysis or None if not cached
         """
-        return self.cache.get(track_id)
+        return cast(Optional[Dict[str, Any]], self.cache.get(track_id))
 
     def prefetch_analysis(self, track_id: int, filepath: str) -> bool:
         """
@@ -180,7 +180,7 @@ class AnalysisExtractor:
         Returns:
             Dictionary with cache statistics (size, count, memory usage)
         """
-        return self.cache.get_stats()
+        return cast(Dict[str, Any], self.cache.get_stats())
 
     def _extract_analysis(self, track_id: int, filepath: str) -> Dict[str, Any]:
         """

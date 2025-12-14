@@ -21,7 +21,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends
-from typing import Optional, List, Dict, Any, Callable
+from typing import Optional, List, Dict, Any, Callable, cast
 import logging
 
 from .dependencies import require_repository_factory
@@ -74,7 +74,7 @@ def create_library_router(
         try:
             factory = require_repository_factory(get_repository_factory)
             stats = factory.stats.get_library_stats()
-            return stats
+            return cast(Dict[str, Any], stats)
         except HTTPException:
             raise
         except Exception as e:

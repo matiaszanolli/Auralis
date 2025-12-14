@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from typing import Callable, Any
+from typing import Callable, Any, cast
 import logging
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
                 response.headers["Pragma"] = "no-cache"
                 response.headers["Expires"] = "0"
 
-        return response
+        return cast(Response, response)
 
 
 def setup_middleware(app: FastAPI) -> None:

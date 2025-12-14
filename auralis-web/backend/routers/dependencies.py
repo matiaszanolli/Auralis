@@ -11,7 +11,7 @@ reducing boilerplate and improving consistency.
 from fastapi import HTTPException
 import logging
 import warnings
-from typing import Callable, Any
+from typing import Callable, Any, cast
 from auralis import EnhancedAudioPlayer
 from auralis.library import LibraryManager
 
@@ -45,7 +45,7 @@ def require_library_manager(get_library_manager: Callable[[], Any]) -> LibraryMa
     library_manager = get_library_manager()
     if not library_manager:
         raise HTTPException(status_code=503, detail="Library manager not available")
-    return library_manager
+    return cast(LibraryManager, library_manager)
 
 
 def require_audio_player(get_audio_player: Callable[[], Any]) -> EnhancedAudioPlayer:
@@ -64,7 +64,7 @@ def require_audio_player(get_audio_player: Callable[[], Any]) -> EnhancedAudioPl
     audio_player = get_audio_player()
     if not audio_player:
         raise HTTPException(status_code=503, detail="Audio player not available")
-    return audio_player
+    return cast(EnhancedAudioPlayer, audio_player)
 
 
 def require_player_state_manager(get_player_state_manager: Callable[[], Any]) -> Any:
