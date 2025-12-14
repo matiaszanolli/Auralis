@@ -12,7 +12,7 @@ Manages user preference learning and feedback
 
 from typing import Dict, Any, Optional
 from datetime import datetime
-from ...learning.preference_engine import PreferenceLearningEngine, UserAction
+from ...learning.preference_engine import PreferenceLearningEngine, UserAction  # type: ignore[attr-defined]
 from ...utils.logging import info, debug
 
 

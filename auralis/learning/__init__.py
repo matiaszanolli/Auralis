@@ -10,7 +10,7 @@ Machine learning and user preference learning components
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .preference_engine import (
+from .preference_engine import (  # type: ignore[attr-defined]
     PreferenceLearningEngine,
     UserProfile,
     UserAction,

@@ -29,7 +29,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 from queue import Queue, Empty
 
-from .fingerprint_queue import FingerprintExtractionQueue, FingerprintJob
+from .fingerprint_queue import FingerprintExtractionQueue, FingerprintJob  # type: ignore[attr-defined]
 from ..analysis.fingerprint.gpu_engine import (
     is_gpu_available,
     get_gpu_engine,

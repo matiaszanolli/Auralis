@@ -15,7 +15,7 @@ from .metadata_editor import MetadataEditor, MUTAGEN_AVAILABLE
 from .factory import create_metadata_editor
 
 try:
-    from mutagen import File as MutagenFile
+    from mutagen import File as MutagenFile  # type: ignore[attr-defined]
 except ImportError:
     MutagenFile = None
 

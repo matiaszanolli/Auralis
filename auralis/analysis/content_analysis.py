@@ -22,7 +22,7 @@ from .content import (
     create_feature_extractor, create_genre_analyzer, create_mood_analyzer,
     create_recommendation_engine
 )
-from .spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
+from .spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings  # type: ignore[attr-defined]
 from .loudness_meter import LoudnessMeter
 from .phase_correlation import PhaseCorrelationAnalyzer
 from .dynamic_range import DynamicRangeAnalyzer

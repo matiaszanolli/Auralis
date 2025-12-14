@@ -14,7 +14,7 @@ import numpy as np
 from typing import Dict, Any, List
 from dataclasses import dataclass
 
-from ..spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
+from ..spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings  # type: ignore[attr-defined]
 from ..loudness_meter import LoudnessMeter
 from ..phase_correlation import PhaseCorrelationAnalyzer
 from ..dynamic_range import DynamicRangeAnalyzer

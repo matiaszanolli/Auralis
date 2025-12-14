@@ -15,7 +15,7 @@ from typing import Dict, List, Any
 from pathlib import Path
 
 try:
-    from mutagen import File as MutagenFile
+    from mutagen import File as MutagenFile  # type: ignore[attr-defined]
     from mutagen.flac import FLAC
     from mutagen.mp4 import MP4
     from mutagen.oggvorbis import OggVorbis
