@@ -11,7 +11,7 @@ Real-time RMS level matching with reference audio
 """
 
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from .gain_smoother import AdaptiveGainSmoother
 from ..config import PlayerConfig
 from ...utils.logging import debug, info
@@ -23,7 +23,7 @@ class RealtimeLevelMatcher:
     def __init__(self, config: PlayerConfig):
         self.config = config
         self.enabled = False
-        self.reference_rms = None
+        self.reference_rms: Optional[float] = None
         self.target_rms_alpha = 0.01  # Smoothing for RMS calculation
         self.current_target_rms = 0.0
 

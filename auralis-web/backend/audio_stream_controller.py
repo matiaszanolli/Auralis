@@ -31,7 +31,7 @@ import numpy as np
 import logging
 import hashlib
 from pathlib import Path
-from typing import Optional, Callable, Tuple, Union, Dict, Any, Type
+from typing import Optional, Callable, Tuple, Union, Dict, Any, Type, cast
 from fastapi import WebSocket
 from collections import OrderedDict
 
@@ -296,16 +296,18 @@ class AudioStreamController:
         cache_hit: bool = False
 
         try:
-            cached_result: Optional[Tuple[np.ndarray, int]] = self.cache_manager.get(
-                track_id=processor.track_id,
-                chunk_idx=chunk_index,
-                preset=processor.preset,
-                intensity=processor.intensity
-            )
-            if cached_result:
-                pcm_samples, sr = cached_result
-                cache_hit = True
-                logger.info(f"✅ Cache HIT: chunk {chunk_index}, preset {processor.preset}")
+            # Handle union type: both cache managers have get() method
+            if isinstance(self.cache_manager, SimpleChunkCache):
+                cached_result: Optional[Tuple[np.ndarray, int]] = self.cache_manager.get(
+                    track_id=processor.track_id,
+                    chunk_idx=chunk_index,
+                    preset=processor.preset,
+                    intensity=processor.intensity
+                )
+                if cached_result:
+                    pcm_samples, sr = cached_result
+                    cache_hit = True
+                    logger.info(f"✅ Cache HIT: chunk {chunk_index}, preset {processor.preset}")
         except Exception as e:
             logger.debug(f"Cache lookup failed (not critical): {e}")
 
@@ -325,14 +327,15 @@ class AudioStreamController:
 
                 # Store in cache for future use
                 try:
-                    self.cache_manager.put(
-                        track_id=processor.track_id,
-                        chunk_idx=chunk_index,
-                        preset=processor.preset,
-                        intensity=processor.intensity,
-                        audio=pcm_samples,
-                        sample_rate=sr
-                    )
+                    if isinstance(self.cache_manager, SimpleChunkCache) and sr is not None:
+                        self.cache_manager.put(
+                            track_id=processor.track_id,
+                            chunk_idx=chunk_index,
+                            preset=processor.preset,
+                            intensity=processor.intensity,
+                            audio=pcm_samples,
+                            sample_rate=sr
+                        )
                 except Exception as e:
                     logger.debug(f"Failed to cache chunk (not critical): {e}")
 
@@ -345,6 +348,8 @@ class AudioStreamController:
             # pcm_samples should never be None at this point (either from cache or loaded from disk)
             assert pcm_samples is not None, "PCM samples must be loaded before streaming"
             assert sr is not None, "Sample rate must be set before streaming"
+            assert processor.total_chunks is not None, "total_chunks must be set"
+            assert processor.sample_rate is not None, "sample_rate must be set"
 
             await self._send_pcm_chunk(
                 websocket,
