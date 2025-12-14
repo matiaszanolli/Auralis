@@ -563,7 +563,7 @@ class FingerprintRepository:
                 conn.commit()
 
                 info(f"Stored fingerprint for track {track_id} (quantized blob: 25 bytes)")
-                return fingerprint_dict
+                return None
 
             finally:
                 cursor.close()

@@ -218,7 +218,7 @@ class PresetParameters:
             Dict mapping preset names to descriptions
         """
         return {
-            name: preset.get("description", "")
+            name: str(preset.get("description", ""))
             for name, preset in PresetParameters.ALL_PRESETS.items()
         }
 

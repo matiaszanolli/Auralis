@@ -178,8 +178,8 @@ class FeatureExtractor:
         if len(tempos) < 2:
             return 0.5
 
-        tempo_std = np.std(tempos)
-        tempo_mean = np.mean(tempos)
+        tempo_std = float(np.std(tempos))
+        tempo_mean = float(np.mean(tempos))
         return 1.0 - min(tempo_std / (tempo_mean + 1e-10), 1.0)
 
     def _onset_rate(self, audio: np.ndarray) -> float:

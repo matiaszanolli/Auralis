@@ -22,7 +22,7 @@ Dependencies:
 
 import numpy as np
 import logging
-from typing import Dict, Optional, Literal
+from typing import Dict, Optional, Literal, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from auralis.analysis.fingerprint.analyzers.batch.temporal import TemporalAnalyzer
@@ -121,7 +121,7 @@ class AudioFingerprintAnalyzer:
                 audio_mono = audio
 
             # Initialize fingerprint dict
-            fingerprint = {}
+            fingerprint: Dict[str, Any] = {}
 
             # OPTIMIZATION: Pre-compute FFT and RMS once, reuse for frequency/dynamics/variation
             fft = np.fft.rfft(audio_mono)
