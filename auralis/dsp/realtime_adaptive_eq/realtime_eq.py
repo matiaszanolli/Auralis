@@ -205,7 +205,7 @@ class RealtimeAdaptiveEQ:
     def reset(self) -> None:
         """Reset EQ state and buffers"""
 
-        self.psychoacoustic_eq.reset()  # type: ignore[no-untyped-call]
+        self.psychoacoustic_eq.reset()
         self.adaptation_engine = AdaptationEngine(self.settings)
         self.input_buffer.clear()
         self.output_buffer.clear()

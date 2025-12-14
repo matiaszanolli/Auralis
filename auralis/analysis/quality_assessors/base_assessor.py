@@ -66,7 +66,7 @@ class BaseAssessor(ABC):
         return class_name.replace('Assessor', '').lower()
 
     def _normalize_audio(self, audio_data: np.ndarray,
-                        target_dtype: type[Any] = np.float32) -> np.ndarray:  # type: ignore[assignment]
+                        target_dtype: type[Any] = np.float32) -> np.ndarray:
         """
         Normalize audio to target format
 
@@ -79,7 +79,7 @@ class BaseAssessor(ABC):
         Returns:
             Normalized audio array
         """
-        audio: np.ndarray = np.array(audio_data, dtype=target_dtype)  # type: ignore[assignment]
+        audio: np.ndarray = np.array(audio_data, dtype=target_dtype)
 
         # Ensure audio is finite
         if not np.all(np.isfinite(audio)):

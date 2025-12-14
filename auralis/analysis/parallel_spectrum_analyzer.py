@@ -233,7 +233,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
 
         # Apply smoothing if we have a buffer
         if self.smoothing_buffer is not None:
-            weighted_spectrum = (  # type: ignore[unreachable]
+            weighted_spectrum = (
                 self.settings.smoothing_factor * self.smoothing_buffer +
                 (1 - self.settings.smoothing_factor) * weighted_spectrum
             )

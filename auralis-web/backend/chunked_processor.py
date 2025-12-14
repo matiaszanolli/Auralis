@@ -745,9 +745,9 @@ class ChunkedAudioProcessor:
             return self.mastering_recommendation  # type: ignore[unreachable]
 
         try:
-            # Initialize engine on first use  # type: ignore[unreachable]
+            # Initialize engine on first use
             if self.adaptive_mastering_engine is None:
-                self.adaptive_mastering_engine = AdaptiveMasteringEngine()  # type: ignore[no-untyped-call,assignment]
+                self.adaptive_mastering_engine = AdaptiveMasteringEngine()  # type: ignore[assignment]
 
             # Get or extract fingerprint
             if self.fingerprint is None:
