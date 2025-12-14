@@ -223,6 +223,9 @@ class ParallelEQProcessor:
         """
         spectrum_copy = spectrum.copy()
 
+        # Ensure band_groups is set (should always be true when called)
+        assert self.band_groups is not None, "band_groups not initialized"
+
         # Process each group in parallel
         with ThreadPoolExecutor(max_workers=len(self.band_groups)) as executor:
             futures = [
