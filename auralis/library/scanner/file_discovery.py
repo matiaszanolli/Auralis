@@ -28,10 +28,10 @@ class FileDiscovery:
     - Permission error handling
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.should_stop = False
 
-    def stop(self):
+    def stop(self) -> None:
         """Signal discovery to stop"""
         self.should_stop = True
 

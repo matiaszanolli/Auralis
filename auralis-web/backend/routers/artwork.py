@@ -16,7 +16,7 @@ Endpoints:
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pathlib import Path
-from typing import Callable, Optional, Any
+from typing import Callable, Optional, Any, Dict
 import logging
 
 from .dependencies import require_repository_factory
@@ -28,7 +28,7 @@ router = APIRouter(tags=["artwork"])
 def create_artwork_router(
     connection_manager: Any,
     get_repository_factory: Callable[[], Any]
-):
+) -> APIRouter:
     """
     Factory function to create artwork router with dependencies.
 
@@ -48,7 +48,7 @@ def create_artwork_router(
         return require_repository_factory(get_repository_factory)
 
     @router.get("/api/albums/{album_id}/artwork")
-    async def get_album_artwork(album_id: int):
+    async def get_album_artwork(album_id: int) -> FileResponse:
         """
         Get album artwork file.
 
@@ -88,7 +88,7 @@ def create_artwork_router(
             raise HTTPException(status_code=500, detail=f"Failed to get artwork: {e}")
 
     @router.post("/api/albums/{album_id}/artwork/extract")
-    async def extract_album_artwork(album_id: int):
+    async def extract_album_artwork(album_id: int) -> Dict[str, Any]:
         """
         Extract artwork from album tracks.
 
@@ -135,7 +135,7 @@ def create_artwork_router(
             raise HTTPException(status_code=500, detail=f"Failed to extract artwork: {e}")
 
     @router.delete("/api/albums/{album_id}/artwork")
-    async def delete_album_artwork(album_id: int):
+    async def delete_album_artwork(album_id: int) -> Dict[str, Any]:
         """
         Delete album artwork.
 
@@ -170,7 +170,7 @@ def create_artwork_router(
             raise HTTPException(status_code=500, detail=f"Failed to delete artwork: {e}")
 
     @router.post("/api/albums/{album_id}/artwork/download")
-    async def download_album_artwork(album_id: int):
+    async def download_album_artwork(album_id: int) -> Dict[str, Any]:
         """
         Download album artwork from online sources.
 

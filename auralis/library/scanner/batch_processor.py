@@ -12,7 +12,7 @@ Batch processing of audio files for library scanning
 
 from pathlib import Path
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Tuple, Any
 
 from ...utils.logging import error, debug
 from ..scan_models import ScanResult
@@ -29,7 +29,7 @@ class BatchProcessor:
     - Error handling per file
     """
 
-    def __init__(self, library_manager, audio_analyzer, metadata_extractor):
+    def __init__(self, library_manager: Any, audio_analyzer: Any, metadata_extractor: Any) -> None:
         """
         Initialize batch processor
 
@@ -43,7 +43,7 @@ class BatchProcessor:
         self.metadata_extractor = metadata_extractor
         self.should_stop = False
 
-    def stop(self):
+    def stop(self) -> None:
         """Signal processor to stop"""
         self.should_stop = True
 
@@ -92,7 +92,7 @@ class BatchProcessor:
 
     def process_single_file(self, file_path: str,
                            skip_existing: bool,
-                           check_modifications: bool) -> Tuple[str, any]:
+                           check_modifications: bool) -> Tuple[str, Any]:
         """
         Process a single audio file
 

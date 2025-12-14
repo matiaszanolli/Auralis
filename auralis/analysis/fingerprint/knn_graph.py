@@ -11,7 +11,7 @@ Builds and maintains pre-computed similarity graph for fast queries
 """
 
 import numpy as np
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -30,7 +30,7 @@ class GraphStats:
     max_distance: float
     build_time_seconds: float
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'total_tracks': self.total_tracks,
             'total_edges': self.total_edges,
@@ -65,8 +65,8 @@ class KNNGraphBuilder:
     def __init__(
         self,
         similarity_system: FingerprintSimilarity,
-        session_factory
-    ):
+        session_factory: Any
+    ) -> None:
         """
         Initialize graph builder
 
@@ -253,7 +253,7 @@ class KNNGraphBuilder:
         self,
         track_id: int,
         limit: Optional[int] = None
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """
         Get pre-computed neighbors from graph (fast query)
 

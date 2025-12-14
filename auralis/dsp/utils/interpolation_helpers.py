@@ -11,7 +11,7 @@ Vectorized interpolation and envelope creation utilities for DSP operations
 """
 
 import numpy as np
-from typing import Optional
+from typing import Optional, List, Any
 
 
 def create_triangular_envelope(start: float, center: float, end: float,
@@ -122,7 +122,7 @@ def _apply_window_smoothing(envelope: np.ndarray, start_idx: int, end_idx: int,
     envelope[start_idx:end_idx + 1] *= window
 
 
-def create_triangular_filterbank(critical_bands: list, sample_rate: int,
+def create_triangular_filterbank(critical_bands: List[Any], sample_rate: int,
                                  fft_size: int) -> np.ndarray:
     """
     Create a triangular filterbank for critical bands.
@@ -181,7 +181,7 @@ def create_triangular_filterbank(critical_bands: list, sample_rate: int,
 
 
 def create_mel_triangular_filters(n_filters: int, n_fft: int,
-                                  sample_rate: int) -> list:
+                                  sample_rate: int) -> List[np.ndarray]:
     """
     Create triangular mel-scale filter bank.
 

@@ -11,6 +11,7 @@ Models for library-wide statistics and analytics
 """
 
 from sqlalchemy import Column, Integer, Float, DateTime
+from typing import Dict, Any
 
 from .base import Base, TimestampMixin
 
@@ -39,7 +40,7 @@ class LibraryStats(Base, TimestampMixin):
     files_scanned = Column(Integer, default=0)
     new_files_found = Column(Integer, default=0)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert stats to dictionary"""
         return {
             'id': self.id,

@@ -11,7 +11,7 @@ High-level API for finding similar tracks using fingerprint-based similarity
 """
 
 import numpy as np
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 
 from .normalizer import FingerprintNormalizer
@@ -35,7 +35,7 @@ class SimilarityResult:
         self.distance = distance
         self.similarity_score = similarity_score
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
             'track_id': self.track_id,
@@ -69,10 +69,10 @@ class FingerprintSimilarity:
 
     def __init__(
         self,
-        fingerprint_repository,
+        fingerprint_repository: Any,
         weights: Optional[DimensionWeights] = None,
         use_robust_normalization: bool = True
-    ):
+    ) -> None:
         """
         Initialize similarity system
 
@@ -207,7 +207,7 @@ class FingerprintSimilarity:
         track_id1: int,
         track_id2: int,
         top_n: int = 5
-    ) -> Optional[Dict]:
+    ) -> Optional[Dict[str, Any]]:
         """
         Get detailed explanation of why two tracks are similar/different
 
@@ -258,7 +258,7 @@ class FingerprintSimilarity:
 
     def _get_prefiltered_candidates(
         self,
-        target_fp,
+        target_fp: Any,
         max_candidates: int = 100
     ) -> List[Tuple[int, np.ndarray]]:
         """
