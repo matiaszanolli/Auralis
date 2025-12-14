@@ -136,7 +136,7 @@ def create_player_router(
     # PLAYBACK ENDPOINTS
     # ============================================================================
 
-    @router.get("/api/player/status")
+    @router.get("/api/player/status", response_model=None)
     async def get_player_status() -> Dict[str, Any]:
         """
         Get current player status (single source of truth).
@@ -155,8 +155,8 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
-    @router.post("/api/player/load")
-    async def load_track(track_path: str, track_id: Optional[int] = None, background_tasks: Optional[BackgroundTasks] = None) -> Dict[str, Any]:
+    @router.post("/api/player/load", response_model=None)
+    async def load_track(track_path: str, track_id: Optional[int] = None, background_tasks: BackgroundTasks = None) -> Dict[str, Any]:
         """
         Load a track into the player.
 
@@ -210,7 +210,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to load track: {e}")
 
-    @router.post("/api/player/play")
+    @router.post("/api/player/play", response_model=None)
     async def play_audio() -> Dict[str, Any]:
         """Start playback (updates single source of truth)."""
         try:
@@ -221,7 +221,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to start playback: {e}")
 
-    @router.post("/api/player/pause")
+    @router.post("/api/player/pause", response_model=None)
     async def pause_audio() -> Dict[str, Any]:
         """Pause playback (updates single source of truth)."""
         try:
@@ -232,7 +232,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to pause playback: {e}")
 
-    @router.post("/api/player/stop")
+    @router.post("/api/player/stop", response_model=None)
     async def stop_audio() -> Dict[str, Any]:
         """Stop playback."""
         try:
@@ -243,7 +243,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to stop playback: {e}")
 
-    @router.post("/api/player/seek")
+    @router.post("/api/player/seek", response_model=None)
     async def seek_position(position: float) -> Dict[str, Any]:
         """
         Seek to position in seconds.
@@ -263,7 +263,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to seek: {e}")
 
-    @router.get("/api/player/volume")
+    @router.get("/api/player/volume", response_model=None)
     async def get_volume() -> Dict[str, Any]:
         """Get current playback volume (0.0 to 1.0)."""
         audio_player = get_audio_player()
@@ -276,7 +276,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get volume: {e}")
 
-    @router.post("/api/player/volume")
+    @router.post("/api/player/volume", response_model=None)
     async def set_volume(volume: float) -> Dict[str, Any]:
         """Set playback volume (0.0 to 1.0)."""
         try:
@@ -291,7 +291,7 @@ def create_player_router(
     # QUEUE ENDPOINTS
     # ============================================================================
 
-    @router.get("/api/player/queue")
+    @router.get("/api/player/queue", response_model=None)
     async def get_queue() -> Dict[str, Any]:
         """Get current playback queue."""
         try:
@@ -302,7 +302,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to get queue: {e}")
 
-    @router.post("/api/player/queue")
+    @router.post("/api/player/queue", response_model=None)
     async def set_queue(request: SetQueueRequest) -> Dict[str, Any]:
         """Set the playback queue (updates single source of truth)."""
         try:
@@ -313,7 +313,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to set queue: {e}")
 
-    @router.post("/api/player/queue/add")
+    @router.post("/api/player/queue/add", response_model=None)
     async def add_to_queue(track_path: str) -> Dict[str, Any]:
         """Add track to playback queue."""
         audio_player = get_audio_player()
@@ -333,7 +333,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to add to queue: {e}")
 
-    @router.delete("/api/player/queue/{index}")
+    @router.delete("/api/player/queue/{index}", response_model=None)
     async def remove_from_queue(index: int) -> Dict[str, Any]:
         """Remove track from queue at specified index."""
         try:
@@ -345,7 +345,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to remove from queue: {e}")
 
-    @router.put("/api/player/queue/reorder")
+    @router.put("/api/player/queue/reorder", response_model=None)
     async def reorder_queue(request: ReorderQueueRequest) -> Dict[str, Any]:
         """Reorder the playback queue."""
         try:
@@ -356,7 +356,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to reorder queue: {e}")
 
-    @router.post("/api/player/queue/clear")
+    @router.post("/api/player/queue/clear", response_model=None)
     async def clear_queue() -> Dict[str, Any]:
         """Clear the entire playback queue."""
         try:
@@ -367,7 +367,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to clear queue: {e}")
 
-    @router.post("/api/player/queue/add-track")
+    @router.post("/api/player/queue/add-track", response_model=None)
     async def add_track_to_queue(request: AddTrackToQueueRequest) -> Dict[str, Any]:
         """Add a track to queue at specific position (for drag-and-drop)."""
         try:
@@ -379,7 +379,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to add track to queue: {e}")
 
-    @router.put("/api/player/queue/move")
+    @router.put("/api/player/queue/move", response_model=None)
     async def move_queue_track(request: MoveQueueTrackRequest) -> Dict[str, Any]:
         """Move a track within the queue (for drag-and-drop)."""
         try:
@@ -390,7 +390,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to move track: {e}")
 
-    @router.post("/api/player/queue/shuffle")
+    @router.post("/api/player/queue/shuffle", response_model=None)
     async def shuffle_queue() -> Dict[str, Any]:
         """Shuffle the playback queue (keeps current track in place)."""
         try:
@@ -405,7 +405,7 @@ def create_player_router(
     # NAVIGATION ENDPOINTS
     # ============================================================================
 
-    @router.post("/api/player/next")
+    @router.post("/api/player/next", response_model=None)
     async def next_track() -> Dict[str, Any]:
         """Skip to next track."""
         try:
@@ -416,7 +416,7 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to skip track: {e}")
 
-    @router.post("/api/player/previous")
+    @router.post("/api/player/previous", response_model=None)
     async def previous_track() -> Dict[str, Any]:
         """Skip to previous track."""
         try:
