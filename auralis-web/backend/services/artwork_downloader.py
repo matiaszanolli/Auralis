@@ -223,7 +223,7 @@ class ArtworkDownloader:
 
         return str(filepath)
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear all cached artwork files."""
         try:
             for file in self.cache_dir.glob("album_*.*"):

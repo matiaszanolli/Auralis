@@ -26,7 +26,7 @@ class SpectrumMapper:
     Presets provide anchor points for interpolation.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize spectrum mapper with preset anchor points."""
         self.preset_anchors = get_preset_anchors()
 

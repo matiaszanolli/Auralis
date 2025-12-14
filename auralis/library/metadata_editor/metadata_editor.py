@@ -55,7 +55,7 @@ class MetadataEditor:
     STANDARD_FIELDS = STANDARD_FIELDS
     TAG_MAPPINGS = TAG_MAPPINGS
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize metadata editor"""
         if not MUTAGEN_AVAILABLE:
             raise ImportError("mutagen library is required for metadata editing")

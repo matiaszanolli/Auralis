@@ -153,7 +153,7 @@ class GenreRepository:
         finally:
             session.close()
 
-    def create(self, name: str, preferred_profile: Optional[str] = None, **kwargs) -> Genre:
+    def create(self, name: str, preferred_profile: Optional[str] = None, **kwargs: Any) -> Genre:
         """
         Create a new genre.
 
@@ -189,7 +189,7 @@ class GenreRepository:
         finally:
             session.close()
 
-    def update(self, genre_id: int, **fields) -> Optional[Genre]:
+    def update(self, genre_id: int, **fields: Any) -> Optional[Genre]:
         """
         Update genre fields.
 

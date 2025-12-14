@@ -51,7 +51,7 @@ class RuntimeStrategyManager:
     for adaptive fingerprint extraction.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize runtime strategy manager."""
         self.strategy_selector = AdaptiveStrategySelector()
         self.confidence_scorer = ConfidenceScorer()

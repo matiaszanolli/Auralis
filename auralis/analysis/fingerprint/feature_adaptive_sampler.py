@@ -43,7 +43,7 @@ class FeatureAdaptiveSampler:
     Selects feature-optimized sampling strategies based on audio content analysis.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize feature-adaptive sampler."""
         # Feature energy thresholds (0.0-1.0)
         self.harmonic_threshold = 0.70     # Harmonic-rich if > this

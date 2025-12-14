@@ -181,7 +181,7 @@ class AdaptationEngine:
         self.gain_history.append(smoothed_gains)
         return smoothed_gains
 
-    def _update_adaptation_state(self, target_gains: np.ndarray):
+    def _update_adaptation_state(self, target_gains: np.ndarray) -> None:
         """Update the adaptation state with new target gains"""
 
         self.adaptation_state['target_gains'] = target_gains

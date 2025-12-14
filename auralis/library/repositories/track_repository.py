@@ -610,7 +610,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def update_metadata(self, track_id: int, **fields) -> Optional[Track]:
+    def update_metadata(self, track_id: int, **fields: Any) -> Optional[Track]:
         """
         Update track metadata fields.
 
