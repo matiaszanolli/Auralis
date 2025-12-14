@@ -110,7 +110,7 @@ class QueueHistoryRepository:
         finally:
             session.close()
 
-    def undo(self, queue_repository) -> Optional[QueueState]:
+    def undo(self, queue_repository: Any) -> Optional[QueueState]:
         """
         Undo the last queue operation by restoring previous state
 
@@ -160,7 +160,7 @@ class QueueHistoryRepository:
         finally:
             session.close()
 
-    def redo(self, queue_repository) -> Optional[QueueState]:
+    def redo(self, queue_repository: Any) -> Optional[QueueState]:
         """
         Redo a previously undone queue operation
 

@@ -67,7 +67,7 @@ class StreamingFingerprint:
         # Frame counter
         self.frame_count = 0
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset all analyzer states."""
         self.variation.reset()
         self.spectral.reset()

@@ -170,7 +170,7 @@ class QueueTemplateRepository:
         finally:
             session.close()
 
-    def update(self, template_id: int, **kwargs) -> Optional[QueueTemplate]:
+    def update(self, template_id: int, **kwargs: Any) -> Optional[QueueTemplate]:
         """
         Update template fields
 

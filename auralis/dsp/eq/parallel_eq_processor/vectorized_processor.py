@@ -23,7 +23,7 @@ class VectorizedEQProcessor:
     Often faster than parallel for medium-sized problems due to no thread overhead
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         debug("Vectorized EQ processor initialized")
 
     def apply_eq_gains_vectorized(
