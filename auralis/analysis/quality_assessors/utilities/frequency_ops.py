@@ -13,7 +13,7 @@ to ensure consistency in frequency balance, weighting, and band analysis.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, Tuple, List, Dict
+from typing import Optional, Tuple, List, Dict, Any
 import numpy as np
 
 

@@ -12,6 +12,7 @@ FFT-based EQ filter application with critical band processing
 
 import numpy as np
 from scipy.fft import fft, ifft
+from typing import List, Any
 from ..utils import create_triangular_filterbank
 
 
