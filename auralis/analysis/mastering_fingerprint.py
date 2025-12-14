@@ -24,7 +24,7 @@ import numpy as np
 import librosa
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import json
 from .fingerprint.common_metrics import AudioMetrics
 
@@ -210,7 +210,7 @@ def analyze_album(album_dir: str, sr: int = 44100) -> Dict[str, Any]:
     audio_files = sorted(album_path.glob("*.flac")) + sorted(album_path.glob("*.wav"))
 
     fingerprints = {}
-    stats = {
+    stats: Dict[str, List[float]] = {
         'loudness': [],
         'crest': [],
         'centroid': [],
