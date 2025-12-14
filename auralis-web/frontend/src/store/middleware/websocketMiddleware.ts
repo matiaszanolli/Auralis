@@ -92,7 +92,7 @@ const createMessageHandlers = (): MessageHandlerMap => ({
     dispatch(playerActions.setCurrentTime(position));
   },
 
-  [MessageType.STOP]: (message, dispatch) => {
+  [MessageType.STOP]: (_message, dispatch) => {
     dispatch(playerActions.setIsPlaying(false));
     dispatch(playerActions.setCurrentTime(0));
   },
@@ -102,7 +102,7 @@ const createMessageHandlers = (): MessageHandlerMap => ({
     dispatch(playerActions.setCurrentTime(position));
   },
 
-  [MessageType.NEXT]: (message, dispatch, state) => {
+  [MessageType.NEXT]: (_message, dispatch, state) => {
     const { currentIndex } = state.queue;
     dispatch(queueActions.nextTrack());
     // Load next track from queue
@@ -112,7 +112,7 @@ const createMessageHandlers = (): MessageHandlerMap => ({
     }
   },
 
-  [MessageType.PREVIOUS]: (message, dispatch, state) => {
+  [MessageType.PREVIOUS]: (_message, dispatch, state) => {
     const { currentIndex } = state.queue;
     dispatch(queueActions.previousTrack());
     // Load previous track from queue
@@ -145,7 +145,7 @@ const createMessageHandlers = (): MessageHandlerMap => ({
     }
   },
 
-  [MessageType.QUEUE_CLEAR]: (message, dispatch) => {
+  [MessageType.QUEUE_CLEAR]: (_message, dispatch) => {
     dispatch(queueActions.clearQueue());
     dispatch(playerActions.setCurrentTrack(null));
   },
@@ -187,7 +187,6 @@ const createMessageHandlers = (): MessageHandlerMap => ({
       muted,
       preset,
       currentTrack,
-      queueLength,
     } = message.payload || {};
 
     // Batch update playback state
@@ -228,8 +227,8 @@ const createMessageHandlers = (): MessageHandlerMap => ({
   // Notification Messages
   // ========================================================================
 
-  [MessageType.NOTIFICATION]: (message, dispatch) => {
-    const { type, message: text, severity } = message.payload || {};
+  [MessageType.NOTIFICATION]: (message) => {
+    const { message: text, severity } = message.payload || {};
     // Notifications are typically handled by Toast provider
     // This is for Redux tracking if needed
     console.log(`[NOTIFICATION] ${severity || 'info'}: ${text}`);
@@ -239,7 +238,7 @@ const createMessageHandlers = (): MessageHandlerMap => ({
   // Error Handling
   // ========================================================================
 
-  [MessageType.ERROR]: (message, dispatch, state) => {
+  [MessageType.ERROR]: (message, dispatch) => {
     const { error, context } = message.payload || {};
 
     // Route error to appropriate slice based on context
@@ -368,7 +367,6 @@ export function createWebSocketMiddleware(protocolClient: any) {
 
       // Handle Redux actions that need WebSocket synchronization
       // (This would be for optimistic updates - send to server)
-      const state = api.getState();
 
       // Track state mutations for debugging
       if (process.env.NODE_ENV === 'development') {

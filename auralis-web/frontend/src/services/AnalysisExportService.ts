@@ -326,7 +326,6 @@ export class AnalysisExportService {
 
       let data: any;
       let mimeType: string;
-      let filename: string;
 
       // Wrap export in timeout protection (60 second limit)
       const exportData = await createTimeoutPromise(
@@ -337,7 +336,6 @@ export class AnalysisExportService {
 
       data = exportData.data;
       mimeType = exportData.mimeType;
-      filename = exportData.filename;
 
       // Continue with blob creation...
       this.progressTracker.updateProgress(90, 'Finalizing export...');
@@ -456,7 +454,7 @@ export class AnalysisExportService {
     return JSON.stringify(exportData, null, 2);
   }
 
-  private async exportAsCSV(options: ExportOptions): Promise<string> {
+  private async exportAsCSV(_options: ExportOptions): Promise<string> {
     this.progressTracker.updateProgress(20, 'Generating CSV...');
 
     const headers = [
@@ -552,7 +550,7 @@ export class AnalysisExportService {
     return pdfContent;
   }
 
-  private generatePDFContent(options: ExportOptions): string {
+  private generatePDFContent(_options: ExportOptions): string {
     // PDF generation would be implemented here
     // This is a placeholder that returns text content
     let content = 'AURALIS AUDIO ANALYSIS REPORT\n\n';
@@ -716,7 +714,7 @@ export class AnalysisExportService {
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
-    width: number,
+    _width: number,
     height: number,
     theme: string
   ): Promise<void> {
@@ -749,8 +747,8 @@ export class AnalysisExportService {
     ctx: CanvasRenderingContext2D,
     x: number,
     y: number,
-    width: number,
-    height: number,
+    _width: number,
+    _height: number,
     theme: string
   ): void {
     ctx.fillStyle = theme === 'dark' ? '#FFFFFF' : '#000000';

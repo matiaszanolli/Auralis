@@ -20,8 +20,6 @@ import {
   StreamingStateManager,
   StreamingSubscriptionManager,
   BackpressureManager,
-  StreamingStatus,
-  StreamingMetrics,
   createStreamingState,
   createSubscriptionManager,
   createBackpressureManager,
@@ -128,7 +126,6 @@ type ErrorCallback = (error: Error, severity: 'low' | 'medium' | 'high') => void
 export class RealTimeAnalysisStream {
   private config: AudioStreamConfig;
   private wsManager: WebSocketManager | null = null;
-  private currentEndpoint: string = '';
 
   // Unified streaming infrastructure (Phase 5d)
   private stateManager: StreamingStateManager;
@@ -137,7 +134,6 @@ export class RealTimeAnalysisStream {
 
   // Data buffers
   private dataBuffer: AnalysisStreamData[] = [];
-  private sequenceNumber = 0;
   private lastReceivedSequence = -1;
 
   // Interpolation
@@ -154,7 +150,6 @@ export class RealTimeAnalysisStream {
   private heartbeatInterval?: number;
 
   // State tracking
-  private isStreaming: boolean = false;
   private isConnected: boolean = false;
 
   constructor(config: Partial<AudioStreamConfig> = {}) {
@@ -180,7 +175,7 @@ export class RealTimeAnalysisStream {
     this.backpressure = createBackpressureManager(80, 20);
 
     // Wire status change listener for backward compatibility
-    this.stateManager.onStatusChange((status) => {
+    this.stateManager.onStatusChange(() => {
       this.notifyStatusChange();
     });
 
@@ -189,8 +184,6 @@ export class RealTimeAnalysisStream {
 
   // Connection Management (Phase 3c: Uses WebSocketManager)
   async connect(endpoint: string = 'ws://localhost:8080/analysis-stream'): Promise<void> {
-    this.currentEndpoint = endpoint;
-
     try {
       this.wsManager = new WebSocketManager(endpoint, {
         maxReconnectAttempts: 10,

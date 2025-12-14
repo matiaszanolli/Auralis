@@ -1,7 +1,7 @@
 import { styled, Paper, Box, Typography } from '@mui/material';
 import { tokens } from '@/design-system';
 
-export const CategorySection = styled(Paper)(({ theme }) => ({
+export const CategorySection = styled(Paper)(() => ({
   background: tokens.colors.bg.level3,
   border: `1px solid ${tokens.colors.border.light}`,
   borderRadius: tokens.borderRadius.lg,
@@ -9,7 +9,7 @@ export const CategorySection = styled(Paper)(({ theme }) => ({
   marginBottom: tokens.spacing.md,
 }));
 
-export const ShortcutRow = styled(Box)(({ theme }) => ({
+export const ShortcutRow = styled(Box)(() => ({
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
@@ -20,7 +20,7 @@ export const ShortcutRow = styled(Box)(({ theme }) => ({
   },
 }));
 
-export const ShortcutKey = styled(Box)(({ theme }) => ({
+export const ShortcutKey = styled(Box)(() => ({
   background: tokens.colors.bg.level2,
   border: `1px solid ${tokens.colors.border.heavy}`,
   borderRadius: tokens.borderRadius.sm,
@@ -34,12 +34,12 @@ export const ShortcutKey = styled(Box)(({ theme }) => ({
   boxShadow: tokens.shadows.sm,
 }));
 
-export const ShortcutDescription = styled(Typography)(({ theme }) => ({
+export const ShortcutDescription = styled(Typography)(() => ({
   color: tokens.colors.text.tertiary,
   fontSize: tokens.typography.fontSize.base,
 }));
 
-export const CategoryTitle = styled(Typography)(({ theme }) => ({
+export const CategoryTitle = styled(Typography)(() => ({
   color: tokens.colors.accent.primary,
   fontWeight: tokens.typography.fontWeight.bold,
   fontSize: tokens.typography.fontSize.md,
@@ -49,7 +49,7 @@ export const CategoryTitle = styled(Typography)(({ theme }) => ({
   gap: tokens.spacing.sm,
 }));
 
-export const EmptyStateBox = styled(Box)(({ theme }) => ({
+export const EmptyStateBox = styled(Box)(() => ({
   textAlign: 'center',
   padding: `40px ${tokens.spacing.md}`,
   color: tokens.colors.text.muted,

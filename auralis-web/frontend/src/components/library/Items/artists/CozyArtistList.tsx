@@ -42,7 +42,6 @@ interface CozyArtistListProps {
 
 export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
   const [contextMenuArtist, setContextMenuArtist] = useState<Artist | null>(null);
 
   // Data fetching with pagination
@@ -59,8 +58,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
   const { groupedArtists, sortedLetters } = useGroupedArtists(artists);
 
   // Infinite scroll detection
-  useInfiniteScroll({
-    ref: loadMoreTriggerRef,
+  const { observerTarget } = useInfiniteScroll({
     threshold: 0.8,
     onLoadMore: fetchMore,
     hasMore,
@@ -108,7 +106,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
         isLoadingMore={isLoading && artists.length > 0}
         hasMore={hasMore}
         containerRef={containerRef}
-        loadMoreTriggerRef={loadMoreTriggerRef}
+        loadMoreTriggerRef={observerTarget}
         groupedArtists={groupedArtists}
         sortedLetters={sortedLetters}
         contextMenuState={contextMenuState}

@@ -373,7 +373,7 @@ export const handlers = [
   }),
 
   // DELETE /api/playlists/:playlistId/tracks/:trackId - Remove track from playlist
-  http.delete(`${API_BASE}/playlists/:playlistId/tracks/:trackId`, async ({ params }) => {
+  http.delete(`${API_BASE}/playlists/:playlistId/tracks/:trackId`, async () => {
     await delay(50);
     return HttpResponse.json({ success: true });
   }),
@@ -662,9 +662,8 @@ export const handlers = [
   // ============================================================
 
   // GET /api/albums/:id/artwork - Get album artwork
-  http.get(`${API_BASE}/albums/:id/artwork`, async ({ params }) => {
+  http.get(`${API_BASE}/albums/:id/artwork`, async () => {
     await delay(100);
-    const albumId = parseInt(params.id as string);
 
     // Return mock image data (empty ArrayBuffer for testing)
     const mockImageData = new ArrayBuffer(100);
@@ -715,7 +714,7 @@ export const handlers = [
 
   // Legacy artwork endpoint
   // GET /api/artwork/:id - Get artwork
-  http.get(`${API_BASE}/artwork/:id`, async ({ params }) => {
+  http.get(`${API_BASE}/artwork/:id`, async () => {
     await delay(100);
     // Return a simple data URL for testing
     return HttpResponse.json({
@@ -909,7 +908,7 @@ export const handlers = [
     });
   }),
 
-  http.delete(`${API_RELATIVE}/library/tracks/:id/favorite`, async ({ params }) => {
+  http.delete(`${API_RELATIVE}/library/tracks/:id/favorite`, async () => {
     await delay(50);
     return HttpResponse.json({ success: true });
   }),
@@ -983,8 +982,7 @@ export const handlers = [
     });
   }),
 
-  http.put(`${API_RELATIVE}/playlists/:id`, async ({ request, params }) => {
-    const body = await request.json();
+  http.put(`${API_RELATIVE}/playlists/:id`, async () => {
     await delay(100);
     return HttpResponse.json({ success: true });
   }),
