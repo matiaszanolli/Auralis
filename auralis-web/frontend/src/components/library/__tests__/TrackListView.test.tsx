@@ -48,26 +48,40 @@ describe('TrackListView', () => {
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    vi.clearAllTimers();
+  afterEach(async () => {
+    await act(async () => {
+      vi.clearAllTimers();
+    });
     vi.useRealTimers();
   });
 
   describe('Rendering', () => {
     it('should render without crashing', () => {
-      const { container } = render(<TrackListView />);
+      let container: any;
+      act(() => {
+        const result = render(<TrackListView />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
 
     it('should render track list container', () => {
-      const { container } = render(<TrackListView />);
+      let container: any;
+      act(() => {
+        const result = render(<TrackListView />);
+        container = result.container;
+      });
       expect(container.querySelector('[data-testid*="list"]')).toBeDefined();
     });
   });
 
   describe('Component Lifecycle', () => {
     it('should mount and unmount cleanly', () => {
-      const { unmount } = render(<TrackListView />);
+      let unmount: any;
+      act(() => {
+        const result = render(<TrackListView />);
+        unmount = result.unmount;
+      });
       expect(screen.getByRole('main') || document.body).toBeInTheDocument();
 
       act(() => {
@@ -76,36 +90,60 @@ describe('TrackListView', () => {
     });
 
     it('should handle re-mounting', () => {
-      const { unmount } = render(<TrackListView />);
-      unmount();
+      let unmount: any;
+      act(() => {
+        const result = render(<TrackListView />);
+        unmount = result.unmount;
+      });
+      act(() => {
+        unmount();
+      });
 
       // Re-render
-      const { container } = render(<TrackListView />);
+      let container: any;
+      act(() => {
+        const result = render(<TrackListView />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
   });
 
   describe('View Modes', () => {
     it('should render with default props', () => {
-      const { container } = render(<TrackListView />);
+      let container: any;
+      act(() => {
+        const result = render(<TrackListView />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
 
     it('should accept view mode prop', () => {
-      const { container } = render(<TrackListView viewMode="list" />);
+      let container: any;
+      act(() => {
+        const result = render(<TrackListView viewMode="list" />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
   });
 
   describe('Accessibility', () => {
     it('should have semantic structure', () => {
-      const { container } = render(<TrackListView />);
+      let container: any;
+      act(() => {
+        const result = render(<TrackListView />);
+        container = result.container;
+      });
       // Should have some main content area
       expect(container.querySelectorAll('div').length).toBeGreaterThan(0);
     });
 
     it('should support keyboard navigation', async () => {
-      render(<TrackListView />);
+      await act(async () => {
+        render(<TrackListView />);
+      });
 
       // Component should be keyboard navigable
       const mainArea = screen.getByRole('main') || document.body;
@@ -115,12 +153,20 @@ describe('TrackListView', () => {
 
   describe('Error Handling', () => {
     it('should handle empty track list', () => {
-      const { container } = render(<TrackListView tracks={[]} />);
+      let container: any;
+      act(() => {
+        const result = render(<TrackListView tracks={[]} />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
 
     it('should handle missing props gracefully', () => {
-      const { container } = render(<TrackListView />);
+      let container: any;
+      act(() => {
+        const result = render(<TrackListView />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
   });

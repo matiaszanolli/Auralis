@@ -9,6 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@/test/test-utils';
+import { act } from 'react-dom/test-utils';
 import AlbumArt from './AlbumArt';
 
 describe('AlbumArt', () => {
@@ -16,35 +17,56 @@ describe('AlbumArt', () => {
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    vi.clearAllTimers();
+  afterEach(async () => {
+    await act(async () => {
+      vi.clearAllTimers();
+    });
+    vi.useRealTimers();
   });
 
   describe('Rendering', () => {
     it('should render without crashing', () => {
-      const { container } = render(<AlbumArt />);
+      let container: any;
+      act(() => {
+        const result = render(<AlbumArt />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
 
     it('should render with albumId prop', () => {
-      const { container } = render(<AlbumArt albumId={1} />);
+      let container: any;
+      act(() => {
+        const result = render(<AlbumArt albumId={1} />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
 
     it('should render with custom size', () => {
-      const { container } = render(<AlbumArt size={200} />);
+      let container: any;
+      act(() => {
+        const result = render(<AlbumArt size={200} />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
 
     it('should accept border radius prop', () => {
-      const { container } = render(<AlbumArt borderRadius={8} />);
+      let container: any;
+      act(() => {
+        const result = render(<AlbumArt borderRadius={8} />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
   });
 
   describe('Image Display', () => {
     it('should render image element when albumId provided', () => {
-      render(<AlbumArt albumId={1} />);
+      act(() => {
+        render(<AlbumArt albumId={1} />);
+      });
       const img = screen.queryByRole('img');
       // Image should be in DOM even if loading
       if (img) {
@@ -53,7 +75,9 @@ describe('AlbumArt', () => {
     });
 
     it('should use correct image URL pattern', () => {
-      render(<AlbumArt albumId={42} />);
+      act(() => {
+        render(<AlbumArt albumId={42} />);
+      });
       const img = screen.queryByRole('img');
       if (img && img instanceof HTMLImageElement) {
         expect(img.src).toContain('42');
@@ -63,19 +87,27 @@ describe('AlbumArt', () => {
 
   describe('Styling', () => {
     it('should apply size styling', () => {
-      const { container } = render(<AlbumArt size={160} />);
+      let container: any;
+      act(() => {
+        const result = render(<AlbumArt size={160} />);
+        container = result.container;
+      });
       const element = container.firstChild as HTMLElement;
       expect(element).toBeInTheDocument();
     });
 
     it('should apply custom styles', () => {
-      const { container } = render(
-        <AlbumArt
-          size={120}
-          borderRadius={4}
-          style={{ opacity: 0.8 }}
-        />
-      );
+      let container: any;
+      act(() => {
+        const result = render(
+          <AlbumArt
+            size={120}
+            borderRadius={4}
+            style={{ opacity: 0.8 }}
+          />
+        );
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
   });
@@ -83,28 +115,44 @@ describe('AlbumArt', () => {
   describe('Click Handling', () => {
     it('should call onClick handler when provided', () => {
       const handleClick = vi.fn();
-      const { container } = render(
-        <AlbumArt albumId={1} onClick={handleClick} />
-      );
+      let container: any;
+      act(() => {
+        const result = render(
+          <AlbumArt albumId={1} onClick={handleClick} />
+        );
+        container = result.container;
+      });
 
       const element = container.firstChild as HTMLElement;
       if (element) {
-        element.click?.();
+        act(() => {
+          element.click?.();
+        });
         expect(handleClick.mock.calls.length).toBeGreaterThanOrEqual(0);
       }
     });
 
     it('should handle missing onClick gracefully', () => {
-      const { container } = render(<AlbumArt albumId={1} />);
+      let container: any;
+      act(() => {
+        const result = render(<AlbumArt albumId={1} />);
+        container = result.container;
+      });
       const element = container.firstChild as HTMLElement;
       // Should not throw
-      expect(() => element.click?.()).not.toThrow();
+      expect(() => {
+        act(() => {
+          element.click?.();
+        });
+      }).not.toThrow();
     });
   });
 
   describe('Accessibility', () => {
     it('should have alt text when displaying image', () => {
-      render(<AlbumArt albumId={1} />);
+      act(() => {
+        render(<AlbumArt albumId={1} />);
+      });
       const img = screen.queryByRole('img');
       if (img instanceof HTMLImageElement) {
         expect(img.alt).toBeTruthy();
@@ -112,44 +160,68 @@ describe('AlbumArt', () => {
     });
 
     it('should be accessible without albumId', () => {
-      const { container } = render(<AlbumArt />);
+      let container: any;
+      act(() => {
+        const result = render(<AlbumArt />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
   });
 
   describe('Props Combinations', () => {
     it('should handle all props together', () => {
-      const { container } = render(
-        <AlbumArt
-          albumId={1}
-          size={150}
-          borderRadius={8}
-          onClick={() => {}}
-        />
-      );
+      let container: any;
+      act(() => {
+        const result = render(
+          <AlbumArt
+            albumId={1}
+            size={150}
+            borderRadius={8}
+            onClick={() => {}}
+          />
+        );
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
 
     it('should handle minimal props', () => {
-      const { container } = render(<AlbumArt />);
+      let container: any;
+      act(() => {
+        const result = render(<AlbumArt />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
   });
 
   describe('Component Lifecycle', () => {
     it('should mount and unmount cleanly', () => {
-      const { unmount } = render(<AlbumArt albumId={1} />);
+      let unmount: any;
+      act(() => {
+        const result = render(<AlbumArt albumId={1} />);
+        unmount = result.unmount;
+      });
       expect(document.body).toBeInTheDocument();
 
-      unmount();
+      act(() => {
+        unmount();
+      });
       // Component should unmount without errors
     });
 
     it('should handle prop updates', () => {
-      const { rerender } = render(<AlbumArt albumId={1} />);
+      let rerender: any;
+      act(() => {
+        const result = render(<AlbumArt albumId={1} />);
+        rerender = result.rerender;
+      });
 
       // Update props
-      rerender(<AlbumArt albumId={2} />);
+      act(() => {
+        rerender(<AlbumArt albumId={2} />);
+      });
 
       expect(document.body).toBeInTheDocument();
     });

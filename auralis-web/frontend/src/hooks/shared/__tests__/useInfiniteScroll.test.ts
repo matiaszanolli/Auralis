@@ -5,7 +5,7 @@
  * Tests the infinite scroll functionality hook
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useInfiniteScroll } from '../useInfiniteScroll';
 
@@ -48,16 +48,35 @@ const triggerIntersection = (isIntersecting: boolean) => {
 };
 
 describe('useInfiniteScroll', () => {
+  let consoleErrorSpy: any;
+
   beforeEach(() => {
+    // Clear all mocks including the IntersectionObserver
+    mockIntersectionObserver.mockClear();
     vi.clearAllMocks();
+
+    // Reset the global state
     observerCallback = null;
     observedElements.clear();
+    mockObserverInstance = null;
 
-    // Setup IntersectionObserver mock
+    // Setup IntersectionObserver mock AFTER clearing
     global.IntersectionObserver = mockIntersectionObserver as any;
 
     // Mock console.error to suppress expected errors
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(async () => {
+    await new Promise(resolve => setTimeout(resolve, 0)); // Flush microtasks
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    if (consoleErrorSpy) {
+      consoleErrorSpy.mockRestore();
+    }
+    // Clean up global state but NOT the mock function itself
+    observerCallback = null;
+    observedElements.clear();
   });
 
   describe('Basic functionality', () => {

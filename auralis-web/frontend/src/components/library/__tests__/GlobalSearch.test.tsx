@@ -12,7 +12,7 @@ import React from 'react';
 import { render, screen } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { act } from 'react-dom/test-utils';
-import GlobalSearch from '../GlobalSearch';
+import GlobalSearch from '../Search/GlobalSearch';
 
 // Mock AlbumArt component to avoid image loading issues
 vi.mock('../../album/AlbumArt', () => ({
@@ -30,28 +30,38 @@ describe('GlobalSearch', () => {
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    vi.clearAllTimers();
+  afterEach(async () => {
+    await act(async () => {
+      vi.clearAllTimers();
+    });
     vi.useRealTimers();
   });
 
   describe('Rendering', () => {
     it('should render search input field', () => {
-      render(<GlobalSearch />);
+      act(() => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i);
       expect(input).toBeInTheDocument();
     });
 
     it('should have input type text', () => {
-      render(<GlobalSearch />);
+      act(() => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
       expect(input.type).toBe('text');
     });
 
     it('should render without crashing', () => {
-      const { container } = render(<GlobalSearch />);
+      let container: any;
+      act(() => {
+        const result = render(<GlobalSearch />);
+        container = result.container;
+      });
       expect(container).toBeInTheDocument();
     });
   });
@@ -59,7 +69,9 @@ describe('GlobalSearch', () => {
   describe('Input Interaction', () => {
     it('should update input value on type', async () => {
       const user = userEvent.setup();
-      render(<GlobalSearch />);
+      await act(async () => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
 
@@ -72,7 +84,9 @@ describe('GlobalSearch', () => {
 
     it('should handle text input with special characters', async () => {
       const user = userEvent.setup();
-      render(<GlobalSearch />);
+      await act(async () => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
 
@@ -86,7 +100,9 @@ describe('GlobalSearch', () => {
 
     it('should clear input value', async () => {
       const user = userEvent.setup();
-      render(<GlobalSearch />);
+      await act(async () => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
 
@@ -106,7 +122,9 @@ describe('GlobalSearch', () => {
 
   describe('Accessibility', () => {
     it('should have proper input attributes', () => {
-      render(<GlobalSearch />);
+      act(() => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i);
       expect(input).toHaveAttribute('type', 'text');
@@ -114,7 +132,9 @@ describe('GlobalSearch', () => {
 
     it('should support keyboard navigation', async () => {
       const user = userEvent.setup();
-      render(<GlobalSearch />);
+      await act(async () => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i);
 
@@ -130,7 +150,9 @@ describe('GlobalSearch', () => {
   describe('Edge Cases', () => {
     it('should handle long input text', async () => {
       const user = userEvent.setup();
-      render(<GlobalSearch />);
+      await act(async () => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
       const longText = 'A'.repeat(200);
@@ -144,7 +166,9 @@ describe('GlobalSearch', () => {
 
     it('should handle rapid typing', async () => {
       const user = userEvent.setup();
-      render(<GlobalSearch />);
+      await act(async () => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
 
@@ -157,7 +181,9 @@ describe('GlobalSearch', () => {
 
     it('should handle unicode input', async () => {
       const user = userEvent.setup();
-      render(<GlobalSearch />);
+      await act(async () => {
+        render(<GlobalSearch />);
+      });
 
       const input = screen.getByPlaceholderText(/search/i) as HTMLInputElement;
 
@@ -171,7 +197,11 @@ describe('GlobalSearch', () => {
 
   describe('Component Lifecycle', () => {
     it('should mount and unmount without errors', () => {
-      const { unmount } = render(<GlobalSearch />);
+      let unmount: any;
+      act(() => {
+        const result = render(<GlobalSearch />);
+        unmount = result.unmount;
+      });
 
       expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
 
@@ -184,13 +214,19 @@ describe('GlobalSearch', () => {
     });
 
     it('should handle remounting', () => {
-      const { unmount } = render(<GlobalSearch />);
+      let unmount: any;
+      act(() => {
+        const result = render(<GlobalSearch />);
+        unmount = result.unmount;
+      });
       expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
 
       unmount();
 
       // Remount
-      render(<GlobalSearch />);
+      act(() => {
+        render(<GlobalSearch />);
+      });
       expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
     });
   });
