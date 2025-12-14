@@ -112,7 +112,7 @@ class ChunkedAudioProcessor:
         self._boundary_manager: Any = ChunkBoundaryManager(total_duration_valid, sample_rate_valid)
         self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
         self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
-        self._processor_manager: Any = ProcessorManager()  # type: ignore[no-untyped-call]
+        self._processor_manager: Any = ProcessorManager()
 
         # CRITICAL: Async lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state

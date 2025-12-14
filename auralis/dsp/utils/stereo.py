@@ -44,7 +44,7 @@ def stereo_width_analysis(stereo_audio: np.ndarray) -> float:
     # correlation = 0.0 -> width = 1.0 (maximum stereo)
     width = 1.0 - np.abs(correlation)
 
-    return np.clip(width, 0.0, 1.0)
+    return float(np.clip(width, 0.0, 1.0))
 
 
 def adjust_stereo_width(stereo_audio: np.ndarray, width_factor: float) -> np.ndarray:

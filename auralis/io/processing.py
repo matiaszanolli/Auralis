@@ -69,7 +69,7 @@ def resample_audio(audio_data: np.ndarray, original_rate: int, target_rate: int)
         debug(f"Resampling from {original_rate} Hz to {target_rate} Hz using resampy")
 
         if audio_data.ndim == 1:
-            return resampy.resample(audio_data, original_rate, target_rate)
+            return np.asarray(resampy.resample(audio_data, original_rate, target_rate), dtype=np.float32)
         else:
             # Resample each channel separately
             resampled_channels = []
@@ -94,7 +94,7 @@ def simple_resample(audio_data: np.ndarray, original_rate: int, target_rate: int
     if audio_data.ndim == 1:
         # Mono audio
         old_indices = np.linspace(0, len(audio_data) - 1, new_length)
-        return np.interp(old_indices, np.arange(len(audio_data)), audio_data)
+        return np.asarray(np.interp(old_indices, np.arange(len(audio_data)), audio_data), dtype=np.float32)
     else:
         # Multi-channel audio
         resampled_channels = []

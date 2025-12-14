@@ -109,7 +109,7 @@ class HybridProcessor:
             config, self.content_analyzer, self.fingerprint_analyzer,
             self.recording_type_detector
         )
-        self.hybrid_mode = HybridMode(  # type: ignore[no-untyped-call]
+        self.hybrid_mode = HybridMode(
             config, self.content_analyzer, self.target_generator,
             self.adaptive_mode
         )
@@ -334,11 +334,11 @@ class HybridProcessor:
 
     def set_realtime_eq_parameters(self, **kwargs: Any) -> None:
         """Update real-time EQ parameters dynamically"""
-        self.realtime_eq_manager.set_parameters(**kwargs)  # type: ignore[no-untyped-call]
+        self.realtime_eq_manager.set_parameters(**kwargs)
 
     def reset_realtime_eq(self) -> None:
         """Reset real-time EQ state"""
-        self.realtime_eq_manager.reset()  # type: ignore[no-untyped-call]
+        self.realtime_eq_manager.reset()
 
     def get_dynamics_info(self) -> Dict[str, Any]:
         """Get dynamics processing information"""
@@ -350,7 +350,7 @@ class HybridProcessor:
 
     def reset_dynamics(self) -> None:
         """Reset dynamics processing state"""
-        self.dynamics_manager.reset()  # type: ignore[no-untyped-call]
+        self.dynamics_manager.reset()
 
     def set_user(self, user_id: str) -> None:
         """Set the current user for preference learning"""
