@@ -50,15 +50,15 @@ class LibraryScanner:
         self.should_stop: bool = False
 
         # Initialize components
-        self.file_discovery: Any = FileDiscovery()  # type: ignore[no-untyped-call]
+        self.file_discovery: Any = FileDiscovery()
         self.audio_analyzer: Any = AudioAnalyzer()
         self.metadata_extractor: Any = MetadataExtractor()
-        self.batch_processor: Any = BatchProcessor(  # type: ignore[no-untyped-call]
+        self.batch_processor: Any = BatchProcessor(
             library_manager,
             self.audio_analyzer,
             self.metadata_extractor
         )
-        self.duplicate_detector: Any = DuplicateDetector(  # type: ignore[no-untyped-call]
+        self.duplicate_detector: Any = DuplicateDetector(
             self.file_discovery,
             self.audio_analyzer
         )

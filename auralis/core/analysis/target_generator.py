@@ -19,7 +19,7 @@ from ...utils.logging import debug
 class AdaptiveTargetGenerator:
     """Generate adaptive processing targets based on content analysis"""
 
-    def __init__(self, config: UnifiedConfig, processor=None):
+    def __init__(self, config: UnifiedConfig, processor: Optional[Any] = None) -> None:
         """
         Initialize adaptive target generator
 
@@ -145,7 +145,7 @@ class AdaptiveTargetGenerator:
         return targets
 
     def _apply_preset_overrides(self, targets: Dict[str, Any],
-                                preset_profile, content_profile: Dict[str, Any]) -> Dict[str, Any]:
+                                preset_profile: Any, content_profile: Dict[str, Any]) -> Dict[str, Any]:
         """
         Apply preset-specific overrides to adaptive targets.
 
@@ -380,7 +380,7 @@ class AdaptiveTargetGenerator:
 
 
 def create_adaptive_target_generator(config: UnifiedConfig,
-                                     processor=None) -> AdaptiveTargetGenerator:
+                                     processor: Optional[Any] = None) -> AdaptiveTargetGenerator:
     """
     Factory function to create adaptive target generator
 
