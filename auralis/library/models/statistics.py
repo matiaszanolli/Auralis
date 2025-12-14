@@ -16,7 +16,7 @@ from typing import Dict, Any
 from .base import Base, TimestampMixin
 
 
-class LibraryStats(Base, TimestampMixin):
+class LibraryStats(Base, TimestampMixin):  # type: ignore[misc]
     """Model for library-wide statistics."""
     __tablename__ = 'library_stats'
 

@@ -16,7 +16,7 @@ from typing import Dict, Any
 from .base import Base, TimestampMixin
 
 
-class UserSettings(Base, TimestampMixin):
+class UserSettings(Base, TimestampMixin):  # type: ignore[misc]
     """Model for user settings and preferences."""
     __tablename__ = 'user_settings'
 

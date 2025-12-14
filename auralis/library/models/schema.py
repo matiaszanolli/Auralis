@@ -17,7 +17,7 @@ from typing import Dict, Any
 from .base import Base
 
 
-class SchemaVersion(Base):
+class SchemaVersion(Base):  # type: ignore[misc]
     """Model for tracking database schema versions."""
     __tablename__ = 'schema_version'
 
