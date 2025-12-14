@@ -1,9 +1,10 @@
+/// <reference types="vitest/globals" />
 /**
  * Test setup file for Vitest
  * Configures global test environment, matchers, and polyfills
  */
 
-import '@testing-library/jest-dom'
+import '@testing-library/jest-dom' // @ts-ignore: type definitions not available
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { server } from './mocks/server'
