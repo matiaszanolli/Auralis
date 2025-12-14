@@ -140,7 +140,7 @@ class QueueHistoryRepository:
 
             # Parse the snapshot and restore it
             try:
-                state_snapshot = json.loads(latest_history.state_snapshot)
+                state_snapshot = json.loads(latest_history.state_snapshot)  # type: ignore[arg-type]
             except json.JSONDecodeError:
                 raise ValueError(f"Corrupted history entry {latest_history.id}: invalid JSON")
 

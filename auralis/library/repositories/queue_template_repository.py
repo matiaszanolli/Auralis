@@ -160,7 +160,7 @@ class QueueTemplateRepository:
 
             for template in templates:
                 try:
-                    tags = json.loads(template.tags) if template.tags else []
+                    tags = json.loads(template.tags) if template.tags else []  # type: ignore[arg-type]
                     if tag in tags:
                         matching.append(template)
                 except (json.JSONDecodeError, TypeError):

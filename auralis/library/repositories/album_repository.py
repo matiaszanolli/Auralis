@@ -183,7 +183,7 @@ class AlbumRepository:
 
                     if artwork_path:
                         # Update album with artwork path
-                        album.artwork_path = artwork_path
+                        album.artwork_path = artwork_path  # type: ignore[assignment]
                         session.commit()
                         session.refresh(album)
                         return artwork_path
@@ -208,7 +208,7 @@ class AlbumRepository:
         try:
             album = session.query(Album).filter(Album.id == album_id).first()
             if album:
-                album.artwork_path = artwork_path
+                album.artwork_path = artwork_path  # type: ignore[assignment]
                 session.commit()
                 return True
             return False
