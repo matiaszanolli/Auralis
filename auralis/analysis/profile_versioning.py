@@ -237,7 +237,7 @@ class ProfileVersionManager:
         Args:
             output_path: Path to save history file
         """
-        data = {
+        data: Dict[str, Any] = {
             'version': '1.0',
             'exported_at': datetime.now().isoformat(),
             'profiles': {},
