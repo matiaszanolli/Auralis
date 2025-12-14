@@ -181,7 +181,7 @@ class WAVEncoder:
         self.encode_and_save(audio, sample_rate, chunk_path, subtype)
         return chunk_path
 
-    def get_statistics(self) -> dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """
         Get encoder statistics.
 

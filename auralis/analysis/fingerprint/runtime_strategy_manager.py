@@ -75,7 +75,7 @@ class RuntimeStrategyManager:
         processing_mode: Optional[ProcessingMode] = None,
         sampled_features: Optional[Dict[str, float]] = None,
         full_track_features: Optional[Dict[str, float]] = None,
-    ) -> Tuple[str, Dict, ExecutionResult]:
+    ) -> Tuple[str, Dict[str, Any], ExecutionResult]:
         """
         Select optimal strategy and execute with fallback if needed.
 
@@ -267,7 +267,7 @@ class RuntimeStrategyManager:
             f"acceptable={self.confidence_scorer.acceptable_confidence_threshold}"
         )
 
-    def get_execution_stats(self) -> Dict:
+    def get_execution_stats(self) -> Dict[str, Any]:
         """
         Get execution statistics.
 

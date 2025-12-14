@@ -45,7 +45,7 @@ class ProcessorManager:
         track_id: int,
         preset: str = "adaptive",
         intensity: float = 1.0,
-        mastering_targets: Optional[dict] = None
+        mastering_targets: Optional[Dict[str, Any]] = None
     ) -> HybridProcessor:
         """
         Get cached processor or create new one.
@@ -115,7 +115,7 @@ class ProcessorManager:
         track_id: int,
         preset: str,
         intensity: float,
-        mastering_targets: dict
+        mastering_targets: Dict[str, Any]
     ) -> None:
         """
         Set mastering targets for an existing processor.
@@ -143,7 +143,7 @@ class ProcessorManager:
         """
         return self._active_processors.copy()
 
-    def get_statistics(self) -> dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """
         Get statistics about cached and active processors.
 

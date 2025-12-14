@@ -198,7 +198,7 @@ class FrequencyOperations:
     def detect_frequency_peaks(audio: np.ndarray,
                               sr: int = 44100,
                               threshold_db: float = 6.0,
-                              min_peak_width: int = 3) -> List[Dict]:
+                              min_peak_width: int = 3) -> List[Dict[str, Any]]:
         """
         Detect prominent frequency peaks
 

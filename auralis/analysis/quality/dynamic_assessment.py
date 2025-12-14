@@ -19,7 +19,7 @@ from auralis.analysis.quality_assessors.utilities.assessment_constants import As
 class DynamicRangeAssessor(BaseAssessor):
     """Assess dynamic range quality"""
 
-    def assess(self, dynamic_result: Dict) -> float:
+    def assess(self, dynamic_result: Dict[str, Any]) -> float:
         """
         Assess dynamic range quality (0-100)
 
@@ -58,7 +58,7 @@ class DynamicRangeAssessor(BaseAssessor):
 
         return float(total_score)
 
-    def detailed_analysis(self, dynamic_result: Dict) -> Dict:
+    def detailed_analysis(self, dynamic_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Perform detailed dynamic range analysis
 
@@ -87,7 +87,7 @@ class DynamicRangeAssessor(BaseAssessor):
             'crest_factor_score': cf_score
         }
 
-    def categorize_dynamics(self, dr_value: float) -> Dict:
+    def categorize_dynamics(self, dr_value: float) -> Dict[str, Any]:
         """
         Categorize dynamic range characteristics
 

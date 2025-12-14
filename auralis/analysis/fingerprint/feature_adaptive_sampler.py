@@ -120,8 +120,8 @@ class FeatureAdaptiveSampler:
         return strategy, interval, reasoning
 
     def should_use_adaptive_intervals(
-        self, chunk_features: list, stability_threshold: float = 0.80
-    ) -> Tuple[bool, Dict]:
+        self, chunk_features: List[Any], stability_threshold: float = 0.80
+    ) -> Tuple[bool, Dict[str, Any]]:
         """
         Determine if adaptive interval sampling should be used based on
         feature stability across chunks.

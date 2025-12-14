@@ -261,7 +261,7 @@ class FingerprintRepository:
 
     def get_by_multi_dimension_range(
         self,
-        ranges: Dict[str, tuple],
+        ranges: Dict[str, Tuple[float, float]],
         limit: Optional[int] = None
     ) -> List[TrackFingerprint]:
         """

@@ -165,7 +165,7 @@ class AdaptiveStrategySelector:
 
         self.user_override = strategy
 
-    def get_strategy_info(self, audio_length_s: float) -> dict:
+    def get_strategy_info(self, audio_length_s: float) -> Dict[str, Any]:
         """
         Get detailed strategy selection information.
 

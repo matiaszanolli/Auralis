@@ -65,7 +65,7 @@ class DistortionAssessor(BaseAssessor):
 
         return float(total_score)
 
-    def detailed_analysis(self, audio_data: np.ndarray) -> Dict:
+    def detailed_analysis(self, audio_data: np.ndarray) -> Dict[str, Any]:
         """
         Perform detailed distortion analysis
 

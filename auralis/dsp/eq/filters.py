@@ -100,7 +100,7 @@ def apply_eq_mono(audio_mono: np.ndarray,
     return np.asarray(processed_audio[:len(audio_mono)], dtype=np.float32)
 
 
-def create_filter_bank(critical_bands: list,
+def create_filter_bank(critical_bands: List[Any],
                       sample_rate: int,
                       fft_size: int) -> np.ndarray:
     """
