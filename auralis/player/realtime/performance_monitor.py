@@ -11,7 +11,7 @@ Monitors processing performance and adapts quality
 """
 
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, List
 from ...utils.logging import warning, info
 
 
@@ -20,7 +20,7 @@ class PerformanceMonitor:
 
     def __init__(self, max_cpu_usage: float = 0.8):
         self.max_cpu_usage = max_cpu_usage
-        self.processing_times = []
+        self.processing_times: List[float] = []
         self.max_history = 100
         self.performance_mode = False
         self.consecutive_overruns = 0

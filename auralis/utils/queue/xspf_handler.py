@@ -129,8 +129,8 @@ class XSPFHandler:
         Returns:
             Tuple of (filepaths, errors)
         """
-        filepaths = []
-        errors = []
+        filepaths: List[str] = []
+        errors: List[str] = []
 
         try:
             root = ET.fromstring(content)
