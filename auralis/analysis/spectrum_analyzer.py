@@ -10,7 +10,7 @@ DEPRECATED: Use BaseSpectrumAnalyzer instead. This module maintained for backwar
 """
 
 import numpy as np
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from .base_spectrum_analyzer import BaseSpectrumAnalyzer, SpectrumSettings
 from .spectrum_operations import SpectrumOperations
 from .fingerprint.common_metrics import AggregationUtils
@@ -22,7 +22,7 @@ class SpectrumAnalyzer(BaseSpectrumAnalyzer):
     Thin wrapper around BaseSpectrumAnalyzer for backward compatibility.
     """
 
-    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict:
+    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict[str, Any]:
         """
         Analyze a chunk of audio data
 
@@ -35,7 +35,7 @@ class SpectrumAnalyzer(BaseSpectrumAnalyzer):
         """
         return self._create_chunk_result(audio_chunk, channel, self.settings.sample_rate)
 
-    def analyze_file(self, audio_data: np.ndarray, sample_rate: int = None) -> Dict:
+    def analyze_file(self, audio_data: np.ndarray, sample_rate: Optional[int] = None) -> Dict[str, Any]:
         """
         Analyze an entire audio file
 
