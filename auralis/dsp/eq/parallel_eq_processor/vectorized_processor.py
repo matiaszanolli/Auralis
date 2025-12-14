@@ -12,6 +12,7 @@ Fully vectorized EQ processor using NumPy operations
 
 import numpy as np
 from scipy.fft import fft, ifft
+from typing import cast
 
 from ....utils.logging import debug
 
@@ -119,4 +120,4 @@ class VectorizedEQProcessor:
         # Apply window compensation
         processed_audio *= window
 
-        return processed_audio[:len(audio_mono)]
+        return cast(np.ndarray, processed_audio[:len(audio_mono)])

@@ -12,7 +12,7 @@ Multi-threaded parallel processing for psychoacoustic EQ
 
 import numpy as np
 from scipy.fft import fft, ifft
-from typing import List, Tuple, Optional, Any
+from typing import List, Tuple, Optional, Any, cast
 from concurrent.futures import ThreadPoolExecutor
 
 from .config import ParallelEQConfig
@@ -155,7 +155,7 @@ class ParallelEQProcessor:
         # Apply window compensation
         processed_audio *= window
 
-        return processed_audio[:len(audio_mono)]
+        return cast(np.ndarray, processed_audio[:len(audio_mono)])
 
     def _process_bands_parallel(
         self,
@@ -364,4 +364,4 @@ class ParallelEQProcessor:
         # Apply window compensation
         processed_audio *= window
 
-        return processed_audio[:len(audio_mono)]
+        return cast(np.ndarray, processed_audio[:len(audio_mono)])

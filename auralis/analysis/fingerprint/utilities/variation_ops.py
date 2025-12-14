@@ -17,7 +17,7 @@ Features:
 import numpy as np
 import librosa
 import logging
-from typing import Tuple, Optional
+from typing import Tuple, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class VariationOperations:
         frames = audio_abs[frame_indices]
         peaks = np.max(frames, axis=1)
 
-        return peaks
+        return cast(np.ndarray, peaks)
 
     @staticmethod
     def calculate_dynamic_range_variation(

@@ -13,7 +13,7 @@ to ensure consistency in frequency balance, weighting, and band analysis.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Tuple, List, Dict, Any, cast
 import numpy as np
 
 
@@ -50,7 +50,7 @@ class FrequencyOperations:
         else:
             mag_db = magnitudes
 
-        return mag_db + weights
+        return cast(np.ndarray, mag_db + weights)
 
     @staticmethod
     def apply_c_weighting(frequencies: np.ndarray,
@@ -82,7 +82,7 @@ class FrequencyOperations:
         else:
             mag_db = magnitudes
 
-        return mag_db + weights
+        return cast(np.ndarray, mag_db + weights)
 
     @staticmethod
     def compute_frequency_bands(frequencies: np.ndarray,
