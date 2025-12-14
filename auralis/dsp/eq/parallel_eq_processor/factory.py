@@ -10,12 +10,13 @@ Factory functions for creating EQ processor instances
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Optional
 from .config import ParallelEQConfig
 from .parallel_processor import ParallelEQProcessor
 from .vectorized_processor import VectorizedEQProcessor
 
 
-def create_parallel_eq_processor(config: ParallelEQConfig = None) -> ParallelEQProcessor:
+def create_parallel_eq_processor(config: Optional[ParallelEQConfig] = None) -> ParallelEQProcessor:
     """
     Create parallel EQ processor instance
 

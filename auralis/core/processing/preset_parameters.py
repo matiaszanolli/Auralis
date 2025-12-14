@@ -192,7 +192,7 @@ class PresetParameters:
         return not preset.get("requires_analysis", False)
 
     @staticmethod
-    def export_presets_to_json(output_path: str = None) -> str:
+    def export_presets_to_json(output_path: Optional[str] = None) -> str:
         """
         Export all presets to JSON for external use/validation.
 

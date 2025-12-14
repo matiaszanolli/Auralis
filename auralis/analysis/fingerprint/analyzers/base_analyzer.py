@@ -14,7 +14,7 @@ Eliminates duplicate try/except blocks and default value handling across analyze
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import numpy as np
 from ....utils.logging import debug
 
@@ -36,7 +36,7 @@ class BaseAnalyzer(ABC):
     # Override in subclasses with default values for each feature
     DEFAULT_FEATURES: Dict[str, float] = {}
 
-    def __init__(self, name: str = None):
+    def __init__(self, name: Optional[str] = None):
         """
         Initialize analyzer.
 

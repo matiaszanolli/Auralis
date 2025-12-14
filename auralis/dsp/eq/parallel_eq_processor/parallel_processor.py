@@ -12,7 +12,7 @@ Multi-threaded parallel processing for psychoacoustic EQ
 
 import numpy as np
 from scipy.fft import fft, ifft
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor
 
 from .config import ParallelEQConfig
@@ -26,7 +26,7 @@ class ParallelEQProcessor:
     Processes frequency bands in parallel for 2-3x speedup over sequential processing
     """
 
-    def __init__(self, config: ParallelEQConfig = None):
+    def __init__(self, config: Optional[ParallelEQConfig] = None):
         self.config = config or ParallelEQConfig()
 
         # Define band groups for batch processing
