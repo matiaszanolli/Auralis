@@ -32,7 +32,7 @@ class ProcessorManager:
     - Apply mastering targets and settings consistently
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize ProcessorManager."""
         # Map of (track_id, preset, intensity) -> HybridProcessor
         self._processors: Dict[Tuple[int, str, float], HybridProcessor] = {}

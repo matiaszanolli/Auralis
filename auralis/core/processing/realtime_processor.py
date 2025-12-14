@@ -23,8 +23,8 @@ class RealtimeProcessor:
     Processes small audio chunks with minimal latency
     """
 
-    def __init__(self, config, realtime_eq: RealtimeAdaptiveEQ,
-                 dynamics_processor: DynamicsProcessor):
+    def __init__(self, config: Any, realtime_eq: RealtimeAdaptiveEQ,
+                 dynamics_processor: DynamicsProcessor) -> None:
         """
         Initialize real-time processor
 

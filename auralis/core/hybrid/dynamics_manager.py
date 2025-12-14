@@ -32,7 +32,7 @@ class DynamicsManager:
 
         return dynamics_info
 
-    def set_mode(self, mode: str):
+    def set_mode(self, mode: str) -> None:
         """Set dynamics processing mode"""
         if mode in ['transparent', 'musical', 'broadcast', 'mastering', 'adaptive']:
             dynamics_mode = DynamicsMode(mode)
@@ -41,7 +41,7 @@ class DynamicsManager:
         else:
             debug(f"Invalid dynamics mode: {mode}")
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset dynamics processing state"""
         self.dynamics_processor.reset()
         self.last_dynamics_info = None

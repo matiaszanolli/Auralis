@@ -12,6 +12,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from starlette.responses import Response
+from typing import Callable, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,7 +27,7 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
     API streaming responses must NOT have cache-control headers modified.
     """
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
         response = await call_next(request)
 
         # Only disable caching for frontend static files (not API endpoints)

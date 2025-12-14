@@ -22,7 +22,7 @@ class HybridMode:
     Hybrid processing mode - combines reference matching with adaptive enhancements
     """
 
-    def __init__(self, config, content_analyzer, target_generator, adaptive_processor):
+    def __init__(self, config: Any, content_analyzer: Any, target_generator: Any, adaptive_processor: Any) -> None:
         """
         Initialize hybrid mode processor
 
@@ -39,7 +39,7 @@ class HybridMode:
 
     def process(self, target_audio: np.ndarray,
                 reference_audio: Optional[np.ndarray],
-                eq_processor) -> np.ndarray:
+                eq_processor: Any) -> np.ndarray:
         """
         Process audio using hybrid approach
 
@@ -69,7 +69,7 @@ class HybridMode:
     def _apply_hybrid_processing(self, target_audio: np.ndarray,
                                 reference_audio: np.ndarray,
                                 content_profile: Dict[str, Any],
-                                eq_processor) -> np.ndarray:
+                                eq_processor: Any) -> np.ndarray:
         """
         Apply hybrid processing combining reference and adaptive approaches
 

@@ -66,7 +66,7 @@ class RealtimeProcessor:
 
             return success
 
-    def set_effect_enabled(self, effect_name: str, enabled: bool):
+    def set_effect_enabled(self, effect_name: str, enabled: bool) -> None:
         """Enable/disable specific effects"""
         with self.lock:
             if effect_name in self.effects_enabled:
@@ -80,7 +80,7 @@ class RealtimeProcessor:
 
                 info(f"Effect {effect_name}: {'enabled' if enabled else 'disabled'}")
 
-    def set_auto_master_profile(self, profile: str):
+    def set_auto_master_profile(self, profile: str) -> None:
         """Set auto-mastering profile"""
         with self.lock:
             if self.auto_master:
@@ -159,7 +159,7 @@ class RealtimeProcessor:
 
         return info
 
-    def reset_all_effects(self):
+    def reset_all_effects(self) -> None:
         """Reset all effects to initial state"""
         with self.lock:
             if self.level_matcher:

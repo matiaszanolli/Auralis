@@ -14,10 +14,11 @@ Refactored from Matchering 2.0 by Sergree and contributors
 
 import numpy as np
 import soundfile as sf
+from typing import Tuple
 from ..utils.logging import debug, info, Code
 
 
-def load(file_path: str, file_type: str = "audio"):
+def load(file_path: str, file_type: str = "audio") -> Tuple[np.ndarray, int]:
     """
     Load an audio file
 

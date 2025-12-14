@@ -134,7 +134,7 @@ class BatchAnalyzer:
     5. Export for integration with adaptive engine
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.analyses: Dict[str, AlbumAnalysisResult] = {}
         self.profiles: Dict[str, MasteringProfile] = {}
         self.profile_db = MasteringProfileDatabase()

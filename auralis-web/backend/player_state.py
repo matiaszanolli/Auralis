@@ -70,7 +70,7 @@ class PlayerState(BaseModel):
     analysis: Optional[Dict[str, Any]] = None
 
 
-def create_track_info(track) -> Optional[TrackInfo]:
+def create_track_info(track: Any) -> Optional[TrackInfo]:
     """
     Convert a Track model to TrackInfo DTO
 

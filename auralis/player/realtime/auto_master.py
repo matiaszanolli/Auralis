@@ -48,7 +48,7 @@ class AutoMasterProcessor:
 
         debug(f"AutoMasterProcessor initialized with profile: {self.profile}")
 
-    def set_profile(self, profile: str):
+    def set_profile(self, profile: str) -> None:
         """Set mastering profile"""
         if profile in self.profiles:
             self.profile = profile

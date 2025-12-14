@@ -136,7 +136,7 @@ class VectorizedEnvelopeFollower:
         else:
             return self.process_buffer_vectorized(input_levels)
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset envelope state"""
         self.envelope = 0.0
 

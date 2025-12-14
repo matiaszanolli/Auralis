@@ -26,7 +26,7 @@ class PerformanceMonitor:
         self.consecutive_overruns = 0
         self.chunks_processed = 0
 
-    def record_processing_time(self, processing_time: float, chunk_duration: float):
+    def record_processing_time(self, processing_time: float, chunk_duration: float) -> None:
         """Record processing time for a chunk"""
         self.chunks_processed += 1
         cpu_usage = processing_time / chunk_duration if chunk_duration > 0 else 0.0

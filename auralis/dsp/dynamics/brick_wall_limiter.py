@@ -142,7 +142,7 @@ class BrickWallLimiter:
 
         return output
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset limiter state (clear buffers)"""
         self.buffer = None
         self.current_gain = 1.0

@@ -10,7 +10,7 @@ Manages real-time adaptive EQ parameters and state
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from ...dsp.realtime_adaptive_eq import RealtimeAdaptiveEQ
 from ...utils.logging import info
 
@@ -35,12 +35,12 @@ class RealtimeEQManager:
             "adaptation_rate": self.realtime_eq.settings.adaptation_rate
         }
 
-    def set_parameters(self, **kwargs):
+    def set_parameters(self, **kwargs: Any) -> None:
         """Update real-time EQ parameters dynamically"""
         self.realtime_eq.set_adaptation_parameters(**kwargs)
         info(f"Updated real-time EQ parameters: {kwargs}")
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset real-time EQ state"""
         self.realtime_eq.reset()
         info("Real-time EQ state reset")

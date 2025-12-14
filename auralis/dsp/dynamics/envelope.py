@@ -52,7 +52,7 @@ class EnvelopeFollower:
 
         return output
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset envelope state"""
         self.envelope = 0.0
 

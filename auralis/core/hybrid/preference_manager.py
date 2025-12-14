@@ -24,20 +24,20 @@ class PreferenceManager:
         self.current_user_id: Optional[str] = None
         self.last_content_profile: Optional[Dict[str, Any]] = None
 
-    def set_user(self, user_id: str):
+    def set_user(self, user_id: str) -> None:
         """Set the current user for preference learning"""
         self.current_user_id = user_id
         # Ensure user profile exists
         self.preference_engine.get_or_create_user(user_id)
         info(f"User set for preference learning: {user_id}")
 
-    def set_content_profile(self, content_profile: Dict[str, Any]):
+    def set_content_profile(self, content_profile: Dict[str, Any]) -> None:
         """Store the current content profile for learning context"""
         self.last_content_profile = content_profile
 
     def record_feedback(self, rating: float,
                        parameters_before: Optional[Dict[str, float]] = None,
-                       parameters_after: Optional[Dict[str, float]] = None):
+                       parameters_after: Optional[Dict[str, float]] = None) -> None:
         """Record user feedback for learning"""
         if not self.current_user_id:
             debug("No user set for preference learning")
@@ -61,7 +61,7 @@ class PreferenceManager:
         info(f"Recorded user rating: {rating}/5")
 
     def record_adjustment(self, parameter_name: str,
-                         old_value: float, new_value: float):
+                         old_value: float, new_value: float) -> None:
         """Record user parameter adjustment for learning"""
         if not self.current_user_id or self.last_content_profile is None:
             return

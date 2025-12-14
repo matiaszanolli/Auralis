@@ -13,10 +13,11 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import numpy as np
+from typing import Optional, Any
 from .logging import debug, info
 
 
-def create_preview(target: np.ndarray, result: np.ndarray, config, preview_target=None, preview_result=None):
+def create_preview(target: np.ndarray, result: np.ndarray, config: Any, preview_target: Optional[Any] = None, preview_result: Optional[Any] = None) -> None:
     """
     Create preview files for A/B comparison
 

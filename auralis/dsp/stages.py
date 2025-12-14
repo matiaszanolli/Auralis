@@ -13,6 +13,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import numpy as np
+from typing import Tuple, Optional, Any
 from .basic import rms, normalize, amplify
 from .dynamics.soft_clipper import soft_clip
 from .utils.adaptive import (
@@ -26,11 +27,11 @@ from ..utils.logging import debug, info
 def main(
     target: np.ndarray,
     reference: np.ndarray,
-    config,
+    config: Any,
     need_default: bool = True,
     need_no_limiter: bool = False,
     need_no_limiter_normalized: bool = False,
-):
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
     """
     Main processing pipeline with full matching algorithms
 

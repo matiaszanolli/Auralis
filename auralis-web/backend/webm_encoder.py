@@ -163,7 +163,7 @@ class WebMEncoder:
             return webm_path
         return None
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """
         Clear all cached WebM files.
         """

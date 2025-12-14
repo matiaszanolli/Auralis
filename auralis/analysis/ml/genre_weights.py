@@ -64,7 +64,7 @@ def initialize_genre_weights(genres: List[str]) -> Dict[str, Dict[str, float]]:
     return weights
 
 
-def _apply_genre_specific_weights(weights: Dict[str, Dict[str, float]]):
+def _apply_genre_specific_weights(weights: Dict[str, Dict[str, float]]) -> None:
     """
     Apply genre-specific weight adjustments
 

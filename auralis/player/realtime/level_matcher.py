@@ -35,7 +35,7 @@ class RealtimeLevelMatcher:
 
         debug("RealtimeLevelMatcher initialized")
 
-    def set_reference_audio(self, reference: np.ndarray):
+    def set_reference_audio(self, reference: np.ndarray) -> bool:
         """Set reference audio for level matching"""
         if reference is None:
             self.reference_rms = None

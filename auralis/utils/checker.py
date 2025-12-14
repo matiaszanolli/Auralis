@@ -13,10 +13,11 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import numpy as np
+from typing import Tuple
 from .logging import debug, ModuleError, Code
 
 
-def check(audio: np.ndarray, sample_rate: int, config, file_type: str = "audio"):
+def check(audio: np.ndarray, sample_rate: int, config: object, file_type: str = "audio") -> Tuple[np.ndarray, int]:
     """
     Check and validate audio data
 
@@ -58,7 +59,7 @@ def check(audio: np.ndarray, sample_rate: int, config, file_type: str = "audio")
     return audio, sample_rate
 
 
-def check_equality(target: np.ndarray, reference: np.ndarray):
+def check_equality(target: np.ndarray, reference: np.ndarray) -> None:
     """
     Check if target and reference are too similar
 

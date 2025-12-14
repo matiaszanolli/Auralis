@@ -120,11 +120,11 @@ class AdaptiveMasteringEngine:
         print(recommendation.summary())
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.profile_db = MasteringProfileDatabase()
         self._init_default_profiles()
 
-    def _init_default_profiles(self):
+    def _init_default_profiles(self) -> None:
         """Initialize with default profiles from analysis."""
         self.profile_db.add_profile(PROFILE_SODA_STEREO)
         self.profile_db.add_profile(PROFILE_QUIET_REFERENCE)

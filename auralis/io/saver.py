@@ -17,7 +17,7 @@ import soundfile as sf
 from ..utils.logging import debug, info
 
 
-def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str = 'PCM_16'):
+def save(file_path: str, audio_data: np.ndarray, sample_rate: int, subtype: str = 'PCM_16') -> None:
     """
     Save audio data to file
 
