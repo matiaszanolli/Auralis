@@ -26,6 +26,9 @@ class Code:
     ERROR_FILE_NOT_FOUND = "File not found"
     ERROR_EMPTY_AUDIO = "Empty audio file"
     ERROR_INVALID_SAMPLE_RATE = "Invalid sample rate"
+    ERROR_FFMPEG_NOT_FOUND = "FFmpeg not found"
+    ERROR_FFMPEG_CONVERSION = "FFmpeg conversion error"
+    ERROR_FFMPEG_TIMEOUT = "FFmpeg conversion timeout"
 
 
 class ModuleError(Exception):
