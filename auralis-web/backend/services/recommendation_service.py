@@ -11,7 +11,7 @@ Performs background analysis of loaded tracks to suggest optimal audio profiles.
 import logging
 import os
 import sys
-from typing import Dict, Any, Optional, Protocol
+from typing import Dict, Any, Optional, Protocol, cast
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class RecommendationService:
             processor = ChunkedAudioProcessor(
                 track_id=track_id,
                 filepath=track_path,
-                preset=None,  # No processing needed for analysis only
+                preset="adaptive",  # Use default preset for analysis
                 intensity=1.0,
                 chunk_cache={}
             )
@@ -86,7 +86,7 @@ class RecommendationService:
 
             if rec:
                 # Serialize and broadcast
-                rec_dict = rec.to_dict()
+                rec_dict = cast(Dict[str, Any], rec.to_dict())
                 rec_dict['track_id'] = track_id
                 rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
 
@@ -138,7 +138,7 @@ class RecommendationService:
             processor = ChunkedAudioProcessor(
                 track_id=track_id,
                 filepath=track_path,
-                preset=None,
+                preset="adaptive",
                 intensity=1.0,
                 chunk_cache={}
             )
@@ -147,7 +147,7 @@ class RecommendationService:
             rec = processor.get_mastering_recommendation(confidence_threshold=confidence_threshold)
 
             if rec:
-                rec_dict = rec.to_dict()
+                rec_dict = cast(Dict[str, Any], rec.to_dict())
                 rec_dict['track_id'] = track_id
                 rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
                 return rec_dict
