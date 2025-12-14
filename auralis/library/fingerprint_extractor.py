@@ -165,7 +165,7 @@ class FingerprintExtractor:
 
         TODO: Migrate to true async when using async worker pool instead of thread pool.
         """
-        import requests  # type: ignore[import-untyped]
+        import requests
         try:
             payload = {"track_id": track_id, "filepath": filepath}
             # CRITICAL: Use aggressive timeout for Rust server

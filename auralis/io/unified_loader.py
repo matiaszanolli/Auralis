@@ -182,7 +182,7 @@ def _get_info_with_soundfile(file_path: Path) -> Dict[str, Any]:
 def _get_info_with_ffprobe(file_path: Path) -> Dict[str, Any]:
     """Get audio info using FFprobe"""
     if not check_ffmpeg():
-        raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFprobe required")  # type: ignore[attr-defined]
+        raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFprobe required")
 
     try:
         ffprobe_cmd = [

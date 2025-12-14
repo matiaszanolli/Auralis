@@ -91,7 +91,7 @@ class PsychoacousticEQ:
 
         # Initialize vectorized EQ processor (1.7x speedup)
         if VECTORIZED_EQ_AVAILABLE:
-            self.vectorized_processor: Optional[Any] = VectorizedEQProcessor()  # type: ignore[no-untyped-call]
+            self.vectorized_processor: Optional[Any] = VectorizedEQProcessor()
             debug(f"Psychoacoustic EQ initialized: {len(self.critical_bands)} critical bands (vectorized)")
         else:
             self.vectorized_processor = None
