@@ -33,7 +33,7 @@ class PlaylistRepository:
         """Get a new database session"""
         return self.session_factory()
 
-    def create(self, name: str, description: str = "", track_ids: List[int] = None) -> Optional[Playlist]:
+    def create(self, name: str, description: str = "", track_ids: Optional[List[int]] = None) -> Optional[Playlist]:
         """
         Create a new playlist
 
