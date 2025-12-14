@@ -11,7 +11,7 @@ Builds and maintains pre-computed similarity graph for fast queries
 """
 
 import numpy as np
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Tuple, Any, cast
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -346,7 +346,7 @@ class KNNGraphBuilder:
             session.commit()
 
             info(f"Cleared {count} edges from similarity graph")
-            return count
+            return cast(int, count)
 
         except Exception as e:
             session.rollback()

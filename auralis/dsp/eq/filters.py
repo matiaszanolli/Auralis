@@ -97,7 +97,7 @@ def apply_eq_mono(audio_mono: np.ndarray,
     # Apply window compensation
     processed_audio *= window
 
-    return processed_audio[:len(audio_mono)]
+    return np.asarray(processed_audio[:len(audio_mono)], dtype=np.float32)
 
 
 def create_filter_bank(critical_bands: list,

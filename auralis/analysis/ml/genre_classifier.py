@@ -11,7 +11,7 @@ Machine learning-based genre classification using audio features
 """
 
 import numpy as np
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, cast
 
 from .features import AudioFeatures
 from .feature_extractor import FeatureExtractor
@@ -116,7 +116,7 @@ class MLGenreClassifier:
         scores_array = np.array(scores)
         exp_scores = np.exp(scores_array - np.max(scores_array))  # Numerical stability
         probabilities = exp_scores / np.sum(exp_scores)
-        return probabilities.tolist()
+        return cast(List[float], probabilities.tolist())
 
     def _get_feature_importance(self, features: AudioFeatures, genre: str) -> Dict[str, float]:
         """Get feature importance for the classified genre"""

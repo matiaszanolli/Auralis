@@ -113,7 +113,7 @@ class DimensionWeights:
         ], dtype=np.float32)
 
         # Normalize to sum=1.0
-        return weights / weights.sum()
+        return np.asarray(weights / weights.sum(), dtype=np.float32)
 
     @classmethod
     def equal_weights(cls) -> 'DimensionWeights':
@@ -221,7 +221,7 @@ class FingerprintDistance:
         weighted_diff = diff_squared * self.weight_array[np.newaxis, :]
         distances = np.sqrt(np.sum(weighted_diff, axis=1))
 
-        return distances
+        return np.asarray(distances, dtype=np.float32)
 
     def find_closest_n(
         self,
