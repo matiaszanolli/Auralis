@@ -11,7 +11,7 @@ Data access layer for queue history and undo/redo operations
 """
 
 import json
-from typing import Optional, List, Dict, Any, Callable
+from typing import Optional, List, Dict, Any, Callable, cast
 from sqlalchemy.orm import Session
 
 from ..models import QueueHistory, QueueState
@@ -156,7 +156,7 @@ class QueueHistoryRepository:
             session.delete(latest_history)
             session.commit()
 
-            return restored
+            return cast(Optional[QueueState], restored)
         finally:
             session.close()
 

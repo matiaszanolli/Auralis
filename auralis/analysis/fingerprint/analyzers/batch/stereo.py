@@ -106,7 +106,7 @@ class StereoAnalyzer(BaseAnalyzer):
             else:
                 width = 0.0
 
-            return np.clip(width, 0, 1)
+            return float(np.clip(width, 0, 1))
 
         except Exception as e:
             logger.debug(f"Stereo width calculation failed: {e}")
