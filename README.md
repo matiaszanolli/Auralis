@@ -349,7 +349,7 @@ tests/auralis/player/conftest.py (PLAYER)
 - ✅ **Player component migration** - 54/54 tests passing (Phase 5E complete)
 - ✅ **Documentation complete** - Implementation guides and best practices
 
-See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](PHASE_5_FINAL_COMPLETION_SUMMARY.md) for detailed architecture patterns and implementation guidelines.
+See [PHASE_5_FINAL_COMPLETION_SUMMARY.md](docs/phases/completed/PHASE_5_FINAL_COMPLETION_SUMMARY.md) for detailed architecture patterns and implementation guidelines.
 
 ### Run Tests
 
