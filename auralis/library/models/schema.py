@@ -12,6 +12,7 @@ Models for database schema version tracking
 
 from datetime import datetime
 from sqlalchemy import Column, Integer, DateTime, Text
+from typing import Dict, Any
 
 from .base import Base
 
@@ -26,7 +27,7 @@ class SchemaVersion(Base):
     description = Column(Text)
     migration_script = Column(Text)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert schema version to dictionary"""
         return {
             'id': self.id,

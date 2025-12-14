@@ -12,7 +12,7 @@ Features:
 5. Validate version compatibility
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 import json
@@ -33,7 +33,7 @@ class ProfileVersion:
     training_source: str = ""  # Album/source that triggered improvement
     confidence_change: float = 0.0  # Change in confidence (e.g., +0.05)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             'version': self.version,
