@@ -261,7 +261,7 @@ class QueueTemplateRepository:
             if not template:
                 return None
 
-            template.load_count += 1
+            template.load_count += 1  # type: ignore[assignment]
             template.last_loaded = datetime.utcnow()  # type: ignore[assignment]
             session.commit()
             session.refresh(template)

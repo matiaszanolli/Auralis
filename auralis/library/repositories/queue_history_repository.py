@@ -78,7 +78,7 @@ class QueueHistoryRepository:
             session.refresh(history_entry)
 
             # Cleanup old history if exceeding limit
-            self._cleanup_old_history(session, queue_state.id)
+            self._cleanup_old_history(session, cast(int, queue_state.id))
 
             return history_entry
         finally:

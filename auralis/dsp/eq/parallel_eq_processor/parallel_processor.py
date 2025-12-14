@@ -12,7 +12,7 @@ Multi-threaded parallel processing for psychoacoustic EQ
 
 import numpy as np
 from scipy.fft import fft, ifft
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any
 from concurrent.futures import ThreadPoolExecutor
 
 from .config import ParallelEQConfig
@@ -30,6 +30,7 @@ class ParallelEQProcessor:
         self.config = config or ParallelEQConfig()
 
         # Define band groups for batch processing
+        self.band_groups: Optional[List[List[int]]]
         if self.config.use_band_grouping:
             self.band_groups = [
                 list(range(*self.config.bass_bands)),

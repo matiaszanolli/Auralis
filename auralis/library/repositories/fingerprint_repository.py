@@ -476,7 +476,7 @@ class FingerprintRepository:
                 cols = list(fingerprint_data.keys())
                 placeholders = ', '.join(['?'] * len(cols))
                 cols_str = ', '.join(cols)
-                vals = [fingerprint_data[col] for col in cols]
+                vals: List[Any] = [fingerprint_data[col] for col in cols]
 
                 # Use INSERT OR REPLACE (upsert) - much simpler than ORM
                 sql = f"INSERT OR REPLACE INTO track_fingerprints (track_id, {cols_str}) VALUES (?, {placeholders})"
