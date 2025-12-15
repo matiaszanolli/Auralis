@@ -156,7 +156,7 @@ def create_player_router(
             raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
     @router.post("/api/player/load", response_model=None)
-    async def load_track(track_path: str, track_id: Optional[int] = None, background_tasks: BackgroundTasks = None) -> Dict[str, Any]:
+    async def load_track(track_path: str, track_id: Optional[int] = None, background_tasks: Optional[BackgroundTasks] = None) -> Dict[str, Any]:
         """
         Load a track into the player.
 
