@@ -10,10 +10,19 @@ rayon = "1.7"
 rustfft = "6.1"
 pyo3 = { version = "0.21", features = ["extension-module"] }
 numpy = "0.21"
+actix-web = "4"
+actix-rt = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
 
 [lib]
 name = "auralis_dsp"
 crate-type = ["cdylib"]  # Build as Python extension module
+
+[[bin]]
+name = "fingerprint-server"
+path = "src/bin/fingerprint_server.rs"
 
 [dev-dependencies]
 criterion = "0.5"
