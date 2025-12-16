@@ -11,11 +11,17 @@ reducing boilerplate and improving consistency.
 from fastapi import HTTPException
 import logging
 import warnings
-from typing import Callable, Any, cast
+import functools
+from typing import Callable, Any, cast, TypeVar, ParamSpec
 from auralis import EnhancedAudioPlayer
 from auralis.library import LibraryManager
+from .errors import handle_query_error
 
 logger = logging.getLogger(__name__)
+
+# Type variables for generic decorator support
+P = ParamSpec('P')
+T = TypeVar('T')
 
 
 def require_library_manager(get_library_manager: Callable[[], Any]) -> LibraryManager:
@@ -136,3 +142,72 @@ def require_repository_factory(get_repository_factory: Callable[[], Any]) -> Any
             detail="Repository factory not available"
         )
     return repository_factory
+
+
+def with_error_handling(operation: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """
+    Decorator that standardizes error handling for router endpoints.
+
+    This decorator wraps endpoint functions to:
+    1. Pass through HTTPException unchanged (for proper status codes)
+    2. Convert all other exceptions to standardized InternalServerError
+
+    This eliminates the boilerplate try/except pattern that appears in 60+
+    router endpoints across the codebase.
+
+    Args:
+        operation: Description of the operation (e.g., "fetch artists", "get album")
+
+    Returns:
+        Decorator function that wraps async endpoint functions
+
+    Example:
+        ```python
+        @router.get("/api/artists")
+        @with_error_handling("fetch artists")
+        async def get_artists(limit: int = 50):
+            repos = require_repository_factory(get_repository_factory)
+            artists, total = repos.artists.get_all(limit=limit)
+            return {"artists": artists, "total": total}
+        ```
+
+    Note:
+        This replaces the pattern:
+        ```python
+        try:
+            # endpoint logic
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise handle_query_error("operation", e)
+        ```
+    """
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        @functools.wraps(func)
+        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            try:
+                return await func(*args, **kwargs)
+            except HTTPException:
+                # Pass through HTTP exceptions unchanged for proper status codes
+                raise
+            except Exception as e:
+                # Convert all other exceptions to standardized error response
+                raise handle_query_error(operation, e)
+
+        @functools.wraps(func)
+        def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            try:
+                return func(*args, **kwargs)
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise handle_query_error(operation, e)
+
+        # Return appropriate wrapper based on whether function is async
+        import inspect
+        if inspect.iscoroutinefunction(func):
+            return cast(Callable[P, T], async_wrapper)
+        else:
+            return cast(Callable[P, T], sync_wrapper)
+
+    return decorator

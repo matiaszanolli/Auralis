@@ -14,8 +14,8 @@ from typing import Optional, Callable, Any, cast
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from .dependencies import require_repository_factory
-from .errors import NotFoundError, handle_query_error
+from .dependencies import require_repository_factory, with_error_handling
+from .errors import NotFoundError
 
 
 # Response models
@@ -91,6 +91,7 @@ def create_artists_router(
     router = APIRouter()
 
     @router.get("/api/artists", response_model=ArtistsListResponse)
+    @with_error_handling("fetch artists")
     async def get_artists(
         limit: int = Query(50, ge=1, le=200, description="Number of artists to return"),
         offset: int = Query(0, ge=0, description="Number of artists to skip"),
@@ -102,144 +103,128 @@ def create_artists_router(
         Returns artists with album and track counts, supporting pagination,
         search, and multiple sort options.
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
+        repos = require_repository_factory(get_repository_factory)
 
-            if search:
-                # Search artists by name (now returns tuple with count)
-                artists, total = repos.artists.search(search, limit=limit, offset=offset)
-            else:
-                # Get paginated artists
-                artists, total = repos.artists.get_all(
-                    limit=limit,
-                    offset=offset,
-                    order_by=order_by
-                )
-
-            # Transform to response format
-            artist_responses = []
-            for artist in artists:
-                # Get unique genres from artist's tracks
-                # Note: Track has many-to-many relationship with genres
-                genres = set()
-                for track in artist.tracks:
-                    if hasattr(track, 'genres') and track.genres:
-                        for genre in track.genres:
-                            if hasattr(genre, 'name'):
-                                genres.add(genre.name)
-
-                genres_list = list(genres) if genres else None
-
-                artist_responses.append(ArtistResponse(
-                    id=cast(int, artist.id),
-                    name=cast(str, artist.name),
-                    album_count=len(artist.albums) if artist.albums else 0,
-                    track_count=len(artist.tracks) if artist.tracks else 0,
-                    genres=genres_list
-                ))
-
-            has_more = (offset + limit) < total
-
-            return ArtistsListResponse(
-                artists=artist_responses,
-                total=total,
-                offset=offset,
+        if search:
+            # Search artists by name (now returns tuple with count)
+            artists, total = repos.artists.search(search, limit=limit, offset=offset)
+        else:
+            # Get paginated artists
+            artists, total = repos.artists.get_all(
                 limit=limit,
-                has_more=has_more
+                offset=offset,
+                order_by=order_by
             )
 
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("fetch artists", e)
+        # Transform to response format
+        artist_responses = []
+        for artist in artists:
+            # Get unique genres from artist's tracks
+            # Note: Track has many-to-many relationship with genres
+            genres = set()
+            for track in artist.tracks:
+                if hasattr(track, 'genres') and track.genres:
+                    for genre in track.genres:
+                        if hasattr(genre, 'name'):
+                            genres.add(genre.name)
+
+            genres_list = list(genres) if genres else None
+
+            artist_responses.append(ArtistResponse(
+                id=cast(int, artist.id),
+                name=cast(str, artist.name),
+                album_count=len(artist.albums) if artist.albums else 0,
+                track_count=len(artist.tracks) if artist.tracks else 0,
+                genres=genres_list
+            ))
+
+        has_more = (offset + limit) < total
+
+        return ArtistsListResponse(
+            artists=artist_responses,
+            total=total,
+            offset=offset,
+            limit=limit,
+            has_more=has_more
+        )
 
     @router.get("/api/artists/{artist_id}", response_model=ArtistDetailResponse)
+    @with_error_handling("fetch artist")
     async def get_artist(artist_id: int) -> ArtistDetailResponse:
         """Get detailed information about a specific artist
 
         Returns artist information with all their albums.
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            artist = repos.artists.get_by_id(artist_id)
+        repos = require_repository_factory(get_repository_factory)
+        artist = repos.artists.get_by_id(artist_id)
 
-            if not artist:
-                raise NotFoundError("Artist", artist_id)
+        if not artist:
+            raise NotFoundError("Artist", artist_id)
 
-            # Transform albums to response format
-            albums = []
-            for album in (artist.albums or []):
-                total_duration = sum(
-                    track.duration for track in album.tracks if track.duration
-                ) if album.tracks else 0
+        # Transform albums to response format
+        albums = []
+        for album in (artist.albums or []):
+            total_duration = sum(
+                track.duration for track in album.tracks if track.duration
+            ) if album.tracks else 0
 
-                albums.append(AlbumInArtist(
-                    id=album.id,
-                    title=album.title,
-                    year=album.year,
-                    track_count=len(album.tracks) if album.tracks else 0,
-                    total_duration=total_duration
-                ))
+            albums.append(AlbumInArtist(
+                id=album.id,
+                title=album.title,
+                year=album.year,
+                track_count=len(album.tracks) if album.tracks else 0,
+                total_duration=total_duration
+            ))
 
-            # Sort albums by year (newest first), then by title
-            albums.sort(key=lambda a: (-(a.year or 0), a.title))
+        # Sort albums by year (newest first), then by title
+        albums.sort(key=lambda a: (-(a.year or 0), a.title))
 
-            return ArtistDetailResponse(
-                artist_id=cast(int, artist.id),
-                artist_name=cast(str, artist.name),
-                albums=albums,
-                total_albums=len(albums),
-                total_tracks=len(artist.tracks) if artist.tracks else 0
-            )
-
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("fetch artist", e)
+        return ArtistDetailResponse(
+            artist_id=cast(int, artist.id),
+            artist_name=cast(str, artist.name),
+            albums=albums,
+            total_albums=len(albums),
+            total_tracks=len(artist.tracks) if artist.tracks else 0
+        )
 
     @router.get("/api/artists/{artist_id}/tracks", response_model=ArtistTracksResponse)
+    @with_error_handling("fetch artist tracks")
     async def get_artist_tracks(artist_id: int) -> ArtistTracksResponse:
         """Get all tracks for a specific artist
 
         Returns all tracks by the artist, sorted by album and track number.
         """
-        try:
-            repos = require_repository_factory(get_repository_factory)
-            artist = repos.artists.get_by_id(artist_id)
+        repos = require_repository_factory(get_repository_factory)
+        artist = repos.artists.get_by_id(artist_id)
 
-            if not artist:
-                raise NotFoundError("Artist", artist_id)
+        if not artist:
+            raise NotFoundError("Artist", artist_id)
 
-            # Transform tracks to response format
-            tracks = []
-            for track in (artist.tracks or []):
-                tracks.append(TrackInArtist(
-                    id=track.id,
-                    title=track.title,
-                    album=track.album.title if track.album else "Unknown Album",
-                    album_id=track.album.id if track.album else 0,
-                    duration=track.duration or 0,
-                    track_number=track.track_number,
-                    disc_number=track.disc_number
-                ))
-
-            # Sort tracks by album, disc number, then track number
-            tracks.sort(key=lambda t: (
-                t.album,
-                t.disc_number or 1,
-                t.track_number or 999
+        # Transform tracks to response format
+        tracks = []
+        for track in (artist.tracks or []):
+            tracks.append(TrackInArtist(
+                id=track.id,
+                title=track.title,
+                album=track.album.title if track.album else "Unknown Album",
+                album_id=track.album.id if track.album else 0,
+                duration=track.duration or 0,
+                track_number=track.track_number,
+                disc_number=track.disc_number
             ))
 
-            return ArtistTracksResponse(
-                artist_id=cast(int, artist.id),
-                artist_name=cast(str, artist.name),
-                tracks=tracks,
-                total_tracks=len(tracks)
-            )
+        # Sort tracks by album, disc number, then track number
+        tracks.sort(key=lambda t: (
+            t.album,
+            t.disc_number or 1,
+            t.track_number or 999
+        ))
 
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise handle_query_error("fetch artist tracks", e)
+        return ArtistTracksResponse(
+            artist_id=cast(int, artist.id),
+            artist_name=cast(str, artist.name),
+            tracks=tracks,
+            total_tracks=len(tracks)
+        )
 
     return router

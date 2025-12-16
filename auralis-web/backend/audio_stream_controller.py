@@ -38,6 +38,7 @@ from collections import OrderedDict
 from auralis.library.repositories.factory import RepositoryFactory
 from cache.manager import StreamlinedCacheManager
 from chunked_processor import ChunkedAudioProcessor
+from fingerprint_generator import FingerprintGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,62 @@ class AudioStreamController:
         self.cache_manager: Union[StreamlinedCacheManager, SimpleChunkCache] = cache_manager or SimpleChunkCache()
         logger.info(f"AudioStreamController initialized with cache manager: {type(self.cache_manager).__name__}")
 
+        # NEW (Phase 7.3): Fingerprint generator for on-demand generation
+        self.fingerprint_generator: Optional[FingerprintGenerator] = None
+        if self._get_repository_factory:
+            try:
+                # Get session factory from the first repository factory call
+                factory = self._get_repository_factory()
+                if hasattr(factory, '_session_factory'):
+                    self.fingerprint_generator = FingerprintGenerator(
+                        session_factory=factory._session_factory,
+                        get_repository_factory=self._get_repository_factory
+                    )
+                    logger.info("✅ FingerprintGenerator initialized for on-demand fingerprint generation")
+            except Exception as e:
+                logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
+
         self.active_streams: Dict[int, Any] = {}  # track_id -> streaming task
+
+    async def _ensure_fingerprint_available(
+        self,
+        track_id: int,
+        filepath: str
+    ) -> bool:
+        """
+        Ensure fingerprint is available (cached or generated).
+
+        Attempts to load or generate a fingerprint before streaming begins.
+        If generation fails, proceeds gracefully without fingerprint.
+
+        Args:
+            track_id: ID of the track
+            filepath: Path to audio file
+
+        Returns:
+            True if fingerprint was available/generated, False if not available
+        """
+        if not self.fingerprint_generator:
+            logger.debug(f"FingerprintGenerator not available, skipping fingerprint loading")
+            return False
+
+        try:
+            logger.info(f"📊 Ensuring fingerprint available for track {track_id}...")
+            fingerprint_data = await self.fingerprint_generator.get_or_generate(
+                track_id=track_id,
+                filepath=filepath
+            )
+
+            if fingerprint_data:
+                logger.info(f"✅ Fingerprint is now available for track {track_id} (ready for adaptive mastering)")
+                return True
+            else:
+                logger.warning(f"⚠️  Fingerprint unavailable for track {track_id}, proceeding without optimization")
+                return False
+
+        except Exception as e:
+            logger.warning(f"Fingerprint preparation failed for track {track_id}: {e}, proceeding without optimization")
+            return False
 
     async def stream_enhanced_audio(
         self,
@@ -201,6 +257,18 @@ class AudioStreamController:
             assert processor.sample_rate is not None
             assert processor.channels is not None
             assert processor.duration is not None
+
+            # NEW (Phase 7.3): Ensure fingerprint is available before streaming
+            # This handles the case where fingerprints aren't cached in the database
+            # On-demand generation via gRPC server happens asynchronously here
+            fingerprint_available = await self._ensure_fingerprint_available(
+                track_id=track_id,
+                filepath=str(track.filepath)
+            )
+            if fingerprint_available:
+                logger.info(f"🎯 Adaptive mastering will use fingerprint-optimized parameters")
+            else:
+                logger.info(f"📊 Streaming with standard adaptive mastering (no fingerprint available)")
 
             logger.info(
                 f"Starting audio stream: track={track_id}, preset={preset}, "

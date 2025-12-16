@@ -137,16 +137,23 @@ class ChunkedAudioProcessor:
         self.mastering_recommendation = None
         self.adaptive_mastering_engine = None
 
-        # Phase 1 only: Load from .25d file if available
-        # Phase 2 (analysis caching) can be integrated after resolving import structure
+        # NEW (Phase 7.3): Enhanced fingerprint loading with database fallback
+        # Priority: Database (fastest - cached) → .25d file → None
         if self.preset is not None:
-            from auralis.analysis.fingerprint import FingerprintStorage
+            # Step 1: Try database first (fastest if available)
+            self._load_fingerprint_from_database(track_id)
 
-            # Load from .25d file (Phase 1 optimization)
-            cached_data = FingerprintStorage.load(Path(filepath))
-            if cached_data:
-                self.fingerprint, self.mastering_targets = cached_data
-                logger.info(f"✅ Loaded fingerprint from .25d file for track {track_id}")
+            # Step 2: Fall back to .25d file if database lookup failed
+            if self.fingerprint is None:
+                from auralis.analysis.fingerprint import FingerprintStorage
+                cached_data = FingerprintStorage.load(Path(filepath))
+                if cached_data:
+                    self.fingerprint, self.mastering_targets = cached_data
+                    logger.info(f"✅ Loaded fingerprint from .25d file for track {track_id}")
+
+            # Step 3: Initialize adaptive mastering engine with fingerprint context
+            if self.fingerprint is not None:
+                self._init_adaptive_mastering()
 
         # CRITICAL FIX: Create single shared processor instance to maintain state
         # across chunks. This prevents audio artifacts from resetting compressor
@@ -228,6 +235,114 @@ class ChunkedAudioProcessor:
             self.total_duration = len(audio) / sr
             # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
             self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
+
+    def _load_fingerprint_from_database(self, track_id: int) -> None:
+        """
+        NEW (Phase 7.3): Load fingerprint from database for faster processing.
+
+        The database cache is the fastest source of fingerprints for already-processed tracks.
+        Falls back gracefully if database unavailable or fingerprint missing.
+        """
+        try:
+            from auralis.library.manager import LibraryManager
+            from pathlib import Path as PathlibPath
+
+            # Initialize with default database location
+            db_path = str(PathlibPath.home() / ".auralis" / "library.db")
+            lib_manager = LibraryManager(database_path=db_path)
+
+            # Try to get fingerprint from database
+            fp_record = lib_manager.fingerprints.get_by_track_id(track_id)
+
+            if fp_record:
+                # Convert database record to MasteringFingerprint
+                from auralis.analysis.mastering_fingerprint import MasteringFingerprint
+
+                # Extract all 25 dimensions from database record
+                fp_dict = {
+                    'sub_bass_pct': fp_record.sub_bass_pct,
+                    'bass_pct': fp_record.bass_pct,
+                    'low_mid_pct': fp_record.low_mid_pct,
+                    'mid_pct': fp_record.mid_pct,
+                    'upper_mid_pct': fp_record.upper_mid_pct,
+                    'presence_pct': fp_record.presence_pct,
+                    'air_pct': fp_record.air_pct,
+                    'lufs': fp_record.lufs,
+                    'crest_db': fp_record.crest_db,
+                    'bass_mid_ratio': fp_record.bass_mid_ratio,
+                    'tempo_bpm': fp_record.tempo_bpm,
+                    'rhythm_stability': fp_record.rhythm_stability,
+                    'transient_density': fp_record.transient_density,
+                    'silence_ratio': fp_record.silence_ratio,
+                    'spectral_centroid': fp_record.spectral_centroid,
+                    'spectral_rolloff': fp_record.spectral_rolloff,
+                    'spectral_flatness': fp_record.spectral_flatness,
+                    'harmonic_ratio': fp_record.harmonic_ratio,
+                    'pitch_stability': fp_record.pitch_stability,
+                    'chroma_energy': fp_record.chroma_energy,
+                    'dynamic_range_variation': fp_record.dynamic_range_variation,
+                    'loudness_variation_std': fp_record.loudness_variation_std,
+                    'peak_consistency': fp_record.peak_consistency,
+                    'stereo_width': fp_record.stereo_width,
+                    'phase_correlation': fp_record.phase_correlation,
+                }
+
+                # Create MasteringFingerprint object
+                self.fingerprint = MasteringFingerprint(**fp_dict)
+                logger.info(f"✅ Loaded fingerprint from database for track {track_id} (LUFS: {fp_record.lufs:.1f}, Crest: {fp_record.crest_db:.1f})")
+            else:
+                logger.debug(f"No fingerprint in database for track {track_id}")
+
+        except Exception as e:
+            logger.debug(f"Database fingerprint lookup failed for track {track_id}: {e}")
+            # Silently fall back to other methods (will try .25d file next)
+
+    def _init_adaptive_mastering(self) -> None:
+        """
+        NEW (Phase 7.3): Initialize adaptive mastering engine with 2D LWRP.
+
+        Sets up the AdaptiveMode processor with fingerprint context for intelligent
+        processing decisions (compressed loud detection, expansion, etc.)
+        """
+        try:
+            from auralis.core.unified_config import UnifiedConfig
+            from auralis.core.processing.adaptive_mode import AdaptiveMode
+            from auralis.core.processing.psychoacoustic_eq import PsychoacousticEQ
+            from auralis.analysis.content_analyzer import ContentAnalyzer
+            from auralis.analysis.adaptive_target_generator import AdaptiveTargetGenerator
+            from auralis.analysis.spectrum_mapper import SpectrumMapper
+
+            # Ensure sample rate is available
+            assert self.sample_rate is not None, "Sample rate not loaded"
+
+            # Initialize configuration
+            config = UnifiedConfig(
+                mastering_profile=self.preset or "adaptive",
+                internal_sample_rate=self.sample_rate
+            )
+
+            # Initialize analysis components
+            content_analyzer = ContentAnalyzer(config)
+            target_generator = AdaptiveTargetGenerator(config)
+            spectrum_mapper = SpectrumMapper(config)
+
+            # Initialize EQ processor for psychoacoustic adjustments
+            self.eq_processor = PsychoacousticEQ()
+
+            # Create adaptive mode processor (includes 2D LWRP logic)
+            self.adaptive_mastering_engine = AdaptiveMode(
+                config=config,
+                content_analyzer=content_analyzer,
+                target_generator=target_generator,
+                spectrum_mapper=spectrum_mapper
+            )
+
+            logger.info(f"✅ Adaptive mastering engine initialized (preset: {self.preset}, fingerprint context available)")
+
+        except Exception as e:
+            logger.warning(f"Failed to initialize adaptive mastering: {e}")
+            logger.debug("Will continue without adaptive mastering (fallback to basic processing)")
+            self.adaptive_mastering_engine = None
 
     def _get_cache_key(self, chunk_index: int) -> str:
         """
@@ -438,9 +553,72 @@ class ChunkedAudioProcessor:
 
         return audio_chunk
 
+    def _process_chunk_with_hybrid_processor(self, audio_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
+        """
+        NEW (Phase 7.3): Encapsulated HybridProcessor processing logic.
+
+        Extracted for clarity and fallback when AdaptiveMode not available.
+        This is the original processing pipeline using self.processor (HybridProcessor).
+
+        Args:
+            audio_chunk: Raw audio chunk with context
+            chunk_index: Index of chunk being processed
+
+        Returns:
+            Processed audio chunk
+        """
+        assert self.processor is not None, "Processor must be initialized"
+
+        # Use fixed targets if available (from fingerprint/database)
+        if self.mastering_targets is not None:
+            logger.info(f"⚡ Processing chunk {chunk_index} with fixed targets from fingerprint")
+
+            # Disable per-chunk fingerprint analysis (we already have the targets)
+            original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
+            self.processor.content_analyzer.use_fingerprint_analysis = False
+
+            try:
+                # Process with fixed targets (no per-chunk analysis)
+                processed_chunk = self.processor.process(audio_chunk)
+            finally:
+                # Restore fingerprint analysis setting
+                self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+
+        else:
+            # Normal processing with or without fast-start optimization
+            if hasattr(self.processor, 'content_analyzer') and hasattr(self.processor.content_analyzer, 'use_fingerprint_analysis'):
+                # Fast-path optimization for first chunk
+                # This reduces initial buffering by avoiding expensive fingerprint analysis
+                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
+
+                # Skip fingerprint analysis for first chunk if fast_start enabled
+                if hasattr(self, '_chunk_0_processed'):
+                    # Not first chunk - use normal processing
+                    processed_chunk = self.processor.process(audio_chunk)
+                else:
+                    # First chunk - use fast-start if enabled
+                    if not hasattr(self, '_skip_fast_start'):
+                        logger.info(f"⚡ Fast-start: Skipping fingerprint analysis for chunk 0")
+                        self.processor.content_analyzer.use_fingerprint_analysis = False
+
+                    try:
+                        processed_chunk = self.processor.process(audio_chunk)
+                    finally:
+                        # Mark first chunk as processed and restore setting
+                        self._chunk_0_processed = True
+                        self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+            else:
+                # Fallback for processors without fingerprint analysis control
+                processed_chunk = self.processor.process(audio_chunk)
+
+        return processed_chunk
+
     def _process_chunk_core(self, chunk_index: int, fast_start: bool = False) -> np.ndarray:
         """
         Core chunk processing logic (shared by process_chunk and get_wav_chunk_path).
+
+        NEW (Phase 7.3): Uses AdaptiveMode with 2D LWRP when available.
+        Falls back to HybridProcessor for backward compatibility.
 
         Extracted to eliminate code duplication between the two output methods.
 
@@ -461,43 +639,27 @@ class ChunkedAudioProcessor:
             logger.info(f"Serving original audio for chunk {chunk_index} (no processing)")  # type: ignore[unreachable]
             processed_chunk = audio_chunk
         else:
-            # NEW (Beta.9): Use fixed targets if available (from .25d file)
-            # This bypasses expensive per-chunk analysis and enables instant toggle
-            if self.mastering_targets is not None:
-                logger.info(f"⚡ Processing chunk {chunk_index} with fixed targets from fingerprint")
-
-                # Disable per-chunk fingerprint analysis (we already have the targets)
-                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
-                self.processor.content_analyzer.use_fingerprint_analysis = False
-
+            # NEW (Phase 7.3): Use AdaptiveMode with 2D LWRP if available
+            # This includes intelligent handling of:
+            # - Compressed loud material (LUFS > -12.0, Crest < 13.0) → Expand + gentle reduction
+            # - Dynamic loud material (LUFS > -12.0, Crest ≥ 13.0) → Pass-through (LWRP)
+            # - Quiet/moderate material (LUFS ≤ -12.0) → Full spectrum-based DSP
+            if self.adaptive_mastering_engine is not None and hasattr(self, 'eq_processor'):
+                logger.info(f"🎯 Processing chunk {chunk_index} with AdaptiveMode (2D LWRP included)")
                 try:
-                    # Process with fixed targets (no per-chunk analysis)
-                    # The processor will use the pre-computed mastering targets
-                    processed_chunk = self.processor.process(audio_chunk)
-                finally:
-                    # Restore fingerprint analysis setting
-                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
-
-            elif fast_start and chunk_index == 0:
-                # FAST-PATH OPTIMIZATION: Skip fingerprint analysis for first chunk
-                # This reduces initial buffering from ~30s to <5s by avoiding slow librosa.beat.tempo call
-                # Fingerprint can be extracted later in background for subsequent chunks
-                # Temporarily disable fingerprint analysis
-                original_fingerprint_setting = self.processor.content_analyzer.use_fingerprint_analysis
-                self.processor.content_analyzer.use_fingerprint_analysis = False
-                logger.info("⚡ Fast-start: Skipping fingerprint analysis for first chunk")
-
-                try:
-                    # Process with shared HybridProcessor instance
-                    # This maintains compressor state (envelope followers, gain reduction)
-                    # across chunk boundaries, preventing audio artifacts
-                    processed_chunk = self.processor.process(audio_chunk)
-                finally:
-                    # Restore fingerprint analysis for subsequent chunks
-                    self.processor.content_analyzer.use_fingerprint_analysis = original_fingerprint_setting
+                    # Apply adaptive mastering with fingerprint context and 2D LWRP logic
+                    processed_chunk = self.adaptive_mastering_engine.process(
+                        audio_chunk,
+                        eq_processor=self.eq_processor
+                    )
+                except Exception as e:
+                    logger.warning(f"AdaptiveMode processing failed: {e}, falling back to HybridProcessor")
+                    # Fall back to standard processing
+                    processed_chunk = self._process_chunk_with_hybrid_processor(audio_chunk, chunk_index)
             else:
-                # Normal processing with fingerprint analysis
-                processed_chunk = self.processor.process(audio_chunk)
+                # Fall back to HybridProcessor (standard processing without 2D LWRP)
+                logger.debug(f"Using HybridProcessor for chunk {chunk_index} (adaptive_mastering_engine not available)")
+                processed_chunk = self._process_chunk_with_hybrid_processor(audio_chunk, chunk_index)
 
         # Trim context (keep only the actual chunk)
         processed_chunk = self._trim_context(cast(np.ndarray, processed_chunk), chunk_index)

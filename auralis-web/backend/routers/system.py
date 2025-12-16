@@ -137,12 +137,22 @@ def create_system_router(
                     try:
                         from chunked_processor import ChunkedAudioProcessor
 
+                        # NEW (Phase 7.3): AudioStreamController now automatically initializes
+                        # FingerprintGenerator for on-demand fingerprint generation
                         controller = AudioStreamController(
                             chunked_processor_class=ChunkedAudioProcessor,
                             get_repository_factory=get_repository_factory,
                         )
 
+                        # Log fingerprint generator status
+                        if controller.fingerprint_generator:
+                            logger.info("✅ FingerprintGenerator available - on-demand fingerprint generation enabled")
+                        else:
+                            logger.warning("⚠️  FingerprintGenerator not available - using database/cached fingerprints only")
+
                         # Stream enhanced audio to client
+                        # NEW (Phase 7.3): Fingerprint availability will be ensured asynchronously
+                        # during streaming (happens in stream_enhanced_audio → _ensure_fingerprint_available)
                         await controller.stream_enhanced_audio(
                             track_id=track_id,
                             preset=preset,
