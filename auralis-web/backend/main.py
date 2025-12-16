@@ -26,7 +26,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Add parent directory to path for Auralis imports
-sys.path.append(str(Path(__file__).parent.parent.parent))
+# Detect execution context and set appropriate path
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # Running as PyInstaller bundle (Electron AppImage)
+    # Use working directory to find resources (cwd is set to resources/backend by Electron)
+    auralis_parent = Path(os.getcwd()).parent
+    logger.info(f"Running as PyInstaller bundle, adding to sys.path: {auralis_parent}")
+elif os.environ.get('ELECTRON_MODE') == '1':
+    # Running in Electron but not frozen (shouldn't happen in production)
+    auralis_parent = Path(__file__).parent.parent
+    logger.info(f"Running in Electron mode (unfrozen), adding to sys.path: {auralis_parent}")
+else:
+    # Running in development - auralis package is in ../../..
+    auralis_parent = Path(__file__).parent.parent.parent
+    logger.info(f"Running in development mode, adding to sys.path: {auralis_parent}")
+
+sys.path.insert(0, str(auralis_parent))
 
 # Import configuration modules
 from config.app import create_app
@@ -119,12 +134,13 @@ setup_startup_handlers(app, deps)
 setup_routers(app, deps)
 
 # Frontend static file serving
-if hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS'):
-    # PyInstaller bundle (production or Electron)
-    meipass = getattr(sys, '_MEIPASS')
-    frontend_path = Path(meipass) / "frontend"
-    logger.info(f"PyInstaller mode: _MEIPASS={meipass}")
-elif hasattr(sys, '_MEIPASS'):
+if hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS') and os.environ.get('ELECTRON_MODE') == '1':
+    # PyInstaller bundle running in Electron AppImage
+    # Frontend is in resources/frontend, not in the PyInstaller bundle
+    # Use working directory to find resources (cwd is resources/backend)
+    frontend_path = Path(os.getcwd()).parent / "frontend"
+    logger.info(f"Electron mode: looking for frontend at {frontend_path}")
+elif hasattr(sys, 'frozen') and hasattr(sys, '_MEIPASS'):
     # PyInstaller bundle but not Electron - frontend might be bundled
     meipass = getattr(sys, '_MEIPASS')
     frontend_path = Path(meipass) / "frontend"

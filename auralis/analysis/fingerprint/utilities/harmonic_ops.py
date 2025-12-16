@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Harmonic Analysis Utilities
+Harmonic Analysis Utilities - Rust DSP Backend
 
 Shared harmonic feature calculations for batch and streaming analyzers.
 Consolidates harmonic/percussive separation, pitch detection, and chroma analysis
@@ -12,21 +12,15 @@ Features:
   - harmonic_ratio: Ratio of harmonic to percussive content (0-1)
   - pitch_stability: How in-tune/stable the pitch is (0-1)
   - chroma_energy: Tonal complexity/richness (0-1)
+
+Note: Uses Rust DSP backend (auralis_dsp) for all operations. Requires Rust library.
 """
 
 import numpy as np
-import librosa
 import logging
 from typing import Tuple
 
 logger = logging.getLogger(__name__)
-
-# Try to use Rust implementations via PyO3
-try:
-    import auralis_dsp
-    RUST_DSP_AVAILABLE: bool = True
-except ImportError:
-    RUST_DSP_AVAILABLE = False
 
 
 class HarmonicOperations:
@@ -35,7 +29,7 @@ class HarmonicOperations:
     @staticmethod
     def calculate_harmonic_ratio(audio: np.ndarray) -> float:
         """
-        Calculate ratio of harmonic to percussive content.
+        Calculate ratio of harmonic to percussive content using Rust DSP.
 
         Higher value = more harmonic (strings, vocals, sustained instruments)
         Lower value = more percussive (drums, attacks, rhythmic)
@@ -45,13 +39,16 @@ class HarmonicOperations:
 
         Returns:
             Harmonic ratio (0-1), or 0.5 if calculation fails
+
+        Raises:
+            RuntimeError: If Rust DSP library not available
         """
         try:
-            # Use Rust implementation if available, fallback to librosa
-            if RUST_DSP_AVAILABLE:
-                harmonic, percussive = auralis_dsp.hpss(audio)
-            else:
-                harmonic, percussive = librosa.effects.hpss(audio)
+            # Import DSPBackend for Rust HPSS implementation
+            from .dsp_backend import DSPBackend
+
+            # Use Rust HPSS implementation (no fallback)
+            harmonic, percussive = DSPBackend.hpss(audio)
 
             # Calculate RMS energy of each
             harmonic_energy = np.sqrt(np.mean(harmonic**2))
@@ -67,13 +64,13 @@ class HarmonicOperations:
             return float(np.clip(harmonic_ratio, 0, 1))
 
         except Exception as e:
-            logger.debug(f"Harmonic ratio calculation failed: {e}")
-            return 0.5
+            logger.error(f"Harmonic ratio calculation failed: {e}")
+            raise
 
     @staticmethod
     def calculate_pitch_stability(audio: np.ndarray, sr: int) -> float:
         """
-        Calculate pitch stability (how in-tune/stable the pitch is).
+        Calculate pitch stability (how in-tune/stable the pitch is) using Rust DSP.
 
         Higher value = stable pitch (in-tune instruments, vocals)
         Lower value = unstable pitch (out-of-tune, dissonant, noise)
@@ -84,26 +81,18 @@ class HarmonicOperations:
 
         Returns:
             Pitch stability (0-1), or default values if calculation fails
+
+        Raises:
+            RuntimeError: If Rust DSP library not available
         """
         try:
             # Import here to avoid circular dependency
             from ..common_metrics import StabilityMetrics
+            from .dsp_backend import DSPBackend
 
-            # Calculate pitch (fundamental frequency) using YIN algorithm
-            if RUST_DSP_AVAILABLE:
-                f0 = auralis_dsp.yin(
-                    audio,
-                    sr=sr,
-                    fmin=librosa.note_to_hz('C2'),
-                    fmax=librosa.note_to_hz('C7')
-                )
-            else:
-                f0 = librosa.yin(
-                    audio,
-                    fmin=float(librosa.note_to_hz('C2')),
-                    fmax=float(librosa.note_to_hz('C7')),
-                    sr=sr
-                )
+            # Calculate pitch (fundamental frequency) using Rust YIN algorithm
+            # Frequency range: C2 (65.41 Hz) to C7 (2093.00 Hz)
+            f0 = DSPBackend.yin(audio, sr=sr, fmin=65.41, fmax=2093.00)
 
             # Remove unvoiced frames (no pitch detected)
             voiced_mask = f0 > 0
@@ -117,13 +106,13 @@ class HarmonicOperations:
             return float(StabilityMetrics.from_values(voiced_f0, scale=10.0))
 
         except Exception as e:
-            logger.debug(f"Pitch stability calculation failed: {e}")
-            return 0.7  # Default to reasonably stable
+            logger.error(f"Pitch stability calculation failed: {e}")
+            raise
 
     @staticmethod
     def calculate_chroma_energy(audio: np.ndarray, sr: int) -> float:
         """
-        Calculate chroma energy (tonal complexity/richness).
+        Calculate chroma energy (tonal complexity/richness) using Rust DSP.
 
         Higher value = more tonal complexity (rich harmonies, chords)
         Lower value = simpler tonal content (single notes, sparse)
@@ -134,16 +123,17 @@ class HarmonicOperations:
 
         Returns:
             Chroma energy (0-1), or 0.5 if calculation fails
+
+        Raises:
+            RuntimeError: If Rust DSP library not available
         """
         try:
             # Import here to avoid circular dependency
             from ..common_metrics import MetricUtils
+            from .dsp_backend import DSPBackend
 
-            # Calculate chromagram (12-dimensional pitch class profile)
-            if RUST_DSP_AVAILABLE:
-                chroma = auralis_dsp.chroma_cqt(audio, sr=sr)
-            else:
-                chroma = librosa.feature.chroma_cqt(y=audio, sr=sr)
+            # Calculate chromagram (12-dimensional pitch class profile) using Rust
+            chroma = DSPBackend.chroma_cqt(audio, sr=sr)
 
             # Calculate average energy across all pitch classes
             # High energy in multiple classes = rich tonal content
@@ -162,8 +152,8 @@ class HarmonicOperations:
             return float(normalized)
 
         except Exception as e:
-            logger.debug(f"Chroma energy calculation failed: {e}")
-            return 0.5
+            logger.error(f"Chroma energy calculation failed: {e}")
+            raise
 
     @staticmethod
     def calculate_all(audio: np.ndarray, sr: int) -> Tuple[float, float, float]:

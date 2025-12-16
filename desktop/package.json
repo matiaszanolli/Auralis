@@ -57,6 +57,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "resources/auralis",
+        "to": "auralis",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {

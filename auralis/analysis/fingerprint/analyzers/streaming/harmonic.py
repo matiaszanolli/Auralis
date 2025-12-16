@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Streaming Harmonic Analyzer
+Streaming Harmonic Analyzer - Rust DSP Backend
 
 Real-time harmonic features from audio streams using chunk-based analysis.
 
@@ -11,20 +11,19 @@ Features (3D - Real-time):
   - chroma_energy: Tonal complexity/richness (0-1)
 
 Key Algorithms:
-  - Chunk-based HPSS (harmonic/percussive separation)
-  - YIN pitch tracking on buffered audio
-  - Chroma energy aggregation
+  - Chunk-based HPSS (harmonic/percussive separation) via Rust DSP
+  - YIN pitch tracking on buffered audio via Rust DSP
+  - Chroma energy aggregation via Rust DSP
   - Online statistics for metric aggregation
   - O(chunk_size) update when chunk fills
 
 Dependencies:
   - numpy for numerical operations
-  - librosa for HPSS, YIN, chroma analysis
+  - Rust DSP backend for HPSS, YIN, chroma analysis
   - collections.deque for buffering
 """
 
 import numpy as np
-import librosa
 import logging
 from typing import Dict, Optional, cast, Any
 from collections import deque
@@ -210,11 +209,12 @@ class StreamingHarmonicAnalyzer(BaseStreamingAnalyzer):
             # Note: This is still using the internal calculation but via the utility
             from ...utilities.dsp_backend import DSPBackend
             try:
+                # Frequency range: C2 (65.41 Hz) to C7 (2093.00 Hz)
                 f0 = DSPBackend.yin(
                     chunk,
                     sr=self.sr,
-                    fmin=cast(float, librosa.note_to_hz('C2')),
-                    fmax=cast(float, librosa.note_to_hz('C7'))
+                    fmin=65.41,
+                    fmax=2093.00
                 )
             except Exception:
                 f0 = np.array([0])

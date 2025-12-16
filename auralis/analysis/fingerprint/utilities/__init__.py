@@ -8,11 +8,11 @@ Modules:
 - TemporalOperations - Temporal feature calculations
 - SpectralOperations - Spectral feature calculations
 - VariationOperations - Dynamic variation calculations
-- DSPBackend - DSP operations with Rust/librosa fallback
+- DSPBackend - Rust DSP operations (required)
 - BaseStreamingAnalyzer - Mixin for streaming analyzer infrastructure
 """
 
-from .harmonic_ops import HarmonicOperations, RUST_DSP_AVAILABLE
+from .harmonic_ops import HarmonicOperations
 from .temporal_ops import TemporalOperations
 from .spectral_ops import SpectralOperations
 from .variation_ops import VariationOperations
@@ -21,7 +21,6 @@ from .base_streaming_analyzer import BaseStreamingAnalyzer
 
 __all__ = [
     'HarmonicOperations',
-    'RUST_DSP_AVAILABLE',
     'TemporalOperations',
     'SpectralOperations',
     'VariationOperations',

@@ -147,6 +147,16 @@ class AuralisApp {
       console.log(`Executing: ${pythonCmd} ${pythonArgs.join(' ')}`);
       console.log(`Working directory: ${cwd}`);
 
+      // Set up Python path to include auralis package
+      const pythonPath = this.isDevelopment
+        ? path.join(__dirname, '..')
+        : process.resourcesPath;
+
+      const fullPythonPath = pythonPath + (process.env.PYTHONPATH ? path.delimiter + process.env.PYTHONPATH : '');
+      console.log(`Python path for auralis: ${pythonPath}`);
+      console.log(`Full PYTHONPATH: ${fullPythonPath}`);
+      console.log(`Is development mode: ${this.isDevelopment}`);
+
       this.pythonProcess = spawn(pythonCmd, pythonArgs, {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: cwd,
@@ -155,7 +165,9 @@ class AuralisApp {
           ...process.env,
           PYTHONUNBUFFERED: '1',
           // Tell backend it's running in Electron
-          ELECTRON_MODE: '1'
+          ELECTRON_MODE: '1',
+          // Add auralis package to Python path
+          PYTHONPATH: fullPythonPath
         }
       });
 

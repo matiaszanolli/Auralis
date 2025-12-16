@@ -1,7 +1,7 @@
 """
-Harmonic Content Analyzer
+Harmonic Content Analyzer - Rust DSP Backend
 
-Extracts harmonic features from audio for fingerprinting.
+Extracts harmonic features from audio for fingerprinting using Rust DSP.
 
 Features (3D):
   - harmonic_ratio: Ratio of harmonic to percussive content (0-1)
@@ -9,7 +9,7 @@ Features (3D):
   - chroma_energy: Tonal complexity/richness (0-1)
 
 Dependencies:
-  - harmonic_utilities for shared harmonic calculations
+  - harmonic_utilities for shared harmonic calculations (uses Rust DSP)
   - base_analyzer for error handling framework
   - numpy for numerical operations
 """
@@ -18,12 +18,11 @@ import numpy as np
 from typing import Dict
 import logging
 from ..base_analyzer import BaseAnalyzer
-from ...utilities.harmonic_ops import HarmonicOperations, RUST_DSP_AVAILABLE
+from ...utilities.harmonic_ops import HarmonicOperations
 
 logger = logging.getLogger(__name__)
 
-# Re-export RUST_DSP_AVAILABLE for backward compatibility
-__all__ = ['HarmonicAnalyzer', 'RUST_DSP_AVAILABLE']
+__all__ = ['HarmonicAnalyzer']
 
 
 class HarmonicAnalyzer(BaseAnalyzer):
