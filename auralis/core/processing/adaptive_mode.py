@@ -17,6 +17,7 @@ from ...dsp.unified import (
     calculate_loudness_units, stereo_width_analysis, adjust_stereo_width
 )
 from ...dsp.dynamics.soft_clipper import soft_clip
+from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ...utils.logging import debug
 from .base_processing_mode import (
     MeasurementUtilities, CompressionStrategies, ExpansionStrategies,
@@ -186,49 +187,58 @@ class AdaptiveMode:
         return audio
 
     def _apply_final_normalization(self, audio: np.ndarray, spectrum_params: Any) -> np.ndarray:
-        """Apply final RMS boost and peak normalization using unified pipeline"""
+        """Apply final gain boost and peak normalization using LUFS-based adaptive control"""
         from ..config.preset_profiles import get_preset_profile
 
-        # Step 1: RMS boost (if needed)
-        rms_boost_step = NormalizationStep("RMS Boost", stage_label="Pre-Final")
-        rms_boost_step.measure_before(audio)
+        # Step 0: Calculate source LUFS for adaptive loudness control
+        source_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
+        debug(f"[Adaptive Loudness] Source LUFS: {source_lufs:.2f} dB")
 
-        target_rms_db = spectrum_params.output_target_rms
-        current_rms_db = rms_boost_step.before_measurement['rms_db']  # type: ignore[index]
-        rms_diff_from_target = target_rms_db - current_rms_db
+        # Step 1: LUFS-based adaptive gain (replaces RMS boost)
+        makeup_gain_step = NormalizationStep("Adaptive Makeup Gain", stage_label="Pre-Final")
+        makeup_gain_step.measure_before(audio)
 
-        # Only boost RMS if material is significantly under-leveled
-        # AND we're not in expansion mode (expansion should REDUCE RMS)
-        should_boost_rms = (
-            rms_diff_from_target > 0.5 and
-            current_rms_db < -15.0 and
+        # Get adaptive makeup gain based on source LUFS
+        # Intensity from spectrum params (if available), otherwise 1.0
+        intensity = getattr(spectrum_params, 'intensity', 1.0)
+        makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
+            source_lufs, intensity
+        )
+
+        # Only apply makeup gain if not in expansion mode AND gain is > 0.5 dB
+        should_apply_gain = (
+            makeup_gain > 0.5 and
             spectrum_params.expansion_amount < 0.1
         )
 
-        if should_boost_rms:
-            rms_boost = np.clip(rms_diff_from_target, 0.0, 12.0)
-            audio = rms_boost_step.apply_gain(audio, rms_boost)
-            rms_boost_step.measure_after(audio)
-            ProcessingLogger.gain_applied("RMS Boost", rms_boost, target_rms_db)
+        if should_apply_gain:
+            audio = makeup_gain_step.apply_gain(audio, makeup_gain)
+            makeup_gain_step.measure_after(audio)
+            ProcessingLogger.gain_applied("Adaptive Makeup Gain", makeup_gain, AdaptiveLoudnessControl.TARGET_LUFS)
+            debug(f"[Adaptive Loudness] {gain_reasoning}")
         else:
-            if rms_diff_from_target > 0.5:
-                ProcessingLogger.skipped("RMS Boost", f"Material already loud (RMS: {current_rms_db:.2f} dB, target: {target_rms_db:.2f} dB)")
+            if makeup_gain > 0.5:
+                ProcessingLogger.skipped("Adaptive Makeup Gain", "Expansion mode active")
+            else:
+                ProcessingLogger.skipped("Adaptive Makeup Gain", gain_reasoning)
 
-        # Step 2: Peak normalization (only if peak is below target, to avoid over-boosting)
-        preset_name = self.config.mastering_profile
-        preset_profile = get_preset_profile(preset_name)
-        target_peak_db = preset_profile.peak_target_db if preset_profile else -1.00
+        # Step 2: Adaptive peak normalization based on source LUFS
+        # Use LUFS-based adaptive target instead of fixed preset target
+        target_peak, target_peak_db = AdaptiveLoudnessControl.calculate_adaptive_peak_target(source_lufs)
 
         # Check current peak before normalizing
         current_peak = np.max(np.abs(audio))
         current_peak_db = DBConversion.to_db(current_peak)
 
-        # Only normalize if peak is significantly below target (> 1.5 dB headroom)
+        # Only normalize if peak is significantly below adaptive target (> 1.5 dB headroom)
         # This prevents over-boosting material that's already at reasonable levels
         if current_peak_db < (target_peak_db - 1.5):
+            preset_name = self.config.mastering_profile
             audio, _ = PeakNormalizer.normalize_to_target(audio, target_peak_db, preset_name)
+            debug(f"[Adaptive Loudness] Normalized to adaptive peak: {target_peak * 100:.1f}% ({target_peak_db:.2f} dB)")
         else:
-            ProcessingLogger.skipped("Peak Normalization", f"Peak already at {current_peak_db:.2f} dB (target: {target_peak_db:.2f} dB)")
+            ProcessingLogger.skipped("Peak Normalization", f"Peak already at {current_peak_db:.2f} dB (adaptive target: {target_peak_db:.2f} dB)")
+            debug(f"[Adaptive Loudness] Skipped normalization - peak already appropriate for {source_lufs:.1f} LUFS source")
 
         # Log final pre-limiter metrics
         final_peak = np.max(np.abs(audio))
