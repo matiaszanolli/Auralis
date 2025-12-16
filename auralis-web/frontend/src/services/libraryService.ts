@@ -5,11 +5,15 @@
  * - Fetch artist tracks for playback
  * - Library browsing and search
  *
+ * Refactored to use centralized apiRequest utility for consistent error handling
+ * and reduced code duplication (eliminates raw fetch wrapper pattern).
+ *
  * @copyright (C) 2024 Auralis Team
  * @license GPLv3, see LICENSE for more details
  */
 
-import { ENDPOINTS, getApiUrl } from '../config/api';
+import { get } from '../utils/apiRequest';
+import { ENDPOINTS } from '../config/api';
 
 export interface TrackInArtist {
   id: number;
@@ -30,18 +34,16 @@ export interface ArtistTracksResponse {
 
 /**
  * Fetch all tracks for a specific artist
+ *
  * @param artistId - The ID of the artist
  * @returns Promise resolving to artist tracks response
+ * @throws APIRequestError on network or API errors
+ *
+ * @example
+ * const { tracks, artist_name } = await getArtistTracks(42);
  */
 export async function getArtistTracks(artistId: number): Promise<ArtistTracksResponse> {
-  const url = getApiUrl(ENDPOINTS.ARTIST_TRACKS(artistId));
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch artist tracks: ${response.statusText}`);
-  }
-
-  return response.json();
+  return get<ArtistTracksResponse>(ENDPOINTS.ARTIST_TRACKS(artistId));
 }
 
 export default {

@@ -18,6 +18,7 @@ import React, { useState } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import CacheHealthMonitor from './CacheHealthMonitor';
+import { getHealthStatus } from './HealthStatusIndicator';
 
 type Size = 'small' | 'medium' | 'large';
 
@@ -121,8 +122,7 @@ export function CacheHealthWidget({
   }
 
   const isActuallyHealthy = isHealthy ?? cacheHealth.healthy;
-  const statusColor = isActuallyHealthy ? tokens.colors.semantic.success : tokens.colors.semantic.error;
-  const statusText = isActuallyHealthy ? 'Healthy' : 'Unhealthy';
+  const { statusColor, statusText } = getHealthStatus(isActuallyHealthy);
   const statusEmoji = isActuallyHealthy ? '✅' : '⚠️';
 
   // Calculate alert count

@@ -186,7 +186,8 @@ def with_error_handling(operation: str) -> Callable[[Callable[P, T]], Callable[P
         @functools.wraps(func)
         async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             try:
-                return await func(*args, **kwargs)
+                # Type checker can't understand runtime coroutine check below (line 208)
+                return await func(*args, **kwargs)  # type: ignore[misc, no-any-return]
             except HTTPException:
                 # Pass through HTTP exceptions unchanged for proper status codes
                 raise

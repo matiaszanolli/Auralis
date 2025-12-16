@@ -15,6 +15,7 @@ import React, { useEffect } from 'react';
 import { tokens } from '@/design-system';
 import { useCacheHealth } from '@/hooks/shared/useStandardizedAPI';
 import { CacheHealth } from '@/services/api/standardizedAPIClient';
+import { HealthStatusIndicator } from './HealthStatusIndicator';
 
 interface CacheHealthMonitorProps {
   /**
@@ -27,38 +28,7 @@ interface CacheHealthMonitorProps {
   onHealthStatusChange?: (healthy: boolean) => void;
 }
 
-/**
- * Health status indicator with color and text
- */
-function HealthStatusIndicator({ healthy, isHealthy }: { healthy: boolean; isHealthy?: boolean }) {
-  const actualHealthy = isHealthy !== undefined ? isHealthy : healthy;
-  const statusColor = actualHealthy ? tokens.colors.semantic.success : tokens.colors.semantic.error;
-  const statusText = actualHealthy ? 'Healthy' : 'Unhealthy';
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: tokens.spacing.sm }}>
-      <div
-        style={{
-          width: '12px',
-          height: '12px',
-          borderRadius: '50%',
-          background: statusColor,
-          boxShadow: `0 0 8px ${statusColor}`,
-          animation: actualHealthy ? 'none' : 'pulse 1s infinite',
-        }}
-      />
-      <span
-        style={{
-          color: statusColor,
-          fontWeight: tokens.typography.fontWeight.semibold,
-          fontSize: tokens.typography.fontSize.sm,
-        }}
-      >
-        {statusText}
-      </span>
-    </div>
-  );
-}
+// HealthStatusIndicator moved to shared component ./HealthStatusIndicator.tsx
 
 /**
  * Health metric card showing a single metric
@@ -270,7 +240,7 @@ export function CacheHealthMonitor({
           </div>
         </div>
 
-        <HealthStatusIndicator healthy={isHealthy ?? cacheHealth.healthy} />
+        <HealthStatusIndicator isHealthy={isHealthy ?? cacheHealth.healthy} />
       </div>
 
       {/* Health Metrics */}

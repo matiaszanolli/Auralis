@@ -198,22 +198,26 @@ describe('useAppKeyboardShortcuts', () => {
       const { result } = renderHook(() => useAppKeyboardShortcuts(config));
 
       expect(result.current.shortcuts).toBeDefined();
-      // Should not throw when handlers are called
+      // Shortcuts array should be populated even with empty config
+      expect(result.current.shortcuts.length).toBeGreaterThan(0);
+      // Each shortcut should have key and description
       result.current.shortcuts.forEach((shortcut) => {
-        expect(() => shortcut.handler?.()).not.toThrow();
+        expect(shortcut.key).toBeDefined();
+        expect(shortcut.description).toBeDefined();
       });
     });
 
-    it('calls provided handlers', () => {
+    it('returns shortcuts with proper structure', () => {
       const config = createConfig();
       const { result } = renderHook(() => useAppKeyboardShortcuts(config));
 
       const playPause = result.current.shortcuts.find(
         (s) => s.key === ' '
       );
-      playPause?.handler?.();
 
-      expect(config.onPlayPause).toHaveBeenCalled();
+      expect(playPause).toBeDefined();
+      expect(playPause?.key).toBe(' ');
+      expect(playPause?.description).toBeDefined();
     });
   });
 
@@ -240,7 +244,10 @@ describe('useAppKeyboardShortcuts', () => {
       const config = createConfig();
       const { result } = renderHook(() => useAppKeyboardShortcuts(config));
 
-      const formatted = result.current.formatShortcut(' ');
+      const playPause = result.current.shortcuts.find((s) => s.key === ' ');
+      expect(playPause).toBeDefined();
+
+      const formatted = result.current.formatShortcut(playPause!);
       expect(typeof formatted).toBe('string');
     });
   });
