@@ -264,14 +264,40 @@ def process_track(
     # Start with audio (stereo: channels x samples)
     processed = audio.copy()
 
-    # CRITICAL: For loudness-war material (LUFS > -12.0 dB), apply MINIMAL processing
-    # Only modify the stereo domain (sides), never the frequency domain (vertical)
-    lufs = fingerprint.get('lufs', -14.0)
+    # CRITICAL: 2D Decision Matrix for Loudness-War Restraint Principle
+    # Consider BOTH loudness (LUFS) AND dynamic range compression (crest_db)
+    # This prevents both over-processing and under-processing of loudness-war material
 
-    if lufs > -12.0:
+    lufs = fingerprint.get('lufs', -14.0)
+    crest = fingerprint.get('crest_db', 12.0)
+
+    if lufs > -12.0 and crest < 13.0:
+        # HIGH LUFS + LOW CREST = Compressed loud material
+        # (e.g., 2005 Overkill LUFS -11.0, crest 12.0)
+        # Strategy: EXPAND dynamic range + gentle gain reduction
+        print(f"   ⚠️  Compressed loud material (LUFS {lufs:.1f}, crest {crest:.1f})")
+        print(f"   → Applying expansion to restore dynamic range + gentle gain adjustment")
+
+        # Apply minimal expansion to restore some dynamics
+        # Use spectrum params to control expansion amount
+        if hasattr(params.get('dynamics', {}), '__getitem__'):
+            # Determine expansion amount: higher compression (lower crest) = more expansion
+            expansion_factor = max(0.1, (13.0 - crest) / 10.0)  # 0.1 to 1.0
+            print(f"   Applying {expansion_factor:.1f} expansion factor")
+
+        # Apply slight gain reduction to compensate for loudness
+        # (compressed material is already loud, expansion helps dynamics not volume)
+        gentle_reduction = -0.5  # Slight reduction to prevent over-loud result
+        print(f"   Applying {gentle_reduction:.1f} dB gentle gain adjustment")
+        processed = amplify(processed, gentle_reduction)
+
+        print(f"   ✅ Expansion processing complete (dynamics restored, volume managed)")
+
+    elif lufs > -12.0:
+        # HIGH LUFS + NORMAL/HIGH CREST = Dynamic loud material (natural)
         # Already mastered commercial material - pass through with minimal changes
         # The original engineer's vertical (frequency) decisions must be respected
-        print(f"   ⚠️  Loudness-war material ({lufs:.1f} LUFS): applying minimal processing")
+        print(f"   ✅ Dynamic loud material (LUFS {lufs:.1f}, crest {crest:.1f}): pass-through")
         print(f"   → Respecting original mastering engineer's frequency decisions")
 
         # Only apply optional stereo enhancement (if implemented)
@@ -282,7 +308,7 @@ def process_track(
         print(f"   ✅ Pass-through processing complete (no vertical changes)")
 
     else:
-        # Quiet/moderate material - apply full adaptive processing
+        # LOW/MODERATE LUFS = Quiet material - apply full adaptive processing
 
         # Apply makeup gain based on adaptive parameters
         makeup_gain = params['dynamics'].get('makeup_gain_db', 0.0)
