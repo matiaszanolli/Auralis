@@ -135,15 +135,60 @@ class AdaptiveMode:
 
     def _apply_dynamics_processing(self, audio: np.ndarray,
                                    spectrum_params: Any, spectrum_position: Any) -> np.ndarray:
-        """Apply compression and expansion based on spectrum parameters"""
+        """Apply compression and expansion based on spectrum parameters and 2D LWRP"""
 
-        # SIMPLE DIY COMPRESSOR - Direct crest factor reduction
-        if spectrum_params.compression_amount > 0.1:
-            audio = self._apply_compression(audio, spectrum_params)
+        # CRITICAL: 2D Loudness-War Restraint Principle check
+        # Determine if we need expansion for compressed loud material
+        source_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
+        current_peak = np.max(np.abs(audio))
+        current_peak_db = DBConversion.to_db(current_peak)
+        current_rms = rms(audio)
+        current_rms_db = DBConversion.to_db(current_rms)
+        crest_factor_db = current_peak_db - current_rms_db
 
-        # SIMPLE DIY EXPANDER - Direct crest factor expansion (de-mastering)
-        if spectrum_params.expansion_amount > 0.1:
+        # Check if this is compressed loud material that needs special handling
+        is_compressed_loud = (
+            source_lufs > AdaptiveLoudnessControl.VERY_LOUD_THRESHOLD and
+            crest_factor_db < 13.0
+        )
+
+        if is_compressed_loud:
+            # Compressed loud material: Apply expansion to restore dynamics
+            expansion_factor = max(0.1, (13.0 - crest_factor_db) / 10.0)
+            debug(f"[2D LWRP] Compressed loud (LUFS {source_lufs:.1f}, crest {crest_factor_db:.1f}) → expansion {expansion_factor:.2f}")
+            print(f"[2D LWRP] Compressed loud material (LUFS {source_lufs:.1f} dB, crest {crest_factor_db:.1f} dB)")
+            print(f"[2D LWRP] → Applying expansion factor {expansion_factor:.2f} to restore dynamics")
+
+            # Override spectrum_params expansion with LWRP-driven expansion
+            spectrum_params.expansion_amount = expansion_factor
+            spectrum_params.compression_amount = 0.0  # Don't compress compressed material further
+
+            # Apply expansion
             audio = self._apply_expansion(audio, spectrum_params)
+
+            # Apply gentle gain reduction to prevent over-loudness after expansion
+            gentle_reduction = -0.5
+            audio = amplify(audio, gentle_reduction)
+            debug(f"[2D LWRP] Applied {gentle_reduction:.1f} dB gentle reduction after expansion")
+            print(f"[2D LWRP] → Applied {gentle_reduction:.1f} dB gentle gain reduction")
+
+        elif source_lufs > AdaptiveLoudnessControl.VERY_LOUD_THRESHOLD:
+            # Dynamic loud material: Pass-through (LWRP principle)
+            debug(f"[2D LWRP] Dynamic loud (LUFS {source_lufs:.1f}, crest {crest_factor_db:.1f}) → pass-through")
+            print(f"[2D LWRP] Dynamic loud material (LUFS {source_lufs:.1f} dB, crest {crest_factor_db:.1f} dB)")
+            print(f"[2D LWRP] → Respecting original mastering (minimal processing)")
+            spectrum_params.compression_amount = 0.0
+            spectrum_params.expansion_amount = 0.0
+
+        else:
+            # Quiet/moderate material: Use spectrum-based parameters
+            # SIMPLE DIY COMPRESSOR - Direct crest factor reduction
+            if spectrum_params.compression_amount > 0.1:
+                audio = self._apply_compression(audio, spectrum_params)
+
+            # SIMPLE DIY EXPANDER - Direct crest factor expansion (de-mastering)
+            if spectrum_params.expansion_amount > 0.1:
+                audio = self._apply_expansion(audio, spectrum_params)
 
         return audio
 
