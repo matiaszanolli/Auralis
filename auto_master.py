@@ -138,7 +138,9 @@ def generate_adaptive_parameters(fp: Dict, intensity: float = 1.0) -> Dict:
     makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
         source_lufs=lufs,
         intensity=base_intensity,
-        crest_factor_db=crest_db
+        crest_factor_db=crest_db,
+        bass_pct=bass_pct,  # Bass-aware gain reduction
+        transient_density=transient_density  # Bass-transient interaction detection
     )
     params['processing_notes'].append(gain_reasoning)
 
@@ -223,6 +225,7 @@ def process_track(
     print(f"   LUFS: {fingerprint.get('lufs', 0):.1f} dB")
     print(f"   Harmonic ratio: {fingerprint.get('harmonic_ratio', 0):.2f}")
     print(f"   Crest factor: {fingerprint.get('crest_db', 0):.1f} dB")
+    print(f"   Bass content: {fingerprint.get('bass_pct', 0):.1%}")
 
     # Step 2: Generate adaptive parameters
     print(f"\n🧠 Step 2: Adaptive Parameter Generation...")
@@ -261,31 +264,51 @@ def process_track(
     # Start with audio (stereo: channels x samples)
     processed = audio.copy()
 
-    # Apply makeup gain based on adaptive parameters
-    makeup_gain = params['dynamics'].get('makeup_gain_db', 0.0)
-    if makeup_gain > 0.0:
-        print(f"   Applying {makeup_gain:.1f} dB makeup gain")
-        processed = amplify(processed, makeup_gain)
+    # CRITICAL: For loudness-war material (LUFS > -12.0 dB), apply MINIMAL processing
+    # Only modify the stereo domain (sides), never the frequency domain (vertical)
+    lufs = fingerprint.get('lufs', -14.0)
+
+    if lufs > -12.0:
+        # Already mastered commercial material - pass through with minimal changes
+        # The original engineer's vertical (frequency) decisions must be respected
+        print(f"   ⚠️  Loudness-war material ({lufs:.1f} LUFS): applying minimal processing")
+        print(f"   → Respecting original mastering engineer's frequency decisions")
+
+        # Only apply optional stereo enhancement (if implemented)
+        stereo_info = params.get('stereo', {})
+        if stereo_info.get('preserve_imaging', False):
+            print(f"   ✅ Stereo imaging preserved (width: {stereo_info.get('width', 0):.2f})")
+
+        print(f"   ✅ Pass-through processing complete (no vertical changes)")
+
     else:
-        print(f"   Skipping makeup gain (source already loud)")
+        # Quiet/moderate material - apply full adaptive processing
 
-    # Apply soft clipping to protect peaks
-    threshold = params['dynamics'].get('soft_clipper_threshold_db', -2.0)
-    threshold_linear = 10 ** (threshold / 20.0)
-    print(f"   Applying soft clipping at {threshold:.1f} dB")
-    processed = soft_clip(processed, threshold=threshold_linear, ceiling=0.99)
+        # Apply makeup gain based on adaptive parameters
+        makeup_gain = params['dynamics'].get('makeup_gain_db', 0.0)
+        if makeup_gain > 0.0:
+            print(f"   Applying {makeup_gain:.1f} dB makeup gain")
+            processed = amplify(processed, makeup_gain)
+        else:
+            print(f"   Skipping makeup gain (source already at moderate loudness)")
 
-    # Normalize to adaptive target peak
-    target_peak = params['dynamics'].get('target_peak', 0.90)
-    print(f"   Normalizing to {target_peak * 100:.1f}% peak")
-    processed = normalize(processed, target_peak)
+        # Apply soft clipping to protect peaks
+        threshold = params['dynamics'].get('soft_clipper_threshold_db', -2.0)
+        threshold_linear = 10 ** (threshold / 20.0)
+        print(f"   Applying soft clipping at {threshold:.1f} dB")
+        processed = soft_clip(processed, threshold=threshold_linear, ceiling=0.99)
 
-    # Report stereo preservation
-    stereo_info = params.get('stereo', {})
-    if stereo_info.get('preserve_imaging', False):
-        print(f"   ✅ Stereo imaging preserved (width: {stereo_info.get('width', 0):.2f})")
+        # Normalize to adaptive target peak
+        target_peak = params['dynamics'].get('target_peak', 0.90)
+        print(f"   Normalizing to {target_peak * 100:.1f}% peak")
+        processed = normalize(processed, target_peak)
 
-    print(f"   ✅ Processing complete")
+        # Report stereo preservation
+        stereo_info = params.get('stereo', {})
+        if stereo_info.get('preserve_imaging', False):
+            print(f"   ✅ Stereo imaging preserved (width: {stereo_info.get('width', 0):.2f})")
+
+        print(f"   ✅ Processing complete")
 
     # Step 5: Export
     print(f"\n💾 Step 5: Exporting WAV...")

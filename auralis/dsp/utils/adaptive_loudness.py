@@ -36,15 +36,19 @@ class AdaptiveLoudnessControl:
     def calculate_adaptive_gain(
         source_lufs: float,
         intensity: float = 1.0,
-        crest_factor_db: float = None
+        crest_factor_db: float = None,
+        bass_pct: float = None,
+        transient_density: float = None
     ) -> Tuple[float, str]:
         """
-        Calculate adaptive makeup gain based on source LUFS and dynamic range.
+        Calculate adaptive makeup gain based on source LUFS, dynamic range, bass content, and transients.
 
         Args:
             source_lufs: Source loudness in LUFS
             intensity: Processing intensity (0.0-1.0)
             crest_factor_db: Peak-to-RMS ratio in dB (optional, for transient preservation)
+            bass_pct: Bass energy percentage 0.0-1.0 (optional, for bass-heavy material)
+            transient_density: Transient density 0.0-1.0 (optional, for bass-transient interaction)
 
         Returns:
             Tuple of (makeup_gain_db, reasoning_note)
@@ -86,6 +90,29 @@ class AdaptiveLoudnessControl:
 
             # Clamp to adaptive range
             gain = max(0.0, min(gain, max_gain))
+
+            # Bass-transient interaction reduction to prevent bass-kick overdrive
+            # When bass and transients combine (e.g., flamenco guitar, bass + kick drum),
+            # they create peak amplification that needs additional headroom
+            if bass_pct is not None and transient_density is not None:
+                if bass_pct > 0.10 and transient_density > 0.4:
+                    # Bass-transient interaction: multiplicative reduction
+                    # High bass + high transients = aggressive reduction
+                    interaction_factor = bass_pct * transient_density * 6.0  # Max ~3 dB at 100% bass + 100% transients
+                    bass_reduction = interaction_factor
+                    gain = max(0.0, gain - bass_reduction)
+                    reasoning_suffix += f" (bass {bass_pct:.1%} × transients {transient_density:.2f}: -{bass_reduction:.1f} dB)"
+                elif bass_pct > 0.12:
+                    # Bass-only reduction (low transients)
+                    bass_reduction = (bass_pct - 0.12) * 2.84  # Max 2.5 dB at 100% bass
+                    gain = max(0.0, gain - bass_reduction)
+                    reasoning_suffix += f" (bass {bass_pct:.1%}: -{bass_reduction:.1f} dB)"
+            elif bass_pct is not None and bass_pct > 0.12:
+                # Fallback: bass-only reduction if no transient data
+                bass_reduction = (bass_pct - 0.12) * 2.84
+                gain = max(0.0, gain - bass_reduction)
+                reasoning_suffix += f" (bass {bass_pct:.1%}: -{bass_reduction:.1f} dB)"
+
             return (
                 gain,
                 f"Quiet source: {gain:.1f} dB boost to target{reasoning_suffix}"
@@ -151,21 +178,25 @@ class AdaptiveLoudnessControl:
     def get_adaptive_processing_params(
         source_lufs: float,
         intensity: float = 1.0,
-        crest_factor_db: float = None
+        crest_factor_db: float = None,
+        bass_pct: float = None,
+        transient_density: float = None
     ) -> dict:
         """
-        Get complete adaptive processing parameters based on source LUFS and dynamics.
+        Get complete adaptive processing parameters based on source LUFS, dynamics, bass, and transients.
 
         Args:
             source_lufs: Source loudness in LUFS
             intensity: Processing intensity (0.0-1.0)
             crest_factor_db: Peak-to-RMS ratio in dB (optional, for transient preservation)
+            bass_pct: Bass energy percentage 0.0-1.0 (optional, for bass-heavy material)
+            transient_density: Transient density 0.0-1.0 (optional, for bass-transient interaction)
 
         Returns:
             Dictionary with adaptive parameters
         """
         makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
-            source_lufs, intensity, crest_factor_db
+            source_lufs, intensity, crest_factor_db, bass_pct, transient_density
         )
         target_peak, target_peak_db = AdaptiveLoudnessControl.calculate_adaptive_peak_target(
             source_lufs
@@ -177,6 +208,8 @@ class AdaptiveLoudnessControl:
             'target_peak_db': target_peak_db,
             'source_lufs': source_lufs,
             'crest_factor_db': crest_factor_db,
+            'bass_pct': bass_pct,
+            'transient_density': transient_density,
             'reasoning': gain_reasoning,
             'intensity': intensity,
         }
