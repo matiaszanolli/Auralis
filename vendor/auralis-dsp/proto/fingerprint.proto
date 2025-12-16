@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package fingerprint;
+
+// Fingerprint service for high-performance audio analysis
+service FingerprintService {
+  // Compute 25D audio fingerprint from raw audio samples
+  rpc ComputeFingerprint(FingerprintRequest) returns (FingerprintResponse);
+}
+
+// Request containing audio samples and metadata
+message FingerprintRequest {
+  // Track ID for logging/debugging
+  uint32 track_id = 1;
+
+  // Audio samples as float32 array (interleaved if stereo)
+  repeated float audio_samples = 2;
+
+  // Sample rate in Hz
+  uint32 sample_rate = 3;
+
+  // Number of channels (1 = mono, 2 = stereo)
+  uint32 channels = 4;
+}
+
+// Response containing 25D fingerprint
+message FingerprintResponse {
+  // Track ID (echoed from request)
+  uint32 track_id = 1;
+
+  // Processing time in milliseconds
+  uint64 processing_time_ms = 2;
+
+  // Frequency Distribution (7D)
+  float sub_bass_pct = 3;       // 20-60 Hz
+  float bass_pct = 4;            // 60-250 Hz
+  float low_mid_pct = 5;         // 250-500 Hz
+  float mid_pct = 6;             // 500-2000 Hz
+  float upper_mid_pct = 7;       // 2000-4000 Hz
+  float presence_pct = 8;        // 4000-6000 Hz
+  float air_pct = 9;             // 6000-20000 Hz
+
+  // Dynamics (3D)
+  float lufs = 10;               // Integrated loudness
+  float crest_db = 11;           // Peak-to-RMS ratio
+  float bass_mid_ratio = 12;     // Bass/Mid energy ratio
+
+  // Temporal (4D)
+  float tempo_bpm = 13;          // Detected tempo
+  float rhythm_stability = 14;   // Beat consistency
+  float transient_density = 15;  // Drum/percussion prominence
+  float silence_ratio = 16;      // Silence proportion
+
+  // Spectral (3D)
+  float spectral_centroid = 17;  // Brightness
+  float spectral_rolloff = 18;   // High-frequency content
+  float spectral_flatness = 19;  // Noise-like vs tonal
+
+  // Harmonic (3D)
+  float harmonic_ratio = 20;     // Harmonic vs percussive
+  float pitch_stability = 21;    // Pitch consistency
+  float chroma_energy = 22;      // Chromatic energy
+
+  // Variation (3D)
+  float dynamic_range_variation = 23;  // Dynamic range variation
+  float loudness_variation_std = 24;   // Loudness variation
+  float peak_consistency = 25;         // Peak consistency
+
+  // Stereo (2D)
+  float stereo_width = 26;       // Stereo width
+  float phase_correlation = 27;  // Phase correlation
+}
