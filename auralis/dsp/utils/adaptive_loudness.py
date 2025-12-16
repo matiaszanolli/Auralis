@@ -33,13 +33,18 @@ class AdaptiveLoudnessControl:
     MODERATELY_LOUD_THRESHOLD = -14.0  # Moderately loud
 
     @staticmethod
-    def calculate_adaptive_gain(source_lufs: float, intensity: float = 1.0) -> Tuple[float, str]:
+    def calculate_adaptive_gain(
+        source_lufs: float,
+        intensity: float = 1.0,
+        crest_factor_db: float = None
+    ) -> Tuple[float, str]:
         """
-        Calculate adaptive makeup gain based on source LUFS.
+        Calculate adaptive makeup gain based on source LUFS and dynamic range.
 
         Args:
             source_lufs: Source loudness in LUFS
             intensity: Processing intensity (0.0-1.0)
+            crest_factor_db: Peak-to-RMS ratio in dB (optional, for transient preservation)
 
         Returns:
             Tuple of (makeup_gain_db, reasoning_note)
@@ -62,11 +67,28 @@ class AdaptiveLoudnessControl:
         else:
             # Quiet source - full boost to target
             gain = (AdaptiveLoudnessControl.TARGET_LUFS - source_lufs) * intensity
-            # Clamp to reasonable range
-            gain = max(0.0, min(gain, 6.0))
+
+            # Adaptive max gain clamp based on dynamic range
+            # High crest factor = transient-heavy material needs more headroom
+            if crest_factor_db is not None and crest_factor_db > 15.0:
+                # Very dynamic material (e.g., 1980s recordings with powerful drums)
+                # Reduce max gain to preserve transient impact
+                max_gain = 4.0  # Conservative for high-dynamic-range material
+                reasoning_suffix = f" (crest {crest_factor_db:.1f} dB: transient preservation)"
+            elif crest_factor_db is not None and crest_factor_db > 12.0:
+                # Moderately dynamic material
+                max_gain = 5.0
+                reasoning_suffix = f" (crest {crest_factor_db:.1f} dB: moderate preservation)"
+            else:
+                # Low dynamic range or no crest info - standard clamp
+                max_gain = 6.0
+                reasoning_suffix = ""
+
+            # Clamp to adaptive range
+            gain = max(0.0, min(gain, max_gain))
             return (
                 gain,
-                f"Quiet source: {gain:.1f} dB boost to target"
+                f"Quiet source: {gain:.1f} dB boost to target{reasoning_suffix}"
             )
 
     @staticmethod
@@ -126,19 +148,24 @@ class AdaptiveLoudnessControl:
             return False, 0.0, reasoning
 
     @staticmethod
-    def get_adaptive_processing_params(source_lufs: float, intensity: float = 1.0) -> dict:
+    def get_adaptive_processing_params(
+        source_lufs: float,
+        intensity: float = 1.0,
+        crest_factor_db: float = None
+    ) -> dict:
         """
-        Get complete adaptive processing parameters based on source LUFS.
+        Get complete adaptive processing parameters based on source LUFS and dynamics.
 
         Args:
             source_lufs: Source loudness in LUFS
             intensity: Processing intensity (0.0-1.0)
+            crest_factor_db: Peak-to-RMS ratio in dB (optional, for transient preservation)
 
         Returns:
             Dictionary with adaptive parameters
         """
         makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
-            source_lufs, intensity
+            source_lufs, intensity, crest_factor_db
         )
         target_peak, target_peak_db = AdaptiveLoudnessControl.calculate_adaptive_peak_target(
             source_lufs
@@ -149,6 +176,7 @@ class AdaptiveLoudnessControl:
             'target_peak_linear': target_peak,
             'target_peak_db': target_peak_db,
             'source_lufs': source_lufs,
+            'crest_factor_db': crest_factor_db,
             'reasoning': gain_reasoning,
             'intensity': intensity,
         }

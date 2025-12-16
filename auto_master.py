@@ -130,31 +130,20 @@ def generate_adaptive_parameters(fp: Dict, intensity: float = 1.0) -> Dict:
         base_intensity *= 0.5
         params['processing_notes'].append('Already compressed: minimal processing')
 
-    # Adaptive makeup gain based on source LUFS
-    # Target final loudness: -12 to -10 LUFS for masters
-    target_lufs = -11.0
+    # Import adaptive loudness control for consistent calculations
+    from auralis.dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 
-    if lufs > -12.0:  # Already very loud
-        makeup_gain = 0.0
-        params['processing_notes'].append(f'Already loud ({lufs:.1f} LUFS): no makeup gain')
-    elif lufs > -14.0:  # Moderately loud
-        makeup_gain = (target_lufs - lufs) * 0.5  # Gentle boost
-        params['processing_notes'].append(f'Moderately loud: gentle {makeup_gain:.1f} dB boost')
-    else:  # Quiet source
-        makeup_gain = (target_lufs - lufs) * base_intensity
-        params['processing_notes'].append(f'Quiet source: {makeup_gain:.1f} dB boost to target')
+    # Calculate adaptive makeup gain and peak target using centralized logic
+    # This ensures consistency with main mastering pipeline
+    makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
+        source_lufs=lufs,
+        intensity=base_intensity,
+        crest_factor_db=crest_db
+    )
+    params['processing_notes'].append(gain_reasoning)
 
-    # Clamp makeup gain to reasonable range
-    makeup_gain = max(0.0, min(makeup_gain, 6.0))
-
-    # Adaptive target peak based on source LUFS
-    # Louder sources get lower normalization targets to avoid clipping
-    if lufs > -12.0:
-        target_peak = 0.85  # Conservative for already-loud material
-    elif lufs > -14.0:
-        target_peak = 0.88  # Moderate
-    else:
-        target_peak = 0.90  # Can go a bit higher for quiet sources
+    # Get adaptive target peak
+    target_peak, _ = AdaptiveLoudnessControl.calculate_adaptive_peak_target(lufs)
 
     # Generate dynamics parameters
     # More compression for low dynamic range, less for high dynamic range

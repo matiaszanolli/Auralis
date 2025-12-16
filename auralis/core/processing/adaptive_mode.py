@@ -190,19 +190,27 @@ class AdaptiveMode:
         """Apply final gain boost and peak normalization using LUFS-based adaptive control"""
         from ..config.preset_profiles import get_preset_profile
 
-        # Step 0: Calculate source LUFS for adaptive loudness control
+        # Step 0: Calculate source LUFS and crest factor for adaptive loudness control
         source_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
-        debug(f"[Adaptive Loudness] Source LUFS: {source_lufs:.2f} dB")
+
+        # Calculate crest factor (peak-to-RMS ratio) for transient preservation
+        current_peak = np.max(np.abs(audio))
+        current_peak_db = DBConversion.to_db(current_peak)
+        current_rms = rms(audio)
+        current_rms_db = DBConversion.to_db(current_rms)
+        crest_factor_db = current_peak_db - current_rms_db
+
+        debug(f"[Adaptive Loudness] Source LUFS: {source_lufs:.2f} dB, Crest: {crest_factor_db:.2f} dB")
 
         # Step 1: LUFS-based adaptive gain (replaces RMS boost)
         makeup_gain_step = NormalizationStep("Adaptive Makeup Gain", stage_label="Pre-Final")
         makeup_gain_step.measure_before(audio)
 
-        # Get adaptive makeup gain based on source LUFS
+        # Get adaptive makeup gain based on source LUFS and crest factor
         # Intensity from spectrum params (if available), otherwise 1.0
         intensity = getattr(spectrum_params, 'intensity', 1.0)
         makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
-            source_lufs, intensity
+            source_lufs, intensity, crest_factor_db
         )
 
         # Only apply makeup gain if not in expansion mode AND gain is > 0.5 dB
