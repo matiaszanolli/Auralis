@@ -242,7 +242,13 @@ class HybridProcessor:
         return apply_reference_matching(target_audio, reference_audio)
 
     def _process_adaptive_mode(self, target_audio: np.ndarray, results: Any) -> np.ndarray:
-        """Process using adaptive mastering without reference"""
+        """
+        Process using adaptive mastering without reference.
+
+        NOTE: This method still exists for backward compatibility but now uses
+        the internal processor logic directly since hybrid_processor is the
+        actual processor being called by AudioProcessingPipeline.
+        """
         info("Processing in adaptive mode")
 
         # Choose processing mode based on config

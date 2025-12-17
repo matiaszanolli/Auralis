@@ -38,8 +38,10 @@ import { PlayerEnhancementPanel } from '@/components/enhancement';
 
 // Core Phase 3 Hooks
 import { usePlayerStreaming, PlayerStreamingState } from '@/hooks/player/usePlayerStreaming';
-import { usePlayerControls, PlayerControls } from '@/hooks/player/usePlayerControls';
 import { usePlayerDisplay, PlayerDisplayInfo } from '@/hooks/player/usePlayerDisplay';
+
+// WebSocket Audio Streaming Hook (replaces REST API playback)
+import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 
 // Existing hooks for track info
 import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
@@ -65,6 +67,19 @@ const Player: React.FC = () => {
   const currentTrack = useCurrentTrack();
   const state = useSelector((state: any) => state.player || {});
 
+  // WebSocket Audio Streaming Hook (replaces REST API playback)
+  // Provides: playEnhanced, pausePlayback, resumePlayback, stopPlayback, setVolume
+  const {
+    playEnhanced,
+    pausePlayback,
+    resumePlayback,
+    stopPlayback,
+    setVolume: setStreamingVolume,
+    isStreaming,
+    streamingState,
+    isPaused,
+  } = usePlayEnhanced();
+
   // Phase 3 Hook: Core streaming synchronization
   // Handles timing, buffering, position tracking, and WebSocket sync
   const streaming = usePlayerStreaming({
@@ -74,23 +89,8 @@ const Player: React.FC = () => {
     updateInterval: 100,
   });
 
-  // Direct API command functions (no state management here, Redux handles that)
-  const apiPlay = async () => {
-    try {
-      await fetch('/api/player/play', { method: 'POST' });
-    } catch (err) {
-      console.error('[Player] Play command error:', err);
-    }
-  };
-
-  const apiPause = async () => {
-    try {
-      await fetch('/api/player/pause', { method: 'POST' });
-    } catch (err) {
-      console.error('[Player] Pause command error:', err);
-    }
-  };
-
+  // TEMPORARY: Keep REST API for seek/next/previous until WebSocket support is added
+  // TODO: Migrate these to WebSocket messages
   const apiSeek = async (position: number) => {
     try {
       await fetch('/api/player/seek', {
@@ -100,18 +100,6 @@ const Player: React.FC = () => {
       });
     } catch (err) {
       console.error('[Player] Seek command error:', err);
-    }
-  };
-
-  const apiSetVolume = async (volume: number) => {
-    try {
-      await fetch('/api/player/volume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volume })
-      });
-    } catch (err) {
-      console.error('[Player] Volume command error:', err);
     }
   };
 
@@ -131,35 +119,43 @@ const Player: React.FC = () => {
     }
   };
 
-  // Phase 3 Hook: Control operations
-  // Provides play, pause, seek, volume, next, previous callbacks
-  // Note: Audio playback is now handled via WebSocket (usePlayEnhanced hook)
-  // This hook just manages backend player state via REST API
-  const controls = usePlayerControls({
-    onPlay: async () => {
-      // Tell backend to play (this broadcasts state to all clients via WebSocket)
-      // Audio playback is handled separately via usePlayEnhanced hook
-      await apiPlay();
-    },
-    onPause: async () => {
-      // Call backend API (Redux state will sync via WebSocket)
-      await apiPause();
-    },
-    onSeek: async (position: number) => {
-      // Call backend API (Redux state will sync via WebSocket)
-      await apiSeek(position);
-    },
-    onSetVolume: async (volume: number) => {
-      // Call backend API (Redux state will sync via WebSocket)
-      await apiSetVolume(volume);
-    },
-    onNextTrack: async () => {
-      await apiNext();
-    },
-    onPreviousTrack: async () => {
-      await apiPrevious();
-    },
-  });
+  // Play/Pause control handlers
+  const handlePlay = async () => {
+    if (!currentTrack?.id) {
+      console.warn('[Player] No track loaded, cannot play');
+      return;
+    }
+
+    try {
+      // Use WebSocket streaming with adaptive preset (default)
+      await playEnhanced(currentTrack.id, 'adaptive', 1.0);
+      console.log('[Player] Started WebSocket audio streaming for track:', currentTrack.id);
+    } catch (err) {
+      console.error('[Player] Play command error:', err);
+    }
+  };
+
+  const handlePause = async () => {
+    try {
+      if (isPaused) {
+        resumePlayback();
+      } else {
+        pausePlayback();
+      }
+    } catch (err) {
+      console.error('[Player] Pause command error:', err);
+    }
+  };
+
+  const handleVolumeChange = async (vol: number) => {
+    try {
+      // Volume is 0-1 range in WebSocket, 0-100 in UI
+      setStreamingVolume(vol);
+      console.log('[Player] Volume changed:', vol);
+    } catch (err) {
+      console.error('[Player] Volume command error:', err);
+    }
+  };
 
   // Phase 3 Hook: Display formatting
   // Converts raw streaming data to formatted display strings
@@ -195,10 +191,8 @@ const Player: React.FC = () => {
           currentTime={streaming.currentTime}
           duration={streaming.duration}
           bufferedPercentage={streaming.bufferedPercentage}
-          onSeek={async (position) => {
-            await controls.seek(position);
-          }}
-          disabled={streaming.isError}
+          onSeek={apiSeek}
+          disabled={streamingState === 'error'}
         />
       </div>
 
@@ -221,28 +215,26 @@ const Player: React.FC = () => {
 
         {/* Center: Playback Controls */}
         <PlaybackControls
-          isPlaying={streaming.isPlaying}
-          onPlay={async () => { await controls.play(); }}
-          onPause={async () => { await controls.pause(); }}
-          onNext={async () => { await controls.nextTrack(); }}
-          onPrevious={async () => { await controls.previousTrack(); }}
-          isLoading={controls.isLoading || streaming.isBuffering}
-          disabled={streaming.isError}
+          isPlaying={isStreaming && !isPaused}
+          onPlay={handlePlay}
+          onPause={handlePause}
+          onNext={apiNext}
+          onPrevious={apiPrevious}
+          isLoading={streamingState === 'buffering'}
+          disabled={streamingState === 'error'}
         />
 
         {/* Right: Volume + Queue */}
         <div style={styles.rightSection}>
           <VolumeControl
             volume={volume / 100}
-            onVolumeChange={async (vol) => {
-              await controls.setVolume(vol * 100);
-            }}
+            onVolumeChange={handleVolumeChange}
             isMuted={isMuted}
             onMuteToggle={async () => {
-              const newVolume = isMuted ? 50 : 0;
-              await controls.setVolume(newVolume);
+              const newVolume = isMuted ? 0.5 : 0;
+              await handleVolumeChange(newVolume);
             }}
-            disabled={streaming.isError}
+            disabled={streamingState === 'error'}
           />
 
           {/* Queue Button - Compact */}

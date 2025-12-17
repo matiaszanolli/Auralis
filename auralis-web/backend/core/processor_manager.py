@@ -1,9 +1,26 @@
 """
-Processor Manager
-~~~~~~~~~~~~~~~~~
+Processor Manager (DEPRECATED - Phase 2 Refactoring)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Manages HybridProcessor instance lifecycle and caching.
-Ensures processor state is maintained across chunk processing for continuity.
+⚠️ **DEPRECATED**: This module has been replaced by ProcessorFactory in Phase 2.
+
+**Migration**: Use `processor_factory.ProcessorFactory` instead:
+```python
+# OLD:
+from core.processor_manager import ProcessorManager
+manager = ProcessorManager()
+processor = manager.get_or_create(track_id=123, preset="adaptive")
+
+# NEW:
+from core.processor_factory import ProcessorFactory
+factory = ProcessorFactory()
+processor = factory.get_or_create(track_id=123, preset="adaptive")
+```
+
+**Why deprecated**: ProcessorFactory consolidates both ProcessorManager and
+hybrid_processor._processor_cache into a single unified caching system.
+
+**Status**: No longer used in codebase (replaced 2025-12-16)
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3

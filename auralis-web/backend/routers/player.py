@@ -210,38 +210,41 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to load track: {e}")
 
-    @router.post("/api/player/play", response_model=None)
-    async def play_audio() -> Dict[str, Any]:
-        """Start playback (updates single source of truth)."""
-        try:
-            service = get_playback_service()
-            return await service.play()
-        except ValueError as e:
-            raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to start playback: {e}")
+    # ============================================================================
+    # DEPRECATED: Legacy REST playback endpoints (replaced by WebSocket streaming)
+    # ============================================================================
+    # These endpoints have been replaced by WebSocket-based audio streaming.
+    # Frontend now uses usePlayEnhanced hook which sends WebSocket messages
+    # instead of REST API calls. Kept here temporarily for reference.
+    # See: auralis-web/backend/routers/system.py - WebSocket endpoint handles 'play_enhanced' message
+    # ============================================================================
 
-    @router.post("/api/player/pause", response_model=None)
-    async def pause_audio() -> Dict[str, Any]:
-        """Pause playback (updates single source of truth)."""
-        try:
-            service = get_playback_service()
-            return await service.pause()
-        except ValueError as e:
-            raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to pause playback: {e}")
+    # @router.post("/api/player/play", response_model=None)
+    # async def play_audio() -> Dict[str, Any]:
+    #     """DEPRECATED: Use WebSocket 'play_enhanced' message instead."""
+    #     raise HTTPException(
+    #         status_code=410,
+    #         detail="Endpoint deprecated. Use WebSocket streaming instead."
+    #     )
+    #     # Legacy implementation removed - audio playback now via WebSocket only
 
-    @router.post("/api/player/stop", response_model=None)
-    async def stop_audio() -> Dict[str, Any]:
-        """Stop playback."""
-        try:
-            service = get_playback_service()
-            return await service.stop()
-        except ValueError as e:
-            raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to stop playback: {e}")
+    # @router.post("/api/player/pause", response_model=None)
+    # async def pause_audio() -> Dict[str, Any]:
+    #     """DEPRECATED: Use usePlayEnhanced.pausePlayback() instead."""
+    #     raise HTTPException(
+    #         status_code=410,
+    #         detail="Endpoint deprecated. Use WebSocket streaming pause control instead."
+    #     )
+    #     # Legacy implementation removed - pause now via usePlayEnhanced hook
+
+    # @router.post("/api/player/stop", response_model=None)
+    # async def stop_audio() -> Dict[str, Any]:
+    #     """DEPRECATED: Use usePlayEnhanced.stopPlayback() instead."""
+    #     raise HTTPException(
+    #         status_code=410,
+    #         detail="Endpoint deprecated. Use WebSocket streaming stop control instead."
+    #     )
+    #     # Legacy implementation removed - stop now via usePlayEnhanced hook
 
     @router.post("/api/player/seek", response_model=None)
     async def seek_position(position: float) -> Dict[str, Any]:
@@ -263,29 +266,23 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to seek: {e}")
 
-    @router.get("/api/player/volume", response_model=None)
-    async def get_volume() -> Dict[str, Any]:
-        """Get current playback volume (0.0 to 1.0)."""
-        audio_player = get_audio_player()
-        if not audio_player:
-            raise HTTPException(status_code=503, detail="Audio player not available")
+    # @router.get("/api/player/volume", response_model=None)
+    # async def get_volume() -> Dict[str, Any]:
+    #     """DEPRECATED: Volume now managed by usePlayEnhanced hook."""
+    #     raise HTTPException(
+    #         status_code=410,
+    #         detail="Endpoint deprecated. Volume control now via WebSocket streaming."
+    #     )
+    #     # Legacy implementation removed - volume now via usePlayEnhanced.setVolume()
 
-        try:
-            volume = getattr(audio_player, 'volume', 0.5)
-            return {"volume": volume}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get volume: {e}")
-
-    @router.post("/api/player/volume", response_model=None)
-    async def set_volume(volume: float) -> Dict[str, Any]:
-        """Set playback volume (0.0 to 1.0)."""
-        try:
-            service = get_playback_service()
-            return await service.set_volume(volume)
-        except ValueError as e:
-            raise HTTPException(status_code=503, detail=str(e))
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to set volume: {e}")
+    # @router.post("/api/player/volume", response_model=None)
+    # async def set_volume(volume: float) -> Dict[str, Any]:
+    #     """DEPRECATED: Use usePlayEnhanced.setVolume() instead."""
+    #     raise HTTPException(
+    #         status_code=410,
+    #         detail="Endpoint deprecated. Volume control now via WebSocket streaming."
+    #     )
+    #     # Legacy implementation removed - volume now via usePlayEnhanced.setVolume()
 
     # ============================================================================
     # QUEUE ENDPOINTS

@@ -42,8 +42,9 @@ from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
 # Core modules (new modular architecture)
 from core.chunk_boundaries import ChunkBoundaryManager
 from core.level_manager import LevelManager
-from core.processor_manager import ProcessorManager
+from core.processor_factory import ProcessorFactory  # Phase 2: Replaced ProcessorManager
 from core.encoding import WAVEncoder
+from core.audio_processing_pipeline import AudioProcessingPipeline
 
 # Phase 2 (Analysis caching) modules created but not yet integrated
 # To be integrated after resolving import structure issues
@@ -111,16 +112,16 @@ class ChunkedAudioProcessor:
         self.chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
         self.chunk_dir.mkdir(exist_ok=True)
 
-        # Initialize new modular architecture (Phase 3.5)
+        # Initialize new modular architecture (Phase 3.5, updated Phase 2)
         # These dependencies replace monolithic logic in process_chunk()
-        # Type: ignore for untyped core modules (ChunkBoundaryManager, LevelManager, WAVEncoder, ProcessorManager)
+        # Type: ignore for untyped core modules (ChunkBoundaryManager, LevelManager, WAVEncoder, ProcessorFactory)
         # Metadata was loaded in _load_metadata(), so both should be non-None by this point
         total_duration_valid: float = self.total_duration or 0.0  # Fallback to 0 if somehow None
         sample_rate_valid: int = self.sample_rate or 44100  # Fallback to standard sample rate
         self._boundary_manager: Any = ChunkBoundaryManager(total_duration_valid, sample_rate_valid)
         self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
         self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
-        self._processor_manager: Any = ProcessorManager()
+        self._processor_factory: Any = ProcessorFactory()  # Phase 2: Unified processor factory
 
         # CRITICAL: Async lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
@@ -160,13 +161,13 @@ class ChunkedAudioProcessor:
         # envelope followers at chunk boundaries.
         # NOTE: If preset is None, we're serving original/unprocessed audio (no processor needed)
         if self.preset is not None:
-            self.processor = self._processor_manager.get_or_create(
+            self.processor = self._processor_factory.get_or_create(
                 track_id=track_id,
                 preset=preset,
                 intensity=intensity,
                 mastering_targets=self.mastering_targets
             )
-            logger.info(f"🎯 Processor initialized via ProcessorManager for track {track_id}")
+            logger.info(f"🎯 Processor initialized via ProcessorFactory for track {track_id}")
         else:
             self.processor = None  # type: ignore[unreachable]  # No processing for original audio
 
@@ -617,10 +618,11 @@ class ChunkedAudioProcessor:
         """
         Core chunk processing logic (shared by process_chunk and get_wav_chunk_path).
 
-        NEW (Phase 7.3): Uses AdaptiveMode with 2D LWRP when available.
-        Falls back to HybridProcessor for backward compatibility.
-
-        Extracted to eliminate code duplication between the two output methods.
+        NOW DELEGATED TO: AudioProcessingPipeline.process_audio() (Phase 1 refactoring)
+        This method is now a thin wrapper that:
+        1. Loads chunk with context
+        2. Delegates to unified pipeline for processing
+        3. Trims context and smooths levels
 
         Args:
             chunk_index: Index of chunk to process
@@ -633,51 +635,22 @@ class ChunkedAudioProcessor:
         # Load chunk with context
         audio_chunk, chunk_start, chunk_end = self.load_chunk(chunk_index, with_context=True)
 
-        # SPECIAL CASE: If preset is None, we're serving original/unprocessed audio
-        # Just trim context and encode without any processing
-        if self.processor is None:
-            logger.info(f"Serving original audio for chunk {chunk_index} (no processing)")  # type: ignore[unreachable]
-            processed_chunk = audio_chunk
-        else:
-            # NEW (Phase 7.3): Use AdaptiveMode with 2D LWRP if available
-            # This includes intelligent handling of:
-            # - Compressed loud material (LUFS > -12.0, Crest < 13.0) → Expand + gentle reduction
-            # - Dynamic loud material (LUFS > -12.0, Crest ≥ 13.0) → Pass-through (LWRP)
-            # - Quiet/moderate material (LUFS ≤ -12.0) → Full spectrum-based DSP
-            if self.adaptive_mastering_engine is not None and hasattr(self, 'eq_processor'):
-                logger.info(f"🎯 Processing chunk {chunk_index} with AdaptiveMode (2D LWRP included)")
-                try:
-                    # Apply adaptive mastering with fingerprint context and 2D LWRP logic
-                    processed_chunk = self.adaptive_mastering_engine.process(
-                        audio_chunk,
-                        eq_processor=self.eq_processor
-                    )
-                except Exception as e:
-                    logger.warning(f"AdaptiveMode processing failed: {e}, falling back to HybridProcessor")
-                    # Fall back to standard processing
-                    processed_chunk = self._process_chunk_with_hybrid_processor(audio_chunk, chunk_index)
-            else:
-                # Fall back to HybridProcessor (standard processing without 2D LWRP)
-                logger.debug(f"Using HybridProcessor for chunk {chunk_index} (adaptive_mastering_engine not available)")
-                processed_chunk = self._process_chunk_with_hybrid_processor(audio_chunk, chunk_index)
+        # DELEGATE TO UNIFIED PIPELINE (Phase 1 refactoring, updated Phase 2)
+        # This replaces ~80 lines of duplicate processing logic with single call
+        processed_chunk = AudioProcessingPipeline.process_audio(
+            audio=audio_chunk,
+            preset=self.preset,
+            intensity=self.intensity,
+            processor_factory=self._processor_factory,  # Phase 2: Use ProcessorFactory
+            track_id=self.track_id,
+            targets=self.mastering_targets,
+            fast_start=fast_start,
+            chunk_index=chunk_index,
+            allow_empty=False  # Don't allow empty chunks
+        )
 
         # Trim context (keep only the actual chunk)
         processed_chunk = self._trim_context(cast(np.ndarray, processed_chunk), chunk_index)
-
-        # Apply intensity blending
-        if self.intensity < 1.0:
-            # Load the exact same chunk with context that we processed
-            original_chunk_with_context, _, _ = self.load_chunk(chunk_index, with_context=True)
-
-            # Trim context from original to match processed chunk dimensions
-            original_chunk_with_context = self._trim_context(original_chunk_with_context, chunk_index)
-
-            # Now both chunks should have the same length
-            min_len = min(len(original_chunk_with_context), len(processed_chunk))
-            processed_chunk = (
-                original_chunk_with_context[:min_len] * (1.0 - self.intensity) +
-                processed_chunk[:min_len] * self.intensity
-            )
 
         # Validate chunk is not empty before smooth transitions
         if len(processed_chunk) == 0:

@@ -6,6 +6,10 @@ Real-time Processor
 
 Real-time audio chunk processing for streaming applications
 
+NOTE (Phase 1 refactoring): This processor is now a thin wrapper around
+the DSP components. Audio validation is handled by AudioProcessingPipeline
+when this processor is used through the pipeline.
+
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
