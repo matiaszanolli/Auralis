@@ -45,6 +45,8 @@ from core.level_manager import LevelManager
 from core.processor_factory import ProcessorFactory  # Phase 2: Replaced ProcessorManager
 from core.encoding import WAVEncoder
 from core.audio_processing_pipeline import AudioProcessingPipeline
+from core.chunk_operations import ChunkOperations  # Phase 3: Unified chunk operations
+from core.mastering_target_service import MasteringTargetService  # Phase 4: Unified fingerprint/target management
 
 # Phase 2 (Analysis caching) modules created but not yet integrated
 # To be integrated after resolving import structure issues
@@ -122,6 +124,7 @@ class ChunkedAudioProcessor:
         self._level_manager: Any = LevelManager(max_level_change_db=MAX_LEVEL_CHANGE_DB)
         self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
         self._processor_factory: Any = ProcessorFactory()  # Phase 2: Unified processor factory
+        self._mastering_target_service: Any = MasteringTargetService()  # Phase 4: Unified fingerprint/target management
 
         # CRITICAL: Async lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
@@ -138,21 +141,23 @@ class ChunkedAudioProcessor:
         self.mastering_recommendation = None
         self.adaptive_mastering_engine = None
 
-        # NEW (Phase 7.3): Enhanced fingerprint loading with database fallback
-        # Priority: Database (fastest - cached) → .25d file → None
+        # NEW (Phase 7.3, updated Phase 4): Enhanced fingerprint loading via MasteringTargetService
+        # 3-tier loading: Database (fastest) → .25d file → Extract from audio (if needed)
         if self.preset is not None:
-            # Step 1: Try database first (fastest if available)
-            self._load_fingerprint_from_database(track_id)
+            # DELEGATE TO MASTERING TARGET SERVICE (Phase 4 refactoring)
+            # This replaces duplicate 3-tier loading logic with single service call
+            result = self._mastering_target_service.load_fingerprint(
+                track_id=track_id,
+                filepath=filepath,
+                extract_if_missing=False,  # Don't extract on init, only on first chunk playback
+                save_extracted=True
+            )
 
-            # Step 2: Fall back to .25d file if database lookup failed
-            if self.fingerprint is None:
-                from auralis.analysis.fingerprint import FingerprintStorage
-                cached_data = FingerprintStorage.load(Path(filepath))
-                if cached_data:
-                    self.fingerprint, self.mastering_targets = cached_data
-                    logger.info(f"✅ Loaded fingerprint from .25d file for track {track_id}")
+            if result is not None:
+                self.fingerprint, self.mastering_targets = result
+                logger.info(f"✅ Loaded fingerprint/targets via MasteringTargetService for track {track_id}")
 
-            # Step 3: Initialize adaptive mastering engine with fingerprint context
+            # Initialize adaptive mastering engine with fingerprint context
             if self.fingerprint is not None:
                 self._init_adaptive_mastering()
 
@@ -237,66 +242,8 @@ class ChunkedAudioProcessor:
             # Calculate chunks based on CHUNK_INTERVAL (not CHUNK_DURATION)
             self.total_chunks = int(np.ceil(self.total_duration / CHUNK_INTERVAL))
 
-    def _load_fingerprint_from_database(self, track_id: int) -> None:
-        """
-        NEW (Phase 7.3): Load fingerprint from database for faster processing.
-
-        The database cache is the fastest source of fingerprints for already-processed tracks.
-        Falls back gracefully if database unavailable or fingerprint missing.
-        """
-        try:
-            from auralis.library.manager import LibraryManager
-            from pathlib import Path as PathlibPath
-
-            # Initialize with default database location
-            db_path = str(PathlibPath.home() / ".auralis" / "library.db")
-            lib_manager = LibraryManager(database_path=db_path)
-
-            # Try to get fingerprint from database
-            fp_record = lib_manager.fingerprints.get_by_track_id(track_id)
-
-            if fp_record:
-                # Convert database record to MasteringFingerprint
-                from auralis.analysis.mastering_fingerprint import MasteringFingerprint
-
-                # Extract all 25 dimensions from database record
-                fp_dict = {
-                    'sub_bass_pct': fp_record.sub_bass_pct,
-                    'bass_pct': fp_record.bass_pct,
-                    'low_mid_pct': fp_record.low_mid_pct,
-                    'mid_pct': fp_record.mid_pct,
-                    'upper_mid_pct': fp_record.upper_mid_pct,
-                    'presence_pct': fp_record.presence_pct,
-                    'air_pct': fp_record.air_pct,
-                    'lufs': fp_record.lufs,
-                    'crest_db': fp_record.crest_db,
-                    'bass_mid_ratio': fp_record.bass_mid_ratio,
-                    'tempo_bpm': fp_record.tempo_bpm,
-                    'rhythm_stability': fp_record.rhythm_stability,
-                    'transient_density': fp_record.transient_density,
-                    'silence_ratio': fp_record.silence_ratio,
-                    'spectral_centroid': fp_record.spectral_centroid,
-                    'spectral_rolloff': fp_record.spectral_rolloff,
-                    'spectral_flatness': fp_record.spectral_flatness,
-                    'harmonic_ratio': fp_record.harmonic_ratio,
-                    'pitch_stability': fp_record.pitch_stability,
-                    'chroma_energy': fp_record.chroma_energy,
-                    'dynamic_range_variation': fp_record.dynamic_range_variation,
-                    'loudness_variation_std': fp_record.loudness_variation_std,
-                    'peak_consistency': fp_record.peak_consistency,
-                    'stereo_width': fp_record.stereo_width,
-                    'phase_correlation': fp_record.phase_correlation,
-                }
-
-                # Create MasteringFingerprint object
-                self.fingerprint = MasteringFingerprint(**fp_dict)
-                logger.info(f"✅ Loaded fingerprint from database for track {track_id} (LUFS: {fp_record.lufs:.1f}, Crest: {fp_record.crest_db:.1f})")
-            else:
-                logger.debug(f"No fingerprint in database for track {track_id}")
-
-        except Exception as e:
-            logger.debug(f"Database fingerprint lookup failed for track {track_id}: {e}")
-            # Silently fall back to other methods (will try .25d file next)
+    # REMOVED (Phase 4 refactoring): _load_fingerprint_from_database()
+    # Now handled by MasteringTargetService.load_fingerprint_from_database()
 
     def _init_adaptive_mastering(self) -> None:
         """
@@ -383,8 +330,7 @@ class ChunkedAudioProcessor:
         """
         Load a single chunk from audio file with optional context.
 
-        Chunks after the first include OVERLAP_DURATION at the start for crossfading.
-        This ensures no audio is lost during crossfade concatenation.
+        NOW DELEGATED TO: ChunkOperations.load_chunk_from_file() (Phase 3 refactoring)
 
         Args:
             chunk_index: Index of chunk to load (0-based)
@@ -393,58 +339,19 @@ class ChunkedAudioProcessor:
         Returns:
             Tuple of (audio_chunk, chunk_start_time, chunk_end_time)
         """
-        # Get boundaries from ChunkBoundaryManager (Phase 3.5 refactoring)
-        load_start, load_end, chunk_start, chunk_end = self._boundary_manager.get_chunk_boundaries(
+        assert self.sample_rate is not None
+
+        # DELEGATE TO CHUNK OPERATIONS (Phase 3 refactoring)
+        return ChunkOperations.load_chunk_from_file(
+            filepath=self.filepath,
             chunk_index=chunk_index,
-            with_context=with_context
+            sample_rate=self.sample_rate,
+            chunk_duration=CHUNK_DURATION,
+            chunk_interval=CHUNK_INTERVAL,
+            overlap_duration=OVERLAP_DURATION,
+            with_context=with_context,
+            total_duration=self.total_duration
         )
-
-        # Load audio segment
-        try:
-            import soundfile as sf
-            assert self.sample_rate is not None
-            start_frame = int(load_start * self.sample_rate)
-            frames_to_read = int((load_end - load_start) * self.sample_rate)
-
-            with sf.SoundFile(self.filepath) as f:
-                f.seek(start_frame)
-                audio = f.read(frames_to_read)
-
-                # Ensure 2D array (samples, channels)
-                if audio.ndim == 1:
-                    audio = audio[:, np.newaxis]
-
-        except Exception as e:
-            logger.warning(f"Soundfile loading failed, using fallback: {e}")
-            # Fallback: load entire audio and slice with optional downsampling
-            assert self.sample_rate is not None
-            full_audio, _ = load_audio(
-                self.filepath,
-                target_sample_rate=self.sample_rate
-            )
-            start_sample = int(load_start * self.sample_rate)
-            end_sample = int(load_end * self.sample_rate)
-
-            # Ensure we don't try to read beyond the file
-            end_sample = min(end_sample, len(full_audio))
-
-            if start_sample >= len(full_audio):
-                logger.error(f"Chunk {chunk_index} start ({start_sample}) beyond file length ({len(full_audio)})")
-                # Return silence instead of crashing
-                audio = np.zeros((1, full_audio.shape[1] if full_audio.ndim > 1 else 1))
-            else:
-                audio = full_audio[start_sample:end_sample]
-
-        # Validate that we loaded something
-        if len(audio) == 0:
-            assert self.sample_rate is not None and self.total_duration is not None
-            logger.error(f"Chunk {chunk_index} resulted in empty audio (start={load_start:.1f}s, end={load_end:.1f}s, duration={self.total_duration:.1f}s)")
-            # Return minimal silence instead of empty array to prevent downstream crashes
-            num_channels = 2  # Default to stereo
-            audio = np.zeros((int(0.1 * self.sample_rate), num_channels))  # 100ms of silence
-            logger.warning(f"Returning 100ms of silence for chunk {chunk_index} to prevent crash")
-
-        return audio, chunk_start, chunk_end
 
     def _calculate_rms(self, audio: np.ndarray) -> float:
         """
@@ -694,49 +601,27 @@ class ChunkedAudioProcessor:
 
         logger.info(f"Processing chunk {chunk_index}/{self.total_chunks} (preset: {self.preset}, fast_start: {fast_start})")
 
-        # NEW (Beta.9): Extract fingerprint on first chunk if not cached
-        # This creates the .25d file for future fast processing
+        # NEW (Beta.9, updated Phase 4): Extract fingerprint on first chunk if not cached
+        # DELEGATE TO MASTERING TARGET SERVICE (Phase 4 refactoring)
         if self.fingerprint is None and chunk_index == 0 and self.preset is not None:
-            logger.info(f"🔍 Extracting fingerprint for track {self.track_id} (first playback)...")
+            logger.info(f"🔍 Extracting fingerprint for track {self.track_id} via MasteringTargetService...")
 
             try:
-                # Load full audio for fingerprint extraction
-                from auralis.io.unified_loader import load_audio
-                full_audio, sr = load_audio(self.filepath)
+                # Extract fingerprint via service (handles saving to .25d file)
+                result = self._mastering_target_service.extract_fingerprint_from_audio(
+                    filepath=self.filepath,
+                    sample_rate=self.sample_rate,
+                    save_to_file=True
+                )
 
-                # Extract complete 25D fingerprint
-                from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
-                analyzer = AudioFingerprintAnalyzer()
-
-                # Add metadata for .25d file
-                try:
-                    from mutagen import File as MutagenFile  # type: ignore[attr-defined]
-                    audio_file = MutagenFile(self.filepath)
-                    duration_value: float = float(audio_file.info.length) if audio_file else (self.total_duration if self.total_duration is not None else 0.0)
-                except Exception:
-                    duration_value = self.total_duration if self.total_duration is not None else 0.0
-
-                fingerprint_data = analyzer.analyze(full_audio, sr)
-                if fingerprint_data is not None:
-                    self.fingerprint = fingerprint_data
-                    # Add metadata (will be stripped before saving)
-                    self.fingerprint['_metadata'] = {  # type: ignore[assignment]
-                        'duration': duration_value,
-                        'sample_rate': sr
-                    }
-
-                    # Generate mastering targets from fingerprint
-                    self.mastering_targets = self._generate_targets_from_fingerprint(self.fingerprint)
+                if result is not None:
+                    self.fingerprint, self.mastering_targets = result
+                    logger.info(f"✅ Fingerprint extracted and targets generated via MasteringTargetService")
 
                     # Set targets on processor for fixed-target mode
                     if self.processor is not None:
                         self.processor.set_fixed_mastering_targets(self.mastering_targets)
                         logger.info(f"🎯 Applied newly extracted mastering targets to processor")
-
-                    # Save to .25d file for future use
-                    from auralis.analysis.fingerprint import FingerprintStorage
-                    FingerprintStorage.save(Path(self.filepath), self.fingerprint, self.mastering_targets)
-                    logger.info(f"💾 Saved fingerprint to .25d file for track {self.track_id}")
 
             except Exception as e:
                 logger.error(f"Fingerprint extraction failed: {e}, using default processing")
@@ -923,68 +808,11 @@ class ChunkedAudioProcessor:
 
         return None
 
-    def _generate_targets_from_fingerprint(self, fingerprint: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Generate mastering targets from 25D fingerprint.
+    # REMOVED (Phase 4 refactoring): _generate_targets_from_fingerprint()
+    # Now handled by MasteringTargetService.generate_targets_from_fingerprint()
 
-        This converts acoustic characteristics into processing parameters.
-        Targets remain fixed for the entire track, enabling fast processing.
-
-        Args:
-            fingerprint: 25D fingerprint dictionary
-
-        Returns:
-            Dictionary of mastering targets
-        """
-        freq = fingerprint.get('frequency', {})
-        dynamics = fingerprint.get('dynamics', {})
-
-        # Target loudness based on current LUFS
-        current_lufs = dynamics.get('lufs', -14.0)
-        target_lufs = -14.0  # Standard streaming loudness
-
-        # Target crest factor (preserve dynamic range character)
-        current_crest = dynamics.get('crest_db', 12.0)
-        target_crest = max(10.0, current_crest * 0.85)  # Slight reduction
-
-        # EQ adjustments based on frequency balance
-        eq_adjustments = {
-            'sub_bass': self._calculate_eq_adjustment(freq.get('sub_bass_pct', 5.0), ideal=5.0),
-            'bass': self._calculate_eq_adjustment(freq.get('bass_pct', 15.0), ideal=15.0),
-            'low_mid': self._calculate_eq_adjustment(freq.get('low_mid_pct', 18.0), ideal=18.0),
-            'mid': self._calculate_eq_adjustment(freq.get('mid_pct', 22.0), ideal=22.0),
-            'upper_mid': self._calculate_eq_adjustment(freq.get('upper_mid_pct', 20.0), ideal=20.0),
-            'presence': self._calculate_eq_adjustment(freq.get('presence_pct', 13.0), ideal=13.0),
-            'air': self._calculate_eq_adjustment(freq.get('air_pct', 7.0), ideal=7.0),
-        }
-
-        return {
-            'target_lufs': target_lufs,
-            'target_crest_db': target_crest,
-            'eq_adjustments_db': eq_adjustments,
-            'compression': {
-                'ratio': 2.5,
-                'amount': 0.6
-            }
-        }
-
-    def _calculate_eq_adjustment(self, current_pct: float, ideal: float) -> float:
-        """
-        Calculate EQ adjustment in dB to reach ideal percentage.
-
-        Args:
-            current_pct: Current frequency percentage
-            ideal: Ideal frequency percentage
-
-        Returns:
-            EQ adjustment in dB (clamped to ±6 dB)
-        """
-        # Simple proportional adjustment
-        diff = ideal - current_pct
-        # ±1% difference = ±0.5 dB adjustment (gentle)
-        adjustment = diff * 0.5
-        # Clamp to reasonable range
-        return max(-6.0, min(6.0, adjustment))
+    # REMOVED (Phase 4 refactoring): _calculate_eq_adjustment()
+    # Now handled by MasteringTargetService._calculate_eq_adjustment()
 
     async def process_all_chunks_async(self) -> None:
         """
