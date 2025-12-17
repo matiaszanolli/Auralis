@@ -28,12 +28,12 @@ class TemporalOperations:
     """Centralized temporal/rhythmic feature calculations."""
 
     @staticmethod
-    def detect_tempo(onset_env: np.ndarray, sr: int) -> float:
+    def detect_tempo(audio: np.ndarray, sr: int) -> float:
         """
-        Detect tempo in BPM using librosa.
+        Detect tempo in BPM using Rust DSP backend.
 
         Args:
-            onset_env: Onset strength envelope (pre-computed)
+            audio: Audio signal (raw audio, not onset envelope)
             sr: Sample rate
 
         Returns:
@@ -42,24 +42,10 @@ class TemporalOperations:
         try:
             # Import here to avoid circular dependency
             from ..common_metrics import MetricUtils
+            from .dsp_backend import DSPBackend
 
-            # Suppress FutureWarning about API migration (we're ready when it happens)
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=FutureWarning, module="librosa")
-
-                try:
-                    # Try new location first (librosa >= 1.0.0 when released)
-                    tempo_array = librosa.feature.rhythm.tempo(onset_envelope=onset_env, sr=sr)
-                except AttributeError:
-                    # Current location (librosa < 1.0.0, including 0.11.0)
-                    tempo_array = librosa.beat.tempo(onset_envelope=onset_env, sr=sr)
-
-            # Handle empty array (no tempo detected)
-            if len(tempo_array) == 0:
-                logger.debug("Tempo detection returned empty array, using default")
-                return 120.0
-
-            tempo = tempo_array[0]
+            # Use Rust tempo detection (spectral flux onset detection)
+            tempo = DSPBackend.detect_tempo(audio, sr=sr)
 
             # Clip tempo to reasonable BPM range using MetricUtils
             tempo = MetricUtils.clip_to_range(tempo, 40, 200)
@@ -201,8 +187,9 @@ class TemporalOperations:
             onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
             rms = librosa.feature.rms(y=audio)[0]
 
-            # Calculate all metrics using pre-computed envelopes
-            tempo = TemporalOperations.detect_tempo(onset_env, sr)
+            # Calculate all metrics
+            # Note: detect_tempo now uses Rust backend and requires raw audio
+            tempo = TemporalOperations.detect_tempo(audio, sr)
             rhythm_stability = TemporalOperations.calculate_rhythm_stability(onset_env, sr)
             transient_density = TemporalOperations.calculate_transient_density(audio, sr, onset_env)
             silence_ratio = TemporalOperations.calculate_silence_ratio(rms)

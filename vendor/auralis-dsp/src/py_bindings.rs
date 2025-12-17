@@ -8,7 +8,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use numpy::{PyArray1, PyArray2, ToPyArray, IntoPyArray};
-use crate::{hpss, yin, chroma, tempo};
+use crate::{hpss, yin, chroma, tempo, envelope, compressor, limiter};
 
 /// PyO3 module initialization
 /// Exposes all DSP functions to Python
@@ -26,6 +26,15 @@ fn auralis_dsp(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(detect_tempo_wrapper, m)?)?;
     m.add("detect_tempo", m.getattr("detect_tempo_wrapper")?)?;
+
+    m.add_function(wrap_pyfunction!(envelope_follow_wrapper, m)?)?;
+    m.add("envelope_follow", m.getattr("envelope_follow_wrapper")?)?;
+
+    m.add_function(wrap_pyfunction!(compress_wrapper, m)?)?;
+    m.add("compress", m.getattr("compress_wrapper")?)?;
+
+    m.add_function(wrap_pyfunction!(limit_wrapper, m)?)?;
+    m.add("limit", m.getattr("limit_wrapper")?)?;
 
     Ok(())
 }
@@ -228,4 +237,235 @@ fn detect_tempo_wrapper(
     let estimated_tempo = tempo::detect_tempo(&audio_vec, sr, &config);
 
     Ok(estimated_tempo)
+}
+
+/// Python wrapper for Envelope Follower
+///
+/// High-performance envelope follower with attack/release characteristics.
+/// Used for compressor/limiter gain smoothing and level detection.
+///
+/// Arguments:
+///     input_levels: numpy array of shape (n_samples,) with dtype float32
+///     sample_rate: Audio sample rate in Hz (typically 44100)
+///     attack_ms: Attack time in milliseconds (default: 10.0)
+///     release_ms: Release time in milliseconds (default: 100.0)
+///
+/// Returns:
+///     numpy array of shape (n_samples,) with envelope values
+///
+/// Example:
+///     >>> import numpy as np
+///     >>> import auralis_dsp
+///     >>> # Detect peaks in audio with 10ms attack, 100ms release
+///     >>> levels = np.abs(audio).astype(np.float32)
+///     >>> envelope = auralis_dsp.envelope_follow(levels, sr=44100, attack_ms=10.0, release_ms=100.0)
+#[pyfunction]
+#[pyo3(signature = (input_levels, sample_rate = 44100, attack_ms = 10.0, release_ms = 100.0))]
+fn envelope_follow_wrapper(
+    py: Python<'_>,
+    input_levels: &PyArray1<f32>,
+    sample_rate: usize,
+    attack_ms: f32,
+    release_ms: f32,
+) -> PyResult<Py<PyArray1<f32>>> {
+    // Convert numpy array to Rust vec
+    let levels_vec: Vec<f32> = input_levels.to_vec().map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            format!("Failed to convert input_levels array: {}", e),
+        )
+    })?;
+
+    // Call Rust envelope follower function
+    let envelope = envelope::envelope_follow(&levels_vec, sample_rate, attack_ms, release_ms);
+
+    // Convert result to numpy array
+    let envelope_py = envelope.into_pyarray_bound(py).unbind();
+
+    Ok(envelope_py)
+}
+
+/// Python wrapper for Compressor
+///
+/// High-performance dynamic range compressor with peak/RMS/hybrid detection.
+/// Used for mastering and mixing to control dynamic range.
+///
+/// Arguments:
+///     audio: numpy array of shape (n_samples,) with dtype float32
+///     sample_rate: Audio sample rate in Hz (typically 44100)
+///     threshold_db: Compression threshold in dB (default: -20.0)
+///     ratio: Compression ratio (default: 4.0, i.e., 4:1)
+///     knee_db: Soft knee width in dB (default: 6.0)
+///     attack_ms: Attack time in milliseconds (default: 5.0)
+///     release_ms: Release time in milliseconds (default: 50.0)
+///     makeup_gain_db: Makeup gain in dB (default: 0.0)
+///     enable_lookahead: Enable lookahead buffer (default: True)
+///     lookahead_ms: Lookahead time in milliseconds (default: 5.0)
+///     detection_mode: Detection mode - "peak", "rms", or "hybrid" (default: "peak")
+///
+/// Returns:
+///     Tuple of (compressed_audio, compression_info_dict)
+///
+/// Example:
+///     >>> import numpy as np
+///     >>> import auralis_dsp
+///     >>> audio = np.random.randn(44100).astype(np.float32)
+///     >>> compressed, info = auralis_dsp.compress(audio, sr=44100, threshold_db=-20.0, ratio=4.0)
+///     >>> print(f"Peak GR: {info['peak_gain_reduction_db']:.2f} dB")
+#[pyfunction]
+#[pyo3(signature = (
+    audio,
+    sample_rate = 44100,
+    threshold_db = -20.0,
+    ratio = 4.0,
+    knee_db = 6.0,
+    attack_ms = 5.0,
+    release_ms = 50.0,
+    makeup_gain_db = 0.0,
+    enable_lookahead = true,
+    lookahead_ms = 5.0,
+    detection_mode = "peak"
+))]
+fn compress_wrapper(
+    py: Python<'_>,
+    audio: &PyArray1<f32>,
+    sample_rate: usize,
+    threshold_db: f32,
+    ratio: f32,
+    knee_db: f32,
+    attack_ms: f32,
+    release_ms: f32,
+    makeup_gain_db: f32,
+    enable_lookahead: bool,
+    lookahead_ms: f32,
+    detection_mode: &str,
+) -> PyResult<(Py<PyArray1<f32>>, PyObject)> {
+    // Convert numpy array to Rust vec
+    let audio_vec: Vec<f32> = audio.to_vec().map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            format!("Failed to convert audio array: {}", e),
+        )
+    })?;
+
+    // Parse detection mode
+    let mode = match detection_mode.to_lowercase().as_str() {
+        "peak" => compressor::DetectionMode::Peak,
+        "rms" => compressor::DetectionMode::Rms,
+        "hybrid" => compressor::DetectionMode::Hybrid,
+        _ => return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            format!("Invalid detection_mode: '{}'. Must be 'peak', 'rms', or 'hybrid'", detection_mode)
+        )),
+    };
+
+    // Build compressor config
+    let config = compressor::CompressorConfig {
+        sample_rate,
+        threshold_db,
+        ratio,
+        knee_db,
+        attack_ms,
+        release_ms,
+        makeup_gain_db,
+        enable_lookahead,
+        lookahead_ms,
+    };
+
+    // Call Rust compressor function
+    let (compressed, info) = compressor::compress(&audio_vec, &config, mode);
+
+    // Convert result to numpy array
+    let compressed_py = compressed.into_pyarray_bound(py).unbind();
+
+    // Convert compression info to Python dict
+    let info_dict = pyo3::types::PyDict::new_bound(py);
+    info_dict.set_item("input_level_db", info.input_level_db)?;
+    info_dict.set_item("gain_reduction_db", info.gain_reduction_db)?;
+    info_dict.set_item("output_gain", info.output_gain)?;
+    info_dict.set_item("threshold_db", info.threshold_db)?;
+    info_dict.set_item("ratio", info.ratio)?;
+
+    Ok((compressed_py, info_dict.into()))
+}
+
+/// Python wrapper for Limiter
+///
+/// High-performance lookahead limiter with ISR and optional oversampling.
+/// Used for peak control and preventing clipping in mastering.
+///
+/// Arguments:
+///     audio: numpy array of shape (n_samples,) with dtype float32
+///     sample_rate: Audio sample rate in Hz (typically 44100)
+///     threshold_db: Limiting threshold in dB (default: -0.1)
+///     release_ms: Release time in milliseconds (default: 50.0)
+///     lookahead_ms: Lookahead time in milliseconds (default: 5.0)
+///     isr_enabled: Enable inter-sample peak detection (default: True)
+///     oversampling: Oversampling factor - 1 (off), 2, or 4 (default: 1)
+///
+/// Returns:
+///     Tuple of (limited_audio, limiting_info_dict)
+///
+/// Example:
+///     >>> import numpy as np
+///     >>> import auralis_dsp
+///     >>> audio = np.random.randn(44100).astype(np.float32) * 1.5  # Potentially clipping
+///     >>> limited, info = auralis_dsp.limit(audio, sr=44100, threshold_db=-0.1, isr_enabled=True)
+///     >>> print(f"GR: {info['gain_reduction_db']:.2f} dB, Peak: {info['output_peak_db']:.2f} dB")
+#[pyfunction]
+#[pyo3(signature = (
+    audio,
+    sample_rate = 44100,
+    threshold_db = -0.1,
+    release_ms = 50.0,
+    lookahead_ms = 5.0,
+    isr_enabled = true,
+    oversampling = 1
+))]
+fn limit_wrapper(
+    py: Python<'_>,
+    audio: &PyArray1<f32>,
+    sample_rate: usize,
+    threshold_db: f32,
+    release_ms: f32,
+    lookahead_ms: f32,
+    isr_enabled: bool,
+    oversampling: usize,
+) -> PyResult<(Py<PyArray1<f32>>, PyObject)> {
+    // Convert numpy array to Rust vec
+    let audio_vec: Vec<f32> = audio.to_vec().map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            format!("Failed to convert audio array: {}", e),
+        )
+    })?;
+
+    // Validate oversampling factor
+    if oversampling != 1 && oversampling != 2 && oversampling != 4 {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            format!("Invalid oversampling: {}. Must be 1, 2, or 4", oversampling)
+        ));
+    }
+
+    // Build limiter config
+    let config = limiter::LimiterConfig {
+        sample_rate,
+        threshold_db,
+        release_ms,
+        lookahead_ms,
+        isr_enabled,
+        oversampling,
+    };
+
+    // Call Rust limiter function
+    let (limited, info) = limiter::limit(&audio_vec, &config);
+
+    // Convert result to numpy array
+    let limited_py = limited.into_pyarray_bound(py).unbind();
+
+    // Convert limiting info to Python dict
+    let info_dict = pyo3::types::PyDict::new_bound(py);
+    info_dict.set_item("input_peak_db", info.input_peak_db)?;
+    info_dict.set_item("output_peak_db", info.output_peak_db)?;
+    info_dict.set_item("gain_reduction_db", info.gain_reduction_db)?;
+    info_dict.set_item("threshold_db", info.threshold_db)?;
+    info_dict.set_item("peak_hold_db", info.peak_hold_db)?;
+
+    Ok((limited_py, info_dict.into()))
 }
