@@ -8,6 +8,7 @@ ndarray = "0.15"
 num-complex = "0.4"
 rayon = "1.7"
 rustfft = "6.1"
+realfft = "3.3"
 pyo3 = { version = "0.21", features = ["extension-module"] }
 numpy = "0.21"
 # HTTP server dependencies (legacy)

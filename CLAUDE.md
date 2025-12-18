@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **📌 Current Version**: 1.1.0-beta.5 (Python), 1.0.0-beta.12.1 (Desktop) | **🐍 Python**: 3.13+ | **📦 Node**: 20+ LTS | **🦀 Rust**: Optional (vendor/auralis-dsp via PyO3)
 
+> **👋 First time setting up?** See [FIRST_TIME_SETUP.md](FIRST_TIME_SETUP.md) for a step-by-step guide. This document is the architecture and development reference for experienced developers.
+
 **Architecture**: Hybrid Python + Rust
 - Python layer: Research, orchestration, REST API, database
 - Rust layer: `vendor/auralis-dsp` for performance-critical DSP (HPSS, YIN, Chroma via PyO3)
@@ -98,6 +100,169 @@ python -m pytest tests/backend/test_player.py -v
 - **8765**: FastAPI backend (REST API + WebSocket)
 - **3000**: React development server (Vite)
 - **8000**: Worker API (if running)
+
+---
+
+## 🔧 Workspace & IDE Setup (Recommended)
+
+### VS Code Configuration
+
+**Extensions** (Install from VS Code Marketplace):
+- **Python** (Microsoft) - Language support
+- **Pylance** (Microsoft) - Type checking, IntelliSense
+- **Black Formatter** (Microsoft) - Python formatting
+- **TypeScript Vue Plugin** (Vue) - Vue/TypeScript support
+- **ESLint** (Microsoft) - JavaScript linting
+- **Prettier** (esbenp) - Code formatter
+- **REST Client** (humao) - Test API endpoints (optional)
+
+**Settings** (`.vscode/settings.json` - partially pre-configured):
+```json
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.linting.enabled": true,
+  "python.formatting.provider": "black",
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    }
+  },
+  "[typescript]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}
+```
+
+### Python Environment Management
+
+**Using venv** (recommended, built-in):
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# or .venv\Scripts\activate (Windows)
+```
+
+**Using pyenv** (for multiple Python versions):
+```bash
+pyenv install 3.13.0
+pyenv local 3.13.0
+python -m venv .venv
+```
+
+**Verify activation**:
+```bash
+which python  # Should show path inside .venv
+python --version  # Should be 3.13+
+```
+
+### Node.js Version Management
+
+**Using nvm** (Node Version Manager):
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+nvm install 20
+nvm use 20
+```
+
+**Using volta** (simple, one-command):
+```bash
+curl https://get.volta.sh | bash
+volta install node@20
+```
+
+**Verify**:
+```bash
+node --version  # Should be 20+ LTS
+npm --version
+```
+
+### Git Hooks (Optional but Recommended)
+
+Enable pre-commit hooks to catch issues before committing:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This will:
+- Check Python syntax
+- Format code with Black
+- Sort imports with isort
+- Run type checking (mypy)
+- Check TypeScript with tsc
+
+---
+
+## 🔊 Audio Dependencies & Troubleshooting
+
+### Supported Audio Backends
+
+Auralis uses `audioread` which supports multiple backends. Available backends are **platform-dependent**:
+
+**Linux**:
+- FFmpeg (most flexible)
+- libsndfile
+- libvorbis/libflac (with libsndfile)
+
+**macOS**:
+- Core Audio (native)
+- FFmpeg
+
+**Windows**:
+- WinMM (native)
+- FFmpeg
+
+### Check Available Backends
+```bash
+python -c "
+import audioread
+print('Available audioread backends:')
+for backend in audioread.get_backends():
+    print(f'  ✅ {backend.__name__}')
+"
+```
+
+### Audio Library Installation
+
+**Linux (Ubuntu/Debian)**:
+```bash
+sudo apt-get install -y libsndfile1 libsndfile1-dev ffmpeg libavformat-dev libavcodec-dev
+```
+
+**Linux (Fedora/RHEL)**:
+```bash
+sudo dnf install -y libsndfile libsndfile-devel ffmpeg
+```
+
+**macOS**:
+```bash
+brew install libsndfile ffmpeg
+```
+
+**Windows**:
+- Download FFmpeg from https://ffmpeg.org/download.html and add to PATH
+- libsndfile usually installs automatically with Python packages
+
+### Audio Format Support
+
+Supported formats (via soundfile + FFmpeg):
+- WAV (16/24-bit PCM) - native
+- FLAC - via FFmpeg
+- MP3 - via FFmpeg
+- OGG Vorbis - via FFmpeg
+- M4A/AAC - via FFmpeg
+
+### Troubleshooting Audio Issues
+
+| Issue | Solution |
+|-------|----------|
+| `audioread: no backends available` | Install FFmpeg: `brew install ffmpeg` (macOS) or `apt-get install ffmpeg` (Linux) |
+| `libsndfile not found` | Install dev libs: `apt-get install libsndfile1-dev` |
+| `Import Error: soundfile` | Reinstall: `pip install --upgrade soundfile` |
+| `Unsupported format error` | Ensure FFmpeg is in PATH: `which ffmpeg` |
+| `Sample rate mismatch` | Always validate sample rates before processing (see `auralis/io/`) |
 
 ---
 
@@ -872,12 +1037,250 @@ python sync_version.py 1.1.0-beta.6
 - **Frontend**: Use `npm run test:memory` for full suite (2GB heap prevents OOM)
 - **Coverage**: Coverage ≠ Quality—focus on testing behavior and invariants, not implementation
 
-### Git Workflow
+### Git Workflow & Development Process
+
+**Branching Strategy**:
 - **Branch from**: Always branch from `master` (main branch)
+- **Naming**: Use `feature/`, `fix/`, `refactor/`, or `docs/` prefixes
+  - Example: `feature/streaming-improvements`, `fix/audio-gap-chunked-processor`
 - **Commit format**: `type: description` (e.g., `fix: Resolve audio gap in ChunkedProcessor`)
   - Types: `feat` (new feature), `fix` (bug fix), `refactor` (code structure), `perf` (optimization), `test` (test-only), `docs` (documentation)
 - **Commit scope**: Keep commits focused on one logical change
-- **Merge strategy**: Squash merge to `master` when PR approved (keeps history clean)
+- **Commit message format**:
+  ```
+  type: Brief description (< 50 chars)
+
+  Longer explanation if needed (wrap at 72 chars).
+  Explain the "why", not the "what" (code shows that).
+
+  - Bullet points for multiple changes
+  - Keep it concise
+  ```
+
+**Pull Request Process**:
+1. Create feature branch from `master`
+2. Make focused commits (related to one feature)
+3. Ensure all tests pass: `pytest tests/ -m "not slow" -v`
+4. Run type checks: `mypy auralis/ auralis-web/backend/ --ignore-missing-imports`
+5. Create PR with:
+   - Clear title (follows commit format)
+   - Detailed description of what changed and why
+   - Link to any related issues
+6. Respond to review feedback
+7. Squash merge to `master` when approved
+
+**Code Review Checklist** (for reviewers):
+- [ ] Tests added/updated for new functionality
+- [ ] No hardcoded values or magic numbers
+- [ ] Follows DRY principle (no duplicate logic)
+- [ ] Components/modules < 300 lines
+- [ ] Type annotations present (Python)
+- [ ] Frontend uses design tokens, not hardcoded colors
+- [ ] No console.log or debug code left
+- [ ] Documentation updated if needed
+- [ ] Critical invariants maintained (see CLAUDE.md section)
+
+---
+
+## 💾 Database Management
+
+### Database Location & Initialization
+
+The application uses SQLite located at:
+```bash
+~/.auralis/library.db
+```
+
+**Initialize database** (first time):
+```bash
+python -m auralis.library.init
+```
+
+This creates:
+- Database tables (tracks, artists, albums, etc.)
+- Foreign key relationships
+- Indexes for query performance
+- Initial configuration
+
+### Database Structure
+
+Check the schema:
+```bash
+sqlite3 ~/.auralis/library.db ".schema"
+```
+
+**Key tables**:
+- `tracks` - Audio file metadata (sample rate, duration, channels, path)
+- `artists` - Artist information
+- `albums` - Album information
+- `fingerprints` - Audio fingerprints (25D vectors) for similarity search
+- `preset_parameters` - Pre-computed enhancement parameters (Adaptive, Gentle, Warm, Bright, Punchy)
+
+**View sample data**:
+```bash
+sqlite3 ~/.auralis/library.db
+sqlite> .headers on
+sqlite> .mode column
+sqlite> SELECT COUNT(*) FROM tracks;
+sqlite> SELECT title, artist, duration FROM tracks LIMIT 5;
+sqlite> .quit
+```
+
+### Database Reset & Maintenance
+
+**Backup database** (before major operations):
+```bash
+cp ~/.auralis/library.db ~/.auralis/library.db.backup
+```
+
+**Reset database** (⚠️ removes all data):
+```bash
+rm ~/.auralis/library.db
+python -m auralis.library.init
+# Application will rescan library folder on next startup
+```
+
+**Check database health**:
+```bash
+sqlite3 ~/.auralis/library.db "PRAGMA integrity_check;"
+# Should output: "ok"
+```
+
+**Optimize database** (reclaim space, improve queries):
+```bash
+sqlite3 ~/.auralis/library.db "VACUUM;"
+```
+
+### Database Access Patterns
+
+**RULE: Always use Repository Pattern, NEVER raw SQL in business logic**
+
+```python
+# ✅ Correct - Using repository
+from auralis.library.repositories import TracksRepository
+repo = TracksRepository(session)
+tracks = repo.find_by_artist(artist_id)
+
+# ❌ Wrong - Raw SQL in business logic
+# tracks = session.execute("SELECT * FROM tracks WHERE artist_id = ?").fetchall()
+```
+
+---
+
+## ⚡ Performance Profiling & Optimization
+
+### Profiling Audio Processing
+
+**Profile DSP pipeline** (identify bottlenecks):
+```bash
+# Profile specific module
+python -m cProfile -s cumtime -m pytest tests/performance/test_streaming.py::test_chunk_processing -v
+
+# View top 10 functions by time
+python -c "
+import cProfile
+import pstats
+from auralis.core.hybrid_processor import HybridProcessor
+
+pr = cProfile.Profile()
+pr.enable()
+
+# Your code here
+processor = HybridProcessor()
+# processor.process(audio, analysis)
+
+pr.disable()
+stats = pstats.Stats(pr)
+stats.sort_stats('cumulative')
+stats.print_stats(10)
+"
+```
+
+**Measure function execution time**:
+```bash
+# Run with timing
+time python -c "
+from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
+import numpy as np
+
+analyzer = SpectrumAnalyzer()
+audio = np.random.randn(48000)  # 1 second at 48kHz
+
+for _ in range(10):
+    spectrum = analyzer.analyze(audio)
+"
+```
+
+### Profiling Frontend Performance
+
+**Check bundle size**:
+```bash
+cd auralis-web/frontend
+npm run build
+# Check size of dist/index.js
+ls -lh dist/
+```
+
+**Profile React component renders**:
+```bash
+# Run tests with detailed output
+cd auralis-web/frontend
+npm test -- --reporter=verbose
+
+# In component, add performance markers:
+useEffect(() => {
+  performance.mark('player-load-start');
+  // ... component initialization
+  performance.mark('player-load-end');
+  performance.measure('player-load', 'player-load-start', 'player-load-end');
+  const measure = performance.getEntriesByName('player-load')[0];
+  console.log(`Player loaded in ${measure.duration}ms`);
+}, []);
+```
+
+### Memory Profiling
+
+**Python memory usage**:
+```bash
+pip install memory-profiler
+
+# Profile function
+python -m memory_profiler analyze_performance.py
+
+# In code:
+@profile
+def process_audio(audio):
+    # Code here
+    pass
+```
+
+**Frontend memory (Chrome DevTools)**:
+1. Run dev server: `npm run dev`
+2. Open browser DevTools (F12)
+3. Go to Memory tab
+4. Take heap snapshots before/after actions
+5. Compare snapshots to find leaks
+
+### Performance Targets (Reference)
+
+These are the performance targets for the application:
+- **Audio Processing**: 36.6x real-time (10 seconds in < 275ms)
+- **Library Scanning**: 740+ files/second
+- **Query Response**: < 50ms (cached), < 200ms (uncached)
+- **WebSocket Messages**: < 10ms delivery with ordering
+- **Frontend Render**: < 16ms (60 FPS target)
+- **Memory Usage**: < 200MB idle, < 500MB at full load
+
+### Quick Performance Checklist
+
+- [ ] All audio processing loops use NumPy vectorization
+- [ ] Database queries cached when deterministic
+- [ ] No N+1 query problems (use `selectinload()`)
+- [ ] Frontend components memoized appropriately
+- [ ] WebSocket messages batch when possible
+- [ ] Streaming chunks processed without blocking
+- [ ] No memory leaks (subscriptions cleaned up)
+- [ ] Type checking passes (enables optimization)
 
 ---
 

@@ -6,9 +6,9 @@
 /// This module provides seamless Python bindings via PyO3.
 
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
+use pyo3::types::{PyModule, PyDict};
 use numpy::{PyArray1, PyArray2, ToPyArray, IntoPyArray};
-use crate::{hpss, yin, chroma, tempo, envelope, compressor, limiter};
+use crate::{hpss, yin, chroma, tempo, envelope, compressor, limiter, fingerprint_compute};
 
 /// PyO3 module initialization
 /// Exposes all DSP functions to Python
@@ -35,6 +35,9 @@ fn auralis_dsp(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(limit_wrapper, m)?)?;
     m.add("limit", m.getattr("limit_wrapper")?)?;
+
+    m.add_function(wrap_pyfunction!(compute_fingerprint_wrapper, m)?)?;
+    m.add("compute_fingerprint", m.getattr("compute_fingerprint_wrapper")?)?;
 
     Ok(())
 }
@@ -468,4 +471,105 @@ fn limit_wrapper(
     info_dict.set_item("peak_hold_db", info.peak_hold_db)?;
 
     Ok((limited_py, info_dict.into()))
+}
+
+/// Python wrapper for complete 25D fingerprint computation
+///
+/// Computes a comprehensive audio fingerprint with 25 dimensions covering:
+/// - Frequency distribution (7D)
+/// - Dynamics (3D)
+/// - Temporal characteristics (4D)
+/// - Spectral features (3D)
+/// - Harmonic content (3D)
+/// - Variation metrics (3D)
+/// - Stereo field (2D)
+///
+/// Arguments:
+///     audio: numpy array of shape (n_samples,) with dtype float32
+///     sample_rate: Audio sample rate in Hz (typically 48000)
+///     channels: Number of audio channels (1 = mono, 2 = stereo)
+///
+/// Returns:
+///     Dictionary with 25 fingerprint dimensions
+///
+/// Example:
+///     >>> import numpy as np
+///     >>> import auralis_dsp
+///     >>> audio = np.random.randn(48000).astype(np.float32)
+///     >>> fingerprint = auralis_dsp.compute_fingerprint(audio, 48000, 1)
+///     >>> print(fingerprint['lufs'], fingerprint['tempo_bpm'])
+#[pyfunction]
+fn compute_fingerprint_wrapper(
+    py: Python<'_>,
+    audio: Vec<f32>,
+    sample_rate: u32,
+    channels: u32,
+) -> PyResult<PyObject> {
+    if audio.is_empty() {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            "Audio array is empty",
+        ));
+    }
+
+    if sample_rate == 0 {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            "Sample rate must be > 0",
+        ));
+    }
+
+    if channels == 0 || channels > 2 {
+        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            "Channels must be 1 (mono) or 2 (stereo)",
+        ));
+    }
+
+    // Call Rust fingerprint computation
+    let fingerprint = fingerprint_compute::compute_complete_fingerprint(&audio, sample_rate, channels)
+        .map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+        })?;
+
+    // Convert fingerprint to Python dict
+    let dict = PyDict::new_bound(py);
+
+    // Frequency (7D)
+    dict.set_item("sub_bass", fingerprint.sub_bass)?;
+    dict.set_item("bass", fingerprint.bass)?;
+    dict.set_item("low_mid", fingerprint.low_mid)?;
+    dict.set_item("mid", fingerprint.mid)?;
+    dict.set_item("upper_mid", fingerprint.upper_mid)?;
+    dict.set_item("presence", fingerprint.presence)?;
+    dict.set_item("air", fingerprint.air)?;
+
+    // Dynamics (3D)
+    dict.set_item("lufs", fingerprint.lufs)?;
+    dict.set_item("crest_db", fingerprint.crest_db)?;
+    dict.set_item("bass_mid_ratio", fingerprint.bass_mid_ratio)?;
+
+    // Temporal (4D)
+    dict.set_item("tempo_bpm", fingerprint.tempo_bpm)?;
+    dict.set_item("rhythm_stability", fingerprint.rhythm_stability)?;
+    dict.set_item("transient_density", fingerprint.transient_density)?;
+    dict.set_item("silence_ratio", fingerprint.silence_ratio)?;
+
+    // Spectral (3D)
+    dict.set_item("spectral_centroid", fingerprint.spectral_centroid)?;
+    dict.set_item("spectral_rolloff", fingerprint.spectral_rolloff)?;
+    dict.set_item("spectral_flatness", fingerprint.spectral_flatness)?;
+
+    // Harmonic (3D)
+    dict.set_item("harmonic_ratio", fingerprint.harmonic_ratio)?;
+    dict.set_item("pitch_stability", fingerprint.pitch_stability)?;
+    dict.set_item("chroma_energy", fingerprint.chroma_energy)?;
+
+    // Variation (3D)
+    dict.set_item("dynamic_range_variation", fingerprint.dynamic_range_variation)?;
+    dict.set_item("loudness_variation", fingerprint.loudness_variation)?;
+    dict.set_item("peak_consistency", fingerprint.peak_consistency)?;
+
+    // Stereo (2D)
+    dict.set_item("stereo_width", fingerprint.stereo_width)?;
+    dict.set_item("phase_correlation", fingerprint.phase_correlation)?;
+
+    Ok(dict.into())
 }
