@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Auto-Mastering Script
+Auto-Mastering Script (PyO3 Fingerprinting)
 
 Quick workflow:
-1. Fingerprint the track (via gRPC or database cache)
+1. Fingerprint the track (via AudioFingerprintAnalyzer with PyO3 backend)
 2. Analyze fingerprint for content characteristics
 3. Auto-select optimal mastering preset and intensity
 4. Process and export remastered WAV
@@ -12,70 +12,70 @@ Usage:
     python auto_master.py input.flac
     python auto_master.py input.flac --output remastered.wav
     python auto_master.py input.flac --intensity 0.8
+
+Features:
+- PyO3 Rust fingerprinting (HPSS, YIN, Chroma via auralis_dsp)
+- Persistent .25d cache in ~/.auralis/fingerprints/
+- Content-aware adaptive processing parameters
 """
 
 import argparse
-import sqlite3
 from pathlib import Path
 from typing import Dict, Optional
+import logging
+
 import librosa
 import soundfile as sf
 import numpy as np
 
-from grpc_fingerprint_client import GrpcFingerprintClient
+from auralis.analysis.fingerprint.fingerprint_service import FingerprintService
 from auralis.dsp.basic import amplify, normalize
 from auralis.dsp.dynamics.soft_clipper import soft_clip
 
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(name)s: %(message)s')
+logger = logging.getLogger(__name__)
 
-# Database path
-DB_PATH = Path.home() / ".auralis" / "library.db"
-
-
-def get_cached_fingerprint(filepath: str) -> Optional[Dict]:
-    """Get fingerprint from database if already computed"""
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        cursor = conn.cursor()
-
-        # Find track by filepath
-        cursor.execute(
-            "SELECT id, tempo_bpm, lufs, harmonic_ratio, bass_pct, mid_pct, "
-            "crest_db, transient_density, spectral_centroid FROM tracks WHERE filepath = ?",
-            (filepath,)
-        )
-        row = cursor.fetchone()
-        conn.close()
-
-        if row and row[1] is not None:  # tempo_bpm exists = fingerprinted
-            return {
-                'track_id': row[0],
-                'tempo_bpm': row[1],
-                'lufs': row[2],
-                'harmonic_ratio': row[3],
-                'bass_pct': row[4],
-                'mid_pct': row[5],
-                'crest_db': row[6],
-                'transient_density': row[7],
-                'spectral_centroid': row[8],
-            }
-        return None
-
-    except Exception as e:
-        print(f"  ⚠️  Cache lookup failed: {e}")
-        return None
+# Unified fingerprinting service
+_fingerprint_service = None
 
 
-def compute_fingerprint_grpc(filepath: str) -> Optional[Dict]:
-    """Compute fingerprint via gRPC server"""
-    print(f"🔍 Computing fingerprint via gRPC...")
+def get_fingerprint_service() -> FingerprintService:
+    """Get or create singleton fingerprinting service."""
+    global _fingerprint_service
+    if _fingerprint_service is None:
+        _fingerprint_service = FingerprintService(fingerprint_strategy="sampling")
+    return _fingerprint_service
 
-    client = GrpcFingerprintClient()
-    try:
-        client.connect()
-        fingerprint = client.compute_fingerprint(track_id=0, filepath=filepath)
+
+def get_or_compute_fingerprint(filepath: str) -> Optional[Dict]:
+    """
+    Get fingerprint from cache or compute new one using unified FingerprintService.
+
+    Priority:
+    1. Database cache (SQLite) - fastest
+    2. .25d file cache - fast
+    3. On-demand computation with PyO3 backend - slower but fresh
+
+    Returns None on failure
+    """
+    audio_path = Path(filepath)
+
+    if not audio_path.exists():
+        raise FileNotFoundError(f"Input file not found: {filepath}")
+
+    print(f"  🔍 Retrieving fingerprint (cache or compute)...")
+
+    # Use unified FingerprintService with 3-tier caching
+    service = get_fingerprint_service()
+    fingerprint = service.get_or_compute(audio_path)
+
+    if fingerprint:
+        print(f"  ✅ Fingerprint ready (25D)")
         return fingerprint
-    finally:
-        client.close()
+    else:
+        print(f"  ❌ Failed to get fingerprint")
+        return None
 
 
 def generate_adaptive_parameters(fp: Dict, intensity: float = 1.0) -> Dict:
@@ -191,7 +191,7 @@ def process_track(
     Process track with adaptive content-aware mastering.
 
     All processing is adaptive - parameters are generated dynamically
-    based on audio fingerprint analysis.
+    based on audio fingerprint analysis (25D features).
 
     Returns path to output WAV file
     """
@@ -207,25 +207,21 @@ def process_track(
     print(f"📂 Output: {Path(output_path).name}")
 
     # Step 1: Get or compute fingerprint
-    print("\n🔍 Step 1: Fingerprinting...")
-    fingerprint = get_cached_fingerprint(str(filepath))
+    print("\n🔍 Step 1: Fingerprinting (PyO3 Backend)...")
+    fingerprint = get_or_compute_fingerprint(str(filepath))
 
-    if fingerprint:
-        print(f"  ✅ Using cached fingerprint")
-    else:
-        print(f"  🆕 Computing new fingerprint")
-        fingerprint = compute_fingerprint_grpc(str(filepath))
+    if not fingerprint:
+        raise RuntimeError("Failed to compute or load fingerprint")
 
-        if not fingerprint:
-            raise RuntimeError("Failed to compute fingerprint")
-
-    # Display key metrics
-    print(f"\n📊 Audio Characteristics:")
+    # Display key metrics from 25D fingerprint
+    print(f"\n📊 Audio Characteristics (25D Fingerprint):")
     print(f"   Tempo: {fingerprint.get('tempo_bpm', 0):.1f} BPM")
     print(f"   LUFS: {fingerprint.get('lufs', 0):.1f} dB")
     print(f"   Harmonic ratio: {fingerprint.get('harmonic_ratio', 0):.2f}")
     print(f"   Crest factor: {fingerprint.get('crest_db', 0):.1f} dB")
     print(f"   Bass content: {fingerprint.get('bass_pct', 0):.1%}")
+    print(f"   Spectral centroid: {fingerprint.get('spectral_centroid', 0):.2f}")
+    print(f"   Transient density: {fingerprint.get('transient_density', 0):.2f}")
 
     # Step 2: Generate adaptive parameters
     print(f"\n🧠 Step 2: Adaptive Parameter Generation...")
@@ -249,6 +245,9 @@ def process_track(
     # Step 3: Load audio
     print(f"\n🎵 Step 3: Loading audio...")
     audio, sr = librosa.load(str(filepath), sr=None, mono=False)
+
+    # Convert to float32 for processing (librosa default)
+    audio = audio.astype(np.float32)
 
     # Convert to stereo if mono
     if audio.ndim == 1:
@@ -350,11 +349,30 @@ def process_track(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Adaptive auto-mastering with content-aware processing"
+        description="Auto-mastering with PyO3 fingerprinting and content-aware processing",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic usage
+  python auto_master.py input.flac
+
+  # With custom output
+  python auto_master.py input.flac --output my_master.wav
+
+  # With lower intensity
+  python auto_master.py input.flac --intensity 0.7
+
+Fingerprinting:
+  - Uses PyO3 Rust backend (auralis_dsp) when available
+  - Falls back to Python analyzers automatically
+  - Caches results in ~/.auralis/fingerprints/ as .25d files
+  - 25-dimensional fingerprint captures: frequency, dynamics, temporal,
+    spectral, harmonic, variation, and stereo characteristics
+        """
     )
     parser.add_argument(
         'input',
-        help='Input audio file (FLAC, WAV, MP3, etc.)'
+        help='Input audio file (FLAC, WAV, MP3, OGG, M4A, etc.)'
     )
     parser.add_argument(
         '-o', '--output',
@@ -366,10 +384,20 @@ def main():
         default=1.0,
         help='Processing intensity 0.0-1.0 (default: 1.0, adaptive based on dynamic range)'
     )
+    parser.add_argument(
+        '--clear-cache',
+        action='store_true',
+        help='Clear cached fingerprints before processing'
+    )
 
     args = parser.parse_args()
 
     try:
+        # Clear cache if requested
+        if args.clear_cache:
+            count = FingerprintStorage.clear_all()
+            print(f"🗑️  Cleared {count} cached fingerprints")
+
         output_path = process_track(
             filepath=args.input,
             intensity=args.intensity,
@@ -377,14 +405,13 @@ def main():
         )
 
         print(f"\n✨ Success! Play with: ffplay '{output_path}'")
+        return 0
 
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
         return 1
-
-    return 0
 
 
 if __name__ == "__main__":

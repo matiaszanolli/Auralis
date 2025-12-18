@@ -12,7 +12,7 @@ Main real-time audio processor orchestrator
 
 import numpy as np
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from threading import Lock
 
 from .performance_monitor import PerformanceMonitor
@@ -85,6 +85,18 @@ class RealtimeProcessor:
         with self.lock:
             if self.auto_master:
                 self.auto_master.set_profile(profile)
+
+    def set_fingerprint(self, fingerprint: Optional[Dict]) -> None:
+        """
+        Set 25D fingerprint for adaptive processing.
+
+        Args:
+            fingerprint: 25D fingerprint dictionary from FingerprintService
+        """
+        with self.lock:
+            if self.auto_master and fingerprint:
+                self.auto_master.set_fingerprint(fingerprint)
+                info(f"Fingerprint set for adaptive mastering")
 
     def process_chunk(self, audio: np.ndarray) -> np.ndarray:
         """

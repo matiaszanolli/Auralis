@@ -21,6 +21,7 @@ Uses Facade pattern to maintain backward-compatible API.
 
 import numpy as np
 from typing import Optional, Dict, Any, List, Callable
+from pathlib import Path
 
 from .config import PlayerConfig
 from .realtime_processor import RealtimeProcessor
@@ -31,6 +32,7 @@ from .gapless_playback_engine import GaplessPlaybackEngine
 from .integration_manager import IntegrationManager
 from ..library.repositories.factory import RepositoryFactory
 from ..utils.logging import debug, info, warning, error
+from ..analysis.fingerprint.fingerprint_service import FingerprintService
 
 # Backward compatibility alias for old test code
 QueueManager = QueueController
@@ -99,10 +101,14 @@ class EnhancedAudioPlayer:
             library_manager
         )
 
+        # Fingerprinting service for adaptive mastering
+        self.fingerprint_service = FingerprintService()
+        self._current_fingerprint: Optional[Dict] = None
+
         # Control flags
         self.auto_advance = True
 
-        info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled)")
+        info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled, fingerprinting enabled)")
 
     # ========== Playback Control (delegates to PlaybackController) ==========
 
@@ -158,7 +164,7 @@ class EnhancedAudioPlayer:
 
     def load_file(self, file_path: str) -> bool:
         """
-        Load an audio file for playback.
+        Load an audio file for playback with automatic fingerprinting for adaptive mastering.
 
         Args:
             file_path: Path to the audio file
@@ -173,6 +179,9 @@ class EnhancedAudioPlayer:
             self.playback.state = PlaybackState.STOPPED
             self.playback.position = 0
 
+            # Load fingerprint for adaptive mastering (non-blocking, cache-backed)
+            self._load_fingerprint_for_file(file_path)
+
             # Start prebuffering next track
             self.gapless.start_prebuffering()
 
@@ -184,6 +193,36 @@ class EnhancedAudioPlayer:
         else:
             self.playback.set_error()
             return False
+
+    def _load_fingerprint_for_file(self, file_path: str) -> None:
+        """
+        Load 25D fingerprint for file and apply to processor for adaptive mastering.
+
+        Uses 3-tier caching: database → .25d file → on-demand computation.
+        Non-blocking operation (uses cache hits when available).
+
+        Args:
+            file_path: Path to audio file
+        """
+        try:
+            audio_path = Path(file_path)
+            fingerprint = self.fingerprint_service.get_or_compute(audio_path)
+
+            if fingerprint:
+                self._current_fingerprint = fingerprint
+                self.processor.set_fingerprint(fingerprint)
+                info(f"Fingerprint loaded for adaptive mastering: "
+                     f"LUFS {fingerprint.get('lufs', 0):.1f} dB, "
+                     f"crest {fingerprint.get('crest_db', 0):.1f} dB")
+            else:
+                debug(f"Failed to load fingerprint for {audio_path.name}, using profile-based mastering")
+                self._current_fingerprint = None
+                self.processor.set_fingerprint(None)
+
+        except Exception as e:
+            warning(f"Error loading fingerprint: {e}")
+            self._current_fingerprint = None
+            self.processor.set_fingerprint(None)
 
     def load_reference(self, file_path: str) -> bool:
         """
