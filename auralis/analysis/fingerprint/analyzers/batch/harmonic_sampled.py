@@ -86,7 +86,8 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
             )
             return np.array([audio.copy()]), np.array([0.0])
 
-        return np.array(chunks, dtype=object), np.array(start_times)
+        # Keep chunks as list instead of object array to preserve float dtypes
+        return chunks, np.array(start_times)
 
     def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
         """

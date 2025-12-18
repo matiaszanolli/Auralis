@@ -52,11 +52,10 @@ import {
   setStreamingError,
   resetStreaming,
   selectStreaming,
+  setCurrentTrack,
 } from '@/store/slices/playerSlice';
 import {
-  decodePCMBase64,
   decodeAudioChunkMessage,
-  type PCMChunkMetadata,
 } from '@/utils/audio/pcmDecoding';
 import type {
   AudioStreamStartMessage,
@@ -141,6 +140,17 @@ export interface UsePlayEnhancedReturn {
    * Whether playback is currently paused
    */
   isPaused: boolean;
+
+  /**
+   * Fingerprint analysis status (idle, analyzing, complete, failed, error)
+   * Shows user feedback during audio analysis phase
+   */
+  fingerprintStatus: 'idle' | 'analyzing' | 'complete' | 'failed' | 'error';
+
+  /**
+   * Fingerprint analysis message for user display
+   */
+  fingerprintMessage: string | null;
 }
 
 export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
@@ -158,6 +168,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const unsubscribeChunkRef = useRef<(() => void) | null>(null);
   const unsubscribeStreamEndRef = useRef<(() => void) | null>(null);
   const unsubscribeErrorRef = useRef<(() => void) | null>(null);
+  const unsubscribeFingerprintRef = useRef<(() => void) | null>(null);
 
   // Streaming metadata
   const streamingMetadataRef = useRef<{
@@ -170,6 +181,8 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   // State for UI
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [fingerprintStatus, setFingerprintStatus] = useState<'idle' | 'analyzing' | 'complete' | 'failed' | 'error'>('idle');
+  const [fingerprintMessage, setFingerprintMessage] = useState<string | null>(null);
 
   /**
    * Cleanup streaming resources
@@ -180,6 +193,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     unsubscribeChunkRef.current?.();
     unsubscribeStreamEndRef.current?.();
     unsubscribeErrorRef.current?.();
+    unsubscribeFingerprintRef.current?.();
 
     // Clear references
     pcmBufferRef.current = null;
@@ -340,6 +354,26 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   }, [dispatch, cleanupStreaming]);
 
   /**
+   * Handle fingerprint_progress message from backend
+   */
+  const handleFingerprintProgress = useCallback((message: any) => {
+    const { status, message: progressMessage } = message.data || {};
+
+    console.log('[usePlayEnhanced] Fingerprint progress:', { status, message: progressMessage });
+
+    setFingerprintStatus(status || 'idle');
+    setFingerprintMessage(progressMessage || null);
+
+    // Auto-clear success message after 2 seconds
+    if (status === 'complete') {
+      setTimeout(() => {
+        setFingerprintStatus('idle');
+        setFingerprintMessage(null);
+      }, 2000);
+    }
+  }, []);
+
+  /**
    * Start enhanced audio playback
    */
   const playEnhanced = useCallback(
@@ -347,6 +381,28 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       try {
         // Reset streaming state
         dispatch(resetStreaming());
+
+        // Reset fingerprint status
+        setFingerprintStatus('idle');
+        setFingerprintMessage(null);
+
+        // Load track data from backend so we can set currentTrack
+        // This ensures the player bar shows the correct track info
+        try {
+          const response = await fetch(`http://localhost:8765/api/library/tracks`);
+          if (response.ok) {
+            const data = await response.json();
+            const track = data.tracks?.find((t: any) => t.id === trackId);
+            if (track) {
+              // Set the track as current in Redux state
+              dispatch(setCurrentTrack(track));
+              console.log('[usePlayEnhanced] Set current track:', track.title);
+            }
+          }
+        } catch (err) {
+          console.warn('[usePlayEnhanced] Failed to load track data:', err);
+          // Continue anyway - playback will still work
+        }
 
         // Subscribe to streaming messages
         unsubscribeStreamStartRef.current = wsContext.subscribe(
@@ -364,6 +420,10 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         unsubscribeErrorRef.current = wsContext.subscribe(
           'audio_stream_error',
           handleStreamError as any
+        );
+        unsubscribeFingerprintRef.current = wsContext.subscribe(
+          'fingerprint_progress',
+          handleFingerprintProgress as any
         );
 
         // Send play_enhanced message to backend
@@ -388,7 +448,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         cleanupStreaming();
       }
     },
-    [wsContext, dispatch, handleStreamStart, handleChunk, handleStreamEnd, handleStreamError, cleanupStreaming]
+    [wsContext, dispatch, handleStreamStart, handleChunk, handleStreamEnd, handleStreamError, handleFingerprintProgress, cleanupStreaming]
   );
 
   /**
@@ -462,5 +522,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     error: streamingState.error,
     currentTime,
     isPaused,
+    fingerprintStatus,
+    fingerprintMessage,
   };
 };

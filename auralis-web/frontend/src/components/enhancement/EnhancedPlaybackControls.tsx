@@ -20,7 +20,7 @@ import type { PresetName } from '@/store/slices/playerSlice';
 /**
  * Props for EnhancedPlaybackControls component
  */
-interface EnhancedPlaybackControlsProps {
+export interface EnhancedPlaybackControlsProps {
   /** Track ID to play enhanced */
   trackId: number;
 
@@ -90,16 +90,16 @@ export const EnhancedPlaybackControls: React.FC<
     stopPlayback,
     pausePlayback,
     resumePlayback,
-    setVolume,
     isStreaming,
     streamingState,
     streamingProgress,
-    bufferedSamples,
     processedChunks,
     totalChunks,
     error,
     currentTime,
     isPaused,
+    fingerprintStatus,
+    fingerprintMessage,
   } = usePlayEnhanced();
 
   // Local state for controls
@@ -168,13 +168,13 @@ export const EnhancedPlaybackControls: React.FC<
   const statusColor = useMemo(() => {
     switch (streamingState) {
       case 'buffering':
-        return tokens.colors.warning;
+        return tokens.colors.semantic.warning;
       case 'streaming':
-        return tokens.colors.success;
+        return tokens.colors.semantic.success;
       case 'error':
-        return tokens.colors.error;
+        return tokens.colors.semantic.error;
       case 'complete':
-        return tokens.colors.success;
+        return tokens.colors.semantic.success;
       default:
         return tokens.colors.text.secondary;
     }
@@ -200,6 +200,52 @@ export const EnhancedPlaybackControls: React.FC<
 
   return (
     <div style={styles.container}>
+      {/* Fingerprint Analysis Indicator */}
+      {fingerprintStatus !== 'idle' && (
+        <div
+          style={{
+            ...styles.fingerprintIndicator,
+            backgroundColor:
+              fingerprintStatus === 'analyzing'
+                ? tokens.colors.semantic.warning + '15'
+                : fingerprintStatus === 'complete'
+                  ? tokens.colors.semantic.success + '15'
+                  : fingerprintStatus === 'error' || fingerprintStatus === 'failed'
+                    ? tokens.colors.semantic.error + '15'
+                    : 'transparent',
+            borderColor:
+              fingerprintStatus === 'analyzing'
+                ? tokens.colors.semantic.warning
+                : fingerprintStatus === 'complete'
+                  ? tokens.colors.semantic.success
+                  : tokens.colors.semantic.error,
+          }}
+        >
+          <div style={styles.fingerprintContent}>
+            {fingerprintStatus === 'analyzing' && (
+              <>
+                <div style={styles.spinner} />
+                <span style={styles.fingerprintText}>Analyzing audio for optimal mastering...</span>
+              </>
+            )}
+            {fingerprintStatus === 'complete' && (
+              <>
+                <span style={{ fontSize: '16px' }}>✅</span>
+                <span style={styles.fingerprintText}>Audio analysis complete</span>
+              </>
+            )}
+            {(fingerprintStatus === 'error' || fingerprintStatus === 'failed') && (
+              <>
+                <span style={{ fontSize: '16px' }}>⚠️</span>
+                <span style={{ ...styles.fingerprintText, color: tokens.colors.semantic.error }}>
+                  {fingerprintMessage || 'Audio analysis failed'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Control Button Row */}
       <div style={styles.controlRow}>
         {!isStreaming ? (
@@ -242,7 +288,7 @@ export const EnhancedPlaybackControls: React.FC<
                       ...styles.presetItem,
                       backgroundColor:
                         selectedPreset === preset.name
-                          ? tokens.colors.primary + '20'
+                          ? tokens.colors.accent.primary + '20'
                           : 'transparent',
                       cursor: 'pointer',
                     }}
@@ -334,8 +380,8 @@ export const EnhancedPlaybackControls: React.FC<
                 width: `${Math.min(streamingProgress, 100)}%`,
                 backgroundColor:
                   streamingState === 'buffering'
-                    ? tokens.colors.warning
-                    : tokens.colors.success,
+                    ? tokens.colors.semantic.warning
+                    : tokens.colors.semantic.success,
               }}
             />
           </div>
@@ -404,7 +450,7 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.inverse,
+    color: tokens.colors.text.primary,
     border: 'none',
     borderRadius: '4px 0 0 4px',
     cursor: 'pointer',
@@ -416,7 +462,7 @@ const styles: Record<string, React.CSSProperties> = {
   presetMenuButton: {
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.inverse,
+    color: tokens.colors.text.primary,
     border: 'none',
     borderRadius: '0 4px 4px 0',
     borderLeft: `1px solid rgba(115, 102, 240, 0.4)`,
@@ -470,7 +516,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   presetCheckmark: {
     marginLeft: 'auto',
-    color: tokens.colors.success,
+    color: tokens.colors.semantic.success,
     fontSize: '16px',
     fontWeight: 'bold',
   },
@@ -516,6 +562,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderLeft: `3px solid ${tokens.colors.semantic.success}`,
     borderRadius: '4px',
     fontSize: '12px',
+    color: tokens.colors.text.primary,
   },
 
   statusRow: {
@@ -542,7 +589,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   progressBar: {
     height: '100%',
-    backgroundColor: tokens.colors.semantic.success,
+    backgroundColor: tokens.colors.accent.primary,
     transition: 'width 300ms ease-out',
   },
 
@@ -556,6 +603,7 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: `${tokens.colors.semantic.error}10`,
     border: `1px solid ${tokens.colors.semantic.error}`,
     borderRadius: '4px',
+    display: 'flex',
   },
 
   errorContent: {
@@ -584,7 +632,48 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: '16px',
     minWidth: '24px',
+    transition: 'opacity 150ms ease-in-out',
+  },
+
+  fingerprintIndicator: {
+    padding: tokens.spacing.md,
+    borderRadius: '4px',
+    border: `1px solid`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '44px',
+  },
+
+  fingerprintContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: tokens.spacing.sm,
+  },
+
+  spinner: {
+    width: '16px',
+    height: '16px',
+    border: `2px solid ${tokens.colors.semantic.warning}40`,
+    borderTopColor: tokens.colors.semantic.warning,
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+
+  fingerprintText: {
+    fontSize: '13px',
+    fontWeight: 500,
+    color: tokens.colors.text.primary,
   },
 };
+
+// Add CSS animation keyframes
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default EnhancedPlaybackControls;

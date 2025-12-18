@@ -146,12 +146,14 @@ class AudioStreamController:
             try:
                 # Get session factory from the first repository factory call
                 factory = self._get_repository_factory()
-                if hasattr(factory, '_session_factory'):
+                if hasattr(factory, 'session_factory'):
                     self.fingerprint_generator = FingerprintGenerator(
-                        session_factory=factory._session_factory,
+                        session_factory=factory.session_factory,
                         get_repository_factory=self._get_repository_factory
                     )
                     logger.info("✅ FingerprintGenerator initialized for on-demand fingerprint generation")
+                else:
+                    logger.warning("RepositoryFactory missing session_factory attribute, fingerprint generation unavailable")
             except Exception as e:
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
@@ -160,7 +162,8 @@ class AudioStreamController:
     async def _ensure_fingerprint_available(
         self,
         track_id: int,
-        filepath: str
+        filepath: str,
+        websocket: Optional[WebSocket] = None
     ) -> bool:
         """
         Ensure fingerprint is available (cached or generated).
@@ -168,9 +171,12 @@ class AudioStreamController:
         Attempts to load or generate a fingerprint before streaming begins.
         If generation fails, proceeds gracefully without fingerprint.
 
+        Sends progress messages to WebSocket if provided.
+
         Args:
             track_id: ID of the track
             filepath: Path to audio file
+            websocket: Optional WebSocket connection for progress messages
 
         Returns:
             True if fingerprint was available/generated, False if not available
@@ -181,6 +187,16 @@ class AudioStreamController:
 
         try:
             logger.info(f"📊 Ensuring fingerprint available for track {track_id}...")
+
+            # Send fingerprint_progress: analyzing message
+            if websocket:
+                await self._send_fingerprint_progress(
+                    websocket,
+                    track_id=track_id,
+                    status="analyzing",
+                    message="Analyzing audio for optimal mastering..."
+                )
+
             fingerprint_data = await self.fingerprint_generator.get_or_generate(
                 track_id=track_id,
                 filepath=filepath
@@ -188,13 +204,43 @@ class AudioStreamController:
 
             if fingerprint_data:
                 logger.info(f"✅ Fingerprint is now available for track {track_id} (ready for adaptive mastering)")
+
+                # Send fingerprint_progress: complete message
+                if websocket:
+                    await self._send_fingerprint_progress(
+                        websocket,
+                        track_id=track_id,
+                        status="complete",
+                        message="Fingerprint analysis complete"
+                    )
+
                 return True
             else:
                 logger.warning(f"⚠️  Fingerprint unavailable for track {track_id}, proceeding without optimization")
+
+                # Send fingerprint_progress: failed message
+                if websocket:
+                    await self._send_fingerprint_progress(
+                        websocket,
+                        track_id=track_id,
+                        status="failed",
+                        message="Fingerprint generation failed, using default mastering"
+                    )
+
                 return False
 
         except Exception as e:
             logger.warning(f"Fingerprint preparation failed for track {track_id}: {e}, proceeding without optimization")
+
+            # Send fingerprint_progress: error message
+            if websocket:
+                await self._send_fingerprint_progress(
+                    websocket,
+                    track_id=track_id,
+                    status="error",
+                    message=f"Fingerprint error: {str(e)}"
+                )
+
             return False
 
     async def stream_enhanced_audio(
@@ -260,10 +306,11 @@ class AudioStreamController:
 
             # NEW (Phase 7.3): Ensure fingerprint is available before streaming
             # This handles the case where fingerprints aren't cached in the database
-            # On-demand generation via gRPC server happens asynchronously here
+            # On-demand generation via PyO3 happens asynchronously here
             fingerprint_available = await self._ensure_fingerprint_available(
                 track_id=track_id,
-                filepath=str(track.filepath)
+                filepath=str(track.filepath),
+                websocket=websocket
             )
             if fingerprint_available:
                 logger.info(f"🎯 Adaptive mastering will use fingerprint-optimized parameters")
@@ -564,3 +611,33 @@ class AudioStreamController:
             await websocket.send_text(json.dumps(message))
         except Exception as e:
             logger.error(f"Failed to send error message: {e}")
+
+    async def _send_fingerprint_progress(
+        self,
+        websocket: WebSocket,
+        track_id: int,
+        status: str,
+        message: str
+    ) -> None:
+        """
+        Send fingerprint_progress message to client.
+
+        Args:
+            websocket: WebSocket connection
+            track_id: Track ID being analyzed
+            status: Progress status (analyzing, complete, failed, error)
+            message: Human-readable progress message
+        """
+        progress_message: Dict[str, Any] = {
+            "type": "fingerprint_progress",
+            "data": {
+                "track_id": track_id,
+                "status": status,
+                "message": message,
+            },
+        }
+        try:
+            await websocket.send_text(json.dumps(progress_message))
+            logger.debug(f"Sent fingerprint_progress: track={track_id}, status={status}")
+        except Exception as e:
+            logger.error(f"Failed to send fingerprint_progress message: {e}")

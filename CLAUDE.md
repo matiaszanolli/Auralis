@@ -337,14 +337,32 @@ Supported formats (via soundfile + FFmpeg):
 
 ### Rust DSP Module (`vendor/auralis-dsp/`)
 - **Language**: Rust via PyO3 bindings (optional, with graceful librosa fallback)
-- **Build**: `maturin develop` (development) or `maturin build` (release)
-- **Modules**:
+- **Build**:
+  - Development: `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop` (Python 3.13+)
+  - Release: `maturin build --release`
+- **Core DSP Modules**:
   - **HPSS** (Harmonic/Percussive Source Separation) - Separates melodic and rhythmic content
   - **YIN** - Fundamental frequency detection for pitch analysis
   - **Chroma** - 12-bin chromatic pitch analysis for harmonic content
-- **Integration**: Called from `auralis/analysis/` modules via `try_import_rust_module()`
-- **Fallback**: If Rust module unavailable (compilation failed, not installed), gracefully falls back to librosa equivalents
-- **Performance**: Provides 2-5x speedup for heavy DSP operations (HPSS decomposition, YIN pitch tracking)
+  - **Tempo** - Spectral flux onset detection for tempo estimation
+  - **Compressor** - Dynamic range compression with multiple detection modes
+  - **Limiter** - Lookahead limiter with oversampling
+- **Fingerprinting Modules (25D Audio Analysis)**:
+  - **frequency_analysis.rs** - FFT-based frequency distribution (7D: sub_bass, bass, low_mid, mid, upper_mid, presence, air)
+  - **spectral_features.rs** - Spectral characteristics (3D: centroid, rolloff, flatness)
+  - **variation_analysis.rs** - Temporal variations (3D: dynamic range, loudness, peak consistency)
+  - **stereo_analysis.rs** - Stereo field analysis (2D: width, phase correlation)
+  - **fingerprint_compute.rs** - Unified 25D fingerprint orchestrator (combines all dimensions)
+- **Integration**:
+  - Called from `auralis/analysis/` modules via `try_import_rust_module()`
+  - **PyO3 Fingerprinting API**: `from auralis_dsp import compute_fingerprint`
+  - Returns dictionary with 25 audio characteristics (see fingerprint_compute.rs for full spec)
+  - Non-blocking async execution via `asyncio.run_in_executor()` with 10-second timeout
+- **Fallback**: If Rust module unavailable (compilation failed, not installed), gracefully falls back to librosa/Python equivalents
+- **Performance**:
+  - Standard DSP: 2-5x speedup (HPSS, YIN, Chroma)
+  - Fingerprinting: ~500ms-2s per track (PyO3 direct call, no server overhead)
+  - Cached fingerprints: <100ms lookup from database
 
 ### Web Interface (`auralis-web/`)
 - **`backend/`** - FastAPI REST API + WebSocket server
@@ -1428,6 +1446,14 @@ CROSSFADE_DURATION = 3.0  # Smooth blend at boundaries
 **Phase**: Frontend Enhanced Playback Controls & Streaming (1.1.0-beta.5+)
 
 **Completed Phases**:
+- ✅ **Phase PyO3 Integration (Dec 18)**: Complete end-to-end audio playback with PyO3 fingerprinting
+  - Implemented 5 Rust fingerprint modules (frequency_analysis, spectral_features, variation_analysis, stereo_analysis, fingerprint_compute) with 25D audio analysis
+  - PyO3 direct bindings: `from auralis_dsp import compute_fingerprint` (no gRPC server overhead)
+  - Updated FingerprintGenerator to use PyO3 with Python fallback
+  - Added fingerprint progress WebSocket messages (analyzing → complete)
+  - Updated usePlayEnhanced hook to track fingerprint status
+  - Added EnhancedPlaybackControls fingerprint indicator UI with spinner
+  - Complete flow: UI click → PyO3 fingerprinting → WebSocket streaming → playback
 - ✅ **Phase 7.2**: Spectrum and Content Analysis Consolidation (eliminated 900 lines of duplicate code via Utilities Pattern)
 - ✅ **Phase 8**: Preset-Aware Peak Normalization (fixed preset differentiation bug, Gentle now 0.20 dB louder than Adaptive)
 - ✅ **Phase 9A**: Matchering Baseline Analysis (analyzed two Slayer albums, established content-aware scaling patterns)

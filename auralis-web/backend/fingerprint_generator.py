@@ -146,17 +146,24 @@ class FingerprintGenerator:
                 else:
                     audio_array = audio
 
-            logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sample_rate}, CH={channels}")
+            # Ensure proper dtype (float32)
+            audio_array = np.asarray(audio_array, dtype=np.float32)
+            logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sample_rate}, CH={channels}, dtype={audio_array.dtype}")
 
             # Call Rust fingerprint function in thread pool (non-blocking)
             loop = asyncio.get_event_loop()
+
+            # Define wrapper to ensure proper type conversion
+            def compute_fp_wrapper(audio_data, sr, ch):
+                return compute_fingerprint(audio_data, sr, ch)
+
             fingerprint = await asyncio.wait_for(
                 loop.run_in_executor(
                     None,  # Use default thread pool
-                    compute_fingerprint,
-                    audio_array,
-                    sample_rate,
-                    channels
+                    compute_fp_wrapper,
+                    audio_array.copy(),  # Pass a copy to avoid thread safety issues
+                    int(sample_rate),
+                    int(channels)
                 ),
                 timeout=self.TIMEOUT
             )
