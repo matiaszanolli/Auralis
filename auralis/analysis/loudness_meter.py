@@ -9,7 +9,7 @@ ITU-R BS.1770-4 compliant loudness measurement implementation.
 
 import numpy as np
 from scipy import signal
-from typing import Dict, Optional, List, Any, Tuple, cast
+from typing import Dict, Optional, List, Any, cast
 from dataclasses import dataclass
 
 

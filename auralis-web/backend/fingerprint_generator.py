@@ -4,7 +4,7 @@
 Fingerprint Generator - On-Demand Fingerprint Generation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Manages fingerprint generation via gRPC server when fingerprints are not cached.
+Manages fingerprint generation via PyO3 Rust bindings when fingerprints are not cached.
 Handles async generation, database storage, and graceful fallback on failure.
 
 :copyright: (C) 2024 Auralis Team
@@ -13,36 +13,39 @@ Handles async generation, database storage, and graceful fallback on failure.
 
 import asyncio
 import logging
-import json
+import numpy as np
 from typing import Optional, Dict, Any, Callable
 from pathlib import Path
-from urllib.parse import quote
-import aiohttp
 from sqlalchemy.orm import Session
+import soundfile as sf
 
 logger = logging.getLogger(__name__)
+
+# Try to import Rust fingerprinting via PyO3
+try:
+    from auralis_dsp import compute_fingerprint
+    RUST_AVAILABLE = True
+    logger.info("✅ Rust fingerprinting (PyO3) module available")
+except ImportError:
+    RUST_AVAILABLE = False
+    logger.warning("⚠️  Rust fingerprinting module not available, fingerprint generation will fail")
 
 
 class FingerprintGenerator:
     """
-    Manages fingerprint generation via gRPC server.
+    Manages fingerprint generation via PyO3 Rust bindings.
 
     Provides async fingerprint generation with:
     - Database caching (reuse existing fingerprints)
-    - gRPC server integration (generate on-demand)
-    - Timeout handling (60 seconds)
+    - PyO3 Rust function calls (direct, no server process needed)
+    - Timeout handling (10 seconds max per fingerprint)
     - Graceful fallback (proceed without fingerprint if generation fails)
     - Database storage (cache for future use)
+    - Thread-pool execution (non-blocking async calls)
     """
 
-    # gRPC fingerprint server endpoint
-    GRPC_SERVER_URL = "http://localhost:50051"  # Rust gRPC server running on this port
-
-    # Generation timeout (seconds)
-    TIMEOUT = 60
-
-    # HTTP request timeout for aiohttp
-    HTTP_TIMEOUT = aiohttp.ClientTimeout(total=TIMEOUT)
+    # Generation timeout (seconds) - PyO3 calls are fast
+    TIMEOUT = 10
 
     def __init__(self, session_factory: Callable[[], Session], get_repository_factory: Callable[..., Any]) -> None:
         """
@@ -61,7 +64,7 @@ class FingerprintGenerator:
         filepath: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Get fingerprint from database, or generate via gRPC if missing.
+        Get fingerprint from database, or generate via PyO3 Rust if missing.
 
         Returns fingerprint data as dict with 25 dimensions, or None if generation fails.
 
@@ -85,15 +88,20 @@ class FingerprintGenerator:
         except Exception as e:
             logger.debug(f"Database fingerprint lookup failed for track {track_id}: {e}")
 
-        # 2. Generate via gRPC if not cached
-        logger.info(f"📊 Fingerprint not cached for track {track_id}, generating via gRPC...")
-        fingerprint_data = await self._generate_via_grpc(filepath, track_id)
+        # 2. Check if Rust module is available
+        if not RUST_AVAILABLE:
+            logger.warning(f"⚠️  Rust fingerprinting module not available, cannot generate fingerprint for track {track_id}")
+            return None
+
+        # 3. Generate via PyO3 Rust if not cached
+        logger.info(f"📊 Fingerprint not cached for track {track_id}, generating via PyO3 Rust...")
+        fingerprint_data = await self._generate_via_rust(filepath, track_id)
 
         if fingerprint_data is None:
             logger.warning(f"⚠️  Fingerprint generation failed for track {track_id}, proceeding without mastering optimization")
             return None
 
-        # 3. Store in database for future use
+        # 4. Store in database for future use
         try:
             repo_factory = self.get_repository_factory()
             fingerprint_repo = repo_factory.fingerprints
@@ -105,13 +113,13 @@ class FingerprintGenerator:
 
         return fingerprint_data
 
-    async def _generate_via_grpc(
+    async def _generate_via_rust(
         self,
         filepath: str,
         track_id: int
     ) -> Optional[Dict[str, Any]]:
         """
-        Call gRPC fingerprint server to generate fingerprint.
+        Call PyO3 Rust fingerprinting function to generate fingerprint.
 
         Args:
             filepath: Path to audio file
@@ -122,43 +130,53 @@ class FingerprintGenerator:
         """
 
         try:
-            # Use aiohttp for async HTTP call to gRPC server
-            async with aiohttp.ClientSession(timeout=self.HTTP_TIMEOUT) as session:
-                # URL-encode the filepath for safety
-                encoded_path = quote(filepath, safe='')
+            # Load audio file
+            logger.debug(f"Loading audio file: {filepath}")
+            audio, sample_rate = sf.read(filepath, dtype='float32')
 
-                url = f"{self.GRPC_SERVER_URL}/fingerprint"
-                payload = {
-                    "filepath": filepath,
-                    "track_id": track_id
-                }
+            # Handle stereo/mono
+            if audio.ndim == 1:
+                channels = 1
+                audio_array = audio
+            else:
+                channels = audio.shape[1] if audio.ndim == 2 else 1
+                # For stereo, interleave L,R channels
+                if channels == 2 and audio.ndim == 2:
+                    audio_array = audio.flatten(order='F')  # Interleave: L1,R1,L2,R2...
+                else:
+                    audio_array = audio
 
-                logger.debug(f"Calling gRPC server: {url} with track_id={track_id}")
+            logger.debug(f"Audio loaded: {len(audio_array)} samples, SR={sample_rate}, CH={channels}")
 
-                async with session.post(url, json=payload) as response:
-                    if response.status == 200:
-                        fp_dict = await response.json()
-                        logger.info(f"✅ gRPC server returned fingerprint for track {track_id}")
-                        return fp_dict
-                    else:
-                        logger.warning(f"gRPC server returned status {response.status} for track {track_id}")
-                        return None
+            # Call Rust fingerprint function in thread pool (non-blocking)
+            loop = asyncio.get_event_loop()
+            fingerprint = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,  # Use default thread pool
+                    compute_fingerprint,
+                    audio_array,
+                    sample_rate,
+                    channels
+                ),
+                timeout=self.TIMEOUT
+            )
 
+            logger.info(f"✅ PyO3 Rust generated fingerprint for track {track_id} in <{self.TIMEOUT}s")
+            return fingerprint
+
+        except FileNotFoundError:
+            logger.error(f"Audio file not found: {filepath}")
+            return None
         except asyncio.TimeoutError:
-            logger.error(f"Fingerprint server timeout (>{self.TIMEOUT}s) for track {track_id}")
+            logger.error(f"Fingerprint generation timeout (>{self.TIMEOUT}s) for track {track_id}")
             return None
-        except aiohttp.ClientConnectorError as e:
-            logger.error(f"Failed to connect to fingerprint server at {self.GRPC_SERVER_URL}: {e}")
-            logger.info("Ensure gRPC server is running: ./vendor/auralis-dsp/target/release/fingerprint-server")
-            return None
-        except aiohttp.ClientError as e:
-            logger.error(f"HTTP error while calling fingerprint server: {e}")
-            return None
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse fingerprint server response: {e}")
+        except RuntimeError as e:
+            logger.error(f"Rust fingerprinting error for track {track_id}: {e}")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error during fingerprint generation: {e}")
+            logger.error(f"Unexpected error during fingerprint generation for track {track_id}: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
             return None
 
     @staticmethod
@@ -213,21 +231,3 @@ class FingerprintGenerator:
                 fingerprint_dict[field] = getattr(fp_record, field)
 
         return fingerprint_dict
-
-    @staticmethod
-    def is_server_available() -> bool:
-        """
-        Check if gRPC fingerprint server is running.
-
-        Returns:
-            True if server is reachable, False otherwise
-        """
-        try:
-            import socket
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2)
-            result = sock.connect_ex(('localhost', 50051))
-            sock.close()
-            return result == 0
-        except Exception:
-            return False

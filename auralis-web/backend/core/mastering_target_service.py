@@ -166,7 +166,7 @@ class MasteringTargetService:
         """
         Extract fingerprint from audio file (Tier 3 - slow).
 
-        Consolidates logic from chunked_processor.process_chunk() fingerprint extraction.
+        Uses PyO3 Rust fingerprinting for fast, accurate analysis.
 
         Args:
             filepath: Path to audio file
@@ -177,31 +177,59 @@ class MasteringTargetService:
             Tuple of (fingerprint, mastering_targets) or None if extraction fails
         """
         try:
-            from auralis.io.unified_loader import load_audio
-            from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
+            import soundfile as sf
+            import numpy as np
+            from auralis.analysis.fingerprint import FingerprintStorage
 
             logger.info(f"🔍 Extracting fingerprint from audio: {Path(filepath).name}")
 
-            # Load full audio for fingerprint extraction
-            full_audio, sr = load_audio(filepath, target_sample_rate=sample_rate)
-
-            # Extract complete 25D fingerprint
-            analyzer = AudioFingerprintAnalyzer()
-
-            # Add metadata for .25d file
+            # Try to use PyO3 Rust fingerprinting
             try:
-                from mutagen import File as MutagenFile  # type: ignore[attr-defined]
-                audio_file = MutagenFile(filepath)
-                duration_value: float = (
-                    float(audio_file.info.length) if audio_file else len(full_audio) / sr
-                )
-            except Exception:
-                duration_value = len(full_audio) / sr
+                from auralis_dsp import compute_fingerprint
 
-            fingerprint_data = analyzer.analyze(full_audio, sr)
+                # Load audio file
+                full_audio, sr = sf.read(filepath, dtype='float32')
+
+                # Handle stereo/mono
+                if full_audio.ndim == 1:
+                    channels = 1
+                    audio_array = full_audio
+                else:
+                    channels = full_audio.shape[1] if full_audio.ndim == 2 else 1
+                    # For stereo, interleave L,R channels
+                    if channels == 2 and full_audio.ndim == 2:
+                        audio_array = full_audio.flatten(order='F')
+                    else:
+                        audio_array = full_audio
+
+                logger.debug(f"Audio loaded via soundfile: {len(audio_array)} samples, SR={sr}, CH={channels}")
+
+                # Call PyO3 Rust fingerprinting
+                fingerprint_data = compute_fingerprint(audio_array, sr, channels)
+                logger.info(f"✅ PyO3 Rust extracted fingerprint for {Path(filepath).name}")
+
+            except (ImportError, Exception) as e:
+                logger.warning(f"PyO3 fingerprinting failed ({e}), falling back to Python analyzer...")
+
+                # Fallback to Python-based analyzer
+                from auralis.io.unified_loader import load_audio
+                from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
+
+                full_audio, sr = load_audio(filepath, target_sample_rate=sample_rate)
+                analyzer = AudioFingerprintAnalyzer()
+                fingerprint_data = analyzer.analyze(full_audio, sr)
 
             if fingerprint_data is not None:
-                # Add metadata (will be stripped before saving)
+                # Add metadata for .25d file
+                try:
+                    from mutagen import File as MutagenFile  # type: ignore[attr-defined]
+                    audio_file = MutagenFile(filepath)
+                    duration_value: float = (
+                        float(audio_file.info.length) if audio_file else len(full_audio) / sr
+                    )
+                except Exception:
+                    duration_value = len(full_audio) / sr
+
                 fingerprint_data['_metadata'] = {  # type: ignore[assignment]
                     'duration': duration_value,
                     'sample_rate': sr
@@ -222,6 +250,8 @@ class MasteringTargetService:
 
         except Exception as e:
             logger.error(f"Fingerprint extraction failed for {filepath}: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
             return None
 
     def load_fingerprint(

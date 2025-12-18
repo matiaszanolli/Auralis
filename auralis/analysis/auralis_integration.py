@@ -14,9 +14,7 @@ Architecture:
     IncomingAudio → fingerprint extraction → engine recommendation → HybridProcessor config → process
 """
 
-from typing import Dict, Optional, Tuple, Any, List
-from pathlib import Path
-import numpy as np
+from typing import Dict, Optional, Any, List
 
 from .mastering_fingerprint import MasteringFingerprint
 from .adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation

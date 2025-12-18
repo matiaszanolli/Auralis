@@ -16,9 +16,9 @@ Key Discovery: Bass/Mid Ratio is the strongest differentiator (8.9 dB range)
 """
 
 import numpy as np
-from typing import Dict, Tuple, Optional, Any
+from typing import Dict, Tuple, Any
 import logging
-from .fingerprint.common_metrics import SafeOperations, AudioMetrics
+from .fingerprint.common_metrics import SafeOperations
 
 logger = logging.getLogger(__name__)
 

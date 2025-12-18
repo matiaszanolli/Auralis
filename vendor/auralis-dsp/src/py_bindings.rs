@@ -36,8 +36,12 @@ fn auralis_dsp(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(limit_wrapper, m)?)?;
     m.add("limit", m.getattr("limit_wrapper")?)?;
 
+    // Fingerprint - register directly
     m.add_function(wrap_pyfunction!(compute_fingerprint_wrapper, m)?)?;
-    m.add("compute_fingerprint", m.getattr("compute_fingerprint_wrapper")?)?;
+
+    // Also add under clean name
+    let wrapper_fn = m.getattr("compute_fingerprint_wrapper")?;
+    m.add("compute_fingerprint", wrapper_fn)?;
 
     Ok(())
 }
@@ -501,11 +505,18 @@ fn limit_wrapper(
 #[pyfunction]
 fn compute_fingerprint_wrapper(
     py: Python<'_>,
-    audio: Vec<f32>,
+    audio: &PyArray1<f32>,
     sample_rate: u32,
     channels: u32,
 ) -> PyResult<PyObject> {
-    if audio.is_empty() {
+    // Convert numpy array to Rust vec
+    let audio_vec: Vec<f32> = audio.to_vec().map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            format!("Failed to convert audio array: {}", e),
+        )
+    })?;
+
+    if audio_vec.is_empty() {
         return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
             "Audio array is empty",
         ));
@@ -524,7 +535,7 @@ fn compute_fingerprint_wrapper(
     }
 
     // Call Rust fingerprint computation
-    let fingerprint = fingerprint_compute::compute_complete_fingerprint(&audio, sample_rate, channels)
+    let fingerprint = fingerprint_compute::compute_complete_fingerprint(&audio_vec, sample_rate, channels)
         .map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
         })?;
