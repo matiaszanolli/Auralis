@@ -46,13 +46,15 @@ class AutoMasterProcessor:
         }
 
         # Initialize proper stateful compressor to prevent gain pumping
+        # Settings prioritize transient preservation to avoid kick/bass harmonic overlap
+        # Use very gentle compression to avoid compressing kick drums into bass range
         comp_settings = CompressorSettings(
-            threshold_db=-18.0,  # Gentle threshold
-            ratio=2.5,           # Moderate compression
-            attack_ms=5.0,       # Fast attack
-            release_ms=100.0,    # Smooth release
-            knee_db=6.0,         # Soft knee
-            makeup_gain_db=0.0,  # No makeup gain
+            threshold_db=-24.0,  # Higher threshold = only compress very loud peaks
+            ratio=1.3,           # Very gentle ratio (1.3:1) to preserve transient punch
+            attack_ms=20.0,      # Slower attack (20ms) lets transients breathe through
+            release_ms=200.0,    # Longer release for smooth recovery
+            knee_db=10.0,        # Very wide soft knee for ultra-smooth compression curve
+            makeup_gain_db=0.0,  # No makeup gain (applied separately)
             enable_lookahead=False  # No lookahead for real-time
         )
         self.compressor = AdaptiveCompressor(comp_settings, config.sample_rate)
@@ -127,8 +129,9 @@ class AutoMasterProcessor:
         processed = audio.copy()
 
         # Apply stateful compression with proper envelope tracking
-        # This prevents gain pumping and maintains smooth dynamics
-        processed, comp_stats = self.compressor.process(processed, detection_mode="rms")
+        # Use hybrid detection (70% RMS + 30% peak) for balanced transient preservation
+        # Peak-only was too responsive; pure RMS was too slow. Hybrid balances both.
+        processed, comp_stats = self.compressor.process(processed, detection_mode="hybrid")
 
         # Determine which gain to apply
         if self.adaptive_params is not None:

@@ -232,10 +232,11 @@ class AudioFingerprintAnalyzer:
                 band_energies[band_name] = energy
                 total_energy += energy
 
-            # Convert to percentages
+            # Convert to normalized percentages (0-1 range for compatibility with adaptive gain calculations)
+            # Do NOT multiply by 100 - keep as 0.0-1.0 for consistency with rest of system
             if total_energy > 0:
                 for band_name in bands.keys():
-                    band_energies[band_name] = (band_energies[band_name] / total_energy) * 100
+                    band_energies[band_name] = band_energies[band_name] / total_energy
             else:
                 for band_name in bands.keys():
                     band_energies[band_name] = 0.0
@@ -244,14 +245,15 @@ class AudioFingerprintAnalyzer:
 
         except Exception as e:
             logger.debug(f"Frequency analysis failed: {e}")
+            # Return normalized defaults (0-1 range, must sum to 1.0)
             return {
-                'sub_bass_pct': 5.0,
-                'bass_pct': 15.0,
-                'low_mid_pct': 15.0,
-                'mid_pct': 30.0,
-                'upper_mid_pct': 20.0,
-                'presence_pct': 10.0,
-                'air_pct': 5.0
+                'sub_bass_pct': 0.05,
+                'bass_pct': 0.15,
+                'low_mid_pct': 0.15,
+                'mid_pct': 0.30,
+                'upper_mid_pct': 0.20,
+                'presence_pct': 0.10,
+                'air_pct': 0.05
             }
 
     def _analyze_dynamics_cached(self, audio: np.ndarray, sr: int,

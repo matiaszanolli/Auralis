@@ -254,9 +254,18 @@ class AdaptiveMode:
         # Get adaptive makeup gain based on source LUFS and crest factor
         # Intensity from spectrum params (if available), otherwise 1.0
         intensity = getattr(spectrum_params, 'intensity', 1.0)
+
+        # Extract bass and transient info from content profile for bass-aware gain reduction
+        # This prevents kick/bass harmonic overlap in bass-heavy material
+        bass_pct = self.last_content_profile.get('bass_energy_pct', None) if self.last_content_profile else None
+        transient_density = self.last_content_profile.get('transient_density', None) if self.last_content_profile else None
+
         makeup_gain, gain_reasoning = AdaptiveLoudnessControl.calculate_adaptive_gain(
-            source_lufs, intensity, crest_factor_db
+            source_lufs, intensity, crest_factor_db, bass_pct, transient_density
         )
+
+        if bass_pct is not None:
+            debug(f"[Bass-Aware Gain] Bass: {bass_pct:.1%}, Transients: {transient_density:.2f if transient_density else 0} - {gain_reasoning}")
 
         # Only apply makeup gain if not in expansion mode AND gain is > 0.5 dB
         should_apply_gain = (

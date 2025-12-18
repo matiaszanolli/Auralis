@@ -309,6 +309,14 @@ def process_track(
     else:
         # LOW/MODERATE LUFS = Quiet material - apply full adaptive processing
 
+        # CRITICAL FIX: Bass-heavy content handling
+        # Issue: When soft clipping threshold is too aggressive (-2.0 dB), bass and kick
+        # harmonics compress into the same frequency range, causing spectral mudding.
+        # Solution: Detect bass-heavy content and increase clipping threshold to preserve
+        # transient dynamics (kicks sound punchy, bass stays defined, no overlap).
+
+        bass_pct = fingerprint.get('bass_pct', 0.15)
+
         # Apply makeup gain based on adaptive parameters
         makeup_gain = params['dynamics'].get('makeup_gain_db', 0.0)
         if makeup_gain > 0.0:
@@ -318,15 +326,37 @@ def process_track(
             print(f"   Skipping makeup gain (source already at moderate loudness)")
 
         # Apply soft clipping to protect peaks
-        threshold = params['dynamics'].get('soft_clipper_threshold_db', -2.0)
-        threshold_linear = 10 ** (threshold / 20.0)
-        print(f"   Applying soft clipping at {threshold:.1f} dB")
+        # For bass-heavy content: use higher threshold to avoid compressing kick/bass into overlap
+        base_threshold_db = params['dynamics'].get('soft_clipper_threshold_db', -2.0)
+
+        # Adapt threshold based on bass content: more bass = higher threshold (gentler limiting)
+        if bass_pct > 0.25:  # Bass-heavy (includes bug case where bass_pct > 1.0)
+            # Increase threshold by up to 4 dB for heavy bass content
+            # This allows kicks to pass through without compression
+            adaptive_offset = min((bass_pct - 0.15) * 20, 4.0)
+            adapted_threshold_db = base_threshold_db + adaptive_offset
+            print(f"   Bass-heavy content detected: softening clipping threshold to preserve kick/bass separation")
+        else:
+            adapted_threshold_db = base_threshold_db
+
+        threshold_linear = 10 ** (adapted_threshold_db / 20.0)
+        print(f"   Applying soft clipping at {adapted_threshold_db:.1f} dB")
         processed = soft_clip(processed, threshold=threshold_linear, ceiling=0.99)
 
         # Normalize to adaptive target peak
-        target_peak = params['dynamics'].get('target_peak', 0.90)
-        print(f"   Normalizing to {target_peak * 100:.1f}% peak")
-        processed = normalize(processed, target_peak)
+        base_target_peak = params['dynamics'].get('target_peak', 0.90)
+
+        # For bass-heavy content: reduce peak target slightly to create headroom for kick
+        if bass_pct > 0.25:
+            # Reduce target by up to 8% for heavy bass content
+            peak_reduction = min((bass_pct - 0.15) * 50, 0.08)
+            adapted_target_peak = base_target_peak - peak_reduction
+            print(f"   Normalizing to {adapted_target_peak * 100:.1f}% peak (reduced for bass-heavy content)")
+        else:
+            adapted_target_peak = base_target_peak
+            print(f"   Normalizing to {adapted_target_peak * 100:.1f}% peak")
+
+        processed = normalize(processed, adapted_target_peak)
 
         # Report stereo preservation
         stereo_info = params.get('stereo', {})
