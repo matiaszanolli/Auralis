@@ -173,16 +173,17 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
   /**
    * Build endpoint from query type and options
+   * Takes offset as a parameter to avoid dependency cycle
    */
-  const buildEndpoint = useCallback((): string => {
+  const buildEndpoint = useCallback((currentOffset: number = 0): string => {
     const endpoint = options.endpoint;
     if (endpoint) return endpoint;
 
     const baseUrl = `/api/library/${queryType}`;
     const params = new URLSearchParams();
 
-    params.append('limit', limit.toString());
-    params.append('offset', offset.toString());
+    params.append('limit', String(limit || 50));
+    params.append('offset', String(currentOffset ?? 0));
 
     if (options.search) {
       params.append('search', options.search);
@@ -193,14 +194,14 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
     }
 
     return `${baseUrl}?${params.toString()}`;
-  }, [queryType, limit, offset, options.endpoint, options.search, options.orderBy]);
+  }, [queryType, limit, options.endpoint, options.search, options.orderBy]);
 
   /**
    * Execute query
    */
   const executeQuery = useCallback(
     async (targetOffset: number = 0, append: boolean = false) => {
-      const url = buildEndpoint();
+      const url = buildEndpoint(targetOffset);
 
       // Generate query key for deduplication
       const queryKey = `${queryType}:${url}:${targetOffset}`;
@@ -229,8 +230,8 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         }
 
         const items = extractItemsFromResponse(response, queryType);
-        setTotal(response.total);
-        setOffset(response.offset);
+        setTotal(response.total || 0);
+        setOffset(typeof response.offset === 'number' ? response.offset : 0);
 
         if (append) {
           // Append to existing data (infinite scroll)
@@ -254,7 +255,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         setIsLoading(false);
       }
     },
-    [api, buildEndpoint, queryType, isLoading]
+    [api, buildEndpoint, queryType]
   );
 
   /**
@@ -286,7 +287,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
       setError(apiError);
     }
-  }, [api, offset, limit, hasMore, isLoading, queryType, options.search, options.orderBy, extractItemsFromResponse]);
+  }, [api, offset, limit, hasMore, queryType, options.search, options.orderBy, extractItemsFromResponse]);
 
   /**
    * Refetch - Reset and fetch from beginning
@@ -305,7 +306,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   }, []);
 
   /**
-   * Auto-fetch on mount or when options change
+   * Auto-fetch on mount or when query parameters change
    */
   useEffect(() => {
     if (skip) return;
@@ -318,7 +319,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         abortControllerRef.current.abort();
       }
     };
-  }, [queryType, skip, executeQuery]);
+  }, [queryType, skip, options.search, options.orderBy, executeQuery]);
 
   return {
     data,
