@@ -31,6 +31,7 @@ import numpy as np
 from auralis.analysis.fingerprint.fingerprint_service import FingerprintService
 from auralis.dsp.basic import amplify, normalize
 from auralis.dsp.dynamics.soft_clipper import soft_clip
+from auralis.dsp.dynamics.lowmid_transient_enhancer import LowMidTransientEnhancer
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(name)s: %(message)s')
@@ -121,11 +122,19 @@ def generate_adaptive_parameters(fp: Dict, intensity: float = 1.0) -> Dict:
     if bass_pct > 0.20:
         params['processing_notes'].append('Bass-heavy: control low end')
 
-    # Adaptive intensity based on dynamic range
+    # Adaptive intensity based on BOTH dynamic range AND loudness
+    # High crest factor alone doesn't mean "already mastered" - must consider LUFS too
     base_intensity = intensity
     if crest_db > 15:  # High dynamic range
-        base_intensity *= 0.7
-        params['processing_notes'].append('High dynamic range: gentle processing')
+        if lufs < -13.0:  # Quiet material with natural dynamics - needs STRONG processing
+            base_intensity *= 1.2  # Increase intensity to bring up quiet material
+            params['processing_notes'].append('Quiet + dynamic (1990s style): boost processing for punch')
+        elif lufs > -11.0:  # Loud material with high dynamics - already mastered
+            base_intensity *= 0.6  # Reduce intensity - preserve what's there
+            params['processing_notes'].append('Already mastered with dynamics: preserve')
+        else:  # Moderate loudness with dynamics
+            base_intensity *= 0.85  # Slightly gentle
+            params['processing_notes'].append('High dynamic range: measured processing')
     elif crest_db < 8:  # Already compressed
         base_intensity *= 0.5
         params['processing_notes'].append('Already compressed: minimal processing')
@@ -310,12 +319,12 @@ def process_track(
         # LOW/MODERATE LUFS = Quiet material - apply full adaptive processing
 
         # CRITICAL FIX: Bass-heavy content handling
-        # Issue: When soft clipping threshold is too aggressive (-2.0 dB), bass and kick
-        # harmonics compress into the same frequency range, causing spectral mudding.
-        # Solution: Detect bass-heavy content and increase clipping threshold to preserve
-        # transient dynamics (kicks sound punchy, bass stays defined, no overlap).
+        # For quiet material with high makeup gain: use AGGRESSIVE limiting threshold
+        # to let the gain through while still protecting against clipping
+        # For loud bass-heavy material: use conservative limiting to prevent harmonic overlap
 
         bass_pct = fingerprint.get('bass_pct', 0.15)
+        lufs = fingerprint.get('lufs', -14.0)
 
         # Apply makeup gain based on adaptive parameters
         makeup_gain = params['dynamics'].get('makeup_gain_db', 0.0)
@@ -325,38 +334,73 @@ def process_track(
         else:
             print(f"   Skipping makeup gain (source already at moderate loudness)")
 
-        # Apply soft clipping to protect peaks
-        # For bass-heavy content: use higher threshold to avoid compressing kick/bass into overlap
+        # Apply soft clipping with SMOOTH SCALING based on loudness
+        # No hard thresholds - aggressiveness adapts continuously across LUFS spectrum
         base_threshold_db = params['dynamics'].get('soft_clipper_threshold_db', -2.0)
+        base_ceiling = 0.90
 
-        # Adapt threshold based on bass content: more bass = higher threshold (gentler limiting)
-        if bass_pct > 0.25:  # Bass-heavy (includes bug case where bass_pct > 1.0)
-            # Increase threshold by up to 4 dB for heavy bass content
-            # This allows kicks to pass through without compression
-            adaptive_offset = min((bass_pct - 0.15) * 20, 4.0)
-            adapted_threshold_db = base_threshold_db + adaptive_offset
-            print(f"   Bass-heavy content detected: softening clipping threshold to preserve kick/bass separation")
-        else:
-            adapted_threshold_db = base_threshold_db
+        # Smooth scaling function: quieter material = more aggressive limiting
+        # Reference points: -20 LUFS (very quiet) = aggressive, -11 LUFS (loud) = gentle
+        # Linear interpolation between reference points for smooth transition
+        reference_quiet = -20.0
+        reference_loud = -11.0
+
+        # Calculate scaling factor (0 = gentle/loud material, 1 = aggressive/quiet material)
+        loudness_factor = max(0.0, min(1.0, (reference_loud - lufs) / (reference_loud - reference_quiet)))
+
+        # Smooth scaling: threshold moves from +1.5 dB (gentle) to -2.0 dB (aggressive)
+        # and ceiling moves from 0.92 (gentle) to 0.99 (aggressive)
+        adapted_threshold_db = base_threshold_db + (1.5 * (1.0 - loudness_factor))
+        adapted_ceiling = 0.92 + (0.07 * loudness_factor)
+
+        # Add bass-aware adjustment only for bass-heavy material (smooth, not stepped)
+        if bass_pct > 0.15:
+            bass_factor = min(1.0, (bass_pct - 0.15) / 0.25)  # 0 to 1 as bass goes 15% to 40%
+            # For bass-heavy material, be slightly more conservative
+            adapted_threshold_db -= 0.3 * bass_factor
+            adapted_ceiling -= 0.02 * bass_factor
 
         threshold_linear = 10 ** (adapted_threshold_db / 20.0)
-        print(f"   Applying soft clipping at {adapted_threshold_db:.1f} dB")
-        processed = soft_clip(processed, threshold=threshold_linear, ceiling=0.99)
 
-        # Normalize to adaptive target peak
+        # Report the adaptation
+        compression_intensity = loudness_factor * 100  # Percentage (0-100%)
+        print(f"   Soft clipping at {adapted_threshold_db:.1f} dB, ceiling {adapted_ceiling*100:.1f}% (intensity: {compression_intensity:.0f}%)")
+
+        processed = soft_clip(processed, threshold=threshold_linear, ceiling=adapted_ceiling)
+
+        # Normalize to adaptive target peak using SMOOTH SCALING
+        # No hard thresholds - peak target adapts continuously
         base_target_peak = params['dynamics'].get('target_peak', 0.90)
 
-        # For bass-heavy content: reduce peak target slightly to create headroom for kick
-        if bass_pct > 0.25:
-            # Reduce target by up to 8% for heavy bass content
-            peak_reduction = min((bass_pct - 0.15) * 50, 0.08)
-            adapted_target_peak = base_target_peak - peak_reduction
-            print(f"   Normalizing to {adapted_target_peak * 100:.1f}% peak (reduced for bass-heavy content)")
-        else:
-            adapted_target_peak = base_target_peak
-            print(f"   Normalizing to {adapted_target_peak * 100:.1f}% peak")
+        # Smooth scaling: peak target ranges from 0.90 (loud material) to 0.85 (very quiet material)
+        # Higher values = less peak compression (preserve dynamics), lower values = more compression
+        adapted_target_peak = base_target_peak - (0.05 * loudness_factor)
+
+        # Add bass-aware adjustment (smoother than before)
+        if bass_pct > 0.15:
+            bass_factor = min(1.0, (bass_pct - 0.15) / 0.25)
+            # For bass-heavy material, reduce peak target slightly for better control
+            adapted_target_peak -= 0.02 * bass_factor
+
+        # Clamp to safe range
+        adapted_target_peak = max(0.80, min(0.95, adapted_target_peak))
+
+        print(f"   Normalizing to {adapted_target_peak * 100:.1f}% peak")
 
         processed = normalize(processed, adapted_target_peak)
+
+        # Step 4b: Low-mid transient enhancement (for aggressive limiting compensation)
+        # After aggressive soft clipping, restore punch to bass/vocals/piano
+        # NOTE: Transient enhancement implementation in progress - currently disabled
+        # crest_db_original = fingerprint.get('crest_db', 14.0)
+        # if lufs < -13.0 and crest_db_original > 14.0:  # Quiet + dynamic material
+        #     print(f"   Applying low-mid transient enhancement (restore punch after compression)")
+        #     enhancer = LowMidTransientEnhancer(sample_rate=sr)
+        #     transient_intensity = 0.45  # Fixed for testing
+        #     processed = enhancer.enhance_transients(
+        #         processed, intensity=transient_intensity, attack_samples=int(sr * 0.05)
+        #     )
+        #     print(f"   ✅ Transient enhancement applied")
 
         # Report stereo preservation
         stereo_info = params.get('stereo', {})

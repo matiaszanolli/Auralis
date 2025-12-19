@@ -92,26 +92,36 @@ class AdaptiveLoudnessControl:
             gain = max(0.0, min(gain, max_gain))
 
             # Bass-transient interaction reduction to prevent bass-kick overdrive
-            # When bass and transients combine (e.g., flamenco guitar, bass + kick drum),
-            # they create peak amplification that needs additional headroom
-            if bass_pct is not None and transient_density is not None:
-                if bass_pct > 0.10 and transient_density > 0.4:
+            # CRITICAL: Only reduce gain for loud/moderate material
+            # Quiet material needs maximum gain, not reduction
+            if source_lufs < -13.0:  # Quiet material - needs boost, not reduction
+                # Skip bass reduction for quiet material
+                pass
+            elif bass_pct is not None and transient_density is not None:
+                if bass_pct > 0.15 and transient_density > 0.35:  # Lowered thresholds
                     # Bass-transient interaction: multiplicative reduction
                     # High bass + high transients = aggressive reduction
-                    interaction_factor = bass_pct * transient_density * 6.0  # Max ~3 dB at 100% bass + 100% transients
+                    # But reduce the factor by 30% for quieter material
+                    loudness_factor = max(0.5, min(1.0, (source_lufs + 12) / 6))  # 0.5-1.0 scaling
+                    interaction_factor = bass_pct * transient_density * 6.0 * loudness_factor
                     bass_reduction = interaction_factor
                     gain = max(0.0, gain - bass_reduction)
                     reasoning_suffix += f" (bass {bass_pct:.1%} × transients {transient_density:.2f}: -{bass_reduction:.1f} dB)"
-                elif bass_pct > 0.12:
-                    # Bass-only reduction (low transients)
-                    bass_reduction = (bass_pct - 0.12) * 2.84  # Max 2.5 dB at 100% bass
+                elif bass_pct > 0.25:  # Only reduce for heavy bass
+                    # Bass-only reduction (low transients) - but gentler for quiet material
+                    base_reduction = (bass_pct - 0.25) * 1.5  # Reduced from 2.84 to 1.5
+                    loudness_factor = max(0.0, min(1.0, (source_lufs + 12) / 6))
+                    bass_reduction = base_reduction * loudness_factor
                     gain = max(0.0, gain - bass_reduction)
                     reasoning_suffix += f" (bass {bass_pct:.1%}: -{bass_reduction:.1f} dB)"
-            elif bass_pct is not None and bass_pct > 0.12:
-                # Fallback: bass-only reduction if no transient data
-                bass_reduction = (bass_pct - 0.12) * 2.84
-                gain = max(0.0, gain - bass_reduction)
-                reasoning_suffix += f" (bass {bass_pct:.1%}: -{bass_reduction:.1f} dB)"
+            elif bass_pct is not None and bass_pct > 0.25:
+                # Fallback: bass-only reduction if no transient data - only for non-quiet
+                if source_lufs >= -13.0:
+                    base_reduction = (bass_pct - 0.25) * 1.5
+                    loudness_factor = max(0.0, min(1.0, (source_lufs + 12) / 6))
+                    bass_reduction = base_reduction * loudness_factor
+                    gain = max(0.0, gain - bass_reduction)
+                    reasoning_suffix += f" (bass {bass_pct:.1%}: -{bass_reduction:.1f} dB)"
 
             return (
                 gain,
