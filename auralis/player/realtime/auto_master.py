@@ -16,6 +16,7 @@ from ..config import PlayerConfig
 from ...utils.logging import debug, info, warning
 from ...dsp.dynamics import AdaptiveCompressor
 from ...dsp.dynamics.settings import CompressorSettings
+from ...dsp.dynamics.lowmid_transient_enhancer import LowMidTransientEnhancer
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 
 
@@ -59,6 +60,11 @@ class AutoMasterProcessor:
         )
         self.compressor = AdaptiveCompressor(comp_settings, config.sample_rate)
 
+        # Initialize optional transient enhancer for low-mid punch restoration
+        # Used for quiet, dynamic material (< -13 LUFS with crest > 14 dB)
+        self.transient_enhancer = LowMidTransientEnhancer(sample_rate=config.sample_rate)
+        self.use_transient_enhancement = True  # Can be toggled via set_use_transient_enhancement()
+
         debug(f"AutoMasterProcessor initialized with profile: {self.profile}")
 
     def set_profile(self, profile: str) -> None:
@@ -69,6 +75,11 @@ class AutoMasterProcessor:
         else:
             warning(f"Unknown profile: {profile}, using balanced")
             self.profile = "balanced"
+
+    def set_use_transient_enhancement(self, enabled: bool) -> None:
+        """Enable/disable low-mid transient enhancement"""
+        self.use_transient_enhancement = enabled
+        info(f"Transient enhancement {'enabled' if enabled else 'disabled'}")
 
     def set_fingerprint(self, fingerprint: Dict) -> None:
         """
@@ -160,6 +171,28 @@ class AutoMasterProcessor:
             gain_linear = 10 ** (makeup_gain_db / 20.0)
             processed *= gain_linear
 
+        # Optional: Apply low-mid transient enhancement for quiet, dynamic material
+        # This restores punch to bass, piano, vocals after compression
+        if self.use_transient_enhancement and self.fingerprint is not None:
+            lufs = self.fingerprint.get('lufs', 0)
+            crest_db = self.fingerprint.get('crest_db', 0)
+
+            # Enhance for quiet + dynamic material (1990s style)
+            if lufs < -13.0 and crest_db > 14.0:
+                debug(f"Applying low-mid transient enhancement (LUFS {lufs:.1f}, crest {crest_db:.1f} dB)")
+                try:
+                    # Use moderate intensity for real-time (not aggressive like batch)
+                    transient_intensity = 0.35  # Subtle, not overwhelming
+                    attack_samples = int(self.config.sample_rate * 0.05)  # 50ms window
+                    processed = self.transient_enhancer.enhance_transients(
+                        processed,
+                        intensity=transient_intensity,
+                        attack_samples=attack_samples
+                    )
+                    debug(f"Transient enhancement applied (intensity: {transient_intensity:.2f})")
+                except Exception as e:
+                    warning(f"Transient enhancement failed: {e}")
+
         return processed
 
     def get_stats(self) -> Dict[str, Any]:
@@ -170,4 +203,5 @@ class AutoMasterProcessor:
             'available_profiles': list(self.profiles.keys()),
             'has_fingerprint': self.fingerprint is not None,
             'adaptive_params': self.adaptive_params,
+            'transient_enhancement_enabled': self.use_transient_enhancement,
         }
