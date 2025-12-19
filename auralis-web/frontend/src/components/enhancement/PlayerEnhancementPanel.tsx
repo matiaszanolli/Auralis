@@ -13,7 +13,7 @@
  * Used in: Player.tsx right section for easy access to enhanced playback
  */
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { tokens } from '@/design-system';
 
@@ -22,10 +22,13 @@ import { EnhancedPlaybackControls } from './EnhancedPlaybackControls';
 import { StreamingProgressBar } from './StreamingProgressBar';
 import { StreamingErrorBoundary, StreamingErrorType } from './StreamingErrorBoundary';
 
+// Playback hooks
+import { usePlayNormal } from '@/hooks/enhancement/usePlayNormal';
+
 /**
  * Props for PlayerEnhancementPanel
  */
-interface PlayerEnhancementPanelProps {
+export interface PlayerEnhancementPanelProps {
   /** Current track ID */
   trackId?: number;
 
@@ -51,6 +54,12 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
   const streaming = useSelector((state: any) => state.player?.streaming || {});
   const currentTrack = useSelector((state: any) => state.player?.currentTrack);
 
+  // Play mode state (normal vs enhanced)
+  const [playMode, setPlayMode] = useState<'normal' | 'enhanced'>('enhanced');
+
+  // Playback hooks
+  const playNormal = usePlayNormal();
+
   // Determine panel visibility
   const shouldShow = useMemo(() => {
     return isVisible && (trackId || currentTrack?.id);
@@ -74,9 +83,31 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
   const handlePlayEnhanced = useCallback(
     (preset: string, intensity: number) => {
       console.log(`[PlayerEnhancementPanel] Playing enhanced: ${preset} @ ${intensity}x`);
-      // Redux will handle state updates via WebSocket
+      // Redis will handle state updates via WebSocket
     },
     []
+  );
+
+  /**
+   * Handle play mode toggle
+   */
+  const handleModeToggle = useCallback(
+    (mode: 'normal' | 'enhanced') => {
+      if (mode === playMode) return; // Already in this mode
+
+      console.log(`[PlayerEnhancementPanel] Switching to ${mode} mode`);
+
+      if (mode === 'normal') {
+        // Stop enhanced, start normal
+        setPlayMode('normal');
+        playNormal.playNormal(activeTrackId);
+      } else {
+        // Stop normal, start enhanced
+        setPlayMode('enhanced');
+        // EnhancedPlaybackControls will handle starting enhanced playback
+      }
+    },
+    [playMode, activeTrackId, playNormal]
   );
 
   if (!shouldShow) {
@@ -85,6 +116,35 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
 
   return (
     <div className={className} style={styles.container}>
+      {/* Playback Mode Toggle */}
+      <div style={styles.modeToggleSection}>
+        <div style={styles.modeToggleLabel}>Playback Mode</div>
+        <div style={styles.modeToggleButtons}>
+          <button
+            style={{
+              ...styles.modeButton,
+              ...(playMode === 'normal' ? styles.modeButtonActive : styles.modeButtonInactive),
+            }}
+            onClick={() => handleModeToggle('normal')}
+            disabled={!activeTrackId}
+            title="Play original unprocessed audio"
+          >
+            🎵 Original
+          </button>
+          <button
+            style={{
+              ...styles.modeButton,
+              ...(playMode === 'enhanced' ? styles.modeButtonActive : styles.modeButtonInactive),
+            }}
+            onClick={() => handleModeToggle('enhanced')}
+            disabled={!activeTrackId}
+            title="Play with audio enhancement/mastering"
+          >
+            ✨ Enhanced
+          </button>
+        </div>
+      </div>
+
       {/* Main Enhancement Controls */}
       <div style={styles.controlsSection}>
         <EnhancedPlaybackControls
@@ -167,6 +227,53 @@ const styles: Record<string, React.CSSProperties> = {
     gap: tokens.spacing.md,
     width: '100%',
   },
+
+  modeToggleSection: {
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: tokens.spacing.sm,
+    padding: `${tokens.spacing.sm} 0`,
+    borderBottom: `1px solid ${tokens.colors.border.medium}`,
+  },
+
+  modeToggleLabel: {
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    color: tokens.colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+
+  modeToggleButtons: {
+    display: 'flex',
+    gap: tokens.spacing.xs,
+    width: '100%',
+  },
+
+  modeButton: {
+    flex: 1,
+    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+    border: `2px solid transparent`,
+    borderRadius: '4px',
+    fontSize: '0.9375rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 200ms ease-in-out',
+    whiteSpace: 'nowrap',
+  } as React.CSSProperties,
+
+  modeButtonActive: {
+    backgroundColor: tokens.colors.accent.primary,
+    color: tokens.colors.text.inverse,
+    borderColor: tokens.colors.accent.primary,
+  } as React.CSSProperties,
+
+  modeButtonInactive: {
+    backgroundColor: tokens.colors.bg.level2,
+    color: tokens.colors.text.secondary,
+    borderColor: tokens.colors.border.light,
+  } as React.CSSProperties,
 
   controlsSection: {
     width: '100%',

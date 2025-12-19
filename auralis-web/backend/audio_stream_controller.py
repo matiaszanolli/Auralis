@@ -379,6 +379,143 @@ class AudioStreamController:
             logger.error(f"Audio streaming failed: {e}", exc_info=True)
             await self._send_error(websocket, track_id, str(e))
 
+    async def stream_normal_audio(
+        self,
+        track_id: int,
+        websocket: WebSocket,
+        on_progress: Optional[Callable[[int, float, str], Any]] = None
+    ) -> None:
+        """
+        Stream original (unprocessed) audio chunks to client via WebSocket.
+
+        Used for comparing original vs enhanced audio. Same chunking format as enhanced,
+        but with no DSP processing applied.
+
+        Args:
+            track_id: Track ID to stream
+            websocket: WebSocket connection to client
+            on_progress: Optional callback for progress updates
+
+        Raises:
+            ValueError: If track not found or file unavailable
+            Exception: If loading or streaming fails
+        """
+        import soundfile as sf
+
+        if not self._get_repository_factory:
+            raise ValueError("RepositoryFactory not available")
+
+        # Get track from library
+        try:
+            factory = self._get_repository_factory()
+            track = factory.tracks.get_by_id(track_id)
+            if not track:
+                await self._send_error(websocket, track_id, "Track not found")
+                return
+
+            if not Path(track.filepath).exists():
+                await self._send_error(
+                    websocket, track_id, f"Audio file not found: {track.filepath}"
+                )
+                return
+        except Exception as e:
+            logger.error(f"Failed to load track {track_id}: {e}")
+            await self._send_error(websocket, track_id, str(e))
+            return
+
+        try:
+            # Load audio file metadata
+            audio_data, sample_rate = sf.read(str(track.filepath), dtype=np.float32)
+
+            # Handle mono/stereo
+            if audio_data.ndim == 1:
+                audio_data = audio_data[:, np.newaxis]  # Convert mono to stereo-like shape
+                channels = 1
+            else:
+                channels = audio_data.shape[1]
+
+            duration = len(audio_data) / sample_rate
+
+            # Calculate chunks (same parameters as ChunkedProcessor)
+            chunk_duration = 15.0  # Match ChunkedProcessor.CHUNK_DURATION
+            chunk_interval = 10.0  # Match ChunkedProcessor.CHUNK_INTERVAL
+            chunk_samples = int(chunk_duration * sample_rate)
+            interval_samples = int(chunk_interval * sample_rate)
+
+            total_chunks = max(1, int(np.ceil((len(audio_data) - chunk_samples) / interval_samples)) + 1)
+
+            logger.info(
+                f"Starting normal audio stream: track={track_id}, "
+                f"duration={duration:.1f}s, chunks={total_chunks}, sr={sample_rate}Hz"
+            )
+
+            # Send stream start message
+            await self._send_stream_start(
+                websocket,
+                track_id=track_id,
+                preset="none",  # No processing
+                intensity=1.0,   # Full intensity (original)
+                sample_rate=sample_rate,
+                channels=channels,
+                total_chunks=total_chunks,
+                chunk_duration=chunk_duration,
+                total_duration=duration,
+            )
+
+            # Stream chunks without processing
+            for chunk_idx in range(total_chunks):
+                if websocket.client_state.name != "CONNECTED":
+                    logger.info(f"WebSocket disconnected, stopping stream")
+                    break
+
+                try:
+                    # Extract chunk samples
+                    start_sample = chunk_idx * interval_samples
+                    end_sample = min(start_sample + chunk_samples, len(audio_data))
+
+                    chunk_audio = audio_data[start_sample:end_sample].astype(np.float32)
+
+                    # Pad if last chunk is shorter
+                    if len(chunk_audio) < chunk_samples:
+                        padding = np.zeros((chunk_samples - len(chunk_audio), channels), dtype=np.float32)
+                        chunk_audio = np.vstack([chunk_audio, padding])
+
+                    # Stream the chunk
+                    await self._send_pcm_chunk(
+                        websocket,
+                        pcm_samples=chunk_audio,
+                        chunk_index=chunk_idx,
+                        total_chunks=total_chunks,
+                        crossfade_samples=int(5.0 * sample_rate),  # 5s overlap (match ChunkedProcessor)
+                    )
+
+                    # Progress update
+                    if on_progress:
+                        progress = ((chunk_idx + 1) / total_chunks) * 100
+                        await on_progress(track_id, progress, f"Streamed chunk {chunk_idx + 1}")
+
+                except Exception as chunk_error:
+                    logger.error(f"Failed to stream chunk {chunk_idx}: {chunk_error}", exc_info=True)
+                    await self._send_error(
+                        websocket,
+                        track_id,
+                        f"Failed to stream chunk {chunk_idx}: {chunk_error}",
+                    )
+                    return
+
+            # Stream complete
+            logger.info(f"Normal audio stream complete: track={track_id}")
+            await self._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=len(audio_data),
+                duration=duration,
+            )
+
+        except Exception as e:
+            logger.error(f"Normal audio streaming failed: {e}", exc_info=True)
+            await self._send_error(websocket, track_id, str(e))
+
     async def _process_and_stream_chunk(
         self,
         chunk_index: int,

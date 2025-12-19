@@ -184,6 +184,37 @@ def create_system_router(
                             })
                         )
 
+                elif message.get("type") == "play_normal":
+                    # Handle normal (unprocessed) audio playback for comparison
+                    data = message.get("data", {})
+                    track_id = data.get("track_id")
+
+                    logger.info(f"Received play_normal: track_id={track_id}")
+
+                    try:
+                        controller = AudioStreamController(
+                            chunked_processor_class=None,
+                            get_repository_factory=get_repository_factory,
+                        )
+
+                        # Stream original audio to client (no DSP processing)
+                        await controller.stream_normal_audio(
+                            track_id=track_id,
+                            websocket=websocket,
+                        )
+                    except Exception as e:
+                        logger.error(f"Error handling play_normal: {e}", exc_info=True)
+                        await websocket.send_text(
+                            json.dumps({
+                                "type": "audio_stream_error",
+                                "data": {
+                                    "track_id": track_id,
+                                    "error": str(e),
+                                    "code": "STREAMING_ERROR"
+                                }
+                            })
+                        )
+
                 elif message.get("type") == "subscribe_job_progress":
                     # Subscribe to job progress updates
                     job_id = message.get("job_id")
