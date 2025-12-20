@@ -64,8 +64,9 @@ const Player: React.FC = () => {
   const [queuePanelOpen, setQueuePanelOpen] = useState(false);
 
   // Redux state for current playback info
-  const currentTrack = useCurrentTrack();
+  // FIX: Read currentTrack directly from Redux instead of WebSocket hook
   const state = useSelector((state: any) => state.player || {});
+  const currentTrack = state.currentTrack;
 
   // WebSocket Audio Streaming Hook (replaces REST API playback)
   // Provides: playEnhanced, pausePlayback, resumePlayback, stopPlayback, setVolume
@@ -277,14 +278,21 @@ const Player: React.FC = () => {
       )}
 
       {/* Enhancement Panel - Integrated streaming controls */}
-      {currentTrack && (
-        <div style={styles.enhancementPanelWrapper}>
-          <PlayerEnhancementPanel
-            trackId={currentTrack?.id}
-            isVisible={!!currentTrack}
-          />
-        </div>
-      )}
+      {(() => {
+        console.log('[Player] 🔍 Checking Enhancement Panel condition:', {
+          currentTrack: currentTrack?.title || 'NO TRACK',
+          hasTrack: !!currentTrack,
+          trackId: currentTrack?.id,
+        });
+        return currentTrack && (
+          <div style={styles.enhancementPanelWrapper}>
+            <PlayerEnhancementPanel
+              trackId={currentTrack?.id}
+              isVisible={!!currentTrack}
+            />
+          </div>
+        );
+      })()}
 
       {/* Error State Indicator */}
       {streaming.isError && (

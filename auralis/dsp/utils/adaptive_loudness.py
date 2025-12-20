@@ -38,10 +38,11 @@ class AdaptiveLoudnessControl:
         intensity: float = 1.0,
         crest_factor_db: float = None,
         bass_pct: float = None,
-        transient_density: float = None
+        transient_density: float = None,
+        peak_db: float = None
     ) -> Tuple[float, str]:
         """
-        Calculate adaptive makeup gain based on source LUFS, dynamic range, bass content, and transients.
+        Calculate adaptive makeup gain based on source LUFS, dynamic range, bass content, transients, and peak.
 
         Args:
             source_lufs: Source loudness in LUFS
@@ -49,6 +50,7 @@ class AdaptiveLoudnessControl:
             crest_factor_db: Peak-to-RMS ratio in dB (optional, for transient preservation)
             bass_pct: Bass energy percentage 0.0-1.0 (optional, for bass-heavy material)
             transient_density: Transient density 0.0-1.0 (optional, for bass-transient interaction)
+            peak_db: Peak level in dB (optional, for headroom-aware gain limiting)
 
         Returns:
             Tuple of (makeup_gain_db, reasoning_note)
@@ -90,6 +92,20 @@ class AdaptiveLoudnessControl:
 
             # Clamp to adaptive range
             gain = max(0.0, min(gain, max_gain))
+
+            # CRITICAL: Peak-aware gain limiting
+            # If source is already near 0 dBFS, limit gain to available headroom
+            # This prevents overdriving material that's already mastered (low LUFS but high peak)
+            if peak_db is not None:
+                # Calculate available headroom (how much gain before clipping)
+                # Use -1.5 dB as target ceiling for soft clipper headroom
+                target_ceiling_db = -1.5
+                available_headroom = target_ceiling_db - peak_db
+
+                if available_headroom < gain:
+                    old_gain = gain
+                    gain = max(0.0, available_headroom)
+                    reasoning_suffix += f" (peak {peak_db:.1f} dB: limited from {old_gain:.1f} to {gain:.1f} dB)"
 
             # Bass-transient interaction reduction to prevent bass-kick overdrive
             # CRITICAL: Only reduce gain for loud/moderate material

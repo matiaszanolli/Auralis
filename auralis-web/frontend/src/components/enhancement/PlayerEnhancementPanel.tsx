@@ -13,14 +13,14 @@
  * Used in: Player.tsx right section for easy access to enhanced playback
  */
 
-import React, { useMemo, useCallback, useState } from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { tokens } from '@/design-system';
 
-// Streaming components
-import { EnhancedPlaybackControls } from './EnhancedPlaybackControls';
-import { StreamingProgressBar } from './StreamingProgressBar';
-import { StreamingErrorBoundary, StreamingErrorType } from './StreamingErrorBoundary';
+// Streaming components - COMMENTED OUT (not used in compact toggle mode)
+// import { EnhancedPlaybackControls } from './EnhancedPlaybackControls';
+// import { StreamingProgressBar } from './StreamingProgressBar';
+// import { StreamingErrorBoundary, StreamingErrorType } from './StreamingErrorBoundary';
 
 // Playback hooks
 import { usePlayNormal } from '@/hooks/enhancement/usePlayNormal';
@@ -58,11 +58,29 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
   const [playMode, setPlayMode] = useState<'normal' | 'enhanced'>('enhanced');
 
   // Playback hooks
-  const playNormal = usePlayNormal();
+  // TEMPORARILY COMMENTED OUT FOR DEBUGGING
+  // const playNormal = usePlayNormal();
+
+  // Debug: Log when component mounts/updates
+  useEffect(() => {
+    console.log('[PlayerEnhancementPanel] ✅ Component mounted/updated!', {
+      trackId,
+      isVisible,
+      currentTrack: currentTrack?.title,
+      playMode,
+    });
+  }, [trackId, isVisible, currentTrack?.title, playMode]);
 
   // Determine panel visibility
   const shouldShow = useMemo(() => {
-    return isVisible && (trackId || currentTrack?.id);
+    const show = isVisible && (trackId || currentTrack?.id);
+    console.log('[PlayerEnhancementPanel] Visibility check:', {
+      isVisible,
+      trackId,
+      currentTrackId: currentTrack?.id,
+      shouldShow: show,
+    });
+    return show;
   }, [isVisible, trackId, currentTrack?.id]);
 
   // Use provided trackId or fall back to current track
@@ -100,14 +118,17 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
       if (mode === 'normal') {
         // Stop enhanced, start normal
         setPlayMode('normal');
-        playNormal.playNormal(activeTrackId);
+        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
+        // playNormal.playNormal(activeTrackId);
+        console.log('[PlayerEnhancementPanel] Normal mode selected (hook disabled for debugging)');
       } else {
         // Stop normal, start enhanced
         setPlayMode('enhanced');
         // EnhancedPlaybackControls will handle starting enhanced playback
+        console.log('[PlayerEnhancementPanel] Enhanced mode selected');
       }
     },
-    [playMode, activeTrackId, playNormal]
+    [playMode, activeTrackId]
   );
 
   if (!shouldShow) {
@@ -145,7 +166,16 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
         </div>
       </div>
 
-      {/* Main Enhancement Controls */}
+      {/*
+        REMOVED: Large enhancement UI panel below playback bar
+        User requested: "We don't need this whole section below the playback bar.
+        Having the 'Enhanced' button in the right pane working snappy enough is all the customization we need."
+
+        The compact toggle above (Original/Enhanced buttons) is sufficient.
+      */}
+
+      {/* Main Enhancement Controls - REMOVED */}
+      {/*
       <div style={styles.controlsSection}>
         <EnhancedPlaybackControls
           trackId={activeTrackId}
@@ -154,8 +184,10 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
           showStatus={isStreaming}
         />
       </div>
+      */}
 
-      {/* Streaming Progress - shown when streaming or buffering */}
+      {/* Streaming Progress - REMOVED */}
+      {/*
       {isStreaming && (
         <div style={styles.progressSection}>
           <StreamingProgressBar
@@ -169,8 +201,10 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
           />
         </div>
       )}
+      */}
 
-      {/* Error Boundary - shown when error occurs */}
+      {/* Error Boundary - REMOVED */}
+      {/*
       {streaming?.error && (
         <div style={styles.errorSection}>
           <StreamingErrorBoundary
@@ -192,13 +226,15 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
           />
         </div>
       )}
+      */}
     </div>
   );
 };
 
 /**
- * Map error message to StreamingErrorType
+ * Map error message to StreamingErrorType - COMMENTED OUT (not used in compact toggle mode)
  */
+/*
 function mapErrorToType(error: string): StreamingErrorType {
   const lowerError = error.toLowerCase();
 
@@ -216,6 +252,7 @@ function mapErrorToType(error: string): StreamingErrorType {
 
   return StreamingErrorType.UNKNOWN;
 }
+*/
 
 /**
  * Styles for PlayerEnhancementPanel
@@ -231,50 +268,55 @@ const styles: Record<string, React.CSSProperties> = {
   modeToggleSection: {
     width: '100%',
     display: 'flex',
-    flexDirection: 'column',
+    alignItems: 'center',
     gap: tokens.spacing.sm,
-    padding: `${tokens.spacing.sm} 0`,
-    borderBottom: `1px solid ${tokens.colors.border.medium}`,
+    padding: `${tokens.spacing.xs} 0`,
+    marginBottom: tokens.spacing.sm,
   },
 
   modeToggleLabel: {
-    fontSize: '0.75rem',
+    fontSize: '0.6875rem',
     fontWeight: 600,
-    color: tokens.colors.text.secondary,
+    color: tokens.colors.text.tertiary,
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
+    flexShrink: 0,
   },
 
   modeToggleButtons: {
     display: 'flex',
     gap: tokens.spacing.xs,
-    width: '100%',
+    flex: 1,
   },
 
   modeButton: {
     flex: 1,
-    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    border: `2px solid transparent`,
+    padding: `6px 12px`,
+    border: `1px solid ${tokens.colors.border.light}`,
     borderRadius: '4px',
-    fontSize: '0.9375rem',
+    fontSize: '0.8125rem',
     fontWeight: 500,
     cursor: 'pointer',
-    transition: 'all 200ms ease-in-out',
+    transition: 'all 150ms ease-in-out',
     whiteSpace: 'nowrap',
+    background: 'none',
   } as React.CSSProperties,
 
   modeButtonActive: {
     backgroundColor: tokens.colors.accent.primary,
-    color: tokens.colors.text.inverse,
+    color: tokens.colors.text.primary,
     borderColor: tokens.colors.accent.primary,
+    boxShadow: `0 0 8px ${tokens.colors.accent.primary}40`,
   } as React.CSSProperties,
 
   modeButtonInactive: {
-    backgroundColor: tokens.colors.bg.level2,
-    color: tokens.colors.text.secondary,
+    backgroundColor: 'transparent',
+    color: tokens.colors.text.tertiary,
     borderColor: tokens.colors.border.light,
   } as React.CSSProperties,
 
+  // COMMENTED OUT - Not used in compact toggle mode
+  /*
   controlsSection: {
     width: '100%',
   },
@@ -288,6 +330,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     padding: `0 ${tokens.spacing.sm}`,
   },
+  */
 };
 
 export default PlayerEnhancementPanel;

@@ -79,7 +79,7 @@ def get_or_compute_fingerprint(filepath: str) -> Optional[Dict]:
         return None
 
 
-def generate_adaptive_parameters(fp: Dict, intensity: float = 1.0) -> Dict:
+def generate_adaptive_parameters(fp: Dict, intensity: float = 1.0, peak_db: float = None) -> Dict:
     """
     Generate content-aware processing parameters from fingerprint.
 
@@ -149,7 +149,8 @@ def generate_adaptive_parameters(fp: Dict, intensity: float = 1.0) -> Dict:
         intensity=base_intensity,
         crest_factor_db=crest_db,
         bass_pct=bass_pct,  # Bass-aware gain reduction
-        transient_density=transient_density  # Bass-transient interaction detection
+        transient_density=transient_density,  # Bass-transient interaction detection
+        peak_db=peak_db  # Peak-aware gain limiting (prevents overdriving mastered material)
     )
     params['processing_notes'].append(gain_reasoning)
 
@@ -222,6 +223,26 @@ def process_track(
     if not fingerprint:
         raise RuntimeError("Failed to compute or load fingerprint")
 
+    # Step 2: Load audio (needed for peak analysis before parameter generation)
+    print(f"\n🎵 Step 2: Loading audio...")
+    audio, sr = librosa.load(str(filepath), sr=None, mono=False)
+
+    # Convert to float32 for processing (librosa default)
+    audio = audio.astype(np.float32)
+
+    # Convert to stereo if mono
+    if audio.ndim == 1:
+        audio = np.stack([audio, audio])
+        print(f"   Converted mono to stereo")
+
+    print(f"   Sample rate: {sr} Hz")
+    print(f"   Duration: {audio.shape[1] / sr:.1f} seconds")
+
+    # Calculate peak level for headroom-aware gain limiting
+    peak_linear = np.max(np.abs(audio))
+    peak_db = 20 * np.log10(peak_linear) if peak_linear > 0 else -96.0
+    print(f"   Peak level: {peak_db:.1f} dB")
+
     # Display key metrics from 25D fingerprint
     print(f"\n📊 Audio Characteristics (25D Fingerprint):")
     print(f"   Tempo: {fingerprint.get('tempo_bpm', 0):.1f} BPM")
@@ -232,9 +253,9 @@ def process_track(
     print(f"   Spectral centroid: {fingerprint.get('spectral_centroid', 0):.2f}")
     print(f"   Transient density: {fingerprint.get('transient_density', 0):.2f}")
 
-    # Step 2: Generate adaptive parameters
-    print(f"\n🧠 Step 2: Adaptive Parameter Generation...")
-    params = generate_adaptive_parameters(fingerprint, intensity)
+    # Step 3: Generate adaptive parameters (with peak-awareness)
+    print(f"\n🧠 Step 3: Adaptive Parameter Generation...")
+    params = generate_adaptive_parameters(fingerprint, intensity, peak_db=peak_db)
 
     content_types = ', '.join(params['content_type']) if params['content_type'] else 'general'
     print(f"   Content type: {content_types}")
@@ -250,21 +271,6 @@ def process_track(
 
     for note in params['processing_notes']:
         print(f"   • {note}")
-
-    # Step 3: Load audio
-    print(f"\n🎵 Step 3: Loading audio...")
-    audio, sr = librosa.load(str(filepath), sr=None, mono=False)
-
-    # Convert to float32 for processing (librosa default)
-    audio = audio.astype(np.float32)
-
-    # Convert to stereo if mono
-    if audio.ndim == 1:
-        audio = np.stack([audio, audio])
-        print(f"   Converted mono to stereo")
-
-    print(f"   Sample rate: {sr} Hz")
-    print(f"   Duration: {audio.shape[1] / sr:.1f} seconds")
 
     # Step 4: Apply adaptive processing
     print(f"\n⚡ Step 4: Adaptive Processing...")

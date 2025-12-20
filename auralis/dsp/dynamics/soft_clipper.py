@@ -17,7 +17,7 @@ import numpy as np
 
 def soft_clip(audio: np.ndarray, threshold: float = 0.9, ceiling: float = 0.99) -> np.ndarray:
     """
-    Apply soft clipping to audio using tanh saturation
+    Apply soft clipping to audio using tanh saturation with proper threshold behavior.
 
     This provides gentle, musical limiting that preserves loudness differences
     while preventing hard clipping.
@@ -31,21 +31,46 @@ def soft_clip(audio: np.ndarray, threshold: float = 0.9, ceiling: float = 0.99) 
         Soft-clipped audio
 
     Algorithm:
-        - Below threshold: Linear (no change)
+        - Below threshold: Linear (no change) - CRITICAL for preserving dynamics
         - Above threshold: Smooth tanh curve approaching ceiling
         - Preserves overall loudness while catching peaks
+        - Mid-high frequencies stay clean when below threshold
     """
-    # Simple tanh-based soft clipping
-    # Scale input so that threshold maps to the linear region
-    # and ceiling is the asymptotic limit
+    # Ensure threshold < ceiling
+    threshold = min(threshold, ceiling * 0.99)
 
-    # For values below threshold, pass through
-    # For values above, apply scaled tanh
-    scale_factor = ceiling / threshold
+    # Calculate the headroom above threshold
+    headroom = ceiling - threshold
 
-    # Apply tanh to the entire signal scaled appropriately
-    # tanh compresses the signal smoothly, approaching ±1
-    output = ceiling * np.tanh(audio * scale_factor / ceiling)
+    # Get absolute values and signs for processing
+    abs_audio = np.abs(audio)
+    sign = np.sign(audio)
+
+    # Create output array
+    output = np.empty_like(audio)
+
+    # Below threshold: pass through unchanged (linear region)
+    # This is CRITICAL - signals below threshold should not be distorted
+    below_mask = abs_audio <= threshold
+    output[below_mask] = audio[below_mask]
+
+    # Above threshold: apply soft saturation only to the excess
+    # The excess above threshold gets compressed via tanh
+    above_mask = ~below_mask
+    if np.any(above_mask):
+        excess = abs_audio[above_mask] - threshold
+
+        # Scale factor for tanh: controls how quickly we approach ceiling
+        # Higher values = harder knee, lower = softer knee
+        # Using headroom as the scale gives natural saturation
+        scale = headroom * 1.5  # 1.5x headroom for musical saturation curve
+
+        # Compress the excess using tanh
+        # tanh(x/scale) * headroom gives us 0 to headroom range
+        compressed_excess = headroom * np.tanh(excess / scale)
+
+        # Final output: threshold + compressed excess, with original sign
+        output[above_mask] = sign[above_mask] * (threshold + compressed_excess)
 
     return output
 
