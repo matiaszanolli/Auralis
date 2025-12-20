@@ -22,14 +22,14 @@ export const SettingsDialogFooter: React.FC<SettingsDialogFooterProps> = ({
 }) => {
   return (
     <SettingsDialogActions>
-      <Button onClick={onReset} startIcon={<ResetIcon />} color="error">
+      <Button onClick={onReset} startIcon={<ResetIcon />} variant="danger">
         Reset to Defaults
       </Button>
       <FlexSpacer />
-      <Button onClick={onCancel} color="inherit">
+      <Button onClick={onCancel} variant="ghost">
         Cancel
       </Button>
-      <Button onClick={onSave} variant="contained" sx={SaveButtonGradient}>
+      <Button onClick={onSave} variant="primary" sx={SaveButtonGradient}>
         Save Changes
       </Button>
     </SettingsDialogActions>

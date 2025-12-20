@@ -19,7 +19,7 @@ import { tokens } from '@/design-system';
 /**
  * Props for StreamingProgressBar component
  */
-interface StreamingProgressBarProps {
+export interface StreamingProgressBarProps {
   /** Overall progress (0-100) */
   progress: number;
 
@@ -276,7 +276,7 @@ export const StreamingProgressBar: React.FC<StreamingProgressBarProps> = ({
                 backgroundColor:
                   bufferPercentage >= threshold
                     ? bufferStatus.color
-                    : tokens.colors.border,
+                    : tokens.colors.border.light,
               }}
             />
           ))}

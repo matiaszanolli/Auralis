@@ -52,7 +52,7 @@ interface StreamingError {
 /**
  * Props for StreamingErrorBoundary component
  */
-interface StreamingErrorBoundaryProps {
+export interface StreamingErrorBoundaryProps {
   /** Error message to display */
   error: string | null;
 

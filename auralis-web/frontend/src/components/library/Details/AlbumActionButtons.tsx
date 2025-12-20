@@ -45,7 +45,7 @@ export const AlbumActionButtons: React.FC<AlbumActionButtonsProps> = ({
     <Box sx={{ display: 'flex', gap: tokens.spacing.md, flexWrap: 'wrap', alignItems: 'center' }}>
       {/* Primary Play/Pause Button */}
       <Button
-        variant="contained"
+        variant="primary"
         startIcon={isPlaying && firstTrackId ? <Pause /> : <PlayArrow />}
         onClick={onPlay}
         disabled={savingFavorite}

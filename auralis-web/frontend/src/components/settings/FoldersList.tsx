@@ -55,17 +55,17 @@ export const FoldersList: React.FC<FoldersListProps> = ({
             <ListItemSecondaryAction>
               <IconButton
                 onClick={() => onRescanFolder(folder)}
-                size="small"
+                size="sm"
                 sx={{ mr: 1 }}
-                title="Rescan this folder"
+                tooltip="Rescan this folder"
               >
                 <RefreshIcon fontSize="small" />
               </IconButton>
               <IconButton
                 onClick={() => onRemoveFolder(folder)}
-                size="small"
-                color="error"
-                title="Remove this folder"
+                size="sm"
+                tooltip="Remove this folder"
+                sx={{ color: tokens.colors.semantic.error }}
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -76,7 +76,7 @@ export const FoldersList: React.FC<FoldersListProps> = ({
       <Button
         startIcon={<AddIcon />}
         onClick={onAddFolder}
-        variant="outlined"
+        variant="secondary"
         sx={{
           borderColor: tokens.colors.accent.primary,
           color: tokens.colors.accent.primary,

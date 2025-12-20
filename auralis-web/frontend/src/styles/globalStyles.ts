@@ -1,35 +1,27 @@
 import { css } from '@emotion/react';
+import { tokens } from '@/design-system/tokens';
 
-// Direct color values to avoid circular import issues at module load time
-const BG_PRIMARY = '#0A0E27';
-const BG_SECONDARY = '#1a1f3a';
-const BG_SURFACE = '#252b45';
-const BG_HOVER = '#2a3150';
-const TEXT_PRIMARY = '#ffffff';
-const TEXT_SECONDARY = '#8b92b0';
-const TEXT_DISABLED = '#5a5f7a';
-
-// Gradient constants (module load-time requirement)
-const GRADIENT_AURORA = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-const GRADIENT_NEON_SUNSET = 'linear-gradient(135deg, #ff6b9d 0%, #ffa502 100%)';
-const GRADIENT_DEEP_OCEAN = 'linear-gradient(135deg, #4b7bec 0%, #26de81 100%)';
-
+/**
+ * Global Styles
+ *
+ * Uses design system tokens as single source of truth.
+ * All color, spacing, and animation values come from tokens.ts
+ */
 export const globalStyles = css`
   :root {
-    /* Color variables */
-    --bg-primary: ${BG_PRIMARY};
-    --bg-secondary: ${BG_SECONDARY};
-    --bg-surface: ${BG_SURFACE};
-    --bg-hover: ${BG_HOVER};
+    /* Color variables - mapped from tokens */
+    --bg-primary: ${tokens.colors.bg.level1};
+    --bg-secondary: ${tokens.colors.bg.level2};
+    --bg-surface: ${tokens.colors.bg.level3};
+    --bg-hover: ${tokens.colors.bg.level4};
 
-    --text-primary: ${TEXT_PRIMARY};
-    --text-secondary: ${TEXT_SECONDARY};
-    --text-disabled: ${TEXT_DISABLED};
+    --text-primary: ${tokens.colors.text.primary};
+    --text-secondary: ${tokens.colors.text.secondary};
+    --text-disabled: ${tokens.colors.text.disabled};
 
-    /* Gradient variables */
-    --gradient-aurora: ${GRADIENT_AURORA};
-    --gradient-sunset: ${GRADIENT_NEON_SUNSET};
-    --gradient-ocean: ${GRADIENT_DEEP_OCEAN};
+    /* Gradient variables - from tokens */
+    --gradient-aurora: ${tokens.gradients.aurora};
+    --gradient-aqua: ${tokens.gradients.aqua};
   }
 
   * {
@@ -40,8 +32,9 @@ export const globalStyles = css`
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background: ${BG_PRIMARY};
-    color: ${TEXT_PRIMARY};
+    background: ${tokens.colors.bg.level0};
+    color: ${tokens.colors.text.primary};
+    font-family: ${tokens.typography.fontFamily.primary};
   }
 
   /* Custom scrollbar */
@@ -51,23 +44,23 @@ export const globalStyles = css`
   }
 
   ::-webkit-scrollbar-track {
-    background: ${BG_SECONDARY};
+    background: ${tokens.colors.bg.level2};
   }
 
   ::-webkit-scrollbar-thumb {
-    background: ${BG_SURFACE};
+    background: ${tokens.colors.bg.level3};
     border-radius: 6px;
-    border: 2px solid ${BG_SECONDARY};
+    border: 2px solid ${tokens.colors.bg.level2};
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: ${BG_HOVER};
+    background: ${tokens.colors.bg.level4};
   }
 
   /* Firefox scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: ${BG_SURFACE} ${BG_SECONDARY};
+    scrollbar-color: ${tokens.colors.bg.level3} ${tokens.colors.bg.level2};
   }
 
   /* Animation keyframes */
@@ -82,10 +75,10 @@ export const globalStyles = css`
 
   @keyframes glow {
     0%, 100% {
-      filter: drop-shadow(0 0 8px rgba(102, 126, 234, 0.4));
+      filter: drop-shadow(0 0 8px rgba(115, 102, 240, 0.4));
     }
     50% {
-      filter: drop-shadow(0 0 16px rgba(102, 126, 234, 0.8));
+      filter: drop-shadow(0 0 16px rgba(115, 102, 240, 0.8));
     }
   }
 
@@ -175,7 +168,7 @@ export const globalStyles = css`
 
   /* Utility classes */
   .gradient-text {
-    background: ${GRADIENT_AURORA};
+    background: ${tokens.gradients.aurora};
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -184,31 +177,31 @@ export const globalStyles = css`
 
   /* Scroll animation classes */
   .animate-fade-in {
-    animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: fadeIn 0.6s ${tokens.transitions.easeOut} forwards;
   }
 
   .animate-fade-in-up {
-    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: fadeInUp 0.6s ${tokens.transitions.easeOut} forwards;
   }
 
   .animate-fade-in-down {
-    animation: fadeInDown 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: fadeInDown 0.6s ${tokens.transitions.easeOut} forwards;
   }
 
   .animate-fade-in-left {
-    animation: fadeInLeft 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: fadeInLeft 0.6s ${tokens.transitions.easeOut} forwards;
   }
 
   .animate-fade-in-right {
-    animation: fadeInRight 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: fadeInRight 0.6s ${tokens.transitions.easeOut} forwards;
   }
 
   .animate-scale-in {
-    animation: scaleIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: scaleIn 0.6s ${tokens.transitions.easeOut} forwards;
   }
 
   .hover-lift {
-    transition: transform 0.3s ease;
+    transition: transform ${tokens.transitions.slow};
   }
 
   .hover-lift:hover {
@@ -216,7 +209,7 @@ export const globalStyles = css`
   }
 
   .hover-scale {
-    transition: transform 0.3s ease;
+    transition: transform ${tokens.transitions.slow};
   }
 
   .hover-scale:hover {
@@ -224,7 +217,7 @@ export const globalStyles = css`
   }
 
   .smooth-transition {
-    transition: all 0.3s ease;
+    transition: ${tokens.transitions.all};
   }
 
   .glow-effect {
@@ -239,24 +232,24 @@ export const globalStyles = css`
   .skeleton {
     background: linear-gradient(
       90deg,
-      ${BG_SURFACE} 0%,
-      ${BG_HOVER} 50%,
-      ${BG_SURFACE} 100%
+      ${tokens.colors.bg.level3} 0%,
+      ${tokens.colors.bg.level4} 50%,
+      ${tokens.colors.bg.level3} 100%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
-    border-radius: 4px;
+    border-radius: ${tokens.borderRadius.sm};
   }
 
   /* Selection color */
   ::selection {
-    background: rgba(102, 126, 234, 0.3);
-    color: ${TEXT_PRIMARY};
+    background: rgba(115, 102, 240, 0.3);
+    color: ${tokens.colors.text.primary};
   }
 
-  /* Focus outline */
+  /* Focus outline - using accent color */
   :focus-visible {
-    outline: 2px solid #667eea;
+    outline: 2px solid ${tokens.colors.accent.primary};
     outline-offset: 2px;
   }
 

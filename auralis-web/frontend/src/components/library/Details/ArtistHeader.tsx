@@ -66,7 +66,7 @@ export const ArtistHeader: React.FC<ArtistHeaderProps> = ({
         <Box sx={{ display: 'flex', gap: tokens.spacing.md, flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Play All Button */}
           <Button
-            variant="contained"
+            variant="primary"
             startIcon={<PlayArrow />}
             onClick={onPlayAll}
             sx={{
@@ -94,7 +94,7 @@ export const ArtistHeader: React.FC<ArtistHeaderProps> = ({
 
           {/* Shuffle Button */}
           <Button
-            variant="outlined"
+            variant="secondary"
             startIcon={<Shuffle />}
             onClick={onShuffle}
             sx={{

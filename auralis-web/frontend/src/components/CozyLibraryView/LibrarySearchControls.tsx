@@ -67,7 +67,7 @@ export const LibrarySearchControls: React.FC<LibrarySearchControlsProps> = ({
           <Tooltip title="Scan Folder">
             <span>
               <IconButton
-                color="primary"
+                variant="primary"
                 onClick={onScanFolder}
                 disabled={scanning}
               >

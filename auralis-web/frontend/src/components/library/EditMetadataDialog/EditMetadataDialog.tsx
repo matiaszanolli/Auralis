@@ -83,7 +83,7 @@ export const EditMetadataDialog: React.FC<EditMetadataDialogProps> = ({
         <SaveButton
           onClick={handleSave}
           disabled={saving || loading}
-          variant="contained"
+          variant="primary"
           startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
         >
           {saving ? 'Saving...' : 'Save'}

@@ -24,9 +24,9 @@ export const AppEnhancementPaneFooter: React.FC<AppEnhancementPaneFooterProps> =
       <Tooltip title={useV2 ? 'Switch to V1' : 'Switch to V2'}>
         <Button
           onClick={onToggleV2}
-          size="small"
+          size="sm"
           fullWidth
-          variant="outlined"
+          variant="secondary"
           sx={{
             background: useV2
               ? auroraOpacity.standard
