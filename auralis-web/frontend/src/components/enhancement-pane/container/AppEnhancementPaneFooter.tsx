@@ -8,7 +8,7 @@ import React from 'react';
 
 import { FooterArea } from './AppEnhancementPaneStyles';
 import { auroraOpacity } from '../../library/Styles/Color.styles';
-import { Button, Tooltip } from '@/design-system';
+import { Button, Tooltip, tokens } from '@/design-system';
 
 interface AppEnhancementPaneFooterProps {
   useV2: boolean;
@@ -31,18 +31,18 @@ export const AppEnhancementPaneFooter: React.FC<AppEnhancementPaneFooterProps> =
             background: useV2
               ? auroraOpacity.standard
               : auroraOpacity.minimal,
-            color: useV2 ? 'rgb(102, 126, 234)' : 'rgba(255, 255, 255, 0.5)',
-            fontSize: '11px',
-            fontWeight: 600,
+            color: useV2 ? tokens.colors.accent.primary : tokens.colors.text.muted,
+            fontSize: tokens.typography.fontSize.xs,
+            fontWeight: tokens.typography.fontWeight.semibold,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            padding: '8px',
+            padding: tokens.spacing.sm,
             border: `1px solid ${
               useV2
                 ? auroraOpacity.strong
                 : auroraOpacity.veryLight
             }`,
-            borderRadius: '4px',
+            borderRadius: tokens.borderRadius.sm,
             '&:hover': {
               background: useV2
                 ? auroraOpacity.strong

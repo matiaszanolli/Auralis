@@ -232,7 +232,8 @@ const styles = {
     margin: 0,
     fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.text.tertiary,
-    paddingX: tokens.spacing.sm,
+    paddingLeft: tokens.spacing.sm,
+    paddingRight: tokens.spacing.sm,
   },
 
   queryHighlight: {

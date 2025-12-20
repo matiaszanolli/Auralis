@@ -1,16 +1,17 @@
 import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
+import { tokens } from '@/design-system';
 import { auroraOpacity } from '../library/Styles/Color.styles';
 
 export const TopBarContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '16px 24px',
-  background: 'var(--midnight-blue)',
+  padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
+  background: tokens.colors.bg.level2,
   borderBottom: `1px solid ${auroraOpacity.veryLight}`,
   height: 70,
-  gap: 16,
+  gap: tokens.spacing.md,
 });
 
 export const LeftSection = styled(Box)(({ theme }) => ({
@@ -50,8 +51,8 @@ export const StatusIndicator = styled(Box)<{ color: string }>(({ color }) => ({
 }));
 
 export const TitleBox = styled(Box)({
-  fontSize: '20px',
-  fontWeight: 600,
-  color: 'var(--silver)',
+  fontSize: tokens.typography.fontSize.xl,
+  fontWeight: tokens.typography.fontWeight.semibold,
+  color: tokens.colors.text.secondary,
   whiteSpace: 'nowrap',
 });

@@ -142,10 +142,10 @@ const styles = {
     flexDirection: 'column' as const,
     width: '100%',
     height: '100%',
-    // Glass morphism effect: semi-translucent background + blur
-    backgroundColor: 'rgba(13, 17, 26, 0.92)',
-    backdropFilter: 'blur(12px)',
-    borderTop: `1px solid ${tokens.colors.border.light}`,
+    // Glass morphism effect: use component token for background
+    backgroundColor: tokens.components.playerBar.background,
+    backdropFilter: tokens.components.playerBar.backdropFilter,
+    borderTop: tokens.components.playerBar.borderTop,
     boxShadow: tokens.components.playerBar.shadow,
     padding: tokens.spacing.md,
     boxSizing: 'border-box' as const,

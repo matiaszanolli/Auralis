@@ -200,6 +200,18 @@ export const tokens = {
   },
 
   /**
+   * Breakpoint System (responsive design)
+   * Based on common device widths
+   */
+  breakpoints: {
+    xs: '0px',       // Mobile (portrait)
+    sm: '600px',     // Mobile (landscape) / Small tablet
+    md: '900px',     // Tablet
+    lg: '1200px',    // Desktop
+    xl: '1536px',    // Large desktop / Wide screens
+  },
+
+  /**
    * Component-Specific Tokens
    * Predefined sizes and styles for major UI components
    */
