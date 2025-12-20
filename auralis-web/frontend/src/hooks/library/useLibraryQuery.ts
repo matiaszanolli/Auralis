@@ -148,6 +148,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
   // Refs for tracking ongoing requests and query stability
   const abortControllerRef = useRef<AbortController | null>(null);
   const queryKeyRef = useRef<string>('');
+  const isFetchingMoreRef = useRef<boolean>(false);
 
   // Constants
   const limit = options.limit || 50;
@@ -260,12 +261,18 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
   /**
    * Fetch next page (for infinite scroll)
+   * Includes deduplication to prevent concurrent fetch requests
    */
   const fetchMore = useCallback(async (): Promise<void> => {
-    if (!hasMore || isLoading) return;
+    // Guard: Skip if already fetching, no more items, or currently loading
+    if (isFetchingMoreRef.current || !hasMore || isLoading) {
+      return;
+    }
+
+    // Mark as fetching to prevent concurrent calls
+    isFetchingMoreRef.current = true;
 
     const nextOffset = offset + limit;
-    setOffset(nextOffset);
 
     // Create new URL with updated offset
     const newUrl = `/api/library/${queryType}?limit=${limit}&offset=${nextOffset}${
@@ -277,6 +284,8 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
       if (response) {
         const items = extractItemsFromResponse(response, queryType);
+        // Only update offset after successful fetch
+        setOffset(nextOffset);
         setData(prev => [...prev, ...items]);
         setTotal(response.total);
       }
@@ -286,8 +295,11 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         : (err as ApiError);
 
       setError(apiError);
+    } finally {
+      // Always clear the fetching flag
+      isFetchingMoreRef.current = false;
     }
-  }, [api, offset, limit, hasMore, queryType, options.search, options.orderBy, extractItemsFromResponse]);
+  }, [api, offset, limit, hasMore, isLoading, queryType, options.search, options.orderBy, extractItemsFromResponse]);
 
   /**
    * Refetch - Reset and fetch from beginning

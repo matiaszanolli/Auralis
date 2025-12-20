@@ -170,6 +170,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const unsubscribeErrorRef = useRef<(() => void) | null>(null);
   const unsubscribeFingerprintRef = useRef<(() => void) | null>(null);
 
+  // Pending chunks queue - handles race condition where chunks arrive before stream_start
+  const pendingChunksRef = useRef<AudioChunkMessage[]>([]);
+
   // Streaming metadata
   const streamingMetadataRef = useRef<{
     sampleRate: number;
@@ -199,6 +202,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     pcmBufferRef.current = null;
     playbackEngineRef.current = null;
     streamingMetadataRef.current = null;
+
+    // Clear pending chunks queue
+    pendingChunksRef.current = [];
   }, []);
 
   /**
@@ -261,6 +267,27 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         })
       );
 
+      // Process any chunks that arrived before stream_start (race condition handling)
+      if (pendingChunksRef.current.length > 0) {
+        console.log('[usePlayEnhanced] Processing queued chunks:', pendingChunksRef.current.length);
+        const queuedChunks = [...pendingChunksRef.current];
+        pendingChunksRef.current = []; // Clear queue before processing
+
+        for (const queuedMessage of queuedChunks) {
+          try {
+            const { samples, metadata } = decodeAudioChunkMessage(
+              queuedMessage,
+              message.data.sample_rate,
+              message.data.channels
+            );
+            buffer.append(samples, metadata.crossfadeSamples);
+            streamingMetadataRef.current!.processedChunks++;
+          } catch (queuedError) {
+            console.error('[usePlayEnhanced] Error processing queued chunk:', queuedError);
+          }
+        }
+      }
+
       // Start playback immediately when stream begins
       // (buffer should have minimum 1 second of data before starting)
       if (buffer.getAvailableSamples() >= message.data.sample_rate) {
@@ -279,8 +306,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    */
   const handleChunk = useCallback((message: AudioChunkMessage) => {
     try {
+      // If stream not yet initialized, queue the chunk instead of dropping it
       if (!pcmBufferRef.current || !streamingMetadataRef.current) {
-        console.warn('[usePlayEnhanced] Received chunk before stream initialized');
+        console.log('[usePlayEnhanced] Queuing chunk until stream initialized:', {
+          chunkIndex: message.data?.chunk_index,
+          queueLength: pendingChunksRef.current.length + 1,
+        });
+        pendingChunksRef.current.push(message);
         return;
       }
 
@@ -379,6 +411,19 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const playEnhanced = useCallback(
     async (trackId: number, preset: string, intensity: number) => {
       try {
+        // CRITICAL: Clean up any existing subscriptions BEFORE creating new ones
+        // This prevents subscription accumulation when playEnhanced is called multiple times
+        unsubscribeStreamStartRef.current?.();
+        unsubscribeChunkRef.current?.();
+        unsubscribeStreamEndRef.current?.();
+        unsubscribeErrorRef.current?.();
+        unsubscribeFingerprintRef.current?.();
+
+        // Stop any existing playback
+        playbackEngineRef.current?.stopPlayback();
+        pcmBufferRef.current = null;
+        streamingMetadataRef.current = null;
+
         // Reset streaming state
         dispatch(resetStreaming());
 
@@ -386,10 +431,16 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         setFingerprintStatus('idle');
         setFingerprintMessage(null);
 
+        // Check WebSocket connection before proceeding
+        if (!wsContext.isConnected) {
+          throw new Error('WebSocket not connected. Please wait for connection and try again.');
+        }
+
         // Load track data from backend so we can set currentTrack
         // This ensures the player bar shows the correct track info
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8765';
         try {
-          const response = await fetch(`http://localhost:8765/api/library/tracks`);
+          const response = await fetch(`${apiBaseUrl}/api/library/tracks`);
           if (response.ok) {
             const data = await response.json();
             const track = data.tracks?.find((t: any) => t.id === trackId);
@@ -404,7 +455,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           // Continue anyway - playback will still work
         }
 
-        // Subscribe to streaming messages
+        // Subscribe to streaming messages (fresh subscriptions after cleanup)
         unsubscribeStreamStartRef.current = wsContext.subscribe(
           'audio_stream_start',
           handleStreamStart as any

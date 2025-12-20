@@ -15,7 +15,7 @@
  * - Queue integration
  */
 
-import React, { useRef } from 'react';
+import React from 'react';
 import { LibraryGridSkeleton, TrackRowSkeleton } from '../../shared/ui/loaders';
 import { ListLoadingContainer } from '../Styles/Grid.styles';
 import TrackGridView from './TrackGridView';
@@ -83,8 +83,6 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
   onEditMetadata,
   onLoadMore,
 }) => {
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-
   // Queue operations with toast feedback
   const {
     handleRemoveTrack,
@@ -93,13 +91,12 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
     handleClearQueue,
   } = useQueueOperations({});
 
-  // Setup infinite scroll observer
-  useInfiniteScroll({
+  // Setup infinite scroll observer - returns the ref to attach to sentinel element
+  // Wrap onLoadMore to return a Promise (hook expects Promise<void>)
+  const { observerTarget, isFetching } = useInfiniteScroll({
     hasMore,
-    isLoadingMore,
-    isLoading: loading,
-    onLoadMore,
-    loadMoreRef,
+    isLoading: loading || isLoadingMore,
+    onLoadMore: async () => { onLoadMore(); },
   });
 
   // Show loading skeletons
@@ -122,7 +119,7 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
         tracks={tracks}
         hasMore={hasMore}
         currentTrackId={currentTrackId}
-        loadMoreRef={loadMoreRef}
+        loadMoreRef={observerTarget}
         onTrackPlay={onTrackPlay}
         onRemoveTrack={handleRemoveTrack}
         onReorderQueue={handleReorderQueue}
@@ -137,13 +134,13 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
     <TrackListViewContent
       tracks={tracks}
       hasMore={hasMore}
-      isLoadingMore={isLoadingMore}
+      isLoadingMore={isFetching}
       totalTracks={totalTracks}
       currentTrackId={currentTrackId}
       isPlaying={isPlaying}
       selectedTracks={selectedTracks}
       isSelected={isSelected}
-      loadMoreRef={loadMoreRef}
+      loadMoreRef={observerTarget}
       onToggleSelect={onToggleSelect}
       onTrackPlay={onTrackPlay}
       onPause={onPause}

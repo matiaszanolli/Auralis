@@ -156,6 +156,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
   const unsubscribeStreamEndRef = useRef<(() => void) | null>(null);
   const unsubscribeErrorRef = useRef<(() => void) | null>(null);
 
+  // Pending chunks queue - handles race condition where chunks arrive before stream_start
+  const pendingChunksRef = useRef<AudioChunkMessage[]>([]);
+
   // Streaming metadata
   const streamingMetadataRef = useRef<{
     sampleRate: number;
@@ -182,6 +185,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     pcmBufferRef.current = null;
     playbackEngineRef.current = null;
     streamingMetadataRef.current = null;
+
+    // Clear pending chunks queue
+    pendingChunksRef.current = [];
   }, []);
 
   /**
@@ -244,6 +250,27 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         })
       );
 
+      // Process any chunks that arrived before stream_start (race condition handling)
+      if (pendingChunksRef.current.length > 0) {
+        console.log('[usePlayNormal] Processing queued chunks:', pendingChunksRef.current.length);
+        const queuedChunks = [...pendingChunksRef.current];
+        pendingChunksRef.current = []; // Clear queue before processing
+
+        for (const queuedMessage of queuedChunks) {
+          try {
+            const { samples, metadata } = decodeAudioChunkMessage(
+              queuedMessage,
+              message.data.sample_rate,
+              message.data.channels
+            );
+            buffer.append(samples, metadata.crossfadeSamples);
+            streamingMetadataRef.current!.processedChunks++;
+          } catch (queuedError) {
+            console.error('[usePlayNormal] Error processing queued chunk:', queuedError);
+          }
+        }
+      }
+
       // Start playback immediately when stream begins
       if (buffer.getAvailableSamples() >= message.data.sample_rate) {
         engine.startPlayback();
@@ -261,8 +288,13 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
    */
   const handleChunk = useCallback((message: AudioChunkMessage) => {
     try {
+      // If stream not yet initialized, queue the chunk instead of dropping it
       if (!pcmBufferRef.current || !streamingMetadataRef.current) {
-        console.warn('[usePlayNormal] Received chunk before stream initialized');
+        console.log('[usePlayNormal] Queuing chunk until stream initialized:', {
+          chunkIndex: message.data?.chunk_index,
+          queueLength: pendingChunksRef.current.length + 1,
+        });
+        pendingChunksRef.current.push(message);
         return;
       }
 
@@ -341,12 +373,30 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
   const playNormal = useCallback(
     async (trackId: number) => {
       try {
+        // CRITICAL: Clean up any existing subscriptions BEFORE creating new ones
+        // This prevents subscription accumulation when playNormal is called multiple times
+        unsubscribeStreamStartRef.current?.();
+        unsubscribeChunkRef.current?.();
+        unsubscribeStreamEndRef.current?.();
+        unsubscribeErrorRef.current?.();
+
+        // Stop any existing playback
+        playbackEngineRef.current?.stopPlayback();
+        pcmBufferRef.current = null;
+        streamingMetadataRef.current = null;
+
         // Reset streaming state
         dispatch(resetStreaming());
 
+        // Check WebSocket connection before proceeding
+        if (!wsContext.isConnected) {
+          throw new Error('WebSocket not connected. Please wait for connection and try again.');
+        }
+
         // Load track data from backend so we can set currentTrack
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8765';
         try {
-          const response = await fetch(`http://localhost:8765/api/library/tracks`);
+          const response = await fetch(`${apiBaseUrl}/api/library/tracks`);
           if (response.ok) {
             const data = await response.json();
             const track = data.tracks?.find((t: any) => t.id === trackId);
@@ -360,7 +410,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
           // Continue anyway - playback will still work
         }
 
-        // Subscribe to streaming messages
+        // Subscribe to streaming messages (fresh subscriptions after cleanup)
         unsubscribeStreamStartRef.current = wsContext.subscribe(
           'audio_stream_start',
           handleStreamStart as any

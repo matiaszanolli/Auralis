@@ -63,8 +63,9 @@ export class AudioPlaybackEngine {
   /**
    * Start playback from buffer
    * Requires sufficient samples in buffer (minBufferSamples)
+   * Note: This is now async to properly handle AudioContext resume
    */
-  startPlayback(): void {
+  async startPlayback(): Promise<void> {
     if (this.state === 'playing') {
       return; // Already playing
     }
@@ -81,13 +82,17 @@ export class AudioPlaybackEngine {
     }
 
     try {
-      // Ensure AudioContext is running
+      // Ensure AudioContext is running (required on iOS/Safari after user interaction)
       if (this.audioContext.state === 'suspended') {
-        this.audioContext.resume().catch(err => {
+        console.log('[AudioPlaybackEngine] AudioContext suspended, resuming...');
+        try {
+          await this.audioContext.resume();
+          console.log('[AudioPlaybackEngine] AudioContext resumed successfully');
+        } catch (err) {
           console.error('[AudioPlaybackEngine] Failed to resume AudioContext:', err);
           this.setState('error');
-        });
-        return;
+          return; // Can't continue without AudioContext
+        }
       }
 
       // Create ScriptProcessorNode for sample pulling

@@ -29,7 +29,6 @@ interface CozyAlbumGridProps {
  */
 export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   // Data fetching with pagination
   const {
@@ -41,9 +40,8 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     fetchMore,
   } = useAlbumsQuery({ limit: 50 });
 
-  // Infinite scroll detection
-  useInfiniteScroll({
-    ref: loadMoreTriggerRef,
+  // Infinite scroll detection - returns ref to attach to sentinel element
+  const { observerTarget, isFetching } = useInfiniteScroll({
     threshold: 0.8,
     onLoadMore: fetchMore,
     hasMore,
@@ -87,10 +85,10 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     <AlbumGridContent
       albums={albums}
       hasMore={hasMore}
-      isLoadingMore={isLoading && albums.length > 0}
+      isLoadingMore={isFetching}
       totalAlbums={totalAlbums}
       containerRef={containerRef}
-      loadMoreTriggerRef={loadMoreTriggerRef}
+      loadMoreTriggerRef={observerTarget}
       onAlbumClick={handleAlbumClick}
     />
   );
