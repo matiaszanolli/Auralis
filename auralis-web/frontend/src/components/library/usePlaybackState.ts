@@ -1,15 +1,19 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '../shared/Toast';
 import { Track } from '@/hooks/library/useLibraryWithStats';
+import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 
 export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
   const [currentTrackId, setCurrentTrackId] = useState<number | undefined>(undefined);
   const [isPlaying, setIsPlaying] = useState(false);
   const { success } = useToast();
 
+  // Use WebSocket streaming for playback
+  const { playEnhanced } = usePlayEnhanced();
+
   const handlePlayTrack = useCallback(async (track: Track) => {
     try {
-      // Call backend API to set queue and play track
+      // 1. Set queue via REST API (still needed for queue management)
       await fetch('/api/player/queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -19,6 +23,9 @@ export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
         })
       });
 
+      // 2. Start playback via WebSocket streaming (new system)
+      playEnhanced(track.id, 'adaptive', 1.0);
+
       // Update local UI state (Redux will sync via WebSocket)
       setCurrentTrackId(track.id);
       setIsPlaying(true);
@@ -27,7 +34,7 @@ export const usePlaybackState = (onTrackPlay?: (track: Track) => void) => {
     } catch (err) {
       console.error('Failed to play track:', err);
     }
-  }, [success, onTrackPlay]);
+  }, [success, onTrackPlay, playEnhanced]);
 
   const handlePause = useCallback(() => {
     setIsPlaying(false);
