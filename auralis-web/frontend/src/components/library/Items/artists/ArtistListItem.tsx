@@ -7,13 +7,7 @@ import {
   ArtistName,
   ArtistInfo
 } from '../../Styles/ArtistList.styles';
-
-interface Artist {
-  id: number;
-  name: string;
-  album_count?: number;
-  track_count?: number;
-}
+import type { Artist } from '@/types/domain';
 
 interface ArtistListItemProps {
   artist: Artist;
@@ -56,12 +50,12 @@ export const ArtistListItem: React.FC<ArtistListItemProps> = ({
           }
           secondary={
             <ArtistInfo>
-              {artist.album_count
-                ? `${artist.album_count} ${artist.album_count === 1 ? 'album' : 'albums'}`
+              {artist.albumCount
+                ? `${artist.albumCount} ${artist.albumCount === 1 ? 'album' : 'albums'}`
                 : ''}
-              {artist.album_count && artist.track_count ? ' • ' : ''}
-              {artist.track_count
-                ? `${artist.track_count} ${artist.track_count === 1 ? 'track' : 'tracks'}`
+              {artist.albumCount && artist.trackCount ? ' • ' : ''}
+              {artist.trackCount
+                ? `${artist.trackCount} ${artist.trackCount === 1 ? 'track' : 'tracks'}`
                 : ''}
             </ArtistInfo>
           }

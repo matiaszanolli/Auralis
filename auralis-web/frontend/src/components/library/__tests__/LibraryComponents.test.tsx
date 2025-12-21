@@ -32,8 +32,8 @@ const mockAlbum: Album = {
   title: 'Test Album',
   artist: 'Test Artist',
   year: 2023,
-  track_count: 10,
-  artwork_url: 'https://example.com/album.jpg',
+  trackCount: 10, // camelCase
+  artworkUrl: 'https://example.com/album.jpg', // camelCase
 };
 
 const mockAlbum2: Album = {
@@ -41,15 +41,15 @@ const mockAlbum2: Album = {
   title: 'Another Album',
   artist: 'Another Artist',
   year: 2024,
-  track_count: 12,
-  artwork_url: 'https://example.com/album2.jpg',
+  trackCount: 12, // camelCase
+  artworkUrl: 'https://example.com/album2.jpg', // camelCase
 };
 
 const mockArtist: Artist = {
   id: 1,
   name: 'Test Artist',
-  track_count: 50,
-  album_count: 5,
+  trackCount: 50, // camelCase
+  albumCount: 5, // camelCase
 };
 
 const mockTrack: Track = {
@@ -172,8 +172,8 @@ describe('AlbumCard', () => {
         albumId={mockAlbum.id}
         title={mockAlbum.title}
         artist={mockAlbum.artist}
-        trackCount={mockAlbum.track_count}
-        hasArtwork={!!mockAlbum.artwork_url}
+        trackCount={mockAlbum.trackCount}
+        hasArtwork={!!mockAlbum.artworkUrl}
         year={mockAlbum.year}
         onClick={mockOnClick}
       />
@@ -190,8 +190,8 @@ describe('AlbumCard', () => {
         albumId={mockAlbum.id}
         title={mockAlbum.title}
         artist={mockAlbum.artist}
-        trackCount={mockAlbum.track_count}
-        hasArtwork={!!mockAlbum.artwork_url}
+        trackCount={mockAlbum.trackCount}
+        hasArtwork={!!mockAlbum.artworkUrl}
         year={mockAlbum.year}
         onClick={mockOnClick}
       />

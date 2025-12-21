@@ -18,17 +18,11 @@ import { DialogContent, DialogActions, Box } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { StyledDialog, StyledDialogTitle, CancelButtonForDialog } from '../../Styles/Dialog.styles';
-
-interface ArtistInfo {
-  id: number;
-  name: string;
-  album_count?: number;
-  track_count?: number;
-}
+import type { Artist } from '@/types/domain';
 
 interface ArtistInfoModalProps {
   open: boolean;
-  artist: ArtistInfo | null;
+  artist: Artist | null;
   onClose: () => void;
 }
 
@@ -61,14 +55,14 @@ export const ArtistInfoModal: React.FC<ArtistInfoModalProps> = ({
           <Box sx={styles.statsContainer}>
             <Box sx={styles.statItem}>
               <span style={styles.statLabel}>Albums</span>
-              <span style={styles.statValue}>{artist.album_count ?? 0}</span>
+              <span style={styles.statValue}>{artist.albumCount ?? 0}</span>
             </Box>
 
             <Box sx={styles.statDivider} />
 
             <Box sx={styles.statItem}>
               <span style={styles.statLabel}>Tracks</span>
-              <span style={styles.statValue}>{artist.track_count ?? 0}</span>
+              <span style={styles.statValue}>{artist.trackCount ?? 0}</span>
             </Box>
           </Box>
         </Box>

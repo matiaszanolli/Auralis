@@ -9,13 +9,13 @@ import {
   LoadMoreTrigger,
   EndOfListIndicator,
 } from './CozyArtistList.styles';
+import type { Artist } from '@/types/domain';
 
-interface ArtistItem {
-  id: number;
-  name: string;
-  album_count?: number;
-  track_count?: number;
-}
+/**
+ * Use domain Artist type (camelCase: albumCount, trackCount)
+ * instead of local snake_case interface
+ */
+type ArtistItem = Artist;
 
 interface ArtistContextMenuState {
   isOpen: boolean;

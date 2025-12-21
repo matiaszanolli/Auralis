@@ -106,42 +106,19 @@ export interface LibraryTracksResponse extends ApiListResponse {
   data: TrackInfo[];
 }
 
-export interface Album {
-  id: number;
-  title: string;
-  artist: string;
-  artwork_url?: string;
-  track_count: number;
-  year?: number;
-  genre?: string;
-  date_added?: string;
-}
-
-export interface AlbumsResponse extends ApiListResponse {
-  data: Album[];
-}
-
-export interface Artist {
-  id: number;
-  name: string;
-  artwork_url?: string;
-  track_count: number;
-  album_count: number;
-  date_added?: string;
-}
-
-export interface ArtistsResponse extends ApiListResponse {
-  data: Artist[];
-}
-
-export interface AlbumDetail extends Album {
-  tracks: TrackInfo[];
-}
-
-export interface ArtistDetail extends Artist {
-  albums: Album[];
-  topTracks: TrackInfo[]; // Top 10 tracks
-}
+/**
+ * REMOVED: Album, Artist, AlbumsResponse, ArtistsResponse, AlbumDetail, ArtistDetail
+ *
+ * These types are now redundant due to transformation layer (Phase 2-7).
+ *
+ * Use instead:
+ * - Backend API types: import from '@/api/transformers' (AlbumApiResponse, ArtistApiResponse)
+ * - Domain models: import from '@/types/domain' (Album, Artist)
+ *
+ * This file now contains ONLY:
+ * - Generic API wrappers (ApiResponse, ApiListResponse, ApiError)
+ * - Request/response types for endpoints without transformers yet
+ */
 
 export interface LibraryScanRequest {
   directory?: string; // Optional: specific directory to scan

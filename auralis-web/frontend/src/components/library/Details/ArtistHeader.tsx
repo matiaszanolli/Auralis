@@ -10,13 +10,7 @@ import DetailViewHeader from './DetailViewHeader';
 import { ArtistAvatarCircle } from '../Styles/ArtistDetail.styles';
 import { IconButton, Button } from '@/design-system';
 import { Box, Typography } from '@mui/material';
-
-interface Artist {
-  id: number;
-  name: string;
-  album_count?: number;
-  track_count?: number;
-}
+import type { Artist } from '@/types/domain';
 
 interface ArtistHeaderProps {
   artist: Artist;
@@ -57,9 +51,9 @@ export const ArtistHeader: React.FC<ArtistHeaderProps> = ({
           fontSize: tokens.typography.fontSize.sm,
           fontWeight: tokens.typography.fontWeight.normal,
         }}>
-          {artist.album_count && `${artist.album_count} ${artist.album_count === 1 ? 'album' : 'albums'}`}
-          {artist.album_count && artist.track_count && ' • '}
-          {artist.track_count && `${artist.track_count} ${artist.track_count === 1 ? 'track' : 'tracks'}`}
+          {artist.albumCount && `${artist.albumCount} ${artist.albumCount === 1 ? 'album' : 'albums'}`}
+          {artist.albumCount && artist.trackCount && ' • '}
+          {artist.trackCount && `${artist.trackCount} ${artist.trackCount === 1 ? 'track' : 'tracks'}`}
         </Typography>
       }
       actions={
