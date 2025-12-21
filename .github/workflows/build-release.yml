@@ -98,6 +98,34 @@ jobs:
           npm install
           npm run build
 
+      - name: Prepare desktop resources
+        run: |
+          # Create resources directories
+          mkdir -p desktop/resources/frontend
+          mkdir -p desktop/resources/backend
+          mkdir -p desktop/resources/auralis
+
+          # Copy built frontend
+          cp -r auralis-web/frontend/dist/* desktop/resources/frontend/
+
+          # Copy auralis Python module
+          cp -r auralis/* desktop/resources/auralis/
+
+          # Build backend with PyInstaller
+          pip install pyinstaller
+          cd auralis-web/backend
+          pyinstaller --clean --noconfirm auralis-backend.spec
+
+          # Copy PyInstaller output to resources
+          cp -r dist/auralis-backend ../../desktop/resources/backend/
+
+          # Also copy Python source files needed by backend
+          cp *.py ../../desktop/resources/backend/ 2>/dev/null || true
+          cp -r routers ../../desktop/resources/backend/ 2>/dev/null || true
+          cp -r services ../../desktop/resources/backend/ 2>/dev/null || true
+          cp -r cache ../../desktop/resources/backend/ 2>/dev/null || true
+          cp -r config ../../desktop/resources/backend/ 2>/dev/null || true
+
       - name: Build Electron app (Linux)
         run: |
           cd desktop
@@ -166,6 +194,35 @@ jobs:
           npm install
           npm run build
 
+      - name: Prepare desktop resources
+        shell: pwsh
+        run: |
+          # Create resources directories
+          New-Item -ItemType Directory -Force -Path desktop/resources/frontend
+          New-Item -ItemType Directory -Force -Path desktop/resources/backend
+          New-Item -ItemType Directory -Force -Path desktop/resources/auralis
+
+          # Copy built frontend
+          Copy-Item -Recurse -Force auralis-web/frontend/dist/* desktop/resources/frontend/
+
+          # Copy auralis Python module
+          Copy-Item -Recurse -Force auralis/* desktop/resources/auralis/
+
+          # Build backend with PyInstaller
+          pip install pyinstaller
+          Set-Location auralis-web/backend
+          pyinstaller --clean --noconfirm auralis-backend.spec
+
+          # Copy PyInstaller output to resources
+          Copy-Item -Recurse -Force dist/auralis-backend ../../desktop/resources/backend/
+
+          # Also copy Python source files needed by backend
+          Copy-Item -Force *.py ../../desktop/resources/backend/ -ErrorAction SilentlyContinue
+          if (Test-Path routers) { Copy-Item -Recurse -Force routers ../../desktop/resources/backend/ }
+          if (Test-Path services) { Copy-Item -Recurse -Force services ../../desktop/resources/backend/ }
+          if (Test-Path cache) { Copy-Item -Recurse -Force cache ../../desktop/resources/backend/ }
+          if (Test-Path config) { Copy-Item -Recurse -Force config ../../desktop/resources/backend/ }
+
       - name: Build Electron app (Windows)
         run: |
           cd desktop
@@ -232,6 +289,34 @@ jobs:
           cd auralis-web/frontend
           npm install
           npm run build
+
+      - name: Prepare desktop resources
+        run: |
+          # Create resources directories
+          mkdir -p desktop/resources/frontend
+          mkdir -p desktop/resources/backend
+          mkdir -p desktop/resources/auralis
+
+          # Copy built frontend
+          cp -r auralis-web/frontend/dist/* desktop/resources/frontend/
+
+          # Copy auralis Python module
+          cp -r auralis/* desktop/resources/auralis/
+
+          # Build backend with PyInstaller
+          pip install pyinstaller
+          cd auralis-web/backend
+          pyinstaller --clean --noconfirm auralis-backend.spec
+
+          # Copy PyInstaller output to resources
+          cp -r dist/auralis-backend ../../desktop/resources/backend/
+
+          # Also copy Python source files needed by backend
+          cp *.py ../../desktop/resources/backend/ 2>/dev/null || true
+          cp -r routers ../../desktop/resources/backend/ 2>/dev/null || true
+          cp -r services ../../desktop/resources/backend/ 2>/dev/null || true
+          cp -r cache ../../desktop/resources/backend/ 2>/dev/null || true
+          cp -r config ../../desktop/resources/backend/ 2>/dev/null || true
 
       - name: Build Electron app (macOS)
         run: |
