@@ -116,8 +116,8 @@ jobs:
           cd auralis-web/backend
           pyinstaller --clean --noconfirm auralis-backend.spec
 
-          # Copy PyInstaller output to resources
-          cp -r dist/auralis-backend ../../desktop/resources/backend/
+          # Copy PyInstaller output to resources (single-file executable)
+          cp dist/auralis-backend ../../desktop/resources/backend/
 
           # Also copy Python source files needed by backend
           cp *.py ../../desktop/resources/backend/ 2>/dev/null || true
@@ -213,8 +213,8 @@ jobs:
           Set-Location auralis-web/backend
           pyinstaller --clean --noconfirm auralis-backend.spec
 
-          # Copy PyInstaller output to resources
-          Copy-Item -Recurse -Force dist/auralis-backend ../../desktop/resources/backend/
+          # Copy PyInstaller output to resources (single-file .exe on Windows)
+          Copy-Item -Force dist/auralis-backend.exe ../../desktop/resources/backend/
 
           # Also copy Python source files needed by backend
           Copy-Item -Force *.py ../../desktop/resources/backend/ -ErrorAction SilentlyContinue
@@ -308,8 +308,8 @@ jobs:
           cd auralis-web/backend
           pyinstaller --clean --noconfirm auralis-backend.spec
 
-          # Copy PyInstaller output to resources
-          cp -r dist/auralis-backend ../../desktop/resources/backend/
+          # Copy PyInstaller output to resources (single-file executable)
+          cp dist/auralis-backend ../../desktop/resources/backend/
 
           # Also copy Python source files needed by backend
           cp *.py ../../desktop/resources/backend/ 2>/dev/null || true
