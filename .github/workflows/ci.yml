@@ -29,7 +29,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.14'
+        python-version: '3.13'
 
     - name: Install linting tools
       run: |
@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.12', '3.13', '3.14']
+        python-version: ['3.12', '3.13']
 
     steps:
     - uses: actions/checkout@v4
@@ -64,7 +64,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-        cache: 'pip'
 
     - name: Install system dependencies
       run: |
@@ -108,15 +107,13 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: auralis-web/frontend/package-lock.json
+        node-version: '24'
 
     - name: Install dependencies
       working-directory: auralis-web/frontend
-      run: npm ci
+      run: npm install
 
     - name: Type check
       working-directory: auralis-web/frontend
@@ -180,7 +177,7 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.14'
+        python-version: '3.13'
 
     - name: Install dependencies
       run: |
