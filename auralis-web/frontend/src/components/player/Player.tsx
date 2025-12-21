@@ -78,8 +78,20 @@ const Player: React.FC = () => {
     setVolume: setStreamingVolume,
     isStreaming,
     streamingState,
+    streamingProgress,
+    processedChunks,
+    totalChunks,
+    currentTime: wsCurrentTime,
     isPaused,
+    error: streamingError,
   } = usePlayEnhanced();
+
+  // Derived buffering state for UI
+  const isBuffering = streamingState === 'buffering';
+  const hasError = streamingState === 'error';
+
+  // Use streaming progress as buffered percentage (chunks received / total chunks)
+  const wsBufferedPercentage = totalChunks > 0 ? (processedChunks / totalChunks) * 100 : 0;
 
   // Phase 3 Hook: Core streaming synchronization
   // Handles timing, buffering, position tracking, and WebSocket sync
@@ -161,16 +173,16 @@ const Player: React.FC = () => {
   // Phase 3 Hook: Display formatting
   // Converts raw streaming data to formatted display strings
   const display = usePlayerDisplay({
-    currentTime: streaming.currentTime,
-    duration: streaming.duration,
-    isPlaying: streaming.isPlaying,
-    bufferedPercentage: streaming.bufferedPercentage,
+    currentTime: wsCurrentTime,
+    duration: currentTrack?.duration ?? 0,
+    isPlaying: isStreaming && !isPaused,
+    bufferedPercentage: wsBufferedPercentage,
   });
 
   // Extract volume from Redux state (0-1 range, convert to 0-100 for components)
   const volume = useMemo(() => {
     return state.volume ?? 50;
-  }, [state.volume, streaming.isPlaying]);
+  }, [state.volume, isStreaming]);
 
   // Muted state - check if volume is 0 or explicitly muted
   const isMuted = useMemo(() => {
@@ -185,15 +197,17 @@ const Player: React.FC = () => {
       {/* Progress Bar - Full width at top */}
       <div style={styles.progressBarContainer}>
         <BufferingIndicator
-          isBuffering={streaming.isBuffering}
-          bufferedPercentage={streaming.bufferedPercentage}
+          isBuffering={isBuffering}
+          bufferedPercentage={wsBufferedPercentage}
+          isError={hasError}
+          errorMessage={streamingError ?? undefined}
         />
         <ProgressBar
-          currentTime={streaming.currentTime}
-          duration={streaming.duration}
-          bufferedPercentage={streaming.bufferedPercentage}
+          currentTime={wsCurrentTime}
+          duration={currentTrack?.duration ?? 0}
+          bufferedPercentage={wsBufferedPercentage}
           onSeek={apiSeek}
-          disabled={streamingState === 'error'}
+          disabled={hasError}
         />
       </div>
 
@@ -205,12 +219,12 @@ const Player: React.FC = () => {
             title={currentTrack?.title ?? 'No track'}
             artist={currentTrack?.artist}
             album={currentTrack?.album}
-            isLoading={streaming.isBuffering}
+            isLoading={isBuffering}
             className="player-track-display"
           />
           <TimeDisplay
-            currentTime={streaming.currentTime}
-            duration={streaming.duration}
+            currentTime={wsCurrentTime}
+            duration={currentTrack?.duration ?? 0}
           />
         </div>
 
@@ -221,8 +235,8 @@ const Player: React.FC = () => {
           onPause={handlePause}
           onNext={apiNext}
           onPrevious={apiPrevious}
-          isLoading={streamingState === 'buffering'}
-          disabled={streamingState === 'error'}
+          isLoading={isBuffering}
+          disabled={hasError}
         />
 
         {/* Right: Volume + Queue */}
@@ -235,7 +249,7 @@ const Player: React.FC = () => {
               const newVolume = isMuted ? 0.5 : 0;
               await handleVolumeChange(newVolume);
             }}
-            disabled={streamingState === 'error'}
+            disabled={hasError}
           />
 
           {/* Queue Button - Compact */}
@@ -295,10 +309,10 @@ const Player: React.FC = () => {
       })()}
 
       {/* Error State Indicator */}
-      {streaming.isError && (
+      {hasError && (
         <div style={styles.errorBanner}>
           <span style={styles.errorText}>
-            {streaming.errorMessage || 'Playback error occurred'}
+            {streamingError || 'Playback error occurred'}
           </span>
         </div>
       )}

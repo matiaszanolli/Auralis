@@ -45,21 +45,39 @@ class ConnectionManager:
         Args:
             websocket: WebSocket connection to unregister
         """
-        self.active_connections.remove(websocket)
-        logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+            logger.info(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
+        else:
+            logger.debug("WebSocket disconnect called but connection not in list (already removed)")
 
     async def broadcast(self, message: Dict[str, Any]) -> None:
         """
         Broadcast message to all connected clients.
 
+        Automatically removes stale connections that fail to receive messages.
+
         Args:
             message: Dictionary message to broadcast (will be JSON encoded)
         """
+        stale_connections: List[WebSocket] = []
+        message_json = json.dumps(message)
+
         for connection in self.active_connections:
             try:
-                await connection.send_text(json.dumps(message))
+                await connection.send_text(message_json)
             except Exception as e:
-                logger.error(f"Error broadcasting to client: {e}")
+                # Connection is stale, mark for removal
+                stale_connections.append(connection)
+                logger.debug(f"Marking stale connection for removal: {e}")
+
+        # Remove stale connections
+        for stale in stale_connections:
+            if stale in self.active_connections:
+                self.active_connections.remove(stale)
+
+        if stale_connections:
+            logger.info(f"Removed {len(stale_connections)} stale connection(s). Active: {len(self.active_connections)}")
 
 
 def create_globals_dict() -> Dict[str, Any]:

@@ -231,6 +231,28 @@ interface WebSocketContextValue {
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 
 // ============================================================================
+// Singleton WebSocket Manager (survives React.StrictMode double-mounting)
+// ============================================================================
+
+/**
+ * Module-level singleton to ensure only ONE WebSocket connection exists
+ * even when React.StrictMode causes double-mounting in development.
+ *
+ * This prevents multiple WebSocket connections from being created during
+ * hot reload or StrictMode testing.
+ */
+let singletonWSManager: WebSocketManager | null = null;
+let singletonRefCount = 0; // Track number of active providers
+
+/**
+ * Module-level subscription maps (must be singletons to survive provider remounts)
+ * When React.StrictMode remounts the provider, these stay intact so that
+ * subscriptions registered before remount still receive messages.
+ */
+const singletonSubscriptions: Map<string, Set<MessageHandler>> = new Map();
+const singletonGlobalHandlers: Set<MessageHandler> = new Set();
+
+// ============================================================================
 // WebSocket Provider Component
 // ============================================================================
 
@@ -259,9 +281,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected' | 'error'>('disconnected');
 
-  // Subscription management
-  const subscriptionsRef = useRef<Map<string, Set<MessageHandler>>>(new Map());
-  const globalHandlersRef = useRef<Set<MessageHandler>>(new Set());
+  // Use module-level singleton subscriptions (survive provider remounts)
+  // This fixes the bug where StrictMode remounting caused subscriptions to be lost
+  const subscriptionsRef = useRef(singletonSubscriptions);
+  const globalHandlersRef = useRef(singletonGlobalHandlers);
 
   // Message queue for sending during disconnection
   const messageQueueRef = useRef<any[]>([]);
@@ -270,23 +293,31 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   const mountedRef = useRef(true);
 
   /**
-   * Connect to WebSocket (Phase 4c: Uses WebSocketManager)
+   * Connect to WebSocket (Phase 4c: Uses WebSocketManager with Singleton Pattern)
    */
   const connect = useCallback(async () => {
-    // Don't create multiple managers
-    if (wsManagerRef.current?.isConnected()) {
-      console.log('WebSocket already connected or connecting');
+    // Increment ref count (for cleanup tracking)
+    singletonRefCount++;
+    console.log(`🔌 WebSocket provider mounted (ref count: ${singletonRefCount})`);
+
+    // Reuse existing singleton connection if available
+    if (singletonWSManager?.isConnected()) {
+      console.log('✅ Reusing existing WebSocket connection (singleton)');
+      wsManagerRef.current = singletonWSManager;
+      setIsConnected(true);
+      setConnectionStatus('connected');
       return;
     }
 
-    console.log('🔌 Connecting to WebSocket:', url);
+    // Create new singleton connection if none exists
+    console.log('🔌 Creating new WebSocket connection:', url);
     setConnectionStatus('connecting');
 
     try {
       // Create WebSocketManager with Phase 3c error handling
       // In development, limit reconnection attempts to reduce console spam
       const maxAttempts = process.env.NODE_ENV === 'development' ? 3 : 10;
-      wsManagerRef.current = new WebSocketManager(url, {
+      const manager = new WebSocketManager(url, {
         maxReconnectAttempts: maxAttempts,
         initialReconnectDelayMs: 1000,
         backoffMultiplier: 2,
@@ -296,8 +327,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         },
       });
 
+      // Store as singleton
+      singletonWSManager = manager;
+      wsManagerRef.current = manager;
+
       // Setup message handler
-      wsManagerRef.current.on('message', ((event: MessageEvent) => {
+      manager.on('message', ((event: MessageEvent) => {
         try {
           const message: AuralisWebSocketMessage = JSON.parse(event.data);
 
@@ -329,8 +364,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       }) as (event: MessageEvent | Event) => void);
 
       // Setup open handler
-      wsManagerRef.current.on('open', () => {
-        console.log('✅ WebSocket connected');
+      manager.on('open', () => {
+        console.log('✅ WebSocket connected (singleton)');
         if (mountedRef.current) {
           setIsConnected(true);
           setConnectionStatus('connected');
@@ -339,12 +374,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         // Send queued messages
         while (messageQueueRef.current.length > 0) {
           const message = messageQueueRef.current.shift();
-          wsManagerRef.current?.send(JSON.stringify(message));
+          manager.send(JSON.stringify(message));
         }
       });
 
       // Setup error handler
-      wsManagerRef.current.on('error', (event: Event) => {
+      manager.on('error', (event: Event) => {
         console.error('❌ WebSocket error:', event);
         // Only update state if component is still mounted
         if (mountedRef.current) {
@@ -353,7 +388,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       });
 
       // Setup close handler
-      wsManagerRef.current.on('close', () => {
+      manager.on('close', () => {
         console.log('🔌 WebSocket disconnected (will auto-reconnect)');
         // Only update state if component is still mounted
         if (mountedRef.current) {
@@ -362,7 +397,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         }
       });
 
-      await wsManagerRef.current.connect();
+      await manager.connect();
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error);
       setConnectionStatus('error');
@@ -370,17 +405,22 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   }, [url]);
 
   /**
-   * Disconnect from WebSocket
+   * Disconnect from WebSocket (with reference counting for singleton)
    */
   const disconnect = useCallback(() => {
-    console.log('Disconnecting WebSocket');
+    // Decrement ref count
+    singletonRefCount = Math.max(0, singletonRefCount - 1);
+    console.log(`🔌 WebSocket provider unmounted (ref count: ${singletonRefCount})`);
 
-    // Close WebSocket using WebSocketManager
-    if (wsManagerRef.current) {
-      wsManagerRef.current.close();
-      wsManagerRef.current = null;
+    // Only close singleton when last provider unmounts
+    if (singletonRefCount === 0 && singletonWSManager) {
+      console.log('🔌 Last provider unmounted - closing singleton WebSocket connection');
+      singletonWSManager.close();
+      singletonWSManager = null;
     }
 
+    // Clear local ref
+    wsManagerRef.current = null;
     setIsConnected(false);
     setConnectionStatus('disconnected');
   }, []);

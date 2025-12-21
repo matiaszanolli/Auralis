@@ -271,17 +271,22 @@ export class AudioPlaybackEngine {
   private handleAudioProcess(event: AudioProcessingEvent): void {
     const output = event.outputBuffer;
     const channelCount = output.numberOfChannels;
-    const sampleCount = output.length;
+    const framesNeeded = output.length; // Number of audio frames (samples per channel)
 
-    // Read samples from buffer
-    const samples = this.buffer.read(sampleCount);
+    // For stereo audio, we need framesNeeded * 2 interleaved samples
+    // For mono, we need framesNeeded samples
+    const bufferChannels = this.buffer.getMetadata().channels || 2;
+    const samplesNeeded = framesNeeded * bufferChannels;
+
+    // Read interleaved samples from buffer
+    const samples = this.buffer.read(samplesNeeded);
 
     if (samples.length === 0) {
       // Buffer underrun - no samples available
       this.bufferUnderrunCount++;
       console.warn(
         `[AudioPlaybackEngine] Buffer underrun #${this.bufferUnderrunCount}. ` +
-        `Expected ${sampleCount} samples, got 0`
+        `Expected ${samplesNeeded} samples, got 0`
       );
 
       // Fill output with silence
@@ -295,41 +300,52 @@ export class AudioPlaybackEngine {
     }
 
     // If we got fewer samples than requested, we're running low
-    if (samples.length < sampleCount) {
+    if (samples.length < samplesNeeded) {
       console.warn(
-        `[AudioPlaybackEngine] Low buffer. Expected ${sampleCount}, got ${samples.length} samples`
+        `[AudioPlaybackEngine] Low buffer. Expected ${samplesNeeded}, got ${samples.length} samples`
       );
     }
 
     // Copy samples to output channels
-    if (channelCount === 1) {
-      // Mono output
-      output.getChannelData(0).set(samples);
-    } else if (channelCount === 2) {
-      // Stereo output - assume interleaved samples
+    if (bufferChannels === 1) {
+      // Mono source - copy to all output channels
+      const monoData = samples.subarray(0, framesNeeded);
+      for (let ch = 0; ch < channelCount; ch++) {
+        output.getChannelData(ch).set(monoData);
+      }
+    } else if (bufferChannels === 2) {
+      // Stereo source - de-interleave samples
       const left = output.getChannelData(0);
       const right = output.getChannelData(1);
+      const framesToProcess = Math.min(framesNeeded, Math.floor(samples.length / 2));
 
-      for (let i = 0; i < samples.length; i += 2) {
-        left[i / 2] = samples[i] || 0;
-        right[i / 2] = samples[i + 1] || 0;
+      for (let i = 0; i < framesToProcess; i++) {
+        left[i] = samples[i * 2] || 0;
+        right[i] = samples[i * 2 + 1] || 0;
+      }
+
+      // Fill remaining with silence if we didn't get enough samples
+      for (let i = framesToProcess; i < framesNeeded; i++) {
+        left[i] = 0;
+        right[i] = 0;
       }
     } else {
       // Multichannel - distribute samples across channels
-      const samplesPerChannel = Math.ceil(samples.length / channelCount);
       for (let ch = 0; ch < channelCount; ch++) {
         const channelData = output.getChannelData(ch);
-        for (let i = 0; i < samplesPerChannel; i++) {
-          const sampleIndex = ch + i * channelCount;
+        for (let i = 0; i < framesNeeded; i++) {
+          const sampleIndex = i * bufferChannels + ch;
           if (sampleIndex < samples.length) {
             channelData[i] = samples[sampleIndex];
+          } else {
+            channelData[i] = 0;
           }
         }
       }
     }
 
-    // Update playback statistics
-    this.samplesPlayed += samples.length;
+    // Update playback statistics (count frames, not interleaved samples)
+    this.samplesPlayed += Math.floor(samples.length / bufferChannels);
   }
 
   /**
