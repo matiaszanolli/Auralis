@@ -73,6 +73,9 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install protobuf compiler
+        run: sudo apt-get install -y protobuf-compiler
+
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip setuptools wheel maturin
@@ -139,6 +142,9 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install protobuf compiler
+        run: choco install protoc -y
+
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip setuptools wheel maturin
@@ -203,6 +209,9 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protobuf compiler
+        run: brew install protobuf
 
       - name: Install Python dependencies
         run: |
