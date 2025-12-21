@@ -181,6 +181,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     processedChunks: number;
   } | null>(null);
 
+  // Track last received chunk index to detect stream resets
+  const lastReceivedChunkIndexRef = useRef<number>(-1);
+
   // State for UI
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -199,6 +202,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
     // Clear pending chunks queue
     pendingChunksRef.current = [];
+
+    // Reset chunk tracking
+    lastReceivedChunkIndexRef.current = -1;
   }, []);
 
   /**
@@ -263,6 +269,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         processedChunks: 0,
       };
 
+      // Reset chunk tracking for new stream
+      lastReceivedChunkIndexRef.current = -1;
+
       // Update Redux state
       dispatch(
         startStreaming({
@@ -314,15 +323,35 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    */
   const handleChunk = useCallback((message: AudioChunkMessage) => {
     try {
+      const incomingChunkIndex = message.data?.chunk_index ?? 0;
+
       // If stream not yet initialized, queue the chunk instead of dropping it
       if (!pcmBufferRef.current || !streamingMetadataRef.current) {
         console.log('[usePlayEnhanced] Queuing chunk until stream initialized:', {
-          chunkIndex: message.data?.chunk_index,
+          chunkIndex: incomingChunkIndex,
           queueLength: pendingChunksRef.current.length + 1,
         });
         pendingChunksRef.current.push(message);
         return;
       }
+
+      // Detect out-of-sequence chunks indicating a new stream started without proper audio_stream_start
+      // This can happen if the stream_start message was missed during WebSocket reconnection
+      const lastChunk = lastReceivedChunkIndexRef.current;
+      if (lastChunk >= 0 && incomingChunkIndex < lastChunk - 1) {
+        console.warn('[usePlayEnhanced] Out-of-sequence chunk detected:', {
+          expected: lastChunk + 1,
+          received: incomingChunkIndex,
+          message: 'New stream may have started without audio_stream_start. This can cause audio discontinuity.',
+        });
+        // Reset the buffer to prevent audio glitches from stale data
+        pcmBufferRef.current.reset();
+        setCurrentTime(0);
+        lastReceivedChunkIndexRef.current = -1;
+      }
+
+      // Update chunk tracking
+      lastReceivedChunkIndexRef.current = incomingChunkIndex;
 
       // Decode PCM samples from base64
       const { samples, metadata } = decodeAudioChunkMessage(
@@ -432,6 +461,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         pcmBufferRef.current = null;
         streamingMetadataRef.current = null;
         pendingChunksRef.current = [];
+        lastReceivedChunkIndexRef.current = -1;
 
         // Reset streaming state
         dispatch(resetStreaming());
@@ -564,6 +594,39 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       console.log('[usePlayEnhanced] Unsubscribed from streaming messages on unmount');
     };
   }, [wsContext, handleStreamStart, handleChunk, handleStreamEnd, handleStreamError, handleFingerprintProgress]);
+
+  /**
+   * Handle WebSocket disconnection - clean up playback state to prevent stale state on reconnect.
+   *
+   * When WebSocket disconnects mid-stream, the old playback engine keeps running and
+   * draining its buffer (causing underruns). When reconnection happens and a new stream
+   * starts, the stale engine state can cause audio to jump or play incorrectly.
+   *
+   * By cleaning up on disconnect, we ensure a fresh state when the new stream starts.
+   */
+  useEffect(() => {
+    if (!wsContext.isConnected && playbackEngineRef.current) {
+      console.log('[usePlayEnhanced] WebSocket disconnected - cleaning up playback state');
+
+      // Stop playback engine to prevent buffer underruns
+      playbackEngineRef.current.stopPlayback();
+      playbackEngineRef.current = null;
+
+      // Clear PCM buffer and metadata
+      pcmBufferRef.current = null;
+      streamingMetadataRef.current = null;
+      pendingChunksRef.current = [];
+
+      // Reset UI state
+      setCurrentTime(0);
+      setIsPaused(false);
+      setFingerprintStatus('idle');
+      setFingerprintMessage(null);
+
+      // Reset Redux streaming state
+      dispatch(resetStreaming());
+    }
+  }, [wsContext.isConnected, dispatch]);
 
   /**
    * Update playback time periodically
