@@ -44,12 +44,13 @@ export class PCMStreamBuffer {
 
   /**
    * Create a new PCMStreamBuffer
-   * @param capacity - Buffer capacity in bytes (default 20MB for ~60 seconds @ 44.1kHz stereo)
+   * @param capacity - Buffer capacity in bytes (default 100MB for ~5 minutes @ 44.1kHz stereo)
    *
-   * Calculation: 44100 Hz × 2 channels × 4 bytes × 60 seconds = ~21MB
-   * We use 20MB to have ~57 seconds of buffer, which safely holds 3-4 chunks (15s each)
+   * Calculation: 44100 Hz × 2 channels × 4 bytes × 300 seconds = ~105MB
+   * We use 100MB to safely buffer most tracks without overflow.
+   * This prevents the audio position jumping issue caused by discarding unplayed audio.
    */
-  constructor(capacity: number = 20 * 1024 * 1024) {
+  constructor(capacity: number = 100 * 1024 * 1024) {
     this.capacity = capacity;
   }
 
@@ -89,10 +90,10 @@ export class PCMStreamBuffer {
     const requiredSpace = sampleCount + crossfadeSamples;
 
     if (usedSamples + requiredSpace > availableCapacity) {
-      // Log overflow condition - writeToBuffer will handle gracefully by discarding oldest data
-      console.log(
+      // Log overflow warning - writeToBuffer will drop new data to preserve playback position
+      console.warn(
         `[PCMStreamBuffer] Buffer near capacity: used=${usedSamples} (${(usedSamples / this.sampleRate / this.channels).toFixed(1)}s), ` +
-        `adding=${requiredSpace}, capacity=${availableCapacity}. Oldest data will be discarded.`
+        `adding=${requiredSpace}, capacity=${availableCapacity}. New data may be dropped.`
       );
     }
 
@@ -253,9 +254,12 @@ export class PCMStreamBuffer {
   /**
    * Write samples to circular buffer
    *
-   * Handles overflow gracefully by advancing readPos when necessary.
-   * This discards the oldest unread data to make room for new data,
-   * preventing buffer corruption while maintaining pointer integrity.
+   * IMPORTANT: If buffer is full, we DROP the new data instead of discarding
+   * unplayed audio. This prevents audio position jumps - it's better to
+   * potentially lose audio at the end of a long track than to have playback
+   * jump to a random position mid-track.
+   *
+   * With the 100MB buffer (~5 minutes), overflow should be rare.
    */
   private writeToBuffer(pcm: Float32Array): void {
     if (!this.buffer) {
@@ -269,16 +273,18 @@ export class PCMStreamBuffer {
     const currentlyUsed = this.getAvailableSamples();
     const freeSpace = bufferCapacity - currentlyUsed;
 
-    // Check if write would overflow and overwrite unread data
+    // Check if write would overflow
     if (sampleCount > freeSpace) {
-      // Calculate how many samples we need to discard from the oldest data
-      const overflow = sampleCount - freeSpace;
+      // DROP the new data instead of discarding unplayed audio
+      // This prevents audio position jumps
       console.warn(
-        `[PCMStreamBuffer] Discarding ${overflow} oldest samples (${(overflow / this.sampleRate / this.channels).toFixed(2)}s) to make room for new data`
+        `[PCMStreamBuffer] Buffer full! Dropping ${sampleCount} new samples ` +
+        `(${(sampleCount / this.sampleRate / this.channels).toFixed(2)}s). ` +
+        `Buffer: ${(currentlyUsed / this.sampleRate / this.channels).toFixed(1)}s used, ` +
+        `${(freeSpace / this.sampleRate / this.channels).toFixed(1)}s free.`
       );
-
-      // Advance readPos to discard oldest data
-      this.readPos = (this.readPos + overflow) % bufferCapacity;
+      // Don't write anything - preserve playback position integrity
+      return;
     }
 
     // Handle wrap-around
