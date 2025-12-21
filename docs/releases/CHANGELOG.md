@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0-beta.1] - 2025-12-21
+
+### Overview
+Major release featuring enhanced audio streaming stability, real-time playback improvements, and automated CI/CD release pipeline. This release focuses on production-ready audio streaming with significant buffer management improvements.
+
+**Status**: ✅ Beta Release | **Breaking Changes**: Rust DSP module now required | **Platforms**: Linux, Windows, macOS
+
+### Added
+
+#### Enhanced Playback Mode
+- New enhanced playback mode toggle in PlayerEnhancementPanel
+- Real-time audio enhancement controls for live streaming playback
+- UI toggle for switching between standard and enhanced playback modes
+
+#### Automated CI/CD Release Pipeline
+- GitHub Actions workflow for automated multi-platform builds
+- Linux builds: AppImage (universal) and .deb (Debian/Ubuntu)
+- Windows builds: NSIS installer (.exe)
+- macOS builds: DMG disk image (x64 and arm64)
+- Automated GitHub Release creation with draft review workflow
+- Build artifact retention and smoke testing
+
+### Changed
+
+#### Rust DSP Module Now Required
+- Rust DSP module (`vendor/auralis-dsp`) is now a required dependency
+- Previously optional with librosa fallback, now mandatory for performance
+- PyO3 bindings with ABI3 forward compatibility for Python 3.13+
+- HPSS, YIN, Chroma, Tempo detection all use optimized Rust implementations
+
+#### Audio Buffer Management
+- Increased buffer size to prevent audio position jumps
+- Changed overflow behavior from error to graceful handling
+- Improved buffer health monitoring to prevent underrun cascades
+- PCMStreamBuffer overflow now handled gracefully to prevent buffer corruption
+
+### Fixed
+
+#### Audio Streaming Stability
+- **Position jumps**: Prevented by increasing buffer and changing overflow behavior
+- **Buffer underruns**: Added health monitoring to prevent underrun cascades
+- **Buffer corruption**: PCMStreamBuffer overflow now handled gracefully
+- **Stale playback state**: WebSocket disconnect handling prevents stale state
+- **Backward audio jumps**: Resolved chunk overlap bug causing backward jumps
+
+#### WebSocket Integration
+- Proper disconnect handling prevents stale playback state
+- Improved streaming playback integration with library components
+- Better error recovery during WebSocket reconnection
+
+### Performance
+
+#### Streaming Improvements
+- Real-time factor: 36.6x on real-world audio (maintained)
+- Reduced buffer-related audio glitches
+- More stable playback under varying network conditions
+- Improved chunk processing reliability
+
+### Build & Infrastructure
+
+#### CI/CD Configuration
+- Node.js 24 support across all platforms
+- Python 3.13 with PyO3 ABI3 forward compatibility
+- Protobuf compiler installation for Rust DSP builds
+- Cross-platform build matrix (Linux, Windows, macOS)
+
+### Documentation
+
+#### Updated References
+- CLAUDE.md updated to reflect Rust DSP requirement
+- Version synchronization across all project files
+- Build workflow documentation
+
+### Known Issues
+
+- macOS builds require code signing for Gatekeeper (currently bypassed)
+- First-time launch on macOS may require right-click → Open
+
+---
+
 ## [1.1.0-beta.3] - 2025-11-29
 
 ### Overview
