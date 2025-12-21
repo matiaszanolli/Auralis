@@ -89,11 +89,11 @@ export class PCMStreamBuffer {
     const requiredSpace = sampleCount + crossfadeSamples;
 
     if (usedSamples + requiredSpace > availableCapacity) {
-      console.warn(
-        `[PCMStreamBuffer] Buffer overflow risk: used=${usedSamples}, ` +
-        `required=${requiredSpace}, capacity=${availableCapacity}`
+      // Log overflow condition - writeToBuffer will handle gracefully by discarding oldest data
+      console.log(
+        `[PCMStreamBuffer] Buffer near capacity: used=${usedSamples} (${(usedSamples / this.sampleRate / this.channels).toFixed(1)}s), ` +
+        `adding=${requiredSpace}, capacity=${availableCapacity}. Oldest data will be discarded.`
       );
-      // Continue anyway - we'll wrap around and overwrite old data
     }
 
     // Apply crossfading if specified
@@ -252,6 +252,10 @@ export class PCMStreamBuffer {
 
   /**
    * Write samples to circular buffer
+   *
+   * Handles overflow gracefully by advancing readPos when necessary.
+   * This discards the oldest unread data to make room for new data,
+   * preventing buffer corruption while maintaining pointer integrity.
    */
   private writeToBuffer(pcm: Float32Array): void {
     if (!this.buffer) {
@@ -260,6 +264,22 @@ export class PCMStreamBuffer {
 
     const bufferCapacity = this.buffer.length;
     const sampleCount = pcm.length;
+
+    // Calculate available space before write
+    const currentlyUsed = this.getAvailableSamples();
+    const freeSpace = bufferCapacity - currentlyUsed;
+
+    // Check if write would overflow and overwrite unread data
+    if (sampleCount > freeSpace) {
+      // Calculate how many samples we need to discard from the oldest data
+      const overflow = sampleCount - freeSpace;
+      console.warn(
+        `[PCMStreamBuffer] Discarding ${overflow} oldest samples (${(overflow / this.sampleRate / this.channels).toFixed(2)}s) to make room for new data`
+      );
+
+      // Advance readPos to discard oldest data
+      this.readPos = (this.readPos + overflow) % bufferCapacity;
+    }
 
     // Handle wrap-around
     if (this.writePos + sampleCount <= bufferCapacity) {
