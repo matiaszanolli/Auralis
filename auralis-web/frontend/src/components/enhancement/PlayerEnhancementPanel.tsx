@@ -17,13 +17,9 @@ import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { tokens } from '@/design-system';
 
-// Streaming components - COMMENTED OUT (not used in compact toggle mode)
-// import { EnhancedPlaybackControls } from './EnhancedPlaybackControls';
-// import { StreamingProgressBar } from './StreamingProgressBar';
-// import { StreamingErrorBoundary, StreamingErrorType } from './StreamingErrorBoundary';
-
 // Playback hooks
 import { usePlayNormal } from '@/hooks/enhancement/usePlayNormal';
+import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 
 /**
  * Props for PlayerEnhancementPanel
@@ -58,8 +54,8 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
   const [playMode, setPlayMode] = useState<'normal' | 'enhanced'>('enhanced');
 
   // Playback hooks
-  // TEMPORARILY COMMENTED OUT FOR DEBUGGING
-  // const playNormal = usePlayNormal();
+  const playNormal = usePlayNormal();
+  const playEnhanced = usePlayEnhanced();
 
   // Debug: Log when component mounts/updates
   useEffect(() => {
@@ -96,39 +92,48 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
   }, [streaming?.state]);
 
   /**
-   * Handle play enhanced callback
+   * Get streaming status for display
    */
-  const handlePlayEnhanced = useCallback(
-    (preset: string, intensity: number) => {
-      console.log(`[PlayerEnhancementPanel] Playing enhanced: ${preset} @ ${intensity}x`);
-      // Redis will handle state updates via WebSocket
-    },
-    []
-  );
+  const streamingStatus = useMemo(() => {
+    if (streaming?.state === 'buffering') return 'Buffering...';
+    if (streaming?.state === 'streaming') return 'Playing';
+    if (streaming?.state === 'error') return 'Error';
+    return null;
+  }, [streaming?.state]);
 
   /**
    * Handle play mode toggle
+   *
+   * When switching modes:
+   * 1. Stop any current playback
+   * 2. Update the mode state
+   * 3. Start playback in the new mode
    */
   const handleModeToggle = useCallback(
-    (mode: 'normal' | 'enhanced') => {
+    async (mode: 'normal' | 'enhanced') => {
       if (mode === playMode) return; // Already in this mode
+      if (!activeTrackId) return; // No track to play
 
-      console.log(`[PlayerEnhancementPanel] Switching to ${mode} mode`);
+      console.log(`[PlayerEnhancementPanel] Switching to ${mode} mode for track ${activeTrackId}`);
 
+      // Stop any current playback first
+      playNormal.stopPlayback();
+      playEnhanced.stopPlayback();
+
+      // Update mode state
+      setPlayMode(mode);
+
+      // Start playback in the new mode
       if (mode === 'normal') {
-        // Stop enhanced, start normal
-        setPlayMode('normal');
-        // TEMPORARILY COMMENTED OUT FOR DEBUGGING
-        // playNormal.playNormal(activeTrackId);
-        console.log('[PlayerEnhancementPanel] Normal mode selected (hook disabled for debugging)');
+        console.log('[PlayerEnhancementPanel] Starting normal (original) playback');
+        await playNormal.playNormal(activeTrackId);
       } else {
-        // Stop normal, start enhanced
-        setPlayMode('enhanced');
-        // EnhancedPlaybackControls will handle starting enhanced playback
-        console.log('[PlayerEnhancementPanel] Enhanced mode selected');
+        console.log('[PlayerEnhancementPanel] Starting enhanced playback');
+        // Use 'adaptive' preset with full intensity as default
+        await playEnhanced.playEnhanced(activeTrackId, 'adaptive', 1.0);
       }
     },
-    [playMode, activeTrackId]
+    [playMode, activeTrackId, playNormal, playEnhanced]
   );
 
   if (!shouldShow) {
@@ -145,23 +150,31 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
             style={{
               ...styles.modeButton,
               ...(playMode === 'normal' ? styles.modeButtonActive : styles.modeButtonInactive),
+              ...(playMode === 'normal' && isStreaming ? styles.modeButtonStreaming : {}),
             }}
             onClick={() => handleModeToggle('normal')}
             disabled={!activeTrackId}
             title="Play original unprocessed audio"
           >
             🎵 Original
+            {playMode === 'normal' && streamingStatus && (
+              <span style={styles.streamingIndicator}>{streamingStatus}</span>
+            )}
           </button>
           <button
             style={{
               ...styles.modeButton,
               ...(playMode === 'enhanced' ? styles.modeButtonActive : styles.modeButtonInactive),
+              ...(playMode === 'enhanced' && isStreaming ? styles.modeButtonStreaming : {}),
             }}
             onClick={() => handleModeToggle('enhanced')}
             disabled={!activeTrackId}
             title="Play with audio enhancement/mastering"
           >
             ✨ Enhanced
+            {playMode === 'enhanced' && streamingStatus && (
+              <span style={styles.streamingIndicator}>{streamingStatus}</span>
+            )}
           </button>
         </div>
       </div>
@@ -315,6 +328,18 @@ const styles: Record<string, React.CSSProperties> = {
     borderColor: tokens.colors.border.light,
   } as React.CSSProperties,
 
+  modeButtonStreaming: {
+    animation: 'pulse 2s ease-in-out infinite',
+  } as React.CSSProperties,
+
+  streamingIndicator: {
+    display: 'block',
+    fontSize: '0.625rem',
+    fontWeight: 400,
+    marginTop: '2px',
+    opacity: 0.8,
+  } as React.CSSProperties,
+
   // COMMENTED OUT - Not used in compact toggle mode
   /*
   controlsSection: {
@@ -332,5 +357,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   */
 };
+
+// Add CSS animation keyframes for streaming pulse effect
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+`;
+document.head.appendChild(styleSheet);
 
 export default PlayerEnhancementPanel;
