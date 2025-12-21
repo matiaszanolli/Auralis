@@ -90,10 +90,8 @@
       ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.music",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "assets/entitlements.mac.plist",
-      "entitlementsInherit": "assets/entitlements.mac.plist"
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "linux": {
       "target": [
@@ -128,23 +126,7 @@
     "dmg": {
       "title": "Auralis ${version}",
       "icon": "assets/icon.icns",
-      "iconSize": 100,
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ],
-      "window": {
-        "width": 540,
-        "height": 380
-      }
+      "writeUpdateInfo": false
     },
     "publish": {
       "provider": "github",
