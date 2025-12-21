@@ -632,11 +632,17 @@ class ChunkedAudioProcessor:
         # Process chunk using shared core logic
         processed_chunk = self._process_chunk_core(chunk_index, fast_start)
 
+        # CRITICAL: Extract the correct segment for this chunk to handle overlaps
+        # - Chunk 0: full CHUNK_DURATION (15s)
+        # - Regular chunks: skip overlap (5s), extract CHUNK_INTERVAL (10s)
+        # Without this, chunks would overlap and cause audio jumps during playback
+        extracted_chunk = self._extract_chunk_segment(processed_chunk, chunk_index)
+
         # Save chunk using WAVEncoder (Phase 3.5 refactoring)
         # NOTE: Saved for durability/caching, but we return the array directly to avoid disk I/O
         assert self.sample_rate is not None
         chunk_path = self._wav_encoder.encode_and_save_from_path(
-            audio=processed_chunk,
+            audio=extracted_chunk,
             sample_rate=self.sample_rate,
             track_id=self.track_id,
             file_signature=self.file_signature,
@@ -651,7 +657,7 @@ class ChunkedAudioProcessor:
 
         logger.info(f"Chunk {chunk_index} processed and saved to {chunk_path}")
         # Return both path (for caching) and audio array (for immediate streaming)
-        return (str(chunk_path), processed_chunk)
+        return (str(chunk_path), extracted_chunk)
 
     async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> Tuple[str, np.ndarray]:
         """
@@ -930,8 +936,10 @@ class ChunkedAudioProcessor:
             logger.debug(f"✅ Chunk {chunk_index} (last): starts {chunk_start_time:.1f}s, remaining {remaining_duration:.1f}s, {expected_samples} samples")
 
         else:
-            # Regular chunk: skip the overlap, extract exactly CHUNK_DURATION seconds
-            expected_samples = int(CHUNK_DURATION * self.sample_rate)
+            # Regular chunk: skip the overlap, extract CHUNK_INTERVAL seconds (NOT CHUNK_DURATION!)
+            # The loaded chunk is only CHUNK_DURATION (15s), and we skip OVERLAP_DURATION (5s),
+            # so we can only extract CHUNK_INTERVAL (10s) = CHUNK_DURATION - OVERLAP_DURATION
+            expected_samples = int(CHUNK_INTERVAL * self.sample_rate)
             # Skip the overlap region to avoid duplicate audio
             extracted = processed_chunk[overlap_samples:overlap_samples + expected_samples]
             logger.debug(f"✅ Chunk {chunk_index}: skipped {overlap_samples} overlap, extracted {expected_samples} samples ({expected_samples/self.sample_rate:.2f}s)")
@@ -942,8 +950,12 @@ class ChunkedAudioProcessor:
             chunk_start_time = chunk_index * CHUNK_INTERVAL
             remaining_duration = max(0, self.total_duration - chunk_start_time)
             expected_for_validation = int(remaining_duration * self.sample_rate)
-        else:
+        elif chunk_index == 0:
+            # First chunk: CHUNK_DURATION (15s)
             expected_for_validation = int(CHUNK_DURATION * self.sample_rate)
+        else:
+            # Regular chunks: CHUNK_INTERVAL (10s)
+            expected_for_validation = int(CHUNK_INTERVAL * self.sample_rate)
 
         if current_samples < expected_for_validation:
             # Pad with silence if too short (edge case, shouldn't happen normally)

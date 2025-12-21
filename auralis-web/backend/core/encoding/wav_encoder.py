@@ -39,6 +39,10 @@ class WAVEncoder:
     # Default bit depth
     DEFAULT_SUBTYPE = 'PCM_16'
 
+    # Cache version - increment when chunk processing logic changes
+    # This invalidates all disk-cached chunks when we fix bugs in extraction/processing
+    CACHE_VERSION = 3  # v3: Added _extract_chunk_segment to process_chunk for proper overlap handling
+
     def __init__(self, chunk_dir: Path, default_subtype: str = 'PCM_16'):
         """
         Initialize WAV encoder.
@@ -74,7 +78,8 @@ class WAVEncoder:
         Generate consistent file path for audio chunk.
 
         Path includes file signature to prevent serving wrong audio
-        if track file is modified or replaced.
+        if track file is modified or replaced. Also includes CACHE_VERSION
+        to invalidate stale chunks when processing logic changes.
 
         Args:
             track_id: Track ID
@@ -86,8 +91,9 @@ class WAVEncoder:
         Returns:
             Path object for chunk file
         """
+        # Include CACHE_VERSION in filename to invalidate stale chunks
         filename = (
-            f"track_{track_id}_{file_signature}_{preset}_{intensity}_chunk_{chunk_index}.wav"
+            f"v{self.CACHE_VERSION}_track_{track_id}_{file_signature}_{preset}_{intensity}_chunk_{chunk_index}.wav"
         )
         return self.chunk_dir / filename
 
@@ -214,8 +220,14 @@ class WAVEncoder:
         Returns:
             Number of files deleted
         """
-        pattern = f"track_{track_id}_{file_signature}_*.wav"
-        files = list(self.chunk_dir.glob(pattern))
+        # Match both old format (track_*) and new versioned format (v*_track_*)
+        patterns = [
+            f"track_{track_id}_{file_signature}_*.wav",  # Old format
+            f"v*_track_{track_id}_{file_signature}_*.wav",  # New versioned format
+        ]
+        files = []
+        for pattern in patterns:
+            files.extend(self.chunk_dir.glob(pattern))
         deleted_count = 0
 
         for f in files:

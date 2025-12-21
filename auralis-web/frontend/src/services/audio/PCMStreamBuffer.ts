@@ -44,9 +44,12 @@ export class PCMStreamBuffer {
 
   /**
    * Create a new PCMStreamBuffer
-   * @param capacity - Buffer capacity in bytes (default 5MB for ~6 seconds @ 48kHz stereo)
+   * @param capacity - Buffer capacity in bytes (default 20MB for ~60 seconds @ 44.1kHz stereo)
+   *
+   * Calculation: 44100 Hz × 2 channels × 4 bytes × 60 seconds = ~21MB
+   * We use 20MB to have ~57 seconds of buffer, which safely holds 3-4 chunks (15s each)
    */
-  constructor(capacity: number = 5 * 1024 * 1024) {
+  constructor(capacity: number = 20 * 1024 * 1024) {
     this.capacity = capacity;
   }
 

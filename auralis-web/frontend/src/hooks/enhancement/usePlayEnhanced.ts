@@ -567,12 +567,14 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
   /**
    * Update playback time periodically
+   * Note: We always run the interval, not conditional on playbackEngineRef.current,
+   * because the engine is created later when streaming starts. The interval safely
+   * checks if the engine exists before reading the time.
    */
   useEffect(() => {
-    if (!playbackEngineRef.current) return;
-
     const interval = setInterval(() => {
-      setCurrentTime(playbackEngineRef.current?.getCurrentPlaybackTime() || 0);
+      const time = playbackEngineRef.current?.getCurrentPlaybackTime() || 0;
+      setCurrentTime(time);
     }, 100); // Update 10x per second
 
     return () => clearInterval(interval);

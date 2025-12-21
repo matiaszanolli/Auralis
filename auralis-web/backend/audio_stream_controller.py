@@ -46,6 +46,10 @@ logger = logging.getLogger(__name__)
 class SimpleChunkCache:
     """Simple in-memory cache for processed audio chunks."""
 
+    # Cache version - increment when chunk processing logic changes
+    # This invalidates all cached chunks when we fix bugs in extraction/processing
+    CACHE_VERSION = 3  # v3: Added _extract_chunk_segment to process_chunk for proper overlap handling
+
     def __init__(self, max_chunks: int = 50) -> None:
         """
         Initialize chunk cache.
@@ -58,7 +62,8 @@ class SimpleChunkCache:
 
     def _make_key(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> str:
         """Generate cache key from parameters."""
-        key_str = f"{track_id}:{chunk_idx}:{preset}:{intensity:.2f}"
+        # Include CACHE_VERSION to invalidate stale cached chunks when processing logic changes
+        key_str = f"v{self.CACHE_VERSION}:{track_id}:{chunk_idx}:{preset}:{intensity:.2f}"
         return hashlib.md5(key_str.encode()).hexdigest()
 
     def get(
@@ -671,7 +676,9 @@ class AudioStreamController:
                     "frame_count": num_frames,
                     "samples": pcm_base64,
                     "sample_count": frame_samples.size,  # Total float32 values (frames × channels)
-                    "crossfade_samples": crossfade_samples if frame_idx == 0 else 0,
+                    # Crossfade is already applied server-side by extract_for_streaming()
+                    # Setting to 0 to prevent double-crossfading in frontend
+                    "crossfade_samples": 0,
                 },
             }
 

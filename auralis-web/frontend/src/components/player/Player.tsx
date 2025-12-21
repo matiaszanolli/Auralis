@@ -45,7 +45,15 @@ import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 
 // Existing hooks for track info
 import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import {
+  selectQueueTracks,
+  selectCurrentIndex,
+  nextTrack,
+  previousTrack,
+  setCurrentIndex,
+} from '@/store/slices/queueSlice';
+import { setCurrentTrack } from '@/store/slices/playerSlice';
 
 /**
  * Player Component
@@ -60,6 +68,8 @@ import { useSelector } from 'react-redux';
  * - WebSocket Streaming: Audio playback via usePlayEnhanced hook (not HTML5 audio)
  */
 const Player: React.FC = () => {
+  const dispatch = useDispatch();
+
   // Queue panel visibility state
   const [queuePanelOpen, setQueuePanelOpen] = useState(false);
 
@@ -67,6 +77,10 @@ const Player: React.FC = () => {
   // FIX: Read currentTrack directly from Redux instead of WebSocket hook
   const state = useSelector((state: any) => state.player || {});
   const currentTrack = state.currentTrack;
+
+  // Queue state for next/previous functionality
+  const queueTracks = useSelector(selectQueueTracks);
+  const currentQueueIndex = useSelector(selectCurrentIndex);
 
   // WebSocket Audio Streaming Hook (replaces REST API playback)
   // Provides: playEnhanced, pausePlayback, resumePlayback, stopPlayback, setVolume
@@ -102,61 +116,99 @@ const Player: React.FC = () => {
     updateInterval: 100,
   });
 
-  // TEMPORARY: Keep REST API for seek/next/previous until WebSocket support is added
-  // TODO: Migrate these to WebSocket messages
-  const apiSeek = async (position: number) => {
-    try {
-      await fetch('/api/player/seek', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ position })
-      });
-    } catch (err) {
-      console.error('[Player] Seek command error:', err);
-    }
+  // DISABLED: Seeking not supported with WebSocket streaming
+  // TODO: Implement chunk-based seeking in the future
+  const handleSeek = (_position: number) => {
+    console.warn('[Player] Seeking is not supported with WebSocket streaming');
+    // Seeking requires stopping current stream, calculating chunk offset,
+    // and restarting from that position - complex to implement correctly
   };
 
-  const apiNext = async () => {
+  // Next track: Stop current stream, update queue index, start new stream
+  const handleNext = async () => {
     try {
-      await fetch('/api/player/next', { method: 'POST' });
+      // Check if we have more tracks in the queue
+      if (currentQueueIndex >= queueTracks.length - 1) {
+        console.log('[Player] Already at last track in queue');
+        return;
+      }
+
+      // Stop current playback
+      stopPlayback();
+
+      // Update queue index
+      dispatch(nextTrack());
+
+      // Get next track from queue
+      const nextTrackData = queueTracks[currentQueueIndex + 1];
+      if (nextTrackData) {
+        // Update current track in player state
+        dispatch(setCurrentTrack(nextTrackData));
+
+        // Start playing the new track
+        console.log('[Player] Playing next track:', nextTrackData.title);
+        await playEnhanced(nextTrackData.id, 'adaptive', 1.0);
+      }
     } catch (err) {
       console.error('[Player] Next command error:', err);
     }
   };
 
-  const apiPrevious = async () => {
+  // Previous track: Stop current stream, update queue index, start new stream
+  const handlePrevious = async () => {
     try {
-      await fetch('/api/player/previous', { method: 'POST' });
+      // Check if we have previous tracks in the queue
+      if (currentQueueIndex <= 0) {
+        console.log('[Player] Already at first track in queue');
+        return;
+      }
+
+      // Stop current playback
+      stopPlayback();
+
+      // Update queue index
+      dispatch(previousTrack());
+
+      // Get previous track from queue
+      const prevTrackData = queueTracks[currentQueueIndex - 1];
+      if (prevTrackData) {
+        // Update current track in player state
+        dispatch(setCurrentTrack(prevTrackData));
+
+        // Start playing the new track
+        console.log('[Player] Playing previous track:', prevTrackData.title);
+        await playEnhanced(prevTrackData.id, 'adaptive', 1.0);
+      }
     } catch (err) {
       console.error('[Player] Previous command error:', err);
     }
   };
 
-  // Play/Pause control handlers
-  const handlePlay = async () => {
+  // Unified Play/Pause toggle handler
+  // Handles three states: not streaming → start, streaming → pause, paused → resume
+  const handlePlayPause = async () => {
     if (!currentTrack?.id) {
       console.warn('[Player] No track loaded, cannot play');
       return;
     }
 
     try {
-      // Use WebSocket streaming with adaptive preset (default)
-      await playEnhanced(currentTrack.id, 'adaptive', 1.0);
-      console.log('[Player] Started WebSocket audio streaming for track:', currentTrack.id);
-    } catch (err) {
-      console.error('[Player] Play command error:', err);
-    }
-  };
-
-  const handlePause = async () => {
-    try {
-      if (isPaused) {
-        resumePlayback();
+      // If already streaming, toggle pause/resume
+      if (isStreaming) {
+        if (isPaused) {
+          console.log('[Player] Resuming playback');
+          resumePlayback();
+        } else {
+          console.log('[Player] Pausing playback');
+          pausePlayback();
+        }
       } else {
-        pausePlayback();
+        // Not streaming - start new stream
+        console.log('[Player] Starting WebSocket audio streaming for track:', currentTrack.id);
+        await playEnhanced(currentTrack.id, 'adaptive', 1.0);
       }
     } catch (err) {
-      console.error('[Player] Pause command error:', err);
+      console.error('[Player] Play/Pause command error:', err);
     }
   };
 
@@ -206,8 +258,8 @@ const Player: React.FC = () => {
           currentTime={wsCurrentTime}
           duration={currentTrack?.duration ?? 0}
           bufferedPercentage={wsBufferedPercentage}
-          onSeek={apiSeek}
-          disabled={hasError}
+          onSeek={handleSeek}
+          disabled={true}  /* Seeking disabled until WebSocket chunk-based seeking is implemented */
         />
       </div>
 
@@ -231,10 +283,10 @@ const Player: React.FC = () => {
         {/* Center: Playback Controls */}
         <PlaybackControls
           isPlaying={isStreaming && !isPaused}
-          onPlay={handlePlay}
-          onPause={handlePause}
-          onNext={apiNext}
-          onPrevious={apiPrevious}
+          onPlay={handlePlayPause}
+          onPause={handlePlayPause}
+          onNext={handleNext}
+          onPrevious={handlePrevious}
           isLoading={isBuffering}
           disabled={hasError}
         />
