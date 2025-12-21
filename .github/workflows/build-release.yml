@@ -59,8 +59,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
 
       - name: Install system dependencies
         run: |
@@ -88,12 +86,12 @@ jobs:
       - name: Install Node dependencies
         run: |
           cd desktop
-          npm ci
+          npm install
 
       - name: Build frontend
         run: |
           cd auralis-web/frontend
-          npm ci
+          npm install
           npm run build
 
       - name: Build Electron app (Linux)
@@ -135,8 +133,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -154,12 +150,12 @@ jobs:
       - name: Install Node dependencies
         run: |
           cd desktop
-          npm ci
+          npm install
 
       - name: Build frontend
         run: |
           cd auralis-web/frontend
-          npm ci
+          npm install
           npm run build
 
       - name: Build Electron app (Windows)
@@ -200,8 +196,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: desktop/package-lock.json
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -219,12 +213,12 @@ jobs:
       - name: Install Node dependencies
         run: |
           cd desktop
-          npm ci
+          npm install
 
       - name: Build frontend
         run: |
           cd auralis-web/frontend
-          npm ci
+          npm install
           npm run build
 
       - name: Build Electron app (macOS)
