@@ -44,7 +44,7 @@ jobs:
   # Linux builds (AppImage and .deb)
   build-linux:
     needs: prepare
-    runs-on: ubuntu-20.04  # Use 20.04 for better compatibility
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
