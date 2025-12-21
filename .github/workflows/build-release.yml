@@ -1,0 +1,339 @@
+name: Build Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (v1.0.0-beta.1, etc.)
+  workflow_dispatch:  # Manual trigger for testing
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0-beta.1)'
+        required: false
+        default: ''
+
+jobs:
+  # Extract version from tag or input
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      is_prerelease: ${{ steps.get_version.outputs.is_prerelease }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event.inputs.version }}" != "" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # Check if this is a prerelease (contains beta, alpha, or rc)
+          if [[ "$VERSION" =~ (beta|alpha|rc) ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "Building version: $VERSION"
+
+  # Linux builds (AppImage and .deb)
+  build-linux:
+    needs: prepare
+    runs-on: ubuntu-20.04  # Use 20.04 for better compatibility
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libsndfile1 \
+            libffi-dev \
+            libasound2-dev \
+            libportaudio2 \
+            portaudio19-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel maturin
+          pip install -r requirements.txt
+
+      - name: Build Rust DSP module
+        run: |
+          cd vendor/auralis-dsp
+          maturin build --release
+
+      - name: Install Node dependencies
+        run: |
+          cd desktop
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd auralis-web/frontend
+          npm ci
+          npm run build
+
+      - name: Build Electron app (Linux)
+        run: |
+          cd desktop
+          npm run build:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List built files
+        run: |
+          echo "Built files:"
+          ls -lh desktop/dist/
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-binaries-${{ needs.prepare.outputs.version }}
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+          retention-days: 30
+
+  # Windows builds (.exe installer)
+  build-windows:
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel maturin
+          pip install -r requirements.txt
+
+      - name: Build Rust DSP module
+        run: |
+          cd vendor/auralis-dsp
+          maturin build --release
+
+      - name: Install Node dependencies
+        run: |
+          cd desktop
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd auralis-web/frontend
+          npm ci
+          npm run build
+
+      - name: Build Electron app (Windows)
+        run: |
+          cd desktop
+          npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List built files
+        run: |
+          echo "Built files:"
+          dir desktop\dist\
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binaries-${{ needs.prepare.outputs.version }}
+          path: |
+            desktop/dist/*.exe
+          retention-days: 30
+
+  # macOS builds (.dmg)
+  build-macos:
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip setuptools wheel maturin
+          pip install -r requirements.txt
+
+      - name: Build Rust DSP module
+        run: |
+          cd vendor/auralis-dsp
+          maturin build --release
+
+      - name: Install Node dependencies
+        run: |
+          cd desktop
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd auralis-web/frontend
+          npm ci
+          npm run build
+
+      - name: Build Electron app (macOS)
+        run: |
+          cd desktop
+          npm run build:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List built files
+        run: |
+          echo "Built files:"
+          ls -lh desktop/dist/
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-binaries-${{ needs.prepare.outputs.version }}
+          path: |
+            desktop/dist/*.dmg
+          retention-days: 30
+
+  # Create GitHub Release with all artifacts
+  create-release:
+    needs: [prepare, build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')  # Only create release for tags
+    permissions:
+      contents: write  # Need write permission to create release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Display artifact structure
+        run: |
+          echo "Artifact structure:"
+          ls -R ./artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: Auralis v${{ needs.prepare.outputs.version }}
+          draft: true  # Create as draft for manual review before publishing
+          prerelease: ${{ needs.prepare.outputs.is_prerelease }}
+          body: |
+            ## Auralis v${{ needs.prepare.outputs.version }}
+
+            **Release Date:** ${{ github.event.head_commit.timestamp }}
+
+            ### Downloads
+            - **Linux**: AppImage (universal) or .deb (Debian/Ubuntu)
+            - **Windows**: .exe installer
+            - **macOS**: .dmg disk image
+
+            ### Installation
+            - **Linux AppImage**: Download, make executable (`chmod +x`), run
+            - **Linux .deb**: Download, install with `sudo dpkg -i <file>.deb`
+            - **Windows**: Download .exe, run installer
+            - **macOS**: Download .dmg, drag to Applications
+
+            ### What's New
+            See [CHANGELOG.md](https://github.com/matiaszanolli/Auralis/blob/master/CHANGELOG.md) for detailed changes.
+
+            ### Performance
+            - Real-time factor: 36.6x on real-world audio
+            - Recommended: Install Numba for 2-3x speedup (`pip install numba`)
+
+            ### Known Issues
+            See [CHANGELOG.md](https://github.com/matiaszanolli/Auralis/blob/master/CHANGELOG.md#known-issues-100-beta1)
+
+            ---
+
+            **Full Changelog**: https://github.com/matiaszanolli/Auralis/compare/v0.8.0...v${{ needs.prepare.outputs.version }}
+          files: |
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Test builds (smoke tests)
+  test-builds:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: linux-binaries-*
+          path: ./test-artifacts
+
+      - name: Check Linux build artifacts
+        run: |
+          echo "Checking Linux artifacts..."
+          if [ ! -f ./test-artifacts/*/*.AppImage ]; then
+            echo "❌ AppImage not found!"
+            exit 1
+          fi
+          if [ ! -f ./test-artifacts/*/*.deb ]; then
+            echo "❌ .deb file not found!"
+            exit 1
+          fi
+          echo "✅ All Linux artifacts present"
+
+      # Add more smoke tests here (e.g., extract AppImage, check structure, etc.)

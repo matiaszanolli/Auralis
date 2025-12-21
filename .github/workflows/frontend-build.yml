@@ -1,0 +1,55 @@
+name: Frontend Build
+
+on:
+  push:
+    branches: [ master, develop ]
+    paths:
+      - 'auralis-web/frontend/**'
+      - '.github/workflows/frontend-build.yml'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'auralis-web/frontend/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['18.x', '20.x']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: auralis-web/frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: auralis-web/frontend
+      run: npm ci
+
+    - name: Run linter
+      working-directory: auralis-web/frontend
+      run: npm run lint --if-present
+
+    - name: Run tests
+      working-directory: auralis-web/frontend
+      run: npm test --if-present
+
+    - name: Build production bundle
+      working-directory: auralis-web/frontend
+      run: npm run build
+      env:
+        NODE_ENV: production
+
+    - name: Upload build artifacts
+      if: matrix.node-version == '20.x'
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: auralis-web/frontend/build/
+        retention-days: 7

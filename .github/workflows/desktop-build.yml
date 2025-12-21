@@ -1,0 +1,269 @@
+name: Desktop Build
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ 'v*' ]
+    paths:
+      - 'desktop/**'
+      - 'auralis/**'
+      - 'auralis-web/backend/**'
+      - 'auralis-web/frontend/**'
+      - 'requirements.txt'
+      - '.github/workflows/desktop-build.yml'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'desktop/**'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python 3.14
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Setup Node.js 24.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24.x'
+        cache: 'npm'
+        cache-dependency-path: desktop/package-lock.json
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libsndfile1 \
+          ffmpeg \
+          portaudio19-dev \
+          build-essential \
+          libglib2.0-dev \
+          libgtk-3-dev \
+          libnotify-dev \
+          libgconf-2-4 \
+          libnss3 \
+          libxss1 \
+          libasound2
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Install desktop dependencies
+      working-directory: desktop
+      run: npm ci
+
+    - name: Build frontend
+      working-directory: auralis-web/frontend
+      run: |
+        npm ci
+        npm run build
+
+    - name: Package backend with PyInstaller
+      working-directory: auralis-web/backend
+      run: |
+        pyinstaller --name auralis-backend \
+          --onefile \
+          --collect-all auralis \
+          --hidden-import=auralis \
+          --hidden-import=soundfile \
+          --hidden-import=sklearn \
+          main.py
+
+    - name: Build Electron app
+      working-directory: desktop
+      run: npm run package:linux
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Linux artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: auralis-linux-x64
+        path: |
+          desktop/dist/*.AppImage
+          desktop/dist/*.deb
+        retention-days: 30
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python 3.14
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Setup Node.js 24.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24.x'
+        cache: 'npm'
+        cache-dependency-path: desktop/package-lock.json
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Install desktop dependencies
+      working-directory: desktop
+      run: npm ci
+
+    - name: Build frontend
+      working-directory: auralis-web/frontend
+      run: |
+        npm ci
+        npm run build
+
+    - name: Package backend with PyInstaller
+      working-directory: auralis-web/backend
+      run: |
+        pyinstaller --name auralis-backend.exe `
+          --onefile `
+          --collect-all auralis `
+          --hidden-import=auralis `
+          --hidden-import=soundfile `
+          --hidden-import=sklearn `
+          main.py
+
+    - name: Build Electron app
+      working-directory: desktop
+      run: npm run package:win
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload Windows artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: auralis-windows-x64
+        path: |
+          desktop/dist/*.exe
+        retention-days: 30
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python 3.14
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Setup Node.js 24.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24.x'
+        cache: 'npm'
+        cache-dependency-path: desktop/package-lock.json
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Install desktop dependencies
+      working-directory: desktop
+      run: npm ci
+
+    - name: Build frontend
+      working-directory: auralis-web/frontend
+      run: |
+        npm ci
+        npm run build
+
+    - name: Package backend with PyInstaller
+      working-directory: auralis-web/backend
+      run: |
+        pyinstaller --name auralis-backend \
+          --onefile \
+          --collect-all auralis \
+          --hidden-import=auralis \
+          --hidden-import=soundfile \
+          --hidden-import=sklearn \
+          main.py
+
+    - name: Build Electron app
+      working-directory: desktop
+      run: npm run package:mac
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload macOS artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: auralis-macos-x64
+        path: |
+          desktop/dist/*.dmg
+        retention-days: 30
+
+  release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          auralis-linux-x64/*
+          auralis-windows-x64/*
+          auralis-macos-x64/*
+        body: |
+          ## Auralis ${{ github.ref_name }}
+
+          Professional adaptive audio mastering system with web and desktop interfaces.
+
+          ### Features
+          - ✨ Adaptive mastering without reference tracks
+          - 🎵 Modern web UI with React + FastAPI
+          - 💻 Native desktop app with Electron
+          - 🔊 Real-time audio processing (52.8x real-time)
+          - 📚 Music library with metadata extraction
+          - 🎨 Beautiful dark theme with aurora gradient branding
+
+          ### Downloads
+          - **Linux**: `Auralis-*.AppImage` or `auralis-desktop_*.deb`
+          - **Windows**: `Auralis-*-Setup.exe`
+          - **macOS**: `Auralis-*.dmg`
+
+          ### Installation
+          - **Linux**: `chmod +x Auralis-*.AppImage && ./Auralis-*.AppImage`
+          - **Windows**: Run the installer
+          - **macOS**: Mount DMG and drag to Applications
+
+          ### Quick Start
+          ```bash
+          # Web interface
+          python launch-auralis-web.py
+
+          # Or use the desktop app
+          ./Auralis
+          ```
+
+          See [CLAUDE.md](https://github.com/matiaszanolli/Auralis/blob/master/CLAUDE.md) for full documentation.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

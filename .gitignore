@@ -45,8 +45,11 @@ scripts/node_modules/
 *.AppImage
 *.snap
 *.flatpak
+# Electron builder yml configs
 *.yml
 latest-*.yml
+# But allow GitHub workflows
+!.github/workflows/*.yml
 
 # PyInstaller specific
 *.spec

@@ -1,0 +1,205 @@
+name: CI/CD Pipeline
+
+# Phase A CI/CD Configuration
+# Aligned with DEVELOPMENT_STANDARDS.md
+# Coverage threshold: 85% (Python + TypeScript)
+# Test timeout: 300s (5 minutes)
+# Memory optimization: 2GB Node.js heap for frontend tests
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master, develop ]
+  schedule:
+    # Run nightly tests at 2 AM UTC
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.14'
+
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort
+
+    - name: Check code formatting with black
+      run: |
+        black --check auralis/ auralis-web/backend/ tests/ || echo "Black formatting check failed - run 'black .' to fix"
+
+    - name: Check import sorting with isort
+      run: |
+        isort --check-only auralis/ auralis-web/backend/ tests/ || echo "Import sorting check failed - run 'isort .' to fix"
+
+    - name: Lint with flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 auralis/ auralis-web/backend/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 auralis/ auralis-web/backend/ --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+  test-python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12', '3.13', '3.14']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libsndfile1 ffmpeg portaudio19-dev
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio
+
+    - name: Run tests with coverage
+      run: |
+        python -m pytest tests/ -v \
+          --cov=auralis --cov=auralis-web/backend \
+          --cov-report=xml --cov-report=term-missing \
+          --cov-fail-under=85 \
+          --timeout=300 \
+          --ignore=tests/backend/test_state_manager.py
+
+    - name: Check coverage threshold (85% minimum - Phase A)
+      if: always()
+      run: |
+        python -m coverage report --fail-under=85 || \
+        (echo "ERROR: Code coverage below 85% threshold (Phase A requirement)" && exit 1)
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v4
+      if: matrix.python-version == '3.13'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: python-${{ matrix.python-version }}
+        fail_ci_if_error: false
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: auralis-web/frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: auralis-web/frontend
+      run: npm ci
+
+    - name: Type check
+      working-directory: auralis-web/frontend
+      continue-on-error: true
+      run: npm run type-check 2>&1 || true
+
+    - name: Lint
+      working-directory: auralis-web/frontend
+      continue-on-error: true
+      run: npm run lint -- --max-warnings 5 2>&1 || true
+
+    - name: Run tests with coverage (85% minimum - Phase A)
+      working-directory: auralis-web/frontend
+      env:
+        NODE_OPTIONS: --max-old-space-size=2048
+      run: npm run test:memory -- --coverage
+
+    - name: Check coverage threshold (85% minimum - Phase A)
+      working-directory: auralis-web/frontend
+      if: always()
+      run: |
+        if [ -f coverage/coverage-final.json ]; then
+          coverage=$(grep -o '"lines":{[^}]*}' coverage/coverage-final.json | grep -o '[0-9.]*' | head -1)
+          echo "Frontend coverage: ${coverage}%"
+          if (( $(echo "$coverage < 85" | bc -l) )); then
+            echo "ERROR: Coverage ${coverage}% below 85% threshold (Phase A requirement)"
+            exit 1
+          fi
+        fi
+
+    - name: Build
+      working-directory: auralis-web/frontend
+      run: npm run build
+
+    - name: Check bundle size (500KB limit - Phase A)
+      working-directory: auralis-web/frontend
+      run: |
+        bundle_size=$(du -sb build/ | cut -f1)
+        bundle_size_kb=$((bundle_size / 1024))
+        echo "Bundle size: ${bundle_size_kb}KB"
+        if [ $bundle_size_kb -gt 500 ]; then
+          echo "WARNING: Bundle size ${bundle_size_kb}KB exceeds 500KB soft limit"
+        fi
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        files: ./auralis-web/frontend/coverage/coverage-final.json
+        flags: frontend
+        name: frontend
+        fail_ci_if_error: false
+
+  health-check:
+    runs-on: ubuntu-latest
+    needs: [test-python]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.14'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Start backend
+      run: |
+        cd auralis-web/backend
+        python main.py &
+        sleep 5
+
+    - name: Health check
+      run: |
+        curl -f http://localhost:8765/api/health || exit 1
+        curl -f http://localhost:8765/api/version || exit 1
+
+    - name: Check endpoints
+      run: |
+        echo "Testing backend endpoints..."
+        curl -f http://localhost:8765/api/audio/formats || exit 1
+        echo "All health checks passed!"
