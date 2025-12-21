@@ -2,15 +2,15 @@
  * CozyAlbumGrid Component
  *
  * Displays albums in a responsive grid layout with infinite scroll.
- * Uses unified pagination pattern: useAlbumsQuery + useInfiniteScroll
+ * Uses TanStack Query for data fetching + IntersectionObserver for scroll detection.
  *
- * Extracted modules:
- * - AlbumGridLoadingState - Loading skeleton display
- * - AlbumGridContent - Album grid rendering
+ * Grid Layout:
+ * - Responsive CSS Grid (auto-fills columns based on 200px minimum width)
+ * - Infinite scroll via sentinel element + IntersectionObserver
+ * - TanStack Query handles caching, deduplication, and loading states
  */
 
 import React, { useEffect, useRef } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { EmptyState } from '../../../shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { useInfiniteAlbums } from '@/hooks/library/useInfiniteAlbums';
@@ -30,7 +30,7 @@ interface CozyAlbumGridProps {
  * - No race conditions
  */
 export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) => {
-  const parentRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Infinite query with TanStack Query
   const {
@@ -44,37 +44,23 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
 
   // Flatten all pages into single array
   const albums = data?.pages.flatMap(page => page.albums) ?? [];
-  const totalAlbums = data?.pages[0]?.total ?? 0;
 
-  // Virtualizer for the full list (represents ALL 3866 albums)
-  const rowVirtualizer = useVirtualizer({
-    count: totalAlbums, // Total count, not just loaded
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 220, // Estimated album card height
-    overscan: 5,
-  });
-
-  // Fetch more when scrolling approaches unloaded items
+  // Intersection Observer for infinite scroll
   useEffect(() => {
-    const [lastItem] = [...rowVirtualizer.getVirtualItems()].reverse();
+    if (!loadMoreRef.current || !hasNextPage || isFetchingNextPage) return;
 
-    if (!lastItem) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 0.1 }
+    );
 
-    // If we're scrolling near the end of loaded items, fetch more
-    if (
-      lastItem.index >= albums.length - 1 &&
-      hasNextPage &&
-      !isFetchingNextPage
-    ) {
-      fetchNextPage();
-    }
-  }, [
-    hasNextPage,
-    fetchNextPage,
-    albums.length,
-    isFetchingNextPage,
-    rowVirtualizer.getVirtualItems(),
-  ]);
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Loading state
   if (isLoading && albums.length === 0) {
@@ -101,69 +87,43 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     );
   }
 
-  // Virtualized grid rendering
+  // CSS Grid rendering with infinite scroll
   return (
     <div
-      ref={parentRef}
       style={{
         height: '100%',
         overflow: 'auto',
+        padding: '16px',
       }}
     >
       <div
         style={{
-          height: `${rowVirtualizer.getTotalSize()}px`,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+          gap: '16px',
           width: '100%',
-          position: 'relative',
         }}
       >
-        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-          const album = albums[virtualRow.index];
-
-          // Show placeholder if album not loaded yet
-          if (!album) {
-            return (
-              <div
-                key={virtualRow.index}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                <div style={{ padding: '8px', opacity: 0.5 }}>
-                  Loading album {virtualRow.index + 1}...
-                </div>
-              </div>
-            );
-          }
-
-          return (
-            <div
-              key={virtualRow.key}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '200px',
-                height: `${virtualRow.size}px`,
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
-            >
-              <AlbumCard
-                album={album}
-                onClick={() => onAlbumClick?.(album.id)}
-              />
-            </div>
-          );
-        })}
+        {albums.map((album) => (
+          <AlbumCard
+            key={album.id}
+            album={album}
+            onClick={() => onAlbumClick?.(album.id)}
+          />
+        ))}
       </div>
-      {isFetchingNextPage && (
-        <div style={{ padding: '16px', textAlign: 'center' }}>
-          Loading more albums...
+
+      {/* Sentinel element for infinite scroll */}
+      {hasNextPage && (
+        <div
+          ref={loadMoreRef}
+          style={{
+            padding: '16px',
+            textAlign: 'center',
+            minHeight: '40px',
+          }}
+        >
+          {isFetchingNextPage ? 'Loading more albums...' : '\u00A0'}
         </div>
       )}
     </div>
