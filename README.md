@@ -44,8 +44,8 @@ This release includes **pre-built binaries** for all major platforms:
 
 ### 🎯 Previous Releases
 
-- **[v1.1.0-beta.5](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.5)** - Audio mastering refinement (Dec 2024)
-- **[v1.1.0-beta.3](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.3)** - DRY refactoring & code quality (Nov 2024)
+- **[v1.1.0-beta.5](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.5)** - Audio mastering refinement (Dec 2025)
+- **[v1.1.0-beta.3](https://github.com/matiaszanolli/Auralis/releases/tag/v1.1.0-beta.3)** - DRY refactoring & code quality (Nov 2025)
 - **[v1.0.0-beta.12](https://github.com/matiaszanolli/Auralis/releases/tag/v1.0.0-beta.12)** - Previous stable release with binaries
 
 ---
@@ -472,7 +472,7 @@ This project is licensed under the **GPL-3.0 License** - see the [LICENSE](LICEN
 
 - **Issues:** [GitHub Issues](https://github.com/matiaszanolli/Auralis/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/matiaszanolli/Auralis/discussions)
-- **Email:** [Project Maintainer](mailto:matiaszanolli@gmail.com)
+- **Email:** [Project Maintainer](mailto:contacto@matiaszanolli.com)
 
 ---
 
