@@ -14,7 +14,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { EmptyState } from '../../../shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { useInfiniteAlbums } from '@/hooks/library/useInfiniteAlbums';
-import { AlbumCard } from './AlbumCard';
+import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 
 interface CozyAlbumGridProps {
   onAlbumClick?: (albumId: number) => void;
