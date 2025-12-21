@@ -18,24 +18,24 @@ export interface Track {
   filepath: string;
 
   // Optional metadata
-  artwork_url?: string;
+  artworkUrl?: string; // camelCase
   genre?: string;
   year?: number;
 
   // Audio properties
   bitrate?: number; // kbps
-  sample_rate?: number; // Hz
-  bit_depth?: number; // bits
+  sampleRate?: number; // Hz (camelCase)
+  bitDepth?: number; // bits (camelCase)
   format?: string; // wav, flac, mp3, etc.
 
   // Analysis properties
   loudness?: number; // LUFS
-  crest_factor?: number; // dB
+  crestFactor?: number; // dB (camelCase)
   centroid?: number; // Hz
 
   // Timestamps
-  date_added?: string; // ISO 8601
-  date_modified?: string; // ISO 8601
+  dateAdded?: string; // ISO 8601 (camelCase)
+  dateModified?: string; // ISO 8601 (camelCase)
 }
 
 // ============================================================================
@@ -48,15 +48,16 @@ export interface Album {
   artist: string;
 
   // Optional metadata
-  artwork_url?: string;
+  artworkUrl?: string; // camelCase
   year?: number;
   genre?: string;
 
   // Stats
-  track_count: number;
+  trackCount: number; // camelCase
+  totalDuration?: number; // seconds (NEW - from backend total_duration)
 
   // Timestamps
-  date_added?: string; // ISO 8601
+  dateAdded?: string; // ISO 8601 (camelCase)
 }
 
 // ============================================================================
@@ -68,14 +69,14 @@ export interface Artist {
   name: string;
 
   // Optional metadata
-  artwork_url?: string;
+  artworkUrl?: string; // camelCase
 
   // Stats
-  track_count: number;
-  album_count: number;
+  trackCount: number; // camelCase
+  albumCount: number; // camelCase
 
   // Timestamps
-  date_added?: string; // ISO 8601
+  dateAdded?: string; // ISO 8601 (camelCase)
 }
 
 // ============================================================================
@@ -369,7 +370,7 @@ export function isAlbum(value: any): value is Album {
     typeof value.id === 'number' &&
     typeof value.title === 'string' &&
     typeof value.artist === 'string' &&
-    typeof value.track_count === 'number'
+    typeof value.trackCount === 'number' // camelCase
   );
 }
 
@@ -378,7 +379,7 @@ export function isArtist(value: any): value is Artist {
     typeof value === 'object' &&
     typeof value.id === 'number' &&
     typeof value.name === 'string' &&
-    typeof value.track_count === 'number'
+    typeof value.trackCount === 'number' // camelCase
   );
 }
 

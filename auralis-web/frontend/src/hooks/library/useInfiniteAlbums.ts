@@ -4,19 +4,14 @@
  * Modern infinite scroll implementation using TanStack Query.
  * Replaces custom useAlbumsQuery + useInfiniteScroll pattern.
  *
+ * Uses transformation layer to convert backend snake_case to frontend camelCase.
+ *
  * @module hooks/library/useInfiniteAlbums
  */
 
 import { useInfiniteQuery } from '@tanstack/react-query';
-import type { Album } from '@/types/domain';
-
-interface AlbumsResponse {
-  albums: Album[];
-  total: number;
-  offset: number;
-  limit: number;
-  has_more: boolean;
-}
+import { transformAlbumsResponse } from '@/api/transformers';
+import type { AlbumsApiResponse } from '@/api/transformers';
 
 interface UseInfiniteAlbumsOptions {
   limit?: number;
@@ -28,6 +23,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8765';
 
 /**
  * Fetch albums from the API with pagination
+ * Returns RAW backend response (snake_case) - will be transformed by useInfiniteAlbums
  */
 async function fetchAlbums({
   pageParam = 0,
@@ -37,7 +33,7 @@ async function fetchAlbums({
   pageParam?: number;
   limit?: number;
   search?: string;
-}): Promise<AlbumsResponse> {
+}): Promise<AlbumsApiResponse> {
   const params = new URLSearchParams({
     offset: pageParam.toString(),
     limit: limit.toString(),
@@ -53,6 +49,7 @@ async function fetchAlbums({
     throw new Error(`Failed to fetch albums: ${response.statusText}`);
   }
 
+  // Return raw API response (snake_case) - transformation happens in useInfiniteAlbums
   return response.json();
 }
 
@@ -64,13 +61,19 @@ async function fetchAlbums({
  * - Automatic refetching
  * - Cache management
  * - Loading states
+ * - Automatic snake_case → camelCase transformation
  *
  * @example
  * ```tsx
  * const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteAlbums();
  *
- * // All albums across all pages
+ * // All albums across all pages (camelCase domain models)
  * const allAlbums = data?.pages.flatMap(page => page.albums) ?? [];
+ *
+ * // Access transformed data
+ * allAlbums[0].trackCount // ✅ camelCase
+ * allAlbums[0].artworkUrl // ✅ camelCase
+ * allAlbums[0].totalDuration // ✅ camelCase
  *
  * // Load more when scrolling
  * <button onClick={() => fetchNextPage()}>Load More</button>
@@ -81,15 +84,21 @@ export function useInfiniteAlbums(options: UseInfiniteAlbumsOptions = {}) {
 
   return useInfiniteQuery({
     queryKey: ['albums', { search, limit }],
-    queryFn: ({ pageParam }) =>
-      fetchAlbums({
+    queryFn: async ({ pageParam }) => {
+      // Fetch raw API response (snake_case)
+      const apiResponse = await fetchAlbums({
         pageParam,
         limit,
         search,
-      }),
+      });
+
+      // Transform to domain model (camelCase)
+      return transformAlbumsResponse(apiResponse);
+    },
     initialPageParam: 0,
     getNextPageParam: (lastPage) => {
-      return lastPage.has_more ? lastPage.offset + lastPage.limit : undefined;
+      // lastPage is now transformed response with hasMore (camelCase)
+      return lastPage.hasMore ? lastPage.offset + lastPage.limit : undefined;
     },
     enabled,
   });

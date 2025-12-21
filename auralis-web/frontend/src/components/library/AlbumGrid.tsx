@@ -72,8 +72,8 @@ export const AlbumGrid: React.FC<AlbumGridProps> = ({
               albumId={album.id}
               title={album.title}
               artist={album.artist}
-              trackCount={album.track_count}
-              hasArtwork={!!album.artwork_url}
+              trackCount={album.trackCount}
+              hasArtwork={!!album.artworkUrl}
               year={album.year}
               onClick={() => handleAlbumSelect(album)}
             />
