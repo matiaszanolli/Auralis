@@ -55,10 +55,10 @@ jobs:
           python-version: '3.13'
           cache: 'pip'
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install system dependencies
         run: |
@@ -129,10 +129,10 @@ jobs:
           python-version: '3.13'
           cache: 'pip'
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -192,10 +192,10 @@ jobs:
           python-version: '3.13'
           cache: 'pip'
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
