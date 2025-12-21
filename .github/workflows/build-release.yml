@@ -108,15 +108,15 @@ jobs:
       - name: List built files
         run: |
           echo "Built files:"
-          ls -lh desktop/dist/
+          ls -lh dist/
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-binaries-${{ needs.prepare.outputs.version }}
           path: |
-            desktop/dist/*.AppImage
-            desktop/dist/*.deb
+            dist/*.AppImage
+            dist/*.deb
           retention-days: 30
 
   # Windows builds (.exe installer)
@@ -176,14 +176,14 @@ jobs:
       - name: List built files
         run: |
           echo "Built files:"
-          dir desktop\dist\
+          dir dist\
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-binaries-${{ needs.prepare.outputs.version }}
           path: |
-            desktop/dist/*.exe
+            dist/*.exe
           retention-days: 30
 
   # macOS builds (.dmg)
@@ -243,14 +243,14 @@ jobs:
       - name: List built files
         run: |
           echo "Built files:"
-          ls -lh desktop/dist/
+          ls -lh dist/
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-binaries-${{ needs.prepare.outputs.version }}
           path: |
-            desktop/dist/*.dmg
+            dist/*.dmg
           retention-days: 30
 
   # Create GitHub Release with all artifacts
