@@ -46,6 +46,13 @@ export class AudioPlaybackEngine {
   private minBufferSamples: number = 48000; // ~1 second at 48kHz before starting playback
   private pausedTime: number = 0;
 
+  // Buffer health thresholds (in seconds of audio)
+  // When buffer drops below lowWaterMark, pause playback to let it recover
+  // Resume playback when buffer rises above highWaterMark
+  private lowWaterMarkSeconds: number = 3.0;  // Pause when < 3 seconds buffered
+  private highWaterMarkSeconds: number = 5.0; // Resume when > 5 seconds buffered
+  private isBufferPaused: boolean = false;    // Track if we paused due to low buffer
+
   // Callbacks
   private onStateChange: (state: PlaybackState) => void = () => {};
   private onBufferUnderrun: () => void = () => {};
@@ -102,6 +109,7 @@ export class AudioPlaybackEngine {
       this.audioContextStartTime = this.audioContext.currentTime;
       this.playbackStartTime = Date.now();
       this.samplesPlayed = 0;
+      this.isBufferPaused = false; // Ensure clean buffer health state
 
       this.setState('playing');
       console.log('[AudioPlaybackEngine] Playback started');
@@ -161,6 +169,7 @@ export class AudioPlaybackEngine {
     this.playbackStartTime = 0;
     this.samplesPlayed = 0;
     this.bufferUnderrunCount = 0;
+    this.isBufferPaused = false; // Reset buffer health state
 
     this.setState('stopped');
     console.log('[AudioPlaybackEngine] Playback stopped');
@@ -276,13 +285,51 @@ export class AudioPlaybackEngine {
     // For stereo audio, we need framesNeeded * 2 interleaved samples
     // For mono, we need framesNeeded samples
     const bufferChannels = this.buffer.getMetadata().channels || 2;
+    const sampleRate = this.buffer.getMetadata().sampleRate || 44100;
     const samplesNeeded = framesNeeded * bufferChannels;
+
+    // Check buffer health BEFORE reading
+    const availableSamples = this.buffer.getAvailableSamples();
+    const bufferedSeconds = availableSamples / (sampleRate * bufferChannels);
+
+    // Buffer health management: pause when critically low, resume when recovered
+    if (!this.isBufferPaused && bufferedSeconds < this.lowWaterMarkSeconds) {
+      // Buffer is getting critically low - stop reading to let it recover
+      this.isBufferPaused = true;
+      console.warn(
+        `[AudioPlaybackEngine] Buffer critically low (${bufferedSeconds.toFixed(1)}s < ${this.lowWaterMarkSeconds}s). ` +
+        `Pausing to let buffer recover...`
+      );
+
+      // Output silence while buffer recovers
+      for (let ch = 0; ch < channelCount; ch++) {
+        output.getChannelData(ch).fill(0);
+      }
+      return;
+    }
+
+    if (this.isBufferPaused) {
+      // Check if buffer has recovered
+      if (bufferedSeconds >= this.highWaterMarkSeconds) {
+        this.isBufferPaused = false;
+        console.log(
+          `[AudioPlaybackEngine] Buffer recovered (${bufferedSeconds.toFixed(1)}s >= ${this.highWaterMarkSeconds}s). ` +
+          `Resuming playback.`
+        );
+      } else {
+        // Still recovering - output silence
+        for (let ch = 0; ch < channelCount; ch++) {
+          output.getChannelData(ch).fill(0);
+        }
+        return;
+      }
+    }
 
     // Read interleaved samples from buffer
     const samples = this.buffer.read(samplesNeeded);
 
     if (samples.length === 0) {
-      // Buffer underrun - no samples available
+      // Buffer underrun - no samples available (shouldn't happen with health monitoring)
       this.bufferUnderrunCount++;
       console.warn(
         `[AudioPlaybackEngine] Buffer underrun #${this.bufferUnderrunCount}. ` +
