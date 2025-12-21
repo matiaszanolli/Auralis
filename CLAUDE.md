@@ -2,14 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**📌 Current Version**: 1.1.0-beta.5 (Python), 1.0.0-beta.12.1 (Desktop) | **🐍 Python**: 3.13+ | **📦 Node**: 20+ LTS | **🦀 Rust**: Optional (vendor/auralis-dsp via PyO3)
+**📌 Current Version**: 1.2.0-beta.1 | **🐍 Python**: 3.13+ | **📦 Node**: 20+ LTS | **🦀 Rust**: Required (vendor/auralis-dsp via PyO3)
 
 > **👋 First time setting up?** See [FIRST_TIME_SETUP.md](FIRST_TIME_SETUP.md) for a step-by-step guide. This document is the architecture and development reference for experienced developers.
 
 **Architecture**: Hybrid Python + Rust
 - Python layer: Research, orchestration, REST API, database
-- Rust layer: `vendor/auralis-dsp` for performance-critical DSP (HPSS, YIN, Chroma via PyO3)
-- Graceful fallback to librosa when Rust module unavailable
+- Rust layer: `vendor/auralis-dsp` for performance-critical DSP (HPSS, YIN, Chroma via PyO3) - **Required**
 
 **Project**: Auralis - Professional music player with real-time audio enhancement (like iTunes + mastering studio)
 **License**: GPL-3.0
@@ -327,7 +326,7 @@ Supported formats (via soundfile + FFmpeg):
   - `spectrum_analyzer.py` - Vectorized FFT-based spectrum analysis
   - `parallel_spectrum_analyzer.py` - Thread-pooled parallel spectrum analysis
   - `content_analyzer.py` - Content-aware source characteristics detection
-  - Note: Heavy lifting (HPSS, YIN, Chroma extraction) delegated to `vendor/auralis-dsp` (Rust) with librosa fallback
+  - Note: Heavy lifting (HPSS, YIN, Chroma extraction) delegated to `vendor/auralis-dsp` (Rust, required)
 - **`library/`** - SQLite database, repository pattern for queries, metadata management, query caching (136x speedup)
 - **`player/`** - Playback engine, state management, queue handling
 - **`io/`** - Multi-format audio I/O: WAV, FLAC, MP3, OGG, M4A (supports 16/24-bit PCM)
@@ -335,8 +334,8 @@ Supported formats (via soundfile + FFmpeg):
 - **`learning/`** - Adaptive learning system for profile selection
 - **`utils/`** - Shared utilities and helpers
 
-### Rust DSP Module (`vendor/auralis-dsp/`)
-- **Language**: Rust via PyO3 bindings (optional, with graceful librosa fallback)
+### Rust DSP Module (`vendor/auralis-dsp/`) - Required
+- **Language**: Rust via PyO3 bindings
 - **Build**:
   - Development: `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop` (Python 3.13+)
   - Release: `maturin build --release`
@@ -358,7 +357,7 @@ Supported formats (via soundfile + FFmpeg):
   - **PyO3 Fingerprinting API**: `from auralis_dsp import compute_fingerprint`
   - Returns dictionary with 25 audio characteristics (see fingerprint_compute.rs for full spec)
   - Non-blocking async execution via `asyncio.run_in_executor()` with 10-second timeout
-- **Fallback**: If Rust module unavailable (compilation failed, not installed), gracefully falls back to librosa/Python equivalents
+- **Note**: Rust module is required for audio processing. Build with `maturin develop` before running.
 - **Performance**:
   - Standard DSP: 2-5x speedup (HPSS, YIN, Chroma)
   - Fingerprinting: ~500ms-2s per track (PyO3 direct call, no server overhead)
@@ -838,7 +837,7 @@ make typecheck # mypy type checking (if available)
 
 **Note on Type Coverage**: ✅ **COMPLETE - 0 mypy errors** across 328 source files (achieved Dec 2025). Python codebase is fully type-safe. See "Mypy Coverage Improvements" below for completion details.
 
-### Build Rust DSP Module (Optional)
+### Build Rust DSP Module (Required)
 ```bash
 # Install Rust build tools (one time)
 pip install maturin
@@ -854,7 +853,7 @@ maturin build --release
 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop
 ```
 
-**Note**: The Rust module is optional. If not installed or compilation fails, the system gracefully falls back to librosa implementations with no loss of functionality (just slower performance on HPSS, YIN, Chroma analysis).
+**Note**: The Rust module is required for audio processing. Build it before running the application.
 
 ### Mypy Coverage Improvements (✅ COMPLETE - Zero Errors Achieved)
 
@@ -1395,22 +1394,16 @@ class HybridProcessor:
 ```
 **Example**: Gentle preset = +0.20 dB vs Adaptive = baseline (preset differentiation enforced).
 
-### Graceful Rust Module Fallback
-Rust modules (HPSS, YIN, Chroma) are optional via PyO3. If unavailable, gracefully fall back to librosa:
+### Rust Module Integration
+Rust modules (HPSS, YIN, Chroma, Fingerprinting) are loaded via PyO3:
 ```python
 # auralis/analysis/hpss_analyzer.py
-def try_import_rust_module():
-    try:
-        from vendor.auralis_dsp import hpss_decompose
-        return hpss_decompose
-    except ImportError:
-        logger.warning("Rust HPSS module not available, using librosa fallback")
-        from librosa.decompose import hpss as librosa_hpss
-        return lambda audio, sr: librosa_hpss(audio)
+from auralis_dsp import hpss_decompose
 
-hpss_fn = try_import_rust_module()
-# No loss of functionality, just slower (2-5x speedup when Rust available)
+# All DSP operations use the Rust implementation for performance
+result = hpss_decompose(audio, sample_rate)
 ```
+**Note**: The Rust module must be built before running the application.
 
 ### Fingerprint Cache + Lazy Tempo Detection
 2GB SQLite cache stores pre-computed fingerprints; tempo detection runs lazily:
@@ -1449,7 +1442,7 @@ CROSSFADE_DURATION = 3.0  # Smooth blend at boundaries
 - ✅ **Phase PyO3 Integration (Dec 18)**: Complete end-to-end audio playback with PyO3 fingerprinting
   - Implemented 5 Rust fingerprint modules (frequency_analysis, spectral_features, variation_analysis, stereo_analysis, fingerprint_compute) with 25D audio analysis
   - PyO3 direct bindings: `from auralis_dsp import compute_fingerprint` (no gRPC server overhead)
-  - Updated FingerprintGenerator to use PyO3 with Python fallback
+  - Updated FingerprintGenerator to use PyO3 (Rust required)
   - Added fingerprint progress WebSocket messages (analyzing → complete)
   - Updated usePlayEnhanced hook to track fingerprint status
   - Added EnhancedPlaybackControls fingerprint indicator UI with spinner
