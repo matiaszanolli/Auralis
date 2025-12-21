@@ -107,7 +107,13 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
         {albums.map((album) => (
           <AlbumCard
             key={album.id}
-            album={album}
+            albumId={album.id}
+            title={album.title}
+            artist={album.artist}
+            hasArtwork={!!album.artwork_path}
+            trackCount={album.track_count}
+            duration={album.total_duration}
+            year={album.year}
             onClick={() => onAlbumClick?.(album.id)}
           />
         ))}
