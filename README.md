@@ -14,7 +14,7 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 ## 📦 Current Version: 1.1.0-beta.5
 
-**🎵 Audio Mastering Refinement Release (December 2024)** - Phase 9D Complete, No binaries yet
+**🎵 Audio Mastering Refinement Release (December 2025)** - Phase 9D Complete, No binaries yet
 
 This release focuses on **audio mastering precision** and **performance optimization**. Features:
 - ✅ **Phase 9D Complete** - Energy-adaptive LUFS targeting for Matchering compatibility
