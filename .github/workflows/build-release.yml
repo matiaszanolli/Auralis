@@ -106,7 +106,7 @@ jobs:
           mkdir -p desktop/resources/auralis
 
           # Copy built frontend
-          cp -r auralis-web/frontend/dist/* desktop/resources/frontend/
+          cp -r auralis-web/frontend/build/* desktop/resources/frontend/
 
           # Copy auralis Python module
           cp -r auralis/* desktop/resources/auralis/
@@ -203,7 +203,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path desktop/resources/auralis
 
           # Copy built frontend
-          Copy-Item -Recurse -Force auralis-web/frontend/dist/* desktop/resources/frontend/
+          Copy-Item -Recurse -Force auralis-web/frontend/build/* desktop/resources/frontend/
 
           # Copy auralis Python module
           Copy-Item -Recurse -Force auralis/* desktop/resources/auralis/
@@ -298,7 +298,7 @@ jobs:
           mkdir -p desktop/resources/auralis
 
           # Copy built frontend
-          cp -r auralis-web/frontend/dist/* desktop/resources/frontend/
+          cp -r auralis-web/frontend/build/* desktop/resources/frontend/
 
           # Copy auralis Python module
           cp -r auralis/* desktop/resources/auralis/
