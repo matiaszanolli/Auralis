@@ -670,7 +670,7 @@ class AudioStreamController:
                     "frame_index": frame_idx,
                     "frame_count": num_frames,
                     "samples": pcm_base64,
-                    "sample_count": len(frame_samples),
+                    "sample_count": frame_samples.size,  # Total float32 values (frames × channels)
                     "crossfade_samples": crossfade_samples if frame_idx == 0 else 0,
                 },
             }
