@@ -267,8 +267,8 @@ export interface SearchQuery {
 
 export interface SearchResult {
   tracks: TrackInfo[];
-  albums: Album[];
-  artists: Artist[];
+  albums: import('@/types/domain').Album[];
+  artists: import('@/types/domain').Artist[];
   query: string;
   execution_time_ms: number;
 }
