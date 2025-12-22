@@ -26,6 +26,8 @@ def main():
                         help='Processing intensity 0.0-1.0')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Suppress progress output')
+    parser.add_argument('-t', '--time-metrics', action='store_true',
+                        help='Show detailed timing for each step (dev only)')
 
     args = parser.parse_args()
 
@@ -39,7 +41,8 @@ def main():
             input_path=args.input,
             output_path=output_path,
             intensity=args.intensity,
-            verbose=not args.quiet
+            verbose=not args.quiet,
+            time_metrics=args.time_metrics
         )
 
         if not args.quiet:

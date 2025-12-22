@@ -128,6 +128,52 @@ class DSPBackend:
             logger.error(f"Chroma CQT calculation failed: {e}")
             raise
 
+    @classmethod
+    def detect_tempo(cls, audio: np.ndarray, sr: int) -> float:
+        """
+        Tempo Detection via Spectral Flux Onset Detection (Rust implementation).
+
+        Estimates tempo in BPM using FFT-based spectral flux onset detection.
+        Automatically scales parameters for different sample rates.
+
+        Args:
+            audio: Audio signal (mono)
+            sr: Sample rate
+
+        Returns:
+            Tempo in BPM (40-200 range)
+
+        Raises:
+            RuntimeError: If Rust library is not available
+        """
+        if not cls.AVAILABLE or cls._module is None:
+            raise RuntimeError("Rust DSP library not initialized. Cannot perform tempo detection.")
+
+        try:
+            # Scale FFT size for high sample rates to maintain ~23ms window
+            # At 44.1kHz, n_fft=1024 gives ~23ms window
+            # At 192kHz, we need n_fft=4096 for ~21ms window
+            base_sr = 44100
+            scale_factor = max(1, sr // base_sr)
+            n_fft = 1024 * scale_factor
+            hop_length = 512 * scale_factor
+
+            # Adaptive threshold: higher sample rates have more spectral detail
+            # so we need a higher threshold to filter noise
+            # Tested: 44.1kHz=2.25, 96kHz=2.4, 192kHz=2.5
+            threshold = 2.25 + 0.05 * (scale_factor - 1)
+
+            return cls._module.detect_tempo(
+                audio,
+                sr=sr,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                threshold_multiplier=threshold
+            )  # type: ignore[no-any-return]
+        except Exception as e:
+            logger.error(f"Tempo detection failed: {e}")
+            raise
+
 
 # Initialize backend on module import
 DSPBackend.initialize()
