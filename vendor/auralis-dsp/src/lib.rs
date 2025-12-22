@@ -18,6 +18,9 @@ pub mod median_filter;
 pub mod envelope;
 pub mod compressor;
 pub mod limiter;
+pub mod biquad_filter;
+pub mod onset_detector;
+pub mod chunk_processor;
 
 // Fingerprinting modules (25D audio analysis)
 pub mod frequency_analysis;

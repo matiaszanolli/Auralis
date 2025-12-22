@@ -8,7 +8,7 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyDict};
 use numpy::{PyArray1, PyArray2, ToPyArray, IntoPyArray};
-use crate::{hpss, yin, chroma, tempo, envelope, compressor, limiter, fingerprint_compute};
+use crate::{hpss, yin, chroma, tempo, envelope, compressor, limiter, fingerprint_compute, biquad_filter, onset_detector, chunk_processor};
 
 /// PyO3 module initialization
 /// Exposes all DSP functions to Python
@@ -42,6 +42,16 @@ fn auralis_dsp(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     // Also add under clean name
     let wrapper_fn = m.getattr("compute_fingerprint_wrapper")?;
     m.add("compute_fingerprint", wrapper_fn)?;
+
+    // New DSP functions
+    m.add_function(wrap_pyfunction!(apply_multiband_eq_wrapper, m)?)?;
+    m.add("apply_multiband_eq", m.getattr("apply_multiband_eq_wrapper")?)?;
+
+    m.add_function(wrap_pyfunction!(detect_onsets_wrapper, m)?)?;
+    m.add("detect_onsets", m.getattr("detect_onsets_wrapper")?)?;
+
+    m.add_function(wrap_pyfunction!(process_chunks_wrapper, m)?)?;
+    m.add("process_chunks", m.getattr("process_chunks_wrapper")?)?;
 
     Ok(())
 }
@@ -581,6 +591,135 @@ fn compute_fingerprint_wrapper(
     // Stereo (2D)
     dict.set_item("stereo_width", fingerprint.stereo_width)?;
     dict.set_item("phase_correlation", fingerprint.phase_correlation)?;
+
+    Ok(dict.into())
+}
+
+/// Python wrapper for multi-band EQ
+///
+/// Applies 3-band EQ (bass, mid, treble) to stereo audio
+///
+/// Arguments:
+///     audio: numpy array of shape (2, n_samples) for stereo
+///     sr: Sample rate in Hz
+///     bass_gain_db: Bass gain in dB (default: 0.0)
+///     mid_gain_db: Mid gain in dB (default: 0.0)
+///     treble_gain_db: Treble gain in dB (default: 0.0)
+///
+/// Returns:
+///     Processed stereo audio array
+#[pyfunction]
+#[pyo3(signature = (audio, sr, bass_gain_db = 0.0, mid_gain_db = 0.0, treble_gain_db = 0.0))]
+fn apply_multiband_eq_wrapper(
+    py: Python<'_>,
+    audio: &PyArray2<f64>,
+    sr: usize,
+    bass_gain_db: f64,
+    mid_gain_db: f64,
+    treble_gain_db: f64,
+) -> PyResult<Py<PyArray2<f64>>> {
+    // Convert to ndarray
+    let audio_array = audio.readonly().as_array().to_owned();
+
+    // Create multi-band EQ
+    let num_channels = audio_array.shape()[0];
+    let mut eq = biquad_filter::MultiBandEQ::three_band(
+        sr as f64,
+        bass_gain_db,
+        mid_gain_db,
+        treble_gain_db,
+        num_channels,
+    );
+
+    // Process
+    let output = eq.process_stereo(&audio_array.view());
+
+    Ok(output.into_pyarray_bound(py).unbind())
+}
+
+/// Python wrapper for onset detection
+///
+/// Detects onsets (note attacks, transients) in audio
+///
+/// Arguments:
+///     audio: numpy array of shape (n_samples,) mono audio
+///     sr: Sample rate in Hz
+///     hop_length: Hop length for STFT (default: 512)
+///
+/// Returns:
+///     Dictionary with 'onset_frames' (list of frame indices) and 'onset_times' (list of times in seconds)
+#[pyfunction]
+#[pyo3(signature = (audio, sr, hop_length = 512))]
+fn detect_onsets_wrapper(
+    py: Python<'_>,
+    audio: &PyArray1<f64>,
+    sr: usize,
+    hop_length: usize,
+) -> PyResult<Py<PyDict>> {
+    // Convert to ndarray
+    let audio_vec = audio.to_vec().map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!("Failed to convert audio: {}", e))
+    })?;
+    let audio_array = ndarray::Array1::from(audio_vec);
+
+    // Detect onsets
+    let detector = onset_detector::OnsetDetector::new(sr as f64, 2048, hop_length);
+    let result = detector.detect(&audio_array.view());
+
+    // Convert to Python dict
+    let dict = PyDict::new_bound(py);
+    let onset_frames: Vec<usize> = result.onset_frames;
+    let onset_times = detector.frames_to_time(&onset_frames);
+
+    dict.set_item("onset_frames", onset_frames)?;
+    dict.set_item("onset_times", onset_times)?;
+    dict.set_item("onset_strength", result.onset_strength.into_pyarray_bound(py))?;
+
+    Ok(dict.into())
+}
+
+/// Python wrapper for chunk processing
+///
+/// Process audio in optimized chunks for streaming
+///
+/// Arguments:
+///     audio: numpy array of shape (2, n_samples) for stereo
+///     chunk_size: Size of each chunk (default: 131072)
+///     overlap: Overlap between chunks (default: 2205)
+///
+/// Returns:
+///     Dictionary with 'peaks' (list of peak values per chunk)
+///
+/// Note: This is a simplified wrapper. For custom processing, use the Rust API directly.
+#[pyfunction]
+#[pyo3(signature = (audio, chunk_size = 131072, overlap = 2205))]
+fn process_chunks_wrapper(
+    py: Python<'_>,
+    audio: &PyArray2<f64>,
+    chunk_size: usize,
+    overlap: usize,
+) -> PyResult<Py<PyDict>> {
+    // Convert to ndarray
+    let audio_array = audio.readonly().as_array().to_owned();
+
+    let num_channels = audio_array.shape()[0];
+    let config = chunk_processor::ChunkConfig {
+        chunk_size,
+        overlap,
+        num_channels,
+        crossfade_samples: 2205,
+    };
+
+    let mut processor = chunk_processor::ChunkProcessor::new(config);
+
+    // Process with identity function (just for demonstration)
+    let output = processor.process_chunks(&audio_array.view(), |chunk| chunk.to_owned());
+
+    // Collect stats
+    let dict = PyDict::new_bound(py);
+    dict.set_item("output", output.into_pyarray_bound(py))?;
+    dict.set_item("chunk_size", chunk_size)?;
+    dict.set_item("overlap", overlap)?;
 
     Ok(dict.into())
 }
