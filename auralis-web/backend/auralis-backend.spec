@@ -1,8 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
+import os
+import glob
 
 datas = [('../../auralis', 'auralis')]
-binaries = []
+
+# Include Rust DSP module (.so file)
+rust_dsp_path = '../../vendor/auralis-dsp/target/release'
+rust_dsp_files = glob.glob(os.path.join(rust_dsp_path, 'libauralis_dsp.so*'))
+if not rust_dsp_files:
+    print("WARNING: Rust DSP module not found! Build it with: cd vendor/auralis-dsp && maturin build --release")
+binaries = [(so_file, '.') for so_file in rust_dsp_files]
+
 hiddenimports = [
     'auralis.analysis.fingerprint.fingerprint_storage',
     'auralis.analysis.fingerprint',
