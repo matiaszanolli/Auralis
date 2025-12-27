@@ -9,27 +9,27 @@ Starting Python backend...
 Development mode: false
 Checking if port 8765 is available...
 ✓ Port 8765 is available
-Executing: /tmp/.mount_AuraliqAP7YF/resources/backend/auralis-backend 
-Working directory: /tmp/.mount_AuraliqAP7YF/resources/backend
-Python path for auralis: /tmp/.mount_AuraliqAP7YF/resources
-Full PYTHONPATH: /tmp/.mount_AuraliqAP7YF/resources
+Executing: /tmp/.mount_AuraliXGQMa9/resources/backend/auralis-backend 
+Working directory: /tmp/.mount_AuraliXGQMa9/resources/backend
+Python path for auralis: /tmp/.mount_AuraliXGQMa9/resources
+Full PYTHONPATH: /tmp/.mount_AuraliXGQMa9/resources
 Is development mode: false
-[Backend Error] INFO:__main__:Running as PyInstaller bundle, adding to sys.path: /tmp/.mount_AuraliqAP7YF/resources
+[Backend Error] INFO:__main__:Running as PyInstaller bundle, adding to sys.path: /tmp/.mount_AuraliXGQMa9/resources
 [Backend Error] INFO:auralis.analysis.fingerprint.utilities.dsp_backend:Rust DSP library (auralis_dsp) available - using optimized implementations
 [Backend Error] INFO:cache.manager:StreamlinedCacheManager initialized (12 MB Tier 1)
 [Backend Error] INFO:fingerprint_generator:✅ Rust fingerprinting (PyO3) module available
 [Backend Error] INFO:config.routes:✅ Similarity router registered
 INFO:config.routes:✅ All routers configured and registered
-INFO:__main__:Electron mode: looking for frontend at /tmp/.mount_AuraliqAP7YF/resources/frontend
-INFO:__main__:Looking for frontend at: /tmp/.mount_AuraliqAP7YF/resources/frontend
-[Backend Error] INFO:__main__:✅ Serving frontend from: /tmp/.mount_AuraliqAP7YF/resources/frontend (production mode)
+INFO:__main__:Electron mode: looking for frontend at /tmp/.mount_AuraliXGQMa9/resources/frontend
+INFO:__main__:Looking for frontend at: /tmp/.mount_AuraliXGQMa9/resources/frontend
+[Backend Error] INFO:__main__:✅ Serving frontend from: /tmp/.mount_AuraliXGQMa9/resources/frontend (production mode)
 [Backend] 🚀 Starting Auralis Web Backend...
 Backend ready
 ✓ Backend is ready!
 ✓ Backend started
 
 [2/3] Checking backend health...
-[Backend Error] INFO:     Started server process [1308768]
+[Backend Error] INFO:     Started server process [1344722]
 INFO:     Waiting for application startup.
 [Backend Error] INFO:config.startup:🧹 Processing cache cleared on startup
 [Backend Error] INFO:config.startup:🧹 Cleared chunk directory: /tmp/auralis_chunks
@@ -37,7 +37,7 @@ INFO:     Waiting for application startup.
 [Backend Error] INFO:auralis.library.migrations:Database is up-to-date (v9)
 [Backend Error] INFO:config.startup:✅ Auralis LibraryManager initialized
 INFO:config.startup:📊 Database location: /home/matias/Music/Auralis/auralis_library.db
-INFO:config.startup:✅ Repository Factory initialized (Phase 2 support)
+[Backend Error] INFO:config.startup:✅ Repository Factory initialized (Phase 2 support)
 [Backend Error] INFO:config.startup:✅ Fingerprint Extractor initialized
 [Backend Error] INFO:config.startup:✅ Fingerprint extraction queue started (17 workers, 36x CPU speedup)
 [Backend Error] INFO:config.startup:🔍 Starting auto-scan of /home/matias/Music...
@@ -48,15 +48,15 @@ INFO:config.startup:✅ Player State Manager initialized
 INFO:config.startup:✅ Fingerprint Similarity System initialized
 INFO:config.startup:ℹ️  K-NN Graph Builder not initialized (system not fitted yet)
 [Backend Error] INFO:config.startup:✅ Processing Engine initialized
-[Backend Error] INFO:config.startup:✅ Streamlined Cache Manager initialized (12 MB Tier 1)
-INFO:streamlined_worker:🚀 Streamlined cache worker started
-[Backend Error] INFO:config.startup:✅ Streamlined Cache Worker started
+INFO:config.startup:✅ Streamlined Cache Manager initialized (12 MB Tier 1)
+[Backend Error] INFO:streamlined_worker:🚀 Streamlined cache worker started
+INFO:config.startup:✅ Streamlined Cache Worker started
 [Backend Error] INFO:     Application startup complete.
 [Backend Error] INFO:     Uvicorn running on http://127.0.0.1:8765 (Press CTRL+C to quit)
-13:04:47.351 › Checking for updates on startup...
-13:04:47.357 › Checking for update
-13:04:47.357 › Checking for updates...
-[Backend] INFO:     127.0.0.1:41560 - "GET /api/health HTTP/1.1" 200 OK
+13:27:33.270 › Checking for updates on startup...
+13:27:33.274 › Checking for update
+13:27:33.274 › Checking for updates...
+[Backend] INFO:     127.0.0.1:36462 - "GET /api/health HTTP/1.1" 200 OK
 Health check status: 200
 ✓ Backend health check passed
 ✓ Backend healthy
@@ -64,38 +64,69 @@ Health check status: 200
 [3/3] Creating UI window...
 Creating main window...
 Loading URL: http://localhost:8765
-[Backend] INFO:     127.0.0.1:41572 - "GET / HTTP/1.1" 200 OK
-[Backend] INFO:     127.0.0.1:41572 - "GET /vendor-CmaVxkyx.js HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:36478 - "GET / HTTP/1.1" 200 OK
+13:27:34.356 › Update for version 1.2.0-beta.1 is not available (latest version: 1.2.0-beta.1, downgrade is disallowed).
+13:27:34.357 › Update not available. Current version: 1.2.0-beta.1
+[Backend] INFO:     127.0.0.1:36478 - "GET /vendor-ZvUuodmP.js HTTP/1.1" 200 OK
 ✓ URL loaded successfully
 ✓ UI ready
 
 ✅ Auralis is ready!
-✓ Window shown (ready-to-show event)
-[Backend] INFO:     127.0.0.1:41572 - "GET /assets/index-BPHN8GIp.js HTTP/1.1" 200 OK
-[Backend] INFO:     127.0.0.1:41572 - "GET /globalStyles-DgwkvBRj.js HTTP/1.1" 200 OK
-[Backend] INFO:     127.0.0.1:41572 - "GET /App-uwYgS2v8.js HTTP/1.1" 200 OK
-[Backend] INFO:     127.0.0.1:41572 - "GET /api/playlists HTTP/1.1" 200 OK
-[Backend] INFO:     127.0.0.1:41586 - "GET /api/library/tracks?limit=50&offset=0 HTTP/1.1" 200 OK
-[Backend Error] INFO:     127.0.0.1:41610 - "WebSocket /ws" [accepted]
-INFO:config.globals:WebSocket connected. Total connections: 1
-[Backend] INFO:     127.0.0.1:41600 - "GET /api/processing/parameters HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:36478 - "GET /assets/index-VS_9sDlP.js HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:36478 - "GET /globalStyles-BwRngmjf.js HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:36494 - "GET /tokens-DlAeTiWz.js HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:36494 - "GET /App-zsZ8I90D.js HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:36494 - "GET /api/playlists HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:36478 - "GET /api/library/tracks?limit=50&offset=0 HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:36510 - "GET /api/processing/parameters HTTP/1.1" 200 OK
+[Backend Error] INFO:     127.0.0.1:36538 - "WebSocket /ws" [accepted]
+[Backend Error] INFO:config.globals:WebSocket connected. Total connections: 1
+[Backend] INFO:     127.0.0.1:36524 - "GET /api/player/queue HTTP/1.1" 200 OK
 [Backend Error] INFO:     connection open
-13:04:48.775 › Update for version 1.2.0-beta.1 is not available (latest version: 1.2.0-beta.1, downgrade is disallowed).
-13:04:48.775 › Update not available. Current version: 1.2.0-beta.1
-[Backend] INFO:     127.0.0.1:41600 - "GET /home/matias/.auralis/artwork/album_1_992ec06f.jpg HTTP/1.1" 404 Not Found
-[Backend] INFO:     127.0.0.1:41586 - "GET /home/matias/.auralis/artwork/album_2_d97a7617.jpg HTTP/1.1" 404 Not Found
-[Backend] INFO:     127.0.0.1:41586 - "GET /home/matias/.auralis/artwork/album_3_f05fdd6f.jpg HTTP/1.1" 404 Not Found
-[Backend] INFO:     127.0.0.1:41600 - "GET /home/matias/.auralis/artwork/album_4_bceb7e43.jpg HTTP/1.1" 404 Not Found
+[Backend] INFO:     127.0.0.1:36524 - "GET /api/player/queue HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:36524 - "GET /home/matias/.auralis/artwork/album_1_992ec06f.jpg HTTP/1.1" 404 Not Found
+[Backend] INFO:     127.0.0.1:36510 - "GET /home/matias/.auralis/artwork/album_2_d97a7617.jpg HTTP/1.1" 404 Not Found
+[Backend] INFO:     127.0.0.1:36478 - "GET /home/matias/.auralis/artwork/album_4_bceb7e43.jpg HTTP/1.1" 404 Not Found
+[Backend] INFO:     127.0.0.1:36524 - "GET /home/matias/.auralis/artwork/album_3_f05fdd6f.jpg HTTP/1.1" 404 Not Found
+[Backend] INFO:     127.0.0.1:36524 - "GET /api/player/queue HTTP/1.1" 200 OK
+✓ Window shown (fallback timeout)
 [Backend Error] INFO:services.queue_service:Queue set to 1 tracks, starting at index 0
-[Backend] INFO:     127.0.0.1:41600 - "POST /api/player/queue HTTP/1.1" 200 OK
-[Backend] INFO:     127.0.0.1:40356 - "GET /manifest.json HTTP/1.1" 200 OK
-[Backend Error] INFO:services.navigation_service:ℹ️  No previous track available
-[Backend] INFO:     127.0.0.1:47874 - "POST /api/player/previous HTTP/1.1" 200 OK
-[Backend] INFO:     127.0.0.1:47874 - "POST /api/player/play HTTP/1.1" 405 Method Not Allowed
+[Backend] INFO:     127.0.0.1:37714 - "POST /api/player/queue HTTP/1.1" 200 OK
+[Backend Error] INFO:routers.system:Received play_enhanced: track_id=1, preset=adaptive, intensity=1
+INFO:routers.system:Started background streaming task for track 1
+[Backend Error] INFO:audio_stream_controller:AudioStreamController initialized with cache manager: SimpleChunkCache
+[Backend Error] INFO:audio_stream_controller:✅ FingerprintGenerator initialized for on-demand fingerprint generation
+INFO:routers.system:✅ FingerprintGenerator available - on-demand fingerprint generation enabled
+[Backend Error] INFO:core.processor_factory:ProcessorFactory initialized
+[Backend Error] INFO:auralis.library.migrations:Database is up-to-date (v9)
+[Backend Error] INFO:core.mastering_target_service:✅ Loaded fingerprint from .25d file for 01 - See No Evil.mp3
+INFO:chunked_processor:✅ Loaded fingerprint/targets via MasteringTargetService for track 1
+[Backend Error] WARNING:chunked_processor:Failed to initialize adaptive mastering: No module named 'auralis.core.processing.psychoacoustic_eq'
+INFO:core.processor_factory:Creating new processor: track_id=1, preset=adaptive, intensity=1
+[Backend Error] INFO:core.processor_factory:Processor created and cached: 1 total in cache
+INFO:chunked_processor:🎯 Processor initialized via ProcessorFactory for track 1
+[Backend Error] INFO:chunked_processor:ChunkedAudioProcessor initialized: track_id=1, duration=238.5s, chunks=24, preset=adaptive, intensity=1
+INFO:audio_stream_controller:📊 Ensuring fingerprint available for track 1...
+[Backend Error] INFO:fingerprint_generator:✅ Loaded fingerprint from database for track 1 (cache hit)
+[Backend Error] INFO:audio_stream_controller:✅ Fingerprint is now available for track 1 (ready for adaptive mastering)
+INFO:audio_stream_controller:🎯 Adaptive mastering will use fingerprint-optimized parameters
+[Backend Error] INFO:audio_stream_controller:Starting audio stream: track=1, preset=adaptive, intensity=1, chunks=24
+[Backend Error] INFO:chunked_processor:Processing chunk 0/24 (preset: adaptive, fast_start: True)
+[Backend Error] INFO:chunked_processor:Chunk 0: Level transition OK (RMS: -14.1 dB)
+[Backend Error] INFO:chunked_processor:Chunk 0 processed and saved to /tmp/auralis_chunks/v3_track_1_38b6d8d2_adaptive_1_chunk_0.wav
+[Backend] *** HYBRID PROCESSOR: use_continuous_space=True, using ContinuousMode
+[EQ] Applied curve with blend 0.70: bass +0.0 dB, mid +0.0 dB, air +0.0 dB
+[Stereo Width] SKIPPED expansion due to high peak (-0.96 dB)
+[Final] Peak: 0.00 dB, RMS: -13.27 dB, Crest: 13.27 dB, LUFS: -36.3
+INFO:     127.0.0.1:37716 - "GET /api/player/queue HTTP/1.1" 200 OK
 [Backend Error] INFO:services.queue_service:Queue set to 1 tracks, starting at index 0
-[Backend] INFO:     127.0.0.1:47874 - "POST /api/player/queue HTTP/1.1" 200 OK
-[Backend Error] INFO:services.queue_service:Queue set to 1 tracks, starting at index 0
-[Backend] INFO:     127.0.0.1:57540 - "POST /api/player/queue HTTP/1.1" 200 OK
+[Backend Error] INFO:chunked_processor:Processing chunk 1/24 (preset: adaptive, fast_start: False)
+[Backend Error] INFO:chunked_processor:Chunk 1: Level transition OK (RMS: -12.6 dB)
+[Backend Error] INFO:chunked_processor:Chunk 1 processed and saved to /tmp/auralis_chunks/v3_track_1_38b6d8d2_adaptive_1_chunk_1.wav
+[Backend Error] INFO:chunked_processor:Processing chunk 2/24 (preset: adaptive, fast_start: False)
+[Backend Error] INFO:chunked_processor:Chunk 2: Level transition OK (RMS: -13.1 dB)
+[Backend Error] INFO:chunked_processor:Chunk 2 processed and saved to /tmp/auralis_chunks/v3_track_1_38b6d8d2_adaptive_1_chunk_2.wav
+[Backend Error] INFO:chunked_processor:Processing chunk 3/24 (preset: adaptive, fast_start: False)
 All windows closed
 Cleaning up...
 Terminating Python backend...
