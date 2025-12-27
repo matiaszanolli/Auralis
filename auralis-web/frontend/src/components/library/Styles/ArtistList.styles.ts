@@ -26,17 +26,19 @@ export const StyledListItem = styled(ListItem)({
 
 /**
  * StyledListItemButton - Clickable artist list item with hover effects
+ * Typography-driven design with increased breathing room
  */
 export const StyledListItemButton = styled(ListItemButton)({
-  borderRadius: '12px',
-  padding: '16px 20px',
-  transition: 'all 0.3s ease',
+  borderRadius: '8px',
+  padding: '20px 24px',
+  minHeight: '72px',
+  transition: 'all 0.2s ease',
   border: '1px solid transparent',
 
   '&:hover': {
-    backgroundColor: `${tokens.colors.accent.primary}14`,
-    border: `1px solid ${tokens.colors.accent.primary}4d`,
-    transform: 'translateX(4px)',
+    backgroundColor: `${tokens.colors.accent.primary}0a`,
+    border: `1px solid ${tokens.colors.accent.primary}33`,
+    transform: 'translateX(2px)',
 
     '& .artist-name': {
       color: tokens.colors.accent.primary,
@@ -56,12 +58,13 @@ export const ArtistAvatar = styled(Avatar)({
 });
 
 /**
- * ArtistName - Artist name typography
+ * ArtistName - Artist name typography (primary identity)
  */
 export const ArtistName = styled(Typography)({
-  fontSize: '18px',
-  fontWeight: 600,
+  fontSize: '17px',
+  fontWeight: 500,
   color: tokens.colors.text.primary,
+  letterSpacing: '0.01em',
   transition: 'color 0.2s ease',
 });
 
@@ -69,9 +72,11 @@ export const ArtistName = styled(Typography)({
  * ArtistInfo - Secondary information (album/track counts)
  */
 export const ArtistInfo = styled(Typography)({
-  fontSize: '14px',
-  color: tokens.colors.text.secondary,
-  marginTop: '4px',
+  fontSize: '13px',
+  fontWeight: 400,
+  color: tokens.colors.text.tertiary,
+  marginTop: '6px',
+  letterSpacing: '0.005em',
 });
 
 /**
@@ -85,16 +90,18 @@ export const SectionHeader = styled(Box)({
 
 /**
  * AlphabetDivider - Alphabetical section divider
+ * Quiet index header that organizes without dominating
  */
 export const AlphabetDivider = styled(Typography)({
-  fontSize: '14px',
-  fontWeight: 700,
-  color: tokens.colors.accent.primary,
+  fontSize: '12px',
+  fontWeight: 600,
+  color: tokens.colors.text.tertiary,
   textTransform: 'uppercase',
-  letterSpacing: '1px',
-  marginTop: '32px',
-  marginBottom: '12px',
-  paddingLeft: '8px',
+  letterSpacing: '0.08em',
+  marginTop: '40px',
+  marginBottom: '16px',
+  paddingLeft: '24px',
+  opacity: 0.7,
 });
 
 export default ListContainer;

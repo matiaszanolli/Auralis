@@ -3,7 +3,6 @@ import { ListItemText } from '@mui/material';
 import {
   StyledListItem,
   StyledListItemButton,
-  ArtistAvatar,
   ArtistName,
   ArtistInfo
 } from '../../Styles/ArtistList.styles';
@@ -16,11 +15,10 @@ interface ArtistListItemProps {
 }
 
 /**
- * ArtistListItem - Single artist list item with avatar and metadata
+ * ArtistListItem - Single artist list item with typography-driven identity
  *
  * Displays:
- * - Artist avatar with initial
- * - Artist name
+ * - Artist name (primary typography)
  * - Album and track count metadata
  * - Clickable row with context menu support
  */
@@ -29,19 +27,12 @@ export const ArtistListItem: React.FC<ArtistListItemProps> = ({
   onClick,
   onContextMenu
 }) => {
-  const getArtistInitial = (name: string): string => {
-    return name.charAt(0).toUpperCase();
-  };
-
   return (
     <StyledListItem>
       <StyledListItemButton
         onClick={() => onClick(artist)}
         onContextMenu={(e) => onContextMenu(e, artist)}
       >
-        <ArtistAvatar>
-          {getArtistInitial(artist.name)}
-        </ArtistAvatar>
         <ListItemText
           primary={
             <ArtistName className="artist-name">

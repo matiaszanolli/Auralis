@@ -10,14 +10,6 @@ export const ArtistListContainer = styled(Box)({
 });
 
 /**
- * LoadMoreTrigger - Invisible sentinel element for infinite scroll
- */
-export const LoadMoreTrigger = styled(Box)({
-  height: '1px',
-  width: '100%',
-});
-
-/**
  * EndOfListIndicator - Centered message indicating end of list
  */
 export const EndOfListIndicator = styled(Box)({

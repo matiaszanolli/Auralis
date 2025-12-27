@@ -1,12 +1,11 @@
 /**
  * Shared utility hooks for common UI and data patterns
- * - Infinite scrolling and pagination
  * - Optimistic updates and state management
  * - Scroll animations and performance optimization
  * - Redux state management
+ * - Artist grouping and data organization
  */
 
-export { useInfiniteScroll } from './useInfiniteScroll';
 export { useOptimisticUpdate } from './useOptimisticUpdate';
 export { useScrollAnimation } from './useScrollAnimation';
 export { useStandardizedAPI } from './useStandardizedAPI';

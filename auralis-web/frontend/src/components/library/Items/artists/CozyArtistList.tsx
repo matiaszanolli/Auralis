@@ -5,7 +5,7 @@
  * pagination, alphabetic grouping, and context menu support.
  *
  * Features:
- * - Infinite scroll pagination via IntersectionObserver
+ * - Infinite scroll pagination via react-infinite-scroll-component
  * - Alphabetically grouped artist sections
  * - Context menu with artist actions
  * - Loading skeleton and loading indicator
@@ -13,7 +13,7 @@
  *
  * Uses unified pagination pattern:
  * - useArtistsQuery: Data fetching with pagination
- * - useInfiniteScroll: IntersectionObserver-based scroll detection
+ * - react-infinite-scroll-component: Battle-tested infinite scroll
  * - useGroupedArtists: Alphabetical grouping logic
  * - useContextMenuActions: Context menu state and actions
  * - ArtistListContent: Rendering component
@@ -25,13 +25,13 @@
  * ```
  */
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ArtistListLoading } from './ArtistListLoading';
 import { ArtistListEmptyState } from './ArtistListEmptyState';
 import { ArtistListContent } from './ArtistListContent';
 import { ArtistInfoModal } from './ArtistInfoModal';
 import { useArtistsQuery } from '@/hooks/library';
-import { useInfiniteScroll, useGroupedArtists } from '@/hooks/shared';
+import { useGroupedArtists } from '@/hooks/shared';
 import { useContextMenuActions } from './useContextMenuActions';
 import { useContextMenu } from '../../../shared/ContextMenu';
 import type { Artist } from '@/types/domain';
@@ -41,7 +41,6 @@ interface CozyArtistListProps {
 }
 
 export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [contextMenuArtist, setContextMenuArtist] = useState<Artist | null>(null);
 
   // Data fetching with pagination
@@ -56,14 +55,6 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
 
   // Artist grouping by first letter
   const { groupedArtists, sortedLetters } = useGroupedArtists(artists);
-
-  // Infinite scroll detection
-  const { observerTarget } = useInfiniteScroll({
-    threshold: 0.8,
-    onLoadMore: fetchMore,
-    hasMore,
-    isLoading,
-  });
 
   // Context menu
   const { contextMenuState, handleContextMenu, handleCloseContextMenu } = useContextMenu();
@@ -105,8 +96,7 @@ export const CozyArtistList: React.FC<CozyArtistListProps> = ({ onArtistClick })
         totalArtists={totalArtists}
         isLoadingMore={isLoading && artists.length > 0}
         hasMore={hasMore}
-        containerRef={containerRef}
-        loadMoreTriggerRef={observerTarget}
+        fetchMore={fetchMore}
         groupedArtists={groupedArtists}
         sortedLetters={sortedLetters}
         contextMenuState={contextMenuState}
