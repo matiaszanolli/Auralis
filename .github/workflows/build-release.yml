@@ -80,10 +80,10 @@ jobs:
           pip install --upgrade pip setuptools wheel maturin
           pip install -r requirements.txt
 
-      - name: Build Rust DSP module
+      - name: Build and install Rust DSP module
         run: |
           cd vendor/auralis-dsp
-          maturin build --release
+          maturin develop --release
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
@@ -176,10 +176,10 @@ jobs:
           pip install --upgrade pip setuptools wheel maturin
           pip install -r requirements.txt
 
-      - name: Build Rust DSP module
+      - name: Build and install Rust DSP module
         run: |
           cd vendor/auralis-dsp
-          maturin build --release
+          maturin develop --release
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
@@ -272,10 +272,10 @@ jobs:
           pip install --upgrade pip setuptools wheel maturin
           pip install -r requirements.txt
 
-      - name: Build Rust DSP module
+      - name: Build and install Rust DSP module
         run: |
           cd vendor/auralis-dsp
-          maturin build --release
+          maturin develop --release
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 

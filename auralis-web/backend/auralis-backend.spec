@@ -5,16 +5,15 @@ import glob
 
 datas = [('../../auralis', 'auralis')]
 
-# Include Rust DSP module (.so file)
-rust_dsp_path = '../../vendor/auralis-dsp/target/release'
-rust_dsp_files = glob.glob(os.path.join(rust_dsp_path, 'libauralis_dsp.so*'))
-if not rust_dsp_files:
-    print("WARNING: Rust DSP module not found! Build it with: cd vendor/auralis-dsp && maturin build --release")
-binaries = [(so_file, '.') for so_file in rust_dsp_files]
+# Rust DSP module will be collected automatically via collect_all('auralis_dsp')
+# No need to manually add binaries - maturin develop installs it as a Python package
+binaries = []
 
 hiddenimports = [
     'auralis.analysis.fingerprint.fingerprint_storage',
     'auralis.analysis.fingerprint',
+    # Rust DSP module (CRITICAL - required for audio processing!)
+    'auralis_dsp',
     # Database dependencies
     'sqlalchemy',
     'sqlalchemy.ext.declarative',
@@ -110,7 +109,12 @@ def filter_binaries(all_binaries):
         else:
             print(f"EXCLUDING GPU BINARY: {source}")
     return filtered
+# Collect auralis module
 tmp_ret = collect_all('auralis')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
+# Collect Rust DSP module (auralis_dsp) - critical for audio processing!
+tmp_ret = collect_all('auralis_dsp')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 a = Analysis(
