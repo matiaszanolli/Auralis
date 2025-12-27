@@ -57,20 +57,21 @@ const AudioCharacteristics: React.FC<AudioCharacteristicsProps> = React.memo(({ 
       <Typography
         variant="caption"
         sx={{
-          color: tokens.colors.text.secondary,
+          color: tokens.colors.text.tertiary, // Changed from secondary to tertiary (less visual weight)
           textTransform: 'uppercase',
           letterSpacing: 1,
-          fontWeight: tokens.typography.fontWeight.semibold,
-          mb: tokens.spacing.md,
+          fontWeight: tokens.typography.fontWeight.medium, // Reduced from semibold
+          mb: tokens.spacing.lg, // Increased from md for more breathing room
           display: 'block',
           fontSize: tokens.typography.fontSize.xs,
+          opacity: 0.8, // Fade by ~20% to reduce visual noise
         }}
       >
         <Audiotrack sx={{ fontSize: tokens.typography.fontSize.sm, mr: tokens.spacing.xs, verticalAlign: 'middle' }} />
         Audio Characteristics
       </Typography>
 
-      <Stack spacing={tokens.spacing.md}>
+      <Stack spacing={tokens.spacing.lg}> {/* Increased from md for better separation */}
         {/* Spectral Balance */}
         <ParameterBar
           label="Spectral Balance"

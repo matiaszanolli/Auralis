@@ -26,9 +26,16 @@ export const ParameterRow: React.FC<ParameterRowProps> = React.memo(
   }) => {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="body2" sx={{ color: tokens.colors.text.secondary, fontSize: tokens.typography.fontSize.sm }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: tokens.colors.text.tertiary, // Changed from secondary to tertiary (less visual weight)
+            fontSize: tokens.typography.fontSize.sm,
+            opacity: 0.85, // Fade by ~15% to make labels less prominent
+          }}
+        >
           {Icon && (
-            <Icon sx={{ fontSize: tokens.typography.fontSize.sm, mr: tokens.spacing.xs, verticalAlign: 'middle' }} />
+            <Icon sx={{ fontSize: tokens.typography.fontSize.sm, mr: tokens.spacing.xs, verticalAlign: 'middle', opacity: 0.7 }} />
           )}
           {label}
         </Typography>
@@ -36,7 +43,7 @@ export const ParameterRow: React.FC<ParameterRowProps> = React.memo(
           variant="body2"
           sx={{
             color: valueColor,
-            fontWeight: tokens.typography.fontWeight.semibold,
+            fontWeight: tokens.typography.fontWeight.medium, // Reduced from semibold
             fontSize: tokens.typography.fontSize.sm,
           }}
         >

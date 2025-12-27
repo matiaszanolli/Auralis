@@ -19,7 +19,8 @@ export const ExpandedPaneContainer = styled(Box)({
   width: tokens.components.rightPanel.width,
   height: '100%',
   background: tokens.colors.bg.secondary,
-  borderLeft: `1px solid ${tokens.colors.border.light}`,
+  // Removed border, using shadow for depth instead
+  boxShadow: '-2px 0 16px rgba(0, 0, 0, 0.12)', // Subtle left shadow for separation
   display: 'flex',
   flexDirection: 'column',
   transition: tokens.transitions.slow,
@@ -27,17 +28,21 @@ export const ExpandedPaneContainer = styled(Box)({
 });
 
 export const PaneHeader = styled(Box)({
-  padding: tokens.spacing.md,
+  padding: tokens.spacing.lg, // Increased from md for more breathing room
+  paddingBottom: tokens.spacing.md, // Less bottom padding (asymmetric for cleaner look)
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  borderBottom: `1px solid ${tokens.colors.border.light}`,
+  // Removed hard border, using subtle background difference instead
+  background: tokens.colors.bg.level2, // Slightly darker than content for depth layering
 });
 
 export const PaneContent = styled(Box)({
   flex: 1,
-  padding: tokens.spacing.lg,
+  padding: tokens.spacing.xl, // Increased from lg (24px → 32px) for more breathing room
+  paddingTop: tokens.spacing.lg, // Less top padding since header has padding
   overflowY: 'auto',
+  background: tokens.colors.bg.secondary, // Explicit background for depth layering
 });
 
 export const CollapsedIconContainer = styled(Box)({

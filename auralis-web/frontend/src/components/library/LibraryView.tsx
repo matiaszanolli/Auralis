@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { tokens } from '@/design-system';
+import { tokens, Box, Text, Button } from '@/design-system';
 import SearchBar from './SearchBar';
 import TrackList from './TrackList';
 import AlbumGrid from './AlbumGrid';
@@ -78,31 +78,63 @@ export const LibraryView: React.FC = () => {
   }, [success]);
 
   return (
-    <div style={styles.container}>
-      {/* Header with search */}
-      <div style={styles.header}>
-        <h1 style={styles.title}>Library</h1>
-        <SearchBar onSearch={setSearch} />
-      </div>
-
-      {/* View tabs */}
-      <div style={styles.tabs}>
-        {(['tracks', 'albums', 'artists'] as const).map((mode) => (
-          <button
-            key={mode}
-            onClick={() => setViewMode(mode)}
-            style={{
-              ...styles.tab,
-              ...(viewMode === mode && styles.tabActive),
-            }}
+    <Box
+      display="flex"
+      flexDirection="column"
+      width="100%"
+      height="100%"
+      gap="lg"
+      padding="lg"
+      bg={tokens.colors.bg.primary}
+    >
+      {/* Flat toolbar row - search + tabs inline, no container styling */}
+      <Box
+        display="flex"
+        alignItems="center"
+        justifyContent="space-between"
+        gap="xl"
+        paddingY="md"
+      >
+        {/* Left: Title + Tabs (compact, inline) */}
+        <Box display="flex" alignItems="center" gap="xl" flex={1}>
+          <Text
+            as="h1"
+            variant="title"
+            color={tokens.colors.text.primary}
+            style={{ flexShrink: 0 }}
           >
-            {mode.charAt(0).toUpperCase() + mode.slice(1)}
-          </button>
-        ))}
-      </div>
+            Library
+          </Text>
+
+          {/* Tabs inline - minimal, ambient */}
+          <Box display="flex" gap="xs" alignItems="center">
+            {(['tracks', 'albums', 'artists'] as const).map((mode) => (
+              <Button
+                key={mode}
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode(mode)}
+                style={{
+                  opacity: viewMode === mode ? 1 : 0.75,
+                  backgroundColor: viewMode === mode ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                  color: viewMode === mode ? tokens.colors.text.primary : tokens.colors.text.tertiary,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </Button>
+            ))}
+          </Box>
+        </Box>
+
+        {/* Right: Search (minimal, floating directly on surface) */}
+        <Box display="flex" alignItems="center" width="320px" flexShrink={0}>
+          <SearchBar onSearch={setSearch} />
+        </Box>
+      </Box>
 
       {/* Content area */}
-      <div style={styles.content}>
+      <Box flex={1} overflow="auto" width="100%">
         {viewMode === 'tracks' && (
           <TrackList search={search} onTrackSelect={handleTrackSelect} />
         )}
@@ -114,63 +146,9 @@ export const LibraryView: React.FC = () => {
         {viewMode === 'artists' && (
           <ArtistList onArtistSelect={handleArtistSelect} />
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
-};
-
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    width: '100%',
-    height: '100%',
-    gap: tokens.spacing.md,
-    padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.bg.primary,
-  },
-
-  header: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: tokens.spacing.md,
-  },
-
-  title: {
-    margin: 0,
-    fontSize: tokens.typography.fontSize.xl,
-    fontWeight: tokens.typography.fontWeight.bold,
-    color: tokens.colors.text.primary,
-  },
-
-  tabs: {
-    display: 'flex',
-    gap: tokens.spacing.sm,
-    borderBottom: `1px solid ${tokens.colors.border.light}`,
-  },
-
-  tab: {
-    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    backgroundColor: 'transparent',
-    border: 'none',
-    borderBottom: `2px solid transparent`,
-    cursor: 'pointer',
-    color: tokens.colors.text.secondary,
-    fontSize: tokens.typography.fontSize.md,
-    fontWeight: tokens.typography.fontWeight.semibold,
-    transition: 'all 0.2s ease',
-  },
-
-  tabActive: {
-    color: tokens.colors.accent.primary,
-    borderBottomColor: tokens.colors.accent.primary,
-  },
-
-  content: {
-    flex: 1,
-    overflow: 'auto',
-    width: '100%',
-  },
 };
 
 export default LibraryView;

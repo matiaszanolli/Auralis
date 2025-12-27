@@ -13,42 +13,8 @@ interface SearchKeyboardHintProps {
 }
 
 export const SearchKeyboardHint: React.FC<SearchKeyboardHintProps> = ({ show }) => {
-  if (!show) return null;
-
-  return (
-    <Typography
-      variant="caption"
-      sx={{
-        display: 'block',
-        mt: 0.5,
-        ml: 2,
-        color: tokens.colors.text.disabled,
-        fontSize: '11px',
-      }}
-    >
-      Press{' '}
-      <Box
-        component="span"
-        sx={{
-          fontWeight: 'bold',
-          color: tokens.colors.text.secondary,
-        }}
-      >
-        /
-      </Box>{' '}
-      or{' '}
-      <Box
-        component="span"
-        sx={{
-          fontWeight: 'bold',
-          color: tokens.colors.text.secondary,
-        }}
-      >
-        ⌘K
-      </Box>{' '}
-      to focus
-    </Typography>
-  );
+  // Hide keyboard hint to reduce visual noise - search should feel ambient
+  return null;
 };
 
 export default SearchKeyboardHint;

@@ -38,7 +38,7 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ selectedItem, on
         onItemClick={onItemClick}
       />
 
-      <Divider sx={{ borderColor: tokens.colors.border.light, my: tokens.spacing.md }} />
+      <Divider sx={{ borderColor: tokens.colors.border.light, my: tokens.spacing.lg, opacity: 0.5 }} /> {/* Increased spacing + faded */}
 
       {/* Collections Section */}
       <NavigationSection
@@ -47,7 +47,7 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ selectedItem, on
         onItemClick={onItemClick}
       />
 
-      <Divider sx={{ borderColor: tokens.colors.border.light, my: tokens.spacing.md }} />
+      <Divider sx={{ borderColor: tokens.colors.border.light, my: tokens.spacing.lg, opacity: 0.5 }} /> {/* Increased spacing + faded */}
 
       {/* Playlists Section */}
       <PlaylistList

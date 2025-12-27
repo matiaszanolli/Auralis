@@ -188,8 +188,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
         {/* Header - LibraryHeader component to be created */}
         {/* <LibraryHeader view={view} /> */}
 
-        {/* Search and Controls */}
-        <LibrarySearchControls
+        {/* Search and Controls - REMOVED: Search now in top-right header */}
+        {/* <LibrarySearchControls
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           viewMode={viewMode}
@@ -199,7 +199,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
           scanning={scanning}
           loading={loading}
           trackCount={filteredTracks.length}
-        />
+        /> */}
 
         {/* Track List or Empty State */}
         {filteredTracks.length === 0 && !loading ? (

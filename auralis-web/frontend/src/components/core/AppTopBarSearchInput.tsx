@@ -37,6 +37,7 @@ export const AppTopBarSearchInput: React.FC<AppTopBarSearchInputProps> = ({
         sx={{
           color: auroraOpacity.stronger,
           fontSize: '18px',
+          opacity: 0.6,
         }}
       />
       <TextField

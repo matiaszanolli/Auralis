@@ -19,11 +19,11 @@ interface SearchInputAdornmentsEndProps {
 }
 
 /**
- * Start adornment - search icon
+ * Start adornment - search icon (minimal, faded)
  */
 export const SearchInputAdornmentsStart: React.FC = () => (
   <InputAdornment position="start">
-    <Search sx={{ fontSize: 20 }} />
+    <Search sx={{ fontSize: 18, opacity: 0.6 }} />
   </InputAdornment>
 );
 

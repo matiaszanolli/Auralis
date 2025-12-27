@@ -19,7 +19,24 @@ import { tokens } from '@/design-system';
 
 // Playback hooks
 import { usePlayNormal } from '@/hooks/enhancement/usePlayNormal';
-import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
+
+/**
+ * Playback control functions passed from parent Player component
+ */
+export interface PlaybackControls {
+  /** Start enhanced playback */
+  playEnhanced: (trackId: number, preset: string, intensity: number) => Promise<void>;
+  /** Stop playback */
+  stopPlayback: () => void;
+  /** Pause playback */
+  pausePlayback: () => void;
+  /** Resume playback */
+  resumePlayback: () => void;
+  /** Whether currently streaming */
+  isStreaming: boolean;
+  /** Whether playback is paused */
+  isPaused: boolean;
+}
 
 /**
  * Props for PlayerEnhancementPanel
@@ -33,6 +50,9 @@ export interface PlayerEnhancementPanelProps {
 
   /** Optional custom className */
   className?: string;
+
+  /** Playback controls from parent Player component (prevents duplicate streaming) */
+  playbackControls: PlaybackControls;
 }
 
 /**
@@ -45,6 +65,7 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
   trackId,
   isVisible = true,
   className,
+  playbackControls,
 }) => {
   // Get streaming state from Redux
   const streaming = useSelector((state: any) => state.player?.streaming || {});
@@ -53,9 +74,10 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
   // Play mode state (normal vs enhanced)
   const [playMode, setPlayMode] = useState<'normal' | 'enhanced'>('enhanced');
 
-  // Playback hooks
+  // Use playback controls passed from parent Player component (no duplicate hook instance)
+  // This prevents the double-streaming bug where both Player and PlayerEnhancementPanel
+  // were creating separate usePlayEnhanced() instances
   const playNormal = usePlayNormal();
-  const playEnhanced = usePlayEnhanced();
 
   // Debug: Log when component mounts/updates
   useEffect(() => {
@@ -85,11 +107,10 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
   }, [trackId, currentTrack?.id]);
 
   /**
-   * Determine if we're currently streaming
+   * Use streaming state from playback controls (passed from Player)
+   * This ensures we use the same state as the Player component
    */
-  const isStreaming = useMemo(() => {
-    return streaming?.state === 'streaming' || streaming?.state === 'buffering';
-  }, [streaming?.state]);
+  const isStreaming = playbackControls.isStreaming;
 
   /**
    * Get streaming status for display
@@ -118,7 +139,7 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
 
       // Stop any current playback first
       playNormal.stopPlayback();
-      playEnhanced.stopPlayback();
+      playbackControls.stopPlayback();
 
       // Update mode state
       setPlayMode(mode);
@@ -130,10 +151,10 @@ export const PlayerEnhancementPanel: React.FC<PlayerEnhancementPanelProps> = ({
       } else {
         console.log('[PlayerEnhancementPanel] Starting enhanced playback');
         // Use 'adaptive' preset with full intensity as default
-        await playEnhanced.playEnhanced(activeTrackId, 'adaptive', 1.0);
+        await playbackControls.playEnhanced(activeTrackId, 'adaptive', 1.0);
       }
     },
-    [playMode, activeTrackId, playNormal, playEnhanced]
+    [playMode, activeTrackId, playNormal, playbackControls]
   );
 
   if (!shouldShow) {

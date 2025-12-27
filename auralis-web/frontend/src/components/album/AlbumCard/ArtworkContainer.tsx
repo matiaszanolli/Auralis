@@ -10,6 +10,7 @@
  */
 
 import React, { useState } from 'react';
+import { Box } from '@mui/material';
 import { AlbumArt } from '../AlbumArt';
 import { PlayOverlay } from './PlayOverlay';
 import { LoadingOverlay } from './LoadingOverlay';
@@ -17,6 +18,23 @@ import { NoArtworkButtons } from './NoArtworkButtons';
 import { ArtworkMenu } from './ArtworkMenu';
 import { ArtworkSquareContainer } from './ArtworkSquareContainer';
 import { ArtworkMenuButton } from './ArtworkMenuButton';
+
+// Shimmer overlay for placeholders (same as TrackCard)
+const ShimmerOverlay: React.FC = () => (
+  <Box
+    className="shimmer-overlay"
+    sx={{
+      position: 'absolute',
+      top: 0,
+      left: '-100%',
+      width: '100%',
+      height: '100%',
+      background:
+        'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%)',
+      pointerEvents: 'none',
+    }}
+  />
+);
 
 export interface ArtworkContainerProps {
   albumId: number;
@@ -79,6 +97,9 @@ export const ArtworkContainer: React.FC<ArtworkContainerProps> = ({
       <ArtworkSquareContainer>
         {/* Album Artwork */}
         <AlbumArt albumId={albumId} size="100%" borderRadius={0} />
+
+        {/* Shimmer overlay - only for placeholders (when no artwork) */}
+        {!hasArtwork && <ShimmerOverlay />}
 
         {/* Play Button Overlay */}
         <PlayOverlay isHovered={isHovered} onClick={onPlay} />

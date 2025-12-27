@@ -16,7 +16,6 @@ import React, { useState } from 'react';
 import { ArtworkContainer } from './ArtworkContainer';
 import { AlbumInfo } from './AlbumInfo';
 import { useArtworkHandlers } from './useArtworkHandlers';
-import { auroraOpacity } from '../../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
 import { Card } from '@/design-system';
 
@@ -58,19 +57,21 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
     <Card
       sx={{
         position: 'relative',
-        borderRadius: 2,
+        borderRadius: 3, // Increased from 2 (16px → 12px, using tokens.borderRadius.lg)
         overflow: 'hidden',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
         background: tokens.colors.bg.level3,
-        border: `1px solid ${tokens.colors.border.light}`,
+        // Removed border, using shadow for depth instead
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)', // Resting shadow for subtle depth
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: `0 8px 24px ${auroraOpacity.standard}`,
-          border: `1px solid ${auroraOpacity.strong}`,
+          // Elevation increase + background brightness +3%
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+          background: tokens.colors.bg.level4, // +3% brightness via level4
         },
       }}
       onMouseEnter={() => setIsHovered(true)}

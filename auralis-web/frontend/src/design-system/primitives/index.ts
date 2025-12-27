@@ -46,10 +46,14 @@ export type { ListProps } from './List';
 
 // Layout & Form Primitives (consolidated from components/base)
 export { Alert } from './Alert';
+export { Box } from './Box';
+export type { BoxProps } from './Box';
 export { Checkbox } from './Checkbox';
 export { Container } from './Container';
 export { ErrorBoundary } from './ErrorBoundary';
 export { Grid } from './Grid';
 export { ProgressBar } from './ProgressBar';
 export { Stack } from './Stack';
+export { Text } from './Text';
+export type { TextProps } from './Text';
 export { Toggle } from './Toggle';

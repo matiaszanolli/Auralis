@@ -35,9 +35,10 @@ export const NavigationSection: React.FC<NavigationSectionProps> = ({
           >
             <ListItemIcon
               sx={{
-                color: selectedItem === item.id ? tokens.colors.accent.primary : tokens.colors.text.secondary,
+                color: selectedItem === item.id ? tokens.colors.accent.primary : tokens.colors.text.tertiary, // Changed from secondary to tertiary
                 minWidth: `calc(${tokens.spacing.lg} + ${tokens.spacing.sm})`, // 36px
                 transition: tokens.transitions.color,
+                opacity: selectedItem === item.id ? 1 : 0.7, // Fade inactive icons by ~30%
               }}
             >
               {item.icon}
@@ -46,8 +47,9 @@ export const NavigationSection: React.FC<NavigationSectionProps> = ({
               primary={item.label}
               primaryTypographyProps={{
                 fontSize: tokens.typography.fontSize.base,
-                fontWeight: selectedItem === item.id ? tokens.typography.fontWeight.semibold : tokens.typography.fontWeight.normal,
-                color: selectedItem === item.id ? tokens.colors.text.primary : tokens.colors.text.secondary,
+                fontWeight: selectedItem === item.id ? tokens.typography.fontWeight.medium : tokens.typography.fontWeight.normal, // Reduced from semibold
+                color: selectedItem === item.id ? tokens.colors.text.primary : tokens.colors.text.tertiary, // Changed from secondary to tertiary
+                opacity: selectedItem === item.id ? 1 : 0.75, // Fade inactive text by ~25%
               }}
             />
           </StyledListItemButton>

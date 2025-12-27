@@ -131,14 +131,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         {isLoading && <span style={styles.loadingIcon}>⟳</span>}
       </div>
 
-      {/* Search hint */}
-      {!query && (
-        <p style={styles.hint}>
-          Search by track title, artist name, or album
-        </p>
-      )}
-
-      {/* Results count */}
+      {/* Results count - only show when searching */}
       {query && !isLoading && (
         <p style={styles.hint}>
           Searching for "<span style={styles.queryHighlight}>{query}</span>"
@@ -163,15 +156,14 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacing.sm,
-    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    backgroundColor: tokens.colors.bg.secondary,
-    borderRadius: tokens.borderRadius.md,
-    border: `1px solid ${tokens.colors.border.light}`,
-    transition: 'border-color 0.2s ease',
+    padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
+    transition: 'border-color 0.15s ease',
 
     '&:focus-within': {
-      borderColor: tokens.colors.accent.primary,
-      boxShadow: `0 0 0 2px rgba(115, 102, 240, 0.24)`,
+      borderBottomColor: tokens.colors.accent.primary,
     },
   },
 
@@ -179,8 +171,9 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '16px',
-    color: tokens.colors.text.secondary,
+    fontSize: '14px',
+    color: tokens.colors.text.tertiary,
+    opacity: 0.6,
     flexShrink: 0,
   },
 
@@ -232,8 +225,9 @@ const styles = {
     margin: 0,
     fontSize: tokens.typography.fontSize.xs,
     color: tokens.colors.text.tertiary,
-    paddingLeft: tokens.spacing.sm,
-    paddingRight: tokens.spacing.sm,
+    paddingLeft: tokens.spacing.md,
+    paddingTop: tokens.spacing.xs,
+    opacity: 0.7,
   },
 
   queryHighlight: {

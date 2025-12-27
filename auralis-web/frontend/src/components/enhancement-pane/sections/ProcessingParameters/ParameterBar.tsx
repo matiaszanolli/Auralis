@@ -32,15 +32,16 @@ const ParameterBar: React.FC<ParameterBarProps> = React.memo(({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          mb: tokens.spacing.xs,
+          mb: tokens.spacing.sm, // Increased from xs for more breathing room
         }}
       >
         <Typography
           variant="body2"
           sx={{
-            color: tokens.colors.text.primary,
+            color: tokens.colors.text.tertiary, // Changed from primary to tertiary (less visual weight)
             fontSize: tokens.typography.fontSize.sm,
-            fontWeight: tokens.typography.fontWeight.medium,
+            fontWeight: tokens.typography.fontWeight.normal, // Reduced from medium
+            opacity: 0.85, // Fade by ~15% to make labels less prominent
           }}
         >
           {label}
@@ -51,7 +52,7 @@ const ParameterBar: React.FC<ParameterBarProps> = React.memo(({
         variant="determinate"
         value={value * 100}
         sx={{
-          height: tokens.spacing.xs,
+          height: '3px', // Reduced from 4px (tokens.spacing.xs) for less visual weight
           borderRadius: tokens.borderRadius.sm,
           backgroundColor: tokens.colors.border.light,
           '& .MuiLinearProgress-bar': {

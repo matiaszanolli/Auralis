@@ -31,18 +31,18 @@ export const StyledTextField = styled(TextField)({
 });
 
 /**
- * SearchTextField - Search field with rounded pill shape
+ * SearchTextField - Flat search field with minimal underline
  * Used in search bars and search interfaces
- * Features: rounded borders, blur background, aurora focus glow
+ * Features: transparent background, simple underline, minimal styling
  */
 export const SearchTextField = styled(TextField)(({ theme }) => ({
   '& .MuiOutlinedInput-root': {
     height: tokens.components.searchBar.height,
-    borderRadius: tokens.components.searchBar.borderRadius,
-    background: auroraOpacity.ultraLight,
-    backdropFilter: 'blur(8px)',
-    border: '1px solid transparent',
-    transition: tokens.transitions.all,
+    borderRadius: 0,
+    background: 'transparent',
+    border: 'none',
+    borderBottom: `1px solid ${tokens.colors.border.light}`,
+    transition: 'border-color 0.15s ease',
     paddingRight: tokens.spacing.sm,
 
     '& fieldset': {
@@ -50,31 +50,32 @@ export const SearchTextField = styled(TextField)(({ theme }) => ({
     },
 
     '&:hover': {
-      background: auroraOpacity.lighter,
-      border: `1px solid ${auroraOpacity.standard}`,
+      background: 'transparent',
+      borderBottom: `1px solid ${tokens.colors.border.medium}`,
     },
 
     '&.Mui-focused': {
-      background: auroraOpacity.light,
-      border: `1px solid ${auroraOpacity.stronger}`,
-      boxShadow: `0 0 0 3px ${auroraOpacity.veryLight}`,
+      background: 'transparent',
+      borderBottom: `1px solid ${tokens.colors.accent.primary}`,
+      boxShadow: 'none',
     },
   },
 
   '& .MuiOutlinedInput-input': {
     fontSize: tokens.typography.fontSize.md,
     color: tokens.colors.text.primary,
-    padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+    padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
 
     '&::placeholder': {
-      color: auroraOpacity.standard,
-      opacity: 1,
+      color: tokens.colors.text.tertiary,
+      opacity: 0.7,
     },
   },
 
   '& .MuiInputAdornment-root': {
     marginRight: tokens.spacing.sm,
-    color: auroraOpacity.standard,
+    color: tokens.colors.text.tertiary,
+    opacity: 0.6,
   },
 }));
 

@@ -22,6 +22,18 @@ export const ArtworkSquareContainer: React.FC<ArtworkSquareContainerProps> = ({ 
         overflow: 'hidden',
         backgroundColor: tokens.colors.bg.primary,
         flexShrink: 0,
+        // Subtle shimmer animation for placeholders (defined below)
+        '&:hover .shimmer-overlay': {
+          animation: 'shimmer 3s ease-in-out infinite',
+        },
+        '@keyframes shimmer': {
+          '0%': {
+            transform: 'translateX(-100%)',
+          },
+          '100%': {
+            transform: 'translateX(100%)',
+          },
+        },
       }}
     >
       <Box

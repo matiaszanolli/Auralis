@@ -156,6 +156,71 @@ export const tokens = {
   },
 
   /**
+   * Elevation System (UX Polish - Phase 4b)
+   * Standardized depth patterns for consistent visual hierarchy
+   *
+   * Based on shadow-based depth (no hard borders) established in Phases 1-4a:
+   * - Cards use resting + hover elevations
+   * - Panels use separation shadows (left/right)
+   * - Sections use subtle background differences + spacing
+   */
+  elevation: {
+    // Card elevations (track cards, album cards)
+    card: {
+      resting: '0 2px 8px rgba(0, 0, 0, 0.15)',     // Subtle depth at rest
+      hover: '0 8px 24px rgba(0, 0, 0, 0.25)',      // Clear elevation on hover
+    },
+
+    // Panel separations (sidebar, right panel)
+    panel: {
+      left: '-2px 0 16px rgba(0, 0, 0, 0.12)',      // Right panel (left shadow)
+      right: '2px 0 16px rgba(0, 0, 0, 0.12)',      // Sidebar (right shadow)
+    },
+
+    // Section depth (internal components)
+    section: {
+      subtle: '0 1px 4px rgba(0, 0, 0, 0.08)',      // Very subtle separation
+      medium: '0 2px 8px rgba(0, 0, 0, 0.12)',      // Medium depth
+    },
+  },
+
+  /**
+   * Opacity System (UX Polish - Phase 4b)
+   * Standardized opacity levels for fading UI elements
+   *
+   * Based on fade patterns established in Phases 1-4a:
+   * - Infrastructure elements (labels, dividers) fade more (~40-60%)
+   * - Inactive content (icons, text) fade less (~15-30%)
+   * - Duration badges and secondary UI fade moderately (~20-40%)
+   */
+  opacity: {
+    // Infrastructure (should recede into background)
+    infrastructure: {
+      labels: 0.6,        // Section labels, dividers (~40% fade)
+      dividers: 0.5,      // Dividers between sections (~50% fade)
+    },
+
+    // Inactive states (reduce prominence, not hide)
+    inactive: {
+      icons: 0.7,         // Inactive navigation icons (~30% fade)
+      text: 0.75,         // Inactive navigation text (~25% fade)
+      labels: 0.85,       // Parameter labels (~15% fade)
+    },
+
+    // Secondary UI elements
+    secondary: {
+      badges: 0.6,        // Duration badges at rest (~40% fade)
+      headers: 0.8,       // Section headers (~20% fade)
+    },
+
+    // Active/visible states (full visibility)
+    active: {
+      full: 1.0,          // Active/important elements
+      emphasized: 1.0,    // Emphasized content
+    },
+  },
+
+  /**
    * Transition System (smooth, intentional animations)
    */
   transitions: {

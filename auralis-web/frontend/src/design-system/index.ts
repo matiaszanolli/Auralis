@@ -49,6 +49,10 @@ export {
   LinearProgress,
   List,
   Alert,
+  Box,
+  Stack,
+  Container,
+  Text,
 } from './primitives';
 
 export type {
@@ -64,4 +68,6 @@ export type {
   CircularProgressProps,
   LinearProgressProps,
   ListProps,
+  BoxProps,
+  TextProps,
 } from './primitives';

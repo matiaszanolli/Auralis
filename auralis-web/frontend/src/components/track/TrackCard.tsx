@@ -28,6 +28,7 @@ interface TrackCardProps {
   albumId?: number;
   duration: number;
   albumArt?: string;
+  isPlaying?: boolean;
   onPlay: (id: number) => void;
 }
 
@@ -35,7 +36,7 @@ interface TrackCardProps {
  * TrackCard - Main orchestrator component
  *
  * Composition:
- * - StyledTrackCard wrapper
+ * - StyledTrackCard wrapper (with visual anchor for currently playing track)
  * - ArtworkContainer with responsive aspect ratio
  * - TrackCardOverlay for interactive elements
  * - TrackCardInfo for metadata
@@ -48,6 +49,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   albumId,
   duration,
   albumArt,
+  isPlaying = false,
   onPlay,
 }) => {
   const { isHovered, setIsHovered } = useTrackCardState();
@@ -59,6 +61,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
 
   return (
     <StyledTrackCard
+      isPlaying={isPlaying}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onPlay(id)}
@@ -80,7 +83,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
       </ArtworkContainer>
 
       {/* Track info */}
-      <TrackCardInfo title={title} artist={artist} album={album} />
+      <TrackCardInfo title={title} artist={artist} album={album} isPlaying={isPlaying} />
     </StyledTrackCard>
   );
 };

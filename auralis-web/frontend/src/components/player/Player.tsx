@@ -355,6 +355,14 @@ const Player: React.FC = () => {
             <PlayerEnhancementPanel
               trackId={currentTrack?.id}
               isVisible={!!currentTrack}
+              playbackControls={{
+                playEnhanced,
+                stopPlayback,
+                pausePlayback,
+                resumePlayback,
+                isStreaming,
+                isPaused,
+              }}
             />
           </div>
         );

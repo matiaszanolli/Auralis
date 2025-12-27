@@ -99,7 +99,7 @@ export const Expanded: React.FC<ExpandedProps> = ({
 
         {/* Parameters Display - when enabled and params available */}
         {settings.enabled && params && (
-          <Stack spacing={tokens.spacing.lg}>
+          <Stack spacing={tokens.spacing.xxl}> {/* Increased from lg (24px → 48px) for clearer section separation */}
             {/* Audio Characteristics */}
             <AudioCharacteristics params={params} />
 

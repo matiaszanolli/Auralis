@@ -32,12 +32,13 @@ export const SearchContainer = styled(Box)<{ focused: boolean }>(
   ({ focused }) => ({
     display: 'flex',
     alignItems: 'center',
-    background: auroraOpacity.minimal,
-    borderRadius: '8px',
-    border: `1px solid ${focused ? auroraOpacity.strong : auroraOpacity.veryLight}`,
-    padding: '8px 12px',
+    background: 'transparent',
+    borderRadius: 0,
+    border: 'none',
+    borderBottom: `1px solid ${focused ? tokens.colors.accent.primary : tokens.colors.border.light}`,
+    padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
     gap: 8,
-    transition: 'all 0.2s ease',
+    transition: 'border-color 0.15s ease',
   })
 );
 

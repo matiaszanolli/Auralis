@@ -12,7 +12,7 @@ import React from 'react';
 import { PlayArrow, MusicNote } from '@mui/icons-material';
 import { auroraOpacity, gradients } from '../library/Styles/Color.styles';
 import { tokens } from '@/design-system';
-import { PlayOverlay, DurationBadge, NoArtworkIcon } from './TrackCardStyles';
+import { PlayOverlay, DurationBadge, NoArtworkIcon, ShimmerOverlay } from './TrackCardStyles';
 import { formatDuration } from './TrackCardHelpers';
 import { IconButton } from '@/design-system';
 import { Box, Typography } from '@mui/material';
@@ -32,16 +32,20 @@ export const TrackCardOverlay: React.FC<TrackCardOverlayProps> = ({
 }) => {
   return (
     <>
-      {/* No artwork icon */}
+      {/* No artwork icon + shimmer effect */}
       {!hasArtwork && (
-        <NoArtworkIcon>
-          <MusicNote
-            sx={{
-              fontSize: 64,
-              color: auroraOpacity.lighter,
-            }}
-          />
-        </NoArtworkIcon>
+        <>
+          <NoArtworkIcon>
+            <MusicNote
+              sx={{
+                fontSize: 64,
+                color: auroraOpacity.lighter,
+              }}
+            />
+          </NoArtworkIcon>
+          {/* Shimmer overlay - animates on hover */}
+          <ShimmerOverlay className="shimmer-overlay" />
+        </>
       )}
 
       {/* Play button overlay */}
@@ -71,14 +75,22 @@ export const TrackCardOverlay: React.FC<TrackCardOverlayProps> = ({
         </IconButton>
       </PlayOverlay>
 
-      {/* Duration badge */}
-      <DurationBadge>
+      {/* Duration badge - fades in on hover, low contrast at rest */}
+      <DurationBadge
+        sx={{
+          opacity: isHovered ? 1 : 0.6, // Fade in on hover
+          background: isHovered
+            ? 'rgba(27, 35, 46, 0.70)' // Sharper on hover
+            : 'rgba(27, 35, 46, 0.50)', // Subtle at rest
+        }}
+      >
         <Typography
           variant="caption"
           sx={{
-            color: tokens.colors.text.primary,
+            color: isHovered ? tokens.colors.text.primary : tokens.colors.text.tertiary,
             fontWeight: 500,
             fontSize: '0.7rem',
+            transition: 'color 0.2s ease',
           }}
         >
           {formatDuration(duration)}
