@@ -41,6 +41,39 @@ hiddenimports = [
     'pydantic',
     'starlette',
 ]
+
+# Exclude unnecessary packages to reduce binary size
+excludes = [
+    # Scientific packages not used
+    'matplotlib',
+    'matplotlib.pyplot',
+    'pandas',
+    'sklearn',
+    'cupy',
+    # Testing frameworks
+    'pytest',
+    '_pytest',
+    # Image processing
+    'PIL',
+    'Pillow',
+    # Type checking
+    'mypy',
+    # GUI frameworks
+    'tkinter',
+    '_tkinter',
+    # Build tools
+    'setuptools',
+    'wheel',
+    'pip',
+    # Unused backend packages
+    'alembic',
+    'asyncpg',
+    'redis',
+    'jose',
+    'passlib',
+    'email_validator',
+    'statsmodels',
+]
 tmp_ret = collect_all('auralis')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
@@ -54,7 +87,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=excludes,
     noarchive=False,
     optimize=0,
 )
