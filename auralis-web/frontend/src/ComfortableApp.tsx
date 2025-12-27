@@ -25,6 +25,8 @@ import { AppEnhancementPane } from './components/enhancement-pane/container';
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';
 import { useAppDragDrop } from '@/hooks/app/useAppDragDrop';
+import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
+import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 
 import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
@@ -72,6 +74,10 @@ function ComfortableApp() {
   const isPlaying = useSelector(selectIsPlaying);
   const volume = useSelector(selectVolume);
 
+  // Enhanced playback via WebSocket streaming
+  const { playEnhanced } = usePlayEnhanced();
+  const { setQueue } = usePlaybackQueue();
+
   // Player API helpers for issuing commands to backend
   const togglePlayPause = useCallback(async () => {
     try {
@@ -114,9 +120,22 @@ function ComfortableApp() {
   const { handleDragEnd } = useAppDragDrop({ info, success });
 
   // Event handlers - MUST be defined before useKeyboardShortcuts to avoid TDZ errors
-  const handleTrackPlay = (track: Track) => {
-    setCurrentTrack(track);
-    console.log('Playing track:', track.title);
+  const handleTrackPlay = async (track: Track) => {
+    try {
+      setCurrentTrack(track);
+      console.log('Playing track:', track.title);
+
+      // Set queue to single track
+      await setQueue([track], 0);
+
+      // Start enhanced playback via WebSocket streaming (adaptive preset)
+      await playEnhanced(track.id, 'adaptive', 1.0);
+
+      info(`Now playing: ${track.title}`);
+    } catch (err) {
+      console.error('Failed to play track:', err);
+      info('Failed to start playback');
+    }
   };
 
   // Keyboard shortcuts - FIXED FOR BETA.11.1

@@ -1,0 +1,102 @@
+QSocketNotifier: Can only be used with threads started with QThread
+Electron app ready
+🚀 Initializing Auralis desktop app...
+Mode: Production
+Platform: linux
+
+[1/3] Starting backend...
+Starting Python backend...
+Development mode: false
+Checking if port 8765 is available...
+✓ Port 8765 is available
+Executing: /tmp/.mount_AuraliqAP7YF/resources/backend/auralis-backend 
+Working directory: /tmp/.mount_AuraliqAP7YF/resources/backend
+Python path for auralis: /tmp/.mount_AuraliqAP7YF/resources
+Full PYTHONPATH: /tmp/.mount_AuraliqAP7YF/resources
+Is development mode: false
+[Backend Error] INFO:__main__:Running as PyInstaller bundle, adding to sys.path: /tmp/.mount_AuraliqAP7YF/resources
+[Backend Error] INFO:auralis.analysis.fingerprint.utilities.dsp_backend:Rust DSP library (auralis_dsp) available - using optimized implementations
+[Backend Error] INFO:cache.manager:StreamlinedCacheManager initialized (12 MB Tier 1)
+[Backend Error] INFO:fingerprint_generator:✅ Rust fingerprinting (PyO3) module available
+[Backend Error] INFO:config.routes:✅ Similarity router registered
+INFO:config.routes:✅ All routers configured and registered
+INFO:__main__:Electron mode: looking for frontend at /tmp/.mount_AuraliqAP7YF/resources/frontend
+INFO:__main__:Looking for frontend at: /tmp/.mount_AuraliqAP7YF/resources/frontend
+[Backend Error] INFO:__main__:✅ Serving frontend from: /tmp/.mount_AuraliqAP7YF/resources/frontend (production mode)
+[Backend] 🚀 Starting Auralis Web Backend...
+Backend ready
+✓ Backend is ready!
+✓ Backend started
+
+[2/3] Checking backend health...
+[Backend Error] INFO:     Started server process [1308768]
+INFO:     Waiting for application startup.
+[Backend Error] INFO:config.startup:🧹 Processing cache cleared on startup
+[Backend Error] INFO:config.startup:🧹 Cleared chunk directory: /tmp/auralis_chunks
+[Backend Error] INFO:config.startup:📁 Database directory ready: /home/matias/Music/Auralis
+[Backend Error] INFO:auralis.library.migrations:Database is up-to-date (v9)
+[Backend Error] INFO:config.startup:✅ Auralis LibraryManager initialized
+INFO:config.startup:📊 Database location: /home/matias/Music/Auralis/auralis_library.db
+INFO:config.startup:✅ Repository Factory initialized (Phase 2 support)
+[Backend Error] INFO:config.startup:✅ Fingerprint Extractor initialized
+[Backend Error] INFO:config.startup:✅ Fingerprint extraction queue started (17 workers, 36x CPU speedup)
+[Backend Error] INFO:config.startup:🔍 Starting auto-scan of /home/matias/Music...
+[Backend Error] INFO:config.startup:✅ ~/Music already scanned: 21 total files
+INFO:config.startup:✅ Settings Repository initialized
+[Backend Error] INFO:config.startup:✅ Enhanced Audio Player initialized (Phase 4 RepositoryFactory support enabled)
+INFO:config.startup:✅ Player State Manager initialized
+INFO:config.startup:✅ Fingerprint Similarity System initialized
+INFO:config.startup:ℹ️  K-NN Graph Builder not initialized (system not fitted yet)
+[Backend Error] INFO:config.startup:✅ Processing Engine initialized
+[Backend Error] INFO:config.startup:✅ Streamlined Cache Manager initialized (12 MB Tier 1)
+INFO:streamlined_worker:🚀 Streamlined cache worker started
+[Backend Error] INFO:config.startup:✅ Streamlined Cache Worker started
+[Backend Error] INFO:     Application startup complete.
+[Backend Error] INFO:     Uvicorn running on http://127.0.0.1:8765 (Press CTRL+C to quit)
+13:04:47.351 › Checking for updates on startup...
+13:04:47.357 › Checking for update
+13:04:47.357 › Checking for updates...
+[Backend] INFO:     127.0.0.1:41560 - "GET /api/health HTTP/1.1" 200 OK
+Health check status: 200
+✓ Backend health check passed
+✓ Backend healthy
+
+[3/3] Creating UI window...
+Creating main window...
+Loading URL: http://localhost:8765
+[Backend] INFO:     127.0.0.1:41572 - "GET / HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:41572 - "GET /vendor-CmaVxkyx.js HTTP/1.1" 200 OK
+✓ URL loaded successfully
+✓ UI ready
+
+✅ Auralis is ready!
+✓ Window shown (ready-to-show event)
+[Backend] INFO:     127.0.0.1:41572 - "GET /assets/index-BPHN8GIp.js HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:41572 - "GET /globalStyles-DgwkvBRj.js HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:41572 - "GET /App-uwYgS2v8.js HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:41572 - "GET /api/playlists HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:41586 - "GET /api/library/tracks?limit=50&offset=0 HTTP/1.1" 200 OK
+[Backend Error] INFO:     127.0.0.1:41610 - "WebSocket /ws" [accepted]
+INFO:config.globals:WebSocket connected. Total connections: 1
+[Backend] INFO:     127.0.0.1:41600 - "GET /api/processing/parameters HTTP/1.1" 200 OK
+[Backend Error] INFO:     connection open
+13:04:48.775 › Update for version 1.2.0-beta.1 is not available (latest version: 1.2.0-beta.1, downgrade is disallowed).
+13:04:48.775 › Update not available. Current version: 1.2.0-beta.1
+[Backend] INFO:     127.0.0.1:41600 - "GET /home/matias/.auralis/artwork/album_1_992ec06f.jpg HTTP/1.1" 404 Not Found
+[Backend] INFO:     127.0.0.1:41586 - "GET /home/matias/.auralis/artwork/album_2_d97a7617.jpg HTTP/1.1" 404 Not Found
+[Backend] INFO:     127.0.0.1:41586 - "GET /home/matias/.auralis/artwork/album_3_f05fdd6f.jpg HTTP/1.1" 404 Not Found
+[Backend] INFO:     127.0.0.1:41600 - "GET /home/matias/.auralis/artwork/album_4_bceb7e43.jpg HTTP/1.1" 404 Not Found
+[Backend Error] INFO:services.queue_service:Queue set to 1 tracks, starting at index 0
+[Backend] INFO:     127.0.0.1:41600 - "POST /api/player/queue HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:40356 - "GET /manifest.json HTTP/1.1" 200 OK
+[Backend Error] INFO:services.navigation_service:ℹ️  No previous track available
+[Backend] INFO:     127.0.0.1:47874 - "POST /api/player/previous HTTP/1.1" 200 OK
+[Backend] INFO:     127.0.0.1:47874 - "POST /api/player/play HTTP/1.1" 405 Method Not Allowed
+[Backend Error] INFO:services.queue_service:Queue set to 1 tracks, starting at index 0
+[Backend] INFO:     127.0.0.1:47874 - "POST /api/player/queue HTTP/1.1" 200 OK
+[Backend Error] INFO:services.queue_service:Queue set to 1 tracks, starting at index 0
+[Backend] INFO:     127.0.0.1:57540 - "POST /api/player/queue HTTP/1.1" 200 OK
+All windows closed
+Cleaning up...
+Terminating Python backend...
+App before quit

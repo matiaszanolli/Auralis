@@ -28,6 +28,7 @@
 import { useCallback, useState, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { usePlaybackState } from '@/hooks/player/usePlaybackState';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import type { ApiError } from '@/types/api';
 
 /**
@@ -86,6 +87,7 @@ export interface PlaybackControlActions {
 export function usePlaybackControl(): PlaybackControlActions {
   const api = useRestAPI();
   const playbackState = usePlaybackState();
+  const { sendMessage } = useWebSocketContext();
 
   // Local loading state for this hook's operations
   const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +98,7 @@ export function usePlaybackControl(): PlaybackControlActions {
 
   /**
    * Play - Start playback or resume if paused
+   * Uses WebSocket 'play_normal' message for normal (unprocessed) audio streaming
    */
   const play = useCallback(async (): Promise<void> => {
     setIsLoading(true);
@@ -103,9 +106,23 @@ export function usePlaybackControl(): PlaybackControlActions {
     executingCommand.current = 'play';
 
     try {
-      await api.post('/api/player/play');
-      // Server broadcasts 'playback_started' message which updates usePlaybackState
-      // No need to manually update - it happens via WebSocket
+      // Get current track from playback state
+      const trackId = playbackState.currentTrack?.id;
+
+      if (!trackId) {
+        throw new Error('No track selected. Set queue first.');
+      }
+
+      // Send WebSocket message for normal (unprocessed) audio playback
+      sendMessage({
+        type: 'play_normal',
+        data: {
+          track_id: trackId,
+        },
+      });
+
+      // Server broadcasts audio stream messages which are handled by WebSocket context
+      // No need to manually update - it happens via WebSocket listeners
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'PLAY_ERROR', status: 500 } : err as ApiError;
       setError(apiError);
@@ -114,7 +131,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [api]);
+  }, [sendMessage, playbackState.currentTrack]);
 
   /**
    * Pause - Pause playback
