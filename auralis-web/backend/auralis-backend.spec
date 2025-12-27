@@ -3,7 +3,14 @@ from PyInstaller.utils.hooks import collect_all
 import os
 import glob
 
-datas = [('../../auralis', 'auralis')]
+datas = [
+    ('../../auralis', 'auralis'),
+    # Backend modules (config, routers) - CRITICAL for WebSocket endpoint!
+    ('config', 'config'),
+    ('routers', 'routers'),
+    ('cache', 'cache'),
+    ('services', 'services'),
+]
 
 # Rust DSP module will be collected automatically via collect_all('auralis_dsp')
 # No need to manually add binaries - maturin develop installs it as a Python package
@@ -14,6 +21,47 @@ hiddenimports = [
     'auralis.analysis.fingerprint',
     # Rust DSP module (CRITICAL - required for audio processing!)
     'auralis_dsp',
+    # Backend modules (CRITICAL - WebSocket endpoint won't work without these!)
+    'config',
+    'config.app',
+    'config.globals',
+    'config.middleware',
+    'config.routes',
+    'config.startup',
+    'routers',
+    'routers.system',
+    'routers.library',
+    'routers.player',
+    'routers.enhancement',
+    'routers.albums',
+    'routers.artists',
+    'routers.artwork',
+    'routers.files',
+    'routers.metadata',
+    'routers.playlists',
+    'routers.similarity',
+    'routers.cache_streamlined',
+    'audio_stream_controller',
+    'chunked_processor',
+    'processing_engine',
+    'processing_api',
+    'fingerprint_generator',
+    'player_state',
+    'proactive_buffer',
+    'streamlined_worker',
+    'helpers',
+    'schemas',
+    'state_manager',
+    'metrics_collector',
+    'analysis_extractor',
+    'audio_content_predictor',
+    'learning_system',
+    'self_tuner',
+    'track_analysis_cache',
+    'memory_monitor',
+    'cache',
+    'cache.manager',
+    'services',
     # Database dependencies
     'sqlalchemy',
     'sqlalchemy.ext.declarative',
