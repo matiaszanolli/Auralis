@@ -74,6 +74,7 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
     >
       {/* Main scrollable content area */}
       <Box
+        id="app-main-content-scroll"
         sx={{
           flex: 1,
           overflow: 'auto',

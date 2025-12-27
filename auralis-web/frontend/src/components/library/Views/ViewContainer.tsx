@@ -27,11 +27,9 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
       maxWidth="xl"
       sx={{
         py: 4,
-        display: 'flex',
-        flexDirection: 'column',
       }}
     >
-      <Box sx={{ mb: 4, flexShrink: 0 }}>
+      <Box sx={{ mb: 4 }}>
         <Typography
           variant="h3"
           component="h1"
@@ -50,7 +48,7 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
           {subtitle}
         </Typography>
       </Box>
-      <Box sx={{ flex: 1, minHeight: 0, width: '100%' }}>
+      <Box sx={{ width: '100%' }}>
         {children}
       </Box>
     </Container>

@@ -95,7 +95,8 @@ export const ArtistListContent: React.FC<ArtistListContentProps> = ({
             </EndOfListIndicator>
           )
         }
-        scrollThreshold={0.9}
+        scrollThreshold={0.8}
+        scrollableTarget="app-main-content-scroll"
       >
         <ArtistListHeader loadedCount={artists.length} totalCount={totalArtists} />
 

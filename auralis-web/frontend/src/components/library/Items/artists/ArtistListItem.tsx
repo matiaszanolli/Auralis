@@ -35,12 +35,12 @@ export const ArtistListItem: React.FC<ArtistListItemProps> = ({
       >
         <ListItemText
           primary={
-            <ArtistName className="artist-name">
+            <ArtistName className="artist-name" component="span">
               {artist.name}
             </ArtistName>
           }
           secondary={
-            <ArtistInfo>
+            <ArtistInfo component="span">
               {artist.albumCount
                 ? `${artist.albumCount} ${artist.albumCount === 1 ? 'album' : 'albums'}`
                 : ''}

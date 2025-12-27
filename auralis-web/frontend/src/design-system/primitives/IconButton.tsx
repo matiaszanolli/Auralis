@@ -158,7 +158,7 @@ const StyledIconButton = styled(MuiIconButton, {
   };
 });
 
-export const IconButton: React.FC<IconButtonProps> = ({
+export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(({
   children,
   tooltip,
   variant = 'default',
@@ -166,9 +166,10 @@ export const IconButton: React.FC<IconButtonProps> = ({
   active = false,
   disabled = false,
   ...props
-}) => {
+}, ref) => {
   const button = (
     <StyledIconButton
+      ref={ref}
       variant={variant}
       size={size}
       active={active}
@@ -189,6 +190,6 @@ export const IconButton: React.FC<IconButtonProps> = ({
   }
 
   return button;
-};
+});
 
 export default IconButton;

@@ -5,9 +5,10 @@
  * Comprehensive tests for Phase 2 library components:
  * - AlbumGrid: Responsive grid of album cards
  * - AlbumCard: Individual album with metadata and hover overlay
- * - ArtistList: Artist list with selection
- * - LibraryView: Main library container with tabs
  * - MetadataEditorDialog: Modal for editing track metadata
+ *
+ * Note: ArtistList and LibraryView tests removed - these components have been
+ * replaced by CozyArtistList and CozyLibraryView.
  *
  * @module components/library/__tests__/LibraryComponents.test
  */
@@ -16,12 +17,9 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { vi } from 'vitest';
 import AlbumGrid from '@/components/library/AlbumGrid';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
-import ArtistList from '@/components/library/ArtistList';
-import LibraryView from '@/components/library/LibraryView';
 import MetadataEditorDialog from '@/components/library/MetadataEditorDialog';
 import { useAlbumsQuery } from '@/hooks/library/useLibraryQuery';
-import { useArtistsQuery } from '@/hooks/library/useLibraryQuery';
-import type { Album, Artist, Track } from '@/types/domain';
+import type { Album, Track } from '@/types/domain';
 
 // Mock hooks
 vi.mock('@/hooks/library/useLibraryQuery');
@@ -43,13 +41,6 @@ const mockAlbum2: Album = {
   year: 2024,
   trackCount: 12, // camelCase
   artworkUrl: 'https://example.com/album2.jpg', // camelCase
-};
-
-const mockArtist: Artist = {
-  id: 1,
-  name: 'Test Artist',
-  trackCount: 50, // camelCase
-  albumCount: 5, // camelCase
 };
 
 const mockTrack: Track = {
@@ -273,208 +264,6 @@ describe('AlbumCard', () => {
     );
 
     expect(screen.getByText('Test Album')).toBeInTheDocument();
-  });
-});
-
-describe('ArtistList', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should render list of artists', () => {
-    vi.mocked(useArtistsQuery).mockReturnValue({
-      data: [mockArtist],
-      isLoading: false,
-      error: null,
-      total: 1,
-      offset: 0,
-      hasMore: false,
-      fetchMore: vi.fn(),
-      refetch: vi.fn(),
-      clearError: vi.fn(),
-    } as any);
-
-    render(<ArtistList />);
-
-    expect(screen.getByText('Test Artist')).toBeInTheDocument();
-  });
-
-  it('should display artist track count', () => {
-    vi.mocked(useArtistsQuery).mockReturnValue({
-      data: [mockArtist],
-      isLoading: false,
-      error: null,
-      total: 1,
-      offset: 0,
-      hasMore: false,
-      fetchMore: vi.fn(),
-      refetch: vi.fn(),
-      clearError: vi.fn(),
-    } as any);
-
-    render(<ArtistList />);
-
-    expect(screen.getByText(/50 tracks/i)).toBeInTheDocument();
-  });
-
-  it('should display artist album count', () => {
-    vi.mocked(useArtistsQuery).mockReturnValue({
-      data: [mockArtist],
-      isLoading: false,
-      error: null,
-      total: 1,
-      offset: 0,
-      hasMore: false,
-      fetchMore: vi.fn(),
-      refetch: vi.fn(),
-      clearError: vi.fn(),
-    } as any);
-
-    render(<ArtistList />);
-
-    expect(screen.getByText(/5 albums/i)).toBeInTheDocument();
-  });
-
-  it('should call onArtistSelect when artist is clicked', () => {
-    const mockOnSelect = vi.fn();
-
-    vi.mocked(useArtistsQuery).mockReturnValue({
-      data: [mockArtist],
-      isLoading: false,
-      error: null,
-      total: 1,
-      offset: 0,
-      hasMore: false,
-      fetchMore: vi.fn(),
-      refetch: vi.fn(),
-      clearError: vi.fn(),
-    } as any);
-
-    render(<ArtistList onArtistSelect={mockOnSelect} />);
-
-    const artistItem = screen.getByText('Test Artist');
-    fireEvent.click(artistItem);
-
-    expect(mockOnSelect).toHaveBeenCalledWith(mockArtist);
-  });
-
-  it('should show selected state', () => {
-    const mockOnSelect = vi.fn();
-
-    vi.mocked(useArtistsQuery).mockReturnValue({
-      data: [mockArtist],
-      isLoading: false,
-      error: null,
-      total: 1,
-      offset: 0,
-      hasMore: false,
-      fetchMore: vi.fn(),
-      refetch: vi.fn(),
-      clearError: vi.fn(),
-    } as any);
-
-    const { container } = render(
-      <ArtistList
-        onArtistSelect={mockOnSelect}
-        selectedId={mockArtist.id}
-      />
-    );
-
-    const artistItem = screen.getByText('Test Artist').closest('[role="button"]');
-    expect(artistItem).toHaveAttribute('aria-selected', 'true');
-  });
-
-  it('should display loading state', () => {
-    vi.mocked(useArtistsQuery).mockReturnValue({
-      data: [],
-      isLoading: true,
-      error: null,
-      total: 0,
-      offset: 0,
-      hasMore: false,
-      fetchMore: vi.fn(),
-      refetch: vi.fn(),
-      clearError: vi.fn(),
-    } as any);
-
-    render(<ArtistList />);
-
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
-  });
-
-  it('should display error state', () => {
-    vi.mocked(useArtistsQuery).mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: { message: 'Failed to load artists', code: 'ERROR', status: 500 },
-      total: 0,
-      offset: 0,
-      hasMore: false,
-      fetchMore: vi.fn(),
-      refetch: vi.fn(),
-      clearError: vi.fn(),
-    } as any);
-
-    render(<ArtistList />);
-
-    expect(screen.getByText(/failed/i)).toBeInTheDocument();
-  });
-});
-
-describe('LibraryView', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('should render library tabs', () => {
-    render(<LibraryView />);
-
-    expect(screen.getByText(/tracks/i)).toBeInTheDocument();
-    expect(screen.getByText(/albums/i)).toBeInTheDocument();
-    expect(screen.getByText(/artists/i)).toBeInTheDocument();
-  });
-
-  it('should display search bar', () => {
-    render(<LibraryView />);
-
-    const searchInput = screen.getByRole('textbox');
-    expect(searchInput).toBeInTheDocument();
-  });
-
-  it('should render tracks tab content', () => {
-    render(<LibraryView />);
-
-    const tracksTab = screen.getByText(/tracks/i);
-    fireEvent.click(tracksTab);
-
-    // Check for track list content
-    expect(tracksTab).toBeInTheDocument();
-  });
-
-  it('should switch tabs when clicked', () => {
-    render(<LibraryView />);
-
-    const albumsTab = screen.getByText(/albums/i);
-    fireEvent.click(albumsTab);
-
-    // Verify tab is active/selected
-    expect(albumsTab).toBeInTheDocument();
-  });
-
-  it('should pass search query to active tab', () => {
-    render(<LibraryView />);
-
-    const searchInput = screen.getByRole('textbox') as HTMLInputElement;
-    fireEvent.change(searchInput, { target: { value: 'test' } });
-
-    expect(searchInput.value).toBe('test');
-  });
-
-  it('should render with responsive layout', () => {
-    const { container } = render(<LibraryView />);
-
-    const libraryView = container.firstChild;
-    expect(libraryView).toBeInTheDocument();
   });
 });
 

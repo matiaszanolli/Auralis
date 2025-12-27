@@ -21,7 +21,8 @@ import { ListLoadingContainer } from '../Styles/Grid.styles';
 import TrackGridView from './TrackGridView';
 import TrackListViewContent from './TrackListViewContent';
 import { useQueueOperations } from './useQueueOperations';
-import { useInfiniteScroll } from '@/hooks/shared';
+// TODO: Replace with react-infinite-scroll-component like Artists view
+// import { useInfiniteScroll } from '@/hooks/shared';
 
 export interface Track {
   id: number;
@@ -91,13 +92,15 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
     handleClearQueue,
   } = useQueueOperations({});
 
-  // Setup infinite scroll observer - returns the ref to attach to sentinel element
-  // Wrap onLoadMore to return a Promise (hook expects Promise<void>)
-  const { observerTarget, isFetching } = useInfiniteScroll({
-    hasMore,
-    isLoading: loading || isLoadingMore,
-    onLoadMore: async () => { onLoadMore(); },
-  });
+  // TODO: Re-implement infinite scroll with react-infinite-scroll-component
+  // Temporarily disabled - need to update to use library instead of custom hook
+  // const { observerTarget, isFetching } = useInfiniteScroll({
+  //   hasMore,
+  //   isLoading: loading || isLoadingMore,
+  //   onLoadMore: async () => { onLoadMore(); },
+  // });
+  const observerTarget = React.useRef<HTMLDivElement>(null);
+  const isFetching = loading || isLoadingMore;
 
   // Show loading skeletons
   if (loading) {
