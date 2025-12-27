@@ -48,7 +48,11 @@
         "from": "resources/backend",
         "to": "backend",
         "filter": [
-          "**/*"
+          "**/*",
+          "!build/**",
+          "!dist/**",
+          "!__pycache__/**",
+          "!*.pyc"
         ]
       },
       {

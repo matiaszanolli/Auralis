@@ -44,15 +44,27 @@ hiddenimports = [
 
 # Exclude unnecessary packages to reduce binary size
 excludes = [
+    # GPU/CUDA packages (WE DON'T USE GPU!)
+    'cupy',
+    'cupy_backends',
+    'cupy.cuda',
+    'cuda',
+    'cudnn',
+    'numba',
+    'numba.cuda',
+    'llvmlite',
+    'llvmlite.binding',
     # Scientific packages not used
     'matplotlib',
     'matplotlib.pyplot',
     'pandas',
     'sklearn',
-    'cupy',
+    'scikit-learn',
     # Testing frameworks
     'pytest',
     '_pytest',
+    'hypothesis',
+    'mock',
     # Image processing
     'PIL',
     'Pillow',
@@ -61,6 +73,10 @@ excludes = [
     # GUI frameworks
     'tkinter',
     '_tkinter',
+    'PyQt5',
+    'PyQt6',
+    'PySide2',
+    'PySide6',
     # Build tools
     'setuptools',
     'wheel',
@@ -74,9 +90,28 @@ excludes = [
     'email_validator',
     'statsmodels',
 ]
+
+# Filter out CUDA/GPU binaries
+def filter_binaries(all_binaries):
+    """Remove CUDA and GPU-related binaries"""
+    excluded_patterns = [
+        'libcu',      # CUDA libraries (libcublas, libcufft, etc.)
+        'libnv',      # NVIDIA libraries (libnvrtc, libnccl, etc.)
+        'cudnn',      # cuDNN
+        'cudart',     # CUDA runtime
+    ]
+    filtered = []
+    for binary in all_binaries:
+        # Binary format is (source, dest) tuple
+        source = binary[0] if len(binary) > 0 else ''
+        # Check if binary matches any excluded pattern
+        if not any(pattern in source.lower() for pattern in excluded_patterns):
+            filtered.append(binary)
+        else:
+            print(f"EXCLUDING GPU BINARY: {source}")
+    return filtered
 tmp_ret = collect_all('auralis')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-
 
 a = Analysis(
     ['main.py'],
@@ -91,6 +126,17 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
+# Filter out CUDA binaries AFTER Analysis (this catches ALL binaries)
+print("\n" + "="*80)
+print("FILTERING CUDA/GPU BINARIES")
+print("="*80)
+original_count = len(a.binaries)
+a.binaries = filter_binaries(a.binaries)
+removed_count = original_count - len(a.binaries)
+print(f"Removed {removed_count} GPU binaries from {original_count} total")
+print("="*80 + "\n")
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
