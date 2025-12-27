@@ -25,7 +25,6 @@ import { AppEnhancementPane } from './components/enhancement-pane/container';
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';
 import { useAppDragDrop } from '@/hooks/app/useAppDragDrop';
-import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 
 import { useWebSocketContext } from './contexts/WebSocketContext';
@@ -65,7 +64,8 @@ function ComfortableApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // WebSocket connection for real-time updates (using shared WebSocketContext)
-  const { isConnected } = useWebSocketContext();
+  const wsContext = useWebSocketContext();
+  const { isConnected } = wsContext;
 
   // Toast notifications
   const { success, info } = useToast();
@@ -74,8 +74,7 @@ function ComfortableApp() {
   const isPlaying = useSelector(selectIsPlaying);
   const volume = useSelector(selectVolume);
 
-  // Enhanced playback via WebSocket streaming
-  const { playEnhanced } = usePlayEnhanced();
+  // Playback queue management
   const { setQueue } = usePlaybackQueue();
 
   // Player API helpers for issuing commands to backend
@@ -128,8 +127,16 @@ function ComfortableApp() {
       // Set queue to single track
       await setQueue([track], 0);
 
-      // Start enhanced playback via WebSocket streaming (adaptive preset)
-      await playEnhanced(track.id, 'adaptive', 1.0);
+      // Start enhanced playback via WebSocket message
+      // The Player component's usePlayEnhanced instance will handle the stream
+      wsContext.send({
+        type: 'play_enhanced',
+        data: {
+          track_id: track.id,
+          preset: 'adaptive',
+          intensity: 1.0,
+        },
+      });
 
       info(`Now playing: ${track.title}`);
     } catch (err) {

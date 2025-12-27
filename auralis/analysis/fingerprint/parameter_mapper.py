@@ -19,7 +19,7 @@ Maps fingerprint dimensions to processor configuration:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import numpy as np
 
@@ -79,8 +79,6 @@ class EQParameterMapper:
         centroid = fingerprint.get('spectral_centroid', 2000.0)
         rolloff = fingerprint.get('spectral_rolloff', 8000.0)
         flatness = fingerprint.get('spectral_flatness', 0.5)
-
-        # OPTIMIZATION: Use dict comprehensions instead of explicit loops
 
         # Bright sounds (high centroid) - reduce upper mids slightly
         if centroid > 3000:
