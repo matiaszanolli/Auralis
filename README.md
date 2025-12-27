@@ -134,14 +134,15 @@ npm run dev
 
 ## 📸 Screenshots
 
-### Your Music Collection
-Beautiful grid or list view of your library with smart search and filtering.
+### Album Detail View
+View album details with track listings, metadata, and integrated audio enhancement controls.
 
-### Simple Magic Toggle
-Play any song → Toggle "Magic" switch → Hear the difference. That's it!
+![Album Detail View](docs/images/screenshots/album-detail.png)
 
-### Audio Visualizer
-Watch your music with real-time waveform and spectrum visualization.
+### Albums Grid View
+Beautiful grid layout of your music collection with album artwork and metadata.
+
+![Albums Grid View](docs/images/screenshots/albums-grid.png)
 
 ---
 

@@ -343,8 +343,8 @@ const Player: React.FC = () => {
         </div>
       )}
 
-      {/* Enhancement Panel - Integrated streaming controls */}
-      {(() => {
+      {/* Enhancement Panel - REMOVED: Redundant playback mode controls */}
+      {/* {(() => {
         console.log('[Player] 🔍 Checking Enhancement Panel condition:', {
           currentTrack: currentTrack?.title || 'NO TRACK',
           hasTrack: !!currentTrack,
@@ -366,7 +366,7 @@ const Player: React.FC = () => {
             />
           </div>
         );
-      })()}
+      })()} */}
 
       {/* Error State Indicator */}
       {hasError && (
@@ -482,14 +482,7 @@ const styles = {
     backgroundColor: tokens.colors.bg.secondary,
   },
 
-  enhancementPanelWrapper: {
-    borderTop: `1px solid ${tokens.colors.border.medium}`,
-    padding: tokens.spacing.lg,
-    backgroundColor: tokens.colors.bg.secondary,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: tokens.spacing.md,
-  },
+  // enhancementPanelWrapper: REMOVED - No longer used after removing playback mode panel
 
   errorBanner: {
     display: 'flex',

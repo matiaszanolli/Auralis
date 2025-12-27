@@ -4,11 +4,8 @@
    FONTS
    ======================================== */
 
-/* Import Montserrat (Wordmark/Titles/Body) - Multiple weights */
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
-
-/* Import Inter (Fallback/UI Details) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap');
+/* Import Inter (Primary UI Font) - Multiple weights */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* ========================================
    CSS VARIABLES - AURALIS BRAND KIT
@@ -36,7 +33,7 @@
   --error: #EF4444;
 
   /* Typography */
-  --font-heading: 'Montserrat', sans-serif;
+  --font-heading: 'Inter', sans-serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'Inter', monospace;
 
@@ -78,7 +75,7 @@
 
 body {
   margin: 0;
-  font-family: 'Montserrat', var(--font-body);
+  font-family: 'Inter', var(--font-body);
   font-weight: 400;
   font-size: 1rem;
   line-height: 1.5;
@@ -250,7 +247,7 @@ code {
    ======================================== */
 
 button {
-  font-family: var(--font-heading);
+  font-family: 'Inter', var(--font-heading);
   font-weight: 600;
   cursor: pointer;
   transition: all var(--transition-normal);

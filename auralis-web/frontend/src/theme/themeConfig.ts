@@ -175,6 +175,7 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
     },
     typography: {
       fontFamily: [
+        'Inter',
         '-apple-system',
         'BlinkMacSystemFont',
         '"Segoe UI"',
