@@ -178,10 +178,12 @@ jobs:
           pip install -r requirements.txt
 
       - name: Build and install Rust DSP module
+        shell: pwsh
         run: |
           cd vendor/auralis-dsp
           maturin build --release
-          pip install target/wheels/*.whl
+          $wheel = Get-ChildItem target/wheels/*.whl | Select-Object -First 1
+          pip install $wheel.FullName
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
