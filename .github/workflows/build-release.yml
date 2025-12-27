@@ -387,10 +387,13 @@ jobs:
 
             ### Performance
             - Real-time factor: 36.6x on real-world audio
-            - Recommended: Install Numba for 2-3x speedup (`pip install numba`)
+            - Optimized binary with Rust DSP acceleration
+            - AppImage size: ~200MB (93% smaller than v1.1.0)
 
             ### Known Issues
-            See [CHANGELOG.md](https://github.com/matiaszanolli/Auralis/blob/master/CHANGELOG.md#known-issues-100-beta1)
+            - Keyboard shortcuts (Space, Arrow keys) still use legacy API
+            - Missing psychoacoustic_eq module warning (non-critical)
+            - See [CHANGELOG.md](https://github.com/matiaszanolli/Auralis/blob/master/CHANGELOG.md) for more details
 
             ---
 
