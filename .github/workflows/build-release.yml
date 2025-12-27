@@ -83,7 +83,8 @@ jobs:
       - name: Build and install Rust DSP module
         run: |
           cd vendor/auralis-dsp
-          maturin develop --release
+          maturin build --release
+          pip install target/wheels/*.whl
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
@@ -179,7 +180,8 @@ jobs:
       - name: Build and install Rust DSP module
         run: |
           cd vendor/auralis-dsp
-          maturin develop --release
+          maturin build --release
+          pip install target/wheels/*.whl
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
@@ -275,7 +277,8 @@ jobs:
       - name: Build and install Rust DSP module
         run: |
           cd vendor/auralis-dsp
-          maturin develop --release
+          maturin build --release
+          pip install target/wheels/*.whl
         env:
           PYO3_USE_ABI3_FORWARD_COMPATIBILITY: 1
 
