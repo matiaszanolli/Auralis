@@ -19,12 +19,12 @@ Tests use real backend servers (localhost:8765) and validate:
 
 import asyncio
 import json
+import time
+from typing import Any, Dict, Optional
+
+import httpx
 import pytest
 import websockets
-import httpx
-from typing import Dict, Any, Optional
-import time
-
 
 # Base configuration
 BACKEND_URL = "http://localhost:8765"

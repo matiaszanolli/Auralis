@@ -12,19 +12,20 @@ Enables dependency injection across the application without global singletons.
 """
 
 from typing import Callable, Optional
+
 from sqlalchemy.orm import Session
 
-from .track_repository import TrackRepository
 from .album_repository import AlbumRepository
 from .artist_repository import ArtistRepository
+from .fingerprint_repository import FingerprintRepository
 from .genre_repository import GenreRepository
 from .playlist_repository import PlaylistRepository
-from .fingerprint_repository import FingerprintRepository
-from .stats_repository import StatsRepository
-from .settings_repository import SettingsRepository
-from .queue_repository import QueueRepository
 from .queue_history_repository import QueueHistoryRepository
+from .queue_repository import QueueRepository
 from .queue_template_repository import QueueTemplateRepository
+from .settings_repository import SettingsRepository
+from .stats_repository import StatsRepository
+from .track_repository import TrackRepository
 
 
 class RepositoryFactory:

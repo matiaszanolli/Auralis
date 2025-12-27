@@ -14,9 +14,10 @@ overall loudness. Unlike peak normalization (which scales the entire signal),
 a true limiter only reduces gain when peaks occur.
 """
 
-import numpy as np
-from typing import Tuple
 from dataclasses import dataclass
+from typing import Tuple
+
+import numpy as np
 
 
 @dataclass

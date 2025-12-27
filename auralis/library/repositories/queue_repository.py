@@ -11,7 +11,8 @@ Data access layer for queue state persistence operations
 """
 
 import json
-from typing import Optional, List, Dict, Any, Callable
+from typing import Any, Callable, Dict, List, Optional
+
 from sqlalchemy.orm import Session
 
 from ..models import QueueState

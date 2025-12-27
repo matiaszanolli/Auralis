@@ -16,19 +16,24 @@ Test Coverage:
 10. Performance: Sampling is indeed faster
 """
 
-import numpy as np
-import pytest
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.core.unified_config import UnifiedConfig
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.analysis.fingerprint.harmonic_analyzer import HarmonicAnalyzer
-from auralis.analysis.fingerprint.harmonic_analyzer_sampled import SampledHarmonicAnalyzer
+from auralis.analysis.fingerprint.harmonic_analyzer_sampled import (
+    SampledHarmonicAnalyzer,
+)
+from auralis.core.unified_config import UnifiedConfig
 from auralis.io.unified_loader import load_audio
 
 

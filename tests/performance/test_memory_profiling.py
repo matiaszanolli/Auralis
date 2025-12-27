@@ -12,17 +12,18 @@ BENCHMARKS MEASURED:
 - Memory efficiency (MB per operation)
 """
 
-import pytest
 import gc
-import sys
-import numpy as np
 import os
+import sys
 
-from auralis.library.repositories import TrackRepository
+import numpy as np
+import pytest
+
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
+from auralis.library.repositories import TrackRepository
 
 
 def get_memory_usage_mb():

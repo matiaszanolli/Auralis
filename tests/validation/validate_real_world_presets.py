@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Test preset integration with real-world music across different genres"""
 
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+
+from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
 from auralis.core.config import UnifiedConfig
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.io.unified_loader import load_audio
 from auralis.dsp.utils.adaptive import calculate_loudness_units
 from auralis.dsp.utils.spectral import spectral_centroid
-from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
+from auralis.io.unified_loader import load_audio
+
 
 def analyze_track(audio_path, max_duration=30.0):
     """Analyze a real-world track with all 5 presets"""

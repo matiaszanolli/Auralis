@@ -14,10 +14,9 @@ The actual implementation has been modularized into:
 :license: GPLv3, see LICENSE for more details.
 """
 
+# Explicitly re-export the main class for clarity
 # Re-export everything from the modular implementation
 from .scanner import *  # noqa: F401, F403
-
-# Explicitly re-export the main class for clarity
 from .scanner import LibraryScanner
 
 __all__ = ['LibraryScanner']

@@ -28,8 +28,8 @@ Implementation follows Phase 7B validation findings:
 """
 
 import logging
-from typing import Literal, Optional, Dict, Any
 from enum import Enum
+from typing import Any, Dict, Literal, Optional
 
 logger = logging.getLogger(__name__)
 

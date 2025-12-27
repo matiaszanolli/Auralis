@@ -8,25 +8,27 @@ Library Manager Comprehensive Coverage Test
 Comprehensive tests for the library manager updated to match current API
 """
 
-import numpy as np
-import tempfile
 import os
-import sys
 import shutil
 import sqlite3
-from pathlib import Path
+import sys
+import tempfile
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath('../..'))
 
-from auralis.library.manager import LibraryManager
-from auralis.library.models import Track, Album, Artist, Playlist
-from auralis.library.scanner import LibraryScanner
 import soundfile as sf
+
+from auralis.library.manager import LibraryManager
+from auralis.library.models import Album, Artist, Playlist, Track
+from auralis.library.scanner import LibraryScanner
+
 
 class TestLibraryManagerComprehensive:
     """Comprehensive test coverage for LibraryManager"""

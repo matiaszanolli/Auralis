@@ -18,14 +18,18 @@ Optimizations Tested:
 4. EQParameterMapper: Vectorized band assignment (1.5-2x speedup)
 """
 
-import pytest
-import numpy as np
 import time
 from typing import Callable
-from auralis.analysis.fingerprint.variation_analyzer import VariationAnalyzer
-from auralis.analysis.fingerprint.spectral_analyzer import SpectralAnalyzer
-from auralis.analysis.fingerprint.harmonic_analyzer_sampled import SampledHarmonicAnalyzer
+
+import numpy as np
+import pytest
+
+from auralis.analysis.fingerprint.harmonic_analyzer_sampled import (
+    SampledHarmonicAnalyzer,
+)
 from auralis.analysis.fingerprint.parameter_mapper import EQParameterMapper
+from auralis.analysis.fingerprint.spectral_analyzer import SpectralAnalyzer
+from auralis.analysis.fingerprint.variation_analyzer import VariationAnalyzer
 
 
 class TestVariationAnalyzerOptimization:

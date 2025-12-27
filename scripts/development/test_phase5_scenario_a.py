@@ -6,9 +6,9 @@ Tests fingerprint generation via gRPC when database has no cached fingerprint
 
 import asyncio
 import json
+import logging
 import sys
 import time
-import logging
 from pathlib import Path
 from typing import Optional
 
@@ -86,10 +86,11 @@ async def test_scenario_a() -> None:
 
     try:
         # Import fingerprint generator (fix import path)
-        from auralis.web.backend.fingerprint_generator import FingerprintGenerator
-        from auralis.library.repositories.factory import RepositoryFactory
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
+
+        from auralis.library.repositories.factory import RepositoryFactory
+        from auralis.web.backend.fingerprint_generator import FingerprintGenerator
 
         # Setup database session
         db_url = f"sqlite:///{db_path}"

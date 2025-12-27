@@ -11,10 +11,10 @@ Modular processing engine with multiple mastering modes
 """
 
 from .adaptive_mode import AdaptiveMode
-from .hybrid_mode import HybridMode
-from .eq_processor import EQProcessor
-from .realtime_processor import RealtimeProcessor
 from .continuous_mode import ContinuousMode
+from .eq_processor import EQProcessor
+from .hybrid_mode import HybridMode
+from .realtime_processor import RealtimeProcessor
 
 __all__ = [
     'AdaptiveMode',

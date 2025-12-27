@@ -14,12 +14,14 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import logging
+from typing import Any, Callable, Dict, List, Optional
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional, Any, Callable
-import logging
 
 from auralis.library.metadata_editor import MetadataEditor, MetadataUpdate
+
 from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)

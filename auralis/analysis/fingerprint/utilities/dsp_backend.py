@@ -15,9 +15,10 @@ Note: This module no longer falls back to librosa. The Rust library is required
 for optimal performance and is bundled in all distribution packages.
 """
 
-import numpy as np
 import logging
-from typing import Tuple, Optional, Any
+from typing import Any, Optional, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

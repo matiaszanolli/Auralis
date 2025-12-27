@@ -8,22 +8,23 @@ Tests the chunked audio processing system for fast streaming.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, mock_open
+from unittest.mock import MagicMock, Mock, mock_open, patch
+
+import numpy as np
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from chunked_processor import (
-    ChunkedAudioProcessor,
     CHUNK_DURATION,
-    OVERLAP_DURATION,
     CONTEXT_DURATION,
-    apply_crossfade_between_chunks
+    OVERLAP_DURATION,
+    ChunkedAudioProcessor,
+    apply_crossfade_between_chunks,
 )
 
 

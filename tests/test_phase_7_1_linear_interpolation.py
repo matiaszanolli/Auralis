@@ -11,19 +11,20 @@ Coverage: All vectorization methods
 Performance: Verified against original loop-based implementations
 """
 
-import pytest
-import numpy as np
 from dataclasses import dataclass
 
-from auralis.dsp.utils.interpolation_helpers import (
-    create_triangular_envelope,
-    create_triangular_filterbank,
-    create_mel_triangular_filters,
-)
+import numpy as np
+import pytest
+
 from auralis.dsp.eq.critical_bands import (
     CriticalBand,
-    create_perceptual_weighting,
     create_frequency_mapping,
+    create_perceptual_weighting,
+)
+from auralis.dsp.utils.interpolation_helpers import (
+    create_mel_triangular_filters,
+    create_triangular_envelope,
+    create_triangular_filterbank,
 )
 
 

@@ -14,10 +14,11 @@ Tests verify:
 - Search and tag operations
 """
 
-import pytest
 import json
 import tempfile
 from pathlib import Path
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

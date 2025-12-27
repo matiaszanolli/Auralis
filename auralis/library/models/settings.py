@@ -10,8 +10,9 @@ Models for user settings and preferences
 :license: GPLv3, see LICENSE for more details.
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text
-from typing import Dict, Any
+from typing import Any, Dict
+
+from sqlalchemy import Boolean, Column, Float, Integer, String, Text
 
 from .base import Base, TimestampMixin
 

@@ -24,11 +24,11 @@ Expected improvements:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import logging
-from typing import Dict, Any, Optional, Tuple
-from pathlib import Path
-from datetime import datetime, timedelta
 import json
+import logging
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

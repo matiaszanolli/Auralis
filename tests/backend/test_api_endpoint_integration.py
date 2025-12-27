@@ -28,19 +28,22 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
-import numpy as np
-import tempfile
-import os
 import asyncio
-from pathlib import Path
+import os
 
 # Import the modules under test
 import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
 from main import app, startup_event
+
 from auralis.io.saver import save as save_audio
 
 # Phase 5B.1: Migration to conftest.py fixtures
@@ -650,7 +653,7 @@ class TestAPIEndpointDualMode:
     def test_dual_mode_interface_equivalence(self, mock_library_manager, mock_repository_factory):
         """Test that both mocks implement equivalent interfaces."""
         from unittest.mock import Mock
-        
+
         # Create test data
         item = Mock()
         item.id = 1

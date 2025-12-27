@@ -11,8 +11,9 @@ Models for database schema version tracking
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, DateTime, Text
-from typing import Dict, Any
+from typing import Any, Dict
+
+from sqlalchemy import Column, DateTime, Integer, Text
 
 from .base import Base
 

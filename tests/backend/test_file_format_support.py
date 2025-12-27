@@ -22,16 +22,16 @@ import pytest
 
 # Skip - tests use APIs incompatible with current implementation
 pytestmark = pytest.mark.skip(reason="Tests use APIs incompatible with current implementation. Requires refactoring.")
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
 
-from auralis.io.unified_loader import load_audio
+import numpy as np
+
 from auralis.io.saver import save as save_audio
-from auralis.library.scanner import LibraryScanner
+from auralis.io.unified_loader import load_audio
 from auralis.library.manager import LibraryManager
-
+from auralis.library.scanner import LibraryScanner
 
 # ============================================================================
 # Fixtures

@@ -19,9 +19,10 @@ Provides single source of truth for:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Optional, Dict, Any, List, Callable, Union, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import librosa
+import numpy as np
 
 
 class FingerprintConstants:

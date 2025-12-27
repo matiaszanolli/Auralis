@@ -10,10 +10,12 @@ High-performance memory pool for audio buffer reuse.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 import threading
 from collections import deque
-from typing import Dict, Any, Tuple, Set
+from typing import Any, Dict, Set, Tuple
+
+import numpy as np
+
 from auralis.utils.logging import debug
 
 

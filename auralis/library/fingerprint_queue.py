@@ -26,12 +26,14 @@ Worker Pool:
 
 import threading
 import time
-from typing import Optional, Dict, Callable, Any, List
+from typing import Any, Callable, Dict, List, Optional
 
-from ..utils.logging import info, warning, error, debug
-from .resource_monitor import AdaptiveResourceMonitor, ResourceLimits
 from auralis.library.fingerprint_extractor import FingerprintExtractor
 from auralis.library.repositories.factory import RepositoryFactory
+
+from ..utils.logging import debug, error, info, warning
+from .resource_monitor import AdaptiveResourceMonitor, ResourceLimits
+
 
 class FingerprintExtractionQueue:
     """

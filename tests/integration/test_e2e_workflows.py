@@ -27,20 +27,21 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
 import os
-import time
-from pathlib import Path
 
 # Import modules under test
 import sys
+import time
+from pathlib import Path
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from auralis.library.manager import LibraryManager
-from auralis.library.models import Track
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-
+from auralis.library.manager import LibraryManager
+from auralis.library.models import Track
 
 # Fixtures are now provided by conftest.py:
 # - temp_library: Creates temporary library with audio directory
@@ -289,8 +290,9 @@ def test_process_preserves_file_integrity(sample_audio_file):
     """
     E2E: Load → process → save → reload → verify integrity.
     """
-    from auralis.io.unified_loader import load_audio
     import tempfile
+
+    from auralis.io.unified_loader import load_audio
 
     # Load original
     original_audio, sr = load_audio(sample_audio_file)
@@ -328,8 +330,8 @@ def test_process_respects_loudness_target(sample_audio_file):
     """
     E2E: Process audio → verify LUFS target is achieved (within tolerance).
     """
-    from auralis.io.unified_loader import load_audio
     from auralis.analysis.loudness_meter import LoudnessMeter
+    from auralis.io.unified_loader import load_audio
 
     audio, sr = load_audio(sample_audio_file)
 

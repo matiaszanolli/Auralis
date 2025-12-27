@@ -23,13 +23,15 @@ Dependencies:
   - collections.deque for windowed buffers
 """
 
-import numpy as np
-import librosa
 import logging
-from typing import Any, Dict, Optional, cast
 from collections import deque
+from typing import Any, Dict, Optional, cast
+
+import librosa
+import numpy as np
+
+from ...common_metrics import MetricUtils, SafeOperations, StabilityMetrics
 from ...utilities.base_streaming_analyzer import BaseStreamingAnalyzer
-from ...common_metrics import MetricUtils, StabilityMetrics, SafeOperations
 from ...utilities.temporal_ops import TemporalOperations
 
 logger = logging.getLogger(__name__)

@@ -8,10 +8,10 @@ Handles playback control, queue management, recommendations, and navigation.
 :license: GPLv3
 """
 
+from .navigation_service import NavigationService
 from .playback_service import PlaybackService
 from .queue_service import QueueService
 from .recommendation_service import RecommendationService
-from .navigation_service import NavigationService
 
 __all__ = [
     'PlaybackService',

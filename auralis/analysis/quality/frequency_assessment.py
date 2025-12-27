@@ -10,8 +10,10 @@ Assess audio frequency response quality
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 from typing import Any, Dict
+
+import numpy as np
+
 from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
 from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOperations
 

@@ -13,12 +13,12 @@ Usage:
     ./scripts/update_profile.py --apply-patterns  # Auto-detect patterns
 """
 
-import json
 import argparse
+import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, Optional
-import sys
 
 
 def find_latest_profile(profile_dir: Path, recording_type: str) -> Optional[Path]:

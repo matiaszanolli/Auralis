@@ -17,8 +17,9 @@ to the 9 high-priority HTTP endpoint test files.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 
 @pytest.mark.phase5c

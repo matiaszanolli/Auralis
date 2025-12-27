@@ -11,8 +11,9 @@ Genre-specific processing profiles and defaults
 """
 
 from typing import Dict
-from .settings import GenreProfile
+
 from ...utils.logging import debug
+from .settings import GenreProfile
 
 
 def create_default_genre_profiles() -> Dict[str, GenreProfile]:

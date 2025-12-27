@@ -14,12 +14,12 @@ This test suite validates:
 import os
 import sys
 import time
-import numpy as np
-import librosa
-import pytest
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 
+import librosa
+import numpy as np
+import pytest
 
 # Blind Guardian audio collection path
 BLIND_GUARDIAN_PATH = Path("/mnt/Musica/Musica/Blind Guardian")

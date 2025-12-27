@@ -8,22 +8,23 @@ Path traversal attacks attempt to access files outside the intended directory
 by using relative paths (../) or absolute paths.
 """
 
-import pytest
-import sys
 import os
+import sys
 from pathlib import Path
+
+import pytest
 
 # Add paths for imports
 project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+from auralis.library.models import Album, Artist, Track
 from auralis.library.scanner import LibraryScanner
-from auralis.library.models import Track, Artist, Album
 from tests.security.helpers import (
     is_path_traversal,
+    sanitize_filename,
     validate_path_safety,
-    sanitize_filename
 )
 
 

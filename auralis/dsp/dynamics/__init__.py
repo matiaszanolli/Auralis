@@ -10,13 +10,20 @@ Modular dynamics processing system
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .settings import (
-    DynamicsMode, CompressorSettings, LimiterSettings, DynamicsSettings
+from .brick_wall_limiter import (
+    BrickWallLimiter,
+    BrickWallLimiterSettings,
+    create_brick_wall_limiter,
 )
-from .envelope import EnvelopeFollower, create_envelope_follower
 from .compressor import AdaptiveCompressor, create_adaptive_compressor
+from .envelope import EnvelopeFollower, create_envelope_follower
 from .limiter import AdaptiveLimiter, create_adaptive_limiter
-from .brick_wall_limiter import BrickWallLimiter, BrickWallLimiterSettings, create_brick_wall_limiter
+from .settings import (
+    CompressorSettings,
+    DynamicsMode,
+    DynamicsSettings,
+    LimiterSettings,
+)
 
 __all__ = [
     # Enums and settings

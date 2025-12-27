@@ -11,11 +11,12 @@ This file demonstrates Phase 5C patterns:
 3. Interface validation for dual-mode compatibility
 """
 
-import pytest
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import Mock, patch
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))

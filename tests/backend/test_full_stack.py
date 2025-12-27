@@ -5,11 +5,13 @@ Tests backend, frontend serving, and all components
 """
 
 import subprocess
-import time
-import requests
 import sys
-import pytest
+import time
 from pathlib import Path
+
+import pytest
+import requests
+
 
 @pytest.mark.skip(reason="Integration test - requires full server startup")
 def test_backend_startup():

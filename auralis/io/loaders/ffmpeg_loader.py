@@ -14,11 +14,12 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
 import numpy as np
 
+from ...utils.logging import Code, ModuleError, debug, warning
 from .soundfile_loader import load_with_soundfile
-from ...utils.logging import debug, warning, Code, ModuleError
 
 
 def check_ffmpeg() -> bool:

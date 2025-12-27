@@ -12,11 +12,11 @@ Features:
 5. Validate version compatibility
 """
 
-from typing import Dict, List, Optional, Tuple, Any
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
-import json
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from .mastering_profile import MasteringProfile
 

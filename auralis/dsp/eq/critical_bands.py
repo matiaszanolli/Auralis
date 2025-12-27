@@ -10,9 +10,10 @@ Bark scale critical band definitions and frequency mapping
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import List
 from dataclasses import dataclass
+from typing import List
+
+import numpy as np
 
 
 @dataclass

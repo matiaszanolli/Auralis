@@ -9,10 +9,12 @@ Coordinates with AudioPlayer and PlayerStateManager for state synchronization.
 """
 
 import logging
-from typing import Dict, Any, Callable
-from auralis import EnhancedAudioPlayer
+from typing import Any, Callable, Dict
+
 from config.globals import ConnectionManager
 from state_manager import PlayerStateManager
+
+from auralis import EnhancedAudioPlayer
 
 logger = logging.getLogger(__name__)
 

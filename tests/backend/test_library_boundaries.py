@@ -23,16 +23,16 @@ import pytest
 
 # Mark all tests in this module as needing refactoring
 pytestmark = pytest.mark.skip(reason="Tests use old TrackRepository API - requires session_factory parameter")
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
 
-from auralis.library.repositories.track_repository import TrackRepository
+import numpy as np
+
+from auralis.io.saver import save as save_audio
 from auralis.library.repositories.album_repository import AlbumRepository
 from auralis.library.repositories.artist_repository import ArtistRepository
-from auralis.io.saver import save as save_audio
-
+from auralis.library.repositories.track_repository import TrackRepository
 
 # ============================================================================
 # Fixtures

@@ -11,8 +11,8 @@ Music library database integration for Auralis
 """
 
 from .manager import LibraryManager
-from .models import Track, Album, Artist, Genre, Playlist
-from .scanner import LibraryScanner, ScanResult, AudioFileInfo
+from .models import Album, Artist, Genre, Playlist, Track
+from .scanner import AudioFileInfo, LibraryScanner, ScanResult
 
 __all__ = [
     "LibraryManager",

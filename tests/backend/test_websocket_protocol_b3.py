@@ -17,28 +17,28 @@ Test Coverage:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import asyncio
-import sys
 import json
+import sys
 import time
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
 from websocket_protocol import (
-    WSMessage,
-    MessageType,
-    MessagePriority,
     ConnectionInfo,
-    RateLimiter,
     HeartbeatManager,
-    WebSocketProtocol
+    MessagePriority,
+    MessageType,
+    RateLimiter,
+    WebSocketProtocol,
+    WSMessage,
 )
-
 
 # ============================================================================
 # Message Tests

@@ -15,13 +15,13 @@ as a whole, catching integration issues between routes,
 middleware, and business logic.
 """
 
-import pytest
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
 import sys
+import tempfile
+from pathlib import Path
 
+import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 # Add backend to path
@@ -29,8 +29,8 @@ backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
 from main import app
-from auralis.io.saver import save as save_audio
 
+from auralis.io.saver import save as save_audio
 
 # ============================================================================
 # Fixtures

@@ -18,10 +18,11 @@ INVARIANTS TESTED:
 - Partial failures: System handles partial network failures
 """
 
-import pytest
 import socket
 import time
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
+
+import pytest
 import requests
 
 
@@ -116,9 +117,10 @@ class TestConnectionFailures:
         INVARIANT: Core local operations should work without network.
         Test: Disable network, verify local operations still work.
         """
-        from auralis.library.repositories import TrackRepository
         import numpy as np
+
         from auralis.io.saver import save
+        from auralis.library.repositories import TrackRepository
 
         # Local database operations should work
         track_repo = TrackRepository(temp_db)

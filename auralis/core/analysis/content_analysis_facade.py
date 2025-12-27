@@ -14,10 +14,11 @@ and provides a single entry point for all content analysis operations.
 :license: GPLv3
 """
 
-import numpy as np
 import logging
-from typing import Dict, Any, Optional
 from dataclasses import dataclass
+from typing import Any, Dict, Optional
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,7 @@ class ContentAnalysisFacade:
         """Lazy-load AdaptiveTargetGenerator."""
         if self._target_generator is None:
             from ..analysis.target_generator import AdaptiveTargetGenerator
-            
+
             # Create config if not provided
             if self.config is None:
                 from ..unified_config import UnifiedConfig
@@ -128,7 +129,7 @@ class ContentAnalysisFacade:
         """Lazy-load SpectrumMapper."""
         if self._spectrum_mapper is None:
             from ..analysis.spectrum_mapper import SpectrumMapper
-            
+
             # Create config if not provided
             if self.config is None:
                 from ..unified_config import UnifiedConfig

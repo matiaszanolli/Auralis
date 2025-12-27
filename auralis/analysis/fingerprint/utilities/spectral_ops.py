@@ -14,10 +14,11 @@ Features:
   - spectral_flatness: Noise-like (high) vs tonal (low) (0-1)
 """
 
-import numpy as np
-import librosa
 import logging
-from typing import Tuple, Optional, Union
+from typing import Optional, Tuple, Union
+
+import librosa
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class SpectralOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import MetricUtils, AggregationUtils
+            from ..common_metrics import AggregationUtils, MetricUtils
 
             # Calculate centroid (prefer pre-computed magnitude if provided)
             if magnitude is not None:
@@ -91,7 +92,7 @@ class SpectralOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import MetricUtils, SafeOperations, AggregationUtils
+            from ..common_metrics import AggregationUtils, MetricUtils, SafeOperations
 
             if magnitude is not None:
                 # Calculate from pre-computed magnitude
@@ -154,7 +155,7 @@ class SpectralOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import SafeOperations, AggregationUtils
+            from ..common_metrics import AggregationUtils, SafeOperations
 
             if magnitude is not None:
                 # Calculate from pre-computed magnitude (geometric mean / arithmetic mean)

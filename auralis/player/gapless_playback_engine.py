@@ -12,12 +12,14 @@ Responsibilities:
 
 import threading
 import time
+from typing import Any, Callable, Dict, Optional
+
 import numpy as np
-from typing import Optional, Dict, Any, Callable
+
+from ..io.loader import load
+from ..utils.logging import debug, error, info, warning
 from .audio_file_manager import AudioFileManager
 from .queue_controller import QueueController
-from ..io.loader import load
-from ..utils.logging import debug, info, warning, error
 
 
 class GaplessPlaybackEngine:

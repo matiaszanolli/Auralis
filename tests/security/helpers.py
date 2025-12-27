@@ -5,8 +5,8 @@ Security Test Helpers
 Utility functions for security testing.
 """
 
-import re
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 

@@ -13,9 +13,10 @@ STRESS SCENARIOS:
 - Pagination performance at scale
 """
 
-import pytest
-import time
 import gc
+import time
+
+import pytest
 
 
 @pytest.mark.load
@@ -272,7 +273,7 @@ class TestLargePlaylistOperations:
         LOAD: Create playlist with 1000 tracks.
         Target: < 5 seconds.
         """
-        from auralis.library.repositories import TrackRepository, PlaylistRepository
+        from auralis.library.repositories import PlaylistRepository, TrackRepository
 
         tracks = large_track_dataset(1000)
         track_repo = TrackRepository(temp_db)

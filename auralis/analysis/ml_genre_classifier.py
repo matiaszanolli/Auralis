@@ -13,9 +13,10 @@ has been refactored into smaller, focused modules under auralis/analysis/ml/
 DEPRECATED: Import from auralis.analysis.ml instead
 """
 
+from .ml.feature_extractor import FeatureExtractor
+
 # Re-export everything from the new modular structure
 from .ml.features import AudioFeatures
-from .ml.feature_extractor import FeatureExtractor
 from .ml.genre_classifier import MLGenreClassifier, create_ml_genre_classifier
 from .ml.genre_weights import initialize_genre_weights
 

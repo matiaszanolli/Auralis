@@ -10,11 +10,12 @@ Data access layer for playlist operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Dict, Any, Callable
+from typing import Any, Callable, Dict, List, Optional
+
 from sqlalchemy.orm import Session, selectinload
 
+from ...utils.logging import debug, error, info
 from ..models import Playlist, Track
-from ...utils.logging import info, error, debug
 
 
 class PlaylistRepository:

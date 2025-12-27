@@ -10,8 +10,9 @@ Models for library-wide statistics and analytics
 :license: GPLv3, see LICENSE for more details.
 """
 
-from sqlalchemy import Column, Integer, Float, DateTime
-from typing import Dict, Any
+from typing import Any, Dict
+
+from sqlalchemy import Column, DateTime, Float, Integer
 
 from .base import Base, TimestampMixin
 

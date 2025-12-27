@@ -15,11 +15,12 @@ SECURITY CONTROLS TESTED:
 - Data integrity validation
 """
 
-import pytest
 import os
+import shutil
 import stat
 import tempfile
-import shutil
+
+import pytest
 from sqlalchemy import text
 
 from auralis.library.repositories import TrackRepository

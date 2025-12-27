@@ -12,16 +12,18 @@ Multi-stage audio processing pipeline
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
+from typing import Any, Optional, Tuple
+
 import numpy as np
-from typing import Tuple, Optional, Any
-from .basic import rms, normalize, amplify
+
+from ..utils.logging import debug, info
+from .basic import amplify, normalize, rms
 from .dynamics.soft_clipper import soft_clip
 from .utils.adaptive import (
     adaptive_gain_calculation,
     calculate_loudness_units,
 )
-from .utils.spectral import spectral_centroid, crest_factor
-from ..utils.logging import debug, info
+from .utils.spectral import crest_factor, spectral_centroid
 
 
 def main(

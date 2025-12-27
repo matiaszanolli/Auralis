@@ -10,11 +10,12 @@ Tests the .25d sidecar file management system
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import json
 import time
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
 
 from auralis.library.sidecar_manager import SidecarManager
 

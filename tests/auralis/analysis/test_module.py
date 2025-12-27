@@ -9,15 +9,17 @@ Tests all four analysis components:
 - DynamicRangeAnalyzer
 """
 
-import pytest
+from unittest.mock import MagicMock, patch
+
 import numpy as np
-from unittest.mock import patch, MagicMock
+import pytest
+
+from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
+from auralis.analysis.loudness_meter import LoudnessMeter, LUFSMeasurement
+from auralis.analysis.phase_correlation import PhaseCorrelationAnalyzer
 
 # Import analysis modules
 from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
-from auralis.analysis.loudness_meter import LoudnessMeter, LUFSMeasurement
-from auralis.analysis.phase_correlation import PhaseCorrelationAnalyzer
-from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
 
 
 class TestSpectrumAnalyzer:

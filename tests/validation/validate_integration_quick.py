@@ -8,8 +8,9 @@ Quick Integration Test
 Test that all optimizations are working correctly
 """
 
-import numpy as np
 import time
+
+import numpy as np
 
 print("=" * 70)
 print("Quick Integration Test - Optimized Components")
@@ -48,7 +49,7 @@ except Exception as e:
 # Test 2: Vectorized EQ
 print("\n[Test 2] Vectorized EQ in PsychoacousticEQ")
 try:
-    from auralis.dsp.eq.psychoacoustic_eq import PsychoacousticEQ, EQSettings
+    from auralis.dsp.eq.psychoacoustic_eq import EQSettings, PsychoacousticEQ
 
     settings = EQSettings()
     eq = PsychoacousticEQ(settings)

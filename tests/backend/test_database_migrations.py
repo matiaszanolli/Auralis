@@ -22,13 +22,12 @@ import pytest
 
 # Skip - API incompatibility with LibraryManager
 pytestmark = pytest.mark.skip(reason="Tests use LibraryManager.close() which doesn't exist. Requires refactoring to match current API.")
-from pathlib import Path
-import tempfile
 import shutil
 import sqlite3
+import tempfile
+from pathlib import Path
 
 from auralis.library.manager import LibraryManager
-
 
 # ============================================================================
 # Fixtures

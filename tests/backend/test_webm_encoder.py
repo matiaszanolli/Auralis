@@ -4,15 +4,17 @@ Tests for WebM Encoder
 Tests the async ffmpeg encoding to WebM/Opus format for MSE streaming.
 """
 
-import pytest
 import asyncio
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
 
 # Import the module to test
 import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'))
 
 from webm_encoder import WebMEncoder, get_encoder

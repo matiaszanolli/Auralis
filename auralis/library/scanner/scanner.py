@@ -11,16 +11,16 @@ Main scanner orchestrator
 """
 
 import time
-from typing import List, Dict, Optional, Callable, Any
+from typing import Any, Callable, Dict, List, Optional
 
 from ...utils.logging import info, warning
 from ..scan_models import ScanResult
-from .config import DEFAULT_BATCH_SIZE
-from .file_discovery import FileDiscovery
 from .audio_analyzer import AudioAnalyzer
-from .metadata_extractor import MetadataExtractor
 from .batch_processor import BatchProcessor
+from .config import DEFAULT_BATCH_SIZE
 from .duplicate_detector import DuplicateDetector
+from .file_discovery import FileDiscovery
+from .metadata_extractor import MetadataExtractor
 
 
 class LibraryScanner:

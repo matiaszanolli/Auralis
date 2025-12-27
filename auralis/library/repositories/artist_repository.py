@@ -10,7 +10,8 @@ Data access layer for artist operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Callable
+from typing import Callable, List, Optional
+
 from sqlalchemy.orm import Session
 
 from ..models import Artist
@@ -30,7 +31,8 @@ class ArtistRepository:
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
-            from ..models import Track, Album
+
+            from ..models import Album, Track
             return (
                 session.query(Artist)
                 .options(
@@ -48,6 +50,7 @@ class ArtistRepository:
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
+
             from ..models import Track
             return (
                 session.query(Artist)
@@ -74,8 +77,9 @@ class ArtistRepository:
         """
         session = self.get_session()
         try:
+            from sqlalchemy import desc, func
             from sqlalchemy.orm import joinedload
-            from sqlalchemy import func, desc
+
             from ..models import Track
 
             # Get total count
@@ -134,6 +138,7 @@ class ArtistRepository:
         session = self.get_session()
         try:
             from sqlalchemy.orm import joinedload
+
             from ..models import Track
 
             # Get total count of matching artists

@@ -10,21 +10,22 @@ Main orchestrator for psychoacoustic EQ processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Any, Dict, List, Optional, cast
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, cast
 
+import numpy as np
+
+from ...utils.logging import debug
+from ..unified import smooth_parameter_transition
 from .critical_bands import (
     CriticalBand,
     create_critical_bands,
+    create_frequency_mapping,
     create_perceptual_weighting,
-    create_frequency_mapping
 )
-from .masking import MaskingThresholdCalculator
-from .filters import apply_eq_gains
 from .curves import apply_content_adaptation
-from ..unified import smooth_parameter_transition
-from ...utils.logging import debug
+from .filters import apply_eq_gains
+from .masking import MaskingThresholdCalculator
 
 # Use vectorized EQ processor for 1.7x speedup
 try:

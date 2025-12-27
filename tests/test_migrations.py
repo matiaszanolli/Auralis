@@ -2,22 +2,23 @@
 Tests for database migration system
 """
 
-import pytest
-import tempfile
 import shutil
-from pathlib import Path
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from auralis.__version__ import __db_schema_version__
 from auralis.library.migrations import (
     MigrationManager,
     backup_database,
+    check_and_migrate_database,
     restore_database,
-    check_and_migrate_database
 )
-from auralis.library.models import Base, Track, SchemaVersion
-from auralis.__version__ import __db_schema_version__
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from auralis.library.models import Base, SchemaVersion, Track
 
 
 class TestMigrationManager:

@@ -10,9 +10,10 @@ Tests the audio file saving system
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pytest
 import soundfile as sf
 
 from auralis.io.saver import save

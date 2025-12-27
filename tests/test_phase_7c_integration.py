@@ -13,20 +13,21 @@ Integration Test Categories:
   4. Performance and consistency (2 tests)
 """
 
-import pytest
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from auralis.analysis.fingerprint.confidence_scorer import ConfidenceScorer
+from auralis.analysis.fingerprint.feature_adaptive_sampler import FeatureAdaptiveSampler
+from auralis.analysis.fingerprint.runtime_strategy_manager import RuntimeStrategyManager
 from auralis.analysis.fingerprint.strategy_selector import (
     AdaptiveStrategySelector,
     ProcessingMode,
     StrategyPreference,
 )
-from auralis.analysis.fingerprint.confidence_scorer import ConfidenceScorer
-from auralis.analysis.fingerprint.feature_adaptive_sampler import FeatureAdaptiveSampler
-from auralis.analysis.fingerprint.runtime_strategy_manager import RuntimeStrategyManager
 
 
 class TestFullWorkflowSimulations:

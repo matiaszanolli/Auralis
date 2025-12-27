@@ -13,11 +13,12 @@ Tests verify:
 - Large queue support
 """
 
-import pytest
 import tempfile
 from pathlib import Path
-from auralis.utils.queue import QueueExporter, M3UHandler, XSPFHandler
 
+import pytest
+
+from auralis.utils.queue import M3UHandler, QueueExporter, XSPFHandler
 
 # Sample track data
 SAMPLE_TRACKS = [

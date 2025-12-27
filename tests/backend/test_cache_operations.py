@@ -15,18 +15,18 @@ These tests ensure that caching works correctly and
 provides the expected performance benefits.
 """
 
-import pytest
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
 import time
+from pathlib import Path
 
-from auralis.library.repositories.track_repository import TrackRepository
-from auralis.library.repositories.factory import RepositoryFactory
-from auralis.library.manager import LibraryManager
+import numpy as np
+import pytest
+
 from auralis.io.saver import save as save_audio
-
+from auralis.library.manager import LibraryManager
+from auralis.library.repositories.factory import RepositoryFactory
+from auralis.library.repositories.track_repository import TrackRepository
 
 # ============================================================================
 # Fixtures
@@ -417,6 +417,7 @@ def repository_factory_memory():
     """Create RepositoryFactory with in-memory database for testing."""
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
+
     from auralis.library.models import Base
 
     # Create in-memory SQLite database

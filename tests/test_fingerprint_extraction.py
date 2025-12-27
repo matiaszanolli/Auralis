@@ -13,13 +13,14 @@ Tests the 25D fingerprint extraction pipeline, including:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
-import json
 import asyncio
+import json
 import tempfile
 from pathlib import Path
 from typing import Dict
+
+import numpy as np
+import pytest
 
 # Fixtures for fingerprint testing
 
@@ -296,9 +297,9 @@ class TestScannerFingerprinterIntegration:
 
     def test_scanner_accepts_fingerprint_queue(self, library_manager_mock):
         """Test that scanner accepts optional fingerprint queue"""
-        from auralis.library.scanner import LibraryScanner
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
         from auralis.library.fingerprint_extractor import FingerprintExtractor
+        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
+        from auralis.library.scanner import LibraryScanner
 
         # Create minimal queue
         extractor = type('MockExtractor', (), {'extract_and_store': lambda *a, **k: True})()
@@ -414,8 +415,9 @@ class TestFingerprintQueuePerformance:
     @pytest.mark.performance
     async def test_enqueue_throughput(self, fingerprint_extractor_mock, library_manager_mock):
         """Test enqueue throughput (should be fast)"""
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
         import time
+
+        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
 
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor_mock,

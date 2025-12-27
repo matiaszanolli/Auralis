@@ -12,12 +12,15 @@ Tests the end-to-end integration of the 25D-guided adaptive mastering system.
 
 import numpy as np
 import pytest
+
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
+from auralis.core.analysis.content_analyzer import ContentAnalyzer
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.processing.continuous_mode import ContinuousMode
-from auralis.core.recording_type_detector import RecordingTypeDetector, RecordingType
+from auralis.core.recording_type_detector import RecordingType, RecordingTypeDetector
 from auralis.core.unified_config import UnifiedConfig
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
-from auralis.core.analysis.content_analyzer import ContentAnalyzer
 
 
 class TestPhase5RecordingTypeDetectorIntegration:

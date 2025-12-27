@@ -10,8 +10,10 @@ Never assumes based on genre labels - only uses audio analysis.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Tuple, List, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
+
 from .fingerprint.common_metrics import MetricUtils
 
 logger = logging.getLogger(__name__)

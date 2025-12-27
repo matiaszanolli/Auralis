@@ -13,24 +13,25 @@ These tests complement the invariant tests by focusing on edge cases
 where bugs commonly occur.
 """
 
-import pytest
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
 import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Add backend to path
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
 from chunked_processor import (
-    ChunkedAudioProcessor,
     CHUNK_DURATION,
     OVERLAP_DURATION,
+    ChunkedAudioProcessor,
 )
-from auralis.io.saver import save as save_audio
 
+from auralis.io.saver import save as save_audio
 
 # ============================================================================
 # Fixtures

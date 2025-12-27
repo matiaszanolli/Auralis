@@ -11,19 +11,22 @@ Processes all available FLAC files from music library to validate
 production readiness at realistic scale.
 """
 
-import numpy as np
-import time
-from pathlib import Path
-import sys
 import gc
-from collections import defaultdict
-import psutil
 import os
+import sys
+import time
+from collections import defaultdict
+from pathlib import Path
+
+import numpy as np
+import psutil
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

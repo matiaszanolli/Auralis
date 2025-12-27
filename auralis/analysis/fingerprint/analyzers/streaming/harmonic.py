@@ -23,13 +23,15 @@ Dependencies:
   - collections.deque for buffering
 """
 
-import numpy as np
 import logging
-from typing import Dict, Optional, cast, Any
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, Optional, cast
+
+import numpy as np
+
+from ...common_metrics import MetricUtils, SafeOperations, StabilityMetrics
 from ...utilities.base_streaming_analyzer import BaseStreamingAnalyzer
-from ...common_metrics import MetricUtils, StabilityMetrics, SafeOperations
 from ...utilities.harmonic_ops import HarmonicOperations
 
 logger = logging.getLogger(__name__)

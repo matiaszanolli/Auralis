@@ -16,19 +16,20 @@ import pytest
 # Skip - tests use APIs incompatible with current implementation
 pytestmark = pytest.mark.skip(reason="Tests use APIs incompatible with current implementation. Requires refactoring.")
 import asyncio
-import tempfile
-from pathlib import Path
 
 # Add backend to path
 import sys
+import tempfile
+from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from cache.manager import (
-    StreamlinedCacheManager,
-    CachedChunk,
-    TrackCacheStatus,
     CHUNK_DURATION,
-    CHUNK_SIZE_MB
+    CHUNK_SIZE_MB,
+    CachedChunk,
+    StreamlinedCacheManager,
+    TrackCacheStatus,
 )
 
 

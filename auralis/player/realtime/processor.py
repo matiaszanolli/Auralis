@@ -10,17 +10,18 @@ Main real-time audio processor orchestrator
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 import time
-from typing import Dict, Any, Optional
 from threading import Lock
+from typing import Any, Dict, Optional
 
-from .performance_monitor import PerformanceMonitor
-from .level_matcher import RealtimeLevelMatcher
+import numpy as np
+
+from ...utils.logging import info
+from ..config import PlayerConfig
 from .auto_master import AutoMasterProcessor
 from .gain_smoother import AdaptiveGainSmoother
-from ..config import PlayerConfig
-from ...utils.logging import info
+from .level_matcher import RealtimeLevelMatcher
+from .performance_monitor import PerformanceMonitor
 
 
 class RealtimeProcessor:

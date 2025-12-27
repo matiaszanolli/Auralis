@@ -4,10 +4,11 @@ Backend Test Configuration
 Provides fixtures and configuration for backend testing.
 """
 
-import pytest
 import asyncio
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add backend to Python path for imports
 backend_path = Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'
@@ -102,9 +103,10 @@ def client():
     Returns:
         TestClient: Configured test client with all routes
     """
-    from fastapi.testclient import TestClient
     import sys
     from pathlib import Path
+
+    from fastapi.testclient import TestClient
 
     # Import main app
     sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'))
@@ -155,7 +157,7 @@ def mock_library_manager():
     This mock provides all necessary repository interfaces
     without requiring a real database connection.
     """
-    from unittest.mock import Mock, MagicMock
+    from unittest.mock import MagicMock, Mock
 
     manager = Mock()
 
@@ -213,7 +215,7 @@ def mock_repository_factory():
     Phase 5C: Enables testing endpoints with RepositoryFactory
     while maintaining backward compatibility with LibraryManager tests.
     """
-    from unittest.mock import Mock, MagicMock
+    from unittest.mock import MagicMock, Mock
 
     factory = Mock()
 

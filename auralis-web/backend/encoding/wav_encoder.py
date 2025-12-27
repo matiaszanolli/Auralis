@@ -19,11 +19,12 @@ Trade-off:
 :license: GPLv3
 """
 
+import io
 import logging
-import numpy as np
 from pathlib import Path
 from typing import Optional
-import io
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

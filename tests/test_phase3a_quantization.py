@@ -15,6 +15,7 @@ Tests 8-bit quantization of 25D fingerprints:
 """
 
 import pytest
+
 from auralis.library.fingerprint_quantizer import FingerprintQuantizer
 
 

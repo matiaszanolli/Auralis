@@ -5,12 +5,13 @@ Performance Test Helpers
 Utility functions for performance testing and benchmarking.
 """
 
-import time
 import gc
-import psutil
-import numpy as np
-from typing import Callable, Dict, List, Any
+import time
 from contextlib import contextmanager
+from typing import Any, Callable, Dict, List
+
+import numpy as np
+import psutil
 
 
 def benchmark(func: Callable, iterations: int = 10, warmup: int = 2) -> Dict[str, float]:

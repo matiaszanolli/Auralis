@@ -11,13 +11,13 @@ High-performance parallel processing for psychoacoustic EQ
 """
 
 from .config import ParallelEQConfig
-from .parallel_processor import ParallelEQProcessor
-from .vectorized_processor import VectorizedEQProcessor
 from .factory import (
+    create_optimal_eq_processor,
     create_parallel_eq_processor,
     create_vectorized_eq_processor,
-    create_optimal_eq_processor
 )
+from .parallel_processor import ParallelEQProcessor
+from .vectorized_processor import VectorizedEQProcessor
 
 __all__ = [
     'ParallelEQConfig',

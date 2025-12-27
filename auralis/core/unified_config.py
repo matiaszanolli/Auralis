@@ -13,15 +13,15 @@ For new code, prefer importing from auralis.core.config directly.
 
 # Re-export all components from modular structure
 from .config import (
-    LimiterConfig,
     AdaptiveConfig,
     GenreProfile,
-    create_default_genre_profiles,
-    get_default_genre_profile,
+    LimiterConfig,
     UnifiedConfig,
     create_adaptive_config,
-    create_reference_config,
+    create_default_genre_profiles,
     create_hybrid_config,
+    create_reference_config,
+    get_default_genre_profile,
 )
 
 __all__ = [

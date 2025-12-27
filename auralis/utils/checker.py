@@ -12,9 +12,11 @@ Audio validation and checking utilities
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
+from typing import Any, Tuple
+
 import numpy as np
-from typing import Tuple, Any
-from .logging import debug, ModuleError, Code
+
+from .logging import Code, ModuleError, debug
 
 
 def check(audio: np.ndarray, sample_rate: int, config: Any, file_type: str = "audio") -> Tuple[np.ndarray, int]:
@@ -44,7 +46,7 @@ def check(audio: np.ndarray, sample_rate: int, config: Any, file_type: str = "au
     debug(f"Checking {file_type} audio: {audio.shape}, {sample_rate} Hz")
 
     # Import validation functions
-    from ..io.processing import validate_audio, resample_audio
+    from ..io.processing import resample_audio, validate_audio
 
     # Validate audio (checks for empty, NaN, Inf, clipping, etc.)
     audio, sample_rate = validate_audio(audio, sample_rate, file_type)

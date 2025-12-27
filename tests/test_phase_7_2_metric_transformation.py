@@ -10,13 +10,14 @@ Test Count: 32 tests
 Coverage: All new helper classes in MetricUtils
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from auralis.analysis.fingerprint.common_metrics import (
-    VariationMetrics,
-    StabilityMetrics,
     BandNormalizationTable,
-    MetricUtils
+    MetricUtils,
+    StabilityMetrics,
+    VariationMetrics,
 )
 
 

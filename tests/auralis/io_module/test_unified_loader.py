@@ -10,15 +10,12 @@ Tests the audio file loading system
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
 from pathlib import Path
 
-from auralis.io.unified_loader import (
-    load_audio,
-    SUPPORTED_FORMATS,
-    FFMPEG_FORMATS
-)
+import numpy as np
+import pytest
+
+from auralis.io.unified_loader import FFMPEG_FORMATS, SUPPORTED_FORMATS, load_audio
 
 
 @pytest.fixture

@@ -20,17 +20,18 @@ Benefits:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import logging
-from typing import List, Dict, Any, Optional, Tuple
-from pathlib import Path
-from dataclasses import dataclass
 import asyncio
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 from ..analysis.fingerprint.gpu_engine import (
     GPUFingerprintEngine,
+    get_gpu_engine,
     is_gpu_available,
-    get_gpu_engine
 )
 from ..io.unified_loader import load_audio
 

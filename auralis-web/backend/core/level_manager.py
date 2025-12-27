@@ -9,9 +9,10 @@ Prevents audible volume jumps during chunk transitions.
 :license: GPLv3
 """
 
-import numpy as np
 import logging
-from typing import List, Tuple, Optional, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

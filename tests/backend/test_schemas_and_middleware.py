@@ -13,47 +13,47 @@ Test Coverage:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import sys
-from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any, Dict
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from schemas import (
-    SuccessResponse,
-    ErrorResponse,
-    PaginationParams,
-    PaginationMeta,
-    PaginatedResponse,
-    CursorPaginationParams,
-    BatchRequest,
-    BatchResponse,
-    BatchItem,
-    BatchItemResult,
-    HealthCheckResponse,
-    VersionResponse,
-    TrackBase,
-    ArtistBase,
-    AlbumBase,
-    SearchRequest,
-    ResponseStatus,
-    ErrorType
-)
 from helpers import (
-    create_pagination_meta,
-    create_paginated_response,
-    validate_pagination_params,
-    execute_batch_operation_sync,
     apply_filters,
     apply_search,
+    create_paginated_response,
+    create_pagination_meta,
     create_success_response,
+    execute_batch_operation_sync,
+    paginate_list,
     validate_batch_request,
-    paginate_list
+    validate_pagination_params,
 )
-
+from schemas import (
+    AlbumBase,
+    ArtistBase,
+    BatchItem,
+    BatchItemResult,
+    BatchRequest,
+    BatchResponse,
+    CursorPaginationParams,
+    ErrorResponse,
+    ErrorType,
+    HealthCheckResponse,
+    PaginatedResponse,
+    PaginationMeta,
+    PaginationParams,
+    ResponseStatus,
+    SearchRequest,
+    SuccessResponse,
+    TrackBase,
+    VersionResponse,
+)
 
 # ============================================================================
 # Schema Tests

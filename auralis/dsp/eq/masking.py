@@ -10,8 +10,10 @@ Masking threshold calculations based on psychoacoustic models
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 from typing import List
+
+import numpy as np
+
 from .critical_bands import CriticalBand
 
 

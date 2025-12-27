@@ -1,6 +1,6 @@
-import matchering as mg
-
 from datetime import datetime
+
+import matchering as mg
 
 
 # Let's define a basic text output function that will also output the current datetime

@@ -10,13 +10,14 @@ Data access layer for track fingerprint operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Dict, Any, Callable, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from ..models import TrackFingerprint, Track
+from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session
+
+from ...utils.logging import debug, error, info, warning
 from ..fingerprint_quantizer import FingerprintQuantizer
-from ...utils.logging import info, warning, error, debug
+from ..models import Track, TrackFingerprint
 
 
 class FingerprintRepository:

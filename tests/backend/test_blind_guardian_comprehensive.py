@@ -22,9 +22,10 @@ Purpose:
 """
 
 import json
-from pathlib import Path
-from collections import defaultdict
 import statistics
+from collections import defaultdict
+from pathlib import Path
+
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 

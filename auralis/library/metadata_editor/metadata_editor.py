@@ -11,8 +11,8 @@ Audio file metadata editing orchestrator
 """
 
 import os
-from typing import Dict, List, Any
 from pathlib import Path
+from typing import Any, Dict, List
 
 try:
     from mutagen import File as MutagenFile  # type: ignore[attr-defined]
@@ -24,12 +24,12 @@ except ImportError:
     MUTAGEN_AVAILABLE = False
     MutagenFile = None
 
-from .models import MetadataUpdate
-from .tag_mappings import TAG_MAPPINGS, STANDARD_FIELDS, get_format_key
-from .readers import MetadataReaders
-from .writers import MetadataWriters
+from ...utils.logging import debug, error, info, warning
 from .backup import BackupManager
-from ...utils.logging import info, warning, error, debug
+from .models import MetadataUpdate
+from .readers import MetadataReaders
+from .tag_mappings import STANDARD_FIELDS, TAG_MAPPINGS, get_format_key
+from .writers import MetadataWriters
 
 
 class MetadataEditor:

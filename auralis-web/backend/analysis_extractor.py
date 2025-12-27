@@ -15,12 +15,13 @@ This module bridges ContentAnalyzer with TrackAnalysisCache to provide:
 """
 
 import logging
-from typing import Dict, Any, Optional, Tuple, cast
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, cast
+
 import numpy as np
 
-from auralis.core.analysis.content_analyzer import ContentAnalyzer
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
+from auralis.core.analysis.content_analyzer import ContentAnalyzer
 from auralis.io.unified_loader import load_audio
 
 from .track_analysis_cache import get_track_analysis_cache

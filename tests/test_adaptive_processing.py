@@ -12,24 +12,36 @@ Test suite for the new adaptive audio processing system
 Comprehensive tests for the unified Auralis adaptive mastering system
 """
 
-import pytest
-import numpy as np
-import tempfile
 import os
-from pathlib import Path
 
 # Import unified system components
 import sys
-import os
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from auralis.core.unified_config import UnifiedConfig, AdaptiveConfig, GenreProfile
-from auralis.core.hybrid_processor import HybridProcessor, ContentAnalyzer, AdaptiveTargetGenerator
-from auralis.dsp.unified import (
-    rms, spectral_centroid, spectral_rolloff, tempo_estimate,
-    crest_factor, adaptive_gain_calculation
+from auralis.analysis.content_analysis import (
+    AdvancedContentAnalyzer,
+    analyze_audio_content,
 )
-from auralis.analysis.content_analysis import AdvancedContentAnalyzer, analyze_audio_content
+from auralis.core.hybrid_processor import (
+    AdaptiveTargetGenerator,
+    ContentAnalyzer,
+    HybridProcessor,
+)
+from auralis.core.unified_config import AdaptiveConfig, GenreProfile, UnifiedConfig
+from auralis.dsp.unified import (
+    adaptive_gain_calculation,
+    crest_factor,
+    rms,
+    spectral_centroid,
+    spectral_rolloff,
+    tempo_estimate,
+)
 
 
 class TestUnifiedConfig:

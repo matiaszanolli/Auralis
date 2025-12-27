@@ -11,9 +11,10 @@ Audio file analysis and information extraction
 """
 
 import hashlib
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
+
 import soundfile as sf
 
 from ...utils.logging import debug

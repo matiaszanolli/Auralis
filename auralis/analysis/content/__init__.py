@@ -11,9 +11,13 @@ Modular content analysis system
 """
 
 from .analyzers import (
-    ContentFeatures, GenreClassification, MoodAnalysis,
-    GenreAnalyzer, MoodAnalyzer,
-    create_genre_analyzer, create_mood_analyzer
+    ContentFeatures,
+    GenreAnalyzer,
+    GenreClassification,
+    MoodAnalysis,
+    MoodAnalyzer,
+    create_genre_analyzer,
+    create_mood_analyzer,
 )
 from .feature_extractors import FeatureExtractor, create_feature_extractor
 from .recommendations import RecommendationEngine, create_recommendation_engine

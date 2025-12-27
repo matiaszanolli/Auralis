@@ -3,12 +3,12 @@
 Extended comprehensive validation of smooth scaling across diverse eras and genres.
 """
 
+import os
 import subprocess
 import sys
-import os
-from pathlib import Path
 import tempfile
-from typing import Dict, Any, List, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 sys.path.insert(0, '/mnt/data/src/matchering')
 from auralis.analysis.fingerprint.fingerprint_service import FingerprintService

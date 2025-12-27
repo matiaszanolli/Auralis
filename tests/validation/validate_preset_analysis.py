@@ -2,11 +2,13 @@
 """Test script to process an audio track and analyze the results."""
 
 import numpy as np
-from auralis.io.unified_loader import load_audio
-from auralis.io.saver import save
+
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 from auralis.dsp.basic import rms
+from auralis.io.saver import save
+from auralis.io.unified_loader import load_audio
+
 
 def analyze_audio(audio, sr, label="Audio"):
     """Analyze audio characteristics"""

@@ -14,11 +14,12 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any, Optional, Callable
-import logging
 import asyncio
+import logging
 import os
+from typing import Any, Callable, Dict, Optional
+
+from fastapi import APIRouter, HTTPException
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
@@ -69,8 +70,8 @@ def create_enhancement_router(
             # Import here to avoid circular dependencies
             import sys
             sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-            from chunked_processor import ChunkedAudioProcessor
             import soundfile as sf
+            from chunked_processor import ChunkedAudioProcessor
 
             # Calculate current chunk and next 3 chunks to pre-process
             current_chunk_idx = int(current_time / CHUNK_DURATION)

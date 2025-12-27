@@ -15,29 +15,22 @@ This file re-exports from the modular models package.
 """
 
 # Re-export all models for backward compatibility
-from .models import (
-    # Base
+from .models import (  # Base; Association tables; Core models; Statistics; Settings; Fingerprint; Schema
+    Album,
+    Artist,
     Base,
+    Genre,
+    LibraryStats,
+    Playlist,
+    SchemaVersion,
+    SimilarityGraph,
     TimestampMixin,
-    # Association tables
+    Track,
+    TrackFingerprint,
+    UserSettings,
     track_artist,
     track_genre,
     track_playlist,
-    # Core models
-    Track,
-    Album,
-    Artist,
-    Genre,
-    Playlist,
-    # Statistics
-    LibraryStats,
-    # Settings
-    UserSettings,
-    # Fingerprint
-    TrackFingerprint,
-    SimilarityGraph,
-    # Schema
-    SchemaVersion,
 )
 
 __all__ = [

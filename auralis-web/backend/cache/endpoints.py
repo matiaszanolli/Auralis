@@ -12,8 +12,8 @@ Phase B.2: Cache Integration and Monitoring
 
 import logging
 import time
-from typing import Callable, Any, Optional, Awaitable, TypeVar, Dict, Coroutine
 from functools import wraps
+from typing import Any, Awaitable, Callable, Coroutine, Dict, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 

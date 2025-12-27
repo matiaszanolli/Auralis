@@ -11,7 +11,8 @@ Base classes, association tables, and mixins for database models
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import declarative_base
 
 # Create base for all models

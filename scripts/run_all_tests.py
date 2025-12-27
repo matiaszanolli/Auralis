@@ -8,9 +8,10 @@ Unified Test Runner for Auralis System
 Runs all tests for the Auralis audio mastering system
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
+
 
 def run_test_file(test_file):
     """Run a single test file"""

@@ -10,18 +10,19 @@ Tests the audio validation and checking utilities
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
 
 from auralis.utils.checker import (
     check,
     check_equality,
+    check_file_permissions,
     is_audio_file,
-    check_file_permissions
 )
-from auralis.utils.logging import ModuleError, Code
+from auralis.utils.logging import Code, ModuleError
 
 
 @pytest.fixture

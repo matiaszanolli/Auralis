@@ -26,17 +26,21 @@ Integration:
 import logging
 import threading
 import time
+from queue import Empty, Queue
 from typing import Any, Dict, List, Optional, Tuple
-from queue import Queue, Empty
 
-from .fingerprint_queue import FingerprintExtractionQueue, FingerprintJob  # type: ignore[attr-defined]
+import numpy as np
+
 from ..analysis.fingerprint.gpu_engine import (
-    is_gpu_available,
+    GPUFingerprintEngine,
     get_gpu_engine,
-    GPUFingerprintEngine
+    is_gpu_available,
 )
 from ..io.unified_loader import load_audio
-import numpy as np
+from .fingerprint_queue import (  # type: ignore[attr-defined]
+    FingerprintExtractionQueue,
+    FingerprintJob,
+)
 
 logger = logging.getLogger(__name__)
 

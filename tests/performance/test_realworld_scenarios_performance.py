@@ -18,19 +18,19 @@ Target: 15 comprehensive real-world scenario tests
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import time
-import numpy as np
 import os
 import tempfile
+import time
+
+import numpy as np
+import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.library.manager import LibraryManager
-from auralis.library.repositories import TrackRepository, PlaylistRepository
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
-
+from auralis.library.manager import LibraryManager
+from auralis.library.repositories import PlaylistRepository, TrackRepository
 
 # ============================================================================
 # COMPLETE WORKFLOW TESTS (5 tests)

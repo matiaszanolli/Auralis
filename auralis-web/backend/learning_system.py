@@ -8,12 +8,12 @@ Tracks prediction accuracy and adapts system behavior over time.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import time
-import logging
 import copy
+import logging
+import time
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple, Deque, Optional
-from collections import deque, defaultdict
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

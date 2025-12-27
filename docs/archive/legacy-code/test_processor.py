@@ -4,16 +4,17 @@
 Comprehensive tests for Auralis core processor
 """
 
-import pytest
-import numpy as np
-import tempfile
 import os
-from unittest.mock import patch, MagicMock
+import tempfile
+from unittest.mock import MagicMock, patch
 
-from auralis.core.processor import process
+import numpy as np
+import pytest
+
 from auralis.core.config import UnifiedConfig
+from auralis.core.processor import process
 from auralis.io.results import Result
-from auralis.utils.logging import ModuleError, Code
+from auralis.utils.logging import Code, ModuleError
 
 
 class TestCoreProcessor:

@@ -15,7 +15,8 @@ and dynamic range metrics.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 

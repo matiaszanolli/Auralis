@@ -11,14 +11,15 @@ Tests all safety guards, normalizations, and metric conversions.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from auralis.analysis.fingerprint.common_metrics import (
-    FingerprintConstants,
-    SafeOperations,
-    MetricUtils,
-    AudioMetrics,
     AggregationUtils,
+    AudioMetrics,
+    FingerprintConstants,
+    MetricUtils,
+    SafeOperations,
     SpectralOperations,
 )
 

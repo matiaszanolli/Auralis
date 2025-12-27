@@ -9,17 +9,22 @@ parameterized queries. These tests verify that malicious SQL cannot be
 injected through user inputs.
 """
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add paths for imports
 project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from auralis.library.repositories import TrackRepository, ArtistRepository, AlbumRepository
-from auralis.library.models import Track, Artist, Album
+from auralis.library.models import Album, Artist, Track
+from auralis.library.repositories import (
+    AlbumRepository,
+    ArtistRepository,
+    TrackRepository,
+)
 from tests.security.helpers import is_sql_injection
 
 

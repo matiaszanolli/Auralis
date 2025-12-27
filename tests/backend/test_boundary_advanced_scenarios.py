@@ -26,22 +26,23 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
-import numpy as np
-import tempfile
 import os
-import time
-import threading
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Import the modules under test
 import sys
+import tempfile
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from auralis.library.manager import LibraryManager
 from auralis.io.saver import save as save_audio
-
+from auralis.library.manager import LibraryManager
 
 # ============================================================================
 # Fixtures

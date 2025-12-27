@@ -7,9 +7,10 @@ This enables instant preset switching with zero wait time.
 
 import asyncio
 import logging
-from typing import Optional, Set, cast, Tuple
-import numpy as np
 from pathlib import Path
+from typing import Optional, Set, Tuple, cast
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

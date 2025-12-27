@@ -10,10 +10,11 @@ Tests the integration between FingerprintExtractor and SidecarManager
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import time
 from pathlib import Path
 from unittest.mock import Mock, patch
+
+import pytest
 
 from auralis.library.fingerprint_extractor import FingerprintExtractor
 from auralis.library.sidecar_manager import SidecarManager

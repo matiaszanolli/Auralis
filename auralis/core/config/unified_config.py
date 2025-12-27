@@ -11,11 +11,12 @@ Main configuration class for audio processing
 """
 
 import math
-from typing import Optional, Dict, Any, Literal
-from .settings import LimiterConfig, AdaptiveConfig, GenreProfile
-from .genre_profiles import create_default_genre_profiles, get_genre_profile
-from .preset_profiles import PresetProfile, get_preset_profile, get_available_presets
+from typing import Any, Dict, Literal, Optional
+
 from ...utils.logging import debug
+from .genre_profiles import create_default_genre_profiles, get_genre_profile
+from .preset_profiles import PresetProfile, get_available_presets, get_preset_profile
+from .settings import AdaptiveConfig, GenreProfile, LimiterConfig
 
 
 class UnifiedConfig:

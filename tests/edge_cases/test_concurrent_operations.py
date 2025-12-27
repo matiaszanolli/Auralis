@@ -12,18 +12,23 @@ INVARIANTS TESTED:
 - Transaction isolation: Concurrent transactions don't interfere
 """
 
-import pytest
-import threading
-import time
 import os
 import tempfile
-import numpy as np
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from auralis.library.repositories import TrackRepository, AlbumRepository, ArtistRepository
+import numpy as np
+import pytest
+
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 from auralis.io.saver import save
+from auralis.library.repositories import (
+    AlbumRepository,
+    ArtistRepository,
+    TrackRepository,
+)
 
 
 @pytest.mark.edge_case
@@ -463,7 +468,7 @@ class TestDeadlockPrevention:
             try:
                 # Create artist
                 session = temp_db()
-                from auralis.library.models import Artist, Album, Track
+                from auralis.library.models import Album, Artist, Track
 
                 artist = Artist(name=f'Artist {idx}')
                 session.add(artist)

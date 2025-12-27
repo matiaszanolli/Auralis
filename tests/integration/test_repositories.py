@@ -8,19 +8,20 @@ handle transactions, manage sessions, and maintain data integrity.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 from pathlib import Path
 
+import pytest
+
+from auralis.library.models import Album, Artist, Genre, Playlist, Track
 from auralis.library.repositories import (
-    TrackRepository,
     AlbumRepository,
     ArtistRepository,
-    GenreRepository,
     FingerprintRepository,
+    GenreRepository,
     PlaylistRepository,
+    TrackRepository,
 )
 from auralis.library.repositories.factory import RepositoryFactory
-from auralis.library.models import Track, Album, Artist, Genre, Playlist
 
 
 @pytest.mark.integration

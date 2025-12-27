@@ -4,20 +4,24 @@ Direct test of smooth scaling mastering approach.
 Tests by loading audio directly and processing.
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, '/mnt/data/src/matchering')
+
+import tempfile
+from pathlib import Path
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import soundfile as sf
-from pathlib import Path
-import tempfile
-from typing import Dict, Any, Tuple
+
+from auralis.analysis.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.io.audio_loader import load_audio
 
 # Import our modules
 from auto_master import master_audio
-from auralis.analysis.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
-from auralis.io.audio_loader import load_audio
+
 
 def fingerprint_audio(audio_path: str) -> Dict[str, Any]:
     """Generate fingerprint for audio"""

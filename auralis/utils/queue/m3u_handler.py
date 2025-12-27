@@ -15,9 +15,9 @@ M3U Format:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, Dict, Any, Tuple
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
 

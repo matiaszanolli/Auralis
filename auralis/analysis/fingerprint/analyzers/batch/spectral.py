@@ -13,11 +13,13 @@ Dependencies:
   - base_analyzer for base analysis interface
 """
 
-import numpy as np
-from typing import Dict
 import logging
-from ..base_analyzer import BaseAnalyzer
+from typing import Dict
+
+import numpy as np
+
 from ...utilities.spectral_ops import SpectralOperations
+from ..base_analyzer import BaseAnalyzer
 
 logger = logging.getLogger(__name__)
 

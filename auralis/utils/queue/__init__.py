@@ -10,8 +10,8 @@ Queue management utilities including export/import functionality
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .queue_exporter import QueueExporter
 from .m3u_handler import M3UHandler
+from .queue_exporter import QueueExporter
 from .xspf_handler import XSPFHandler
 
 __all__ = [

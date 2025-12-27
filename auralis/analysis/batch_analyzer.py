@@ -12,18 +12,19 @@ Features:
 5. Export/import profiles as YAML for persistence
 """
 
-from typing import Dict, List, Tuple, Optional, Any
-from dataclasses import dataclass, field
-from pathlib import Path
 import json
+from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 from .mastering_fingerprint import MasteringFingerprint, analyze_album, compare_albums
 from .mastering_profile import (
+    DetectionRules,
     MasteringProfile,
     MasteringProfileDatabase,
-    DetectionRules,
     ProcessingTargets,
 )
 

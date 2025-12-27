@@ -10,9 +10,9 @@ Audio file metadata editing and management
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .models import MetadataUpdate
-from .metadata_editor import MetadataEditor, MUTAGEN_AVAILABLE
 from .factory import create_metadata_editor
+from .metadata_editor import MUTAGEN_AVAILABLE, MetadataEditor
+from .models import MetadataUpdate
 
 try:
     from mutagen import File as MutagenFile  # type: ignore[attr-defined]

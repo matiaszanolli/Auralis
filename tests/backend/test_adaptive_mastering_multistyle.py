@@ -19,12 +19,12 @@ Test Goals:
 5. Document production style differences across songs
 """
 
-import sys
-import os
-import time
 import json
-from pathlib import Path
+import os
+import sys
+import time
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -32,8 +32,8 @@ import numpy as np
 # Add matchering to path
 sys.path.insert(0, '/mnt/data/src/matchering')
 
-from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
+from auralis.analysis.mastering_fingerprint import MasteringFingerprint
 from auralis.io.unified_loader import load_audio
 
 # Test data

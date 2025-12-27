@@ -10,26 +10,26 @@ Modular library scanning system
 :license: GPLv3, see LICENSE for more details.
 """
 
-# Main scanner
-from .scanner import LibraryScanner
-
-# Components (for advanced usage)
-from .file_discovery import FileDiscovery
-from .audio_analyzer import AudioAnalyzer
-from .metadata_extractor import MetadataExtractor
-from .batch_processor import BatchProcessor
-from .duplicate_detector import DuplicateDetector
-
 # Models (imported from parent package)
-from ..scan_models import ScanResult, AudioFileInfo
+from ..scan_models import AudioFileInfo, ScanResult
+from .audio_analyzer import AudioAnalyzer
+from .batch_processor import BatchProcessor
 
 # Configuration
 from .config import (
     AUDIO_EXTENSIONS,
-    SKIP_DIRECTORIES,
     DEFAULT_BATCH_SIZE,
-    HASH_CHUNK_SIZE
+    HASH_CHUNK_SIZE,
+    SKIP_DIRECTORIES,
 )
+from .duplicate_detector import DuplicateDetector
+
+# Components (for advanced usage)
+from .file_discovery import FileDiscovery
+from .metadata_extractor import MetadataExtractor
+
+# Main scanner
+from .scanner import LibraryScanner
 
 __all__ = [
     # Main class

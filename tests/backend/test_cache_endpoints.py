@@ -14,11 +14,12 @@ Test Coverage:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
@@ -27,9 +28,8 @@ from cache.endpoints import (
     CacheAwareEndpoint,
     CacheQueryBuilder,
     EndpointMetrics,
-    create_cache_aware_handler
+    create_cache_aware_handler,
 )
-
 
 # ============================================================================
 # Cache-Aware Endpoint Tests

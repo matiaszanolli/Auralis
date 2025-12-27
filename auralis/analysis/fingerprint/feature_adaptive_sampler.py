@@ -22,8 +22,9 @@ Phase 7B Validation:
 """
 
 import logging
-from typing import Dict, Optional, Tuple, List, Any
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 logger = logging.getLogger(__name__)

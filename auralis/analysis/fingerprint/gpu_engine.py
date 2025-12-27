@@ -19,10 +19,11 @@ Expected Performance:
 """
 
 import logging
-import numpy as np
-from typing import List, Dict, Tuple, Optional, Any
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

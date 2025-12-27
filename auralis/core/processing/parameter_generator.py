@@ -11,12 +11,14 @@ Implements intelligent parameter selection based on audio characteristics.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Dict, Optional
+
 import numpy as np
-from typing import Optional, Dict
+
 from .continuous_space import (
+    PreferenceVector,
     ProcessingCoordinates,
     ProcessingParameters,
-    PreferenceVector
 )
 
 

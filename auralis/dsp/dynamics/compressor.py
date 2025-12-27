@@ -10,11 +10,12 @@ Content-aware compressor with multiple detection modes
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, Tuple, Optional, Any, Union, cast
+from typing import Any, Dict, Optional, Tuple, Union, cast
 
-from .settings import CompressorSettings
+import numpy as np
+
 from ...utils.logging import debug
+from .settings import CompressorSettings
 
 # Use vectorized envelope follower for 40-70x speedup
 EnvelopeFollower: Any  # Will be assigned below

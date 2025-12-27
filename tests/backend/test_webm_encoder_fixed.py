@@ -4,12 +4,13 @@ Tests for WebM Encoder - Fixed Version
 Tests the async ffmpeg encoding with proper fixtures and imports.
 """
 
-import pytest
 import asyncio
-import numpy as np
-from pathlib import Path
 import tempfile
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import numpy as np
+import pytest
 
 # Import should work via conftest.py path setup
 from webm_encoder import WebMEncoder, get_encoder

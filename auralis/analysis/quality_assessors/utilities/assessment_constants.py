@@ -13,7 +13,7 @@ for consistent evaluation against industry standards.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 class AssessmentConstants:

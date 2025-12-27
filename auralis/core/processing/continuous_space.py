@@ -11,9 +11,10 @@ Replaces discrete presets with intelligent parameter generation.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
+import numpy as np
 
 
 @dataclass

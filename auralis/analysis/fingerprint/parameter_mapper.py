@@ -19,8 +19,10 @@ Maps fingerprint dimensions to processor configuration:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
+
 from ...utils.logging import debug, info
 from .common_metrics import BandNormalizationTable
 

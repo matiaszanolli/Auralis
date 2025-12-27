@@ -15,39 +15,34 @@ Test Coverage:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import sys
 import asyncio
-from pathlib import Path
+import sys
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any, Dict
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web/backend"))
 
-from schemas import (
-    CacheSource,
-    ChunkCacheMetadata,
-    TrackCacheStatusResponse,
-    CacheTierStats,
-    OverallCacheStats,
-    CacheStatsResponse,
-    CacheHealthResponse,
-    CacheAwareResponse
-)
+from cache.monitoring import CacheAlert, CacheMetrics, CacheMonitor, HealthStatus
 from helpers import (
     calculate_cache_hit_probability,
-    format_cache_stats,
+    create_cache_aware_response,
     estimate_cache_completion_time,
-    create_cache_aware_response
+    format_cache_stats,
 )
-from cache.monitoring import (
-    CacheMonitor,
-    CacheMetrics,
-    CacheAlert,
-    HealthStatus
+from schemas import (
+    CacheAwareResponse,
+    CacheHealthResponse,
+    CacheSource,
+    CacheStatsResponse,
+    CacheTierStats,
+    ChunkCacheMetadata,
+    OverallCacheStats,
+    TrackCacheStatusResponse,
 )
-
 
 # ============================================================================
 # Schema Tests

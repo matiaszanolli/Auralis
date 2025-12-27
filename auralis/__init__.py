@@ -18,29 +18,30 @@ __author__ = "Auralis Team"
 __license__ = "GPLv3"
 __copyright__ = "Copyright (C) 2024 Auralis Team"
 
+from .analysis.content_analysis import analyze_audio_content
+
+# Modern config and processing
+from .core.config import (
+    PresetProfile,
+    UnifiedConfig,
+    create_adaptive_config,
+    create_reference_config,
+    get_preset_profile,
+)
+from .core.hybrid_processor import HybridProcessor, process_adaptive, process_reference
+
 # Core processing functions
 from .core.processor import process
-from .core.config import UnifiedConfig
+
+# Results and output handling
+from .io.results import Result, pcm16, pcm24
 
 # Real-time player (Modern implementation with adaptive DSP)
 from .player import EnhancedAudioPlayer
 from .player.config import PlayerConfig
 
-# Results and output handling
-from .io.results import Result, pcm16, pcm24
-
 # Logging
 from .utils.logging import set_log_handler as log
-
-# Modern config and processing
-from .core.config import (
-    create_adaptive_config,
-    create_reference_config,
-    PresetProfile,
-    get_preset_profile,
-)
-from .core.hybrid_processor import HybridProcessor, process_adaptive, process_reference
-from .analysis.content_analysis import analyze_audio_content
 
 # Main exports
 __all__ = [

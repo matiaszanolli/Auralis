@@ -9,14 +9,15 @@ Tests the conversion of 25D fingerprints to mastering parameters (EQ, dynamics, 
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from auralis.analysis.fingerprint.parameter_mapper import (
-    ParameterMapper,
-    EQParameterMapper,
     DynamicsParameterMapper,
-    LevelParameterMapper,
+    EQParameterMapper,
     HarmonicParameterMapper,
+    LevelParameterMapper,
+    ParameterMapper,
 )
 
 

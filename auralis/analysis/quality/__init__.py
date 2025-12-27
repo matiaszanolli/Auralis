@@ -10,12 +10,12 @@ Comprehensive audio quality metrics and assessment
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .quality_metrics import QualityMetrics, QualityScores
-from .frequency_assessment import FrequencyResponseAssessor
-from .dynamic_assessment import DynamicRangeAssessor
-from .stereo_assessment import StereoImagingAssessor
 from .distortion_assessment import DistortionAssessor
+from .dynamic_assessment import DynamicRangeAssessor
+from .frequency_assessment import FrequencyResponseAssessor
 from .loudness_assessment import LoudnessAssessor
+from .quality_metrics import QualityMetrics, QualityScores
+from .stereo_assessment import StereoImagingAssessor
 
 __all__ = [
     'QualityMetrics',

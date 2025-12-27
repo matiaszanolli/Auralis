@@ -11,6 +11,7 @@ Factory functions for creating EQ processor instances
 """
 
 from typing import Optional
+
 from .config import ParallelEQConfig
 from .parallel_processor import ParallelEQProcessor
 from .vectorized_processor import VectorizedEQProcessor

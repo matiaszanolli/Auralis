@@ -10,13 +10,11 @@ Tests the complete similarity system with real database
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import numpy as np
+import pytest
+
+from auralis.analysis.fingerprint import FingerprintSimilarity, KNNGraphBuilder
 from auralis.library import LibraryManager
-from auralis.analysis.fingerprint import (
-    FingerprintSimilarity,
-    KNNGraphBuilder
-)
 
 
 @pytest.mark.skip(reason="Database migration errors in LibraryManager initialization")

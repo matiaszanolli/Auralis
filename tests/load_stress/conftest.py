@@ -5,14 +5,16 @@ Load/Stress Test Fixtures
 Shared fixtures for load and stress testing.
 """
 
-import pytest
 import os
-import tempfile
 import shutil
-import numpy as np
+import tempfile
 from pathlib import Path
+
+import numpy as np
+import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import scoped_session, sessionmaker
+
 from auralis.library.models import Base
 
 
@@ -77,8 +79,8 @@ def large_track_dataset(temp_db):
 
     Returns function that generates N tracks.
     """
-    from auralis.library.repositories import TrackRepository, AlbumRepository
-    from auralis.library.models import Artist, Album
+    from auralis.library.models import Album, Artist
+    from auralis.library.repositories import AlbumRepository, TrackRepository
 
     def _create_tracks(count: int):
         """Create N tracks in database."""
@@ -140,8 +142,9 @@ def resource_monitor():
 
     Returns a context manager that tracks CPU, memory, and time.
     """
-    import psutil
     import time
+
+    import psutil
 
     class ResourceMonitor:
         def __init__(self):
@@ -192,8 +195,8 @@ def concurrent_executor():
 
     Returns a function that executes tasks in parallel.
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
     import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def _execute_concurrent(tasks, max_workers=10):
         """

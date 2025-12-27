@@ -10,9 +10,19 @@ Core models for tracks, albums, artists, genres, and playlists
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Dict, Any
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, Text
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist

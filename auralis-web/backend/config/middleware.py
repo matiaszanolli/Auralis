@@ -8,13 +8,14 @@ and security headers.
 :license: GPLv3
 """
 
+import logging
+from typing import Any, Callable, cast
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from typing import Callable, Any, cast
-import logging
 
 logger = logging.getLogger(__name__)
 

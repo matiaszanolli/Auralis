@@ -9,21 +9,28 @@ Comprehensive tests targeting 40%+ coverage for EnhancedAudioPlayer (currently 1
 Tests both QueueManager and EnhancedAudioPlayer classes
 """
 
-import numpy as np
-import tempfile
 import os
-import sys
 import shutil
+import sys
+import tempfile
 import threading
 import time
+
+import numpy as np
 import pytest
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath('../..'))
 
-from auralis.player.enhanced_audio_player import EnhancedAudioPlayer, QueueController, QueueManager, PlaybackState
-from auralis.player.config import PlayerConfig
 import soundfile as sf
+
+from auralis.player.config import PlayerConfig
+from auralis.player.enhanced_audio_player import (
+    EnhancedAudioPlayer,
+    PlaybackState,
+    QueueController,
+    QueueManager,
+)
 
 
 # Phase 5E.1: Refactored to use pytest fixtures instead of unittest-style setUp/tearDown

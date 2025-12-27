@@ -17,8 +17,8 @@ This service eliminates ~200 lines of duplicate fingerprint/target management.
 
 import logging
 import threading
-from typing import Optional, Dict, Any, Tuple
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +73,10 @@ class MasteringTargetService:
             MasteringFingerprint instance or None if not found
         """
         try:
-            from auralis.library.manager import LibraryManager
-            from auralis.analysis.mastering_fingerprint import MasteringFingerprint
             from pathlib import Path as PathlibPath
+
+            from auralis.analysis.mastering_fingerprint import MasteringFingerprint
+            from auralis.library.manager import LibraryManager
 
             # Initialize with default database location
             db_path = str(PathlibPath.home() / ".auralis" / "library.db")
@@ -177,8 +178,9 @@ class MasteringTargetService:
             Tuple of (fingerprint, mastering_targets) or None if extraction fails
         """
         try:
-            import soundfile as sf
             import numpy as np
+            import soundfile as sf
+
             from auralis.analysis.fingerprint import FingerprintStorage
 
             logger.info(f"🔍 Extracting fingerprint from audio: {Path(filepath).name}")
@@ -212,8 +214,8 @@ class MasteringTargetService:
                 logger.warning(f"PyO3 fingerprinting failed ({e}), falling back to Python analyzer...")
 
                 # Fallback to Python-based analyzer
-                from auralis.io.unified_loader import load_audio
                 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
+                from auralis.io.unified_loader import load_audio
 
                 full_audio, sr = load_audio(filepath, target_sample_rate=sample_rate)
                 analyzer = AudioFingerprintAnalyzer()
@@ -222,7 +224,9 @@ class MasteringTargetService:
             if fingerprint_data is not None:
                 # Add metadata for .25d file
                 try:
-                    from mutagen import File as MutagenFile  # type: ignore[attr-defined]
+                    from mutagen import (
+                        File as MutagenFile,  # type: ignore[attr-defined]
+                    )
                     audio_file = MutagenFile(filepath)
                     duration_value: float = (
                         float(audio_file.info.length) if audio_file else len(full_audio) / sr

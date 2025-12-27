@@ -8,23 +8,24 @@ adaptive processing targets.
 Goal: Learn from the best to match their standards.
 """
 
-import numpy as np
+import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from dataclasses import dataclass, asdict
-import json
 
-from auralis.io.unified_loader import load_audio
-from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
-from auralis.analysis.loudness_meter import LoudnessMeter
+import numpy as np
+
 from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
+from auralis.analysis.loudness_meter import LoudnessMeter
 from auralis.analysis.phase_correlation import PhaseCorrelationAnalyzer
+from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
+from auralis.io.unified_loader import load_audio
 from auralis.learning.reference_library import (
-    ReferenceTrack,
     Genre,
     MasteringEngineer,
-    get_references_for_genre,
+    ReferenceTrack,
     get_high_priority_references,
+    get_references_for_genre,
 )
 
 

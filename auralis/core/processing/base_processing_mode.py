@@ -11,12 +11,17 @@ Consolidates common measurement and debug boilerplate across modes.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, Optional, Tuple, Union
+
 import numpy as np
-from typing import Dict, Any, Union, Optional, Tuple
-from ...dsp.basic import rms, amplify
-from ...dsp.unified import calculate_loudness_units
+
+from ...dsp.basic import amplify, rms
 from ...dsp.dynamics.soft_clipper import soft_clip
-from ...dsp.unified import stereo_width_analysis, adjust_stereo_width
+from ...dsp.unified import (
+    adjust_stereo_width,
+    calculate_loudness_units,
+    stereo_width_analysis,
+)
 from ...utils.logging import debug
 
 

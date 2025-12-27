@@ -25,16 +25,17 @@ Architecture:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from fastapi import APIRouter, HTTPException, Response, Query
-from pydantic import BaseModel
-from typing import Callable, Optional, Any, Tuple
 import logging
-import os
 import math
+import os
 import time
+from typing import Any, Callable, Optional, Tuple
 
 # Import WAV encoder (replacing WebM for browser compatibility)
-from encoding.wav_encoder import encode_to_wav, WAVEncoderError
+from encoding.wav_encoder import WAVEncoderError, encode_to_wav
+from fastapi import APIRouter, HTTPException, Query, Response
+from pydantic import BaseModel
+
 from .dependencies import require_repository_factory
 
 logger = logging.getLogger(__name__)

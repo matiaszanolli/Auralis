@@ -14,6 +14,7 @@ to ensure consistency and reduce code duplication.
 """
 
 from typing import Optional, Tuple
+
 import numpy as np
 
 

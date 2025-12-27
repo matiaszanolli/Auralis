@@ -4,15 +4,16 @@ Simple working tests for the Auralis audio analysis module to improve coverage.
 These tests focus on actually calling the methods and improving coverage.
 """
 
-import pytest
 import numpy as np
+import pytest
+
+from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
+from auralis.analysis.loudness_meter import LoudnessMeter, LUFSMeasurement
+from auralis.analysis.phase_correlation import PhaseCorrelationAnalyzer
+from auralis.analysis.quality_metrics import QualityMetrics
 
 # Import analysis modules
 from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings
-from auralis.analysis.loudness_meter import LoudnessMeter, LUFSMeasurement
-from auralis.analysis.phase_correlation import PhaseCorrelationAnalyzer
-from auralis.analysis.dynamic_range import DynamicRangeAnalyzer
-from auralis.analysis.quality_metrics import QualityMetrics
 
 
 class TestSpectrumAnalyzerSimple:

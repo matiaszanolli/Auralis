@@ -5,11 +5,12 @@ Tests the new /api/processing/parameters endpoint that exposes real-time
 processing data from the continuous space system.
 """
 
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import Mock, MagicMock
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, Mock
+
+import pytest
+from fastapi.testclient import TestClient
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis-web' / 'backend'))

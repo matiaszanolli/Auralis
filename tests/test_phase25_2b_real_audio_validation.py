@@ -16,14 +16,15 @@ Key Research Questions:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
-import json
 import gc
-from pathlib import Path
+import json
 from datetime import datetime
-from typing import Dict, Tuple, List, Optional
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
 import librosa
+import numpy as np
+import pytest
 
 
 class RealAudioMetrics:

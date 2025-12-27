@@ -13,16 +13,19 @@ Steven Wilson is a professional mastering engineer known for high-quality remast
 This tests whether sampling strategy can detect the improvements in a professional remaster.
 """
 
-import numpy as np
+import gc
+import sys
 import time
 from pathlib import Path
-import sys
-import gc
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

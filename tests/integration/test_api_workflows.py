@@ -19,11 +19,12 @@ Follows TESTING_GUIDELINES.md principles:
 - Focuses on integration between components
 """
 
-import pytest
-import numpy as np
 import os
 import time
 from pathlib import Path
+
+import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 # Note: Test fixtures (temp_library, sample_audio_file) are now provided by conftest.py
@@ -48,8 +49,8 @@ def api_client(temp_library):
     """
     # Import here to avoid circular imports
     try:
-        from auralis_web.backend.main import app
         from auralis_web.backend.dependencies import get_library_manager
+        from auralis_web.backend.main import app
 
         manager, audio_dir, db_path = temp_library
 

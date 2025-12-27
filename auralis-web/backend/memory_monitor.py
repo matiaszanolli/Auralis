@@ -8,12 +8,13 @@ Monitors system memory and adjusts cache sizes for graceful degradation.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import psutil
 import logging
-import time
-from typing import Any, Tuple, Dict, Optional
-from dataclasses import dataclass
 import resource
+import time
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Tuple
+
+import psutil
 
 logger = logging.getLogger(__name__)
 

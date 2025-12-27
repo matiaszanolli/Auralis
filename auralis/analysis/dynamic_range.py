@@ -7,10 +7,17 @@ Dynamic Range Analysis
 Comprehensive dynamic range measurement and analysis tools.
 """
 
-import numpy as np
 from typing import Any, Dict, List, Tuple
+
+import numpy as np
 from scipy import signal
-from auralis.analysis.fingerprint.common_metrics import SafeOperations, AudioMetrics, MetricUtils, AggregationUtils
+
+from auralis.analysis.fingerprint.common_metrics import (
+    AggregationUtils,
+    AudioMetrics,
+    MetricUtils,
+    SafeOperations,
+)
 
 
 class DynamicRangeAnalyzer:

@@ -10,13 +10,14 @@ High-level API for finding similar tracks using fingerprint-based similarity
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
+
+from ...utils.logging import debug, error, info, warning
+from .distance import DimensionWeights, FingerprintDistance
 from .normalizer import FingerprintNormalizer
-from .distance import FingerprintDistance, DimensionWeights
-from ...utils.logging import info, warning, error, debug
 
 
 class SimilarityResult:

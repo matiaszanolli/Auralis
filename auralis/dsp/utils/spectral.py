@@ -11,6 +11,7 @@ Spectral feature extraction and analysis functions
 """
 
 import numpy as np
+
 from ...utils.logging import debug
 
 

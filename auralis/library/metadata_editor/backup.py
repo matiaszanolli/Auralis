@@ -13,7 +13,7 @@ File backup and restore operations for safe metadata editing
 import os
 import shutil
 
-from ...utils.logging import info, warning, error, debug
+from ...utils.logging import debug, error, info, warning
 
 
 class BackupManager:

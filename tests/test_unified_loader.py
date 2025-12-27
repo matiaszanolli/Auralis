@@ -5,23 +5,24 @@ Tests for Unified Audio Loader
 Tests for audio file loading with multiple format support
 """
 
-import pytest
-import numpy as np
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 import tempfile
 import wave
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+import numpy as np
+import pytest
 
 from auralis.io.unified_loader import (
-    load_audio,
-    get_audio_info,
-    load_target,
-    load_reference,
-    is_audio_file,
-    get_supported_formats,
-    batch_load_info,
+    FFMPEG_FORMATS,
     SUPPORTED_FORMATS,
-    FFMPEG_FORMATS
+    batch_load_info,
+    get_audio_info,
+    get_supported_formats,
+    is_audio_file,
+    load_audio,
+    load_reference,
+    load_target,
 )
 from auralis.utils.logging import ModuleError
 

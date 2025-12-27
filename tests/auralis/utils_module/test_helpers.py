@@ -10,16 +10,12 @@ Tests the general utility functions
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import tempfile
 import os
+import tempfile
 
-from auralis.utils.helpers import (
-    get_temp_folder,
-    format_duration,
-    format_filesize
-)
+import pytest
 
+from auralis.utils.helpers import format_duration, format_filesize, get_temp_folder
 
 # ===== get_temp_folder() Tests =====
 

@@ -10,20 +10,23 @@ Main quality assessment orchestrator using specialized assessors
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, Any, List
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
-from ..spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings  # type: ignore[attr-defined]
+import numpy as np
+
+from ..dynamic_range import DynamicRangeAnalyzer
 from ..loudness_meter import LoudnessMeter
 from ..phase_correlation import PhaseCorrelationAnalyzer
-from ..dynamic_range import DynamicRangeAnalyzer
-
-from .frequency_assessment import FrequencyResponseAssessor
-from .dynamic_assessment import DynamicRangeAssessor
-from .stereo_assessment import StereoImagingAssessor
+from ..spectrum_analyzer import (  # type: ignore[attr-defined]
+    SpectrumAnalyzer,
+    SpectrumSettings,
+)
 from .distortion_assessment import DistortionAssessor
+from .dynamic_assessment import DynamicRangeAssessor
+from .frequency_assessment import FrequencyResponseAssessor
 from .loudness_assessment import LoudnessAssessor
+from .stereo_assessment import StereoImagingAssessor
 
 
 @dataclass

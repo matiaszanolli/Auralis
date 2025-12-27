@@ -13,7 +13,8 @@ to ensure consistency and reduce code duplication.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Tuple, List, Dict, Any
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 
 

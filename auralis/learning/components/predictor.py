@@ -10,8 +10,10 @@ ML-based preference prediction
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
-from typing import Dict, List, Tuple, Any
+
 from ...utils.logging import debug
 
 

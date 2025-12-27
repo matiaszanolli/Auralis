@@ -9,11 +9,13 @@ Real-time and offline spectrum analysis with configurable parameters.
 DEPRECATED: Use BaseSpectrumAnalyzer instead. This module maintained for backward compatibility.
 """
 
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Dict, Optional, Any
+
 from .base_spectrum_analyzer import BaseSpectrumAnalyzer, SpectrumSettings
-from .spectrum_operations import SpectrumOperations
 from .fingerprint.common_metrics import AggregationUtils
+from .spectrum_operations import SpectrumOperations
 
 
 class SpectrumAnalyzer(BaseSpectrumAnalyzer):

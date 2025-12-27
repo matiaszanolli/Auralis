@@ -20,22 +20,19 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from typing import Optional, List, Dict, Any, Callable, cast
 import logging
+from typing import Any, Callable, Dict, List, Optional, cast
+
+from fastapi import APIRouter, Depends, HTTPException
 
 from .dependencies import require_repository_factory
-from .errors import (
-    InternalServerError,
-    NotFoundError,
-    handle_query_error
-)
+from .errors import InternalServerError, NotFoundError, handle_query_error
 from .serializers import (
-    serialize_tracks,
-    serialize_albums,
-    serialize_artists,
     serialize_album,
-    serialize_artist
+    serialize_albums,
+    serialize_artist,
+    serialize_artists,
+    serialize_tracks,
 )
 
 logger = logging.getLogger(__name__)

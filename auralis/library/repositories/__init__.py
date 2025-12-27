@@ -10,18 +10,18 @@ Data access layer for library database operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .track_repository import TrackRepository
 from .album_repository import AlbumRepository
 from .artist_repository import ArtistRepository
-from .playlist_repository import PlaylistRepository
-from .genre_repository import GenreRepository
-from .stats_repository import StatsRepository
-from .fingerprint_repository import FingerprintRepository
-from .settings_repository import SettingsRepository
-from .queue_repository import QueueRepository
-from .queue_history_repository import QueueHistoryRepository
-from .queue_template_repository import QueueTemplateRepository
 from .factory import RepositoryFactory
+from .fingerprint_repository import FingerprintRepository
+from .genre_repository import GenreRepository
+from .playlist_repository import PlaylistRepository
+from .queue_history_repository import QueueHistoryRepository
+from .queue_repository import QueueRepository
+from .queue_template_repository import QueueTemplateRepository
+from .settings_repository import SettingsRepository
+from .stats_repository import StatsRepository
+from .track_repository import TrackRepository
 
 __all__ = [
     'TrackRepository',

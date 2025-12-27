@@ -13,12 +13,13 @@ Test Coverage:
 - Edge cases and robustness
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from auralis.analysis.fingerprint.streaming_variation_analyzer import (
     RunningStatistics,
+    StreamingVariationAnalyzer,
     WindowedBuffer,
-    StreamingVariationAnalyzer
 )
 
 

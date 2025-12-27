@@ -10,7 +10,7 @@ Audio file duplicate detection based on content hashing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from ...utils.logging import error
 

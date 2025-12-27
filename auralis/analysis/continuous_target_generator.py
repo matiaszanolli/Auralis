@@ -23,9 +23,11 @@ Based on 7 reference points analysis (October 26, 2025):
 - Smooth transitions between extremes
 """
 
-import numpy as np
-from typing import Any, Dict, Tuple, Optional
 import logging
+from typing import Any, Dict, Optional, Tuple
+
+import numpy as np
+
 from .fingerprint.common_metrics import MetricUtils
 
 logger = logging.getLogger(__name__)

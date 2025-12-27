@@ -15,10 +15,10 @@ Analyzers:
 
 from .harmonic import HarmonicAnalyzer
 from .harmonic_sampled import SampledHarmonicAnalyzer
-from .temporal import TemporalAnalyzer
 from .spectral import SpectralAnalyzer
-from .variation import VariationAnalyzer
 from .stereo import StereoAnalyzer
+from .temporal import TemporalAnalyzer
+from .variation import VariationAnalyzer
 
 __all__ = [
     'HarmonicAnalyzer',

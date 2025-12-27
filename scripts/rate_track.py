@@ -11,17 +11,19 @@ Usage:
     ./scripts/rate_track.py ~/Music/song.mp3 --rating 5
 """
 
-import json
 import argparse
-from pathlib import Path
+import json
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import librosa
 import numpy as np
 
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.core.recording_type_detector import RecordingTypeDetector
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
 
 
 def rate_track(

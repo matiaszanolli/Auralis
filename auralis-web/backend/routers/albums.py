@@ -9,7 +9,8 @@ REST API endpoints for album browsing and management
 """
 
 import logging
-from typing import Optional, Callable, Any
+from typing import Any, Callable, Optional
+
 from fastapi import APIRouter, HTTPException
 
 from .dependencies import require_repository_factory

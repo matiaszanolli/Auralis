@@ -10,10 +10,10 @@ Modular real-time audio processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .performance_monitor import PerformanceMonitor
+from .auto_master import AutoMasterProcessor
 from .gain_smoother import AdaptiveGainSmoother
 from .level_matcher import RealtimeLevelMatcher
-from .auto_master import AutoMasterProcessor
+from .performance_monitor import PerformanceMonitor
 from .processor import RealtimeProcessor
 
 __all__ = [

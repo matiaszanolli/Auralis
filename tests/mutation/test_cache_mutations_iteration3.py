@@ -10,6 +10,7 @@ Targets:
 """
 
 import pytest
+
 from auralis.library.cache import QueryCache
 
 

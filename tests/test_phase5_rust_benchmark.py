@@ -15,12 +15,13 @@ Metrics tracked:
 - Output shape and normalization verification
 """
 
-import numpy as np
-import librosa
-import time
-import pytest
-from pathlib import Path
 import sys
+import time
+from pathlib import Path
+
+import librosa
+import numpy as np
+import pytest
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))

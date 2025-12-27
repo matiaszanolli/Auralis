@@ -13,7 +13,7 @@ Recursive directory scanning and audio file discovery
 from pathlib import Path
 from typing import Generator
 
-from ...utils.logging import warning, error, debug
+from ...utils.logging import debug, error, warning
 from .config import AUDIO_EXTENSIONS, SKIP_DIRECTORIES
 
 

@@ -12,7 +12,8 @@ Defines preset anchor points on the processing spectrum
 """
 
 from typing import Dict, Tuple
-from .data_classes import SpectrumPosition, ProcessingParameters
+
+from .data_classes import ProcessingParameters, SpectrumPosition
 
 
 def get_preset_anchors() -> Dict[str, Tuple[SpectrumPosition, ProcessingParameters]]:

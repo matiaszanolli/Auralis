@@ -8,6 +8,6 @@ Provides audio encoding capabilities for streaming formats.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .webm_encoder import encode_to_webm_opus, WebMEncoderError
+from .webm_encoder import WebMEncoderError, encode_to_webm_opus
 
 __all__ = ['encode_to_webm_opus', 'WebMEncoderError']

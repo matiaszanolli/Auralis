@@ -30,16 +30,16 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
-from typing import List, Optional, Callable, Any, Dict
 import logging
+from typing import Any, Callable, Dict, List, Optional
 
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel
 from services import (
+    NavigationService,
     PlaybackService,
     QueueService,
     RecommendationService,
-    NavigationService
 )
 
 logger = logging.getLogger(__name__)

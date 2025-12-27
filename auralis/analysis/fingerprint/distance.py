@@ -10,11 +10,12 @@ Calculates weighted Euclidean distance between fingerprints for similarity ranki
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
-from ...utils.logging import info, warning, error, debug
+import numpy as np
+
+from ...utils.logging import debug, error, info, warning
 from .common_metrics import MetricUtils
 
 

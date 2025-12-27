@@ -11,16 +11,20 @@ Metrics tracked:
 - Album totals
 """
 
-import numpy as np
+import gc
+import sys
 import time
 from pathlib import Path
-import sys
-import gc
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.analysis.fingerprint.harmonic_analyzer import HarmonicAnalyzer, RUST_DSP_AVAILABLE
+from auralis.analysis.fingerprint.harmonic_analyzer import (
+    RUST_DSP_AVAILABLE,
+    HarmonicAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

@@ -12,7 +12,7 @@ Core audio processing and mastering algorithms
 Based on Matchering 2.0 by Sergree and contributors
 """
 
-from .processor import process
 from .config import UnifiedConfig
+from .processor import process
 
 __all__ = ["process", "UnifiedConfig"]

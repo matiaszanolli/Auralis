@@ -5,20 +5,21 @@ Tests for Processing API
 Tests the FastAPI REST endpoints for audio processing.
 """
 
-import pytest
+import io
+import json
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch, AsyncMock
-import json
-import io
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from fastapi import FastAPI
 from processing_api import router, set_processing_engine
 from processing_engine import ProcessingEngine, ProcessingJob, ProcessingStatus
-from fastapi import FastAPI
 
 
 @pytest.fixture

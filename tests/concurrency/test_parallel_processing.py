@@ -10,26 +10,26 @@ Tests for multi-file batch processing, process pool performance, and resource co
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import time
-import threading
 import multiprocessing
-import numpy as np
-from pathlib import Path
+import threading
+import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import List
+
+import numpy as np
+import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.io.unified_loader import load_audio
 from auralis.io.saver import save
+from auralis.io.unified_loader import load_audio
 from tests.concurrency.helpers import (
-    run_concurrent,
     measure_concurrency_speedup,
+    run_concurrent,
     stress_test,
-    wait_for_condition
+    wait_for_condition,
 )
-
 
 # ============================================================================
 # Multi-File Batch Processing Tests (10 tests)
@@ -177,8 +177,9 @@ class TestBatchProcessing:
 
     def test_batch_processing_memory_limit(self, test_audio_files):
         """Test that memory usage stays bounded during batch processing."""
-        import psutil
         import os
+
+        import psutil
 
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
@@ -320,8 +321,9 @@ class TestBatchProcessing:
 
     def test_batch_processing_priority_queue(self, test_audio_files):
         """Test that high-priority files are processed first."""
-        from auralis.io.unified_loader import load_audio
         from queue import PriorityQueue
+
+        from auralis.io.unified_loader import load_audio
 
         config = UnifiedConfig()
         processed_order = []
@@ -439,6 +441,7 @@ class TestProcessPoolPerformance:
 
         def get_memory_usage():
             import os
+
             import psutil
             process = psutil.Process(os.getpid())
             return process.memory_info().rss / 1024 / 1024  # MB

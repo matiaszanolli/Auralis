@@ -29,21 +29,21 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
-import numpy as np
+# Import the modules under test
+import sys
 import tempfile
 from pathlib import Path
 
-# Import the modules under test
-import sys
+import numpy as np
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.io.unified_loader import load_audio
+from auralis.dsp.basic import amplify, normalize, rms
 from auralis.io.saver import save as save_audio
-from auralis.dsp.basic import normalize, amplify, rms
-
+from auralis.io.unified_loader import load_audio
 
 # ============================================================================
 # Fixtures

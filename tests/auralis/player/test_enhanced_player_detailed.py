@@ -3,12 +3,13 @@ Enhanced Audio Player Detailed Tests
 Comprehensive testing for enhanced audio player components and functionality.
 """
 
-import pytest
-import numpy as np
-import tempfile
 import os
-from unittest.mock import Mock, patch, MagicMock
+import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+import numpy as np
+import pytest
 
 
 class TestPlaybackState:
@@ -165,7 +166,10 @@ class TestEnhancedAudioPlayerCore:
     def test_enhanced_player_initialization(self, mock_config, temp_db):
         """Test EnhancedAudioPlayer initialization."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer, PlaybackState
+            from auralis.player.enhanced_audio_player import (
+                EnhancedAudioPlayer,
+                PlaybackState,
+            )
 
             # Test with config only
             try:
@@ -191,7 +195,10 @@ class TestEnhancedAudioPlayerCore:
     def test_player_state_management(self, mock_config):
         """Test player state management."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer, PlaybackState
+            from auralis.player.enhanced_audio_player import (
+                EnhancedAudioPlayer,
+                PlaybackState,
+            )
 
             try:
                 player = EnhancedAudioPlayer(mock_config)
@@ -424,8 +431,8 @@ class TestEnhancedPlayerLibraryIntegration:
     def test_library_integration(self, mock_config, temp_db):
         """Test library integration."""
         try:
-            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
             from auralis.library.manager import LibraryManager
+            from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
 
             library = LibraryManager(temp_db)
 

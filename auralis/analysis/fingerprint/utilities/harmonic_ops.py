@@ -16,9 +16,10 @@ Features:
 Note: Uses Rust DSP backend (auralis_dsp) for all operations. Requires Rust library.
 """
 
-import numpy as np
 import logging
 from typing import Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

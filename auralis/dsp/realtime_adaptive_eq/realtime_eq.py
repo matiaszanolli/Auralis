@@ -10,15 +10,16 @@ Real-time adaptive EQ system with critical band analysis
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 import time
-from typing import Any, Dict, Optional
 from collections import deque
+from typing import Any, Dict, Optional
 
-from .settings import RealtimeEQSettings
-from .adaptation_engine import AdaptationEngine
-from ..psychoacoustic_eq import PsychoacousticEQ, EQSettings
+import numpy as np
+
 from ...utils.logging import debug
+from ..psychoacoustic_eq import EQSettings, PsychoacousticEQ
+from .adaptation_engine import AdaptationEngine
+from .settings import RealtimeEQSettings
 
 
 class RealtimeAdaptiveEQ:

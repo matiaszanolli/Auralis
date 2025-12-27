@@ -16,11 +16,11 @@ XSPF Format:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, Dict, Any, Tuple
-from pathlib import Path
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
 import logging
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+from xml.dom import minidom
 
 logger = logging.getLogger(__name__)
 

@@ -10,8 +10,10 @@ Combines reference-based matching with adaptive intelligence
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, Optional, Union, cast
+
 import numpy as np
-from typing import Dict, Any, Optional, Union, cast
+
 from ...dsp.unified import normalize
 from ...utils.logging import debug, info
 from ..processors.reference_mode import apply_reference_matching

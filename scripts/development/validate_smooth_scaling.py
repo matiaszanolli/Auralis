@@ -4,12 +4,13 @@ Comprehensive validation of smooth scaling mastering approach.
 Tests across diverse material to ensure smooth, non-destructive processing.
 """
 
-import subprocess
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Any, Dict, List, Tuple
+
 
 def run_fingerprint(audio_path: str) -> Dict[str, Any]:
     """Run fingerprinting on audio and return results"""

@@ -13,20 +13,21 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
-from pydantic import BaseModel
-from typing import List, Dict, Any, Callable, Optional
-import logging
 import asyncio
+import logging
 import tempfile
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from .dependencies import require_library_manager, require_repository_factory
 
 # Import only if available
 try:
-    from auralis.library.scanner import LibraryScanner
     from auralis.io.unified_loader import load_audio
+    from auralis.library.scanner import LibraryScanner
     HAS_LIBRARY = True
 except ImportError:
     HAS_LIBRARY = False

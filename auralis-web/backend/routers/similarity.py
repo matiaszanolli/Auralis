@@ -10,15 +10,17 @@ REST API endpoints for fingerprint-based music similarity
 :license: GPLv3, see LICENSE for more details.
 """
 
-from fastapi import APIRouter, HTTPException, Query, Depends
-from typing import List, Optional, Dict, Any, Callable
+from typing import Any, Callable, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import (
     FingerprintSimilarity,
     KNNGraphBuilder,
-    SimilarityResult
+    SimilarityResult,
 )
+
 from .dependencies import require_repository_factory
 
 

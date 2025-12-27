@@ -8,19 +8,16 @@ Tests memory pressure detection and graceful degradation.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
-from memory_monitor import (
-    MemoryStatus,
-    MemoryPressureMonitor,
-    DegradationManager
-)
+from memory_monitor import DegradationManager, MemoryPressureMonitor, MemoryStatus
 
 
 class TestMemoryStatus:

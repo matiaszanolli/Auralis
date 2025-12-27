@@ -15,16 +15,15 @@ import pytest
 from auralis.utils.logging import (
     Code,
     ModuleError,
+    debug,
+    debug_line,
+    error,
+    get_log_level,
+    info,
     set_log_handler,
     set_log_level,
-    get_log_level,
-    debug,
-    info,
     warning,
-    error,
-    debug_line
 )
-
 
 # ===== Code Class Tests =====
 

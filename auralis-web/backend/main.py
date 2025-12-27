@@ -11,15 +11,16 @@ Replaces the Tkinter GUI with a professional web interface.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import uvicorn
 import logging
-import sys
 import os
+import sys
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
+
+import uvicorn
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -45,10 +46,10 @@ sys.path.insert(0, str(auralis_parent))
 
 # Import configuration modules
 from config.app import create_app
-from config.middleware import setup_middleware
-from config.startup import setup_startup_handlers
-from config.routes import setup_routers
 from config.globals import ConnectionManager
+from config.middleware import setup_middleware
+from config.routes import setup_routers
+from config.startup import setup_startup_handlers
 
 # Import state management
 from player_state import create_track_info
@@ -64,8 +65,8 @@ HAS_SIMILARITY = True
 ProcessingEngine: Any = None
 ChunkedAudioProcessor: Any = None
 try:
-    from processing_engine import ProcessingEngine
     from chunked_processor import ChunkedAudioProcessor
+    from processing_engine import ProcessingEngine
 except ImportError:
     HAS_PROCESSING = False
     logger.warning("⚠️  Processing components not available")

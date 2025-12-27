@@ -10,15 +10,16 @@ Shared fixtures for concurrency testing.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import threading
 import multiprocessing
-import tempfile
 import shutil
+import tempfile
+import threading
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from queue import Queue
+
 import numpy as np
+import pytest
 import soundfile as sf
 
 
@@ -196,6 +197,7 @@ def temp_db():
     """In-memory SQLite database for concurrent testing."""
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
+
     from auralis.library.models import Base
 
     # Create in-memory database

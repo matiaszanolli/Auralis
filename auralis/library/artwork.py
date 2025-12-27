@@ -10,16 +10,17 @@ Album artwork extraction and management for music library
 :license: GPLv3, see LICENSE for more details.
 """
 
-import os
 import hashlib
+import os
 from pathlib import Path
-from typing import Optional, Tuple, Any
-from mutagen import File as MutagenFile  # type: ignore[attr-defined]
-from mutagen.id3 import ID3, APIC  # type: ignore[attr-defined]
-from mutagen.mp4 import MP4, MP4Cover
-from mutagen.flac import FLAC, Picture
+from typing import Any, Optional, Tuple
 
-from ..utils.logging import info, warning, error, debug
+from mutagen import File as MutagenFile  # type: ignore[attr-defined]
+from mutagen.flac import FLAC, Picture
+from mutagen.id3 import APIC, ID3  # type: ignore[attr-defined]
+from mutagen.mp4 import MP4, MP4Cover
+
+from ..utils.logging import debug, error, info, warning
 
 
 class ArtworkExtractor:

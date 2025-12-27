@@ -10,7 +10,8 @@ Generate processing recommendations based on content analysis
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 from .analyzers import ContentFeatures, GenreClassification, MoodAnalysis
 
 

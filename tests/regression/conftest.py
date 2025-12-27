@@ -5,13 +5,14 @@ Regression Test Configuration
 Provides fixtures for regression testing.
 """
 
-import pytest
-import sys
-import tempfile
 import os
 import shutil
-import numpy as np
+import sys
+import tempfile
 from pathlib import Path
+
+import numpy as np
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -24,8 +25,8 @@ project_root = Path(__file__).parent.parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from auralis.library.models import Base
 from auralis.io.saver import save
+from auralis.library.models import Base
 
 
 @pytest.fixture

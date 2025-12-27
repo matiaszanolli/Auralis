@@ -11,16 +11,19 @@ Tests whether sampling can capture transition points and maintain accuracy
 despite large variations within a single track.
 """
 
-import numpy as np
+import gc
+import sys
 import time
 from pathlib import Path
-import sys
-import gc
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

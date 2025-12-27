@@ -11,13 +11,14 @@ Handles recursive directory scanning with intelligent file detection
 :license: GPLv3, see LICENSE for more details.
 """
 
+import hashlib
 import os
 import time
-import hashlib
-from pathlib import Path
-from typing import List, Dict, Optional, Callable, Generator, Set
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Callable, Dict, Generator, List, Optional, Set
+
 import soundfile as sf
 
 try:
@@ -27,8 +28,8 @@ except ImportError:
     MUTAGEN_AVAILABLE = False
     MutagenFile = None
 
-from ..utils.logging import info, warning, error, debug
-from .scan_models import ScanResult, AudioFileInfo
+from ..utils.logging import debug, error, info, warning
+from .scan_models import AudioFileInfo, ScanResult
 
 
 class LibraryScanner:

@@ -12,26 +12,33 @@ Unified processor supporting both reference-based and adaptive mastering
 Main processing engine that bridges Matchering and Auralis systems
 """
 
-import numpy as np
-from typing import Optional, Union, List, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
-from .unified_config import UnifiedConfig
-from .analysis import ContentAnalyzer, AdaptiveTargetGenerator
-from .analysis.spectrum_mapper import SpectrumMapper
+import numpy as np
+
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
-from .processors import apply_reference_matching
-from .processing import AdaptiveMode, HybridMode, EQProcessor, RealtimeProcessor, ContinuousMode
-from ..dsp.psychoacoustic_eq import PsychoacousticEQ, EQSettings
-from ..dsp.realtime_adaptive_eq import create_realtime_adaptive_eq
-from ..dsp.advanced_dynamics import create_dynamics_processor, DynamicsMode
+from ..dsp.advanced_dynamics import DynamicsMode, create_dynamics_processor
 from ..dsp.dynamics import create_brick_wall_limiter
+from ..dsp.psychoacoustic_eq import EQSettings, PsychoacousticEQ
+from ..dsp.realtime_adaptive_eq import create_realtime_adaptive_eq
+from ..io.results import Result
+from ..learning.preference_engine import create_preference_engine
 from ..optimization.performance_optimizer import get_performance_optimizer
 from ..utils.logging import debug, info
-from ..io.results import Result
-from .hybrid import RealtimeEQManager, DynamicsManager, PreferenceManager
-from ..learning.preference_engine import create_preference_engine
+from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
+from .analysis.spectrum_mapper import SpectrumMapper
+from .hybrid import DynamicsManager, PreferenceManager, RealtimeEQManager
+from .processing import (
+    AdaptiveMode,
+    ContinuousMode,
+    EQProcessor,
+    HybridMode,
+    RealtimeProcessor,
+)
+from .processors import apply_reference_matching
 from .recording_type_detector import RecordingTypeDetector
+from .unified_config import UnifiedConfig
 
 
 class HybridProcessor:

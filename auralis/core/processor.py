@@ -13,17 +13,18 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import warnings
-from typing import List, Optional, Any, Tuple, cast
-from ..utils.logging import Code, info, debug, debug_line, ModuleError
-from .config import UnifiedConfig
-from ..io.results import Result
-from ..io.loader import load
-from ..dsp.stages import main
-from ..io.saver import save
-from ..utils.preview_creator import create_preview
-from ..utils.helpers import get_temp_folder
-from ..utils.checker import check, check_equality
+from typing import Any, List, Optional, Tuple, cast
+
 from ..dsp.basic import channel_count, size
+from ..dsp.stages import main
+from ..io.loader import load
+from ..io.results import Result
+from ..io.saver import save
+from ..utils.checker import check, check_equality
+from ..utils.helpers import get_temp_folder
+from ..utils.logging import Code, ModuleError, debug, debug_line, info
+from ..utils.preview_creator import create_preview
+from .config import UnifiedConfig
 
 
 def process(

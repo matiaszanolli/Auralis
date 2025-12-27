@@ -1,9 +1,10 @@
 """Final comprehensive test - All 4 Matchering behaviors"""
 import numpy as np
+
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.io.unified_loader import load_audio
 from auralis.dsp.basic import rms
+from auralis.io.unified_loader import load_audio
 
 TEST_CASES = [
     # BEHAVIOR 1: Heavy Compression

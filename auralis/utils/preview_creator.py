@@ -12,8 +12,10 @@ Preview generation for A/B comparison
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
+from typing import Any, Optional
+
 import numpy as np
-from typing import Optional, Any
+
 from .logging import debug, info
 
 

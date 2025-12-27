@@ -10,8 +10,9 @@ Basic audio information and manipulation functions
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 from typing import Tuple
+
+import numpy as np
 
 
 def size(audio: np.ndarray) -> int:

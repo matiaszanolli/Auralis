@@ -10,13 +10,14 @@ Tests for boundary conditions, invalid inputs, and error recovery.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import time
-import tempfile
-from pathlib import Path
-import numpy as np
-import soundfile as sf
 import os
+import tempfile
+import time
+from pathlib import Path
+
+import numpy as np
+import pytest
+import soundfile as sf
 
 
 @pytest.mark.stress
@@ -40,7 +41,7 @@ class TestBoundaryConditions:
     def test_single_track_library(self, tmp_path):
         """Test library with exactly 1 track."""
         from auralis.library.manager import LibraryManager
-        from auralis.library.models import Track, Artist, Album
+        from auralis.library.models import Album, Artist, Track
 
         manager = LibraryManager(database_path=str(tmp_path / "single.db"))
         session = manager.SessionLocal()
@@ -115,7 +116,7 @@ class TestBoundaryConditions:
     def test_special_characters_metadata(self, tmp_path):
         """Test special characters in metadata."""
         from auralis.library.manager import LibraryManager
-        from auralis.library.models import Track, Artist, Album
+        from auralis.library.models import Album, Artist, Track
 
         manager = LibraryManager(database_path=str(tmp_path / "special.db"))
         session = manager.SessionLocal()
@@ -153,7 +154,7 @@ class TestBoundaryConditions:
     def test_very_long_metadata_fields(self, tmp_path):
         """Test 10,000 character metadata fields."""
         from auralis.library.manager import LibraryManager
-        from auralis.library.models import Track, Artist, Album
+        from auralis.library.models import Album, Artist, Track
 
         manager = LibraryManager(database_path=str(tmp_path / "long_metadata.db"))
         session = manager.SessionLocal()
@@ -363,7 +364,7 @@ class TestInvalidInputs:
     def test_negative_track_number(self, tmp_path):
         """Test invalid negative track number."""
         from auralis.library.manager import LibraryManager
-        from auralis.library.models import Track, Album, Artist
+        from auralis.library.models import Album, Artist, Track
 
         manager = LibraryManager(database_path=str(tmp_path / "negative_track.db"))
         session = manager.SessionLocal()
@@ -501,6 +502,7 @@ class TestInvalidInputs:
 
             # Verify table still exists
             from auralis.library.models import Track
+
             # Get session to verify table exists
             test_session = repo.get_session()
             count = test_session.query(Track).count()
@@ -576,8 +578,8 @@ class TestErrorRecovery:
 
     def test_partial_scan_recovery(self, tmp_path):
         """Test resuming interrupted library scan."""
-        from auralis.library.scanner import LibraryScanner
         from auralis.library.manager import LibraryManager
+        from auralis.library.scanner import LibraryScanner
 
         # Create test files
         music_dir = tmp_path / "music"
@@ -635,9 +637,10 @@ class TestErrorRecovery:
 
     def test_graceful_shutdown_under_load(self, tmp_path):
         """Test clean shutdown during heavy load."""
-        from auralis.library.manager import LibraryManager
-        from concurrent.futures import ThreadPoolExecutor
         import threading
+        from concurrent.futures import ThreadPoolExecutor
+
+        from auralis.library.manager import LibraryManager
 
         manager = LibraryManager(database_path=str(tmp_path / "shutdown.db"))
 

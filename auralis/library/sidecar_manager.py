@@ -16,14 +16,14 @@ Sidecar files provide:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import json
 import hashlib
-from pathlib import Path
-from typing import Optional, Dict, Any, List, Union, Callable, cast
-from datetime import datetime
+import json
 import os
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 
-from ..utils.logging import info, warning, error, debug
+from ..utils.logging import debug, error, info, warning
 
 
 class SidecarManager:

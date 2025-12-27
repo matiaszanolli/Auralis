@@ -17,13 +17,14 @@ Without normalization, high-range dimensions dominate distance calculations.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-from ...utils.logging import info, warning, error, debug
+import numpy as np
+
+from ...utils.logging import debug, error, info, warning
 
 
 @dataclass

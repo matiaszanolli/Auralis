@@ -13,9 +13,10 @@ Integrated from Matchering Player components
 """
 
 import numpy as np
-from .config import PlayerConfig
+
 from ..core.processor import process as core_process
 from ..utils.logging import debug, info
+from .config import PlayerConfig
 
 
 class AudioPlayer:
@@ -145,7 +146,7 @@ class AudioPlayer:
         """
         # Simple real-time level matching
         # TODO: Implement more sophisticated real-time processing
-        from ..dsp.basic import rms, amplify
+        from ..dsp.basic import amplify, rms
 
         chunk_rms = rms(chunk)
         ref_rms = rms(self.reference_data)

@@ -3,16 +3,17 @@ Tests for core Auralis functionality.
 Focus on real working modules to boost coverage meaningfully.
 """
 
-import pytest
-import tempfile
 import os
-import numpy as np
+import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
+
+import numpy as np
+import pytest
 
 from auralis.library.manager import LibraryManager
+from auralis.library.models import Album, Artist, Playlist, Track
 from auralis.library.scanner import LibraryScanner
-from auralis.library.models import Track, Album, Artist, Playlist
 
 
 class TestLibraryManagerAdvanced:
@@ -335,7 +336,7 @@ class TestDSPComponents:
     def test_basic_dsp_functionality(self):
         """Test basic DSP functionality."""
         try:
-            from auralis.dsp.basic import AudioProcessor, normalize_audio, amplify_audio
+            from auralis.dsp.basic import AudioProcessor, amplify_audio, normalize_audio
 
             # Test function availability
             assert callable(normalize_audio)
@@ -361,7 +362,11 @@ class TestDSPComponents:
     def test_dsp_stages_functionality(self):
         """Test DSP stages functionality."""
         try:
-            from auralis.dsp.stages import ProcessingStage, PreprocessingStage, MasteringStage
+            from auralis.dsp.stages import (
+                MasteringStage,
+                PreprocessingStage,
+                ProcessingStage,
+            )
 
             # Test stage classes exist
             assert ProcessingStage is not None
@@ -429,7 +434,7 @@ class TestUtilityComponents:
 
     def test_checker_comprehensive(self):
         """Test checker utilities comprehensively."""
-        from auralis.utils.checker import is_audio_file, check_file_permissions
+        from auralis.utils.checker import check_file_permissions, is_audio_file
 
         # Test audio file detection
         assert callable(is_audio_file)
@@ -470,7 +475,7 @@ class TestUtilityComponents:
 
     def test_logging_comprehensive(self):
         """Test logging utilities comprehensively."""
-        from auralis.utils.logging import info, warning, error, debug, set_log_level
+        from auralis.utils.logging import debug, error, info, set_log_level, warning
 
         # Test all logging functions
         log_functions = [info, warning, error, debug]

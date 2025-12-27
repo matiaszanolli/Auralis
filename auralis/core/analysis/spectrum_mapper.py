@@ -17,11 +17,11 @@ This file re-exports from the modular spectrum_mapper package.
 
 # Re-export all public classes and functions for backward compatibility
 from .spectrum_mapper import (
+    ProcessingParameters,
     SpectrumMapper,
     SpectrumPosition,
-    ProcessingParameters,
-    get_preset_anchors,
     apply_content_modifiers,
+    get_preset_anchors,
 )
 
 __all__ = [

@@ -13,10 +13,10 @@ For new code, prefer importing from auralis.player.realtime directly.
 
 # Re-export all components from modular structure
 from .realtime import (
-    PerformanceMonitor,
     AdaptiveGainSmoother,
-    RealtimeLevelMatcher,
     AutoMasterProcessor,
+    PerformanceMonitor,
+    RealtimeLevelMatcher,
     RealtimeProcessor,
 )
 

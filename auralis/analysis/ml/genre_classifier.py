@@ -10,13 +10,14 @@ Machine learning-based genre classification using audio features
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, Any, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
-from .features import AudioFeatures
-from .feature_extractor import FeatureExtractor
-from .genre_weights import initialize_genre_weights
+import numpy as np
+
 from ...utils.logging import debug
+from .feature_extractor import FeatureExtractor
+from .features import AudioFeatures
+from .genre_weights import initialize_genre_weights
 
 
 class MLGenreClassifier:

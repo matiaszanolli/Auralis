@@ -10,9 +10,10 @@ Manages dynamics processing parameters and state
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any, Optional
-from ...dsp.advanced_dynamics import DynamicsProcessor, DynamicsMode
-from ...utils.logging import info, debug
+from typing import Any, Dict, Optional
+
+from ...dsp.advanced_dynamics import DynamicsMode, DynamicsProcessor
+from ...utils.logging import debug, info
 
 
 class DynamicsManager:

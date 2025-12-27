@@ -9,21 +9,22 @@ Tests for the current psychoacoustic EQ API after modular refactoring.
 This test file validates the actual current implementation.
 """
 
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath('../..'))
 
 from auralis.dsp.eq import (
-    PsychoacousticEQ,
-    EQSettings,
     CriticalBand,
+    EQSettings,
     MaskingThresholdCalculator,
-    create_psychoacoustic_eq,
+    PsychoacousticEQ,
     create_critical_bands,
-    generate_genre_eq_curve
+    create_psychoacoustic_eq,
+    generate_genre_eq_curve,
 )
 
 

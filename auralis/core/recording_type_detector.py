@@ -17,8 +17,9 @@ Uses the reference data from three world-class masters:
 """
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
 from enum import Enum
+from typing import Dict, Optional, Tuple
+
 import numpy as np
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer

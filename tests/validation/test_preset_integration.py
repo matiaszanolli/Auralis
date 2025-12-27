@@ -7,8 +7,10 @@ Verify that different presets produce distinct audio output.
 """
 
 import numpy as np
+
 from auralis.core.config import UnifiedConfig, create_preset_profiles
 from auralis.core.hybrid_processor import HybridProcessor
+
 
 def test_preset_integration():
     """Test that each preset produces different processing results"""

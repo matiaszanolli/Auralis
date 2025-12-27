@@ -8,15 +8,18 @@ This completes Phase 7A integration by demonstrating production-ready performanc
 on real audio while maintaining feature consistency.
 """
 
-import numpy as np
+import sys
 import time
 from pathlib import Path
-import sys
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

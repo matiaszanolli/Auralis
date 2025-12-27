@@ -19,14 +19,15 @@ BUGS TESTED:
 - Audio fuzziness between chunks
 """
 
-import pytest
-import numpy as np
 import os
 
-from auralis.library.repositories import TrackRepository, ArtistRepository
+import numpy as np
+import pytest
+
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 from auralis.io.saver import save
+from auralis.library.repositories import ArtistRepository, TrackRepository
 
 
 @pytest.mark.regression

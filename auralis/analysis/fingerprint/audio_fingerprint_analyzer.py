@@ -20,17 +20,20 @@ Dependencies:
   - All individual analyzer modules
 """
 
-import numpy as np
 import logging
-from typing import Dict, Optional, Literal, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, Literal, Optional
 
-from auralis.analysis.fingerprint.analyzers.batch.temporal import TemporalAnalyzer
-from auralis.analysis.fingerprint.analyzers.batch.spectral import SpectralAnalyzer
+import numpy as np
+
 from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
-from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import SampledHarmonicAnalyzer
-from auralis.analysis.fingerprint.analyzers.batch.variation import VariationAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
+    SampledHarmonicAnalyzer,
+)
+from auralis.analysis.fingerprint.analyzers.batch.spectral import SpectralAnalyzer
 from auralis.analysis.fingerprint.analyzers.batch.stereo import StereoAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.temporal import TemporalAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.variation import VariationAnalyzer
 
 logger = logging.getLogger(__name__)
 

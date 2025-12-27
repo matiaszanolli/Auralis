@@ -17,21 +17,26 @@ Tests cover:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
 import json
-from typing import Dict, Tuple
 from pathlib import Path
+from typing import Dict, Tuple
 
+import numpy as np
+import pytest
+
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
+from auralis.analysis.fingerprint.parameter_mapper import (
+    DynamicsParameterMapper,
+    EQParameterMapper,
+    HarmonicParameterMapper,
+    LevelParameterMapper,
+    ParameterMapper,
+)
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.analysis.fingerprint.parameter_mapper import (
-    ParameterMapper, EQParameterMapper, DynamicsParameterMapper,
-    LevelParameterMapper, HarmonicParameterMapper
-)
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
 from auralis.io.saver import save as save_audio
-
 
 # ============================================================================
 # Fixtures for Phase 2.5 Validation

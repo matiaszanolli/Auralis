@@ -13,11 +13,12 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import logging
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from pathlib import Path
-from typing import Callable, Optional, Any, Dict
-import logging
 
 from .dependencies import require_repository_factory
 

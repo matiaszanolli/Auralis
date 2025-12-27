@@ -12,7 +12,7 @@ Real-time audio player with live mastering and adaptive DSP
 Based on Matchering Player components
 """
 
-from .enhanced_audio_player import EnhancedAudioPlayer
 from .config import PlayerConfig
+from .enhanced_audio_player import EnhancedAudioPlayer
 
 __all__ = ["EnhancedAudioPlayer", "PlayerConfig"]

@@ -13,17 +13,18 @@ Usage:
     python test_fingerprint_integration.py  # Uses synthetic test signals
 """
 
-import numpy as np
 import sys
-import pytest
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from auralis.core.analysis import AdaptiveTargetGenerator, ContentAnalyzer
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.core.analysis import ContentAnalyzer, AdaptiveTargetGenerator
 from auralis.io.unified_loader import load_audio
 
 

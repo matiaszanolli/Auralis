@@ -16,14 +16,14 @@ Tests verify that:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-from pathlib import Path
-import tempfile
 import os
+import tempfile
+from pathlib import Path
 
+import pytest
+
+from auralis.library.cache import _global_cache, get_cache_stats, invalidate_cache
 from auralis.library.manager import LibraryManager
-from auralis.library.cache import invalidate_cache, get_cache_stats, _global_cache
-
 
 # ============================================================================
 # Fixtures

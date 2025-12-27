@@ -9,9 +9,10 @@ Encapsulates bit depth options, file naming, and I/O operations.
 """
 
 import logging
-import numpy as np
 from pathlib import Path
-from typing import Literal, Dict, Any
+from typing import Any, Dict, Literal
+
+import numpy as np
 
 from auralis.io.saver import save as save_audio
 

@@ -23,30 +23,30 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
-import numpy as np
+# Import the module under test
+import sys
 import tempfile
 from pathlib import Path
 from typing import Tuple
 
-# Import the module under test
-import sys
+import numpy as np
+import pytest
+
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
 from chunked_processor import (
-    ChunkedAudioProcessor,
     CHUNK_DURATION,
-    OVERLAP_DURATION,
     CONTEXT_DURATION,
     MAX_LEVEL_CHANGE_DB,
-    apply_crossfade_between_chunks
+    OVERLAP_DURATION,
+    ChunkedAudioProcessor,
+    apply_crossfade_between_chunks,
 )
 
 # Add root to path for auralis imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from auralis.io.saver import save as save_audio
-
 
 # ============================================================================
 # Fixtures
@@ -285,6 +285,7 @@ def test_chunk_count_calculation(processor):
     This allows for 5s overlaps (CHUNK_DURATION - CHUNK_INTERVAL = 15 - 10 = 5).
     """
     import math
+
     from chunked_processor import CHUNK_INTERVAL
     expected_chunks = math.ceil(processor.total_duration / CHUNK_INTERVAL)
 
@@ -788,6 +789,7 @@ def test_handles_exactly_one_chunk_interval():
     With CHUNK_INTERVAL=10s, 10s audio = ceil(10/10) = 1 chunk
     """
     import tempfile
+
     from chunked_processor import CHUNK_INTERVAL
 
     duration = float(CHUNK_INTERVAL)  # Exactly 10 seconds (one CHUNK_INTERVAL)

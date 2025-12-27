@@ -4,12 +4,13 @@
 Comprehensive tests for Auralis DSP stages
 """
 
-import pytest
-import numpy as np
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from auralis.dsp.stages import main
+import numpy as np
+import pytest
+
 from auralis.core.config import Config
+from auralis.dsp.stages import main
 
 
 class TestDSPStages:

@@ -12,8 +12,9 @@ Basic audio processing utilities
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-import numpy as np
 from typing import Tuple
+
+import numpy as np
 
 
 def channel_count(audio: np.ndarray) -> int:

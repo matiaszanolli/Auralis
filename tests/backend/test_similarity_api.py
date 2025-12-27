@@ -32,10 +32,12 @@ To enable these tests in future:
 3. Ensure similarity router is properly initialized during testing
 """
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
+
 from auralis.library import LibraryManager
 
 # Skip all tests in this file - integration tests with external dependencies

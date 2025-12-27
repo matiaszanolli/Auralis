@@ -10,13 +10,14 @@ Builds and maintains pre-computed similarity graph for fast queries
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import List, Dict, Optional, Tuple, Any, cast
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple, cast
 
+import numpy as np
+
+from ...utils.logging import debug, error, info, warning
 from .similarity import FingerprintSimilarity
-from ...utils.logging import info, warning, error, debug
 
 
 @dataclass
@@ -289,8 +290,9 @@ class KNNGraphBuilder:
         Returns:
             GraphStats or None if graph is empty
         """
-        from ...library.models import SimilarityGraph
         from sqlalchemy import func
+
+        from ...library.models import SimilarityGraph
 
         session = self.session_factory()
         try:

@@ -22,11 +22,13 @@ Dependencies:
   - spectral_utilities for centralized spectral calculations
 """
 
-import numpy as np
-import librosa
 import logging
-from typing import Dict, Optional, Tuple, Any
 from collections import deque
+from typing import Any, Dict, Optional, Tuple
+
+import librosa
+import numpy as np
+
 from ...common_metrics import MetricUtils, SafeOperations
 
 logger = logging.getLogger(__name__)

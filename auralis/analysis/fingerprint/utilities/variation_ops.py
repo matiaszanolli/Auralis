@@ -14,10 +14,11 @@ Features:
   - peak_consistency: How consistent peaks are (0-1)
 """
 
-import numpy as np
-import librosa
 import logging
-from typing import Tuple, Optional, cast
+from typing import Optional, Tuple, cast
+
+import librosa
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

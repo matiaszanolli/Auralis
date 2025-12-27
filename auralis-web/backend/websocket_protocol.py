@@ -12,12 +12,12 @@ Phase B.3: WebSocket Enhancement
 """
 
 import logging
-import uuid
 import time
-from typing import Dict, List, Optional, Callable, Any, Awaitable
+import uuid
 from dataclasses import dataclass, field
-from enum import Enum
 from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

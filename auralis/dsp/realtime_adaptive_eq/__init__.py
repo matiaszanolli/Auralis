@@ -10,10 +10,10 @@ Real-time adaptive EQ system with critical band analysis
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .settings import RealtimeEQSettings
 from .adaptation_engine import AdaptationEngine
-from .realtime_eq import RealtimeAdaptiveEQ
 from .factory import create_realtime_adaptive_eq
+from .realtime_eq import RealtimeAdaptiveEQ
+from .settings import RealtimeEQSettings
 
 __all__ = [
     'RealtimeEQSettings',

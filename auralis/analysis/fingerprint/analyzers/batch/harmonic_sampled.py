@@ -17,13 +17,15 @@ Performance Expectations:
 - Accuracy: 95-99% correlation with full-track features
 """
 
-import numpy as np
-from typing import Dict, Tuple
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from ..base_analyzer import BaseAnalyzer
+from typing import Dict, Tuple
+
+import numpy as np
+
 from ...common_metrics import AggregationUtils
 from ...utilities.harmonic_ops import HarmonicOperations
+from ..base_analyzer import BaseAnalyzer
 
 logger = logging.getLogger(__name__)
 

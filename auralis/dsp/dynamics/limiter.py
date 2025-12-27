@@ -10,11 +10,12 @@ Advanced lookahead limiter with ISR and oversampling
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, Tuple, Optional, Any, cast
+from typing import Any, Dict, Optional, Tuple, cast
 
-from .settings import LimiterSettings
+import numpy as np
+
 from ...utils.logging import debug
+from .settings import LimiterSettings
 
 # Use vectorized envelope follower for 40-70x speedup
 EnvelopeFollower: Any  # Will be assigned below
@@ -181,6 +182,7 @@ class AdaptiveLimiter:
             # Vectorized approach: convolve all channels at once via scipy
             try:
                 from scipy import signal
+
                 # Use scipy's efficient multi-channel convolve
                 filtered = np.zeros_like(oversampled)
                 for ch in range(audio.shape[1]):

@@ -9,7 +9,7 @@ Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchron
 """
 
 import logging
-from typing import Dict, Any, List, Optional, Callable, Protocol, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, cast
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ Data models for library scanning
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Dict, List, Any
+from typing import Any, Dict, List, Optional
 
 
 @dataclass

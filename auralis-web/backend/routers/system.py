@@ -7,9 +7,10 @@ Infrastructure endpoints for system monitoring and real-time communication.
 import asyncio
 import json
 import logging
-from typing import Callable, Optional, Any, Dict
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from typing import Any, Callable, Dict, Optional
+
 from audio_stream_controller import AudioStreamController
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
 

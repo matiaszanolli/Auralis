@@ -39,11 +39,12 @@ Example Output:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import logging
 import sys
 import time
-import logging
 from pathlib import Path
-from typing import Tuple, List, Dict, Any
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 
 # Add project to path

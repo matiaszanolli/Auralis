@@ -9,9 +9,11 @@ that both achieve equivalent performance.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
 import os
+
+import numpy as np
+import pytest
+
 from auralis.io.saver import save
 
 

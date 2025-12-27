@@ -11,12 +11,12 @@ Usage:
     ./scripts/analyze_feedback.py --all-types
 """
 
-import json
 import argparse
-from pathlib import Path
+import json
 from collections import Counter
-from statistics import mean, stdev, median
-from typing import List, Dict, Optional
+from pathlib import Path
+from statistics import mean, median, stdev
+from typing import Dict, List, Optional
 
 from auralis.core.recording_type_detector import RecordingType
 

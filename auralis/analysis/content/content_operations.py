@@ -11,10 +11,11 @@ genre classification, and mood analysis.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, List
+
 import numpy as np
 from scipy.fft import fft, fftfreq
 from scipy.signal import find_peaks
-from typing import Any, List
 
 from ...dsp.unified import energy_profile
 from ..fingerprint.common_metrics import AggregationUtils

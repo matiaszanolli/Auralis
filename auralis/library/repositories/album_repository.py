@@ -10,12 +10,13 @@ Data access layer for album operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Callable
 from pathlib import Path
+from typing import Callable, List, Optional
+
 from sqlalchemy.orm import Session
 
-from ..models import Album
 from ..artwork import create_artwork_extractor
+from ..models import Album
 
 
 class AlbumRepository:
@@ -127,8 +128,9 @@ class AlbumRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
             from sqlalchemy import or_
+            from sqlalchemy.orm import joinedload
+
             from ..models import Artist
 
             search_term = f"%{query}%"

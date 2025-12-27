@@ -10,8 +10,10 @@ Psychoacoustic EQ integration and processing
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Dict, Any, Optional
+
 from ...dsp.psychoacoustic_eq import PsychoacousticEQ
 from ...utils.logging import debug
 

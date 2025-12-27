@@ -22,20 +22,22 @@ Test Categories:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import os
-import tempfile
-from pathlib import Path
 
 # Add auralis to path
 import sys
+import tempfile
+from pathlib import Path
+
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'auralis'))
 
-from auralis.library.repositories import TrackRepository
-from auralis.library.models import Base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from auralis.library.models import Base
+from auralis.library.repositories import TrackRepository
 
 # ============================================================================
 # FIXTURES

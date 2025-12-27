@@ -10,19 +10,29 @@ Spectrum-based adaptive processing without reference tracks
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Dict, Any, Optional
-from ...dsp.basic import rms, amplify
-from ...dsp.unified import (
-    calculate_loudness_units, stereo_width_analysis, adjust_stereo_width
-)
+
+from ...dsp.basic import amplify, rms
 from ...dsp.dynamics.soft_clipper import soft_clip
+from ...dsp.unified import (
+    adjust_stereo_width,
+    calculate_loudness_units,
+    stereo_width_analysis,
+)
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ...utils.logging import debug
 from .base_processing_mode import (
-    MeasurementUtilities, CompressionStrategies, ExpansionStrategies,
-    DBConversion, StereoWidthProcessor, ProcessingLogger,
-    SafetyLimiter, PeakNormalizer, NormalizationStep
+    CompressionStrategies,
+    DBConversion,
+    ExpansionStrategies,
+    MeasurementUtilities,
+    NormalizationStep,
+    PeakNormalizer,
+    ProcessingLogger,
+    SafetyLimiter,
+    StereoWidthProcessor,
 )
 
 

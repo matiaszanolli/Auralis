@@ -10,10 +10,10 @@ Helper functions for concurrency testing.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import time
 import threading
-from typing import Callable, List, Any, Tuple
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Callable, List, Tuple
 
 
 def run_concurrent(func: Callable, n_threads: int = 10, timeout: float = 30, *args, **kwargs) -> List[Any]:

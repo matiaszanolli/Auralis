@@ -8,9 +8,10 @@ the backend, reducing boilerplate and improving consistency.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from fastapi import HTTPException
-from typing import Optional, Any, NoReturn
 import logging
+from typing import Any, NoReturn, Optional
+
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 

@@ -10,18 +10,20 @@ Tests the parallel processing optimization modules.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
 from unittest.mock import Mock, patch
+
+import numpy as np
+import pytest
+
 from auralis.optimization.parallel_processor import (
-    ParallelConfig,
-    ParallelFFTProcessor,
-    ParallelBandProcessor,
-    ParallelFeatureExtractor,
     ParallelAudioProcessor,
-    get_parallel_processor,
+    ParallelBandProcessor,
+    ParallelConfig,
+    ParallelFeatureExtractor,
+    ParallelFFTProcessor,
     create_parallel_processor,
-    parallelize
+    get_parallel_processor,
+    parallelize,
 )
 
 

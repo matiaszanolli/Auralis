@@ -8,20 +8,18 @@ Tests the album artwork extraction and management system.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import tempfile
 import os
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, mock_open
 import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, mock_open, patch
+
+import pytest
 
 # Add auralis to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from auralis.library.artwork import (
-    ArtworkExtractor,
-    create_artwork_extractor
-)
+from auralis.library.artwork import ArtworkExtractor, create_artwork_extractor
 
 
 class TestArtworkExtractorInit:

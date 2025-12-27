@@ -3,7 +3,7 @@ Auralis version information.
 Single source of truth for version across the entire project.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 __version__ = "1.2.0-beta.2"
 __version_info__ = (1, 2, 0, "beta", 2)

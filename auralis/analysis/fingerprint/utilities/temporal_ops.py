@@ -15,11 +15,12 @@ Features:
   - silence_ratio: Proportion of silence/space in music (0-1)
 """
 
-import numpy as np
-import librosa
 import logging
 import warnings
 from typing import Tuple
+
+import librosa
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

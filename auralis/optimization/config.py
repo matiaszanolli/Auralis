@@ -10,8 +10,8 @@ Configuration settings for performance optimization system.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from dataclasses import dataclass
 import multiprocessing as mp
+from dataclasses import dataclass
 
 
 @dataclass

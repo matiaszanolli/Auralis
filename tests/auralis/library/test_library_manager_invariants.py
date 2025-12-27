@@ -29,21 +29,22 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
-import numpy as np
-import tempfile
 import os
-from pathlib import Path
 
 # Import the modules under test
 import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from auralis.library.manager import LibraryManager
-from auralis.library.models import Track, Album, Artist
-from auralis.library.repositories.factory import RepositoryFactory
 from auralis.io.saver import save as save_audio
-
+from auralis.library.manager import LibraryManager
+from auralis.library.models import Album, Artist, Track
+from auralis.library.repositories.factory import RepositoryFactory
 
 # ============================================================================
 # Fixtures
@@ -104,9 +105,10 @@ def populated_manager(test_db):
 @pytest.fixture
 def repository_factory_with_test_db():
     """Create RepositoryFactory with test database for Phase 5B dual-mode testing."""
+    import shutil
+
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    import shutil
 
     temp_dir = tempfile.mkdtemp()
     db_path = os.path.join(temp_dir, "test_repository.db")

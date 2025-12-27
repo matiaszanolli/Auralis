@@ -10,11 +10,11 @@ Batch processing of audio files for library scanning
 :license: GPLv3, see LICENSE for more details.
 """
 
-from pathlib import Path
 from datetime import datetime
-from typing import List, Tuple, Any
+from pathlib import Path
+from typing import Any, List, Tuple
 
-from ...utils.logging import error, debug
+from ...utils.logging import debug, error
 from ..scan_models import ScanResult
 
 

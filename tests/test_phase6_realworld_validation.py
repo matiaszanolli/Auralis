@@ -11,13 +11,17 @@ Validates RecordingTypeDetector on actual reference materials:
 Captures detection results, confidence scores, and processing metrics.
 """
 
-import numpy as np
-import librosa
-import pytest
 import time
 from pathlib import Path
-from auralis.core.recording_type_detector import RecordingTypeDetector, RecordingType
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+
+import librosa
+import numpy as np
+import pytest
+
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
+from auralis.core.recording_type_detector import RecordingType, RecordingTypeDetector
 
 
 class TestPhase6RealWorldAudioValidation:

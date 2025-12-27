@@ -12,12 +12,13 @@ Presets act as anchor points rather than rigid configurations.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, Any, Tuple
+from typing import Any, Dict, Tuple
 
-from .data_classes import SpectrumPosition, ProcessingParameters
-from .preset_anchors import get_preset_anchors
+import numpy as np
+
 from .content_modifiers import apply_content_modifiers
+from .data_classes import ProcessingParameters, SpectrumPosition
+from .preset_anchors import get_preset_anchors
 
 
 class SpectrumMapper:

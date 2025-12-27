@@ -14,10 +14,11 @@ STRESS SCENARIOS:
 - Temporary file cleanup
 """
 
-import pytest
-import time
 import gc
 import os
+import time
+
+import pytest
 
 
 @pytest.mark.load
@@ -117,8 +118,9 @@ class TestResourceCleanup:
         STRESS: Load 100 audio files, verify handles released.
         Target: No file descriptor leaks.
         """
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
+
         from auralis.io.unified_loader import load_audio
 
         # Create 100 audio files
@@ -288,8 +290,9 @@ class TestPeakResourceUsage:
         STRESS: Process very large audio file.
         Target: Peak memory < 1GB.
         """
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
 
@@ -358,6 +361,7 @@ class TestCPUUtilization:
         Target: < 100% CPU (no busy loops).
         """
         import psutil
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
 
@@ -392,6 +396,7 @@ class TestGarbageCollection:
         Target: > 80% memory reclaimed after GC.
         """
         import psutil
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
 

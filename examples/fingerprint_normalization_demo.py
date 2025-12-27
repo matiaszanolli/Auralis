@@ -12,14 +12,15 @@ Demonstrates how to use FingerprintNormalizer for similarity comparison
 """
 
 import sys
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.library import LibraryManager
 from auralis.analysis.fingerprint import FingerprintNormalizer
+from auralis.library import LibraryManager
 
 
 def demo_normalization():

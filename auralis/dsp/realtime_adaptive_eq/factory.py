@@ -10,8 +10,8 @@ Factory function for creating real-time adaptive EQ instances
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .settings import RealtimeEQSettings
 from .realtime_eq import RealtimeAdaptiveEQ
+from .settings import RealtimeEQSettings
 
 
 def create_realtime_adaptive_eq(

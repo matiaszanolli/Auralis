@@ -12,12 +12,12 @@ Modules:
 - BaseStreamingAnalyzer - Mixin for streaming analyzer infrastructure
 """
 
-from .harmonic_ops import HarmonicOperations
-from .temporal_ops import TemporalOperations
-from .spectral_ops import SpectralOperations
-from .variation_ops import VariationOperations
-from .dsp_backend import DSPBackend
 from .base_streaming_analyzer import BaseStreamingAnalyzer
+from .dsp_backend import DSPBackend
+from .harmonic_ops import HarmonicOperations
+from .spectral_ops import SpectralOperations
+from .temporal_ops import TemporalOperations
+from .variation_ops import VariationOperations
 
 __all__ = [
     'HarmonicOperations',

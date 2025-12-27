@@ -10,10 +10,11 @@ Audio validation and processing utilities
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 from typing import Tuple
 
-from ..utils.logging import debug, warning, Code, ModuleError
+import numpy as np
+
+from ..utils.logging import Code, ModuleError, debug, warning
 
 
 def validate_audio(audio_data: np.ndarray, sample_rate: int, file_type: str) -> Tuple[np.ndarray, int]:

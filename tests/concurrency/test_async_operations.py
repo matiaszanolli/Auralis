@@ -10,13 +10,13 @@ Tests for FastAPI async patterns, WebSocket concurrency, and background tasks.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import asyncio
 import time
 from typing import List
-import httpx
-from fastapi.testclient import TestClient
 
+import httpx
+import pytest
+from fastapi.testclient import TestClient
 
 # ============================================================================
 # FastAPI Async Pattern Tests (10 tests)

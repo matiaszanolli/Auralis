@@ -11,8 +11,10 @@ Run this AFTER restarting Auralis to confirm the fix is loaded.
 """
 
 import sys
-import numpy as np
 import time
+
+import numpy as np
+
 
 def test_fix():
     """Test that the temporal analyzer fix is working."""

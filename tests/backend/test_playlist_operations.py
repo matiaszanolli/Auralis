@@ -22,14 +22,14 @@ import pytest
 
 # Skip all playlist tests - feature not yet implemented
 pytestmark = pytest.mark.skip(reason="Playlist operations are Phase 3 feature (v1.3.0) - PlaylistRepository not yet implemented")
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
 
-from auralis.library.manager import LibraryManager
+import numpy as np
+
 from auralis.io.saver import save as save_audio
-
+from auralis.library.manager import LibraryManager
 
 # ============================================================================
 # Fixtures

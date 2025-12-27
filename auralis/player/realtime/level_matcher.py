@@ -10,11 +10,13 @@ Real-time RMS level matching with reference audio
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Dict, Any, Optional
-from .gain_smoother import AdaptiveGainSmoother
-from ..config import PlayerConfig
+
 from ...utils.logging import debug, info
+from ..config import PlayerConfig
+from .gain_smoother import AdaptiveGainSmoother
 
 
 class RealtimeLevelMatcher:

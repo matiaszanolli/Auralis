@@ -11,7 +11,8 @@ Data access layer for user settings operations
 """
 
 import json
-from typing import Optional, Dict, Any, Callable, List
+from typing import Any, Callable, Dict, List, Optional
+
 from sqlalchemy.orm import Session
 
 from ..models import UserSettings

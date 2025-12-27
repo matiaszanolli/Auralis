@@ -14,9 +14,11 @@ analyzer implementations (sequential, parallel, real-time, etc.).
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
-import numpy as np
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+
 from .spectrum_operations import SpectrumOperations
 
 

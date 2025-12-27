@@ -10,13 +10,14 @@ Multi-threaded parallel processing for psychoacoustic EQ
 :license: GPLv3, see LICENSE for more details.
 """
 
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, List, Optional, Tuple, cast
+
 import numpy as np
 from scipy.fft import fft, ifft
-from typing import List, Tuple, Optional, Any, cast
-from concurrent.futures import ThreadPoolExecutor
 
-from .config import ParallelEQConfig
 from ....utils.logging import debug
+from .config import ParallelEQConfig
 
 
 class ParallelEQProcessor:

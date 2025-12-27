@@ -11,21 +11,22 @@ Comprehensive tests for mastering preset functionality
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import numpy as np
 from pathlib import Path
 
+import numpy as np
+import pytest
+
+from auralis.core.analysis import AdaptiveTargetGenerator
 from auralis.core.config import (
-    UnifiedConfig,
     PresetProfile,
-    get_preset_profile,
+    UnifiedConfig,
+    create_preset_profiles,
     get_available_presets,
-    create_preset_profiles
+    get_preset_profile,
 )
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.analysis import AdaptiveTargetGenerator
-from auralis.dsp.utils.adaptive import calculate_loudness_units
 from auralis.dsp.dynamics.soft_clipper import soft_clip
+from auralis.dsp.utils.adaptive import calculate_loudness_units
 
 
 class TestPresetProfiles:

@@ -16,12 +16,15 @@ Tests concurrent fingerprint extraction with request batching:
 
 import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
 from typing import List, Tuple
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from auralis.library.fingerprint_extractor import FingerprintExtractor, CorruptedTrackError
+from auralis.library.fingerprint_extractor import (
+    CorruptedTrackError,
+    FingerprintExtractor,
+)
 
 
 class TestConcurrentPipelining:

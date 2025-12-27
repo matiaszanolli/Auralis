@@ -9,10 +9,11 @@ This file is marked as skipped. See test_api_endpoint_integration.py for
 documented endpoint status and commit 38be81c for details.
 """
 
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
@@ -370,7 +371,7 @@ class TestPlayerEndpoints:
 
     def test_get_player_status_with_mock(self, client):
         """Test player status with mocked player"""
-        from player_state import PlayerState, PlaybackState
+        from player_state import PlaybackState, PlayerState
 
         with patch('main.player_state_manager') as mock_state_manager:
             # Create mock PlayerState

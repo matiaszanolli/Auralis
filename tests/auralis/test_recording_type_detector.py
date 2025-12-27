@@ -12,10 +12,11 @@ Based on reference material analysis:
 
 import numpy as np
 import pytest
+
 from auralis.core.recording_type_detector import (
-    RecordingTypeDetector,
-    RecordingType,
     AdaptiveParameters,
+    RecordingType,
+    RecordingTypeDetector,
 )
 
 

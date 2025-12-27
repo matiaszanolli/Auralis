@@ -10,9 +10,10 @@ Data access layer for genre operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Callable, Dict, Any
-from sqlalchemy.orm import Session, joinedload
 import logging
+from typing import Any, Callable, Dict, List, Optional
+
+from sqlalchemy.orm import Session, joinedload
 
 from ..models import Genre, Track
 

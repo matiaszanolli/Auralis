@@ -10,9 +10,11 @@ Monitors processing performance and adapts quality
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, List
+
 import numpy as np
-from typing import Dict, Any, List
-from ...utils.logging import warning, info
+
+from ...utils.logging import info, warning
 
 
 class PerformanceMonitor:

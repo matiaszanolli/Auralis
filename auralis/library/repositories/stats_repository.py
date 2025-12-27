@@ -10,11 +10,12 @@ Data access layer for library statistics
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any, Callable
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from typing import Any, Callable, Dict
 
-from ..models import Track, Album, Artist, Genre, Playlist
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from ..models import Album, Artist, Genre, Playlist, Track
 
 
 class StatsRepository:

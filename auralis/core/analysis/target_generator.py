@@ -10,10 +10,10 @@ Generate adaptive processing targets based on content analysis
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
-from ..unified_config import UnifiedConfig, GenreProfile
 from ...utils.logging import debug
+from ..unified_config import GenreProfile, UnifiedConfig
 
 
 class AdaptiveTargetGenerator:

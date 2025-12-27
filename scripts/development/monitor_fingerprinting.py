@@ -10,15 +10,16 @@ Usage:
     python monitor_fingerprinting.py --watch   # Continuous monitoring
 """
 
+import argparse
 import sys
 import time
-import argparse
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 
 try:
     from sqlalchemy import create_engine, func
     from sqlalchemy.orm import sessionmaker
+
     from auralis.library.models import Track, TrackFingerprint
 except ImportError as e:
     print(f"❌ Error: Missing dependencies. Make sure Auralis is installed.")

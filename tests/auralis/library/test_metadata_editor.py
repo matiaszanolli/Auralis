@@ -8,22 +8,23 @@ Tests the audio file metadata editing system.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import os
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, call
-from io import BytesIO
 import sys
+import tempfile
+from io import BytesIO
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, call, patch
+
+import pytest
 
 # Add auralis to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from auralis.library.metadata_editor import (
+    MUTAGEN_AVAILABLE,
     MetadataEditor,
     MetadataUpdate,
     create_metadata_editor,
-    MUTAGEN_AVAILABLE
 )
 
 

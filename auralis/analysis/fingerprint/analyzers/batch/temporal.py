@@ -15,11 +15,13 @@ Dependencies:
   - numpy for numerical operations
 """
 
-import numpy as np
-from typing import Dict
 import logging
-from ..base_analyzer import BaseAnalyzer
+from typing import Dict
+
+import numpy as np
+
 from ...utilities.temporal_ops import TemporalOperations
+from ..base_analyzer import BaseAnalyzer
 
 logger = logging.getLogger(__name__)
 

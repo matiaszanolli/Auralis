@@ -13,12 +13,14 @@ The adaptive engine compares incoming fingerprints against profiles to find
 the best matching mastering strategy, rather than using preset configurations.
 """
 
-from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional, Tuple, Any
-from datetime import datetime
 import json
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
+
 from .fingerprint.common_metrics import MetricUtils
 
 try:

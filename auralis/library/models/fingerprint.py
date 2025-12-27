@@ -10,9 +10,10 @@ Models for 25D audio fingerprints and similarity graph
 :license: GPLv3, see LICENSE for more details.
 """
 
-from sqlalchemy import Column, Integer, Float, ForeignKey, LargeBinary
+from typing import Any, Dict, List
+
+from sqlalchemy import Column, Float, ForeignKey, Integer, LargeBinary
 from sqlalchemy.orm import relationship
-from typing import Dict, Any, List
 
 from .base import Base, TimestampMixin
 

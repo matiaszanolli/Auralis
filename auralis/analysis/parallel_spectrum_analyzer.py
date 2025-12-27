@@ -10,16 +10,17 @@ High-performance spectrum analysis with parallel FFT processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Any
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
-from ..optimization.parallel_processor import ParallelFFTProcessor, ParallelConfig
+import numpy as np
+
+from ..optimization.parallel_processor import ParallelConfig, ParallelFFTProcessor
 from ..utils.logging import debug
 from .base_spectrum_analyzer import BaseSpectrumAnalyzer, SpectrumSettings
+from .fingerprint.common_metrics import AggregationUtils, SafeOperations
 from .spectrum_operations import SpectrumOperations
-from .fingerprint.common_metrics import SafeOperations, AggregationUtils
 
 
 @dataclass

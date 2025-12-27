@@ -17,12 +17,16 @@ ContentAnalysisFacade for reusability across processors.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Dict, Any, Optional
-from ...dsp.realtime_adaptive_eq import RealtimeAdaptiveEQ
+
 from ...dsp.advanced_dynamics import DynamicsProcessor
+from ...dsp.realtime_adaptive_eq import RealtimeAdaptiveEQ
 from ...utils.logging import debug
-from ..analysis.content_analysis_facade import ContentAnalysisFacade  # Phase 5: Unified analysis
+from ..analysis.content_analysis_facade import (
+    ContentAnalysisFacade,  # Phase 5: Unified analysis
+)
 
 
 class RealtimeProcessor:

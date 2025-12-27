@@ -10,18 +10,19 @@ Extracts 25D audio fingerprints during library scanning
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-import gc
 import asyncio
-import aiohttp
+import gc
 import json
 import sqlite3
-from typing import Optional, Dict, List, Tuple, Any, Literal
 from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Tuple
+
+import aiohttp
+import numpy as np
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..io.unified_loader import load_audio
-from ..utils.logging import info, warning, error, debug
+from ..utils.logging import debug, error, info, warning
 from .sidecar_manager import SidecarManager
 
 # NOTE: requests library removed in favor of async aiohttp for true concurrent HTTP
@@ -287,8 +288,8 @@ class FingerprintExtractor:
         Returns:
             True if successful, False otherwise
         """
-        import time
         import os
+        import time
         try:
             start_time = time.time()
             filepath_obj = Path(filepath)

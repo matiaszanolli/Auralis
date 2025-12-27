@@ -5,12 +5,13 @@ Memory Profiling for Fingerprint Extraction
 Tracks memory usage at each step to identify memory leaks.
 """
 
+import os
 import sys
 import tracemalloc
-import psutil
-import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
+import psutil
 
 # Setup memory tracking
 tracemalloc.start()
@@ -43,10 +44,11 @@ def profile_section(name: str, before: Dict[str, float], after: Dict[str, float]
 
 async def main():
     """Profile a single fingerprint extraction."""
-    from auralis.library.manager import LibraryManager
-    from auralis.library.fingerprint_extractor import FingerprintExtractor
     import asyncio
     import gc
+
+    from auralis.library.fingerprint_extractor import FingerprintExtractor
+    from auralis.library.manager import LibraryManager
 
     print("🔍 Fingerprint Memory Profiling")
     print("="*70)

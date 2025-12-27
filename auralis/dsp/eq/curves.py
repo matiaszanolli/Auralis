@@ -10,9 +10,9 @@ Genre-specific and content-aware EQ curve generation
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, Optional, Any, List
+from typing import Any, Dict, List, Optional
 
+import numpy as np
 
 # Genre-specific EQ curves (25 bands)
 GENRE_CURVES = {

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Quick runner for mastering regression tests."""
 
-import sys
 import os
+import sys
 
 # Ensure auralis module is importable
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

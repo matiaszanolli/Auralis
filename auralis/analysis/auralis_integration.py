@@ -14,10 +14,10 @@ Architecture:
     IncomingAudio → fingerprint extraction → engine recommendation → HybridProcessor config → process
 """
 
-from typing import Dict, Optional, Any, List
+from typing import Any, Dict, List, Optional
 
-from .mastering_fingerprint import MasteringFingerprint
 from .adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation
+from .mastering_fingerprint import MasteringFingerprint
 from .mastering_profile import MasteringProfile
 
 

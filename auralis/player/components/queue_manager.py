@@ -10,8 +10,8 @@ Track queue management for audio playback
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, Dict, Any, Optional
 import random
+from typing import Any, Dict, List, Optional
 
 
 class QueueManager:

@@ -20,8 +20,9 @@ SECURITY CONTROLS TESTED:
 - Secure cookie attributes
 """
 
-import pytest
 import time
+
+import pytest
 
 
 @pytest.mark.security

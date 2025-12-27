@@ -14,15 +14,17 @@ REGRESSION CONTROLS TESTED:
 - Version detection and validation
 """
 
-import pytest
-import os
 import json
+import os
 import tempfile
 from pathlib import Path
+
+import pytest
 from sqlalchemy import create_engine, text
-from auralis.library.models import Track, Album, Artist, Base
+
 from auralis.core.unified_config import UnifiedConfig
 from auralis.library.manager import LibraryManager
+from auralis.library.models import Album, Artist, Base, Track
 
 
 @pytest.mark.regression
@@ -358,8 +360,9 @@ class TestAPIVersionCompatibility:
         REGRESSION: Repository method signatures should be stable.
         Test: Core methods have expected parameters.
         """
-        from auralis.library.repositories import TrackRepository
         import inspect
+
+        from auralis.library.repositories import TrackRepository
 
         track_repo = TrackRepository(temp_db)
 
@@ -406,9 +409,9 @@ class TestDeprecatedFeatures:
         """
         # These are legacy imports that should still work
         try:
-            from auralis.dsp.unified import spectral_centroid
-            from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ
             from auralis.analysis.quality_metrics import QualityMetrics
+            from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ
+            from auralis.dsp.unified import spectral_centroid
             success = True
         except ImportError:
             success = False
@@ -455,9 +458,10 @@ class TestBackwardCompatibility:
         REGRESSION: Processor output format should be consistent.
         Test: Always returns numpy array, always resamples to 44.1kHz.
         """
+        import numpy as np
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
-        import numpy as np
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)
@@ -498,9 +502,10 @@ class TestBackwardCompatibility:
         REGRESSION: Same input should produce same output.
         Test: Processing is deterministic (no random elements).
         """
+        import numpy as np
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
-        import numpy as np
 
         config = UnifiedConfig()
         processor1 = HybridProcessor(config)

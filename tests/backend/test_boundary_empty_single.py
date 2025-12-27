@@ -28,19 +28,20 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
-import numpy as np
-import tempfile
 import os
-from pathlib import Path
 
 # Import the modules under test
 import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from auralis.library.manager import LibraryManager
 from auralis.io.saver import save as save_audio
-
+from auralis.library.manager import LibraryManager
 
 # ============================================================================
 # Fixtures

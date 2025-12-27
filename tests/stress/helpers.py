@@ -10,11 +10,12 @@ Helper functions for stress and load testing.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import time
-import psutil
 import gc
-from typing import Callable, Dict, Any, List
 import os
+import time
+from typing import Any, Callable, Dict, List
+
+import psutil
 
 
 def measure_memory_usage(func: Callable, *args, **kwargs) -> Dict[str, Any]:
@@ -141,7 +142,7 @@ def create_large_test_library(session_maker, n_tracks: int = 1000) -> None:
         session_maker: SQLAlchemy session maker
         n_tracks: Number of tracks to create
     """
-    from auralis.library.models import Track, Album, Artist
+    from auralis.library.models import Album, Artist, Track
 
     session = session_maker()
 

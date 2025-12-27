@@ -10,16 +10,17 @@ Phase B.1: Backend Endpoint Standardization
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, TypeVar, Callable, Any, Optional, Dict
+import logging
+from typing import Any, Callable, Dict, List, Optional, TypeVar
+
 from schemas import (
-    PaginationMeta,
-    PaginatedResponse,
+    BatchItemResult,
     BatchRequest,
     BatchResponse,
-    BatchItemResult,
-    SuccessResponse
+    PaginatedResponse,
+    PaginationMeta,
+    SuccessResponse,
 )
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -420,6 +421,7 @@ def validate_batch_request(batch_request: BatchRequest) -> bool:
 # ============================================================================
 
 import time
+
 
 def calculate_cache_hit_probability(
     total_hits: int,

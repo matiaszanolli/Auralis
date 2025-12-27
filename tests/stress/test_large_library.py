@@ -11,12 +11,13 @@ with large music libraries (10k-50k tracks).
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import time
 import gc
-import psutil
+import time
 from pathlib import Path
+
 import numpy as np
+import psutil
+import pytest
 import soundfile as sf
 
 
@@ -28,8 +29,8 @@ class TestDatabasePerformanceUnderLoad:
 
     def test_library_scan_1k_files(self, tmp_path, memory_monitor):
         """Test library scan performance with 1,000 files."""
-        from auralis.library.scanner import LibraryScanner
         from auralis.library.manager import LibraryManager
+        from auralis.library.scanner import LibraryScanner
 
         # Create 1,000 small audio files
         audio_dir = tmp_path / "large_library"
@@ -220,8 +221,9 @@ class TestDatabasePerformanceUnderLoad:
             session.close()
     def test_cache_hit_rate_under_load(self, large_library_db):
         """Test cache efficiency with repeated queries."""
-        from auralis.library.manager import LibraryManager
         import tempfile
+
+        from auralis.library.manager import LibraryManager
 
         with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
             db_path = f.name
@@ -249,8 +251,9 @@ class TestDatabasePerformanceUnderLoad:
 
     def test_concurrent_queries_large_library(self, very_large_library_db, thread_pool):
         """Test concurrent database queries on large library."""
-        from auralis.library.repositories import TrackRepository
         from concurrent.futures import as_completed
+
+        from auralis.library.repositories import TrackRepository
 
         session_maker = very_large_library_db
 
@@ -302,8 +305,9 @@ class TestMemoryManagement:
         assert memory_increase < 500, f"Memory increased by {memory_increase:.1f}MB (expected < 500MB)"
     def test_memory_leak_detection(self, large_library_db):
         """Test for memory leaks during repeated operations."""
-        from auralis.library.repositories import TrackRepository
         import gc
+
+        from auralis.library.repositories import TrackRepository
 
         process = psutil.Process()
         repo = TrackRepository(large_library_db)
@@ -347,9 +351,10 @@ class TestMemoryManagement:
 
     def test_bulk_operation_memory(self, tmp_path, memory_monitor):
         """Test memory during bulk database operations."""
-        from auralis.library.models import Base, Track, Album, Artist
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
+
+        from auralis.library.models import Album, Artist, Base, Track
 
         process = memory_monitor
         gc.collect()
@@ -403,8 +408,9 @@ class TestMemoryManagement:
 
     def test_streaming_large_files(self, very_long_audio):
         """Test streaming large audio files without loading all in memory."""
-        from auralis.io.unified_loader import load_audio
         import gc
+
+        from auralis.io.unified_loader import load_audio
 
         process = psutil.Process()
         gc.collect()
@@ -443,8 +449,9 @@ class TestMemoryManagement:
 
     def test_metadata_cache_memory(self, large_library_db):
         """Test metadata cache memory usage."""
-        from auralis.library.manager import LibraryManager
         import tempfile
+
+        from auralis.library.manager import LibraryManager
 
         with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
             db_path = f.name
@@ -462,8 +469,9 @@ class TestMemoryManagement:
 
     def test_gc_performance(self, very_large_library_db):
         """Test garbage collection impact with large datasets."""
-        from auralis.library.repositories import TrackRepository
         import gc
+
+        from auralis.library.repositories import TrackRepository
 
         repo = TrackRepository(very_large_library_db)
 
@@ -506,8 +514,9 @@ class TestMemoryManagement:
 
     def test_memory_recovery_after_peak(self, large_library_db, memory_monitor):
         """Test memory cleanup after heavy operations."""
-        from auralis.library.repositories import TrackRepository
         import gc
+
+        from auralis.library.repositories import TrackRepository
 
         process = memory_monitor
         repo = TrackRepository(large_library_db)
@@ -555,8 +564,9 @@ class TestLongRunningOperations:
 
     def test_1000_track_queue(self, tmp_path):
         """Test queue with 1,000 tracks."""
-        from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
         import gc
+
+        from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
 
         player = EnhancedAudioPlayer()
 
@@ -588,8 +598,8 @@ class TestLongRunningOperations:
 
     def test_library_rescan_durability(self, tmp_path, large_library_db):
         """Test multiple rescans without degradation."""
-        from auralis.library.scanner import LibraryScanner
         from auralis.library.manager import LibraryManager
+        from auralis.library.scanner import LibraryScanner
 
         # Create audio directory
         audio_dir = tmp_path / "music"
@@ -619,8 +629,8 @@ class TestLongRunningOperations:
 
     def test_database_integrity_long_session(self, large_library_db):
         """Test database integrity after extended use."""
-        from auralis.library.repositories import TrackRepository
         from auralis.library.models import Track
+        from auralis.library.repositories import TrackRepository
 
         repo = TrackRepository(large_library_db)
 
@@ -646,8 +656,9 @@ class TestLongRunningOperations:
             assert track.title is not None
     def test_cache_invalidation_large_scale(self, large_library_db):
         """Test cache invalidation with 1,000+ entries."""
-        from auralis.library.manager import LibraryManager
         import tempfile
+
+        from auralis.library.manager import LibraryManager
 
         with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
             db_path = f.name

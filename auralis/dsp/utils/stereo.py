@@ -11,7 +11,8 @@ Utilities for stereo width analysis and manipulation
 """
 
 import numpy as np
-from ..basic import mid_side_encode, mid_side_decode
+
+from ..basic import mid_side_decode, mid_side_encode
 
 
 def stereo_width_analysis(stereo_audio: np.ndarray) -> float:

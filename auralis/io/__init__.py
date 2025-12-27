@@ -13,7 +13,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 from .loader import load
-from .saver import save
 from .results import Result, pcm16, pcm24
+from .saver import save
 
 __all__ = ["load", "save", "Result", "pcm16", "pcm24"]

@@ -18,16 +18,16 @@ Target: 25 comprehensive performance tests
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import time
-import numpy as np
 import os
+import time
+
+import numpy as np
+import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
-
 
 # ============================================================================
 # REAL-TIME FACTOR TESTS (10 tests)
@@ -354,7 +354,7 @@ class TestComponentPerformance:
         """
         BENCHMARK: EQ processing should achieve >50x real-time factor.
         """
-        from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ, EQSettings
+        from auralis.dsp.psychoacoustic_eq import EQSettings, PsychoacousticEQ
 
         audio, sr = load_audio(performance_audio_file)
         duration = len(audio) / sr
@@ -381,7 +381,10 @@ class TestComponentPerformance:
         """
         BENCHMARK: Dynamics processing should achieve >100x real-time factor.
         """
-        from auralis.dsp.advanced_dynamics import create_dynamics_processor, DynamicsMode
+        from auralis.dsp.advanced_dynamics import (
+            DynamicsMode,
+            create_dynamics_processor,
+        )
 
         audio, sr = load_audio(performance_audio_file)
         duration = len(audio) / sr

@@ -8,13 +8,16 @@ reducing boilerplate and improving consistency.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from fastapi import HTTPException
+import functools
 import logging
 import warnings
-import functools
-from typing import Callable, Any, cast, TypeVar, ParamSpec
+from typing import Any, Callable, ParamSpec, TypeVar, cast
+
+from fastapi import HTTPException
+
 from auralis import EnhancedAudioPlayer
 from auralis.library import LibraryManager
+
 from .errors import handle_query_error
 
 logger = logging.getLogger(__name__)

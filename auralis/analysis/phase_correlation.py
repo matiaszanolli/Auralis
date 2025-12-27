@@ -7,10 +7,12 @@ Phase Correlation Analysis
 Stereo phase correlation and spatial analysis tools.
 """
 
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
-from typing import Dict, Tuple, List, Any
 from scipy import signal
-from .fingerprint.common_metrics import SafeOperations, MetricUtils
+
+from .fingerprint.common_metrics import MetricUtils, SafeOperations
 
 
 class PhaseCorrelationAnalyzer:

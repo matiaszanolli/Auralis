@@ -7,21 +7,22 @@ from legendary engineers (Steven Wilson, Quincy Jones, etc.).
 Goal: Ensure Auralis meets or exceeds industry standards.
 """
 
-import pytest
-import numpy as np
 from pathlib import Path
 from typing import Dict, List
+
+import numpy as np
+import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 from auralis.io.unified_loader import load_audio
-from auralis.learning.reference_analyzer import ReferenceAnalyzer, MasteringProfile
+from auralis.learning.reference_analyzer import MasteringProfile, ReferenceAnalyzer
 from auralis.learning.reference_library import (
-    ReferenceTrack,
     Genre,
     MasteringEngineer,
-    get_references_for_genre,
+    ReferenceTrack,
     get_quality_benchmark,
+    get_references_for_genre,
 )
 
 

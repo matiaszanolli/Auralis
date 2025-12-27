@@ -25,13 +25,14 @@ This wrapper will be removed in v1.2.0.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from .quality.distortion_assessment import DistortionAssessor
+from .quality.dynamic_assessment import DynamicRangeAssessor
+from .quality.frequency_assessment import FrequencyResponseAssessor
+from .quality.loudness_assessment import LoudnessAssessor
+
 # Re-export everything from the new modular structure
 from .quality.quality_metrics import QualityMetrics, QualityScores
-from .quality.frequency_assessment import FrequencyResponseAssessor
-from .quality.dynamic_assessment import DynamicRangeAssessor
 from .quality.stereo_assessment import StereoImagingAssessor
-from .quality.distortion_assessment import DistortionAssessor
-from .quality.loudness_assessment import LoudnessAssessor
 
 __all__ = [
     'QualityMetrics',

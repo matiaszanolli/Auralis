@@ -4,14 +4,15 @@
 Comprehensive tests for Auralis audio player
 """
 
-import pytest
-import numpy as np
-import tempfile
 import os
-from unittest.mock import patch, MagicMock
+import tempfile
+from unittest.mock import MagicMock, patch
 
-from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
+import numpy as np
+import pytest
+
 from auralis.player.config import PlayerConfig
+from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
 
 
 class TestAudioPlayer:

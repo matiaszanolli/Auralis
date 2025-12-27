@@ -12,12 +12,18 @@ DEPRECATED: Use ContentAnalysisOperations instead. This module maintained for ba
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict
+
 import numpy as np
-from typing import Dict, Any
 
 from ...dsp.unified import (
-    spectral_centroid, spectral_rolloff, zero_crossing_rate,
-    crest_factor, tempo_estimate, rms, energy_profile
+    crest_factor,
+    energy_profile,
+    rms,
+    spectral_centroid,
+    spectral_rolloff,
+    tempo_estimate,
+    zero_crossing_rate,
 )
 from .content_operations import ContentAnalysisOperations
 

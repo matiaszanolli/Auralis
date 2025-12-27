@@ -11,10 +11,12 @@ Responsibilities:
 """
 
 import os
+from typing import Optional, Tuple, cast
+
 import numpy as np
-from typing import Tuple, Optional, cast
+
 from ..io.loader import load
-from ..utils.logging import debug, info, warning, error
+from ..utils.logging import debug, error, info, warning
 
 
 class AudioFileManager:

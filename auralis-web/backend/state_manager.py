@@ -10,10 +10,11 @@ Single source of truth that broadcasts state changes via WebSocket.
 """
 
 import asyncio
-import threading
 import logging
-from typing import Optional, List, Callable, Dict, Any
-from player_state import PlayerState, PlaybackState, TrackInfo, create_track_info
+import threading
+from typing import Any, Callable, Dict, List, Optional
+
+from player_state import PlaybackState, PlayerState, TrackInfo, create_track_info
 
 logger = logging.getLogger(__name__)
 

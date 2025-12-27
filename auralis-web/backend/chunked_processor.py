@@ -12,17 +12,17 @@ Applies crossfade between chunks to avoid audible jumps.
 :license: GPLv3
 """
 
-import numpy as np
-import logging
-from pathlib import Path
-from typing import Optional, Tuple, Dict, Any, List, cast
-import tempfile
 import asyncio
-from datetime import datetime
+import logging
 
 # Auralis imports
 import sys
+import tempfile
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, cast
+
+import numpy as np
 
 # Ensure both project root and backend are in path
 backend_path = str(Path(__file__).parent)
@@ -32,21 +32,26 @@ if backend_path not in sys.path:
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
-from auralis.io.unified_loader import load_audio
-from auralis.io.saver import save as save_audio
-from auralis.analysis.mastering_fingerprint import MasteringFingerprint
-from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
+from core.audio_processing_pipeline import AudioProcessingPipeline
 
 # Core modules (new modular architecture)
 from core.chunk_boundaries import ChunkBoundaryManager
-from core.level_manager import LevelManager
-from core.processor_factory import ProcessorFactory  # Phase 2: Replaced ProcessorManager
-from core.encoding import WAVEncoder
-from core.audio_processing_pipeline import AudioProcessingPipeline
 from core.chunk_operations import ChunkOperations  # Phase 3: Unified chunk operations
-from core.mastering_target_service import MasteringTargetService  # Phase 4: Unified fingerprint/target management
+from core.encoding import WAVEncoder
+from core.level_manager import LevelManager
+from core.mastering_target_service import (
+    MasteringTargetService,  # Phase 4: Unified fingerprint/target management
+)
+from core.processor_factory import (
+    ProcessorFactory,  # Phase 2: Replaced ProcessorManager
+)
+
+from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
+from auralis.analysis.mastering_fingerprint import MasteringFingerprint
+from auralis.core.hybrid_processor import HybridProcessor
+from auralis.core.unified_config import UnifiedConfig
+from auralis.io.saver import save as save_audio
+from auralis.io.unified_loader import load_audio
 
 # Phase 2 (Analysis caching) modules created but not yet integrated
 # To be integrated after resolving import structure issues
@@ -207,8 +212,8 @@ class ChunkedAudioProcessor:
         Returns:
             Hex string signature (first 8 chars of hash)
         """
-        import os
         import hashlib
+        import os
 
         try:
             stat = os.stat(self.filepath)
@@ -253,12 +258,14 @@ class ChunkedAudioProcessor:
         processing decisions (compressed loud detection, expansion, etc.)
         """
         try:
-            from auralis.core.unified_config import UnifiedConfig
+            from auralis.analysis.adaptive_target_generator import (
+                AdaptiveTargetGenerator,
+            )
+            from auralis.analysis.content_analyzer import ContentAnalyzer
+            from auralis.analysis.spectrum_mapper import SpectrumMapper
             from auralis.core.processing.adaptive_mode import AdaptiveMode
             from auralis.core.processing.psychoacoustic_eq import PsychoacousticEQ
-            from auralis.analysis.content_analyzer import ContentAnalyzer
-            from auralis.analysis.adaptive_target_generator import AdaptiveTargetGenerator
-            from auralis.analysis.spectrum_mapper import SpectrumMapper
+            from auralis.core.unified_config import UnifiedConfig
 
             # Ensure sample rate is available
             assert self.sample_rate is not None, "Sample rate not loaded"
@@ -1016,7 +1023,7 @@ class ChunkedAudioProcessor:
 
         # Encode directly to WAV (Web Audio API compatible)
         try:
-            from encoding.wav_encoder import encode_to_wav, WAVEncoderError
+            from encoding.wav_encoder import WAVEncoderError, encode_to_wav
 
             wav_bytes = encode_to_wav(extracted_chunk, self.sample_rate)
 

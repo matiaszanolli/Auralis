@@ -11,11 +11,11 @@ Automatically optimizes system parameters based on observed behavior.
 import asyncio
 import logging
 import time
-from typing import Optional, Dict, Any, Protocol
+from typing import Any, Dict, Optional, Protocol
 
 # Import actual implementations for type hints (not Protocols)
-from learning_system import LearningSystem, AdaptiveWeightTuner, AffinityRuleLearner
-from memory_monitor import MemoryPressureMonitor, DegradationManager
+from learning_system import AdaptiveWeightTuner, AffinityRuleLearner, LearningSystem
+from memory_monitor import DegradationManager, MemoryPressureMonitor
 
 logger = logging.getLogger(__name__)
 

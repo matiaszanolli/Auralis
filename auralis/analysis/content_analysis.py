@@ -12,26 +12,41 @@ Advanced audio content analysis for adaptive mastering
 Comprehensive audio content analysis system for intelligent processing decisions
 """
 
-import numpy as np
-from typing import Dict, Any
 from dataclasses import dataclass
+from typing import Any, Dict
 
-from .content import (
-    ContentFeatures, GenreClassification, MoodAnalysis,
-    FeatureExtractor, GenreAnalyzer, MoodAnalyzer, RecommendationEngine,
-    create_feature_extractor, create_genre_analyzer, create_mood_analyzer,
-    create_recommendation_engine
-)
-from .spectrum_analyzer import SpectrumAnalyzer, SpectrumSettings  # type: ignore[attr-defined]
-from .loudness_meter import LoudnessMeter
-from .phase_correlation import PhaseCorrelationAnalyzer
-from .dynamic_range import DynamicRangeAnalyzer
-from .quality_metrics import QualityMetrics
+import numpy as np
+
 from ..dsp.unified import (
-    spectral_centroid, spectral_rolloff, zero_crossing_rate,
-    crest_factor, tempo_estimate, rms
+    crest_factor,
+    rms,
+    spectral_centroid,
+    spectral_rolloff,
+    tempo_estimate,
+    zero_crossing_rate,
 )
 from ..utils.logging import debug, info
+from .content import (
+    ContentFeatures,
+    FeatureExtractor,
+    GenreAnalyzer,
+    GenreClassification,
+    MoodAnalysis,
+    MoodAnalyzer,
+    RecommendationEngine,
+    create_feature_extractor,
+    create_genre_analyzer,
+    create_mood_analyzer,
+    create_recommendation_engine,
+)
+from .dynamic_range import DynamicRangeAnalyzer
+from .loudness_meter import LoudnessMeter
+from .phase_correlation import PhaseCorrelationAnalyzer
+from .quality_metrics import QualityMetrics
+from .spectrum_analyzer import (  # type: ignore[attr-defined]
+    SpectrumAnalyzer,
+    SpectrumSettings,
+)
 
 
 @dataclass

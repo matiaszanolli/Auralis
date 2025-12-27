@@ -13,25 +13,25 @@ These tests validate that the system works correctly as a whole,
 catching integration bugs that unit tests would miss.
 """
 
-import pytest
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
 import sys
+import tempfile
+from pathlib import Path
+
+import numpy as np
+import pytest
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.io.unified_loader import load_audio
-from auralis.io.saver import save as save_audio
 from auralis.dsp.basic import rms
+from auralis.io.saver import save as save_audio
+from auralis.io.unified_loader import load_audio
 
 # Add backend to path for chunked processor tests
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
 from chunked_processor import ChunkedAudioProcessor
-
 
 # ============================================================================
 # Fixtures

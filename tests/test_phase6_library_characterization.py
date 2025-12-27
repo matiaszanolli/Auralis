@@ -10,12 +10,16 @@ This test suite characterizes the actual audio in the library
 and provides data for building new detection boundaries.
 """
 
-import numpy as np
-import librosa
-import pytest
 import time
 from pathlib import Path
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+
+import librosa
+import numpy as np
+import pytest
+
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 
 
 class TestPhase6LibraryCharacterization:

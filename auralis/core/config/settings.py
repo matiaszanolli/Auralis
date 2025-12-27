@@ -10,8 +10,8 @@ Configuration dataclasses for audio processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Literal
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass

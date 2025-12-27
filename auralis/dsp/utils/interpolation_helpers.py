@@ -10,8 +10,9 @@ Vectorized interpolation and envelope creation utilities for DSP operations
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, List, Optional
+
 import numpy as np
-from typing import Optional, List, Any
 
 
 def create_triangular_envelope(start: float, center: float, end: float,

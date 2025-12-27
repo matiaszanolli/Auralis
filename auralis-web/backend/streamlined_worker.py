@@ -15,10 +15,10 @@ Replaces complex multi-tier worker (373 lines) with simple predictive logic (~15
 
 import asyncio
 import logging
-from typing import Optional, Any, Tuple, List
 from pathlib import Path
+from typing import Any, List, Optional, Tuple
 
-from cache import streamlined_cache_manager, CHUNK_DURATION
+from cache import CHUNK_DURATION, streamlined_cache_manager
 
 logger = logging.getLogger(__name__)
 

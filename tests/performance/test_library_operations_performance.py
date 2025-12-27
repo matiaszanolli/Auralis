@@ -18,18 +18,22 @@ Target: 25 comprehensive performance tests
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import time
-import numpy as np
 import os
 import tempfile
+import time
 from pathlib import Path
 
-from auralis.library.manager import LibraryManager
-from auralis.library.repositories import TrackRepository, AlbumRepository, ArtistRepository
-from auralis.library.scanner import LibraryScanner
-from auralis.io.saver import save
+import numpy as np
+import pytest
 
+from auralis.io.saver import save
+from auralis.library.manager import LibraryManager
+from auralis.library.repositories import (
+    AlbumRepository,
+    ArtistRepository,
+    TrackRepository,
+)
+from auralis.library.scanner import LibraryScanner
 
 # ============================================================================
 # FOLDER SCANNING TESTS (5 tests)
@@ -636,6 +640,7 @@ class TestCachePerformance:
             pytest.skip("psutil required for memory profiling")
 
         import gc
+
         from auralis.library.manager import LibraryManager
 
         manager = LibraryManager(database_path=':memory:')
@@ -696,9 +701,10 @@ class TestCachePerformance:
         """
         BENCHMARK: Concurrent cache access should not degrade performance significantly.
         """
-        from concurrent.futures import ThreadPoolExecutor
-        from auralis.library.manager import LibraryManager
         import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        from auralis.library.manager import LibraryManager
 
         manager = LibraryManager(database_path=':memory:')
 
@@ -752,8 +758,8 @@ class TestMetadataOperations:
             filepath = os.path.join(temp_audio_dir, f'meta_{i:03d}.wav')
             save(filepath, audio, 44100, subtype='PCM_16')
 
-        from auralis.library.scanner import LibraryScanner
         from auralis.library.manager import LibraryManager
+        from auralis.library.scanner import LibraryScanner
 
         manager = LibraryManager(database_path=':memory:')
         scanner = LibraryScanner(manager)
@@ -896,8 +902,9 @@ class TestMetadataOperations:
 
         # Measure increment
         session = temp_db()
-        from auralis.library.models import Track
         from datetime import datetime
+
+        from auralis.library.models import Track
 
         with timer() as t:
             track = session.query(Track).filter_by(id=track_added.id).first()

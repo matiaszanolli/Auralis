@@ -18,10 +18,11 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import logging
+from typing import Any, Callable, Dict, List, Optional, cast
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Any, Callable, Dict, List, Optional, cast
-import logging
 
 from .dependencies import require_repository_factory
 

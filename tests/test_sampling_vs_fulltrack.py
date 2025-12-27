@@ -16,18 +16,21 @@ Sampling Strategy:
 - Expected speedup: 2-5x depending on track length
 """
 
-import numpy as np
+import gc
+import sys
 import time
 from pathlib import Path
-import sys
-import gc
 from typing import Dict, List, Tuple
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from auralis.analysis.fingerprint.harmonic_analyzer import HarmonicAnalyzer
-from auralis.analysis.fingerprint.harmonic_analyzer_sampled import SampledHarmonicAnalyzer
+from auralis.analysis.fingerprint.harmonic_analyzer_sampled import (
+    SampledHarmonicAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

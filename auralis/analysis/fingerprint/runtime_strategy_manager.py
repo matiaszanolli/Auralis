@@ -21,17 +21,17 @@ Fallback Strategies:
 """
 
 import logging
-from typing import Dict, Optional, Tuple, Any
 from enum import Enum
+from typing import Any, Dict, Optional, Tuple
 
+from auralis.analysis.fingerprint.confidence_scorer import ConfidenceScorer
+from auralis.analysis.fingerprint.feature_adaptive_sampler import (
+    FeatureAdaptiveSampler,
+)
 from auralis.analysis.fingerprint.strategy_selector import (
     AdaptiveStrategySelector,
     ProcessingMode,
     StrategyPreference,
-)
-from auralis.analysis.fingerprint.confidence_scorer import ConfidenceScorer
-from auralis.analysis.fingerprint.feature_adaptive_sampler import (
-    FeatureAdaptiveSampler,
 )
 
 logger = logging.getLogger(__name__)

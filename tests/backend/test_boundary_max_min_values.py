@@ -27,22 +27,23 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
-import numpy as np
-import tempfile
 import os
-import time
-from pathlib import Path
 
 # Import the modules under test
 import sys
+import tempfile
+import time
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from auralis.library.manager import LibraryManager
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 from auralis.io.saver import save as save_audio
-
+from auralis.library.manager import LibraryManager
 
 # ============================================================================
 # Very Long Audio Boundary Tests (P1 Priority)
@@ -104,7 +105,10 @@ def test_very_long_audio_chunk_count(tmp_path):
 
     10 hour audio with 10s chunks = 3600 chunks.
     """
-    from auralis_web.backend.chunked_processor import ChunkedAudioProcessor, CHUNK_DURATION
+    from auralis_web.backend.chunked_processor import (
+        CHUNK_DURATION,
+        ChunkedAudioProcessor,
+    )
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()

@@ -10,8 +10,9 @@ Model weights and genre-specific adjustments for genre classification
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 from typing import Dict, List
+
+import numpy as np
 
 
 def initialize_genre_weights(genres: List[str]) -> Dict[str, Dict[str, float]]:

@@ -15,10 +15,11 @@ Test coverage:
 import os
 import sys
 import time
-import numpy as np
-import librosa
-import pytest
 from pathlib import Path
+
+import librosa
+import numpy as np
+import pytest
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))

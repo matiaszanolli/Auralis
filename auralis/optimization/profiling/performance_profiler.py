@@ -10,12 +10,13 @@ Performance profiling and monitoring for audio processing.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 import threading
 import time
 from collections import defaultdict, deque
 from functools import wraps
-from typing import Dict, Any, Callable, List
+from typing import Any, Callable, Dict, List
+
+import numpy as np
 
 
 class PerformanceProfiler:

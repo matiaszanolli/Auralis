@@ -12,11 +12,13 @@ Dependencies:
   - base_analyzer for unified error handling
 """
 
-import numpy as np
-from typing import Dict
 import logging
-from ..base_analyzer import BaseAnalyzer
+from typing import Dict
+
+import numpy as np
+
 from ...common_metrics import MetricUtils
+from ..base_analyzer import BaseAnalyzer
 
 logger = logging.getLogger(__name__)
 

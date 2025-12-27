@@ -10,7 +10,7 @@ SIMD and parallel processing accelerators.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .simd_accelerator import SIMDAccelerator
 from .parallel_processor import ParallelProcessor
+from .simd_accelerator import SIMDAccelerator
 
 __all__ = ['SIMDAccelerator', 'ParallelProcessor']

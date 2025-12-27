@@ -19,20 +19,21 @@ Uses Facade pattern to maintain backward-compatible API.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Optional, Dict, Any, List, Callable
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
-from .config import PlayerConfig
-from .realtime_processor import RealtimeProcessor
-from .playback_controller import PlaybackController, PlaybackState
+import numpy as np
+
+from ..analysis.fingerprint.fingerprint_service import FingerprintService
+from ..library.repositories.factory import RepositoryFactory
+from ..utils.logging import debug, error, info, warning
 from .audio_file_manager import AudioFileManager
-from .queue_controller import QueueController
+from .config import PlayerConfig
 from .gapless_playback_engine import GaplessPlaybackEngine
 from .integration_manager import IntegrationManager
-from ..library.repositories.factory import RepositoryFactory
-from ..utils.logging import debug, info, warning, error
-from ..analysis.fingerprint.fingerprint_service import FingerprintService
+from .playback_controller import PlaybackController, PlaybackState
+from .queue_controller import QueueController
+from .realtime_processor import RealtimeProcessor
 
 # Backward compatibility alias for old test code
 QueueManager = QueueController

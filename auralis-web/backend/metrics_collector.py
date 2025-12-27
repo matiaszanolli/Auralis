@@ -8,11 +8,11 @@ Collects and aggregates performance metrics for the multi-tier buffer system.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import time
 import logging
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Deque, Any
+import time
 from collections import deque
+from dataclasses import asdict, dataclass
+from typing import Any, Deque, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

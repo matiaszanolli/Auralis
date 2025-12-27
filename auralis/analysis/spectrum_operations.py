@@ -14,9 +14,11 @@ functions used across sequential and parallel spectrum analyzers.
 """
 
 from typing import Any, Dict, List, Optional, Tuple, cast
+
 import numpy as np
 from scipy import signal
-from .fingerprint.common_metrics import AudioMetrics, AggregationUtils, MetricUtils
+
+from .fingerprint.common_metrics import AggregationUtils, AudioMetrics, MetricUtils
 
 
 class SpectrumOperations:

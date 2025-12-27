@@ -11,15 +11,16 @@ Responsibilities:
 - Session statistics
 """
 
-import time
 import os
-from typing import Dict, Any, Optional, Callable, List, cast
-from .playback_controller import PlaybackController
-from .audio_file_manager import AudioFileManager
-from .queue_controller import QueueController
-from ..library.repositories.factory import RepositoryFactory
+import time
+from typing import Any, Callable, Dict, List, Optional, cast
+
 from ..library.models import Track
-from ..utils.logging import debug, info, warning, error
+from ..library.repositories.factory import RepositoryFactory
+from ..utils.logging import debug, error, info, warning
+from .audio_file_manager import AudioFileManager
+from .playback_controller import PlaybackController
+from .queue_controller import QueueController
 
 
 class IntegrationManager:

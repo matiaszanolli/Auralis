@@ -10,9 +10,10 @@ Fully vectorized EQ processor using NumPy operations
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import cast
+
 import numpy as np
 from scipy.fft import fft, ifft
-from typing import cast
 
 from ....utils.logging import debug
 

@@ -1,9 +1,9 @@
 """Auralis Backend API version information."""
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 # Import version from main auralis package
-from auralis.__version__ import __version__, __version_info__, __db_schema_version__
+from auralis.__version__ import __db_schema_version__, __version__, __version_info__
 
 # Backend API version
 API_VERSION = __version__

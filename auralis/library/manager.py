@@ -17,23 +17,24 @@ import os
 import threading
 import warnings
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
+
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
-from .models import Base, Track, Album, Artist, Genre, Playlist
+from ..utils.logging import error, info, warning
+from .cache import cached_query, get_cache_stats, invalidate_cache
 from .migrations import check_and_migrate_database
+from .models import Album, Artist, Base, Genre, Playlist, Track
 from .repositories import (
-    TrackRepository,
     AlbumRepository,
     ArtistRepository,
-    PlaylistRepository,
-    StatsRepository,
     FingerprintRepository,
-    QueueRepository
+    PlaylistRepository,
+    QueueRepository,
+    StatsRepository,
+    TrackRepository,
 )
-from .cache import cached_query, invalidate_cache, get_cache_stats
-from ..utils.logging import info, warning, error
 
 
 class LibraryManager:

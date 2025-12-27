@@ -26,19 +26,19 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
-import numpy as np
-import tempfile
 import os
 import sys
+import tempfile
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Import the modules under test
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from auralis.library.manager import LibraryManager
 from auralis.io.saver import save as save_audio
-
+from auralis.library.manager import LibraryManager
 
 # ============================================================================
 # Fixtures
@@ -217,7 +217,10 @@ def test_audio_exactly_chunk_duration(tmp_path):
     """
     BOUNDARY: Audio exactly CHUNK_DURATION seconds (no partial chunks).
     """
-    from auralis_web.backend.chunked_processor import ChunkedAudioProcessor, CHUNK_DURATION
+    from auralis_web.backend.chunked_processor import (
+        CHUNK_DURATION,
+        ChunkedAudioProcessor,
+    )
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -255,7 +258,10 @@ def test_audio_one_sample_over_chunk_duration(tmp_path):
 
     Should create 2 chunks (not round down).
     """
-    from auralis_web.backend.chunked_processor import ChunkedAudioProcessor, CHUNK_DURATION
+    from auralis_web.backend.chunked_processor import (
+        CHUNK_DURATION,
+        ChunkedAudioProcessor,
+    )
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -290,7 +296,10 @@ def test_audio_one_sample_under_chunk_duration(tmp_path):
     """
     BOUNDARY: Audio 1 sample shorter than CHUNK_DURATION.
     """
-    from auralis_web.backend.chunked_processor import ChunkedAudioProcessor, CHUNK_DURATION
+    from auralis_web.backend.chunked_processor import (
+        CHUNK_DURATION,
+        ChunkedAudioProcessor,
+    )
 
     audio_dir = tmp_path / "audio"
     audio_dir.mkdir()
@@ -362,8 +371,8 @@ def test_position_exactly_duration(tmp_path):
 
     Should go to end, not crash.
     """
-    from auralis.player.player import AudioPlayer as EnhancedPlayer
     from auralis.core.unified_config import UnifiedConfig
+    from auralis.player.player import AudioPlayer as EnhancedPlayer
 
     # Create test audio
     audio_dir = tmp_path / "audio"
@@ -527,7 +536,9 @@ def test_chunk_at_exact_overlap_boundary(tmp_path):
     BOUNDARY: Chunk boundaries at exact OVERLAP_DURATION.
     """
     from auralis_web.backend.chunked_processor import (
-        ChunkedAudioProcessor, CHUNK_DURATION, OVERLAP_DURATION
+        CHUNK_DURATION,
+        OVERLAP_DURATION,
+        ChunkedAudioProcessor,
     )
 
     audio_dir = tmp_path / "audio"

@@ -20,10 +20,11 @@ Dependencies:
   - collections.deque for windowed buffers
 """
 
-import numpy as np
 import logging
-from typing import Dict, Optional, Deque
 from collections import deque
+from typing import Deque, Dict, Optional
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

@@ -14,11 +14,13 @@ REGRESSION CONTROLS TESTED:
 - EQ curve modifications
 """
 
-import pytest
 import os
+
 import numpy as np
-from auralis.core.unified_config import UnifiedConfig
+import pytest
+
 from auralis.core.hybrid_processor import HybridProcessor
+from auralis.core.unified_config import UnifiedConfig
 
 
 @pytest.mark.regression

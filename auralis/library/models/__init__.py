@@ -14,19 +14,28 @@ Database models for music library management
 from .base import Base, TimestampMixin, track_artist, track_genre, track_playlist
 
 # Core models
-from .core import Track, Album, Artist, Genre, Playlist, QueueState, QueueHistory, QueueTemplate
+from .core import (
+    Album,
+    Artist,
+    Genre,
+    Playlist,
+    QueueHistory,
+    QueueState,
+    QueueTemplate,
+    Track,
+)
 
-# Statistics
-from .statistics import LibraryStats
+# Fingerprint and similarity
+from .fingerprint import SimilarityGraph, TrackFingerprint
+
+# Schema versioning
+from .schema import SchemaVersion
 
 # Settings
 from .settings import UserSettings
 
-# Fingerprint and similarity
-from .fingerprint import TrackFingerprint, SimilarityGraph
-
-# Schema versioning
-from .schema import SchemaVersion
+# Statistics
+from .statistics import LibraryStats
 
 __all__ = [
     # Base

@@ -12,16 +12,23 @@ Intelligent compression, limiting, and dynamic range optimization
 Advanced dynamics processing with content-aware adaptation
 """
 
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
-from typing import Dict, Tuple, Optional, Any
+
+from ..utils.logging import debug
 
 # Import from refactored modules
 from .dynamics import (
-    DynamicsMode, CompressorSettings, LimiterSettings, DynamicsSettings,
-    EnvelopeFollower, AdaptiveCompressor, AdaptiveLimiter
+    AdaptiveCompressor,
+    AdaptiveLimiter,
+    CompressorSettings,
+    DynamicsMode,
+    DynamicsSettings,
+    EnvelopeFollower,
+    LimiterSettings,
 )
-from .unified import smooth_parameter_transition, rms
-from ..utils.logging import debug
+from .unified import rms, smooth_parameter_transition
 
 # Re-export for backward compatibility
 __all__ = [

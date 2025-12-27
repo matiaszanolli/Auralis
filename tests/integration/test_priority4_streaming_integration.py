@@ -13,11 +13,12 @@ Tests:
 6. Full playback flow with recommendations
 """
 
-import pytest
 import asyncio
-from pathlib import Path
-from unittest.mock import Mock, patch, AsyncMock
 import json
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 # These imports assume the Auralis package is available
 pytest.importorskip("auralis")

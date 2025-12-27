@@ -9,23 +9,25 @@ Comprehensive tests targeting 35%+ coverage for RealtimeProcessor (currently 17%
 Tests all classes: PerformanceMonitor, AdaptiveGainSmoother, RealtimeLevelMatcher, AutoMasterProcessor, RealtimeProcessor
 """
 
-import numpy as np
-import tempfile
 import os
 import sys
+import tempfile
 import time
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath('../..'))
 
-from auralis.player.realtime_processor import (
-    PerformanceMonitor,
-    AdaptiveGainSmoother,
-    RealtimeLevelMatcher,
-    AutoMasterProcessor,
-    RealtimeProcessor
-)
 from auralis.player.config import PlayerConfig
+from auralis.player.realtime_processor import (
+    AdaptiveGainSmoother,
+    AutoMasterProcessor,
+    PerformanceMonitor,
+    RealtimeLevelMatcher,
+    RealtimeProcessor,
+)
+
 
 class TestRealtimeProcessorComprehensive:
     """Comprehensive Real-time Processor coverage tests"""

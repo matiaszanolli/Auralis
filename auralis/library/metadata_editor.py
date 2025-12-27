@@ -16,8 +16,8 @@ This file re-exports from the modular metadata_editor package.
 
 # Re-export all public classes and functions for backward compatibility
 from .metadata_editor import (
-    MetadataUpdate,
     MetadataEditor,
+    MetadataUpdate,
     create_metadata_editor,
 )
 

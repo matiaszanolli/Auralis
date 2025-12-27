@@ -8,19 +8,22 @@ Library Scanner Comprehensive Coverage Test
 Comprehensive tests for the library scanner updated to match current API
 """
 
-import numpy as np
-import tempfile
 import os
-import sys
 import shutil
+import sys
+import tempfile
 from pathlib import Path
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath('../..'))
 
-from auralis.library.scanner import LibraryScanner
-from auralis.library.scan_models import ScanResult, AudioFileInfo
 import soundfile as sf
+
+from auralis.library.scan_models import AudioFileInfo, ScanResult
+from auralis.library.scanner import LibraryScanner
+
 
 class TestLibraryScannerComprehensive:
     """Comprehensive test coverage for LibraryScanner"""

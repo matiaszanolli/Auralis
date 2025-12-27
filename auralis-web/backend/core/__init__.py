@@ -5,9 +5,9 @@ Extracted from monolithic chunked_processor.py to improve maintainability and te
 """
 
 from .chunk_boundaries import ChunkBoundaryManager
+from .encoding import WAVEncoder
 from .level_manager import LevelManager
 from .processor_manager import ProcessorManager
-from .encoding import WAVEncoder
 
 __all__ = [
     'ChunkBoundaryManager',

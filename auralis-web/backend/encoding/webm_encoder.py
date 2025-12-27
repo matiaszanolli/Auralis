@@ -14,11 +14,12 @@ Key Features:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import logging
 import subprocess
 import tempfile
-import logging
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
+
 import numpy as np
 
 try:

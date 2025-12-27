@@ -6,11 +6,12 @@ Tests to validate real-time processing performance and ensure
 the system maintains high throughput (36.6x real-time baseline).
 """
 
-import pytest
 import sys
 import time
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Add paths for imports
 project_root = Path(__file__).parent.parent.parent
@@ -19,12 +20,12 @@ if str(project_root) not in sys.path:
 
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.io.unified_loader import load_audio
 from auralis.io.saver import save
+from auralis.io.unified_loader import load_audio
 from tests.performance.helpers import (
-    benchmark,
-    assert_realtime_factor,
     assert_latency,
+    assert_realtime_factor,
+    benchmark,
     measure_memory,
 )
 

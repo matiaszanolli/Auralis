@@ -10,12 +10,13 @@ Real-time EQ adaptation engine based on content analysis
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, Any, Optional, Deque
 from collections import deque
+from typing import Any, Deque, Dict, Optional
 
-from .settings import RealtimeEQSettings
+import numpy as np
+
 from ..unified import smooth_parameter_transition
+from .settings import RealtimeEQSettings
 
 
 class AdaptationEngine:

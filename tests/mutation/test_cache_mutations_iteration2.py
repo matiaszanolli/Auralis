@@ -11,9 +11,11 @@ Targets:
 - Various increment/assignment mutations
 """
 
-import pytest
 import time
 from datetime import datetime, timedelta
+
+import pytest
+
 from auralis.library.cache import QueryCache
 
 

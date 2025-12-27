@@ -9,12 +9,14 @@ This script tests all 5 presets on different production eras:
 - 2012: Meshuggah (modern heavy production)
 """
 
-import numpy as np
 from pathlib import Path
-from auralis.core.unified_config import UnifiedConfig
+
+import numpy as np
+
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.io.unified_loader import load_audio
+from auralis.core.unified_config import UnifiedConfig
 from auralis.dsp.unified import calculate_loudness_units, rms
+from auralis.io.unified_loader import load_audio
 
 # Test files from user's collection
 TEST_FILES = [

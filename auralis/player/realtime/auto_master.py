@@ -10,14 +10,16 @@ Automatic mastering with genre-aware processing
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Dict, Any, Optional
-from ..config import PlayerConfig
-from ...utils.logging import debug, info, warning
+
 from ...dsp.dynamics import AdaptiveCompressor
-from ...dsp.dynamics.settings import CompressorSettings
 from ...dsp.dynamics.lowmid_transient_enhancer import LowMidTransientEnhancer
+from ...dsp.dynamics.settings import CompressorSettings
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
+from ...utils.logging import debug, info, warning
+from ..config import PlayerConfig
 
 
 class AutoMasterProcessor:

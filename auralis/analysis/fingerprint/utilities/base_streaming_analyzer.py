@@ -13,8 +13,9 @@ Designed to be flexible enough for different buffering strategies
 (buffer-based, chunk-based, or other) while providing shared utilities.
 """
 
-import numpy as np
 from typing import Dict
+
+import numpy as np
 
 
 class BaseStreamingAnalyzer:

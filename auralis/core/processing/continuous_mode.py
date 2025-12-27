@@ -11,22 +11,34 @@ Generates optimal parameters from audio fingerprints.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
-from typing import Dict, Any, Optional, Tuple
-from auralis.core.config import UnifiedConfig
+
 from auralis.core.analysis import ContentAnalyzer
-from ...dsp.basic import rms, amplify
+from auralis.core.config import UnifiedConfig
+
+from ...dsp.basic import amplify, rms
 from ...dsp.unified import (
-    calculate_loudness_units, stereo_width_analysis, adjust_stereo_width
+    adjust_stereo_width,
+    calculate_loudness_units,
+    stereo_width_analysis,
 )
 from ...utils.logging import debug
-from .continuous_space import ProcessingSpaceMapper, PreferenceVector, ProcessingParameters
-from .parameter_generator import ContinuousParameterGenerator
-from .base_processing_mode import (
-    CompressionStrategies, ExpansionStrategies,
-    DBConversion, StereoWidthProcessor, SafetyLimiter
-)
 from ..recording_type_detector import RecordingTypeDetector
+from .base_processing_mode import (
+    CompressionStrategies,
+    DBConversion,
+    ExpansionStrategies,
+    SafetyLimiter,
+    StereoWidthProcessor,
+)
+from .continuous_space import (
+    PreferenceVector,
+    ProcessingParameters,
+    ProcessingSpaceMapper,
+)
+from .parameter_generator import ContinuousParameterGenerator
 
 
 class ContinuousMode:

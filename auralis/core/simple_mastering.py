@@ -12,11 +12,11 @@ Uses existing DSP components without requiring full HybridProcessor setup.
 """
 
 import time
-import numpy as np
-from typing import Dict, Tuple, Optional
 from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 import librosa
+import numpy as np
 import soundfile as sf
 
 from ..analysis.fingerprint.fingerprint_service import FingerprintService

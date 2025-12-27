@@ -9,22 +9,24 @@ Comprehensive tests for all basic DSP functions to maximize coverage
 Tests: channel_count, size, rms, normalize, amplify, mid_side_encode, mid_side_decode
 """
 
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath('../..'))
 
 from auralis.dsp.basic import (
-    channel_count,
-    size,
-    rms,
-    normalize,
     amplify,
+    channel_count,
+    mid_side_decode,
     mid_side_encode,
-    mid_side_decode
+    normalize,
+    rms,
+    size,
 )
+
 
 class TestDSPBasicComprehensive:
     """Comprehensive DSP Basic functions coverage tests"""

@@ -5,13 +5,14 @@ Tests for ProcessingEngine (Fixed API Signatures)
 Tests the job queue system with correct API signatures.
 """
 
-import pytest
 import asyncio
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
-import sys
+
 import numpy as np
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))

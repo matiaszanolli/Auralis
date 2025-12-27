@@ -15,9 +15,11 @@ Based on 7 genre profile analysis (October 26, 2025):
 Key Discovery: Bass/Mid Ratio is the strongest differentiator (8.9 dB range)
 """
 
-import numpy as np
-from typing import Dict, Tuple, Any
 import logging
+from typing import Any, Dict, Tuple
+
+import numpy as np
+
 from .fingerprint.common_metrics import SafeOperations
 
 logger = logging.getLogger(__name__)

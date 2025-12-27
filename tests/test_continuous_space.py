@@ -7,13 +7,14 @@ Tests for Continuous Processing Space
 Tests coordinate mapping, parameter generation, and preference biasing.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from auralis.core.processing.continuous_space import (
+    PreferenceVector,
     ProcessingCoordinates,
     ProcessingParameters,
-    PreferenceVector,
-    ProcessingSpaceMapper
+    ProcessingSpaceMapper,
 )
 from auralis.core.processing.parameter_generator import ContinuousParameterGenerator
 

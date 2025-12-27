@@ -12,16 +12,21 @@ BENCHMARKS MEASURED:
 - Cache hit/miss latency
 """
 
-import pytest
 import time
-import numpy as np
 from pathlib import Path
 
-from auralis.library.repositories import TrackRepository, AlbumRepository, ArtistRepository
+import numpy as np
+import pytest
+
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
 from auralis.io.unified_loader import load_audio
 from auralis.library.manager import LibraryManager
+from auralis.library.repositories import (
+    AlbumRepository,
+    ArtistRepository,
+    TrackRepository,
+)
 
 
 @pytest.mark.performance

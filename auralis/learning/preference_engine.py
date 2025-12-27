@@ -12,17 +12,18 @@ Machine learning system that adapts to user preferences over time
 Intelligent system that learns from user feedback and adjustments
 """
 
-import numpy as np
-from typing import Dict, Optional, Any, List
-from dataclasses import asdict
-from datetime import datetime, timedelta
 import json
-from pathlib import Path
 import threading
 from collections import defaultdict, deque
+from dataclasses import asdict
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 from ..utils.logging import debug, info
-from .components import UserAction, UserProfile, PreferencePredictor
+from .components import PreferencePredictor, UserAction, UserProfile
 
 
 class PreferenceLearningEngine:

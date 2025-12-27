@@ -10,12 +10,13 @@ Data access layer for track operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, List, Dict, Any, Callable
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_, func
+from typing import Any, Callable, Dict, List, Optional
 
-from ..models import Track, Artist, Album, Genre
-from ...utils.logging import info, warning, error, debug
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import Session
+
+from ...utils.logging import debug, error, info, warning
+from ..models import Album, Artist, Genre, Track
 
 
 class TrackRepository:

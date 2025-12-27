@@ -12,7 +12,7 @@ Data models for user preference learning
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 
 @dataclass

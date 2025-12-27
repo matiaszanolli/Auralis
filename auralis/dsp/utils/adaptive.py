@@ -11,9 +11,10 @@ Utilities for adaptive and intelligent audio processing
 """
 
 import numpy as np
-from .conversion import to_db
-from .audio_info import mono_to_stereo
+
 from ..basic import rms
+from .audio_info import mono_to_stereo
+from .conversion import to_db
 
 
 def adaptive_gain_calculation(target_rms: float,

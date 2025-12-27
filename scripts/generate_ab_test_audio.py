@@ -19,13 +19,14 @@ Output:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-import os
-from pathlib import Path
-from typing import Dict, Tuple
 import json
+import os
 import random
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, Tuple
+
+import numpy as np
 import soundfile as sf
 
 from auralis.analysis.fingerprint.parameter_mapper import ParameterMapper

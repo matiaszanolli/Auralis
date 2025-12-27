@@ -9,10 +9,11 @@ API endpoints for streamlined two-tier cache management and statistics.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+from cache import StreamlinedCacheManager
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from cache import StreamlinedCacheManager
 
 logger = logging.getLogger(__name__)
 

@@ -17,8 +17,9 @@ SECURITY CONTROLS TESTED:
 - Webhook signature validation (future)
 """
 
-import pytest
 import time
+
+import pytest
 
 
 @pytest.mark.security
@@ -339,8 +340,8 @@ class TestAPIKeyValidation:
         SECURITY: API keys should be properly formatted.
         Test: API key validation.
         """
-        import secrets
         import re
+        import secrets
 
         def generate_api_key():
             # Format: prefix_randomhex

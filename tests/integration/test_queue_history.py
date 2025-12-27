@@ -12,10 +12,11 @@ Tests verify:
 - History operations integrate with QueueRepository
 """
 
-import pytest
 import json
 import tempfile
 from pathlib import Path
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -237,7 +238,7 @@ class TestQueueHistoryUndo:
         queue_repo.set_queue_state(track_ids=[1, 2, 3])
 
         # Create corrupted history entry
-        from auralis.library.models import QueueState, QueueHistory
+        from auralis.library.models import QueueHistory, QueueState
         session = queue_history_repo.get_session()
         try:
             queue_state = session.query(QueueState).first()

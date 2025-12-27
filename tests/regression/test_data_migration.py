@@ -14,14 +14,16 @@ REGRESSION CONTROLS TESTED:
 - User preferences migration
 """
 
-import pytest
+import json
 import os
 import shutil
-import json
 from pathlib import Path
+
+import pytest
 from sqlalchemy import create_engine, text
-from auralis.library.models import Track, Album, Artist, Playlist, Base
+
 from auralis.library.manager import LibraryManager
+from auralis.library.models import Album, Artist, Base, Playlist, Track
 
 
 @pytest.mark.regression
@@ -296,7 +298,7 @@ class TestPlaylistMigration:
         REGRESSION: Playlist track order should be preserved.
         Test: Track positions remain stable.
         """
-        from auralis.library.repositories import TrackRepository, PlaylistRepository
+        from auralis.library.repositories import PlaylistRepository, TrackRepository
 
         track_repo = TrackRepository(temp_db)
         playlist_repo = PlaylistRepository(temp_db)
@@ -459,8 +461,9 @@ class TestUserPreferencesMigration:
         REGRESSION: Last played timestamps preserved.
         Test: Timestamp values migrate correctly.
         """
-        from auralis.library.repositories import TrackRepository
         from datetime import datetime
+
+        from auralis.library.repositories import TrackRepository
 
         track_repo = TrackRepository(temp_db)
 

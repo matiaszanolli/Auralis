@@ -10,11 +10,12 @@ Advanced EQ processing based on human auditory perception models
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .psychoacoustic_eq import PsychoacousticEQ, EQSettings
 from .critical_bands import CriticalBand, create_critical_bands
-from .masking import MaskingThresholdCalculator
-from .filters import apply_eq_gains, apply_eq_mono
 from .curves import generate_genre_eq_curve
+from .filters import apply_eq_gains, apply_eq_mono
+from .masking import MaskingThresholdCalculator
+from .psychoacoustic_eq import EQSettings, PsychoacousticEQ
+
 
 # Factory function for backward compatibility
 def create_psychoacoustic_eq(sample_rate: int = 44100,

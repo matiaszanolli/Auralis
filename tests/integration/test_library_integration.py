@@ -21,19 +21,19 @@ as a whole, catching integration issues between scanner, database,
 and query operations.
 """
 
-import pytest
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
 
+import numpy as np
+import pytest
+
+from auralis.io.saver import save as save_audio
 from auralis.library.manager import LibraryManager
-from auralis.library.repositories.track_repository import TrackRepository
 from auralis.library.repositories.album_repository import AlbumRepository
 from auralis.library.repositories.artist_repository import ArtistRepository
+from auralis.library.repositories.track_repository import TrackRepository
 from auralis.library.scanner import LibraryScanner
-from auralis.io.saver import save as save_audio
-
 
 # ============================================================================
 # Fixtures

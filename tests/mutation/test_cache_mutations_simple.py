@@ -5,9 +5,11 @@ Simple Mutation-Killing Tests for QueryCache
 These tests target specific mutations in auralis/library/cache.py
 """
 
-import pytest
 import time
 from datetime import datetime, timedelta
+
+import pytest
+
 from auralis.library.cache import QueryCache
 
 

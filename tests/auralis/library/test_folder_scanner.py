@@ -10,10 +10,11 @@ Test the comprehensive folder scanning and library management features
 
 import sys
 import tempfile
+import time
+from pathlib import Path
+
 import numpy as np
 import soundfile as sf
-from pathlib import Path
-import time
 
 # Add parent directory to Python path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))

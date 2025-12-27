@@ -10,46 +10,41 @@ Organized DSP utilities for audio processing
 :license: GPLv3, see LICENSE for more details.
 """
 
+from .adaptive import (
+    adaptive_gain_calculation,
+    calculate_loudness_units,
+    psychoacoustic_weighting,
+    smooth_parameter_transition,
+)
 from .audio_info import (
-    size,
     channel_count,
+    clip,
+    count_max_peaks,
     is_mono,
     is_stereo,
     mono_to_stereo,
-    count_max_peaks,
-    clip,
+    size,
 )
-
 from .conversion import (
-    to_db,
     from_db,
+    to_db,
 )
-
-from .spectral import (
-    spectral_centroid,
-    spectral_rolloff,
-    zero_crossing_rate,
-    crest_factor,
-    energy_profile,
-    tempo_estimate,
-)
-
-from .adaptive import (
-    adaptive_gain_calculation,
-    psychoacoustic_weighting,
-    smooth_parameter_transition,
-    calculate_loudness_units,
-)
-
-from .stereo import (
-    stereo_width_analysis,
-    adjust_stereo_width,
-)
-
 from .interpolation_helpers import (
+    create_mel_triangular_filters,
     create_triangular_envelope,
     create_triangular_filterbank,
-    create_mel_triangular_filters,
+)
+from .spectral import (
+    crest_factor,
+    energy_profile,
+    spectral_centroid,
+    spectral_rolloff,
+    tempo_estimate,
+    zero_crossing_rate,
+)
+from .stereo import (
+    adjust_stereo_width,
+    stereo_width_analysis,
 )
 
 __all__ = [

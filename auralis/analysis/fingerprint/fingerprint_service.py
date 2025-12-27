@@ -15,13 +15,16 @@ Replaces:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 import logging
+import sqlite3
 from pathlib import Path
 from typing import Dict, Optional, Tuple
-import sqlite3
 
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+import numpy as np
+
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
 
 logger = logging.getLogger(__name__)

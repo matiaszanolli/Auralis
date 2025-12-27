@@ -14,9 +14,9 @@ Supported Formats:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, Dict, Any, Tuple, Literal, Optional, cast
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 
 from .m3u_handler import M3UHandler
 from .xspf_handler import XSPFHandler

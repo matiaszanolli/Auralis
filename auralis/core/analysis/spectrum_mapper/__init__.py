@@ -11,10 +11,10 @@ Maps content analysis to processing parameters using spectrum-based approach
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .data_classes import SpectrumPosition, ProcessingParameters
-from .spectrum_mapper import SpectrumMapper
-from .preset_anchors import get_preset_anchors
 from .content_modifiers import apply_content_modifiers
+from .data_classes import ProcessingParameters, SpectrumPosition
+from .preset_anchors import get_preset_anchors
+from .spectrum_mapper import SpectrumMapper
 
 __all__ = [
     'SpectrumMapper',

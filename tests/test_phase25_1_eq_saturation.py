@@ -10,11 +10,12 @@ from synthetic or edge-case fingerprints.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import numpy as np
+import pytest
+
 from auralis.analysis.fingerprint.parameter_mapper import (
-    ParameterMapper,
     EQParameterMapper,
+    ParameterMapper,
 )
 
 

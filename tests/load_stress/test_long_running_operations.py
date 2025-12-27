@@ -13,9 +13,10 @@ LONG-RUNNING SCENARIOS:
 - Import/export operations
 """
 
-import pytest
-import time
 import gc
+import time
+
+import pytest
 
 
 @pytest.mark.load
@@ -28,8 +29,9 @@ class TestBatchProcessing:
         LOAD: Batch process 100 audio files.
         Target: < 5 minutes, stable memory.
         """
-        import soundfile as sf
         import numpy as np
+        import soundfile as sf
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
 
@@ -125,11 +127,13 @@ class TestQueueProcessing:
         LOAD: Process queue of 100 items sequentially.
         Target: < 5 minutes, no memory growth.
         """
-        import soundfile as sf
+        from collections import deque
+
         import numpy as np
+        import soundfile as sf
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
-        from collections import deque
 
         # Create queue of audio files
         queue = deque()
@@ -175,11 +179,13 @@ class TestQueueProcessing:
         LOAD: Process priority queue (high priority first).
         Target: Correct ordering, all items processed.
         """
-        import soundfile as sf
+        import heapq
+
         import numpy as np
+        import soundfile as sf
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
-        import heapq
 
         # Create priority queue (min-heap, lower number = higher priority)
         priority_queue = []
@@ -225,11 +231,13 @@ class TestBackgroundTasks:
         LOAD: Simulate background processing while handling queries.
         Target: Both operations complete successfully.
         """
-        import soundfile as sf
+        import threading
+
         import numpy as np
+        import soundfile as sf
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
-        import threading
 
         # Create audio files
         filepaths = []
@@ -297,6 +305,7 @@ class TestImportExport:
         Target: < 30 seconds, reasonable file size.
         """
         import json
+
         from auralis.library.repositories import TrackRepository
 
         large_track_dataset(1000)

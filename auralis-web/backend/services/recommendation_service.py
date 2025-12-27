@@ -11,7 +11,7 @@ Performs background analysis of loaded tracks to suggest optimal audio profiles.
 import logging
 import os
 import sys
-from typing import Dict, Any, Optional, Protocol, cast
+from typing import Any, Dict, Optional, Protocol, cast
 
 logger = logging.getLogger(__name__)
 

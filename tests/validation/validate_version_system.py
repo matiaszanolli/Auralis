@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Test the version management system"""
 
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 
 print("🧪 Testing Version Management System\n")
@@ -10,7 +10,7 @@ print("🧪 Testing Version Management System\n")
 # Test 1: Version info
 print("1️⃣  Testing version imports...")
 try:
-    from auralis.__version__ import __version__, __version_info__, __db_schema_version__
+    from auralis.__version__ import __db_schema_version__, __version__, __version_info__
     print(f"   ✅ Package version: {__version__}")
     print(f"   ✅ Version info: {__version_info__}")
     print(f"   ✅ DB schema version: {__db_schema_version__}")

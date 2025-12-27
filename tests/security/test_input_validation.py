@@ -19,8 +19,10 @@ are already tested in tests/boundaries/test_string_input_boundaries.py.
 These tests cover additional attack vectors.
 """
 
-import pytest
 import re
+
+import pytest
+
 from auralis.library.repositories import TrackRepository
 
 

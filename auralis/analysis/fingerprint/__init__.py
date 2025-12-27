@@ -28,21 +28,29 @@ Usage:
     # }
 """
 
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
-from auralis.analysis.fingerprint.normalizer import FingerprintNormalizer, DimensionStats
-from auralis.analysis.fingerprint.distance import FingerprintDistance, DimensionWeights
-from auralis.analysis.fingerprint.similarity import FingerprintSimilarity, SimilarityResult
-from auralis.analysis.fingerprint.knn_graph import KNNGraphBuilder, GraphStats
-from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
+from auralis.analysis.fingerprint.analyzers.base_analyzer import BaseAnalyzer
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.analysis.fingerprint.common_metrics import (
-    FingerprintConstants,
-    SafeOperations,
-    MetricUtils,
-    AudioMetrics,
     AggregationUtils,
+    AudioMetrics,
+    FingerprintConstants,
+    MetricUtils,
+    SafeOperations,
     SpectralOperations,
 )
-from auralis.analysis.fingerprint.analyzers.base_analyzer import BaseAnalyzer
+from auralis.analysis.fingerprint.distance import DimensionWeights, FingerprintDistance
+from auralis.analysis.fingerprint.fingerprint_storage import FingerprintStorage
+from auralis.analysis.fingerprint.knn_graph import GraphStats, KNNGraphBuilder
+from auralis.analysis.fingerprint.normalizer import (
+    DimensionStats,
+    FingerprintNormalizer,
+)
+from auralis.analysis.fingerprint.similarity import (
+    FingerprintSimilarity,
+    SimilarityResult,
+)
 
 __all__ = [
     'AudioFingerprintAnalyzer',

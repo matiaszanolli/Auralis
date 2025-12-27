@@ -10,15 +10,22 @@ Enhanced content analysis for adaptive audio processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
-from ...dsp.unified import (
-    rms, spectral_centroid, spectral_rolloff, zero_crossing_rate,
-    crest_factor, tempo_estimate, calculate_loudness_units, stereo_width_analysis
-)
-from ...analysis.ml_genre_classifier import create_ml_genre_classifier
+import numpy as np
+
 from ...analysis.fingerprint import AudioFingerprintAnalyzer
+from ...analysis.ml_genre_classifier import create_ml_genre_classifier
+from ...dsp.unified import (
+    calculate_loudness_units,
+    crest_factor,
+    rms,
+    spectral_centroid,
+    spectral_rolloff,
+    stereo_width_analysis,
+    tempo_estimate,
+    zero_crossing_rate,
+)
 from ...utils.logging import debug
 
 

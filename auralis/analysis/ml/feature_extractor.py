@@ -10,17 +10,21 @@ Extract comprehensive audio features for ML genre classification
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 from typing import List, Tuple
 
-from .features import AudioFeatures
+import numpy as np
+
 from ...dsp.unified import (
-    spectral_centroid, spectral_rolloff, zero_crossing_rate,
-    crest_factor, tempo_estimate
+    crest_factor,
+    spectral_centroid,
+    spectral_rolloff,
+    tempo_estimate,
+    zero_crossing_rate,
 )
 from ...dsp.utils import create_mel_triangular_filters
 from ...utils.logging import debug
 from ..fingerprint.common_metrics import SafeOperations
+from .features import AudioFeatures
 
 
 class FeatureExtractor:

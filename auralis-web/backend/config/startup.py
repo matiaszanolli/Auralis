@@ -19,7 +19,8 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Callable, Optional, Dict, Any
+from typing import Any, Callable, Dict, Optional
+
 from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
@@ -70,12 +71,15 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
         if HAS_AURALIS:
             try:
                 # Import Auralis components here to support optional dependency
-                from auralis.library import LibraryManager
-                from auralis.library.scanner import LibraryScanner
-                from auralis.library.repositories.settings_repository import SettingsRepository
-                from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
-                from auralis.player.config import PlayerConfig
                 from state_manager import PlayerStateManager
+
+                from auralis.library import LibraryManager
+                from auralis.library.repositories.settings_repository import (
+                    SettingsRepository,
+                )
+                from auralis.library.scanner import LibraryScanner
+                from auralis.player.config import PlayerConfig
+                from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
 
                 # Ensure database directory exists before initializing LibraryManager
                 music_dir = Path.home() / "Music" / "Auralis"
@@ -99,8 +103,12 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                 # Note: GPU batch processing was causing memory exhaustion crashes.
                 # CPU parallelization provides better stability and consistent performance.
                 try:
-                    from auralis.library.fingerprint_extractor import FingerprintExtractor
-                    from auralis.library.fingerprint_queue import FingerprintExtractionQueue
+                    from auralis.library.fingerprint_extractor import (
+                        FingerprintExtractor,
+                    )
+                    from auralis.library.fingerprint_queue import (
+                        FingerprintExtractionQueue,
+                    )
 
                     # Create fingerprint extractor with library manager's fingerprint repository
                     fingerprint_extractor = FingerprintExtractor(
@@ -182,7 +190,10 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                 # Initialize similarity system
                 if HAS_SIMILARITY:
                     try:
-                        from auralis.analysis.fingerprint import FingerprintSimilarity, KNNGraphBuilder
+                        from auralis.analysis.fingerprint import (
+                            FingerprintSimilarity,
+                            KNNGraphBuilder,
+                        )
 
                         globals_dict['similarity_system'] = FingerprintSimilarity(
                             globals_dict['library_manager'].fingerprints
@@ -216,8 +227,8 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
         # Initialize processing engine
         if HAS_PROCESSING:
             try:
-                from processing_engine import ProcessingEngine
                 from processing_api import set_processing_engine
+                from processing_engine import ProcessingEngine
 
                 globals_dict['processing_engine'] = ProcessingEngine(max_concurrent_jobs=2)
                 set_processing_engine(globals_dict['processing_engine'])

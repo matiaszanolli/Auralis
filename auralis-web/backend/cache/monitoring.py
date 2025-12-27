@@ -12,10 +12,10 @@ Phase B.2: Cache Integration and Monitoring
 
 import logging
 import time
-from typing import Dict, List, Optional, Callable, Any, Tuple
 from dataclasses import dataclass, field
-from enum import Enum
 from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

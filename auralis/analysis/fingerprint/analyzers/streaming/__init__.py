@@ -12,11 +12,11 @@ Analyzers:
 - StreamingFingerprint - Orchestrator for streaming fingerprint extraction
 """
 
-from .harmonic import StreamingHarmonicAnalyzer
-from .temporal import StreamingTemporalAnalyzer
-from .spectral import StreamingSpectralAnalyzer
-from .variation import StreamingVariationAnalyzer
 from .fingerprint import StreamingFingerprint
+from .harmonic import StreamingHarmonicAnalyzer
+from .spectral import StreamingSpectralAnalyzer
+from .temporal import StreamingTemporalAnalyzer
+from .variation import StreamingVariationAnalyzer
 
 __all__ = [
     'StreamingHarmonicAnalyzer',

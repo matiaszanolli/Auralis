@@ -13,6 +13,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import math
+
 from ..utils.logging import debug
 
 

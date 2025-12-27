@@ -8,18 +8,19 @@ Tests prediction accuracy tracking, weight tuning, and affinity rule learning.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from learning_system import (
-    PredictionAccuracy,
-    LearningSystem,
     AdaptiveWeightTuner,
-    AffinityRuleLearner
+    AffinityRuleLearner,
+    LearningSystem,
+    PredictionAccuracy,
 )
 
 

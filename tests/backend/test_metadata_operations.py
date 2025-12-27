@@ -19,16 +19,16 @@ These tests ensure that metadata operations work correctly
 and data is not lost or corrupted.
 """
 
-import pytest
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
 
+import numpy as np
+import pytest
+
+from auralis.io.saver import save as save_audio
 from auralis.library.manager import LibraryManager
 from auralis.library.metadata_editor import MetadataEditor
-from auralis.io.saver import save as save_audio
-
 
 # ============================================================================
 # Fixtures

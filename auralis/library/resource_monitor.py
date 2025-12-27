@@ -11,13 +11,14 @@ to maximize throughput while staying within safe memory limits.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import psutil
 import threading
 import time
-from typing import Optional, Callable, Dict, Any
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, Optional
 
-from ..utils.logging import info, warning, error, debug
+import psutil
+
+from ..utils.logging import debug, error, info, warning
 
 
 @dataclass

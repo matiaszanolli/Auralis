@@ -12,16 +12,16 @@ Enhanced audio file loading supporting multiple formats and processing modes
 Unified audio loading system combining Matchering and Auralis capabilities
 """
 
-import numpy as np
 import subprocess
-import soundfile as sf
 from pathlib import Path
-from typing import Tuple, Optional, Union, List, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from .loaders import load_with_soundfile, load_with_ffmpeg, check_ffmpeg
-from .processing import validate_audio, resample_audio
-from ..utils.logging import debug, info, warning, Code, ModuleError
+import numpy as np
+import soundfile as sf
 
+from ..utils.logging import Code, ModuleError, debug, info, warning
+from .loaders import check_ffmpeg, load_with_ffmpeg, load_with_soundfile
+from .processing import resample_audio, validate_audio
 
 # Supported audio formats
 SUPPORTED_FORMATS = {

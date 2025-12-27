@@ -15,13 +15,14 @@ Usage:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import sys
+import argparse
 import os
 import subprocess
-import argparse
-import webbrowser
+import sys
 import time
+import webbrowser
 from pathlib import Path
+
 
 def check_dependencies():
     """Check if required dependencies are installed"""

@@ -5,8 +5,9 @@ Provides fixtures for player component testing with RepositoryFactory pattern.
 Used in Phase 5A.3 test suite migration.
 """
 
+from typing import Any, Callable
+
 import pytest
-from typing import Callable, Any
 
 
 @pytest.fixture
@@ -71,8 +72,8 @@ def realtime_processor():
     Returns:
         RealtimeProcessor: Configured processor instance
     """
-    from auralis.player.realtime_processor import RealtimeProcessor
     from auralis.player.config import PlayerConfig
+    from auralis.player.realtime_processor import RealtimeProcessor
 
     config = PlayerConfig()
     return RealtimeProcessor(config)
@@ -157,8 +158,8 @@ def enhanced_player(get_repository_factory_callable):
             assert enhanced_player.play()
             assert enhanced_player.is_playing()
     """
-    from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
     from auralis.player.config import PlayerConfig
+    from auralis.player.enhanced_audio_player import EnhancedAudioPlayer
 
     config = PlayerConfig()
     return EnhancedAudioPlayer(

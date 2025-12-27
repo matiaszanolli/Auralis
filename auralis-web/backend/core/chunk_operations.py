@@ -16,10 +16,11 @@ This utility eliminates ~300 lines of duplicate chunk handling code.
 :license: GPLv3
 """
 
-import numpy as np
 import logging
-from typing import Tuple, Optional
 from pathlib import Path
+from typing import Optional, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 

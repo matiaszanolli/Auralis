@@ -33,19 +33,22 @@ Test Metrics:
 - Pass Rate: 75%+ across all categories
 """
 
-import pytest
-import numpy as np
-import time
 import json
-from pathlib import Path
-from typing import Dict, List, Tuple, Any
-from dataclasses import dataclass, asdict
 import sys
+import time
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
-from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import SampledHarmonicAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
+    SampledHarmonicAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

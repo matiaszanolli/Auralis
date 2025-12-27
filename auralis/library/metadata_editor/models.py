@@ -11,7 +11,7 @@ Data structures for metadata editing
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 @dataclass

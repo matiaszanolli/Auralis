@@ -2,14 +2,15 @@
 Pytest configuration and shared fixtures for Matchering tests
 """
 
-import pytest
-import numpy as np
-import sys
 import os
-from pathlib import Path
-import tempfile
-from typing import Dict, Tuple, Callable, Any
 import shutil
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any, Callable, Dict, Tuple
+
+import numpy as np
+import pytest
 
 # Add project root and backend directory to Python path
 # CRITICAL: Must be done BEFORE any imports to ensure backend modules can import core submodules
@@ -249,6 +250,7 @@ def session_factory(temp_test_db):
 
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
+
     from auralis.library.models import Base
 
     # Create engine with in-memory or file-based SQLite
@@ -528,9 +530,10 @@ def pytest_runtest_setup(item):
 def _ensure_portaudio():
     """Ensure PortAudio is properly initialized or disabled."""
     try:
-        import sounddevice as sd
-        from functools import wraps
         import atexit
+        from functools import wraps
+
+        import sounddevice as sd
 
         # Remove existing atexit handler to prevent double-termination
         if hasattr(sd, '_exit_handler'):

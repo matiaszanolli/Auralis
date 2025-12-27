@@ -10,10 +10,12 @@ Parallel processing framework for CPU-intensive operations.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
 import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Callable, Optional, Any, cast
+from typing import Any, Callable, List, Optional, cast
+
+import numpy as np
+
 from auralis.utils.logging import debug
 
 

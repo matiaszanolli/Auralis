@@ -11,21 +11,21 @@ The core classification and recommendation system that:
 This replaces preset-based mastering with adaptive profile matching.
 """
 
-from typing import Optional, List, Tuple, Dict, Any
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 from .mastering_fingerprint import MasteringFingerprint, analyze_album
 from .mastering_profile import (
+    PROFILE_BRIGHT_MASTERS,
+    PROFILE_DAMAGED_RESTORATION,
+    PROFILE_HIRES_MASTERS,
+    PROFILE_HOLY_DIVER,
+    PROFILE_QUIET_REFERENCE,
+    PROFILE_SODA_STEREO,
+    PROFILE_WARM_MASTERS,
     MasteringProfile,
     MasteringProfileDatabase,
-    PROFILE_SODA_STEREO,
-    PROFILE_QUIET_REFERENCE,
-    PROFILE_DAMAGED_RESTORATION,
-    PROFILE_HOLY_DIVER,
-    PROFILE_HIRES_MASTERS,
-    PROFILE_BRIGHT_MASTERS,
-    PROFILE_WARM_MASTERS,
 )
 
 

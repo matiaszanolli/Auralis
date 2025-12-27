@@ -15,9 +15,9 @@ This file re-exports from the modular realtime_adaptive_eq package.
 
 # Re-export all public classes and functions for backward compatibility
 from .realtime_adaptive_eq import (
-    RealtimeEQSettings,
     AdaptationEngine,
     RealtimeAdaptiveEQ,
+    RealtimeEQSettings,
     create_realtime_adaptive_eq,
 )
 

@@ -4,12 +4,12 @@ Comprehensive validation of smooth scaling mastering approach.
 Calls auto_master.py as subprocess and validates results.
 """
 
+import os
 import subprocess
 import sys
-import os
-from pathlib import Path
 import tempfile
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any, Dict
 
 # Add project to path
 sys.path.insert(0, '/mnt/data/src/matchering')

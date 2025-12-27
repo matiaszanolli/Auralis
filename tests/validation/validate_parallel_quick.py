@@ -8,8 +8,9 @@ Quick Test - Parallel Processing
 Quick validation that parallel processing works correctly
 """
 
-import numpy as np
 import time
+
+import numpy as np
 
 print("Testing Auralis Parallel Processing Infrastructure...")
 print("=" * 70)
@@ -18,10 +19,10 @@ print("=" * 70)
 print("\n[Test 1] Importing parallel modules...")
 try:
     from auralis.optimization.parallel_processor import (
-        ParallelFFTProcessor,
         ParallelBandProcessor,
+        ParallelConfig,
         ParallelFeatureExtractor,
-        ParallelConfig
+        ParallelFFTProcessor,
     )
     print("✅ Parallel processor imports successful")
 except Exception as e:
@@ -31,7 +32,7 @@ except Exception as e:
 try:
     from auralis.analysis.parallel_spectrum_analyzer import (
         ParallelSpectrumAnalyzer,
-        ParallelSpectrumSettings
+        ParallelSpectrumSettings,
     )
     print("✅ Parallel spectrum analyzer imports successful")
 except Exception as e:

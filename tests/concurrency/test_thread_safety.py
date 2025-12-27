@@ -10,13 +10,13 @@ Tests for thread-safe operations and race condition detection.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import threading
 import time
 from pathlib import Path
 
-from .helpers import run_concurrent, run_concurrent_with_barrier, detect_race_condition
+import pytest
 
+from .helpers import detect_race_condition, run_concurrent, run_concurrent_with_barrier
 
 # ============================================================================
 # Shared Resource Access Tests (10 tests)
@@ -509,9 +509,10 @@ class TestAudioProcessingThreadSafety:
 
         Validates that EQ processing can run concurrently without issues.
         """
-        from auralis.dsp.psychoacoustic_eq import PsychoacousticEQ, EQSettings
-        from auralis.io.unified_loader import load_audio
         import numpy as np
+
+        from auralis.dsp.psychoacoustic_eq import EQSettings, PsychoacousticEQ
+        from auralis.io.unified_loader import load_audio
 
         def process_eq(filepath):
             audio, sr = load_audio(filepath)
@@ -638,7 +639,7 @@ class TestAudioProcessingThreadSafety:
 
         Validates that target generation can run concurrently.
         """
-        from auralis.core.analysis import ContentAnalyzer, AdaptiveTargetGenerator
+        from auralis.core.analysis import AdaptiveTargetGenerator, ContentAnalyzer
         from auralis.io.unified_loader import load_audio
 
         analyzer = ContentAnalyzer()
@@ -715,8 +716,9 @@ class TestAudioProcessingThreadSafety:
 
         Validates that concurrent memory allocation doesn't cause issues.
         """
-        from auralis.io.unified_loader import load_audio
         import numpy as np
+
+        from auralis.io.unified_loader import load_audio
 
         def allocate_and_process(filepath):
             # Load audio
@@ -878,6 +880,7 @@ class TestThreadPoolManagement:
         Validates that pool can shut down cleanly even with active tasks.
         """
         from concurrent.futures import ThreadPoolExecutor
+
         from auralis.io.unified_loader import load_audio
 
         completed = []

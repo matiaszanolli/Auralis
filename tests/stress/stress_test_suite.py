@@ -17,18 +17,19 @@ Usage:
     python tests/stress/stress_test_suite.py --chaos-test
 """
 
-import asyncio
-import aiohttp
-import time
-import random
-import psutil
-import os
-import signal
-from pathlib import Path
-from typing import List, Dict, Optional
 import argparse
+import asyncio
 import json
+import os
+import random
+import signal
+import time
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
+
+import aiohttp
+import psutil
 
 
 class StressTestMetrics:

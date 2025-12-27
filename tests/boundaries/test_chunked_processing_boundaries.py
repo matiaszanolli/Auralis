@@ -14,11 +14,12 @@ Categories:
 5. Minimum Duration (6 tests)
 """
 
-import pytest
-import numpy as np
 import os
 import tempfile
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Constants from chunked processor
 # NOTE: These are hardcoded to match auralis-web/backend/chunked_processor.py

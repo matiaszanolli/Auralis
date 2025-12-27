@@ -10,12 +10,13 @@ Audio loading using soundfile library for WAV/FLAC
 :license: GPLv3, see LICENSE for more details.
 """
 
-import numpy as np
-import soundfile as sf
 from pathlib import Path
 from typing import Tuple
 
-from ...utils.logging import warning, Code, ModuleError
+import numpy as np
+import soundfile as sf
+
+from ...utils.logging import Code, ModuleError, warning
 
 
 def load_with_soundfile(file_path: Path) -> Tuple[np.ndarray, int]:

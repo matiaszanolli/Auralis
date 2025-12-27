@@ -13,25 +13,26 @@ Manages job queue, progress tracking, and result caching.
 """
 
 import asyncio
-import uuid
-import tempfile
 import shutil
-from pathlib import Path
-from typing import Dict, Any, Optional, Callable, List
+import sys
+import tempfile
+import uuid
 from datetime import datetime
 from enum import Enum
-import sys
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
 # Add parent directory to path for Auralis imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig, AdaptiveConfig
-from auralis.io.unified_loader import load_audio
-from auralis.io.saver import save
-from auralis.io.processing import resample_audio
-from auralis.analysis.fingerprint.parameter_mapper import ParameterMapper
 import numpy as np
+
+from auralis.analysis.fingerprint.parameter_mapper import ParameterMapper
+from auralis.core.hybrid_processor import HybridProcessor
+from auralis.core.unified_config import AdaptiveConfig, UnifiedConfig
+from auralis.io.processing import resample_audio
+from auralis.io.saver import save
+from auralis.io.unified_loader import load_audio
 
 
 class ProcessingStatus(str, Enum):

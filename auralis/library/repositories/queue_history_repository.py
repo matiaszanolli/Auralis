@@ -11,7 +11,8 @@ Data access layer for queue history and undo/redo operations
 """
 
 import json
-from typing import Optional, List, Dict, Any, Callable, cast
+from typing import Any, Callable, Dict, List, Optional, cast
+
 from sqlalchemy.orm import Session
 
 from ..models import QueueHistory, QueueState

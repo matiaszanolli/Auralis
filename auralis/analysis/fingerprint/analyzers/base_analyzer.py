@@ -14,8 +14,10 @@ Eliminates duplicate try/except blocks and default value handling across analyze
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 import numpy as np
+
 from ....utils.logging import debug
 
 

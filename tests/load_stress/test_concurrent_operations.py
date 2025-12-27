@@ -13,10 +13,11 @@ CONCURRENCY SCENARIOS:
 - Thread safety validation
 """
 
-import pytest
-import time
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import pytest
 
 
 @pytest.mark.load
@@ -372,8 +373,9 @@ class TestThreadSafety:
         STRESS: Repository operations are thread-safe.
         Target: No race conditions, consistent state.
         """
-        from auralis.library.repositories import TrackRepository
         import threading
+
+        from auralis.library.repositories import TrackRepository
 
         tracks = large_track_dataset(100)
         track_repo = TrackRepository(temp_db)
@@ -420,10 +422,11 @@ class TestThreadSafety:
         STRESS: Processor instances are thread-safe.
         Target: Multiple threads can use same processor.
         """
+        import threading
+
         from auralis.core.hybrid_processor import HybridProcessor
         from auralis.core.unified_config import UnifiedConfig
         from auralis.io.unified_loader import load_audio
-        import threading
 
         config = UnifiedConfig()
         processor = HybridProcessor(config)

@@ -28,20 +28,24 @@ Test Philosophy:
 See docs/development/TESTING_GUIDELINES.md for complete testing philosophy.
 """
 
-import pytest
+# Import the modules under test
+import sys
 import tempfile
 from pathlib import Path
 from typing import List
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Import the modules under test
-import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from auralis.library.models import Base, Track, Artist, Album
-from auralis.library.repositories import TrackRepository, AlbumRepository, ArtistRepository
-
+from auralis.library.models import Album, Artist, Base, Track
+from auralis.library.repositories import (
+    AlbumRepository,
+    ArtistRepository,
+    TrackRepository,
+)
 
 # ============================================================================
 # Fixtures
@@ -78,8 +82,10 @@ def artist_repo(test_db):
 def populated_db(track_repo):
     """Create a database populated with 100 test tracks."""
     import tempfile
-    from auralis.io.saver import save as save_audio
+
     import numpy as np
+
+    from auralis.io.saver import save as save_audio
 
     # Create temporary directory for test audio files
     temp_dir = Path(tempfile.mkdtemp())
@@ -864,7 +870,9 @@ def test_pagination_with_single_item(test_db):
     INVARIANT: Pagination with single item should work correctly.
     """
     import tempfile
+
     import numpy as np
+
     from auralis.io.saver import save as save_audio
 
     track_repo = TrackRepository(test_db)

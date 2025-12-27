@@ -12,9 +12,9 @@ Machine learning and user preference learning components
 
 from .preference_engine import (  # type: ignore[attr-defined]
     PreferenceLearningEngine,
-    UserProfile,
     UserAction,
-    create_preference_engine
+    UserProfile,
+    create_preference_engine,
 )
 
 __all__ = [

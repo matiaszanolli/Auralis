@@ -26,14 +26,15 @@ Dependencies:
   - Stream analyzer implementations
 """
 
-import numpy as np
 import logging
 from typing import Dict, Optional
 
-from .variation import StreamingVariationAnalyzer
+import numpy as np
+
+from .harmonic import StreamingHarmonicAnalyzer
 from .spectral import StreamingSpectralAnalyzer
 from .temporal import StreamingTemporalAnalyzer
-from .harmonic import StreamingHarmonicAnalyzer
+from .variation import StreamingVariationAnalyzer
 
 logger = logging.getLogger(__name__)
 

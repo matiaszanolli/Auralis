@@ -5,14 +5,14 @@ Validates the Rust HPSS implementation against librosa reference implementation
 using real audio from the Blind Guardian collection.
 """
 
+import ctypes
 import os
 import sys
-import ctypes
-import numpy as np
-import librosa
-import pytest
 from pathlib import Path
 
+import librosa
+import numpy as np
+import pytest
 
 # Rust library path
 RUST_LIB_PATH = Path(__file__).parent.parent / "vendor" / "auralis-dsp" / "target" / "release" / "libauralis_dsp.rlib"

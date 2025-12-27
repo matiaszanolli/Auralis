@@ -9,7 +9,7 @@ Coordinates with PlayerStateManager to keep single source of truth.
 """
 
 import logging
-from typing import Dict, Any, Protocol, cast
+from typing import Any, Dict, Protocol, cast
 
 logger = logging.getLogger(__name__)
 

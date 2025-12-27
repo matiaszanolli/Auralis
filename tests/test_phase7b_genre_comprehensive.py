@@ -11,17 +11,20 @@ Validates sampling strategy accuracy across diverse music genres:
 Tests whether sampling maintains 85%+ feature correlation across all styles.
 """
 
-import numpy as np
-import time
-from pathlib import Path
-import sys
-from collections import defaultdict
 import gc
+import sys
+import time
+from collections import defaultdict
+from pathlib import Path
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

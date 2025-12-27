@@ -10,10 +10,11 @@ Responsibilities:
 - Playlist loading
 """
 
-from typing import Dict, Any, Optional, List, Union, Callable
-from .components import QueueManager
+from typing import Any, Callable, Dict, List, Optional, Union
+
 from ..library.repositories.factory import RepositoryFactory
-from ..utils.logging import info, warning, error
+from ..utils.logging import error, info, warning
+from .components import QueueManager
 
 
 class QueueController:

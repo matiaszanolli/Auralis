@@ -8,16 +8,19 @@ and establishing baseline fingerprint data.
 Test Case: The Who - Who's Next (Steven Wilson Stereo Remix, 2023, 24-96)
 """
 
-import numpy as np
+import gc
+import sys
 import time
 from pathlib import Path
-import sys
-import gc
+
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auralis.analysis.fingerprint.audio_fingerprint_analyzer import AudioFingerprintAnalyzer
+from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
+    AudioFingerprintAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

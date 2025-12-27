@@ -10,10 +10,14 @@ Manages user preference learning and feedback
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Any, Optional
 from datetime import datetime
-from ...learning.preference_engine import PreferenceLearningEngine, UserAction  # type: ignore[attr-defined]
-from ...utils.logging import info, debug
+from typing import Any, Dict, Optional
+
+from ...learning.preference_engine import (  # type: ignore[attr-defined]
+    PreferenceLearningEngine,
+    UserAction,
+)
+from ...utils.logging import debug, info
 
 
 class PreferenceManager:

@@ -10,13 +10,14 @@ Shared fixtures for stress and load testing.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
-import psutil
 import gc
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
+
 import numpy as np
+import psutil
+import pytest
 import soundfile as sf
 
 
@@ -81,7 +82,8 @@ def large_library_db(tmp_path):
     """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    from auralis.library.models import Base, Track, Album, Artist
+
+    from auralis.library.models import Album, Artist, Base, Track
 
     db_path = tmp_path / "large_library.db"
     engine = create_engine(f'sqlite:///{db_path}', echo=False)
@@ -144,7 +146,8 @@ def very_large_library_db(tmp_path):
     """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    from auralis.library.models import Base, Track, Album, Artist
+
+    from auralis.library.models import Album, Artist, Base, Track
 
     db_path = tmp_path / "very_large_library.db"
     engine = create_engine(f'sqlite:///{db_path}', echo=False)

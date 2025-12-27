@@ -17,18 +17,19 @@ Main orchestrator for performance optimization system. Coordinates:
 - Performance profiling
 """
 
-import numpy as np
-from typing import Dict, Tuple, Optional, Any, Callable
 from functools import wraps
+from typing import Any, Callable, Dict, Optional, Tuple
+
+import numpy as np
+
+from ..utils.logging import debug, info
+from .acceleration import ParallelProcessor, SIMDAccelerator
+from .caching import SmartCache
 
 # Import from modular components
 from .config import PerformanceConfig
 from .memory import MemoryPool
-from .caching import SmartCache
-from .acceleration import SIMDAccelerator, ParallelProcessor
 from .profiling import PerformanceProfiler
-
-from ..utils.logging import info, debug
 
 
 class PerformanceOptimizer:

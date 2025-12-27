@@ -10,8 +10,8 @@ ML-based genre classification with comprehensive feature extraction
 :license: GPLv3, see LICENSE for more details.
 """
 
-from .features import AudioFeatures
 from .feature_extractor import FeatureExtractor
+from .features import AudioFeatures
 from .genre_classifier import MLGenreClassifier, create_ml_genre_classifier
 from .genre_weights import initialize_genre_weights
 

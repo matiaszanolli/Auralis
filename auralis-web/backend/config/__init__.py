@@ -10,8 +10,8 @@ Handles app creation, middleware setup, startup events, and router registration.
 
 from .app import create_app
 from .middleware import setup_middleware
-from .startup import setup_startup_handlers
 from .routes import setup_routers
+from .startup import setup_startup_handlers
 
 __all__ = [
     'create_app',

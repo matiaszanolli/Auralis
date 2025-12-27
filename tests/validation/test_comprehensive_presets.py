@@ -4,14 +4,17 @@ Comprehensive preset testing with diverse material types.
 Tests adaptive processing across different genres and input levels.
 """
 
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+
 from auralis.core.hybrid_processor import HybridProcessor
 from auralis.core.unified_config import UnifiedConfig
-from auralis.io.unified_loader import load_audio
-from auralis.io.saver import save
-from auralis.dsp.utils import calculate_loudness_units
 from auralis.dsp.basic import rms
+from auralis.dsp.utils import calculate_loudness_units
+from auralis.io.saver import save
+from auralis.io.unified_loader import load_audio
+
 
 def analyze_audio(audio):
     """Analyze audio and return metrics."""

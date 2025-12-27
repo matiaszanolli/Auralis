@@ -8,21 +8,22 @@ Tests the audio analysis and preset prediction based on audio characteristics.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import asyncio
-import numpy as np
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
 from audio_content_predictor import (
-    AudioFeatures,
-    PresetAffinityScores,
     AudioContentAnalyzer,
     AudioContentPredictor,
-    get_audio_content_predictor
+    AudioFeatures,
+    PresetAffinityScores,
+    get_audio_content_predictor,
 )
 
 

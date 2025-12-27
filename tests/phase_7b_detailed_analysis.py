@@ -13,16 +13,19 @@ Generates detailed HTML report with results.
 """
 
 import json
+import sys
 import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import numpy as np
-import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
-from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import SampledHarmonicAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
+    SampledHarmonicAnalyzer,
+)
 from auralis.io.unified_loader import load_audio
 
 

@@ -8,12 +8,13 @@ Tests the metadata router endpoints for editing track metadata.
 :license: GPLv3, see LICENSE for more details.
 """
 
-import pytest
 import os
-import sys
 import shutil
+import sys
 from pathlib import Path
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
@@ -105,8 +106,8 @@ def client(mock_library_manager, mock_broadcast_manager, mock_metadata_editor):
     IMPORTANT: This fixture creates a NEW router for EACH test.
     This ensures that mock modifications in one test don't affect others.
     """
-    from fastapi.testclient import TestClient
     from fastapi import FastAPI
+    from fastapi.testclient import TestClient
     from routers.metadata import create_metadata_router
 
     # Create a fresh app and router for this test

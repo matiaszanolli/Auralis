@@ -9,22 +9,23 @@ Handles dependency injection for each router via lambdas.
 """
 
 import logging
-from fastapi import FastAPI, APIRouter
-from typing import Dict, Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
+
+from fastapi import APIRouter, FastAPI
+from routers.albums import create_albums_router
+from routers.artists import create_artists_router
+from routers.artwork import create_artwork_router
+from routers.cache_streamlined import create_streamlined_cache_router
+from routers.enhancement import create_enhancement_router
+from routers.files import create_files_router
+from routers.library import create_library_router
+from routers.metadata import create_metadata_router
+from routers.player import create_player_router
+from routers.playlists import create_playlists_router
+from routers.similarity import create_similarity_router
 
 # Import router factories
 from routers.system import create_system_router
-from routers.files import create_files_router
-from routers.enhancement import create_enhancement_router
-from routers.artwork import create_artwork_router
-from routers.playlists import create_playlists_router
-from routers.library import create_library_router
-from routers.metadata import create_metadata_router
-from routers.albums import create_albums_router
-from routers.artists import create_artists_router
-from routers.player import create_player_router
-from routers.similarity import create_similarity_router
-from routers.cache_streamlined import create_streamlined_cache_router
 
 logger = logging.getLogger(__name__)
 

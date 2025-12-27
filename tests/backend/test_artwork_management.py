@@ -15,15 +15,15 @@ These tests ensure that album artwork is handled correctly
 across different formats and scenarios.
 """
 
-import pytest
-import numpy as np
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+from pathlib import Path
 
-from auralis.library.manager import LibraryManager
+import numpy as np
+import pytest
+
 from auralis.io.saver import save as save_audio
-
+from auralis.library.manager import LibraryManager
 
 # ============================================================================
 # Fixtures

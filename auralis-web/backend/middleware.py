@@ -10,17 +10,18 @@ Phase B.1: Backend Endpoint Standardization
 :license: GPLv3, see LICENSE for more details.
 """
 
+import logging
+import time
+from typing import Any, Awaitable, Callable, Dict, List, Tuple
+
+from fastapi import HTTPException
+from fastapi.applications import FastAPI
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
+from schemas import ErrorResponse, ErrorType
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from fastapi import HTTPException
-from fastapi.exceptions import RequestValidationError
-from fastapi.applications import FastAPI
-from pydantic import ValidationError
-import logging
-import time
-from typing import Callable, Awaitable, Dict, List, Tuple, Any
-from schemas import ErrorResponse, ErrorType
 
 logger = logging.getLogger(__name__)
 
