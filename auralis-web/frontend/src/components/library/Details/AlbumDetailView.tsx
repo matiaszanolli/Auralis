@@ -1,11 +1,17 @@
 /**
- * AlbumDetailView Component (Refactored)
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * AlbumDetailView Component (Refactored + Phase 4: Emotional Anchor)
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Album detail view with modular subcomponents:
  * - useAlbumDetails - Data fetching and state management
  * - AlbumHeaderActions - Album header with artwork and controls
  * - AlbumTrackTable - Track listing (existing component)
+ * - useArtworkPalette - Phase 4: Extract colors from artwork for theming
+ *
+ * Phase 4 Enhancements:
+ * - Subtle background gradient derived from album artwork (8% opacity)
+ * - Artwork glow effect using vibrant colors (15% opacity)
+ * - Smooth color transitions when navigating between albums
  */
 
 import React from 'react';
@@ -15,9 +21,10 @@ import { EmptyState } from '../../shared/ui/feedback';
 import AlbumTrackTable from '../Items/tables/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
 import { useAlbumDetails, type Track } from './useAlbumDetails';
+import { useArtworkPalette } from '@/hooks/app/useArtworkPalette';
 import { ArrowBack } from '@mui/icons-material';
 import { Button, IconButton } from '@/design-system';
-import { Box, Container, Skeleton,  } from '@mui/material';
+import { Box, Container, Skeleton } from '@mui/material';
 
 interface AlbumDetailViewProps {
   albumId: number;
@@ -35,6 +42,9 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   isPlaying = false
 }) => {
   const { album, loading, error, isFavorite, savingFavorite, toggleFavorite } = useAlbumDetails(albumId);
+
+  // Phase 4: Extract artwork colors for theming
+  const { palette, gradient, glow } = useArtworkPalette(albumId, !loading && !error);
 
   const formatDuration = (seconds: number): string => {
     const totalSeconds = Math.floor(seconds);
@@ -119,57 +129,67 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   }
 
   return (
-    <Container maxWidth="xl" sx={{
-      py: tokens.spacing.xl,
-      px: tokens.spacing.lg,
-    }}>
-      {/* Back Button */}
-      {onBack && (
-        <IconButton
-          onClick={onBack}
-          aria-label="Go back to albums library"
-          sx={{
-            mb: tokens.spacing.lg,
-            color: tokens.colors.text.secondary,
-            border: `1px solid ${tokens.colors.border.light}`,
-            borderRadius: tokens.borderRadius.md,
-            padding: tokens.spacing.sm,
-            transition: tokens.transitions.all,
-            '&:hover': {
-              backgroundColor: tokens.colors.bg.tertiary,
-              borderColor: tokens.colors.accent.primary,
-              transform: 'scale(1.05)',
-            },
-            '&:focus-visible': {
-              outline: `3px solid ${tokens.colors.accent.primary}`,
-              outlineOffset: '2px',
-            },
-          }}
-        >
-          <ArrowBack />
-        </IconButton>
-      )}
+    <Box
+      sx={{
+        // Phase 4: Artwork-based background gradient (very subtle, 8% opacity)
+        background: gradient !== 'transparent' ? gradient : 'transparent',
+        transition: `background ${tokens.transitions.slow}`, // 500-600ms smooth color fade
+        minHeight: '100vh', // Full viewport height for immersive experience
+      }}
+    >
+      <Container maxWidth="xl" sx={{
+        py: tokens.spacing.xl,
+        px: tokens.spacing.lg,
+      }}>
+        {/* Back Button */}
+        {onBack && (
+          <IconButton
+            onClick={onBack}
+            aria-label="Go back to albums library"
+            sx={{
+              mb: tokens.spacing.lg,
+              color: tokens.colors.text.secondary,
+              border: `1px solid ${tokens.colors.border.light}`,
+              borderRadius: tokens.borderRadius.md,
+              padding: tokens.spacing.sm,
+              transition: tokens.transitions.all,
+              '&:hover': {
+                backgroundColor: tokens.colors.bg.tertiary,
+                borderColor: tokens.colors.accent.primary,
+                transform: 'scale(1.05)',
+              },
+              '&:focus-visible': {
+                outline: `3px solid ${tokens.colors.accent.primary}`,
+                outlineOffset: '2px',
+              },
+            }}
+          >
+            <ArrowBack />
+          </IconButton>
+        )}
 
-      {/* Album Header with Actions */}
-      <AlbumHeaderActions
-        album={album}
-        isPlaying={isPlaying}
-        currentTrackId={currentTrackId}
-        isFavorite={isFavorite}
-        savingFavorite={savingFavorite}
-        onPlay={handlePlayAlbum}
-        onToggleFavorite={toggleFavorite}
-      />
+        {/* Album Header with Actions - Phase 4: Pass artwork glow */}
+        <AlbumHeaderActions
+          album={album}
+          isPlaying={isPlaying}
+          currentTrackId={currentTrackId}
+          isFavorite={isFavorite}
+          savingFavorite={savingFavorite}
+          onPlay={handlePlayAlbum}
+          onToggleFavorite={toggleFavorite}
+          artworkGlow={glow !== 'none' ? glow : undefined} // Phase 4: Pass extracted glow
+        />
 
-      {/* Track Listing */}
-      <AlbumTrackTable
-        tracks={album.tracks || []}
-        currentTrackId={currentTrackId}
-        isPlaying={isPlaying}
-        onTrackClick={handleTrackClick}
-        formatDuration={formatDuration}
-      />
-    </Container>
+        {/* Track Listing */}
+        <AlbumTrackTable
+          tracks={album.tracks || []}
+          currentTrackId={currentTrackId}
+          isPlaying={isPlaying}
+          onTrackClick={handleTrackClick}
+          formatDuration={formatDuration}
+        />
+      </Container>
+    </Box>
   );
 };
 

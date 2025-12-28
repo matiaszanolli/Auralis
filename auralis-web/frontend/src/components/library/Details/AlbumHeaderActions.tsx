@@ -37,6 +37,8 @@ interface AlbumHeaderActionsProps {
   savingFavorite: boolean;
   onPlay: () => void;
   onToggleFavorite: () => void;
+  /** Phase 4: Artwork glow CSS (box-shadow) from color extraction */
+  artworkGlow?: string;
 }
 
 export const AlbumHeaderActions: React.FC<AlbumHeaderActionsProps> = ({
@@ -47,6 +49,7 @@ export const AlbumHeaderActions: React.FC<AlbumHeaderActionsProps> = ({
   savingFavorite,
   onPlay,
   onToggleFavorite,
+  artworkGlow,
 }) => {
   return (
     <DetailViewHeader
@@ -57,11 +60,13 @@ export const AlbumHeaderActions: React.FC<AlbumHeaderActionsProps> = ({
           height: '280px',
           borderRadius: tokens.borderRadius.lg,
           overflow: 'hidden',
-          boxShadow: tokens.shadows.lg,
+          // Phase 4: Use artwork-based glow if available, fallback to default shadow
+          boxShadow: artworkGlow || tokens.shadows.lg,
           transition: tokens.transitions.all,
           '&:hover': {
             transform: 'scale(1.02)',
-            boxShadow: tokens.shadows.glowMd,
+            // Phase 4: Intensify artwork glow on hover
+            boxShadow: artworkGlow ? artworkGlow.replace(/0\.15\)/g, '0.25)') : tokens.shadows.glowMd,
           },
         }}>
           <AlbumArt
