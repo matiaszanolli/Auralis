@@ -21,6 +21,7 @@ import {
   Album as AlbumIcon,
   Person,
   Add,
+  Explore, // Phase 5: Find Similar Tracks icon
 } from '@mui/icons-material';
 
 export interface ContextMenuAction {
@@ -48,6 +49,7 @@ export const getTrackContextActions = (
     onShowAlbum?: () => void;
     onShowArtist?: () => void;
     onShowInfo?: () => void;
+    onFindSimilar?: () => void; // Phase 5: Find similar tracks callback
     onDelete?: () => void;
   }
 ): ContextMenuAction[] => [
@@ -88,6 +90,13 @@ export const getTrackContextActions = (
     label: 'Go to Artist',
     icon: <Person fontSize="small" />,
     onClick: callbacks.onShowArtist || (() => {}),
+  },
+  {
+    id: 'similar',
+    label: 'Find Similar Tracks',
+    icon: <Explore fontSize="small" />,
+    onClick: callbacks.onFindSimilar || (() => {}),
+    divider: true, // Phase 5: Separator before Track Info
   },
   {
     id: 'info',

@@ -5,3 +5,5 @@
  */
 
 export { useFingerprintCache } from './useFingerprintCache';
+export { useSimilarTracks } from './useSimilarTracks';
+export type { SimilarTrack, SimilarityOptions } from './useSimilarTracks';

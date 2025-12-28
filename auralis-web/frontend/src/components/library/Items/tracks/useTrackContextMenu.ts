@@ -12,6 +12,7 @@ export interface UseTrackContextMenuProps {
   onShowAlbum?: (albumId: number) => void;
   onShowArtist?: (artistName: string) => void;
   onShowInfo?: (trackId: number) => void;
+  onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks callback
   onEditMetadata?: (trackId: number) => void;
   onDelete?: (trackId: number) => void;
 }
@@ -23,6 +24,7 @@ export interface UseTrackContextMenuProps {
  * - Context menu position state
  * - Playlist fetching and operations
  * - Context menu actions generation
+ * - Phase 5: Find similar tracks action
  */
 export const useTrackContextMenu = ({
   track,
@@ -31,6 +33,7 @@ export const useTrackContextMenu = ({
   onShowAlbum,
   onShowArtist,
   onShowInfo,
+  onFindSimilar, // Phase 5: Find similar tracks callback
   onEditMetadata,
   onDelete,
 }: UseTrackContextMenuProps) => {
@@ -149,6 +152,12 @@ export const useTrackContextMenu = ({
               onShowInfo(track.id);
             }
           : undefined,
+        onFindSimilar: onFindSimilar // Phase 5: Find similar tracks action
+          ? () => {
+              onFindSimilar(track.id);
+              info(`Finding tracks similar to "${track.title}"...`);
+            }
+          : undefined,
         onEditMetadata: onEditMetadata
           ? () => {
               onEditMetadata(track.id);
@@ -171,6 +180,7 @@ export const useTrackContextMenu = ({
       onShowAlbum,
       onShowArtist,
       onShowInfo,
+      onFindSimilar, // Phase 5: Find similar tracks dependency
       onEditMetadata,
       onDelete,
       info,
