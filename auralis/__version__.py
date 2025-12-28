@@ -2,7 +2,7 @@
 
 __version__ = "1.0.0"
 __version_info__ = (1, 0, 0)
-__db_schema_version__ = 9  # Added queue_template table for saved queue configurations
+__db_schema_version__ = 10  # Added artist artwork columns (artwork_url, artwork_source, artwork_fetched_at)
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app
@@ -14,3 +14,4 @@ __db_schema_version__ = 9  # Added queue_template table for saved queue configur
 # Schema v7 - Added queue_state table for queue persistence across application restarts (2025-12-01)
 # Schema v8 - Added queue_history table for undo/redo queue operations (2025-12-01)
 # Schema v9 - Added queue_template table for saved queue configurations (2025-12-01)
+# Schema v10 - Added artist artwork columns (artwork_url, artwork_source, artwork_fetched_at) (2025-12-27)
