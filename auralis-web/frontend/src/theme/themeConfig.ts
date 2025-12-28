@@ -90,44 +90,44 @@ export const lightColors = {
 // Subtle glass borders catch light - depth via borders, spacing, and shadow (§4.1)
 // ============================================================================
 export const glassEffects = {
-  // Subtle glass panel (cards, sidebars) - Calm by default with glass borders
+  // Subtle glass panel (cards, sidebars) - Enhanced for glossy aesthetic
   panel: (isDark: boolean) => ({
-    background: isDark ? 'rgba(21, 29, 47, 0.20)' : lightColors.background.glass,
-    backdropFilter: 'blur(6px) saturate(0.95)',     // Reduced blur for calm
-    WebkitBackdropFilter: 'blur(6px) saturate(0.95)',
+    background: isDark ? 'rgba(21, 29, 47, 0.30)' : lightColors.background.glass,
+    backdropFilter: 'blur(20px) saturate(1.1)',     // Stronger blur + saturation boost
+    WebkitBackdropFilter: 'blur(20px) saturate(1.1)',
     border: isDark
-      ? '1px solid rgba(255, 255, 255, 0.06)'       // Subtle glass border (catches light)
-      : '1px solid rgba(102, 126, 234, 0.08)',
-    boxShadow: isDark
-      ? '0 2px 6px rgba(0, 0, 0, 0.06)'             // Lighter shadow for minimal aesthetic
-      : '0 2px 6px rgba(102, 126, 234, 0.04)',
-  }),
-
-  // Strong glass (modals, popovers)
-  strong: (isDark: boolean) => ({
-    background: isDark
-      ? 'rgba(21, 29, 47, 0.55)'                    // Reduced opacity
-      : 'rgba(255, 255, 255, 0.85)',
-    backdropFilter: 'blur(16px) saturate(1.05)',    // Reduced blur/saturation
-    WebkitBackdropFilter: 'blur(16px) saturate(1.05)',
-    border: isDark
-      ? '1px solid rgba(255, 255, 255, 0.10)'       // Subtle glass border
+      ? '1px solid rgba(255, 255, 255, 0.10)'       // More visible glass border
       : '1px solid rgba(102, 126, 234, 0.12)',
     boxShadow: isDark
-      ? '0 12px 28px rgba(0, 0, 0, 0.16)'           // Lighter shadow
-      : '0 12px 28px rgba(102, 126, 234, 0.08)',
+      ? '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.05)' // Deeper shadow + inner glow
+      : '0 4px 16px rgba(102, 126, 234, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.1)',
   }),
 
-  // Minimal glass (hover states, tooltips)
+  // Strong glass (modals, popovers) - Maximum glossy effect
+  strong: (isDark: boolean) => ({
+    background: isDark
+      ? 'rgba(21, 29, 47, 0.65)'                    // Increased opacity for solid presence
+      : 'rgba(255, 255, 255, 0.85)',
+    backdropFilter: 'blur(32px) saturate(1.2)',     // Maximum blur + saturation
+    WebkitBackdropFilter: 'blur(32px) saturate(1.2)',
+    border: isDark
+      ? '1px solid rgba(255, 255, 255, 0.15)'       // Most visible border
+      : '1px solid rgba(102, 126, 234, 0.18)',
+    boxShadow: isDark
+      ? '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.12)' // Deep shadow + strong inner glow
+      : '0 16px 48px rgba(102, 126, 234, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.15)',
+  }),
+
+  // Minimal glass (hover states, tooltips) - Medium strength
   minimal: (isDark: boolean) => ({
     background: isDark
-      ? 'rgba(21, 29, 47, 0.35)'                    // Reduced opacity
+      ? 'rgba(21, 29, 47, 0.45)'                    // Increased opacity
       : 'rgba(255, 255, 255, 0.6)',
-    backdropFilter: 'blur(10px) saturate(0.98)',    // Reduced saturation
-    WebkitBackdropFilter: 'blur(10px) saturate(0.98)',
+    backdropFilter: 'blur(28px) saturate(1.15)',    // Stronger blur + saturation
+    WebkitBackdropFilter: 'blur(28px) saturate(1.15)',
     border: isDark
-      ? '1px solid rgba(255, 255, 255, 0.08)'       // Subtle glass border
-      : '1px solid rgba(102, 126, 234, 0.10)',
+      ? '1px solid rgba(255, 255, 255, 0.12)'       // More visible border
+      : '1px solid rgba(102, 126, 234, 0.12)',
   }),
 
   // Glow effect for active elements

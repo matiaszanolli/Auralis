@@ -66,17 +66,30 @@ export const tokens = {
   },
 
   /**
-   * Spacing System
-   * Based on 8px grid system
+   * Spacing System - Organic Rhythm (Design Language §4.2)
+   * Variable spacing creates natural grouping and breathing room.
+   * Tight within groups, generous between sections.
    */
   spacing: {
-    xs: '4px',
-    sm: '8px',
-    md: '16px',
-    lg: '24px',
-    xl: '32px',
-    xxl: '48px',
-    xxxl: '64px',
+    // Micro spacing (within elements)
+    xxs: '2px',      // Minimal gap, icon-text spacing
+    xs: '4px',       // Tight spacing, related items
+    sm: '6px',       // Small gap, form elements
+
+    // Standard spacing (between elements)
+    md: '12px',      // Medium gap, list items (reduced from 16px for tighter grouping)
+    lg: '20px',      // Large gap, card padding (reduced from 24px)
+    xl: '28px',      // Section spacing (reduced from 32px)
+
+    // Macro spacing (between sections)
+    xxl: '40px',     // Major section breaks (reduced from 48px)
+    xxxl: '56px',    // Page-level spacing (reduced from 64px)
+    xxxxl: '80px',   // Maximum breathing room (new)
+
+    // Organic spacing (variable gaps)
+    cluster: '8px',  // Items in natural clusters (library items, playlist tracks)
+    group: '16px',   // Between groups within sections
+    section: '32px', // Between major sections (Library, Playlists, Settings)
   },
 
   /**
@@ -93,22 +106,25 @@ export const tokens = {
     },
 
     fontSize: {
-      xs: '11px',      // Caption, tiny labels
-      sm: '12px',      // Small text, metadata
-      base: '14px',    // Standard body text
-      md: '16px',      // Larger body, input labels
-      lg: '18px',      // Subtitle, secondary headers
-      xl: '20px',      // Section headers (H3)
-      '2xl': '24px',   // Page headers (H2)
-      '3xl': '32px',   // Large headers (H1)
-      '4xl': '48px',   // Display, hero text
+      xs: '10px',      // Micro labels, timestamps (reduced for contrast)
+      sm: '11px',      // Small text, metadata, captions (reduced)
+      base: '13px',    // Standard body text (reduced for contrast)
+      md: '15px',      // Larger body, input labels
+      lg: '20px',      // Track titles, card headers (increased for impact)
+      xl: '24px',      // Album titles, section headers (increased)
+      '2xl': '28px',   // Page headers, artist names (increased)
+      '3xl': '36px',   // Large headers, hero text (increased)
+      '4xl': '56px',   // Display, hero text (increased for drama)
+      '5xl': '72px',   // Ultra-large display (new for maximum impact)
     },
 
     fontWeight: {
+      light: 300,      // Added for delicate text
       normal: 400,
       medium: 500,
       semibold: 600,
       bold: 700,
+      extrabold: 800,  // Added for maximum impact headers
     },
 
     lineHeight: {
@@ -125,15 +141,19 @@ export const tokens = {
   },
 
   /**
-   * Border Radius System
+   * Border Radius System - Organic Curves (Design Language §4.4)
+   * Softer, more generous curves create fluid, organic aesthetic.
+   * Minimum 8px for any interactive element.
    */
   borderRadius: {
     none: '0',
-    sm: '4px',
-    md: '8px',
-    lg: '12px',
-    xl: '16px',
-    full: '9999px',  // Pill shape
+    sm: '8px',       // Minimum for any rounded element (increased from 4px)
+    md: '12px',      // Standard cards, buttons (increased from 8px)
+    lg: '16px',      // Large cards, panels (increased from 12px)
+    xl: '20px',      // Hero cards, modals (increased from 16px)
+    '2xl': '24px',   // Maximum curve for rectangles (new)
+    '3xl': '32px',   // Ultra-round for special elements (new)
+    full: '9999px',  // Pill shape, circular buttons
   },
 
   /**
@@ -415,42 +435,42 @@ export const tokens = {
   glass: {
     // Subtle glass (calm overlays - for idle states)
     subtle: {
-      background: 'rgba(21, 29, 47, 0.20)',         // Deep blue-black, minimal opacity (calm by default)
-      backdropFilter: 'blur(6px) saturate(0.95)',   // Reduced blur for calm
-      border: '1px solid rgba(255, 255, 255, 0.06)', // Subtle glass border (catches light)
-      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',   // Lighter shadow for minimal aesthetic
+      background: 'rgba(21, 29, 47, 0.30)',         // Increased opacity for more presence
+      backdropFilter: 'blur(20px) saturate(1.1)',   // Much stronger blur + saturation boost
+      border: '1px solid rgba(255, 255, 255, 0.10)', // More visible border (increased from 0.06)
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.05)', // Deeper shadow + inner glow
     },
 
     // Medium glass (panels, surfaces)
     medium: {
-      background: 'rgba(21, 29, 47, 0.35)',         // Deep blue-black, reduced opacity
-      backdropFilter: 'blur(10px) saturate(0.98)',  // Reduced blur/saturation
-      border: '1px solid rgba(255, 255, 255, 0.08)', // Subtle glass border
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.10)',  // Lighter shadow
+      background: 'rgba(21, 29, 47, 0.45)',         // Increased opacity
+      backdropFilter: 'blur(28px) saturate(1.15)',  // Stronger blur + saturation
+      border: '1px solid rgba(255, 255, 255, 0.12)', // More visible border
+      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.08)', // Deeper shadow + inner glow
     },
 
     // Strong glass (modals, prominent surfaces)
     strong: {
-      background: 'rgba(21, 29, 47, 0.55)',         // Deep blue-black, reduced opacity
-      backdropFilter: 'blur(16px) saturate(1.05)',  // Reduced blur/saturation
-      border: '1px solid rgba(255, 255, 255, 0.10)', // Subtle glass border
-      boxShadow: '0 12px 28px rgba(0, 0, 0, 0.16)', // Lighter shadow
+      background: 'rgba(21, 29, 47, 0.65)',         // Increased opacity for solid presence
+      backdropFilter: 'blur(32px) saturate(1.2)',   // Maximum blur + saturation
+      border: '1px solid rgba(255, 255, 255, 0.15)', // Most visible border
+      boxShadow: '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Deep shadow + strong inner glow
     },
 
     // Violet-tinted glass (accent surfaces - playback/active states)
     violet: {
-      background: 'linear-gradient(135deg, rgba(115, 102, 240, 0.05) 0%, rgba(21, 29, 47, 0.35) 100%)',
-      backdropFilter: 'blur(10px) saturate(1.05)',  // Reduced blur/saturation
-      border: '1px solid rgba(115, 102, 240, 0.12)', // Subtle violet-tinted border
-      boxShadow: '0 6px 20px rgba(115, 102, 240, 0.10)', // Lighter violet glow
+      background: 'linear-gradient(135deg, rgba(115, 102, 240, 0.12) 0%, rgba(21, 29, 47, 0.50) 100%)', // Stronger violet tint
+      backdropFilter: 'blur(24px) saturate(1.3)',   // Strong blur + high saturation for vibrancy
+      border: '1px solid rgba(115, 102, 240, 0.20)', // More visible violet border
+      boxShadow: '0 8px 32px rgba(115, 102, 240, 0.20), 0 0 0 1px rgba(115, 102, 240, 0.15)', // Violet glow + inner accent
     },
 
     // Aqua-tinted glass (audio-reactive surfaces - processing/energy)
     aqua: {
-      background: 'linear-gradient(135deg, rgba(71, 214, 255, 0.03) 0%, rgba(21, 29, 47, 0.35) 100%)',
-      backdropFilter: 'blur(10px) saturate(1.05)',  // Reduced blur/saturation
-      border: '1px solid rgba(71, 214, 255, 0.10)', // Subtle aqua-tinted border
-      boxShadow: '0 6px 20px rgba(71, 214, 255, 0.08)', // Lighter aqua glow
+      background: 'linear-gradient(135deg, rgba(71, 214, 255, 0.10) 0%, rgba(21, 29, 47, 0.50) 100%)', // Stronger aqua tint
+      backdropFilter: 'blur(24px) saturate(1.3)',   // Strong blur + high saturation
+      border: '1px solid rgba(71, 214, 255, 0.18)', // More visible aqua border
+      boxShadow: '0 8px 32px rgba(71, 214, 255, 0.18), 0 0 0 1px rgba(71, 214, 255, 0.12)', // Aqua glow + inner accent
     },
   },
 
