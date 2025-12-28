@@ -13,18 +13,18 @@ interface ViewToggleProps {
 
 const StyledToggleButtonGroup = styled(ToggleButtonGroup)({
   background: tokens.colors.bg.tertiary,
-  borderRadius: '8px',
-  padding: '4px',
-  gap: '4px',
+  borderRadius: tokens.borderRadius.sm,                 // 8px
+  padding: tokens.spacing.xs,                           // 4px
+  gap: tokens.spacing.xs,                               // 4px
   border: `1px solid ${auroraOpacity.standard}`,
 });
 
 const StyledToggleButton = styled(ToggleButton)({
   border: 'none',
-  borderRadius: '6px !important',
-  padding: '8px 12px',
+  borderRadius: `${tokens.borderRadius.sm} !important`,  // 8px (close to 6px)
+  padding: `${tokens.spacing.cluster} ${tokens.spacing.md}`,  // 8px 12px
   color: tokens.colors.text.secondary,
-  transition: 'all 0.3s ease',
+  transition: tokens.transitions.base,                  // 200ms (close to 300ms)
 
   '&:hover': {
     background: auroraOpacity.veryLight,
@@ -33,17 +33,17 @@ const StyledToggleButton = styled(ToggleButton)({
 
   '&.Mui-selected': {
     background: gradients.aurora,
-    color: '#ffffff',
-    boxShadow: `0 2px 8px ${auroraOpacity.strong}`,
+    color: tokens.colors.text.primary,                  // White text
+    boxShadow: `0 2px 8px ${auroraOpacity.strong}`,    // Button depth
 
     '&:hover': {
       background: gradients.aurora,
-      filter: 'brightness(1.1)',
+      filter: 'brightness(1.1)',                        // Slight brighten on hover
     },
   },
 
   '& .MuiSvgIcon-root': {
-    fontSize: '20px',
+    fontSize: tokens.typography.fontSize.xl,            // 24px (close to 20px)
   },
 });
 

@@ -17,13 +17,13 @@ export const TopBarContainer = styled(Box)({
 export const LeftSection = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
+  gap: tokens.spacing.md,                               // 12px - organic spacing
 }));
 
 export const RightSection = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
+  gap: tokens.spacing.md,                               // 12px - organic spacing
   flex: 1,
   justifyContent: 'flex-end',
 });
@@ -37,18 +37,18 @@ export const SearchContainer = styled(Box)<{ focused: boolean }>(
     border: 'none',
     borderBottom: `1px solid ${focused ? tokens.colors.accent.primary : tokens.colors.border.light}`,
     padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
-    gap: 8,
-    transition: 'border-color 0.15s ease',
+    gap: tokens.spacing.cluster,                        // 8px - tight cluster
+    transition: tokens.transitions.fast,                // 150ms hover (close to 0.15s)
   })
 );
 
 export const StatusIndicator = styled(Box)<{ color: string }>(({ color }) => ({
-  width: 12,
-  height: 12,
-  borderRadius: '50%',
+  width: tokens.spacing.md,                             // 12px - indicator size
+  height: tokens.spacing.md,                            // 12px - indicator size
+  borderRadius: tokens.borderRadius.full,               // 9999px - perfect circle
   background: color,
-  boxShadow: `0 0 8px ${color}80`,
-  minWidth: 12,
+  boxShadow: `0 0 8px ${color}80`,                     // 50% opacity glow
+  minWidth: tokens.spacing.md,                          // 12px - prevent shrink
 }));
 
 export const TitleBox = styled(Box)({
