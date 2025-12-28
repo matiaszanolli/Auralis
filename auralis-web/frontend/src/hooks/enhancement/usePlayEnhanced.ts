@@ -494,6 +494,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           // Continue anyway - playback will still work
         }
 
+        // Set buffering state immediately for instant user feedback
+        dispatch(startStreaming({
+          trackId,
+          totalChunks: 0, // Will be updated when stream starts
+          intensity,
+        }));
+
         // Send play_enhanced message to backend
         // Subscriptions are already set up on mount
         wsContext.send({
@@ -505,7 +512,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           },
         });
 
-        console.log('[usePlayEnhanced] Play enhanced requested:', {
+        console.log('[usePlayEnhanced] Play enhanced requested (buffering...):', {
           trackId,
           preset,
           intensity,
