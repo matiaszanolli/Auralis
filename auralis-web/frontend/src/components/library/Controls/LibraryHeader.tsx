@@ -24,6 +24,9 @@ export const LibraryHeader: React.FC<LibraryHeaderProps> = React.memo(({ view })
         fontWeight={tokens.typography.fontWeight.bold}
         gutterBottom
         sx={{
+          fontFamily: tokens.typography.fontFamily.header,  // Manrope for dramatic headers (R4)
+          fontSize: tokens.typography.fontSize['4xl'],      // 56px - dramatic scale (R4)
+          letterSpacing: '-0.02em',                         // Tight tracking for large headers
           background: tokens.gradients.aurora,
           backgroundClip: 'text',
           WebkitBackgroundClip: 'text',
@@ -32,7 +35,14 @@ export const LibraryHeader: React.FC<LibraryHeaderProps> = React.memo(({ view })
       >
         {view === 'favourites' ? '❤️ Your Favorites' : '🎵 Your Music Collection'}
       </Typography>
-      <Typography variant="subtitle1" color={tokens.colors.text.secondary}>
+      <Typography
+        variant="subtitle1"
+        color={tokens.colors.text.secondary}
+        sx={{
+          fontFamily: tokens.typography.fontFamily.primary,  // Inter for body text
+          fontSize: tokens.typography.fontSize.lg,           // 20px - increased from default
+        }}
+      >
         {view === 'favourites' ? 'Your most loved tracks' : 'Rediscover the magic in every song'}
       </Typography>
     </Box>

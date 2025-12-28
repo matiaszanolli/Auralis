@@ -88,10 +88,12 @@ const Title = styled(Typography)({
 });
 
 const Subtitle = styled(Typography)({
-  fontSize: tokens.typography.fontSize.lg,
+  fontFamily: tokens.typography.fontFamily.header,  // Manrope for subtitle hierarchy (R4)
+  fontSize: tokens.typography.fontSize.xl,           // 24px - increased from lg (20px)
   color: tokens.colors.text.secondary,
   marginBottom: tokens.spacing.md,
   fontWeight: tokens.typography.fontWeight.semibold,
+  letterSpacing: '-0.01em',                          // Tight tracking for headers
 });
 
 const Metadata = styled(Typography)({
