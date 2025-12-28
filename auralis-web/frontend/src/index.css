@@ -7,19 +7,23 @@
 /* Import Inter (Primary UI Font) - Multiple weights */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* Import Manrope (Identity/Headers Font) - Auralis Design Language v1.2.0 §3 */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
 /* ========================================
    CSS VARIABLES - AURALIS BRAND KIT
    ======================================== */
 
 :root {
-  /* Core Colors */
-  --midnight-blue: #0F172A;
-  --charcoal: #1E293B;
+  /* Core Colors - Auralis Design Language v1.2.0 §2.1 */
+  --deep-blue-black: #0B1020;  /* Canonical base (level0) - deep blue-black */
+  --midnight-blue: #0B1020;     /* Alias for backwards compat */
+  --charcoal: #151D2F;          /* level2 - surfaces */
   --silver: #E2E8F0;
 
-  /* Aurora Gradient */
-  --aurora-cyan: #06B6D4;
-  --aurora-violet: #7C3AED;
+  /* Brand Accent Colors - Design Language v1.2.0 */
+  --aurora-cyan: #47D6FF;       /* Teal/Cyan - audio state */
+  --aurora-violet: #7366F0;     /* Soft Violet/Indigo - primary accent */
   --aurora-pink: #F472B6;
 
   /* Gradients */
@@ -32,10 +36,10 @@
   --warning: #F59E0B;
   --error: #EF4444;
 
-  /* Typography */
-  --font-heading: 'Inter', sans-serif;
-  --font-body: 'Inter', sans-serif;
-  --font-mono: 'Inter', monospace;
+  /* Typography - Design Language v1.2.0 §3 */
+  --font-heading: 'Manrope', Arial, sans-serif;  /* Identity, headers, track titles */
+  --font-body: 'Inter', 'Segoe UI', sans-serif;  /* Information, controls, metadata */
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;  /* Technical readouts */
 
   /* Spacing (4px grid) */
   --space-xs: 0.25rem;  /* 4px */

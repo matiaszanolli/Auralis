@@ -9,30 +9,33 @@
 
 export const tokens = {
   /**
-   * Color System - Premium Audio Player (Tidal + FabFilter + macOS aesthetic)
-   * Elevation-based backgrounds with Soft Violet + Electric Aqua brand colors
+   * Color System - Auralis Design Language v1.2.0
+   * Deep blue-black base (#0B1020 range) with soft violet/indigo primary,
+   * teal/cyan for audio state, warm amber for energy/highlights.
+   * Dark mode is canonical. Surfaces, not cards.
    */
   colors: {
-    // Background colors (Elevation Levels)
+    // Background colors (Deep blue-black - Design Language §2.1)
     bg: {
-      level0: '#0A0C10',       // Root background (darkest void)
-      level1: '#0D111A',       // Primary background (main content area)
-      level2: '#131A24',       // Secondary background (panels, sidebars)
-      level3: '#1B232E',       // Tertiary background (cards, raised elements)
-      level4: '#1F2936',       // Surface background (overlays, modals)
+      level0: '#0B1020',       // Deep blue-black (canonical base)
+      level1: '#101729',       // Slightly lifted navy (+4–8% luminance)
+      level2: '#151D2F',       // Surfaces (subtle lift)
+      level3: '#1A2338',       // Raised elements (cards as surfaces)
+      level4: '#1F2940',       // Modals, overlays
       // Backwards compatibility
-      primary: '#0D111A',
-      secondary: '#131A24',
-      tertiary: '#1B232E',
-      elevated: '#1F2936',
-      overlay: 'rgba(13, 17, 26, 0.95)',
+      primary: '#0B1020',
+      secondary: '#101729',
+      tertiary: '#151D2F',
+      elevated: '#1A2338',
+      overlay: 'rgba(11, 16, 32, 0.95)',
     },
 
-    // Brand colors (Soft Violet + Electric Aqua)
+    // Brand colors (Soft Violet + Teal/Cyan + Warm Amber)
     accent: {
-      primary: '#7366F0',      // Soft Violet - primary brand accent
-      secondary: '#47D6FF',    // Electric Aqua - audio-reactive, glows
+      primary: '#7366F0',      // Soft Violet/Indigo - primary brand accent
+      secondary: '#47D6FF',    // Teal/Cyan - audio state (Design Language §2.1)
       tertiary: '#C1C8EF',     // Lavender Smoke - secondary text
+      energy: '#F59E0B',       // Warm Amber - transients/highlights (Design Language §2.1)
     },
 
     // Semantic accent colors
@@ -77,14 +80,15 @@ export const tokens = {
   },
 
   /**
-   * Typography System
-   * Plus Jakarta Sans (headers), Inter (body), JetBrains Mono (technical)
+   * Typography System (Design Language §3)
+   * Inter (information, controls, metadata) + Manrope (identity, headers, track titles)
+   * Typography should disappear when listening.
    */
   typography: {
     fontFamily: {
-      primary: 'Inter, "Segoe UI", sans-serif',                                    // Body text
-      header: "'Plus Jakarta Sans', Arial, sans-serif",                            // Headers & titles
-      mono: "'JetBrains Mono', 'Courier New', monospace",                         // Technical readouts (dB, Hz, LUFS)
+      primary: 'Inter, "Segoe UI", sans-serif',                                    // Information, controls, metadata
+      header: 'Manrope, Arial, sans-serif',                                        // Identity, headers, track titles (sparingly)
+      mono: "'JetBrains Mono', 'Courier New', monospace",                         // Technical readouts (dB, Hz, LUFS) - reveal on interaction only
       system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
     },
 
@@ -134,7 +138,7 @@ export const tokens = {
 
   /**
    * Shadow System (Ambient opacity - no harsh black)
-   * Elevation levels + audio-reactive glows
+   * Elevation levels + audio-reactive glows + glassmorphism depth
    */
   shadows: {
     none: 'none',
@@ -151,8 +155,29 @@ export const tokens = {
     // Glow shadows (audio-reactive elements)
     glowSoft: '0 0 16px rgba(115, 102, 240, 0.20)',      // Soft violet glow
     glowMd: '0 0 24px rgba(115, 102, 240, 0.32)',        // Violet glow (medium)
+    glowStrong: '0 0 32px rgba(115, 102, 240, 0.48)',    // Strong violet glow
     glowAqua: '0 0 20px rgba(71, 214, 255, 0.24)',       // Electric Aqua glow
     glowAquaIntense: '0 0 32px rgba(71, 214, 255, 0.40)', // Aqua glow (processing)
+    glowAquaUltra: '0 0 48px rgba(71, 214, 255, 0.56)',  // Ultra aqua (active states)
+
+    // Glass depth shadows (for glassmorphism layering)
+    glassSubtle: '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.05)', // Glass surface
+    glassMd: '0 8px 32px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.08)',     // Elevated glass
+    glassStrong: '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Prominent glass
+  },
+
+  /**
+   * Backdrop Blur System (Glassmorphism)
+   * Premium translucent surfaces with background blur
+   */
+  blur: {
+    none: 'none',
+    xs: 'blur(4px)',
+    sm: 'blur(8px)',
+    md: 'blur(12px)',
+    lg: 'blur(16px)',
+    xl: 'blur(24px)',
+    xxl: 'blur(32px)',
   },
 
   /**
@@ -223,30 +248,37 @@ export const tokens = {
   /**
    * Transition System (smooth, intentional animations)
    */
+  /**
+   * Motion Language (Design Language §5)
+   * - Hover: 120–150ms
+   * - State changes: 300–600ms
+   * - Motion is slow, heavy, analog (never fast oscillation)
+   * - Motion should feel inevitable, not reactive
+   */
   transitions: {
-    // Durations
-    fast: '100ms',
-    base: '200ms',
-    slow: '300ms',
-    verySlow: '500ms',
+    // Durations (Design Language §5.2)
+    fast: '150ms',     // Hover states (120–150ms)
+    base: '400ms',     // State changes (300–600ms)
+    slow: '500ms',     // State changes (300–600ms)
+    verySlow: '600ms', // Audio-reactive visuals (lag audio by ~100ms)
 
-    // Easing functions
-    easeOut: 'cubic-bezier(0.4, 0, 0.2, 1)',    // Quick, sharp (100ms)
-    easeInOut: 'cubic-bezier(0.4, 0, 0.6, 1)',  // Natural (200ms)
-    easeSmooth: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Audio-like fluidity
+    // Easing functions (slow, heavy, analog)
+    easeOut: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',    // Audio-like fluidity
+    easeInOut: 'cubic-bezier(0.4, 0, 0.6, 1)',          // Natural
+    easeSmooth: 'cubic-bezier(0.25, 0.1, 0.25, 1)',     // Slow, heavy (Design Language §5.1)
 
-    // Combined (duration + easing)
-    fast_out: '100ms cubic-bezier(0.4, 0, 0.2, 1)',
-    base_inOut: '200ms cubic-bezier(0.4, 0, 0.6, 1)',
-    slow_inOut: '300ms cubic-bezier(0.4, 0, 0.6, 1)',
-    verySlow_inOut: '500ms cubic-bezier(0.4, 0, 0.6, 1)',
+    // Combined (duration + easing) - Motion feels inevitable
+    fast_out: '150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    base_inOut: '400ms cubic-bezier(0.4, 0, 0.6, 1)',
+    slow_inOut: '500ms cubic-bezier(0.4, 0, 0.6, 1)',
+    verySlow_inOut: '600ms cubic-bezier(0.25, 0.1, 0.25, 1)',
 
-    // Property-specific
-    color: '200ms color cubic-bezier(0.4, 0, 0.6, 1)',
-    background: '200ms background-color cubic-bezier(0.4, 0, 0.6, 1)',
-    transform: '200ms transform cubic-bezier(0.4, 0, 0.6, 1)',
-    opacity: '200ms opacity cubic-bezier(0.4, 0, 0.6, 1)',
-    all: '200ms all cubic-bezier(0.4, 0, 0.6, 1)',
+    // Property-specific (slower, analog)
+    color: '400ms color cubic-bezier(0.4, 0, 0.6, 1)',
+    background: '400ms background-color cubic-bezier(0.4, 0, 0.6, 1)',
+    transform: '500ms transform cubic-bezier(0.25, 0.1, 0.25, 1)',
+    opacity: '400ms opacity cubic-bezier(0.4, 0, 0.6, 1)',
+    all: '400ms all cubic-bezier(0.4, 0, 0.6, 1)',
   },
 
   /**
@@ -280,30 +312,37 @@ export const tokens = {
    * Component-Specific Tokens
    * Predefined sizes and styles for major UI components
    */
+  /**
+   * Component-Specific Tokens (Design Language §4)
+   * Surfaces, not cards. Hierarchy by space and subtle glass borders.
+   * Sidebar is muscle memory UI (low contrast, no visual drama).
+   */
   components: {
     playerBar: {
       height: '96px',
       zIndex: 1030,
-      background: 'rgba(13, 17, 26, 0.92)',
-      backdropFilter: 'blur(12px)',
-      borderTop: '1px solid rgba(115, 102, 240, 0.12)',
-      shadow: '0 -8px 32px rgba(0, 0, 0, 0.24)',
+      background: 'rgba(11, 16, 32, 0.85)',        // Deep blue-black (translucent)
+      backdropFilter: 'blur(24px) saturate(1.2)',
+      borderTop: 'none',                           // Top edge blends with content
+      shadow: '0 -8px 32px rgba(0, 0, 0, 0.28)',   // Depth via shadow
     },
 
     sidebar: {
       width: '256px',
       collapsedWidth: '72px',
-      background: '#131A24',
-      borderRight: '1px solid rgba(115, 102, 240, 0.08)',
-      shadow: '2px 0 16px rgba(0, 0, 0, 0.12)',
+      background: 'rgba(16, 23, 41, 0.30)',        // Even lower contrast (muscle memory UI - §4.3)
+      backdropFilter: 'blur(8px) saturate(0.9)',   // Reduced blur/saturation for calm
+      borderRight: 'none',                         // Right edge blends with main content
+      shadow: '2px 0 8px rgba(0, 0, 0, 0.08)',     // Lighter shadow
     },
 
     rightPanel: {
       width: '360px',
       minWidth: '300px',
-      background: '#131A24',
-      borderLeft: '1px solid rgba(115, 102, 240, 0.08)',
-      shadow: '-2px 0 16px rgba(0, 0, 0, 0.12)',
+      background: 'rgba(16, 23, 41, 0.60)',        // Slightly lifted from sidebar
+      backdropFilter: 'blur(16px) saturate(1.1)',
+      borderLeft: 'none',                          // Left edge blends with main content
+      shadow: '-2px 0 12px rgba(0, 0, 0, 0.10)',   // Subtle shadow for depth
     },
 
     albumCard: {
@@ -341,14 +380,78 @@ export const tokens = {
   },
 
   /**
-   * Gradient System (Soft Violet + Electric Aqua + subtle dark)
+   * Gradient System (Soft Violet + Electric Aqua + subtle dark + glass overlays)
    */
   gradients: {
+    // Brand gradients (solid)
     aurora: 'linear-gradient(135deg, #7366F0 0%, #5A5CC4 100%)',              // Aurora (Soft Violet → darker)
     auroraSoft: 'linear-gradient(135deg, rgba(115, 102, 240, 0.80) 0%, rgba(90, 92, 196, 0.80) 100%)', // Aurora soft (overlays)
     auroraVertical: 'linear-gradient(180deg, #7366F0 0%, #5A5CC4 100%)',      // Aurora vertical (headers)
     aqua: 'linear-gradient(135deg, #47D6FF 0%, #00BCC4 100%)',                // Aqua (audio-reactive)
     darkSubtle: 'linear-gradient(180deg, #1B232E 0%, #131A24 100%)',          // Dark subtle (background transitions)
+
+    // Glass gradients (translucent overlays)
+    glassViolet: 'linear-gradient(135deg, rgba(115, 102, 240, 0.08) 0%, rgba(90, 92, 196, 0.12) 100%)',   // Glass violet tint
+    glassAqua: 'linear-gradient(135deg, rgba(71, 214, 255, 0.06) 0%, rgba(0, 188, 196, 0.10) 100%)',     // Glass aqua tint
+    glassShimmer: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(255, 255, 255, 0.08) 100%)', // Glass shimmer
+
+    // Mesh gradients (multi-color glass)
+    glassMesh: 'radial-gradient(at 0% 0%, rgba(115, 102, 240, 0.15) 0%, transparent 50%), radial-gradient(at 100% 100%, rgba(71, 214, 255, 0.12) 0%, transparent 50%)',
+
+    // Border gradients (for glass edges)
+    borderGlow: 'linear-gradient(135deg, rgba(115, 102, 240, 0.4) 0%, rgba(71, 214, 255, 0.3) 100%)',
+    borderSubtle: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.12) 100%)',
+  },
+
+  /**
+   * Glass Surface Presets (Glassmorphism)
+   * Ready-to-use glass surface styles for common components
+   */
+  /**
+   * Glass Surface Presets (Design Language §4.1)
+   * Continuous surfaces, not boxed cards.
+   * Subtle glass borders catch light - depth via borders, spacing, and shadow.
+   */
+  glass: {
+    // Subtle glass (calm overlays - for idle states)
+    subtle: {
+      background: 'rgba(21, 29, 47, 0.20)',         // Deep blue-black, minimal opacity (calm by default)
+      backdropFilter: 'blur(6px) saturate(0.95)',   // Reduced blur for calm
+      border: '1px solid rgba(255, 255, 255, 0.06)', // Subtle glass border (catches light)
+      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',   // Lighter shadow for minimal aesthetic
+    },
+
+    // Medium glass (panels, surfaces)
+    medium: {
+      background: 'rgba(21, 29, 47, 0.35)',         // Deep blue-black, reduced opacity
+      backdropFilter: 'blur(10px) saturate(0.98)',  // Reduced blur/saturation
+      border: '1px solid rgba(255, 255, 255, 0.08)', // Subtle glass border
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.10)',  // Lighter shadow
+    },
+
+    // Strong glass (modals, prominent surfaces)
+    strong: {
+      background: 'rgba(21, 29, 47, 0.55)',         // Deep blue-black, reduced opacity
+      backdropFilter: 'blur(16px) saturate(1.05)',  // Reduced blur/saturation
+      border: '1px solid rgba(255, 255, 255, 0.10)', // Subtle glass border
+      boxShadow: '0 12px 28px rgba(0, 0, 0, 0.16)', // Lighter shadow
+    },
+
+    // Violet-tinted glass (accent surfaces - playback/active states)
+    violet: {
+      background: 'linear-gradient(135deg, rgba(115, 102, 240, 0.05) 0%, rgba(21, 29, 47, 0.35) 100%)',
+      backdropFilter: 'blur(10px) saturate(1.05)',  // Reduced blur/saturation
+      border: '1px solid rgba(115, 102, 240, 0.12)', // Subtle violet-tinted border
+      boxShadow: '0 6px 20px rgba(115, 102, 240, 0.10)', // Lighter violet glow
+    },
+
+    // Aqua-tinted glass (audio-reactive surfaces - processing/energy)
+    aqua: {
+      background: 'linear-gradient(135deg, rgba(71, 214, 255, 0.03) 0%, rgba(21, 29, 47, 0.35) 100%)',
+      backdropFilter: 'blur(10px) saturate(1.05)',  // Reduced blur/saturation
+      border: '1px solid rgba(71, 214, 255, 0.10)', // Subtle aqua-tinted border
+      boxShadow: '0 6px 20px rgba(71, 214, 255, 0.08)', // Lighter aqua glow
+    },
   },
 
   /**

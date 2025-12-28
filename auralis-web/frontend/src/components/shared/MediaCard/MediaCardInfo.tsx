@@ -47,10 +47,11 @@ export const MediaCardInfo: React.FC<MediaCardInfoProps> = ({
         gap: tokens.spacing.xs,
       }}
     >
-      {/* Title */}
+      {/* Title - Manrope font (Design Language v1.2.0 §3) */}
       <Typography
         variant="subtitle2"
         sx={{
+          fontFamily: tokens.typography.fontFamily.header,  // Manrope for track/album titles
           fontWeight: tokens.typography.fontWeight.semibold,
           fontSize: tokens.typography.fontSize.sm,
           color: isPlaying ? tokens.colors.accent.primary : tokens.colors.text.primary,

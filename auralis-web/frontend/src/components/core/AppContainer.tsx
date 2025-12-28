@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
+import { tokens } from '@/design-system';
 
 /**
  * Props for the AppContainer component.
@@ -71,8 +72,8 @@ export const AppContainer: React.FC<AppContainerProps> = ({
       <Box
         sx={{
           flex: 1,
-          background: 'var(--midnight-blue)',
-          color: 'var(--silver)',
+          background: tokens.colors.bg.level0,  // Deep blue-black (#0B1020) - Design Language v1.2.0
+          color: tokens.colors.text.primary,
           display: 'flex',
           flexDirection: 'row',
           overflow: 'hidden',

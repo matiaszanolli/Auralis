@@ -1,46 +1,70 @@
 /**
  * AppEnhancementPane Styled Components
+ * Updated for Auralis Design Language v1.2.0
  */
 
 import { Box, styled } from '@mui/material';
-import { auroraOpacity } from '../../library/Styles/Color.styles';
+import { tokens } from '@/design-system';
 
-export const PaneContainer = styled(Box)<{ isCollapsed: boolean }>(
-  ({ isCollapsed }) => ({
-    display: 'flex',
-    flexDirection: 'column',
-    background: 'var(--midnight-blue)',
-    borderLeft: `1px solid ${auroraOpacity.veryLight}`,
-    transition: 'width 0.3s ease',
-    width: isCollapsed ? 60 : 320,
-    minWidth: isCollapsed ? 60 : 320,
-    height: '100%',
-    overflow: 'hidden',
-  })
-);
+/**
+ * PaneContainer - Enhancement panel container (Design Language v1.2.0 §4.1)
+ * Calm by default, glass surface with subtle borders
+ */
+export const PaneContainer = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'isCollapsed',
+})<{ isCollapsed: boolean }>(({ isCollapsed }) => ({
+  display: 'flex',
+  flexDirection: 'column',
 
+  // Glass surface - calm by default (§4.1)
+  background: tokens.glass.subtle.background,
+  backdropFilter: tokens.glass.subtle.backdropFilter,
+  border: tokens.glass.subtle.border,  // Subtle glass border (catches light)
+  boxShadow: tokens.glass.subtle.boxShadow,
+
+  transition: `width ${tokens.transitions.slow}`,  // Slow, heavy motion (§5)
+  width: isCollapsed ? 60 : 320,
+  minWidth: isCollapsed ? 60 : 320,
+  height: '100%',
+  overflow: 'hidden',
+}));
+
+/**
+ * PaneHeader - Header section for panel
+ * No borders - separation via spacing only (§4.1)
+ */
 export const PaneHeader = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '12px 8px',
-  borderBottom: `1px solid ${auroraOpacity.veryLight}`,
-  gap: 16,
+  padding: `${tokens.spacing.md} ${tokens.spacing.sm}`,
+  borderBottom: 'none',  // No borders - depth via spacing (§4.1)
+  gap: tokens.spacing.md,
+  marginBottom: tokens.spacing.sm,  // Spacing for visual separation
 });
 
+/**
+ * PaneTitle - Section label (Design Language v1.2.0 §3)
+ * Typography disappears - lower opacity, minimal weight
+ */
 export const PaneTitle = styled(Box)({
-  fontSize: '12px',
-  fontWeight: 600,
-  color: 'rgba(255, 255, 255, 0.5)',
+  fontSize: tokens.typography.fontSize.xs,
+  fontWeight: tokens.typography.fontWeight.medium,
+  color: tokens.colors.text.disabled,
   textTransform: 'uppercase',
-  letterSpacing: '0.5px',
+  letterSpacing: '1px',
   flex: 1,
+  opacity: 0.6,  // Fade labels - they're infrastructure, not content
 });
 
+/**
+ * ContentArea - Scrollable content area
+ * Minimal scrollbar styling, transparent track
+ */
 export const ContentArea = styled(Box)({
   flex: 1,
   overflow: 'auto',
-  padding: '16px 12px',
+  padding: `${tokens.spacing.lg} ${tokens.spacing.md}`,
   '&::-webkit-scrollbar': {
     width: '6px',
   },
@@ -48,17 +72,23 @@ export const ContentArea = styled(Box)({
     background: 'transparent',
   },
   '&::-webkit-scrollbar-thumb': {
-    background: auroraOpacity.strong,
-    borderRadius: '3px',
+    background: tokens.colors.accent.primary,
+    opacity: 0.3,
+    borderRadius: tokens.borderRadius.sm,
     '&:hover': {
-      background: auroraOpacity.stronger,
+      opacity: 0.5,
     },
   },
 });
 
+/**
+ * FooterArea - Footer section for panel
+ * No borders - depth via spacing only (§4.1)
+ */
 export const FooterArea = styled(Box)({
-  padding: '12px 8px',
-  borderTop: `1px solid ${auroraOpacity.veryLight}`,
+  padding: `${tokens.spacing.md} ${tokens.spacing.sm}`,
+  borderTop: 'none',  // No borders - separation via spacing (§4.1)
+  marginTop: tokens.spacing.sm,  // Spacing for visual separation
   display: 'flex',
-  gap: 8,
+  gap: tokens.spacing.sm,
 });

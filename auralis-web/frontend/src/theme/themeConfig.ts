@@ -16,26 +16,26 @@ export const gradients = {
 };
 
 // ============================================================================
-// DARK THEME COLORS
+// DARK THEME COLORS - Auralis Design Language v1.2.0
 // ============================================================================
 export const darkColors = {
   background: {
-    primary: '#0A0E27',      // Deep navy (main background)
-    secondary: '#1a1f3a',    // Lighter navy (surfaces)
-    surface: '#252b45',      // Card/panel background
-    hover: '#2a3150',        // Hover states
-    glass: 'rgba(26, 31, 58, 0.7)',  // Glassmorphism background
+    primary: '#0B1020',      // Deep blue-black (canonical base - Design Language §2.1)
+    secondary: '#101729',    // Slightly lifted navy
+    surface: '#151D2F',      // Surfaces (subtle lift)
+    hover: '#1A2338',        // Hover states
+    glass: 'rgba(21, 29, 47, 0.30)',  // Glassmorphism background (calm by default)
   },
   text: {
-    primary: '#ffffff',
-    secondary: '#8b92b0',
-    disabled: '#5a5f7a',
+    primary: '#FFFFFF',      // Ultra White - titles, emphasis
+    secondary: '#C1C8EF',    // Lavender Smoke - secondary text, labels
+    disabled: '#4A5073',     // Disabled text (very muted)
   },
   accent: {
-    success: '#00d4aa',
-    error: '#ff4757',
-    warning: '#ffa502',
-    info: '#4b7bec',
+    success: '#10B981',      // Success (positive)
+    error: '#EF4444',        // Error (critical)
+    warning: '#F59E0B',      // Warm Amber - warnings
+    info: '#47D6FF',         // Teal/Cyan - audio state
   },
   neon: {
     pink: '#ff6b9d',
@@ -86,45 +86,52 @@ export const lightColors = {
 };
 
 // ============================================================================
-// GLASSMORPHISM UTILITIES (Tasteful, not Vista)
+// GLASSMORPHISM UTILITIES - Auralis Design Language v1.2.0
+// Subtle glass borders catch light - depth via borders, spacing, and shadow (§4.1)
 // ============================================================================
 export const glassEffects = {
-  // Subtle glass panel (cards, sidebars)
+  // Subtle glass panel (cards, sidebars) - Calm by default with glass borders
   panel: (isDark: boolean) => ({
-    background: isDark ? darkColors.background.glass : lightColors.background.glass,
-    backdropFilter: 'blur(20px) saturate(180%)',
-    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-    border: `1px solid ${isDark ? darkColors.glass.border : lightColors.glass.border}`,
+    background: isDark ? 'rgba(21, 29, 47, 0.20)' : lightColors.background.glass,
+    backdropFilter: 'blur(6px) saturate(0.95)',     // Reduced blur for calm
+    WebkitBackdropFilter: 'blur(6px) saturate(0.95)',
+    border: isDark
+      ? '1px solid rgba(255, 255, 255, 0.06)'       // Subtle glass border (catches light)
+      : '1px solid rgba(102, 126, 234, 0.08)',
     boxShadow: isDark
-      ? '0 8px 32px rgba(0, 0, 0, 0.3)'
-      : '0 8px 32px rgba(102, 126, 234, 0.08)',
+      ? '0 2px 6px rgba(0, 0, 0, 0.06)'             // Lighter shadow for minimal aesthetic
+      : '0 2px 6px rgba(102, 126, 234, 0.04)',
   }),
 
   // Strong glass (modals, popovers)
   strong: (isDark: boolean) => ({
     background: isDark
-      ? 'rgba(26, 31, 58, 0.85)'
+      ? 'rgba(21, 29, 47, 0.55)'                    // Reduced opacity
       : 'rgba(255, 255, 255, 0.85)',
-    backdropFilter: 'blur(30px) saturate(200%)',
-    WebkitBackdropFilter: 'blur(30px) saturate(200%)',
-    border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(102, 126, 234, 0.2)'}`,
+    backdropFilter: 'blur(16px) saturate(1.05)',    // Reduced blur/saturation
+    WebkitBackdropFilter: 'blur(16px) saturate(1.05)',
+    border: isDark
+      ? '1px solid rgba(255, 255, 255, 0.10)'       // Subtle glass border
+      : '1px solid rgba(102, 126, 234, 0.12)',
     boxShadow: isDark
-      ? '0 12px 48px rgba(0, 0, 0, 0.5)'
-      : '0 12px 48px rgba(102, 126, 234, 0.12)',
+      ? '0 12px 28px rgba(0, 0, 0, 0.16)'           // Lighter shadow
+      : '0 12px 28px rgba(102, 126, 234, 0.08)',
   }),
 
   // Minimal glass (hover states, tooltips)
   minimal: (isDark: boolean) => ({
     background: isDark
-      ? 'rgba(42, 49, 80, 0.6)'
+      ? 'rgba(21, 29, 47, 0.35)'                    // Reduced opacity
       : 'rgba(255, 255, 255, 0.6)',
-    backdropFilter: 'blur(10px)',
-    WebkitBackdropFilter: 'blur(10px)',
-    border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(102, 126, 234, 0.1)'}`,
+    backdropFilter: 'blur(10px) saturate(0.98)',    // Reduced saturation
+    WebkitBackdropFilter: 'blur(10px) saturate(0.98)',
+    border: isDark
+      ? '1px solid rgba(255, 255, 255, 0.08)'       // Subtle glass border
+      : '1px solid rgba(102, 126, 234, 0.10)',
   }),
 
   // Glow effect for active elements
-  glow: (isDark: boolean, color: string = '#667eea') => ({
+  glow: (isDark: boolean, color: string = '#7366F0') => ({
     boxShadow: isDark
       ? `0 0 20px ${color}66, 0 0 40px ${color}33`
       : `0 0 20px ${color}33, 0 0 40px ${color}1a`,
@@ -142,14 +149,14 @@ export const createAuralisTheme = (mode: 'light' | 'dark'): Theme => {
     palette: {
       mode,
       primary: {
-        main: '#667eea',
-        light: '#8b9cf7',
-        dark: '#5166d6',
+        main: '#7366F0',        // Soft Violet/Indigo - primary brand accent (Design Language §2.1)
+        light: '#8B7CF7',
+        dark: '#5A5CC4',
       },
       secondary: {
-        main: '#764ba2',
-        light: '#9668c4',
-        dark: '#5d3c82',
+        main: '#47D6FF',        // Teal/Cyan - audio state (Design Language §2.1)
+        light: '#6FE0FF',
+        dark: '#00BCC4',
       },
       background: {
         default: colors.background.primary,

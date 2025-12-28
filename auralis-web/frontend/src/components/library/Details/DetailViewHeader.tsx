@@ -65,6 +65,7 @@ const InfoSection = styled(Box)({
 });
 
 const Title = styled(Typography)({
+  fontFamily: tokens.typography.fontFamily.header,  // Manrope for headers (Design Language v1.2.0 §3)
   fontSize: tokens.typography.fontSize['4xl'],
   fontWeight: tokens.typography.fontWeight.bold,
   background: tokens.gradients.aurora,

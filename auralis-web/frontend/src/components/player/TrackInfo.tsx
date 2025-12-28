@@ -155,6 +155,7 @@ const styles = {
 
   title: {
     margin: 0,
+    fontFamily: tokens.typography.fontFamily.header,  // Manrope for track titles (Design Language v1.2.0 §3)
     fontSize: tokens.typography.fontSize.lg,
     fontWeight: tokens.typography.fontWeight.bold,
     color: tokens.colors.text.primary,
