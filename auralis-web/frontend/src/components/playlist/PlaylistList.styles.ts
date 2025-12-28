@@ -55,25 +55,41 @@ export const StyledListItem = styled(ListItem)({
 });
 
 /**
- * StyledListItemButton - Interactive button for playlist selection
- * Supports selected state with aurora highlight
+ * StyledListItemButton - Interactive button for playlist selection (Design Language §4.3)
+ * Calm by default (§1.3), subtle selected state (muscle memory UI).
+ * No hard borders - depth via subtle background only.
  */
 export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean }>(
   ({ selected }) => ({
     paddingLeft: '32px',
     paddingRight: '8px',
     height: '40px',
-    borderRadius: '6px',
+    borderRadius: tokens.borderRadius.md,  // 8px (subtle)
     margin: '2px 8px',
-    transition: 'all 0.2s ease',
-    background: selected ? auroraOpacity.lighter : 'transparent',
-    borderLeft: selected ? `3px solid ${colorAuroraPrimary}` : '3px solid transparent',
+    transition: tokens.transitions.all,    // Design Language §5 timing
+    background: selected ? 'rgba(115, 102, 240, 0.06)' : 'transparent',  // Calm by default
+    borderLeft: 'none',                    // No borders - surfaces not cards (§4.1)
+    position: 'relative',
+
+    ...(selected && {
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: '2px',                      // Subtle indicator only
+        background: tokens.colors.accent.primary,
+        borderRadius: '0 1px 1px 0',
+      },
+    }),
 
     '&:hover': {
       background: selected
-        ? auroraOpacity.standard
-        : auroraOpacity.ultraLight,
-      transform: 'translateX(2px)',
+        ? 'rgba(115, 102, 240, 0.10)'      // Subtle increase
+        : 'rgba(21, 29, 47, 0.30)',        // Lower contrast
+      transform: 'translateX(2px)',        // Reduced from 4px
+      backdropFilter: 'blur(6px)',         // Subtle blur
 
       '& .playlist-actions': {
         opacity: 1,
@@ -81,9 +97,9 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
     },
 
     '& .MuiListItemText-primary': {
-      fontSize: '14px',
+      fontSize: tokens.typography.fontSize.sm,  // 12px
       color: selected ? tokens.colors.text.primary : tokens.colors.text.secondary,
-      fontWeight: selected ? 600 : 400,
+      fontWeight: selected ? 500 : 400,    // Reduced from 600 - typography disappears (§3)
     },
   })
 );

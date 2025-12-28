@@ -1,0 +1,40 @@
+{
+  "format_version": "1.0",
+  "auralis_version": "1.0.0-beta.5",
+  "generated_at": "2025-12-28T04:07:04.168361Z",
+  "audio_file": {
+    "path": "FIGHT BACK.mp3",
+    "size_bytes": 6264128,
+    "modified_at": "2025-08-15T10:39:32.612431"
+  },
+  "fingerprint": {
+    "sub_bass_pct": 0.056038006625255946,
+    "bass_pct": 0.5616305423907896,
+    "low_mid_pct": 0.08042180061028889,
+    "mid_pct": 0.17123798209202018,
+    "upper_mid_pct": 0.08835241207281855,
+    "presence_pct": 0.028919052940513914,
+    "air_pct": 0.013400203268312951,
+    "lufs": -14.095714652409148,
+    "crest_db": 14.178366710076293,
+    "bass_mid_ratio": 3.486369001381485,
+    "stereo_width": 0.11904297045778736,
+    "phase_correlation": 0.7638583271343545,
+    "harmonic_ratio": 0.30906627251166796,
+    "pitch_stability": 0.5457929169904434,
+    "chroma_energy": 0.20833333333333334,
+    "dynamic_range_variation": 0.5,
+    "loudness_variation_std": 6.605122089385986,
+    "peak_consistency": 0.799733644273177,
+    "spectral_centroid": 0.5,
+    "spectral_rolloff": 0.5534033203125,
+    "spectral_flatness": 0.06562306673558121,
+    "tempo_bpm": 156.32865057970324,
+    "rhythm_stability": 0.9756853198514439,
+    "transient_density": 0.38998586128757934,
+    "silence_ratio": 0.00641082717478408,
+    "fingerprint_version": 1
+  },
+  "processing_cache": {},
+  "metadata": {}
+}

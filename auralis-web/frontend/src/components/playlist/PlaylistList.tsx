@@ -29,6 +29,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { Box, IconButton } from '@mui/material';
+import { Add } from '@mui/icons-material';
 import * as playlistService from '../../services/playlistService';
 import { useContextMenu } from '../shared/ContextMenu';
 import CreatePlaylistDialog from './CreatePlaylistDialog';
@@ -39,15 +41,18 @@ import { PlaylistListContent } from './PlaylistListContent';
 import { usePlaylistWebSocket } from './usePlaylistWebSocket';
 import { usePlaylistOperations } from './usePlaylistOperations';
 import { usePlaylistContextActions } from './usePlaylistContextActions';
+import { tokens } from '@/design-system';
 
 interface PlaylistListProps {
   onPlaylistSelect?: (playlistId: number) => void;
   selectedPlaylistId?: number;
+  hideHeader?: boolean;
 }
 
 export const PlaylistList: React.FC<PlaylistListProps> = ({
   onPlaylistSelect,
   selectedPlaylistId,
+  hideHeader = false,
 }) => {
   // State management
   const [playlists, setPlaylists] = useState<playlistService.Playlist[]>([]);
@@ -157,17 +162,19 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
 
   return (
     <PlaylistSection>
-      <PlaylistListHeader
-        playlistCount={playlists.length}
-        expanded={expanded}
-        onExpandToggle={() => setExpanded(!expanded)}
-        onCreateClick={() => setCreateDialogOpen(true)}
-      />
+      {!hideHeader && (
+        <PlaylistListHeader
+          playlistCount={playlists.length}
+          expanded={expanded}
+          onExpandToggle={() => setExpanded(!expanded)}
+          onCreateClick={() => setCreateDialogOpen(true)}
+        />
+      )}
 
       <PlaylistListContent
         playlists={playlists}
         loading={loading}
-        expanded={expanded}
+        expanded={hideHeader ? true : expanded}
         selectedPlaylistId={selectedPlaylistId}
         contextMenuState={contextMenuState}
         contextActions={contextActions}
@@ -175,6 +182,36 @@ export const PlaylistList: React.FC<PlaylistListProps> = ({
         onContextMenuOpen={handleContextMenuOpen}
         onContextMenuClose={handleContextMenuClose}
       />
+
+      {hideHeader && (
+        <Box
+          onClick={() => setCreateDialogOpen(true)}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: tokens.spacing.sm,
+            padding: `${tokens.spacing.sm}px ${tokens.spacing.md}px`,
+            cursor: 'pointer',
+            color: tokens.colors.text.secondary,
+            transition: tokens.transitions.fast,
+            '&:hover': {
+              color: tokens.colors.text.primary,
+              backgroundColor: tokens.colors.bg.level2,
+            },
+          }}
+        >
+          <IconButton
+            size="small"
+            sx={{
+              color: 'inherit',
+              padding: 0,
+            }}
+          >
+            <Add fontSize="small" />
+          </IconButton>
+          <span>New Playlist</span>
+        </Box>
+      )}
 
       <CreatePlaylistDialog
         open={createDialogOpen}

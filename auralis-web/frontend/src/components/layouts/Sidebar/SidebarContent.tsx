@@ -21,39 +21,61 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({ selectedItem, on
     { id: 'songs', label: 'Songs', icon: <LibraryMusic /> },
     { id: 'albums', label: 'Albums', icon: <Album /> },
     { id: 'artists', label: 'Artists', icon: <Person /> },
+    { id: 'favourites', label: 'Favourites', icon: <Favorite /> },
   ];
 
-  const collectionItems = [
-    { id: 'favourites', label: 'Favourites', icon: <Favorite /> },
+  const recentlyPlayedItem = [
     { id: 'recent', label: 'Recently Played', icon: <History /> },
   ];
 
   return (
-    <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-      {/* Library Section */}
+    <Box sx={{
+      flex: 1,
+      overflowY: 'auto',
+      overflowX: 'hidden',
+      // Custom scrollbar for organic feel
+      '&::-webkit-scrollbar': {
+        width: '6px',
+      },
+      '&::-webkit-scrollbar-track': {
+        background: 'transparent',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: tokens.colors.accent.primary,
+        opacity: 0.3,
+        borderRadius: tokens.borderRadius.sm,
+        '&:hover': {
+          opacity: 0.5,
+        },
+      },
+    }}>
+      {/* Library Section - Natural cluster */}
       <SectionLabel>Library</SectionLabel>
-      <NavigationSection
-        items={libraryItems}
-        selectedItem={selectedItem}
-        onItemClick={onItemClick}
-      />
+      <Box sx={{ marginBottom: tokens.spacing.section }}> {/* 32px section break after library cluster */}
+        <NavigationSection
+          items={libraryItems}
+          selectedItem={selectedItem}
+          onItemClick={onItemClick}
+        />
+      </Box>
 
-      <Divider sx={{ borderColor: tokens.colors.border.light, my: tokens.spacing.lg, opacity: 0.5 }} /> {/* Increased spacing + faded */}
+      {/* Recently Played - Separate section with breathing room */}
+      <Box sx={{ marginBottom: tokens.spacing.section }}> {/* 32px section break */}
+        <NavigationSection
+          items={recentlyPlayedItem}
+          selectedItem={selectedItem}
+          onItemClick={onItemClick}
+        />
+      </Box>
 
-      {/* Collections Section */}
-      <NavigationSection
-        items={collectionItems}
-        selectedItem={selectedItem}
-        onItemClick={onItemClick}
-      />
-
-      <Divider sx={{ borderColor: tokens.colors.border.light, my: tokens.spacing.lg, opacity: 0.5 }} /> {/* Increased spacing + faded */}
-
-      {/* Playlists Section */}
-      <PlaylistList
-        selectedPlaylistId={selectedItem.startsWith('playlist-') ? parseInt(selectedItem.replace('playlist-', '')) : undefined}
-        onPlaylistSelect={(playlistId) => onItemClick(`playlist-${playlistId}`)}
-      />
+      {/* Playlists Section - Major section break */}
+      <Box sx={{ marginTop: tokens.spacing.group }}> {/* 16px group spacing before playlists */}
+        <PlaylistList
+          selectedPlaylistId={selectedItem.startsWith('playlist-') ? parseInt(selectedItem.replace('playlist-', '')) : undefined}
+          onPlaylistSelect={(playlistId) => onItemClick(`playlist-${playlistId}`)}
+          hideHeader={true}
+        />
+      </Box>
     </Box>
   );
 };

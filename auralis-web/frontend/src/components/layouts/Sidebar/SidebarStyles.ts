@@ -43,18 +43,18 @@ export const SectionLabel = styled(Typography)({
  * No borders - depth via subtle background and minimal glow.
  */
 export const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }>(({ isactive }) => ({
-  borderRadius: tokens.borderRadius.lg,
-  height: `calc(${tokens.spacing.lg} + ${tokens.spacing.md})`, // 40px (24 + 16)
-  marginBottom: tokens.spacing.sm,
+  borderRadius: tokens.borderRadius.md,      // 12px - softer, more organic
+  height: `calc(${tokens.spacing.lg} + ${tokens.spacing.md})`, // 40px (20 + 12)
+  marginBottom: tokens.spacing.cluster,      // 8px - tight clustering within sections
   position: 'relative',
   transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
 
   ...(isactive === 'true' && {
-    // Subtle active state (not loud - Design Language §4.3)
-    background: 'rgba(115, 102, 240, 0.08)',  // Reduced from 0.12
-    backdropFilter: 'blur(6px)',              // Reduced from 8px
-    border: 'none',                           // No borders - surfaces not cards
-    boxShadow: 'none',                        // No inset glow - too dramatic
+    // Enhanced active state - more visible with stronger glass
+    background: tokens.glass.subtle.background,  // Use glass tokens for consistency
+    backdropFilter: tokens.glass.subtle.backdropFilter, // 20px blur for glossy effect
+    border: tokens.glass.subtle.border,         // Subtle glass border (10% white opacity)
+    boxShadow: tokens.glass.subtle.boxShadow,   // Deeper shadow + inner glow
 
     '&::before': {
       content: '""',
@@ -62,20 +62,23 @@ export const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }
       left: 0,
       top: 0,
       bottom: 0,
-      width: '2px',                           // Reduced from 3px
+      width: '3px',                            // More visible accent bar
       background: tokens.colors.accent.primary,
-      borderRadius: '0 1px 1px 0',
-      boxShadow: 'none',                      // No glow - subtle indicator only
+      borderRadius: '0 2px 2px 0',             // Softer curve
+      boxShadow: `0 0 8px ${tokens.colors.accent.primary}66`, // Subtle glow
     },
   }),
 
   '&:hover': {
     background: isactive === 'true'
-      ? 'rgba(115, 102, 240, 0.12)'           // Subtle increase
-      : 'rgba(21, 29, 47, 0.40)',             // Lower contrast
-    backdropFilter: 'blur(8px)',              // Subtle blur
-    transform: 'translateX(2px)',             // Reduced from 4px
-    boxShadow: 'none',                        // No shadow - calm by default
+      ? tokens.glass.medium.background         // Enhanced glass on hover
+      : tokens.glass.subtle.background,        // Glass effect on hover
+    backdropFilter: isactive === 'true'
+      ? tokens.glass.medium.backdropFilter     // 28px blur
+      : tokens.glass.subtle.backdropFilter,    // 20px blur
+    transform: 'translateX(4px)',              // More pronounced movement
+    boxShadow: tokens.glass.subtle.boxShadow,  // Add depth on hover
+    border: tokens.glass.subtle.border,        // Glass border on hover
   },
 }));
 

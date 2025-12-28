@@ -20,6 +20,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
+import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
 
 // Phase 4 UI Components
@@ -242,12 +243,12 @@ const Player: React.FC = () => {
   }, [volume, state.isMuted]);
 
   return (
-    <div
+    <Box
       data-testid="player"
-      style={styles.player}
+      sx={styles.player}
     >
       {/* Progress Bar - Full width at top */}
-      <div style={styles.progressBarContainer}>
+      <Box sx={styles.progressBarContainer}>
         <BufferingIndicator
           isBuffering={isBuffering}
           bufferedPercentage={wsBufferedPercentage}
@@ -261,12 +262,12 @@ const Player: React.FC = () => {
           onSeek={handleSeek}
           disabled={true}  /* Seeking disabled until WebSocket chunk-based seeking is implemented */
         />
-      </div>
+      </Box>
 
       {/* Main compact player row */}
-      <div style={styles.mainRow}>
+      <Box sx={styles.mainRow}>
         {/* Left: Track info + time */}
-        <div style={styles.trackInfoSection}>
+        <Box sx={styles.trackInfoSection}>
           <TrackDisplay
             title={currentTrack?.title ?? 'No track'}
             artist={currentTrack?.artist}
@@ -278,7 +279,7 @@ const Player: React.FC = () => {
             currentTime={wsCurrentTime}
             duration={currentTrack?.duration ?? 0}
           />
-        </div>
+        </Box>
 
         {/* Center: Playback Controls */}
         <PlaybackControls
@@ -292,7 +293,7 @@ const Player: React.FC = () => {
         />
 
         {/* Right: Volume + Queue */}
-        <div style={styles.rightSection}>
+        <Box sx={styles.rightSection}>
           <VolumeControl
             volume={volume / 100}
             onVolumeChange={handleVolumeChange}
@@ -304,43 +305,51 @@ const Player: React.FC = () => {
             disabled={hasError}
           />
 
-          {/* Queue Button - Compact */}
+          {/* Queue Button - Compact with glass effects */}
           <button
             onClick={() => setQueuePanelOpen(!queuePanelOpen)}
             style={{
               ...styles.queueButton,
-              backgroundColor: queuePanelOpen ? tokens.colors.accent.primary : 'transparent',
-              color: tokens.colors.text.primary,
-              borderColor: queuePanelOpen ? tokens.colors.accent.primary : tokens.colors.border.medium,
+              // Active state: medium glass effect with accent color
+              background: queuePanelOpen ? tokens.glass.medium.background : 'transparent',
+              backdropFilter: queuePanelOpen ? tokens.glass.medium.backdropFilter : 'none',
+              border: queuePanelOpen ? `1px solid ${tokens.colors.accent.primary}` : tokens.glass.subtle.border,
+              boxShadow: queuePanelOpen ? `0 0 12px ${tokens.colors.accent.primary}44` : 'none',
             }}
             title="Toggle queue (Q)"
             aria-label="Toggle queue"
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = tokens.colors.accent.primary;
               if (!queuePanelOpen) {
-                e.currentTarget.style.backgroundColor = tokens.colors.bg.secondary;
+                // Hover: subtle glass effect
+                e.currentTarget.style.background = tokens.glass.subtle.background;
+                e.currentTarget.style.backdropFilter = tokens.glass.subtle.backdropFilter;
+                e.currentTarget.style.border = tokens.glass.subtle.border;
+                e.currentTarget.style.boxShadow = tokens.glass.subtle.boxShadow;
               }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = tokens.colors.border.medium;
               if (!queuePanelOpen) {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                // Return to idle: transparent
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.backdropFilter = 'none';
+                e.currentTarget.style.border = tokens.glass.subtle.border;
+                e.currentTarget.style.boxShadow = 'none';
               }
             }}
           >
             ♪
           </button>
-        </div>
-      </div>
+        </Box>
+      </Box>
 
       {/* Queue Panel - Expands when opened */}
       {queuePanelOpen && (
-        <div style={styles.queuePanelWrapper}>
+        <Box sx={styles.queuePanelWrapper}>
           <QueuePanel
             collapsed={false}
             onToggleCollapse={() => setQueuePanelOpen(false)}
           />
-        </div>
+        </Box>
       )}
 
       {/* Enhancement Panel - REMOVED: Redundant playback mode controls */}
@@ -351,7 +360,7 @@ const Player: React.FC = () => {
           trackId: currentTrack?.id,
         });
         return currentTrack && (
-          <div style={styles.enhancementPanelWrapper}>
+          <Box sx={styles.enhancementPanelWrapper}>
             <PlayerEnhancementPanel
               trackId={currentTrack?.id}
               isVisible={!!currentTrack}
@@ -364,29 +373,32 @@ const Player: React.FC = () => {
                 isPaused,
               }}
             />
-          </div>
+          </Box>
         );
       })()} */}
 
       {/* Error State Indicator */}
       {hasError && (
-        <div style={styles.errorBanner}>
+        <Box sx={styles.errorBanner}>
           <span style={styles.errorText}>
             {streamingError || 'Playback error occurred'}
           </span>
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 };
 
 /**
- * Component styles using design tokens
+ * Component styles using design tokens (Design Language v1.2.0)
  *
  * Layout:
  * - Top: Track display + current time
  * - Middle: Progress bar with buffering
  * - Bottom: Playback controls + volume
+ *
+ * Glass Effects: Applied to main container for elevated, glossy aesthetic
+ * Organic Spacing: Cluster (8px), Group (16px), Section (32px) for natural rhythm
  *
  * Responsive breakpoints:
  * - Desktop (1024px+): Full width side-by-side
@@ -398,9 +410,14 @@ const styles = {
     display: 'flex',
     flexDirection: 'column' as const,
     width: '100%',
-    backgroundColor: tokens.colors.bg.primary,
-    borderTop: `1px solid ${tokens.colors.border.medium}`,
-    boxShadow: tokens.shadows.sm,
+
+    // Glass effect for elevated PlayerBar (Design Language §4.2)
+    background: tokens.glass.medium.background,           // Semi-transparent background
+    backdropFilter: tokens.glass.medium.backdropFilter,   // 28px blur + saturation boost
+    border: 'none',                                       // No top border - clean separation via glass
+    borderTop: tokens.glass.medium.border,                // Subtle glass border (12% white opacity)
+    boxShadow: tokens.glass.medium.boxShadow,             // Deeper shadow + inner glow for elevation
+
     zIndex: 1000,
     padding: 0,
     gap: 0,
@@ -409,7 +426,7 @@ const styles = {
   progressBarContainer: {
     width: '100%',
     height: 'auto',
-    padding: `${tokens.spacing.sm} ${tokens.spacing.lg}`,
+    padding: `${tokens.spacing.cluster} ${tokens.spacing.lg}`,  // 8px top, organic spacing
     paddingBottom: tokens.spacing.xs,
   },
 
@@ -417,7 +434,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: tokens.spacing.lg,
+    gap: tokens.spacing.group,                            // 16px - organic group spacing
     padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
     minHeight: '64px',
 
@@ -460,13 +477,16 @@ const styles = {
     width: '40px',
     height: '40px',
     padding: 0,
-    border: `1px solid ${tokens.colors.border.medium}`,
-    borderRadius: tokens.borderRadius.md,
+
+    // Glass effect for queue button (idle state)
+    background: 'transparent',
+    border: tokens.glass.subtle.border,                   // Subtle glass border
+    borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
+
     cursor: 'pointer',
-    fontSize: tokens.typography.fontSize.lg,
+    fontSize: tokens.typography.fontSize.lg,              // 20px for impact
     fontWeight: tokens.typography.fontWeight.medium,
-    transition: tokens.transitions.all,
-    backgroundColor: 'transparent',
+    transition: `${tokens.transitions.base}, backdrop-filter ${tokens.transitions.base}`,
     color: tokens.colors.text.primary,
     outline: 'none',
     display: 'flex',
@@ -475,11 +495,15 @@ const styles = {
   },
 
   queuePanelWrapper: {
-    borderTop: `1px solid ${tokens.colors.border.medium}`,
+    // Glass effect for expanded queue panel
+    background: tokens.glass.subtle.background,           // Subtle glass background
+    backdropFilter: tokens.glass.subtle.backdropFilter,   // 20px blur for consistency
+    borderTop: tokens.glass.subtle.border,                // Subtle glass border separator
+    boxShadow: tokens.glass.subtle.boxShadow,             // Depth + inner glow
+
     padding: tokens.spacing.lg,
     maxHeight: '400px',
     overflowY: 'auto' as const,
-    backgroundColor: tokens.colors.bg.secondary,
   },
 
   // enhancementPanelWrapper: REMOVED - No longer used after removing playback mode panel
@@ -488,8 +512,14 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.semantic.error || '#ff4444',
-    borderRadius: tokens.borderRadius.md,
+
+    // Glass effect for error banner (strong presence)
+    background: 'rgba(255, 68, 68, 0.15)',                // Error tint with transparency
+    backdropFilter: 'blur(20px) saturate(1.1)',           // Glass blur
+    border: '1px solid rgba(255, 68, 68, 0.3)',           // Error border
+    boxShadow: '0 4px 16px rgba(255, 68, 68, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+
+    borderRadius: tokens.borderRadius.md,                 // 12px - softer curves
     margin: tokens.spacing.sm,
   },
 

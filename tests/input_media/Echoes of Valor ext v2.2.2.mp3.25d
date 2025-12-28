@@ -1,0 +1,40 @@
+{
+  "format_version": "1.0",
+  "auralis_version": "1.0.0-beta.5",
+  "generated_at": "2025-12-28T04:07:11.980378Z",
+  "audio_file": {
+    "path": "Echoes of Valor ext v2.2.2.mp3",
+    "size_bytes": 9167945,
+    "modified_at": "2025-10-26T17:19:30.274287"
+  },
+  "fingerprint": {
+    "sub_bass_pct": 0.09483690359638267,
+    "bass_pct": 0.3039437410290856,
+    "low_mid_pct": 0.09139232710674992,
+    "mid_pct": 0.30315523356558055,
+    "upper_mid_pct": 0.1441531405021407,
+    "presence_pct": 0.024848521731836964,
+    "air_pct": 0.0376701324682235,
+    "lufs": -12.930824736788805,
+    "crest_db": 13.306705123837858,
+    "bass_mid_ratio": -1.1330615806968656,
+    "dynamic_range_variation": 0.5,
+    "loudness_variation_std": 4.007980823516846,
+    "peak_consistency": 0.820945433694573,
+    "harmonic_ratio": 0.3620470107570761,
+    "pitch_stability": 0.6663244347402317,
+    "chroma_energy": 0.20833333333333334,
+    "stereo_width": 0.08593849643144429,
+    "phase_correlation": 0.8281272293148216,
+    "spectral_centroid": 0.5,
+    "spectral_rolloff": 0.5017236328125,
+    "spectral_flatness": 0.10516936215878703,
+    "tempo_bpm": 163.86917514729512,
+    "rhythm_stability": 0.9711025752958933,
+    "transient_density": 0.5670961429560434,
+    "silence_ratio": 0.0,
+    "fingerprint_version": 1
+  },
+  "processing_cache": {},
+  "metadata": {}
+}

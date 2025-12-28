@@ -43,14 +43,16 @@ export class AudioPlaybackEngine {
 
   // Configuration
   private bufferSize: number = 4096; // samples per process callback
-  private minBufferSamples: number = 48000; // ~1 second at 48kHz before starting playback
+  private minBufferSamples: number = 240000; // ~5 seconds at 48kHz before starting playback (prevents immediate underrun)
   private pausedTime: number = 0;
 
   // Buffer health thresholds (in seconds of audio)
   // When buffer drops below lowWaterMark, pause playback to let it recover
   // Resume playback when buffer rises above highWaterMark
-  private lowWaterMarkSeconds: number = 3.0;  // Pause when < 3 seconds buffered
-  private highWaterMarkSeconds: number = 5.0; // Resume when > 5 seconds buffered
+  // Note: Chunks are 15s long, delivered in ~9 frames. Water marks set to
+  // accommodate chunk delivery latency and prevent underruns during streaming.
+  private lowWaterMarkSeconds: number = 8.0;  // Pause when < 8 seconds buffered (prevents underrun during frame delivery)
+  private highWaterMarkSeconds: number = 12.0; // Resume when > 12 seconds buffered (ensure smooth playback)
   private isBufferPaused: boolean = false;    // Track if we paused due to low buffer
 
   // Callbacks

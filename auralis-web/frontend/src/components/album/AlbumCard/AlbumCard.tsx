@@ -48,7 +48,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   onArtworkUpdated,
 }) => {
   // Build artwork URL from albumId if artwork exists
-  const artworkUrl = hasArtwork ? `/api/artwork/album/${albumId}` : undefined;
+  const artworkUrl = hasArtwork ? `/api/albums/${albumId}/artwork` : undefined;
 
   return (
     <MediaCard

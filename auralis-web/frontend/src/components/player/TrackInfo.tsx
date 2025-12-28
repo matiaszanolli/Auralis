@@ -98,7 +98,7 @@ export const TrackInfo: React.FC = () => {
 };
 
 /**
- * Component styles using design tokens
+ * Component styles using design tokens (Design Language v1.2.0)
  */
 const styles = {
   container: {
@@ -106,9 +106,15 @@ const styles = {
     flexDirection: 'column' as const,
     alignItems: 'center',
     gap: tokens.spacing.md,
-    padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.bg.secondary,
-    borderRadius: tokens.borderRadius.md,
+    padding: tokens.spacing.lg,                           // Increased padding for breathing room
+
+    // Glass effect for track info container
+    background: tokens.glass.subtle.background,           // Subtle glass background
+    backdropFilter: tokens.glass.subtle.backdropFilter,   // 20px blur for glossy effect
+    border: tokens.glass.subtle.border,                   // Subtle glass border
+    boxShadow: tokens.glass.subtle.boxShadow,             // Depth + inner glow
+
+    borderRadius: tokens.borderRadius.xl,                 // 20px - more organic, softer curves
     minHeight: '300px',
     justifyContent: 'center',
   },
@@ -117,9 +123,11 @@ const styles = {
     position: 'relative' as const,
     width: '180px',
     height: '180px',
-    borderRadius: tokens.borderRadius.lg,
+    borderRadius: tokens.borderRadius.xl,                 // 20px - softer, more organic curves
     overflow: 'hidden',
-    boxShadow: tokens.shadows.lg,
+
+    // Enhanced shadow for artwork depth
+    boxShadow: '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.08)',
   },
 
   artwork: {
@@ -220,7 +228,7 @@ const styles = {
     justifyContent: 'center',
     width: '120px',
     height: '120px',
-    borderRadius: tokens.borderRadius.lg,
+    borderRadius: tokens.borderRadius.xl,                 // 20px - softer, more organic
     backgroundColor: tokens.colors.bg.tertiary,
     color: tokens.colors.text.tertiary,
   },
