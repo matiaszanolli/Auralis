@@ -1,24 +1,16 @@
 /**
- * TrackCard Component (Refactored)
- * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ * TrackCard Component (Unified)
+ * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * Card for displaying individual tracks in grid view.
- * Refactored from 248 lines using extracted components and helpers.
+ * Thin wrapper around MediaCard for track display.
+ * Maintains backwards compatibility while using unified MediaCard internally.
  *
- * Extracted modules:
- * - TrackCardHelpers - Utility functions (getAlbumColor, formatDuration)
- * - TrackCardStyles - Styled components
- * - useTrackCardState - Hover state hook
- * - TrackCardOverlay - Play button and duration badge
- * - TrackCardInfo - Track metadata display
+ * Migration: Refactored from 92 lines to 40 lines by delegating to MediaCard.
+ * Eliminates duplication with AlbumCard.
  */
 
 import React from 'react';
-import { StyledTrackCard, ArtworkContainer } from './TrackCardStyles';
-import { TrackCardOverlay } from './TrackCardOverlay';
-import { TrackCardInfo } from './TrackCardInfo';
-import { useTrackCardState } from './useTrackCardState';
-import { getAlbumColor } from './TrackCardHelpers';
+import { MediaCard } from '@/components/shared/MediaCard';
 
 interface TrackCardProps {
   id: number;
@@ -33,13 +25,10 @@ interface TrackCardProps {
 }
 
 /**
- * TrackCard - Main orchestrator component
+ * TrackCard - Track display component
  *
- * Composition:
- * - StyledTrackCard wrapper (with visual anchor for currently playing track)
- * - ArtworkContainer with responsive aspect ratio
- * - TrackCardOverlay for interactive elements
- * - TrackCardInfo for metadata
+ * Wrapper around MediaCard with track-specific props.
+ * Provides backwards compatibility for existing track grid views.
  */
 export const TrackCard: React.FC<TrackCardProps> = ({
   id,
@@ -52,39 +41,19 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   isPlaying = false,
   onPlay,
 }) => {
-  const { isHovered, setIsHovered } = useTrackCardState();
-
-  const handlePlayClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onPlay(id);
-  };
-
   return (
-    <StyledTrackCard
+    <MediaCard
+      variant="track"
+      id={id}
+      title={title}
+      artist={artist}
+      album={album}
+      albumId={albumId}
+      duration={duration}
+      artworkUrl={albumArt}
       isPlaying={isPlaying}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => onPlay(id)}
-    >
-      {/* Artwork or placeholder */}
-      <ArtworkContainer
-        sx={{
-          background: albumArt
-            ? `url(${albumArt}) center/cover`
-            : getAlbumColor(album),
-        }}
-      >
-        <TrackCardOverlay
-          duration={duration}
-          hasArtwork={!!albumArt}
-          isHovered={isHovered}
-          onPlay={handlePlayClick}
-        />
-      </ArtworkContainer>
-
-      {/* Track info */}
-      <TrackCardInfo title={title} artist={artist} album={album} isPlaying={isPlaying} />
-    </StyledTrackCard>
+      onPlay={onPlay}
+    />
   );
 };
 
