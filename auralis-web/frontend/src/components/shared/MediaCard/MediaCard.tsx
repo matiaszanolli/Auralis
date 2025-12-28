@@ -114,6 +114,20 @@ export const MediaCard: React.FC<MediaCardProps> = (props) => {
     }
   };
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    if (props.onHoverEnter) {
+      props.onHoverEnter(props.id);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    if (props.onHoverLeave) {
+      props.onHoverLeave();
+    }
+  };
+
   return (
     <Card
       sx={{
@@ -166,8 +180,8 @@ export const MediaCard: React.FC<MediaCardProps> = (props) => {
           transition: `${tokens.transitions.fast}`,  // Faster response (150ms)
         },
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onClick={props.onClick}
     >
       {/* Artwork Section */}
@@ -175,6 +189,7 @@ export const MediaCard: React.FC<MediaCardProps> = (props) => {
         artworkUrl={props.artworkUrl}
         fallbackText={metadata.fallbackText}
         variant={props.variant}
+        fingerprint={props.fingerprint}
       >
         <MediaCardOverlay
           isHovered={isHovered}

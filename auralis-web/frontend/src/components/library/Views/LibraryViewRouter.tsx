@@ -2,7 +2,7 @@
  * LibraryViewRouter - View Routing Component
  *
  * Routes between different library views:
- * - Albums view (grid of albums)
+ * - Albums view (grid of albums) with Album Character Pane
  * - Album detail view (tracks from specific album)
  * - Artists view (list of artists)
  * - Artist detail view (albums/tracks from specific artist)
@@ -13,12 +13,14 @@
  * Returns null if current view should be handled by parent (songs/favorites).
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { CozyAlbumGrid } from '../Items/albums/CozyAlbumGrid';
 import { CozyArtistList } from '../Items/artists/CozyArtistList';
 import AlbumDetailView from '../Details/AlbumDetailView';
 import ArtistDetailView from '../Details/ArtistDetailView';
 import { ViewContainer } from './ViewContainer';
+import { AlbumCharacterPane } from '../AlbumCharacterPane';
+import { useAlbumFingerprint } from '@/hooks/fingerprint/useAlbumFingerprint';
 
 export interface LibraryViewRouterProps {
   view: string;
@@ -70,11 +72,47 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
     );
   }
 
-  // Albums view - grid of albums
+  // Albums view - grid of albums with character pane
   if (view === 'albums') {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [hoveredAlbumId, setHoveredAlbumId] = useState<number | null>(null);
+
+    // Fetch fingerprint for hovered album
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { fingerprint, isLoading } = useAlbumFingerprint(
+      hoveredAlbumId ?? 0,
+      { enabled: hoveredAlbumId !== null }
+    );
+
+    // Hover handlers
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const handleAlbumHover = useCallback((albumId: number) => {
+      setHoveredAlbumId(albumId);
+    }, []);
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const handleAlbumHoverEnd = useCallback(() => {
+      setHoveredAlbumId(null);
+    }, []);
+
     return (
-      <ViewContainer icon="📀" title="Albums" subtitle="Browse your music collection by album">
-        <CozyAlbumGrid onAlbumClick={onAlbumClick} />
+      <ViewContainer
+        icon="📀"
+        title="Albums"
+        subtitle="Browse your music collection by album"
+        rightPane={
+          <AlbumCharacterPane
+            fingerprint={fingerprint ?? null}
+            albumTitle={undefined}
+            isLoading={isLoading}
+          />
+        }
+      >
+        <CozyAlbumGrid
+          onAlbumClick={onAlbumClick}
+          onAlbumHover={handleAlbumHover}
+          onAlbumHoverEnd={handleAlbumHoverEnd}
+        />
       </ViewContainer>
     );
   }

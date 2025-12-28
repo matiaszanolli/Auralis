@@ -10,10 +10,16 @@
  *
  * Note: Artwork management features (download/extract) temporarily removed.
  * Will be re-added via MediaCard extension in future iteration.
+ *
+ * Fingerprint Support:
+ * - Accepts optional fingerprint prop (median of album tracks)
+ * - Used to generate unique gradient placeholders when no artwork exists
+ * - Falls back to hash-based gradient if fingerprint not provided
  */
 
 import React from 'react';
 import { MediaCard } from '@/components/shared/MediaCard';
+import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 
 export interface AlbumCardProps {
   albumId: number;
@@ -23,8 +29,11 @@ export interface AlbumCardProps {
   trackCount?: number;
   duration?: number;
   year?: number;
+  fingerprint?: Partial<AudioFingerprint>;
   onClick?: () => void;
   onArtworkUpdated?: () => void;
+  onHoverEnter?: (albumId: number) => void;
+  onHoverLeave?: () => void;
 }
 
 /**
@@ -44,8 +53,11 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   trackCount = 0,
   duration,
   year,
+  fingerprint,
   onClick,
   onArtworkUpdated,
+  onHoverEnter,
+  onHoverLeave,
 }) => {
   // Build artwork URL from albumId if artwork exists
   const artworkUrl = hasArtwork ? `/api/albums/${albumId}/artwork` : undefined;
@@ -61,8 +73,11 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
       year={year}
       artworkUrl={artworkUrl}
       hasArtwork={hasArtwork}
+      fingerprint={fingerprint}
       onClick={onClick}
       onArtworkUpdated={onArtworkUpdated}
+      onHoverEnter={onHoverEnter}
+      onHoverLeave={onHoverLeave}
     />
   );
 };

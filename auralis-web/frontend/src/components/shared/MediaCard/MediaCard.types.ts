@@ -6,6 +6,8 @@
  * Supports both track and album variants with shared and variant-specific props.
  */
 
+import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
+
 export type MediaCardVariant = 'track' | 'album';
 
 /**
@@ -22,12 +24,18 @@ export interface BaseMediaCardProps {
   duration?: number;
   /** Artwork URL (optional) */
   artworkUrl?: string;
+  /** Audio fingerprint for gradient generation (optional) */
+  fingerprint?: Partial<AudioFingerprint>;
   /** Whether this item is currently playing */
   isPlaying?: boolean;
   /** Click handler */
   onClick?: () => void;
   /** Play handler */
   onPlay?: (id: number) => void;
+  /** Hover enter handler (for Album Character Pane integration) */
+  onHoverEnter?: (id: number) => void;
+  /** Hover leave handler */
+  onHoverLeave?: () => void;
 }
 
 /**

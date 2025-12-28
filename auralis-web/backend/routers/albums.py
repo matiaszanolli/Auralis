@@ -204,4 +204,83 @@ def create_albums_router(
         except Exception as e:
             raise handle_query_error("get album tracks", e)
 
+    @router.get("/api/albums/{album_id}/fingerprint")
+    async def get_album_fingerprint(album_id: int) -> Any:
+        """
+        Get median fingerprint for an album (aggregated from all tracks).
+
+        Computes the median fingerprint across all tracks in the album,
+        providing a representative sonic profile for the album as a whole.
+
+        Args:
+            album_id: Album ID
+
+        Returns:
+            dict: Median fingerprint (25D vector) with all dimensions
+
+        Raises:
+            HTTPException: If album not found, no tracks, or no fingerprints available
+        """
+        try:
+            repos = require_repository_factory(get_repository_factory)
+            album = repos.albums.get_by_id(album_id)
+
+            if not album:
+                raise NotFoundError("Album", album_id)
+
+            # Get all tracks for album
+            tracks = album.tracks if hasattr(album, 'tracks') and album.tracks else []
+
+            if not tracks:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Album {album_id} has no tracks"
+                )
+
+            # Get fingerprints for all tracks
+            fingerprints = []
+            for track in tracks:
+                fp = repos.fingerprints.get(track.id)
+                if fp:
+                    fingerprints.append(fp)
+
+            if not fingerprints:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Album {album_id} has no fingerprinted tracks. Run fingerprint extraction first."
+                )
+
+            # Compute median for each fingerprint dimension
+            import numpy as np
+
+            # Extract all 25 dimensions from fingerprints
+            dimensions = [
+                'sub_bass', 'bass', 'low_mid', 'mid', 'upper_mid', 'presence', 'air',
+                'lufs', 'crest_db', 'bass_mid_ratio',
+                'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
+                'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
+                'harmonic_ratio', 'pitch_stability', 'chroma_energy',
+                'dynamic_range_variation', 'loudness_variation', 'peak_consistency',
+                'stereo_width', 'phase_correlation'
+            ]
+
+            median_fingerprint = {}
+            for dim in dimensions:
+                values = [getattr(fp, dim, 0.0) for fp in fingerprints]
+                median_fingerprint[dim] = float(np.median(values))
+
+            return {
+                "album_id": album_id,
+                "album_title": album.title,
+                "track_count": len(tracks),
+                "fingerprinted_track_count": len(fingerprints),
+                "fingerprint": median_fingerprint
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error computing album fingerprint: {e}", exc_info=True)
+            raise handle_query_error("get album fingerprint", e)
+
     return router
