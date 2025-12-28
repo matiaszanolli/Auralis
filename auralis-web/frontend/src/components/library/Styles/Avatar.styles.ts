@@ -18,22 +18,24 @@ import { gradients, auroraOpacity } from './Color.styles';
 import { tokens } from '@/design-system';
 
 /**
- * ArtistAvatarCircle - Large circular artist avatar with aurora gradient background
- * Used for displaying artist initials in artist detail views
- * Dimensions: 200x200 with 5rem font size
+ * ArtistAvatarCircle - Circular artist avatar for detail views
+ * Reduced prominence to avoid drawing excessive attention to placeholder
+ * Dimensions: 120x120 with 3rem font size (scaled down from 200x200)
  */
 export const ArtistAvatarCircle = styled(Box)(({ theme }) => ({
-  width: 200,
-  height: 200,
+  width: 120,
+  height: 120,
   borderRadius: radiusCircle,
-  background: gradients.aurora,
+  background: `linear-gradient(135deg, ${tokens.colors.bg.level3} 0%, ${tokens.colors.bg.level4} 100%)`, // Subtle gradient, not aurora
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  fontSize: '5rem',
-  fontWeight: tokens.typography.fontWeight.bold,
-  color: tokens.colors.text.primary,
-  boxShadow: glowShadows.purple,
+  fontSize: '3rem',
+  fontWeight: tokens.typography.fontWeight.semibold, // Less bold
+  color: tokens.colors.text.tertiary, // More subdued
+  boxShadow: 'none', // No glow effect
+  border: `1px solid ${tokens.colors.border.light}`, // Subtle border
+  opacity: 0.6, // Reduce visual weight
 }));
 
 /**

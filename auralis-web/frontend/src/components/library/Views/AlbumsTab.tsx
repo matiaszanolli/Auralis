@@ -5,6 +5,7 @@ import {
   Paper,
   Typography
 } from '@mui/material';
+import { tokens } from '@/design-system';
 import AlbumArt from '../../album/AlbumArt';
 import {
   AlbumCard,
@@ -57,6 +58,23 @@ export const AlbumsTab: React.FC<AlbumsTabProps> = ({
 
   return (
     <Box>
+      {/* Section header with narrative cue */}
+      <Box sx={{
+        mb: tokens.spacing.xl,
+        pb: tokens.spacing.md,
+        borderBottom: `1px solid ${tokens.colors.border.subtle}`,
+      }}>
+        <Typography variant="h6" sx={{
+          fontSize: tokens.typography.fontSize.lg,
+          fontWeight: tokens.typography.fontWeight.semibold,
+          color: tokens.colors.text.secondary,
+          letterSpacing: '0.02em',
+        }}>
+          Albums {/* Sorted by year (newest first) - can be enhanced later */}
+        </Typography>
+      </Box>
+
+      {/* Albums grid */}
       <Grid container spacing={3}>
         {albums.map((album) => (
           <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={album.id}>

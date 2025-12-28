@@ -29,13 +29,16 @@ interface DetailViewHeaderProps {
 const HeaderSection = styled(Box)({
   display: 'flex',
   gap: tokens.spacing.xl,
-  marginBottom: tokens.spacing.xl,
-  padding: tokens.spacing.xl,
-  background: `rgba(${parseInt(tokens.colors.bg.level2.slice(1, 3), 16)}, ${parseInt(tokens.colors.bg.level2.slice(3, 5), 16)}, ${parseInt(tokens.colors.bg.level2.slice(5, 7), 16)}, 0.92)`,
-  borderRadius: tokens.borderRadius.lg,
-  backdropFilter: 'blur(12px)',
-  border: `1px solid ${tokens.colors.border.light}`,
-  boxShadow: tokens.shadows.md,
+  marginBottom: tokens.spacing['2xl'],
+  padding: `${tokens.spacing.xl} ${tokens.spacing.md}`,
+  background: 'transparent', // Blend into background, not a card
+  borderRadius: 0, // No container rounding
+  backdropFilter: 'none', // No blur effect
+  border: 'none', // No border
+  boxShadow: 'none', // No elevation
+  // Subtle bottom border for visual separation
+  borderBottom: `1px solid ${tokens.colors.border.subtle}`,
+  paddingBottom: tokens.spacing.xl,
   '@media (max-width: 768px)': {
     flexDirection: 'column',
     gap: tokens.spacing.lg,
@@ -68,8 +71,9 @@ const Title = styled(Typography)({
   backgroundClip: 'text',
   WebkitBackgroundClip: 'text',
   WebkitTextFillColor: 'transparent',
-  marginBottom: tokens.spacing.sm,
-  lineHeight: 1.2,
+  marginBottom: tokens.spacing.md, // More breathing room (was sm)
+  lineHeight: 1.1, // Tighter line height for better presence
+  letterSpacing: '0.01em', // Subtle letter spacing for refinement
 });
 
 const Subtitle = styled(Typography)({

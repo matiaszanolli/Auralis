@@ -31,30 +31,37 @@ export const ArtistDetailTabsSection: React.FC<ArtistDetailTabsProps> = ({
   onAlbumClick,
 }) => {
   return (
-    <Box sx={{ mt: tokens.spacing.xl }}>
+    <Box sx={{ mt: tokens.spacing['2xl'] }}> {/* Increased spacing */}
       <Tabs
         value={activeTab}
         onChange={(e, newValue) => onTabChange(newValue)}
         aria-label="Artist content sections"
         sx={{
-          borderBottom: `1px solid ${tokens.colors.border.light}`,
-          marginBottom: tokens.spacing.lg,
+          borderBottom: `2px solid ${tokens.colors.border.light}`, // Stronger border
+          marginBottom: tokens.spacing.xl, // More breathing room
+          paddingTop: tokens.spacing.lg, // Vertical spacing
           '& .MuiTabs-indicator': {
             background: tokens.gradients.aurora,
-            height: '3px',
+            height: '4px', // Stronger active indicator (was 3px)
             borderRadius: tokens.borderRadius.full,
+            boxShadow: `0 0 8px ${tokens.colors.accent.primary}40`, // Subtle glow
           },
           '& .MuiTab-root': {
             color: tokens.colors.text.secondary,
             fontWeight: tokens.typography.fontWeight.semibold,
-            fontSize: tokens.typography.fontSize.md,
+            fontSize: tokens.typography.fontSize.lg, // Larger font (was md)
             transition: tokens.transitions.all,
             textTransform: 'none',
+            minHeight: '56px', // More vertical space
+            paddingTop: tokens.spacing.md,
+            paddingBottom: tokens.spacing.md,
             '&:hover': {
               color: tokens.colors.text.primary,
+              transform: 'translateY(-2px)', // Subtle lift on hover
             },
             '&.Mui-selected': {
               color: tokens.colors.accent.primary,
+              fontWeight: tokens.typography.fontWeight.bold, // Bolder when active
             },
           },
         }}
