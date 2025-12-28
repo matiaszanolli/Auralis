@@ -23,6 +23,8 @@ import AlbumTrackTable from '../Items/tables/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
 import { useAlbumDetails, type Track } from './useAlbumDetails';
 import { useArtworkPalette } from '@/hooks/app/useArtworkPalette';
+import { useAlbumFingerprint } from '@/hooks/fingerprint/useAlbumFingerprint';
+import { AlbumCharacterPane } from '../AlbumCharacterPane';
 import { ArrowBack } from '@mui/icons-material';
 import { Button, IconButton } from '@/design-system';
 import { Box, Container, Skeleton } from '@mui/material';
@@ -43,6 +45,9 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
   isPlaying = false
 }) => {
   const { album, loading, error, isFavorite, savingFavorite, toggleFavorite } = useAlbumDetails(albumId);
+
+  // Fetch album fingerprint for character pane
+  const { fingerprint, isLoading: fingerprintLoading } = useAlbumFingerprint(albumId);
 
   // Phase 4: Extract artwork colors for theming
   const { palette, gradient, glow } = useArtworkPalette(albumId, !loading && !error);
@@ -154,76 +159,94 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
         background: gradient !== 'transparent' ? gradient : 'transparent',
         transition: `background ${tokens.transitions.slow}`, // 500-600ms smooth color fade
         minHeight: '100vh', // Full viewport height for immersive experience
+        display: 'flex',
+        height: '100%',
+        overflow: 'hidden',
       }}
     >
-      <Container maxWidth="xl" sx={{
-        py: tokens.spacing.xl,
-        px: tokens.spacing.lg,
-      }}>
-        {/* Back Button */}
-        {onBack && (
-          <IconButton
-            onClick={onBack}
-            aria-label="Go back to albums library"
-            sx={{
-              mb: tokens.spacing.lg,
-              color: tokens.colors.text.secondary,
-              border: `1px solid ${tokens.colors.border.light}`,
-              borderRadius: tokens.borderRadius.md,
-              padding: tokens.spacing.sm,
-              transition: tokens.transitions.all,
-              '&:hover': {
-                backgroundColor: tokens.colors.bg.tertiary,
-                borderColor: tokens.colors.accent.primary,
-                transform: 'scale(1.05)',
-              },
-              '&:focus-visible': {
-                outline: `3px solid ${tokens.colors.accent.primary}`,
-                outlineOffset: '2px',
-              },
+      {/* Main content area */}
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+        }}
+      >
+        <Container maxWidth="xl" sx={{
+          py: tokens.spacing.xl,
+          px: tokens.spacing.lg,
+        }}>
+          {/* Back Button */}
+          {onBack && (
+            <IconButton
+              onClick={onBack}
+              aria-label="Go back to albums library"
+              sx={{
+                mb: tokens.spacing.lg,
+                color: tokens.colors.text.secondary,
+                border: `1px solid ${tokens.colors.border.light}`,
+                borderRadius: tokens.borderRadius.md,
+                padding: tokens.spacing.sm,
+                transition: tokens.transitions.all,
+                '&:hover': {
+                  backgroundColor: tokens.colors.bg.tertiary,
+                  borderColor: tokens.colors.accent.primary,
+                  transform: 'scale(1.05)',
+                },
+                '&:focus-visible': {
+                  outline: `3px solid ${tokens.colors.accent.primary}`,
+                  outlineOffset: '2px',
+                },
+              }}
+            >
+              <ArrowBack />
+            </IconButton>
+          )}
+
+          {/* Album Header with Actions - Phase 4: Pass artwork glow */}
+          <AlbumHeaderActions
+            album={album}
+            isPlaying={isPlaying}
+            currentTrackId={currentTrackId}
+            isFavorite={isFavorite}
+            savingFavorite={savingFavorite}
+            onPlay={handlePlayAlbum}
+            onToggleFavorite={toggleFavorite}
+            artworkGlow={glow !== 'none' ? glow : undefined} // Phase 4: Pass extracted glow
+          />
+
+          {/* Track Listing */}
+          <AlbumTrackTable
+            tracks={album.tracks || []}
+            currentTrackId={currentTrackId}
+            isPlaying={isPlaying}
+            onTrackClick={handleTrackClick}
+            onFindSimilar={handleFindSimilar}
+            formatDuration={formatDuration}
+          />
+
+          {/* Phase 5: Similar Tracks Modal */}
+          <SimilarTracksModal
+            open={similarTracksModalOpen}
+            trackId={similarTrackId}
+            trackTitle={similarTrackTitle}
+            onClose={handleCloseSimilarTracksModal}
+            onTrackPlay={(trackId) => {
+              const track = album.tracks?.find((t: Track) => t.id === trackId);
+              if (track && onTrackPlay) {
+                onTrackPlay(track);
+              }
             }}
-          >
-            <ArrowBack />
-          </IconButton>
-        )}
+            limit={20}
+          />
+        </Container>
+      </Box>
 
-        {/* Album Header with Actions - Phase 4: Pass artwork glow */}
-        <AlbumHeaderActions
-          album={album}
-          isPlaying={isPlaying}
-          currentTrackId={currentTrackId}
-          isFavorite={isFavorite}
-          savingFavorite={savingFavorite}
-          onPlay={handlePlayAlbum}
-          onToggleFavorite={toggleFavorite}
-          artworkGlow={glow !== 'none' ? glow : undefined} // Phase 4: Pass extracted glow
-        />
-
-        {/* Track Listing */}
-        <AlbumTrackTable
-          tracks={album.tracks || []}
-          currentTrackId={currentTrackId}
-          isPlaying={isPlaying}
-          onTrackClick={handleTrackClick}
-          onFindSimilar={handleFindSimilar}
-          formatDuration={formatDuration}
-        />
-
-        {/* Phase 5: Similar Tracks Modal */}
-        <SimilarTracksModal
-          open={similarTracksModalOpen}
-          trackId={similarTrackId}
-          trackTitle={similarTrackTitle}
-          onClose={handleCloseSimilarTracksModal}
-          onTrackPlay={(trackId) => {
-            const track = album.tracks?.find((t: Track) => t.id === trackId);
-            if (track && onTrackPlay) {
-              onTrackPlay(track);
-            }
-          }}
-          limit={20}
-        />
-      </Container>
+      {/* Album Character Pane - Right sidebar */}
+      <AlbumCharacterPane
+        fingerprint={fingerprint ?? null}
+        albumTitle={album.title}
+        isLoading={fingerprintLoading}
+      />
     </Box>
   );
 };

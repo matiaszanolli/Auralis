@@ -22,6 +22,7 @@ import { Box, Typography, Chip, LinearProgress } from '@mui/material';
 import { tokens } from '@/design-system';
 import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { computeAlbumCharacter } from '@/utils/albumCharacterDescriptors';
+import { EnhancementToggle } from '@/components/shared/EnhancementToggle';
 
 export interface AlbumCharacterPaneProps {
   /** Album fingerprint (median of all tracks) */
@@ -30,6 +31,10 @@ export interface AlbumCharacterPaneProps {
   albumTitle?: string;
   /** Loading state */
   isLoading?: boolean;
+  /** Enhancement enabled state */
+  isEnhancementEnabled?: boolean;
+  /** Enhancement toggle callback */
+  onEnhancementToggle?: (enabled: boolean) => void;
 }
 
 /**
@@ -171,7 +176,29 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
   fingerprint,
   albumTitle,
   isLoading = false,
+  isEnhancementEnabled = true,
+  onEnhancementToggle,
 }) => {
+  // Enhancement toggle section (always shown at top)
+  const EnhancementSection = () => (
+    <Box
+      sx={{
+        pb: tokens.spacing.lg,
+        mb: tokens.spacing.lg,
+        borderBottom: `1px solid ${tokens.colors.border.light}`,
+      }}
+    >
+      <EnhancementToggle
+        variant="switch"
+        isEnabled={isEnhancementEnabled}
+        onToggle={onEnhancementToggle ?? (() => {})}
+        label="Auto-Mastering"
+        description={isEnhancementEnabled ? 'Enhancing playback' : 'Original audio'}
+        showDescription
+      />
+    </Box>
+  );
+
   // Empty state (no album selected or no fingerprint)
   if (!fingerprint && !isLoading) {
     return (
@@ -183,20 +210,28 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
           p: tokens.spacing.xl,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
         }}
       >
-        <Typography
-          variant="body2"
+        <EnhancementSection />
+        <Box
           sx={{
-            color: tokens.colors.text.tertiary,
-            textAlign: 'center',
-            fontSize: tokens.typography.fontSize.sm,
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          Select an album to view its sonic character
-        </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              color: tokens.colors.text.tertiary,
+              textAlign: 'center',
+              fontSize: tokens.typography.fontSize.sm,
+            }}
+          >
+            Hover over an album to view its sonic character
+          </Typography>
+        </Box>
       </Box>
     );
   }
@@ -212,6 +247,7 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
           p: tokens.spacing.xl,
         }}
       >
+        <EnhancementSection />
         <LinearProgress sx={{ mb: tokens.spacing.lg }} />
         <Typography
           variant="body2"
@@ -236,6 +272,9 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
         overflowY: 'auto',
       }}
     >
+      {/* Enhancement Toggle */}
+      <EnhancementSection />
+
       {/* Header */}
       <Box sx={{ mb: tokens.spacing.xl }}>
         <Typography

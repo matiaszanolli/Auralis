@@ -14,13 +14,16 @@
  */
 
 import React, { useState, useCallback } from 'react';
+import { Box } from '@mui/material';
 import { CozyAlbumGrid } from '../Items/albums/CozyAlbumGrid';
+import { RecentlyTouchedSection } from '../Items/albums/RecentlyTouchedSection';
 import { CozyArtistList } from '../Items/artists/CozyArtistList';
 import AlbumDetailView from '../Details/AlbumDetailView';
 import ArtistDetailView from '../Details/ArtistDetailView';
 import { ViewContainer } from './ViewContainer';
 import { AlbumCharacterPane } from '../AlbumCharacterPane';
 import { useAlbumFingerprint } from '@/hooks/fingerprint/useAlbumFingerprint';
+import { useRecentlyTouched } from '@/hooks/library';
 
 export interface LibraryViewRouterProps {
   view: string;
@@ -38,6 +41,10 @@ export interface LibraryViewRouterProps {
 
   // Track actions (can be sync or async, accepts track objects with varying field subsets)
   onTrackPlay?: ((track: any) => void | Promise<void>);
+
+  // Enhancement (auto-mastering) state - passed to AlbumCharacterPane
+  isEnhancementEnabled?: boolean;
+  onEnhancementToggle?: (enabled: boolean) => void;
 }
 
 /**
@@ -58,6 +65,8 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
   onAlbumClick,
   onArtistClick,
   onTrackPlay,
+  isEnhancementEnabled = true,
+  onEnhancementToggle,
 }) => {
   // Album detail view (from albums or artists view)
   if (selectedAlbumId !== null) {
@@ -72,10 +81,18 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
     );
   }
 
-  // Albums view - grid of albums with character pane
+  // Albums view - grid of albums with character pane on hover
   if (view === 'albums') {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const [hoveredAlbumId, setHoveredAlbumId] = useState<number | null>(null);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [hoveredAlbumTitle, setHoveredAlbumTitle] = useState<string | undefined>(undefined);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [hoveredAlbumArtist, setHoveredAlbumArtist] = useState<string | undefined>(undefined);
+
+    // Recently touched albums tracking
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { recentAlbums, touchAlbum } = useRecentlyTouched();
 
     // Fetch fingerprint for hovered album
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -86,14 +103,28 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
 
     // Hover handlers
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    const handleAlbumHover = useCallback((albumId: number) => {
+    const handleAlbumHover = useCallback((albumId: number, albumTitle?: string, albumArtist?: string) => {
       setHoveredAlbumId(albumId);
+      setHoveredAlbumTitle(albumTitle);
+      setHoveredAlbumArtist(albumArtist);
     }, []);
 
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const handleAlbumHoverEnd = useCallback(() => {
       setHoveredAlbumId(null);
+      setHoveredAlbumTitle(undefined);
+      setHoveredAlbumArtist(undefined);
     }, []);
+
+    // Click handler that tracks album access
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const handleAlbumClick = useCallback((albumId: number) => {
+      // Track album access using hover state info
+      if (hoveredAlbumTitle) {
+        touchAlbum(albumId, hoveredAlbumTitle, hoveredAlbumArtist ?? 'Unknown Artist');
+      }
+      onAlbumClick(albumId);
+    }, [onAlbumClick, touchAlbum, hoveredAlbumTitle, hoveredAlbumArtist]);
 
     return (
       <ViewContainer
@@ -103,16 +134,29 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
         rightPane={
           <AlbumCharacterPane
             fingerprint={fingerprint ?? null}
-            albumTitle={undefined}
-            isLoading={isLoading}
+            albumTitle={hoveredAlbumTitle}
+            isLoading={isLoading && hoveredAlbumId !== null}
+            isEnhancementEnabled={isEnhancementEnabled}
+            onEnhancementToggle={onEnhancementToggle}
           />
         }
       >
-        <CozyAlbumGrid
-          onAlbumClick={onAlbumClick}
-          onAlbumHover={handleAlbumHover}
-          onAlbumHoverEnd={handleAlbumHoverEnd}
-        />
+        <Box sx={{ height: '100%', overflow: 'auto' }}>
+          {/* Recently Touched Section */}
+          <RecentlyTouchedSection
+            recentAlbums={recentAlbums}
+            onAlbumClick={handleAlbumClick}
+            onAlbumHover={handleAlbumHover}
+            onAlbumHoverEnd={handleAlbumHoverEnd}
+          />
+
+          {/* Main Album Grid */}
+          <CozyAlbumGrid
+            onAlbumClick={handleAlbumClick}
+            onAlbumHover={handleAlbumHover}
+            onAlbumHoverEnd={handleAlbumHoverEnd}
+          />
+        </Box>
       </ViewContainer>
     );
   }

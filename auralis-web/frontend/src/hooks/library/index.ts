@@ -14,3 +14,5 @@ export { useLibraryWithStats } from './useLibraryWithStats';
 export { useLibraryStats } from './useLibraryStats';
 export { useLibraryData } from './useLibraryData';
 export { useTrackSelection } from './useTrackSelection';
+export { useRecentlyTouched } from './useRecentlyTouched';
+export type { RecentlyTouchedEntry } from './useRecentlyTouched';

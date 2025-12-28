@@ -1,14 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Box,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { Box } from '@mui/material';
 import { useSelector } from 'react-redux';
 
 // No need to import DragDropContext - it's wrapped in AppContainer
 import Player from './components/player/Player';
-import EnhancementPane from './components/enhancement-pane';
 import CozyLibraryView from './components/library/CozyLibraryView';
 import SettingsDialog from './components/settings/SettingsDialog';
 import KeyboardShortcutsHelp from './components/shared/KeyboardShortcutsHelp';
@@ -20,7 +15,6 @@ import {
   AppTopBar,
   AppMainContent,
 } from './components/core';
-import { AppEnhancementPane } from './components/enhancement-pane/container';
 
 // Custom hooks for business logic
 import { useAppLayout } from '@/hooks/app/useAppLayout';
@@ -31,7 +25,6 @@ import { useWebSocketContext } from './contexts/WebSocketContext';
 import { useToast } from './components/shared/Toast';
 import { useKeyboardShortcuts, KeyboardShortcut } from '@/hooks/app/useKeyboardShortcuts';
 import { selectIsPlaying, selectVolume } from './store/slices/playerSlice';
-import { getApiUrl } from './config/api';
 
 interface Track {
   id: number;
@@ -44,24 +37,20 @@ interface Track {
 }
 
 function ComfortableApp() {
-  const theme = useTheme();
-  const isTablet = useMediaQuery(theme.breakpoints.down('lg')); // < 1200px
-
   // Layout state management (useAppLayout handles responsive sidebar/drawer)
   const {
     isMobile,
     sidebarCollapsed,
     mobileDrawerOpen,
-    presetPaneCollapsed,
     setSidebarCollapsed,
     setMobileDrawerOpen,
-    setPresetPaneCollapsed,
   } = useAppLayout();
 
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentView, setCurrentView] = useState('songs'); // songs, favourites, recent, etc.
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isEnhancementEnabled, setIsEnhancementEnabled] = useState(true); // Auto-mastering state
 
   // WebSocket connection for real-time updates (using shared WebSocketContext)
   const wsContext = useWebSocketContext();
@@ -305,10 +294,11 @@ function ComfortableApp() {
     }
   }, [openHelp]);
 
-  const handleMasteringToggle = (enabled: boolean) => {
+  const handleMasteringToggle = useCallback((enabled: boolean) => {
+    setIsEnhancementEnabled(enabled);
     console.log('Mastering:', enabled ? 'enabled' : 'disabled');
     info(enabled ? '✨ Mastering enabled' : 'Mastering disabled');
-  };
+  }, [info]);
 
   const handleSidebarNavigation = useCallback((view: string) => {
     setCurrentView(view);
@@ -345,24 +335,14 @@ function ComfortableApp() {
             <CozyLibraryView
               onTrackPlay={handleTrackPlay}
               view={currentView}
+              isEnhancementEnabled={isEnhancementEnabled}
+              onEnhancementToggle={handleMasteringToggle}
             />
           </AppMainContent>
         </Box>
 
-        {/* Right enhancement pane - Hidden on tablet/mobile */}
-        {!isTablet && (
-          <AppEnhancementPane
-            useV2={true}
-            initiallyCollapsed={presetPaneCollapsed}
-            onToggleV2={() => {}} // V1 fallback removed, EnhancementPane is now default
-          >
-            <EnhancementPane
-              collapsed={presetPaneCollapsed}
-              onToggleCollapse={() => setPresetPaneCollapsed(!presetPaneCollapsed)}
-              onMasteringToggle={handleMasteringToggle}
-            />
-          </AppEnhancementPane>
-        )}
+        {/* Right pane - AlbumCharacterPane replaces EnhancementPane globally */}
+        {/* Rendered via ViewContainer in CozyLibraryView/LibraryViewRouter for all views */}
       </AppContainer>
 
       {/* Settings Dialog */}

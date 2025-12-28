@@ -240,7 +240,7 @@ def create_albums_router(
             # Get fingerprints for all tracks
             fingerprints = []
             for track in tracks:
-                fp = repos.fingerprints.get(track.id)
+                fp = repos.fingerprints.get_by_track_id(track.id)
                 if fp:
                     fingerprints.append(fp)
 

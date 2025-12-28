@@ -8,6 +8,7 @@
  * - Responsive CSS Grid (auto-fills columns based on 200px minimum width)
  * - Infinite scroll via sentinel element + IntersectionObserver
  * - TanStack Query handles caching, deduplication, and loading states
+ * - Era-based grouping (e.g., "1978 - 1982") for temporal organization
  *
  * Fingerprint Integration:
  * - Batch fetches fingerprints for all visible albums
@@ -18,14 +19,15 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { EmptyState } from '../../../shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
+import { EraSection } from './EraSection';
 import { useInfiniteAlbums } from '@/hooks/library/useInfiniteAlbums';
 import { useAlbumFingerprints } from '@/hooks/fingerprint/useAlbumFingerprint';
-import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
+import { groupAlbumsByEra } from '@/utils/eraGrouping';
 import { tokens } from '@/design-system';
 
 interface CozyAlbumGridProps {
   onAlbumClick?: (albumId: number) => void;
-  onAlbumHover?: (albumId: number) => void;
+  onAlbumHover?: (albumId: number, albumTitle?: string, albumArtist?: string) => void;
   onAlbumHoverEnd?: () => void;
 }
 
@@ -63,6 +65,9 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({
 
   // Batch fetch fingerprints for all albums
   const { fingerprints } = useAlbumFingerprints(albumIds);
+
+  // Group albums by era (5-year spans)
+  const eraGroups = useMemo(() => groupAlbumsByEra(albums), [albums]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -106,7 +111,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({
     );
   }
 
-  // CSS Grid rendering with infinite scroll (Design Language v1.2.0 §4.3)
+  // Era-grouped rendering with infinite scroll (Design Language v1.2.0 §4.3)
   return (
     <div
       style={{
@@ -115,36 +120,18 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({
         padding: tokens.spacing.group,                    // 16px - organic group spacing
       }}
     >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, 200px)',
-          gap: tokens.spacing.group,                      // 16px - organic group spacing
-          width: '100%',
-        }}
-      >
-        {albums.map((album) => {
-          // Get fingerprint for this album (if available)
-          const fingerprint = fingerprints.get(album.id) ?? undefined;
-
-          return (
-            <AlbumCard
-              key={album.id}
-              albumId={album.id}
-              title={album.title}
-              artist={album.artist}
-              hasArtwork={!!album.artworkUrl}
-              trackCount={album.trackCount}
-              duration={album.totalDuration}
-              year={album.year}
-              fingerprint={fingerprint}
-              onClick={() => onAlbumClick?.(album.id)}
-              onHoverEnter={onAlbumHover}
-              onHoverLeave={onAlbumHoverEnd}
-            />
-          );
-        })}
-      </div>
+      {/* Era-grouped album sections */}
+      {eraGroups.map((eraGroup) => (
+        <EraSection
+          key={eraGroup.label}
+          label={eraGroup.label}
+          albums={eraGroup.albums}
+          fingerprints={fingerprints}
+          onAlbumClick={onAlbumClick}
+          onAlbumHover={onAlbumHover}
+          onAlbumHoverEnd={onAlbumHoverEnd}
+        />
+      ))}
 
       {/* Sentinel element for infinite scroll */}
       {hasNextPage && (

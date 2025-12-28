@@ -13,7 +13,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CozyAlbumGrid } from '../CozyAlbumGrid';
+import { CozyAlbumGrid } from '../Items/albums/CozyAlbumGrid';
 
 // Mock AlbumCard component
 vi.mock('../../album/AlbumCard', () => {

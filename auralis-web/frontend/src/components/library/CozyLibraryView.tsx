@@ -17,7 +17,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Container } from '@mui/material';
+import { Box } from '@mui/material';
 import BatchActionsToolbar from './Controls/BatchActionsToolbar';
 import EditMetadataDialog from './EditMetadataDialog/EditMetadataDialog';
 import { SimilarTracksModal } from '../shared/SimilarTracksModal';
@@ -25,11 +25,10 @@ import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 import { useLibraryWithStats, Track } from '@/hooks/library/useLibraryWithStats';
 import type { ViewMode } from '../navigation/ViewToggle';
 import { LibraryViewRouter } from './Views/LibraryViewRouter';
+import { ViewContainer } from './Views/ViewContainer';
 import { TrackListView } from './Views/TrackListView';
 import { EmptyState, EmptyLibrary, NoSearchResults } from '../shared/ui/feedback';
-// TODO: LibraryHeader - component to be created
-// import { LibraryHeader } from './library/LibraryHeader';
-import LibrarySearchControls from '../CozyLibraryView/LibrarySearchControls';
+import { AlbumCharacterPane } from './AlbumCharacterPane';
 import { useLibraryKeyboardShortcuts } from '../CozyLibraryView/useLibraryKeyboardShortcuts';
 import { useBatchOperations } from './useBatchOperations';
 import { useNavigationState } from './useNavigationState';
@@ -40,11 +39,17 @@ import { tokens } from '@/design-system';
 interface CozyLibraryViewProps {
   onTrackPlay?: (track: Track) => void;
   view?: string;
+  /** Enhancement (auto-mastering) enabled state */
+  isEnhancementEnabled?: boolean;
+  /** Enhancement toggle callback */
+  onEnhancementToggle?: (enabled: boolean) => void;
 }
 
 const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   onTrackPlay,
-  view = 'songs'
+  view = 'songs',
+  isEnhancementEnabled = true,
+  onEnhancementToggle,
 }) => {
 
   // ============================================================
@@ -180,6 +185,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
         onAlbumClick={handleAlbumClick}
         onArtistClick={handleArtistClick}
         onTrackPlay={handlePlayTrack}
+        isEnhancementEnabled={isEnhancementEnabled}
+        onEnhancementToggle={onEnhancementToggle}
       />
     );
   }
@@ -188,8 +195,27 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
   // RENDER - Main Track List View
   // ============================================================
 
+  // View title and icon based on current view
+  const viewConfig = {
+    songs: { icon: '🎵', title: 'Songs', subtitle: 'All tracks in your library' },
+    favourites: { icon: '❤️', title: 'Favorites', subtitle: 'Your favorite tracks' },
+    recent: { icon: '🕐', title: 'Recently Played', subtitle: 'Tracks you played recently' },
+    playlists: { icon: '📋', title: 'Playlists', subtitle: 'Your custom playlists' },
+  }[view] || { icon: '🎵', title: 'Songs', subtitle: 'All tracks in your library' };
+
   return (
-    <>
+    <ViewContainer
+      icon={viewConfig.icon}
+      title={viewConfig.title}
+      subtitle={viewConfig.subtitle}
+      rightPane={
+        <AlbumCharacterPane
+          fingerprint={null}
+          isEnhancementEnabled={isEnhancementEnabled}
+          onEnhancementToggle={onEnhancementToggle}
+        />
+      }
+    >
       {/* Batch Actions Toolbar */}
       {hasSelection && (
         <BatchActionsToolbar
@@ -203,23 +229,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
         />
       )}
 
-      <Container maxWidth="xl" sx={{ py: tokens.spacing.xl }}>
-        {/* Header - LibraryHeader component to be created */}
-        {/* <LibraryHeader view={view} /> */}
-
-        {/* Search and Controls - REMOVED: Search now in top-right header */}
-        {/* <LibrarySearchControls
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onScanFolder={handleScanFolder}
-          onRefresh={fetchTracks}
-          scanning={scanning}
-          loading={loading}
-          trackCount={filteredTracks.length}
-        /> */}
-
+      <Box sx={{ py: tokens.spacing.md }}>
         {/* Track List or Empty State */}
         {filteredTracks.length === 0 && !loading ? (
           <>
@@ -284,8 +294,8 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
           }}
           limit={20}
         />
-      </Container>
-    </>
+      </Box>
+    </ViewContainer>
   );
 });
 
