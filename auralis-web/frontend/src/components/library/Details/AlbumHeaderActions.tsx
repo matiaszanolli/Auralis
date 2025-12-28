@@ -50,6 +50,7 @@ export const AlbumHeaderActions: React.FC<AlbumHeaderActionsProps> = ({
 }) => {
   return (
     <DetailViewHeader
+      isPlaying={isPlaying} // Phase 1: Reduce header opacity during playback
       artwork={
         <Box sx={{
           width: '280px',

@@ -24,13 +24,16 @@ interface DetailViewHeaderProps {
   actions?: React.ReactNode;
   /** Custom layout direction - 'row' (default) or 'column' */
   direction?: 'row' | 'column';
+  /** Phase 1: Reduce header visual weight when playback is active */
+  isPlaying?: boolean;
 }
 
 /**
  * HeaderSection - Detail view header container (Design Language v1.2.0)
  * Organic spacing and glass border for subtle separation
+ * Phase 1: Reduces opacity when playback is active (listening-first posture)
  */
-const HeaderSection = styled(Box)({
+const HeaderSection = styled(Box)<{ isplaying?: string }>(({ isplaying }) => ({
   display: 'flex',
   gap: tokens.spacing.section,                            // 32px - organic section spacing
   marginBottom: tokens.spacing.xxl,                       // 40px - major section break
@@ -45,12 +48,16 @@ const HeaderSection = styled(Box)({
   borderBottom: tokens.glass.subtle.border,               // Glass border catches light (10% white opacity)
   paddingBottom: tokens.spacing.section,                  // 32px - organic spacing
 
+  // Phase 1: Reduce visual weight during playback (listening-first context)
+  opacity: isplaying === 'true' ? 0.85 : 1,
+  transition: `opacity ${tokens.transitions.base}`,      // 400ms smooth fade
+
   '@media (max-width: 768px)': {
     flexDirection: 'column',
     gap: tokens.spacing.group,                            // 16px - tighter on mobile
     padding: tokens.spacing.lg,
   },
-});
+}));
 
 const ArtworkWrapper = styled(Box)({
   flexShrink: 0,
@@ -117,9 +124,12 @@ export const DetailViewHeader: React.FC<DetailViewHeaderProps> = ({
   metadata,
   actions,
   direction = 'row',
+  isPlaying = false, // Phase 1: Default to false (no playback)
 }) => {
+  const isPlayingStr = isPlaying ? 'true' : 'false'; // Convert to string for styled-components
+
   return (
-    <HeaderSection sx={{ flexDirection: direction }}>
+    <HeaderSection sx={{ flexDirection: direction }} isplaying={isPlayingStr}>
       <ArtworkWrapper>
         {artwork}
       </ArtworkWrapper>
