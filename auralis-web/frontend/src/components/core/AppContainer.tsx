@@ -72,12 +72,12 @@ export const AppContainer: React.FC<AppContainerProps> = ({
       <Box
         sx={{
           flex: 1,
+          minHeight: 0,     // Critical: allows flex child to shrink below content size
           background: tokens.colors.bg.level0,  // Deep blue-black (#0B1020) - Design Language v1.2.0
           color: tokens.colors.text.primary,
           display: 'flex',
           flexDirection: 'row',
           overflow: 'hidden',
-          position: 'relative',
         }}
       >
         {/* Main layout area: sidebar + content + enhancement pane arranged horizontally */}

@@ -425,9 +425,9 @@ const styles = {
   },
 
   modeButtonActive: {
-    backgroundColor: tokens.colors.accent.primary || '#0066cc',
-    color: tokens.colors.text.inverse || '#ffffff',
-    borderColor: tokens.colors.accent.primary || '#0066cc',
+    backgroundColor: tokens.colors.accent.primary,
+    color: tokens.colors.text.primaryFull, // White text on accent background
+    borderColor: tokens.colors.accent.primary,
   },
 
   repeatModeButtons: {
@@ -461,9 +461,9 @@ const styles = {
   },
 
   repeatButtonActive: {
-    backgroundColor: tokens.colors.accent.primary || '#0066cc',
-    color: tokens.colors.text.inverse || '#ffffff',
-    borderColor: tokens.colors.accent.primary || '#0066cc',
+    backgroundColor: tokens.colors.accent.primary,
+    color: tokens.colors.text.primaryFull, // White text on accent background
+    borderColor: tokens.colors.accent.primary,
   },
 
   clearButton: {
@@ -478,8 +478,8 @@ const styles = {
     transition: 'all 0.2s',
 
     ':hover': {
-      backgroundColor: tokens.colors.semantic.error || '#ff4444',
-      color: tokens.colors.text.inverse || '#ffffff',
+      backgroundColor: tokens.colors.semantic.error,
+      color: tokens.colors.text.primaryFull, // White text on error background
     },
 
     ':disabled': {
@@ -490,8 +490,8 @@ const styles = {
 
   errorBanner: {
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.semantic.error || '#ff4444',
-    color: tokens.colors.text.inverse || '#ffffff',
+    backgroundColor: tokens.colors.semantic.error,
+    color: tokens.colors.text.primaryFull, // White text on error background
     fontSize: tokens.typography.fontSize.sm,
   },
 
@@ -593,8 +593,8 @@ const styles = {
     padding: tokens.spacing.xs,
     borderRadius: tokens.borderRadius.md,
     border: 'none',
-    backgroundColor: tokens.colors.semantic.error || '#ff4444',
-    color: tokens.colors.text.inverse || '#ffffff',
+    backgroundColor: tokens.colors.semantic.error,
+    color: tokens.colors.text.primaryFull, // White text on error background
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     transition: 'opacity 0.2s',

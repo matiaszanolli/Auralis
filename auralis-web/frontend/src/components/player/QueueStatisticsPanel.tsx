@@ -487,7 +487,7 @@ const styles = {
     gap: tokens.spacing.sm,
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
     borderRadius: tokens.borderRadius.md,
-    color: tokens.colors.text.inverse || '#ffffff',
+    color: tokens.colors.text.primaryFull, // White text on colored badge
     fontWeight: tokens.typography.fontWeight.bold,
     fontSize: tokens.typography.fontSize.sm,
   },

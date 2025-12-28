@@ -50,24 +50,28 @@ export const DropZonePaper = styled(Paper, {
       },
     }),
 
+    // Style Guide §6.1: Slow, weighted motion (300-600ms state changes)
     '@keyframes pulse': {
       '0%, 100%': { opacity: 0.05 },
       '50%': { opacity: 0.1 },
     },
 
-    '@keyframes bounce': {
+    // Style Guide §6.1: Slow breathing animation instead of bounce
+    '@keyframes breathe': {
       '0%, 100%': {
-        transform: 'translateY(0)',
+        transform: 'scale(1)',
+        opacity: 1,
       },
       '50%': {
-        transform: 'translateY(-10px)',
+        transform: 'scale(1.02)',
+        opacity: 0.92,
       },
     },
 
     '@keyframes fadeIn': {
       from: {
         opacity: 0,
-        transform: 'scale(0.8)',
+        transform: 'scale(0.95)',
       },
       to: {
         opacity: 1,

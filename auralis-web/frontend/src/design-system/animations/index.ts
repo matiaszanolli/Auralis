@@ -14,7 +14,7 @@
  * @see docs/guides/UI_DESIGN_GUIDELINES.md
  */
 
-import { css, keyframes } from '@mui/material/styles';
+import { keyframes } from '@mui/material/styles';
 
 /**
  * Fade In - Element appears with opacity transition
@@ -177,16 +177,26 @@ export const rotate = keyframes`
 `;
 
 /**
- * Bounce - Bouncy entrance animation
+ * Gentle Float - Slow, weighted vertical motion
+ * Style Guide §6.1: "No bounce easing" - use slow, heavy motion instead
+ *
+ * @deprecated 'bounce' is deprecated. Use 'gentleFloat' or 'breathe' for natural motion.
  */
-export const bounce = keyframes`
+export const gentleFloat = keyframes`
   0%, 100% {
     transform: translateY(0);
+    opacity: 1;
   }
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-4px);
+    opacity: 0.95;
   }
 `;
+
+/**
+ * @deprecated Use 'gentleFloat' instead. Bounce animations violate Style Guide §6.1.
+ */
+export const bounce = gentleFloat;
 
 /**
  * Shimmer - Loading skeleton shimmer effect
@@ -221,5 +231,35 @@ export const glowAqua = keyframes`
   }
   50% {
     box-shadow: 0 0 20px rgba(71, 214, 255, 0.8);
+  }
+`;
+
+/**
+ * Breathe - Slow, organic scale animation
+ * Style Guide §6.1: Slow, heavy motion that "responds to audio like breathing"
+ * Use with 2-3s duration for ambient effects
+ */
+export const breathe = keyframes`
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.92;
+  }
+`;
+
+/**
+ * Weighted Lift - Slow vertical motion for attention
+ * Style Guide §6.1: "Motion should feel like moving through liquid"
+ * Use instead of bounce for call-to-action elements
+ */
+export const weightedLift = keyframes`
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
   }
 `;

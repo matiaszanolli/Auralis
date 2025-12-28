@@ -29,7 +29,7 @@ export const DropZoneIcon: React.FC<DropZoneIconProps> = ({ isDragging, scanning
           sx={{
             fontSize: 64,
             color: tokens.colors.semantic.success,
-            animation: 'fadeIn 0.3s ease',
+            animation: 'fadeIn 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           }}
         />
       ) : isDragging ? (
@@ -37,7 +37,8 @@ export const DropZoneIcon: React.FC<DropZoneIconProps> = ({ isDragging, scanning
           sx={{
             fontSize: 64,
             color: tokens.colors.accent.primary,
-            animation: 'bounce 1s ease infinite',
+            // Style Guide §6.1: Slow, weighted motion - no bounce
+            animation: 'breathe 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite',
           }}
         />
       ) : (
@@ -45,7 +46,7 @@ export const DropZoneIcon: React.FC<DropZoneIconProps> = ({ isDragging, scanning
           sx={{
             fontSize: 64,
             color: tokens.colors.text.disabled,
-            transition: 'color 0.3s ease',
+            transition: `color ${tokens.transitions.stateChange}`,
           }}
         />
       )}

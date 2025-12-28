@@ -80,6 +80,7 @@ export const ViewContainer: React.FC<ViewContainerProps> = ({
         <Box
           sx={{
             flexShrink: 0,
+            height: '100%',
             overflowY: 'auto',
           }}
         >

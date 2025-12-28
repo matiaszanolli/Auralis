@@ -12,7 +12,10 @@ import { tokens, withOpacity } from '@/design-system';
  */
 export const SidebarContainer = styled(Box)({
   width: tokens.components.sidebar.width,
-  height: '100%',
+  // Use alignSelf: stretch instead of height: 100% for proper flex behavior
+  // This ensures the sidebar fills the full height in nested flex layouts
+  alignSelf: 'stretch',
+  flexShrink: 0,
 
   // Lower contrast glass (calm, muscle memory UI)
   background: tokens.components.sidebar.background,
@@ -84,7 +87,8 @@ export const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }
 
 export const CollapsedSidebarContainer = styled(Box)({
   width: tokens.spacing.xxxl, // 64px
-  height: '100%',
+  alignSelf: 'stretch', // Use flex stretch instead of height: 100%
+  flexShrink: 0,
   background: tokens.colors.bg.secondary,
   // Removed hard border, using shadow for depth instead
   boxShadow: '2px 0 16px rgba(0, 0, 0, 0.12)', // Subtle right shadow for separation

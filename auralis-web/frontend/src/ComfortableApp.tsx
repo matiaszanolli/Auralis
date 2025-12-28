@@ -305,7 +305,7 @@ function ComfortableApp() {
   }, []);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       <AppContainer onDragEnd={handleDragEnd}>
         {/* Sidebar (desktop or mobile drawer) */}
         <AppSidebar

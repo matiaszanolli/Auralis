@@ -353,7 +353,7 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: tokens.colors.opacityScale.dark.intense, // Deep blue-black overlay (not pure black)
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'center',
@@ -370,7 +370,7 @@ const styles = {
     width: '90%',
     maxWidth: '600px',
     maxHeight: '80vh',
-    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+    boxShadow: `0 10px 40px ${tokens.colors.opacityScale.dark.strong}`, // Deep blue-black shadow
   },
 
   header: {
@@ -480,9 +480,9 @@ const styles = {
   },
 
   filterButtonActive: {
-    backgroundColor: tokens.colors.accent.primary || '#0066cc',
-    color: tokens.colors.text.inverse || '#ffffff',
-    borderColor: tokens.colors.accent.primary || '#0066cc',
+    backgroundColor: tokens.colors.accent.primary,
+    color: tokens.colors.text.primaryFull, // White text on accent background
+    borderColor: tokens.colors.accent.primary,
   },
 
   resultsInfo: {
@@ -570,8 +570,8 @@ const styles = {
 
   matchBadge: {
     display: 'inline-block',
-    backgroundColor: tokens.colors.accent.primary || '#0066cc',
-    color: tokens.colors.text.inverse || '#ffffff',
+    backgroundColor: tokens.colors.accent.primary,
+    color: tokens.colors.text.primaryFull, // White text on accent background
     padding: `2px 6px`,
     borderRadius: tokens.borderRadius.sm,
     fontSize: '10px',
@@ -599,8 +599,8 @@ const styles = {
     padding: tokens.spacing.xs,
     borderRadius: tokens.borderRadius.md,
     border: 'none',
-    backgroundColor: tokens.colors.semantic.error || '#ff4444',
-    color: tokens.colors.text.inverse || '#ffffff',
+    backgroundColor: tokens.colors.semantic.error,
+    color: tokens.colors.text.primaryFull, // White text on error background
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     transition: 'opacity 0.2s',
@@ -648,8 +648,8 @@ const styles = {
     transition: 'all 0.2s',
 
     ':hover': {
-      backgroundColor: tokens.colors.semantic.error || '#ff4444',
-      color: tokens.colors.text.inverse || '#ffffff',
+      backgroundColor: tokens.colors.semantic.error,
+      color: tokens.colors.text.primaryFull, // White text on error background
     },
   },
 };

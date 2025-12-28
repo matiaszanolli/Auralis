@@ -1,223 +1,154 @@
 /**
- * Color Styles - Reusable color and gradient presets
+ * Color Styles - COMPATIBILITY LAYER
  *
- * Consolidates all hardcoded color values and gradients used across components
- * for consistent coloring throughout the application.
+ * @deprecated This file is deprecated. Import directly from '@/design-system' instead.
  *
- * Uses aurora color palette (#667eea, #764ba2) with opacity variants
- * as the primary design system colors.
+ * This file re-exports values from the centralized design system tokens
+ * for backwards compatibility. All new code should import from '@/design-system'.
  *
- * Color Categories:
- * - Aurora colors: Primary brand colors with opacity variants
- * - Gradient presets: Aurora gradient combinations
- * - Opacity variants: Standardized opacity levels for consistent usage
+ * Migration guide:
+ * - auroraOpacity → tokens.colors.opacityScale.accent
+ * - whiteOpacity → tokens.colors.opacityScale.white
+ * - blackOpacity → tokens.colors.opacityScale.dark (uses deep blue-black, not pure black)
+ * - colorAuroraPrimary → tokens.colors.accent.primary
+ * - colorAuroraSecondary → tokens.colors.accent.primary (secondary is now tertiary in tokens)
+ * - gradients/gradientPresets → tokens.gradients.decorative
+ * - statusColors → tokens.colors.status
  */
 
-/**
- * Aurora primary color (purple-blue)
- * Base hex color used throughout the application
- */
-export const colorAuroraPrimary = '#667eea';
+import { tokens } from '@/design-system';
+
+// Re-export primary accent color
+export const colorAuroraPrimary = tokens.colors.accent.primary;
+
+// Secondary maps to accent primary (the old secondary #764ba2 is deprecated)
+export const colorAuroraSecondary = tokens.colors.accent.primary;
 
 /**
- * Aurora secondary color (purple)
- * Complementary color to primary aurora
+ * Aurora opacity scale (maps to tokens.colors.opacityScale.accent)
+ * @deprecated Use tokens.colors.opacityScale.accent instead
  */
-export const colorAuroraSecondary = '#764ba2';
+export const auroraOpacity = tokens.colors.opacityScale.accent;
 
 /**
- * Aurora color with opacity variants
- * Standardized opacity levels for consistent application across components
- *
- * Opacity scale:
- * - minimal: 5% - Barely visible, use for disabled states
- * - ultraLight: 8% - Very subtle backgrounds
- * - veryLight: 10% - Light borders, subtle backgrounds (MOST COMMON)
- * - light: 12% - Track current state, soft hover
- * - lighter: 15% - Hover states, gentle glows
- * - standard: 20% - Standard backgrounds, medium opacity
- * - strong: 30% - Focus states, button shadows (VERY COMMON)
- * - veryStrong: 40% - Strong glows, prominent shadows
- * - stronger: 50% - Very strong emphasis, dashed borders
+ * White opacity scale (maps to tokens.colors.opacityScale.white)
+ * @deprecated Use tokens.colors.opacityScale.white instead
  */
-export const auroraOpacity = {
-  minimal: 'rgba(102, 126, 234, 0.05)',
-  ultraLight: 'rgba(102, 126, 234, 0.08)',
-  veryLight: 'rgba(102, 126, 234, 0.1)',
-  light: 'rgba(102, 126, 234, 0.12)',
-  lighter: 'rgba(102, 126, 234, 0.15)',
-  standard: 'rgba(102, 126, 234, 0.2)',
-  strong: 'rgba(102, 126, 234, 0.3)',
-  veryStrong: 'rgba(102, 126, 234, 0.4)',
-  stronger: 'rgba(102, 126, 234, 0.5)',
-  intense: 'rgba(102, 126, 234, 0.6)',
-  veryIntense: 'rgba(102, 126, 234, 0.7)',
-  saturated: 'rgba(102, 126, 234, 0.8)',
-  vivid: 'rgba(102, 126, 234, 0.9)',
-  fullAlpha: 'rgba(102, 126, 234, 1.0)',
-};
+export const whiteOpacity = tokens.colors.opacityScale.white;
 
 /**
- * White color with opacity variants
- * Used for light UI elements and overlays
+ * Dark opacity scale - uses deep blue-black (#0B1020), NOT pure black
+ * Style Guide: "No pure black. No flat gray."
+ * @deprecated Use tokens.colors.opacityScale.dark instead
  */
-export const whiteOpacity = {
-  veryLight: 'rgba(255, 255, 255, 0.05)',
-  light: 'rgba(255, 255, 255, 0.1)',
-  lighter: 'rgba(255, 255, 255, 0.15)',
-  standard: 'rgba(255, 255, 255, 0.2)',
-  strong: 'rgba(255, 255, 255, 0.3)',
-  veryStrong: 'rgba(255, 255, 255, 0.5)',
-  nearOpaque: 'rgba(255, 255, 255, 0.7)',
-};
+export const blackOpacity = tokens.colors.opacityScale.dark;
 
 /**
- * Black color with opacity variants
- * Used for dark UI elements and overlays
- */
-export const blackOpacity = {
-  veryLight: 'rgba(0, 0, 0, 0.05)',
-  light: 'rgba(0, 0, 0, 0.1)',
-  lighter: 'rgba(0, 0, 0, 0.15)',
-  standard: 'rgba(0, 0, 0, 0.2)',
-  strong: 'rgba(0, 0, 0, 0.3)',
-  veryStrong: 'rgba(0, 0, 0, 0.4)',
-  strongerDark: 'rgba(0, 0, 0, 0.5)',
-};
-
-/**
- * Aurora gradient presets
- * Common gradient combinations used throughout the application
+ * Gradient presets (maps to tokens.gradients.decorative)
+ * @deprecated Use tokens.gradients directly instead
  */
 export const gradientPresets = {
-  // Main aurora gradient - primary design element
-  aurora: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  // 45-degree variant
-  aurora45: 'linear-gradient(45deg, #667eea 0%, #764ba2 100%)',
-  // Hover variant with increased opacity
-  auroraHover: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  // Main aurora gradient
+  aurora: tokens.gradients.aurora,
+  aurora45: 'linear-gradient(45deg, #7366F0 0%, #5A5CC4 100%)',
+  auroraHover: tokens.gradients.aurora,
 
-  // Neon/vibrant gradients
-  neonSunset: 'linear-gradient(135deg, #ff6b9d 0%, #ffa502 100%)',
-  deepOcean: 'linear-gradient(135deg, #4b7bec 0%, #26de81 100%)',
-  electricPurple: 'linear-gradient(135deg, #c44569 0%, #667eea 100%)',
-  cosmicBlue: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+  // Decorative gradients
+  neonSunset: tokens.gradients.decorative.neonSunset,
+  deepOcean: tokens.gradients.decorative.deepOcean,
+  electricPurple: tokens.gradients.decorative.electricPurple,
+  cosmicBlue: tokens.gradients.decorative.cosmicBlue,
+  gradientPink: tokens.gradients.decorative.gradientPink,
+  gradientBlue: tokens.gradients.decorative.gradientBlue,
+  gradientGreen: tokens.gradients.decorative.gradientGreen,
+  gradientSunset: tokens.gradients.decorative.gradientSunset,
+  gradientTeal: tokens.gradients.decorative.gradientTeal,
+  gradientPastel: tokens.gradients.decorative.gradientPastel,
+  gradientRose: tokens.gradients.decorative.gradientRose,
 
-  // Album art and decorative gradients
-  gradientPink: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-  gradientBlue: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-  gradientGreen: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-  gradientSunset: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-  gradientTeal: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-  gradientPastel: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-  gradientRose: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-
-  // Special effects
-  bottomFade: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+  // Overlay gradients
+  bottomFade: tokens.gradients.overlay.bottomFade,
 };
 
 /**
- * Backward compatibility alias for gradientPresets
- * Used throughout the codebase as 'gradients'
+ * Alias for gradientPresets
+ * @deprecated Use tokens.gradients directly instead
  */
 export const gradients = gradientPresets;
 
 /**
- * Status colors for connection indicators and alerts
- * Used for showing system status, connectivity, and notifications
+ * Status colors (maps to tokens.colors.status)
+ * @deprecated Use tokens.colors.status instead
  */
 export const statusColors = {
-  // Connection status indicators
-  connected: '#4ade80', // Green - active/successful
-  connecting: '#facc15', // Yellow - pending/loading
-  disconnected: '#ef4444', // Red - error/offline
-
-  // Alternative status colors for emphasis
-  success: '#10b981', // Emerald green
-  warning: '#f59e0b', // Amber
-  error: '#ef4444', // Red
-  info: '#3b82f6', // Blue
+  connected: tokens.colors.status.connected,
+  connecting: tokens.colors.status.connecting,
+  disconnected: tokens.colors.status.disconnected,
+  success: tokens.colors.semantic.success,
+  warning: tokens.colors.semantic.warning,
+  error: tokens.colors.semantic.error,
+  info: tokens.colors.semantic.info,
 };
 
 /**
- * Utility color presets for common use cases
+ * Utility color presets (maps to tokens.colors.utility)
+ * @deprecated Use tokens.colors.utility instead
  */
 export const colorUtility = {
-  // Borders and separators
   border: {
-    subtle: auroraOpacity.veryLight,
-    standard: auroraOpacity.light,
-    strong: auroraOpacity.lighter,
+    subtle: tokens.colors.opacityScale.accent.veryLight,
+    standard: tokens.colors.opacityScale.accent.light,
+    strong: tokens.colors.opacityScale.accent.lighter,
   },
-
-  // Backgrounds and overlays
   background: {
-    hover: auroraOpacity.ultraLight,
-    subtle: auroraOpacity.veryLight,
-    standard: auroraOpacity.light,
-    strong: auroraOpacity.standard,
+    hover: tokens.colors.opacityScale.accent.ultraLight,
+    subtle: tokens.colors.opacityScale.accent.veryLight,
+    standard: tokens.colors.opacityScale.accent.light,
+    strong: tokens.colors.opacityScale.accent.standard,
   },
-
-  // Focus and interaction states
   focus: {
-    ring: auroraOpacity.veryLight,
-    glow: auroraOpacity.strong,
-    glowStrong: auroraOpacity.veryStrong,
+    ring: tokens.colors.opacityScale.accent.veryLight,
+    glow: tokens.colors.opacityScale.accent.strong,
+    glowStrong: tokens.colors.opacityScale.accent.veryStrong,
   },
-
-  // Shadows and glows
   shadow: {
-    subtle: auroraOpacity.light,
-    standard: auroraOpacity.standard,
-    strong: auroraOpacity.strong,
-    veryStrong: auroraOpacity.veryStrong,
+    subtle: tokens.colors.opacityScale.accent.light,
+    standard: tokens.colors.opacityScale.accent.standard,
+    strong: tokens.colors.opacityScale.accent.strong,
+    veryStrong: tokens.colors.opacityScale.accent.veryStrong,
   },
-
-  // Button states
   button: {
-    hover: auroraOpacity.ultraLight,
-    active: auroraOpacity.standard,
-    disabled: auroraOpacity.minimal,
+    hover: tokens.colors.opacityScale.accent.ultraLight,
+    active: tokens.colors.opacityScale.accent.standard,
+    disabled: tokens.colors.opacityScale.accent.minimal,
   },
-
-  // Error/destructive colors
-  error: '#ff4757',
-  errorHover: '#ff3838',
-
-  // Success colors
-  success: '#2ed573',
+  error: tokens.colors.utility.error,
+  errorHover: tokens.colors.utility.errorHover,
+  success: tokens.colors.semantic.success,
   successHover: '#26de81',
-
-  // Warning colors
-  warning: '#ffa502',
+  warning: tokens.colors.semantic.warning,
   warningHover: '#ff9500',
 };
 
 /**
- * Color combination presets for common patterns
+ * Color combinations for common patterns
+ * @deprecated Use tokens.colors.utility instead
  */
 export const colorCombos = {
-  // For hover states (background + text)
   hoverState: {
-    background: auroraOpacity.ultraLight,
-    text: colorAuroraPrimary,
+    background: tokens.colors.opacityScale.accent.ultraLight,
+    text: tokens.colors.accent.primary,
   },
-
-  // For active/selected states
   activeState: {
-    background: auroraOpacity.standard,
-    text: '#ffffff',
+    background: tokens.colors.opacityScale.accent.standard,
+    text: tokens.colors.text.primaryFull,
   },
-
-  // For focus rings and outlines
   focusRing: {
-    ring: `0 0 0 3px ${auroraOpacity.veryLight}`,
-    glow: `0 0 12px ${auroraOpacity.strong}`,
+    ring: tokens.colors.utility.focusRing,
+    glow: tokens.colors.utility.focusGlow,
   },
-
-  // For disabled states
   disabledState: {
-    background: auroraOpacity.minimal,
-    text: 'rgba(255, 255, 255, 0.3)',
+    background: tokens.colors.opacityScale.accent.minimal,
+    text: tokens.colors.text.disabled,
   },
 };

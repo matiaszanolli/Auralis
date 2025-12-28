@@ -79,9 +79,6 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
         sx={{
           flex: 1,
           overflow: 'auto',
-          // Padding to prevent content from going under player bar
-          // Player bar height is typically 80-100px
-          paddingBottom: '100px',
           // Custom scrollbar styling (Design Language v1.2.0 §4.4)
           '&::-webkit-scrollbar': {
             width: '8px',

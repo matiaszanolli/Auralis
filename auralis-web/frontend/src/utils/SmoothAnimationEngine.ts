@@ -5,7 +5,14 @@
  * audio visualization with easing functions, tweening, and performance optimization.
  */
 
-// Easing functions for smooth animations
+/**
+ * Easing functions for smooth animations
+ *
+ * Style Guide §6.1 Compliance:
+ * - Recommended: easeOutQuart, easeInOutQuart, audioTaper, smoothStep, weightedEase
+ * - Deprecated: easeInElastic, easeOutElastic, easeInBounce, easeOutBounce
+ *   "No bounce easing" - motion should feel slow, heavy, like moving through liquid
+ */
 export const EasingFunctions = {
   linear: (t: number) => t,
   easeInQuad: (t: number) => t * t,
@@ -17,19 +24,41 @@ export const EasingFunctions = {
   easeInQuart: (t: number) => t * t * t * t,
   easeOutQuart: (t: number) => 1 - (--t) * t * t * t,
   easeInOutQuart: (t: number) => t < 0.5 ? 8 * t * t * t * t : 1 - 8 * (--t) * t * t * t,
+
+  /**
+   * @deprecated Style Guide §6.1: "No bounce easing"
+   * Use 'weightedEase' or 'easeOutQuart' instead for natural motion.
+   * Kept for backward compatibility with audio visualization (internal use only).
+   */
   easeInElastic: (t: number) => {
     if (t === 0 || t === 1) return t;
     const p = 0.3;
     const s = p / 4;
     return -(Math.pow(2, 10 * (t -= 1)) * Math.sin((t - s) * (2 * Math.PI) / p));
   },
+
+  /**
+   * @deprecated Style Guide §6.1: "No bounce easing"
+   * Use 'weightedEase' or 'easeOutQuart' instead for natural motion.
+   * Kept for backward compatibility with audio visualization (internal use only).
+   */
   easeOutElastic: (t: number) => {
     if (t === 0 || t === 1) return t;
     const p = 0.3;
     const s = p / 4;
     return Math.pow(2, -10 * t) * Math.sin((t - s) * (2 * Math.PI) / p) + 1;
   },
+
+  /**
+   * @deprecated Style Guide §6.1: "No bounce easing"
+   * Use 'weightedEase' or 'easeOutQuart' instead.
+   */
   easeInBounce: (t: number) => 1 - EasingFunctions.easeOutBounce(1 - t),
+
+  /**
+   * @deprecated Style Guide §6.1: "No bounce easing"
+   * Use 'weightedEase' or 'easeOutQuart' instead.
+   */
   easeOutBounce: (t: number) => {
     if (t < 1 / 2.75) {
       return 7.5625 * t * t;
@@ -41,13 +70,43 @@ export const EasingFunctions = {
       return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
     }
   },
+
+  /**
+   * Audio taper easing for audio level transitions
+   * Style Guide compliant - slow, weighted motion
+   */
   audioTaper: (t: number) => {
-    // Custom easing for audio level transitions
     return Math.pow(t, 2.2); // Similar to audio taper curve
   },
+
+  /**
+   * Smooth step function for visualization transitions
+   * Style Guide compliant - smooth, natural motion
+   */
   smoothStep: (t: number) => {
-    // Smooth step function for visualization transitions
     return t * t * (3 - 2 * t);
+  },
+
+  /**
+   * Weighted ease - Style Guide §6.1 recommended
+   * Slow, heavy motion that "responds to audio like breathing"
+   * Use for state changes (300-600ms duration recommended)
+   */
+  weightedEase: (t: number) => {
+    // Quintic ease-out for slow, weighted feel
+    return 1 - Math.pow(1 - t, 5);
+  },
+
+  /**
+   * Liquid ease - Style Guide §6.1 recommended
+   * "Motion should feel like moving through liquid"
+   * Use for ambient/background animations (1-3s duration)
+   */
+  liquidEase: (t: number) => {
+    // Custom curve for slow, organic motion
+    return t < 0.5
+      ? 4 * t * t * t
+      : 1 - Math.pow(-2 * t + 2, 3) / 2;
   },
 };
 

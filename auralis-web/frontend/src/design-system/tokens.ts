@@ -4,15 +4,29 @@
  * Single source of truth for all design values.
  * ALL components MUST use these tokens - no hardcoded values allowed.
  *
- * @see docs/guides/UI_DESIGN_GUIDELINES.md
+ * Core Philosophy (Style Guide §10):
+ * "Every visual decision must either clarify the music or get out of its way."
+ *
+ * If an element does neither: Remove it, Hide it, or Demote it.
+ *
+ * @see docs/UI_STYLE_GUIDE.md - Full style guide documentation
  */
 
 export const tokens = {
   /**
-   * Color System - Auralis Design Language v1.2.0
-   * Deep blue-black base (#0B1020 range) with soft violet/indigo primary,
-   * teal/cyan for audio state, warm amber for energy/highlights.
-   * Dark mode is canonical. Surfaces, not cards.
+   * Color System (Style Guide §1)
+   * Color is stateful and atmospheric, not decorative.
+   *
+   * Rules:
+   * - Color represents behavior, not categories
+   * - Color is rarely solid
+   * - Light and glow matter more than hue
+   * - Saturation increases only when music is active
+   *
+   * "If a color feels 'loud' when nothing is playing, it's wrong."
+   *
+   * Base: Deep blue-black (#0B1020 range) - no pure black, no flat gray
+   * The background should feel like a dark studio room, not a void.
    */
   colors: {
     // Background colors (Deep blue-black - Design Language §2.1)
@@ -38,7 +52,7 @@ export const tokens = {
       energy: '#F59E0B',       // Warm Amber - transients/highlights (Design Language §2.1)
     },
 
-    // Semantic accent colors
+    // Semantic accent colors (UI feedback states)
     semantic: {
       success: '#10B981',      // Success (positive)
       warning: '#F59E0B',      // Warning (caution)
@@ -46,14 +60,59 @@ export const tokens = {
       info: '#3B82F6',         // Info (informational)
     },
 
-    // Text colors
+    /**
+     * Audio-Semantic Accent Colors (Style Guide §1.3)
+     * Colors represent behavior and audio characteristics, not categories.
+     * Usage: Never more than 2 accents in the same component.
+     * Accents fade in/out with state. Glow > fill.
+     */
+    audioSemantic: {
+      // Indigo/Violet - Identity, focus, playback (primary brand)
+      identity: '#7366F0',
+      identityGlow: 'rgba(115, 102, 240, 0.4)',
+
+      // Cyan/Teal - Spatial width, clarity, stereo field
+      spatial: '#47D6FF',
+      spatialGlow: 'rgba(71, 214, 255, 0.4)',
+
+      // Green - Energy stability, balance, dynamics
+      stability: '#10B981',
+      stabilityGlow: 'rgba(16, 185, 129, 0.4)',
+
+      // Amber/Warm - Transients, intensity, peaks
+      transient: '#F59E0B',
+      transientGlow: 'rgba(245, 158, 11, 0.4)',
+
+      // Magenta/Pink - Harmonic richness, vibrancy
+      harmonic: '#EC4899',
+      harmonicGlow: 'rgba(236, 72, 153, 0.4)',
+    },
+
+    /**
+     * Text Colors (Style Guide §3.3)
+     * Hierarchy via size, spacing, weight, and opacity - never color alone.
+     * Text should sit in space, not scream.
+     */
     text: {
-      primary: '#FFFFFF',      // Ultra White - titles, emphasis
-      secondary: '#C1C8EF',    // Lavender Smoke - secondary text, labels
-      tertiary: '#8B92B0',     // Muted purple-gray - tertiary text
-      muted: '#6B7194',        // Muted - disabled, hint text
-      disabled: '#4A5073',     // Disabled text (very muted)
-      inverse: '#0D111A',      // For light backgrounds
+      // Primary text: 90-100% opacity (titles, emphasis)
+      primary: 'rgba(255, 255, 255, 0.95)',
+      primaryFull: '#FFFFFF',  // 100% for maximum emphasis only
+
+      // Secondary text: 60-70% opacity (labels, descriptions)
+      secondary: 'rgba(255, 255, 255, 0.68)',
+
+      // Metadata text: 40-50% opacity (timestamps, counts, technical info)
+      metadata: 'rgba(255, 255, 255, 0.45)',
+
+      // Disabled text: <30% opacity
+      disabled: 'rgba(255, 255, 255, 0.25)',
+
+      // Legacy aliases (for backwards compatibility)
+      tertiary: 'rgba(255, 255, 255, 0.45)',  // Maps to metadata
+      muted: 'rgba(255, 255, 255, 0.35)',     // Between metadata and disabled
+
+      // Inverse (for light backgrounds)
+      inverse: '#0D111A',
     },
 
     // Border colors (using soft opacity + brand colors)
@@ -62,6 +121,82 @@ export const tokens = {
       medium: 'rgba(115, 102, 240, 0.24)',  // Standard borders
       heavy: 'rgba(115, 102, 240, 0.40)',   // Emphasized borders
       accent: '#7366F0',                     // Accent borders (soft violet)
+    },
+
+    /**
+     * Opacity Scales (Style Guide §1)
+     * Standardized opacity levels for consistent UI layering.
+     * Replaces Color.styles.ts opacity presets.
+     */
+    opacityScale: {
+      // Accent color (soft violet #7366F0) with opacity variants
+      accent: {
+        minimal: 'rgba(115, 102, 240, 0.05)',    // Barely visible, disabled states
+        ultraLight: 'rgba(115, 102, 240, 0.08)', // Very subtle backgrounds
+        veryLight: 'rgba(115, 102, 240, 0.10)',  // Light borders, subtle backgrounds
+        light: 'rgba(115, 102, 240, 0.12)',      // Track current state, soft hover
+        lighter: 'rgba(115, 102, 240, 0.15)',    // Hover states, gentle glows
+        standard: 'rgba(115, 102, 240, 0.20)',   // Standard backgrounds
+        strong: 'rgba(115, 102, 240, 0.30)',     // Focus states, button shadows
+        veryStrong: 'rgba(115, 102, 240, 0.40)', // Strong glows, prominent shadows
+        intense: 'rgba(115, 102, 240, 0.60)',    // High emphasis
+        vivid: 'rgba(115, 102, 240, 0.80)',      // Near-solid
+        full: 'rgba(115, 102, 240, 1.0)',        // Solid accent
+      },
+
+      // White with opacity (for light overlays, glass effects)
+      white: {
+        veryLight: 'rgba(255, 255, 255, 0.05)',
+        light: 'rgba(255, 255, 255, 0.10)',
+        lighter: 'rgba(255, 255, 255, 0.15)',
+        standard: 'rgba(255, 255, 255, 0.20)',
+        strong: 'rgba(255, 255, 255, 0.30)',
+        veryStrong: 'rgba(255, 255, 255, 0.50)',
+        nearOpaque: 'rgba(255, 255, 255, 0.70)',
+      },
+
+      // Deep blue-black with opacity (Style Guide: NO pure black)
+      // Uses #0B1020 base instead of #000000
+      dark: {
+        veryLight: 'rgba(11, 16, 32, 0.05)',
+        light: 'rgba(11, 16, 32, 0.10)',
+        lighter: 'rgba(11, 16, 32, 0.15)',
+        standard: 'rgba(11, 16, 32, 0.20)',
+        strong: 'rgba(11, 16, 32, 0.30)',
+        veryStrong: 'rgba(11, 16, 32, 0.40)',
+        intense: 'rgba(11, 16, 32, 0.50)',
+        nearOpaque: 'rgba(11, 16, 32, 0.80)',
+      },
+    },
+
+    /**
+     * Status Colors (for connection indicators, alerts)
+     * Maps to semantic colors but with specific use cases.
+     */
+    status: {
+      connected: '#10B981',    // Green - active/successful
+      connecting: '#F59E0B',   // Amber - pending/loading
+      disconnected: '#EF4444', // Red - error/offline
+    },
+
+    /**
+     * Utility Color Presets (common patterns)
+     * Ready-to-use color combinations for typical UI states.
+     */
+    utility: {
+      // Hover/active backgrounds
+      hoverBg: 'rgba(115, 102, 240, 0.08)',
+      activeBg: 'rgba(115, 102, 240, 0.20)',
+      disabledBg: 'rgba(115, 102, 240, 0.05)',
+
+      // Focus rings and glows
+      focusRing: '0 0 0 3px rgba(115, 102, 240, 0.10)',
+      focusGlow: '0 0 12px rgba(115, 102, 240, 0.30)',
+
+      // Destructive actions
+      error: '#EF4444',
+      errorHover: '#DC2626',
+      errorBg: 'rgba(239, 68, 68, 0.10)',
     },
   },
 
@@ -269,36 +404,149 @@ export const tokens = {
    * Transition System (smooth, intentional animations)
    */
   /**
-   * Motion Language (Design Language §5)
-   * - Hover: 120–150ms
+   * Motion Language (Style Guide §6)
+   * Motion in Auralis is: Slow, Weighted, Predictable, Purposeful.
+   * "If motion draws attention to itself, it's wrong."
+   *
+   * Timing Guidelines:
+   * - Hover: 120–180ms
    * - State changes: 300–600ms
-   * - Motion is slow, heavy, analog (never fast oscillation)
-   * - Motion should feel inevitable, not reactive
+   * - Audio-reactive: Lag audio by ~80–120ms
+   *
+   * Forbidden:
+   * - No fast oscillations
+   * - No bounce easing
    */
   transitions: {
-    // Durations (Design Language §5.2)
-    fast: '150ms',     // Hover states (120–150ms)
-    base: '400ms',     // State changes (300–600ms)
-    slow: '500ms',     // State changes (300–600ms)
-    verySlow: '600ms', // Audio-reactive visuals (lag audio by ~100ms)
+    // Durations (Style Guide §6.2)
+    hover: '150ms',      // Hover states: 120–180ms
+    stateChange: '450ms', // State changes: 300–600ms (middle of range)
+    slow: '600ms',       // Slower state changes
+    audioLag: '100ms',   // Audio-reactive lag: 80–120ms (middle of range)
 
-    // Easing functions (slow, heavy, analog)
-    easeOut: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',    // Audio-like fluidity
-    easeInOut: 'cubic-bezier(0.4, 0, 0.6, 1)',          // Natural
-    easeSmooth: 'cubic-bezier(0.25, 0.1, 0.25, 1)',     // Slow, heavy (Design Language §5.1)
+    // Legacy aliases
+    fast: '150ms',
+    base: '450ms',
+    verySlow: '600ms',
+
+    // Easing functions (slow, heavy, analog - NO BOUNCE)
+    easeOut: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',    // Fluid deceleration
+    easeInOut: 'cubic-bezier(0.4, 0, 0.6, 1)',          // Natural, weighted
+    easeSmooth: 'cubic-bezier(0.25, 0.1, 0.25, 1)',     // Slow, heavy, analog
 
     // Combined (duration + easing) - Motion feels inevitable
+    hover_out: '150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+    state_inOut: '450ms cubic-bezier(0.4, 0, 0.6, 1)',
+    slow_inOut: '600ms cubic-bezier(0.4, 0, 0.6, 1)',
+
+    // Legacy combined aliases
     fast_out: '150ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-    base_inOut: '400ms cubic-bezier(0.4, 0, 0.6, 1)',
-    slow_inOut: '500ms cubic-bezier(0.4, 0, 0.6, 1)',
+    base_inOut: '450ms cubic-bezier(0.4, 0, 0.6, 1)',
     verySlow_inOut: '600ms cubic-bezier(0.25, 0.1, 0.25, 1)',
 
-    // Property-specific (slower, analog)
-    color: '400ms color cubic-bezier(0.4, 0, 0.6, 1)',
-    background: '400ms background-color cubic-bezier(0.4, 0, 0.6, 1)',
-    transform: '500ms transform cubic-bezier(0.25, 0.1, 0.25, 1)',
-    opacity: '400ms opacity cubic-bezier(0.4, 0, 0.6, 1)',
-    all: '400ms all cubic-bezier(0.4, 0, 0.6, 1)',
+    // Property-specific
+    color: '450ms color cubic-bezier(0.4, 0, 0.6, 1)',
+    background: '450ms background-color cubic-bezier(0.4, 0, 0.6, 1)',
+    transform: '600ms transform cubic-bezier(0.25, 0.1, 0.25, 1)',
+    opacity: '450ms opacity cubic-bezier(0.4, 0, 0.6, 1)',
+    all: '450ms all cubic-bezier(0.4, 0, 0.6, 1)',
+  },
+
+  /**
+   * Audio-Reactive Motion (Style Guide §6.3)
+   * Rules:
+   * - Heavy smoothing
+   * - No frame-perfect sync
+   * - Motion represents trend, not sample data
+   * - UI should feel like it's interpreting, not measuring
+   */
+  audioReactive: {
+    // Timing
+    lagMs: 100,           // Lag audio by 80-120ms (middle)
+    lagMinMs: 80,         // Minimum lag
+    lagMaxMs: 120,        // Maximum lag
+
+    // Smoothing (heavy smoothing required)
+    smoothingFactor: 0.85, // High smoothing (0 = none, 1 = max)
+    decayRate: 0.92,       // Slow decay for trailing visuals
+
+    // Update rate
+    updateIntervalMs: 50,  // ~20fps max for visuals (not frame-perfect)
+
+    // CSS transitions for audio-reactive elements
+    transition: '100ms cubic-bezier(0.25, 0.1, 0.25, 1)',
+    glowTransition: '150ms cubic-bezier(0.25, 0.1, 0.25, 1)',
+  },
+
+  /**
+   * Numbers Policy (Style Guide §7.3)
+   * Numbers exist, but are hidden by default.
+   * Engineers can inspect. Listeners can listen.
+   */
+  numbersPolicy: {
+    // Default visibility
+    defaultVisibility: 'hidden',
+
+    // Reveal behavior
+    revealOn: 'interaction', // 'hover' | 'click' | 'interaction'
+    revealTransition: '300ms cubic-bezier(0.4, 0, 0.6, 1)',
+
+    // Hierarchy when visible
+    hierarchy: 'secondary', // Numbers are never primary
+
+    // Styling when revealed
+    revealed: {
+      opacity: 0.7,
+      fontSize: '11px',
+      fontFamily: "'JetBrains Mono', monospace",
+    },
+  },
+
+  /**
+   * Visualization Guidelines (Style Guide §7)
+   * Visuals answer: "What is the music doing now?"
+   * Not: "What are the numbers?"
+   */
+  visualization: {
+    // Allowed visual forms
+    allowed: [
+      'flowingWaves',
+      'halos',
+      'breathingGradients',
+      'softArcs',
+      'ambientFields',
+    ],
+
+    // Disallowed (NEVER use these)
+    disallowed: [
+      'barGraphs',
+      'meters',
+      'percentIndicators', // when always-on
+      'gridLines',
+      'hardEdges',
+    ],
+
+    // Wave visualization defaults
+    wave: {
+      strokeWidth: 2,
+      smoothing: 0.4,        // Bezier curve smoothing
+      glowBlur: '8px',
+      glowOpacity: 0.3,
+    },
+
+    // Halo/glow visualization defaults
+    halo: {
+      blur: '24px',
+      opacity: 0.25,
+      pulseDuration: '3s',   // Slow, breathing
+    },
+
+    // Gradient visualization defaults
+    gradient: {
+      noiseIntensity: 0.03,  // Subtle grain
+      transitionDuration: '2s',
+      depth: 'radial',       // Radial or diagonal, never flat
+    },
   },
 
   /**
@@ -421,6 +669,29 @@ export const tokens = {
     // Border gradients (for glass edges)
     borderGlow: 'linear-gradient(135deg, rgba(115, 102, 240, 0.4) 0%, rgba(71, 214, 255, 0.3) 100%)',
     borderSubtle: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.12) 100%)',
+
+    // Decorative gradients (for album art placeholders, mood visualization)
+    // Style Guide §1.4: Gradients must feel alive, not graphic-design perfect
+    decorative: {
+      neonSunset: 'linear-gradient(135deg, #ff6b9d 0%, #ffa502 100%)',
+      deepOcean: 'linear-gradient(135deg, #4b7bec 0%, #26de81 100%)',
+      electricPurple: 'linear-gradient(135deg, #c44569 0%, #7366F0 100%)',
+      cosmicBlue: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+      gradientPink: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      gradientBlue: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+      gradientGreen: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+      gradientSunset: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+      gradientTeal: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+      gradientPastel: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+      gradientRose: 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+    },
+
+    // Overlay gradients (for fades, scrim effects)
+    overlay: {
+      bottomFade: 'linear-gradient(to top, rgba(11, 16, 32, 0.8), transparent)',
+      topFade: 'linear-gradient(to bottom, rgba(11, 16, 32, 0.8), transparent)',
+      radialDark: 'radial-gradient(circle, transparent 0%, rgba(11, 16, 32, 0.6) 100%)',
+    },
   },
 
   /**

@@ -438,9 +438,9 @@ const styles = {
   },
 
   tabActive: {
-    backgroundColor: tokens.colors.accent.primary || '#0066cc',
-    color: tokens.colors.text.inverse || '#ffffff',
-    borderColor: tokens.colors.accent.primary || '#0066cc',
+    backgroundColor: tokens.colors.accent.primary,
+    color: tokens.colors.text.primaryFull, // White text on accent background
+    borderColor: tokens.colors.accent.primary,
   },
 
   content: {
@@ -612,8 +612,8 @@ const styles = {
     padding: tokens.spacing.xs,
     borderRadius: tokens.borderRadius.sm,
     border: 'none',
-    backgroundColor: tokens.colors.accent.primary || '#0066cc',
-    color: tokens.colors.text.inverse || '#ffffff',
+    backgroundColor: tokens.colors.accent.primary,
+    color: tokens.colors.text.primaryFull, // White text on accent background
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.md,
     fontWeight: tokens.typography.fontWeight.bold,
@@ -634,8 +634,8 @@ const styles = {
     padding: '2px 4px',
     borderRadius: tokens.borderRadius.sm,
     border: 'none',
-    backgroundColor: tokens.colors.accent.primary || '#0066cc',
-    color: tokens.colors.text.inverse || '#ffffff',
+    backgroundColor: tokens.colors.accent.primary,
+    color: tokens.colors.text.primaryFull, // White text on accent background
     cursor: 'pointer',
     fontSize: tokens.typography.fontSize.xs,
     fontWeight: tokens.typography.fontWeight.bold,
