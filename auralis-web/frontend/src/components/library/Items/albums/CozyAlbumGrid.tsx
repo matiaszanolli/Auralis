@@ -15,6 +15,7 @@ import { EmptyState } from '../../../shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { useInfiniteAlbums } from '@/hooks/library/useInfiniteAlbums';
 import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
+import { tokens } from '@/design-system';
 
 interface CozyAlbumGridProps {
   onAlbumClick?: (albumId: number) => void;
@@ -87,20 +88,20 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
     );
   }
 
-  // CSS Grid rendering with infinite scroll
+  // CSS Grid rendering with infinite scroll (Design Language v1.2.0 §4.3)
   return (
     <div
       style={{
         height: '100%',
         overflow: 'auto',
-        padding: '16px',
+        padding: tokens.spacing.group,                    // 16px - organic group spacing
       }}
     >
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-          gap: '16px',
+          gap: tokens.spacing.group,                      // 16px - organic group spacing
           width: '100%',
         }}
       >
@@ -124,9 +125,9 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({ onAlbumClick }) =>
         <div
           ref={loadMoreRef}
           style={{
-            padding: '16px',
+            padding: tokens.spacing.group,                  // 16px - organic group spacing
             textAlign: 'center',
-            minHeight: '40px',
+            minHeight: tokens.spacing.xxl,                  // 40px - vertical space
           }}
         >
           {isFetchingNextPage ? 'Loading more albums...' : '\u00A0'}
