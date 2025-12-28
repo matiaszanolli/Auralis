@@ -1,19 +1,23 @@
 """
-Stub module for harmonic_analyzer
-This module has been refactored. Use utilities.harmonic_ops instead.
+Backward compatibility module for harmonic_analyzer.
+
+This module re-exports HarmonicAnalyzer from its new location.
+New code should import directly from:
+    from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
 """
 
 import warnings
 
+from auralis.analysis.fingerprint.analyzers.batch.harmonic import HarmonicAnalyzer
+
 warnings.warn(
-    "harmonic_analyzer module has been refactored into utilities.harmonic_ops. "
-    "Please update imports.",
+    "Importing HarmonicAnalyzer from auralis.analysis.fingerprint.harmonic_analyzer "
+    "is deprecated. Import from auralis.analysis.fingerprint.analyzers.batch.harmonic instead.",
     DeprecationWarning,
     stacklevel=2
 )
 
-# Stub exports for backward compatibility
-RUST_DSP_AVAILABLE = False
-HarmonicAnalyzer = None
+# Legacy constant - Rust DSP is now required
+RUST_DSP_AVAILABLE = True
 
-__all__ = ['RUST_DSP_AVAILABLE', 'HarmonicAnalyzer']
+__all__ = ['HarmonicAnalyzer', 'RUST_DSP_AVAILABLE']
