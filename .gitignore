@@ -151,8 +151,8 @@ desktop/yarn-error.log*
 desktop/package-lock.json
 
 # Root Node.js files
-node_modules/
-package-lock.json
+**/node_modules/
+**/package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -183,4 +183,4 @@ fingerprint-server/**/target/
 
 # MY stuff - hands out, you evil creature
 research/
-auralis-web/frontend/package-lock.json
+
