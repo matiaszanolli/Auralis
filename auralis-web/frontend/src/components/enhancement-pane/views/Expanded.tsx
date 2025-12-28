@@ -3,7 +3,8 @@ import React from 'react';
 import { ChevronRight, AutoAwesome } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { useEnhancement } from '../../../contexts/EnhancementContext';
-import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
+import { useSelector } from 'react-redux';
+import { selectCurrentTrack } from '@/store/slices/playerSlice';
 import EnhancementToggle from '../../shared/EnhancementToggle/EnhancementToggle';
 import AudioCharacteristics from '../sections/AudioCharacteristics';
 import ProcessingParameters from '../sections/ProcessingParameters';
@@ -41,7 +42,7 @@ export const Expanded: React.FC<ExpandedProps> = ({
   onMasteringToggle,
 }) => {
   const { settings, setEnabled, isProcessing } = useEnhancement();
-  const currentTrack = useCurrentTrack();
+  const currentTrack = useSelector(selectCurrentTrack);
   const trackId = currentTrack?.id;
   const { recommendation, isLoading } = useMasteringRecommendation(trackId);
 

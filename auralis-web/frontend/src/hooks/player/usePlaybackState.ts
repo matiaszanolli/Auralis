@@ -184,6 +184,11 @@ export function usePlaybackPosition(): { position: number; duration: number } {
 /**
  * Subscribe to current track changes only.
  * Useful for track info display.
+ *
+ * DEPRECATED: Use Redux selector selectCurrentTrack instead.
+ * This hook may miss initial state if component mounts after playback starts.
+ *
+ * @deprecated Use `useSelector(selectCurrentTrack)` from Redux instead.
  */
 export function useCurrentTrack(): TrackInfo | null {
   const [track, setTrack] = useState<TrackInfo | null>(null);
@@ -194,6 +199,11 @@ export function useCurrentTrack(): TrackInfo | null {
       if (message.type === 'player_state') {
         const msg = message as PlayerStateMessage;
         setTrack(msg.data.currentTrack);
+      } else if (message.type === 'track_loaded' || message.type === 'track_changed') {
+        const msg = message as TrackLoadedMessage | TrackChangedMessage;
+        if (msg.data.track) {
+          setTrack(msg.data.track);
+        }
       }
     }
   );
@@ -204,6 +214,11 @@ export function useCurrentTrack(): TrackInfo | null {
 /**
  * Subscribe to playback status (playing/paused) only.
  * Useful for play/pause button.
+ *
+ * DEPRECATED: Use Redux selector selectIsPlaying instead.
+ * This hook may miss initial state if component mounts after playback starts.
+ *
+ * @deprecated Use `useSelector(selectIsPlaying)` from Redux instead.
  */
 export function useIsPlaying(): boolean {
   const [isPlaying, setIsPlaying] = useState(false);
