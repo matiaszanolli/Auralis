@@ -26,7 +26,7 @@ interface MediaCardArtworkProps {
  * Generate placeholder color based on text hash
  * (Extracted from TrackCardHelpers.getAlbumColor)
  */
-const getPlaceholderColor = (text: string): string => {
+const getPlaceholderColor = (text: string | null | undefined): string => {
   const colors = [
     'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
@@ -35,7 +35,10 @@ const getPlaceholderColor = (text: string): string => {
     'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
   ];
 
-  const hash = text.split('').reduce((acc, char) => {
+  // Handle null/undefined text with fallback
+  const safeText = text || 'Unknown';
+
+  const hash = safeText.split('').reduce((acc, char) => {
     return char.charCodeAt(0) + ((acc << 5) - acc);
   }, 0);
 
