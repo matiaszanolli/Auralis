@@ -16,15 +16,17 @@ export { SaveButton, CancelButtonForDialog } from './Button.styles';
 export { SectionLabel, SectionDescription } from './Typography.styles';
 
 /**
- * StyledDialog - Base dialog with dark theme, blur background, and aurora border
+ * StyledDialog - Base dialog with glass effect (Design Language v1.2.0 §4.2)
  * Used by: SettingsDialog, CreatePlaylistDialog, EditPlaylistDialog, KeyboardShortcutsHelp
  */
 export const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
-    background: tokens.colors.bg.level4,
-    backdropFilter: 'blur(20px)',
-    border: `1px solid ${tokens.colors.border.light}`,
-    borderRadius: theme.spacing(2),
+    // Glass effect for elevated dialog (medium strength)
+    background: tokens.glass.medium.background,
+    backdropFilter: tokens.glass.medium.backdropFilter,   // 28px blur
+    border: tokens.glass.medium.border,                   // 12% white opacity
+    boxShadow: tokens.glass.medium.boxShadow,
+    borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
   }
 }));
 

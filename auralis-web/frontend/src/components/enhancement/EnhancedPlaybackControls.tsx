@@ -428,9 +428,13 @@ const styles: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.bg.level2,
-    borderRadius: '8px',
-    border: `1px solid ${tokens.colors.border.medium}`,
+
+    // Glass effect for container (Design Language v1.2.0 §4.2)
+    background: tokens.glass.subtle.background,
+    backdropFilter: tokens.glass.subtle.backdropFilter,   // 20px blur
+    border: tokens.glass.subtle.border,                   // 10% white opacity
+    boxShadow: tokens.glass.subtle.boxShadow,
+    borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
   },
 
   controlRow: {
@@ -452,11 +456,11 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: tokens.colors.accent.primary,
     color: tokens.colors.text.primary,
     border: 'none',
-    borderRadius: '4px 0 0 4px',
+    borderRadius: `${tokens.borderRadius.sm} 0 0 ${tokens.borderRadius.sm}`,  // 8px left corners
     cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 600,
-    transition: 'opacity 200ms ease-in-out',
+    fontSize: tokens.typography.fontSize.base,              // 13px
+    fontWeight: tokens.typography.fontWeight.semibold,
+    transition: tokens.transitions.base,
   },
 
   presetMenuButton: {
@@ -464,11 +468,11 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: tokens.colors.accent.primary,
     color: tokens.colors.text.primary,
     border: 'none',
-    borderRadius: '0 4px 4px 0',
-    borderLeft: `1px solid rgba(115, 102, 240, 0.4)`,
+    borderRadius: `0 ${tokens.borderRadius.sm} ${tokens.borderRadius.sm} 0`,  // 8px right corners
+    borderLeft: `1px solid ${tokens.colors.accent.primary}66`,  // 40% opacity separator
     cursor: 'pointer',
-    fontSize: '12px',
-    transition: 'opacity 200ms ease-in-out',
+    fontSize: tokens.typography.fontSize.sm,                // 11px
+    transition: tokens.transitions.base,
   },
 
   presetMenu: {
@@ -477,12 +481,16 @@ const styles: Record<string, React.CSSProperties> = {
     left: 0,
     right: 0,
     marginTop: tokens.spacing.xs,
-    backgroundColor: tokens.colors.bg.level1,
-    border: `1px solid ${tokens.colors.border.medium}`,
-    borderRadius: '4px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+
+    // Glass effect for dropdown menu (Design Language v1.2.0 §4.2)
+    background: tokens.glass.medium.background,
+    backdropFilter: tokens.glass.medium.backdropFilter,   // 28px blur
+    border: tokens.glass.medium.border,                   // 12% white opacity
+    boxShadow: tokens.glass.medium.boxShadow,
+    borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
+
     zIndex: 1000,
-    maxHeight: '300px',
+    maxHeight: '300px',                                   // Vertical scroll limit
     overflowY: 'auto',
   },
 
@@ -493,7 +501,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: tokens.spacing.md,
     borderBottom: `1px solid ${tokens.colors.border.light}`,
     cursor: 'pointer',
-    transition: 'background-color 150ms ease-in-out',
+    transition: tokens.transitions.fast,                  // 150ms hover
   },
 
   presetIcon: {
@@ -503,15 +511,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   presetLabel: {
-    fontWeight: 600,
-    fontSize: '14px',
+    fontWeight: tokens.typography.fontWeight.semibold,
+    fontSize: tokens.typography.fontSize.base,             // 13px
     color: tokens.colors.text.primary,
   },
 
   presetDescription: {
-    fontSize: '12px',
+    fontSize: tokens.typography.fontSize.sm,               // 11px
     color: tokens.colors.text.secondary,
-    marginTop: '2px',
+    marginTop: tokens.spacing.xs,                          // 4px - tight spacing
   },
 
   presetCheckmark: {
@@ -524,14 +532,19 @@ const styles: Record<string, React.CSSProperties> = {
   controlButton: {
     flex: 1,
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    backgroundColor: tokens.colors.bg.level2,
+
+    // Glass effect for control buttons (Design Language v1.2.0 §4.2)
+    background: tokens.glass.subtle.background,
+    backdropFilter: tokens.glass.subtle.backdropFilter,   // 20px blur
+    border: tokens.glass.subtle.border,                   // 10% white opacity
+    boxShadow: tokens.glass.subtle.boxShadow,
+
     color: tokens.colors.text.primary,
-    border: `1px solid ${tokens.colors.border.medium}`,
-    borderRadius: '4px',
+    borderRadius: tokens.borderRadius.sm,                 // 8px
     cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 500,
-    transition: 'all 150ms ease-in-out',
+    fontSize: tokens.typography.fontSize.base,            // 13px
+    fontWeight: tokens.typography.fontWeight.medium,
+    transition: tokens.transitions.fast,                  // 150ms hover
   },
 
   intensityControl: {
@@ -548,8 +561,8 @@ const styles: Record<string, React.CSSProperties> = {
 
   intensitySlider: {
     width: '100%',
-    height: '4px',
-    borderRadius: '2px',
+    height: '4px',                                        // Track height
+    borderRadius: tokens.borderRadius.full,               // 9999px - pill shape
     backgroundColor: tokens.colors.border.medium,
     cursor: 'pointer',
     appearance: 'none',
@@ -558,10 +571,16 @@ const styles: Record<string, React.CSSProperties> = {
 
   statusDisplay: {
     padding: tokens.spacing.md,
-    backgroundColor: tokens.colors.bg.level1,
-    borderLeft: `3px solid ${tokens.colors.semantic.success}`,
-    borderRadius: '4px',
-    fontSize: '12px',
+
+    // Glass effect for status display (Design Language v1.2.0 §4.2)
+    background: tokens.glass.subtle.background,
+    backdropFilter: tokens.glass.subtle.backdropFilter,   // 20px blur
+    border: tokens.glass.subtle.border,                   // 10% white opacity
+    boxShadow: tokens.glass.subtle.boxShadow,
+    borderLeft: `3px solid ${tokens.colors.semantic.success}`,  // Status accent bar
+
+    borderRadius: tokens.borderRadius.sm,                 // 8px
+    fontSize: tokens.typography.fontSize.sm,              // 11px
     color: tokens.colors.text.primary,
   },
 
@@ -582,7 +601,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     height: '4px',
     backgroundColor: tokens.colors.border.medium,
-    borderRadius: '2px',
+    borderRadius: tokens.borderRadius.full,               // 9999px - pill shape
     overflow: 'hidden',
     marginBottom: tokens.spacing.xs,
   },
@@ -590,7 +609,7 @@ const styles: Record<string, React.CSSProperties> = {
   progressBar: {
     height: '100%',
     backgroundColor: tokens.colors.accent.primary,
-    transition: 'width 300ms ease-out',
+    transition: `width ${tokens.transitions.slow}`,       // 400-600ms slow state change
   },
 
   timeDisplay: {
@@ -600,9 +619,9 @@ const styles: Record<string, React.CSSProperties> = {
 
   errorDisplay: {
     padding: tokens.spacing.md,
-    backgroundColor: `${tokens.colors.semantic.error}10`,
+    backgroundColor: `${tokens.colors.semantic.error}10`,  // 10% error tint
     border: `1px solid ${tokens.colors.semantic.error}`,
-    borderRadius: '4px',
+    borderRadius: tokens.borderRadius.sm,                 // 8px
     display: 'flex',
   },
 
@@ -613,32 +632,32 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   errorIcon: {
-    fontSize: '16px',
+    fontSize: tokens.typography.fontSize.lg,              // 16px
     minWidth: '24px',
   },
 
   errorMessage: {
     flex: 1,
-    fontSize: '13px',
+    fontSize: tokens.typography.fontSize.base,            // 13px
     color: tokens.colors.semantic.error,
-    fontWeight: 500,
+    fontWeight: tokens.typography.fontWeight.medium,
   },
 
   errorDismiss: {
-    padding: '2px 6px',
+    padding: `${tokens.spacing.xs} ${tokens.spacing.sm}`,  // 4px 8px
     backgroundColor: 'transparent',
     border: 'none',
     color: tokens.colors.semantic.error,
     cursor: 'pointer',
-    fontSize: '16px',
+    fontSize: tokens.typography.fontSize.lg,              // 16px
     minWidth: '24px',
-    transition: 'opacity 150ms ease-in-out',
+    transition: tokens.transitions.fast,                  // 150ms hover
   },
 
   fingerprintIndicator: {
     padding: tokens.spacing.md,
-    borderRadius: '4px',
-    border: `1px solid`,
+    borderRadius: tokens.borderRadius.sm,                 // 8px
+    border: `1px solid`,                                  // Color set dynamically
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -654,15 +673,15 @@ const styles: Record<string, React.CSSProperties> = {
   spinner: {
     width: '16px',
     height: '16px',
-    border: `2px solid ${tokens.colors.semantic.warning}40`,
+    border: `2px solid ${tokens.colors.semantic.warning}40`,  // 40% opacity ring
     borderTopColor: tokens.colors.semantic.warning,
-    borderRadius: '50%',
+    borderRadius: tokens.borderRadius.full,               // 9999px - perfect circle
     animation: 'spin 1s linear infinite',
   },
 
   fingerprintText: {
-    fontSize: '13px',
-    fontWeight: 500,
+    fontSize: tokens.typography.fontSize.base,            // 13px
+    fontWeight: tokens.typography.fontWeight.medium,
     color: tokens.colors.text.primary,
   },
 };

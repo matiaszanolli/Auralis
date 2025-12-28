@@ -37,31 +37,31 @@ export const ArtistDetailTabsSection: React.FC<ArtistDetailTabsProps> = ({
         onChange={(e, newValue) => onTabChange(newValue)}
         aria-label="Artist content sections"
         sx={{
-          borderBottom: `2px solid ${tokens.colors.border.light}`, // Stronger border
-          marginBottom: tokens.spacing.xl, // More breathing room
-          paddingTop: tokens.spacing.lg, // Vertical spacing
+          borderBottom: `2px solid ${tokens.colors.border.light}`,  // Tab border
+          marginBottom: tokens.spacing.xl,                    // Breathing room
+          paddingTop: tokens.spacing.lg,                      // Vertical spacing
           '& .MuiTabs-indicator': {
             background: tokens.gradients.aurora,
-            height: '4px', // Stronger active indicator (was 3px)
-            borderRadius: tokens.borderRadius.full,
-            boxShadow: `0 0 8px ${tokens.colors.accent.primary}40`, // Subtle glow
+            height: '4px',                                    // Active indicator strength
+            borderRadius: tokens.borderRadius.full,           // 9999px - pill shape
+            boxShadow: `0 0 8px ${tokens.colors.accent.primary}40`,  // 40% glow
           },
           '& .MuiTab-root': {
             color: tokens.colors.text.secondary,
             fontWeight: tokens.typography.fontWeight.semibold,
-            fontSize: tokens.typography.fontSize.lg, // Larger font (was md)
+            fontSize: tokens.typography.fontSize.lg,          // 16px
             transition: tokens.transitions.all,
             textTransform: 'none',
-            minHeight: '56px', // More vertical space
+            minHeight: '56px',                                // Vertical space (organic)
             paddingTop: tokens.spacing.md,
             paddingBottom: tokens.spacing.md,
             '&:hover': {
               color: tokens.colors.text.primary,
-              transform: 'translateY(-2px)', // Subtle lift on hover
+              transform: 'translateY(-2px)',                  // Subtle lift (2px)
             },
             '&.Mui-selected': {
               color: tokens.colors.accent.primary,
-              fontWeight: tokens.typography.fontWeight.bold, // Bolder when active
+              fontWeight: tokens.typography.fontWeight.bold,
             },
           },
         }}

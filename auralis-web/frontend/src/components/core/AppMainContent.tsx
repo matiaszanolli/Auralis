@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { auroraOpacity } from '../library/Styles/Color.styles';
+import { tokens } from '@/design-system';
 
 /**
  * Props for the AppMainContent component.
@@ -81,7 +82,7 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
           // Padding to prevent content from going under player bar
           // Player bar height is typically 80-100px
           paddingBottom: '100px',
-          // Custom scrollbar styling
+          // Custom scrollbar styling (Design Language v1.2.0 §4.4)
           '&::-webkit-scrollbar': {
             width: '8px',
           },
@@ -90,7 +91,7 @@ export const AppMainContent: React.FC<AppMainContentProps> = ({
           },
           '&::-webkit-scrollbar-thumb': {
             background: auroraOpacity.strong,
-            borderRadius: '4px',
+            borderRadius: tokens.borderRadius.sm,              // 8px - organic curves
             '&:hover': {
               background: auroraOpacity.stronger,
             },
