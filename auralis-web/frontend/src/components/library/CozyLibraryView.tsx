@@ -16,10 +16,11 @@
  * - Component composition
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Container } from '@mui/material';
 import BatchActionsToolbar from './Controls/BatchActionsToolbar';
 import EditMetadataDialog from './EditMetadataDialog/EditMetadataDialog';
+import { SimilarTracksModal } from '../shared/SimilarTracksModal';
 import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 import { useLibraryWithStats, Track } from '@/hooks/library/useLibraryWithStats';
 import type { ViewMode } from '../navigation/ViewToggle';
@@ -117,6 +118,24 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
     handleSaveMetadata,
     handleEditMetadata,
   } = useMetadataEditing(fetchTracks);
+
+  // Phase 5: Similar tracks modal state
+  const [similarTracksModalOpen, setSimilarTracksModalOpen] = useState(false);
+  const [similarTrackId, setSimilarTrackId] = useState<number | null>(null);
+  const [similarTrackTitle, setSimilarTrackTitle] = useState<string>('');
+
+  const handleFindSimilar = useCallback((trackId: number) => {
+    const track = tracks.find(t => t.id === trackId);
+    setSimilarTrackId(trackId);
+    setSimilarTrackTitle(track?.title || 'this track');
+    setSimilarTracksModalOpen(true);
+  }, [tracks]);
+
+  const handleCloseSimilarTracksModal = useCallback(() => {
+    setSimilarTracksModalOpen(false);
+    setSimilarTrackId(null);
+    setSimilarTrackTitle('');
+  }, []);
 
   // Batch operations
   const {
@@ -236,6 +255,7 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
             onTrackPlay={handlePlayTrack}
             onPause={handlePause}
             onEditMetadata={handleEditMetadata}
+            onFindSimilar={handleFindSimilar}
             onLoadMore={loadMore}
           />
         )}
@@ -249,6 +269,21 @@ const CozyLibraryView: React.FC<CozyLibraryViewProps> = React.memo(({
             onSave={handleSaveMetadata}
           />
         )}
+
+        {/* Phase 5: Similar Tracks Modal */}
+        <SimilarTracksModal
+          open={similarTracksModalOpen}
+          trackId={similarTrackId}
+          trackTitle={similarTrackTitle}
+          onClose={handleCloseSimilarTracksModal}
+          onTrackPlay={(trackId) => {
+            const track = tracks.find(t => t.id === trackId);
+            if (track) {
+              handlePlayTrack(track);
+            }
+          }}
+          limit={20}
+        />
       </Container>
     </>
   );

@@ -47,6 +47,7 @@ interface SelectableTrackRowProps {
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
   onEditMetadata?: (trackId: number) => void;
+  onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks
   onToggleFavorite?: (trackId: number) => void;
   onShowAlbum?: (albumId: number) => void;
   onShowArtist?: (artistName: string) => void;
@@ -66,6 +67,7 @@ const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
   onPause,
   onDoubleClick,
   onEditMetadata,
+  onFindSimilar,
   onToggleFavorite,
   onShowAlbum,
   onShowArtist,
@@ -98,6 +100,7 @@ const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
           onPause={onPause}
           onDoubleClick={onDoubleClick}
           onEditMetadata={onEditMetadata}
+          onFindSimilar={onFindSimilar}
           onToggleFavorite={onToggleFavorite}
           onShowAlbum={onShowAlbum}
           onShowArtist={onShowArtist}

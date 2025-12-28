@@ -21,6 +21,7 @@ export interface TrackListViewContentProps {
   onTrackPlay: (track: Track) => void;
   onPause: () => void;
   onEditMetadata: (trackId: number) => void;
+  onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks
 }
 
 /**
@@ -42,6 +43,7 @@ export const TrackListViewContent: React.FC<TrackListViewContentProps> = ({
   onTrackPlay,
   onPause,
   onEditMetadata,
+  onFindSimilar,
 }) => {
   return (
     <ListViewContainer elevation={2}>
@@ -70,6 +72,7 @@ export const TrackListViewContent: React.FC<TrackListViewContentProps> = ({
             }}
             onPause={onPause}
             onEditMetadata={onEditMetadata}
+            onFindSimilar={onFindSimilar}
           />
         </TrackItemWrapper>
       ))}

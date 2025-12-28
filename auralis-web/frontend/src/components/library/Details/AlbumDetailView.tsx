@@ -14,10 +14,11 @@
  * - Smooth color transitions when navigating between albums
  */
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 
 import { tokens } from '@/design-system';
 import { EmptyState } from '../../shared/ui/feedback';
+import { SimilarTracksModal } from '../../shared/SimilarTracksModal';
 import AlbumTrackTable from '../Items/tables/AlbumTrackTable';
 import AlbumHeaderActions from './AlbumHeaderActions';
 import { useAlbumDetails, type Track } from './useAlbumDetails';
@@ -45,6 +46,24 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
 
   // Phase 4: Extract artwork colors for theming
   const { palette, gradient, glow } = useArtworkPalette(albumId, !loading && !error);
+
+  // Phase 5: Similar tracks modal state
+  const [similarTracksModalOpen, setSimilarTracksModalOpen] = useState(false);
+  const [similarTrackId, setSimilarTrackId] = useState<number | null>(null);
+  const [similarTrackTitle, setSimilarTrackTitle] = useState<string>('');
+
+  const handleFindSimilar = useCallback((trackId: number) => {
+    const track = album?.tracks?.find((t: Track) => t.id === trackId);
+    setSimilarTrackId(trackId);
+    setSimilarTrackTitle(track?.title || 'this track');
+    setSimilarTracksModalOpen(true);
+  }, [album?.tracks]);
+
+  const handleCloseSimilarTracksModal = useCallback(() => {
+    setSimilarTracksModalOpen(false);
+    setSimilarTrackId(null);
+    setSimilarTrackTitle('');
+  }, []);
 
   const formatDuration = (seconds: number): string => {
     const totalSeconds = Math.floor(seconds);
@@ -186,7 +205,23 @@ export const AlbumDetailView: React.FC<AlbumDetailViewProps> = ({
           currentTrackId={currentTrackId}
           isPlaying={isPlaying}
           onTrackClick={handleTrackClick}
+          onFindSimilar={handleFindSimilar}
           formatDuration={formatDuration}
+        />
+
+        {/* Phase 5: Similar Tracks Modal */}
+        <SimilarTracksModal
+          open={similarTracksModalOpen}
+          trackId={similarTrackId}
+          trackTitle={similarTrackTitle}
+          onClose={handleCloseSimilarTracksModal}
+          onTrackPlay={(trackId) => {
+            const track = album.tracks?.find((t: Track) => t.id === trackId);
+            if (track && onTrackPlay) {
+              onTrackPlay(track);
+            }
+          }}
+          limit={20}
         />
       </Container>
     </Box>

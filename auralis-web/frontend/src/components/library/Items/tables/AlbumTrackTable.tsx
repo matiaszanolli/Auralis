@@ -26,6 +26,7 @@ interface AlbumTrackTableProps {
   currentTrackId?: number;
   isPlaying?: boolean;
   onTrackClick: (track: Track) => void;
+  onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks
   formatDuration: (seconds: number) => string;
 }
 
@@ -34,6 +35,7 @@ export const AlbumTrackTable: React.FC<AlbumTrackTableProps> = ({
   currentTrackId,
   isPlaying = false,
   onTrackClick,
+  onFindSimilar,
   formatDuration
 }) => {
   return (
@@ -60,6 +62,7 @@ export const AlbumTrackTable: React.FC<AlbumTrackTableProps> = ({
                 isCurrentTrack={currentTrackId === track.id}
                 isPlaying={isPlaying}
                 onTrackClick={onTrackClick}
+                onFindSimilar={onFindSimilar}
                 formatDuration={formatDuration}
               />
             ))

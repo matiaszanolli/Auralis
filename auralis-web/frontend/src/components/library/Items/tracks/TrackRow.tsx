@@ -37,6 +37,7 @@ interface TrackRowProps {
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
   onEditMetadata?: (trackId: number) => void;
+  onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks
   onToggleFavorite?: (trackId: number) => void;
   onShowAlbum?: (albumId: number) => void;
   onShowArtist?: (artistName: string) => void;
@@ -54,6 +55,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
   onPause,
   onDoubleClick,
   onEditMetadata,
+  onFindSimilar,
   onToggleFavorite,
   onShowAlbum,
   onShowArtist,
@@ -92,6 +94,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
     track,
     onPlay,
     onEditMetadata,
+    onFindSimilar,
     onToggleFavorite,
     onShowAlbum,
     onShowArtist,

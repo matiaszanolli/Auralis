@@ -59,6 +59,7 @@ export interface TrackListViewProps {
   onTrackPlay: (track: Track) => void;
   onPause: () => void;
   onEditMetadata: (trackId: number) => void;
+  onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks
   onLoadMore: () => void;
 }
 
@@ -82,6 +83,7 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
   onTrackPlay,
   onPause,
   onEditMetadata,
+  onFindSimilar,
   onLoadMore,
 }) => {
   // Queue operations with toast feedback
@@ -148,6 +150,7 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
       onTrackPlay={onTrackPlay}
       onPause={onPause}
       onEditMetadata={onEditMetadata}
+      onFindSimilar={onFindSimilar}
     />
   );
 };

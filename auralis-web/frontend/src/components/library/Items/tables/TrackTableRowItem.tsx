@@ -3,10 +3,13 @@
  */
 
 import React from 'react';
-import { TableCell, Typography } from '@mui/material';
+import { TableCell, Typography, IconButton } from '@mui/material';
+import { MoreVert } from '@mui/icons-material';
 import { tokens } from '@/design-system';
 import { StyledTableRow } from '../../Styles/Table.styles';
 import { TrackPlayIndicator } from '../tracks/TrackPlayIndicator';
+import { ContextMenu } from '../../../shared/ContextMenu';
+import { useTrackContextMenu } from '../tracks/useTrackContextMenu';
 
 interface Track {
   id: number;
@@ -15,6 +18,8 @@ interface Track {
   duration: number;
   track_number?: number;
   disc_number?: number;
+  album_id?: number;
+  favorite?: boolean;
 }
 
 interface TrackTableRowItemProps {
@@ -23,6 +28,7 @@ interface TrackTableRowItemProps {
   isCurrentTrack: boolean;
   isPlaying: boolean;
   onTrackClick: (track: Track) => void;
+  onFindSimilar?: (trackId: number) => void; // Phase 5: Find similar tracks
   formatDuration: (seconds: number) => string;
 }
 
@@ -32,13 +38,33 @@ export const TrackTableRowItem: React.FC<TrackTableRowItemProps> = ({
   isCurrentTrack,
   isPlaying,
   onTrackClick,
+  onFindSimilar,
   formatDuration,
 }) => {
+  // Context menu support (Phase 5)
+  const {
+    contextMenuPosition,
+    playlists,
+    isLoadingPlaylists,
+    handleMoreClick,
+    handleTrackContextMenu,
+    handleCloseContextMenu,
+    handleAddToPlaylist,
+    handleCreatePlaylist,
+    contextActions,
+  } = useTrackContextMenu({
+    track,
+    onPlay: (trackId) => onTrackClick(track),
+    onFindSimilar,
+  });
+
   return (
-    <StyledTableRow
-      onClick={() => onTrackClick(track)}
-      className={isCurrentTrack ? 'current-track' : ''}
-    >
+    <>
+      <StyledTableRow
+        onClick={() => onTrackClick(track)}
+        onContextMenu={handleTrackContextMenu}
+        className={isCurrentTrack ? 'current-track' : ''}
+      >
       <TrackPlayIndicator
         isCurrentTrack={isCurrentTrack}
         isPlaying={isPlaying}
@@ -74,7 +100,43 @@ export const TrackTableRowItem: React.FC<TrackTableRowItemProps> = ({
           {formatDuration(track.duration)}
         </Typography>
       </TableCell>
+      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+        <IconButton
+          size="small"
+          onClick={handleMoreClick}
+          sx={{
+            opacity: 0,
+            transition: tokens.transitions.fast,
+            '.MuiTableRow-root:hover &': {
+              opacity: 1,
+            },
+            color: tokens.colors.text.secondary,
+            '&:hover': {
+              backgroundColor: tokens.colors.bg.tertiary,
+              color: tokens.colors.accent.primary,
+            },
+          }}
+        >
+          <MoreVert fontSize="small" />
+        </IconButton>
+      </TableCell>
     </StyledTableRow>
+
+    {/* Context Menu */}
+    <ContextMenu
+      open={Boolean(contextMenuPosition)}
+      anchorPosition={contextMenuPosition || undefined}
+      onClose={handleCloseContextMenu}
+      actions={contextActions}
+      trackId={track.id}
+      trackTitle={track.title}
+      playlists={playlists}
+      isLoadingPlaylists={isLoadingPlaylists}
+      onPlaylistsLoad={() => {}}
+      onAddToPlaylist={handleAddToPlaylist}
+      onCreatePlaylist={handleCreatePlaylist}
+    />
+    </>
   );
 };
 
