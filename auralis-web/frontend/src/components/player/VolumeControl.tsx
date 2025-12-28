@@ -119,7 +119,7 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
         maxWidth: '160px',
       }}
     >
-      {/* Mute button */}
+      {/* Mute button - Design Language v1.2.0 with glass effects */}
       <button
         onClick={onMuteToggle}
         disabled={disabled}
@@ -136,10 +136,10 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           height: '40px',
           padding: 0,
           backgroundColor: 'transparent',
-          border: `1px solid ${tokens.colors.border.light}`,
-          borderRadius: tokens.borderRadius.md,
+          border: tokens.glass.subtle.border,              // Glass border (10% white opacity)
+          borderRadius: tokens.borderRadius.md,            // 12px - softer, more organic
           cursor: disabled ? 'not-allowed' : 'pointer',
-          transition: tokens.transitions.all,
+          transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
           color: disabled ? tokens.colors.text.disabled : tokens.colors.text.primary,
           fontSize: tokens.typography.fontSize.base,
           opacity: disabled ? 0.7 : 1,
@@ -147,19 +147,24 @@ export const VolumeControl: React.FC<VolumeControlProps> = ({
           ...(isMuteButtonFocused && !disabled && {
             outline: `3px solid ${tokens.colors.accent.primary}`,
             outlineOffset: '2px',
-            backgroundColor: tokens.colors.bg.tertiary,
+            background: tokens.glass.subtle.background,    // Glass effect on focus
+            backdropFilter: tokens.glass.subtle.backdropFilter,
           }),
         }}
         onMouseEnter={(e) => {
           if (!disabled) {
-            e.currentTarget.style.backgroundColor = tokens.colors.bg.tertiary;
+            e.currentTarget.style.background = tokens.glass.subtle.background;
+            e.currentTarget.style.backdropFilter = tokens.glass.subtle.backdropFilter;
             e.currentTarget.style.borderColor = tokens.colors.accent.primary;
             e.currentTarget.style.transform = 'scale(1.05)';
           }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = isMuteButtonFocused ? tokens.colors.bg.tertiary : 'transparent';
-          e.currentTarget.style.borderColor = tokens.colors.border.light;
+          if (!isMuteButtonFocused) {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.backdropFilter = 'none';
+          }
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.10)';
           e.currentTarget.style.transform = 'scale(1)';
         }}
       >
