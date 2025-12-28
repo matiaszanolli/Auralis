@@ -5,5 +5,4 @@
  * based on 25D audio fingerprint similarity.
  */
 
-export { SimilarTracksModal, type SimilarTracksModalProps } from './SimilarTracksModal';
-export default SimilarTracksModal;
+export { SimilarTracksModal, default, type SimilarTracksModalProps } from './SimilarTracksModal';
