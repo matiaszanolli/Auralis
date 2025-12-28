@@ -209,6 +209,11 @@ class Artist(Base, TimestampMixin):  # type: ignore[misc]
     total_plays = Column(Integer, default=0)
     avg_mastering_quality = Column(Float)
 
+    # Artwork metadata (Phase 2: Real artist imagery)
+    artwork_url = Column(Text)  # External URL to artist image
+    artwork_source = Column(String)  # 'musicbrainz', 'discogs', 'lastfm', etc.
+    artwork_fetched_at = Column(DateTime)  # Last fetch timestamp
+
     # Relationships
     albums = relationship("Album", back_populates="artist")
     tracks = relationship("Track", secondary=track_artist, back_populates="artists")
@@ -222,6 +227,8 @@ class Artist(Base, TimestampMixin):  # type: ignore[misc]
             'avg_mastering_quality': self.avg_mastering_quality,
             'album_count': len(self.albums),
             'track_count': len(self.tracks),
+            'artwork_url': self.artwork_url,  # Include artwork URL
+            'artwork_source': self.artwork_source,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

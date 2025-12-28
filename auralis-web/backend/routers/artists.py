@@ -27,6 +27,8 @@ class ArtistResponse(BaseModel):
     album_count: int
     track_count: int
     genres: Optional[list[str]] = None
+    artwork_url: Optional[str] = None  # Phase 2: Artist artwork
+    artwork_source: Optional[str] = None  # Source: 'musicbrainz', 'discogs', etc.
 
 
 class ArtistsListResponse(BaseModel):
@@ -65,6 +67,8 @@ class ArtistDetailResponse(BaseModel):
     albums: list[AlbumInArtist]
     total_albums: int
     total_tracks: int
+    artwork_url: Optional[str] = None  # Phase 2: Artist artwork
+    artwork_source: Optional[str] = None  # Source: 'musicbrainz', 'discogs', etc.
 
 
 class ArtistTracksResponse(BaseModel):

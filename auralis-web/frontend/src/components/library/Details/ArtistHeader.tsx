@@ -40,21 +40,56 @@ export const ArtistHeader: React.FC<ArtistHeaderProps> = ({
   return (
     <DetailViewHeader
       artwork={
-        <ArtistAvatarCircle>
-          {getArtistInitial(artist.name)}
-        </ArtistAvatarCircle>
+        artist.artworkUrl ? (
+          // Real artist image (Phase 2)
+          <Box
+            component="img"
+            src={artist.artworkUrl}
+            alt={artist.name}
+            sx={{
+              width: 200,
+              height: 200,
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: `2px solid ${tokens.colors.border.light}`,
+              boxShadow: tokens.shadows.md,
+            }}
+            onError={(e) => {
+              // Fallback to placeholder on image load error
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        ) : (
+          // Fallback to placeholder
+          <ArtistAvatarCircle>
+            {getArtistInitial(artist.name)}
+          </ArtistAvatarCircle>
+        )
       }
       title={artist.name}
       metadata={
-        <Typography variant="body1" sx={{
-          color: tokens.colors.text.tertiary,
-          fontSize: tokens.typography.fontSize.sm,
-          fontWeight: tokens.typography.fontWeight.normal,
-        }}>
-          {artist.albumCount && `${artist.albumCount} ${artist.albumCount === 1 ? 'album' : 'albums'}`}
-          {artist.albumCount && artist.trackCount && ' • '}
-          {artist.trackCount && `${artist.trackCount} ${artist.trackCount === 1 ? 'track' : 'tracks'}`}
-        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: tokens.spacing.xs }}>
+          {/* Primary stats line */}
+          <Typography variant="body1" sx={{
+            color: tokens.colors.text.secondary,
+            fontSize: tokens.typography.fontSize.md,
+            fontWeight: tokens.typography.fontWeight.medium,
+            letterSpacing: '0.02em',
+          }}>
+            {artist.albumCount && `${artist.albumCount} ${artist.albumCount === 1 ? 'Album' : 'Albums'}`}
+            {artist.albumCount && artist.trackCount && ' • '}
+            {artist.trackCount && `${artist.trackCount} ${artist.trackCount === 1 ? 'Track' : 'Tracks'}`}
+          </Typography>
+
+          {/* Additional context - currently placeholder, can be expanded with backend data */}
+          <Typography variant="body2" sx={{
+            color: tokens.colors.text.tertiary,
+            fontSize: tokens.typography.fontSize.sm,
+            fontWeight: tokens.typography.fontWeight.normal,
+          }}>
+            Artist
+          </Typography>
+        </Box>
       }
       actions={
         <Box sx={{ display: 'flex', gap: tokens.spacing.md, flexWrap: 'wrap', alignItems: 'center' }}>
