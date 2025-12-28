@@ -4,55 +4,84 @@ import { auroraOpacity, gradients } from '../../Styles/Color.styles';
 import { IconButton } from '@/design-system';
 import { Box, Typography, styled } from '@mui/material';
 
-export const RowContainer = styled(Box)<{ iscurrent?: string }>(({ iscurrent }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  height: '48px',
-  padding: `0 ${tokens.spacing.md}`,
-  borderRadius: tokens.borderRadius.sm,
-  cursor: 'pointer',
-  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
-  background: iscurrent === 'true' ? auroraOpacity.light : 'transparent',
-  border: iscurrent === 'true' ? `1px solid ${auroraOpacity.standard}` : '1px solid transparent',
-  position: 'relative',
-  marginBottom: tokens.spacing.sm,
-  boxShadow: iscurrent === 'true' ? `0 0 0 1px ${auroraOpacity.veryLight}` : 'none',
+export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: string }>(
+  ({ iscurrent, isanyplaying }) => ({
+    display: 'flex',
+    alignItems: 'center',
+    height: '48px',
+    padding: `0 ${tokens.spacing.md}`,
+    borderRadius: tokens.borderRadius.sm,
+    cursor: 'pointer',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
+    position: 'relative',
+    marginBottom: tokens.spacing.sm,
 
-  '&:hover': {
-    background: iscurrent === 'true'
-      ? auroraOpacity.lighter
-      : auroraOpacity.ultraLight,
-    transform: 'translateX(4px) scale(1.005)', // Subtle scale for depth
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+    // Playback Dominance (Phase 1): Dim non-playing rows when any track is playing
+    opacity: isanyplaying === 'true' && iscurrent === 'false' ? 0.6 : 1,
 
-    '& .track-number': {
-      opacity: 0,
-      transform: 'scale(0.8)',
+    // Current track: Enhanced presence with glow and gradient (Phase 1)
+    ...(iscurrent === 'true' && {
+      background: `linear-gradient(90deg, ${auroraOpacity.light} 0%, transparent 100%)`,
+      border: `1px solid ${auroraOpacity.standard}`,
+      boxShadow: `
+        0 4px 16px rgba(115, 102, 240, 0.15),
+        0 0 0 1px ${auroraOpacity.veryLight},
+        inset 0 0 20px ${auroraOpacity.ultraLight}
+      `,
+      // Slow shimmer animation (Phase 1) - "the room lights dim when music starts"
+      animation: 'playbackShimmer 4s ease-in-out infinite',
+      '@keyframes playbackShimmer': {
+        '0%, 100%': { transform: 'scale(1)' },
+        '50%': { transform: 'scale(1.005)' },
+      },
+    }),
+
+    // Non-current row: Transparent background
+    ...(iscurrent === 'false' && {
+      background: 'transparent',
+      border: '1px solid transparent',
+      boxShadow: 'none',
+    }),
+
+    '&:hover': {
+      background: iscurrent === 'true'
+        ? `linear-gradient(90deg, ${auroraOpacity.lighter} 0%, ${auroraOpacity.ultraLight} 100%)`
+        : auroraOpacity.ultraLight,
+      transform: 'translateX(4px) scale(1.005)', // Subtle scale for depth
+      boxShadow: iscurrent === 'true'
+        ? `0 6px 20px rgba(115, 102, 240, 0.2), 0 0 0 1px ${auroraOpacity.veryLight}`
+        : '0 2px 8px rgba(0, 0, 0, 0.15)',
+      opacity: 1, // Full opacity on hover even when dimmed
+
+      '& .track-number': {
+        opacity: 0,
+        transform: 'scale(0.8)',
+      },
+
+      '& .play-button': {
+        opacity: 1,
+        transform: 'scale(1)',
+      },
+
+      '& .more-button': {
+        opacity: 1,
+      },
+
+      '& .track-title': {
+        color: tokens.colors.accent.primary,
+      },
+
+      '& .album-art': {
+        transform: 'scale(1.05)',
+        boxShadow: `0 4px 12px ${auroraOpacity.strong}`,
+      },
     },
 
-    '& .play-button': {
-      opacity: 1,
-      transform: 'scale(1)',
+    '&:active': {
+      transform: 'translateX(2px) scale(0.995)',
     },
-
-    '& .more-button': {
-      opacity: 1,
-    },
-
-    '& .track-title': {
-      color: tokens.colors.accent.primary,
-    },
-
-    '& .album-art': {
-      transform: 'scale(1.05)',
-      boxShadow: `0 4px 12px ${auroraOpacity.strong}`,
-    },
-  },
-
-  '&:active': {
-    transform: 'translateX(2px) scale(0.995)',
-  },
-}));
+  })
+);
 
 export const ActiveIndicator = styled(Box)({
   position: 'absolute',

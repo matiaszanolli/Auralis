@@ -42,6 +42,7 @@ interface SelectableTrackRowProps {
   onToggleSelect: (event: React.MouseEvent) => void;
   isPlaying?: boolean;
   isCurrent?: boolean;
+  isAnyPlaying?: boolean; // Phase 1: Global playback state
   onPlay: (trackId: number) => void;
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
@@ -60,6 +61,7 @@ const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
   onToggleSelect,
   isPlaying,
   isCurrent,
+  isAnyPlaying,
   onPlay,
   onPause,
   onDoubleClick,
@@ -91,6 +93,7 @@ const SelectableTrackRow: React.FC<SelectableTrackRowProps> = ({
           index={index}
           isPlaying={isPlaying}
           isCurrent={isCurrent}
+          isAnyPlaying={isAnyPlaying}
           onPlay={onPlay}
           onPause={onPause}
           onDoubleClick={onDoubleClick}

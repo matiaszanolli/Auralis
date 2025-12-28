@@ -59,8 +59,9 @@ export const TrackListViewContent: React.FC<TrackListViewContentProps> = ({
             index={index}
             isSelected={isSelected(track.id)}
             onToggleSelect={(e) => onToggleSelect(track.id, e)}
-            isPlaying={isPlaying}
+            isPlaying={isPlaying && currentTrackId === track.id}
             isCurrent={currentTrackId === track.id}
+            isAnyPlaying={isPlaying} // Phase 1: Global playback state for dimming non-current rows
             onPlay={(trackId) => {
               const foundTrack = tracks.find((t) => t.id === trackId);
               if (foundTrack) {

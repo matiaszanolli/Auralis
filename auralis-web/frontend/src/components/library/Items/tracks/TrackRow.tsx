@@ -32,6 +32,7 @@ interface TrackRowProps {
   index: number;
   isPlaying?: boolean;
   isCurrent?: boolean;
+  isAnyPlaying?: boolean; // Phase 1: Global playback state for dimming non-current rows
   onPlay: (trackId: number) => void;
   onPause?: () => void;
   onDoubleClick?: (trackId: number) => void;
@@ -48,6 +49,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
   index,
   isPlaying = false,
   isCurrent = false,
+  isAnyPlaying = false, // Phase 1: Default to false (no global playback)
   onPlay,
   onPause,
   onDoubleClick,
@@ -98,11 +100,13 @@ export const TrackRow: React.FC<TrackRowProps> = ({
   });
 
   const isCurrentStr = isCurrent ? 'true' : 'false';
+  const isAnyPlayingStr = isAnyPlaying ? 'true' : 'false'; // Phase 1: Convert to string for styled-components
 
   return (
     <>
       <RowContainer
         iscurrent={isCurrentStr}
+        isanyplaying={isAnyPlayingStr}
         onClick={handleRowClick}
         onDoubleClick={handleRowDoubleClick}
         onContextMenu={handleTrackContextMenu}
