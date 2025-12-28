@@ -8,13 +8,13 @@ export const RowContainer = styled(Box)<{ iscurrent?: string; isanyplaying?: str
   ({ iscurrent, isanyplaying }) => ({
     display: 'flex',
     alignItems: 'center',
-    height: '48px',
+    height: '44px',                                      // Phase 2: Tighter vertical rhythm (was 48px)
     padding: `0 ${tokens.spacing.md}`,
     borderRadius: tokens.borderRadius.sm,
     cursor: 'pointer',
     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', // Smooth easing
     position: 'relative',
-    marginBottom: tokens.spacing.sm,
+    marginBottom: tokens.spacing.xs,                     // Phase 2: Tighter spacing (was sm)
 
     // Playback Dominance (Phase 1): Dim non-playing rows when any track is playing
     opacity: isanyplaying === 'true' && iscurrent === 'false' ? 0.6 : 1,
@@ -168,17 +168,19 @@ export const TrackTitle = styled(Typography)<{ iscurrent?: string }>(({ iscurren
   fontSize: '14px',
   fontWeight: iscurrent === 'true' ? 600 : 500,
   color: tokens.colors.text.primary,
+  opacity: iscurrent === 'true' ? 1 : 0.9,           // Phase 2: Subtle reduction for non-current (sheet music, not stage)
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   lineHeight: 1.4,
-  transition: 'color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+  transition: 'color 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
 }));
 
 export const TrackArtist = styled(Typography)({
   fontSize: '13px',
   fontWeight: 400,
   color: tokens.colors.text.secondary,
+  opacity: 0.7,                                      // Phase 2: Muted metadata (second-level hierarchy)
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -190,6 +192,7 @@ export const TrackAlbum = styled(Typography)(
     fontSize: '13px',
     fontWeight: 400,
     color: tokens.colors.text.secondary,
+    opacity: 0.7,                                    // Phase 2: Muted metadata (second-level hierarchy)
     minWidth: '200px',
     maxWidth: '300px',
     overflow: 'hidden',
@@ -208,6 +211,7 @@ export const TrackDuration = styled(Typography)({
   fontSize: '13px',
   fontWeight: 400,
   color: tokens.colors.text.disabled,
+  opacity: 0.5,                                      // Phase 2: Ghosted duration (third-level hierarchy)
   minWidth: '50px',
   textAlign: 'right',
   marginRight: tokens.spacing.sm,
