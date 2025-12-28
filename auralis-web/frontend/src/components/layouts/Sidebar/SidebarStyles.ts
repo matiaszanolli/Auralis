@@ -74,11 +74,11 @@ export const StyledListItemButton = styled(ListItemButton)<{ isactive?: string }
       ? tokens.glass.medium.background         // Enhanced glass on hover
       : tokens.glass.subtle.background,        // Glass effect on hover
     backdropFilter: isactive === 'true'
-      ? tokens.glass.medium.backdropFilter     // 28px blur
-      : tokens.glass.subtle.backdropFilter,    // 20px blur
-    transform: 'translateX(4px)',              // More pronounced movement
+      ? tokens.glass.medium.backdropFilter     // 32px blur (intensified from 28px)
+      : tokens.glass.subtle.backdropFilter,    // 24px blur (intensified from 20px)
+    transform: 'scale(1.01)',                  // Subtle scale hover (Design Language §5 - muscle memory UI)
     boxShadow: tokens.glass.subtle.boxShadow,  // Add depth on hover
-    border: tokens.glass.subtle.border,        // Glass border on hover
+    border: tokens.glass.subtle.border,        // Glass border on hover (15% white opacity)
   },
 }));
 

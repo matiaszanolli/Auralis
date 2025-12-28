@@ -350,9 +350,9 @@ export const tokens = {
     sidebar: {
       width: '256px',
       collapsedWidth: '72px',
-      background: 'rgba(16, 23, 41, 0.30)',        // Even lower contrast (muscle memory UI - §4.3)
-      backdropFilter: 'blur(8px) saturate(0.9)',   // Reduced blur/saturation for calm
-      borderRight: 'none',                         // Right edge blends with main content
+      background: 'rgba(16, 23, 41, 0.25)',        // Ultra-low contrast (muscle memory UI - §4.3, R3 refinement)
+      backdropFilter: 'blur(12px) saturate(0.9)',  // Slightly increased blur for subtle glass effect
+      borderRight: '1px solid rgba(255, 255, 255, 0.05)', // Very subtle glass border for light-catching
       shadow: '2px 0 8px rgba(0, 0, 0, 0.08)',     // Lighter shadow
     },
 
