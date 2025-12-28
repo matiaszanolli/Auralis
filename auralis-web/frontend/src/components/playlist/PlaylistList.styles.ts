@@ -12,39 +12,44 @@ import { IconButton } from '@/design-system';
 import { Box, ListItem, ListItemButton, Typography, styled } from '@mui/material';
 
 /**
- * PlaylistSection - Root container for the playlists section
+ * PlaylistSection - Root container for the playlists section (Design Language v1.2.0)
+ * Organic group spacing for natural rhythm
  */
 export const PlaylistSection = styled(Box)({
-  marginTop: '16px',
+  marginTop: tokens.spacing.group,                        // 16px - organic group spacing
 });
 
 /**
  * SectionHeader - Header bar for playlists section with expand/collapse toggle
+ * Organic spacing with glass hover effect
  */
 export const SectionHeader = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '8px 16px',
+  padding: `${tokens.spacing.cluster} ${tokens.spacing.group}`, // 8px vertical, 16px horizontal
   cursor: 'pointer',
   '&:hover': {
-    background: auroraOpacity.minimal,
+    background: tokens.glass.subtle.background,           // Glass effect on hover
+    backdropFilter: 'blur(12px)',                         // Light blur
   },
-  transition: 'background 0.2s ease',
+  transition: `background ${tokens.transitions.base}, backdrop-filter ${tokens.transitions.base}`,
 });
 
 /**
- * SectionTitle - Title typography for playlists section header
+ * SectionTitle - Title typography for playlists section header (Design Language v1.2.0)
+ * Section labels fade into background (§4.3)
  */
 export const SectionTitle = styled(Typography)({
-  fontSize: '14px',
-  fontWeight: 600,
+  fontSize: tokens.typography.fontSize.sm,                // 11px - small section label
+  fontWeight: tokens.typography.fontWeight.semibold,
   color: tokens.colors.text.secondary,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
+  gap: tokens.spacing.cluster,                            // 8px - tight cluster
+  opacity: 0.7,                                           // Fade labels - infrastructure, not content
 });
 
 /**
@@ -55,20 +60,20 @@ export const StyledListItem = styled(ListItem)({
 });
 
 /**
- * StyledListItemButton - Interactive button for playlist selection (Design Language §4.3)
+ * StyledListItemButton - Interactive button for playlist selection (Design Language v1.2.0 §4.3)
  * Calm by default (§1.3), subtle selected state (muscle memory UI).
- * No hard borders - depth via subtle background only.
+ * No hard borders - depth via subtle glass effect only.
  */
 export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean }>(
   ({ selected }) => ({
-    paddingLeft: '32px',
-    paddingRight: '8px',
+    paddingLeft: tokens.spacing.section,                  // 32px - organic section spacing
+    paddingRight: tokens.spacing.cluster,                 // 8px - tight cluster
     height: '40px',
-    borderRadius: tokens.borderRadius.md,  // 8px (subtle)
-    margin: '2px 8px',
-    transition: tokens.transitions.all,    // Design Language §5 timing
-    background: selected ? 'rgba(115, 102, 240, 0.06)' : 'transparent',  // Calm by default
-    borderLeft: 'none',                    // No borders - surfaces not cards (§4.1)
+    borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
+    margin: `${tokens.spacing.xs} ${tokens.spacing.cluster}`, // 4px vertical, 8px horizontal
+    transition: `${tokens.transitions.all}, backdrop-filter ${tokens.transitions.base}`,
+    background: selected ? 'rgba(115, 102, 240, 0.06)' : 'transparent', // Calm by default
+    borderLeft: 'none',                                   // No borders - surfaces not cards (§4.1)
     position: 'relative',
 
     ...(selected && {
@@ -78,18 +83,18 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
         left: 0,
         top: 0,
         bottom: 0,
-        width: '2px',                      // Subtle indicator only
+        width: '2px',                                     // Subtle indicator only
         background: tokens.colors.accent.primary,
-        borderRadius: '0 1px 1px 0',
+        borderRadius: '0 2px 2px 0',                      // Softer curve
       },
     }),
 
     '&:hover': {
       background: selected
-        ? 'rgba(115, 102, 240, 0.10)'      // Subtle increase
-        : 'rgba(21, 29, 47, 0.30)',        // Lower contrast
-      transform: 'translateX(2px)',        // Reduced from 4px
-      backdropFilter: 'blur(6px)',         // Subtle blur
+        ? 'rgba(115, 102, 240, 0.10)'                     // Subtle increase
+        : tokens.glass.subtle.background,                 // Glass effect on hover
+      transform: 'translateX(2px)',                       // Subtle movement
+      backdropFilter: tokens.glass.subtle.backdropFilter, // 20px blur for glossy feel
 
       '& .playlist-actions': {
         opacity: 1,
@@ -97,21 +102,22 @@ export const StyledListItemButton = styled(ListItemButton)<{ selected?: boolean 
     },
 
     '& .MuiListItemText-primary': {
-      fontSize: tokens.typography.fontSize.sm,  // 12px
+      fontSize: tokens.typography.fontSize.sm,            // 11px
       color: selected ? tokens.colors.text.primary : tokens.colors.text.secondary,
-      fontWeight: selected ? 500 : 400,    // Reduced from 600 - typography disappears (§3)
+      fontWeight: selected ? tokens.typography.fontWeight.medium : tokens.typography.fontWeight.normal,
     },
   })
 );
 
 /**
  * PlaylistActions - Container for action buttons that appear on hover
+ * Organic cluster spacing for tight grouping
  */
 export const PlaylistActions = styled(Box)({
   display: 'flex',
-  gap: '4px',
+  gap: tokens.spacing.xs,                                 // 4px - very tight cluster
   opacity: 0,
-  transition: 'opacity 0.2s ease',
+  transition: `opacity ${tokens.transitions.base}`,
 });
 
 /**
@@ -148,10 +154,11 @@ export const AddButton = styled(IconButton)({
 
 /**
  * EmptyState - Message displayed when playlists list is empty or loading
+ * Organic spacing and typography
  */
 export const EmptyState = styled(Box)({
-  padding: '16px 32px',
+  padding: `${tokens.spacing.group} ${tokens.spacing.section}`, // 16px vertical, 32px horizontal
   textAlign: 'center',
   color: tokens.colors.text.disabled,
-  fontSize: '13px',
+  fontSize: tokens.typography.fontSize.base,              // 13px - standard base size
 });

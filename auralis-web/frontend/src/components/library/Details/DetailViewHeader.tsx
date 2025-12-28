@@ -26,22 +26,28 @@ interface DetailViewHeaderProps {
   direction?: 'row' | 'column';
 }
 
+/**
+ * HeaderSection - Detail view header container (Design Language v1.2.0)
+ * Organic spacing and glass border for subtle separation
+ */
 const HeaderSection = styled(Box)({
   display: 'flex',
-  gap: tokens.spacing.xl,
-  marginBottom: tokens.spacing['2xl'],
-  padding: `${tokens.spacing.xl} ${tokens.spacing.md}`,
-  background: 'transparent', // Blend into background, not a card
-  borderRadius: 0, // No container rounding
-  backdropFilter: 'none', // No blur effect
-  border: 'none', // No border
-  boxShadow: 'none', // No elevation
-  // Subtle bottom border for visual separation
-  borderBottom: `1px solid ${tokens.colors.border.subtle}`,
-  paddingBottom: tokens.spacing.xl,
+  gap: tokens.spacing.section,                            // 32px - organic section spacing
+  marginBottom: tokens.spacing.xxl,                       // 40px - major section break
+  padding: `${tokens.spacing.section} ${tokens.spacing.group}`, // 32px vertical, 16px horizontal
+  background: 'transparent',                              // Blend into background, not a card
+  borderRadius: 0,                                        // No container rounding
+  backdropFilter: 'none',                                 // No blur effect
+  border: 'none',                                         // No border
+  boxShadow: 'none',                                      // No elevation
+
+  // Subtle glass border for visual separation (Design Language §4.2)
+  borderBottom: tokens.glass.subtle.border,               // Glass border catches light (10% white opacity)
+  paddingBottom: tokens.spacing.section,                  // 32px - organic spacing
+
   '@media (max-width: 768px)': {
     flexDirection: 'column',
-    gap: tokens.spacing.lg,
+    gap: tokens.spacing.group,                            // 16px - tighter on mobile
     padding: tokens.spacing.lg,
   },
 });
@@ -56,12 +62,16 @@ const ArtworkWrapper = styled(Box)({
   },
 });
 
+/**
+ * InfoSection - Metadata and actions container
+ * Organic group spacing for natural rhythm
+ */
 const InfoSection = styled(Box)({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
   justifyContent: 'center',
-  gap: tokens.spacing.md,
+  gap: tokens.spacing.group,                              // 16px - organic group spacing
 });
 
 const Title = styled(Typography)({
