@@ -331,7 +331,8 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
         abortControllerRef.current.abort();
       }
     };
-  }, [queryType, skip, options.search, options.orderBy, executeQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryType, skip, options.search, options.orderBy]);
 
   return {
     data,
