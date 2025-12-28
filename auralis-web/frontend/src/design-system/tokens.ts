@@ -436,7 +436,7 @@ export const tokens = {
     // Subtle glass (calm overlays - for idle states)
     subtle: {
       background: 'rgba(21, 29, 47, 0.30)',         // Increased opacity for more presence
-      backdropFilter: 'blur(20px) saturate(1.1)',   // Much stronger blur + saturation boost
+      backdropFilter: 'blur(24px) saturate(1.1)',   // Intensified blur (20→24px) for more dramatic glass effect
       border: '1px solid rgba(255, 255, 255, 0.10)', // More visible border (increased from 0.06)
       boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.05)', // Deeper shadow + inner glow
     },
@@ -444,7 +444,7 @@ export const tokens = {
     // Medium glass (panels, surfaces)
     medium: {
       background: 'rgba(21, 29, 47, 0.45)',         // Increased opacity
-      backdropFilter: 'blur(28px) saturate(1.15)',  // Stronger blur + saturation
+      backdropFilter: 'blur(32px) saturate(1.15)',  // Intensified blur (28→32px) for stronger glass
       border: '1px solid rgba(255, 255, 255, 0.12)', // More visible border
       boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.08)', // Deeper shadow + inner glow
     },
@@ -452,7 +452,7 @@ export const tokens = {
     // Strong glass (modals, prominent surfaces)
     strong: {
       background: 'rgba(21, 29, 47, 0.65)',         // Increased opacity for solid presence
-      backdropFilter: 'blur(32px) saturate(1.2)',   // Maximum blur + saturation
+      backdropFilter: 'blur(40px) saturate(1.2)',   // Maximum blur (32→40px) for most dramatic glass
       border: '1px solid rgba(255, 255, 255, 0.15)', // Most visible border
       boxShadow: '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Deep shadow + strong inner glow
     },
@@ -460,7 +460,7 @@ export const tokens = {
     // Violet-tinted glass (accent surfaces - playback/active states)
     violet: {
       background: 'linear-gradient(135deg, rgba(115, 102, 240, 0.12) 0%, rgba(21, 29, 47, 0.50) 100%)', // Stronger violet tint
-      backdropFilter: 'blur(24px) saturate(1.3)',   // Strong blur + high saturation for vibrancy
+      backdropFilter: 'blur(28px) saturate(1.3)',   // Intensified blur (24→28px) for vibrant accent glass
       border: '1px solid rgba(115, 102, 240, 0.20)', // More visible violet border
       boxShadow: '0 8px 32px rgba(115, 102, 240, 0.20), 0 0 0 1px rgba(115, 102, 240, 0.15)', // Violet glow + inner accent
     },
@@ -468,7 +468,7 @@ export const tokens = {
     // Aqua-tinted glass (audio-reactive surfaces - processing/energy)
     aqua: {
       background: 'linear-gradient(135deg, rgba(71, 214, 255, 0.10) 0%, rgba(21, 29, 47, 0.50) 100%)', // Stronger aqua tint
-      backdropFilter: 'blur(24px) saturate(1.3)',   // Strong blur + high saturation
+      backdropFilter: 'blur(28px) saturate(1.3)',   // Intensified blur (24→28px) for energetic glass
       border: '1px solid rgba(71, 214, 255, 0.18)', // More visible aqua border
       boxShadow: '0 8px 32px rgba(71, 214, 255, 0.18), 0 0 0 1px rgba(71, 214, 255, 0.12)', // Aqua glow + inner accent
     },
