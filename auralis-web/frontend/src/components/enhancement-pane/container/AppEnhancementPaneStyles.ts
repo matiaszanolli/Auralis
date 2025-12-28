@@ -23,8 +23,8 @@ export const PaneContainer = styled(Box, {
   boxShadow: tokens.glass.medium.boxShadow,             // Deeper shadow + inner glow
 
   transition: `width ${tokens.transitions.slow}`,  // Slow, heavy motion (§5)
-  width: isCollapsed ? 60 : 320,
-  minWidth: isCollapsed ? 60 : 320,
+  width: isCollapsed ? 60 : 360,  // Match design token (tokens.components.rightPanel.width)
+  minWidth: isCollapsed ? 60 : 360,
   height: '100%',
   overflow: 'hidden',
 }));
