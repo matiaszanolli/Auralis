@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, Optional
 import numpy as np
 
 from ..io.loader import load
-from ..utils.logging import debug, error, info, warning
+from ..utils.logging import debug, info, warning
 from .audio_file_manager import AudioFileManager
 from .queue_controller import QueueController
 

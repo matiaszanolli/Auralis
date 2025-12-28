@@ -79,7 +79,8 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
         manager=manager,
         get_processing_engine=get_component('processing_engine'),
         HAS_AURALIS=deps.get('HAS_AURALIS', False),
-        get_repository_factory=get_component('repository_factory')
+        get_repository_factory=get_component('repository_factory'),
+        get_enhancement_settings=lambda: enhancement_settings
     )
     app.include_router(system_router)
     logger.debug("✅ System router registered")

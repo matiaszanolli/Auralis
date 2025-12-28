@@ -10,7 +10,7 @@ Manages real-time adaptive EQ parameters and state
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from ...dsp.realtime_adaptive_eq import RealtimeAdaptiveEQ
 from ...utils.logging import info

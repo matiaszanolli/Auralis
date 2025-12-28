@@ -27,6 +27,7 @@ def create_system_router(
     get_repository_factory: Optional[Callable[..., Any]] = None,
     get_player_manager: Optional[Callable[..., Any]] = None,
     get_state_manager: Optional[Callable[..., Any]] = None,
+    get_enhancement_settings: Optional[Callable[[], Dict[str, Any]]] = None,
 ) -> APIRouter:
     """
     Create system router with dependencies.
@@ -38,6 +39,7 @@ def create_system_router(
         get_repository_factory: Optional callable that returns RepositoryFactory instance
         get_player_manager: Callable that returns PlayerManager instance
         get_state_manager: Callable that returns PlayerStateManager instance
+        get_enhancement_settings: Optional callable that returns enhancement settings dict
     """
 
     @router.get("/api/health")
@@ -137,6 +139,31 @@ def create_system_router(
                         f"Received play_enhanced: track_id={track_id}, "
                         f"preset={preset}, intensity={intensity}"
                     )
+
+                    # Check if enhancement is enabled (Phase 3.4: Fix toggle functionality)
+                    enhancement_enabled = True  # Default to enabled if settings not available
+                    if get_enhancement_settings is not None:
+                        settings = get_enhancement_settings()
+                        enhancement_enabled = settings.get("enabled", True)
+                        logger.info(f"Enhancement enabled check: {enhancement_enabled}")
+
+                    if not enhancement_enabled:
+                        # Enhancement is disabled - send error message to client
+                        logger.warning(f"Enhancement disabled, rejecting play_enhanced request for track {track_id}")
+                        try:
+                            await websocket.send_text(
+                                json.dumps({
+                                    "type": "audio_stream_error",
+                                    "data": {
+                                        "track_id": track_id,
+                                        "error": "Auto-mastering is currently disabled. Enable it in the enhancement panel to use this feature.",
+                                        "code": "ENHANCEMENT_DISABLED"
+                                    }
+                                })
+                            )
+                        except Exception as e:
+                            logger.error(f"Failed to send enhancement disabled error: {e}")
+                        continue  # Skip to next message
 
                     # Cancel any existing streaming task for this websocket
                     ws_id = id(websocket)

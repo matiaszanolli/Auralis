@@ -10,8 +10,6 @@ Traditional reference-based audio matching
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Union
-
 import numpy as np
 
 from ...dsp.unified import rms

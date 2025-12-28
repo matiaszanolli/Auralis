@@ -12,7 +12,6 @@ Responsibilities:
 
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from ..library.repositories.factory import RepositoryFactory
 from ..utils.logging import error, info, warning
 from .components import QueueManager
 
