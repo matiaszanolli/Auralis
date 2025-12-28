@@ -16,11 +16,11 @@ export const PaneContainer = styled(Box, {
   display: 'flex',
   flexDirection: 'column',
 
-  // Glass surface - calm by default (§4.1)
-  background: tokens.glass.subtle.background,
-  backdropFilter: tokens.glass.subtle.backdropFilter,
-  border: tokens.glass.subtle.border,  // Subtle glass border (catches light)
-  boxShadow: tokens.glass.subtle.boxShadow,
+  // Glass surface - upgraded to medium for more presence (§4.1)
+  background: tokens.glass.medium.background,
+  backdropFilter: tokens.glass.medium.backdropFilter,   // 32px blur for stronger glass effect
+  border: tokens.glass.medium.border,                   // 18% white opacity for better light-catching
+  boxShadow: tokens.glass.medium.boxShadow,             // Deeper shadow + inner glow
 
   transition: `width ${tokens.transitions.slow}`,  // Slow, heavy motion (§5)
   width: isCollapsed ? 60 : 320,

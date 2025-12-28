@@ -21,11 +21,11 @@ export { SectionLabel, SectionDescription } from './Typography.styles';
  */
 export const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
-    // Glass effect for elevated dialog (medium strength)
-    background: tokens.glass.medium.background,
-    backdropFilter: tokens.glass.medium.backdropFilter,   // 28px blur
-    border: tokens.glass.medium.border,                   // 12% white opacity
-    boxShadow: tokens.glass.medium.boxShadow,
+    // Glass effect for elevated dialog (upgraded to strong for maximum prominence)
+    background: tokens.glass.strong.background,
+    backdropFilter: tokens.glass.strong.backdropFilter,   // 40px blur for dramatic modal presence
+    border: tokens.glass.strong.border,                   // 22% white opacity for light-catching borders
+    boxShadow: tokens.glass.strong.boxShadow,             // Deep shadow + strong inner glow
     borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
   }
 }));

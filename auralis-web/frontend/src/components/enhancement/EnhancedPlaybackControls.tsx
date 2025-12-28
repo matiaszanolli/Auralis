@@ -429,11 +429,11 @@ const styles: Record<string, React.CSSProperties> = {
     gap: tokens.spacing.md,
     padding: tokens.spacing.md,
 
-    // Glass effect for container (Design Language v1.2.0 §4.2)
-    background: tokens.glass.subtle.background,
-    backdropFilter: tokens.glass.subtle.backdropFilter,   // 20px blur
-    border: tokens.glass.subtle.border,                   // 10% white opacity
-    boxShadow: tokens.glass.subtle.boxShadow,
+    // Glass effect for container (upgraded to medium for more presence)
+    background: tokens.glass.medium.background,
+    backdropFilter: tokens.glass.medium.backdropFilter,   // 32px blur for stronger glass effect
+    border: tokens.glass.medium.border,                   // 18% white opacity for better light-catching
+    boxShadow: tokens.glass.medium.boxShadow,             // Deeper shadow + inner glow
     borderRadius: tokens.borderRadius.md,                 // 12px - softer, more organic
   },
 

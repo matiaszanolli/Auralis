@@ -411,12 +411,12 @@ const styles = {
     flexDirection: 'column' as const,
     width: '100%',
 
-    // Glass effect for elevated PlayerBar (Design Language §4.2)
-    background: tokens.glass.medium.background,           // Semi-transparent background
-    backdropFilter: tokens.glass.medium.backdropFilter,   // 28px blur + saturation boost
+    // Glass effect for elevated PlayerBar (Design Language §4.2) - Upgraded to strong for prominence
+    background: tokens.glass.strong.background,           // Strong glass background for maximum presence
+    backdropFilter: tokens.glass.strong.backdropFilter,   // 40px blur + saturation boost for dramatic effect
     border: 'none',                                       // No top border - clean separation via glass
-    borderTop: tokens.glass.medium.border,                // Subtle glass border (12% white opacity)
-    boxShadow: tokens.glass.medium.boxShadow,             // Deeper shadow + inner glow for elevation
+    borderTop: tokens.glass.strong.border,                // Strong glass border (22% white opacity) for light-catching
+    boxShadow: tokens.glass.strong.boxShadow,             // Deep shadow + strong inner glow for maximum elevation
 
     zIndex: 1000,
     padding: 0,
