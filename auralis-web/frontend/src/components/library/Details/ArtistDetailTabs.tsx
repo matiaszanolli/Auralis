@@ -57,7 +57,7 @@ export const ArtistDetailTabsSection: React.FC<ArtistDetailTabsProps> = ({
             paddingBottom: tokens.spacing.md,
             '&:hover': {
               color: tokens.colors.text.primary,
-              transform: 'translateY(-2px)',                  // Subtle lift (2px)
+              transform: 'scale(1.02)',                       // Scale-based hover (Design Language §5)
             },
             '&.Mui-selected': {
               color: tokens.colors.accent.primary,

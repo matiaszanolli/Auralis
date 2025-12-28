@@ -202,11 +202,11 @@ const styles = {
 
     ':hover': {
       boxShadow: tokens.shadows.glowMd,
-      transform: 'translateY(-2px)',
+      transform: 'scale(1.02)',              // Scale-based hover (Design Language §5)
     },
 
     ':active': {
-      transform: 'translateY(0)',
+      transform: 'scale(0.98)',              // Press inward for tactile feedback
     },
 
     ':disabled': {

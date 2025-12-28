@@ -92,11 +92,11 @@ const styles = {
       backdropFilter: tokens.glass.subtle.backdropFilter, // 20px blur for glossy effect
       border: tokens.glass.subtle.border,
       boxShadow: tokens.glass.subtle.boxShadow,           // Depth + inner glow
-      transform: 'translateY(-2px)',                      // Subtle lift for organic feel
+      transform: 'scale(1.05)',                           // Scale-based hover (Design Language §5)
     },
 
     '&:active:not(:disabled)': {
-      transform: 'translateY(0px)',                       // Press feedback
+      transform: 'scale(0.95)',                           // Press inward for tactile feedback
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
     },
 

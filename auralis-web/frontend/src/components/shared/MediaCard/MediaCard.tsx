@@ -148,16 +148,22 @@ export const MediaCard: React.FC<MediaCardProps> = (props) => {
           zIndex: 1,
         },
 
-        // Expressive by state - alive when hovered (Design Language §1.3)
+        // Expressive by state - alive when hovered (Design Language §1.3, §5)
         '&:hover': {
-          transform: 'translateY(-4px)',             // Reduced from -6px (slow, heavy)
+          transform: 'scale(1.03)',                  // Scale-based float (Design Language §5 - no translateY)
           background: tokens.glass.medium.background, // Upgrade to medium glass
           backdropFilter: tokens.glass.medium.backdropFilter,
-          boxShadow: tokens.glass.medium.boxShadow,  // Depth via shadow, not borders
+          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Enhanced elevation shadow
 
           '&::before': {
             opacity: 0.5,                            // Subtle shimmer, not loud
           },
+        },
+
+        // Active/pressed state - tactile feedback (Design Language §5)
+        '&:active': {
+          transform: 'scale(0.98)',                  // Press inward for tactile feel
+          transition: `${tokens.transitions.fast}`,  // Faster response (150ms)
         },
       }}
       onMouseEnter={() => setIsHovered(true)}

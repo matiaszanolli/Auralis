@@ -113,11 +113,11 @@ const StyledButton = styled(MuiButton, {
 
       '&:hover': {
         boxShadow: tokens.shadows.lg,
-        transform: 'translateY(-1px)',
+        transform: 'scale(1.02)',              // Scale-based hover (Design Language §5)
       },
 
       '&:active': {
-        transform: 'translateY(0)',
+        transform: 'scale(0.98)',              // Press inward for tactile feedback
       },
     },
 
