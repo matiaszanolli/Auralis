@@ -8,7 +8,9 @@ import { tokens } from '@/design-system';
 import { Card } from '@/design-system';
 import { Box, CardContent, styled } from '@mui/material';
 
-export const StyledTrackCard = styled(Card)<{ isPlaying?: boolean }>(({ isPlaying }) => ({
+export const StyledTrackCard = styled(Card, {
+  shouldForwardProp: (prop) => prop !== 'isPlaying',
+})<{ isPlaying?: boolean }>(({ isPlaying }) => ({
   position: 'relative',
   borderRadius: 12,
   overflow: 'hidden',
