@@ -265,6 +265,46 @@ def create_system_router(
                     _active_streaming_tasks[ws_id] = task
                     logger.info(f"Started background normal streaming task for track {track_id}")
 
+                elif message.get("type") == "pause":
+                    # Pause audio playback
+                    logger.info("Received pause command via WebSocket")
+
+                    # Cancel active streaming task if any
+                    ws_id = id(websocket)
+                    if ws_id in _active_streaming_tasks:
+                        task = _active_streaming_tasks[ws_id]
+                        task.cancel()
+                        del _active_streaming_tasks[ws_id]
+                        logger.info("Cancelled active streaming task")
+
+                    # Broadcast pause state to client
+                    await websocket.send_text(json.dumps({
+                        "type": "playback_paused",
+                        "data": {
+                            "success": True
+                        }
+                    }))
+
+                elif message.get("type") == "stop":
+                    # Stop audio playback
+                    logger.info("Received stop command via WebSocket")
+
+                    # Cancel active streaming task if any
+                    ws_id = id(websocket)
+                    if ws_id in _active_streaming_tasks:
+                        task = _active_streaming_tasks[ws_id]
+                        task.cancel()
+                        del _active_streaming_tasks[ws_id]
+                        logger.info("Cancelled active streaming task")
+
+                    # Broadcast stop state to client
+                    await websocket.send_text(json.dumps({
+                        "type": "playback_stopped",
+                        "data": {
+                            "success": True
+                        }
+                    }))
+
                 elif message.get("type") == "subscribe_job_progress":
                     # Subscribe to job progress updates
                     job_id = message.get("job_id")

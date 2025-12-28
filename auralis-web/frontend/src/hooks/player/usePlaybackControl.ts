@@ -135,6 +135,7 @@ export function usePlaybackControl(): PlaybackControlActions {
 
   /**
    * Pause - Pause playback
+   * Uses WebSocket 'pause' message to pause audio streaming
    */
   const pause = useCallback(async (): Promise<void> => {
     setIsLoading(true);
@@ -142,7 +143,12 @@ export function usePlaybackControl(): PlaybackControlActions {
     executingCommand.current = 'pause';
 
     try {
-      await api.post('/api/player/pause');
+      // Send WebSocket message to pause playback
+      sendMessage({
+        type: 'pause',
+        data: {},
+      });
+
       // Server broadcasts 'playback_paused' message which updates usePlaybackState
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'PAUSE_ERROR', status: 500 } : err as ApiError;
@@ -152,10 +158,11 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [api]);
+  }, [sendMessage]);
 
   /**
    * Stop - Stop playback completely
+   * Uses WebSocket 'stop' message to stop audio streaming
    */
   const stop = useCallback(async (): Promise<void> => {
     setIsLoading(true);
@@ -163,7 +170,12 @@ export function usePlaybackControl(): PlaybackControlActions {
     executingCommand.current = 'stop';
 
     try {
-      await api.post('/api/player/stop');
+      // Send WebSocket message to stop playback
+      sendMessage({
+        type: 'stop',
+        data: {},
+      });
+
       // Server broadcasts 'playback_stopped' message which updates usePlaybackState
     } catch (err) {
       const apiError = err instanceof Error ? { message: err.message, code: 'STOP_ERROR', status: 500 } : err as ApiError;
@@ -173,7 +185,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [api]);
+  }, [sendMessage]);
 
   /**
    * Seek - Seek to position in seconds
