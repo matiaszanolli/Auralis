@@ -183,3 +183,4 @@ fingerprint-server/**/target/
 
 # MY stuff - hands out, you evil creature
 research/
+auralis-web/frontend/package-lock.json
