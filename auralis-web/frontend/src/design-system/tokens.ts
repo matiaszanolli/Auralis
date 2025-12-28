@@ -437,40 +437,40 @@ export const tokens = {
     subtle: {
       background: 'rgba(21, 29, 47, 0.30)',         // Increased opacity for more presence
       backdropFilter: 'blur(24px) saturate(1.1)',   // Intensified blur (20→24px) for more dramatic glass effect
-      border: '1px solid rgba(255, 255, 255, 0.10)', // More visible border (increased from 0.06)
-      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.05)', // Deeper shadow + inner glow
+      border: '1px solid rgba(255, 255, 255, 0.15)', // Enhanced border (10→15%) for better light-catching
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.08)', // Inner glow intensified (5→8%)
     },
 
     // Medium glass (panels, surfaces)
     medium: {
       background: 'rgba(21, 29, 47, 0.45)',         // Increased opacity
       backdropFilter: 'blur(32px) saturate(1.15)',  // Intensified blur (28→32px) for stronger glass
-      border: '1px solid rgba(255, 255, 255, 0.12)', // More visible border
-      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.08)', // Deeper shadow + inner glow
+      border: '1px solid rgba(255, 255, 255, 0.18)', // Enhanced border (12→18%) for prominent light edges
+      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Inner glow intensified (8→12%)
     },
 
     // Strong glass (modals, prominent surfaces)
     strong: {
       background: 'rgba(21, 29, 47, 0.65)',         // Increased opacity for solid presence
       backdropFilter: 'blur(40px) saturate(1.2)',   // Maximum blur (32→40px) for most dramatic glass
-      border: '1px solid rgba(255, 255, 255, 0.15)', // Most visible border
-      boxShadow: '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Deep shadow + strong inner glow
+      border: '1px solid rgba(255, 255, 255, 0.22)', // Enhanced border (15→22%) for maximum light-catching
+      boxShadow: '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.18)', // Inner glow intensified (12→18%)
     },
 
     // Violet-tinted glass (accent surfaces - playback/active states)
     violet: {
       background: 'linear-gradient(135deg, rgba(115, 102, 240, 0.12) 0%, rgba(21, 29, 47, 0.50) 100%)', // Stronger violet tint
       backdropFilter: 'blur(28px) saturate(1.3)',   // Intensified blur (24→28px) for vibrant accent glass
-      border: '1px solid rgba(115, 102, 240, 0.20)', // More visible violet border
-      boxShadow: '0 8px 32px rgba(115, 102, 240, 0.20), 0 0 0 1px rgba(115, 102, 240, 0.15)', // Violet glow + inner accent
+      border: '1px solid rgba(115, 102, 240, 0.28)', // Enhanced violet border (20→28%) for vivid light-catching
+      boxShadow: '0 8px 32px rgba(115, 102, 240, 0.20), 0 0 0 1px rgba(115, 102, 240, 0.22)', // Violet inner glow intensified (15→22%)
     },
 
     // Aqua-tinted glass (audio-reactive surfaces - processing/energy)
     aqua: {
       background: 'linear-gradient(135deg, rgba(71, 214, 255, 0.10) 0%, rgba(21, 29, 47, 0.50) 100%)', // Stronger aqua tint
       backdropFilter: 'blur(28px) saturate(1.3)',   // Intensified blur (24→28px) for energetic glass
-      border: '1px solid rgba(71, 214, 255, 0.18)', // More visible aqua border
-      boxShadow: '0 8px 32px rgba(71, 214, 255, 0.18), 0 0 0 1px rgba(71, 214, 255, 0.12)', // Aqua glow + inner accent
+      border: '1px solid rgba(71, 214, 255, 0.25)', // Enhanced aqua border (18→25%) for bright light edges
+      boxShadow: '0 8px 32px rgba(71, 214, 255, 0.18), 0 0 0 1px rgba(71, 214, 255, 0.18)', // Aqua inner glow intensified (12→18%)
     },
   },
 
