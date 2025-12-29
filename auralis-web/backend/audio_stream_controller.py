@@ -165,6 +165,45 @@ class AudioStreamController:
 
         self.active_streams: Dict[int, Any] = {}  # track_id -> streaming task
 
+    def _is_websocket_connected(self, websocket: WebSocket) -> bool:
+        """
+        Check if WebSocket is still connected and can receive messages.
+
+        Returns:
+            True if WebSocket is connected, False if disconnected or closing.
+        """
+        try:
+            return websocket.client_state.name == "CONNECTED"
+        except Exception:
+            return False
+
+    async def _safe_send(self, websocket: WebSocket, message: Dict[str, Any]) -> bool:
+        """
+        Safely send a message to WebSocket, handling disconnection gracefully.
+
+        Args:
+            websocket: WebSocket connection
+            message: Message dict to send as JSON
+
+        Returns:
+            True if message was sent, False if WebSocket was disconnected.
+        """
+        if not self._is_websocket_connected(websocket):
+            logger.debug("WebSocket disconnected, skipping send")
+            return False
+        try:
+            await websocket.send_text(json.dumps(message))
+            return True
+        except RuntimeError as e:
+            if "close message" in str(e).lower():
+                logger.debug(f"WebSocket closed during send: {e}")
+            else:
+                logger.warning(f"WebSocket send failed: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"Unexpected error sending WebSocket message: {e}")
+            return False
+
     async def _ensure_fingerprint_available(
         self,
         track_id: int,
@@ -323,13 +362,18 @@ class AudioStreamController:
             else:
                 logger.info(f"📊 Streaming with standard adaptive mastering (no fingerprint available)")
 
+            # Check if WebSocket disconnected during fingerprint analysis
+            if not self._is_websocket_connected(websocket):
+                logger.info(f"WebSocket disconnected during fingerprint analysis, aborting stream")
+                return
+
             logger.info(
                 f"Starting audio stream: track={track_id}, preset={preset}, "
                 f"intensity={intensity}, chunks={processor.total_chunks}"
             )
 
             # Send stream start message with metadata
-            await self._send_stream_start(
+            if not await self._send_stream_start(
                 websocket,
                 track_id=track_id,
                 preset=preset,
@@ -339,11 +383,13 @@ class AudioStreamController:
                 total_chunks=processor.total_chunks,
                 chunk_duration=processor.chunk_duration,
                 total_duration=processor.duration,
-            )
+            ):
+                logger.info(f"WebSocket disconnected, cannot start stream")
+                return
 
             # Process and stream chunks
             for chunk_idx in range(processor.total_chunks):
-                if websocket.client_state.name != "CONNECTED":
+                if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
                     break
 
@@ -382,8 +428,14 @@ class AudioStreamController:
             )
 
         except Exception as e:
-            logger.error(f"Audio streaming failed: {e}", exc_info=True)
-            await self._send_error(websocket, track_id, str(e))
+            # Only log at error level if it's not a normal disconnection
+            if "close message" in str(e).lower():
+                logger.info(f"Audio streaming stopped: client disconnected")
+            else:
+                logger.error(f"Audio streaming failed: {e}", exc_info=True)
+                # Only try to send error if WebSocket is still connected
+                if self._is_websocket_connected(websocket):
+                    await self._send_error(websocket, track_id, str(e))
 
     async def stream_normal_audio(
         self,
@@ -456,7 +508,7 @@ class AudioStreamController:
             )
 
             # Send stream start message
-            await self._send_stream_start(
+            if not await self._send_stream_start(
                 websocket,
                 track_id=track_id,
                 preset="none",  # No processing
@@ -466,11 +518,13 @@ class AudioStreamController:
                 total_chunks=total_chunks,
                 chunk_duration=chunk_duration,
                 total_duration=duration,
-            )
+            ):
+                logger.info(f"WebSocket disconnected, cannot start stream")
+                return
 
             # Stream chunks without processing
             for chunk_idx in range(total_chunks):
-                if websocket.client_state.name != "CONNECTED":
+                if not self._is_websocket_connected(websocket):
                     logger.info(f"WebSocket disconnected, stopping stream")
                     break
 
@@ -519,8 +573,14 @@ class AudioStreamController:
             )
 
         except Exception as e:
-            logger.error(f"Normal audio streaming failed: {e}", exc_info=True)
-            await self._send_error(websocket, track_id, str(e))
+            # Only log at error level if it's not a normal disconnection
+            if "close message" in str(e).lower():
+                logger.info(f"Normal audio streaming stopped: client disconnected")
+            else:
+                logger.error(f"Normal audio streaming failed: {e}", exc_info=True)
+                # Only try to send error if WebSocket is still connected
+                if self._is_websocket_connected(websocket):
+                    await self._send_error(websocket, track_id, str(e))
 
     async def _process_and_stream_chunk(
         self,
@@ -700,8 +760,12 @@ class AudioStreamController:
         total_chunks: int,
         chunk_duration: float,
         total_duration: float,
-    ) -> None:
-        """Send audio_stream_start message to client."""
+    ) -> bool:
+        """Send audio_stream_start message to client.
+
+        Returns:
+            True if message was sent, False if WebSocket was disconnected.
+        """
         message: Dict[str, Any] = {
             "type": "audio_stream_start",
             "data": {
@@ -715,8 +779,10 @@ class AudioStreamController:
                 "total_duration": total_duration,
             },
         }
-        await websocket.send_text(json.dumps(message))
-        logger.debug(f"Sent stream_start: {total_chunks} chunks, {total_duration}s duration")
+        if await self._safe_send(websocket, message):
+            logger.debug(f"Sent stream_start: {total_chunks} chunks, {total_duration}s duration")
+            return True
+        return False
 
     async def _send_stream_end(
         self,
@@ -724,8 +790,12 @@ class AudioStreamController:
         track_id: int,
         total_samples: int,
         duration: float,
-    ) -> None:
-        """Send audio_stream_end message to client."""
+    ) -> bool:
+        """Send audio_stream_end message to client.
+
+        Returns:
+            True if message was sent, False if WebSocket was disconnected.
+        """
         message: Dict[str, Any] = {
             "type": "audio_stream_end",
             "data": {
@@ -734,8 +804,10 @@ class AudioStreamController:
                 "duration": duration,
             },
         }
-        await websocket.send_text(json.dumps(message))
-        logger.debug(f"Sent stream_end: {total_samples} samples, {duration}s duration")
+        if await self._safe_send(websocket, message):
+            logger.debug(f"Sent stream_end: {total_samples} samples, {duration}s duration")
+            return True
+        return False
 
     async def _send_error(
         self,

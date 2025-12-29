@@ -10,6 +10,7 @@ REST API endpoints for fingerprint-based music similarity
 :license: GPLv3, see LICENSE for more details.
 """
 
+import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -22,6 +23,8 @@ from auralis.analysis.fingerprint import (
 )
 
 from .dependencies import require_repository_factory
+
+logger = logging.getLogger(__name__)
 
 
 # Response models
@@ -108,9 +111,19 @@ def create_similarity_router(
 
             # Check if track has fingerprint
             if not repos.fingerprints.exists(track_id):
+                # Enqueue for background processing (Phase 7.4)
+                try:
+                    from fingerprint_queue import get_fingerprint_queue
+                    queue = get_fingerprint_queue()
+                    if queue:
+                        queue.enqueue(track_id)
+                        logger.info(f"📋 Track {track_id} queued for background fingerprinting")
+                except Exception as q_err:
+                    logger.debug(f"Could not enqueue track {track_id}: {q_err}")
+
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Track {track_id} does not have a fingerprint. Run fingerprint extraction first."
+                    detail=f"Track {track_id} does not have a fingerprint. Queued for background processing."
                 )
 
             results = []
@@ -406,5 +419,90 @@ def create_similarity_router(
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error clearing graph: {str(e)}")
+
+    @router.get("/fingerprint-queue/status")
+    async def get_fingerprint_queue_status() -> Dict[str, Any]:
+        """
+        Get status of the on-demand fingerprint generation queue.
+
+        Returns queue statistics including:
+        - queued: Number of tracks waiting in queue
+        - processing: Track ID currently being processed (or null)
+        - completed: Number of fingerprints generated
+        - failed: Number of failed generation attempts
+        - is_running: Whether the background worker is active
+
+        Returns:
+            Queue status dictionary
+        """
+        try:
+            from fingerprint_queue import get_fingerprint_queue
+            queue = get_fingerprint_queue()
+
+            if queue is None:
+                return {
+                    "available": False,
+                    "message": "On-demand fingerprint queue not initialized"
+                }
+
+            stats = queue.get_stats()
+            stats["available"] = True
+            return stats
+
+        except Exception as e:
+            logger.error(f"Error getting fingerprint queue status: {e}")
+            return {
+                "available": False,
+                "error": str(e)
+            }
+
+    @router.post("/fingerprint-queue/enqueue/{track_id}")
+    async def enqueue_fingerprint(track_id: int) -> Dict[str, Any]:
+        """
+        Manually enqueue a track for fingerprint generation.
+
+        Args:
+            track_id: ID of the track to fingerprint
+
+        Returns:
+            Status of the enqueue operation
+        """
+        try:
+            repos = require_repository_factory(get_repository_factory)
+
+            # Check if track exists
+            track = repos.tracks.get_by_id(track_id)
+            if not track:
+                raise HTTPException(status_code=404, detail=f"Track {track_id} not found")
+
+            # Check if already has fingerprint
+            if repos.fingerprints.exists(track_id):
+                return {
+                    "enqueued": False,
+                    "reason": "Track already has fingerprint"
+                }
+
+            # Enqueue
+            from fingerprint_queue import get_fingerprint_queue
+            queue = get_fingerprint_queue()
+
+            if queue is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="On-demand fingerprint queue not available"
+                )
+
+            added = queue.enqueue(track_id)
+            return {
+                "enqueued": added,
+                "track_id": track_id,
+                "reason": "Added to queue" if added else "Already queued or processing"
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error enqueueing track {track_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error enqueueing track: {str(e)}")
 
     return router

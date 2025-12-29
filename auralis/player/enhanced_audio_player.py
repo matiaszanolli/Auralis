@@ -20,12 +20,11 @@ Uses Facade pattern to maintain backward-compatible API.
 """
 
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
 
 from ..analysis.fingerprint.fingerprint_service import FingerprintService
-from ..library.repositories.factory import RepositoryFactory
 from ..utils.logging import debug, error, info, warning
 from .audio_file_manager import AudioFileManager
 from .config import PlayerConfig

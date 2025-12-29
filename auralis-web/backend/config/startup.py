@@ -187,6 +187,43 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                 globals_dict['player_state_manager'] = PlayerStateManager(manager)
                 logger.info("✅ Player State Manager initialized")
 
+                # Initialize on-demand fingerprint queue (Phase 7.4)
+                # This handles 404s during similarity lookup - queues tracks for background processing
+                try:
+                    from fingerprint_generator import FingerprintGenerator
+                    from fingerprint_queue import FingerprintQueue, set_fingerprint_queue
+
+                    # Create FingerprintGenerator for the queue
+                    fp_generator = FingerprintGenerator(
+                        session_factory=globals_dict['library_manager'].SessionLocal,
+                        get_repository_factory=lambda: globals_dict.get('repository_factory')
+                    )
+
+                    # Helper to get track filepath
+                    def get_track_filepath(track_id: int) -> Optional[str]:
+                        try:
+                            factory = globals_dict.get('repository_factory')
+                            if factory:
+                                track = factory.tracks.get_by_id(track_id)
+                                if track and track.filepath:
+                                    return str(track.filepath)
+                        except Exception:
+                            pass
+                        return None
+
+                    # Create and start on-demand fingerprint queue
+                    ondemand_queue = FingerprintQueue(
+                        fingerprint_generator=fp_generator,
+                        get_track_filepath=get_track_filepath
+                    )
+                    await ondemand_queue.start()
+                    set_fingerprint_queue(ondemand_queue)
+                    globals_dict['ondemand_fingerprint_queue'] = ondemand_queue
+                    logger.info("✅ On-demand fingerprint queue started (background processing for 404s)")
+
+                except Exception as odq_e:
+                    logger.warning(f"⚠️  Failed to initialize on-demand fingerprint queue: {odq_e}")
+
                 # Initialize similarity system
                 if HAS_SIMILARITY:
                     try:
@@ -272,6 +309,11 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
     async def shutdown_event() -> None:
         """Clean up resources on shutdown"""
         try:
+            # Stop on-demand fingerprint queue (Phase 7.4)
+            if 'ondemand_fingerprint_queue' in globals_dict and globals_dict['ondemand_fingerprint_queue']:
+                await globals_dict['ondemand_fingerprint_queue'].stop()
+                logger.info("✅ On-demand fingerprint queue stopped")
+
             # Stop fingerprint extraction queue
             if 'fingerprint_queue' in globals_dict and globals_dict['fingerprint_queue']:
                 await globals_dict['fingerprint_queue'].stop(timeout=30.0)

@@ -1,7 +1,7 @@
 {
   "format_version": "1.0",
   "auralis_version": "1.0.0-beta.5",
-  "generated_at": "2025-12-28T15:13:00.714081Z",
+  "generated_at": "2025-12-28T21:39:27.443092Z",
   "audio_file": {
     "path": "Echoes of Valor ext v2.2.2.mp3",
     "size_bytes": 9167945,
@@ -18,11 +18,11 @@
     "lufs": -12.930824736788805,
     "crest_db": 13.306705123837858,
     "bass_mid_ratio": -1.1330615806968656,
+    "stereo_width": 0.08593849643144429,
+    "phase_correlation": 0.8281272293148216,
     "dynamic_range_variation": 0.5,
     "loudness_variation_std": 4.007980823516846,
     "peak_consistency": 0.820945433694573,
-    "stereo_width": 0.08593849643144429,
-    "phase_correlation": 0.8281272293148216,
     "harmonic_ratio": 0.3620470107570761,
     "pitch_stability": 0.6663244347402317,
     "chroma_energy": 0.20833333333333334,
