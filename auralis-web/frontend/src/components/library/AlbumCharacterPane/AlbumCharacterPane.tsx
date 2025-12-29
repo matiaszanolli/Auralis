@@ -141,10 +141,10 @@ const breathePulse = keyframes`
 
 const subtleGlow = keyframes`
   0%, 100% {
-    box-shadow: 0 0 0 0 transparent;
+    box-shadow: 0 0 8px 2px rgba(115, 102, 240, 0.15);
   }
   50% {
-    box-shadow: 0 0 12px 2px rgba(115, 102, 240, 0.15);
+    box-shadow: 0 0 16px 4px rgba(115, 102, 240, 0.35);
   }
 `;
 
@@ -159,6 +159,226 @@ const energyDrift = keyframes`
     transform: translate(-52%, -48%) scale(0.98);
   }
 `;
+
+// Floating particles animation
+const particleFloat = keyframes`
+  0% {
+    transform: translateY(100%) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(80%) translateX(5px) scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(40%) translateX(-5px) scale(0.8);
+  }
+  90% {
+    opacity: 0.3;
+    transform: translateY(10%) translateX(3px) scale(0.5);
+  }
+  100% {
+    transform: translateY(0%) translateX(0) scale(0);
+    opacity: 0;
+  }
+`;
+
+// Glowing arc pulse animation
+const arcPulse = keyframes`
+  0%, 100% {
+    opacity: 0.6;
+    filter: blur(8px);
+  }
+  50% {
+    opacity: 1;
+    filter: blur(4px);
+  }
+`;
+
+// Waveform bar glow animation
+const barGlow = keyframes`
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(115, 102, 240, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(115, 102, 240, 0.8));
+  }
+`;
+
+// ============================================================================
+// Floating Particles Component (Ethereal sparkles inside panel)
+// ============================================================================
+
+interface FloatingParticlesProps {
+  isAnimating: boolean;
+  intensity: number;
+  count?: number;
+}
+
+const FloatingParticles: React.FC<FloatingParticlesProps> = ({
+  isAnimating,
+  intensity,
+  count = 12,
+}) => {
+  // Generate particles with varied properties
+  const particles = React.useMemo(() =>
+    Array.from({ length: count }, (_, i) => ({
+      id: i,
+      left: 10 + (i * 7) % 80, // Spread across width
+      size: 2 + (i % 3) * 1.5, // Varied sizes (2-5px)
+      duration: 6 + (i % 4) * 2, // 6-12s float duration
+      delay: (i * 0.8) % 5, // Staggered starts
+      hue: 240 + (i % 5) * 15, // Violet to cyan spectrum
+    })),
+  [count]);
+
+  if (!isAnimating && intensity < 0.1) return null;
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        inset: 0,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+        opacity: intensity,
+        transition: `opacity ${tokens.transitions.slow}`,
+      }}
+    >
+      {particles.map((p) => (
+        <Box
+          key={p.id}
+          sx={{
+            position: 'absolute',
+            left: `${p.left}%`,
+            bottom: 0,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            borderRadius: '50%',
+            background: `hsla(${p.hue}, 80%, 70%, 0.9)`,
+            boxShadow: `0 0 ${p.size * 2}px hsla(${p.hue}, 80%, 60%, 0.6)`,
+            animation: isAnimating
+              ? `${particleFloat} ${p.duration}s ease-in-out infinite`
+              : 'none',
+            animationDelay: `${p.delay}s`,
+          }}
+        />
+      ))}
+    </Box>
+  );
+};
+
+// ============================================================================
+// Glowing Arc Component (Cyan-Purple energy visualization)
+// ============================================================================
+
+interface GlowingArcProps {
+  isAnimating: boolean;
+  intensity: number;
+  energyLevel: number;
+}
+
+const GlowingArc: React.FC<GlowingArcProps> = ({ isAnimating, intensity, energyLevel }) => {
+  const glowIntensity = Math.sqrt(intensity);
+
+  // Arc spans based on energy level (more energy = wider arc)
+  const arcDegrees = 120 + energyLevel * 60; // 120-180 degrees
+  const startAngle = (180 - arcDegrees) / 2;
+
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        width: '100%',
+        height: '100px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        my: tokens.spacing.lg,
+      }}
+    >
+      {/* Outer glow arc */}
+      <Box
+        sx={{
+          position: 'absolute',
+          width: '200px',
+          height: '100px',
+          borderRadius: '100px 100px 0 0',
+          background: `conic-gradient(
+            from ${startAngle}deg at 50% 100%,
+            transparent 0deg,
+            rgba(115, 102, 240, ${0.1 + glowIntensity * 0.3}) ${arcDegrees * 0.3}deg,
+            rgba(0, 200, 220, ${0.2 + glowIntensity * 0.4}) ${arcDegrees * 0.5}deg,
+            rgba(115, 102, 240, ${0.1 + glowIntensity * 0.3}) ${arcDegrees * 0.7}deg,
+            transparent ${arcDegrees}deg
+          )`,
+          filter: `blur(${12 - glowIntensity * 4}px)`,
+          opacity: 0.4 + glowIntensity * 0.4,
+          animation: isAnimating
+            ? `${arcPulse} 4s ease-in-out infinite`
+            : 'none',
+          transition: `all ${tokens.transitions.slow}`,
+        }}
+      />
+
+      {/* Inner bright arc */}
+      <Box
+        sx={{
+          position: 'absolute',
+          width: '160px',
+          height: '80px',
+          borderRadius: '80px 80px 0 0',
+          background: `conic-gradient(
+            from ${startAngle + 10}deg at 50% 100%,
+            transparent 0deg,
+            rgba(180, 130, 255, ${0.3 + glowIntensity * 0.4}) ${arcDegrees * 0.4}deg,
+            rgba(80, 220, 240, ${0.4 + glowIntensity * 0.5}) ${arcDegrees * 0.5}deg,
+            rgba(180, 130, 255, ${0.3 + glowIntensity * 0.4}) ${arcDegrees * 0.6}deg,
+            transparent ${arcDegrees - 20}deg
+          )`,
+          filter: `blur(${6 - glowIntensity * 2}px)`,
+          opacity: 0.6 + glowIntensity * 0.3,
+          animation: isAnimating
+            ? `${arcPulse} 3s ease-in-out infinite 0.5s`
+            : 'none',
+          transition: `all ${tokens.transitions.slow}`,
+        }}
+      />
+
+      {/* Center energy indicator */}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: '0',
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          background: `linear-gradient(135deg, rgba(115, 102, 240, 1), rgba(0, 200, 220, 1))`,
+          boxShadow: `0 0 ${12 + glowIntensity * 8}px rgba(115, 102, 240, ${0.5 + glowIntensity * 0.3})`,
+          transition: `all ${tokens.transitions.slow}`,
+        }}
+      />
+
+      {/* "SPACE" label */}
+      <Typography
+        sx={{
+          position: 'absolute',
+          bottom: '-20px',
+          fontSize: tokens.typography.fontSize.xs,
+          fontWeight: tokens.typography.fontWeight.medium,
+          color: tokens.colors.text.tertiary,
+          letterSpacing: '0.15em',
+          textTransform: 'uppercase',
+          opacity: 0.6 + intensity * 0.3,
+          transition: `opacity ${tokens.transitions.slow}`,
+        }}
+      >
+        SPACE
+      </Typography>
+    </Box>
+  );
+};
 
 // ============================================================================
 // Energy Field Component (Gradient field, not slider)
@@ -293,40 +513,68 @@ const WaveformVisualization: React.FC<WaveformVisualizationProps> = ({
 
   const maxValue = Math.max(...frequencyBands, 0.01);
   const normalizedBands = frequencyBands.map((v) => v / maxValue);
+  const glowIntensity = Math.sqrt(intensity);
 
   return (
     <Box
       sx={{
+        position: 'relative',
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'space-around',
-        height: '80px',
-        gap: tokens.spacing.xs,
+        height: '100px',
+        gap: '6px',
         mt: tokens.spacing.xl,
         mb: tokens.spacing.lg,
         px: tokens.spacing.md,
+        // Subtle backdrop glow behind waveform
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          inset: '-10px',
+          background: `radial-gradient(ellipse at 50% 100%, rgba(115, 102, 240, ${0.08 + glowIntensity * 0.12}) 0%, transparent 70%)`,
+          filter: 'blur(8px)',
+          opacity: isAnimating ? 1 : 0.5,
+          transition: `opacity ${tokens.transitions.slow}`,
+          pointerEvents: 'none',
+        },
       }}
     >
-      {normalizedBands.map((value, index) => (
-        <Box
-          key={index}
-          sx={{
-            flex: 1,
-            height: `${value * 100}%`,
-            minHeight: '8px',
-            borderRadius: `${tokens.borderRadius.sm}px`,
-            background: `linear-gradient(to top, ${tokens.colors.accent.primary}, ${tokens.colors.accent.tertiary})`,
-            // Opacity fades with intensity during decay
-            opacity: 0.5 + value * 0.3 + intensity * 0.2,
-            transition: `all ${tokens.transitions.slow}`,
-            // Subtle breathing animation when animating (continues during decay)
-            animation: isAnimating
-              ? `${breathePulse} ${2.5 + index * 0.3}s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite`
-              : 'none',
-            animationDelay: `${index * 0.15}s`,
-          }}
-        />
-      ))}
+      {normalizedBands.map((value, index) => {
+        // Hue shifts from violet (left/bass) to cyan (right/air)
+        const hue = 260 - index * 8; // 260 (violet) to 204 (cyan)
+        const barHeight = Math.max(value * 100, 12);
+
+        return (
+          <Box
+            key={index}
+            sx={{
+              position: 'relative',
+              flex: 1,
+              height: `${barHeight}%`,
+              minHeight: '12px',
+              borderRadius: '4px',
+              // Vibrant gradient with hue shift
+              background: `linear-gradient(to top,
+                hsla(${hue}, 70%, 50%, 0.9) 0%,
+                hsla(${hue - 20}, 80%, 65%, 0.95) 50%,
+                hsla(${hue - 40}, 90%, 75%, 1) 100%)`,
+              // Glow effect intensifies with playback
+              boxShadow: `
+                0 0 ${4 + glowIntensity * 8}px hsla(${hue}, 80%, 55%, ${0.3 + glowIntensity * 0.4}),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3)`,
+              opacity: 0.7 + value * 0.2 + intensity * 0.1,
+              transition: `all ${tokens.transitions.slow}`,
+              // Breathing + glow animation when animating
+              animation: isAnimating
+                ? `${breathePulse} ${2.5 + index * 0.3}s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite,
+                   ${barGlow} ${3 + index * 0.4}s ease-in-out infinite`
+                : 'none',
+              animationDelay: `${index * 0.15}s, ${index * 0.2}s`,
+            }}
+          />
+        );
+      })}
     </Box>
   );
 };
@@ -411,33 +659,50 @@ const CharacterTags: React.FC<CharacterTagsProps> = ({ tags, isAnimating, intens
         mb: tokens.spacing.lg,
       }}
     >
-      {tags.map((tag, index) => (
-        <Chip
-          key={index}
-          label={tag.label}
-          size="small"
-          sx={{
-            background: tokens.colors.bg.level2,
-            color: tokens.colors.text.secondary,
-            fontSize: tokens.typography.fontSize.xs,
-            fontWeight: tokens.typography.fontWeight.medium,
-            border: `1px solid ${tokens.colors.border.light}`,
-            transition: `all ${tokens.transitions.slow}`,
-            // Subtle glow animation when animating (continues during decay, fades with intensity)
-            animation: isAnimating
-              ? `${subtleGlow} ${3 + index * 0.5}s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite`
-              : 'none',
-            animationDelay: `${index * 0.2}s`,
-            // Glow lingers via glowIntensity
-            boxShadow: glowIntensity > 0.1
-              ? `0 0 ${8 * glowIntensity}px rgba(115, 102, 240, ${0.1 * glowIntensity})`
-              : 'none',
-            '&:hover': {
-              background: tokens.colors.bg.level3,
-            },
-          }}
-        />
-      ))}
+      {tags.map((tag, index) => {
+        // Each tag gets a slightly different hue for variety
+        const tagHue = 260 - (index * 12) % 60; // Violet to blue-cyan range
+
+        return (
+          <Chip
+            key={index}
+            label={tag.label}
+            size="small"
+            sx={{
+              // Glass background
+              background: `rgba(30, 40, 65, ${0.4 + glowIntensity * 0.15})`,
+              backdropFilter: 'blur(4px)',
+              color: tokens.colors.text.secondary,
+              fontSize: tokens.typography.fontSize.xs,
+              fontWeight: tokens.typography.fontWeight.medium,
+              // Glass bevel instead of hard border
+              border: 'none',
+              transition: `all ${tokens.transitions.slow}`,
+              // Multi-layer glow effect
+              boxShadow: `
+                inset 0 1px 0 rgba(255, 255, 255, ${0.08 + glowIntensity * 0.08}),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+                ${glowIntensity > 0.1
+                  ? `0 0 ${8 + glowIntensity * 10}px hsla(${tagHue}, 70%, 55%, ${0.15 + glowIntensity * 0.25})`
+                  : '0 2px 4px rgba(0, 0, 0, 0.1)'}
+              `,
+              // Glow animation when animating
+              animation: isAnimating
+                ? `${subtleGlow} ${3 + index * 0.5}s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite`
+                : 'none',
+              animationDelay: `${index * 0.2}s`,
+              '&:hover': {
+                background: `rgba(40, 55, 85, ${0.5 + glowIntensity * 0.2})`,
+                boxShadow: `
+                  inset 0 1px 0 rgba(255, 255, 255, 0.12),
+                  inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+                  0 0 16px hsla(${tagHue}, 70%, 55%, 0.35)
+                `,
+              },
+            }}
+          />
+        );
+      })}
     </Box>
   );
 };
@@ -486,20 +751,34 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
   // Container styles with playback-aware glow edge
   // Uses glowIntensity (0-1) for graceful fade - glow lingers last
   const containerStyles = {
+    position: 'relative' as const,
     width: tokens.components.rightPanel.width,
     height: '100%',
     minHeight: 0, // Allow flex shrinking
-    // Semi-transparent to let starfield show through
-    background: 'rgba(26, 35, 56, 0.55)',
-    backdropFilter: 'blur(10px) saturate(1.05)',
+    // Deep glass transparency - let nebula show through beautifully
+    background: `linear-gradient(
+      180deg,
+      rgba(16, 20, 35, ${0.35 + glowIntensity * 0.15}) 0%,
+      rgba(22, 28, 48, ${0.30 + glowIntensity * 0.10}) 50%,
+      rgba(18, 24, 42, ${0.35 + glowIntensity * 0.15}) 100%
+    )`,
+    backdropFilter: `blur(${12 + glowIntensity * 4}px) saturate(${1.1 + glowIntensity * 0.15})`,
     border: 'none',  // No hard borders - use bevel shadows
-    // Glass bevel with playback-aware glow: left highlight fades with intensity
-    boxShadow: glowIntensity > 0.05
-      ? `-2px 0 12px rgba(0, 0, 0, 0.10), inset 1px 0 0 rgba(115, 102, 240, ${0.15 + glowIntensity * 0.20}), inset 3px 0 12px -4px rgba(115, 102, 240, ${0.08 + glowIntensity * 0.12})`
-      : '-2px 0 12px rgba(0, 0, 0, 0.10), inset 1px 0 0 rgba(255, 255, 255, 0.06)',
+    // Multi-layer glass effect with playback-aware edge glow
+    boxShadow: `
+      -2px 0 20px rgba(0, 0, 0, 0.15),
+      inset 1px 0 0 rgba(255, 255, 255, ${0.06 + glowIntensity * 0.08}),
+      inset 0 1px 0 rgba(255, 255, 255, ${0.04 + glowIntensity * 0.06}),
+      inset -1px 0 0 rgba(0, 0, 0, 0.1),
+      ${glowIntensity > 0.05
+        ? `inset 3px 0 20px -4px rgba(115, 102, 240, ${0.12 + glowIntensity * 0.18}),
+           inset 0 3px 20px -4px rgba(0, 200, 220, ${0.08 + glowIntensity * 0.12})`
+        : ''}
+    `,
     p: tokens.spacing.xl,
     overflowY: 'auto' as const,
-    transition: `box-shadow ${tokens.transitions.slow}`,
+    overflowX: 'hidden' as const,
+    transition: `all ${tokens.transitions.slow}`,
   };
 
   // Empty state (no album selected or no fingerprint)
@@ -512,6 +791,8 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
           flexDirection: 'column',
         }}
       >
+        {/* Subtle floating particles even in empty state */}
+        <FloatingParticles isAnimating={false} intensity={0.3} count={8} />
         <EnhancementSection />
         <Box
           sx={{
@@ -519,6 +800,8 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            position: 'relative',
+            zIndex: 1,
           }}
         >
           <Typography
@@ -527,6 +810,7 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
               color: tokens.colors.text.tertiary,
               textAlign: 'center',
               fontSize: tokens.typography.fontSize.sm,
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
             }}
           >
             Hover over an album to view its sonic character
@@ -540,14 +824,30 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
   if (isLoading || !fingerprint) {
     return (
       <Box sx={containerStyles}>
-        <EnhancementSection />
-        <LinearProgress sx={{ mb: tokens.spacing.lg }} />
-        <Typography
-          variant="body2"
-          sx={{ color: tokens.colors.text.tertiary, textAlign: 'center' }}
-        >
-          Analyzing album character...
-        </Typography>
+        {/* Particles animate during loading */}
+        <FloatingParticles isAnimating={true} intensity={0.6} count={10} />
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+          <EnhancementSection />
+          <LinearProgress
+            sx={{
+              mb: tokens.spacing.lg,
+              background: 'rgba(115, 102, 240, 0.15)',
+              '& .MuiLinearProgress-bar': {
+                background: 'linear-gradient(90deg, rgba(115, 102, 240, 0.8), rgba(0, 200, 220, 0.8))',
+              },
+            }}
+          />
+          <Typography
+            variant="body2"
+            sx={{
+              color: tokens.colors.text.tertiary,
+              textAlign: 'center',
+              textShadow: '0 0 12px rgba(115, 102, 240, 0.3)',
+            }}
+          >
+            Analyzing album character...
+          </Typography>
+        </Box>
       </Box>
     );
   }
@@ -557,11 +857,18 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
 
   return (
     <Box sx={containerStyles}>
+      {/* Floating particles - ethereal sparkles inside the panel */}
+      <FloatingParticles
+        isAnimating={isAnimating}
+        intensity={intensity}
+        count={15}
+      />
+
       {/* Enhancement Toggle */}
       <EnhancementSection />
 
-      {/* Header */}
-      <Box sx={{ mb: tokens.spacing.xl }}>
+      {/* Header with subtle glow */}
+      <Box sx={{ mb: tokens.spacing.xl, position: 'relative', zIndex: 1 }}>
         <Typography
           variant="h6"
           sx={{
@@ -569,6 +876,10 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
             fontWeight: tokens.typography.fontWeight.semibold,
             color: tokens.colors.text.primary,
             mb: tokens.spacing.xs,
+            textShadow: glowIntensity > 0.1
+              ? `0 0 ${8 + glowIntensity * 8}px rgba(115, 102, 240, ${0.2 + glowIntensity * 0.3})`
+              : 'none',
+            transition: `text-shadow ${tokens.transitions.slow}`,
           }}
         >
           Album Character
@@ -586,29 +897,44 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
         )}
       </Box>
 
-      {/* Waveform visualization with breathing - uses isAnimating for continued animation during decay */}
-      <WaveformVisualization
-        fingerprint={fingerprint}
-        isAnimating={isAnimating}
-        intensity={intensity}
-      />
+      {/* Waveform visualization with dramatic glow effects */}
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <WaveformVisualization
+          fingerprint={fingerprint}
+          isAnimating={isAnimating}
+          intensity={intensity}
+        />
+      </Box>
 
-      {/* Character tags with subtle glow - glow lingers during decay */}
-      <CharacterTags
-        tags={character.tags}
-        isAnimating={isAnimating}
-        intensity={intensity}
-      />
+      {/* Glowing Arc - cyan-purple energy visualization */}
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <GlowingArc
+          isAnimating={isAnimating}
+          intensity={intensity}
+          energyLevel={character.energyLevel}
+        />
+      </Box>
+
+      {/* Character tags with enhanced glow - glow lingers during decay */}
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <CharacterTags
+          tags={character.tags}
+          isAnimating={isAnimating}
+          intensity={intensity}
+        />
+      </Box>
 
       {/* Energy field (gradient, not slider) - glow and drift fade with intensity */}
-      <EnergyField
-        energy={character.energyLevel}
-        isAnimating={isAnimating}
-        intensity={intensity}
-      />
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <EnergyField
+          energy={character.energyLevel}
+          isAnimating={isAnimating}
+          intensity={intensity}
+        />
+      </Box>
 
       {/* Rotating description */}
-      <Box sx={{ mt: tokens.spacing.xl }}>
+      <Box sx={{ mt: tokens.spacing.xl, position: 'relative', zIndex: 1 }}>
         <RotatingDescription
           descriptions={character.rotatingDescriptions}
           staticDescription={character.description}
@@ -621,7 +947,10 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
         sx={{
           mt: tokens.spacing.xxl,
           pt: tokens.spacing.lg,
-          borderTop: `1px solid ${tokens.colors.border.light}`,
+          position: 'relative',
+          zIndex: 1,
+          // Glass bevel separator instead of hard border
+          boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
           opacity: 0.7 + intensity * 0.2,
           transition: `opacity ${tokens.transitions.slow}`,
         }}
