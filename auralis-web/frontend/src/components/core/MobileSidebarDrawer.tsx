@@ -49,7 +49,9 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
       PaperProps={{
         sx: {
           width: 240,
-          background: 'var(--midnight-blue)',
+          // Semi-transparent to let starfield show through
+          background: 'rgba(16, 23, 41, 0.85)',
+          backdropFilter: 'blur(16px) saturate(1.1)',
           borderRight: `1px solid ${auroraOpacity.veryLight}`,
         },
       }}

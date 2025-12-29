@@ -489,7 +489,9 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
     width: tokens.components.rightPanel.width,
     height: '100%',
     minHeight: 0, // Allow flex shrinking
-    background: tokens.colors.bg.elevated,
+    // Semi-transparent to let starfield show through
+    background: 'rgba(26, 35, 56, 0.75)',  // elevated color at 75% opacity
+    backdropFilter: 'blur(16px) saturate(1.1)',
     // Glow edge fades with intensity - border color interpolates
     borderLeft: glowIntensity > 0.05
       ? `1px solid rgba(115, 102, 240, ${0.15 + glowIntensity * 0.15})`
