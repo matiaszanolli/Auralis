@@ -19,7 +19,7 @@
  * - Style Guide §6.1: Slow, weighted motion
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Typography, Chip, LinearProgress, keyframes } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { tokens } from '@/design-system';
@@ -27,6 +27,7 @@ import type { AudioFingerprint } from '@/utils/fingerprintToGradient';
 import { computeAlbumCharacter } from '@/utils/albumCharacterDescriptors';
 import { EnhancementToggle } from '@/components/shared/EnhancementToggle';
 import { playerSelectors } from '@/store/selectors';
+import { useTrackFingerprint } from '@/hooks/fingerprint';
 
 // ============================================================================
 // Silence Decay Hook
@@ -112,16 +113,22 @@ function usePlaybackWithDecay(isPlaying: boolean): PlaybackDecayState {
 }
 
 export interface AlbumCharacterPaneProps {
-  /** Album fingerprint (median of all tracks) */
-  fingerprint: AudioFingerprint | null;
-  /** Album title */
+  /** Album fingerprint (median of all tracks) - used when hovering over albums */
+  fingerprint?: AudioFingerprint | null;
+  /** Album title - shown when hovering over albums */
   albumTitle?: string;
-  /** Loading state */
+  /** Loading state for hovered album */
   isLoading?: boolean;
   /** Enhancement enabled state */
   isEnhancementEnabled?: boolean;
   /** Enhancement toggle callback */
   onEnhancementToggle?: (enabled: boolean) => void;
+  /**
+   * When true, fetches and displays the currently playing track's fingerprint.
+   * Takes priority over hovered album fingerprint.
+   * @default true
+   */
+  showPlayingTrack?: boolean;
 }
 
 // ============================================================================
@@ -712,14 +719,51 @@ const CharacterTags: React.FC<CharacterTagsProps> = ({ tags, isAnimating, intens
 // ============================================================================
 
 export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
-  fingerprint,
+  fingerprint: albumFingerprint,
   albumTitle,
-  isLoading = false,
+  isLoading: albumLoading = false,
   isEnhancementEnabled = true,
   onEnhancementToggle,
+  showPlayingTrack = true,
 }) => {
   // Get playback state from Redux
   const isPlayingRaw = useSelector(playerSelectors.selectIsPlaying);
+  const currentTrack = useSelector(playerSelectors.selectCurrentTrack);
+
+  // Fetch playing track's fingerprint when available
+  const {
+    fingerprint: playingTrackFingerprint,
+    trackTitle: playingTrackTitle,
+    artist: playingArtist,
+    // album: playingAlbum, // Available if needed for album context
+    isLoading: playingTrackLoading,
+    isPending: fingerprintPending,
+  } = useTrackFingerprint(
+    showPlayingTrack && currentTrack?.id ? currentTrack.id : null
+  );
+
+  // Priority: Playing track > Hovered album > Empty state
+  // When playing, show the track's fingerprint; when hovering, show album's
+  const displayFingerprint = useMemo(() => {
+    if (showPlayingTrack && currentTrack?.id && playingTrackFingerprint) {
+      return playingTrackFingerprint;
+    }
+    return albumFingerprint ?? null;
+  }, [showPlayingTrack, currentTrack?.id, playingTrackFingerprint, albumFingerprint]);
+
+  const displayTitle = useMemo(() => {
+    if (showPlayingTrack && currentTrack?.id) {
+      if (playingTrackTitle) {
+        return `${playingTrackTitle}${playingArtist ? ` • ${playingArtist}` : ''}`;
+      }
+      return currentTrack.title || 'Now Playing';
+    }
+    return albumTitle;
+  }, [showPlayingTrack, currentTrack, playingTrackTitle, playingArtist, albumTitle]);
+
+  const isLoading = showPlayingTrack && currentTrack?.id
+    ? playingTrackLoading || fingerprintPending
+    : albumLoading;
 
   // Apply silence decay - motion fades gracefully over 2.5s when playback stops
   // "The music stopped, but the impression lingers"
@@ -781,8 +825,8 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
     transition: `all ${tokens.transitions.slow}`,
   };
 
-  // Empty state (no album selected or no fingerprint)
-  if (!fingerprint && !isLoading) {
+  // Empty state (no track playing and no album hovered)
+  if (!displayFingerprint && !isLoading) {
     return (
       <Box
         sx={{
@@ -813,15 +857,15 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
               textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
             }}
           >
-            Hover over an album to view its sonic character
+            Play a track to see its sonic character
           </Typography>
         </Box>
       </Box>
     );
   }
 
-  // Loading state
-  if (isLoading || !fingerprint) {
+  // Loading state (fingerprint being generated)
+  if (isLoading || !displayFingerprint) {
     return (
       <Box sx={containerStyles}>
         {/* Particles animate during loading */}
@@ -845,7 +889,7 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
               textShadow: '0 0 12px rgba(115, 102, 240, 0.3)',
             }}
           >
-            Analyzing album character...
+            {currentTrack?.id ? 'Analyzing track character...' : 'Analyzing album character...'}
           </Typography>
         </Box>
       </Box>
@@ -853,7 +897,7 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
   }
 
   // Compute character from fingerprint
-  const character = computeAlbumCharacter(fingerprint);
+  const character = computeAlbumCharacter(displayFingerprint);
 
   return (
     <Box sx={containerStyles}>
@@ -882,9 +926,9 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
             transition: `text-shadow ${tokens.transitions.slow}`,
           }}
         >
-          Album Character
+          {currentTrack?.id ? 'Track Character' : 'Album Character'}
         </Typography>
-        {albumTitle && (
+        {displayTitle && (
           <Typography
             variant="caption"
             sx={{
@@ -892,7 +936,7 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
               fontSize: tokens.typography.fontSize.xs,
             }}
           >
-            {albumTitle}
+            {displayTitle}
           </Typography>
         )}
       </Box>
@@ -900,7 +944,7 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
       {/* Waveform visualization with dramatic glow effects */}
       <Box sx={{ position: 'relative', zIndex: 1 }}>
         <WaveformVisualization
-          fingerprint={fingerprint}
+          fingerprint={displayFingerprint}
           isAnimating={isAnimating}
           intensity={intensity}
         />

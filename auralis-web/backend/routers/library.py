@@ -588,4 +588,97 @@ def create_library_router(
         except Exception as e:
             raise handle_query_error("get fingerprinting status", e)
 
+    @router.get("/api/tracks/{track_id}/fingerprint")
+    async def get_track_fingerprint(track_id: int) -> Dict[str, Any]:
+        """
+        Get fingerprint for a specific track.
+
+        Returns the 25D audio fingerprint for the track if available.
+        Used by the Album Character Pane to show playing track's sonic character.
+
+        Args:
+            track_id: Track ID
+
+        Returns:
+            dict: Track fingerprint with all 25 dimensions
+
+        Raises:
+            HTTPException: If track not found or fingerprint not available
+        """
+        try:
+            repos = require_repository_factory(get_repository_factory)
+
+            # Verify track exists
+            track = repos.tracks.get_by_id(track_id)
+            if not track:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Track {track_id} not found"
+                )
+
+            # Get fingerprint
+            fp = repos.fingerprints.get_by_track_id(track_id)
+            if not fp:
+                # Enqueue for background processing if not available
+                try:
+                    from fingerprint_queue import get_fingerprint_queue
+                    queue = get_fingerprint_queue()
+                    if queue:
+                        queue.enqueue(track_id)
+                        logger.info(f"📋 Track {track_id} queued for background fingerprinting")
+                except Exception as q_err:
+                    logger.debug(f"Could not enqueue track {track_id}: {q_err}")
+
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Fingerprint not available for track {track_id}. Queued for generation."
+                )
+
+            # Return fingerprint as dict
+            return {
+                "track_id": track_id,
+                "track_title": track.title,
+                "artist": track.artist,
+                "album": track.album,
+                "fingerprint": {
+                    # 7D Frequency distribution
+                    "sub_bass": fp.sub_bass,
+                    "bass": fp.bass,
+                    "low_mid": fp.low_mid,
+                    "mid": fp.mid,
+                    "upper_mid": fp.upper_mid,
+                    "presence": fp.presence,
+                    "air": fp.air,
+                    # 3D Loudness/dynamics
+                    "lufs": fp.lufs,
+                    "crest_db": fp.crest_db,
+                    "bass_mid_ratio": fp.bass_mid_ratio,
+                    # 4D Temporal
+                    "tempo_bpm": fp.tempo_bpm,
+                    "rhythm_stability": fp.rhythm_stability,
+                    "transient_density": fp.transient_density,
+                    "silence_ratio": fp.silence_ratio,
+                    # 3D Spectral shape
+                    "spectral_centroid": fp.spectral_centroid,
+                    "spectral_rolloff": fp.spectral_rolloff,
+                    "spectral_flatness": fp.spectral_flatness,
+                    # 6D Harmonic content
+                    "harmonic_ratio": fp.harmonic_ratio,
+                    "percussive_ratio": fp.percussive_ratio,
+                    "pitch_confidence": fp.pitch_confidence,
+                    "chroma_energy_mean": fp.chroma_energy_mean,
+                    "chroma_energy_variance": fp.chroma_energy_variance,
+                    "key_strength": fp.key_strength,
+                    # 2D Stereo characteristics
+                    "stereo_width": fp.stereo_width,
+                    "stereo_correlation": fp.stereo_correlation,
+                }
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting track fingerprint: {e}", exc_info=True)
+            raise handle_query_error("get track fingerprint", e)
+
     return router
