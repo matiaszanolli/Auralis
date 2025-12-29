@@ -8,7 +8,6 @@
 import React from 'react';
 import { SwipeableDrawer } from '@mui/material';
 import Sidebar from '../layouts/Sidebar';
-import { auroraOpacity } from '../library/Styles/Color.styles';
 
 interface MobileSidebarDrawerProps {
   open: boolean;
@@ -50,9 +49,10 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
         sx: {
           width: 240,
           // Semi-transparent to let starfield show through
-          background: 'rgba(16, 23, 41, 0.85)',
-          backdropFilter: 'blur(16px) saturate(1.1)',
-          borderRight: `1px solid ${auroraOpacity.veryLight}`,
+          background: 'rgba(16, 23, 41, 0.55)',
+          backdropFilter: 'blur(8px) saturate(1.05)',
+          // Glass bevel: right highlight + inner shadow (no hard borders)
+          boxShadow: '2px 0 16px rgba(0, 0, 0, 0.12), inset -1px 0 0 rgba(255, 255, 255, 0.06)',
         },
       }}
     >

@@ -1,7 +1,6 @@
 import { styled } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
-import { auroraOpacity } from '../library/Styles/Color.styles';
 
 export const TopBarContainer = styled(Box)({
   display: 'flex',
@@ -9,18 +8,19 @@ export const TopBarContainer = styled(Box)({
   justifyContent: 'space-between',
   padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
   // Semi-transparent to let starfield show through
-  background: 'rgba(21, 29, 47, 0.55)',  // level2 color at 55% opacity for starfield visibility
-  backdropFilter: 'blur(8px) saturate(1.05)',  // Softer blur to preserve starfield
-  borderBottom: `1px solid ${auroraOpacity.veryLight}`,
+  background: 'rgba(21, 29, 47, 0.55)',
+  backdropFilter: 'blur(8px) saturate(1.05)',
+  // Glass bevel: top highlight + bottom shadow (no hard borders)
+  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.20)',
   height: 70,
   gap: tokens.spacing.md,
 });
 
-export const LeftSection = styled(Box)(({ theme }) => ({
+export const LeftSection = styled(Box)({
   display: 'flex',
   alignItems: 'center',
   gap: tokens.spacing.md,                               // 12px - organic spacing
-}));
+});
 
 export const RightSection = styled(Box)({
   display: 'flex',

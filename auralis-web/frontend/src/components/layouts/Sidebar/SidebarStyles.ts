@@ -1,5 +1,5 @@
 import { Box, ListItemButton, Typography, styled } from '@mui/material';
-import { tokens, withOpacity } from '@/design-system';
+import { tokens } from '@/design-system';
 
 /**
  * Styled components for Sidebar
@@ -90,10 +90,10 @@ export const CollapsedSidebarContainer = styled(Box)({
   alignSelf: 'stretch', // Use flex stretch instead of height: 100%
   flexShrink: 0,
   // Semi-transparent to let starfield show through
-  background: 'rgba(16, 23, 41, 0.45)',  // secondary color at 45% opacity for starfield visibility
-  backdropFilter: 'blur(6px) saturate(0.95)',  // Softer blur to preserve starfield
-  // Removed hard border, using shadow for depth instead
-  boxShadow: '2px 0 16px rgba(0, 0, 0, 0.12)', // Subtle right shadow for separation
+  background: 'rgba(16, 23, 41, 0.45)',
+  backdropFilter: 'blur(6px) saturate(0.95)',
+  // Glass bevel: right highlight + inner shadow (no hard borders)
+  boxShadow: '2px 0 16px rgba(0, 0, 0, 0.12), inset -1px 0 0 rgba(255, 255, 255, 0.06)',
   display: 'flex',
   flexDirection: 'column',
   transition: `width ${tokens.transitions.slow}`,

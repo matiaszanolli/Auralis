@@ -490,19 +490,16 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
     height: '100%',
     minHeight: 0, // Allow flex shrinking
     // Semi-transparent to let starfield show through
-    background: 'rgba(26, 35, 56, 0.55)',  // elevated color at 55% opacity for starfield visibility
-    backdropFilter: 'blur(10px) saturate(1.05)',  // Softer blur to preserve starfield
-    // Glow edge fades with intensity - border color interpolates
-    borderLeft: glowIntensity > 0.05
-      ? `1px solid rgba(115, 102, 240, ${0.15 + glowIntensity * 0.15})`
-      : `1px solid ${tokens.colors.border.light}`,
-    // Box shadow fades with glowIntensity (which fades slower than intensity)
+    background: 'rgba(26, 35, 56, 0.55)',
+    backdropFilter: 'blur(10px) saturate(1.05)',
+    border: 'none',  // No hard borders - use bevel shadows
+    // Glass bevel with playback-aware glow: left highlight fades with intensity
     boxShadow: glowIntensity > 0.05
-      ? `inset 3px 0 12px -4px rgba(115, 102, 240, ${0.08 + glowIntensity * 0.12})`
-      : 'none',
+      ? `-2px 0 12px rgba(0, 0, 0, 0.10), inset 1px 0 0 rgba(115, 102, 240, ${0.15 + glowIntensity * 0.20}), inset 3px 0 12px -4px rgba(115, 102, 240, ${0.08 + glowIntensity * 0.12})`
+      : '-2px 0 12px rgba(0, 0, 0, 0.10), inset 1px 0 0 rgba(255, 255, 255, 0.06)',
     p: tokens.spacing.xl,
     overflowY: 'auto' as const,
-    transition: `border-color ${tokens.transitions.slow}, box-shadow ${tokens.transitions.slow}`,
+    transition: `box-shadow ${tokens.transitions.slow}`,
   };
 
   // Empty state (no album selected or no fingerprint)

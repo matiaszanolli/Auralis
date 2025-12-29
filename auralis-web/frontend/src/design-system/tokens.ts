@@ -598,19 +598,21 @@ export const tokens = {
     sidebar: {
       width: '256px',
       collapsedWidth: '72px',
-      background: 'rgba(16, 23, 41, 0.20)',        // Ultra-low contrast for starfield visibility (muscle memory UI - §4.3)
-      backdropFilter: 'blur(6px) saturate(0.95)',  // Softer blur to preserve starfield
-      borderRight: '1px solid rgba(255, 255, 255, 0.05)', // Very subtle glass border for light-catching
-      shadow: '2px 0 8px rgba(0, 0, 0, 0.08)',     // Lighter shadow
+      background: 'rgba(16, 23, 41, 0.20)',
+      backdropFilter: 'blur(6px) saturate(0.95)',
+      borderRight: 'none',  // No hard border - use bevel shadow instead
+      // Glass bevel: outer shadow + right edge highlight
+      shadow: '2px 0 8px rgba(0, 0, 0, 0.08), inset -1px 0 0 rgba(255, 255, 255, 0.05)',
     },
 
     rightPanel: {
       width: '360px',
       minWidth: '300px',
-      background: 'rgba(16, 23, 41, 0.50)',        // Semi-transparent for starfield visibility
-      backdropFilter: 'blur(10px) saturate(1.05)', // Softer blur to preserve starfield
-      borderLeft: 'none',                          // Left edge blends with main content
-      shadow: '-2px 0 12px rgba(0, 0, 0, 0.10)',   // Subtle shadow for depth
+      background: 'rgba(16, 23, 41, 0.50)',
+      backdropFilter: 'blur(10px) saturate(1.05)',
+      borderLeft: 'none',
+      // Glass bevel: outer shadow + left edge highlight
+      shadow: '-2px 0 12px rgba(0, 0, 0, 0.10), inset 1px 0 0 rgba(255, 255, 255, 0.06)',
     },
 
     albumCard: {
@@ -705,43 +707,49 @@ export const tokens = {
    */
   glass: {
     // Subtle glass (calm overlays - for idle states)
+    // Bevel: top light catch, bottom shadow for 3D glass effect
     subtle: {
-      background: 'rgba(21, 29, 47, 0.25)',         // Semi-transparent for starfield visibility
-      backdropFilter: 'blur(6px) saturate(1.05)',   // Softer blur to preserve starfield
-      border: '1px solid rgba(255, 255, 255, 0.15)', // Enhanced border for light-catching
-      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.08)', // Inner glow
+      background: 'rgba(21, 29, 47, 0.25)',
+      backdropFilter: 'blur(6px) saturate(1.05)',
+      border: 'none',
+      // Bevel: outer shadow + top highlight + bottom shadow
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.15)',
     },
 
     // Medium glass (panels, surfaces)
     medium: {
-      background: 'rgba(21, 29, 47, 0.40)',         // Semi-transparent for starfield visibility
-      backdropFilter: 'blur(8px) saturate(1.08)',   // Softer blur to preserve starfield
-      border: '1px solid rgba(255, 255, 255, 0.18)', // Enhanced border for light edges
-      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.12)', // Inner glow
+      background: 'rgba(21, 29, 47, 0.40)',
+      backdropFilter: 'blur(8px) saturate(1.08)',
+      border: 'none',
+      // Bevel: outer shadow + top highlight + bottom shadow
+      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.18)',
     },
 
-    // Strong glass (modals, prominent surfaces)
+    // Strong glass (modals, prominent surfaces, player bar)
     strong: {
-      background: 'rgba(21, 29, 47, 0.55)',         // Semi-transparent for starfield visibility
-      backdropFilter: 'blur(12px) saturate(1.1)',   // Softer blur to preserve starfield
-      border: '1px solid rgba(255, 255, 255, 0.22)', // Enhanced border for light-catching
-      boxShadow: '0 16px 48px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.18)', // Deep shadow + inner glow
+      background: 'rgba(21, 29, 47, 0.55)',
+      backdropFilter: 'blur(12px) saturate(1.1)',
+      border: 'none',
+      // Bevel: outer shadow + top highlight + bottom shadow
+      boxShadow: '0 16px 48px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -1px 0 rgba(0, 0, 0, 0.20)',
     },
 
     // Violet-tinted glass (accent surfaces - playback/active states)
     violet: {
-      background: 'linear-gradient(135deg, rgba(115, 102, 240, 0.12) 0%, rgba(21, 29, 47, 0.50) 100%)', // Stronger violet tint
-      backdropFilter: 'blur(28px) saturate(1.3)',   // Intensified blur (24→28px) for vibrant accent glass
-      border: '1px solid rgba(115, 102, 240, 0.28)', // Enhanced violet border (20→28%) for vivid light-catching
-      boxShadow: '0 8px 32px rgba(115, 102, 240, 0.20), 0 0 0 1px rgba(115, 102, 240, 0.22)', // Violet inner glow intensified (15→22%)
+      background: 'linear-gradient(135deg, rgba(115, 102, 240, 0.12) 0%, rgba(21, 29, 47, 0.50) 100%)',
+      backdropFilter: 'blur(10px) saturate(1.15)',
+      border: 'none',
+      // Violet bevel
+      boxShadow: '0 8px 32px rgba(115, 102, 240, 0.20), inset 0 1px 0 rgba(115, 102, 240, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.20)',
     },
 
     // Aqua-tinted glass (audio-reactive surfaces - processing/energy)
     aqua: {
-      background: 'linear-gradient(135deg, rgba(71, 214, 255, 0.10) 0%, rgba(21, 29, 47, 0.50) 100%)', // Stronger aqua tint
-      backdropFilter: 'blur(28px) saturate(1.3)',   // Intensified blur (24→28px) for energetic glass
-      border: '1px solid rgba(71, 214, 255, 0.25)', // Enhanced aqua border (18→25%) for bright light edges
-      boxShadow: '0 8px 32px rgba(71, 214, 255, 0.18), 0 0 0 1px rgba(71, 214, 255, 0.18)', // Aqua inner glow intensified (12→18%)
+      background: 'linear-gradient(135deg, rgba(71, 214, 255, 0.10) 0%, rgba(21, 29, 47, 0.50) 100%)',
+      backdropFilter: 'blur(10px) saturate(1.15)',
+      border: 'none',
+      // Aqua bevel
+      boxShadow: '0 8px 32px rgba(71, 214, 255, 0.18), inset 0 1px 0 rgba(71, 214, 255, 0.20), inset 0 -1px 0 rgba(0, 0, 0, 0.20)',
     },
   },
 
