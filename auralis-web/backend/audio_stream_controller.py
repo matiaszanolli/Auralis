@@ -288,6 +288,82 @@ class AudioStreamController:
 
             return False
 
+    async def _check_or_queue_fingerprint(
+        self,
+        track_id: int,
+        filepath: str,
+        websocket: Optional[WebSocket] = None
+    ) -> bool:
+        """
+        Non-blocking fingerprint check - queue generation instead of waiting.
+
+        Phase 7.5: Don't block streaming on fingerprint generation.
+        - If fingerprint exists in database: return True immediately
+        - If fingerprint missing: queue for background generation, return False
+        - Stream starts immediately with standard mastering either way
+
+        Args:
+            track_id: ID of the track
+            filepath: Path to audio file
+            websocket: Optional WebSocket connection for progress messages
+
+        Returns:
+            True if fingerprint is cached and ready, False if not (generation queued)
+        """
+        if not self._get_repository_factory:
+            logger.debug(f"RepositoryFactory not available, skipping fingerprint check")
+            return False
+
+        try:
+            # Quick database check - O(1) lookup, no blocking
+            factory = self._get_repository_factory()
+            fingerprint_repo = factory.fingerprints
+
+            if fingerprint_repo.exists(track_id):
+                # Fingerprint already cached - streaming will use optimized mastering
+                logger.info(f"✅ Fingerprint cached for track {track_id} (instant lookup)")
+                if websocket:
+                    await self._send_fingerprint_progress(
+                        websocket,
+                        track_id=track_id,
+                        status="cached",
+                        message="Using cached audio analysis"
+                    )
+                return True
+
+            # Fingerprint not cached - queue for background generation
+            logger.info(f"📋 Fingerprint not cached for track {track_id}, queuing for background generation")
+
+            # Try to enqueue via fingerprint queue (non-blocking)
+            try:
+                from fingerprint_queue import get_fingerprint_queue
+                queue = get_fingerprint_queue()
+                if queue:
+                    added = queue.enqueue(track_id)
+                    if added:
+                        logger.info(f"📋 Track {track_id} queued for background fingerprinting")
+                    else:
+                        logger.debug(f"Track {track_id} already queued or processing")
+                else:
+                    logger.debug(f"Fingerprint queue not available")
+            except Exception as q_err:
+                logger.debug(f"Could not enqueue track {track_id}: {q_err}")
+
+            # Send progress message - using standard mastering
+            if websocket:
+                await self._send_fingerprint_progress(
+                    websocket,
+                    track_id=track_id,
+                    status="queued",
+                    message="Audio analysis queued, using standard mastering"
+                )
+
+            return False
+
+        except Exception as e:
+            logger.debug(f"Fingerprint check failed for track {track_id}: {e}")
+            return False
+
     async def stream_enhanced_audio(
         self,
         track_id: int,
@@ -349,23 +425,18 @@ class AudioStreamController:
             assert processor.channels is not None
             assert processor.duration is not None
 
-            # NEW (Phase 7.3): Ensure fingerprint is available before streaming
-            # This handles the case where fingerprints aren't cached in the database
-            # On-demand generation via PyO3 happens asynchronously here
-            fingerprint_available = await self._ensure_fingerprint_available(
+            # Phase 7.5: Non-blocking fingerprint check
+            # Check if fingerprint exists in cache - if not, queue for background generation
+            # Don't wait for generation - start streaming immediately with standard mastering
+            fingerprint_available = await self._check_or_queue_fingerprint(
                 track_id=track_id,
                 filepath=str(track.filepath),
                 websocket=websocket
             )
             if fingerprint_available:
-                logger.info(f"🎯 Adaptive mastering will use fingerprint-optimized parameters")
+                logger.info(f"🎯 Adaptive mastering will use fingerprint-optimized parameters (cached)")
             else:
-                logger.info(f"📊 Streaming with standard adaptive mastering (no fingerprint available)")
-
-            # Check if WebSocket disconnected during fingerprint analysis
-            if not self._is_websocket_connected(websocket):
-                logger.info(f"WebSocket disconnected during fingerprint analysis, aborting stream")
-                return
+                logger.info(f"📊 Streaming with standard adaptive mastering (fingerprint queued for background generation)")
 
             logger.info(
                 f"Starting audio stream: track={track_id}, preset={preset}, "
