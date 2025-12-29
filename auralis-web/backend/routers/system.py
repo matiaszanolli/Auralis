@@ -332,6 +332,85 @@ def create_system_router(
                         }
                     }))
 
+                elif message.get("type") == "seek":
+                    # Seek to a specific position in the track
+                    # This restarts streaming from the chunk containing the target position
+                    data = message.get("data", {})
+                    track_id = data.get("track_id")
+                    position = data.get("position", 0)  # Position in seconds
+                    preset = data.get("preset", "adaptive")
+                    intensity = data.get("intensity", 1.0)
+
+                    logger.info(
+                        f"Received seek: track_id={track_id}, "
+                        f"position={position}s, preset={preset}"
+                    )
+
+                    # Cancel any existing streaming task for this websocket
+                    ws_id = id(websocket)
+                    if ws_id in _active_streaming_tasks:
+                        old_task = _active_streaming_tasks[ws_id]
+                        if not old_task.done():
+                            logger.info(f"Cancelling existing streaming task for seek")
+                            old_task.cancel()
+                            # Wait briefly for task to cancel
+                            try:
+                                await asyncio.wait_for(asyncio.shield(old_task), timeout=0.1)
+                            except (asyncio.CancelledError, asyncio.TimeoutError):
+                                pass
+
+                    # Send seek_started acknowledgment to client
+                    await websocket.send_text(json.dumps({
+                        "type": "seek_started",
+                        "data": {
+                            "track_id": track_id,
+                            "position": position,
+                        }
+                    }))
+
+                    # Define streaming coroutine with seek position
+                    async def stream_from_position():
+                        try:
+                            from chunked_processor import ChunkedAudioProcessor
+
+                            controller = AudioStreamController(
+                                chunked_processor_class=ChunkedAudioProcessor,
+                                get_repository_factory=get_repository_factory,
+                            )
+
+                            await controller.stream_enhanced_audio_from_position(
+                                track_id=track_id,
+                                preset=preset,
+                                intensity=intensity,
+                                websocket=websocket,
+                                start_position=position,
+                            )
+                        except asyncio.CancelledError:
+                            logger.info(f"Seek streaming task cancelled for track {track_id}")
+                        except Exception as e:
+                            logger.error(f"Error in seek streaming task: {e}", exc_info=True)
+                            try:
+                                await websocket.send_text(
+                                    json.dumps({
+                                        "type": "audio_stream_error",
+                                        "data": {
+                                            "track_id": track_id,
+                                            "error": str(e),
+                                            "code": "SEEK_ERROR"
+                                        }
+                                    })
+                                )
+                            except Exception:
+                                pass
+                        finally:
+                            if ws_id in _active_streaming_tasks:
+                                del _active_streaming_tasks[ws_id]
+
+                    # Start seek streaming in background
+                    task = asyncio.create_task(stream_from_position())
+                    _active_streaming_tasks[ws_id] = task
+                    logger.info(f"Started seek streaming task for track {track_id} at {position}s")
+
                 elif message.get("type") == "subscribe_job_progress":
                     # Subscribe to job progress updates
                     job_id = message.get("job_id")

@@ -858,3 +858,203 @@ class AudioStreamController:
             logger.debug(f"Sent fingerprint_progress: track={track_id}, status={status}")
         except Exception as e:
             logger.error(f"Failed to send fingerprint_progress message: {e}")
+
+    async def stream_enhanced_audio_from_position(
+        self,
+        track_id: int,
+        preset: str,
+        intensity: float,
+        websocket: WebSocket,
+        start_position: float,
+        on_progress: Optional[Callable[[int, float, str], Any]] = None
+    ) -> None:
+        """
+        Stream enhanced audio chunks starting from a specific position (seek).
+
+        This method is used for seeking - it starts streaming from the chunk
+        containing the target position, with an offset applied for precise seeking.
+
+        Args:
+            track_id: Track ID to process and stream
+            preset: Processing preset (adaptive, gentle, warm, etc.)
+            intensity: Processing intensity (0.0-1.0)
+            websocket: WebSocket connection to client
+            start_position: Position in seconds to start streaming from
+            on_progress: Optional callback for progress updates
+
+        Raises:
+            ValueError: If track not found or processor unavailable
+            Exception: If processing or streaming fails
+        """
+        if not self.chunked_processor_class:
+            raise ValueError("ChunkedProcessor not available")
+
+        if not self._get_repository_factory:
+            raise ValueError("RepositoryFactory not available")
+
+        # Get track from library
+        try:
+            factory = self._get_repository_factory()
+            track = factory.tracks.get_by_id(track_id)
+            if not track:
+                await self._send_error(websocket, track_id, "Track not found")
+                return
+
+            if not Path(track.filepath).exists():
+                await self._send_error(
+                    websocket, track_id, f"Audio file not found: {track.filepath}"
+                )
+                return
+        except Exception as e:
+            logger.error(f"Failed to load track {track_id}: {e}")
+            await self._send_error(websocket, track_id, str(e))
+            return
+
+        try:
+            # Create processor for this track
+            processor: ChunkedAudioProcessor = self.chunked_processor_class(
+                track_id=track_id,
+                filepath=str(track.filepath),
+                preset=preset,
+                intensity=intensity,
+            )
+
+            # Ensure processor has loaded metadata
+            assert processor.total_chunks is not None
+            assert processor.sample_rate is not None
+            assert processor.channels is not None
+            assert processor.duration is not None
+
+            # Calculate which chunk to start from based on position
+            # Chunks overlap, so we need to find the chunk that contains this position
+            chunk_interval = getattr(processor, 'chunk_interval', 10.0)  # Default 10s interval
+            start_chunk_idx = int(start_position / chunk_interval)
+            start_chunk_idx = max(0, min(start_chunk_idx, processor.total_chunks - 1))
+
+            # Calculate the offset within the chunk (for precise seeking)
+            chunk_start_time = start_chunk_idx * chunk_interval
+            seek_offset = start_position - chunk_start_time
+
+            logger.info(
+                f"Seek: position={start_position}s → chunk {start_chunk_idx}/{processor.total_chunks}, "
+                f"offset={seek_offset:.2f}s"
+            )
+
+            # Check if WebSocket disconnected
+            if not self._is_websocket_connected(websocket):
+                logger.info(f"WebSocket disconnected, aborting seek stream")
+                return
+
+            # Send stream start message with seek info
+            if not await self._send_stream_start_with_seek(
+                websocket,
+                track_id=track_id,
+                preset=preset,
+                intensity=intensity,
+                sample_rate=processor.sample_rate,
+                channels=processor.channels,
+                total_chunks=processor.total_chunks,
+                chunk_duration=processor.chunk_duration,
+                total_duration=processor.duration,
+                start_chunk=start_chunk_idx,
+                seek_position=start_position,
+                seek_offset=seek_offset,
+            ):
+                logger.info(f"WebSocket disconnected, cannot start seek stream")
+                return
+
+            # Process and stream chunks starting from start_chunk_idx
+            for chunk_idx in range(start_chunk_idx, processor.total_chunks):
+                if not self._is_websocket_connected(websocket):
+                    logger.info(f"WebSocket disconnected, stopping seek stream")
+                    break
+
+                try:
+                    # Process chunk with fast-start for first chunk of seek
+                    fast_start = (chunk_idx == start_chunk_idx)
+                    await self._process_and_stream_chunk(
+                        chunk_idx, processor, websocket, on_progress
+                    )
+
+                    # Progress update
+                    if on_progress:
+                        chunks_remaining = processor.total_chunks - start_chunk_idx
+                        chunks_done = chunk_idx - start_chunk_idx + 1
+                        progress = (chunks_done / chunks_remaining) * 100
+                        await on_progress(track_id, progress, f"Processed chunk {chunk_idx + 1}")
+
+                except Exception as chunk_error:
+                    logger.error(
+                        f"Failed to process chunk {chunk_idx}: {chunk_error}",
+                        exc_info=True
+                    )
+                    await self._send_error(
+                        websocket,
+                        track_id,
+                        f"Failed to process chunk {chunk_idx}: {chunk_error}",
+                    )
+                    return
+
+            # Stream complete
+            logger.info(f"Seek stream complete: track={track_id}")
+            await self._send_stream_end(
+                websocket,
+                track_id=track_id,
+                total_samples=int(processor.duration * processor.sample_rate),
+                duration=processor.duration,
+            )
+
+        except Exception as e:
+            if "close message" in str(e).lower():
+                logger.info(f"Seek streaming stopped: client disconnected")
+            else:
+                logger.error(f"Seek streaming failed: {e}", exc_info=True)
+                if self._is_websocket_connected(websocket):
+                    await self._send_error(websocket, track_id, str(e))
+
+    async def _send_stream_start_with_seek(
+        self,
+        websocket: WebSocket,
+        track_id: int,
+        preset: str,
+        intensity: float,
+        sample_rate: int,
+        channels: int,
+        total_chunks: int,
+        chunk_duration: float,
+        total_duration: float,
+        start_chunk: int,
+        seek_position: float,
+        seek_offset: float,
+    ) -> bool:
+        """
+        Send audio_stream_start message with seek information.
+
+        Returns:
+            True if message was sent, False if WebSocket was disconnected.
+        """
+        message: Dict[str, Any] = {
+            "type": "audio_stream_start",
+            "data": {
+                "track_id": track_id,
+                "preset": preset,
+                "intensity": intensity,
+                "sample_rate": sample_rate,
+                "channels": channels,
+                "total_chunks": total_chunks,
+                "chunk_duration": chunk_duration,
+                "total_duration": total_duration,
+                # Seek-specific fields
+                "is_seek": True,
+                "start_chunk": start_chunk,
+                "seek_position": seek_position,
+                "seek_offset": seek_offset,
+            },
+        }
+        if await self._safe_send(websocket, message):
+            logger.debug(
+                f"Sent stream_start (seek): chunk {start_chunk}/{total_chunks}, "
+                f"position={seek_position}s"
+            )
+            return True
+        return False

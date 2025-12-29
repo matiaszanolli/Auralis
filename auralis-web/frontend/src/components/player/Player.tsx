@@ -19,7 +19,7 @@
  * ```
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
 
@@ -34,25 +34,16 @@ import TrackDisplay from './TrackDisplay';
 // Phase 6 Queue Component
 import QueuePanel from './QueuePanel';
 
-// Phase 3 Enhancement Components
-import { PlayerEnhancementPanel } from '@/components/enhancement';
-
-// Core Phase 3 Hooks
-import { usePlayerStreaming, PlayerStreamingState } from '@/hooks/player/usePlayerStreaming';
-import { usePlayerDisplay, PlayerDisplayInfo } from '@/hooks/player/usePlayerDisplay';
-
 // WebSocket Audio Streaming Hook (replaces REST API playback)
 import { usePlayEnhanced } from '@/hooks/enhancement/usePlayEnhanced';
 
-// Existing hooks for track info
-import { useCurrentTrack } from '@/hooks/player/usePlaybackState';
+// Redux hooks and actions
 import { useSelector, useDispatch } from 'react-redux';
 import {
   selectQueueTracks,
   selectCurrentIndex,
   nextTrack,
   previousTrack,
-  setCurrentIndex,
 } from '@/store/slices/queueSlice';
 import { setCurrentTrack } from '@/store/slices/playerSlice';
 
@@ -84,20 +75,21 @@ const Player: React.FC = () => {
   const currentQueueIndex = useSelector(selectCurrentIndex);
 
   // WebSocket Audio Streaming Hook (replaces REST API playback)
-  // Provides: playEnhanced, pausePlayback, resumePlayback, stopPlayback, setVolume
+  // Provides: playEnhanced, seekTo, pausePlayback, resumePlayback, stopPlayback, setVolume
   const {
     playEnhanced,
+    seekTo,
     pausePlayback,
     resumePlayback,
     stopPlayback,
     setVolume: setStreamingVolume,
     isStreaming,
     streamingState,
-    streamingProgress,
     processedChunks,
     totalChunks,
     currentTime: wsCurrentTime,
     isPaused,
+    isSeeking,
     error: streamingError,
   } = usePlayEnhanced();
 
@@ -108,21 +100,17 @@ const Player: React.FC = () => {
   // Use streaming progress as buffered percentage (chunks received / total chunks)
   const wsBufferedPercentage = totalChunks > 0 ? (processedChunks / totalChunks) * 100 : 0;
 
-  // Phase 3 Hook: Core streaming synchronization
-  // Handles timing, buffering, position tracking, and WebSocket sync
-  const streaming = usePlayerStreaming({
-    audioElement: null, // Audio streaming via WebSocket (usePlayEnhanced), not HTML5 audio
-    syncInterval: 5000,
-    driftThreshold: 500,
-    updateInterval: 100,
-  });
+  // Note: usePlayerStreaming is not used - all streaming is via WebSocket (usePlayEnhanced)
 
-  // DISABLED: Seeking not supported with WebSocket streaming
-  // TODO: Implement chunk-based seeking in the future
-  const handleSeek = (_position: number) => {
-    console.warn('[Player] Seeking is not supported with WebSocket streaming');
-    // Seeking requires stopping current stream, calculating chunk offset,
-    // and restarting from that position - complex to implement correctly
+  // Handle seeking via WebSocket
+  // Sends seek message to backend which restarts streaming from the target chunk
+  const handleSeek = (position: number) => {
+    if (!isStreaming && !currentTrack?.id) {
+      console.warn('[Player] Cannot seek: no track playing');
+      return;
+    }
+    console.log('[Player] Seeking to position:', position);
+    seekTo(position);
   };
 
   // Next track: Stop current stream, update queue index, start new stream
@@ -223,14 +211,34 @@ const Player: React.FC = () => {
     }
   };
 
-  // Phase 3 Hook: Display formatting
-  // Converts raw streaming data to formatted display strings
-  const display = usePlayerDisplay({
-    currentTime: wsCurrentTime,
-    duration: currentTrack?.duration ?? 0,
-    isPlaying: isStreaming && !isPaused,
-    bufferedPercentage: wsBufferedPercentage,
-  });
+  // Auto-advance to next track when current track ends
+  // Detects when streaming is complete and playback has reached near the end
+  const hasAutoAdvancedRef = useRef(false);
+  const trackDuration = currentTrack?.duration ?? 0;
+
+  useEffect(() => {
+    // Reset auto-advance flag when track changes
+    hasAutoAdvancedRef.current = false;
+  }, [currentTrack?.id]);
+
+  useEffect(() => {
+    // Conditions for auto-advance:
+    // 1. All chunks received (streamingState === 'complete')
+    // 2. Playback has reached near the end (within 0.5s of duration)
+    // 3. Track has meaningful duration (> 0)
+    // 4. Haven't already auto-advanced for this track
+    const isComplete = streamingState === 'complete';
+    const nearEnd = trackDuration > 0 && wsCurrentTime >= trackDuration - 0.5;
+    const hasMoreTracks = currentQueueIndex < queueTracks.length - 1;
+
+    if (isComplete && nearEnd && hasMoreTracks && !hasAutoAdvancedRef.current) {
+      hasAutoAdvancedRef.current = true;
+      console.log('[Player] Track ended, auto-advancing to next track');
+      handleNext();
+    }
+  }, [streamingState, wsCurrentTime, trackDuration, currentQueueIndex, queueTracks.length]);
+
+  // Note: usePlayerDisplay not used - TimeDisplay component handles formatting
 
   // Extract volume from Redux state (0-1 range, convert to 0-100 for components)
   const volume = useMemo(() => {
@@ -250,17 +258,17 @@ const Player: React.FC = () => {
       {/* Progress Bar - Full width at top */}
       <Box sx={styles.progressBarContainer}>
         <BufferingIndicator
-          isBuffering={isBuffering}
+          isBuffering={isBuffering || isSeeking}
           bufferedPercentage={wsBufferedPercentage}
           isError={hasError}
-          errorMessage={streamingError ?? undefined}
+          errorMessage={isSeeking ? 'Seeking...' : (streamingError ?? undefined)}
         />
         <ProgressBar
           currentTime={wsCurrentTime}
           duration={currentTrack?.duration ?? 0}
           bufferedPercentage={wsBufferedPercentage}
           onSeek={handleSeek}
-          disabled={true}  /* Seeking disabled until WebSocket chunk-based seeking is implemented */
+          disabled={hasError || isSeeking}  /* Disable during errors or while seeking */
         />
       </Box>
 

@@ -77,6 +77,12 @@ export interface UsePlayEnhancedReturn {
   playEnhanced: (trackId: number, preset: string, intensity: number) => Promise<void>;
 
   /**
+   * Seek to a specific position in the current track
+   * @param position Position in seconds to seek to
+   */
+  seekTo: (position: number) => void;
+
+  /**
    * Stop playback completely
    */
   stopPlayback: () => void;
@@ -142,6 +148,11 @@ export interface UsePlayEnhancedReturn {
   isPaused: boolean;
 
   /**
+   * Whether currently seeking
+   */
+  isSeeking: boolean;
+
+  /**
    * Fingerprint analysis status (idle, analyzing, complete, failed, error)
    * Shows user feedback during audio analysis phase
    */
@@ -187,8 +198,16 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   // State for UI
   const [currentTime, setCurrentTime] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isSeeking, setIsSeeking] = useState(false);
   const [fingerprintStatus, setFingerprintStatus] = useState<'idle' | 'analyzing' | 'complete' | 'failed' | 'error'>('idle');
   const [fingerprintMessage, setFingerprintMessage] = useState<string | null>(null);
+
+  // Current track info for seek operations
+  const currentTrackInfoRef = useRef<{
+    trackId: number;
+    preset: string;
+    intensity: number;
+  } | null>(null);
 
   /**
    * Cleanup streaming resources (but NOT subscriptions - managed by mount effect)
@@ -212,11 +231,22 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    */
   const handleStreamStart = useCallback((message: AudioStreamStartMessage) => {
     try {
+      // Check if this is a seek operation
+      const isSeek = (message.data as any).is_seek === true;
+      const seekPosition = (message.data as any).seek_position || 0;
+
       console.log('[usePlayEnhanced] Stream started:', {
         trackId: message.data.track_id,
         chunks: message.data.total_chunks,
         duration: message.data.total_duration,
+        isSeek,
+        seekPosition: isSeek ? seekPosition : undefined,
       });
+
+      // If this is a seek, clear the seeking flag
+      if (isSeek) {
+        setIsSeeking(false);
+      }
 
       // Initialize PCMStreamBuffer
       const buffer = new PCMStreamBuffer();
@@ -494,6 +524,13 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
           // Continue anyway - playback will still work
         }
 
+        // Store track info for seek operations
+        currentTrackInfoRef.current = {
+          trackId,
+          preset,
+          intensity,
+        };
+
         // Set buffering state immediately for instant user feedback
         dispatch(startStreaming({
           trackId,
@@ -559,6 +596,53 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const setVolume = useCallback((volume: number) => {
     playbackEngineRef.current?.setVolume(Math.max(0, Math.min(1, volume)));
   }, []);
+
+  /**
+   * Seek to a specific position in the current track
+   * Sends a seek message to backend which restarts streaming from that position
+   */
+  const seekTo = useCallback((position: number) => {
+    if (!currentTrackInfoRef.current) {
+      console.warn('[usePlayEnhanced] Cannot seek: no track info available');
+      return;
+    }
+
+    if (!wsContext.isConnected) {
+      console.warn('[usePlayEnhanced] Cannot seek: WebSocket not connected');
+      return;
+    }
+
+    const { trackId, preset, intensity } = currentTrackInfoRef.current;
+
+    console.log('[usePlayEnhanced] Seeking to:', position, 'seconds');
+
+    // Set seeking state
+    setIsSeeking(true);
+
+    // Stop current playback and clear buffer
+    playbackEngineRef.current?.stopPlayback();
+    pcmBufferRef.current?.reset();
+
+    // Reset streaming metadata for new seek stream
+    if (streamingMetadataRef.current) {
+      streamingMetadataRef.current.processedChunks = 0;
+    }
+
+    // Clear pending chunks
+    pendingChunksRef.current = [];
+    lastReceivedChunkIndexRef.current = -1;
+
+    // Send seek message to backend
+    wsContext.send({
+      type: 'seek',
+      data: {
+        track_id: trackId,
+        position,
+        preset,
+        intensity,
+      },
+    });
+  }, [wsContext]);
 
   /**
    * Subscribe to streaming messages on mount
@@ -663,6 +747,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
   return {
     playEnhanced,
+    seekTo,
     stopPlayback,
     pausePlayback,
     resumePlayback,
@@ -676,6 +761,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     error: streamingState.error,
     currentTime,
     isPaused,
+    isSeeking,
     fingerprintStatus,
     fingerprintMessage,
   };
