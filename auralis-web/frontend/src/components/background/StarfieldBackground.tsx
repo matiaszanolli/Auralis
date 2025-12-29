@@ -25,7 +25,7 @@ const VERTEX_SHADER = `
   }
 `;
 
-// Fragment shader - procedural starfield with nebula
+// Fragment shader - procedural starfield with vibrant nebulae and aurora
 const FRAGMENT_SHADER = `
   precision highp float;
 
@@ -36,11 +36,15 @@ const FRAGMENT_SHADER = `
   uniform vec2 u_mouse;
   uniform float u_parallaxStrength;
 
-  // Theme colors (from design tokens)
-  const vec3 BG_COLOR = vec3(0.043, 0.063, 0.125);      // #0B1020
-  const vec3 NEBULA_PURPLE = vec3(0.451, 0.4, 0.941);   // #7366F0
-  const vec3 NEBULA_CYAN = vec3(0.278, 0.839, 1.0);     // #47D6FF
-  const vec3 NEBULA_PINK = vec3(0.925, 0.282, 0.6);     // #EC4899
+  // Theme colors (vibrant cosmic palette)
+  const vec3 BG_COLOR = vec3(0.035, 0.05, 0.10);        // Deep space blue-black
+  const vec3 NEBULA_VIOLET = vec3(0.45, 0.35, 0.95);    // Rich violet
+  const vec3 NEBULA_PURPLE = vec3(0.6, 0.2, 0.8);       // Deep purple
+  const vec3 NEBULA_CYAN = vec3(0.2, 0.8, 1.0);         // Electric cyan
+  const vec3 NEBULA_TEAL = vec3(0.1, 0.6, 0.7);         // Deep teal
+  const vec3 NEBULA_PINK = vec3(0.9, 0.3, 0.6);         // Hot pink
+  const vec3 NEBULA_MAGENTA = vec3(0.8, 0.2, 0.5);      // Magenta
+  const vec3 AURORA_GREEN = vec3(0.2, 0.9, 0.4);        // Aurora green
 
   // Pseudo-random function
   float hash(vec2 p) {
@@ -62,18 +66,64 @@ const FRAGMENT_SHADER = `
   }
 
   // Fractal Brownian Motion for nebula clouds
-  float fbm(vec2 p) {
+  float fbm(vec2 p, int octaves) {
     float value = 0.0;
     float amplitude = 0.5;
     float frequency = 1.0;
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 6; i++) {
+      if (i >= octaves) break;
       value += amplitude * noise(p * frequency);
       amplitude *= 0.5;
       frequency *= 2.0;
     }
 
     return value;
+  }
+
+  // Ridged noise for dramatic nebula edges
+  float ridgedNoise(vec2 p) {
+    return 1.0 - abs(noise(p) * 2.0 - 1.0);
+  }
+
+  // Ridged FBM for more dramatic cloud formations
+  float ridgedFbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    float frequency = 1.0;
+
+    for (int i = 0; i < 5; i++) {
+      value += amplitude * ridgedNoise(p * frequency);
+      amplitude *= 0.5;
+      frequency *= 2.0;
+    }
+
+    return value;
+  }
+
+  // Aurora wave function
+  float aurora(vec2 uv, float time) {
+    float wave = 0.0;
+
+    // Multiple wave layers with different frequencies
+    wave += sin(uv.x * 3.0 + time * 0.3 + sin(uv.x * 1.5 + time * 0.2) * 2.0) * 0.5;
+    wave += sin(uv.x * 5.0 - time * 0.4 + cos(uv.x * 2.0 + time * 0.15) * 1.5) * 0.3;
+    wave += sin(uv.x * 8.0 + time * 0.5 + sin(uv.x * 3.0 - time * 0.25) * 1.0) * 0.2;
+
+    // Vertical position with wave distortion
+    float auroraY = 0.7 + wave * 0.08;
+    float dist = abs(uv.y - auroraY);
+
+    // Sharp falloff for aurora bands
+    float intensity = smoothstep(0.15, 0.0, dist);
+    intensity *= smoothstep(0.0, 0.3, uv.y); // Fade at bottom
+    intensity *= smoothstep(1.0, 0.6, uv.y); // Fade at top
+
+    // Add shimmer
+    float shimmer = noise(vec2(uv.x * 20.0 + time * 2.0, uv.y * 5.0));
+    intensity *= 0.7 + 0.3 * shimmer;
+
+    return intensity;
   }
 
   // Star layer with twinkling
@@ -84,34 +134,27 @@ const FRAGMENT_SHADER = `
 
     float starBrightness = 0.0;
 
-    // Check 3x3 neighborhood for smoother distribution
     for (int y = -1; y <= 1; y++) {
       for (int x = -1; x <= 1; x++) {
         vec2 offset = vec2(float(x), float(y));
         vec2 cellID = gridID + offset;
 
-        // Random position within cell
         float rand1 = hash(cellID);
         float rand2 = hash(cellID + vec2(42.0, 17.0));
         vec2 starPos = offset + vec2(rand1, rand2) - gridFract;
 
-        // Star size and brightness (varies per star)
         float starSize = hash(cellID + vec2(13.0, 37.0));
 
-        // Only show ~30% of cells as stars
         if (starSize > 0.7) {
           float dist = length(starPos);
 
-          // Twinkle effect (unique phase per star)
           float twinklePhase = hash(cellID + vec2(7.0, 23.0)) * 6.28318;
           float twinkleSpeed = 0.5 + hash(cellID + vec2(31.0, 41.0)) * 1.5;
           float twinkle = 0.5 + 0.5 * sin(u_time * twinkleSpeed + twinklePhase);
 
-          // Star intensity
           float brightness = smoothstep(0.08, 0.0, dist);
           brightness *= (0.3 + 0.7 * starSize) * (0.5 + 0.5 * twinkle);
 
-          // Larger stars have subtle glow
           if (starSize > 0.9) {
             brightness += smoothstep(0.2, 0.0, dist) * 0.15 * twinkle;
           }
@@ -129,59 +172,99 @@ const FRAGMENT_SHADER = `
     float aspect = u_resolution.x / u_resolution.y;
     vec2 uvAspect = vec2(uv.x * aspect, uv.y);
 
-    // Apply parallax offset based on mouse position
+    // Parallax offset
     vec2 parallaxOffset = (u_mouse - 0.5) * u_parallaxStrength * 0.02;
     uvAspect += parallaxOffset;
 
-    // Base color
+    // Base deep space color
     vec3 color = BG_COLOR;
 
-    // Nebula clouds (very subtle, slow-moving)
-    float nebula1 = fbm(uvAspect * 2.0 + u_time * 0.02);
-    float nebula2 = fbm(uvAspect * 3.0 - u_time * 0.015 + vec2(5.0, 3.0));
-    float nebula3 = fbm(uvAspect * 1.5 + u_time * 0.01 + vec2(10.0, 7.0));
+    // === NEBULA LAYERS (rich, colorful gas clouds) ===
 
-    // Layer nebula colors with very low opacity
+    // Large-scale nebula structure (slow moving)
+    float nebula1 = fbm(uvAspect * 1.2 + u_time * 0.015, 6);
+    float nebula2 = fbm(uvAspect * 1.8 - u_time * 0.012 + vec2(5.0, 3.0), 5);
+    float nebula3 = ridgedFbm(uvAspect * 2.5 + u_time * 0.008 + vec2(10.0, 7.0));
+
+    // Medium-scale detail
+    float detail1 = fbm(uvAspect * 4.0 + u_time * 0.02, 4);
+    float detail2 = fbm(uvAspect * 6.0 - u_time * 0.018 + vec2(3.0, 8.0), 4);
+
+    // Combine nebula with rich colors
     vec3 nebulaColor = vec3(0.0);
-    nebulaColor += NEBULA_PURPLE * smoothstep(0.4, 0.7, nebula1) * 0.08;
-    nebulaColor += NEBULA_CYAN * smoothstep(0.45, 0.75, nebula2) * 0.05;
-    nebulaColor += NEBULA_PINK * smoothstep(0.5, 0.8, nebula3) * 0.03;
 
-    // Add vignette to nebula (more visible in center)
-    float vignette = 1.0 - length((uv - 0.5) * 1.5);
-    vignette = smoothstep(0.0, 0.7, vignette);
-    nebulaColor *= vignette;
+    // Primary violet/purple nebula (large, dominant)
+    float purpleIntensity = smoothstep(0.35, 0.65, nebula1) * smoothstep(0.3, 0.6, detail1);
+    nebulaColor += mix(NEBULA_VIOLET, NEBULA_PURPLE, detail1) * purpleIntensity * 0.25;
+
+    // Cyan/teal accents (mid-layer)
+    float cyanIntensity = smoothstep(0.4, 0.7, nebula2) * smoothstep(0.35, 0.65, detail2);
+    nebulaColor += mix(NEBULA_CYAN, NEBULA_TEAL, detail2) * cyanIntensity * 0.18;
+
+    // Pink/magenta highlights (smaller, brighter spots)
+    float pinkIntensity = smoothstep(0.5, 0.8, nebula3) * smoothstep(0.45, 0.75, detail1);
+    nebulaColor += mix(NEBULA_PINK, NEBULA_MAGENTA, nebula3) * pinkIntensity * 0.15;
+
+    // Add depth variation (nebula brighter in certain regions)
+    float depthMask = fbm(uvAspect * 0.8 + vec2(20.0, 15.0), 3);
+    nebulaColor *= 0.6 + 0.8 * smoothstep(0.3, 0.7, depthMask);
+
+    // Subtle breathing/pulsing
+    float breathe = 0.9 + 0.1 * sin(u_time * 0.3);
+    nebulaColor *= breathe;
+
+    // === AURORA EFFECT (flowing bands in upper region) ===
+    float auroraIntensity = aurora(uv, u_time);
+
+    // Aurora color gradient (green to cyan to purple)
+    vec3 auroraColor = mix(AURORA_GREEN, NEBULA_CYAN, smoothstep(0.0, 0.5, auroraIntensity));
+    auroraColor = mix(auroraColor, NEBULA_VIOLET, smoothstep(0.5, 1.0, auroraIntensity));
+
+    // Add aurora to scene (subtle but visible)
+    nebulaColor += auroraColor * auroraIntensity * 0.12;
+
+    // === VIGNETTE (focus nebula in interesting regions) ===
+    // Offset vignette slightly to upper-left for visual interest
+    vec2 vignetteCenter = vec2(0.45, 0.55);
+    float vignette = 1.0 - length((uv - vignetteCenter) * vec2(1.3, 1.1));
+    vignette = smoothstep(-0.1, 0.6, vignette);
+    nebulaColor *= 0.4 + 0.6 * vignette;
 
     color += nebulaColor;
 
-    // Multiple star layers for depth (parallax effect)
-    float layer1 = stars(uvAspect + parallaxOffset * 0.5, 80.0, 1.0);   // Distant, many stars
-    float layer2 = stars(uvAspect + parallaxOffset * 1.0, 40.0, 0.8);   // Medium distance
-    float layer3 = stars(uvAspect + parallaxOffset * 1.5, 20.0, 0.6);   // Closer, fewer but brighter
+    // === STAR LAYERS ===
+    float layer1 = stars(uvAspect + parallaxOffset * 0.5, 80.0, 1.0);
+    float layer2 = stars(uvAspect + parallaxOffset * 1.0, 40.0, 0.8);
+    float layer3 = stars(uvAspect + parallaxOffset * 1.5, 20.0, 0.6);
 
-    // Combine star layers with different intensities
     float starField = layer1 * 0.4 + layer2 * 0.6 + layer3 * 0.8;
 
-    // Star color (slightly warm for distant, cooler for closer)
+    // Star colors (warmer distant, cooler close)
     vec3 starColor = mix(
-      vec3(1.0, 0.95, 0.9),   // Warm white
-      vec3(0.9, 0.95, 1.0),   // Cool white
+      vec3(1.0, 0.95, 0.9),
+      vec3(0.9, 0.95, 1.0),
       layer3 / (layer1 + layer2 + layer3 + 0.001)
     );
 
-    // Add some colored stars (rare)
+    // Colored stars (more frequent)
     float coloredStar = hash(floor(uvAspect * 50.0));
-    if (coloredStar > 0.97) {
-      starColor = mix(starColor, NEBULA_CYAN, 0.3);
-    } else if (coloredStar > 0.94) {
-      starColor = mix(starColor, NEBULA_PURPLE, 0.2);
+    if (coloredStar > 0.95) {
+      starColor = mix(starColor, NEBULA_CYAN, 0.4);
+    } else if (coloredStar > 0.90) {
+      starColor = mix(starColor, NEBULA_VIOLET, 0.3);
+    } else if (coloredStar > 0.87) {
+      starColor = mix(starColor, NEBULA_PINK, 0.25);
     }
 
     color += starColor * starField;
 
+    // === FINAL ADJUSTMENTS ===
     // Subtle edge darkening
-    float edgeDark = 1.0 - pow(length((uv - 0.5) * 1.8), 2.0) * 0.3;
-    color *= max(edgeDark, 0.7);
+    float edgeDark = 1.0 - pow(length((uv - 0.5) * 1.6), 2.0) * 0.25;
+    color *= max(edgeDark, 0.75);
+
+    // Slight overall glow in nebula areas
+    color += nebulaColor * 0.05;
 
     gl_FragColor = vec4(color, 1.0);
   }
