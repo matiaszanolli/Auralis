@@ -73,8 +73,8 @@ export const AppContainer: React.FC<AppContainerProps> = ({
         sx={{
           flex: 1,
           minHeight: 0,     // Critical: allows flex child to shrink below content size
-          // Semi-transparent to let starfield background show through
-          background: 'rgba(11, 16, 32, 0.85)',  // Deep blue-black at 85% opacity
+          // Semi-transparent to let starfield background show through (no blur needed for base layer)
+          background: 'rgba(11, 16, 32, 0.65)',  // Deep blue-black at 65% opacity for starfield visibility
           color: tokens.colors.text.primary,
           display: 'flex',
           flexDirection: 'row',

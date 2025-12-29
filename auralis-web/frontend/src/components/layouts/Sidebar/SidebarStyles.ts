@@ -90,8 +90,8 @@ export const CollapsedSidebarContainer = styled(Box)({
   alignSelf: 'stretch', // Use flex stretch instead of height: 100%
   flexShrink: 0,
   // Semi-transparent to let starfield show through
-  background: 'rgba(16, 23, 41, 0.6)',  // secondary color at 60% opacity
-  backdropFilter: 'blur(12px) saturate(0.9)',
+  background: 'rgba(16, 23, 41, 0.45)',  // secondary color at 45% opacity for starfield visibility
+  backdropFilter: 'blur(6px) saturate(0.95)',  // Softer blur to preserve starfield
   // Removed hard border, using shadow for depth instead
   boxShadow: '2px 0 16px rgba(0, 0, 0, 0.12)', // Subtle right shadow for separation
   display: 'flex',

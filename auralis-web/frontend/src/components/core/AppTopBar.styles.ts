@@ -9,8 +9,8 @@ export const TopBarContainer = styled(Box)({
   justifyContent: 'space-between',
   padding: `${tokens.spacing.md} ${tokens.spacing.lg}`,
   // Semi-transparent to let starfield show through
-  background: 'rgba(21, 29, 47, 0.75)',  // level2 color at 75% opacity
-  backdropFilter: 'blur(12px) saturate(1.1)',
+  background: 'rgba(21, 29, 47, 0.55)',  // level2 color at 55% opacity for starfield visibility
+  backdropFilter: 'blur(8px) saturate(1.05)',  // Softer blur to preserve starfield
   borderBottom: `1px solid ${auroraOpacity.veryLight}`,
   height: 70,
   gap: tokens.spacing.md,
