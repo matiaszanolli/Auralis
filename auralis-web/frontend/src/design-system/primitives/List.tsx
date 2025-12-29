@@ -21,15 +21,17 @@ export type ListProps = MuiListProps;
 
 const StyledList = styled(MuiList)({
   padding: 0,
-  backgroundColor: tokens.colors.bg.level2,
+  // Transparent background for starfield visibility
+  backgroundColor: 'transparent',
   borderRadius: tokens.borderRadius.md,
 
   '& .MuiListItem-root': {
     padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
-    borderBottom: `1px solid ${tokens.colors.border.light}`,
+    // Glass bevel instead of hard border
+    boxShadow: 'inset 0 -1px 0 rgba(255, 255, 255, 0.03)',
 
     '&:last-child': {
-      borderBottom: 'none',
+      boxShadow: 'none',
     },
   },
 });

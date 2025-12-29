@@ -1,15 +1,15 @@
 /**
- * Artist List Styles - Reusable artist list component styling
+ * Artist List Styles - Glass card-based artist display
  *
- * Consolidates styled components from CozyArtistList
- * to improve modularity and maintainability.
+ * Uses glass cards instead of list items for starfield visibility.
+ * Each artist is displayed as a discrete glass card.
  */
 
-import { Avatar, Box, ListItem, ListItemButton, Typography, styled } from '@mui/material';
+import { Avatar, Box, ButtonBase, Typography, styled } from '@mui/material';
 import { tokens } from '@/design-system';
 
 /**
- * ListContainer - Main container for artist list
+ * ListContainer - Main container for artist cards
  */
 export const ListContainer = styled(Box)({
   padding: '24px',
@@ -17,37 +17,48 @@ export const ListContainer = styled(Box)({
 });
 
 /**
- * StyledListItem - Wrapper for artist list items
+ * StyledListItem - Wrapper for artist card (renamed for backwards compat)
  */
-export const StyledListItem = styled(ListItem)({
-  padding: 0,
-  marginBottom: '8px',
+export const StyledListItem = styled(Box)({
+  marginBottom: tokens.spacing.md,
 });
 
 /**
- * StyledListItemButton - Clickable artist list item with glass hover effects
- * Typography-driven design with increased breathing room
- * Glass effect on hover for starfield visibility
+ * StyledListItemButton - Glass card for artist
+ * Transparent by default, glass effect on hover
+ * Uses ButtonBase for clean clickable without MUI ListItem background
  */
-export const StyledListItemButton = styled(ListItemButton)({
+export const StyledListItemButton = styled(ButtonBase)({
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+  textAlign: 'left',
   borderRadius: tokens.borderRadius.md,
-  padding: '20px 24px',
-  minHeight: '72px',
+  padding: '16px 20px',
+  minHeight: '64px',
   transition: 'all 0.2s ease, backdrop-filter 0.2s ease',
-  background: 'transparent',
-  border: 'none',
+
+  // Glass card: subtle background for visibility without blocking starfield
+  background: 'rgba(21, 29, 47, 0.25)',
+  backdropFilter: 'blur(4px) saturate(1.02)',
+  // Glass bevel
+  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 -1px 0 rgba(0, 0, 0, 0.08)',
 
   '&:hover': {
-    // Glass effect on hover
-    background: 'rgba(21, 29, 47, 0.35)',
-    backdropFilter: 'blur(6px) saturate(1.05)',
-    // Glass bevel: subtle highlight + shadow
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.10)',
-    transform: 'translateX(2px)',
+    // Enhanced glass on hover
+    background: 'rgba(21, 29, 47, 0.40)',
+    backdropFilter: 'blur(8px) saturate(1.05)',
+    // Stronger glass bevel
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.12)',
+    transform: 'translateY(-1px)',
 
     '& .artist-name': {
       color: tokens.colors.accent.primary,
     },
+  },
+
+  '&:active': {
+    transform: 'translateY(0)',
   },
 });
 

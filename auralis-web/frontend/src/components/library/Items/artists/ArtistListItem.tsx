@@ -1,5 +1,5 @@
 import React from 'react';
-import { ListItemText } from '@mui/material';
+import { Box } from '@mui/material';
 import {
   StyledListItem,
   StyledListItemButton,
@@ -15,12 +15,12 @@ interface ArtistListItemProps {
 }
 
 /**
- * ArtistListItem - Single artist list item with typography-driven identity
+ * ArtistListItem - Glass card for artist display
  *
  * Displays:
  * - Artist name (primary typography)
  * - Album and track count metadata
- * - Clickable row with context menu support
+ * - Glass card with hover effects for starfield visibility
  */
 export const ArtistListItem: React.FC<ArtistListItemProps> = ({
   artist,
@@ -33,24 +33,20 @@ export const ArtistListItem: React.FC<ArtistListItemProps> = ({
         onClick={() => onClick(artist)}
         onContextMenu={(e) => onContextMenu(e, artist)}
       >
-        <ListItemText
-          primary={
-            <ArtistName className="artist-name" component="span">
-              {artist.name}
-            </ArtistName>
-          }
-          secondary={
-            <ArtistInfo component="span">
-              {artist.albumCount
-                ? `${artist.albumCount} ${artist.albumCount === 1 ? 'album' : 'albums'}`
-                : ''}
-              {artist.albumCount && artist.trackCount ? ' • ' : ''}
-              {artist.trackCount
-                ? `${artist.trackCount} ${artist.trackCount === 1 ? 'track' : 'tracks'}`
-                : ''}
-            </ArtistInfo>
-          }
-        />
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <ArtistName className="artist-name">
+            {artist.name}
+          </ArtistName>
+          <ArtistInfo>
+            {artist.albumCount
+              ? `${artist.albumCount} ${artist.albumCount === 1 ? 'album' : 'albums'}`
+              : ''}
+            {artist.albumCount && artist.trackCount ? ' • ' : ''}
+            {artist.trackCount
+              ? `${artist.trackCount} ${artist.trackCount === 1 ? 'track' : 'tracks'}`
+              : ''}
+          </ArtistInfo>
+        </Box>
       </StyledListItemButton>
     </StyledListItem>
   );
