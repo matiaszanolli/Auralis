@@ -25,19 +25,24 @@ export const StyledListItem = styled(ListItem)({
 });
 
 /**
- * StyledListItemButton - Clickable artist list item with hover effects
+ * StyledListItemButton - Clickable artist list item with glass hover effects
  * Typography-driven design with increased breathing room
+ * Glass effect on hover for starfield visibility
  */
 export const StyledListItemButton = styled(ListItemButton)({
-  borderRadius: '8px',
+  borderRadius: tokens.borderRadius.md,
   padding: '20px 24px',
   minHeight: '72px',
-  transition: 'all 0.2s ease',
-  border: '1px solid transparent',
+  transition: 'all 0.2s ease, backdrop-filter 0.2s ease',
+  background: 'transparent',
+  border: 'none',
 
   '&:hover': {
-    backgroundColor: `${tokens.colors.accent.primary}0a`,
-    border: `1px solid ${tokens.colors.accent.primary}33`,
+    // Glass effect on hover
+    background: 'rgba(21, 29, 47, 0.35)',
+    backdropFilter: 'blur(6px) saturate(1.05)',
+    // Glass bevel: subtle highlight + shadow
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.10)',
     transform: 'translateX(2px)',
 
     '& .artist-name': {
@@ -81,11 +86,13 @@ export const ArtistInfo = styled(Typography)({
 
 /**
  * SectionHeader - Header for artist sections
+ * Glass bevel instead of hard border
  */
 export const SectionHeader = styled(Box)({
   marginBottom: '24px',
   paddingBottom: '16px',
-  borderBottom: `1px solid ${tokens.colors.border.light}`,
+  // Glass bevel: bottom shadow instead of hard border
+  boxShadow: 'inset 0 -1px 0 rgba(255, 255, 255, 0.05)',
 });
 
 /**

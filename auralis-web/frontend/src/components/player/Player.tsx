@@ -419,12 +419,12 @@ const styles = {
     flexDirection: 'column' as const,
     width: '100%',
 
-    // Glass effect for elevated PlayerBar (Design Language §4.2) - Upgraded to strong for prominence
-    background: tokens.glass.strong.background,           // Strong glass background for maximum presence
-    backdropFilter: tokens.glass.strong.backdropFilter,   // 40px blur + saturation boost for dramatic effect
-    border: 'none',                                       // No top border - clean separation via glass
-    borderTop: tokens.glass.strong.border,                // Strong glass border (22% white opacity) for light-catching
-    boxShadow: tokens.glass.strong.boxShadow,             // Deep shadow + strong inner glow for maximum elevation
+    // Glass effect for PlayerBar - semi-transparent for starfield visibility
+    background: 'rgba(16, 23, 41, 0.50)',                 // 50% opacity for starfield visibility
+    backdropFilter: 'blur(10px) saturate(1.08)',          // Moderate blur preserves starfield
+    border: 'none',
+    // Glass bevel: top highlight + outer shadow
+    boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.10)',
 
     zIndex: 1000,
     padding: 0,
