@@ -606,18 +606,23 @@ def create_library_router(
             HTTPException: If track not found or fingerprint not available
         """
         try:
+            logger.info(f"🔍 GET /api/tracks/{track_id}/fingerprint - looking up fingerprint")
             repos = require_repository_factory(get_repository_factory)
 
             # Verify track exists
             track = repos.tracks.get_by_id(track_id)
             if not track:
+                logger.warning(f"❌ Track {track_id} not found in database")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Track {track_id} not found"
                 )
 
+            logger.info(f"✓ Track found: {track.title} by {track.artist}")
+
             # Get fingerprint
             fp = repos.fingerprints.get_by_track_id(track_id)
+            logger.info(f"🔍 Fingerprint lookup result: {'FOUND' if fp else 'NOT FOUND'}")
             if not fp:
                 # Enqueue for background processing if not available
                 try:
@@ -634,7 +639,8 @@ def create_library_router(
                     detail=f"Fingerprint not available for track {track_id}. Queued for generation."
                 )
 
-            # Return fingerprint as dict
+            # Fingerprint found - return it
+            logger.info(f"✅ Returning fingerprint for track {track_id}: LUFS={fp.lufs:.1f}, tempo={fp.tempo_bpm:.1f}")
             return {
                 "track_id": track_id,
                 "track_title": track.title,
