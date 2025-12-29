@@ -30,7 +30,10 @@ export const RightSection = styled(Box)({
   justifyContent: 'flex-end',
 });
 
-export const SearchContainer = styled(Box)<{ focused: boolean }>(
+export const SearchContainer = styled(Box, {
+  // Prevent 'focused' from being passed to the DOM
+  shouldForwardProp: (prop) => prop !== 'focused',
+})<{ focused: boolean }>(
   ({ focused }) => ({
     display: 'flex',
     alignItems: 'center',
