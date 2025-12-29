@@ -761,8 +761,10 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
     return albumTitle;
   }, [showPlayingTrack, currentTrack, playingTrackTitle, playingArtist, albumTitle]);
 
+  // Only show loading during the initial fetch, NOT when fingerprint is pending generation
+  // If fingerprint isn't available yet, we'll show "generating" state instead of infinite loading
   const isLoading = showPlayingTrack && currentTrack?.id
-    ? playingTrackLoading || fingerprintPending
+    ? playingTrackLoading  // Only true during initial fetch, not when pending
     : albumLoading;
 
   // Apply silence decay - motion fades gracefully over 2.5s when playback stops
@@ -825,8 +827,8 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
     transition: `all ${tokens.transitions.slow}`,
   };
 
-  // Empty state (no track playing and no album hovered)
-  if (!displayFingerprint && !isLoading) {
+  // State 1: No track playing and no album hovered
+  if (!currentTrack?.id && !albumFingerprint && !isLoading) {
     return (
       <Box
         sx={{
@@ -864,8 +866,72 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
     );
   }
 
-  // Loading state (fingerprint being generated)
-  if (isLoading || !displayFingerprint) {
+  // State 2: Track playing but fingerprint is being generated (pending)
+  if (currentTrack?.id && !displayFingerprint && fingerprintPending) {
+    return (
+      <Box
+        sx={{
+          ...containerStyles,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* Animated particles during generation */}
+        <FloatingParticles isAnimating={true} intensity={0.5} count={10} />
+        <EnhancementSection />
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            zIndex: 1,
+            gap: tokens.spacing.md,
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{
+              color: tokens.colors.text.secondary,
+              textAlign: 'center',
+              fontSize: tokens.typography.fontSize.sm,
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            {displayTitle || 'Now Playing'}
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              color: tokens.colors.text.tertiary,
+              textAlign: 'center',
+              fontSize: tokens.typography.fontSize.xs,
+              opacity: 0.8,
+            }}
+          >
+            Generating audio fingerprint...
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              color: tokens.colors.text.tertiary,
+              textAlign: 'center',
+              fontSize: tokens.typography.fontSize.xs,
+              opacity: 0.6,
+              mt: tokens.spacing.sm,
+            }}
+          >
+            Character will appear after analysis completes
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  // State 3: Loading state (initial fetch)
+  if (isLoading) {
     return (
       <Box sx={containerStyles}>
         {/* Particles animate during loading */}
@@ -890,6 +956,46 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
             }}
           >
             {currentTrack?.id ? 'Analyzing track character...' : 'Analyzing album character...'}
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  // State 4: No fingerprint available (edge case - API error or unexpected state)
+  if (!displayFingerprint) {
+    return (
+      <Box
+        sx={{
+          ...containerStyles,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <FloatingParticles isAnimating={false} intensity={0.3} count={8} />
+        <EnhancementSection />
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{
+              color: tokens.colors.text.tertiary,
+              textAlign: 'center',
+              fontSize: tokens.typography.fontSize.sm,
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            {currentTrack?.id
+              ? 'Fingerprint not available for this track'
+              : 'Play a track to see its sonic character'}
           </Typography>
         </Box>
       </Box>
