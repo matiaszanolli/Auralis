@@ -55,6 +55,22 @@ def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = Fals
     Session = sessionmaker(bind=engine)
     session = Session()
 
+    # Check if normalized_name column exists, add it if not
+    column_exists = True
+    try:
+        session.execute(text("SELECT normalized_name FROM artists LIMIT 1"))
+    except Exception:
+        column_exists = False
+        print("Adding normalized_name column to artists table...")
+        if dry_run:
+            print("  [DRY RUN] Would add column - skipping duplicate detection")
+        else:
+            session.execute(text("ALTER TABLE artists ADD COLUMN normalized_name VARCHAR"))
+            session.execute(text("CREATE INDEX IF NOT EXISTS idx_artists_normalized_name ON artists(normalized_name)"))
+            session.commit()
+            column_exists = True
+            print("  Column added successfully")
+
     stats = {
         'total_artists': 0,
         'artists_updated': 0,
@@ -84,22 +100,28 @@ def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = Fals
         if not dry_run:
             session.commit()
 
-        print(f"  Updated {stats['artists_updated']} artists with normalized names")
+        print(f"  {'Would update' if dry_run else 'Updated'} {stats['artists_updated']} artists with normalized names")
 
         # Phase 2: Find duplicates (same normalized_name)
         print("\nPhase 2: Finding duplicate artists...")
 
-        duplicates = session.execute(text("""
-            SELECT normalized_name, GROUP_CONCAT(id) as ids, GROUP_CONCAT(name) as names
-            FROM artists
-            WHERE normalized_name IS NOT NULL AND normalized_name != ''
-            GROUP BY normalized_name
-            HAVING COUNT(*) > 1
-            ORDER BY normalized_name
-        """)).fetchall()
+        if not column_exists and dry_run:
+            print("  [DRY RUN] Cannot detect duplicates without normalized_name column")
+            print("  Run without --dry-run first to apply schema changes")
+            duplicates = []
+        else:
+            duplicates = session.execute(text("""
+                SELECT normalized_name, GROUP_CONCAT(id) as ids, GROUP_CONCAT(name) as names
+                FROM artists
+                WHERE normalized_name IS NOT NULL AND normalized_name != ''
+                GROUP BY normalized_name
+                HAVING COUNT(*) > 1
+                ORDER BY normalized_name
+            """)).fetchall()
 
         stats['duplicates_found'] = len(duplicates)
-        print(f"  Found {stats['duplicates_found']} groups of duplicate artists")
+        if duplicates:
+            print(f"  Found {stats['duplicates_found']} groups of duplicate artists")
 
         # Phase 3: Merge duplicates
         if duplicates:

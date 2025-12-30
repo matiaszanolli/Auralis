@@ -24,7 +24,7 @@ from sqlalchemy.orm import sessionmaker
 
 from ..utils.logging import error, info, warning
 from .cache import cached_query, get_cache_stats, invalidate_cache
-from .migrations import check_and_migrate_database
+from .migration_manager import check_and_migrate_database
 from .models import Album, Artist, Base, Genre, Playlist, Track
 from .repositories import (
     AlbumRepository,
