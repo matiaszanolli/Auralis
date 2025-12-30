@@ -17,6 +17,23 @@ import PCMStreamBuffer from './PCMStreamBuffer';
 
 export type PlaybackState = 'idle' | 'playing' | 'paused' | 'stopped' | 'error';
 
+/**
+ * Create or get a shared AnalyserNode for visualization
+ * Stores in global for useAudioVisualization hook to access
+ */
+function createGlobalAnalyser(audioContext: AudioContext): AnalyserNode {
+  if ((window as any).__auralisAnalyser) {
+    return (window as any).__auralisAnalyser;
+  }
+
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.8;
+  (window as any).__auralisAnalyser = analyser;
+
+  return analyser;
+}
+
 export interface PlaybackStats {
   isPlaying: boolean;
   currentTime: number;
@@ -63,10 +80,20 @@ export class AudioPlaybackEngine {
     this.audioContext = audioContext;
     this.buffer = buffer;
 
+    // Register AudioContext globally for visualization hook
+    (window as any).__auralisAudioContext = audioContext;
+
     // Create gain node
     this.gainNode = audioContext.createGain();
     this.gainNode.gain.value = this.volume;
-    this.gainNode.connect(audioContext.destination);
+
+    // Connect through visualization analyser if available
+    // Chain: gainNode → analyser → destination
+    const analyser = createGlobalAnalyser(audioContext);
+    this.gainNode.connect(analyser);
+    analyser.connect(audioContext.destination);
+
+    console.log('[AudioPlaybackEngine] Audio chain connected with visualization analyser');
   }
 
   /**

@@ -26,6 +26,7 @@ const VERTEX_SHADER = `
 `;
 
 // Fragment shader - procedural starfield with vibrant nebulae and aurora
+// Now with audio reactivity for immersive playback experience
 const FRAGMENT_SHADER = `
   precision highp float;
 
@@ -35,6 +36,14 @@ const FRAGMENT_SHADER = `
   uniform vec2 u_resolution;
   uniform vec2 u_mouse;
   uniform float u_parallaxStrength;
+
+  // Audio reactivity uniforms (all normalized 0-1)
+  uniform float u_bass;      // Low frequency energy (20-250Hz)
+  uniform float u_mid;       // Mid frequency energy (250-4000Hz)
+  uniform float u_treble;    // High frequency energy (4000-20000Hz)
+  uniform float u_loudness;  // Overall audio energy
+  uniform float u_peak;      // Transient/beat detection
+  uniform float u_isPlaying; // 1.0 when audio playing, 0.0 when stopped
 
   // Theme colors (vibrant cosmic palette)
   const vec3 BG_COLOR = vec3(0.035, 0.05, 0.10);        // Deep space blue-black
@@ -176,8 +185,20 @@ const FRAGMENT_SHADER = `
     vec2 parallaxOffset = (u_mouse - 0.5) * u_parallaxStrength * 0.02;
     uvAspect += parallaxOffset;
 
-    // Base deep space color
-    vec3 color = BG_COLOR;
+    // === FORWARD DRIFT (constant when playing) ===
+    // Smooth, consistent forward motion through space during playback
+    // Speed is constant - no modulation from audio to avoid jerky motion
+    float baseDriftSpeed = 0.025 * u_isPlaying;
+    uvAspect.y -= u_time * baseDriftSpeed;
+
+    // Audio reactivity factors (smoothed for visual appeal)
+    float audioBoost = 1.0 + u_loudness * 0.3;              // Overall brightness boost
+    float bassPulse = 1.0 + u_bass * 0.25 + u_peak * 0.4;   // Bass/beat pulse
+    float trebleSparkle = 1.0 + u_treble * 0.5;             // Star twinkle enhancement
+    float midGlow = 1.0 + u_mid * 0.35;                     // Aurora/nebula glow
+
+    // Base deep space color (slightly brighter when loud)
+    vec3 color = BG_COLOR * (1.0 + u_loudness * 0.15);
 
     // === NEBULA LAYERS (rich, colorful gas clouds) ===
 
@@ -209,9 +230,13 @@ const FRAGMENT_SHADER = `
     float depthMask = fbm(uvAspect * 0.8 + vec2(20.0, 15.0), 3);
     nebulaColor *= 0.6 + 0.8 * smoothstep(0.3, 0.7, depthMask);
 
-    // Subtle breathing/pulsing
+    // Subtle breathing/pulsing (enhanced by bass)
     float breathe = 0.9 + 0.1 * sin(u_time * 0.3);
+    breathe *= bassPulse; // Bass makes nebula pulse
     nebulaColor *= breathe;
+
+    // Audio boost to nebula intensity
+    nebulaColor *= audioBoost;
 
     // === AURORA EFFECT (flowing bands in upper region) ===
     float auroraIntensity = aurora(uv, u_time);
@@ -220,8 +245,9 @@ const FRAGMENT_SHADER = `
     vec3 auroraColor = mix(AURORA_GREEN, NEBULA_CYAN, smoothstep(0.0, 0.5, auroraIntensity));
     auroraColor = mix(auroraColor, NEBULA_VIOLET, smoothstep(0.5, 1.0, auroraIntensity));
 
-    // Add aurora to scene (subtle but visible)
-    nebulaColor += auroraColor * auroraIntensity * 0.12;
+    // Add aurora to scene (enhanced by mid frequencies - vocals/instruments)
+    float auroraMultiplier = 0.12 * midGlow;
+    nebulaColor += auroraColor * auroraIntensity * auroraMultiplier;
 
     // === VIGNETTE (focus nebula in interesting regions) ===
     // Offset vignette slightly to upper-left for visual interest
@@ -232,12 +258,13 @@ const FRAGMENT_SHADER = `
 
     color += nebulaColor;
 
-    // === STAR LAYERS ===
+    // === STAR LAYERS (enhanced by treble/high frequencies) ===
     float layer1 = stars(uvAspect + parallaxOffset * 0.5, 80.0, 1.0);
     float layer2 = stars(uvAspect + parallaxOffset * 1.0, 40.0, 0.8);
     float layer3 = stars(uvAspect + parallaxOffset * 1.5, 20.0, 0.6);
 
-    float starField = layer1 * 0.4 + layer2 * 0.6 + layer3 * 0.8;
+    // Star brightness enhanced by treble (cymbals, hi-hats make stars sparkle)
+    float starField = (layer1 * 0.4 + layer2 * 0.6 + layer3 * 0.8) * trebleSparkle;
 
     // Star colors (warmer distant, cooler close)
     vec3 starColor = mix(
@@ -266,9 +293,33 @@ const FRAGMENT_SHADER = `
     // Slight overall glow in nebula areas
     color += nebulaColor * 0.05;
 
+    // === AUDIO PEAK FLASH ===
+    // Brief brightness flash on transients (drums, attacks)
+    color += vec3(0.03, 0.02, 0.04) * u_peak * u_isPlaying;
+
+    // Subtle overall contrast boost when audio is playing
+    float contrastBoost = 1.0 + u_isPlaying * u_loudness * 0.1;
+    color = mix(vec3(0.5), color, contrastBoost);
+
     gl_FragColor = vec4(color, 1.0);
   }
 `;
+
+/** Audio reactivity data from useAudioVisualization hook */
+export interface AudioReactivityData {
+  /** Bass energy (20-250Hz), normalized 0-1 */
+  bass: number;
+  /** Mid energy (250-4000Hz), normalized 0-1 */
+  mid: number;
+  /** Treble energy (4000-20000Hz), normalized 0-1 */
+  treble: number;
+  /** Overall loudness/energy, normalized 0-1 */
+  loudness: number;
+  /** Peak/transient detection, normalized 0-1 */
+  peak: number;
+  /** Whether audio is currently playing */
+  isActive: boolean;
+}
 
 interface StarfieldBackgroundProps {
   /** Enable parallax effect on mouse movement (default: true) */
@@ -281,6 +332,8 @@ interface StarfieldBackgroundProps {
   zIndex?: number;
   /** Additional CSS class */
   className?: string;
+  /** Audio reactivity data for sound-reactive visuals */
+  audioReactivity?: AudioReactivityData;
 }
 
 export const StarfieldBackground: React.FC<StarfieldBackgroundProps> = ({
@@ -289,6 +342,7 @@ export const StarfieldBackground: React.FC<StarfieldBackgroundProps> = ({
   speed = 1.0,
   zIndex = -1,
   className,
+  audioReactivity,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glRef = useRef<WebGLRenderingContext | null>(null);
@@ -297,6 +351,9 @@ export const StarfieldBackground: React.FC<StarfieldBackgroundProps> = ({
   const startTimeRef = useRef<number>(Date.now());
   const mouseRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
   const isVisibleRef = useRef<boolean>(true);
+  const audioRef = useRef<AudioReactivityData>({
+    bass: 0, mid: 0, treble: 0, loudness: 0, peak: 0, isActive: false
+  });
 
   // Compile shader
   const compileShader = useCallback((
@@ -411,6 +468,15 @@ export const StarfieldBackground: React.FC<StarfieldBackgroundProps> = ({
       enableParallax ? parallaxStrength : 0
     );
 
+    // Set audio reactivity uniforms
+    const audio = audioRef.current;
+    gl.uniform1f(gl.getUniformLocation(program, 'u_bass'), audio.bass);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_mid'), audio.mid);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_treble'), audio.treble);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_loudness'), audio.loudness);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_peak'), audio.peak);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_isPlaying'), audio.isActive ? 1.0 : 0.0);
+
     // Draw
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -430,6 +496,13 @@ export const StarfieldBackground: React.FC<StarfieldBackgroundProps> = ({
   const handleVisibilityChange = useCallback(() => {
     isVisibleRef.current = !document.hidden;
   }, []);
+
+  // Update audio ref when audioReactivity prop changes
+  useEffect(() => {
+    if (audioReactivity) {
+      audioRef.current = audioReactivity;
+    }
+  }, [audioReactivity]);
 
   // Initialize and cleanup
   useEffect(() => {
