@@ -22,6 +22,7 @@ except ImportError:
 
 from ...utils.logging import debug
 from ..scan_models import AudioFileInfo
+from ..utils.artist_normalizer import parse_featured_artists
 
 
 class MetadataExtractor:
@@ -163,12 +164,18 @@ class MetadataExtractor:
                 track_info['title'] = Path(audio_info.filepath).stem
 
             if 'artist' in metadata:
-                # Handle multiple artists
+                # Handle multiple artists and parse featured artists
                 artists = metadata['artist']
                 if isinstance(artists, str):
-                    track_info['artists'] = [artists]
+                    # Parse "Artist A feat. Artist B" -> ["Artist A", "Artist B"]
+                    track_info['artists'] = parse_featured_artists(artists)
                 else:
-                    track_info['artists'] = [str(a) for a in artists]
+                    # Handle list of artists - parse each one for featured artists
+                    all_artists = []
+                    for a in artists:
+                        parsed = parse_featured_artists(str(a))
+                        all_artists.extend(parsed)
+                    track_info['artists'] = all_artists
 
             if 'album' in metadata:
                 track_info['album'] = metadata['album']

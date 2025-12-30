@@ -2,7 +2,7 @@
 
 __version__ = "1.0.0"
 __version_info__ = (1, 0, 0)
-__db_schema_version__ = 10  # Added artist artwork columns (artwork_url, artwork_source, artwork_fetched_at)
+__db_schema_version__ = 11  # Added artist normalized_name for duplicate detection
 
 # Version history
 # 1.0.0 - Initial release with adaptive mastering, web UI, and desktop app
@@ -15,3 +15,4 @@ __db_schema_version__ = 10  # Added artist artwork columns (artwork_url, artwork
 # Schema v8 - Added queue_history table for undo/redo queue operations (2025-12-01)
 # Schema v9 - Added queue_template table for saved queue configurations (2025-12-01)
 # Schema v10 - Added artist artwork columns (artwork_url, artwork_source, artwork_fetched_at) (2025-12-27)
+# Schema v11 - Added artist normalized_name for duplicate detection and merging (2025-12-29)

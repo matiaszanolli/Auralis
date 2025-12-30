@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info, warning
 from ..models import Album, Artist, Genre, Track
+from ..utils.artist_normalizer import normalize_artist_name
 
 
 class TrackRepository:
@@ -71,12 +72,16 @@ class TrackRepository:
                 except Exception as e:
                     debug(f"Failed to auto-extract audio info: {e}")
 
-            # Get or create artist(s)
+            # Get or create artist(s) using normalized name matching
             artists = []
             for artist_name in track_info.get('artists', []):
-                artist = session.query(Artist).filter(Artist.name == artist_name).first()
+                normalized = normalize_artist_name(artist_name)
+                # Match by normalized name to prevent duplicates (AC/DC vs ACDC)
+                artist = session.query(Artist).filter(
+                    Artist.normalized_name == normalized
+                ).first()
                 if not artist:
-                    artist = Artist(name=artist_name)
+                    artist = Artist(name=artist_name, normalized_name=normalized)
                     session.add(artist)
                 artists.append(artist)
 
@@ -511,12 +516,16 @@ class TrackRepository:
             session.close()
 
     def _update_artists(self, session: Session, track: Track, artist_names: List[str]) -> None:
-        """Update track artists"""
+        """Update track artists using normalized name matching"""
         track.artists = []
         for artist_name in artist_names:
-            artist = session.query(Artist).filter(Artist.name == artist_name).first()
+            normalized = normalize_artist_name(artist_name)
+            # Match by normalized name to prevent duplicates (AC/DC vs ACDC)
+            artist = session.query(Artist).filter(
+                Artist.normalized_name == normalized
+            ).first()
             if not artist:
-                artist = Artist(name=artist_name)
+                artist = Artist(name=artist_name, normalized_name=normalized)
                 session.add(artist)
             track.artists.append(artist)
 

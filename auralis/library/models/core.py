@@ -204,6 +204,7 @@ class Artist(Base, TimestampMixin):  # type: ignore[misc]
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False, unique=True)
+    normalized_name = Column(String, index=True)  # Canonical form for duplicate detection
 
     # Artist statistics
     total_plays = Column(Integer, default=0)
@@ -223,6 +224,7 @@ class Artist(Base, TimestampMixin):  # type: ignore[misc]
         return {
             'id': self.id,
             'name': self.name,
+            'normalized_name': self.normalized_name,
             'total_plays': self.total_plays,
             'avg_mastering_quality': self.avg_mastering_quality,
             'album_count': len(self.albums),
