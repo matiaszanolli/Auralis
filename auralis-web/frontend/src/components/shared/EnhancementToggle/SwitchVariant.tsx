@@ -39,11 +39,18 @@ export const SwitchVariant: React.FC<EnhancementToggleProps> = React.memo(({
             onChange={(e) => onToggle(e.target.checked)}
             disabled={isProcessing}
             sx={{
+              // Subtle switch styling - not visually loud
+              '& .MuiSwitch-switchBase': {
+                color: 'rgba(255, 255, 255, 0.5)',
+              },
               '& .MuiSwitch-switchBase.Mui-checked': {
-                color: tokens.colors.accent.primary,
+                color: 'rgba(115, 102, 240, 0.9)',
+              },
+              '& .MuiSwitch-track': {
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
               },
               '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                backgroundColor: tokens.colors.accent.primary,
+                backgroundColor: 'rgba(115, 102, 240, 0.35)',
               },
             }}
           />

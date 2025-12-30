@@ -35,6 +35,9 @@ export type { ModalProps } from './Modal';
 export { Chip } from './Chip';
 export type { ChipProps } from './Chip';
 
+export { SegmentedControl } from './SegmentedControl';
+export type { SegmentedControlProps, SegmentedControlOption } from './SegmentedControl';
+
 export { CircularProgress } from './CircularProgress';
 export type { CircularProgressProps } from './CircularProgress';
 

@@ -608,11 +608,12 @@ export const tokens = {
     rightPanel: {
       width: '360px',
       minWidth: '300px',
-      background: 'rgba(16, 23, 41, 0.50)',
-      backdropFilter: 'blur(10px) saturate(1.05)',
+      // Match sidebar's subtle transparency (muscle memory UI)
+      background: 'rgba(16, 23, 41, 0.20)',
+      backdropFilter: 'blur(6px) saturate(0.95)',
       borderLeft: 'none',
-      // Glass bevel: outer shadow + left edge highlight
-      shadow: '-2px 0 12px rgba(0, 0, 0, 0.10), inset 1px 0 0 rgba(255, 255, 255, 0.06)',
+      // Glass bevel: mirrored from sidebar (left edge highlight)
+      shadow: '-2px 0 8px rgba(0, 0, 0, 0.08), inset 1px 0 0 rgba(255, 255, 255, 0.05)',
     },
 
     albumCard: {

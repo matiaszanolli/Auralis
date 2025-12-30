@@ -15,15 +15,23 @@
 
 import React, { useState, useCallback } from 'react';
 import { Box } from '@mui/material';
-import { CozyAlbumGrid } from '../Items/albums/CozyAlbumGrid';
+import { CozyAlbumGrid, type AlbumSortOption } from '../Items/albums/CozyAlbumGrid';
 import { RecentlyTouchedSection } from '../Items/albums/RecentlyTouchedSection';
 import { CozyArtistList } from '../Items/artists/CozyArtistList';
 import AlbumDetailView from '../Details/AlbumDetailView';
 import ArtistDetailView from '../Details/ArtistDetailView';
 import { ViewContainer } from './ViewContainer';
 import { AlbumCharacterPane } from '../AlbumCharacterPane';
+import { SegmentedControl } from '@/design-system';
 import { useAlbumFingerprint } from '@/hooks/fingerprint/useAlbumFingerprint';
 import { useRecentlyTouched } from '@/hooks/library';
+
+/** Sort options for album grid */
+const ALBUM_SORT_OPTIONS = [
+  { value: 'az', label: 'A-Z' },
+  { value: 'year', label: 'Year' },
+  { value: 'era', label: 'Era' },
+];
 
 export interface LibraryViewRouterProps {
   view: string;
@@ -89,6 +97,8 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
     const [hoveredAlbumTitle, setHoveredAlbumTitle] = useState<string | undefined>(undefined);
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const [hoveredAlbumArtist, setHoveredAlbumArtist] = useState<string | undefined>(undefined);
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const [sortBy, setSortBy] = useState<AlbumSortOption>('az');
 
     // Recently touched albums tracking
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -131,6 +141,14 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
         icon="📀"
         title="Albums"
         subtitle="Browse your music collection by album"
+        headerActions={
+          <SegmentedControl
+            value={sortBy}
+            onChange={(value) => setSortBy(value as AlbumSortOption)}
+            options={ALBUM_SORT_OPTIONS}
+            size="sm"
+          />
+        }
         rightPane={
           <AlbumCharacterPane
             fingerprint={fingerprint ?? null}
@@ -152,6 +170,7 @@ export const LibraryViewRouter: React.FC<LibraryViewRouterProps> = ({
 
           {/* Main Album Grid */}
           <CozyAlbumGrid
+            sortBy={sortBy}
             onAlbumClick={handleAlbumClick}
             onAlbumHover={handleAlbumHover}
             onAlbumHoverEnd={handleAlbumHoverEnd}

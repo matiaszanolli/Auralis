@@ -794,49 +794,35 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
     </Box>
   ), [isEnhancementEnabled, onEnhancementToggle]);
 
-  // Container styles with playback-aware glow edge
-  // Uses glowIntensity (0-1) for graceful fade - glow lingers last
+  // Container styles matching sidebar (muscle memory UI - lower contrast)
+  // Uses glowIntensity (0-1) for playback-aware edge glow
   const containerStyles = {
     position: 'relative' as const,
     width: tokens.components.rightPanel.width,
     height: '100%',
     minHeight: 0, // Allow flex shrinking
-    // Deep glass transparency - let nebula show through beautifully
-    background: `linear-gradient(
-      180deg,
-      rgba(16, 20, 35, ${0.35 + glowIntensity * 0.15}) 0%,
-      rgba(22, 28, 48, ${0.30 + glowIntensity * 0.10}) 50%,
-      rgba(18, 24, 42, ${0.35 + glowIntensity * 0.15}) 100%
-    )`,
-    backdropFilter: `blur(${12 + glowIntensity * 4}px) saturate(${1.1 + glowIntensity * 0.15})`,
-    border: 'none',  // No hard borders - use bevel shadows
-    // Multi-layer glass effect with playback-aware edge glow
-    boxShadow: `
-      -2px 0 20px rgba(0, 0, 0, 0.15),
-      inset 1px 0 0 rgba(255, 255, 255, ${0.06 + glowIntensity * 0.08}),
-      inset 0 1px 0 rgba(255, 255, 255, ${0.04 + glowIntensity * 0.06}),
-      inset -1px 0 0 rgba(0, 0, 0, 0.1),
-      ${glowIntensity > 0.05
-        ? `inset 3px 0 20px -4px rgba(115, 102, 240, ${0.12 + glowIntensity * 0.18}),
-           inset 0 3px 20px -4px rgba(0, 200, 220, ${0.08 + glowIntensity * 0.12})`
-        : ''}
-    `,
-    p: tokens.spacing.xl,
+    alignSelf: 'stretch', // Match sidebar's flex behavior
+    flexShrink: 0,
+    // Match sidebar's subtle transparency
+    background: tokens.components.rightPanel.background,
+    backdropFilter: tokens.components.rightPanel.backdropFilter,
+    border: 'none',
+    // Base shadow from tokens + playback-aware edge glow
+    boxShadow: glowIntensity > 0.05
+      ? `${tokens.components.rightPanel.shadow}, inset 3px 0 16px -4px rgba(115, 102, 240, ${0.08 + glowIntensity * 0.12})`
+      : tokens.components.rightPanel.shadow,
+    p: tokens.spacing.lg,
     overflowY: 'auto' as const,
     overflowX: 'hidden' as const,
     transition: `all ${tokens.transitions.slow}`,
+    display: 'flex',
+    flexDirection: 'column' as const,
   };
 
   // State 1: No track playing and no album hovered
   if (!currentTrack?.id && !albumFingerprint && !isLoading) {
     return (
-      <Box
-        sx={{
-          ...containerStyles,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <Box sx={containerStyles}>
         {/* Subtle floating particles even in empty state */}
         <FloatingParticles isAnimating={false} intensity={0.3} count={8} />
         <EnhancementSection />
@@ -869,13 +855,7 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
   // State 2: Track playing but fingerprint is being generated (pending)
   if (currentTrack?.id && !displayFingerprint && fingerprintPending) {
     return (
-      <Box
-        sx={{
-          ...containerStyles,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <Box sx={containerStyles}>
         {/* Animated particles during generation */}
         <FloatingParticles isAnimating={true} intensity={0.5} count={10} />
         <EnhancementSection />
@@ -965,13 +945,7 @@ export const AlbumCharacterPane: React.FC<AlbumCharacterPaneProps> = ({
   // State 4: No fingerprint available (edge case - API error or unexpected state)
   if (!displayFingerprint) {
     return (
-      <Box
-        sx={{
-          ...containerStyles,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <Box sx={containerStyles}>
         <FloatingParticles isAnimating={false} intensity={0.3} count={8} />
         <EnhancementSection />
         <Box

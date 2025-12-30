@@ -62,17 +62,17 @@ export const SwitchPaper = styled(Paper, {
   shouldForwardProp: (prop) => prop !== '$isEnabled' && prop !== '$isProcessing',
 })<{ $isEnabled: boolean; $isProcessing: boolean }>(
   ({ $isEnabled, $isProcessing }) => ({
-    p: tokens.spacing.md,
-    mb: tokens.spacing.lg,
+    padding: tokens.spacing.md,
+    marginBottom: tokens.spacing.md,
     borderRadius: tokens.borderRadius.md,
-    background: $isEnabled
-      ? `${tokens.colors.accent.primary}1A` // ~10% opacity
-      : tokens.colors.bg.tertiary,
-    border: `1px solid ${
-      $isEnabled
-        ? `${tokens.colors.accent.primary}4D` // ~30% opacity
-        : tokens.colors.border.light
-    }`,
+    // Subtle glass effect - no loud purple background
+    background: 'rgba(255, 255, 255, 0.03)',
+    backdropFilter: 'blur(4px)',
+    border: `1px solid rgba(255, 255, 255, ${$isEnabled ? 0.08 : 0.05})`,
+    // Subtle inner glow when enabled
+    boxShadow: $isEnabled
+      ? 'inset 0 0 12px rgba(115, 102, 240, 0.08)'
+      : 'none',
     transition: tokens.transitions.all,
     opacity: $isProcessing ? 0.7 : 1,
   })

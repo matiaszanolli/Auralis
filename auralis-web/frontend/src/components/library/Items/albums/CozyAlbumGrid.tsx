@@ -8,7 +8,7 @@
  * - Responsive CSS Grid (auto-fills columns based on 200px minimum width)
  * - Infinite scroll via sentinel element + IntersectionObserver
  * - TanStack Query handles caching, deduplication, and loading states
- * - Era-based grouping (e.g., "1978 - 1982") for temporal organization
+ * - Multiple sort modes: A-Z (default), Year, Era-based grouping
  *
  * Fingerprint Integration:
  * - Batch fetches fingerprints for all visible albums
@@ -20,19 +20,25 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { EmptyState } from '../../../shared/ui/feedback';
 import { AlbumGridLoadingState } from './AlbumGridLoadingState';
 import { EraSection } from './EraSection';
+import { AlbumCard } from '@/components/album/AlbumCard/AlbumCard';
 import { useInfiniteAlbums } from '@/hooks/library/useInfiniteAlbums';
 import { useAlbumFingerprints } from '@/hooks/fingerprint/useAlbumFingerprint';
 import { groupAlbumsByEra } from '@/utils/eraGrouping';
 import { tokens } from '@/design-system';
 
+/** Sort options for album grid */
+export type AlbumSortOption = 'az' | 'year' | 'era';
+
 interface CozyAlbumGridProps {
   onAlbumClick?: (albumId: number) => void;
   onAlbumHover?: (albumId: number, albumTitle?: string, albumArtist?: string) => void;
   onAlbumHoverEnd?: () => void;
+  /** Sort mode: 'az' (alphabetical), 'year' (newest first), 'era' (grouped by era) */
+  sortBy?: AlbumSortOption;
 }
 
 /**
- * CozyAlbumGrid - Album grid with infinite scroll
+ * CozyAlbumGrid - Album grid with infinite scroll and sorting
  *
  * Uses TanStack Query's useInfiniteQuery for robust infinite scroll:
  * - Automatic request deduplication
@@ -44,6 +50,7 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({
   onAlbumClick,
   onAlbumHover,
   onAlbumHoverEnd,
+  sortBy = 'az',
 }) => {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -66,8 +73,29 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({
   // Batch fetch fingerprints for all albums
   const { fingerprints } = useAlbumFingerprints(albumIds);
 
-  // Group albums by era (5-year spans)
-  const eraGroups = useMemo(() => groupAlbumsByEra(albums), [albums]);
+  // Sort albums based on sortBy option
+  const sortedAlbums = useMemo(() => {
+    if (sortBy === 'era') {
+      // Era mode uses grouping, return as-is (groupAlbumsByEra handles ordering)
+      return albums;
+    }
+
+    const sorted = [...albums];
+    if (sortBy === 'az') {
+      // Alphabetical by title
+      sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    } else if (sortBy === 'year') {
+      // Newest first (descending year)
+      sorted.sort((a, b) => (b.year || 0) - (a.year || 0));
+    }
+    return sorted;
+  }, [albums, sortBy]);
+
+  // Group albums by era (only used in era mode)
+  const eraGroups = useMemo(() => {
+    if (sortBy !== 'era') return [];
+    return groupAlbumsByEra(albums);
+  }, [albums, sortBy]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -111,17 +139,11 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({
     );
   }
 
-  // Era-grouped rendering with infinite scroll (Design Language v1.2.0 §4.3)
-  return (
-    <div
-      style={{
-        height: '100%',
-        overflow: 'auto',
-        padding: tokens.spacing.group,                    // 16px - organic group spacing
-      }}
-    >
-      {/* Era-grouped album sections */}
-      {eraGroups.map((eraGroup) => (
+  // Render content based on sort mode
+  const renderContent = () => {
+    if (sortBy === 'era') {
+      // Era-grouped rendering
+      return eraGroups.map((eraGroup) => (
         <EraSection
           key={eraGroup.label}
           label={eraGroup.label}
@@ -131,16 +153,50 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({
           onAlbumHover={onAlbumHover}
           onAlbumHoverEnd={onAlbumHoverEnd}
         />
-      ))}
+      ));
+    }
+
+    // Flat grid for A-Z and Year modes
+    return (
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+          gap: tokens.spacing.lg,
+        }}
+      >
+        {sortedAlbums.map((album) => (
+          <AlbumCard
+            key={album.id}
+            album={album}
+            fingerprint={fingerprints.get(album.id) ?? null}
+            onClick={() => onAlbumClick?.(album.id)}
+            onMouseEnter={() => onAlbumHover?.(album.id, album.title, album.artist)}
+            onMouseLeave={() => onAlbumHoverEnd?.()}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        height: '100%',
+        overflow: 'auto',
+        padding: tokens.spacing.group,
+      }}
+    >
+      {renderContent()}
 
       {/* Sentinel element for infinite scroll */}
       {hasNextPage && (
         <div
           ref={loadMoreRef}
           style={{
-            padding: tokens.spacing.group,                  // 16px - organic group spacing
+            padding: tokens.spacing.group,
             textAlign: 'center',
-            minHeight: tokens.spacing.xxl,                  // 40px - vertical space
+            minHeight: tokens.spacing.xxl,
           }}
         >
           {isFetchingNextPage ? 'Loading more albums...' : '\u00A0'}
