@@ -206,6 +206,23 @@ def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = Fals
 
         if dry_run:
             print("\n[DRY RUN] No changes were committed to the database")
+        else:
+            # Update schema version to v11 to prevent MigrationManager from re-running
+            try:
+                # Check if v11 entry already exists
+                existing = session.execute(
+                    text("SELECT id FROM schema_version WHERE version = 11")
+                ).fetchone()
+                if not existing:
+                    session.execute(text("""
+                        INSERT INTO schema_version (version, applied_at, description, migration_script)
+                        VALUES (11, datetime('now'), 'Migrated from v10 to v11', 'migration_v010_to_v011.sql')
+                    """))
+                    session.commit()
+                    print("\n✅ Schema version updated to v11")
+            except Exception as e:
+                print(f"\n⚠️  Could not update schema version: {e}")
+                print("  You may need to manually update: INSERT INTO schema_version (version, applied_at, description, migration_script) VALUES (11, datetime('now'), 'Migrated from v10 to v11', 'migration_v010_to_v011.sql');")
 
         return stats
 
