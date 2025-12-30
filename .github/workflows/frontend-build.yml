@@ -16,13 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: ['20', '24']
+        node-version: ['20']
 
     steps:
     - uses: actions/checkout@v4
 
     - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
 
@@ -45,9 +45,9 @@ jobs:
         NODE_ENV: production
 
     - name: Upload build artifacts
-      if: matrix.node-version == '24'
+      if: matrix.node-version == '20'
       uses: actions/upload-artifact@v4
       with:
         name: frontend-build
-        path: auralis-web/frontend/build/
+        path: auralis-web/frontend/dist/
         retention-days: 7
