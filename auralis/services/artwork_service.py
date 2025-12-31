@@ -15,12 +15,12 @@ Supported sources (in priority order):
 :license: GPLv3, see LICENSE for more details.
 """
 
+import json
 import logging
-from datetime import datetime
-from typing import Optional, Dict, Any, List
 import urllib.parse
 import urllib.request
-import json
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

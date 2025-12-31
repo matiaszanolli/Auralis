@@ -191,7 +191,10 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                 # This handles 404s during similarity lookup - queues tracks for background processing
                 try:
                     from fingerprint_generator import FingerprintGenerator
-                    from fingerprint_queue import FingerprintQueue, set_fingerprint_queue
+                    from fingerprint_queue import (
+                        FingerprintQueue,
+                        set_fingerprint_queue,
+                    )
 
                     # Create FingerprintGenerator for the queue
                     fp_generator = FingerprintGenerator(

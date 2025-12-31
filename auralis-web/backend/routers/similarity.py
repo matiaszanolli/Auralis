@@ -505,4 +505,102 @@ def create_similarity_router(
             logger.error(f"Error enqueueing track {track_id}: {e}")
             raise HTTPException(status_code=500, detail=f"Error enqueueing track: {str(e)}")
 
+    @router.post("/fingerprint-queue/enqueue-all")
+    async def enqueue_all_missing_fingerprints(
+        limit: int = Query(None, ge=1, le=10000, description="Maximum tracks to enqueue (default: all)")
+    ) -> Dict[str, Any]:
+        """
+        Enqueue all tracks that don't have fingerprints for background processing.
+
+        This scans the database for tracks without fingerprints and adds them
+        to the background queue for processing. Fingerprints are generated
+        in a separate process to avoid blocking playback.
+
+        Args:
+            limit: Maximum number of tracks to enqueue (default: all missing)
+
+        Returns:
+            Statistics about the enqueue operation
+        """
+        try:
+            repos = require_repository_factory(get_repository_factory)
+
+            # Get fingerprint stats
+            stats = repos.fingerprints.get_fingerprint_stats()
+            total_tracks = stats['total']
+            already_fingerprinted = stats['fingerprinted']
+            pending = stats['pending']
+
+            if pending == 0:
+                return {
+                    "enqueued": 0,
+                    "already_fingerprinted": already_fingerprinted,
+                    "total_tracks": total_tracks,
+                    "message": "All tracks already have fingerprints!"
+                }
+
+            # Get the fingerprint queue
+            from fingerprint_queue import get_fingerprint_queue
+            queue = get_fingerprint_queue()
+
+            if queue is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="On-demand fingerprint queue not available"
+                )
+
+            # Get tracks without fingerprints
+            missing_tracks = repos.fingerprints.get_missing_fingerprints(limit=limit)
+
+            # Enqueue each track
+            enqueued_count = 0
+            skipped_count = 0
+
+            for track in missing_tracks:
+                if queue.enqueue(track.id):
+                    enqueued_count += 1
+                else:
+                    skipped_count += 1  # Already queued or processing
+
+            logger.info(f"📋 Batch enqueued {enqueued_count} tracks for fingerprinting ({skipped_count} skipped)")
+
+            return {
+                "enqueued": enqueued_count,
+                "skipped": skipped_count,
+                "already_fingerprinted": already_fingerprinted,
+                "total_tracks": total_tracks,
+                "pending_after": pending - enqueued_count,
+                "message": f"Enqueued {enqueued_count} tracks for background fingerprinting"
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error batch enqueueing tracks: {e}")
+            raise HTTPException(status_code=500, detail=f"Error enqueueing tracks: {str(e)}")
+
+    @router.get("/fingerprint-stats")
+    async def get_fingerprint_stats() -> Dict[str, Any]:
+        """
+        Get overall fingerprint statistics for the library.
+
+        Returns:
+            Statistics including total tracks, fingerprinted count, and progress
+        """
+        try:
+            repos = require_repository_factory(get_repository_factory)
+            stats = repos.fingerprints.get_fingerprint_stats()
+
+            return {
+                "total_tracks": stats['total'],
+                "fingerprinted": stats['fingerprinted'],
+                "pending": stats['pending'],
+                "progress_percent": stats['progress_percent'],
+                "message": f"{stats['fingerprinted']}/{stats['total']} tracks fingerprinted ({stats['progress_percent']}%)"
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting fingerprint stats: {e}")
+            raise HTTPException(status_code=500, detail=f"Error getting stats: {str(e)}")
+
     return router

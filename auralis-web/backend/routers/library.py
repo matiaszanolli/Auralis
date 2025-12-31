@@ -618,7 +618,7 @@ def create_library_router(
                     detail=f"Track {track_id} not found"
                 )
 
-            logger.info(f"✓ Track found: {track.title} by {track.artist}")
+            logger.info(f"✓ Track found: {track.title} by {track.artists}")
 
             # Get fingerprint
             fp = repos.fingerprints.get_by_track_id(track_id)

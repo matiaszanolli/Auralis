@@ -23,7 +23,6 @@ from pathlib import Path
 from auralis.library.manager import LibraryManager
 from auralis.services.artwork_service import ArtworkService
 
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'

@@ -168,11 +168,16 @@ export const CozyAlbumGrid: React.FC<CozyAlbumGridProps> = ({
         {sortedAlbums.map((album) => (
           <AlbumCard
             key={album.id}
-            album={album}
-            fingerprint={fingerprints.get(album.id) ?? null}
+            albumId={album.id}
+            title={album.title}
+            artist={album.artist}
+            trackCount={album.trackCount}
+            year={album.year}
+            hasArtwork={!!album.artworkUrl}
+            fingerprint={fingerprints.get(album.id) ?? undefined}
             onClick={() => onAlbumClick?.(album.id)}
-            onMouseEnter={() => onAlbumHover?.(album.id, album.title, album.artist)}
-            onMouseLeave={() => onAlbumHoverEnd?.()}
+            onHoverEnter={() => onAlbumHover?.(album.id, album.title, album.artist)}
+            onHoverLeave={() => onAlbumHoverEnd?.()}
           />
         ))}
       </div>

@@ -229,28 +229,28 @@ export const tokens = {
 
   /**
    * Typography System (Design Language §3)
-   * Inter (information, controls, metadata) + Manrope (identity, headers, track titles)
+   * Asap (Google Fonts) - clean, modern sans-serif for all UI text
    * Typography should disappear when listening.
    */
   typography: {
     fontFamily: {
-      primary: 'Inter, "Segoe UI", sans-serif',                                    // Information, controls, metadata
-      header: 'Manrope, Arial, sans-serif',                                        // Identity, headers, track titles (sparingly)
-      mono: "'JetBrains Mono', 'Courier New', monospace",                         // Technical readouts (dB, Hz, LUFS) - reveal on interaction only
+      primary: 'Asap, "Segoe UI", sans-serif',                                     // Primary UI font for all text
+      header: 'Asap, Arial, sans-serif',                                           // Headers, titles (same family, heavier weights)
+      mono: "'JetBrains Mono', 'Courier New', monospace",                          // Technical readouts (dB, Hz, LUFS)
       system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
     },
 
     fontSize: {
-      xs: '10px',      // Micro labels, timestamps (reduced for contrast)
-      sm: '11px',      // Small text, metadata, captions (reduced)
-      base: '13px',    // Standard body text (reduced for contrast)
-      md: '15px',      // Larger body, input labels
-      lg: '20px',      // Track titles, card headers (increased for impact)
-      xl: '24px',      // Album titles, section headers (increased)
-      '2xl': '28px',   // Page headers, artist names (increased)
-      '3xl': '36px',   // Large headers, hero text (increased)
-      '4xl': '56px',   // Display, hero text (increased for drama)
-      '5xl': '72px',   // Ultra-large display (new for maximum impact)
+      xs: '11px',      // Micro labels, timestamps
+      sm: '13px',      // Small text, metadata, captions
+      base: '14px',    // Standard body text
+      md: '16px',      // Larger body, input labels
+      lg: '18px',      // Track titles, card headers
+      xl: '22px',      // Album titles, section headers
+      '2xl': '28px',   // Page headers, artist names
+      '3xl': '36px',   // Large headers, hero text
+      '4xl': '56px',   // Display, hero text
+      '5xl': '72px',   // Ultra-large display
     },
 
     fontWeight: {

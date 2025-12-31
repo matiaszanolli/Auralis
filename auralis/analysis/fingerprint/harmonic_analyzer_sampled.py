@@ -8,7 +8,9 @@ New code should import directly from:
 
 import warnings
 
-from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import SampledHarmonicAnalyzer
+from auralis.analysis.fingerprint.analyzers.batch.harmonic_sampled import (
+    SampledHarmonicAnalyzer,
+)
 
 warnings.warn(
     "Importing SampledHarmonicAnalyzer from auralis.analysis.fingerprint.harmonic_analyzer_sampled "
