@@ -18,6 +18,7 @@ import asyncio
 import logging
 import os
 from typing import Any, Callable, Dict, Optional
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
@@ -341,6 +342,22 @@ def create_enhancement_router(
         if not filepath:
             raise HTTPException(status_code=400, detail="filepath parameter required")
 
+        # Validate and normalize the provided filepath to avoid unsafe paths
+        try:
+            raw_path = Path(filepath)
+            # Disallow absolute paths
+            if raw_path.is_absolute():
+                raise ValueError("Absolute paths are not allowed")
+            # Resolve against the current working directory and prevent traversal
+            base_dir = Path.cwd()
+            normalized_path = (base_dir / raw_path).resolve()
+            try:
+                normalized_path.relative_to(base_dir)
+            except ValueError:
+                raise ValueError("Path traversal outside base directory is not allowed")
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=f"Invalid filepath: {ve}")
+
         try:
             import os
             import sys
@@ -350,7 +367,7 @@ def create_enhancement_router(
             # Create processor (caches the recommendation internally)
             processor = ChunkedAudioProcessor(
                 track_id=track_id,
-                filepath=filepath,
+                filepath=str(normalized_path),
                 preset="adaptive",  # Default for analysis-only mode
                 intensity=1.0,
                 chunk_cache={}
