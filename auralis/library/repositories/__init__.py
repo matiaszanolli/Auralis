@@ -20,6 +20,7 @@ from .queue_history_repository import QueueHistoryRepository
 from .queue_repository import QueueRepository
 from .queue_template_repository import QueueTemplateRepository
 from .settings_repository import SettingsRepository
+from .similarity_graph_repository import SimilarityGraphRepository
 from .stats_repository import StatsRepository
 from .track_repository import TrackRepository
 
@@ -35,5 +36,6 @@ __all__ = [
     'QueueRepository',
     'QueueHistoryRepository',
     'QueueTemplateRepository',
+    'SimilarityGraphRepository',
     'RepositoryFactory',
 ]

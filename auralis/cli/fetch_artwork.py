@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from auralis.library.manager import LibraryManager
+from auralis.library.repositories.artist_repository import ArtistRepository
 from auralis.services.artwork_service import ArtworkService
 
 logging.basicConfig(
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_artwork_for_all_artists(
-    library_manager: LibraryManager,
+    artist_repository: ArtistRepository,
     artwork_service: ArtworkService,
     force_refresh: bool = False
 ) -> dict:
@@ -39,7 +40,7 @@ def fetch_artwork_for_all_artists(
     Fetch artwork for all artists in the library.
 
     Args:
-        library_manager: Library manager instance
+        artist_repository: Artist repository instance
         artwork_service: Artwork service instance
         force_refresh: If True, refetch even if artwork already exists
 
@@ -60,46 +61,47 @@ def fetch_artwork_for_all_artists(
         'errors': 0
     }
 
-    # Get all artists from database
-    with library_manager.get_session() as session:
-        from auralis.library.models.core import Artist
+    # Get all artists from repository
+    artists = artist_repository.get_all_artists()
+    stats['total'] = len(artists)
 
-        artists = session.query(Artist).all()
-        stats['total'] = len(artists)
+    logger.info(f"Found {len(artists)} artists in library")
 
-        logger.info(f"Found {len(artists)} artists in library")
+    for i, artist in enumerate(artists, 1):
+        logger.info(f"[{i}/{len(artists)}] Processing: {artist.name}")
 
-        for i, artist in enumerate(artists, 1):
-            logger.info(f"[{i}/{len(artists)}] Processing: {artist.name}")
+        # Skip if artwork already exists and not forcing refresh
+        if artist.artwork_url and not force_refresh:
+            logger.info(f"  → Skipping (artwork already exists)")
+            stats['skipped'] += 1
+            continue
 
-            # Skip if artwork already exists and not forcing refresh
-            if artist.artwork_url and not force_refresh:
-                logger.info(f"  → Skipping (artwork already exists)")
-                stats['skipped'] += 1
-                continue
+        try:
+            # Fetch artwork
+            result = artwork_service.fetch_artist_artwork(artist.name)
 
-            try:
-                # Fetch artwork
-                result = artwork_service.fetch_artist_artwork(artist.name)
+            if result:
+                # Update artist with artwork info via repository
+                success = artist_repository.update_artwork(
+                    artist_id=artist.id,
+                    artwork_url=result['artwork_url'],
+                    artwork_source=result['source'],
+                    artwork_fetched_at=datetime.utcnow()
+                )
 
-                if result:
-                    # Update artist with artwork info
-                    artist.artwork_url = result['artwork_url']
-                    artist.artwork_source = result['source']
-                    artist.artwork_fetched_at = datetime.utcnow()
-
-                    session.commit()
-
+                if success:
                     logger.info(f"  ✓ Found artwork from {result['source']}")
                     stats['found'] += 1
                 else:
-                    logger.info(f"  ✗ No artwork found")
-                    stats['not_found'] += 1
+                    logger.error(f"  ✗ Failed to update artist artwork")
+                    stats['errors'] += 1
+            else:
+                logger.info(f"  ✗ No artwork found")
+                stats['not_found'] += 1
 
-            except Exception as e:
-                logger.error(f"  ✗ Error fetching artwork: {e}")
-                stats['errors'] += 1
-                session.rollback()
+        except Exception as e:
+            logger.error(f"  ✗ Error fetching artwork: {e}")
+            stats['errors'] += 1
 
     return stats
 
@@ -144,6 +146,11 @@ def main():
         logger.info(f"Loading library from: {library_path}")
         library_manager = LibraryManager(db_path=str(library_path))
 
+        # Initialize artist repository
+        artist_repository = ArtistRepository(
+            session_factory=library_manager.get_session
+        )
+
         # Initialize artwork service
         artwork_service = ArtworkService(
             discogs_token=args.discogs_token,
@@ -162,7 +169,7 @@ def main():
         # Fetch artwork
         logger.info("Starting artwork fetch...")
         stats = fetch_artwork_for_all_artists(
-            library_manager,
+            artist_repository,
             artwork_service,
             force_refresh=args.force_refresh
         )

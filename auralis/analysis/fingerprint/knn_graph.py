@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 
+from ...library.repositories.similarity_graph_repository import SimilarityGraphRepository
 from ...utils.logging import debug, error, info, warning
 from .similarity import FingerprintSimilarity
 
@@ -77,6 +78,7 @@ class KNNGraphBuilder:
         """
         self.similarity = similarity_system
         self.session_factory = session_factory
+        self.graph_repo = SimilarityGraphRepository(session_factory)
 
         if not self.similarity.is_fitted():
             raise ValueError("Similarity system must be fitted before building graph")
@@ -98,18 +100,14 @@ class KNNGraphBuilder:
         Returns:
             GraphStats with build statistics
         """
-        from ...library.models import SimilarityGraph
-
         info(f"Building K-NN similarity graph (k={k})...")
         start_time = datetime.now()
 
-        session = self.session_factory()
         try:
             # Clear existing graph if requested
             if clear_existing:
                 debug("Clearing existing similarity graph...")
-                session.query(SimilarityGraph).delete()
-                session.commit()
+                self.graph_repo.clear_all()
 
             # Get all fingerprints
             all_fingerprints = self.similarity.fingerprint_repo.get_all()
@@ -127,7 +125,7 @@ class KNNGraphBuilder:
             # Process in batches
             for i in range(0, total_tracks, batch_size):
                 batch = all_fingerprints[i:i + batch_size]
-                batch_edges = 0
+                batch_edges_data = []
 
                 for fp in batch:
                     # Find k nearest neighbors
@@ -137,25 +135,25 @@ class KNNGraphBuilder:
                         use_prefilter=True
                     )
 
-                    # Store edges in database
+                    # Prepare edges for batch insertion
                     for rank, result in enumerate(results, start=1):
-                        edge = SimilarityGraph(
-                            track_id=fp.track_id,
-                            similar_track_id=result.track_id,
-                            distance=result.distance,
-                            similarity_score=result.similarity_score,
-                            rank=rank
-                        )
-                        session.add(edge)
-                        batch_edges += 1
+                        edge_data = {
+                            'track_id': fp.track_id,
+                            'similar_track_id': result.track_id,
+                            'distance': result.distance,
+                            'similarity_score': result.similarity_score,
+                            'rank': rank
+                        }
+                        batch_edges_data.append(edge_data)
                         all_distances.append(result.distance)
 
-                # Commit batch
-                session.commit()
-                total_edges += batch_edges
+                # Add batch of edges to database
+                if batch_edges_data:
+                    batch_edges = self.graph_repo.add_edges(batch_edges_data)
+                    total_edges += batch_edges
 
                 progress = ((i + len(batch)) / total_tracks) * 100
-                debug(f"Progress: {progress:.1f}% ({i + len(batch)}/{total_tracks} tracks, {batch_edges} edges)")
+                debug(f"Progress: {progress:.1f}% ({i + len(batch)}/{total_tracks} tracks, {len(batch_edges_data)} edges)")
 
             # Calculate statistics
             if all_distances:
@@ -185,11 +183,8 @@ class KNNGraphBuilder:
             return stats
 
         except Exception as e:
-            session.rollback()
             error(f"Failed to build graph: {e}")
             raise
-        finally:
-            session.close()
 
     def update_graph(
         self,
@@ -206,19 +201,14 @@ class KNNGraphBuilder:
         Returns:
             Number of edges added/updated
         """
-        from ...library.models import SimilarityGraph
-
         info(f"Updating K-NN graph for {len(track_ids)} tracks...")
 
-        session = self.session_factory()
         try:
             edges_updated = 0
 
             for track_id in track_ids:
                 # Remove existing edges for this track
-                session.query(SimilarityGraph).filter(
-                    SimilarityGraph.track_id == track_id
-                ).delete()
+                self.graph_repo.delete_by_track_id(track_id)
 
                 # Find new k nearest neighbors
                 results = self.similarity.find_similar(
@@ -227,28 +217,28 @@ class KNNGraphBuilder:
                     use_prefilter=True
                 )
 
-                # Add new edges
+                # Prepare new edges
+                edge_data_list = []
                 for rank, result in enumerate(results, start=1):
-                    edge = SimilarityGraph(
-                        track_id=track_id,
-                        similar_track_id=result.track_id,
-                        distance=result.distance,
-                        similarity_score=result.similarity_score,
-                        rank=rank
-                    )
-                    session.add(edge)
-                    edges_updated += 1
+                    edge_data = {
+                        'track_id': track_id,
+                        'similar_track_id': result.track_id,
+                        'distance': result.distance,
+                        'similarity_score': result.similarity_score,
+                        'rank': rank
+                    }
+                    edge_data_list.append(edge_data)
 
-            session.commit()
+                # Add new edges
+                if edge_data_list:
+                    edges_updated += self.graph_repo.add_edges(edge_data_list)
+
             info(f"Updated {edges_updated} edges for {len(track_ids)} tracks")
             return edges_updated
 
         except Exception as e:
-            session.rollback()
             error(f"Failed to update graph: {e}")
             raise
-        finally:
-            session.close()
 
     def get_neighbors(
         self,
@@ -265,23 +255,8 @@ class KNNGraphBuilder:
         Returns:
             List of neighbor dictionaries with track_id, distance, similarity_score, rank
         """
-        from ...library.models import SimilarityGraph
-
-        session = self.session_factory()
-        try:
-            query = session.query(SimilarityGraph).filter(
-                SimilarityGraph.track_id == track_id
-            ).order_by(SimilarityGraph.rank)
-
-            if limit:
-                query = query.limit(limit)
-
-            edges = query.all()
-
-            return [edge.to_dict() for edge in edges]
-
-        finally:
-            session.close()
+        edges = self.graph_repo.get_neighbors(track_id, limit)
+        return [edge.to_dict() for edge in edges]
 
     def get_graph_stats(self) -> Optional[GraphStats]:
         """
@@ -290,47 +265,22 @@ class KNNGraphBuilder:
         Returns:
             GraphStats or None if graph is empty
         """
-        from sqlalchemy import func
+        stats = self.graph_repo.get_stats()
 
-        from ...library.models import SimilarityGraph
+        if stats is None:
+            return None
 
-        session = self.session_factory()
-        try:
-            # Count edges
-            total_edges = session.query(SimilarityGraph).count()
+        total_tracks, total_edges, k_neighbors, avg_distance, min_distance, max_distance = stats
 
-            if total_edges == 0:
-                return None
-
-            # Count unique tracks
-            total_tracks = session.query(
-                func.count(func.distinct(SimilarityGraph.track_id))
-            ).scalar()
-
-            # Calculate k (average neighbors per track)
-            k_neighbors = total_edges // total_tracks if total_tracks > 0 else 0
-
-            # Distance statistics
-            distance_stats = session.query(
-                func.avg(SimilarityGraph.distance),
-                func.min(SimilarityGraph.distance),
-                func.max(SimilarityGraph.distance)
-            ).first()
-
-            avg_distance, min_distance, max_distance = distance_stats
-
-            return GraphStats(
-                total_tracks=total_tracks,
-                total_edges=total_edges,
-                k_neighbors=k_neighbors,
-                avg_distance=float(avg_distance or 0),
-                min_distance=float(min_distance or 0),
-                max_distance=float(max_distance or 0),
-                build_time_seconds=0.0  # Not tracked for existing graph
-            )
-
-        finally:
-            session.close()
+        return GraphStats(
+            total_tracks=total_tracks,
+            total_edges=total_edges,
+            k_neighbors=k_neighbors,
+            avg_distance=avg_distance,
+            min_distance=min_distance,
+            max_distance=max_distance,
+            build_time_seconds=0.0  # Not tracked for existing graph
+        )
 
     def clear_graph(self) -> int:
         """
@@ -339,20 +289,11 @@ class KNNGraphBuilder:
         Returns:
             Number of edges deleted
         """
-        from ...library.models import SimilarityGraph
-
-        session = self.session_factory()
         try:
-            count = session.query(SimilarityGraph).count()
-            session.query(SimilarityGraph).delete()
-            session.commit()
-
+            count = self.graph_repo.clear_all()
             info(f"Cleared {count} edges from similarity graph")
             return cast(int, count)
 
         except Exception as e:
-            session.rollback()
             error(f"Failed to clear graph: {e}")
             raise
-        finally:
-            session.close()

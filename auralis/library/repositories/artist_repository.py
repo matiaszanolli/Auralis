@@ -165,3 +165,53 @@ class ArtistRepository:
             return artists, total
         finally:
             session.close()
+
+    def get_all_artists(self) -> List[Artist]:
+        """Get all artists without pagination (for batch operations)
+
+        Returns:
+            List of all artists in the database
+        """
+        session = self.get_session()
+        try:
+            return session.query(Artist).all()
+        finally:
+            session.close()
+
+    def update_artwork(
+        self,
+        artist_id: int,
+        artwork_url: str,
+        artwork_source: str,
+        artwork_fetched_at: Optional[object] = None
+    ) -> bool:
+        """Update artist artwork information
+
+        Args:
+            artist_id: ID of the artist to update
+            artwork_url: URL of the artwork image
+            artwork_source: Source of the artwork (e.g., 'MusicBrainz', 'Discogs', 'Last.fm')
+            artwork_fetched_at: Timestamp when artwork was fetched (defaults to current UTC time)
+
+        Returns:
+            True if update successful, False if artist not found or update failed
+        """
+        from datetime import datetime
+
+        session = self.get_session()
+        try:
+            artist = session.query(Artist).filter(Artist.id == artist_id).first()
+            if not artist:
+                return False
+
+            artist.artwork_url = artwork_url
+            artist.artwork_source = artwork_source
+            artist.artwork_fetched_at = artwork_fetched_at or datetime.utcnow()
+
+            session.commit()
+            return True
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
