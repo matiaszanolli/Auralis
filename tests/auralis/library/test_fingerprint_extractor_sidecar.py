@@ -16,7 +16,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from auralis.library.fingerprint_extractor import FingerprintExtractor
+from auralis.services.fingerprint_extractor import FingerprintExtractor
 from auralis.library.sidecar_manager import SidecarManager
 
 

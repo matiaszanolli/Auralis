@@ -47,7 +47,7 @@ async def main():
     import asyncio
     import gc
 
-    from auralis.library.fingerprint_extractor import FingerprintExtractor
+    from auralis.services.fingerprint_extractor import FingerprintExtractor
     from auralis.library.manager import LibraryManager
 
     print("🔍 Fingerprint Memory Profiling")

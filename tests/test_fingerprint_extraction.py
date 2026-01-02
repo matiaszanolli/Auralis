@@ -134,7 +134,7 @@ class TestFingerprintJob:
 
     def test_fingerprint_job_creation(self):
         """Test basic job creation"""
-        from auralis.library.fingerprint_queue import FingerprintJob
+        from auralis.services.fingerprint_queue import FingerprintJob
 
         job = FingerprintJob(
             track_id=123,
@@ -150,7 +150,7 @@ class TestFingerprintJob:
 
     def test_fingerprint_job_priority_ordering(self):
         """Test job priority queue ordering"""
-        from auralis.library.fingerprint_queue import FingerprintJob
+        from auralis.services.fingerprint_queue import FingerprintJob
 
         job1 = FingerprintJob(track_id=1, filepath='file1.mp3', priority=0)
         job2 = FingerprintJob(track_id=2, filepath='file2.mp3', priority=2)
@@ -170,7 +170,7 @@ class TestFingerprintExtractionQueue:
     @pytest.mark.asyncio
     async def test_queue_initialization(self, fingerprint_extractor_mock, library_manager_mock):
         """Test queue initialization"""
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
+        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
 
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor_mock,
@@ -187,7 +187,7 @@ class TestFingerprintExtractionQueue:
     @pytest.mark.asyncio
     async def test_enqueue_single_job(self, fingerprint_extractor_mock, library_manager_mock):
         """Test enqueueing a single job"""
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
+        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
 
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor_mock,
@@ -208,7 +208,7 @@ class TestFingerprintExtractionQueue:
     @pytest.mark.asyncio
     async def test_enqueue_batch(self, fingerprint_extractor_mock, library_manager_mock):
         """Test batch enqueuing"""
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
+        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
 
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor_mock,
@@ -231,7 +231,7 @@ class TestFingerprintExtractionQueue:
     @pytest.mark.asyncio
     async def test_queue_statistics(self, fingerprint_extractor_mock, library_manager_mock):
         """Test queue statistics tracking"""
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
+        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
 
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor_mock,
@@ -258,7 +258,7 @@ class TestFingerprintQueueManager:
     @pytest.mark.asyncio
     async def test_manager_initialization(self, fingerprint_extractor_mock, library_manager_mock):
         """Test queue manager initialization"""
-        from auralis.library.fingerprint_queue import FingerprintQueueManager
+        from auralis.services.fingerprint_queue import FingerprintQueueManager
 
         manager = FingerprintQueueManager(
             fingerprint_extractor=fingerprint_extractor_mock,
@@ -272,7 +272,7 @@ class TestFingerprintQueueManager:
     @pytest.mark.asyncio
     async def test_manager_startup_shutdown(self, fingerprint_extractor_mock, library_manager_mock):
         """Test manager startup and shutdown"""
-        from auralis.library.fingerprint_queue import FingerprintQueueManager
+        from auralis.services.fingerprint_queue import FingerprintQueueManager
 
         manager = FingerprintQueueManager(
             fingerprint_extractor=fingerprint_extractor_mock,
@@ -297,8 +297,8 @@ class TestScannerFingerprinterIntegration:
 
     def test_scanner_accepts_fingerprint_queue(self, library_manager_mock):
         """Test that scanner accepts optional fingerprint queue"""
-        from auralis.library.fingerprint_extractor import FingerprintExtractor
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
+        from auralis.services.fingerprint_extractor import FingerprintExtractor
+        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
         from auralis.library.scanner import LibraryScanner
 
         # Create minimal queue
@@ -417,7 +417,7 @@ class TestFingerprintQueuePerformance:
         """Test enqueue throughput (should be fast)"""
         import time
 
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
+        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
 
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor_mock,
@@ -441,7 +441,7 @@ class TestFingerprintQueuePerformance:
     @pytest.mark.boundary
     async def test_queue_max_size_limit(self, fingerprint_extractor_mock, library_manager_mock):
         """Test queue respects max size limit"""
-        from auralis.library.fingerprint_queue import FingerprintExtractionQueue
+        from auralis.services.fingerprint_queue import FingerprintExtractionQueue
 
         queue = FingerprintExtractionQueue(
             fingerprint_extractor=fingerprint_extractor_mock,

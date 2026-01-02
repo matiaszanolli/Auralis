@@ -183,7 +183,7 @@ config.set_fingerprint_strategy("sampling", sampling_interval=30.0)
 ### Integration with Fingerprint Extractor
 
 ```python
-from auralis.library.fingerprint_extractor import FingerprintExtractor
+from auralis.services.fingerprint_extractor import FingerprintExtractor
 from auralis.library.fingerprint_repository import FingerprintRepository
 
 repo = FingerprintRepository()
@@ -408,7 +408,7 @@ if avg_correlation < 0.85:
 
 ```python
 # For processing many tracks, use sampling to save time
-from auralis.library.fingerprint_extractor import FingerprintExtractor
+from auralis.services.fingerprint_extractor import FingerprintExtractor
 
 config = UnifiedConfig()
 config.set_fingerprint_strategy("sampling", sampling_interval=20.0)

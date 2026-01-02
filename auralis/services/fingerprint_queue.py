@@ -28,11 +28,11 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional
 
-from auralis.library.fingerprint_extractor import FingerprintExtractor
+from auralis.services.fingerprint_extractor import FingerprintExtractor
 from auralis.library.repositories.factory import RepositoryFactory
 
+from ..library.resource_monitor import AdaptiveResourceMonitor, ResourceLimits
 from ..utils.logging import debug, error, info, warning
-from .resource_monitor import AdaptiveResourceMonitor, ResourceLimits
 
 
 class FingerprintExtractionQueue:

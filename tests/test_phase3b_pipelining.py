@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from auralis.library.fingerprint_extractor import (
+from auralis.services.fingerprint_extractor import (
     CorruptedTrackError,
     FingerprintExtractor,
 )

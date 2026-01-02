@@ -22,8 +22,8 @@ import numpy as np
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..io.unified_loader import load_audio
+from ..library.sidecar_manager import SidecarManager
 from ..utils.logging import debug, error, info, warning
-from .sidecar_manager import SidecarManager
 
 # NOTE: requests library removed in favor of async aiohttp for true concurrent HTTP
 # (synchronous requests were causing 98% worker idle time with 16 workers + 64-thread Rust server)

@@ -103,10 +103,10 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                 # Note: GPU batch processing was causing memory exhaustion crashes.
                 # CPU parallelization provides better stability and consistent performance.
                 try:
-                    from auralis.library.fingerprint_extractor import (
+                    from auralis.services.fingerprint_extractor import (
                         FingerprintExtractor,
                     )
-                    from auralis.library.fingerprint_queue import (
+                    from auralis.services.fingerprint_queue import (
                         FingerprintExtractionQueue,
                     )
 
