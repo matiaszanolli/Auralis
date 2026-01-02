@@ -56,12 +56,12 @@ class ContentProfile:
     processing_recommendations: Dict[str, Any]
 
 
-class AdvancedContentAnalyzer:
-    """Advanced content analysis for adaptive mastering"""
+class ContentAnalyzer:
+    """Content analysis for adaptive mastering"""
 
     def __init__(self, sample_rate: int = 44100):
         """
-        Initialize advanced content analyzer
+        Initialize content analyzer
 
         Args:
             sample_rate: Audio sample rate
@@ -235,5 +235,9 @@ class AdvancedContentAnalyzer:
 # Convenience function for quick content analysis
 def analyze_audio_content(audio_data: np.ndarray, sample_rate: int = 44100) -> ContentProfile:
     """Quick content analysis function"""
-    analyzer = AdvancedContentAnalyzer(sample_rate)
+    analyzer = ContentAnalyzer(sample_rate)
     return analyzer.analyze_content(audio_data)
+
+
+# Backward compatibility alias
+AdvancedContentAnalyzer = ContentAnalyzer

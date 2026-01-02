@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Enhanced Auralis Audio Player (Refactored)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Auralis Audio Player
+~~~~~~~~~~~~~~~~~~~~
 
 Real-time audio player with advanced DSP processing and library integration
 
@@ -38,9 +38,9 @@ from .realtime_processor import RealtimeProcessor
 QueueManager = QueueController
 
 
-class EnhancedAudioPlayer:
+class AudioPlayer:
     """
-    Enhanced real-time audio player with advanced DSP and library integration.
+    Real-time audio player with advanced DSP and library integration.
 
     Facade that coordinates 5 specialized components for clean separation of concerns:
     - PlaybackController: State machine
@@ -520,3 +520,7 @@ class EnhancedAudioPlayer:
         self.gapless.cleanup()
         self.integration.cleanup()
         info("AudioPlayer cleanup completed")
+
+
+# Backward compatibility alias
+EnhancedAudioPlayer = AudioPlayer

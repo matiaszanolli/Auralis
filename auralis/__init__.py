@@ -37,7 +37,7 @@ from .core.processor import process
 from .io.results import Result, pcm16, pcm24
 
 # Real-time player (Modern implementation with adaptive DSP)
-from .player import EnhancedAudioPlayer
+from .player import AudioPlayer, EnhancedAudioPlayer  # EnhancedAudioPlayer for backward compatibility
 from .player.config import PlayerConfig
 
 # Logging
@@ -47,7 +47,8 @@ from .utils.logging import set_log_handler as log
 __all__ = [
     "process",           # Core batch processing
     "UnifiedConfig",     # Modern unified configuration
-    "EnhancedAudioPlayer",  # Real-time player with adaptive DSP (modern standard)
+    "AudioPlayer",       # Real-time player with adaptive DSP (modern standard)
+    "EnhancedAudioPlayer",  # Backward compatibility alias
     "PlayerConfig",      # Player configuration
     "Result", "pcm16", "pcm24",  # Output formats
     "log",               # Logging
