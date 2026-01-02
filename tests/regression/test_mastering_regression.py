@@ -37,6 +37,9 @@ class TrackTestCase:
     crest_db_range: Tuple[float, float]
     # Expected processing behavior
     expected_stage: str  # 'quiet_processing', 'compressed_loud', 'dynamic_loud'
+    # Stereo width range (optional - for tracks testing stereo expansion)
+    stereo_width_range: Optional[Tuple[float, float]] = None
+    expects_stereo_expansion: bool = False  # True if track should get stereo_expand stage
     # Output quality thresholds
     max_peak_db: float = -0.1  # Should not clip
     min_crest_db: float = 6.0  # Should maintain some dynamics
@@ -75,6 +78,28 @@ TEST_CASES = [
         lufs_range=(-18.0, -14.0),
         crest_db_range=(13.0, 18.0),
         expected_stage="quiet_processing",
+    ),
+    # Stereo expansion test cases
+    TrackTestCase(
+        name="Rolling Stones - Rock and a Hard Place (narrow stereo, quiet)",
+        path="/mnt/Musica/Musica/The Rolling Stones/1989b - Steel Wheels/07 - Rock and a Hard Place.mp3",
+        bass_pct_range=(0.30, 0.45),
+        lufs_range=(-19.0, -16.0),
+        crest_db_range=(16.0, 20.0),
+        expected_stage="quiet_processing",
+        stereo_width_range=(0.10, 0.30),  # Narrow mix from 1989
+        expects_stereo_expansion=True,
+    ),
+    TrackTestCase(
+        name="Stratovarius - Eagleheart (narrow stereo, compressed loud, heavy bass)",
+        path="/mnt/Musica/Musica/Stratovarius/Stratovarius - 2003 - Elements Pt. 1 (Limited - Remastered)/01 Eagleheart.flac",
+        bass_pct_range=(0.40, 0.55),
+        lufs_range=(-12.0, -9.0),
+        crest_db_range=(10.0, 13.0),
+        expected_stage="compressed_loud",
+        stereo_width_range=(0.10, 0.25),  # Narrow metal mix
+        expects_stereo_expansion=True,
+        min_crest_db=8.0,  # Allow lower crest for already-compressed material
     ),
 ]
 
@@ -117,6 +142,7 @@ class MasteringRegressionTests:
                     "bass_pct": fp.get("bass_pct", 0),
                     "lufs": fp.get("lufs", 0),
                     "crest_db": fp.get("crest_db", 0),
+                    "stereo_width": fp.get("stereo_width", 0.5),
                     "tempo_bpm": fp.get("tempo_bpm", 0),
                 }
 
@@ -139,6 +165,15 @@ class MasteringRegressionTests:
                         f"[{case.crest_db_range[0]:.1f}, {case.crest_db_range[1]:.1f}]"
                     )
 
+                # Validate stereo width range if specified
+                if case.stereo_width_range is not None:
+                    width = fp.get("stereo_width", 0.5)
+                    if not (case.stereo_width_range[0] <= width <= case.stereo_width_range[1]):
+                        result["errors"].append(
+                            f"stereo_width {width:.0%} outside range "
+                            f"[{case.stereo_width_range[0]:.0%}, {case.stereo_width_range[1]:.0%}]"
+                        )
+
                 # Validate processing stage
                 stages = output["processing"]["stages"]
                 stage_names = [s["stage"] for s in stages]
@@ -153,6 +188,19 @@ class MasteringRegressionTests:
                 elif case.expected_stage == "dynamic_loud":
                     if "passthrough" not in stage_names:
                         result["errors"].append("Expected passthrough stage for dynamic loud material")
+
+                # Validate stereo expansion if expected
+                if case.expects_stereo_expansion:
+                    if "stereo_expand" not in stage_names:
+                        result["errors"].append("Expected stereo_expand stage for narrow mix")
+                    else:
+                        # Verify multiband expansion was used (check for width_factor in stage info)
+                        stereo_stage = next((s for s in stages if s["stage"] == "stereo_expand"), None)
+                        if stereo_stage:
+                            result["processing"]["stereo_expansion"] = {
+                                "original_width": stereo_stage.get("original_width"),
+                                "width_factor": stereo_stage.get("width_factor"),
+                            }
 
                 # Validate output quality
                 audio_out, sr = librosa.load(tmp.name, sr=None, mono=True)
@@ -189,9 +237,16 @@ class MasteringRegressionTests:
 
             if result["passed"]:
                 print(f"  ✓ PASSED")
-                print(f"    Bass: {result['fingerprint'].get('bass_pct', 0):.0%}, "
-                      f"LUFS: {result['fingerprint'].get('lufs', 0):.1f}, "
-                      f"Crest: {result['fingerprint'].get('crest_db', 0):.1f}")
+                fp_info = (f"    Bass: {result['fingerprint'].get('bass_pct', 0):.0%}, "
+                           f"LUFS: {result['fingerprint'].get('lufs', 0):.1f}, "
+                           f"Crest: {result['fingerprint'].get('crest_db', 0):.1f}, "
+                           f"Width: {result['fingerprint'].get('stereo_width', 0.5):.0%}")
+                print(fp_info)
+                # Show stereo expansion details if applied
+                if "stereo_expansion" in result.get("processing", {}):
+                    se = result["processing"]["stereo_expansion"]
+                    expansion_pct = (se["width_factor"] - 0.5) * 200
+                    print(f"    Stereo: {se['original_width']:.0%} → +{expansion_pct:.0f}% (multiband)")
             else:
                 print(f"  ✗ FAILED")
                 for err in result["errors"]:

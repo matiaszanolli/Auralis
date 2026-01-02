@@ -11,6 +11,7 @@ Utilities for stereo width analysis and manipulation
 """
 
 import numpy as np
+from scipy.signal import butter, sosfiltfilt
 
 from ..basic import mid_side_decode, mid_side_encode
 
@@ -77,3 +78,81 @@ def adjust_stereo_width(stereo_audio: np.ndarray, width_factor: float) -> np.nda
 
     # Convert back to stereo
     return mid_side_decode(mid, adjusted_side)
+
+
+def adjust_stereo_width_multiband(
+    stereo_audio: np.ndarray,
+    width_factor: float,
+    sample_rate: int = 44100
+) -> np.ndarray:
+    """
+    Adjust stereo width with frequency-dependent processing.
+
+    Each frequency band gets appropriate width treatment:
+    - Lows (<200Hz): No expansion - keeps kick/bass punchy and centered
+    - Low-mids (200-2kHz): 50% of expansion - body and warmth
+    - High-mids (2k-8kHz): 100% of expansion - presence, guitars
+    - Highs (>8kHz): 120% of expansion - air, cymbals, sparkle
+
+    Args:
+        stereo_audio: Stereo audio signal [samples, 2]
+        width_factor: Base width factor (0.5 = no change, 1.0 = max width)
+        sample_rate: Audio sample rate
+
+    Returns:
+        Width-adjusted stereo audio with frequency-appropriate widening
+    """
+    if stereo_audio.ndim != 2 or stereo_audio.shape[1] != 2:
+        return stereo_audio
+
+    # No change needed
+    if abs(width_factor - 0.5) < 0.01:
+        return stereo_audio
+
+    nyquist = sample_rate / 2
+
+    # Crossover frequencies
+    freq_low = 200.0 / nyquist      # Below: bass/kick (no expansion)
+    freq_mid = 2000.0 / nyquist     # 200-2k: low-mids (partial expansion)
+    freq_high = 8000.0 / nyquist    # 2k-8k: high-mids (full expansion)
+                                     # Above 8k: highs (extra expansion)
+
+    # Clamp to valid range
+    freq_low = min(0.99, max(0.01, freq_low))
+    freq_mid = min(0.99, max(0.01, freq_mid))
+    freq_high = min(0.99, max(0.01, freq_high))
+
+    # Design filters (2nd order Butterworth, zero-phase)
+    sos_lp_low = butter(2, freq_low, btype='low', output='sos')
+    sos_bp_lowmid = butter(2, [freq_low, freq_mid], btype='band', output='sos')
+    sos_bp_highmid = butter(2, [freq_mid, freq_high], btype='band', output='sos')
+    sos_hp_high = butter(2, freq_high, btype='high', output='sos')
+
+    # Split into 4 bands
+    band_low = sosfiltfilt(sos_lp_low, stereo_audio, axis=0)
+    band_lowmid = sosfiltfilt(sos_bp_lowmid, stereo_audio, axis=0)
+    band_highmid = sosfiltfilt(sos_bp_highmid, stereo_audio, axis=0)
+    band_high = sosfiltfilt(sos_hp_high, stereo_audio, axis=0)
+
+    # Calculate expansion amount from base factor
+    # width_factor 0.5 = no change, 0.65 = +30% expansion
+    expansion = width_factor - 0.5  # How much to expand (0 to 0.5)
+
+    # Apply frequency-dependent width multipliers
+    # Lows: 0% expansion (stay at 0.5)
+    # Low-mids: 50% of requested expansion
+    # High-mids: 100% of requested expansion
+    # Highs: 120% of requested expansion (extra sparkle)
+    width_low = 0.5                           # No change
+    width_lowmid = 0.5 + expansion * 0.5      # Half expansion
+    width_highmid = 0.5 + expansion * 1.0     # Full expansion
+    width_high = 0.5 + min(0.5, expansion * 1.2)  # Extra expansion, capped
+
+    # Apply width to each band
+    # Low band stays untouched for punch
+    band_lowmid_w = adjust_stereo_width(band_lowmid, width_lowmid)
+    band_highmid_w = adjust_stereo_width(band_highmid, width_highmid)
+    band_high_w = adjust_stereo_width(band_high, width_high)
+
+    # Recombine all bands
+    return band_low + band_lowmid_w + band_highmid_w + band_high_w

@@ -18,11 +18,13 @@ from typing import Dict, Optional, Tuple
 import librosa
 import numpy as np
 import soundfile as sf
+from scipy.signal import butter, sosfilt
 
 from ..analysis.fingerprint.fingerprint_service import FingerprintService
 from ..dsp.basic import amplify, normalize
 from ..dsp.dynamics.soft_clipper import soft_clip
 from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
+from ..dsp.utils.stereo import adjust_stereo_width_multiband
 
 
 class SimpleMasteringPipeline:
@@ -112,7 +114,7 @@ class SimpleMasteringPipeline:
             print("\n⚡ Processing...")
 
         step_start = time.perf_counter()
-        processed, info = self._process(audio, fingerprint, peak_db, intensity, verbose)
+        processed, info = self._process(audio, fingerprint, peak_db, intensity, sr, verbose)
         timings['processing'] = time.perf_counter() - step_start
 
         # Step 4: Export
@@ -151,6 +153,7 @@ class SimpleMasteringPipeline:
         fp: Dict,
         peak_db: float,
         intensity: float,
+        sample_rate: int,
         verbose: bool
     ) -> Tuple[np.ndarray, Dict]:
         """Core processing logic."""
@@ -159,6 +162,7 @@ class SimpleMasteringPipeline:
         crest_db = fp.get('crest_db', 12.0)
         bass_pct = fp.get('bass_pct', 0.15)
         transient_density = fp.get('transient_density', 0.5)
+        stereo_width = fp.get('stereo_width', 0.5)
 
         info = {'stages': []}
         processed = audio.copy()
@@ -187,11 +191,35 @@ class SimpleMasteringPipeline:
             processed = amplify(processed, -0.5)  # Gentle reduction
             info['stages'].append({'stage': 'expansion', 'factor': expansion})
 
+            # Stereo expansion for narrow mixes
+            processed, width_info = self._apply_stereo_expansion(
+                processed, stereo_width, effective_intensity, sample_rate, verbose
+            )
+            if width_info:
+                info['stages'].append(width_info)
+
+            # Safety peak limit after stereo expansion (can add energy)
+            current_peak = np.max(np.abs(processed))
+            if current_peak > 0.99:
+                processed = processed * (0.99 / current_peak)
+
         elif lufs > -12.0:
-            # Dynamic loud → pass-through
+            # Dynamic loud → pass-through with optional stereo expansion
             if verbose:
                 print(f"   Dynamic loud → preserving original")
             info['stages'].append({'stage': 'passthrough'})
+
+            # Stereo expansion for narrow mixes
+            processed, width_info = self._apply_stereo_expansion(
+                processed, stereo_width, effective_intensity, sample_rate, verbose
+            )
+            if width_info:
+                info['stages'].append(width_info)
+
+            # Safety peak limit after stereo expansion (can add energy)
+            current_peak = np.max(np.abs(processed))
+            if current_peak > 0.99:
+                processed = processed * (0.99 / current_peak)
 
         else:
             # Quiet material → full processing
@@ -206,6 +234,14 @@ class SimpleMasteringPipeline:
                     print(f"   Makeup gain: +{makeup_gain:.1f} dB")
                 processed = amplify(processed, makeup_gain)
                 info['stages'].append({'stage': 'makeup_gain', 'gain_db': makeup_gain})
+
+            # Bass enhancement for tracks lacking low-end
+            # Applied before soft clipping so any peaks get handled gracefully
+            processed, bass_info = self._apply_bass_enhancement(
+                processed, bass_pct, effective_intensity, sample_rate, verbose
+            )
+            if bass_info:
+                info['stages'].append(bass_info)
 
             # Soft clipping with loudness-scaled intensity
             loudness_factor = max(0.0, min(1.0, (-11.0 - lufs) / 9.0))
@@ -234,6 +270,13 @@ class SimpleMasteringPipeline:
 
             processed = soft_clip(processed, threshold=threshold_linear, ceiling=ceiling)
             info['stages'].append({'stage': 'soft_clip', 'threshold_db': threshold_db})
+
+            # Stereo expansion for narrow mixes
+            processed, width_info = self._apply_stereo_expansion(
+                processed, stereo_width, effective_intensity, sample_rate, verbose
+            )
+            if width_info:
+                info['stages'].append(width_info)
 
             # Final normalization
             target_peak, _ = AdaptiveLoudnessControl.calculate_adaptive_peak_target(lufs)
@@ -277,6 +320,134 @@ class SimpleMasteringPipeline:
         processed = soft_clip(audio, threshold=threshold, ceiling=min(0.99, threshold * 1.05))
         return processed, self._peak_db(processed)
 
+    def _apply_stereo_expansion(
+        self,
+        audio: np.ndarray,
+        current_width: float,
+        intensity: float,
+        sample_rate: int,
+        verbose: bool
+    ) -> Tuple[np.ndarray, Optional[Dict]]:
+        """
+        Apply adaptive multiband stereo expansion for narrow mixes.
+
+        Uses frequency-dependent expansion:
+        - Lows (<200Hz): No expansion - keeps kick/bass punchy
+        - Low-mids (200-2kHz): 50% expansion - body
+        - High-mids (2k-8kHz): 100% expansion - presence
+        - Highs (>8kHz): 120% expansion - air/sparkle
+
+        Args:
+            audio: Stereo audio [2, samples]
+            current_width: Fingerprint stereo_width (0=mono, 1=wide)
+            intensity: Processing intensity 0.0-1.0
+            sample_rate: Audio sample rate in Hz
+            verbose: Print progress
+
+        Returns:
+            (processed_audio, stage_info or None if no expansion applied)
+        """
+        # Only expand narrow mixes (width < 0.45)
+        if current_width >= 0.45:
+            return audio, None
+
+        # Calculate expansion based on narrowness and intensity
+        # For width=0.15 (very narrow): target 0.65 (30% expansion)
+        # For width=0.4 (slightly narrow): target 0.55 (10% expansion)
+        narrowness = 0.45 - current_width  # 0.0 to 0.45
+        expansion_amount = narrowness * 0.5 * intensity  # Max 0.225 at full intensity
+
+        width_factor = 0.5 + expansion_amount  # 0.5 to 0.725
+
+        # Transpose for multiband function which expects [samples, 2]
+        audio_t = audio.T
+        expanded = adjust_stereo_width_multiband(audio_t, width_factor, sample_rate)
+        processed = expanded.T
+
+        if verbose:
+            expansion_pct = (width_factor - 0.5) * 200
+            print(f"   Stereo expand: {current_width:.0%} → +{expansion_pct:.0f}% width (multiband)")
+
+        return processed, {
+            'stage': 'stereo_expand',
+            'original_width': current_width,
+            'width_factor': width_factor
+        }
+
+    def _apply_bass_enhancement(
+        self,
+        audio: np.ndarray,
+        bass_pct: float,
+        intensity: float,
+        sample_rate: int,
+        verbose: bool
+    ) -> Tuple[np.ndarray, Optional[Dict]]:
+        """
+        Apply adaptive bass enhancement using a low-shelf filter.
+
+        Boosts low frequencies for tracks that need more bass presence.
+        The boost scales inversely with detected bass percentage - tracks
+        with less bass get more boost.
+
+        Uses a gentle low-shelf filter to avoid harsh transient artifacts
+        from reverberant kick drums common in 80s productions.
+
+        Args:
+            audio: Stereo audio [2, samples]
+            bass_pct: Fingerprint bass percentage (0-1)
+            intensity: Processing intensity 0.0-1.0
+            sample_rate: Audio sample rate in Hz
+            verbose: Print progress
+
+        Returns:
+            (processed_audio, stage_info or None if no enhancement applied)
+        """
+        # Only enhance tracks with moderate or low bass (< 40%)
+        # High bass tracks don't need boost
+        if bass_pct >= 0.40:
+            return audio, None
+
+        # Calculate boost based on bass deficiency
+        # bass_pct=0.15 → +2.5 dB boost (significant)
+        # bass_pct=0.30 → +1.25 dB boost (moderate)
+        # bass_pct=0.40 → +0 dB boost (none)
+        bass_deficiency = 0.40 - bass_pct  # 0.0 to 0.40
+        max_boost_db = 2.5 * intensity  # Scale with intensity
+        boost_db = bass_deficiency * (max_boost_db / 0.40)
+
+        if boost_db < 0.5:
+            return audio, None  # Too small to matter
+
+        # Design a gentle low-shelf filter at 100Hz
+        # Using a 2nd order Butterworth lowpass, then scaling the low content
+        shelf_freq = 100.0
+        nyquist = sample_rate / 2
+        normalized_freq = min(0.99, max(0.01, shelf_freq / nyquist))
+
+        # Extract low frequencies
+        sos_lp = butter(2, normalized_freq, btype='low', output='sos')
+        sos_hp = butter(2, normalized_freq, btype='high', output='sos')
+
+        # Split into low and high bands
+        low_band = sosfilt(sos_lp, audio, axis=1)
+        high_band = sosfilt(sos_hp, audio, axis=1)
+
+        # Apply boost to low band only
+        boost_linear = 10 ** (boost_db / 20)
+        low_boosted = low_band * boost_linear
+
+        # Recombine
+        processed = low_boosted + high_band
+
+        if verbose:
+            print(f"   Bass enhance: +{boost_db:.1f} dB below 100Hz")
+
+        return processed, {
+            'stage': 'bass_enhance',
+            'boost_db': boost_db,
+            'bass_pct': bass_pct
+        }
+
     @staticmethod
     def _peak_db(audio: np.ndarray) -> float:
         """Calculate peak level in dB."""
@@ -290,6 +461,7 @@ class SimpleMasteringPipeline:
         print(f"   LUFS: {fp.get('lufs', 0):.1f} dB")
         print(f"   Crest: {fp.get('crest_db', 0):.1f} dB")
         print(f"   Bass: {fp.get('bass_pct', 0):.0%}")
+        print(f"   Width: {fp.get('stereo_width', 0.5):.0%}")
         print(f"   Tempo: {fp.get('tempo_bpm', 0):.0f} BPM")
 
     @staticmethod
