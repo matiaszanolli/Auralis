@@ -164,7 +164,8 @@ class FingerprintExtractor:
         aiohttp async approach requires shared event loop which is incompatible with
         multiple concurrent worker threads each creating their own event loops.
 
-        TODO: Migrate to true async when using async worker pool instead of thread pool.
+        NOTE: Future architecture improvement - migrate to true async when replacing
+        thread pool with async worker pool. Requires refactoring worker architecture.
         """
         import requests  # type: ignore[import-untyped]
         try:
@@ -375,9 +376,19 @@ class FingerprintExtractor:
 
                 # Write .25d sidecar file (if not cached and feature enabled)
                 if not cached and self.use_sidecar_files and self.sidecar_manager:
+                    # Extract basic track metadata for sidecar file
+                    import os
+                    metadata = {
+                        'track_id': track_id,
+                        'filename': filepath_obj.name,
+                        'file_extension': filepath_obj.suffix,
+                        'file_size_bytes': os.path.getsize(filepath),
+                        'extracted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+                    }
+
                     sidecar_data = {
                         'fingerprint': fingerprint,
-                        'metadata': {}  # TODO: Extract track metadata
+                        'metadata': metadata
                     }
                     self.sidecar_manager.write(filepath_obj, sidecar_data)
 

@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union, cast
 
 from ..utils.logging import debug, error, info, warning
+from ..version import __version__
 
 
 class SidecarManager:
@@ -41,7 +42,7 @@ class SidecarManager:
 
     SIDECAR_EXTENSION = ".25d"
     FORMAT_VERSION = "1.0"
-    AURALIS_VERSION = "1.0.0-beta.5"  # TODO: Read from auralis.version
+    AURALIS_VERSION = __version__
 
     def __init__(self) -> None:
         """Initialize sidecar manager"""
