@@ -7,6 +7,22 @@ Base Processing Mode
 Shared utilities and base class for audio processing modes.
 Consolidates common measurement and debug boilerplate across modes.
 
+DEPRECATED: This file is maintained for backward compatibility only.
+New code should import from auralis.core.processing.base module instead:
+    from auralis.core.processing.base import (
+        AudioMeasurement,
+        MeasurementUtilities,
+        CompressionStrategies,
+        ExpansionStrategies,
+        DBConversion,
+        StereoWidthProcessor,
+        ProcessingLogger,
+        SafetyLimiter,
+        PeakNormalizer,
+        NormalizationStep,
+        FullAudioMeasurement
+    )
+
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """

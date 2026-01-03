@@ -23,7 +23,7 @@ from ...dsp.unified import (
 )
 from ...dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ...utils.logging import debug
-from .base_processing_mode import (
+from .base import (
     CompressionStrategies,
     DBConversion,
     ExpansionStrategies,

@@ -26,7 +26,7 @@ from ...dsp.unified import (
 )
 from ...utils.logging import debug
 from ..recording_type_detector import RecordingTypeDetector
-from .base_processing_mode import (
+from .base import (
     CompressionStrategies,
     DBConversion,
     ExpansionStrategies,
