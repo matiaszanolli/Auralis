@@ -121,7 +121,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      outDir: 'build',
+      outDir: 'dist',
       sourcemap: false,
       rollupOptions: {
         output: {
