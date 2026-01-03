@@ -14,12 +14,12 @@ from .adaptive_mode import AdaptiveMode
 from .continuous_mode import ContinuousMode
 from .eq_processor import EQProcessor
 from .hybrid_mode import HybridMode
-from .realtime_processor import RealtimeProcessor
+from .realtime_dsp_pipeline import RealtimeDSPPipeline
 
 __all__ = [
     'AdaptiveMode',
     'HybridMode',
     'EQProcessor',
-    'RealtimeProcessor',
+    'RealtimeDSPPipeline',
     'ContinuousMode',
 ]

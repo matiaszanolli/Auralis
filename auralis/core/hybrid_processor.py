@@ -34,7 +34,7 @@ from .processing import (
     ContinuousMode,
     EQProcessor,
     HybridMode,
-    RealtimeProcessor,
+    RealtimeDSPPipeline,
 )
 from .processors import apply_reference_matching
 from .recording_type_detector import RecordingTypeDetector
@@ -120,7 +120,7 @@ class HybridProcessor:
             config, self.content_analyzer, self.target_generator,
             self.adaptive_mode
         )
-        self.realtime_processor = RealtimeProcessor(
+        self.realtime_processor = RealtimeDSPPipeline(
             config, self.realtime_eq, self.dynamics_processor
         )
 

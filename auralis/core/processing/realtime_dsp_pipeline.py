@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-Real-time Processor
-~~~~~~~~~~~~~~~~~~~
+Real-time DSP Pipeline
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Real-time audio chunk processing for streaming applications
+Real-time audio DSP pipeline for streaming applications.
+Coordinates EQ and dynamics processing for low-latency chunk processing.
 
 NOTE (Phase 1 refactoring): This processor is now a thin wrapper around
 the DSP components. Audio validation is handled by AudioProcessingPipeline
@@ -29,10 +30,10 @@ from ..analysis.content_analysis_facade import (
 )
 
 
-class RealtimeProcessor:
+class RealtimeDSPPipeline:
     """
-    Real-time audio chunk processor for streaming applications
-    Processes small audio chunks with minimal latency
+    Real-time DSP pipeline for chunk-by-chunk audio processing.
+    Coordinates adaptive EQ and dynamics processing with minimal latency.
     """
 
     def __init__(self, config: Any, realtime_eq: RealtimeAdaptiveEQ,
