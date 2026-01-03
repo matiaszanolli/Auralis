@@ -85,8 +85,19 @@ hiddenimports = [
     # FastAPI dependencies
     'fastapi',
     'uvicorn',
+    'uvicorn.protocols',
+    'uvicorn.protocols.websockets',
+    'uvicorn.protocols.websockets.websockets_impl',
+    'uvicorn.protocols.websockets.wsproto_impl',
+    'websockets',
+    'websockets.legacy',
+    'websockets.legacy.server',
+    'wsproto',
+    'wsproto.connection',
+    'wsproto.events',
     'pydantic',
     'starlette',
+    'starlette.websockets',
 ]
 
 # Exclude unnecessary packages to reduce binary size
