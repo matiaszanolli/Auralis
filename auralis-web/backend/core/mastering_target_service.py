@@ -15,10 +15,19 @@ This service eliminates ~200 lines of duplicate fingerprint/target management.
 :license: GPLv3
 """
 
+import hashlib
 import logging
 import threading
+import traceback
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
+
+import numpy as np
+import soundfile as sf
+from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
+from auralis.analysis.mastering_fingerprint import MasteringFingerprint
+from auralis.io.unified_loader import load_audio
+from mutagen import File as MutagenFile  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
 
@@ -37,23 +46,30 @@ class MasteringTargetService:
     - Automatic target generation from fingerprints
     - One-stop method for getting fingerprint + targets
     - Supports saving extracted fingerprints
+    - Repository pattern via dependency injection
     """
 
-    def __init__(self, cache: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        cache: Optional[Dict[str, Any]] = None,
+        get_fingerprints_repository: Optional[Callable[[], Any]] = None
+    ):
         """
         Initialize mastering target service.
 
         Args:
             cache: Optional shared cache dictionary
+            get_fingerprints_repository: Callable that returns fingerprints repository
+                                        (for database lookups via repository pattern)
         """
         self.cache = cache if cache is not None else {}
+        self._get_fingerprints_repository = get_fingerprints_repository
         self._lock = threading.RLock()
         logger.debug("MasteringTargetService initialized")
 
     def _get_cache_key(self, track_id: int, filepath: str) -> str:
         """Generate cache key for fingerprint."""
         # Use both track_id and file signature for uniqueness
-        import hashlib
         file_hash = hashlib.md5(filepath.encode()).hexdigest()[:8]
         return f"fingerprint_{track_id}_{file_hash}"
 
@@ -72,18 +88,17 @@ class MasteringTargetService:
         Returns:
             MasteringFingerprint instance or None if not found
         """
+        # Require repository factory (dependency injection pattern)
+        if self._get_fingerprints_repository is None:
+            logger.debug("No fingerprints repository provided - skipping database lookup")
+            return None
+
         try:
-            from pathlib import Path as PathlibPath
-
-            from auralis.analysis.mastering_fingerprint import MasteringFingerprint
-            from auralis.library.manager import LibraryManager
-
-            # Initialize with default database location
-            db_path = str(PathlibPath.home() / ".auralis" / "library.db")
-            lib_manager = LibraryManager(database_path=db_path)
+            # Get repository via dependency injection
+            fingerprints_repo = self._get_fingerprints_repository()
 
             # Try to get fingerprint from database
-            fp_record = lib_manager.fingerprints.get_by_track_id(track_id)
+            fp_record = fingerprints_repo.get_by_track_id(track_id)
 
             if fp_record:
                 # Convert database record to MasteringFingerprint
@@ -143,8 +158,6 @@ class MasteringTargetService:
             Tuple of (fingerprint, mastering_targets) or None if not found
         """
         try:
-            from auralis.analysis.fingerprint import FingerprintStorage
-
             cached_data = FingerprintStorage.load(Path(filepath))
             if cached_data:
                 fingerprint, mastering_targets = cached_data
@@ -178,11 +191,6 @@ class MasteringTargetService:
             Tuple of (fingerprint, mastering_targets) or None if extraction fails
         """
         try:
-            import numpy as np
-            import soundfile as sf
-
-            from auralis.analysis.fingerprint import FingerprintStorage
-
             logger.info(f"🔍 Extracting fingerprint from audio: {Path(filepath).name}")
 
             # Try to use PyO3 Rust fingerprinting
@@ -214,9 +222,6 @@ class MasteringTargetService:
                 logger.warning(f"PyO3 fingerprinting failed ({e}), falling back to Python analyzer...")
 
                 # Fallback to Python-based analyzer
-                from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
-                from auralis.io.unified_loader import load_audio
-
                 full_audio, sr = load_audio(filepath, target_sample_rate=sample_rate)
                 analyzer = AudioFingerprintAnalyzer()
                 fingerprint_data = analyzer.analyze(full_audio, sr)
@@ -224,9 +229,6 @@ class MasteringTargetService:
             if fingerprint_data is not None:
                 # Add metadata for .25d file
                 try:
-                    from mutagen import (
-                        File as MutagenFile,  # type: ignore[attr-defined]
-                    )
                     audio_file = MutagenFile(filepath)
                     duration_value: float = (
                         float(audio_file.info.length) if audio_file else len(full_audio) / sr
@@ -254,7 +256,6 @@ class MasteringTargetService:
 
         except Exception as e:
             logger.error(f"Fingerprint extraction failed for {filepath}: {e}")
-            import traceback
             logger.debug(traceback.format_exc())
             return None
 
