@@ -99,6 +99,14 @@ jobs:
           npm install
           npm run build
 
+          # Verify build output
+          if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
+            echo "ERROR: Frontend build failed - dist directory is missing or empty"
+            exit 1
+          fi
+          echo "Frontend build successful - dist directory created"
+          ls -la dist/
+
       - name: Prepare desktop resources
         run: |
           # Create resources directories
@@ -106,8 +114,13 @@ jobs:
           mkdir -p desktop/resources/backend
           mkdir -p desktop/resources/auralis
 
-          # Copy built frontend (Vite outputs to dist/)
+          # Verify and copy built frontend
+          if [ ! -d "auralis-web/frontend/dist" ]; then
+            echo "ERROR: auralis-web/frontend/dist directory not found"
+            exit 1
+          fi
           cp -r auralis-web/frontend/dist/* desktop/resources/frontend/
+          echo "Frontend copied to desktop/resources/frontend/"
 
           # Copy auralis Python module
           cp -r auralis/* desktop/resources/auralis/
@@ -193,10 +206,19 @@ jobs:
           npm install
 
       - name: Build frontend
+        shell: pwsh
         run: |
           cd auralis-web/frontend
           npm install
           npm run build
+
+          # Verify build output
+          if (-not (Test-Path "dist") -or -not (Get-ChildItem "dist")) {
+            Write-Error "ERROR: Frontend build failed - dist directory is missing or empty"
+            exit 1
+          }
+          Write-Host "Frontend build successful - dist directory created"
+          Get-ChildItem dist
 
       - name: Prepare desktop resources
         shell: pwsh
@@ -206,8 +228,13 @@ jobs:
           New-Item -ItemType Directory -Force -Path desktop/resources/backend
           New-Item -ItemType Directory -Force -Path desktop/resources/auralis
 
-          # Copy built frontend (Vite outputs to dist/)
+          # Verify and copy built frontend
+          if (-not (Test-Path "auralis-web/frontend/dist")) {
+            Write-Error "ERROR: auralis-web/frontend/dist directory not found"
+            exit 1
+          }
           Copy-Item -Recurse -Force auralis-web/frontend/dist/* desktop/resources/frontend/
+          Write-Host "Frontend copied to desktop/resources/frontend/"
 
           # Copy auralis Python module
           Copy-Item -Recurse -Force auralis/* desktop/resources/auralis/
@@ -295,6 +322,14 @@ jobs:
           npm install
           npm run build
 
+          # Verify build output
+          if [ ! -d "dist" ] || [ -z "$(ls -A dist)" ]; then
+            echo "ERROR: Frontend build failed - dist directory is missing or empty"
+            exit 1
+          fi
+          echo "Frontend build successful - dist directory created"
+          ls -la dist/
+
       - name: Prepare desktop resources
         run: |
           # Create resources directories
@@ -302,8 +337,13 @@ jobs:
           mkdir -p desktop/resources/backend
           mkdir -p desktop/resources/auralis
 
-          # Copy built frontend (Vite outputs to dist/)
+          # Verify and copy built frontend
+          if [ ! -d "auralis-web/frontend/dist" ]; then
+            echo "ERROR: auralis-web/frontend/dist directory not found"
+            exit 1
+          fi
           cp -r auralis-web/frontend/dist/* desktop/resources/frontend/
+          echo "Frontend copied to desktop/resources/frontend/"
 
           # Copy auralis Python module
           cp -r auralis/* desktop/resources/auralis/
