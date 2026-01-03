@@ -88,7 +88,7 @@ class HarmonicOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import StabilityMetrics
+            from ..metrics import StabilityMetrics
             from .dsp_backend import DSPBackend
 
             # Calculate pitch (fundamental frequency) using Rust YIN algorithm
@@ -130,7 +130,7 @@ class HarmonicOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import MetricUtils
+            from ..metrics import MetricUtils
             from .dsp_backend import DSPBackend
 
             # Calculate chromagram (12-dimensional pitch class profile) using Rust

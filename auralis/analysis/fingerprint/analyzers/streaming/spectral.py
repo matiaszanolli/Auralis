@@ -29,7 +29,7 @@ from typing import Any, Dict, Optional, Tuple
 import librosa
 import numpy as np
 
-from ...common_metrics import MetricUtils, SafeOperations
+from ...metrics import MetricUtils, SafeOperations
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from ...utils.logging import debug, error, info, warning
-from .common_metrics import MetricUtils
+from .metrics import MetricUtils
 
 
 @dataclass

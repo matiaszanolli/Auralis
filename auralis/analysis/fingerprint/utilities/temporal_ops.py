@@ -42,7 +42,7 @@ class TemporalOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import MetricUtils
+            from ..metrics import MetricUtils
             from .dsp_backend import DSPBackend
 
             # Use Rust tempo detection (spectral flux onset detection)
@@ -74,7 +74,7 @@ class TemporalOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import StabilityMetrics
+            from ..metrics import StabilityMetrics
 
             # Detect beat frames using pre-computed onset envelope
             tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
@@ -112,7 +112,7 @@ class TemporalOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import MetricUtils
+            from ..metrics import MetricUtils
 
             # Detect onsets from pre-computed envelope
             onset_frames = librosa.onset.onset_detect(

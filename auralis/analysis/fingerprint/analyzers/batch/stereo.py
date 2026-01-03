@@ -17,7 +17,7 @@ from typing import Dict
 
 import numpy as np
 
-from ...common_metrics import MetricUtils
+from ...metrics import MetricUtils
 from ..base_analyzer import BaseAnalyzer
 
 logger = logging.getLogger(__name__)

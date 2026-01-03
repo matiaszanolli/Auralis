@@ -23,7 +23,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 
-from ...common_metrics import AggregationUtils
+from ...metrics import AggregationUtils
 from ...utilities.harmonic_ops import HarmonicOperations
 from ..base_analyzer import BaseAnalyzer
 

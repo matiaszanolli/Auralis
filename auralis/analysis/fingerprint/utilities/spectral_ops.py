@@ -48,7 +48,7 @@ class SpectralOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import AggregationUtils, MetricUtils
+            from ..metrics import AggregationUtils, MetricUtils
 
             # Calculate centroid (prefer pre-computed magnitude if provided)
             if magnitude is not None:
@@ -92,7 +92,7 @@ class SpectralOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import AggregationUtils, MetricUtils, SafeOperations
+            from ..metrics import AggregationUtils, MetricUtils, SafeOperations
 
             if magnitude is not None:
                 # Calculate from pre-computed magnitude
@@ -155,7 +155,7 @@ class SpectralOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import AggregationUtils, SafeOperations
+            from ..metrics import AggregationUtils, SafeOperations
 
             if magnitude is not None:
                 # Calculate from pre-computed magnitude (geometric mean / arithmetic mean)

@@ -91,7 +91,7 @@ class VariationOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import VariationMetrics
+            from ..metrics import VariationMetrics
 
             # Use pre-computed RMS if provided, otherwise compute
             if rms is None:
@@ -142,7 +142,7 @@ class VariationOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import VariationMetrics
+            from ..metrics import VariationMetrics
 
             # Use pre-computed RMS if provided, otherwise compute
             if rms is None:
@@ -181,7 +181,7 @@ class VariationOperations:
         """
         try:
             # Import here to avoid circular dependency
-            from ..common_metrics import VariationMetrics
+            from ..metrics import VariationMetrics
 
             # Use pre-computed peaks if provided, otherwise compute
             if frame_peaks is None:

@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 from scipy import signal
 
-from auralis.analysis.fingerprint.common_metrics import (
+from auralis.analysis.fingerprint.metrics import (
     AggregationUtils,
     AudioMetrics,
     MetricUtils,

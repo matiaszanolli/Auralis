@@ -24,7 +24,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 from ...utils.logging import debug, info
-from .common_metrics import BandNormalizationTable
+from .metrics import BandNormalizationTable
 
 
 class EQParameterMapper:

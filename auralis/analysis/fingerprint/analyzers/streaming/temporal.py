@@ -30,7 +30,7 @@ from typing import Any, Dict, Optional, cast
 import librosa
 import numpy as np
 
-from ...common_metrics import MetricUtils, SafeOperations, StabilityMetrics
+from ...metrics import MetricUtils, SafeOperations, StabilityMetrics
 from ...utilities.base_streaming_analyzer import BaseStreamingAnalyzer
 from ...utilities.temporal_ops import TemporalOperations
 

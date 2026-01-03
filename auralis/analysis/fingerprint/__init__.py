@@ -32,7 +32,7 @@ from auralis.analysis.fingerprint.analyzers.base_analyzer import BaseAnalyzer
 from auralis.analysis.fingerprint.audio_fingerprint_analyzer import (
     AudioFingerprintAnalyzer,
 )
-from auralis.analysis.fingerprint.common_metrics import (
+from auralis.analysis.fingerprint.metrics import (
     AggregationUtils,
     AudioMetrics,
     FingerprintConstants,

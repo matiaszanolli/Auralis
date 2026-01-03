@@ -4,6 +4,32 @@
 Common Metrics and Utilities for Fingerprint Analysis
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+DEPRECATED: This file has been refactored into smaller modules in metrics/
+- metrics/constants.py - FingerprintConstants
+- metrics/safe_operations.py - SafeOperations
+- metrics/audio_metrics.py - AudioMetrics
+- metrics/normalization.py - MetricUtils
+- metrics/aggregation.py - AggregationUtils
+- metrics/spectral_ops.py - SpectralOperations
+- metrics/variation_metrics.py - VariationMetrics
+- metrics/stability_metrics.py - StabilityMetrics
+- metrics/band_normalization.py - BandNormalizationTable
+
+Import from metrics/ instead:
+    from auralis.analysis.fingerprint.metrics import (
+        FingerprintConstants,
+        SafeOperations,
+        AudioMetrics,
+        MetricUtils,
+        AggregationUtils,
+        SpectralOperations,
+        VariationMetrics,
+        StabilityMetrics,
+        BandNormalizationTable,
+    )
+
+This file is kept for backward compatibility only.
+
 Consolidates repeated mathematical operations and patterns across
 all fingerprint analyzers (spectral, temporal, harmonic, variation, stereo).
 
