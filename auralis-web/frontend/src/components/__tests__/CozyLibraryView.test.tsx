@@ -11,7 +11,6 @@
  */
 
 import { vi } from 'vitest';
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import CozyLibraryView from '../library/CozyLibraryView';
@@ -20,6 +19,23 @@ import { usePlayerAPI } from '@/hooks/player/usePlayerAPI';
 
 vi.mock('@/hooks/library/useLibraryWithStats');
 vi.mock('@/hooks/player/usePlayerAPI');
+vi.mock('@/contexts/WebSocketContext', () => ({
+  useWebSocketContext: () => ({
+    subscribe: vi.fn(() => vi.fn()),
+    unsubscribe: vi.fn(),
+    sendMessage: vi.fn(),
+    isConnected: true,
+  }),
+  WebSocketProvider: ({ children }: any) => children,
+}));
+vi.mock('@/hooks/fingerprint/useAlbumFingerprint', () => ({
+  useAlbumFingerprint: () => ({
+    data: null,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+}));
 vi.mock('../library/AlbumCharacterPane', () => ({
   AlbumCharacterPane: function MockAlbumCharacterPane() {
     return <div data-testid="album-character-pane">Album Character Pane</div>;
