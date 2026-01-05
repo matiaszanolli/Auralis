@@ -14,29 +14,96 @@ import numpy as np
 import pytest
 
 from auralis.analysis.fingerprint import FingerprintSimilarity, KNNGraphBuilder
-from auralis.library import LibraryManager
 
 
-@pytest.mark.skip(reason="Database migration errors in LibraryManager initialization")
+@pytest.fixture
+def populated_library(library_manager):
+    """Populate library with test tracks and fingerprints."""
+    # Create test tracks (using correct field names for TrackRepository)
+    tracks_data = [
+        {"title": "Test Track 1", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track1.flac", "duration": 180.0, "filesize": 10000000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+        {"title": "Test Track 2", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track2.flac", "duration": 200.0, "filesize": 11000000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+        {"title": "Test Track 3", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track3.flac", "duration": 190.0, "filesize": 10500000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+        {"title": "Test Track 4", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track4.flac", "duration": 210.0, "filesize": 11500000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+        {"title": "Test Track 5", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track5.flac", "duration": 195.0, "filesize": 10800000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+        {"title": "Test Track 6", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track6.flac", "duration": 185.0, "filesize": 10200000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+        {"title": "Test Track 7", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track7.flac", "duration": 205.0, "filesize": 11200000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+        {"title": "Test Track 8", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track8.flac", "duration": 192.0, "filesize": 10600000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+        {"title": "Test Track 9", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track9.flac", "duration": 198.0, "filesize": 10900000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+        {"title": "Test Track 10", "artists": ["Test Artist"], "album": "Test Album", "filepath": "/test/track10.flac", "duration": 188.0, "filesize": 10400000, "sample_rate": 44100, "bit_depth": 16, "channels": 2},
+    ]
+
+    track_ids = []
+    for track_data in tracks_data:
+        track = library_manager.tracks.add(track_data)
+        if track:
+            track_ids.append(track.id)
+
+    # Create diverse fingerprints (25 dimensions)
+    np.random.seed(42)  # Reproducible test data
+
+    for track_id in track_ids:
+        # Generate realistic fingerprint data with some variation (25 dimensions matching model)
+        fingerprint_data = {
+            # Frequency (7D) - percentages sum to ~100
+            'sub_bass_pct': float(np.random.uniform(5, 15)),
+            'bass_pct': float(np.random.uniform(15, 30)),
+            'low_mid_pct': float(np.random.uniform(10, 20)),
+            'mid_pct': float(np.random.uniform(15, 25)),
+            'upper_mid_pct': float(np.random.uniform(10, 20)),
+            'presence_pct': float(np.random.uniform(8, 15)),
+            'air_pct': float(np.random.uniform(5, 12)),
+
+            # Dynamics (3D)
+            'lufs': float(np.random.uniform(-18, -8)),
+            'crest_db': float(np.random.uniform(8, 18)),
+            'bass_mid_ratio': float(np.random.uniform(0.5, 2.0)),
+
+            # Temporal (4D)
+            'tempo_bpm': float(np.random.uniform(80, 140)),
+            'rhythm_stability': float(np.random.uniform(0.5, 0.95)),
+            'transient_density': float(np.random.uniform(0.3, 0.8)),
+            'silence_ratio': float(np.random.uniform(0.0, 0.2)),
+
+            # Spectral (3D)
+            'spectral_centroid': float(np.random.uniform(1000, 4000)),
+            'spectral_rolloff': float(np.random.uniform(4000, 10000)),
+            'spectral_flatness': float(np.random.uniform(0.1, 0.7)),
+
+            # Harmonic (3D)
+            'harmonic_ratio': float(np.random.uniform(0.4, 0.9)),
+            'pitch_stability': float(np.random.uniform(0.5, 0.95)),
+            'chroma_energy': float(np.random.uniform(0.3, 0.9)),
+
+            # Variation (3D)
+            'dynamic_range_variation': float(np.random.uniform(0.2, 0.8)),
+            'loudness_variation_std': float(np.random.uniform(2.0, 8.0)),
+            'peak_consistency': float(np.random.uniform(0.4, 0.9)),
+
+            # Stereo (2D)
+            'stereo_width': float(np.random.uniform(0.5, 0.95)),
+            'phase_correlation': float(np.random.uniform(0.7, 1.0)),
+        }
+
+        library_manager.fingerprints.add(track_id, fingerprint_data)
+
+    return library_manager
+
+
 class TestSimilaritySystem:
-    """Integration tests for the complete similarity system.
+    """Integration tests for the complete similarity system."""
 
-    NOTE: Skipped due to database migration issues when initializing LibraryManager.
-    The schema_info table doesn't exist, preventing proper database initialization.
-    This requires refactoring the database setup to work properly in test environment.
-    """
+    @pytest.fixture
+    def library(self, populated_library):
+        """Create library manager instance with test data"""
+        return populated_library
 
-    @pytest.fixture(scope="class")
-    def library(self):
-        """Create library manager instance"""
-        return LibraryManager()
-
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def fingerprint_count(self, library):
         """Get count of available fingerprints"""
         return library.fingerprints.get_count()
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture
     def similarity(self, library, fingerprint_count):
         """Create fitted similarity system"""
         if fingerprint_count < 5:
