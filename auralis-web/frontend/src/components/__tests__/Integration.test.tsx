@@ -36,6 +36,15 @@ import { QueueManager } from '../shared/QueueManager';
 import { CacheManagementPanel } from '../shared/CacheManagementPanel';
 import { ConnectionStatusIndicator } from '../shared/ConnectionStatusIndicator';
 
+// Mock WebSocket protocol client to prevent initialization errors
+vi.mock('@/services/websocket/protocolClient', () => ({
+  getWebSocketProtocol: () => ({
+    sendCommand: vi.fn(),
+    subscribe: vi.fn(() => vi.fn()),
+  }),
+  initializeWebSocketProtocol: vi.fn(),
+}));
+
 // Mock hooks with explicit implementations to prevent async cleanup issues
 vi.mock('@/hooks/usePlayerCommands', () => ({
   usePlayerCommands: () => ({
@@ -204,22 +213,27 @@ describe('Component Integration Tests', () => {
   // Multi-Component Interaction Tests
   // ============================================================================
 
-  it('should render multiple components with shared Redux store', () => {
-    const StoreWrapper = ({ children }: any) => (
-      <Provider store={store}>{children}</Provider>
-    );
+  describe('Component Rendering', () => {
+    it('should render multiple components with shared Redux store', () => {
+      const StoreWrapper = ({ children }: any) => (
+        <Provider store={store}>{children}</Provider>
+      );
 
-    render(
-      <StoreWrapper>
-        <PlayerControls />
-        <QueueManager />
-        <ConnectionStatusIndicator />
-      </StoreWrapper>
-    );
+      const { unmount } = render(
+        <StoreWrapper>
+          <PlayerControls />
+          <QueueManager />
+          <ConnectionStatusIndicator />
+        </StoreWrapper>
+      );
 
-    expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
-    expect(screen.getByText(/Queue/i)).toBeInTheDocument();
-    expect(screen.getByText(/Connected/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
+      expect(screen.getByText(/Queue/i)).toBeInTheDocument();
+      expect(screen.getByText(/Connected/i)).toBeInTheDocument();
+
+      // Explicitly unmount to prevent interference with subsequent tests
+      unmount();
+    });
   });
 
   it('should maintain state consistency across components', () => {
