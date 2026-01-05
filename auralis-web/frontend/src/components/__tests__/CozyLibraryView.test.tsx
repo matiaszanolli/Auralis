@@ -1,18 +1,16 @@
 /**
  * CozyLibraryView Component Tests
  *
- * Tests the primary library browsing interface:
- * - Album grid rendering and navigation
- * - Artist list display
- * - Track list within views
- * - Search filter integration
- * - Virtual scrolling for large libraries
- * - Empty states and loading states
+ * Tests for the refactored CozyLibraryView orchestrator component.
+ * The component now uses extracted sub-components and hooks:
+ * - ViewContainer for layout
+ * - TrackListView for track rendering
+ * - EmptyState components for empty states
+ * - useLibraryWithStats for data fetching
  */
 
 import { vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
-import userEvent from '@testing-library/user-event';
+import { render, screen } from '@/test/test-utils';
 import CozyLibraryView from '../library/CozyLibraryView';
 import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
 import { usePlayerAPI } from '@/hooks/player/usePlayerAPI';
@@ -41,79 +39,28 @@ vi.mock('../library/AlbumCharacterPane', () => ({
     return <div data-testid="album-character-pane">Album Character Pane</div>;
   },
 }));
-vi.mock('../CozyAlbumGrid', () => ({
-  __esModule: true,
-  default: function MockGrid({ albums, onAlbumClick }: any) {
+vi.mock('../library/Views/TrackListView', () => ({
+  TrackListView: function MockTrackListView({ tracks }: any) {
     return (
-      <div data-testid="album-grid">
-        {albums.map((album: any) => (
-          <button key={album.id} onClick={() => onAlbumClick?.(album)}>
-            {album.title}
-          </button>
+      <div data-testid="track-list-view">
+        {tracks.map((track: any) => (
+          <div key={track.id} data-testid={`track-${track.id}`}>
+            {track.title}
+          </div>
         ))}
       </div>
     );
   },
 }));
-vi.mock('../CozyArtistList', () => ({
-  __esModule: true,
-  default: function MockList({ artists, onArtistClick }: any) {
-    return (
-      <div data-testid="artist-list">
-        {artists.map((artist: any) => (
-          <button key={artist.id} onClick={() => onArtistClick?.(artist)}>
-            {artist.name}
-          </button>
-        ))}
-      </div>
-    );
+vi.mock('../shared/ui/feedback', () => ({
+  EmptyState: function MockEmptyState({ title }: any) {
+    return <div data-testid="empty-state">{title}</div>;
   },
-}));
-vi.mock('../navigation/SearchBar', () => ({
-  __esModule: true,
-  default: function MockSearch({ onChange }: any) {
-    return (
-      <input
-        data-testid="search-input"
-        placeholder="Search your music..."
-        onChange={(e) => onChange?.(e.target.value)}
-      />
-    );
+  EmptyLibrary: function MockEmptyLibrary() {
+    return <div data-testid="empty-library">No music yet</div>;
   },
-}));
-vi.mock('../navigation/ViewToggle', () => ({
-  __esModule: true,
-  default: function MockViewToggle({ value, onChange }: any) {
-    return (
-      <div data-testid="view-toggle">
-        <button onClick={() => onChange?.('grid')}>Grid</button>
-        <button onClick={() => onChange?.('list')}>List</button>
-      </div>
-    );
-  },
-}));
-vi.mock('../library/LibraryViewRouter', () => ({
-  __esModule: true,
-  LibraryViewRouter: function MockRouter() {
-    return <div data-testid="library-router">View Router</div>;
-  },
-}));
-vi.mock('../library/BatchActionsToolbar', () => ({
-  __esModule: true,
-  default: function MockToolbar() {
-    return <div data-testid="batch-toolbar">Toolbar</div>;
-  },
-}));
-vi.mock('../library/EditMetadataDialog', () => ({
-  __esModule: true,
-  default: function MockDialog() {
-    return <div data-testid="edit-dialog">Dialog</div>;
-  },
-}));
-vi.mock('../library/LibraryHeader', () => ({
-  __esModule: true,
-  LibraryHeader: function MockHeader() {
-    return <div data-testid="library-header">Header</div>;
+  NoSearchResults: function MockNoSearchResults({ query }: any) {
+    return <div data-testid="no-results">No results for {query}</div>;
   },
 }));
 
@@ -157,8 +104,10 @@ const mockPlayerAPI = {
   play: vi.fn(),
   playTrack: vi.fn(),
   addToQueue: vi.fn(),
+  pause: vi.fn(),
+  currentTrack: null,
+  isPlaying: false,
 } as any;
-
 
 describe('CozyLibraryView', () => {
   beforeEach(() => {
@@ -168,328 +117,92 @@ describe('CozyLibraryView', () => {
   });
 
   describe('Rendering', () => {
-    it('should render library view container', () => {
-      const { container } = render(
-        <CozyLibraryView />
-      );
+    it('should render without crashing', () => {
+      const { container } = render(<CozyLibraryView />);
       expect(container.firstChild).toBeInTheDocument();
     });
 
-    it('should render search input', () => {
-      render(
-        <CozyLibraryView />
-      );
-      expect(screen.getByTestId('search-input')).toBeInTheDocument();
+    it('should render ViewContainer with track list', () => {
+      render(<CozyLibraryView />);
+
+      // Should render the mocked track list with tracks
+      expect(screen.getByTestId('track-list-view')).toBeInTheDocument();
+      expect(screen.getByText('Track 1')).toBeInTheDocument();
+      expect(screen.getByText('Track 2')).toBeInTheDocument();
     });
 
-    it('should render view toggle buttons', () => {
-      render(
-        <CozyLibraryView />
-      );
-      const toggleButtons = screen.queryAllByRole('button');
-      expect(toggleButtons.length).toBeGreaterThan(0);
-    });
-
-    it('should display album grid when view is albums', () => {
-      render(
-        <CozyLibraryView view="albums" />
-      );
-      expect(screen.getByTestId('library-router')).toBeInTheDocument();
+    it('should render AlbumCharacterPane', () => {
+      render(<CozyLibraryView />);
+      expect(screen.getByTestId('album-character-pane')).toBeInTheDocument();
     });
   });
 
-  describe('Album Grid View', () => {
-    it('should render library router in album view', () => {
-      render(
-        <CozyLibraryView view="albums" />
-      );
-      expect(screen.getByTestId('library-router')).toBeInTheDocument();
+  describe('Empty States', () => {
+    it('should show empty library when no tracks', () => {
+      vi.mocked(useLibraryWithStats).mockReturnValue({
+        ...mockLibraryWithStats,
+        tracks: [],
+      });
+
+      render(<CozyLibraryView />);
+      expect(screen.getByTestId('empty-library')).toBeInTheDocument();
     });
 
-    it('should navigate to album detail on click', async () => {
-      const user = userEvent.setup();
-      render(
-        <CozyLibraryView view="albums" />
-      );
-      expect(screen.getByTestId('library-router')).toBeInTheDocument();
-    });
-  });
+    it('should show empty state for favorites view when no tracks', () => {
+      vi.mocked(useLibraryWithStats).mockReturnValue({
+        ...mockLibraryWithStats,
+        tracks: [],
+      });
 
-  describe('Artist List View', () => {
-    it('should switch to artist view on toggle', async () => {
-      const user = userEvent.setup();
-      render(
-        <CozyLibraryView />
-      );
-
-      const artistViewButton = screen.queryByRole('button', { name: /artist/i });
-      if (artistViewButton) {
-        await user.click(artistViewButton);
-        expect(screen.getByTestId('artist-list')).toBeInTheDocument();
-      }
-    });
-
-    it('should render all artists in artist view', async () => {
-      const user = userEvent.setup();
-      render(
-        <CozyLibraryView />
-      );
-
-      const artistViewButton = screen.queryByRole('button', { name: /artist/i });
-      if (artistViewButton) {
-        await user.click(artistViewButton);
-        expect(screen.getByText('Artist 1')).toBeInTheDocument();
-        expect(screen.getByText('Artist 2')).toBeInTheDocument();
-      }
-    });
-
-    it('should navigate to artist detail on artist click', async () => {
-      const user = userEvent.setup();
-      render(
-        <CozyLibraryView />
-      );
-
-      const artistViewButton = screen.queryByRole('button', { name: /artist/i });
-      if (artistViewButton) {
-        await user.click(artistViewButton);
-        const artistButton = screen.getByText('Artist 1');
-        await user.click(artistButton);
-        expect(document.body).toBeInTheDocument();
-      }
-    });
-  });
-
-  describe('Search Filter', () => {
-    it('should filter albums on search', async () => {
-      const user = userEvent.setup();
-      render(
-        <CozyLibraryView />
-      );
-
-      const searchInput = screen.queryByTestId('search-input');
-      if (searchInput) {
-        await user.type(searchInput, 'Album 1');
-        await waitFor(() => {
-          expect(screen.queryByText('Album 1')).toBeInTheDocument();
-        });
-      }
-    });
-
-    it('should clear search results on clear button', async () => {
-      const user = userEvent.setup();
-      render(
-        <CozyLibraryView />
-      );
-
-      const searchInput = screen.queryByTestId('search-input');
-      if (searchInput) {
-        await user.type(searchInput, 'Album');
-        const clearButton = screen.queryByRole('button', { name: /clear|x/i });
-        if (clearButton) {
-          await user.click(clearButton);
-          expect(screen.getByTestId('search-input')).toBeInTheDocument();
-        }
-      }
-    });
-
-    it('should show no results message when search empty', async () => {
-      const user = userEvent.setup();
-      render(
-        <CozyLibraryView />
-      );
-
-      expect(screen.queryByTestId('search-input')).toBeInTheDocument();
+      render(<CozyLibraryView view="favourites" />);
+      expect(screen.getByTestId('empty-state')).toBeInTheDocument();
     });
   });
 
   describe('Loading State', () => {
-    it('should show loading indicator when loading', () => {
+    it('should handle loading state', () => {
       vi.mocked(useLibraryWithStats).mockReturnValue({
         ...mockLibraryWithStats,
         loading: true,
       });
 
-      const { container } = render(
-        <CozyLibraryView />
-      );
-
-      expect(container.firstChild).toBeInTheDocument();
-    });
-
-    it('should show albums after loading', async () => {
-      const { rerender } = render(
-        <CozyLibraryView />
-      );
-
-      vi.mocked(useLibraryWithStats).mockReturnValue({
-        ...mockLibraryWithStats,
-        loading: false,
-      });
-
-      rerender(
-        <CozyLibraryView />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('Album 1')).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should show error message on error', () => {
-      vi.mocked(useLibraryWithStats).mockReturnValue({
-        ...mockLibraryWithStats,
-        error: 'Failed to load library',
-      });
-
-      const { container } = render(
-        <CozyLibraryView />
-      );
-
-      expect(container.firstChild).toBeInTheDocument();
-    });
-
-    it('should show retry button on error', async () => {
-      const user = userEvent.setup();
-      const { container } = render(
-        <CozyLibraryView />
-      );
-
+      const { container } = render(<CozyLibraryView />);
       expect(container.firstChild).toBeInTheDocument();
     });
   });
 
-  describe('Empty State', () => {
-    it('should show empty state when no albums', () => {
-      vi.mocked(useLibraryWithStats).mockReturnValue({
-        ...mockLibraryWithStats,
-        tracks: [],
-      });
+  describe('Data Integration', () => {
+    it('should call useLibraryWithStats with correct view', () => {
+      render(<CozyLibraryView view="favourites" />);
 
-      const { container } = render(
-        <CozyLibraryView />
-      );
-
-      expect(container.firstChild).toBeInTheDocument();
-    });
-
-    it('should show action prompt in empty state', () => {
-      vi.mocked(useLibraryWithStats).mockReturnValue({
-        ...mockLibraryWithStats,
-        tracks: [],
-      });
-
-      const { container } = render(
-        <CozyLibraryView />
-      );
-
-      expect(container.firstChild).toBeInTheDocument();
-    });
-  });
-
-  describe('Playback Integration', () => {
-    it('should play album on album selection', async () => {
-      const user = userEvent.setup();
-      render(
-        <CozyLibraryView view="albums" />
-      );
-
-      await waitFor(() => {
-        expect(screen.getByTestId('library-router')).toBeInTheDocument();
+      expect(useLibraryWithStats).toHaveBeenCalledWith({
+        view: 'favourites',
+        includeStats: false,
       });
     });
 
-    it('should add track to queue', async () => {
-      const user = userEvent.setup();
-      render(
-        <CozyLibraryView />
-      );
+    it('should pass tracks to TrackListView', () => {
+      render(<CozyLibraryView />);
 
-      // Test that component renders tracks for queueing
-      await waitFor(() => {
-        const trackElements = screen.queryAllByText(/Track/i);
-        expect(trackElements.length).toBeGreaterThan(0);
-      });
+      // Verify tracks are rendered (via our mock)
+      expect(screen.getByTestId('track-1')).toBeInTheDocument();
+      expect(screen.getByTestId('track-2')).toBeInTheDocument();
     });
   });
 
-  describe('View Switching', () => {
-    it('should preserve scroll position when switching views', async () => {
-      const user = userEvent.setup();
+  describe('Enhancement Integration', () => {
+    it('should render with enhancement controls', () => {
+      const onEnhancementToggle = vi.fn();
+
       render(
-        <CozyLibraryView />
+        <CozyLibraryView
+          isEnhancementEnabled={true}
+          onEnhancementToggle={onEnhancementToggle}
+        />
       );
 
-      const albumGrid = screen.queryByTestId('album-grid');
-      if (albumGrid) {
-        fireEvent.scroll(albumGrid, { target: { scrollY: 100 } });
-      }
-
-      const artistViewButton = screen.queryByRole('button', { name: /artist/i });
-      if (artistViewButton) {
-        await user.click(artistViewButton);
-        const albumViewButton = screen.queryByRole('button', { name: /album/i });
-        if (albumViewButton) {
-          await user.click(albumViewButton);
-        }
-      }
-
-      // Simplified: just test that component renders without crashing
-      expect(screen.getByTestId('search-input')).toBeInTheDocument();
-    });
-  });
-
-  describe('Accessibility', () => {
-    it('should have accessible view controls', () => {
-      render(
-        <CozyLibraryView />
-      );
-
-      // Verify search input is accessible
-      expect(screen.getByTestId('search-input')).toBeInTheDocument();
-    });
-
-    it('should have accessible search input', () => {
-      render(
-        <CozyLibraryView />
-      );
-
-      const searchInput = screen.queryByTestId('search-input');
-      if (searchInput) {
-        expect(searchInput).toHaveAttribute('placeholder');
-      }
-    });
-  });
-
-  describe('Performance', () => {
-    it('should handle large library efficiently', () => {
-      render(
-        <CozyLibraryView />
-      );
-
-      // Verify component renders without crashing
-      expect(screen.getByTestId('search-input')).toBeInTheDocument();
-    });
-  });
-
-  describe('State Synchronization', () => {
-    it('should update when library data changes', () => {
-      const { rerender } = render(
-        <CozyLibraryView />
-      );
-
-      vi.mocked(useLibraryWithStats).mockReturnValue({
-        ...mockLibraryWithStats,
-        tracks: [...mockLibraryWithStats.tracks],
-      });
-
-      rerender(
-        <CozyLibraryView />
-      );
-
-      // Verify component is still rendering
-      expect(screen.getByTestId('search-input')).toBeInTheDocument();
+      // AlbumCharacterPane should be rendered with enhancement props
+      expect(screen.getByTestId('album-character-pane')).toBeInTheDocument();
     });
   });
 });
