@@ -18,8 +18,13 @@ import CozyLibraryView from '../library/CozyLibraryView';
 import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
 import { usePlayerAPI } from '@/hooks/player/usePlayerAPI';
 
-vi.mock('../../hooks/useLibraryWithStats');
-vi.mock('../../hooks/usePlayerAPI');
+vi.mock('@/hooks/library/useLibraryWithStats');
+vi.mock('@/hooks/player/usePlayerAPI');
+vi.mock('../library/AlbumCharacterPane', () => ({
+  AlbumCharacterPane: function MockAlbumCharacterPane() {
+    return <div data-testid="album-character-pane">Album Character Pane</div>;
+  },
+}));
 vi.mock('../CozyAlbumGrid', () => ({
   __esModule: true,
   default: function MockGrid({ albums, onAlbumClick }: any) {
