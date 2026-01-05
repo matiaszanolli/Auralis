@@ -42,6 +42,15 @@ def load_with_ffmpeg(file_path: Path, temp_folder: Optional[str] = None) -> Tupl
     if not check_ffmpeg():
         raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFmpeg required for {file_path.suffix}")
 
+    # Ensure the input path is a regular file and not a URL/protocol
+    file_path = Path(file_path)
+    if not file_path.exists() or not file_path.is_file():
+        raise ModuleError(f"{Code.ERROR_FILE_NOT_FOUND}: {file_path}")
+    # Basic guard against ffmpeg protocol URLs (e.g., http://, pipe:, etc.)
+    file_path_str = str(file_path)
+    if "://" in file_path_str:
+        raise ModuleError(f"{Code.ERROR_UNSUPPORTED_FORMAT}: URL/protocol inputs are not allowed ({file_path_str})")
+
     # Create temporary WAV file
     if temp_folder:
         temp_dir = Path(temp_folder)
@@ -57,7 +66,7 @@ def load_with_ffmpeg(file_path: Path, temp_folder: Optional[str] = None) -> Tupl
 
         ffmpeg_cmd = [
             'ffmpeg',
-            '-i', str(file_path),
+            '-i', file_path_str,
             '-acodec', 'pcm_s16le',  # 16-bit PCM
             '-ar', '44100',          # 44.1 kHz
             '-ac', '2',              # Stereo
