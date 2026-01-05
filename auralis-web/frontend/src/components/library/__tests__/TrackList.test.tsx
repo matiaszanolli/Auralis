@@ -13,8 +13,8 @@
  * @module components/library/__tests__/TrackList.test
  */
 
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { vi } from 'vitest';
+import { render, screen, fireEvent, waitFor, within, cleanup } from '@/test/test-utils';
+import { vi, afterEach } from 'vitest';
 import TrackList from '@/components/library/TrackList';
 import { useTracksQuery } from '@/hooks/library/useLibraryQuery';
 import type { Track } from '@/types/domain';
@@ -62,6 +62,10 @@ const mockTrack3: Track = {
 describe('TrackList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   describe('rendering', () => {
