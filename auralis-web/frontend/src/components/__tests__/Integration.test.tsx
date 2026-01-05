@@ -36,12 +36,76 @@ import { QueueManager } from '../shared/QueueManager';
 import { CacheManagementPanel } from '../shared/CacheManagementPanel';
 import { ConnectionStatusIndicator } from '../shared/ConnectionStatusIndicator';
 
-// Mock hooks
-vi.mock('@/hooks/usePlayerCommands');
-vi.mock('@/hooks/usePlayerStateUpdates');
-vi.mock('@/hooks/useQueueCommands');
-vi.mock('@/hooks/useWebSocketProtocol');
-vi.mock('@/hooks/useStandardizedAPI');
+// Mock hooks with explicit implementations to prevent async cleanup issues
+vi.mock('@/hooks/usePlayerCommands', () => ({
+  usePlayerCommands: () => ({
+    play: vi.fn(),
+    pause: vi.fn(),
+    stop: vi.fn(),
+    seek: vi.fn(),
+    setVolume: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/usePlayerStateUpdates', () => ({
+  usePlayerStateUpdates: () => ({
+    currentTrack: null,
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    volume: 70,
+  }),
+}));
+
+vi.mock('@/hooks/useQueueCommands', () => ({
+  useQueueCommands: () => ({
+    addTrack: vi.fn(),
+    removeTrack: vi.fn(),
+    clearQueue: vi.fn(),
+    reorderQueue: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/useWebSocketProtocol', () => ({
+  usePlayerCommands: () => ({
+    play: vi.fn(),
+    pause: vi.fn(),
+    stop: vi.fn(),
+    seek: vi.fn(),
+    setVolume: vi.fn(),
+  }),
+  usePlayerStateUpdates: () => ({
+    currentTrack: null,
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    volume: 70,
+  }),
+  useQueueCommands: () => ({
+    addTrack: vi.fn(),
+    removeTrack: vi.fn(),
+    clearQueue: vi.fn(),
+    reorderQueue: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/useStandardizedAPI', () => ({
+  useStandardizedAPI: () => ({
+    sendCommand: vi.fn(),
+    subscribe: vi.fn(() => vi.fn()),
+  }),
+}));
+
+// Mock WebSocketContext to prevent connection attempts
+vi.mock('@/contexts/WebSocketContext', () => ({
+  useWebSocketContext: () => ({
+    subscribe: vi.fn(() => vi.fn()),
+    unsubscribe: vi.fn(),
+    sendMessage: vi.fn(),
+    isConnected: true,
+  }),
+  WebSocketProvider: ({ children }: any) => children,
+}));
 
 describe('Component Integration Tests', () => {
   let store: any;
