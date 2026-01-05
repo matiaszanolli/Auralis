@@ -112,8 +112,9 @@ const mockPlayerAPI = {
 describe('CozyLibraryView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useLibraryWithStats).mockReturnValue(mockLibraryWithStats);
-    vi.mocked(usePlayerAPI).mockReturnValue(mockPlayerAPI);
+    // Set default mock return values
+    (useLibraryWithStats as any).mockReturnValue(mockLibraryWithStats);
+    (usePlayerAPI as any).mockReturnValue(mockPlayerAPI);
   });
 
   describe('Rendering', () => {
@@ -139,7 +140,8 @@ describe('CozyLibraryView', () => {
 
   describe('Empty States', () => {
     it('should show empty library when no tracks', () => {
-      vi.mocked(useLibraryWithStats).mockReturnValue({
+      // Override the default mock for this test
+      (useLibraryWithStats as any).mockReturnValue({
         ...mockLibraryWithStats,
         tracks: [],
       });
@@ -149,7 +151,8 @@ describe('CozyLibraryView', () => {
     });
 
     it('should show empty state for favorites view when no tracks', () => {
-      vi.mocked(useLibraryWithStats).mockReturnValue({
+      // Override the default mock for this test
+      (useLibraryWithStats as any).mockReturnValue({
         ...mockLibraryWithStats,
         tracks: [],
       });
@@ -161,7 +164,8 @@ describe('CozyLibraryView', () => {
 
   describe('Loading State', () => {
     it('should handle loading state', () => {
-      vi.mocked(useLibraryWithStats).mockReturnValue({
+      // Override the default mock for this test
+      (useLibraryWithStats as any).mockReturnValue({
         ...mockLibraryWithStats,
         loading: true,
       });
