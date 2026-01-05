@@ -31,6 +31,17 @@ import {
   mockTracks,
 } from './test-utils';
 
+// Mock WebSocketContext to prevent connection attempts
+vi.mock('@/contexts/WebSocketContext', () => ({
+  useWebSocketContext: () => ({
+    subscribe: vi.fn(() => vi.fn()),
+    unsubscribe: vi.fn(),
+    sendMessage: vi.fn(),
+    isConnected: true,
+  }),
+  WebSocketProvider: ({ children }: any) => children,
+}));
+
 // Mock the hooks
 vi.mock('@/hooks/websocket/useWebSocketProtocol', () => ({
   useQueueCommands: vi.fn(),
