@@ -22,14 +22,11 @@ import type { Track } from '@/types/domain';
 // Mock useTracksQuery hook
 vi.mock('@/hooks/library/useLibraryQuery');
 
-// Mock IntersectionObserver
-const mockIntersectionObserver = vi.fn();
-mockIntersectionObserver.mockReturnValue({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-});
-window.IntersectionObserver = mockIntersectionObserver as any;
+// Mock IntersectionObserver - will be set up in beforeEach
+let mockObserve: ReturnType<typeof vi.fn>;
+let mockUnobserve: ReturnType<typeof vi.fn>;
+let mockDisconnect: ReturnType<typeof vi.fn>;
+let mockIntersectionObserver: ReturnType<typeof vi.fn>;
 
 // Mock data
 const mockTrack1: Track = {
@@ -62,6 +59,20 @@ const mockTrack3: Track = {
 describe('TrackList', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Reset IntersectionObserver mock for each test
+    mockObserve = vi.fn();
+    mockUnobserve = vi.fn();
+    mockDisconnect = vi.fn();
+    mockIntersectionObserver = vi.fn().mockImplementation((callback) => ({
+      observe: mockObserve,
+      unobserve: mockUnobserve,
+      disconnect: mockDisconnect,
+      // Store callback for manual triggering in tests
+      callback,
+    }));
+
+    window.IntersectionObserver = mockIntersectionObserver as any;
   });
 
   afterEach(() => {
@@ -123,10 +134,10 @@ describe('TrackList', () => {
         clearError: vi.fn(),
       });
 
-      const { container } = render(<TrackList />);
+      render(<TrackList />);
 
-      const separator = container.querySelector('span:contains("•")');
-      expect(separator).toBeInTheDocument();
+      // Check that the separator bullet is present in the document
+      expect(screen.getByText('•')).toBeInTheDocument();
     });
 
     it('should render correct duration format', () => {
@@ -293,8 +304,11 @@ describe('TrackList', () => {
 
       render(<TrackList />);
 
+      // Get the callback from the mock IntersectionObserver instance
+      const observerInstance = mockIntersectionObserver.mock.results[0].value;
+      const callback = observerInstance.callback;
+
       // Simulate intersection observer callback
-      const callback = mockIntersectionObserver.mock.calls[0][0];
       callback([{ isIntersecting: true }]);
 
       await waitFor(() => {
@@ -319,7 +333,9 @@ describe('TrackList', () => {
 
       render(<TrackList />);
 
-      const callback = mockIntersectionObserver.mock.calls[0][0];
+      // Get the callback from the mock IntersectionObserver instance
+      const observerInstance = mockIntersectionObserver.mock.results[0].value;
+      const callback = observerInstance.callback;
       callback([{ isIntersecting: true }]);
 
       // With isLoading=true, fetchMore should not be called
@@ -343,20 +359,15 @@ describe('TrackList', () => {
 
       render(<TrackList />);
 
-      const callback = mockIntersectionObserver.mock.calls[0][0];
+      // Get the callback from the mock IntersectionObserver instance
+      const observerInstance = mockIntersectionObserver.mock.results[0].value;
+      const callback = observerInstance.callback;
       callback([{ isIntersecting: true }]);
 
       expect(mockFetchMore).not.toHaveBeenCalled();
     });
 
     it('should disconnect observer on unmount', () => {
-      const mockDisconnect = vi.fn();
-      mockIntersectionObserver.mockReturnValue({
-        observe: vi.fn(),
-        unobserve: vi.fn(),
-        disconnect: mockDisconnect,
-      });
-
       vi.mocked(useTracksQuery).mockReturnValue({
         data: [mockTrack1],
         isLoading: false,
@@ -493,8 +504,10 @@ describe('TrackList', () => {
 
       render(<TrackList />);
 
-      expect(screen.getByText('Failed to load tracks')).toBeInTheDocument();
-      expect(screen.getByText('Failed to load tracks')).toBeInTheDocument();
+      // Error container shows both title and error message
+      const errorMessages = screen.getAllByText('Failed to load tracks');
+      expect(errorMessages).toHaveLength(2); // Title and error message
+      expect(errorMessages[0]).toBeInTheDocument();
     });
   });
 
