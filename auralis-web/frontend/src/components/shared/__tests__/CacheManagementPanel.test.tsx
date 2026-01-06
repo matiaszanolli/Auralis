@@ -31,7 +31,7 @@ import {
 } from './test-utils';
 
 // Mock the hooks
-vi.mock('@/hooks/useStandardizedAPI', () => ({
+vi.mock('@/hooks/shared/useStandardizedAPI', () => ({
   useCacheStats: vi.fn(),
   useCacheHealth: vi.fn(),
   useStandardizedAPI: vi.fn(),
@@ -60,9 +60,9 @@ describe('CacheManagementPanel', () => {
       expect(screen.getByText('Cache Management')).toBeInTheDocument();
     });
 
-    // Check memory gauge
+    // Check memory gauge (uses cacheHealth.total_size_mb which is 206.0)
     expect(screen.getByText(/Memory Usage/i)).toBeInTheDocument();
-    expect(screen.getByText(/225.0.*MB/)).toBeInTheDocument();
+    expect(screen.getByText(/206.0.*MB/)).toBeInTheDocument();
   });
 
   it('should display tier statistics', async () => {
@@ -300,7 +300,7 @@ describe('CacheManagementPanel', () => {
     render(<CacheManagementPanel />);
 
     await waitFor(() => {
-      const refreshButton = screen.getByText('🔄 Refresh Stats') as HTMLButtonElement;
+      const refreshButton = screen.getByText('Refreshing...') as HTMLButtonElement;
       expect(refreshButton.disabled).toBe(true);
     });
   });
