@@ -18,7 +18,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { tokens } from '@/design-system';
-import { useQueueCommands } from '@/hooks/websocket/useWebSocketProtocol';
+import { usePlaybackQueue } from '@/hooks/player/usePlaybackQueue';
 
 interface Track {
   id: number;
@@ -76,134 +76,57 @@ function calculateTotalDuration(tracks: Track[], startIndex: number): number {
 export function QueueManager({
   compact = false,
   maxHeight = '400px',
-  showAddTrack = true,
+  showAddTrack = false,
 }: QueueManagerProps) {
-  const [queueState, setQueueState] = useState<QueueState>({
-    tracks: [
-      {
-        id: 1,
-        title: 'Track One',
-        artist: 'Artist A',
-        duration: 240,
-      },
-      {
-        id: 2,
-        title: 'Track Two',
-        artist: 'Artist B',
-        duration: 180,
-      },
-      {
-        id: 3,
-        title: 'Track Three',
-        artist: 'Artist C',
-        duration: 210,
-      },
-    ],
-    currentIndex: 0,
-    isLoading: false,
-  });
+  const {
+    queue: tracks,
+    currentIndex,
+    removeTrack,
+    clearQueue,
+    reorderTrack,
+    isLoading,
+    error,
+  } = usePlaybackQueue();
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [showAddTrackForm, setShowAddTrackForm] = useState(false);
 
-  const commands = useQueueCommands();
-
   const handleRemoveTrack = useCallback(
     async (index: number) => {
       try {
-        setQueueState((prev) => ({
-          ...prev,
-          isLoading: true,
-        }));
-        await commands.remove([index]);
-        setQueueState((prev) => ({
-          ...prev,
-          tracks: prev.tracks.filter((_, i) => i !== index),
-          currentIndex: prev.currentIndex > index ? prev.currentIndex - 1 : prev.currentIndex,
-        }));
+        await removeTrack(index);
       } catch (error) {
         console.error('Failed to remove track:', error);
-      } finally {
-        setQueueState((prev) => ({
-          ...prev,
-          isLoading: false,
-        }));
       }
     },
-    [commands]
+    [removeTrack]
   );
 
   const handleClearQueue = useCallback(async () => {
     try {
-      setQueueState((prev) => ({
-        ...prev,
-        isLoading: true,
-      }));
-      await commands.clear();
-      setQueueState((prev) => ({
-        ...prev,
-        tracks: [],
-        currentIndex: 0,
-      }));
+      await clearQueue();
       setShowClearConfirmation(false);
     } catch (error) {
       console.error('Failed to clear queue:', error);
-    } finally {
-      setQueueState((prev) => ({
-        ...prev,
-        isLoading: false,
-      }));
     }
-  }, [commands]);
+  }, [clearQueue]);
 
   const handleReorder = useCallback(
     async (fromIndex: number, toIndex: number) => {
       if (fromIndex === toIndex) return;
 
       try {
-        setQueueState((prev) => ({
-          ...prev,
-          isLoading: true,
-        }));
-
-        await commands.reorder(fromIndex, toIndex);
-
-        // Update local state
-        setQueueState((prev) => {
-          const newTracks = [...prev.tracks];
-          const [movedTrack] = newTracks.splice(fromIndex, 1);
-          newTracks.splice(toIndex, 0, movedTrack);
-
-          let newCurrentIndex = prev.currentIndex;
-          if (prev.currentIndex === fromIndex) {
-            newCurrentIndex = toIndex;
-          } else if (fromIndex < prev.currentIndex && toIndex >= prev.currentIndex) {
-            newCurrentIndex -= 1;
-          } else if (fromIndex > prev.currentIndex && toIndex <= prev.currentIndex) {
-            newCurrentIndex += 1;
-          }
-
-          return {
-            ...prev,
-            tracks: newTracks,
-            currentIndex: newCurrentIndex,
-          };
-        });
+        await reorderTrack(fromIndex, toIndex);
       } catch (error) {
         console.error('Failed to reorder queue:', error);
-      } finally {
-        setQueueState((prev) => ({
-          ...prev,
-          isLoading: false,
-        }));
       }
     },
-    [commands]
+    [reorderTrack]
   );
 
-  const remainingDuration = calculateTotalDuration(queueState.tracks, queueState.currentIndex + 1);
-  const totalDuration = calculateTotalDuration(queueState.tracks, 0);
+  const remainingDuration = calculateTotalDuration(tracks, currentIndex + 1);
+  const totalDuration = calculateTotalDuration(tracks, 0);
 
   return (
     <div
@@ -242,7 +165,7 @@ export function QueueManager({
               color: tokens.colors.text.tertiary,
             }}
           >
-            {queueState.tracks.length} tracks • {formatTime(remainingDuration)} remaining
+            {tracks.length} tracks • {formatTime(remainingDuration)} remaining
           </div>
         </div>
 
@@ -280,36 +203,37 @@ export function QueueManager({
 
           <button
             onClick={() => setShowClearConfirmation(true)}
-            disabled={queueState.tracks.length === 0}
+            disabled={tracks.length === 0}
             style={{
               padding: `${tokens.spacing.xs} ${tokens.spacing.md}`,
               background: tokens.colors.bg.tertiary,
               border: `1px solid ${tokens.colors.border.light}`,
               borderRadius: '6px',
               color: tokens.colors.text.primary,
-              cursor: queueState.tracks.length === 0 ? 'not-allowed' : 'pointer',
+              cursor: tracks.length === 0 ? 'not-allowed' : 'pointer',
               fontSize: tokens.typography.fontSize.sm,
-              opacity: queueState.tracks.length === 0 ? 0.5 : 0.8,
+              opacity: tracks.length === 0 ? 0.5 : 0.8,
               transition: 'all 0.2s',
             }}
             onMouseOver={(e) => {
-              if (queueState.tracks.length > 0) {
+              if (tracks.length > 0) {
                 (e.target as HTMLButtonElement).style.opacity = '1';
               }
             }}
             onMouseOut={(e) => {
-              if (queueState.tracks.length > 0) {
+              if (tracks.length > 0) {
                 (e.target as HTMLButtonElement).style.opacity = '0.8';
               }
             }}
           >
-            Clear
+            Clear Queue
           </button>
         </div>
       </div>
 
       {/* Queue List */}
       <div
+        data-testid="queue-container"
         style={{
           maxHeight,
           overflowY: 'auto',
@@ -319,7 +243,7 @@ export function QueueManager({
           paddingRight: tokens.spacing.sm,
         }}
       >
-        {queueState.tracks.length === 0 ? (
+        {tracks.length === 0 ? (
           <div
             style={{
               padding: tokens.spacing.lg,
@@ -331,10 +255,11 @@ export function QueueManager({
             Queue is empty. Add tracks to get started!
           </div>
         ) : (
-          queueState.tracks.map((track, index) => (
+          tracks.map((track, index) => (
             <div
               key={`${track.id}-${index}`}
-              draggable={!queueState.isLoading}
+              draggable={!isLoading}
+              role="listitem"
               onDragStart={() => setDraggedIndex(index)}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -346,41 +271,48 @@ export function QueueManager({
                 }
               }}
               onDragEnd={() => setDraggedIndex(null)}
+              className={index === currentIndex ? 'current' : ''}
               style={{
                 padding: tokens.spacing.md,
                 background:
-                  index === queueState.currentIndex
+                  index === currentIndex
                     ? `${tokens.colors.accent.primary}20`
                     : tokens.colors.bg.tertiary,
                 borderRadius: '8px',
                 border:
-                  index === queueState.currentIndex
+                  index === currentIndex
                     ? `2px solid ${tokens.colors.accent.primary}`
                     : `1px solid ${tokens.colors.border.light}`,
                 display: 'flex',
                 alignItems: 'center',
                 gap: tokens.spacing.md,
-                cursor: queueState.isLoading ? 'not-allowed' : 'grab',
-                opacity: queueState.isLoading ? 0.6 : 1,
+                cursor: isLoading ? 'not-allowed' : 'grab',
+                opacity: isLoading ? 0.6 : 1,
                 transition: 'all 0.2s',
                 userSelect: 'none',
               }}
               onMouseOver={(e) => {
-                if (!queueState.isLoading) {
+                if (!isLoading) {
                   (e.currentTarget as HTMLElement).style.background =
-                    index === queueState.currentIndex
+                    index === currentIndex
                       ? `${tokens.colors.accent.primary}30`
                       : tokens.colors.bg.elevated;
                 }
               }}
               onMouseOut={(e) => {
-                if (!queueState.isLoading) {
+                if (!isLoading) {
                   (e.currentTarget as HTMLElement).style.background =
-                    index === queueState.currentIndex
+                    index === currentIndex
                       ? `${tokens.colors.accent.primary}20`
                       : tokens.colors.bg.tertiary;
                 }
               }}
+              onKeyDown={(e) => {
+                if (e.key === 'Delete' && index !== currentIndex) {
+                  handleRemoveTrack(index);
+                }
+              }}
+              tabIndex={0}
             >
               {/* Drag Handle & Index */}
               <div
@@ -408,7 +340,7 @@ export function QueueManager({
                     marginBottom: tokens.spacing.xs,
                   }}
                 >
-                  {index === queueState.currentIndex && '▶️ '}
+                  {index === currentIndex && '▶ '}
                   {track.title}
                 </div>
                 <div
@@ -436,7 +368,8 @@ export function QueueManager({
               {/* Remove Button */}
               <button
                 onClick={() => handleRemoveTrack(index)}
-                disabled={queueState.isLoading}
+                disabled={isLoading || index === currentIndex}
+                aria-label={`Remove ${track.title}`}
                 style={{
                   width: '32px',
                   height: '32px',
@@ -444,7 +377,7 @@ export function QueueManager({
                   borderRadius: '6px',
                   background: tokens.colors.bg.secondary,
                   color: tokens.colors.text.secondary,
-                  cursor: queueState.isLoading ? 'not-allowed' : 'pointer',
+                  cursor: isLoading || index === currentIndex ? 'not-allowed' : 'pointer',
                   fontSize: tokens.typography.fontSize.md,
                   opacity: 0.7,
                   transition: 'all 0.2s',
@@ -453,14 +386,14 @@ export function QueueManager({
                   justifyContent: 'center',
                 }}
                 onMouseOver={(e) => {
-                  if (!queueState.isLoading) {
+                  if (!isLoading && index !== currentIndex) {
                     (e.target as HTMLButtonElement).style.opacity = '1';
                     (e.target as HTMLButtonElement).style.background = tokens.colors.semantic.error;
                     (e.target as HTMLButtonElement).style.color = tokens.colors.text.primary;
                   }
                 }}
                 onMouseOut={(e) => {
-                  if (!queueState.isLoading) {
+                  if (!isLoading && index !== currentIndex) {
                     (e.target as HTMLButtonElement).style.opacity = '0.7';
                     (e.target as HTMLButtonElement).style.background = tokens.colors.bg.secondary;
                     (e.target as HTMLButtonElement).style.color = tokens.colors.text.secondary;
@@ -475,7 +408,7 @@ export function QueueManager({
       </div>
 
       {/* Stats */}
-      {!compact && queueState.tracks.length > 0 && (
+      {!compact && tracks.length > 0 && (
         <div
           style={{
             paddingTop: tokens.spacing.md,
@@ -487,7 +420,7 @@ export function QueueManager({
           }}
         >
           <span>
-            {queueState.currentIndex + 1} / {queueState.tracks.length}
+            {currentIndex + 1} / {tracks.length}
           </span>
           <span>Total: {formatTime(totalDuration)}</span>
         </div>
@@ -534,8 +467,7 @@ export function QueueManager({
                 color: tokens.colors.text.secondary,
               }}
             >
-              This will remove all {queueState.tracks.length} tracks from the queue. This action cannot be
-              undone.
+              This will remove all {tracks.length} tracks from the queue. This action cannot be undone.
             </p>
             <div
               style={{
