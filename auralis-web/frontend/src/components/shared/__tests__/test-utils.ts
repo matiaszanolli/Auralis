@@ -100,13 +100,16 @@ export const mockTrack = {
 };
 
 /**
- * Mock multiple tracks
+ * Generate mock tracks
  */
-export const mockTracks = [
-  { ...mockTrack, id: 1, title: 'Track 1', artist: 'Artist A' },
-  { ...mockTrack, id: 2, title: 'Track 2', artist: 'Artist B', duration: 180 },
-  { ...mockTrack, id: 3, title: 'Track 3', artist: 'Artist C', duration: 210 },
-];
+export function mockTracks(count: number = 3) {
+  const tracks = [
+    { ...mockTrack, id: 1, title: 'Track 1', artist: 'Artist 1', duration: 180 },
+    { ...mockTrack, id: 2, title: 'Track 2', artist: 'Artist 2', duration: 180 },
+    { ...mockTrack, id: 3, title: 'Track 3', artist: 'Artist 3', duration: 180 },
+  ];
+  return tracks.slice(0, count);
+}
 
 /**
  * Mock player state hook response
@@ -183,6 +186,10 @@ export function mockUseQueueCommands() {
     remove: vi.fn().mockResolvedValue(undefined),
     clear: vi.fn().mockResolvedValue(undefined),
     reorder: vi.fn().mockResolvedValue(undefined),
+    tracks: mockTracks(3),
+    currentIndex: 0,
+    loading: false,
+    error: null,
   };
 }
 

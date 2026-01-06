@@ -1040,7 +1040,6 @@ class ChunkedAudioProcessor:
 
         # Store last_content_profile globally for visualizer API access
         # This allows the /api/processing/parameters endpoint to show real processing data
-        global _last_content_profiles
         if self.processor is not None:
             processor_profile = getattr(self.processor, 'last_content_profile', None)
             if processor_profile:
@@ -1112,7 +1111,6 @@ def get_last_content_profile(preset: str) -> Optional[Dict[str, Any]]:
     Returns:
         Last content profile dict or None if not available
     """
-    global _last_content_profiles
     value = _last_content_profiles.get(preset.lower())
     if isinstance(value, dict):
         return value

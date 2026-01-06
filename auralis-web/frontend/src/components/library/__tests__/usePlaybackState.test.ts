@@ -18,13 +18,26 @@ vi.mock('../../../hooks/usePlayerAPI', () => ({
   })),
 }));
 
-vi.mock('../../shared/ui/feedback', () => ({
+vi.mock('../../shared/Toast', () => ({
   useToast: vi.fn(() => ({
     success: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
     warning: vi.fn(),
   })),
+}));
+
+// Create stable WebSocket context mock
+const mockWebSocketContext = {
+  send: vi.fn(),
+  subscribe: vi.fn(() => vi.fn()),
+  unsubscribe: vi.fn(),
+  isConnected: true,
+};
+
+vi.mock('@/contexts/WebSocketContext', () => ({
+  useWebSocketContext: () => mockWebSocketContext,
+  WebSocketProvider: ({ children }: any) => children,
 }));
 
 const mockTrack = {
@@ -48,6 +61,8 @@ const mockTrack2 = {
 describe('usePlaybackState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset WebSocket context mock
+    mockWebSocketContext.send.mockClear();
   });
 
   describe('Hook Initialization', () => {
