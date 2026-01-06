@@ -32,14 +32,21 @@ import {
 } from './test-utils';
 
 // Mock the hooks
-vi.mock('@/hooks/useStandardizedAPI', () => ({
+vi.mock('@/hooks/shared/useStandardizedAPI', () => ({
   useCacheHealth: vi.fn(),
 }));
 
 describe('CacheHealthWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (hooks.useCacheHealth as any).mockImplementation(mockUseCacheHealth());
+    // Reset the mock for each test to avoid state bleed
+    vi.mocked(hooks.useCacheHealth).mockReturnValue({
+      data: mockCacheHealth,
+      loading: false,
+      error: null,
+      isHealthy: true,
+      refetch: vi.fn().mockResolvedValue(undefined),
+    });
   });
 
   afterEach(() => {
@@ -85,9 +92,9 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should show warning emoji when degraded', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
-        ...mockCacheHealth(),
+        ...mockCacheHealth,
         healthy: false,
         hit_rate: 0.65,
         status: 'degraded',
@@ -103,9 +110,9 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should show X emoji when unhealthy', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
-        ...mockCacheHealth(),
+        ...mockCacheHealth,
         healthy: false,
         hit_rate: 0.4,
         status: 'unhealthy',
@@ -135,9 +142,9 @@ describe('CacheHealthWidget', () => {
 
     expect(screen.getByText(/95%/)).toBeInTheDocument();
 
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
-        ...mockCacheHealth(),
+        ...mockCacheHealth,
         hit_rate: 0.70,
       },
       loading: false,
@@ -155,9 +162,9 @@ describe('CacheHealthWidget', () => {
   // ============================================================================
 
   it('should show upward arrow when improving', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
-        ...mockCacheHealth(),
+        ...mockCacheHealth,
         hit_rate: 0.95,
         trend: 'improving',
       },
@@ -172,9 +179,9 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should show downward arrow when degrading', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
-        ...mockCacheHealth(),
+        ...mockCacheHealth,
         hit_rate: 0.65,
         trend: 'degrading',
       },
@@ -189,9 +196,9 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should show stable indicator when stable', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
-        ...mockCacheHealth(),
+        ...mockCacheHealth,
         trend: 'stable',
       },
       loading: false,
@@ -215,9 +222,9 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should show alert badge when unhealthy', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
-        ...mockCacheHealth(),
+        ...mockCacheHealth,
         healthy: false,
         hit_rate: 0.4,
       },
@@ -232,9 +239,9 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should show warning count in badge', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
-        ...mockCacheHealth(),
+        ...mockCacheHealth,
         healthy: false,
         warnings: 3,
       },
@@ -342,7 +349,7 @@ describe('CacheHealthWidget', () => {
   // ============================================================================
 
   it('should show loading skeleton', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: null,
       loading: true,
       error: null,
@@ -355,7 +362,7 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should not show content while loading', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: null,
       loading: true,
       error: null,
@@ -372,7 +379,7 @@ describe('CacheHealthWidget', () => {
   // ============================================================================
 
   it('should show error state when error occurs', () => {
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: null,
       loading: false,
       error: 'Failed to load health',
@@ -387,7 +394,7 @@ describe('CacheHealthWidget', () => {
   it('should show retry button on error', () => {
     const mockRefetch = vi.fn().mockResolvedValue(undefined);
 
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: null,
       loading: false,
       error: 'Failed to load health',
@@ -403,7 +410,7 @@ describe('CacheHealthWidget', () => {
   it('should call refetch when retry clicked', async () => {
     const mockRefetch = vi.fn().mockResolvedValue(undefined);
 
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: null,
       loading: false,
       error: 'Failed to load health',
@@ -443,9 +450,9 @@ describe('CacheHealthWidget', () => {
 
     expect(screen.getByText(/Healthy/i)).toBeInTheDocument();
 
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
-        ...mockCacheHealth(),
+        ...mockCacheHealth,
         healthy: false,
         hit_rate: 0.4,
       },
@@ -507,8 +514,8 @@ describe('CacheHealthWidget', () => {
 
     const mockRefetch = vi.fn().mockResolvedValue(undefined);
 
-    (hooks.useCacheHealth as any).mockImplementation(() => ({
-      data: mockCacheHealth(),
+    vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
+      data: mockCacheHealth,
       loading: false,
       error: null,
       refetch: mockRefetch,
