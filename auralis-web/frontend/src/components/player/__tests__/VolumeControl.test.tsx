@@ -197,8 +197,8 @@ describe('VolumeControl', () => {
       );
 
       const button = screen.getByTestId('volume-control-mute');
-      expect(button).toHaveAttribute('aria-label', 'Unmute');
-      expect(button).toHaveAttribute('title', 'Unmute');
+      expect(button).toHaveAttribute('aria-label', 'Unmute (⌨ M )');
+      expect(button).toHaveAttribute('title', 'Unmute (⌨ M )');
     });
 
     it('should display "Mute" label when not muted', () => {
@@ -212,8 +212,8 @@ describe('VolumeControl', () => {
       );
 
       const button = screen.getByTestId('volume-control-mute');
-      expect(button).toHaveAttribute('aria-label', 'Mute');
-      expect(button).toHaveAttribute('title', 'Mute');
+      expect(button).toHaveAttribute('aria-label', 'Mute (⌨ M )');
+      expect(button).toHaveAttribute('title', 'Mute (⌨ M )');
     });
   });
 
