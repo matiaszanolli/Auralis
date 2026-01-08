@@ -70,7 +70,7 @@ def master_folder(pipeline, input_folder, output_folder, intensity, quiet, time_
     for idx, input_file in enumerate(audio_files, 1):
         # Calculate relative path and create output directory structure
         relative_path = input_file.relative_to(input_path)
-        output_file = output_path / relative_path.parent / f"{relative_path.stem}_mastered.wav"
+        output_file = output_path / relative_path.parent / f"{relative_path.stem}_mastered.flac"
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         try:
