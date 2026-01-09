@@ -13,7 +13,7 @@
  * @module hooks/usePlayerControls
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 /**
  * Control operation result - indicates success/failure of an operation
@@ -327,14 +327,13 @@ export function usePlayerControls({
   );
 
   // Cleanup on unmount
-  import('react').then((React) => {
-    // Note: This is a workaround - ideally use useEffect
+  useEffect(() => {
     return () => {
       if (seekTimeoutRef.current) {
         clearTimeout(seekTimeoutRef.current);
       }
     };
-  });
+  }, []);
 
   return {
     play,

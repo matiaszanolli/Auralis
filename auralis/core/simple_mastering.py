@@ -197,7 +197,7 @@ class SimpleMasteringPipeline:
 
             # Stereo expansion for narrow mixes
             processed, width_info = self._apply_stereo_expansion(
-                processed, stereo_width, effective_intensity, sample_rate, verbose
+                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct
             )
             if width_info:
                 info['stages'].append(width_info)
@@ -215,7 +215,7 @@ class SimpleMasteringPipeline:
 
             # Stereo expansion for narrow mixes
             processed, width_info = self._apply_stereo_expansion(
-                processed, stereo_width, effective_intensity, sample_rate, verbose
+                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct
             )
             if width_info:
                 info['stages'].append(width_info)
@@ -278,7 +278,7 @@ class SimpleMasteringPipeline:
 
             # Stereo expansion for narrow mixes
             processed, width_info = self._apply_stereo_expansion(
-                processed, stereo_width, effective_intensity, sample_rate, verbose
+                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct
             )
             if width_info:
                 info['stages'].append(width_info)
@@ -358,7 +358,8 @@ class SimpleMasteringPipeline:
         current_width: float,
         intensity: float,
         sample_rate: int,
-        verbose: bool
+        verbose: bool,
+        bass_pct: float = 0.3
     ) -> Tuple[np.ndarray, Optional[Dict]]:
         """
         Apply adaptive multiband stereo expansion for narrow mixes.
@@ -406,7 +407,11 @@ class SimpleMasteringPipeline:
 
         # Transpose for multiband function which expects [samples, 2]
         audio_t = audio.T
-        expanded = adjust_stereo_width_multiband(audio_t, width_factor, sample_rate)
+        expanded = adjust_stereo_width_multiband(
+            audio_t, width_factor, sample_rate,
+            original_width=current_width,
+            bass_content=bass_pct
+        )
         processed = expanded.T
 
         if verbose:

@@ -96,20 +96,26 @@ def _linkwitz_riley_4(freq: float, btype: str) -> np.ndarray:
 def adjust_stereo_width_multiband(
     stereo_audio: np.ndarray,
     width_factor: float,
-    sample_rate: int = 44100
+    sample_rate: int = 44100,
+    original_width: float = 0.5,
+    bass_content: float = 0.3
 ) -> np.ndarray:
     """
-    Adjust stereo width with frequency-dependent processing.
+    Adjust stereo width with frequency-dependent processing and mid compensation.
 
     Uses Linkwitz-Riley crossovers (LR4, 24dB/octave) for phase-coherent
     band splitting that sums flat. Expansion increases smoothly from
-    bass to highs.
+    bass to highs. Applies selective mid-channel boost to presence/air
+    ranges to maintain "boldness" and prevent flat-sounding masters.
 
     Frequency bands:
     - Lows (<300Hz): No expansion - keeps bass/kick centered and punchy
-    - Low-mids (300-2kHz): Gradual expansion - body and warmth
-    - High-mids (2k-8kHz): Full expansion - presence, guitars
-    - Highs (>8kHz): Full expansion - air, cymbals
+    - Low-mids (300-2kHz): 70% expansion - body and warmth
+    - High-mids (2k-8kHz): 100% expansion + 15% mid boost - presence, guitars
+    - Highs (>8kHz): 100% expansion + 20% mid boost - air, cymbals
+
+    Mid compensation prevents the "flat" sound that occurs on cheap headphones
+    when stereo expansion dilutes the center image where vocals/snare/guitars live.
 
     Args:
         stereo_audio: Stereo audio signal [samples, 2]
@@ -117,7 +123,7 @@ def adjust_stereo_width_multiband(
         sample_rate: Audio sample rate
 
     Returns:
-        Width-adjusted stereo audio with frequency-appropriate widening
+        Width-adjusted stereo audio with frequency-appropriate widening and presence
     """
     if stereo_audio.ndim != 2 or stereo_audio.shape[1] != 2:
         return stereo_audio
@@ -172,10 +178,42 @@ def adjust_stereo_width_multiband(
     width_highmid = 0.5 + expansion * 1.0
     width_high = 0.5 + expansion * 1.0
 
-    # Apply width to each band
+    # Multi-dimensional adaptive mid compensation
+    # Curves adapt to: expansion amount, original width, bass content
+    # No thresholds - all transitions are smooth and continuous
+
+    # Narrowness curve: narrower mixes need more compensation
+    # original_width: 0.0 → factor 1.5, 0.3 → factor 1.0, 0.6+ → factor 0.5
+    narrowness_curve = np.clip(1.5 - (original_width * 2.5), 0.5, 1.5)
+
+    # Bass headroom curve: less bass = more headroom for mid boost
+    # bass_content: 0.2 → factor 1.2, 0.5 → factor 1.0, 0.7+ → factor 0.7
+    bass_headroom_curve = np.clip(1.4 - (bass_content * 1.0), 0.7, 1.2)
+
+    # Expansion intensity curve: power function for smooth scaling
+    # Steeper at higher expansion to maintain balance
+    expansion_curve = expansion ** 1.4
+
+    # Low-mids (300-2kHz): no compensation, just width adjustment
     band_lowmid_w = adjust_stereo_width(band_lowmid, width_lowmid)
-    band_highmid_w = adjust_stereo_width(band_highmid, width_highmid)
-    band_high_w = adjust_stereo_width(band_high, width_high)
+
+    # High-mids (2-8kHz): presence range - adaptive compensation
+    # Base multiplier 0.3, scaled by all three dimensions
+    mid_highmid, side_highmid = mid_side_encode(band_highmid)
+    compensation_factor_highmid = 0.3 * narrowness_curve * bass_headroom_curve
+    mid_boost_highmid = 1.0 + expansion_curve * compensation_factor_highmid
+    mid_highmid_boosted = mid_highmid * mid_boost_highmid
+    band_highmid_compensated = mid_side_decode(mid_highmid_boosted, side_highmid)
+    band_highmid_w = adjust_stereo_width(band_highmid_compensated, width_highmid)
+
+    # Highs (8kHz+): air range - slightly stronger adaptive compensation
+    # Base multiplier 0.4, scaled by all three dimensions
+    mid_high, side_high = mid_side_encode(band_high)
+    compensation_factor_high = 0.4 * narrowness_curve * bass_headroom_curve
+    mid_boost_high = 1.0 + expansion_curve * compensation_factor_high
+    mid_high_boosted = mid_high * mid_boost_high
+    band_high_compensated = mid_side_decode(mid_high_boosted, side_high)
+    band_high_w = adjust_stereo_width(band_high_compensated, width_high)
 
     # Recombine - LR4 crossovers sum to unity
     return band_low + band_lowmid_w + band_highmid_w + band_high_w

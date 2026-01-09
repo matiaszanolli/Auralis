@@ -29,14 +29,21 @@ import * as hooks from '@/hooks/websocket/useWebSocketProtocol';
 import { mockUseWebSocketProtocol } from './test-utils';
 
 // Mock the hooks
-vi.mock('@/hooks/useWebSocketProtocol', () => ({
+vi.mock('@/hooks/websocket/useWebSocketProtocol', () => ({
   useWebSocketProtocol: vi.fn(),
 }));
 
 describe('ConnectionStatusIndicator', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (hooks.useWebSocketProtocol as any).mockImplementation(mockUseWebSocketProtocol());
+    // Reset the mock for each test to avoid state bleed
+    vi.mocked(hooks.useWebSocketProtocol).mockReturnValue({
+      isConnected: true,
+      latency: 25,
+      canReconnect: false,
+      connectionStatus: 'connected',
+      reconnect: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -77,7 +84,7 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should show red indicator when disconnected', () => {
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -92,7 +99,7 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should show yellow indicator when reconnecting', () => {
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -117,7 +124,7 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should show "Disconnected" text when offline', () => {
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -131,7 +138,7 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should show "Reconnecting..." text when attempting reconnection', () => {
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -159,7 +166,7 @@ describe('ConnectionStatusIndicator', () => {
 
     expect(screen.getByText(/25ms/)).toBeInTheDocument();
 
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: true,
       latency: 50,
       canReconnect: false,
@@ -173,7 +180,7 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should show "N/A" latency when disconnected', () => {
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -191,7 +198,7 @@ describe('ConnectionStatusIndicator', () => {
   // ============================================================================
 
   it('should show reconnect button when disconnected', () => {
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -213,7 +220,7 @@ describe('ConnectionStatusIndicator', () => {
   it('should call reconnect when button clicked', async () => {
     const mockReconnect = vi.fn().mockResolvedValue(undefined);
 
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -232,7 +239,7 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should disable reconnect button when cannot reconnect', () => {
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: false,
@@ -329,7 +336,7 @@ describe('ConnectionStatusIndicator', () => {
     expect(statusContainer).toHaveClass('hidden');
 
     // Simulate disconnection
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -369,7 +376,7 @@ describe('ConnectionStatusIndicator', () => {
 
     expect(screen.getByText('Connected')).toBeInTheDocument();
 
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -394,7 +401,7 @@ describe('ConnectionStatusIndicator', () => {
     const indicator1 = screen.getByTestId('connection-indicator');
     expect(indicator1).toHaveClass('status-connected');
 
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -411,7 +418,7 @@ describe('ConnectionStatusIndicator', () => {
   });
 
   it('should transition through reconnecting state', async () => {
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,
@@ -425,7 +432,7 @@ describe('ConnectionStatusIndicator', () => {
     expect(indicator1).toHaveClass('status-reconnecting');
 
     // Simulate successful reconnection
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: true,
       latency: 25,
       canReconnect: false,
@@ -446,7 +453,7 @@ describe('ConnectionStatusIndicator', () => {
   // ============================================================================
 
   it('should animate pulsing when reconnecting', async () => {
-    (hooks.useWebSocketProtocol as any).mockImplementation(() => ({
+    vi.mocked(hooks.useWebSocketProtocol).mockImplementation(() => ({
       isConnected: false,
       latency: 0,
       canReconnect: true,

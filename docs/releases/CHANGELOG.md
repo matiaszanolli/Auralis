@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+#### Multiband Stereo Processing
+- Replaced 2nd-order Butterworth bandpass filters with **Linkwitz-Riley LR4 crossovers** (24dB/octave) for phase-coherent band splitting that sums flat at crossover points
+- Raised low crossover from 200Hz to 300Hz to preserve bass harmonics and kick punch in the center channel
+- Balanced expansion ratios to avoid "scooped mids" effect:
+  - Lows (<300Hz): 0% expansion - keeps bass centered
+  - Low-mids (300Hz-2kHz): 70% expansion - preserves warmth and body
+  - High-mids (2kHz-8kHz): 100% expansion - full presence
+  - Highs (>8kHz): 100% expansion - air and brilliance (removed excessive 120% boost)
+
+#### Auto-Mastering Pipeline
+- Fixed headroom calculation for tracks with LUFS between -14 and -12 that have peaks near 0dBFS - now properly applies peak reduction before makeup gain
+- Reduced safety margin from -2.0dB to -0.5dB for more effective loudness normalization
+- Batch processing now outputs FLAC (24-bit) instead of WAV
+
+#### Smooth Processing Curves
+Replaced hard thresholds with cosine-interpolated curves for natural transitions:
+- **Intensity calculation**: Smooth 2D interpolation based on crest factor (8-15 dB) and LUFS (-13 to -11 dB)
+- **Stereo expansion**: Cosine fade from full (width < 25%) to none (width > 55%)
+- **Bass enhancement**: Cosine fade from full boost (bass < 20%) to none (bass > 50%)
+- **Normalization peak**: Smooth bass-aware adjustment (10% to 40% bass range)
+
+---
+
 ## [1.2.0-beta.1] - 2025-12-21
 
 ### Overview

@@ -130,7 +130,7 @@ describe('useQueueSearch', () => {
     const { result } = renderHook(() => useQueueSearch(mockTracks));
 
     act(() => {
-      result.current.setSearchQuery('rap');
+      result.current.setSearchQuery('haps');
     });
 
     expect(result.current.matchCount).toBe(1);
