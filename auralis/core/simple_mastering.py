@@ -287,8 +287,13 @@ class SimpleMasteringPipeline:
             target_peak, _ = AdaptiveLoudnessControl.calculate_adaptive_peak_target(lufs)
             adapted_peak = max(0.80, min(0.95, target_peak - (0.05 * loudness_factor)))
 
-            if bass_pct > 0.15:
-                adapted_peak -= 0.02 * min(1.0, (bass_pct - 0.15) / 0.25)
+            # Smooth bass-aware peak reduction using continuous curve
+            # Starts affecting at 10%, full effect at 40%+
+            if bass_pct > 0.10:
+                bass_peak_factor = np.clip((bass_pct - 0.10) / 0.30, 0.0, 1.0)
+                # Cosine curve for smooth onset
+                smooth_factor = 0.5 * (1.0 - np.cos(np.pi * bass_peak_factor))
+                adapted_peak -= 0.025 * smooth_factor
 
             if verbose:
                 print(f"   Normalize: {adapted_peak*100:.0f}% peak")
@@ -300,16 +305,38 @@ class SimpleMasteringPipeline:
         return processed, info
 
     def _calculate_intensity(self, base: float, lufs: float, crest_db: float) -> float:
-        """Calculate effective intensity from base + audio characteristics."""
-        if crest_db > 15:
-            if lufs < -13.0:
-                return base * 1.2  # Quiet + dynamic → boost
-            elif lufs > -11.0:
-                return base * 0.6  # Loud + dynamic → preserve
-            return base * 0.85
-        elif crest_db < 8:
-            return base * 0.5  # Already compressed
-        return base
+        """
+        Calculate effective intensity from base + audio characteristics.
+
+        Uses smooth interpolation instead of hard thresholds:
+        - Crest factor determines dynamic range preservation needs
+        - LUFS determines how much room we have to work with
+        """
+        # Smooth crest factor curve: 8 dB (compressed) → 15 dB (dynamic)
+        # Maps to multiplier range based on material type
+        crest_norm = np.clip((crest_db - 8.0) / 7.0, 0.0, 1.0)  # 0=compressed, 1=dynamic
+
+        # LUFS factor: -13 (quiet) → -11 (loud)
+        # Quiet material can handle more processing, loud needs preservation
+        lufs_norm = np.clip((lufs + 13.0) / 2.0, 0.0, 1.0)  # 0=quiet, 1=loud
+
+        # Intensity multiplier based on 2D space:
+        # - Compressed (low crest): always reduce intensity (0.5-0.7)
+        # - Dynamic + quiet: boost intensity (up to 1.2)
+        # - Dynamic + loud: preserve (reduce to 0.6-0.8)
+        if crest_norm < 0.3:
+            # Compressed material: gentle processing regardless of loudness
+            multiplier = 0.5 + crest_norm * 0.67  # 0.5 → 0.7
+        else:
+            # Dynamic material: depends on loudness
+            # Quiet (lufs_norm=0): multiplier up to 1.2
+            # Loud (lufs_norm=1): multiplier down to 0.6
+            dynamic_range = 0.7 + (1.0 - crest_norm) * 0.5  # Base for dynamic material
+            quiet_boost = (1.0 - lufs_norm) * 0.5  # Extra boost for quiet
+            loud_reduction = lufs_norm * 0.4  # Reduction for loud
+            multiplier = dynamic_range + quiet_boost - loud_reduction
+
+        return base * np.clip(multiplier, 0.5, 1.2)
 
     def _reduce_peaks(
         self,
@@ -352,17 +379,30 @@ class SimpleMasteringPipeline:
         Returns:
             (processed_audio, stage_info or None if no expansion applied)
         """
-        # Only expand narrow mixes (width < 0.45)
-        if current_width >= 0.45:
-            return audio, None
+        # Smooth expansion curve - no hard cutoff
+        # Full expansion below 0.25, gradual fade from 0.25 to 0.55, none above 0.55
+        if current_width >= 0.55:
+            return audio, None  # Already wide enough
 
-        # Calculate expansion based on narrowness and intensity
-        # For width=0.15 (very narrow): target 0.65 (30% expansion)
-        # For width=0.4 (slightly narrow): target 0.55 (10% expansion)
-        narrowness = 0.45 - current_width  # 0.0 to 0.45
-        expansion_amount = narrowness * 0.5 * intensity  # Max 0.225 at full intensity
+        # Smooth fade using cosine curve for natural transition
+        # width 0.0-0.25: full expansion (narrowness_factor = 1.0)
+        # width 0.25-0.55: smooth fade (narrowness_factor = 1.0 → 0.0)
+        # width 0.55+: no expansion (narrowness_factor = 0.0)
+        if current_width <= 0.25:
+            narrowness_factor = 1.0
+        else:
+            # Cosine fade from 0.25 to 0.55
+            fade_position = (current_width - 0.25) / 0.30  # 0.0 → 1.0
+            narrowness_factor = 0.5 * (1.0 + np.cos(np.pi * fade_position))  # Smooth S-curve
 
-        width_factor = 0.5 + expansion_amount  # 0.5 to 0.725
+        # Base expansion scaled by narrowness and intensity
+        max_expansion = 0.225 * intensity  # Max at full intensity
+        expansion_amount = max_expansion * narrowness_factor
+
+        if expansion_amount < 0.02:
+            return audio, None  # Too small to matter
+
+        width_factor = 0.5 + expansion_amount
 
         # Transpose for multiband function which expects [samples, 2]
         audio_t = audio.T
@@ -407,18 +447,26 @@ class SimpleMasteringPipeline:
         Returns:
             (processed_audio, stage_info or None if no enhancement applied)
         """
-        # Only enhance tracks with moderate or low bass (< 40%)
-        # High bass tracks don't need boost
-        if bass_pct >= 0.40:
-            return audio, None
+        # Smooth bass enhancement curve
+        # Full boost below 20%, gradual fade from 20% to 50%, none above 50%
+        if bass_pct >= 0.50:
+            return audio, None  # Already bass-heavy
 
-        # Calculate boost based on bass deficiency
-        # bass_pct=0.15 → +2.5 dB boost (significant)
-        # bass_pct=0.30 → +1.25 dB boost (moderate)
-        # bass_pct=0.40 → +0 dB boost (none)
-        bass_deficiency = 0.40 - bass_pct  # 0.0 to 0.40
-        max_boost_db = 2.5 * intensity  # Scale with intensity
-        boost_db = bass_deficiency * (max_boost_db / 0.40)
+        # Smooth curve using cosine fade for natural transition
+        # bass 0-20%: full boost potential
+        # bass 20-50%: smooth fade
+        if bass_pct <= 0.20:
+            bass_factor = 1.0
+        else:
+            # Cosine fade from 0.20 to 0.50
+            fade_position = (bass_pct - 0.20) / 0.30  # 0.0 → 1.0
+            bass_factor = 0.5 * (1.0 + np.cos(np.pi * fade_position))
+
+        # Calculate boost based on bass deficiency and fade factor
+        # Max boost at very low bass (< 15%)
+        max_boost_db = 2.5 * intensity * bass_factor
+        bass_deficiency = max(0.0, 0.30 - bass_pct) / 0.30  # How much bass is missing
+        boost_db = max_boost_db * bass_deficiency
 
         if boost_db < 0.5:
             return audio, None  # Too small to matter
