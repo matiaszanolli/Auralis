@@ -170,8 +170,12 @@ class SimpleMasteringPipeline:
         # Adaptive intensity based on dynamics + loudness
         effective_intensity = self._calculate_intensity(intensity, lufs, crest_db)
 
-        # STAGE 1: Peak reduction for quiet-but-hot material
-        if lufs < -14.0 and peak_db > -3.0:
+        # STAGE 1: Peak reduction for material needing headroom
+        # Calculate how much gain we'd ideally apply, then check if we have room
+        ideal_gain = max(0.0, self.TARGET_LUFS - lufs)
+        headroom_needed = ideal_gain - (0.0 - peak_db)  # peak_db is negative
+
+        if peak_db > -3.0 and headroom_needed > 1.0:
             gain_needed = self.TARGET_LUFS - lufs
             target_peak = max(-8.0, min(-3.0, -1.5 - gain_needed * 0.7))
 
@@ -227,8 +231,9 @@ class SimpleMasteringPipeline:
                 lufs, effective_intensity, crest_db, bass_pct, transient_density, peak_db
             )
 
-            # Apply makeup gain with 1 dB safety margin for headroom
-            makeup_gain = max(0.0, makeup_gain - 2.0)
+            # Apply makeup gain with modest safety margin for headroom
+            # After peak reduction, we have room - don't over-compensate
+            makeup_gain = max(0.0, makeup_gain - 0.5)
             if makeup_gain > 0.0:
                 if verbose:
                     print(f"   Makeup gain: +{makeup_gain:.1f} dB")
