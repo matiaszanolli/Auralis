@@ -31,7 +31,7 @@ class TemporalOperations:
     @staticmethod
     def detect_tempo(audio: np.ndarray, sr: int) -> float:
         """
-        Detect tempo in BPM using Rust DSP backend.
+        Detect tempo in BPM using librosa's beat tracker (autocorrelation-based).
 
         Args:
             audio: Audio signal (raw audio, not onset envelope)
@@ -43,12 +43,20 @@ class TemporalOperations:
         try:
             # Import here to avoid circular dependency
             from ..metrics import MetricUtils
-            from .dsp_backend import DSPBackend
 
-            # Use Rust tempo detection (spectral flux onset detection)
-            tempo = DSPBackend.detect_tempo(audio, sr=sr)
+            # Use librosa's beat_track which uses autocorrelation
+            # This is more robust than spectral flux onset detection
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                tempo, _ = librosa.beat.beat_track(y=audio, sr=sr)
 
-            # Clip tempo to reasonable BPM range using MetricUtils
+            # Handle array output from newer librosa versions
+            if hasattr(tempo, '__len__'):
+                tempo = float(tempo[0]) if len(tempo) > 0 else 120.0
+            else:
+                tempo = float(tempo)
+
+            # Clip tempo to reasonable BPM range
             tempo = MetricUtils.clip_to_range(tempo, 40, 200)
 
             return float(tempo)

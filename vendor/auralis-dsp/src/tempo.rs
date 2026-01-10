@@ -153,7 +153,7 @@ fn detect_flux_peaks(flux_values: &[f64], threshold_multiplier: f64) -> Vec<usiz
     peaks
 }
 
-/// Calculate tempo from detected peak intervals
+/// Calculate tempo from detected peak intervals with octave correction
 fn calculate_tempo_from_peaks(
     peaks: &[usize],
     hop_length: usize,
@@ -165,7 +165,7 @@ fn calculate_tempo_from_peaks(
     }
 
     // Calculate intervals between consecutive peaks
-    let mut intervals = Vec::new();
+    let mut intervals: Vec<f64> = Vec::new();
     for i in 1..peaks.len() {
         intervals.push((peaks[i] - peaks[i - 1]) as f64);
     }
@@ -177,11 +177,48 @@ fn calculate_tempo_from_peaks(
     // beat_interval = avg_interval * (hop_length / sr)
     // BPM = 60 / beat_interval
     let beat_interval = avg_interval * (hop_length as f64 / sr as f64);
-    if beat_interval > 0.0 {
+    let raw_tempo = if beat_interval > 0.0 {
         60.0 / beat_interval
     } else {
-        120.0
+        return 120.0;
+    };
+
+    // Aggressive octave correction: prefer tempos in 70-140 BPM range
+    // Try many octave divisions since onset detection often catches subdivisions
+    let candidates = [
+        raw_tempo,
+        raw_tempo / 2.0,
+        raw_tempo / 3.0,
+        raw_tempo / 4.0,
+        raw_tempo / 6.0,
+        raw_tempo / 8.0,
+        raw_tempo * 2.0,
+    ];
+
+    // Score candidates: strongly prefer 70-140 BPM range (perceptual sweet spot)
+    let mut best_tempo = 120.0; // Default fallback
+    let mut best_score = f64::MAX;
+
+    for &tempo in &candidates {
+        if tempo >= config.min_bpm && tempo <= config.max_bpm {
+            // Score based on distance from sweet spot center (105 BPM)
+            // Use squared distance to heavily penalize extremes
+            let sweet_spot_center = 105.0;
+            let distance = (tempo - sweet_spot_center).abs();
+
+            // Bonus for being in 70-140 range
+            let sweet_spot_bonus = if tempo >= 70.0 && tempo <= 140.0 { 0.0 } else { 50.0 };
+
+            let score = distance + sweet_spot_bonus;
+
+            if score < best_score {
+                best_score = score;
+                best_tempo = tempo;
+            }
+        }
     }
+
+    best_tempo
 }
 
 /// Create Hann window of given size

@@ -101,29 +101,30 @@ def adjust_stereo_width_multiband(
     bass_content: float = 0.3
 ) -> np.ndarray:
     """
-    Adjust stereo width with frequency-dependent processing and mid compensation.
+    Adjust stereo width with frequency-dependent processing.
 
     Uses Linkwitz-Riley crossovers (LR4, 24dB/octave) for phase-coherent
-    band splitting that sums flat. Expansion increases smoothly from
-    bass to highs. Applies selective mid-channel boost to presence/air
-    ranges to maintain "boldness" and prevent flat-sounding masters.
+    band splitting that sums flat. Expansion increases smoothly from bass
+    to highs without mid compensation (which creates muddiness).
 
     Frequency bands:
     - Lows (<300Hz): No expansion - keeps bass/kick centered and punchy
     - Low-mids (300-2kHz): 70% expansion - body and warmth
-    - High-mids (2k-8kHz): 100% expansion + 15% mid boost - presence, guitars
-    - Highs (>8kHz): 100% expansion + 20% mid boost - air, cymbals
+    - High-mids (2k-8kHz): 100% expansion - presence, guitars
+    - Highs (>8kHz): 100% expansion - air, cymbals
 
-    Mid compensation prevents the "flat" sound that occurs on cheap headphones
-    when stereo expansion dilutes the center image where vocals/snare/guitars live.
+    The multiband approach prevents phase issues on cheap headphones by
+    keeping low frequencies centered while expanding highs.
 
     Args:
         stereo_audio: Stereo audio signal [samples, 2]
         width_factor: Base width factor (0.5 = no change, 1.0 = max width)
         sample_rate: Audio sample rate
+        original_width: Unused (kept for API compatibility)
+        bass_content: Unused (kept for API compatibility)
 
     Returns:
-        Width-adjusted stereo audio with frequency-appropriate widening and presence
+        Width-adjusted stereo audio with frequency-appropriate widening
     """
     if stereo_audio.ndim != 2 or stereo_audio.shape[1] != 2:
         return stereo_audio
@@ -168,52 +169,37 @@ def adjust_stereo_width_multiband(
     # Calculate expansion amount from base factor
     expansion = width_factor - 0.5  # 0 to 0.5 range
 
-    # Smooth, balanced expansion curve
-    # Lows: 0% - centered for punch
-    # Low-mids: 70% - preserve warmth while adding width
-    # High-mids: 100% - full expansion for presence
-    # Highs: 100% - full expansion for air (no extra boost)
-    width_low = 0.5
-    width_lowmid = 0.5 + expansion * 0.7
-    width_highmid = 0.5 + expansion * 1.0
-    width_high = 0.5 + expansion * 1.0
+    # Frequency-dependent expansion using logarithmic decay curve
+    # Higher frequencies are more sensitive to phase issues on cheap headphones
+    # Expansion factor decreases smoothly with log(frequency)
+    #
+    # Formula: factor = 1 - (log(f_center) - log(f_min)) / (log(f_max) - log(f_min)) * decay_strength
+    # This creates a smooth rolloff from low-mids to highs
+    #
+    # Band center frequencies (geometric mean):
+    # - Low-mids: sqrt(300 * 2000) ≈ 775 Hz
+    # - High-mids: sqrt(2000 * 8000) = 4000 Hz
+    # - Highs: sqrt(8000 * 16000) ≈ 11314 Hz
+    f_min = 300.0
+    f_max = 16000.0
+    log_range = np.log(f_max / f_min)  # ~4.0
 
-    # Multi-dimensional adaptive mid compensation
-    # Curves adapt to: expansion amount, original width, bass content
-    # No thresholds - all transitions are smooth and continuous
+    def expansion_factor(f_center: float) -> float:
+        """Smooth logarithmic decay: 1.0 at f_min, ~0.3 at f_max"""
+        log_pos = np.log(f_center / f_min) / log_range  # 0.0 to 1.0
+        return 1.0 - (log_pos * 0.7)  # Decay from 1.0 to 0.3
 
-    # Narrowness curve: narrower mixes need more compensation
-    # original_width: 0.0 → factor 1.5, 0.3 → factor 1.0, 0.6+ → factor 0.5
-    narrowness_curve = np.clip(1.5 - (original_width * 2.5), 0.5, 1.5)
+    # Apply curve to each band
+    width_low = 0.5  # No expansion for bass
+    width_lowmid = 0.5 + expansion * expansion_factor(775.0)    # ~0.78
+    width_highmid = 0.5 + expansion * expansion_factor(4000.0)  # ~0.53
+    width_high = 0.5 + expansion * expansion_factor(11314.0)    # ~0.35
 
-    # Bass headroom curve: less bass = more headroom for mid boost
-    # bass_content: 0.2 → factor 1.2, 0.5 → factor 1.0, 0.7+ → factor 0.7
-    bass_headroom_curve = np.clip(1.4 - (bass_content * 1.0), 0.7, 1.2)
-
-    # Expansion intensity curve: power function for smooth scaling
-    # Steeper at higher expansion to maintain balance
-    expansion_curve = expansion ** 1.4
-
-    # Low-mids (300-2kHz): no compensation, just width adjustment
+    # Apply width adjustments without mid compensation
+    # Mid compensation was creating muddiness in the high range
     band_lowmid_w = adjust_stereo_width(band_lowmid, width_lowmid)
-
-    # High-mids (2-8kHz): presence range - adaptive compensation
-    # Base multiplier 0.3, scaled by all three dimensions
-    mid_highmid, side_highmid = mid_side_encode(band_highmid)
-    compensation_factor_highmid = 0.3 * narrowness_curve * bass_headroom_curve
-    mid_boost_highmid = 1.0 + expansion_curve * compensation_factor_highmid
-    mid_highmid_boosted = mid_highmid * mid_boost_highmid
-    band_highmid_compensated = mid_side_decode(mid_highmid_boosted, side_highmid)
-    band_highmid_w = adjust_stereo_width(band_highmid_compensated, width_highmid)
-
-    # Highs (8kHz+): air range - slightly stronger adaptive compensation
-    # Base multiplier 0.4, scaled by all three dimensions
-    mid_high, side_high = mid_side_encode(band_high)
-    compensation_factor_high = 0.4 * narrowness_curve * bass_headroom_curve
-    mid_boost_high = 1.0 + expansion_curve * compensation_factor_high
-    mid_high_boosted = mid_high * mid_boost_high
-    band_high_compensated = mid_side_decode(mid_high_boosted, side_high)
-    band_high_w = adjust_stereo_width(band_high_compensated, width_high)
+    band_highmid_w = adjust_stereo_width(band_highmid, width_highmid)
+    band_high_w = adjust_stereo_width(band_high, width_high)
 
     # Recombine - LR4 crossovers sum to unity
     return band_low + band_lowmid_w + band_highmid_w + band_high_w

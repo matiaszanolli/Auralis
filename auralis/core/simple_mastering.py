@@ -170,14 +170,22 @@ class SimpleMasteringPipeline:
         # Adaptive intensity based on dynamics + loudness
         effective_intensity = self._calculate_intensity(intensity, lufs, crest_db)
 
-        # STAGE 1: Peak reduction for material needing headroom
-        # Calculate how much gain we'd ideally apply, then check if we have room
-        ideal_gain = max(0.0, self.TARGET_LUFS - lufs)
-        headroom_needed = ideal_gain - (0.0 - peak_db)  # peak_db is negative
+        # STAGE 1: Gentle peak reduction for clipping prevention only
+        # Only intervene when peak is dangerously close to or above 0 dBFS
+        # Uses smooth S-curve to avoid filtering effect - just prevents actual clipping
+        if peak_db > -0.5:
+            # Smooth curve: gentle near threshold, stronger for severe clipping
+            # clip_severity: 0 at -0.5 dB, 1 at +2 dB
+            clip_severity = np.clip((peak_db + 0.5) / 2.5, 0.0, 1.0)
+            # S-curve for smooth transition (cosine)
+            smooth_factor = 0.5 * (1.0 - np.cos(np.pi * clip_severity))
 
-        if peak_db > -3.0 and headroom_needed > 1.0:
-            gain_needed = self.TARGET_LUFS - lufs
-            target_peak = max(-8.0, min(-3.0, -1.5 - gain_needed * 0.7))
+            # Target: -0.5 to -2.0 dB based on severity (much gentler than old -3.0 floor)
+            # peak at -0.5 → target -0.5 (no change)
+            # peak at 0 → target ~-0.6 (gentle 0.6 dB reduction)
+            # peak at +1 → target ~-1.5 (1.5 dB reduction from 0 dBFS)
+            # peak at +2 → target -2.0 (max reduction)
+            target_peak = -0.5 - smooth_factor * 1.5
 
             if verbose:
                 print(f"   Peak reduction: {peak_db:.1f} → {target_peak:.1f} dB")
@@ -253,20 +261,18 @@ class SimpleMasteringPipeline:
             threshold_db = -2.0 + (1.5 * (1.0 - loudness_factor))
             ceiling = 0.92 + (0.07 * loudness_factor)
 
-            # Fluid bass-aware adjustments using exponential scaling
-            # Exponential curve: gentle for moderate bass, aggressive for extreme bass
-            # This provides better protection where it's actually needed
+            # Gentle bass-aware adjustments using smooth curve
+            # Previous exponential curve was too aggressive - crushing dynamics
             #
-            # bass_x: normalized 0.0 at 10% bass → 1.0 at 60% bass
-            bass_x = np.clip((bass_pct - 0.10) / 0.50, 0.0, 1.0)
-            # Exponential curve: (e^(k*x) - 1) / (e^k - 1), k controls steepness
-            k = 3.0  # Higher k = more protection at high bass
-            bass_intensity = (np.exp(k * bass_x) - 1) / (np.exp(k) - 1)
+            # bass_x: normalized 0.0 at 20% bass → 1.0 at 70% bass
+            bass_x = np.clip((bass_pct - 0.20) / 0.50, 0.0, 1.0)
+            # Smooth S-curve using cosine for gradual onset
+            bass_intensity = 0.5 * (1.0 - np.cos(np.pi * bass_x))
 
-            # Scale adjustments fluidly based on bass intensity
-            # Exponential means: 20% bass ≈ 0.05, 40% bass ≈ 0.26, 58% bass ≈ 0.85
-            threshold_db -= 3.0 * bass_intensity  # Up to -3.0 dB headroom
-            ceiling -= 0.12 * bass_intensity  # Ceiling from 0.99 down to 0.80
+            # Gentler adjustments to preserve dynamics
+            # At 60% bass: bass_intensity ≈ 0.65
+            threshold_db -= 1.5 * bass_intensity  # Up to -1.5 dB headroom (was -3.0)
+            ceiling -= 0.05 * bass_intensity  # Ceiling from 0.92 down to 0.87 (was 0.80)
 
             threshold_linear = 10 ** (threshold_db / 20.0)
 
@@ -385,16 +391,26 @@ class SimpleMasteringPipeline:
         if current_width >= 0.55:
             return audio, None  # Already wide enough
 
-        # Smooth fade using cosine curve for natural transition
-        # width 0.0-0.25: full expansion (narrowness_factor = 1.0)
-        # width 0.25-0.55: smooth fade (narrowness_factor = 1.0 → 0.0)
-        # width 0.55+: no expansion (narrowness_factor = 0.0)
-        if current_width <= 0.25:
-            narrowness_factor = 1.0
+        # Smooth expansion curve with reduced expansion for very narrow mixes
+        # Very narrow mixes (< 20%) get less expansion to avoid muddiness
+        # width 0.10-0.25: smooth ramp up (0.5 → 1.0)
+        # width 0.25-0.55: smooth fade down (1.0 → 0.0)
+        # width 0.55+: no expansion (0.0)
+
+        if current_width < 0.10:
+            # Extremely narrow - minimal expansion
+            narrowness_factor = 0.4
+        elif current_width < 0.25:
+            # Very narrow to narrow - ramp up smoothly
+            # At 10%: factor=0.4, at 20%: factor=0.85, at 25%: factor=1.0
+            ramp_position = (current_width - 0.10) / 0.15
+            narrowness_factor = 0.4 + ramp_position * 0.6
+        elif current_width < 0.55:
+            # Narrow to medium - fade down with cosine
+            fade_position = (current_width - 0.25) / 0.30
+            narrowness_factor = 0.5 * (1.0 + np.cos(np.pi * fade_position))
         else:
-            # Cosine fade from 0.25 to 0.55
-            fade_position = (current_width - 0.25) / 0.30  # 0.0 → 1.0
-            narrowness_factor = 0.5 * (1.0 + np.cos(np.pi * fade_position))  # Smooth S-curve
+            narrowness_factor = 0.0
 
         # Base expansion scaled by narrowness and intensity
         max_expansion = 0.225 * intensity  # Max at full intensity

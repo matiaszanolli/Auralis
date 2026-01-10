@@ -151,18 +151,15 @@ class DSPBackend:
             raise RuntimeError("Rust DSP library not initialized. Cannot perform tempo detection.")
 
         try:
-            # Scale FFT size for high sample rates to maintain ~23ms window
-            # At 44.1kHz, n_fft=1024 gives ~23ms window
-            # At 192kHz, we need n_fft=4096 for ~21ms window
+            # Use larger FFT and hop for tempo detection to capture beat-level events
+            # not individual transients. ~93ms window at 44.1kHz catches beat patterns.
             base_sr = 44100
             scale_factor = max(1, sr // base_sr)
-            n_fft = 1024 * scale_factor
-            hop_length = 512 * scale_factor
+            n_fft = 4096 * scale_factor  # Larger window for beat-level detection
+            hop_length = 2048 * scale_factor  # Larger hop to smooth out subdivisions
 
-            # Adaptive threshold: higher sample rates have more spectral detail
-            # so we need a higher threshold to filter noise
-            # Tested: 44.1kHz=2.25, 96kHz=2.4, 192kHz=2.5
-            threshold = 2.25 + 0.05 * (scale_factor - 1)
+            # Higher threshold to only detect strong beat onsets
+            threshold = 3.0 + 0.1 * (scale_factor - 1)
 
             return cls._module.detect_tempo(
                 audio,
