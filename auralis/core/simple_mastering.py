@@ -373,35 +373,71 @@ class SimpleMasteringPipeline:
             if bass_info:
                 info['stages'].append(bass_info)
 
-            # NEW: Presence enhancement for dull mixes (2-6kHz boost)
+            # Sub-bass control - tighten rumble or add sub-harmonics
+            processed, sub_bass_info = self._apply_sub_bass_control(
+                processed, sub_bass_pct, bass_pct, effective_intensity, sample_rate, verbose
+            )
+            if sub_bass_info:
+                info['stages'].append(sub_bass_info)
+
+            # Mid-range warmth for thin mixes (200-2kHz body)
+            processed, warmth_info = self._apply_mid_warmth(
+                processed, low_mid_pct, mid_pct, effective_intensity, sample_rate, verbose
+            )
+            if warmth_info:
+                info['stages'].append(warmth_info)
+
+            # Presence enhancement for dull mixes (2-6kHz boost)
             processed, presence_info = self._apply_presence_enhancement(
                 processed, presence_pct, upper_mid_pct, effective_intensity, sample_rate, verbose
             )
             if presence_info:
                 info['stages'].append(presence_info)
 
-            # NEW: Air enhancement for dark mixes (6-20kHz sparkle)
+            # Air enhancement for dark mixes (6-20kHz sparkle)
             processed, air_info = self._apply_air_enhancement(
                 processed, air_pct, spectral_rolloff, effective_intensity, sample_rate, verbose
             )
             if air_info:
                 info['stages'].append(air_info)
 
-            # Soft clipping with harmonic-aware intensity
+            # Soft clipping with multi-dimensional awareness
             loudness_factor = max(0.0, min(1.0, (-11.0 - lufs) / 9.0))
             threshold_db = -2.0 + (1.5 * (1.0 - loudness_factor))
             ceiling = 0.92 + (0.07 * loudness_factor)
 
-            # NEW: Harmonic preservation - gentler clipping for tonal/harmonic content
+            # Harmonic preservation - gentler clipping for tonal/harmonic content
             # High harmonic_ratio + pitch_stability = vocals, classical, melodic content
             harmonic_preservation = (harmonic_ratio * 0.7 + pitch_stability * 0.3)
             if harmonic_preservation > 0.6:
-                # Reduce clipping intensity to preserve harmonic overtones
-                harmonic_reduction = (harmonic_preservation - 0.6) / 0.4  # 0-1
-                threshold_db += 0.5 * harmonic_reduction  # Raise threshold (less clipping)
-                ceiling += 0.03 * harmonic_reduction  # Higher ceiling
+                # Smooth curve: 0.6-1.0 increases gentleness
+                curve_pos = (harmonic_preservation - 0.6) / 0.4
+                harmonic_factor = 0.5 * (1.0 - np.cos(np.pi * curve_pos))
+                threshold_db += 0.5 * harmonic_factor  # Raise threshold (less clipping)
+                ceiling += 0.03 * harmonic_factor  # Higher ceiling
                 if verbose:
-                    print(f"   🎼 Harmonic preservation active ({harmonic_preservation:.2f})")
+                    print(f"   🎼 Harmonic preservation ({harmonic_preservation:.2f})")
+
+            # Variation awareness - gentler on inconsistent material
+            # High dynamic_range_variation or low peak_consistency = needs gentle touch
+            variation_metric = dynamic_range_variation * 0.6 + (1.0 - peak_consistency) * 0.4
+            if variation_metric > 0.5:
+                # Smooth curve: 0.5-1.0 increases gentleness
+                curve_pos = (variation_metric - 0.5) / 0.5
+                variation_factor = 0.5 * (1.0 - np.cos(np.pi * curve_pos))
+                threshold_db += 0.4 * variation_factor  # Gentler clipping for varied material
+                if verbose:
+                    print(f"   📊 Variation preservation ({variation_metric:.2f})")
+
+            # Spectral flatness awareness - noisy/percussive vs tonal
+            # High flatness (noisy) = less aggressive processing
+            if spectral_flatness > 0.6:
+                # Smooth curve: 0.6-1.0 reduces processing
+                curve_pos = (spectral_flatness - 0.6) / 0.4
+                flatness_factor = 0.5 * (1.0 - np.cos(np.pi * curve_pos))
+                threshold_db += 0.3 * flatness_factor  # Gentler on noisy material
+                if verbose:
+                    print(f"   🔊 Noise-aware processing ({spectral_flatness:.2f})")
 
             # Gentle bass-aware adjustments using smooth curve
             # Previous exponential curve was too aggressive - crushing dynamics
@@ -713,6 +749,128 @@ class SimpleMasteringPipeline:
             'stage': 'bass_enhance',
             'boost_db': boost_db,
             'bass_pct': bass_pct
+        }
+
+    def _apply_sub_bass_control(
+        self,
+        audio: np.ndarray,
+        sub_bass_pct: float,
+        bass_pct: float,
+        intensity: float,
+        sample_rate: int,
+        verbose: bool
+    ) -> Tuple[np.ndarray, Optional[Dict]]:
+        """
+        Apply adaptive sub-bass control (20-60Hz).
+
+        High sub-bass → tighten (reduce rumble)
+        Low sub-bass + decent bass → already good, skip
+        Low sub-bass + low bass → enhance together via bass_enhancement
+
+        Uses smooth curves throughout.
+        """
+        # Smooth curve: only act if sub-bass is excessive (> 8%)
+        if sub_bass_pct < 0.08:
+            return audio, None  # Sub-bass is fine or already handled by bass enhancement
+
+        # Smooth cosine curve for rumble reduction
+        # 8-15% sub-bass: gradual increase in reduction
+        curve_position = np.clip((sub_bass_pct - 0.08) / 0.07, 0.0, 1.0)  # 0.0 at 8%, 1.0 at 15%
+        rumble_factor = 0.5 * (1.0 - np.cos(np.pi * curve_position))
+
+        # Calculate reduction amount (gentle)
+        max_reduction_db = -2.0 * intensity  # Max -2dB reduction
+        reduction_db = max_reduction_db * rumble_factor
+
+        if abs(reduction_db) < 0.3:
+            return audio, None
+
+        # Apply gentle high-pass at 30Hz to reduce rumble
+        cutoff_freq = 30.0
+        nyquist = sample_rate / 2
+        normalized_freq = min(0.99, max(0.01, cutoff_freq / nyquist))
+
+        # Very gentle slope (1st order)
+        sos = butter(1, normalized_freq, btype='high', output='sos')
+        processed = sosfilt(sos, audio, axis=1)
+
+        # Blend with original based on reduction amount
+        blend_factor = abs(reduction_db) / 2.0  # 0.0-1.0
+        processed = processed * blend_factor + audio * (1.0 - blend_factor)
+
+        if verbose:
+            print(f"   Sub-bass tighten: {reduction_db:.1f} dB @ <30Hz")
+
+        return processed, {
+            'stage': 'sub_bass_control',
+            'reduction_db': reduction_db,
+            'sub_bass_pct': sub_bass_pct
+        }
+
+    def _apply_mid_warmth(
+        self,
+        audio: np.ndarray,
+        low_mid_pct: float,
+        mid_pct: float,
+        intensity: float,
+        sample_rate: int,
+        verbose: bool
+    ) -> Tuple[np.ndarray, Optional[Dict]]:
+        """
+        Apply adaptive mid-range warmth (200-2kHz body).
+
+        Low mids → add warmth and body
+        Good mids → skip
+
+        Uses smooth curves throughout.
+        """
+        # Combine low-mid and mid for overall body content
+        body_content = (low_mid_pct + mid_pct) / 2.0
+
+        # Smooth cosine curve: boost from 0% to 25% body content
+        if body_content >= 0.25:
+            return audio, None  # Already has good body
+
+        # Smooth S-curve
+        curve_position = body_content / 0.25  # 0.0 at 0%, 1.0 at 25%
+        body_factor = 0.5 * (1.0 + np.cos(np.pi * curve_position))  # 1.0 → 0.0
+
+        # Calculate boost
+        max_boost_db = 1.5 * intensity  # Gentler than presence
+        boost_db = max_boost_db * body_factor
+
+        if boost_db < 0.3:
+            return audio, None
+
+        # Apply gentle boost at 400Hz (body zone)
+        center_freq = 400.0
+        nyquist = sample_rate / 2
+
+        # Extract mid band (200-2kHz)
+        low_cutoff = 200.0 / nyquist
+        high_cutoff = min(2000.0 / nyquist, 0.99)
+
+        sos_bp = butter(2, [low_cutoff, high_cutoff], btype='band', output='sos')
+        sos_bs = butter(2, [low_cutoff, high_cutoff], btype='bandstop', output='sos')
+
+        # Split
+        mid_band = sosfilt(sos_bp, audio, axis=1)
+        other_bands = sosfilt(sos_bs, audio, axis=1)
+
+        # Boost
+        boost_linear = 10 ** (boost_db / 20)
+        mid_boosted = mid_band * boost_linear
+
+        # Recombine
+        processed = mid_boosted + other_bands
+
+        if verbose:
+            print(f"   Mid warmth: +{boost_db:.1f} dB @ 200-2kHz")
+
+        return processed, {
+            'stage': 'mid_warmth',
+            'boost_db': boost_db,
+            'body_content': body_content
         }
 
     def _apply_presence_enhancement(
