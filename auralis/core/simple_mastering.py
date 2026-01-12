@@ -514,16 +514,18 @@ class SimpleMasteringPipeline:
         phase_correlation: float = 1.0
     ) -> Tuple[np.ndarray, Optional[Dict]]:
         """
-        Apply adaptive multiband stereo expansion with brightness preservation.
+        Apply gentle adaptive stereo expansion with brightness preservation.
 
-        Uses frequency-dependent expansion:
+        CONSERVATIVE: Very narrow mixes (< 20%) are likely intentional production choices.
+        Only apply subtle widening to avoid unnatural "thin" sound from excessive multiband expansion.
+
+        Uses gentle frequency-dependent expansion:
         - Lows (<200Hz): No expansion - keeps kick/bass punchy
-        - Low-mids (200-2kHz): 50% expansion - body
-        - High-mids (2k-8kHz): 100% expansion - presence
-        - Highs (>8kHz): 120% expansion - air/sparkle (reduced if bright content)
+        - Low-mids (200-2kHz): Minimal expansion - preserves body
+        - High-mids (2k-8kHz): Gentle expansion - subtle width
+        - Highs (>8kHz): Reduced expansion - avoids thin/hollow sound
 
-        NEW: Brightness-aware - reduces high-frequency expansion if track is already bright
-        to prevent loss of clarity and detail in highs.
+        NEW: Much more conservative to prevent "extremely expanded but thin" artifacts.
 
         Args:
             audio: Stereo audio [2, samples]
@@ -539,54 +541,75 @@ class SimpleMasteringPipeline:
         Returns:
             (processed_audio, stage_info or None if no expansion applied)
         """
-        # Smooth expansion curve - no hard cutoff
-        # Full expansion below 0.25, gradual fade from 0.25 to 0.55, none above 0.55
-        if current_width >= 0.55:
-            return audio, None  # Already wide enough
+        # Smooth curve-based approach: respect narrow mixes, gentle widening only
+        # Use continuous curves throughout - no hard cutoffs
 
-        # Safety check: avoid stereo expansion if phase correlation is poor
-        # This prevents making phase issues worse
+        # 1. Width-based curve: narrower mixes get LESS expansion (they're likely intentional)
+        # Smooth transition from 0% width (mono) to 40% width (moderate stereo)
+        if current_width >= 0.40:
+            return audio, None  # Already has decent width
+
+        # Safety: Smooth phase correlation curve (not a hard threshold)
+        # Poor phase correlation reduces expansion smoothly
         if phase_correlation < 0.3:
+            # Below 0.3 phase correlation, skip entirely
             if verbose:
                 print(f"   ⚠️  Skipping stereo expansion (poor phase correlation: {phase_correlation:.2f})")
             return audio, None
 
-        # Smooth expansion curve with reduced expansion for very narrow mixes
-        # Very narrow mixes (< 20%) get less expansion to avoid muddiness
-        # width 0.10-0.25: smooth ramp up (0.5 → 1.0)
-        # width 0.25-0.55: smooth fade down (1.0 → 0.0)
-        # width 0.55+: no expansion (0.0)
-
-        if current_width < 0.10:
-            # Extremely narrow - minimal expansion
-            narrowness_factor = 0.4
-        elif current_width < 0.25:
-            # Very narrow to narrow - ramp up smoothly
-            # At 10%: factor=0.4, at 20%: factor=0.85, at 25%: factor=1.0
-            ramp_position = (current_width - 0.10) / 0.15
-            narrowness_factor = 0.4 + ramp_position * 0.6
-        elif current_width < 0.55:
-            # Narrow to medium - fade down with cosine
-            fade_position = (current_width - 0.25) / 0.30
-            narrowness_factor = 0.5 * (1.0 + np.cos(np.pi * fade_position))
+        # Phase correlation factor: 0.3-0.7 fades in smoothly, 0.7+ = full
+        if phase_correlation < 0.7:
+            phase_factor = (phase_correlation - 0.3) / 0.4  # 0.0 at 0.3, 1.0 at 0.7
+            phase_factor = 0.5 * (1.0 - np.cos(np.pi * phase_factor))  # S-curve
         else:
-            narrowness_factor = 0.0
+            phase_factor = 1.0
 
-        # NEW: Brightness preservation - reduce expansion for bright tracks
-        # High spectral centroid or air content means already bright - be gentle
-        brightness_factor = max(spectral_centroid, air_pct * 2.0)  # 0-1
-        if brightness_factor > 0.6:
-            # Track is bright - reduce expansion to preserve clarity
-            brightness_reduction = np.clip((brightness_factor - 0.6) / 0.4, 0.0, 0.5)
-            narrowness_factor *= (1.0 - brightness_reduction * 0.5)  # Up to 50% reduction
+        # 2. Width expansion curve: bell curve with peak at 25% width
+        # Very narrow (<15%) and moderate (>35%) get less expansion
+        # Sweet spot at 20-30% width gets most expansion
+
+        if current_width < 0.15:
+            # Extremely narrow: smooth ramp up from 0% to 15%
+            # 0% width = 0.0 factor, 15% width = 0.3 factor
+            width_curve = current_width / 0.15  # 0.0 → 1.0
+            width_curve = 0.5 * (1.0 - np.cos(np.pi * width_curve))  # Smooth S-curve
+            narrowness_factor = 0.3 * width_curve  # Scale to max 0.3
+        elif current_width < 0.30:
+            # Sweet spot: 15-30% width, peak expansion potential
+            # Bell curve peaks at 22.5%
+            center = 0.225
+            width_offset = current_width - center
+            # Gaussian-like bell curve
+            narrowness_factor = 0.6 * np.exp(-(width_offset**2) / (2 * 0.05**2))
+        else:
+            # Moderate width: 30-40%, smooth fade out
+            fade_curve = (0.40 - current_width) / 0.10  # 1.0 at 30%, 0.0 at 40%
+            fade_curve = np.clip(fade_curve, 0.0, 1.0)
+            fade_curve = 0.5 * (1.0 + np.cos(np.pi * (1.0 - fade_curve)))  # Smooth fade
+            narrowness_factor = 0.3 * fade_curve
+
+        # 3. Brightness preservation curve - reduce expansion for bright tracks
+        # High spectral centroid or air content = already bright, be gentle
+        brightness_metric = max(spectral_centroid, air_pct * 2.0)  # 0-1
+
+        # Smooth curve: 0.6-1.0 brightness reduces expansion smoothly
+        if brightness_metric > 0.6:
+            brightness_curve = (brightness_metric - 0.6) / 0.4  # 0.0 at 0.6, 1.0 at 1.0
+            brightness_curve = 0.5 * (1.0 - np.cos(np.pi * brightness_curve))  # S-curve
+            brightness_factor = 1.0 - (0.5 * brightness_curve)  # 1.0 → 0.5 smoothly
             if verbose:
-                print(f"   💡 Brightness preservation active ({brightness_factor:.2f})")
+                print(f"   💡 Brightness preservation ({brightness_metric:.2f}, factor: {brightness_factor:.2f})")
+        else:
+            brightness_factor = 1.0
 
-        # Base expansion scaled by narrowness and intensity
-        max_expansion = 0.225 * intensity  # Max at full intensity
-        expansion_amount = max_expansion * narrowness_factor
+        # Combine all smooth curves multiplicatively
+        combined_factor = narrowness_factor * phase_factor * brightness_factor
 
-        if expansion_amount < 0.02:
+        # Conservative base expansion - much gentler than before
+        max_expansion = 0.08 * intensity
+        expansion_amount = max_expansion * combined_factor
+
+        if expansion_amount < 0.01:
             return audio, None  # Too small to matter
 
         width_factor = 0.5 + expansion_amount
@@ -707,6 +730,8 @@ class SimpleMasteringPipeline:
         Boosts presence frequencies to add clarity, definition, and forward character.
         Targets the frequency range where consonants, attack transients, and definition live.
 
+        Uses smooth curves throughout - no hard thresholds.
+
         Args:
             audio: Stereo audio [2, samples]
             presence_pct: Fingerprint presence percentage (4-6kHz, 0-1)
@@ -721,21 +746,19 @@ class SimpleMasteringPipeline:
         # Combine presence and upper-mid to get overall 2-6kHz content
         presence_content = (presence_pct + upper_mid_pct) / 2.0
 
-        # Only enhance if lacking presence (< 25%)
-        if presence_content >= 0.25:
+        # Smooth cosine curve: boost from 0% to 30% presence, fade out smoothly
+        # No boost at 30%+, full potential boost at 0%, smooth transition between
+        if presence_content >= 0.30:
             return audio, None  # Already has good presence
 
-        # Smooth curve: full boost below 10%, fade from 10% to 25%
-        if presence_content <= 0.10:
-            presence_factor = 1.0
-        else:
-            fade_position = (presence_content - 0.10) / 0.15
-            presence_factor = 0.5 * (1.0 + np.cos(np.pi * fade_position))
+        # Smooth S-curve using cosine for natural transition
+        # Maps 0.0-0.30 to 1.0-0.0 smoothly
+        curve_position = presence_content / 0.30  # 0.0 at 0%, 1.0 at 30%
+        presence_factor = 0.5 * (1.0 + np.cos(np.pi * curve_position))  # 1.0 → 0.0
 
-        # Calculate boost based on presence deficiency
-        max_boost_db = 2.0 * intensity * presence_factor
-        presence_deficiency = max(0.0, 0.20 - presence_content) / 0.20
-        boost_db = max_boost_db * presence_deficiency
+        # Calculate boost based on smooth presence deficiency curve
+        max_boost_db = 2.0 * intensity
+        boost_db = max_boost_db * presence_factor
 
         if boost_db < 0.3:
             return audio, None  # Too small to matter
@@ -788,6 +811,8 @@ class SimpleMasteringPipeline:
         Boosts high frequencies to add air, sparkle, and openness.
         Uses spectral_rolloff to detect if high frequencies naturally roll off.
 
+        Uses smooth curves throughout - no hard thresholds.
+
         Args:
             audio: Stereo audio [2, samples]
             air_pct: Fingerprint air percentage (6-20kHz, 0-1)
@@ -802,22 +827,19 @@ class SimpleMasteringPipeline:
         # Low air_pct or low spectral_rolloff = dark mix needing air
         darkness_factor = (1.0 - air_pct) * 0.6 + (1.0 - spectral_rolloff) * 0.4
 
-        # Only enhance if dark (darkness_factor > 0.5)
-        if darkness_factor < 0.5:
-            return audio, None  # Already bright enough
+        # Smooth S-curve: boost increases as darkness increases
+        # darkness 0.0-0.4: minimal/no boost (bright tracks)
+        # darkness 0.4-1.0: smooth ramp to full boost (dark tracks)
+        if darkness_factor < 0.4:
+            return audio, None  # Already bright
 
-        # Smooth curve: no boost below 0.5, ramp from 0.5 to 0.8, full above 0.8
-        if darkness_factor < 0.5:
-            air_factor = 0.0
-        elif darkness_factor < 0.8:
-            ramp_position = (darkness_factor - 0.5) / 0.3
-            air_factor = 0.5 * (1.0 - np.cos(np.pi * ramp_position))
-        else:
-            air_factor = 1.0
+        # Smooth cosine curve from 0.4 (no boost) to 1.0 (full boost)
+        curve_position = (darkness_factor - 0.4) / 0.6  # 0.0 at 0.4, 1.0 at 1.0
+        air_factor = 0.5 * (1.0 - np.cos(np.pi * curve_position))  # 0.0 → 1.0 smoothly
 
-        # Calculate boost based on darkness
-        max_boost_db = 1.5 * intensity * air_factor
-        boost_db = max_boost_db
+        # Calculate boost based on smooth darkness curve
+        max_boost_db = 1.5 * intensity
+        boost_db = max_boost_db * air_factor
 
         if boost_db < 0.3:
             return audio, None  # Too small to matter
