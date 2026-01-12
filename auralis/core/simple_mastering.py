@@ -300,7 +300,20 @@ class SimpleMasteringPipeline:
             if width_info:
                 info['stages'].append(width_info)
 
-            # Safety peak limit after stereo expansion (can add energy)
+            # Spectral enhancements (presence & air) for all paths
+            processed, presence_info = self._apply_presence_enhancement(
+                processed, presence_pct, upper_mid_pct, effective_intensity * 0.7, sample_rate, verbose
+            )
+            if presence_info:
+                info['stages'].append(presence_info)
+
+            processed, air_info = self._apply_air_enhancement(
+                processed, air_pct, spectral_rolloff, effective_intensity * 0.7, sample_rate, verbose
+            )
+            if air_info:
+                info['stages'].append(air_info)
+
+            # Safety peak limit after enhancements (can add energy)
             current_peak = np.max(np.abs(processed))
             if current_peak > 0.99:
                 processed = processed * (0.99 / current_peak)
@@ -319,7 +332,20 @@ class SimpleMasteringPipeline:
             if width_info:
                 info['stages'].append(width_info)
 
-            # Safety peak limit after stereo expansion (can add energy)
+            # Spectral enhancements (presence & air) - even for well-mastered tracks
+            processed, presence_info = self._apply_presence_enhancement(
+                processed, presence_pct, upper_mid_pct, effective_intensity * 0.5, sample_rate, verbose
+            )
+            if presence_info:
+                info['stages'].append(presence_info)
+
+            processed, air_info = self._apply_air_enhancement(
+                processed, air_pct, spectral_rolloff, effective_intensity * 0.5, sample_rate, verbose
+            )
+            if air_info:
+                info['stages'].append(air_info)
+
+            # Safety peak limit after enhancements (can add energy)
             current_peak = np.max(np.abs(processed))
             if current_peak > 0.99:
                 processed = processed * (0.99 / current_peak)
@@ -347,10 +373,35 @@ class SimpleMasteringPipeline:
             if bass_info:
                 info['stages'].append(bass_info)
 
-            # Soft clipping with loudness-scaled intensity
+            # NEW: Presence enhancement for dull mixes (2-6kHz boost)
+            processed, presence_info = self._apply_presence_enhancement(
+                processed, presence_pct, upper_mid_pct, effective_intensity, sample_rate, verbose
+            )
+            if presence_info:
+                info['stages'].append(presence_info)
+
+            # NEW: Air enhancement for dark mixes (6-20kHz sparkle)
+            processed, air_info = self._apply_air_enhancement(
+                processed, air_pct, spectral_rolloff, effective_intensity, sample_rate, verbose
+            )
+            if air_info:
+                info['stages'].append(air_info)
+
+            # Soft clipping with harmonic-aware intensity
             loudness_factor = max(0.0, min(1.0, (-11.0 - lufs) / 9.0))
             threshold_db = -2.0 + (1.5 * (1.0 - loudness_factor))
             ceiling = 0.92 + (0.07 * loudness_factor)
+
+            # NEW: Harmonic preservation - gentler clipping for tonal/harmonic content
+            # High harmonic_ratio + pitch_stability = vocals, classical, melodic content
+            harmonic_preservation = (harmonic_ratio * 0.7 + pitch_stability * 0.3)
+            if harmonic_preservation > 0.6:
+                # Reduce clipping intensity to preserve harmonic overtones
+                harmonic_reduction = (harmonic_preservation - 0.6) / 0.4  # 0-1
+                threshold_db += 0.5 * harmonic_reduction  # Raise threshold (less clipping)
+                ceiling += 0.03 * harmonic_reduction  # Higher ceiling
+                if verbose:
+                    print(f"   🎼 Harmonic preservation active ({harmonic_preservation:.2f})")
 
             # Gentle bass-aware adjustments using smooth curve
             # Previous exponential curve was too aggressive - crushing dynamics
@@ -639,6 +690,165 @@ class SimpleMasteringPipeline:
             'stage': 'bass_enhance',
             'boost_db': boost_db,
             'bass_pct': bass_pct
+        }
+
+    def _apply_presence_enhancement(
+        self,
+        audio: np.ndarray,
+        presence_pct: float,
+        upper_mid_pct: float,
+        intensity: float,
+        sample_rate: int,
+        verbose: bool
+    ) -> Tuple[np.ndarray, Optional[Dict]]:
+        """
+        Apply adaptive presence enhancement for dull mixes (2-6kHz boost).
+
+        Boosts presence frequencies to add clarity, definition, and forward character.
+        Targets the frequency range where consonants, attack transients, and definition live.
+
+        Args:
+            audio: Stereo audio [2, samples]
+            presence_pct: Fingerprint presence percentage (4-6kHz, 0-1)
+            upper_mid_pct: Fingerprint upper-mid percentage (2-4kHz, 0-1)
+            intensity: Processing intensity 0.0-1.0
+            sample_rate: Audio sample rate in Hz
+            verbose: Print progress
+
+        Returns:
+            (processed_audio, stage_info or None if no enhancement applied)
+        """
+        # Combine presence and upper-mid to get overall 2-6kHz content
+        presence_content = (presence_pct + upper_mid_pct) / 2.0
+
+        # Only enhance if lacking presence (< 25%)
+        if presence_content >= 0.25:
+            return audio, None  # Already has good presence
+
+        # Smooth curve: full boost below 10%, fade from 10% to 25%
+        if presence_content <= 0.10:
+            presence_factor = 1.0
+        else:
+            fade_position = (presence_content - 0.10) / 0.15
+            presence_factor = 0.5 * (1.0 + np.cos(np.pi * fade_position))
+
+        # Calculate boost based on presence deficiency
+        max_boost_db = 2.0 * intensity * presence_factor
+        presence_deficiency = max(0.0, 0.20 - presence_content) / 0.20
+        boost_db = max_boost_db * presence_deficiency
+
+        if boost_db < 0.3:
+            return audio, None  # Too small to matter
+
+        # Design a bell filter centered at 4kHz (presence zone)
+        center_freq = 4000.0
+        bandwidth = 1.5  # octaves - wide enough to cover 2-6kHz
+        nyquist = sample_rate / 2
+        normalized_freq = min(0.99, max(0.01, center_freq / nyquist))
+
+        # Extract mid band (2-8kHz using bandpass)
+        low_cutoff = 2000.0 / nyquist
+        high_cutoff = min(8000.0 / nyquist, 0.99)
+
+        sos_bp = butter(2, [low_cutoff, high_cutoff], btype='band', output='sos')
+        sos_bs = butter(2, [low_cutoff, high_cutoff], btype='bandstop', output='sos')
+
+        # Split into presence band and everything else
+        presence_band = sosfilt(sos_bp, audio, axis=1)
+        other_bands = sosfilt(sos_bs, audio, axis=1)
+
+        # Apply boost to presence band only
+        boost_linear = 10 ** (boost_db / 20)
+        presence_boosted = presence_band * boost_linear
+
+        # Recombine
+        processed = presence_boosted + other_bands
+
+        if verbose:
+            print(f"   Presence enhance: +{boost_db:.1f} dB @ 2-6kHz")
+
+        return processed, {
+            'stage': 'presence_enhance',
+            'boost_db': boost_db,
+            'presence_content': presence_content
+        }
+
+    def _apply_air_enhancement(
+        self,
+        audio: np.ndarray,
+        air_pct: float,
+        spectral_rolloff: float,
+        intensity: float,
+        sample_rate: int,
+        verbose: bool
+    ) -> Tuple[np.ndarray, Optional[Dict]]:
+        """
+        Apply adaptive air enhancement for dark mixes (6-20kHz sparkle).
+
+        Boosts high frequencies to add air, sparkle, and openness.
+        Uses spectral_rolloff to detect if high frequencies naturally roll off.
+
+        Args:
+            audio: Stereo audio [2, samples]
+            air_pct: Fingerprint air percentage (6-20kHz, 0-1)
+            spectral_rolloff: Frequency where most energy is below (0-1, normalized)
+            intensity: Processing intensity 0.0-1.0
+            sample_rate: Audio sample rate in Hz
+            verbose: Print progress
+
+        Returns:
+            (processed_audio, stage_info or None if no enhancement applied)
+        """
+        # Low air_pct or low spectral_rolloff = dark mix needing air
+        darkness_factor = (1.0 - air_pct) * 0.6 + (1.0 - spectral_rolloff) * 0.4
+
+        # Only enhance if dark (darkness_factor > 0.5)
+        if darkness_factor < 0.5:
+            return audio, None  # Already bright enough
+
+        # Smooth curve: no boost below 0.5, ramp from 0.5 to 0.8, full above 0.8
+        if darkness_factor < 0.5:
+            air_factor = 0.0
+        elif darkness_factor < 0.8:
+            ramp_position = (darkness_factor - 0.5) / 0.3
+            air_factor = 0.5 * (1.0 - np.cos(np.pi * ramp_position))
+        else:
+            air_factor = 1.0
+
+        # Calculate boost based on darkness
+        max_boost_db = 1.5 * intensity * air_factor
+        boost_db = max_boost_db
+
+        if boost_db < 0.3:
+            return audio, None  # Too small to matter
+
+        # Design a high-shelf filter at 8kHz
+        shelf_freq = 8000.0
+        nyquist = sample_rate / 2
+        normalized_freq = min(0.99, max(0.01, shelf_freq / nyquist))
+
+        # Extract high frequencies
+        sos_hp = butter(2, normalized_freq, btype='high', output='sos')
+        sos_lp = butter(2, normalized_freq, btype='low', output='sos')
+
+        # Split into high and low bands
+        high_band = sosfilt(sos_hp, audio, axis=1)
+        low_band = sosfilt(sos_lp, audio, axis=1)
+
+        # Apply boost to high band only
+        boost_linear = 10 ** (boost_db / 20)
+        high_boosted = high_band * boost_linear
+
+        # Recombine
+        processed = high_boosted + low_band
+
+        if verbose:
+            print(f"   Air enhance: +{boost_db:.1f} dB above 8kHz")
+
+        return processed, {
+            'stage': 'air_enhance',
+            'boost_db': boost_db,
+            'darkness_factor': darkness_factor
         }
 
     @staticmethod
