@@ -212,13 +212,46 @@ class SimpleMasteringPipeline:
         sample_rate: int,
         verbose: bool
     ) -> Tuple[np.ndarray, Dict]:
-        """Core processing logic."""
+        """Core processing logic using all 25D fingerprint dimensions."""
 
+        # Dynamics (3D)
         lufs = fp.get('lufs', -14.0)
         crest_db = fp.get('crest_db', 12.0)
+        bass_mid_ratio = fp.get('bass_mid_ratio', 0.0)
+
+        # Frequency (7D) - all bands
+        sub_bass_pct = fp.get('sub_bass_pct', 0.05)
         bass_pct = fp.get('bass_pct', 0.15)
+        low_mid_pct = fp.get('low_mid_pct', 0.10)
+        mid_pct = fp.get('mid_pct', 0.20)
+        upper_mid_pct = fp.get('upper_mid_pct', 0.25)
+        presence_pct = fp.get('presence_pct', 0.15)
+        air_pct = fp.get('air_pct', 0.10)
+
+        # Temporal (4D)
+        tempo_bpm = fp.get('tempo_bpm', 120.0)
+        rhythm_stability = fp.get('rhythm_stability', 0.5)
         transient_density = fp.get('transient_density', 0.5)
+        silence_ratio = fp.get('silence_ratio', 0.0)
+
+        # Spectral (3D) - brightness indicators
+        spectral_centroid = fp.get('spectral_centroid', 0.5)
+        spectral_rolloff = fp.get('spectral_rolloff', 0.5)
+        spectral_flatness = fp.get('spectral_flatness', 0.5)
+
+        # Harmonic (3D)
+        harmonic_ratio = fp.get('harmonic_ratio', 0.5)
+        pitch_stability = fp.get('pitch_stability', 0.5)
+        chroma_energy = fp.get('chroma_energy', 0.5)
+
+        # Variation (3D)
+        dynamic_range_variation = fp.get('dynamic_range_variation', 0.5)
+        loudness_variation_std = fp.get('loudness_variation_std', 0.0)
+        peak_consistency = fp.get('peak_consistency', 0.5)
+
+        # Stereo (2D)
         stereo_width = fp.get('stereo_width', 0.5)
+        phase_correlation = fp.get('phase_correlation', 1.0)
 
         info = {'stages': []}
         processed = audio.copy()
@@ -259,9 +292,10 @@ class SimpleMasteringPipeline:
             processed = amplify(processed, -0.5)  # Gentle reduction
             info['stages'].append({'stage': 'expansion', 'factor': expansion})
 
-            # Stereo expansion for narrow mixes
+            # Stereo expansion for narrow mixes (brightness-aware)
             processed, width_info = self._apply_stereo_expansion(
-                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct
+                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct,
+                spectral_centroid, air_pct, phase_correlation
             )
             if width_info:
                 info['stages'].append(width_info)
@@ -277,9 +311,10 @@ class SimpleMasteringPipeline:
                 print(f"   Dynamic loud → preserving original")
             info['stages'].append({'stage': 'passthrough'})
 
-            # Stereo expansion for narrow mixes
+            # Stereo expansion for narrow mixes (brightness-aware)
             processed, width_info = self._apply_stereo_expansion(
-                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct
+                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct,
+                spectral_centroid, air_pct, phase_correlation
             )
             if width_info:
                 info['stages'].append(width_info)
@@ -338,9 +373,10 @@ class SimpleMasteringPipeline:
             processed = soft_clip(processed, threshold=threshold_linear, ceiling=ceiling)
             info['stages'].append({'stage': 'soft_clip', 'threshold_db': threshold_db})
 
-            # Stereo expansion for narrow mixes
+            # Stereo expansion for narrow mixes (brightness-aware)
             processed, width_info = self._apply_stereo_expansion(
-                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct
+                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct,
+                spectral_centroid, air_pct, phase_correlation
             )
             if width_info:
                 info['stages'].append(width_info)
@@ -421,16 +457,22 @@ class SimpleMasteringPipeline:
         intensity: float,
         sample_rate: int,
         verbose: bool,
-        bass_pct: float = 0.3
+        bass_pct: float = 0.3,
+        spectral_centroid: float = 0.5,
+        air_pct: float = 0.1,
+        phase_correlation: float = 1.0
     ) -> Tuple[np.ndarray, Optional[Dict]]:
         """
-        Apply adaptive multiband stereo expansion for narrow mixes.
+        Apply adaptive multiband stereo expansion with brightness preservation.
 
         Uses frequency-dependent expansion:
         - Lows (<200Hz): No expansion - keeps kick/bass punchy
         - Low-mids (200-2kHz): 50% expansion - body
         - High-mids (2k-8kHz): 100% expansion - presence
-        - Highs (>8kHz): 120% expansion - air/sparkle
+        - Highs (>8kHz): 120% expansion - air/sparkle (reduced if bright content)
+
+        NEW: Brightness-aware - reduces high-frequency expansion if track is already bright
+        to prevent loss of clarity and detail in highs.
 
         Args:
             audio: Stereo audio [2, samples]
@@ -438,6 +480,10 @@ class SimpleMasteringPipeline:
             intensity: Processing intensity 0.0-1.0
             sample_rate: Audio sample rate in Hz
             verbose: Print progress
+            bass_pct: Bass content percentage (for multiband weighting)
+            spectral_centroid: Brightness indicator 0-1 (higher = brighter)
+            air_pct: High-frequency air content 0-1
+            phase_correlation: Stereo phase correlation (-1 to +1)
 
         Returns:
             (processed_audio, stage_info or None if no expansion applied)
@@ -446,6 +492,13 @@ class SimpleMasteringPipeline:
         # Full expansion below 0.25, gradual fade from 0.25 to 0.55, none above 0.55
         if current_width >= 0.55:
             return audio, None  # Already wide enough
+
+        # Safety check: avoid stereo expansion if phase correlation is poor
+        # This prevents making phase issues worse
+        if phase_correlation < 0.3:
+            if verbose:
+                print(f"   ⚠️  Skipping stereo expansion (poor phase correlation: {phase_correlation:.2f})")
+            return audio, None
 
         # Smooth expansion curve with reduced expansion for very narrow mixes
         # Very narrow mixes (< 20%) get less expansion to avoid muddiness
@@ -467,6 +520,16 @@ class SimpleMasteringPipeline:
             narrowness_factor = 0.5 * (1.0 + np.cos(np.pi * fade_position))
         else:
             narrowness_factor = 0.0
+
+        # NEW: Brightness preservation - reduce expansion for bright tracks
+        # High spectral centroid or air content means already bright - be gentle
+        brightness_factor = max(spectral_centroid, air_pct * 2.0)  # 0-1
+        if brightness_factor > 0.6:
+            # Track is bright - reduce expansion to preserve clarity
+            brightness_reduction = np.clip((brightness_factor - 0.6) / 0.4, 0.0, 0.5)
+            narrowness_factor *= (1.0 - brightness_reduction * 0.5)  # Up to 50% reduction
+            if verbose:
+                print(f"   💡 Brightness preservation active ({brightness_factor:.2f})")
 
         # Base expansion scaled by narrowness and intensity
         max_expansion = 0.225 * intensity  # Max at full intensity
