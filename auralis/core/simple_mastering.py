@@ -15,7 +15,6 @@ import time
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-import librosa
 import numpy as np
 import soundfile as sf
 from scipy.signal import butter, sosfilt
@@ -56,7 +55,9 @@ class SimpleMasteringPipeline:
         time_metrics: bool = False
     ) -> Dict:
         """
-        Master an audio file with adaptive processing.
+        Master an audio file with adaptive processing using chunked processing.
+
+        Memory-efficient: Processes audio in chunks instead of loading entire file.
 
         Args:
             input_path: Input audio file
@@ -88,58 +89,113 @@ class SimpleMasteringPipeline:
         if not fingerprint:
             raise RuntimeError("Failed to compute fingerprint")
 
-        # Step 2: Load audio
+        # Step 2: Get audio metadata without loading full file
         if verbose:
-            print("\n🎵 Loading audio...")
+            print("\n🎵 Loading metadata...")
 
         step_start = time.perf_counter()
-        audio, sr = librosa.load(str(input_path), sr=None, mono=False)
-        audio = audio.astype(np.float32)
-        timings['load_audio'] = time.perf_counter() - step_start
+        with sf.SoundFile(str(input_path)) as audio_file:
+            sr = audio_file.samplerate
+            total_frames = len(audio_file)
+            channels = audio_file.channels
+            duration = total_frames / sr
 
-        # Ensure stereo
-        if audio.ndim == 1:
-            audio = np.stack([audio, audio])
-
-        peak_db = self._peak_db(audio)
+        timings['load_metadata'] = time.perf_counter() - step_start
 
         if verbose:
             print(f"   Sample rate: {sr} Hz")
-            print(f"   Duration: {audio.shape[1] / sr:.1f}s")
-            print(f"   Peak: {peak_db:.1f} dB")
+            print(f"   Duration: {duration:.1f}s")
+            print(f"   Channels: {channels}")
             self._print_fingerprint(fingerprint)
 
-        # Step 3: Process
+        # Step 3: Process in chunks (memory efficient)
         if verbose:
-            print("\n⚡ Processing...")
+            print("\n⚡ Processing (chunked)...")
 
         step_start = time.perf_counter()
-        processed, info = self._process(audio, fingerprint, peak_db, intensity, sr, verbose)
+
+        # Process and write in streaming mode
+        chunk_size = sr * 30  # 30 seconds per chunk
+        info = {'stages': []}
+
+        with sf.SoundFile(str(input_path)) as audio_file:
+            with sf.SoundFile(
+                output_path,
+                mode='w',
+                samplerate=sr,
+                channels=channels,
+                subtype='PCM_24'
+            ) as output_file:
+                chunks_processed = 0
+                total_chunks = int(np.ceil(total_frames / chunk_size))
+
+                # Calculate peak from first chunk for adaptive processing
+                audio_file.seek(0)
+                first_chunk = audio_file.read(chunk_size)
+                if first_chunk.ndim == 1:
+                    first_chunk = np.stack([first_chunk, first_chunk]).T
+                peak_db = self._peak_db(first_chunk.T)
+
+                # Reset to start for full processing
+                audio_file.seek(0)
+
+                while True:
+                    # Read chunk
+                    chunk = audio_file.read(chunk_size)
+                    if chunk.size == 0:
+                        break
+
+                    # Ensure float32
+                    chunk = chunk.astype(np.float32)
+
+                    # Ensure stereo (channels, samples) format
+                    if chunk.ndim == 1:
+                        chunk = np.stack([chunk, chunk]).T
+
+                    # Convert to (channels, samples) for processing
+                    if chunk.shape[0] > chunk.shape[1]:  # (samples, channels)
+                        chunk = chunk.T
+
+                    # Process chunk
+                    processed_chunk, chunk_info = self._process(
+                        chunk, fingerprint, peak_db, intensity, sr, verbose=False
+                    )
+
+                    # Update info from first chunk
+                    if chunks_processed == 0:
+                        info = chunk_info
+
+                    # Convert back to (samples, channels) for writing
+                    if processed_chunk.shape[0] < processed_chunk.shape[1]:
+                        processed_chunk = processed_chunk.T
+
+                    # Write chunk
+                    output_file.write(processed_chunk)
+
+                    chunks_processed += 1
+                    if verbose and chunks_processed % 5 == 0:
+                        progress = (chunks_processed / total_chunks) * 100
+                        print(f"   Progress: {progress:.0f}% ({chunks_processed}/{total_chunks} chunks)")
+
         timings['processing'] = time.perf_counter() - step_start
-
-        # Step 4: Export
-        if verbose:
-            print("\n💾 Exporting...")
-
-        step_start = time.perf_counter()
-        sf.write(output_path, processed.T, sr, subtype='PCM_24')
-        timings['export'] = time.perf_counter() - step_start
 
         timings['total'] = time.perf_counter() - total_start
 
         if verbose:
             size_mb = Path(output_path).stat().st_size / (1024 * 1024)
             print(f"   ✅ Exported: {size_mb:.1f} MB")
+            print(f"   📦 Processed {chunks_processed} chunks")
             print(f"\n🎉 Complete! Output: {output_path}")
 
         if time_metrics:
-            self._print_time_metrics(timings, audio.shape[1] / sr)
+            self._print_time_metrics(timings, duration)
 
         result = {
             'input': str(input_path),
             'output': output_path,
             'fingerprint': fingerprint,
-            'processing': info
+            'processing': info,
+            'chunks_processed': chunks_processed
         }
 
         if time_metrics:
