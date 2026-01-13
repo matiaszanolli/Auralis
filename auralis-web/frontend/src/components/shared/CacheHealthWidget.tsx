@@ -72,7 +72,7 @@ export function CacheHealthWidget({
   size = 'medium',
   interactive = true,
 }: CacheHealthWidgetProps) {
-  const { data: cacheHealth, loading, error, isHealthy } = useCacheHealth();
+  const { data: cacheHealth, loading, error, isHealthy, refetch } = useCacheHealth();
   const [showExpandedMonitor, setShowExpandedMonitor] = useState(false);
   const sizeStyles = getSizeStyles(size);
 
@@ -109,14 +109,31 @@ export function CacheHealthWidget({
           borderRadius: '12px',
           border: `1px solid ${tokens.colors.semantic.error}`,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: tokens.spacing.md,
           fontSize: tokens.typography.fontSize.xs,
           color: tokens.colors.semantic.error,
           textAlign: 'center',
         }}
       >
-        Error
+        <div>Error</div>
+        <button
+          onClick={() => refetch()}
+          style={{
+            padding: `${tokens.spacing.sm} ${tokens.spacing.md}`,
+            background: tokens.colors.semantic.error,
+            color: tokens.colors.text.primary,
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: tokens.typography.fontSize.xs,
+            cursor: 'pointer',
+            fontWeight: tokens.typography.fontWeight.medium,
+          }}
+        >
+          Retry
+        </button>
       </div>
     );
   }

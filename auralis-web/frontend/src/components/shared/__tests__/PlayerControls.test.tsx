@@ -43,7 +43,7 @@ vi.mock('@/hooks/websocket/useWebSocketProtocol', () => ({
 describe('PlayerControls', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (hooks.usePlayerCommands as any).mockImplementation(mockUsePlayerCommands());
+    (hooks.usePlayerCommands as any).mockReturnValue(mockUsePlayerCommands());
     (playerHooks.usePlayerStateUpdates as any).mockImplementation(mockUsePlayerStateUpdates());
   });
 
@@ -290,27 +290,27 @@ describe('PlayerControls', () => {
   // ============================================================================
 
   it('should toggle mute when mute button clicked', async () => {
-    const mockSetMuted = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(<PlayerControls />);
 
-    (hooks.usePlayerCommands as any).mockImplementation(() => ({
-      playPause: vi.fn(),
-      next: vi.fn(),
-      previous: vi.fn(),
-      seek: vi.fn(),
-      setVolume: vi.fn(),
-      setMuted: mockSetMuted,
-      setPreset: vi.fn(),
-      loading: false,
-      error: null,
-    }));
-
-    render(<PlayerControls />);
-
+    // Initially unmuted
     const muteButton = screen.getByRole('button', { name: /mute/i });
+    expect(muteButton).toHaveTextContent('🔊');
+
+    // Click to mute
     fireEvent.click(muteButton);
 
     await waitFor(() => {
-      expect(mockSetMuted).toHaveBeenCalled();
+      const unmuteButton = screen.getByRole('button', { name: /unmute/i });
+      expect(unmuteButton).toHaveTextContent('🔇');
+    });
+
+    // Click again to unmute
+    const unmuteButton = screen.getByRole('button', { name: /unmute/i });
+    fireEvent.click(unmuteButton);
+
+    await waitFor(() => {
+      const muteButton = screen.getByRole('button', { name: /mute/i });
+      expect(muteButton).toHaveTextContent('🔊');
     });
   });
 

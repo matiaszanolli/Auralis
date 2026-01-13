@@ -92,13 +92,11 @@ describe('usePlayerControls Hook', () => {
 
       expect(result.current.isLoading).toBe(false);
 
-      act(() => {
-        result.current.play();
+      await act(async () => {
+        await result.current.play();
       });
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false); // Should be false after completion
-      });
+      expect(result.current.isLoading).toBe(false); // Should be false after completion
     });
 
     it('should clear error on successful operation', async () => {
@@ -640,12 +638,15 @@ describe('usePlayerControls Hook', () => {
         })
       );
 
-      // Execute multiple operations concurrently
-      const [playResult, seekResult, volumeResult] = await Promise.all([
-        result.current.play(),
-        result.current.seek(30),
-        result.current.setVolume(75),
-      ]);
+      // Execute multiple operations concurrently with act wrapper
+      let playResult, seekResult, volumeResult;
+      await act(async () => {
+        [playResult, seekResult, volumeResult] = await Promise.all([
+          result.current.play(),
+          result.current.seek(30),
+          result.current.setVolume(75),
+        ]);
+      });
 
       expect(playResult.success).toBe(true);
       expect(seekResult.success).toBe(true);
@@ -667,11 +668,14 @@ describe('usePlayerControls Hook', () => {
         })
       );
 
-      const [playResult, seekResult, volumeResult] = await Promise.all([
-        result.current.play(),
-        result.current.seek(30),
-        result.current.setVolume(75),
-      ]);
+      let playResult, seekResult, volumeResult;
+      await act(async () => {
+        [playResult, seekResult, volumeResult] = await Promise.all([
+          result.current.play(),
+          result.current.seek(30),
+          result.current.setVolume(75),
+        ]);
+      });
 
       expect(playResult.success).toBe(true);
       expect(seekResult.success).toBe(false);

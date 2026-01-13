@@ -267,6 +267,7 @@ export function PlayerControls({
         <button
           onClick={handlePrevious}
           disabled={playerState.isLoading}
+          aria-label="Previous"
           style={{
             width: '44px',
             height: '44px',
@@ -301,6 +302,7 @@ export function PlayerControls({
         <button
           onClick={handlePlayPause}
           disabled={playerState.isLoading}
+          aria-label={playerState.isPlaying ? 'Pause' : 'Play'}
           style={{
             width: '64px',
             height: '64px',
@@ -336,6 +338,7 @@ export function PlayerControls({
         <button
           onClick={handleNext}
           disabled={playerState.isLoading}
+          aria-label="Next"
           style={{
             width: '44px',
             height: '44px',
@@ -380,6 +383,7 @@ export function PlayerControls({
       >
         <button
           onClick={handleMute}
+          aria-label={playerState.isMuted ? 'Unmute' : 'Mute'}
           style={{
             width: '32px',
             height: '32px',
@@ -411,6 +415,7 @@ export function PlayerControls({
           max="100"
           value={playerState.isMuted ? 0 : localVolume}
           onChange={(e) => handleVolumeChange(parseInt(e.target.value))}
+          aria-label="Volume"
           style={{
             flex: 1,
             cursor: 'pointer',

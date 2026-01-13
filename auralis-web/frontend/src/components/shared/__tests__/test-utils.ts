@@ -212,7 +212,10 @@ export function mockUseWebSocketProtocol(overrides = {}) {
  * Create mock usePlayerStateUpdates hook
  */
 export function mockUsePlayerStateUpdates() {
-  return vi.fn();
+  return vi.fn((callback) => {
+    // Return immediately without calling the callback
+    // This simulates the subscription hook without triggering updates
+  });
 }
 
 /**
