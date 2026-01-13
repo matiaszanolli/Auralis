@@ -24,18 +24,14 @@ permissions:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.12', '3.13']
-      fail-fast: false  # Continue testing other versions even if one fails
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup Python ${{ matrix.python-version }}
+    - name: Setup Python 3.13
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: '3.13'
 
     - name: Install system dependencies
       run: |
@@ -44,6 +40,12 @@ jobs:
 
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
+
+    - name: Create and activate virtual environment
+      run: |
+        python -m venv .venv
+        echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+        echo "$PWD/.venv/bin" >> $GITHUB_PATH
 
     - name: Install Python dependencies
       run: |
@@ -102,18 +104,17 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-py${{ matrix.python-version }}
+        name: test-results-py3.13
         path: |
           test-results-*.xml
           coverage.xml
 
     - name: Upload coverage
       uses: codecov/codecov-action@v4
-      if: matrix.python-version == '3.13'
       with:
         file: ./coverage.xml
         flags: backend
-        name: backend-py${{ matrix.python-version }}
+        name: backend-py3.13
         fail_ci_if_error: false
 
     # Fail the workflow if tests failed (after creating issues)
