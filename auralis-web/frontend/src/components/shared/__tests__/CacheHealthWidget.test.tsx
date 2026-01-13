@@ -196,10 +196,12 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should show stable indicator when stable', () => {
+    // Trend is calculated from overall_hit_rate:
+    // > 0.8 = improving (📈), 0.6-0.8 = stable (➡️), < 0.6 = degrading (📉)
     vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
         ...mockCacheHealth,
-        trend: 'stable',
+        overall_hit_rate: 0.75, // Between 0.6 and 0.8 for stable indicator
       },
       loading: false,
       error: null,
