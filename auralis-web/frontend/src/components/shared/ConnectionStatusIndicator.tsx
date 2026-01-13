@@ -156,6 +156,8 @@ export function ConnectionStatusIndicator({
 
   return (
     <div
+      data-testid="connection-indicator"
+      data-status={isHealthy ? 'connected' : status.isReconnecting ? 'reconnecting' : 'disconnected'}
       style={positionStyles}
       onMouseEnter={() => setShowDetails(true)}
       onMouseLeave={() => setShowDetails(false)}
