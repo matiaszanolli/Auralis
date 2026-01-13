@@ -83,6 +83,10 @@ class ChunkOperations:
             chunk_start = chunk_index * chunk_interval
             chunk_end = chunk_start + chunk_duration
 
+        # Cap end time at total_duration if provided (last chunk shouldn't exceed file length)
+        if total_duration is not None:
+            chunk_end = min(chunk_end, total_duration)
+
         # Add context if requested
         context_duration = 5.0 if with_context else 0.0
         load_start = max(0.0, chunk_start - context_duration)
