@@ -4,11 +4,11 @@ Tests for Albums REST API
 
 Tests for the albums browsing and management endpoints.
 
-Phase 5C: Dual-Mode Backend Testing
-This file demonstrates Phase 5C patterns:
-1. Using mock fixtures from conftest.py
-2. Parametrized dual-mode testing (LibraryManager + RepositoryFactory)
-3. Interface validation for dual-mode compatibility
+Phase 6B: Migrated to RepositoryFactory Pattern
+This file uses the Phase 6B RepositoryFactory pattern:
+1. Tests mock require_repository_factory to inject mock repos
+2. The mock_repos fixture provides a mock RepositoryFactory
+3. Tests validate the albums API with the new dependency injection pattern
 """
 
 import sys
@@ -78,6 +78,21 @@ def mock_track():
     track.track_number = 1
     track.disc_number = 1
     return track
+
+
+@pytest.fixture
+def mock_repos():
+    """Create a mock RepositoryFactory for patching require_repository_factory.
+
+    Phase 6B: The albums router uses RepositoryFactory instead of LibraryManager.
+    This fixture provides the mock object that require_repository_factory returns.
+    """
+    repos = Mock()
+    repos.albums = Mock()
+    repos.albums.get_all = Mock(return_value=([], 0))
+    repos.albums.get_by_id = Mock(return_value=None)
+    repos.albums.search = Mock(return_value=[])
+    return repos
 
 
 class TestGetAlbums:
@@ -160,11 +175,11 @@ class TestGetAlbums:
         # Should reject negative offset
         assert response.status_code in [200, 422, 503]
 
-    def test_get_albums_with_mocked_data(self, client, mock_album):
-        """Test albums endpoint with mocked library manager"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.get_all.return_value = ([mock_album], 1)
+    def test_get_albums_with_mocked_data(self, client, mock_album, mock_repos):
+        """Test albums endpoint with mocked repository factory"""
+        mock_repos.albums.get_all.return_value = ([mock_album], 1)
 
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums?limit=50&offset=0")
 
             assert response.status_code == 200
@@ -177,13 +192,13 @@ class TestGetAlbums:
             assert data["albums"][0]["track_count"] == 2
             assert data["has_more"] == False
 
-    def test_get_albums_pagination_has_more(self, client, mock_album):
+    def test_get_albums_pagination_has_more(self, client, mock_album, mock_repos):
         """Test has_more flag in pagination"""
-        with patch('main.library_manager') as mock_library:
-            # Return 50 albums, total 100
-            mock_albums = [mock_album] * 50
-            mock_library.albums.get_all.return_value = (mock_albums, 100)
+        # Return 50 albums, total 100
+        mock_albums = [mock_album] * 50
+        mock_repos.albums.get_all.return_value = (mock_albums, 100)
 
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums?limit=50&offset=0")
 
             assert response.status_code == 200
@@ -196,11 +211,11 @@ class TestGetAlbums:
 class TestGetAlbumById:
     """Test GET /api/albums/{album_id} endpoint"""
 
-    def test_get_album_by_id_success(self, client, mock_album):
+    def test_get_album_by_id_success(self, client, mock_album, mock_repos):
         """Test getting a specific album by ID"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.get_by_id.return_value = mock_album
+        mock_repos.albums.get_by_id.return_value = mock_album
 
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1")
 
             assert response.status_code == 200
@@ -210,11 +225,11 @@ class TestGetAlbumById:
             assert data["title"] == "Test Album"
             assert data["artist"] == "Test Artist"
 
-    def test_get_album_by_id_not_found(self, client):
+    def test_get_album_by_id_not_found(self, client, mock_repos):
         """Test getting non-existent album"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.get_by_id.return_value = None
+        mock_repos.albums.get_by_id.return_value = None
 
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/9999")
 
             assert response.status_code == 404
@@ -230,13 +245,12 @@ class TestGetAlbumById:
 class TestGetAlbumTracks:
     """Test GET /api/albums/{album_id}/tracks endpoint"""
 
-    def test_get_album_tracks_success(self, client, mock_album, mock_track):
+    def test_get_album_tracks_success(self, client, mock_album, mock_track, mock_repos):
         """Test getting tracks for an album"""
         mock_album.tracks = [mock_track, mock_track]
+        mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.get_by_id.return_value = mock_album
-
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/tracks")
 
             assert response.status_code == 200
@@ -249,13 +263,12 @@ class TestGetAlbumTracks:
             assert len(data["tracks"]) == 2
             assert "year" in data
 
-    def test_get_album_tracks_empty(self, client, mock_album):
+    def test_get_album_tracks_empty(self, client, mock_album, mock_repos):
         """Test getting tracks for album with no tracks"""
         mock_album.tracks = []
+        mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.get_by_id.return_value = mock_album
-
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/tracks")
 
             assert response.status_code == 200
@@ -264,16 +277,16 @@ class TestGetAlbumTracks:
             assert data["total_tracks"] == 0
             assert len(data["tracks"]) == 0
 
-    def test_get_album_tracks_not_found(self, client):
+    def test_get_album_tracks_not_found(self, client, mock_repos):
         """Test getting tracks for non-existent album"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.get_by_id.return_value = None
+        mock_repos.albums.get_by_id.return_value = None
 
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/9999/tracks")
 
             assert response.status_code == 404
 
-    def test_get_album_tracks_sorted(self, client, mock_album):
+    def test_get_album_tracks_sorted(self, client, mock_album, mock_repos):
         """Test that tracks are sorted by disc and track number"""
         track1 = Mock(spec=['id', 'title', 'album', 'duration', 'track_number', 'disc_number'])
         track1.id = 1
@@ -292,10 +305,9 @@ class TestGetAlbumTracks:
         track2.disc_number = 1
 
         mock_album.tracks = [track1, track2]
+        mock_repos.albums.get_by_id.return_value = mock_album
 
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.get_by_id.return_value = mock_album
-
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1/tracks")
 
             assert response.status_code == 200
@@ -308,14 +320,16 @@ class TestGetAlbumTracks:
 class TestAlbumsAPIIntegration:
     """Integration tests for albums API"""
 
-    def test_albums_workflow(self, client, mock_album, mock_track):
+    def test_albums_workflow(self, client, mock_album, mock_track, mock_repos):
         """Test complete workflow: list albums -> get album -> get tracks"""
         mock_album.tracks = [mock_track]
 
-        with patch('main.library_manager') as mock_library:
-            # Step 1: List albums
-            mock_library.albums.get_all.return_value = ([mock_album], 1)
+        # Configure mock for all steps
+        mock_repos.albums.get_all.return_value = ([mock_album], 1)
+        mock_repos.albums.get_by_id.return_value = mock_album
 
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
+            # Step 1: List albums
             response = client.get("/api/albums")
             assert response.status_code == 200
             albums = response.json()["albums"]
@@ -324,7 +338,6 @@ class TestAlbumsAPIIntegration:
                 album_id = albums[0]["id"]
 
                 # Step 2: Get album details
-                mock_library.albums.get_by_id.return_value = mock_album
                 response = client.get(f"/api/albums/{album_id}")
                 assert response.status_code == 200
 
@@ -334,11 +347,11 @@ class TestAlbumsAPIIntegration:
                 tracks_data = response.json()
                 assert "tracks" in tracks_data
 
-    def test_albums_search_and_retrieve(self, client, mock_album):
+    def test_albums_search_and_retrieve(self, client, mock_album, mock_repos):
         """Test searching for album and retrieving it"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.search.return_value = [mock_album]
+        mock_repos.albums.search.return_value = [mock_album]
 
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             # Search for album
             response = client.get("/api/albums?search=Test")
             assert response.status_code in [200, 503]
@@ -351,20 +364,20 @@ class TestAlbumsAPIIntegration:
 class TestAlbumsErrorHandling:
     """Test error handling in albums API"""
 
-    def test_albums_database_error(self, client):
+    def test_albums_database_error(self, client, mock_repos):
         """Test handling of database errors"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.get_all.side_effect = Exception("Database connection error")
+        mock_repos.albums.get_all.side_effect = Exception("Database connection error")
 
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums")
 
             assert response.status_code == 500
 
-    def test_album_by_id_database_error(self, client):
+    def test_album_by_id_database_error(self, client, mock_repos):
         """Test handling of database errors when getting album by ID"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.albums.get_by_id.side_effect = Exception("Database error")
+        mock_repos.albums.get_by_id.side_effect = Exception("Database error")
 
+        with patch('routers.albums.require_repository_factory', return_value=mock_repos):
             response = client.get("/api/albums/1")
 
             assert response.status_code == 500
