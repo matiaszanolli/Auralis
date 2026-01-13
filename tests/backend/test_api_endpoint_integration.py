@@ -42,7 +42,7 @@ import pytest
 backend_path = Path(__file__).parent.parent.parent / "auralis-web" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from main import app, startup_event
+from main import app
 
 from auralis.io.saver import save as save_audio
 
