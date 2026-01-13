@@ -10,15 +10,26 @@ import argparse
 import hashlib
 import os
 import sys
+import time
 from pathlib import Path
 from typing import List, Dict, Optional
 import xml.etree.ElementTree as ET
 
 try:
     from github import Github, GithubException
+    from github.GithubException import RateLimitExceededException
 except ImportError:
     print("ERROR: PyGithub not installed. Run: pip install PyGithub", file=sys.stderr)
     sys.exit(1)
+
+# Rate limiting configuration
+API_DELAY_SECONDS = 1.0  # Delay between API calls to avoid rate limits
+MAX_ISSUES_TO_CLOSE = 10  # Maximum issues to close in one run to avoid rate limits
+
+
+def rate_limit_delay():
+    """Add a small delay between API calls to avoid rate limiting."""
+    time.sleep(API_DELAY_SECONDS)
 
 
 class TestFailure:
@@ -138,19 +149,27 @@ def parse_junit_xml(xml_path: Path) -> List[TestFailure]:
     return failures
 
 
-def find_existing_issue(gh_repo, unique_id: str) -> Optional[int]:
+def find_existing_issue(gh_repo, unique_id: str, cached_issues: Optional[list] = None) -> Optional[int]:
     """
     Find existing issue with this unique_id.
     Returns issue number if found, None otherwise.
-    """
-    # Search in open issues with our label
-    query = f"repo:{gh_repo.full_name} is:issue is:open label:auto-test-failure in:body {unique_id}"
 
+    Args:
+        gh_repo: GitHub repository object
+        unique_id: Unique identifier for the test failure
+        cached_issues: Optional pre-fetched list of issues to avoid repeated API calls
+    """
     try:
-        issues = gh_repo.get_issues(state='open', labels=['auto-test-failure'])
+        # Use cached issues if provided, otherwise fetch
+        issues = cached_issues if cached_issues is not None else list(
+            gh_repo.get_issues(state='open', labels=['auto-test-failure'])
+        )
+
         for issue in issues:
-            if f"<!-- test-failure-id: {unique_id} -->" in issue.body:
+            if issue.body and f"<!-- test-failure-id: {unique_id} -->" in issue.body:
                 return issue.number
+    except RateLimitExceededException:
+        print("WARNING: Rate limit exceeded while searching issues", file=sys.stderr)
     except GithubException as e:
         print(f"WARNING: Error searching issues: {e}", file=sys.stderr)
 
@@ -159,27 +178,48 @@ def find_existing_issue(gh_repo, unique_id: str) -> Optional[int]:
 
 def close_fixed_issues(gh_repo, current_failure_ids: set):
     """Close issues for tests that are now passing."""
+    closed_count = 0
+
     try:
-        open_issues = gh_repo.get_issues(state='open', labels=['auto-test-failure'])
+        open_issues = list(gh_repo.get_issues(state='open', labels=['auto-test-failure']))
 
         for issue in open_issues:
+            # Limit how many issues we close per run to avoid rate limits
+            if closed_count >= MAX_ISSUES_TO_CLOSE:
+                print(f"  ⚠ Reached limit of {MAX_ISSUES_TO_CLOSE} issues to close per run")
+                break
+
             # Extract unique_id from issue body
-            if '<!-- test-failure-id:' in issue.body:
+            if issue.body and '<!-- test-failure-id:' in issue.body:
                 start = issue.body.find('<!-- test-failure-id:') + len('<!-- test-failure-id:')
                 end = issue.body.find('-->', start)
                 issue_id = issue.body[start:end].strip()
 
                 # If this test is no longer failing, close the issue
                 if issue_id not in current_failure_ids:
-                    issue.create_comment(
-                        "✅ This test is now passing. Auto-closing.\n\n"
-                        f"Verified in workflow run: {os.getenv('GITHUB_RUN_ID', 'unknown')}"
-                    )
-                    issue.edit(state='closed')
-                    print(f"  ✓ Closed issue #{issue.number} (test now passing)")
+                    try:
+                        rate_limit_delay()
+                        issue.create_comment(
+                            "✅ This test is now passing. Auto-closing.\n\n"
+                            f"Verified in workflow run: {os.getenv('GITHUB_RUN_ID', 'unknown')}"
+                        )
+                        rate_limit_delay()
+                        issue.edit(state='closed')
+                        print(f"  ✓ Closed issue #{issue.number} (test now passing)")
+                        closed_count += 1
+                    except RateLimitExceededException:
+                        print(f"  ⚠ Rate limit exceeded, stopping issue closure")
+                        break
+                    except GithubException as e:
+                        print(f"  ⚠ Failed to close issue #{issue.number}: {e}", file=sys.stderr)
+                        # Continue with other issues
 
+    except RateLimitExceededException:
+        print("WARNING: Rate limit exceeded while fetching issues", file=sys.stderr)
     except GithubException as e:
         print(f"WARNING: Error closing fixed issues: {e}", file=sys.stderr)
+
+    return closed_count
 
 
 def create_or_update_issues(failures: List[TestFailure], repo_name: str,
@@ -205,14 +245,29 @@ def create_or_update_issues(failures: List[TestFailure], repo_name: str,
 
     created = 0
     updated = 0
+    skipped = 0
     current_failure_ids = {f.unique_id for f in failures}
 
+    # Fetch existing issues once to avoid repeated API calls
+    print("Fetching existing issues...")
+    try:
+        cached_issues = list(gh_repo.get_issues(state='open', labels=['auto-test-failure']))
+        print(f"  Found {len(cached_issues)} existing auto-test-failure issues")
+    except RateLimitExceededException:
+        print("WARNING: Rate limit exceeded while fetching issues, proceeding without cache", file=sys.stderr)
+        cached_issues = None
+    except GithubException as e:
+        print(f"WARNING: Error fetching issues: {e}, proceeding without cache", file=sys.stderr)
+        cached_issues = None
+
+    print("\nProcessing test failures...")
     for failure in failures:
-        existing_issue_num = find_existing_issue(gh_repo, failure.unique_id)
+        existing_issue_num = find_existing_issue(gh_repo, failure.unique_id, cached_issues)
 
         if existing_issue_num:
-            # Update existing issue
+            # Update existing issue with a comment
             try:
+                rate_limit_delay()
                 issue = gh_repo.get_issue(existing_issue_num)
                 issue.create_comment(
                     f"⚠️ This test is still failing.\n\n"
@@ -221,11 +276,16 @@ def create_or_update_issues(failures: List[TestFailure], repo_name: str,
                 )
                 print(f"  ↻ Updated issue #{existing_issue_num}: {failure.test_name}")
                 updated += 1
+            except RateLimitExceededException:
+                print(f"  ⚠ Rate limit exceeded, skipping update for: {failure.test_name}")
+                skipped += 1
             except GithubException as e:
                 print(f"  ✗ Failed to update issue #{existing_issue_num}: {e}", file=sys.stderr)
+                skipped += 1
         else:
             # Create new issue
             try:
+                rate_limit_delay()
                 issue = gh_repo.create_issue(
                     title=failure.issue_title,
                     body=failure.issue_body,
@@ -233,14 +293,22 @@ def create_or_update_issues(failures: List[TestFailure], repo_name: str,
                 )
                 print(f"  ✓ Created issue #{issue.number}: {failure.test_name}")
                 created += 1
+            except RateLimitExceededException:
+                print(f"  ⚠ Rate limit exceeded, skipping creation for: {failure.test_name}")
+                skipped += 1
             except GithubException as e:
                 print(f"  ✗ Failed to create issue: {e}", file=sys.stderr)
+                skipped += 1
 
     # Close issues for tests that are now passing
     print("\nChecking for fixed tests...")
-    close_fixed_issues(gh_repo, current_failure_ids)
+    closed = close_fixed_issues(gh_repo, current_failure_ids)
 
-    print(f"\n✓ Summary: {created} created, {updated} updated")
+    print(f"\n✓ Summary: {created} created, {updated} updated, {closed} closed", end="")
+    if skipped > 0:
+        print(f", {skipped} skipped (rate limited)")
+    else:
+        print()
 
 
 def main():
