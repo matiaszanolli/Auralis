@@ -18,6 +18,8 @@ export interface BufferMetadata {
   availableSamples: number;
   isFull: boolean;
   isEmpty: boolean;
+  totalAppended: number;
+  totalRead: number;
 }
 
 /**
@@ -42,6 +44,10 @@ export class PCMStreamBuffer {
   private lastChunkEnd: Float32Array | null = null;
   private crossfadeLength: number = 0;
 
+  // Statistics
+  private totalAppended: number = 0;
+  private totalRead: number = 0;
+
   /**
    * Create a new PCMStreamBuffer
    * @param capacity - Buffer capacity in bytes (default 100MB for ~5 minutes @ 44.1kHz stereo)
@@ -56,20 +62,31 @@ export class PCMStreamBuffer {
 
   /**
    * Initialize buffer with audio parameters
+   * @param sampleRate - Sample rate in Hz
+   * @param channels - Number of channels
+   * @param capacityBytes - Optional buffer capacity in bytes (overrides constructor capacity)
    */
-  initialize(sampleRate: number, channels: number): void {
+  initialize(sampleRate: number, channels: number, capacityBytes?: number): void {
     this.sampleRate = sampleRate;
     this.channels = channels;
 
+    // Allow overriding capacity at initialization time
+    if (capacityBytes !== undefined) {
+      this.capacity = capacityBytes;
+    }
+
     // Capacity in samples = bytes / (4 bytes per float32 sample)
+    // Reserve one slot to distinguish between full and empty states
     const capacityInSamples = this.capacity / 4;
-    this.buffer = new Float32Array(capacityInSamples);
+    this.buffer = new Float32Array(capacityInSamples + 1);
 
     this.writePos = 0;
     this.readPos = 0;
     this.isInitialized = true;
     this.lastChunkEnd = null;
     this.crossfadeLength = 0;
+    this.totalAppended = 0;
+    this.totalRead = 0;
   }
 
   /**
@@ -146,6 +163,7 @@ export class PCMStreamBuffer {
 
     // Advance read position
     this.readPos = (this.readPos + toRead) % bufferCapacity;
+    this.totalRead += toRead;
 
     return result;
   }
@@ -193,7 +211,9 @@ export class PCMStreamBuffer {
       capacity: this.capacity,
       availableSamples: this.getAvailableSamples(),
       isFull: this.isFull(),
-      isEmpty: this.isEmpty()
+      isEmpty: this.isEmpty(),
+      totalAppended: this.totalAppended,
+      totalRead: this.totalRead
     };
   }
 
@@ -205,6 +225,8 @@ export class PCMStreamBuffer {
     this.readPos = 0;
     this.lastChunkEnd = null;
     this.crossfadeLength = 0;
+    this.totalAppended = 0;
+    this.totalRead = 0;
 
     if (this.buffer) {
       this.buffer.fill(0);
@@ -300,6 +322,7 @@ export class PCMStreamBuffer {
 
     // Advance write position
     this.writePos = (this.writePos + sampleCount) % bufferCapacity;
+    this.totalAppended += sampleCount;
   }
 
   /**
@@ -307,8 +330,9 @@ export class PCMStreamBuffer {
    */
   getFillPercentage(): number {
     const available = this.getAvailableSamples();
-    const capacity = this.buffer?.length ?? 1;
-    return (available / capacity) * 100;
+    // Use logical capacity (bytes / 4), not actual buffer length (+1 for full/empty distinction)
+    const logicalCapacity = this.capacity / 4;
+    return (available / logicalCapacity) * 100;
   }
 }
 

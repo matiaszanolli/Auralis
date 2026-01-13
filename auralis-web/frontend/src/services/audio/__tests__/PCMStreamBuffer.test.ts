@@ -21,7 +21,7 @@ describe('PCMStreamBuffer', () => {
 
       expect(metadata.sampleRate).toBe(48000);
       expect(metadata.channels).toBe(2);
-      expect(metadata.capacity).toBe(5242880); // 5MB default
+      expect(metadata.capacity).toBe(100 * 1024 * 1024); // 100MB default
     });
 
     it('should initialize with custom capacity', () => {
@@ -64,9 +64,9 @@ describe('PCMStreamBuffer', () => {
     });
 
     it('should handle wrap-around correctly', () => {
-      // Create a small buffer to test wrap-around
+      // Create a buffer large enough to test wrap-around (3072 bytes = 768 samples + 1)
       const smallBuffer = new PCMStreamBuffer();
-      smallBuffer.initialize(48000, 2, 1024); // Very small
+      smallBuffer.initialize(48000, 2, 3072);
 
       // Fill to near capacity
       const part1 = new Float32Array(512);
@@ -76,7 +76,7 @@ describe('PCMStreamBuffer', () => {
       // Read some to move read pointer
       smallBuffer.read(256);
 
-      // Append more (will wrap)
+      // Append more (will wrap around the circular buffer)
       const part2 = new Float32Array(512);
       for (let i = 0; i < 512; i++) part2[i] = 0.2 + i * 0.0001;
       smallBuffer.append(part2, 0);
@@ -195,26 +195,28 @@ describe('PCMStreamBuffer', () => {
       expect(fill).toBeLessThanOrEqual(100);
     });
 
-    it('should discard oldest data on overflow', () => {
-      // Fill buffer completely
-      const chunk1 = new Float32Array(1024);
-      for (let i = 0; i < 1024; i++) chunk1[i] = 0.1;
+    it('should drop new data on overflow to preserve playback position', () => {
+      // Fill buffer to capacity (256 samples = 1024 bytes / 4 bytes per sample)
+      const chunk1 = new Float32Array(256);
+      for (let i = 0; i < 256; i++) chunk1[i] = 0.1;
       buffer.append(chunk1, 0);
 
       expect(buffer.getFillPercentage()).toBe(100);
 
-      // Try to add more (should replace oldest)
-      const chunk2 = new Float32Array(512);
-      for (let i = 0; i < 512; i++) chunk2[i] = 0.9;
+      // Try to add more - should drop new data to preserve playback position
+      const chunk2 = new Float32Array(128);
+      for (let i = 0; i < 128; i++) chunk2[i] = 0.9;
       buffer.append(chunk2, 0);
 
-      // Should still be full
+      // Should still be full with original data (new data was dropped)
       expect(buffer.getFillPercentage()).toBe(100);
 
-      // Read all and check - should have newer data
-      const allData = buffer.read(1024);
-      // Last half should be 0.9 (new data)
-      expect(allData[512]).toBeCloseTo(0.9, 5);
+      // Read all and verify original data is preserved
+      const allData = buffer.read(256);
+      // All data should be 0.1 (original data preserved, new data dropped)
+      expect(allData[0]).toBeCloseTo(0.1, 5);
+      expect(allData[128]).toBeCloseTo(0.1, 5);
+      expect(allData[255]).toBeCloseTo(0.1, 5);
     });
   });
 
@@ -257,7 +259,8 @@ describe('PCMStreamBuffer', () => {
       buffer.append(samples, 0);
 
       const fill = buffer.getFillPercentage();
-      const expected = (1000 / (5242880 / 4)) * 100;
+      const metadata = buffer.getMetadata();
+      const expected = (1000 / (metadata.capacity / 4)) * 100;
 
       expect(fill).toBeCloseTo(expected, 1);
     });
@@ -302,10 +305,9 @@ describe('PCMStreamBuffer', () => {
   });
 
   describe('error conditions', () => {
-    it('should handle uninitialized buffer gracefully', () => {
+    it('should throw error when reading from uninitialized buffer', () => {
       // Don't call initialize
-      const result = buffer.read(10);
-      expect(result.length).toBe(0);
+      expect(() => buffer.read(10)).toThrow('PCMStreamBuffer not initialized');
     });
 
     it('should handle NaN samples', () => {
