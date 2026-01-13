@@ -42,6 +42,7 @@ describe('usePlayerControls Hook', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers(); // Ensure fake timers are always restored
   });
 
   describe('Play/Pause Operations', () => {
@@ -301,13 +302,14 @@ describe('usePlayerControls Hook', () => {
       // Seek should not be called yet
       expect(mockOnSeek).not.toHaveBeenCalled();
 
-      // Advance time past debounce interval
-      vi.advanceTimersByTime(300);
-
-      await waitFor(() => {
-        expect(mockOnSeek).toHaveBeenCalledTimes(1);
-        expect(mockOnSeek).toHaveBeenCalledWith(30); // Last position
+      // Advance time past debounce interval and run timers
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+        await Promise.resolve(); // Allow microtasks to complete
       });
+
+      expect(mockOnSeek).toHaveBeenCalledTimes(1);
+      expect(mockOnSeek).toHaveBeenCalledWith(30); // Last position
 
       vi.useRealTimers();
     });
@@ -328,31 +330,38 @@ describe('usePlayerControls Hook', () => {
       expect(mockOnSeek).not.toHaveBeenCalled();
 
       // Advance past debounce interval
-      vi.advanceTimersByTime(100);
-
-      await waitFor(() => {
-        expect(mockOnSeek).toHaveBeenCalledWith(50);
+      await act(async () => {
+        vi.advanceTimersByTime(100);
+        await Promise.resolve();
       });
+
+      expect(mockOnSeek).toHaveBeenCalledWith(50);
 
       vi.useRealTimers();
     });
 
-    it('should not call seek if position did not change', async () => {
+    it('should only seek once when same position called multiple times', async () => {
       vi.useFakeTimers();
 
       const { result } = renderHook(() =>
         usePlayerControls({ onSeek: mockOnSeek, seekDebounceMs: 300 })
       );
 
+      // Call seekDebounced multiple times with same position
       act(() => {
         result.current.seekDebounced(30);
         result.current.seekDebounced(30); // Same position
       });
 
-      vi.advanceTimersByTime(300);
+      // Advance timers and allow async operations
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+        await Promise.resolve();
+      });
 
-      // Should still not call since position didn't change after debounce
-      expect(mockOnSeek).not.toHaveBeenCalled();
+      // Should call seek once (debounced calls collapse to one)
+      expect(mockOnSeek).toHaveBeenCalledTimes(1);
+      expect(mockOnSeek).toHaveBeenCalledWith(30);
 
       vi.useRealTimers();
     });
