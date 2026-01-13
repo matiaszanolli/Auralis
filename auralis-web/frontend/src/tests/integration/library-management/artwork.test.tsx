@@ -174,13 +174,10 @@ const ArtworkManager: React.FC<ArtworkManagerProps> = ({ albumId, onUpload, onDe
 describe('Artwork API Integration Tests', () => {
   // Mock URL.createObjectURL and URL.revokeObjectURL for all tests
   beforeEach(() => {
-    // Mock URL methods that don't exist in JSDOM
-    if (!global.URL.createObjectURL) {
-      global.URL.createObjectURL = vi.fn(() => 'mock-object-url');
-    }
-    if (!global.URL.revokeObjectURL) {
-      global.URL.revokeObjectURL = vi.fn();
-    }
+    // Always mock URL methods for consistent test behavior
+    // (JSDOM now supports these natively, but we need deterministic return values)
+    vi.spyOn(global.URL, 'createObjectURL').mockReturnValue('mock-object-url');
+    vi.spyOn(global.URL, 'revokeObjectURL').mockImplementation(() => {});
   });
 
   // Reset handlers after each test
@@ -249,8 +246,6 @@ describe('Artwork API Integration Tests', () => {
 
     it('should fetch and display existing artwork', async () => {
       // Arrange
-      const mockImageBlob = new Blob(['mock image data'], { type: 'image/jpeg' });
-
       server.use(
         http.get('http://localhost:8765/api/albums/:id/artwork', () => {
           return HttpResponse.arrayBuffer(
