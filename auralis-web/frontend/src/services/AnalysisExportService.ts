@@ -152,9 +152,29 @@ export class AnalysisExportService {
     this.startNewSession();
   }
 
+  /**
+   * Generate a cryptographically secure random base36 string segment.
+   */
+  private generateSecureIdSegment(length: number): string {
+    const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+    const segment: string[] = [];
+
+    // Use the Web Crypto API for cryptographically secure randomness
+    const cryptoObj = (window.crypto || (window as any).msCrypto);
+    const randomValues = new Uint32Array(length);
+    cryptoObj.getRandomValues(randomValues);
+
+    for (let i = 0; i < length; i++) {
+      const index = randomValues[i] % chars.length;
+      segment.push(chars.charAt(index));
+    }
+
+    return segment.join('');
+  }
+
   // Session Management
   startNewSession(metadata?: Partial<ExportMetadata>): string {
-    const sessionId = `auralis_session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const sessionId = `auralis_session_${Date.now()}_${this.generateSecureIdSegment(9)}`;
 
     this.currentSession = {
       sessionId,
