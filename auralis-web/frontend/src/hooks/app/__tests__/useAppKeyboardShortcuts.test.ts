@@ -135,7 +135,9 @@ describe('useAppKeyboardShortcuts', () => {
       const config = createConfig();
       const { result } = renderHook(() => useAppKeyboardShortcuts(config));
 
-      const mute = result.current.shortcuts.find((s) => s.key === 'm');
+      // Mute is now on key '0' (simple press) or 'm' with Ctrl
+      const mute = result.current.shortcuts.find((s) => s.key === '0');
+      expect(mute).toBeDefined();
       expect(mute?.description).toContain('Mute');
     });
   });
@@ -179,7 +181,7 @@ describe('useAppKeyboardShortcuts', () => {
       const { result } = renderHook(() => useAppKeyboardShortcuts(config));
 
       const help = result.current.shortcuts.find((s) => s.key === '?');
-      expect(help?.description).toContain('keyboard shortcuts');
+      expect(help?.description).toContain('help');
     });
 
     it('has ctrl+comma for settings', () => {
@@ -198,13 +200,11 @@ describe('useAppKeyboardShortcuts', () => {
       const { result } = renderHook(() => useAppKeyboardShortcuts(config));
 
       expect(result.current.shortcuts).toBeDefined();
-      // Shortcuts array should be populated even with empty config
-      expect(result.current.shortcuts.length).toBeGreaterThan(0);
-      // Each shortcut should have key and description
-      result.current.shortcuts.forEach((shortcut) => {
-        expect(shortcut.key).toBeDefined();
-        expect(shortcut.description).toBeDefined();
-      });
+      // Empty config results in empty shortcuts array (no handlers = no shortcuts)
+      expect(Array.isArray(result.current.shortcuts)).toBe(true);
+      // Hook should not crash with empty config
+      expect(result.current.openHelp).toBeDefined();
+      expect(result.current.closeHelp).toBeDefined();
     });
 
     it('returns shortcuts with proper structure', () => {

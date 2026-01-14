@@ -224,7 +224,7 @@ export const useKeyboardShortcuts = (
   const disable = useCallback(() => setIsEnabled(false), []);
 
   return {
-    shortcuts: keyboardShortcuts.getShortcuts(),
+    shortcuts: shortcutsToRegister.map(({ handler, ...definition }) => definition),
     isHelpOpen,
     openHelp,
     closeHelp,
