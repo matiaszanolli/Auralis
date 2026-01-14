@@ -115,26 +115,28 @@ function createTestStore() {
 }
 
 /**
- * Minimal wrapper that avoids WebSocket singleton issues
- */
-function MinimalWrapper({ children }: { children: React.ReactNode }) {
-  const store = createTestStore();
-  return (
-    <Provider store={store}>
-      <BrowserRouter>
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
-      </BrowserRouter>
-    </Provider>
-  );
-}
-
-/**
  * Custom render with MinimalWrapper
+ * Creates store ONCE per render call to avoid React concurrent rendering errors
+ * ("Should not already be working" errors occur when store is recreated on every wrapper render)
  */
 function renderWithMinimalWrapper(ui: React.ReactElement) {
-  return render(ui, { wrapper: MinimalWrapper });
+  // Create store once for this specific render call
+  const store = createTestStore();
+
+  // Wrapper component that uses the stable store instance
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <Provider store={store}>
+        <BrowserRouter>
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
+        </BrowserRouter>
+      </Provider>
+    );
+  }
+
+  return render(ui, { wrapper: Wrapper });
 }
 
 // Mock processing parameters
