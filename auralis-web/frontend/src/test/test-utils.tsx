@@ -13,6 +13,7 @@
 import React, { ReactElement, ReactNode, createContext, useContext } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { ToastProvider } from '../components/shared/Toast'
 
@@ -115,20 +116,40 @@ interface AllProvidersProps {
 }
 
 export function AllProviders({ children }: AllProvidersProps) {
+  // Create a new QueryClient for each test to ensure isolation
+  // Disable retries and refetching to make tests more predictable
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+        staleTime: 0,
+        refetchOnWindowFocus: false,
+        refetchOnMount: false,
+        refetchOnReconnect: false,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  });
+
   // Note: DragDropContext removed to prevent "Should not already be working" errors
   // Tests that need drag-drop should wrap components individually with DragDropContext
   return (
-    <BrowserRouter>
-      <MockWebSocketProvider>
-        <ThemeProvider>
-          <MockEnhancementProvider>
-            <ToastProvider>
-              {children}
-            </ToastProvider>
-          </MockEnhancementProvider>
-        </ThemeProvider>
-      </MockWebSocketProvider>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <MockWebSocketProvider>
+          <ThemeProvider>
+            <MockEnhancementProvider>
+              <ToastProvider>
+                {children}
+              </ToastProvider>
+            </MockEnhancementProvider>
+          </ThemeProvider>
+        </MockWebSocketProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 

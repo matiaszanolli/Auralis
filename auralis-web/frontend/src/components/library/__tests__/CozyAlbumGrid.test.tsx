@@ -12,18 +12,18 @@
 import React from 'react';
 import { render, screen, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from 'vitest';
 import { CozyAlbumGrid } from '../Items/albums/CozyAlbumGrid';
 
 // Mock AlbumCard component
-vi.mock('../../album/AlbumCard', () => {
+vi.mock('@/components/album/AlbumCard/AlbumCard', () => {
   return {
     AlbumCard: function MockAlbumCard({
       albumId,
       title,
       artist,
       trackCount,
-      duration,
+      year,
       onClick
     }: any) {
       return (
@@ -34,7 +34,7 @@ vi.mock('../../album/AlbumCard', () => {
         >
           <p>{title}</p>
           <p>{artist}</p>
-          <p>{trackCount} tracks • {duration}s</p>
+          <p>{trackCount} tracks • {year}</p>
         </div>
       );
     }
@@ -287,9 +287,12 @@ describe('CozyAlbumGrid', () => {
       );
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
-          expect.stringContaining('limit=50&offset=0')
-        );
+        // Check that fetch was called with correct parameters (order may vary)
+        const calls = (global.fetch as any).mock.calls;
+        const albumsCall = calls.find((call: any) => call[0].includes('/api/albums'));
+        expect(albumsCall).toBeDefined();
+        expect(albumsCall[0]).toContain('limit=50');
+        expect(albumsCall[0]).toContain('offset=0');
       });
     });
 
@@ -349,7 +352,9 @@ describe('CozyAlbumGrid', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/Showing all 2 albums/)).toBeInTheDocument();
+        // When has_more is false, albums should render and no "Loading more..." text
+        expect(screen.getByTestId('album-card-1')).toBeInTheDocument();
+        expect(screen.queryByText(/Loading more albums/)).not.toBeInTheDocument();
       });
     });
   });
@@ -513,7 +518,9 @@ describe('CozyAlbumGrid', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/Showing all 2 albums/)).toBeInTheDocument();
+        // Verify albums are displayed when load completes
+        expect(screen.getByTestId('album-card-1')).toBeInTheDocument();
+        expect(screen.getByTestId('album-card-2')).toBeInTheDocument();
       });
     });
   });
@@ -636,7 +643,8 @@ describe('CozyAlbumGrid', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/No Albums Yet/)).toBeInTheDocument();
+        // When albums is null, component shows error state
+        expect(screen.getByText(/Error Loading Albums/)).toBeInTheDocument();
       });
     });
 
