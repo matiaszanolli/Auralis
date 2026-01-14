@@ -15,8 +15,12 @@ import CozyLibraryView from '../library/CozyLibraryView';
 import { useLibraryWithStats } from '@/hooks/library/useLibraryWithStats';
 import { usePlayerAPI } from '@/hooks/player/usePlayerAPI';
 
-vi.mock('@/hooks/library/useLibraryWithStats');
-vi.mock('@/hooks/player/usePlayerAPI');
+vi.mock('@/hooks/library/useLibraryWithStats', () => ({
+  useLibraryWithStats: vi.fn(),
+}));
+vi.mock('@/hooks/player/usePlayerAPI', () => ({
+  usePlayerAPI: vi.fn(),
+}));
 vi.mock('@/contexts/WebSocketContext', () => ({
   useWebSocketContext: () => ({
     subscribe: vi.fn(() => vi.fn()),

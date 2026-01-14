@@ -160,8 +160,11 @@ class TestGetArtists:
 
     def test_get_artists_with_mocked_data(self, client, mock_artist):
         """Test artists endpoint with mocked library manager"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_all.return_value = ([mock_artist], 1)
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_all.return_value = ([mock_artist], 1)
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists?limit=50&offset=0")
 
@@ -178,8 +181,11 @@ class TestGetArtists:
 
     def test_get_artists_with_genres(self, client, mock_artist):
         """Test that artists include genre information"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_all.return_value = ([mock_artist], 1)
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_all.return_value = ([mock_artist], 1)
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists")
 
@@ -193,10 +199,13 @@ class TestGetArtists:
 
     def test_get_artists_pagination_has_more(self, client, mock_artist):
         """Test has_more flag in pagination"""
-        with patch('main.library_manager') as mock_library:
-            # Return 50 artists, total 100
-            mock_artists = [mock_artist] * 50
-            mock_library.artists.get_all.return_value = (mock_artists, 100)
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        # Return 50 artists, total 100
+        mock_artists = [mock_artist] * 50
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_all.return_value = (mock_artists, 100)
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists?limit=50&offset=0")
 
@@ -212,8 +221,11 @@ class TestGetArtistById:
 
     def test_get_artist_by_id_success(self, client, mock_artist):
         """Test getting a specific artist by ID"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.return_value = mock_artist
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = mock_artist
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/1")
 
@@ -228,8 +240,11 @@ class TestGetArtistById:
 
     def test_get_artist_albums_sorted(self, client, mock_artist):
         """Test that artist's albums are sorted by year"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.return_value = mock_artist
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = mock_artist
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/1")
 
@@ -242,8 +257,11 @@ class TestGetArtistById:
 
     def test_get_artist_by_id_not_found(self, client):
         """Test getting non-existent artist"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.return_value = None
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = None
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/9999")
 
@@ -262,8 +280,11 @@ class TestGetArtistTracks:
 
     def test_get_artist_tracks_success(self, client, mock_artist):
         """Test getting tracks for an artist"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.return_value = mock_artist
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = mock_artist
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/1/tracks")
 
@@ -277,8 +298,11 @@ class TestGetArtistTracks:
 
     def test_get_artist_tracks_include_album_info(self, client, mock_artist):
         """Test that tracks include album information"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.return_value = mock_artist
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = mock_artist
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/1/tracks")
 
@@ -292,8 +316,11 @@ class TestGetArtistTracks:
 
     def test_get_artist_tracks_sorted(self, client, mock_artist):
         """Test that tracks are sorted by album, disc, and track number"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.return_value = mock_artist
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = mock_artist
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/1/tracks")
 
@@ -307,8 +334,11 @@ class TestGetArtistTracks:
         """Test getting tracks for artist with no tracks"""
         mock_artist.tracks = []
 
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.return_value = mock_artist
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = mock_artist
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/1/tracks")
 
@@ -320,8 +350,11 @@ class TestGetArtistTracks:
 
     def test_get_artist_tracks_not_found(self, client):
         """Test getting tracks for non-existent artist"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.return_value = None
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = None
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/9999/tracks")
 
@@ -333,9 +366,12 @@ class TestArtistsAPIIntegration:
 
     def test_artists_workflow(self, client, mock_artist):
         """Test complete workflow: list artists -> get artist -> get tracks"""
-        with patch('main.library_manager') as mock_library:
-            # Step 1: List artists
-            mock_library.artists.get_all.return_value = ([mock_artist], 1)
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        # Step 1: List artists
+        mock_repo_factory.artists.get_all.return_value = ([mock_artist], 1)
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists")
             assert response.status_code == 200
@@ -345,7 +381,7 @@ class TestArtistsAPIIntegration:
                 artist_id = artists[0]["id"]
 
                 # Step 2: Get artist details
-                mock_library.artists.get_by_id.return_value = mock_artist
+                mock_repo_factory.artists.get_by_id.return_value = mock_artist
                 response = client.get(f"/api/artists/{artist_id}")
                 assert response.status_code == 200
                 artist_data = response.json()
@@ -359,8 +395,11 @@ class TestArtistsAPIIntegration:
 
     def test_artists_search_and_retrieve(self, client, mock_artist):
         """Test searching for artist and retrieving details"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.search.return_value = [mock_artist]
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.search.return_value = [mock_artist]
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             # Search for artist
             response = client.get("/api/artists?search=Test")
@@ -372,9 +411,12 @@ class TestArtistsAPIIntegration:
 
     def test_pagination_consistency(self, client, mock_artist):
         """Test pagination consistency across multiple requests"""
-        with patch('main.library_manager') as mock_library:
-            # First page
-            mock_library.artists.get_all.return_value = ([mock_artist], 50)
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        # First page
+        mock_repo_factory.artists.get_all.return_value = ([mock_artist], 50)
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
             response1 = client.get("/api/artists?limit=25&offset=0")
 
             assert response1.status_code == 200
@@ -392,8 +434,11 @@ class TestArtistsErrorHandling:
 
     def test_artists_database_error(self, client):
         """Test handling of database errors"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_all.side_effect = Exception("Database connection error")
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_all.side_effect = Exception("Database connection error")
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists")
 
@@ -401,8 +446,11 @@ class TestArtistsErrorHandling:
 
     def test_artist_by_id_database_error(self, client):
         """Test handling of database errors when getting artist by ID"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.side_effect = Exception("Database error")
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.side_effect = Exception("Database error")
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/1")
 
@@ -410,8 +458,11 @@ class TestArtistsErrorHandling:
 
     def test_artist_tracks_database_error(self, client):
         """Test handling of database errors when getting artist tracks"""
-        with patch('main.library_manager') as mock_library:
-            mock_library.artists.get_by_id.side_effect = Exception("Database error")
+        # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.side_effect = Exception("Database error")
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
 
             response = client.get("/api/artists/1/tracks")
 

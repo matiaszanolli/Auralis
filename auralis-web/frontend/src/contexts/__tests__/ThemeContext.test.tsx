@@ -264,8 +264,8 @@ describe('ThemeContext', () => {
 
     const root = document.documentElement
 
-    expect(root.style.getPropertyValue('--bg-primary')).toBe('#0A0E27')
-    expect(root.style.getPropertyValue('--text-primary')).toBe('#ffffff')
+    expect(root.style.getPropertyValue('--bg-primary')).toBe('#0B1020')
+    expect(root.style.getPropertyValue('--text-primary')).toBe('#FFFFFF')
   })
 
   it('sets CSS custom properties for light mode', () => {
@@ -295,7 +295,7 @@ describe('ThemeContext', () => {
     const root = document.documentElement
 
     // Dark mode
-    expect(root.style.getPropertyValue('--bg-primary')).toBe('#0A0E27')
+    expect(root.style.getPropertyValue('--bg-primary')).toBe('#0B1020')
 
     // Switch to light
     act(() => {
@@ -309,7 +309,7 @@ describe('ThemeContext', () => {
       result.current.toggleTheme()
     })
 
-    expect(root.style.getPropertyValue('--bg-primary')).toBe('#0A0E27')
+    expect(root.style.getPropertyValue('--bg-primary')).toBe('#0B1020')
   })
 
   // ============================================================================
@@ -323,8 +323,8 @@ describe('ThemeContext', () => {
 
     const { result } = renderHook(() => useTheme(), { wrapper })
 
-    expect(result.current.colors.background.primary).toBe('#0A0E27')
-    expect(result.current.colors.text.primary).toBe('#ffffff')
+    expect(result.current.colors.background.primary).toBe('#0B1020')
+    expect(result.current.colors.text.primary).toBe('#FFFFFF')
   })
 
   it('provides light colors in light mode', () => {
