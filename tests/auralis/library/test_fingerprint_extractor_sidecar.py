@@ -103,7 +103,7 @@ def test_extractor_initializes_with_sidecar_disabled(mock_repository):
 
 # ===== Cache Hit Tests =====
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_cache_hit_skips_audio_analysis(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that valid sidecar file skips audio loading and analysis"""
     # Create valid sidecar file
@@ -123,7 +123,7 @@ def test_cache_hit_skips_audio_analysis(mock_load_audio, extractor_with_sidecar,
     extractor_with_sidecar.fingerprint_repo.upsert.assert_called_once_with(1, sample_fingerprint)
 
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_cache_hit_performance(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that cache hit is significantly faster than analysis"""
     # Create valid sidecar file
@@ -144,7 +144,7 @@ def test_cache_hit_performance(mock_load_audio, extractor_with_sidecar, temp_aud
 
 # ===== Cache Miss Tests =====
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_cache_miss_performs_analysis(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that missing sidecar file triggers audio analysis"""
     import numpy as np
@@ -171,7 +171,7 @@ def test_cache_miss_performs_analysis(mock_load_audio, extractor_with_sidecar, t
         extractor_with_sidecar.fingerprint_repo.upsert.assert_called_once_with(1, sample_fingerprint)
 
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_cache_miss_creates_sidecar(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that analysis creates sidecar file for future speedup"""
     import numpy as np
@@ -202,7 +202,7 @@ def test_cache_miss_creates_sidecar(mock_load_audio, extractor_with_sidecar, tem
 
 # ===== Invalid Cache Tests =====
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_invalid_sidecar_triggers_reanalysis(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that invalid sidecar file triggers re-analysis"""
     import numpy as np
@@ -229,7 +229,7 @@ def test_invalid_sidecar_triggers_reanalysis(mock_load_audio, extractor_with_sid
         mock_analyze.assert_called_once()
 
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_modified_audio_invalidates_cache(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test that modified audio file invalidates sidecar cache"""
     import numpy as np
@@ -262,7 +262,7 @@ def test_modified_audio_invalidates_cache(mock_load_audio, extractor_with_sideca
 
 # ===== Disabled Sidecar Tests =====
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_disabled_sidecar_always_analyzes(mock_load_audio, extractor_without_sidecar, temp_audio_file, sample_fingerprint):
     """Test that disabling sidecars forces audio analysis"""
     import numpy as np
@@ -289,7 +289,7 @@ def test_disabled_sidecar_always_analyzes(mock_load_audio, extractor_without_sid
         mock_analyze.assert_called_once()
 
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_disabled_sidecar_never_writes(mock_load_audio, extractor_without_sidecar, temp_audio_file, sample_fingerprint):
     """Test that disabling sidecars prevents writing"""
     import numpy as np
@@ -319,8 +319,8 @@ def test_incomplete_fingerprint_not_used(extractor_with_sidecar, temp_audio_file
     extractor_with_sidecar.sidecar_manager.write(temp_audio_file, sidecar_data)
 
     # Mock the analyzer to return complete fingerprint
-    with patch('auralis.library.fingerprint_extractor.load_audio') as mock_load, \
-         patch('auralis.library.fingerprint_extractor.AudioFingerprintAnalyzer') as mock_analyzer_class:
+    with patch('auralis.services.fingerprint_extractor.load_audio') as mock_load, \
+         patch('auralis.services.fingerprint_extractor.AudioFingerprintAnalyzer') as mock_analyzer_class:
 
         mock_load.return_value = ([0.1], 44100)
         mock_analyzer = Mock()
@@ -340,8 +340,8 @@ def test_incomplete_fingerprint_not_used(extractor_with_sidecar, temp_audio_file
 
 # ===== Batch Extraction Tests =====
 
-@patch('auralis.library.fingerprint_extractor.AudioFingerprintAnalyzer')
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.AudioFingerprintAnalyzer')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_batch_extraction_cache_statistics(mock_load_audio, mock_analyzer_class, extractor_with_sidecar, tmp_path, sample_fingerprint):
     """Test batch extraction tracks cache hit statistics"""
     # Create 3 files: 2 with cache, 1 without
@@ -389,7 +389,7 @@ def test_nonexistent_audio_file_fails_gracefully(extractor_with_sidecar, tmp_pat
     assert not success
 
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_audio_loading_error_fails_gracefully(mock_load_audio, extractor_with_sidecar, temp_audio_file):
     """Test extraction fails gracefully when audio loading fails"""
     # Make load_audio raise exception
@@ -400,7 +400,7 @@ def test_audio_loading_error_fails_gracefully(mock_load_audio, extractor_with_si
     assert not success
 
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_analysis_error_fails_gracefully(mock_load_audio, extractor_with_sidecar, temp_audio_file):
     """Test extraction fails gracefully when analysis fails"""
     import numpy as np
@@ -417,7 +417,7 @@ def test_analysis_error_fails_gracefully(mock_load_audio, extractor_with_sidecar
 
 # ===== Real-World Workflow Tests =====
 
-@patch('auralis.library.fingerprint_extractor.load_audio')
+@patch('auralis.services.fingerprint_extractor.load_audio')
 def test_two_pass_workflow(mock_load_audio, extractor_with_sidecar, temp_audio_file, sample_fingerprint):
     """Test typical two-pass workflow: first scan (slow), second scan (fast)"""
     import numpy as np
