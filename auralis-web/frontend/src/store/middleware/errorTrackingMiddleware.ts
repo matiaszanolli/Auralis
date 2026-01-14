@@ -205,49 +205,77 @@ export function createErrorTrackingMiddleware(
         const result = next(action);
 
         // Check if action contains error
+        let shouldTrackError = false;
+        let errorMessage: string = 'Unknown error';
+        let errorContext: Record<string, any> | undefined;
+
+        // Case 1: Object payload with error indicators
         if (act.payload && typeof act.payload === 'object') {
           const payload = act.payload as Record<string, any>;
 
-          // Look for error indicators
           if (payload.error || act.type?.includes('Error') || act.type?.includes('Failure')) {
-            const errorMessage =
-              payload.error || payload.message || act.type || 'Unknown error';
+            shouldTrackError = true;
+            errorMessage = payload.error || payload.message || act.type || 'Unknown error';
+            errorContext = payload;
+          }
+        }
+        // Case 2: String payload for error actions (e.g., player/setError)
+        else if (
+          act.payload &&
+          typeof act.payload === 'string' &&
+          (act.type?.includes('Error') || act.type?.includes('Failure') || act.type?.includes('setError'))
+        ) {
+          shouldTrackError = true;
+          errorMessage = act.payload;
+          errorContext = { message: act.payload };
+        }
 
-            const trackedError: TrackedError = {
-              id: generateErrorId(),
-              timestamp: Date.now(),
-              category: categorizeError(String(errorMessage)),
-              message: String(errorMessage),
+        if (shouldTrackError) {
+          const trackedError: TrackedError = {
+            id: generateErrorId(),
+            timestamp: Date.now(),
+            category: categorizeError(String(errorMessage)),
+            message: String(errorMessage),
+            action: act.type,
+            context: errorContext,
+            retryCount: 0,
+            maxRetries: 3,
+          };
+
+          // Store error
+          errorStore.add(trackedError);
+
+          // Log if enabled
+          if (finalConfig.logToConsole) {
+            console.error(`[Error Tracked] ${trackedError.category}: ${trackedError.message}`, {
               action: act.type,
-              context: payload,
-              retryCount: 0,
-              maxRetries: 3,
-            };
+              context: errorContext,
+            });
+          }
 
-            // Store error
-            errorStore.add(trackedError);
-
-            // Log if enabled
-            if (finalConfig.logToConsole) {
-              console.error(`[Error Tracked] ${trackedError.category}: ${trackedError.message}`, {
-                action: act.type,
-                context: payload,
-              });
-            }
-
-            // Call error callback
+          // Call error callback (wrap in try-catch to prevent callback errors from cascading)
+          try {
             finalConfig.onError?.(trackedError);
-
-            // Send to server if enabled
-            if (finalConfig.logToServer) {
-              captureErrorToServer(trackedError);
+          } catch (callbackError) {
+            // Silently ignore errors in error callbacks to prevent infinite loops
+            if (finalConfig.logToConsole) {
+              console.error('[Error Tracking] onError callback threw:', callbackError);
             }
+          }
 
-            // Attempt recovery based on category
-            if (trackedError.category === ErrorCategory.NETWORK) {
-              // Network errors - trigger reconnection attempt
-              store.dispatch(connectionActions.setError(trackedError.message));
-            }
+          // Send to server if enabled
+          if (finalConfig.logToServer) {
+            captureErrorToServer(trackedError);
+          }
+
+          // Attempt recovery based on category
+          // Avoid infinite loops: don't dispatch connection errors if we're already processing one
+          if (
+            trackedError.category === ErrorCategory.NETWORK &&
+            !act.type?.startsWith('connection/')
+          ) {
+            // Network errors - trigger reconnection attempt
+            store.dispatch(connectionActions.setError(trackedError.message));
           }
         }
 
@@ -274,7 +302,15 @@ export function createErrorTrackingMiddleware(
           console.error(`[Middleware Error] ${trackedError.category}:`, error);
         }
 
-        finalConfig.onError?.(trackedError);
+        // Call error callback (wrap in try-catch to prevent callback errors from cascading)
+        try {
+          finalConfig.onError?.(trackedError);
+        } catch (callbackError) {
+          // Silently ignore errors in error callbacks to prevent infinite loops
+          if (finalConfig.logToConsole) {
+            console.error('[Error Tracking] onError callback threw:', callbackError);
+          }
+        }
 
         throw error;
       }
