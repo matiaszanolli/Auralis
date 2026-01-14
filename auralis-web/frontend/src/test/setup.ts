@@ -9,6 +9,50 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { server } from './mocks/server'
 
+// ============================================================
+// Mock WebSocket Context Module
+// ============================================================
+// This mock replaces the real WebSocketContext to prevent:
+// 1. "Should not already be working" React concurrent errors
+// 2. WebSocket singleton state accumulation across tests
+// 3. Memory leaks from accumulated subscriptions
+vi.mock('../contexts/WebSocketContext', () => {
+  const mockSubscribe = vi.fn(() => () => {});
+  const mockSubscribeAll = vi.fn(() => () => {});
+  const mockSend = vi.fn();
+  const mockConnect = vi.fn();
+  const mockDisconnect = vi.fn();
+
+  return {
+    useWebSocketContext: vi.fn(() => ({
+      isConnected: true,
+      connectionStatus: 'connected' as const,
+      subscribe: mockSubscribe,
+      subscribeAll: mockSubscribeAll,
+      send: mockSend,
+      connect: mockConnect,
+      disconnect: mockDisconnect,
+    })),
+    WebSocketProvider: ({ children }: { children: React.ReactNode }) => children,
+    resetWebSocketSingletons: vi.fn(),
+  };
+});
+
+// ============================================================
+// Mock Enhancement Context Module
+// ============================================================
+// This mock prevents EnhancementContext from using real WebSocket
+vi.mock('../contexts/EnhancementContext', () => ({
+  useEnhancement: vi.fn(() => ({
+    settings: { enabled: true, preset: 'adaptive', intensity: 1.0 },
+    setEnabled: vi.fn(),
+    setPreset: vi.fn(),
+    setIntensity: vi.fn(),
+    isProcessing: false,
+  })),
+  EnhancementProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 // Create jest global alias for Vitest compatibility
 // This allows jest.mock() calls to work in tests
 ;(globalThis as any).jest = {

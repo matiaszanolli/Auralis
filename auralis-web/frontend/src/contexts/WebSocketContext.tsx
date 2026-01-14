@@ -252,6 +252,30 @@ let singletonRefCount = 0; // Track number of active providers
 const singletonSubscriptions: Map<string, Set<MessageHandler>> = new Map();
 const singletonGlobalHandlers: Set<MessageHandler> = new Set();
 
+/**
+ * Reset all WebSocket singletons - ONLY FOR TESTING
+ * This must be called between tests to prevent memory leaks from accumulated
+ * subscriptions and connections.
+ */
+export function resetWebSocketSingletons(): void {
+  // Close existing connection
+  if (singletonWSManager) {
+    try {
+      singletonWSManager.close();
+    } catch {
+      // Ignore errors during cleanup
+    }
+    singletonWSManager = null;
+  }
+
+  // Reset ref count
+  singletonRefCount = 0;
+
+  // Clear all subscriptions
+  singletonSubscriptions.clear();
+  singletonGlobalHandlers.clear();
+}
+
 // ============================================================================
 // WebSocket Provider Component
 // ============================================================================

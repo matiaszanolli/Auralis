@@ -53,12 +53,22 @@ export default defineConfig({
     restoreMocks: true, // Restore original mocks between tests
     resetModules: false, // Keep module cache between tests
 
-    // Thread configuration (memory management)
+    // Pool configuration (memory management)
     // CRITICAL: Prevent OOM errors in CI with limited memory
-    threads: true,
-    maxThreads: 2, // Max 2 parallel threads
-    minThreads: 1, // Min 1 thread
-    singleThread: false, // Use threads (not synchronous)
+    // Using 'forks' instead of 'threads' for better memory isolation
+    // Each fork gets its own V8 heap, preventing accumulation across tests
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        // Use limited parallel forks to balance speed and memory
+        minForks: 1,
+        maxForks: 2,
+        // Isolate each test file in its own subprocess
+        isolate: true,
+        // Exit forks after tests to free memory
+        execArgv: ['--expose-gc', '--max-old-space-size=1024'],
+      },
+    },
 
     // Reporter configuration
     reporters: ['default', 'html', 'json'],
