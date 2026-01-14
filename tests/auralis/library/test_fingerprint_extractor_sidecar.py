@@ -52,7 +52,7 @@ def temp_audio_file(tmp_path):
 
 @pytest.fixture
 def sample_fingerprint():
-    """Sample 25D fingerprint"""
+    """Sample 25D fingerprint (includes fingerprint_version as added by extractor)"""
     return {
         "sub_bass_pct": 0.588,
         "bass_pct": 39.111,
@@ -78,7 +78,8 @@ def sample_fingerprint():
         "loudness_variation_std": 10.0,
         "peak_consistency": 0.773,
         "stereo_width": 0.204,
-        "phase_correlation": 0.591
+        "phase_correlation": 0.591,
+        "fingerprint_version": 1
     }
 
 

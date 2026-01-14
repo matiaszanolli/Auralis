@@ -74,12 +74,13 @@ def test_check_mono_audio(mock_config):
 
 
 def test_check_different_sample_rates(sample_audio, mock_config):
-    """Test checking audio with different sample rates"""
+    """Test checking audio with different sample rates (all resampled to internal_sample_rate)"""
     audio, _ = sample_audio
 
     for sr in [22050, 44100, 48000, 96000]:
         result_audio, result_sr = check(audio, sr, mock_config)
-        assert result_sr == sr
+        # Audio is always resampled to config.internal_sample_rate
+        assert result_sr == mock_config.internal_sample_rate
 
 
 def test_check_custom_file_type(sample_audio, mock_config):
@@ -253,13 +254,15 @@ def test_file_validation_workflow(tmp_path):
 # ===== Edge Cases =====
 
 def test_check_empty_audio(mock_config):
-    """Test checking empty audio array"""
+    """Test checking empty audio array (should raise ModuleError)"""
+    from auralis.utils.logging import ModuleError
+
     audio = np.array([], dtype=np.float32)
     sr = 44100
 
-    # Should handle empty array
-    result_audio, result_sr = check(audio, sr, mock_config)
-    assert result_sr == sr
+    # Empty audio should raise ModuleError
+    with pytest.raises(ModuleError):
+        check(audio, sr, mock_config)
 
 
 def test_check_very_large_audio(mock_config):

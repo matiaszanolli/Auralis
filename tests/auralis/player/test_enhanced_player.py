@@ -152,7 +152,7 @@ class TestEnhancedAudioPlayerComprehensive:
         assert PlaybackState.LOADING.value == "loading"
         assert PlaybackState.ERROR.value == "error"
 
-    def test_enhanced_audio_player_initialization(self, enhanced_player, player_config):
+    def test_enhanced_audio_player_initialization(self, enhanced_player, player_config, get_repository_factory_callable):
         """Test EnhancedAudioPlayer initialization"""
         # Test with config and library manager
         assert enhanced_player is not None
@@ -160,13 +160,13 @@ class TestEnhancedAudioPlayerComprehensive:
         # Library may or may not be created depending on implementation
         assert enhanced_player.state == PlaybackState.STOPPED or hasattr(enhanced_player, 'state')
 
-        # Test without config (should use defaults)
-        default_player = EnhancedAudioPlayer()
+        # Test without config (should use defaults, but must provide required get_repository_factory)
+        default_player = EnhancedAudioPlayer(get_repository_factory=get_repository_factory_callable)
         assert default_player.config is not None
         del default_player
 
-        # Test without library manager - check that player initializes
-        no_lib_player = EnhancedAudioPlayer(config=player_config)
+        # Test with custom config (must provide required get_repository_factory)
+        no_lib_player = EnhancedAudioPlayer(config=player_config, get_repository_factory=get_repository_factory_callable)
         assert no_lib_player is not None
         no_lib_player.cleanup()
         del no_lib_player
