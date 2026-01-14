@@ -146,6 +146,12 @@ class FingerprintSimilarity:
                 target_fp,
                 max_candidates=n * prefilter_factor
             )
+            # Fallback to non-prefiltered search if prefiltering found nothing
+            if not candidates:
+                warning("Prefiltering found no candidates, falling back to full search")
+                all_fps = self.fingerprint_repo.get_all()
+                candidates = [(fp.track_id, self.normalizer.normalize(fp.to_vector()))
+                             for fp in all_fps if fp.track_id != track_id]
         else:
             # Get all fingerprints
             all_fps = self.fingerprint_repo.get_all()

@@ -54,6 +54,12 @@ impl Default for HpssConfig {
 /// # Returns
 /// Tuple of (harmonic_audio, percussive_audio) [n_samples each]
 pub fn hpss(y: &[f64], config: &HpssConfig) -> (Vec<f64>, Vec<f64>) {
+    // Handle audio shorter than one FFT frame
+    if y.len() < config.n_fft {
+        // Return zeros for both components (can't perform HPSS on too-short audio)
+        return (vec![0.0; y.len()], vec![0.0; y.len()]);
+    }
+
     // STFT analysis
     let stft = compute_stft(y, config.n_fft, config.hop_length);
 
@@ -77,8 +83,18 @@ pub fn hpss(y: &[f64], config: &HpssConfig) -> (Vec<f64>, Vec<f64>) {
 
 /// Compute Short-Time Fourier Transform (STFT) with Hann window
 fn compute_stft(y: &[f64], n_fft: usize, hop_length: usize) -> Array2<Complex64> {
-    let n_frames = (y.len() - n_fft) / hop_length + 1;
+    // Handle case where audio is shorter than FFT size
+    let n_frames = if y.len() < n_fft {
+        0
+    } else {
+        (y.len() - n_fft) / hop_length + 1
+    };
     let n_freqs = n_fft / 2 + 1;
+
+    // Return empty STFT for too-short audio
+    if n_frames == 0 {
+        return Array2::<Complex64>::zeros((n_freqs, 0));
+    }
 
     let mut stft = Array2::<Complex64>::zeros((n_freqs, n_frames));
 
