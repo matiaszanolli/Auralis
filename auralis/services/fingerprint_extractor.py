@@ -301,7 +301,8 @@ class FingerprintExtractor:
             if self.use_sidecar_files and self.sidecar_manager:
                 if self.sidecar_manager.is_valid(filepath_obj):
                     fingerprint = self.sidecar_manager.get_fingerprint(filepath_obj)
-                    if fingerprint and len(fingerprint) == 25:
+                    # Fingerprint should have 25 dimensions, may also include fingerprint_version
+                    if fingerprint and len(fingerprint) >= 25:
                         info(f"Loaded fingerprint from .25d file for track {track_id}")
                         cached = True
                     else:
