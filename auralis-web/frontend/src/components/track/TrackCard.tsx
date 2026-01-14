@@ -41,6 +41,11 @@ export const TrackCard: React.FC<TrackCardProps> = ({
   isPlaying = false,
   onPlay,
 }) => {
+  // For tracks, clicking anywhere on the card should trigger playback
+  const handleClick = () => {
+    onPlay(id);
+  };
+
   return (
     <MediaCard
       variant="track"
@@ -53,6 +58,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({
       artworkUrl={albumArt}
       isPlaying={isPlaying}
       onPlay={onPlay}
+      onClick={handleClick}
     />
   );
 };
