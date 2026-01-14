@@ -215,16 +215,14 @@ describe('Component Integration Tests', () => {
 
   describe('Component Rendering', () => {
     it('should render multiple components with shared Redux store', () => {
-      const StoreWrapper = ({ children }: any) => (
-        <Provider store={store}>{children}</Provider>
-      );
-
+      // Use render from test-utils which already provides all necessary providers
+      // (Redux, WebSocket mocks, Theme, etc.) - no need for custom wrapper
       const { unmount } = render(
-        <StoreWrapper>
+        <>
           <PlayerControls />
           <QueueManager />
           <ConnectionStatusIndicator />
-        </StoreWrapper>
+        </>
       );
 
       expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
