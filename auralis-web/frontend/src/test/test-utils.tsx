@@ -14,8 +14,14 @@ import React, { ReactElement, ReactNode, createContext, useContext } from 'react
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Provider as ReduxProvider } from 'react-redux'
+import { configureStore } from '@reduxjs/toolkit'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { ToastProvider } from '../components/shared/Toast'
+import playerReducer from '../store/slices/playerSlice'
+import queueReducer from '../store/slices/queueSlice'
+import cacheReducer from '../store/slices/cacheSlice'
+import connectionReducer from '../store/slices/connectionSlice'
 
 /**
  * Mock WebSocket Context for Testing
@@ -115,6 +121,25 @@ interface AllProvidersProps {
   children: ReactNode
 }
 
+/**
+ * Create a fresh Redux store for each test to ensure isolation
+ * This prevents state leakage between tests
+ */
+function createTestStore() {
+  return configureStore({
+    reducer: {
+      player: playerReducer,
+      queue: queueReducer,
+      cache: cacheReducer,
+      connection: connectionReducer,
+    },
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware({
+        serializableCheck: false, // Disable for tests to avoid warnings
+      }),
+  });
+}
+
 export function AllProviders({ children }: AllProvidersProps) {
   // Create a new QueryClient for each test to ensure isolation
   // Disable retries and refetching to make tests more predictable
@@ -134,22 +159,27 @@ export function AllProviders({ children }: AllProvidersProps) {
     },
   });
 
+  // Create a fresh Redux store for each test
+  const testStore = createTestStore();
+
   // Note: DragDropContext removed to prevent "Should not already be working" errors
   // Tests that need drag-drop should wrap components individually with DragDropContext
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <MockWebSocketProvider>
-          <ThemeProvider>
-            <MockEnhancementProvider>
-              <ToastProvider>
-                {children}
-              </ToastProvider>
-            </MockEnhancementProvider>
-          </ThemeProvider>
-        </MockWebSocketProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ReduxProvider store={testStore}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <MockWebSocketProvider>
+            <ThemeProvider>
+              <MockEnhancementProvider>
+                <ToastProvider>
+                  {children}
+                </ToastProvider>
+              </MockEnhancementProvider>
+            </ThemeProvider>
+          </MockWebSocketProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ReduxProvider>
   )
 }
 

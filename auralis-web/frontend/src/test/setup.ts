@@ -67,24 +67,38 @@ vi.mock('../contexts/EnhancementContext', () => ({
   clearAllMocks: vi.clearAllMocks,
 }
 
+// Ensure React scheduler is idle before each test
+// This prevents "Should not already be working" errors from leaking between tests
+beforeEach(async () => {
+  // Yield to the event loop to allow any pending microtasks to complete
+  await new Promise(resolve => setTimeout(resolve, 0))
+})
+
 // Cleanup after each test case with aggressive memory management
 afterEach(async () => {
   // 1. React Testing Library cleanup (unmount all components)
+  // This must happen first to trigger React's cleanup lifecycle
   cleanup()
 
-  // 2. Clear all vi mocks
+  // 2. Flush all pending React work by yielding to the event loop multiple times
+  // This is critical to prevent "Should not already be working" errors
+  // React's concurrent scheduler may have pending work that needs to complete
+  await new Promise(resolve => setTimeout(resolve, 0))
+  await new Promise(resolve => setTimeout(resolve, 0))
+
+  // 3. Clear all vi mocks
   vi.clearAllMocks()
 
-  // 3. Clear jest timer mocks
+  // 4. Clear jest timer mocks
   vi.useRealTimers()
 
-  // 4. Force garbage collection if available (V8)
+  // 5. Force garbage collection if available (V8)
   if (global.gc) {
     global.gc()
   }
 
-  // 5. Small delay to allow cleanup to complete
-  await new Promise(resolve => setTimeout(resolve, 0))
+  // 6. Final yield to ensure React scheduler is completely idle
+  await new Promise(resolve => setTimeout(resolve, 10))
 })
 
 // Mock window.matchMedia (used by MUI components for responsive design)
