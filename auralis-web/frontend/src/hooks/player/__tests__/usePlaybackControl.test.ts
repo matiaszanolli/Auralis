@@ -8,13 +8,62 @@
  * @module hooks/player/__tests__/usePlaybackControl.test
  */
 
+import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
 import { usePlaybackControl } from '@/hooks/player/usePlaybackControl';
-import { useRestAPI } from '@/hooks/api/useRestAPI';
+import playerReducer from '@/store/slices/playerSlice';
+import queueReducer from '@/store/slices/queueSlice';
+import * as WebSocketContext from '@/contexts/WebSocketContext';
 
-// Mock the useRestAPI hook
-vi.mock('@/hooks/api/useRestAPI');
+// Mock sendMessage from WebSocketContext
+const mockSendMessage = vi.fn();
+vi.spyOn(WebSocketContext, 'useWebSocketContext').mockReturnValue({
+  sendMessage: mockSendMessage,
+  isConnected: true,
+  connectionStatus: 'connected' as const,
+  subscribe: vi.fn(() => () => {}),
+  subscribeAll: vi.fn(() => () => {}),
+  send: vi.fn(),
+  connect: vi.fn(),
+  disconnect: vi.fn(),
+} as any);
+
+// Create a test store with a current track
+const createTestStore = () => {
+  const store = configureStore({
+    reducer: {
+      player: playerReducer,
+      queue: queueReducer,
+    },
+  });
+
+  // Set up initial state with a current track
+  store.dispatch({
+    type: 'player/setCurrentTrack',
+    payload: {
+      id: 123,
+      title: 'Test Track',
+      artist: 'Test Artist',
+      album: 'Test Album',
+      duration: 180,
+      filepath: '/path/to/track.mp3',
+    },
+  });
+
+  return store;
+};
+
+// Wrapper component that provides Redux store
+// WebSocketContext is mocked above
+const createWrapper = () => {
+  const store = createTestStore();
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(Provider, { store }, children);
+  };
+};
 
 describe('usePlaybackControl', () => {
   beforeEach(() => {
@@ -22,26 +71,17 @@ describe('usePlaybackControl', () => {
   });
 
   describe('play()', () => {
-    it('should call POST /api/player/play when play is invoked', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
-      const { result } = renderHook(() => usePlaybackControl());
+    it('should call sendMessage with play_normal when play is invoked', async () => {
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.play();
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/api/player/play');
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        type: 'play_normal',
+        data: { track_id: 123 },
+      });
     });
 
     it('should set isLoading to true while play is executing', async () => {
@@ -59,7 +99,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       const playPromise = act(async () => {
         const promise = result.current.play();
@@ -85,7 +125,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         try {
@@ -114,7 +154,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.pause();
@@ -136,7 +176,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         try {
@@ -164,7 +204,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.seek(120);
@@ -186,7 +226,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         // Test negative seek
@@ -211,7 +251,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         try {
@@ -239,7 +279,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.next();
@@ -263,7 +303,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.previous();
@@ -287,7 +327,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.setVolume(0.8);
@@ -309,7 +349,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       // Test volume > 1.0
       await act(async () => {
@@ -334,7 +374,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         try {
@@ -362,7 +402,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       // Trigger error
       await act(async () => {
@@ -386,18 +426,7 @@ describe('usePlaybackControl', () => {
 
   describe('isLoading state', () => {
     it('should start as false', () => {
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: vi.fn(),
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       expect(result.current.isLoading).toBe(false);
     });
@@ -405,18 +434,7 @@ describe('usePlaybackControl', () => {
 
   describe('error state', () => {
     it('should start as null', () => {
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: vi.fn(),
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       expect(result.current.error).toBeNull();
     });
@@ -436,7 +454,7 @@ describe('usePlaybackControl', () => {
         error: null,
       } as any);
 
-      const { result } = renderHook(() => usePlaybackControl());
+      const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.stop();
