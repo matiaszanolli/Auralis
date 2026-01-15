@@ -67,7 +67,7 @@ export const mockCacheHealth = {
   total_size_mb: 206.0,
   memory_healthy: true,
   tier1_hit_rate: 0.95,
-  overall_hit_rate: 0.938,
+  overall_hit_rate: 0.95,  // 95% hit rate
   timestamp: new Date().toISOString(),
 };
 
