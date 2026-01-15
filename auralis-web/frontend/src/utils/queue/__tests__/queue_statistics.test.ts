@@ -407,7 +407,8 @@ describe('QueueStatistics', () => {
     ];
 
     const stats = QueueStatistics.calculateStats(tracks);
-    expect(stats.albumDistribution).toBeDefined();
+    // QueueStats uses 'albums' property (not 'albumDistribution')
+    expect(stats.albums).toBeDefined();
   });
 
   // =========================================================================
