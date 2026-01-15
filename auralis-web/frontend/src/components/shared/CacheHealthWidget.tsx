@@ -79,6 +79,7 @@ export function CacheHealthWidget({
   if (loading && !cacheHealth) {
     return (
       <div
+        data-testid="health-skeleton"
         style={{
           width: sizeStyles.width,
           height: sizeStyles.height,
