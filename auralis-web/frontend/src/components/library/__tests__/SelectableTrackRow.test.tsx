@@ -13,10 +13,10 @@ import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import SelectableTrackRow from '../SelectableTrackRow';
+import SelectableTrackRow from '../Items/tracks/SelectableTrackRow';
 
 // Mock TrackRow component
-vi.mock('../TrackRow', () => ({
+vi.mock('../Items/tracks/TrackRow', () => ({
   default: function MockTrackRow({ track, onPlay, onEditMetadata }: any) {
     return (
       <div data-testid={`track-row-${track.id}`}>
