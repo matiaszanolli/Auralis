@@ -69,9 +69,9 @@ describe('SearchBar', () => {
 
       render(<SearchBar onSearch={mockOnSearch} />);
 
-      expect(
-        screen.getByText(/Search by track title, artist name, or album/i)
-      ).toBeInTheDocument();
+      // Check the placeholder attribute on the input
+      const input = screen.getByRole('textbox');
+      expect(input).toHaveAttribute('placeholder', 'Search tracks, albums, artists...');
     });
 
     it('should display search icon', () => {
