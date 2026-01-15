@@ -1044,10 +1044,11 @@ class TestAlbumArtistEndpoints:
         mock_artist.albums = []  # Prevent Mock infinite recursion
         mock_artist.tracks = []  # Prevent Mock infinite recursion
 
-        mock_library = Mock()
-        mock_library.artists.get_by_id.return_value = mock_artist
+        # Router uses repository_factory (not library_manager) via get_repository_factory
+        mock_factory = Mock()
+        mock_factory.artists.get_by_id.return_value = mock_artist
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
             response = client.get("/api/library/artists/1")
 
             assert response.status_code == 200
@@ -1056,10 +1057,11 @@ class TestAlbumArtistEndpoints:
 
     def test_get_artist_not_found(self, client):
         """Test getting non-existent artist"""
-        mock_library = Mock()
-        mock_library.artists.get_by_id.return_value = None
+        # Router uses repository_factory (not library_manager) via get_repository_factory
+        mock_factory = Mock()
+        mock_factory.artists.get_by_id.return_value = None
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
             response = client.get("/api/library/artists/999")
             assert response.status_code == 404
 
@@ -1079,10 +1081,11 @@ class TestAlbumArtistEndpoints:
         from types import SimpleNamespace
         mock_album = SimpleNamespace(**album_data)
 
-        mock_library = Mock()
-        mock_library.albums.get_by_id.return_value = mock_album
+        # Router uses repository_factory (not library_manager) via get_repository_factory
+        mock_factory = Mock()
+        mock_factory.albums.get_by_id.return_value = mock_album
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
             response = client.get("/api/library/albums/1")
 
             assert response.status_code == 200
@@ -1091,10 +1094,11 @@ class TestAlbumArtistEndpoints:
 
     def test_get_album_not_found(self, client):
         """Test getting non-existent album"""
-        mock_library = Mock()
-        mock_library.albums.get_by_id.return_value = None
+        # Router uses repository_factory (not library_manager) via get_repository_factory
+        mock_factory = Mock()
+        mock_factory.albums.get_by_id.return_value = None
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
             response = client.get("/api/library/albums/999")
             assert response.status_code == 404
 
@@ -1121,10 +1125,12 @@ class TestAlbumArtistEndpoints:
             tracks=[]
         )
 
-        mock_library = Mock()
-        mock_library.albums.get_all.return_value = [mock_album1, mock_album2]
+        # Router uses repository_factory (not library_manager) via get_repository_factory
+        # get_all returns (albums, total) tuple for pagination support
+        mock_factory = Mock()
+        mock_factory.albums.get_all.return_value = ([mock_album1, mock_album2], 2)
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_factory}):
             response = client.get("/api/library/albums")
 
             assert response.status_code == 200
