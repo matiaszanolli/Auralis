@@ -161,6 +161,8 @@ export function CacheHealthWidget({
   return (
     <>
       <div
+        data-testid="cache-health-widget"
+        tabIndex={interactive ? 0 : undefined}
         onClick={() => interactive && setShowExpandedMonitor(true)}
         style={{
           width: sizeStyles.width,
@@ -195,6 +197,8 @@ export function CacheHealthWidget({
 
         {/* Status Text */}
         <div
+          aria-label={`Cache status: ${statusText}`}
+          aria-live="polite"
           style={{
             fontSize: sizeStyles.textSize,
             fontWeight: tokens.typography.fontWeight.semibold,
