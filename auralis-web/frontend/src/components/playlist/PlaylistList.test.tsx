@@ -31,6 +31,23 @@ vi.mock('@/components/shared/Toast', async (importOriginal) => {
   }
 })
 
+// Mock DroppablePlaylist to avoid DragDropContext requirement
+// The actual drag-drop functionality is tested separately
+vi.mock('./DroppablePlaylist', () => ({
+  DroppablePlaylist: ({ playlistId, playlistName, trackCount, selected, onClick, onContextMenu }: any) => (
+    <div
+      role="button"
+      data-testid={`playlist-${playlistId}`}
+      data-selected={selected}
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+    >
+      <span>{playlistName}</span>
+      <span>{trackCount} tracks</span>
+    </div>
+  ),
+}))
+
 const mockPlaylists = [
   {
     id: 1,
