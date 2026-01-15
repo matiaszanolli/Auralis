@@ -276,37 +276,48 @@ describe('QueueStatistics', () => {
   });
 
   it('should flag highly variable track lengths', () => {
+    // To trigger variance > 3: (max - min) / average > 3
+    // With [15, 15, 15, 700]: average = 186.25, variance = 685/186.25 = 3.68 > 3
     const tracks: Track[] = [
       {
         id: 1,
-        title: 'Short',
+        title: 'Short 1',
         artist: 'Artist A',
         album: 'Album',
-        duration: 30,
+        duration: 15,
         filepath: '/music/1.mp3',
       },
       {
         id: 2,
-        title: 'Long',
+        title: 'Short 2',
         artist: 'Artist B',
         album: 'Album',
-        duration: 600,
+        duration: 15,
         filepath: '/music/2.mp3',
       },
       {
         id: 3,
-        title: 'Long',
+        title: 'Short 3',
         artist: 'Artist C',
         album: 'Album',
-        duration: 600,
+        duration: 15,
         filepath: '/music/3.mp3',
+      },
+      {
+        id: 4,
+        title: 'Very Long',
+        artist: 'Artist D',
+        album: 'Album',
+        duration: 700,
+        filepath: '/music/4.mp3',
       },
     ];
 
     const stats = QueueStatistics.calculateStats(tracks);
     const assessment = QueueStatistics.assessPlayQuality(stats);
-    // May flag for high variance
+    // Should flag for high variance and possibly very long tracks (> 600s)
     expect(['poor', 'fair', 'good']).toContain(assessment.rating);
+    expect(assessment.issues.length).toBeGreaterThan(0);
   });
 
   it('should flag empty queue as poor quality', () => {
