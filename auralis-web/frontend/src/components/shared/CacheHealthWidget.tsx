@@ -211,6 +211,7 @@ export function CacheHealthWidget({
 
         {/* Health Percentage */}
         <div
+          data-testid="percentage"
           style={{
             fontSize: tokens.typography.fontSize.xs,
             color: tokens.colors.text.secondary,

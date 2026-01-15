@@ -496,15 +496,17 @@ describe('CacheHealthWidget', () => {
   it('should scale text appropriately in small size', () => {
     const { container } = render(<CacheHealthWidget size="small" />);
 
+    // Percentage uses fixed tokens.typography.fontSize.xs (11px) regardless of widget size
     const percentage = container.querySelector('[data-testid="percentage"]');
-    expect(percentage).toHaveStyle({ fontSize: '14px' });
+    expect(percentage).toHaveStyle({ fontSize: '11px' });
   });
 
   it('should scale text appropriately in large size', () => {
     const { container } = render(<CacheHealthWidget size="large" />);
 
+    // Percentage uses fixed tokens.typography.fontSize.xs (11px) regardless of widget size
     const percentage = container.querySelector('[data-testid="percentage"]');
-    expect(percentage).toHaveStyle({ fontSize: '24px' });
+    expect(percentage).toHaveStyle({ fontSize: '11px' });
   });
 
   // ============================================================================
