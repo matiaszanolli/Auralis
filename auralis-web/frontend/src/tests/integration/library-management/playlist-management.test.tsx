@@ -27,8 +27,20 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
+import { DragDropContext } from '@hello-pangea/dnd';
 import PlaylistList from '@/components/playlist/PlaylistList';
 import * as playlistService from '@/services/playlistService';
+
+/**
+ * Wrapper component that provides DragDropContext for PlaylistList.
+ * The test-utils intentionally excludes DragDropContext to prevent state conflicts,
+ * so tests using drag-drop components must provide it individually.
+ */
+const PlaylistListWithDnd: React.FC<React.ComponentProps<typeof PlaylistList>> = (props) => (
+  <DragDropContext onDragEnd={() => {}}>
+    <PlaylistList {...props} />
+  </DragDropContext>
+);
 
 // Mock window.confirm for delete operations
 const mockConfirm = vi.fn();
@@ -55,7 +67,7 @@ describe('Playlist Management Integration Tests', () => {
       const user = userEvent.setup();
       const onPlaylistSelect = vi.fn();
 
-      render(<PlaylistList onPlaylistSelect={onPlaylistSelect} />);
+      render(<PlaylistListWithDnd onPlaylistSelect={onPlaylistSelect} />);
 
       // Wait for playlists to load
       await waitFor(() => {
@@ -89,7 +101,7 @@ describe('Playlist Management Integration Tests', () => {
 
     it('should load existing playlists on mount', async () => {
       // Arrange & Act
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Assert - Wait for playlists to load (MSW returns 3 mock playlists)
       await waitFor(() => {
@@ -107,7 +119,7 @@ describe('Playlist Management Integration Tests', () => {
     it('should rename an existing playlist', async () => {
       // Arrange
       const user = userEvent.setup();
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Wait for playlists to load
       await waitFor(() => {
@@ -136,7 +148,7 @@ describe('Playlist Management Integration Tests', () => {
       const user = userEvent.setup();
       mockConfirm.mockReturnValue(true); // User confirms deletion
 
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Wait for playlists to load
       await waitFor(() => {
@@ -157,7 +169,7 @@ describe('Playlist Management Integration Tests', () => {
     it('should duplicate a playlist', async () => {
       // Arrange
       const user = userEvent.setup();
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Wait for playlists to load
       await waitFor(() => {
@@ -177,7 +189,7 @@ describe('Playlist Management Integration Tests', () => {
 
     it('should display playlist metadata correctly', async () => {
       // Arrange & Act
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Wait for playlists to load
       await waitFor(() => {
@@ -268,7 +280,7 @@ describe('Playlist Management Integration Tests', () => {
   describe('Playlist Display & Navigation', () => {
     it('should display playlists in library view', async () => {
       // Arrange & Act
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Assert - Playlists section is visible
       await waitFor(() => {
@@ -285,7 +297,7 @@ describe('Playlist Management Integration Tests', () => {
       const user = userEvent.setup();
       const onPlaylistSelect = vi.fn();
 
-      render(<PlaylistList onPlaylistSelect={onPlaylistSelect} selectedPlaylistId={1} />);
+      render(<PlaylistListWithDnd onPlaylistSelect={onPlaylistSelect} selectedPlaylistId={1} />);
 
       // Wait for playlists to load
       await waitFor(() => {
@@ -306,7 +318,7 @@ describe('Playlist Management Integration Tests', () => {
       // Arrange - Mock empty playlists response
       const user = userEvent.setup();
 
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Wait for component to render
       await waitFor(() => {
@@ -332,7 +344,7 @@ describe('Playlist Management Integration Tests', () => {
   describe('Drag & Drop Reordering', () => {
     it('should support drag track to new position within playlist', async () => {
       // Arrange
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Wait for playlists to load
       await waitFor(() => {
@@ -351,7 +363,7 @@ describe('Playlist Management Integration Tests', () => {
 
     it('should allow drag track from library to playlist', async () => {
       // Arrange
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Wait for playlists to load
       await waitFor(() => {
@@ -371,7 +383,7 @@ describe('Playlist Management Integration Tests', () => {
       // Arrange
       const user = userEvent.setup();
 
-      render(<PlaylistList />);
+      render(<PlaylistListWithDnd />);
 
       // Wait for playlists to load
       await waitFor(() => {
@@ -403,7 +415,7 @@ describe('Playlist Management Integration Tests', () => {
       const user = userEvent.setup();
       const onPlaylistSelect = vi.fn();
 
-      render(<PlaylistList onPlaylistSelect={onPlaylistSelect} />);
+      render(<PlaylistListWithDnd onPlaylistSelect={onPlaylistSelect} />);
 
       // Wait for playlists to load
       await waitFor(() => {
