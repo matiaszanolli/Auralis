@@ -160,7 +160,7 @@ describe('SelectableTrackRow', () => {
 
   describe('Selection Styling', () => {
     it('should apply selected styling when isSelected is true', () => {
-      const { container } = render(
+      render(
         <SelectableTrackRow
             track={mockTrack}
             index={0}
@@ -169,12 +169,14 @@ describe('SelectableTrackRow', () => {
           />
       );
 
-      const selectableContainer = container.querySelector('[class*="SelectableContainer"]');
+      // Find the selectable container via checkbox's parent (MUI styled classes don't include component names)
+      const checkbox = screen.getByRole('checkbox');
+      const selectableContainer = checkbox.closest('.MuiBox-root');
       expect(selectableContainer).toBeInTheDocument();
     });
 
     it('should not apply selected styling when isSelected is false', () => {
-      const { container } = render(
+      render(
         <SelectableTrackRow
             track={mockTrack}
             index={0}
@@ -183,17 +185,18 @@ describe('SelectableTrackRow', () => {
           />
       );
 
-      const selectableContainer = container.querySelector('[class*="SelectableContainer"]');
+      // Find the selectable container via checkbox's parent (MUI styled classes don't include component names)
+      const checkbox = screen.getByRole('checkbox');
+      const selectableContainer = checkbox.closest('.MuiBox-root');
       expect(selectableContainer).toBeInTheDocument();
     });
   });
 
   describe('Event Handling', () => {
     it('should toggle selection when container clicked', async () => {
-      const user = userEvent.setup();
       const onToggleSelect = vi.fn();
 
-      const { container } = render(
+      render(
         <SelectableTrackRow
             track={mockTrack}
             index={0}
@@ -202,11 +205,12 @@ describe('SelectableTrackRow', () => {
           />
       );
 
-      const selectableContainer = container.querySelector('[class*="SelectableContainer"]');
-      if (selectableContainer) {
-        fireEvent.click(selectableContainer);
-        expect(onToggleSelect).toHaveBeenCalled();
-      }
+      // Find the selectable container via checkbox's parent (MUI styled classes don't include component names)
+      const checkbox = screen.getByRole('checkbox');
+      const selectableContainer = checkbox.closest('.MuiBox-root');
+      expect(selectableContainer).toBeInTheDocument();
+      fireEvent.click(selectableContainer!);
+      expect(onToggleSelect).toHaveBeenCalled();
     });
 
     it('should not toggle selection when clicking action button', async () => {
@@ -402,9 +406,10 @@ describe('SelectableTrackRow', () => {
         </>
       );
 
-      const checkboxes = container.querySelectorAll('[role="checkbox"]');
-      expect((checkboxes[0] as HTMLInputElement).checked).toBe(true);
-      expect((checkboxes[1] as HTMLInputElement).checked).toBe(false);
+      // Use getAllByRole since MUI Checkbox uses actual input elements
+      const checkboxes = screen.getAllByRole('checkbox') as HTMLInputElement[];
+      expect(checkboxes[0].checked).toBe(true);
+      expect(checkboxes[1].checked).toBe(false);
     });
   });
 
@@ -496,9 +501,10 @@ describe('SelectableTrackRow', () => {
     });
 
     it('should handle very long track title', () => {
+      const longTitle = 'A'.repeat(200);
       const longTrack = {
         ...mockTrack,
-        title: 'A'.repeat(200),
+        title: longTitle,
       };
 
       render(
@@ -510,13 +516,15 @@ describe('SelectableTrackRow', () => {
           />
       );
 
-      expect(screen.getByText(/A+/)).toBeInTheDocument();
+      // Use exact text match to avoid matching "Test Artist" which also contains "A"
+      expect(screen.getByText(longTitle)).toBeInTheDocument();
     });
 
     it('should handle very long artist name', () => {
+      const longArtist = 'B'.repeat(200);
       const longTrack = {
         ...mockTrack,
-        artist: 'B'.repeat(200),
+        artist: longArtist,
       };
 
       render(
@@ -528,7 +536,7 @@ describe('SelectableTrackRow', () => {
           />
       );
 
-      expect(screen.getByText(/B+/)).toBeInTheDocument();
+      expect(screen.getByText(longArtist)).toBeInTheDocument();
     });
   });
 
