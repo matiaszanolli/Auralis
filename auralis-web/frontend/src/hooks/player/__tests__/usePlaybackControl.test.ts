@@ -9,41 +9,53 @@
  */
 
 import React from 'react';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { usePlaybackControl } from '@/hooks/player/usePlaybackControl';
 import playerReducer from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
-import * as WebSocketContext from '@/contexts/WebSocketContext';
 
-// Mock sendMessage from WebSocketContext
+// Mock sendMessage - defined before vi.mock calls for hoisting
 const mockSendMessage = vi.fn();
-vi.spyOn(WebSocketContext, 'useWebSocketContext').mockReturnValue({
-  sendMessage: mockSendMessage,
-  isConnected: true,
-  connectionStatus: 'connected' as const,
-  subscribe: vi.fn(() => () => {}),
-  subscribeAll: vi.fn(() => () => {}),
-  send: vi.fn(),
-  connect: vi.fn(),
-  disconnect: vi.fn(),
-} as any);
 
-// Create a test store with a current track
-const createTestStore = () => {
-  const store = configureStore({
-    reducer: {
-      player: playerReducer,
-      queue: queueReducer,
-    },
-  });
+// Mock WebSocketContext with vi.mock for proper hoisting
+// vi.mock is hoisted to top of file, ensuring mock is applied before imports
+vi.mock('@/contexts/WebSocketContext', () => ({
+  useWebSocketContext: () => ({
+    sendMessage: mockSendMessage,
+    isConnected: true,
+    connectionStatus: 'connected' as const,
+    subscribe: vi.fn(() => () => {}),
+    subscribeAll: vi.fn(() => () => {}),
+    send: vi.fn(),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+  }),
+}));
 
-  // Set up initial state with a current track
-  store.dispatch({
-    type: 'player/setCurrentTrack',
-    payload: {
+// Mock useRestAPI for tests that need to override API behavior
+// Default mock returns a functional API object
+const mockPost = vi.fn().mockResolvedValue({ success: true });
+vi.mock('@/hooks/api/useRestAPI', () => ({
+  useRestAPI: () => ({
+    post: mockPost,
+    get: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    clearError: vi.fn(),
+    isLoading: false,
+    error: null,
+  }),
+}));
+
+// Mock usePlaybackState - it's WebSocket-based, not Redux-based
+// Provides currentTrack for play() to use
+vi.mock('@/hooks/player/usePlaybackState', () => ({
+  usePlaybackState: () => ({
+    currentTrack: {
       id: 123,
       title: 'Test Track',
       artist: 'Test Artist',
@@ -51,9 +63,27 @@ const createTestStore = () => {
       duration: 180,
       filepath: '/path/to/track.mp3',
     },
-  });
+    isPlaying: false,
+    volume: 1.0,
+    position: 0,
+    duration: 180,
+    queue: [],
+    queueIndex: 0,
+    repeatMode: 'none' as const,
+    isShuffled: false,
+    isLoading: false,
+    error: null,
+  }),
+}));
 
-  return store;
+// Create a test store - current track is provided by mocked usePlaybackState
+const createTestStore = () => {
+  return configureStore({
+    reducer: {
+      player: playerReducer,
+      queue: queueReducer,
+    },
+  });
 };
 
 // Wrapper component that provides Redux store
@@ -84,46 +114,23 @@ describe('usePlaybackControl', () => {
       });
     });
 
-    it('should set isLoading to true while play is executing', async () => {
-      const mockPost = vi.fn(
-        () => new Promise((resolve) => setTimeout(() => resolve({ success: true }), 100))
-      );
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
+    it('should set isLoading to false after play completes', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
-      const playPromise = act(async () => {
-        const promise = result.current.play();
-        expect(result.current.isLoading).toBe(true);
-        await promise;
+      // play() is synchronous (just sends WebSocket message), so isLoading goes true->false quickly
+      await act(async () => {
+        await result.current.play();
       });
 
-      await playPromise;
       expect(result.current.isLoading).toBe(false);
     });
 
     it('should handle play errors gracefully', async () => {
-      const errorMessage = 'Player not available';
-      const mockPost = vi.fn().mockRejectedValue(new Error(errorMessage));
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
+      const errorMessage = 'WebSocket send failed';
+      // play() uses WebSocket sendMessage, so make it throw
+      mockSendMessage.mockImplementationOnce(() => {
+        throw new Error(errorMessage);
+      });
 
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
@@ -141,40 +148,26 @@ describe('usePlaybackControl', () => {
   });
 
   describe('pause()', () => {
-    it('should call POST /api/player/pause when pause is invoked', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
+    it('should call sendMessage with pause type when pause is invoked', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.pause();
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/api/player/pause');
+      // pause() uses WebSocket sendMessage, not REST API
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        type: 'pause',
+        data: {},
+      });
     });
 
     it('should handle pause errors', async () => {
-      const mockPost = vi.fn().mockRejectedValue(new Error('Pause failed'));
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
+      // pause() uses sendMessage which doesn't throw in normal operation
+      // This test verifies that if sendMessage throws, the error is captured
+      mockSendMessage.mockImplementationOnce(() => {
+        throw new Error('Pause failed');
+      });
 
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
@@ -191,65 +184,32 @@ describe('usePlaybackControl', () => {
   });
 
   describe('seek()', () => {
-    it('should call POST /api/player/seek with position when seek is invoked', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
+    it('should call POST /api/player/seek with position as query param', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.seek(120);
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/api/player/seek', { position: 120 });
+      // seek() uses api.post(url, undefined, queryParams) pattern
+      expect(mockPost).toHaveBeenCalledWith('/api/player/seek', undefined, { position: 120 });
     });
 
     it('should clamp position to valid range (0 to duration)', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
-        // Test negative seek
+        // Test negative seek - should be clamped to 0
         await result.current.seek(-10);
       });
 
-      // Should be clamped to 0
+      // Third argument is the query params object
       const calls = mockPost.mock.calls;
-      expect(calls[0][1].position).toBeGreaterThanOrEqual(0);
+      expect(calls[0][2].position).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle seek errors', async () => {
-      const mockPost = vi.fn().mockRejectedValue(new Error('Seek failed'));
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
+      mockPost.mockRejectedValueOnce(new Error('Seek failed'));
 
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
@@ -267,18 +227,6 @@ describe('usePlaybackControl', () => {
 
   describe('next()', () => {
     it('should call POST /api/player/next when next is invoked', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -291,18 +239,6 @@ describe('usePlaybackControl', () => {
 
   describe('previous()', () => {
     it('should call POST /api/player/previous when previous is invoked', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
@@ -314,65 +250,34 @@ describe('usePlaybackControl', () => {
   });
 
   describe('setVolume()', () => {
-    it('should call POST /api/player/volume with volume when setVolume is invoked', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
+    it('should call POST /api/player/volume with volume as query param (0-100 scale)', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.setVolume(0.8);
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/api/player/volume', { volume: 0.8 });
+      // Implementation converts 0.0-1.0 to 0-100 scale and uses query params
+      // 0.8 * 100 = 80
+      expect(mockPost).toHaveBeenCalledWith('/api/player/volume', undefined, { volume: 80 });
     });
 
-    it('should clamp volume to 0.0-1.0 range', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
+    it('should clamp volume to 0.0-1.0 range before converting to 0-100', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
-      // Test volume > 1.0
+      // Test volume > 1.0 - should be clamped to 1.0, then converted to 100
       await act(async () => {
         await result.current.setVolume(1.5);
       });
 
       const calls = mockPost.mock.calls;
-      expect(calls[0][1].volume).toBeLessThanOrEqual(1.0);
-      expect(calls[0][1].volume).toBeGreaterThanOrEqual(0.0);
+      // Third argument is query params, volume should be clamped to 100 (1.0 * 100)
+      expect(calls[0][2].volume).toBeLessThanOrEqual(100);
+      expect(calls[0][2].volume).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle volume errors', async () => {
-      const mockPost = vi.fn().mockRejectedValue(new Error('Volume change failed'));
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
+      mockPost.mockRejectedValueOnce(new Error('Volume change failed'));
 
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
@@ -390,24 +295,15 @@ describe('usePlaybackControl', () => {
 
   describe('clearError()', () => {
     it('should clear error state when clearError is called', async () => {
-      const mockPost = vi.fn().mockRejectedValue(new Error('Test error'));
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
+      // Trigger an error by making seek() fail (seek uses REST API)
+      mockPost.mockRejectedValueOnce(new Error('Test error'));
 
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
-      // Trigger error
+      // Trigger error via seek (which uses REST API)
       await act(async () => {
         try {
-          await result.current.play();
+          await result.current.seek(100);
         } catch (err) {
           // Error expected
         }
@@ -441,26 +337,18 @@ describe('usePlaybackControl', () => {
   });
 
   describe('stop()', () => {
-    it('should call POST /api/player/stop when stop is invoked', async () => {
-      const mockPost = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useRestAPI).mockReturnValue({
-        post: mockPost,
-        get: vi.fn(),
-        put: vi.fn(),
-        patch: vi.fn(),
-        delete: vi.fn(),
-        clearError: vi.fn(),
-        isLoading: false,
-        error: null,
-      } as any);
-
+    it('should call sendMessage with stop type when stop is invoked', async () => {
       const { result } = renderHook(() => usePlaybackControl(), { wrapper: createWrapper() });
 
       await act(async () => {
         await result.current.stop();
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/api/player/stop');
+      // stop() uses WebSocket sendMessage, not REST API
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        type: 'stop',
+        data: {},
+      });
     });
   });
 });
