@@ -1249,10 +1249,10 @@ class TestPlaylistEndpoints:
 
     def test_add_track_to_playlist_success(self, client):
         """Test adding track to playlist"""
-        mock_library = Mock()
-        mock_library.playlists.add_track.return_value = True
+        mock_repos = Mock()
+        mock_repos.playlists.add_track.return_value = True
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
             response = client.post("/api/playlists/1/tracks", json={"track_ids": [5]})
 
             assert response.status_code == 200
@@ -1262,18 +1262,18 @@ class TestPlaylistEndpoints:
 
     def test_remove_track_from_playlist_success(self, client):
         """Test removing track from playlist"""
-        mock_library = Mock()
+        mock_repos = Mock()
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
             response = client.delete("/api/playlists/1/tracks/5")
 
             assert response.status_code == 200
 
     def test_clear_playlist_success(self, client):
         """Test clearing all tracks from playlist"""
-        mock_library = Mock()
+        mock_repos = Mock()
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
             response = client.delete("/api/playlists/1/tracks")
 
             assert response.status_code == 200
