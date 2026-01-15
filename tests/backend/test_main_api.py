@@ -788,17 +788,17 @@ class TestLyricsEndpoint:
     """Test lyrics endpoint"""
 
     def test_get_lyrics_no_library(self, client):
-        """Test getting lyrics when library not available"""
-        with patch.dict('main.globals_dict', {'library_manager': None}):
+        """Test getting lyrics when repository factory not available"""
+        with patch.dict('main.globals_dict', {'repository_factory': None}):
             response = client.get("/api/library/tracks/1/lyrics")
             assert response.status_code == 503
 
     def test_get_lyrics_track_not_found(self, client):
         """Test getting lyrics for non-existent track"""
-        mock_library = Mock()
-        mock_library.tracks.get_by_id.return_value = None
+        mock_repos = Mock()
+        mock_repos.tracks.get_by_id.return_value = None
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
             response = client.get("/api/library/tracks/999/lyrics")
             assert response.status_code == 404
 
@@ -809,10 +809,10 @@ class TestLyricsEndpoint:
         mock_track.lyrics = "[00:00.00]Test lyrics line 1\n[00:05.00]Test lyrics line 2"
         mock_track.filepath = "/path/to/track.mp3"
 
-        mock_library = Mock()
-        mock_library.tracks.get_by_id.return_value = mock_track
+        mock_repos = Mock()
+        mock_repos.tracks.get_by_id.return_value = mock_track
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
             response = client.get("/api/library/tracks/1/lyrics")
 
             assert response.status_code == 200
@@ -827,10 +827,10 @@ class TestLyricsEndpoint:
         mock_track.lyrics = "Plain text lyrics without timestamps"
         mock_track.filepath = "/path/to/track.mp3"
 
-        mock_library = Mock()
-        mock_library.tracks.get_by_id.return_value = mock_track
+        mock_repos = Mock()
+        mock_repos.tracks.get_by_id.return_value = mock_track
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
             response = client.get("/api/library/tracks/1/lyrics")
 
             assert response.status_code == 200
@@ -843,10 +843,10 @@ class TestLyricsEndpoint:
         mock_track.lyrics = None
         mock_track.filepath = "/path/to/track.mp3"
 
-        mock_library = Mock()
-        mock_library.tracks.get_by_id.return_value = mock_track
+        mock_repos = Mock()
+        mock_repos.tracks.get_by_id.return_value = mock_track
 
-        with patch.dict('main.globals_dict', {'library_manager': mock_library}):
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repos}):
             response = client.get("/api/library/tracks/1/lyrics")
 
             assert response.status_code == 200
