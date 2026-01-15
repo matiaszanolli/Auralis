@@ -199,14 +199,15 @@ describe('AlbumCard', () => {
         albumId={mockAlbum.id}
         title={mockAlbum.title}
         artist={mockAlbum.artist}
-        trackCount={mockAlbum.track_count}
-        hasArtwork={!!mockAlbum.artwork_url}
+        trackCount={mockAlbum.trackCount}
+        hasArtwork={!!mockAlbum.artworkUrl}
         year={mockAlbum.year}
         onClick={mockOnClick}
       />
     );
 
-    expect(screen.getByText('2023')).toBeInTheDocument();
+    // Year appears in secondary metadata as part of "10 tracks • 2023"
+    expect(screen.getByText(/2023/)).toBeInTheDocument();
   });
 
   it('should display track count', () => {
@@ -217,14 +218,16 @@ describe('AlbumCard', () => {
         albumId={mockAlbum.id}
         title={mockAlbum.title}
         artist={mockAlbum.artist}
-        trackCount={mockAlbum.track_count}
-        hasArtwork={!!mockAlbum.artwork_url}
+        trackCount={mockAlbum.trackCount}
+        hasArtwork={!!mockAlbum.artworkUrl}
         year={mockAlbum.year}
         onClick={mockOnClick}
       />
     );
 
-    expect(screen.getByText(/10 tracks/i)).toBeInTheDocument();
+    // Track count appears in both badge and secondary metadata
+    const trackCountElements = screen.getAllByText(/10 tracks/i);
+    expect(trackCountElements.length).toBeGreaterThan(0);
   });
 
   it('should call onClick when clicked', () => {
@@ -235,8 +238,8 @@ describe('AlbumCard', () => {
         albumId={mockAlbum.id}
         title={mockAlbum.title}
         artist={mockAlbum.artist}
-        trackCount={mockAlbum.track_count}
-        hasArtwork={!!mockAlbum.artwork_url}
+        trackCount={mockAlbum.trackCount}
+        hasArtwork={!!mockAlbum.artworkUrl}
         year={mockAlbum.year}
         onClick={mockOnClick}
       />
@@ -256,7 +259,7 @@ describe('AlbumCard', () => {
         albumId={mockAlbum.id}
         title={mockAlbum.title}
         artist={mockAlbum.artist}
-        trackCount={mockAlbum.track_count}
+        trackCount={mockAlbum.trackCount}
         hasArtwork={false}
         year={mockAlbum.year}
         onClick={mockOnClick}
