@@ -270,9 +270,9 @@ describe('QueueRecommendationsPanel', () => {
     const discoverTab = screen.getByText('Discover');
     await user.click(discoverTab);
 
-    // Should display tracks with numbers
-    const trackNumbers = screen.getAllByText(/#\d/);
-    expect(trackNumbers.length).toBeGreaterThan(0);
+    // Should display track titles from discovery playlist
+    expect(screen.getByText('Song 1')).toBeInTheDocument();
+    expect(screen.getByText('Song 2')).toBeInTheDocument();
   });
 
   // =========================================================================
