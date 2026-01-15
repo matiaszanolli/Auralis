@@ -112,8 +112,18 @@ def client(mock_track, mock_broadcast_manager, mock_metadata_editor):
     Returns:
         tuple: (TestClient, mock_broadcast_manager, mock_metadata_editor, mock_repository_factory)
     """
+    import sys
+    from types import ModuleType
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
+
+    # Break circular import: routers -> services -> config -> routers
+    # Pre-populate config.routes with a stub that has setup_routers
+    if 'config.routes' not in sys.modules:
+        routes_stub = ModuleType('config.routes')
+        routes_stub.setup_routers = lambda app: None  # Stub function
+        sys.modules['config.routes'] = routes_stub
+
     from routers.metadata import create_metadata_router
 
     # Create mock repository factory with tracks repository
