@@ -11,7 +11,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen } from '@/test/test-utils';
 import { act } from 'react-dom/test-utils';
-import ArtistDetailView from '../ArtistDetailView';
+import ArtistDetailView from '../Details/ArtistDetailView';
 
 // Mock related components
 vi.mock('../../album/AlbumArt', () => ({
