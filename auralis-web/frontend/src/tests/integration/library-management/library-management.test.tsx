@@ -72,8 +72,11 @@ describe('Library Management Integration Tests', () => {
     });
 
     it('should display albums view correctly', async () => {
-      // Arrange & Act
-      render(<CozyLibraryView view="albums" />);
+      // Wrap render in act() to ensure all initial state updates are flushed
+      // This prevents "Should not already be working" React concurrent errors
+      await act(async () => {
+        render(<CozyLibraryView view="albums" />);
+      });
 
       // Assert - Albums view uses LibraryViewRouter (different component structure)
       // Just verify it renders without crashing
@@ -85,8 +88,11 @@ describe('Library Management Integration Tests', () => {
     });
 
     it('should display artists view correctly', async () => {
-      // Arrange & Act
-      render(<CozyLibraryView view="artists" />);
+      // Wrap render in act() to ensure all initial state updates are flushed
+      // This prevents "Should not already be working" React concurrent errors
+      await act(async () => {
+        render(<CozyLibraryView view="artists" />);
+      });
 
       // Assert - Artists view uses LibraryViewRouter (different component structure)
       // Just verify it renders without crashing
