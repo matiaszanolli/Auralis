@@ -82,7 +82,7 @@ export const Alert = React.forwardRef<
   };
 
   return (
-    <div ref={ref} style={containerStyles} className={className}>
+    <div ref={ref} role="alert" style={containerStyles} className={className}>
       {icon && <div>{icon}</div>}
       <div style={contentStyles}>{children}</div>
       {onClose && (
