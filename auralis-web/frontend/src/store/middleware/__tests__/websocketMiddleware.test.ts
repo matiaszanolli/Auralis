@@ -19,7 +19,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
-import playerReducer from '@/store/slices/playerSlice';
+import playerReducer, { setDuration as setPlayerDuration } from '@/store/slices/playerSlice';
 import queueReducer from '@/store/slices/queueSlice';
 import cacheReducer from '@/store/slices/cacheSlice';
 import connectionReducer from '@/store/slices/connectionSlice';
@@ -182,6 +182,17 @@ describe('WebSocket Middleware', () => {
   // ============================================================================
 
   describe('Message Handlers', () => {
+    // Simulate connection being established so messages are processed
+    // (middleware only processes messages when isConnected is true)
+    beforeEach(() => {
+      const connectionCallback = mockProtocolClient.onConnectionChange.mock.calls[0]?.[0];
+      if (connectionCallback) {
+        connectionCallback(true);
+      }
+      // Set a duration so setCurrentTime works (it uses Math.min(position, duration))
+      store.dispatch(setPlayerDuration(300));
+    });
+
     it('should handle PLAY message', () => {
       const message: WSMessage = {
         type: MessageType.PLAY,
@@ -393,6 +404,16 @@ describe('WebSocket Middleware', () => {
   // ============================================================================
 
   describe('Batch Updates', () => {
+    // Simulate connection being established so messages are processed
+    beforeEach(() => {
+      const connectionCallback = mockProtocolClient.onConnectionChange.mock.calls[0]?.[0];
+      if (connectionCallback) {
+        connectionCallback(true);
+      }
+      // Set a duration so setCurrentTime works (it uses Math.min(position, duration))
+      store.dispatch(setPlayerDuration(300));
+    });
+
     it('should handle STATUS_UPDATE with multiple fields', () => {
       const message: WSMessage = {
         type: MessageType.STATUS_UPDATE,
@@ -430,6 +451,16 @@ describe('WebSocket Middleware', () => {
   // ============================================================================
 
   describe('Integration', () => {
+    // Simulate connection being established so messages are processed
+    beforeEach(() => {
+      const connectionCallback = mockProtocolClient.onConnectionChange.mock.calls[0]?.[0];
+      if (connectionCallback) {
+        connectionCallback(true);
+      }
+      // Set a duration so setCurrentTime works (it uses Math.min(position, duration))
+      store.dispatch(setPlayerDuration(300));
+    });
+
     it('should queue messages when offline', () => {
       const queue = new OfflineMessageQueue();
 
