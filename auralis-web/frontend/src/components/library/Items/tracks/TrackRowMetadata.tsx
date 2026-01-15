@@ -31,7 +31,7 @@ export const TrackRowMetadata: React.FC<TrackRowMetadataProps> = ({
       </TrackInfo>
 
       {album && (
-        <TrackAlbum sx={{ display: { xs: 'none', md: 'block' } }}>
+        <TrackAlbum data-testid="track-album" sx={{ display: { xs: 'none', md: 'block' } }}>
           {album}
         </TrackAlbum>
       )}

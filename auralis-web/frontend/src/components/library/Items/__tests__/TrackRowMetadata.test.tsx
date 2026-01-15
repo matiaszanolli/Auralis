@@ -115,8 +115,8 @@ describe('TrackRowMetadata', () => {
         />
       );
 
-      // Empty string is falsy, so album should not render
-      expect(screen.queryByText(/^$/)).not.toBeInTheDocument();
+      // Empty string is falsy, so album element should not render
+      expect(screen.queryByTestId('track-album')).not.toBeInTheDocument();
     });
 
     it('should handle undefined album', () => {
