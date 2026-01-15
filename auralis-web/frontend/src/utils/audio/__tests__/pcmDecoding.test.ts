@@ -205,10 +205,15 @@ describe('PCM Decoding Utilities', () => {
       // Should have ~6 samples (2 * 3)
       expect(resampled.length).toBe(6);
 
-      // Should follow linear interpolation
+      // Should follow linear interpolation between source samples
+      // i=0: sourceIndex=0.0 → 0.0
+      // i=1: sourceIndex=0.33 → 0.33 (interpolated)
+      // i=2: sourceIndex=0.67 → 0.67 (interpolated)
+      // i=3: sourceIndex=1.0 → 1.0 (end of source)
       expect(resampled[0]).toBeCloseTo(0.0, 5);
-      expect(resampled[3]).toBeCloseTo(0.5, 5); // Mid-point
-      expect(resampled[5]).toBeCloseTo(1.0, 5);
+      expect(resampled[1]).toBeCloseTo(0.333, 2); // Interpolated mid-point
+      expect(resampled[2]).toBeCloseTo(0.667, 2); // Interpolated
+      expect(resampled[3]).toBeCloseTo(1.0, 5); // End of source data
     });
 
     it('should handle downsample ratios', () => {
@@ -229,7 +234,7 @@ describe('PCM Decoding Utilities', () => {
       const duration = sampleCountToDuration(44100, 44100);
       expect(duration).toBeCloseTo(1.0, 5);
 
-      const halfSecond = sampleCountToDuration(24050, 48000);
+      const halfSecond = sampleCountToDuration(24000, 48000);
       expect(halfSecond).toBeCloseTo(0.5, 5);
     });
 
