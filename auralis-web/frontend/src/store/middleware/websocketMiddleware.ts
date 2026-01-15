@@ -35,7 +35,7 @@ import * as connectionActions from '../slices/connectionSlice';
  * Queue for messages received while offline
  * Replayed when connection restored
  */
-class OfflineMessageQueue {
+export class OfflineMessageQueue {
   private queue: WSMessage[] = [];
   private maxSize = 100;
 
