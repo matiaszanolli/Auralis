@@ -18,6 +18,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import {
   shallowEqual,
   deepEqual,
@@ -246,25 +247,25 @@ describe('Memoization Utilities', () => {
   describe('useSelectiveMemo', () => {
     it('should memoize props based on dependencies', () => {
       const props = { a: 1, b: 2, c: 3 };
-      const memoizedProps = useSelectiveMemo(props, ['a', 'b']);
+      const { result } = renderHook(() => useSelectiveMemo(props, ['a', 'b']));
 
-      expect(memoizedProps).toBeDefined();
-      expect(memoizedProps.a).toBe(1);
-      expect(memoizedProps.b).toBe(2);
+      expect(result.current).toBeDefined();
+      expect(result.current.a).toBe(1);
+      expect(result.current.b).toBe(2);
     });
 
     it('should include all props even if not watched', () => {
       const props = { a: 1, b: 2, c: 3 };
-      const memoizedProps = useSelectiveMemo(props, ['a']);
+      const { result } = renderHook(() => useSelectiveMemo(props, ['a']));
 
-      expect(memoizedProps.c).toBe(3);
+      expect(result.current.c).toBe(3);
     });
 
     it('should handle empty watch list', () => {
       const props = { a: 1, b: 2 };
-      const memoizedProps = useSelectiveMemo(props, []);
+      const { result } = renderHook(() => useSelectiveMemo(props, []));
 
-      expect(memoizedProps).toBeDefined();
+      expect(result.current).toBeDefined();
     });
   });
 
