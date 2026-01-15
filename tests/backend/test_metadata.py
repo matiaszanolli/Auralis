@@ -100,28 +100,39 @@ def mock_metadata_editor():
 
 
 @pytest.fixture(scope="function", autouse=False)
-def client(mock_library_manager, mock_broadcast_manager, mock_metadata_editor):
+def client(mock_track, mock_broadcast_manager, mock_metadata_editor):
     """Create test client with mocked dependencies
 
     IMPORTANT: This fixture creates a NEW router for EACH test.
     This ensures that mock modifications in one test don't affect others.
+
+    Note: Phase 6B migrated to RepositoryFactory pattern - uses get_repository_factory
+    instead of get_library_manager.
+
+    Returns:
+        tuple: (TestClient, mock_broadcast_manager, mock_metadata_editor, mock_repository_factory)
     """
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from routers.metadata import create_metadata_router
 
+    # Create mock repository factory with tracks repository
+    mock_repository_factory = Mock()
+    mock_repository_factory.tracks = Mock()
+    mock_repository_factory.tracks.get_by_id.return_value = mock_track
+
     # Create a fresh app and router for this test
     app = FastAPI()
     router = create_metadata_router(
-        get_library_manager=lambda: mock_library_manager,
+        get_repository_factory=lambda: mock_repository_factory,
         broadcast_manager=mock_broadcast_manager,
         metadata_editor=mock_metadata_editor  # Fresh mock for each test
     )
     app.include_router(router)
 
     client = TestClient(app)
-    # Return tuple for unpacking in tests
-    return client, mock_broadcast_manager, mock_metadata_editor
+    # Return tuple for unpacking in tests (added mock_repository_factory for edge case tests)
+    return client, mock_broadcast_manager, mock_metadata_editor, mock_repository_factory
 
 
 class TestGetEditableFields:
@@ -129,7 +140,7 @@ class TestGetEditableFields:
 
     def test_get_editable_fields_success(self, client):
         """Test successfully getting editable fields for a track"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         response = test_client.get("/api/metadata/tracks/1/fields")
 
@@ -145,20 +156,19 @@ class TestGetEditableFields:
 
     def test_get_editable_fields_track_not_found(self, client):
         """Test getting fields for non-existent track"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, mock_repo_factory = client
 
-        with patch('auralis.library.repositories.TrackRepository') as MockTrackRepo:
-            repo_instance = MockTrackRepo.return_value
-            repo_instance.get_by_id.return_value = None
+        # Override mock to return None for non-existent track
+        mock_repo_factory.tracks.get_by_id.return_value = None
 
-            response = test_client.get("/api/metadata/tracks/999/fields")
+        response = test_client.get("/api/metadata/tracks/999/fields")
 
-            assert response.status_code == 404
-            assert "not found" in response.json()["detail"].lower()
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
 
     def test_get_editable_fields_file_not_found(self, client):
         """Test getting fields when audio file doesn't exist"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         mock_editor.get_editable_fields.side_effect = FileNotFoundError("File not found")
 
@@ -174,7 +184,7 @@ class TestGetTrackMetadata:
     
     def test_get_metadata_success(self, client):
         """Test successfully getting track metadata"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         response = test_client.get("/api/metadata/tracks/1")
 
@@ -189,24 +199,26 @@ class TestGetTrackMetadata:
     
     def test_get_metadata_track_not_found(self, client):
         """Test getting metadata for non-existent track"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, mock_repo_factory = client
 
-        with patch('auralis.library.repositories.TrackRepository') as MockTrackRepo:
-            repo_instance = MockTrackRepo.return_value
-            repo_instance.get_by_id.return_value = None
+        # Override mock to return None for non-existent track
+        mock_repo_factory.tracks.get_by_id.return_value = None
 
-            response = test_client.get("/api/metadata/tracks/999")
+        response = test_client.get("/api/metadata/tracks/999")
 
-            assert response.status_code == 404
+        assert response.status_code == 404
 
 
 class TestUpdateTrackMetadata:
     """Tests for PUT /api/metadata/tracks/{track_id}"""
 
     
-    def test_update_metadata_success(self, client, mock_library_manager):
+    def test_update_metadata_success(self, client, mock_track):
         """Test successfully updating track metadata"""
-        test_client, broadcast_manager, mock_editor = client
+        test_client, broadcast_manager, mock_editor, mock_repo_factory = client
+
+        # Mock update_metadata to return the track
+        mock_repo_factory.tracks.update_metadata.return_value = mock_track
 
         update_data = {
             "title": "New Title",
@@ -225,8 +237,8 @@ class TestUpdateTrackMetadata:
         # Verify metadata editor was called
         mock_editor.write_metadata.assert_called_once()
 
-        # Verify database commit
-        mock_library_manager.session.commit.assert_called_once()
+        # Verify repository update was called
+        mock_repo_factory.tracks.update_metadata.assert_called_once()
 
         # Verify WebSocket broadcast
         broadcast_manager.broadcast.assert_called_once()
@@ -237,7 +249,7 @@ class TestUpdateTrackMetadata:
     
     def test_update_metadata_with_backup(self, client):
         """Test updating metadata with backup enabled"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         update_data = {"title": "New Title"}
 
@@ -252,7 +264,7 @@ class TestUpdateTrackMetadata:
     
     def test_update_metadata_without_backup(self, client):
         """Test updating metadata with backup disabled"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         update_data = {"title": "New Title"}
 
@@ -267,7 +279,7 @@ class TestUpdateTrackMetadata:
     
     def test_update_metadata_empty_fields(self, client):
         """Test updating with no fields provided"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         response = test_client.put("/api/metadata/tracks/1", json={})
 
@@ -275,9 +287,9 @@ class TestUpdateTrackMetadata:
         assert "no metadata fields" in response.json()["detail"].lower()
 
     
-    def test_update_metadata_write_failure(self, client, mock_library_manager):
+    def test_update_metadata_write_failure(self, client):
         """Test handling write failure"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         mock_editor.write_metadata.return_value = False
 
@@ -287,72 +299,68 @@ class TestUpdateTrackMetadata:
         assert response.status_code == 500
         assert "failed to write" in response.json()["detail"].lower()
 
-        # Verify rollback was called
-        mock_library_manager.session.rollback.assert_called_once()
-
     
     def test_update_metadata_track_not_found(self, client):
         """Test updating non-existent track"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, mock_repo_factory = client
 
-        with patch('auralis.library.repositories.TrackRepository') as MockTrackRepo:
-            repo_instance = MockTrackRepo.return_value
-            repo_instance.get_by_id.return_value = None
+        # Override mock to return None for non-existent track
+        mock_repo_factory.tracks.get_by_id.return_value = None
 
-            response = test_client.put("/api/metadata/tracks/999", json={"title": "New"})
+        response = test_client.put("/api/metadata/tracks/999", json={"title": "New"})
 
-            assert response.status_code == 404
+        assert response.status_code == 404
 
 
 class TestBatchUpdateMetadata:
     """Tests for POST /api/metadata/batch"""
 
     
-    def test_batch_update_success(self, client, mock_library_manager):
+    def test_batch_update_success(self, client):
         """Test successful batch update"""
-        test_client, broadcast_manager, mock_editor = client
+        test_client, broadcast_manager, mock_editor, mock_repo_factory = client
 
         # Create mock tracks
         track1 = Mock(id=1, filepath="/path/to/test1.mp3", title="Track 1")
         track2 = Mock(id=2, filepath="/path/to/test2.mp3", title="Track 2")
 
-        with patch('auralis.library.repositories.TrackRepository') as MockTrackRepo:
-            repo_instance = MockTrackRepo.return_value
-            repo_instance.get_by_id.side_effect = lambda track_id: track1 if track_id == 1 else track2
+        # Configure mock repository factory to return different tracks by ID
+        mock_repo_factory.tracks.get_by_id.side_effect = lambda track_id: track1 if track_id == 1 else track2
+        # Mock update_track to return the updated track
+        mock_repo_factory.tracks.update_track.side_effect = lambda track_id, **kwargs: (
+            track1 if track_id == 1 else track2
+        )
 
-            batch_request = {
-                "updates": [
-                    {"track_id": 1, "metadata": {"title": "New Title 1"}},
-                    {"track_id": 2, "metadata": {"artist": "New Artist 2"}}
-                ],
-                "backup": True
-            }
+        batch_request = {
+            "updates": [
+                {"track_id": 1, "metadata": {"title": "New Title 1"}},
+                {"track_id": 2, "metadata": {"artist": "New Artist 2"}}
+            ],
+            "backup": True
+        }
 
-            response = test_client.post("/api/metadata/batch", json=batch_request)
+        response = test_client.post("/api/metadata/batch", json=batch_request)
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is True
-            assert data["total"] == 2
-            assert data["successful"] == 2
-            assert data["failed"] == 0
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["total"] == 2
+        assert data["successful"] == 2
+        assert data["failed"] == 0
 
-            # Verify batch update was called
-            mock_editor.batch_update.assert_called_once()
+        # Verify batch update was called
+        mock_editor.batch_update.assert_called_once()
 
-            # Verify database commit
-            mock_library_manager.session.commit.assert_called_once()
-
-            # Verify WebSocket broadcast
-            broadcast_manager.broadcast.assert_called_once()
-            broadcast_call = broadcast_manager.broadcast.call_args[0][0]
-            assert broadcast_call["type"] == "metadata_batch_updated"
-            assert len(broadcast_call["data"]["track_ids"]) == 2
+        # Verify WebSocket broadcast
+        broadcast_manager.broadcast.assert_called_once()
+        broadcast_call = broadcast_manager.broadcast.call_args[0][0]
+        assert broadcast_call["type"] == "metadata_batch_updated"
+        assert len(broadcast_call["data"]["track_ids"]) == 2
 
     
     def test_batch_update_empty_list(self, client):
         """Test batch update with empty list"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         batch_request = {
             "updates": [],
@@ -367,7 +375,7 @@ class TestBatchUpdateMetadata:
     
     def test_batch_update_partial_success(self, client):
         """Test batch update with some failures"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, mock_repo_factory = client
 
         # Mock batch_update to return partial success
         mock_editor.batch_update.return_value = {
@@ -382,28 +390,28 @@ class TestBatchUpdateMetadata:
 
         track1 = Mock(id=1, filepath="/path/to/test1.mp3")
 
-        with patch('auralis.library.repositories.TrackRepository') as MockTrackRepo:
-            repo_instance = MockTrackRepo.return_value
-            repo_instance.get_by_id.side_effect = lambda track_id: track1 if track_id == 1 else None
+        # Configure mock to return track1 for ID 1, None for ID 2
+        mock_repo_factory.tracks.get_by_id.side_effect = lambda track_id: track1 if track_id == 1 else None
+        mock_repo_factory.tracks.update_track.return_value = track1
 
-            batch_request = {
-                "updates": [
-                    {"track_id": 1, "metadata": {"title": "New Title"}},
-                    {"track_id": 2, "metadata": {"title": "New Title"}}
-                ]
-            }
+        batch_request = {
+            "updates": [
+                {"track_id": 1, "metadata": {"title": "New Title"}},
+                {"track_id": 2, "metadata": {"title": "New Title"}}
+            ]
+        }
 
-            response = test_client.post("/api/metadata/batch", json=batch_request)
+        response = test_client.post("/api/metadata/batch", json=batch_request)
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["successful"] == 1
-            assert data["failed"] == 1
+        assert response.status_code == 200
+        data = response.json()
+        assert data["successful"] == 1
+        assert data["failed"] == 1
 
     
-    def test_batch_update_exception_handling(self, client, mock_library_manager):
+    def test_batch_update_exception_handling(self, client):
         """Test batch update error handling"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         mock_editor.batch_update.side_effect = Exception("Batch update failed")
 
@@ -418,9 +426,6 @@ class TestBatchUpdateMetadata:
         assert response.status_code == 500
         assert "batch update failed" in response.json()["detail"].lower()
 
-        # Verify rollback was called
-        mock_library_manager.session.rollback.assert_called_once()
-
 
 class TestMetadataValidation:
     """Tests for metadata validation"""
@@ -428,7 +433,7 @@ class TestMetadataValidation:
     
     def test_invalid_field_name(self, client):
         """Test updating with invalid field name"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         # Extra fields should be rejected by Pydantic with extra="forbid"
         update_data = {
@@ -444,7 +449,7 @@ class TestMetadataValidation:
     
     def test_year_type_validation(self, client):
         """Test year field type validation"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         update_data = {
             "year": "not a number"  # Should fail validation
@@ -458,7 +463,7 @@ class TestMetadataValidation:
     
     def test_multiple_fields_update(self, client):
         """Test updating multiple fields at once"""
-        test_client, _, mock_editor = client
+        test_client, _, mock_editor, _ = client
 
         update_data = {
             "title": "New Title",
