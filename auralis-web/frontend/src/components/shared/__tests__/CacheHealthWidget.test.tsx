@@ -228,10 +228,12 @@ describe('CacheHealthWidget', () => {
       data: {
         ...mockCacheHealth,
         healthy: false,
-        hit_rate: 0.4,
+        tier1_healthy: false,
+        overall_hit_rate: 0.4,
       },
       loading: false,
       error: null,
+      isHealthy: false,
       refetch: vi.fn(),
     }));
 
@@ -241,20 +243,28 @@ describe('CacheHealthWidget', () => {
   });
 
   it('should show warning count in badge', () => {
+    // Alert count is calculated as:
+    // (!tier1_healthy ? 1 : 0) + (!tier2_healthy ? 1 : 0) + (!memory_healthy ? 1 : 0) + (overall_hit_rate < 0.7 ? 1 : 0)
+    // Setting all 3 health fields to false + low hit rate = 4 alerts
     vi.mocked(hooks.useCacheHealth).mockImplementation(() => ({
       data: {
         ...mockCacheHealth,
         healthy: false,
-        warnings: 3,
+        tier1_healthy: false,
+        tier2_healthy: false,
+        memory_healthy: false,
+        overall_hit_rate: 0.4,
       },
       loading: false,
       error: null,
+      isHealthy: false,
       refetch: vi.fn(),
     }));
 
     render(<CacheHealthWidget />);
 
-    expect(screen.getByText('3')).toBeInTheDocument();
+    // Should show 4 alerts (3 unhealthy tiers + low hit rate)
+    expect(screen.getByText('4')).toBeInTheDocument();
   });
 
   // ============================================================================

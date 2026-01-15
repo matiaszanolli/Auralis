@@ -225,6 +225,7 @@ export function CacheHealthWidget({
         {/* Alert Badge */}
         {alertCount > 0 && (
           <div
+            data-testid="alert-badge"
             style={{
               position: 'absolute',
               top: tokens.spacing.sm,
