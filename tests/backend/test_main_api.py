@@ -249,15 +249,32 @@ class TestFileUpload:
 
     def test_upload_single_wav_file(self, client, tmp_path):
         """Test uploading a single WAV file"""
+        import numpy as np
+
         # Create a temporary WAV file
         test_file = tmp_path / "test.wav"
         test_file.write_bytes(b"RIFF" + b"\x00" * 100)  # Minimal WAV header
 
-        with open(test_file, "rb") as f:
-            response = client.post(
-                "/api/files/upload",
-                files={"files": ("test.wav", f, "audio/wav")}
-            )
+        # Mock load_audio to return valid test data (avoids actual audio parsing)
+        mock_audio = np.zeros((44100, 2), dtype=np.float32)  # 1 second stereo
+        mock_track = Mock()
+        mock_track.id = 1
+        mock_track.title = "test"
+        mock_track.duration = 1.0
+        mock_track.sample_rate = 44100
+
+        mock_library = Mock()
+        mock_library.add_track.return_value = mock_track
+
+        # Use globals_dict pattern for library_manager (factory-injected dependency)
+        # load_audio is patched at module level since it's imported there
+        with patch('routers.files.load_audio', return_value=(mock_audio, 44100)), \
+             patch.dict('main.globals_dict', {'library_manager': mock_library}):
+            with open(test_file, "rb") as f:
+                response = client.post(
+                    "/api/files/upload",
+                    files={"files": ("test.wav", f, "audio/wav")}
+                )
 
         assert response.status_code == 200
         data = response.json()
@@ -308,18 +325,33 @@ class TestFileUpload:
 
     def test_upload_mixed_valid_invalid_files(self, client, tmp_path):
         """Test uploading mix of valid and invalid files"""
+        import numpy as np
+
         wav_file = tmp_path / "good.wav"
         wav_file.write_bytes(b"audio")
 
         txt_file = tmp_path / "bad.txt"
         txt_file.write_text("text")
 
+        # Mock load_audio and library_manager for valid files
+        mock_audio = np.zeros((44100, 2), dtype=np.float32)
+        mock_track = Mock()
+        mock_track.id = 1
+        mock_track.title = "good"
+        mock_track.duration = 1.0
+        mock_track.sample_rate = 44100
+
+        mock_library = Mock()
+        mock_library.add_track.return_value = mock_track
+
         files = [
             ("files", ("good.wav", open(wav_file, "rb"), "audio/wav")),
             ("files", ("bad.txt", open(txt_file, "rb"), "text/plain"))
         ]
 
-        response = client.post("/api/files/upload", files=files)
+        with patch('routers.files.load_audio', return_value=(mock_audio, 44100)), \
+             patch.dict('main.globals_dict', {'library_manager': mock_library}):
+            response = client.post("/api/files/upload", files=files)
 
         # Close file handles
         for _, (_, f, _) in files:
@@ -334,6 +366,8 @@ class TestFileUpload:
 
     def test_upload_all_supported_formats(self, client, tmp_path):
         """Test uploading all supported audio formats"""
+        import numpy as np
+
         formats = [".mp3", ".wav", ".flac", ".ogg", ".m4a"]
         files = []
 
@@ -342,7 +376,24 @@ class TestFileUpload:
             test_file.write_bytes(b"audio data")
             files.append(("files", (f"test{fmt}", open(test_file, "rb"), "audio/*")))
 
-        response = client.post("/api/files/upload", files=files)
+        # Mock load_audio and library_manager for all files
+        mock_audio = np.zeros((44100, 2), dtype=np.float32)
+
+        # Create mock tracks for each format
+        def create_mock_track(info):
+            track = Mock()
+            track.id = hash(info.get('filename', '')) % 1000
+            track.title = info.get('title', 'test')
+            track.duration = info.get('duration', 1.0)
+            track.sample_rate = info.get('sample_rate', 44100)
+            return track
+
+        mock_library = Mock()
+        mock_library.add_track.side_effect = create_mock_track
+
+        with patch('routers.files.load_audio', return_value=(mock_audio, 44100)), \
+             patch.dict('main.globals_dict', {'library_manager': mock_library}):
+            response = client.post("/api/files/upload", files=files)
 
         # Close file handles
         for _, (_, f, _) in files:
