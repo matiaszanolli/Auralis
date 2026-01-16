@@ -10,19 +10,70 @@ import { vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useSimilarTracksFormatting } from '../useSimilarTracksFormatting';
 
-// Mock design system tokens
+// Mock design system tokens with all required properties for primitives
+// The hook uses: semantic.success (90%+), accent.primary (80-90%), accent.secondary (70-80%), text.secondary (<70%)
 vi.mock('@/design-system/tokens', () => ({
   tokens: {
     colors: {
       accent: {
+        primary: '#7C3AED',    // Used by hook for 80-90% similarity
+        secondary: '#999999',  // Used by hook for 70-80% similarity
         success: '#00AA00',
         purple: '#7C3AED',
-        secondary: '#999999',
       },
       text: {
         primary: '#FFFFFF',
-        secondary: '#CCCCCC',
+        secondary: '#CCCCCC',  // Used by hook for <70% similarity
+        disabled: '#666666',
       },
+      bg: {
+        primary: '#0B1020',
+        secondary: '#101729',
+        tertiary: '#151D2F',
+        elevated: '#1A2338',
+        overlay: 'rgba(11, 16, 32, 0.95)',
+      },
+      border: {
+        light: 'rgba(115, 102, 240, 0.12)',
+        medium: 'rgba(115, 102, 240, 0.2)',
+      },
+      semantic: {
+        success: '#00AA00',    // Used by hook for 90%+ similarity
+        warning: '#F59E0B',
+        error: '#EF4444',
+        info: '#47D6FF',
+      },
+    },
+    typography: {
+      fontSize: {
+        xs: '11px',
+        sm: '13px',
+        md: '16px',
+        lg: '18px',
+      },
+      fontWeight: {
+        normal: 400,
+        medium: 500,
+        semibold: 600,
+        bold: 700,
+      },
+    },
+    spacing: {
+      xs: '4px',
+      sm: '8px',
+      md: '12px',
+      lg: '16px',
+    },
+    borderRadius: {
+      sm: '8px',
+      md: '12px',
+      lg: '16px',
+      full: '9999px',
+    },
+    shadows: {
+      sm: '0 2px 8px rgba(0, 0, 0, 0.12)',
+      md: '0 4px 16px rgba(0, 0, 0, 0.16)',
+      lg: '0 8px 24px rgba(0, 0, 0, 0.24)',
     },
   },
 }));
