@@ -25,25 +25,25 @@ export function transformTrack(apiTrack: TrackApiResponse): Track {
     duration: apiTrack.duration,
     filepath: apiTrack.filepath,
 
-    // Optional metadata (direct mapping)
-    artworkUrl: apiTrack.artwork_url,
-    genre: apiTrack.genre,
-    year: apiTrack.year,
+    // Optional metadata (null → undefined)
+    artworkUrl: apiTrack.artwork_url ?? undefined,
+    genre: apiTrack.genre ?? undefined,
+    year: apiTrack.year ?? undefined,
 
-    // Audio properties (snake → camel)
-    bitrate: apiTrack.bitrate,
-    sampleRate: apiTrack.sample_rate, // snake → camel
-    bitDepth: apiTrack.bit_depth, // snake → camel
-    format: apiTrack.format,
+    // Audio properties (snake → camel, null → undefined)
+    bitrate: apiTrack.bitrate ?? undefined,
+    sampleRate: apiTrack.sample_rate ?? undefined,
+    bitDepth: apiTrack.bit_depth ?? undefined,
+    format: apiTrack.format ?? undefined,
 
-    // Analysis properties
-    loudness: apiTrack.loudness,
-    crestFactor: apiTrack.crest_factor, // snake → camel
-    centroid: apiTrack.centroid,
+    // Analysis properties (null → undefined)
+    loudness: apiTrack.loudness ?? undefined,
+    crestFactor: apiTrack.crest_factor ?? undefined,
+    centroid: apiTrack.centroid ?? undefined,
 
-    // Timestamps (snake → camel)
-    dateAdded: apiTrack.date_added, // snake → camel
-    dateModified: apiTrack.date_modified, // snake → camel
+    // Timestamps (snake → camel, null → undefined)
+    dateAdded: apiTrack.date_added ?? undefined,
+    dateModified: apiTrack.date_modified ?? undefined
   };
 }
 
