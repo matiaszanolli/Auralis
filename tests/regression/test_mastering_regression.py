@@ -23,7 +23,47 @@ import librosa
 import numpy as np
 import pytest
 
+from scipy.fft import rfft, rfftfreq
+
 from auralis.core.simple_mastering import create_simple_mastering_pipeline
+
+
+def measure_spectral_bands(audio: np.ndarray, sr: int) -> Dict[str, float]:
+    """
+    Measure energy in key spectral bands.
+
+    Args:
+        audio: Mono audio array
+        sr: Sample rate
+
+    Returns:
+        Dict with band energies in dB
+    """
+    # Use middle 10 seconds for measurement
+    mid = len(audio) // 2
+    seg_len = min(sr * 10, len(audio) // 2)
+    seg = audio[mid - seg_len // 2 : mid + seg_len // 2]
+
+    fft = np.abs(rfft(seg))
+    freqs = rfftfreq(len(seg), 1 / sr)
+
+    bands = {
+        'sub_bass': (20, 60),
+        'bass': (60, 250),
+        'low_mid': (250, 500),
+        'mid': (500, 2000),
+        'upper_mid': (2000, 4000),
+        'presence': (4000, 6000),
+        'air': (6000, 20000),
+    }
+
+    results = {}
+    for name, (lo, hi) in bands.items():
+        mask = (freqs >= lo) & (freqs < hi)
+        energy = np.sum(fft[mask] ** 2)
+        results[name] = 10 * np.log10(energy) if energy > 0 else -100
+
+    return results
 
 
 @dataclass
@@ -43,6 +83,9 @@ class TrackTestCase:
     # Output quality thresholds
     max_peak_db: float = -0.1  # Should not clip
     min_crest_db: float = 6.0  # Should maintain some dynamics
+    # Spectral preservation thresholds (max allowed loss in dB)
+    max_air_loss_db: float = 6.0  # Air band (6-20kHz) - critical for brightness
+    max_presence_loss_db: float = 4.0  # Presence band (2-6kHz) - critical for clarity
 
 
 # Define test cases based on tracks we've tested
@@ -219,6 +262,34 @@ class MasteringRegressionTests:
                 if crest_out < case.min_crest_db:
                     result["errors"].append(f"Output crest {crest_out:.1f} dB below min {case.min_crest_db:.1f} dB")
 
+                # Spectral preservation validation
+                # Load input for comparison (mono, same sample rate)
+                audio_in, _ = librosa.load(case.path, sr=sr, mono=True)
+
+                input_spectrum = measure_spectral_bands(audio_in, sr)
+                output_spectrum = measure_spectral_bands(audio_out, sr)
+
+                # Calculate and store spectral changes
+                spectral_changes = {}
+                for band in input_spectrum:
+                    spectral_changes[band] = output_spectrum[band] - input_spectrum[band]
+
+                result["processing"]["spectral_changes"] = spectral_changes
+
+                # Validate air band preservation
+                air_loss = -spectral_changes['air']  # Positive means loss
+                if air_loss > case.max_air_loss_db:
+                    result["errors"].append(
+                        f"Air band loss {air_loss:.1f} dB exceeds max {case.max_air_loss_db:.1f} dB"
+                    )
+
+                # Validate presence band preservation
+                presence_loss = -spectral_changes['presence']
+                if presence_loss > case.max_presence_loss_db:
+                    result["errors"].append(
+                        f"Presence band loss {presence_loss:.1f} dB exceeds max {case.max_presence_loss_db:.1f} dB"
+                    )
+
         except Exception as e:
             result["passed"] = False
             result["errors"].append(f"Exception: {str(e)}")
@@ -249,6 +320,10 @@ class MasteringRegressionTests:
                     se = result["processing"]["stereo_expansion"]
                     expansion_pct = (se["width_factor"] - 0.5) * 200
                     print(f"    Stereo: {se['original_width']:.0%} → +{expansion_pct:.0f}% (multiband)")
+                # Show spectral preservation
+                if "spectral_changes" in result.get("processing", {}):
+                    sc = result["processing"]["spectral_changes"]
+                    print(f"    Spectral: Air {sc['air']:+.1f}dB, Presence {sc['presence']:+.1f}dB")
             else:
                 print(f"  ✗ FAILED")
                 for err in result["errors"]:

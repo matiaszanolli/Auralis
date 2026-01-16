@@ -795,25 +795,20 @@ class SimpleMasteringPipeline:
             return audio, None  # Too small to matter
 
         # Design a gentle low-shelf filter at 100Hz
-        # Using a 2nd order Butterworth lowpass, then scaling the low content
+        # Using PARALLEL processing to avoid phase cancellation at crossover
         shelf_freq = 100.0
         nyquist = sample_rate / 2
         normalized_freq = min(0.99, max(0.01, shelf_freq / nyquist))
 
-        # Extract low frequencies
+        # Extract low frequencies only (don't split - keep original intact)
         sos_lp = butter(2, normalized_freq, btype='low', output='sos')
-        sos_hp = butter(2, normalized_freq, btype='high', output='sos')
-
-        # Split into low and high bands
         low_band = sosfilt(sos_lp, audio, axis=1)
-        high_band = sosfilt(sos_hp, audio, axis=1)
 
-        # Apply boost to low band only
+        # Add boosted low frequencies ON TOP of original (parallel processing)
+        # This avoids phase cancellation from HP+LP recombination
         boost_linear = 10 ** (boost_db / 20)
-        low_boosted = low_band * boost_linear
-
-        # Recombine
-        processed = low_boosted + high_band
+        boost_diff = boost_linear - 1.0  # How much extra gain to add
+        processed = audio + low_band * boost_diff
 
         if verbose:
             print(f"   Bass enhance: +{boost_db:.1f} dB below 100Hz")
@@ -915,27 +910,21 @@ class SimpleMasteringPipeline:
         if boost_db < 0.3:
             return audio, None
 
-        # Apply gentle boost at 400Hz (body zone)
-        center_freq = 400.0
+        # Apply gentle boost at 200-2kHz (body zone)
+        # Using PARALLEL processing to avoid phase cancellation at crossover
         nyquist = sample_rate / 2
 
-        # Extract mid band (200-2kHz)
+        # Extract mid band only (don't split - keep original intact)
         low_cutoff = 200.0 / nyquist
         high_cutoff = min(2000.0 / nyquist, 0.99)
-
         sos_bp = butter(2, [low_cutoff, high_cutoff], btype='band', output='sos')
-        sos_bs = butter(2, [low_cutoff, high_cutoff], btype='bandstop', output='sos')
-
-        # Split
         mid_band = sosfilt(sos_bp, audio, axis=1)
-        other_bands = sosfilt(sos_bs, audio, axis=1)
 
-        # Boost
+        # Add boosted mid frequencies ON TOP of original (parallel processing)
+        # This avoids phase cancellation from BP+BS recombination
         boost_linear = 10 ** (boost_db / 20)
-        mid_boosted = mid_band * boost_linear
-
-        # Recombine
-        processed = mid_boosted + other_bands
+        boost_diff = boost_linear - 1.0
+        processed = audio + mid_band * boost_diff
 
         if verbose:
             print(f"   Mid warmth: +{boost_db:.1f} dB @ 200-2kHz")
@@ -994,29 +983,21 @@ class SimpleMasteringPipeline:
         if boost_db < 0.3:
             return audio, None  # Too small to matter
 
-        # Design a bell filter centered at 4kHz (presence zone)
-        center_freq = 4000.0
-        bandwidth = 1.5  # octaves - wide enough to cover 2-6kHz
+        # Boost presence band (2-8kHz) centered around 4kHz
+        # Using PARALLEL processing to avoid phase cancellation at crossover
         nyquist = sample_rate / 2
-        normalized_freq = min(0.99, max(0.01, center_freq / nyquist))
 
-        # Extract mid band (2-8kHz using bandpass)
+        # Extract presence band only (don't split - keep original intact)
         low_cutoff = 2000.0 / nyquist
         high_cutoff = min(8000.0 / nyquist, 0.99)
-
         sos_bp = butter(2, [low_cutoff, high_cutoff], btype='band', output='sos')
-        sos_bs = butter(2, [low_cutoff, high_cutoff], btype='bandstop', output='sos')
-
-        # Split into presence band and everything else
         presence_band = sosfilt(sos_bp, audio, axis=1)
-        other_bands = sosfilt(sos_bs, audio, axis=1)
 
-        # Apply boost to presence band only
+        # Add boosted presence ON TOP of original (parallel processing)
+        # This avoids phase cancellation from BP+BS recombination
         boost_linear = 10 ** (boost_db / 20)
-        presence_boosted = presence_band * boost_linear
-
-        # Recombine
-        processed = presence_boosted + other_bands
+        boost_diff = boost_linear - 1.0
+        processed = audio + presence_band * boost_diff
 
         if verbose:
             print(f"   Presence enhance: +{boost_db:.1f} dB @ 2-6kHz")
@@ -1076,24 +1057,20 @@ class SimpleMasteringPipeline:
             return audio, None  # Too small to matter
 
         # Design a high-shelf filter at 8kHz
+        # Using PARALLEL processing to avoid phase cancellation at crossover
         shelf_freq = 8000.0
         nyquist = sample_rate / 2
         normalized_freq = min(0.99, max(0.01, shelf_freq / nyquist))
 
-        # Extract high frequencies
+        # Extract high frequencies only (don't split - keep original intact)
         sos_hp = butter(2, normalized_freq, btype='high', output='sos')
-        sos_lp = butter(2, normalized_freq, btype='low', output='sos')
-
-        # Split into high and low bands
         high_band = sosfilt(sos_hp, audio, axis=1)
-        low_band = sosfilt(sos_lp, audio, axis=1)
 
-        # Apply boost to high band only
+        # Add boosted highs ON TOP of original (parallel processing)
+        # This avoids phase cancellation from HP+LP recombination
         boost_linear = 10 ** (boost_db / 20)
-        high_boosted = high_band * boost_linear
-
-        # Recombine
-        processed = high_boosted + low_band
+        boost_diff = boost_linear - 1.0
+        processed = audio + high_band * boost_diff
 
         if verbose:
             print(f"   Air enhance: +{boost_db:.1f} dB above 8kHz")
