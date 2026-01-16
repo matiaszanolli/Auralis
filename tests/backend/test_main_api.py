@@ -1207,8 +1207,9 @@ class TestPlaylistEndpoints:
     """Test playlist management endpoints"""
 
     def test_get_playlists_no_library(self, client):
-        """Test getting playlists when library not available"""
-        with patch.dict('main.globals_dict', {'library_manager': None}):
+        """Test getting playlists when repository factory not available"""
+        # Playlists router uses repository_factory (Phase 6B migration)
+        with patch.dict('main.globals_dict', {'repository_factory': None}):
             response = client.get("/api/playlists")
             assert response.status_code == 503
 

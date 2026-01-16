@@ -84,6 +84,8 @@ def create_playlists_router(
                 "playlists": [p.to_dict() for p in playlists],
                 "total": len(playlists)
             }
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Failed to get playlists: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to get playlists: {e}")
