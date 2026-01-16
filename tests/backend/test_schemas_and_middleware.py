@@ -151,10 +151,13 @@ class TestPaginationSchemas:
         with pytest.raises(ValueError):
             PaginationParams(limit=0)
 
-        # Limit max is 500
-        params = PaginationParams(limit=600)
-        # Field validation should reject, but we test the boundary
-        assert params.limit <= 500
+        # Limit max is 500 - values above are rejected by Pydantic validation
+        with pytest.raises(ValueError):
+            PaginationParams(limit=600)
+
+        # Boundary test: limit=500 should be valid
+        params = PaginationParams(limit=500)
+        assert params.limit == 500
 
         # Offset cannot be negative
         with pytest.raises(ValueError):
