@@ -108,15 +108,23 @@ describe('usePlayerControls Hook', () => {
       );
 
       // First call fails
-      await result.current.play();
-      expect(result.current.lastError).toBeDefined();
+      await act(async () => {
+        await result.current.play();
+      });
+      await waitFor(() => {
+        expect(result.current.lastError).toBeDefined();
+      });
 
       // Reset mock for second call
       mockOnPlay.mockResolvedValueOnce(undefined);
 
       // Second call succeeds
-      await result.current.play();
-      expect(result.current.lastError).toBeUndefined();
+      await act(async () => {
+        await result.current.play();
+      });
+      await waitFor(() => {
+        expect(result.current.lastError).toBeUndefined();
+      });
     });
 
     it('should handle play operation errors', async () => {
@@ -126,11 +134,16 @@ describe('usePlayerControls Hook', () => {
         usePlayerControls({ onPlay: mockOnPlay })
       );
 
-      const response = await result.current.play();
+      let response: { success: boolean; error?: string };
+      await act(async () => {
+        response = await result.current.play();
+      });
 
-      expect(response.success).toBe(false);
-      expect(response.error).toContain('Network error');
-      expect(result.current.lastError).toContain('Network error');
+      expect(response!.success).toBe(false);
+      expect(response!.error).toContain('Network error');
+      await waitFor(() => {
+        expect(result.current.lastError).toContain('Network error');
+      });
     });
 
     it('should handle pause operation errors', async () => {
