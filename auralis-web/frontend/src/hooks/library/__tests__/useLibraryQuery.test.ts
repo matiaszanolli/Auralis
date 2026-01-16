@@ -453,7 +453,8 @@ describe('useLibraryQuery', () => {
       });
 
       const callUrl = mockGet.mock.calls[0][0];
-      expect(callUrl).toContain('search=test%20%26%20special');
+      // URL encoding uses + for spaces (application/x-www-form-urlencoded format)
+      expect(callUrl).toContain('search=test+%26+special');
     });
   });
 
