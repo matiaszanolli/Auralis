@@ -1391,8 +1391,8 @@ class TestAlbumArtworkEndpoints:
     """Test album artwork endpoints"""
 
     def test_get_artwork_no_library(self, client):
-        """Test getting artwork when library not available"""
-        with patch.dict('main.globals_dict', {'library_manager': None}):
+        """Test getting artwork when repository factory not available"""
+        with patch.dict('main.globals_dict', {'repository_factory': None}):
             response = client.get("/api/albums/1/artwork")
             assert response.status_code == 503
 
