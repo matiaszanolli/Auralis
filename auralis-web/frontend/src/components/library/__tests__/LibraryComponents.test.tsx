@@ -287,7 +287,7 @@ describe('MetadataEditorDialog', () => {
       />
     );
 
-    expect(screen.getByText(/edit track metadata/i)).toBeInTheDocument();
+    expect(screen.getByText(/edit metadata/i)).toBeInTheDocument();
   });
 
   it('should not display dialog when open prop is false', () => {
@@ -426,7 +426,8 @@ describe('MetadataEditorDialog', () => {
       />
     );
 
-    const saveButton = screen.getByRole('button', { name: /save/i });
+    // When isSaving is true, button shows "Saving..." text
+    const saveButton = screen.getByRole('button', { name: /saving/i });
     expect(saveButton).toBeDisabled();
   });
 

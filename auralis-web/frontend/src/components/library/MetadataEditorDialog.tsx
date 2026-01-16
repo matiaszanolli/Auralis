@@ -32,6 +32,10 @@ interface MetadataEditorDialogProps {
   open: boolean;
   onClose: () => void;
   onSave: (updates: Partial<Track>) => Promise<void>;
+  /** Optional external error message (overrides internal error state) */
+  error?: string | null;
+  /** Optional external saving state (overrides internal isSaving state) */
+  isSaving?: boolean;
 }
 
 /**
@@ -45,10 +49,16 @@ export const MetadataEditorDialog: React.FC<MetadataEditorDialogProps> = ({
   open,
   onClose,
   onSave,
+  error: externalError,
+  isSaving: externalIsSaving,
 }) => {
   const [formData, setFormData] = useState<Partial<Track>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [internalIsSaving, setInternalIsSaving] = useState(false);
+  const [internalError, setInternalError] = useState<string | null>(null);
+
+  // Use external state if provided, otherwise use internal state
+  const isSaving = externalIsSaving ?? internalIsSaving;
+  const error = externalError ?? internalError;
 
   // Initialize form when track changes
   useEffect(() => {
@@ -60,7 +70,7 @@ export const MetadataEditorDialog: React.FC<MetadataEditorDialogProps> = ({
         year: track.year,
         genre: track.genre,
       });
-      setError(null);
+      setInternalError(null);
     }
   }, [track, open]);
 
@@ -72,16 +82,16 @@ export const MetadataEditorDialog: React.FC<MetadataEditorDialogProps> = ({
   );
 
   const handleSave = useCallback(async () => {
-    setIsSaving(true);
-    setError(null);
+    setInternalIsSaving(true);
+    setInternalError(null);
 
     try {
       await onSave(formData);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      setInternalError(err instanceof Error ? err.message : 'Failed to save');
     } finally {
-      setIsSaving(false);
+      setInternalIsSaving(false);
     }
   }, [formData, onSave, onClose]);
 
@@ -93,7 +103,7 @@ export const MetadataEditorDialog: React.FC<MetadataEditorDialogProps> = ({
         {/* Header */}
         <div style={styles.header}>
           <h2 style={styles.title}>Edit Metadata</h2>
-          <button onClick={onClose} style={styles.closeButton}>
+          <button onClick={onClose} style={styles.closeButton} aria-label="Close">
             ✕
           </button>
         </div>
