@@ -25,7 +25,7 @@ describe('useAppDragDrop', () => {
         return HttpResponse.json({ success: true });
       }),
       // Add to queue
-      http.post('/api/player/queue/add', () => {
+      http.post('/api/player/queue/add-track', () => {
         return HttpResponse.json({ success: true });
       })
     );
@@ -290,7 +290,8 @@ describe('useAppDragDrop', () => {
       });
 
       // Verify the API call was made successfully (MSW handles it)
-      expect(mockInfo).toHaveBeenCalled();
+      // Adding to queue calls success callback, not info
+      expect(mockSuccess).toHaveBeenCalled();
     });
   });
 
@@ -298,7 +299,7 @@ describe('useAppDragDrop', () => {
     it('handles network errors gracefully', async () => {
       // Set up MSW handler for error case
       server.use(
-        http.post('/api/player/queue/add', () => {
+        http.post('/api/player/queue/add-track', () => {
           return HttpResponse.json({ error: 'Network error' }, { status: 500 });
         })
       );
@@ -324,7 +325,7 @@ describe('useAppDragDrop', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       // Set up MSW handler for error case
       server.use(
-        http.post('/api/player/queue/add', () => {
+        http.post('/api/player/queue/add-track', () => {
           return HttpResponse.json({ error: 'Test error' }, { status: 500 });
         })
       );
