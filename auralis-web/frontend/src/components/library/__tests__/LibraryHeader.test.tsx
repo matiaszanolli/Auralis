@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { render, screen } from '@/test/test-utils';
-import { LibraryHeader } from '../LibraryHeader';
+import { LibraryHeader } from '../Controls/LibraryHeader';
 
 
 describe('LibraryHeader', () => {
