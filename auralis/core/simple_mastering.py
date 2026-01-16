@@ -24,6 +24,7 @@ from ..dsp.basic import amplify, normalize
 from ..dsp.dynamics.soft_clipper import soft_clip
 from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ..dsp.utils.stereo import adjust_stereo_width_multiband
+from .processing.base import ExpansionStrategies
 
 
 class SimpleMasteringPipeline:
@@ -284,13 +285,32 @@ class SimpleMasteringPipeline:
 
         # STAGE 2: Handle based on 2D Loudness-War Restraint Principle
         if lufs > -12.0 and crest_db < 13.0:
-            # Compressed loud → expand + gentle reduction
-            if verbose:
-                print(f"   Compressed loud (LUFS {lufs:.1f}, crest {crest_db:.1f}) → expansion")
+            # Compressed loud material - use RMS reduction expansion (not peak enhancement)
+            # Peak enhancement boosts all peaks including bass, causing muddiness
+            # RMS reduction increases crest factor without inflating low-frequency transients
 
-            expansion = max(0.1, (13.0 - crest_db) / 10.0)
-            processed = amplify(processed, -0.5)  # Gentle reduction
-            info['stages'].append({'stage': 'expansion', 'factor': expansion})
+            if crest_db < 8.0:
+                # Hyper-compressed (crest < 8 dB): skip expansion entirely
+                # This material is intentionally brick-walled, respect the artistic choice
+                if verbose:
+                    print(f"   Hyper-compressed (LUFS {lufs:.1f}, crest {crest_db:.1f}) → skip expansion")
+                info['stages'].append({'stage': 'skip_expansion', 'reason': 'hyper_compressed'})
+            else:
+                # Moderately compressed (8-13 dB): gentle RMS reduction expansion
+                # Target: restore ~2 dB of crest factor via RMS reduction
+                target_crest_increase = min(2.0, 13.0 - crest_db)  # Cap at 2 dB
+                expansion_amount = 0.5  # Conservative application
+
+                if verbose:
+                    print(f"   Compressed loud (LUFS {lufs:.1f}, crest {crest_db:.1f}) → RMS expansion +{target_crest_increase:.1f} dB")
+
+                # Apply RMS reduction expansion (reduces level, increases crest without bass pump)
+                exp_params = {
+                    'target_crest_increase': target_crest_increase,
+                    'amount': expansion_amount
+                }
+                processed = ExpansionStrategies.apply_rms_reduction_expansion(processed, exp_params)
+                info['stages'].append({'stage': 'rms_expansion', 'target_crest': target_crest_increase})
 
             # Stereo expansion for narrow mixes (brightness-aware)
             processed, width_info = self._apply_stereo_expansion(
@@ -314,9 +334,10 @@ class SimpleMasteringPipeline:
                 info['stages'].append(air_info)
 
             # Safety peak limit after enhancements (can add energy)
-            current_peak = np.max(np.abs(processed))
-            if current_peak > 0.99:
-                processed = processed * (0.99 / current_peak)
+            processed = self._apply_safety_limiter(processed, verbose)
+
+            # Mark for unified output normalization
+            needs_output_normalize = True
 
         elif lufs > -12.0:
             # Dynamic loud → pass-through with optional stereo expansion
@@ -346,12 +367,14 @@ class SimpleMasteringPipeline:
                 info['stages'].append(air_info)
 
             # Safety peak limit after enhancements (can add energy)
-            current_peak = np.max(np.abs(processed))
-            if current_peak > 0.99:
-                processed = processed * (0.99 / current_peak)
+            processed = self._apply_safety_limiter(processed, verbose)
+
+            # Mark for unified output normalization
+            needs_output_normalize = True
 
         else:
             # Quiet material → full processing
+            needs_output_normalize = False  # Quiet branch has its own normalization
             makeup_gain, _ = AdaptiveLoudnessControl.calculate_adaptive_gain(
                 lufs, effective_intensity, crest_db, bass_pct, transient_density, peak_db
             )
@@ -486,6 +509,21 @@ class SimpleMasteringPipeline:
             processed = normalize(processed, adapted_peak)
             info['stages'].append({'stage': 'normalize', 'target_peak': adapted_peak})
 
+        # STAGE 3: Unified output normalization for loud material
+        # Ensures consistent output levels across all branches
+        if needs_output_normalize:
+            # Light normalization for already-mastered material
+            # Target slightly below 0 dBFS to leave headroom for playback
+            output_target = 0.95
+
+            current_peak = np.max(np.abs(processed))
+            if current_peak < output_target * 0.9:  # Only normalize if significantly below target
+                processed = normalize(processed, output_target)
+                if verbose:
+                    gain_db = 20 * np.log10(output_target / current_peak)
+                    print(f"   Output normalize: +{gain_db:.1f} dB → {output_target*100:.0f}% peak")
+                info['stages'].append({'stage': 'output_normalize', 'target_peak': output_target})
+
         info['effective_intensity'] = effective_intensity
         return processed, info
 
@@ -536,6 +574,41 @@ class SimpleMasteringPipeline:
         threshold = 10 ** (target_db / 20.0)
         processed = soft_clip(audio, threshold=threshold, ceiling=min(0.99, threshold * 1.05))
         return processed, self._peak_db(processed)
+
+    def _apply_safety_limiter(
+        self,
+        audio: np.ndarray,
+        verbose: bool,
+        ceiling: float = 0.98
+    ) -> np.ndarray:
+        """
+        Apply transparent safety limiting after spectral enhancements.
+
+        Uses soft clipping for more musical limiting than simple scaling.
+        Only affects peaks above the threshold - leaves the rest untouched.
+
+        Args:
+            audio: Audio array [2, samples]
+            verbose: Print progress
+            ceiling: Maximum output level (default 0.98 = -0.18 dBFS)
+
+        Returns:
+            Limited audio array
+        """
+        current_peak = np.max(np.abs(audio))
+
+        if current_peak <= ceiling:
+            return audio  # No limiting needed
+
+        # Use soft clip with threshold slightly below ceiling for smooth knee
+        threshold = ceiling * 0.95  # Start limiting ~0.4 dB before ceiling
+        processed = soft_clip(audio, threshold=threshold, ceiling=ceiling)
+
+        if verbose:
+            reduction_db = 20 * np.log10(ceiling / current_peak)
+            print(f"   Safety limiter: {reduction_db:.1f} dB reduction")
+
+        return processed
 
     def _apply_stereo_expansion(
         self,

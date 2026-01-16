@@ -183,7 +183,9 @@ class MasteringRegressionTests:
                     if "soft_clip" not in stage_names:
                         result["errors"].append("Expected soft_clip stage for quiet material")
                 elif case.expected_stage == "compressed_loud":
-                    if "expansion" not in stage_names:
+                    # Accept rms_expansion, skip_expansion, or legacy expansion stage
+                    has_expansion_stage = any(s in stage_names for s in ["expansion", "rms_expansion", "skip_expansion"])
+                    if not has_expansion_stage:
                         result["errors"].append("Expected expansion stage for compressed loud material")
                 elif case.expected_stage == "dynamic_loud":
                     if "passthrough" not in stage_names:
