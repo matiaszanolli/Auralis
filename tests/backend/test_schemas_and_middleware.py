@@ -392,7 +392,8 @@ class TestBatchOperationHelpers:
         with pytest.raises(ValueError):
             validate_batch_request(request)
 
-    def test_execute_batch_operation_sync(self):
+    @pytest.mark.asyncio
+    async def test_execute_batch_operation_sync(self):
         """Test executing synchronous batch operations."""
         executed = []
 
@@ -408,12 +409,13 @@ class TestBatchOperationHelpers:
             atomic=False
         )
 
-        response = execute_batch_operation_sync(request, handlers)
+        response = await execute_batch_operation_sync(request, handlers)
         assert response.successful == 2
         assert response.failed == 0
         assert len(executed) == 2
 
-    def test_execute_batch_operation_with_error(self):
+    @pytest.mark.asyncio
+    async def test_execute_batch_operation_with_error(self):
         """Test batch operation with errors."""
         def handler_with_error(item_id: str, data: Dict[str, Any]):
             if item_id == "error_track":
@@ -429,7 +431,7 @@ class TestBatchOperationHelpers:
             atomic=False
         )
 
-        response = execute_batch_operation_sync(request, handlers)
+        response = await execute_batch_operation_sync(request, handlers)
         assert response.failed == 1
         assert response.successful == 2
 
