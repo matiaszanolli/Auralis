@@ -499,17 +499,17 @@ describe('QueueSearchPanel', () => {
       isSearchActive: true,
     });
 
-    const user = userEvent.setup();
     render(
       <QueueSearchPanel isOpen={true} onClose={() => {}} />
     );
 
-    // Hover to show remove button
+    // Hover to show remove button - use fireEvent.mouseEnter for reliable hover state
     const trackItem = screen.getByText('Bohemian Rhapsody');
-    await user.hover(trackItem.closest('li')!);
+    const listItem = trackItem.closest('li')!;
+    fireEvent.mouseEnter(listItem);
 
     const removeButton = screen.getByLabelText('Remove from queue');
-    await user.click(removeButton);
+    fireEvent.click(removeButton);
 
     expect(mockRemoveTrack).toHaveBeenCalled();
   });
