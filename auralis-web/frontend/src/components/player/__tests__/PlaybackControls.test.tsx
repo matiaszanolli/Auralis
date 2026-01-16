@@ -384,9 +384,10 @@ describe('PlaybackControls', () => {
         />
       );
 
-      expect(screen.getByTestId('playback-controls-play')).toHaveAttribute('title', 'Play');
-      expect(screen.getByTestId('playback-controls-previous')).toHaveAttribute('title', 'Previous track');
-      expect(screen.getByTestId('playback-controls-next')).toHaveAttribute('title', 'Next track');
+      // Tooltips include keyboard shortcuts for better UX
+      expect(screen.getByTestId('playback-controls-play')).toHaveAttribute('title', 'Play (⌨ Space )');
+      expect(screen.getByTestId('playback-controls-previous')).toHaveAttribute('title', 'Previous track (⌨ ← )');
+      expect(screen.getByTestId('playback-controls-next')).toHaveAttribute('title', 'Next track (⌨ → )');
     });
   });
 

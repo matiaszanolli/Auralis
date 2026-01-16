@@ -98,7 +98,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         onClick={onPrevious}
         disabled={isDisabled}
         data-testid="playback-controls-previous"
-        aria-label="Previous track (← )"
+        aria-label="Previous track"
         title="Previous track (⌨ ← )"
         style={{
           ...styles.secondaryButton,
@@ -137,7 +137,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           onClick={onPause}
           disabled={isDisabled}
           data-testid="playback-controls-pause"
-          aria-label="Pause (Space )"
+          aria-label="Pause"
           title="Pause playback (⌨ Space )"
           style={{
             ...styles.primaryButton,
@@ -172,7 +172,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
           onClick={onPlay}
           disabled={isDisabled}
           data-testid="playback-controls-play"
-          aria-label="Play (Space )"
+          aria-label="Play"
           title="Play (⌨ Space )"
           style={{
             ...styles.primaryButton,
@@ -209,7 +209,7 @@ export const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         onClick={onNext}
         disabled={isDisabled}
         data-testid="playback-controls-next"
-        aria-label="Next track (→ )"
+        aria-label="Next track"
         title="Next track (⌨ → )"
         style={{
           ...styles.secondaryButton,
