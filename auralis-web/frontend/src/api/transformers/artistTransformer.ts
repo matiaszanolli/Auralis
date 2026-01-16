@@ -29,7 +29,7 @@ export function transformArtist(apiArtist: ArtistApiResponse): Artist {
     artworkUrl: apiArtist.artwork_path ?? undefined, // snake → camel, null → undefined
     trackCount: apiArtist.track_count, // snake → camel
     albumCount: apiArtist.album_count, // snake → camel
-    dateAdded: apiArtist.date_added, // snake → camel
+    dateAdded: apiArtist.date_added ?? undefined, // snake → camel, null → undefined
   };
 }
 
