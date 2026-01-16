@@ -398,9 +398,9 @@ describe('ProgressBar', () => {
 
       fireEvent.mouseDown(progressBarContainer);
 
-      // During drag, thumb should have larger size (14px instead of 10px)
-      expect(thumb).toHaveStyle('width: 14px');
-      expect(thumb).toHaveStyle('height: 14px');
+      // During drag, thumb should have larger size (16px instead of 12px)
+      expect(thumb).toHaveStyle('width: 16px');
+      expect(thumb).toHaveStyle('height: 16px');
     });
   });
 
@@ -476,7 +476,7 @@ describe('ProgressBar', () => {
       );
 
       const container = screen.getByTestId('progress-bar-container');
-      expect(container).toHaveAttribute('aria-label', expect.stringContaining('Progress'));
+      expect(container).toHaveAttribute('aria-label', expect.stringContaining('progress'));
     });
 
     it('should accept custom aria-label', () => {
