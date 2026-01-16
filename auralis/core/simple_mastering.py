@@ -523,14 +523,15 @@ class SimpleMasteringPipeline:
             info['stages'].append({'stage': 'normalize', 'target_peak': adapted_peak})
 
         # STAGE 3: Unified output normalization for loud material
-        # Ensures consistent output levels across all branches
+        # Always normalize to compensate for pre-EQ headroom and RMS expansion
         if needs_output_normalize:
-            # Light normalization for already-mastered material
             # Target slightly below 0 dBFS to leave headroom for playback
             output_target = 0.95
 
             current_peak = np.max(np.abs(processed))
-            if current_peak < output_target * 0.9:  # Only normalize if significantly below target
+            # Always normalize - pre-EQ headroom and RMS expansion reduced level
+            # The 0.9x threshold was causing level drops when peak stayed high
+            if current_peak < output_target:
                 processed = normalize(processed, output_target)
                 if verbose:
                     gain_db = 20 * np.log10(output_target / current_peak)

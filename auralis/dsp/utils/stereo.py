@@ -103,18 +103,16 @@ def adjust_stereo_width_multiband(
     """
     Adjust stereo width with frequency-dependent processing.
 
-    Uses Linkwitz-Riley crossovers (LR4, 24dB/octave) for phase-coherent
-    band splitting that sums flat. Expansion increases smoothly from bass
-    to highs without mid compensation (which creates muddiness).
+    Uses PARALLEL processing to avoid crossover phase/magnitude issues.
+    Instead of splitting bands and recombining (which causes notches with
+    filtfilt), we extract each band, widen it, and ADD the difference
+    on top of the original signal. This preserves flat frequency response.
 
     Frequency bands:
     - Lows (<300Hz): No expansion - keeps bass/kick centered and punchy
-    - Low-mids (300-2kHz): 70% expansion - body and warmth
-    - High-mids (2k-8kHz): 100% expansion - presence, guitars
-    - Highs (>8kHz): 100% expansion - air, cymbals
-
-    The multiband approach prevents phase issues on cheap headphones by
-    keeping low frequencies centered while expanding highs.
+    - Low-mids (300-2kHz): Gentle expansion - body and warmth
+    - High-mids (2k-8kHz): Moderate expansion - presence, guitars
+    - Highs (>8kHz): Full expansion - air, cymbals
 
     Args:
         stereo_audio: Stereo audio signal [samples, 2]
@@ -135,71 +133,54 @@ def adjust_stereo_width_multiband(
 
     nyquist = sample_rate / 2
 
-    # Crossover frequencies for LR4 splits
-    # 300Hz: preserves kick/bass fundamentals and first harmonics
-    # 2kHz: presence/vocal range boundary
-    # 8kHz: air/brilliance boundary
-    freq_low = min(0.99, max(0.01, 300.0 / nyquist))
-    freq_mid = min(0.99, max(0.01, 2000.0 / nyquist))
+    # Band extraction frequencies (using simple Butterworth, not LR4)
+    # We only need to extract bands, not split perfectly
+    freq_lowmid_lo = min(0.99, max(0.01, 300.0 / nyquist))
+    freq_lowmid_hi = min(0.99, max(0.01, 2000.0 / nyquist))
+    freq_highmid_lo = min(0.99, max(0.01, 2000.0 / nyquist))
+    freq_highmid_hi = min(0.99, max(0.01, 8000.0 / nyquist))
     freq_high = min(0.99, max(0.01, 8000.0 / nyquist))
 
-    # LR4 crossover filters (24dB/octave, sums flat)
-    sos_lp_low = _linkwitz_riley_4(freq_low, 'low')
-    sos_hp_low = _linkwitz_riley_4(freq_low, 'high')
-    sos_lp_mid = _linkwitz_riley_4(freq_mid, 'low')
-    sos_hp_mid = _linkwitz_riley_4(freq_mid, 'high')
-    sos_lp_high = _linkwitz_riley_4(freq_high, 'low')
-    sos_hp_high = _linkwitz_riley_4(freq_high, 'high')
+    # Simple bandpass filters for extraction (order 2 is gentle enough)
+    sos_lowmid = butter(2, [freq_lowmid_lo, freq_lowmid_hi], btype='band', output='sos')
+    sos_highmid = butter(2, [freq_highmid_lo, freq_highmid_hi], btype='band', output='sos')
+    sos_high = butter(2, freq_high, btype='high', output='sos')
 
-    # Split into 4 bands using proper LR4 crossover topology
-    # Band 1: < 300Hz (low-pass at 300)
-    band_low = sosfiltfilt(sos_lp_low, stereo_audio, axis=0)
-
-    # Band 2: 300-2kHz (high-pass at 300, then low-pass at 2k)
-    temp = sosfiltfilt(sos_hp_low, stereo_audio, axis=0)
-    band_lowmid = sosfiltfilt(sos_lp_mid, temp, axis=0)
-
-    # Band 3: 2k-8kHz (high-pass at 2k, then low-pass at 8k)
-    temp = sosfiltfilt(sos_hp_mid, stereo_audio, axis=0)
-    band_highmid = sosfiltfilt(sos_lp_high, temp, axis=0)
-
-    # Band 4: > 8kHz (high-pass at 8k)
-    band_high = sosfiltfilt(sos_hp_high, stereo_audio, axis=0)
+    # Extract bands (for width calculation only, not recombination)
+    band_lowmid = sosfiltfilt(sos_lowmid, stereo_audio, axis=0)
+    band_highmid = sosfiltfilt(sos_highmid, stereo_audio, axis=0)
+    band_high = sosfiltfilt(sos_high, stereo_audio, axis=0)
 
     # Calculate expansion amount from base factor
     expansion = width_factor - 0.5  # 0 to 0.5 range
 
-    # Frequency-dependent expansion using logarithmic decay curve
-    # Higher frequencies are more sensitive to phase issues on cheap headphones
-    # Expansion factor decreases smoothly with log(frequency)
-    #
-    # Formula: factor = 1 - (log(f_center) - log(f_min)) / (log(f_max) - log(f_min)) * decay_strength
-    # This creates a smooth rolloff from low-mids to highs
-    #
-    # Band center frequencies (geometric mean):
-    # - Low-mids: sqrt(300 * 2000) ≈ 775 Hz
-    # - High-mids: sqrt(2000 * 8000) = 4000 Hz
-    # - Highs: sqrt(8000 * 16000) ≈ 11314 Hz
+    # Frequency-dependent expansion factors
+    # Lower frequencies get less expansion to avoid phase issues on cheap headphones
     f_min = 300.0
     f_max = 16000.0
-    log_range = np.log(f_max / f_min)  # ~4.0
+    log_range = np.log(f_max / f_min)
 
     def expansion_factor(f_center: float) -> float:
-        """Smooth logarithmic decay: 1.0 at f_min, ~0.3 at f_max"""
+        """Smooth logarithmic curve: higher freq = more expansion"""
         log_pos = np.log(f_center / f_min) / log_range  # 0.0 to 1.0
-        return 1.0 - (log_pos * 0.7)  # Decay from 1.0 to 0.3
+        return 0.3 + (log_pos * 0.7)  # Ramp from 0.3 to 1.0 with frequency
 
-    # Apply curve to each band
-    width_low = 0.5  # No expansion for bass
-    width_lowmid = 0.5 + expansion * expansion_factor(775.0)    # ~0.78
-    width_highmid = 0.5 + expansion * expansion_factor(4000.0)  # ~0.53
-    width_high = 0.5 + expansion * expansion_factor(11314.0)    # ~0.35
+    # Width factors for each band
+    width_lowmid = 0.5 + expansion * expansion_factor(775.0)    # ~0.6
+    width_highmid = 0.5 + expansion * expansion_factor(4000.0)  # ~0.75
+    width_high = 0.5 + expansion * expansion_factor(11314.0)    # ~0.95
 
-    # Apply width adjustments without mid compensation
-    # Mid compensation was creating muddiness in the high range
+    # Calculate widened versions of each band
     band_lowmid_w = adjust_stereo_width(band_lowmid, width_lowmid)
     band_highmid_w = adjust_stereo_width(band_highmid, width_highmid)
     band_high_w = adjust_stereo_width(band_high, width_high)
 
-    # Recombine - LR4 crossovers sum to unity
-    return band_low + band_lowmid_w + band_highmid_w + band_high_w
+    # PARALLEL processing: add the WIDTH DIFFERENCE on top of original
+    # This avoids crossover notches because we never split and recombine
+    # diff = widened - original_band
+    # result = original + diff = original + (widened - band) = original with added width
+    diff_lowmid = band_lowmid_w - band_lowmid
+    diff_highmid = band_highmid_w - band_highmid
+    diff_high = band_high_w - band_high
+
+    return stereo_audio + diff_lowmid + diff_highmid + diff_high
