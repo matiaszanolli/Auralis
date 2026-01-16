@@ -320,6 +320,13 @@ class SimpleMasteringPipeline:
             if width_info:
                 info['stages'].append(width_info)
 
+            # Pre-EQ headroom: attenuate before spectral boosts to prevent limiter from
+            # clipping HF transients. The output normalization will restore level.
+            # This preserves spectral balance better than post-EQ limiting.
+            pre_eq_headroom_db = -2.0  # Reserve 2 dB for EQ boosts
+            pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
+            processed = processed * pre_eq_gain
+
             # Spectral enhancements (presence & air) for all paths
             processed, presence_info = self._apply_presence_enhancement(
                 processed, presence_pct, upper_mid_pct, effective_intensity * 0.7, sample_rate, verbose
@@ -333,7 +340,7 @@ class SimpleMasteringPipeline:
             if air_info:
                 info['stages'].append(air_info)
 
-            # Safety peak limit after enhancements (can add energy)
+            # Safety peak limit after enhancements (only catches outliers now)
             processed = self._apply_safety_limiter(processed, verbose)
 
             # Mark for unified output normalization
@@ -353,6 +360,12 @@ class SimpleMasteringPipeline:
             if width_info:
                 info['stages'].append(width_info)
 
+            # Pre-EQ headroom: attenuate before spectral boosts to prevent limiter from
+            # clipping HF transients. The output normalization will restore level.
+            pre_eq_headroom_db = -2.0  # Reserve 2 dB for EQ boosts
+            pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
+            processed = processed * pre_eq_gain
+
             # Spectral enhancements (presence & air) - even for well-mastered tracks
             processed, presence_info = self._apply_presence_enhancement(
                 processed, presence_pct, upper_mid_pct, effective_intensity * 0.5, sample_rate, verbose
@@ -366,7 +379,7 @@ class SimpleMasteringPipeline:
             if air_info:
                 info['stages'].append(air_info)
 
-            # Safety peak limit after enhancements (can add energy)
+            # Safety peak limit after enhancements (only catches outliers now)
             processed = self._apply_safety_limiter(processed, verbose)
 
             # Mark for unified output normalization
