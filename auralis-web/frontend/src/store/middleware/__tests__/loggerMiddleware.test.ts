@@ -30,15 +30,18 @@ describe('Logger Middleware', () => {
   let store: any;
   let consoleLogSpy: any;
   let consoleGroupSpy: any;
+  let consoleGroupCollapsedSpy: any;
 
   beforeEach(() => {
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     consoleGroupSpy = vi.spyOn(console, 'group').mockImplementation(() => {});
+    consoleGroupCollapsedSpy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
   });
 
   afterEach(() => {
     consoleLogSpy.mockRestore();
     consoleGroupSpy.mockRestore();
+    consoleGroupCollapsedSpy.mockRestore();
   });
 
   // ============================================================================
@@ -67,7 +70,8 @@ describe('Logger Middleware', () => {
 
     store.dispatch({ type: 'TEST_ACTION', payload: { value: 123 } });
 
-    expect(consoleGroupSpy).toHaveBeenCalled();
+    // Uses groupCollapsed when collapsed: true
+    expect(consoleGroupCollapsedSpy).toHaveBeenCalled();
   });
 
   it('should not log when disabled', () => {
@@ -131,10 +135,11 @@ describe('Logger Middleware', () => {
     });
 
     store.dispatch({ type: 'OTHER_ACTION' });
-    expect(consoleGroupSpy).not.toHaveBeenCalled();
+    expect(consoleGroupCollapsedSpy).not.toHaveBeenCalled();
 
     store.dispatch({ type: 'TRACKED_ACTION' });
-    expect(consoleGroupSpy).toHaveBeenCalled();
+    // Uses groupCollapsed by default (collapsed: true)
+    expect(consoleGroupCollapsedSpy).toHaveBeenCalled();
   });
 
   // ============================================================================
@@ -150,13 +155,13 @@ describe('Logger Middleware', () => {
         connection: connectionReducer,
       },
       middleware: (getDefaultMiddleware) =>
-        getDefaultMiddleware().concat(createLoggerMiddleware({ collapsed: false })),
+        getDefaultMiddleware().concat(createLoggerMiddleware({ enabled: true, collapsed: false })),
     });
 
-    const groupSpy = vi.spyOn(console, 'group');
     store.dispatch({ type: 'TEST_ACTION' });
 
-    expect(groupSpy).toHaveBeenCalled();
+    // Uses console.group when collapsed: false
+    expect(consoleGroupSpy).toHaveBeenCalled();
   });
 
   it('should include timestamps when enabled', () => {
@@ -169,13 +174,14 @@ describe('Logger Middleware', () => {
       },
       middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware().concat(
-          createLoggerMiddleware({ timestamps: true })
+          createLoggerMiddleware({ enabled: true, timestamps: true })
         ),
     });
 
     store.dispatch({ type: 'TEST_ACTION' });
 
-    expect(consoleGroupSpy).toHaveBeenCalled();
+    // Uses groupCollapsed by default (collapsed: true)
+    expect(consoleGroupCollapsedSpy).toHaveBeenCalled();
   });
 
   // ============================================================================
@@ -194,14 +200,15 @@ describe('Logger Middleware', () => {
       },
       middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware().concat(
-          createLoggerMiddleware({ predicate })
+          createLoggerMiddleware({ enabled: true, predicate })
         ),
     });
 
     store.dispatch({ type: 'TEST_ACTION' });
 
     expect(predicate).toHaveBeenCalled();
-    expect(consoleGroupSpy).not.toHaveBeenCalled();
+    // Predicate returns false, so logging is skipped
+    expect(consoleGroupCollapsedSpy).not.toHaveBeenCalled();
   });
 
   // ============================================================================
@@ -223,14 +230,15 @@ describe('Logger Middleware', () => {
       },
       middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware().concat(
-          createLoggerMiddleware({ actionSanitizer })
+          createLoggerMiddleware({ enabled: true, actionSanitizer })
         ),
     });
 
     store.dispatch({ type: 'TEST_ACTION', payload: 'secret' });
 
     // The middleware was called, proving sanitizer works
-    expect(consoleGroupSpy).toHaveBeenCalled();
+    // Uses groupCollapsed by default (collapsed: true)
+    expect(consoleGroupCollapsedSpy).toHaveBeenCalled();
   });
 
   // ============================================================================
@@ -247,7 +255,7 @@ describe('Logger Middleware', () => {
       },
       middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware().concat(
-          createLoggerMiddleware({ duration: true })
+          createLoggerMiddleware({ enabled: true, duration: true })
         ),
     });
 
