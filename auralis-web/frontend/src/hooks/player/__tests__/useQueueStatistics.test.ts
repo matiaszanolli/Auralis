@@ -331,13 +331,15 @@ describe('useQueueStatistics', () => {
   // COMPARISON UTILITIES
   // =========================================================================
 
-  it('should detect added tracks in comparison', () => {
+  it('should detect removed tracks when comparing with smaller queue', () => {
     const { result } = renderHook(() => useQueueStatistics(mockTracks));
 
+    // smallerQueue has 3 tracks, mockTracks has 5
+    // "removed" = tracks in current (mockTracks) that aren't in otherQueue (smallerQueue)
     const smallerQueue = mockTracks.slice(0, 3);
     const comparison = result.current.compareWith(smallerQueue);
 
-    expect(comparison.added).toBe(2);
+    expect(comparison.removed).toBe(2);
   });
 
   it('should calculate similarity for identical queues', () => {
