@@ -849,7 +849,12 @@ class SimpleMasteringPipeline:
         Low sub-bass + decent bass → already good, skip
         Low sub-bass + low bass → enhance together via bass_enhancement
 
-        Uses smooth curves throughout.
+        Uses PARALLEL processing pattern for precise dB control:
+        - Extract sub-bass band with LP filter
+        - Apply reduction gain to extracted band
+        - Add the reduction DIFFERENCE on top of original
+
+        This gives precise dB control unlike HP+blend which can cause -10dB+ loss.
         """
         # Smooth curve: only act if sub-bass is excessive (> 8%)
         if sub_bass_pct < 0.08:
@@ -867,21 +872,29 @@ class SimpleMasteringPipeline:
         if abs(reduction_db) < 0.3:
             return audio, None
 
-        # Apply gentle high-pass at 30Hz to reduce rumble
-        cutoff_freq = 30.0
+        # PARALLEL PROCESSING: Extract sub-bass, reduce it, add difference back
+        # This gives PRECISE dB control (e.g., -2 dB means exactly -2 dB reduction)
+        cutoff_freq = 60.0  # Sub-bass upper limit
         nyquist = sample_rate / 2
         normalized_freq = min(0.99, max(0.01, cutoff_freq / nyquist))
 
-        # Very gentle slope (1st order)
-        sos = butter(1, normalized_freq, btype='high', output='sos')
-        processed = sosfilt(sos, audio, axis=1)
+        # Extract sub-bass band with LP filter
+        sos_lp = butter(2, normalized_freq, btype='low', output='sos')
+        sub_bass_band = sosfilt(sos_lp, audio, axis=1)
 
-        # Blend with original based on reduction amount
-        blend_factor = abs(reduction_db) / 2.0  # 0.0-1.0
-        processed = processed * blend_factor + audio * (1.0 - blend_factor)
+        # Calculate precise reduction gain
+        reduction_gain = 10 ** (reduction_db / 20)  # e.g., -2 dB → 0.794
+
+        # Calculate the reduction difference
+        # diff = sub_bass_attenuated - sub_bass_original = sub_bass * (gain - 1)
+        # Since gain < 1 (reduction), diff is negative (subtracts energy)
+        diff = sub_bass_band * (reduction_gain - 1.0)
+
+        # Add difference to original (parallel processing pattern)
+        processed = audio + diff
 
         if verbose:
-            print(f"   Sub-bass tighten: {reduction_db:.1f} dB @ <30Hz")
+            print(f"   Sub-bass tighten: {reduction_db:.1f} dB @ <60Hz")
 
         return processed, {
             'stage': 'sub_bass_control',
