@@ -50,6 +50,7 @@ scripts/node_modules/
 latest-*.yml
 # But allow GitHub workflows
 !.github/workflows/*.yml
+!.github/workflows.backup/*.yml
 
 # PyInstaller specific
 *.spec
