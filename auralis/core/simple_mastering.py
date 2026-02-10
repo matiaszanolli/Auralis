@@ -115,8 +115,14 @@ class SimpleMasteringPipeline:
 
         step_start = time.perf_counter()
 
+        # Equal-power crossfade between chunks for seamless transitions.
+        # Adjacent chunks both process the overlap region, then we blend
+        # with cosine curves to maintain perceived loudness through the join.
+        CROSSFADE_DURATION = 3.0  # seconds
+        crossfade_samples = int(sr * CROSSFADE_DURATION)
+
         # Process and write in streaming mode
-        chunk_size = sr * 30  # 30 seconds per chunk
+        chunk_size = sr * 30  # 30 seconds per chunk (core region)
         info = {'stages': []}
 
         with sf.SoundFile(str(input_path)) as audio_file:
@@ -137,12 +143,24 @@ class SimpleMasteringPipeline:
                     first_chunk = np.stack([first_chunk, first_chunk]).T
                 peak_db = self._peak_db(first_chunk.T)
 
-                # Reset to start for full processing
-                audio_file.seek(0)
+                prev_tail = None  # Previous chunk's processed overlap tail
+                read_pos = 0
 
-                while True:
-                    # Read chunk
-                    chunk = audio_file.read(chunk_size)
+                while read_pos < total_frames:
+                    core_samples = min(chunk_size, total_frames - read_pos)
+                    is_last = (read_pos + core_samples >= total_frames)
+
+                    # Read core + overlap so both chunks process the boundary
+                    audio_file.seek(read_pos)
+                    if is_last:
+                        chunk = audio_file.read(core_samples)
+                    else:
+                        overlap_after = min(
+                            crossfade_samples,
+                            total_frames - read_pos - core_samples
+                        )
+                        chunk = audio_file.read(core_samples + overlap_after)
+
                     if chunk.size == 0:
                         break
 
@@ -154,10 +172,10 @@ class SimpleMasteringPipeline:
                         chunk = np.stack([chunk, chunk]).T
 
                     # Convert to (channels, samples) for processing
-                    if chunk.shape[0] > chunk.shape[1]:  # (samples, channels)
+                    if chunk.shape[0] > chunk.shape[1]:
                         chunk = chunk.T
 
-                    # Process chunk
+                    # Process chunk (includes overlap tail for crossfading)
                     processed_chunk, chunk_info = self._process(
                         chunk, fingerprint, peak_db, intensity, sr, verbose=False
                     )
@@ -166,14 +184,50 @@ class SimpleMasteringPipeline:
                     if chunks_processed == 0:
                         info = chunk_info
 
-                    # Convert back to (samples, channels) for writing
-                    if processed_chunk.shape[0] < processed_chunk.shape[1]:
-                        processed_chunk = processed_chunk.T
+                    # Assemble output with crossfading at chunk boundaries
+                    if chunks_processed == 0:
+                        # First chunk: write core, save overlap tail
+                        if is_last:
+                            write_region = processed_chunk
+                        else:
+                            write_region = processed_chunk[:, :core_samples]
+                            prev_tail = processed_chunk[:, core_samples:].copy()
+                    elif prev_tail is not None:
+                        # Crossfade head of this chunk with previous tail
+                        head_len = min(prev_tail.shape[1], processed_chunk.shape[1])
+                        head = processed_chunk[:, :head_len]
 
-                    # Write chunk
-                    output_file.write(processed_chunk)
+                        # Equal-power crossfade (cosine curves maintain loudness)
+                        t = np.linspace(0.0, np.pi / 2, head_len)
+                        fade_in = np.sin(t) ** 2
+                        fade_out = np.cos(t) ** 2
+                        crossfaded = prev_tail[:, :head_len] * fade_out + head * fade_in
+
+                        if is_last:
+                            body = processed_chunk[:, head_len:]
+                            write_region = np.concatenate([crossfaded, body], axis=1)
+                            prev_tail = None
+                        else:
+                            body = processed_chunk[:, head_len:core_samples]
+                            write_region = np.concatenate([crossfaded, body], axis=1)
+                            prev_tail = processed_chunk[:, core_samples:].copy()
+                    else:
+                        # No previous tail (safety fallback)
+                        if is_last:
+                            write_region = processed_chunk
+                        else:
+                            write_region = processed_chunk[:, :core_samples]
+                            prev_tail = processed_chunk[:, core_samples:].copy()
+
+                    # Convert back to (samples, channels) for writing
+                    if write_region.shape[0] < write_region.shape[1]:
+                        write_region = write_region.T
+
+                    output_file.write(write_region)
 
                     chunks_processed += 1
+                    read_pos += core_samples
+
                     if verbose and chunks_processed % 5 == 0:
                         progress = (chunks_processed / total_chunks) * 100
                         print(f"   Progress: {progress:.0f}% ({chunks_processed}/{total_chunks} chunks)")
@@ -1116,13 +1170,107 @@ class SimpleMasteringPipeline:
 
     @staticmethod
     def _print_fingerprint(fp: Dict) -> None:
-        """Print key fingerprint metrics."""
-        print(f"\n📊 Fingerprint:")
-        print(f"   LUFS: {fp.get('lufs', 0):.1f} dB")
-        print(f"   Crest: {fp.get('crest_db', 0):.1f} dB")
-        print(f"   Bass: {fp.get('bass_pct', 0):.0%}")
-        print(f"   Width: {fp.get('stereo_width', 0.5):.0%}")
-        print(f"   Tempo: {fp.get('tempo_bpm', 0):.0f} BPM")
+        """Print key fingerprint metrics organized by category."""
+        print(f"\n📊 Fingerprint (25D):")
+
+        # Dynamics (3D) - Critical for loudness/compression decisions
+        lufs = fp.get('lufs', -14.0)
+        crest_db = fp.get('crest_db', 12.0)
+        bass_mid_ratio = fp.get('bass_mid_ratio', 0.0)
+
+        # Classify material type based on LUFS + Crest
+        if lufs > -12.0 and crest_db < 13.0:
+            if crest_db < 8.0:
+                material_type = "Hyper-compressed loud"
+            else:
+                material_type = "Compressed loud"
+        elif lufs > -12.0:
+            material_type = "Dynamic loud"
+        else:
+            material_type = "Quiet"
+
+        print(f"   🔊 Dynamics: {material_type}")
+        print(f"      LUFS: {lufs:.1f} dB  │  Crest: {crest_db:.1f} dB  │  Bass/Mid: {bass_mid_ratio:.2f}")
+
+        # Frequency (7D) - Spectral balance
+        sub_bass_pct = fp.get('sub_bass_pct', 0.05)
+        bass_pct = fp.get('bass_pct', 0.15)
+        low_mid_pct = fp.get('low_mid_pct', 0.10)
+        mid_pct = fp.get('mid_pct', 0.20)
+        upper_mid_pct = fp.get('upper_mid_pct', 0.25)
+        presence_pct = fp.get('presence_pct', 0.15)
+        air_pct = fp.get('air_pct', 0.10)
+
+        print(f"   🎚️  Frequency Balance:")
+        print(f"      Sub: {sub_bass_pct:.0%}  │  Bass: {bass_pct:.0%}  │  Lo-Mid: {low_mid_pct:.0%}  │  Mid: {mid_pct:.0%}")
+        print(f"      Up-Mid: {upper_mid_pct:.0%}  │  Presence: {presence_pct:.0%}  │  Air: {air_pct:.0%}")
+
+        # Temporal (4D) - Rhythm and dynamics
+        tempo_bpm = fp.get('tempo_bpm', 120.0)
+        rhythm_stability = fp.get('rhythm_stability', 0.5)
+        transient_density = fp.get('transient_density', 0.5)
+        silence_ratio = fp.get('silence_ratio', 0.0)
+
+        print(f"   🥁 Temporal:")
+        print(f"      Tempo: {tempo_bpm:.0f} BPM  │  Rhythm: {rhythm_stability:.0%}  │  Transients: {transient_density:.0%}  │  Silence: {silence_ratio:.0%}")
+
+        # Spectral (3D) - Brightness and noise characteristics
+        spectral_centroid = fp.get('spectral_centroid', 0.5)
+        spectral_rolloff = fp.get('spectral_rolloff', 0.5)
+        spectral_flatness = fp.get('spectral_flatness', 0.5)
+
+        # Interpret brightness
+        if spectral_centroid > 0.6 and spectral_rolloff > 0.6:
+            brightness = "Bright"
+        elif spectral_centroid < 0.4 and spectral_rolloff < 0.4:
+            brightness = "Dark"
+        else:
+            brightness = "Neutral"
+
+        print(f"   ✨ Spectral: {brightness}")
+        print(f"      Centroid: {spectral_centroid:.0%}  │  Rolloff: {spectral_rolloff:.0%}  │  Flatness: {spectral_flatness:.0%}")
+
+        # Harmonic (3D) - Tonality
+        harmonic_ratio = fp.get('harmonic_ratio', 0.5)
+        pitch_stability = fp.get('pitch_stability', 0.5)
+        chroma_energy = fp.get('chroma_energy', 0.5)
+
+        # Classify harmonic content
+        avg_harmonic = (harmonic_ratio + pitch_stability) / 2
+        if avg_harmonic > 0.7:
+            tonality = "Highly tonal"
+        elif avg_harmonic > 0.5:
+            tonality = "Tonal"
+        elif avg_harmonic > 0.3:
+            tonality = "Mixed"
+        else:
+            tonality = "Percussive/Noisy"
+
+        print(f"   🎼 Harmonic: {tonality}")
+        print(f"      Harmonic: {harmonic_ratio:.0%}  │  Pitch: {pitch_stability:.0%}  │  Chroma: {chroma_energy:.0%}")
+
+        # Stereo (2D)
+        stereo_width = fp.get('stereo_width', 0.5)
+        phase_correlation = fp.get('phase_correlation', 1.0)
+
+        # Classify stereo field
+        if stereo_width < 0.3:
+            stereo_type = "Narrow"
+        elif stereo_width < 0.6:
+            stereo_type = "Normal"
+        else:
+            stereo_type = "Wide"
+
+        print(f"   🎧 Stereo: {stereo_type}")
+        print(f"      Width: {stereo_width:.0%}  │  Phase Corr: {phase_correlation:.2f}")
+
+        # Variation (3D) - Consistency metrics
+        dynamic_range_variation = fp.get('dynamic_range_variation', 0.5)
+        loudness_variation_std = fp.get('loudness_variation_std', 0.0)
+        peak_consistency = fp.get('peak_consistency', 0.5)
+
+        print(f"   📊 Variation:")
+        print(f"      DR Var: {dynamic_range_variation:.0%}  │  Loudness σ: {loudness_variation_std:.1f}  │  Peak Cons: {peak_consistency:.0%}")
 
     @staticmethod
     def _print_time_metrics(timings: Dict[str, float], duration_sec: float) -> None:
