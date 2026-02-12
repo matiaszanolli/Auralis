@@ -99,7 +99,7 @@ def create_artwork_router(
             album_id: Album ID
 
         Returns:
-            dict: Success message and artwork path
+            dict: Success message and artwork URL
 
         Raises:
             HTTPException: If library manager/factory not available or extraction fails
@@ -114,18 +114,21 @@ def create_artwork_router(
                     detail="No artwork found in album tracks"
                 )
 
+            # Convert filesystem path to API URL
+            artwork_url = f"/api/albums/{album_id}/artwork"
+
             # Broadcast artwork extracted event
             await connection_manager.broadcast({
                 "type": "artwork_extracted",
                 "data": {
                     "album_id": album_id,
-                    "artwork_path": artwork_path
+                    "artwork_path": artwork_url  # Send URL, not filesystem path
                 }
             })
 
             return {
                 "message": "Artwork extracted successfully",
-                "artwork_path": artwork_path,
+                "artwork_path": artwork_url,  # Return URL, not filesystem path
                 "album_id": album_id
             }
 
@@ -219,12 +222,15 @@ def create_artwork_router(
             if not updated_album:
                 raise HTTPException(status_code=404, detail="Album not found")
 
+            # Convert filesystem path to API URL
+            artwork_url = f"/api/albums/{album_id}/artwork"
+
             # Broadcast artwork downloaded event
             await connection_manager.broadcast({
                 "type": "artwork_downloaded",
                 "data": {
                     "album_id": album_id,
-                    "artwork_path": artwork_path,
+                    "artwork_path": artwork_url,  # Send URL, not filesystem path
                     "artist": artist_name,
                     "album": album_name
                 }
@@ -232,7 +238,7 @@ def create_artwork_router(
 
             return {
                 "message": "Artwork downloaded successfully",
-                "artwork_path": artwork_path,
+                "artwork_path": artwork_url,  # Return URL, not filesystem path
                 "album_id": album_id,
                 "artist": artist_name,
                 "album": album_name

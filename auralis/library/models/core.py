@@ -80,13 +80,20 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
     playlists = relationship("Playlist", secondary=track_playlist, back_populates="tracks")
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert track to dictionary for API/GUI use"""
+        """
+        Convert track to dictionary for API/GUI use.
+
+        Returns album artwork as API URL instead of filesystem path.
+        """
         try:
             # Safe access to relationship attributes
             album_title = None
+            album_artwork = None
             try:
                 album_title = self.album.title if self.album else None
-                album_artwork = self.album.artwork_path if self.album and hasattr(self.album, 'artwork_path') else None
+                # Convert filesystem path to API URL if artwork exists
+                if self.album and hasattr(self.album, 'artwork_path') and self.album.artwork_path:
+                    album_artwork = f"/api/albums/{self.album.id}/artwork"
             except:
                 album_title = None
                 album_artwork = None
@@ -179,7 +186,17 @@ class Album(Base, TimestampMixin):  # type: ignore[misc]
     tracks = relationship("Track", back_populates="album")
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert album to dictionary"""
+        """
+        Convert album to dictionary.
+
+        Returns artwork_path as API URL instead of filesystem path
+        to prevent leaking internal paths and enable browser loading.
+        """
+        # Convert filesystem path to API URL if artwork exists
+        artwork_url = None
+        if self.artwork_path:
+            artwork_url = f"/api/albums/{self.id}/artwork"
+
         return {
             'id': self.id,
             'title': self.title,
@@ -187,7 +204,7 @@ class Album(Base, TimestampMixin):  # type: ignore[misc]
             'year': self.year,
             'total_tracks': self.total_tracks,
             'total_discs': self.total_discs,
-            'artwork_path': self.artwork_path,
+            'artwork_path': artwork_url,  # API URL, not filesystem path
             'avg_dr_rating': self.avg_dr_rating,
             'avg_lufs': self.avg_lufs,
             'mastering_consistency': self.mastering_consistency,
