@@ -1,187 +1,158 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+**Project**: Auralis — Music player with real-time audio enhancement
+**Version**: 1.2.0-beta.3 (`auralis/version.py` is source of truth)
+**Python**: 3.14+ | **Node**: 24+ | **Rust**: Required (PyO3 DSP module)
+**License**: GPL-3.0
 
-**Project**: Auralis - Professional music player with real-time audio enhancement
-**Version**: 1.2.0-beta.1 | **Python**: 3.14+ | **Node**: 20+ LTS | **Rust**: Required
-**License**: GPL-3.0 | **GitHub**: https://github.com/matiaszanolli/Auralis
-
-## Quick Start
+## Commands
 
 ```bash
-# Web interface (primary development)
+# Run (web)
 pip install -r requirements.txt
-python -m auralis.library.init          # First time only
 python launch-auralis-web.py --dev      # Backend :8765, Frontend :3000
 
-# Backend only
+# Run (components)
 cd auralis-web/backend && python -m uvicorn main:app --reload
-
-# Frontend only
 cd auralis-web/frontend && npm install && npm run dev
-
-# Desktop app
 cd desktop && npm install && npm run dev
-```
 
-## Testing
+# Test
+python -m pytest tests/ -v                         # All (~2-3 min)
+python -m pytest -m "not slow" -v                   # Fast subset
+python -m pytest tests/path.py::test_name -vv -s    # Single test
+cd auralis-web/frontend && npm run test:memory       # Frontend (2GB heap)
 
-```bash
-# Backend tests (850+)
-python -m pytest tests/ -v                          # All tests (~2-3 min)
-python -m pytest -m "not slow" -v                   # Skip slow tests
-python -m pytest tests/backend/test_player.py -v   # Single file
-python -m pytest tests/path.py::test_name -vv -s   # Single test with output
+# Type check
+mypy auralis/ auralis-web/backend/ --ignore-missing-imports
+cd auralis-web/frontend && npm run type-check
 
-# Frontend tests
-cd auralis-web/frontend
-npm test                    # Watch mode
-npm run test:memory         # Full suite (2GB heap, recommended)
-npm run test:coverage       # With coverage
-
-# Type checking
-mypy auralis/ auralis-web/backend/ --ignore-missing-imports   # Python
-cd auralis-web/frontend && npm run type-check                  # TypeScript
-```
-
-## Build
-
-```bash
-# Rust DSP module (required before running)
+# Build Rust DSP (required before first run)
 cd vendor/auralis-dsp && maturin develop
-
-# Release build
-python build_auralis.py                    # Full (tests + package)
-python build_auralis.py --skip-tests       # Fast (no tests)
-
-# Desktop
-cd desktop && npm run package              # All platforms
 ```
 
-## Architecture
+## Codebase Map
+
+```
+auralis/                          Core Python audio engine
+├── core/                         Processing pipeline
+│   ├── hybrid_processor.py         HybridProcessor — main DSP pipeline
+│   ├── simple_mastering.py         SimpleMastering algorithm
+│   ├── processor.py                Core entry point
+│   ├── config.py                   Processing configuration
+│   └── recording_type_detector.py  Content type detection
+├── dsp/                          Signal processing
+│   ├── unified.py                  Unified DSP pipeline
+│   ├── psychoacoustic_eq.py        Psychoacoustic EQ
+│   ├── advanced_dynamics.py        Dynamics control
+│   └── realtime_adaptive_eq.py     Real-time adaptive EQ
+├── analysis/                     Audio analysis (largest module, 92 files)
+│   ├── fingerprint/                25D fingerprinting system
+│   │   ├── analyzers/                Batch & streaming analyzers
+│   │   ├── metrics/                  Spectral, harmonic, temporal
+│   │   └── utilities/                DSP ops, backend selection
+│   ├── content/                    Content-aware analysis
+│   ├── ml/                         Genre classification (neural nets)
+│   └── quality/                    Quality assessment (loudness, distortion, DR)
+├── player/                       Playback engine
+│   ├── enhanced_audio_player.py    Main player with adaptive DSP
+│   ├── gapless_playback_engine.py  Gapless playback
+│   ├── queue_controller.py         Queue management
+│   └── realtime_processor.py       Real-time processing
+├── library/                      SQLite library (~/.auralis/library.db)
+│   ├── manager.py                  LibraryManager
+│   ├── repositories/               12 repos (track, album, artist, playlist, genre,
+│   │                                 stats, fingerprint, queue, settings, similarity...)
+│   ├── scanner.py                  Folder scanning
+│   └── migration_manager.py        DB migrations (schema v3)
+├── io/                           Audio I/O
+│   ├── unified_loader.py           Unified loading (FFmpeg, SoundFile)
+│   └── results.py                  Output formats (pcm16, pcm24)
+├── optimization/                 Performance
+│   └── parallel_processor.py       Parallel audio processing
+├── services/                     Background services (fingerprint, artwork)
+├── learning/                     Preference engine, reference analysis
+└── utils/                        Logging, helpers, preview creator
+
+auralis-web/
+├── backend/                      FastAPI REST + WebSocket (:8765)
+│   ├── main.py                     App entry point
+│   ├── routers/                    18 route handlers (player, library, albums,
+│   │                                 artists, playlists, enhancement, metadata,
+│   │                                 artwork, system, similarity, streaming...)
+│   ├── processing_engine.py        Audio processing orchestration
+│   ├── chunked_processor.py        30s chunks, 3s crossfade
+│   ├── audio_stream_controller.py  WebSocket audio streaming
+│   ├── schemas.py                  Request/response schemas
+│   └── services/, core/, config/   Service layer, encoding, config
+└── frontend/                     React 18 + TypeScript + Vite + Redux
+    └── src/
+        ├── components/               UI components
+        ├── hooks/                    Domain hooks (player, library, enhancement,
+        │                               websocket, api, app, fingerprint, shared)
+        ├── store/                    Redux state management
+        ├── design-system/            Design tokens (single source of truth)
+        ├── services/                 API clients
+        └── test/                     Test utilities
+
+vendor/auralis-dsp/               Rust DSP via PyO3 (HPSS, YIN, Chroma)
+desktop/                          Electron wrapper
+tests/                            850+ tests across 21 dirs (unit, integration,
+                                    boundary, concurrency, security, load, regression...)
+docs/                             20 topic dirs (development, features, frontend...)
+```
+
+## Architecture Flow
 
 ```
 User → FastAPI (REST + WebSocket :8765) → Backend Services
-                    ↓
-          LibraryManager (SQLite ~/.auralis/library.db)
-                    ↓
-          HybridProcessor (DSP pipeline)
-                    ↓
-          ChunkedProcessor (30s chunks, 3s crossfade)
-                    ↓
-          WebSocket streaming → React Frontend (Redux)
+         → LibraryManager (SQLite) → HybridProcessor (DSP pipeline)
+         → ChunkedProcessor (30s chunks) → WebSocket stream → React (Redux)
 ```
 
-### Directory Structure
+## Critical Invariants
 
-| Directory | Purpose |
-|-----------|---------|
-| `auralis/` | Core audio engine (Python) |
-| `auralis/core/` | Master processing pipeline, HybridProcessor |
-| `auralis/dsp/` | EQ, dynamics, compressor, limiter |
-| `auralis/analysis/` | Fingerprinting (25D), spectrum analysis |
-| `auralis/library/` | SQLite database, repository pattern |
-| `vendor/auralis-dsp/` | Rust DSP via PyO3 (HPSS, YIN, Chroma) - **Required** |
-| `auralis-web/backend/` | FastAPI REST API + WebSocket server |
-| `auralis-web/backend/routers/` | Modular route handlers |
-| `auralis-web/frontend/` | React/TypeScript/Vite + Redux |
-| `auralis-web/frontend/src/hooks/` | Domain-organized hooks (8 categories) |
-| `auralis-web/frontend/src/design-system/` | Design tokens (single source of truth) |
-| `desktop/` | Electron wrapper |
-| `tests/` | 850+ tests (unit, integration, boundary, invariant) |
-
-## Core Principles
-
-1. **DRY**: Improve existing code rather than duplicating logic. Use Utilities Pattern for shared logic.
-2. **Modular Design**: Keep modules < 300 lines, one purpose per component.
-3. **No Duplication**: No "Enhanced"/"V2"/"Advanced" variants—refactor in-place.
-4. **Repository Pattern**: ALL database access via `auralis/library/repositories/`, never raw SQL.
-5. **Make Every Cycle Count**: Async for concurrent workloads, measure actual utilization.
-
-## Critical Invariants (MUST NOT Break)
-
-### Audio Processing
+**Audio processing** — sample count preservation is critical for gapless playback:
 ```python
-# Sample count preservation - CRITICAL for gapless playback
-assert len(output) == len(input)
-
-# Always return NumPy arrays, never Python lists
-assert isinstance(output, np.ndarray)
+assert len(output) == len(input)              # Never change sample count
+assert isinstance(output, np.ndarray)         # Always NumPy, never lists
 assert output.dtype in [np.float32, np.float64]
-
-# Never modify audio in-place
-output = audio.copy()  # Always copy before modification
+output = audio.copy()                         # Never modify in-place
 ```
 
-### Player State
-- Position never exceeds track duration
-- Queue position always valid for queue length
-- State changes are atomic (use locks)
+**Player state**: position ≤ duration, queue index valid, state changes atomic (RLock).
+**Database**: thread-safe pooling (`pool_pre_ping=True`), no N+1 (`selectinload()`), all access via repositories.
 
-### Database
-- Connection pooling thread-safe (`pool_pre_ping=True`)
-- Foreign keys always valid
-- No N+1 queries (use `selectinload()`)
+## Patterns
 
-## Key Patterns
+**Python backend**: Routers auto-included via `include_router()`. All handlers `async def`. Errors via `HTTPException`. Shared state protected with `threading.RLock()`.
 
-### Backend (Python)
-- **Routers**: Each `routers/*.py` auto-included via `include_router()` pattern
-- **Async**: Use `async def` for all route handlers
-- **Errors**: Raise `HTTPException` with appropriate status codes
-- **Thread safety**: Shared state protected with `threading.RLock()`
+**React frontend**: `@/` absolute imports only. Colors via `import { tokens } from '@/design-system'`. Components < 300 lines. Tests use `vi.*` (Vitest), `render` from `@/test/test-utils`.
 
-### Frontend (React/TypeScript)
-- **Imports**: Always use `@/` absolute paths, never relative
-- **Design tokens**: Always `import { tokens } from '@/design-system'`, never hardcode colors
-- **Components**: < 300 lines, single responsibility
-- **Testing**: Use `vi.*` (Vitest), import `render` from `@/test/test-utils`
-- **Hooks**: Domain-organized in `hooks/` (player, library, enhancement, websocket, api, app, fingerprint, shared)
+**Audio DSP**: Load metadata (sample rate, channels) BEFORE processing. Vectorize with NumPy (chunks, not samples). Copy before modify.
 
-### Audio Processing
-- Metadata first: Load sample rate, duration, channels BEFORE processing
-- NumPy vectorization: Loop over chunks, not samples
-- Copy semantics: `output = audio.copy()` before modifications
+## Principles
 
-## Common Issues
+1. **DRY** — Improve existing code, never duplicate. Use utilities for shared logic.
+2. **Modular** — < 300 lines per module, single responsibility.
+3. **No variants** — No "Enhanced"/"V2"/"Advanced" copies. Refactor in-place.
+4. **Repository pattern** — All DB via `auralis/library/repositories/`, never raw SQL.
 
-| Problem | Solution |
-|---------|----------|
+## Git
+
+Branch from `master`. Prefixes: `feature/`, `fix/`, `refactor/`, `docs/`. Commit: `type: description`. Before PR: `pytest -m "not slow" -v` + type checks.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
 | Port 8765 in use | `lsof -ti:8765 \| xargs kill -9` |
-| Port 3000 in use | `lsof -ti:3000 \| xargs kill -9` |
-| Backend won't start | `pip install -r requirements.txt && python -m auralis.library.init` |
-| Frontend tests OOM | Use `npm run test:memory` (2GB heap) |
-| Database locked | `pkill -9 python` then delete `~/.auralis/library.db` |
+| Frontend tests OOM | `npm run test:memory` (2GB heap) |
+| Database locked | Kill python, delete `~/.auralis/library.db` |
 | Rust module missing | `cd vendor/auralis-dsp && maturin develop` |
 
-## WebSocket Streaming
+## Reference Docs
 
-**Endpoint**: `/ws` (unified for all audio streaming)
-
-**Client → Server**:
-```json
-{"type": "play_enhanced", "data": {"track_id": 123, "preset": "adaptive", "intensity": 1.0}}
-```
-
-**Server → Client**: `audio_stream_start`, `audio_chunk` (PCM base64), `audio_stream_end`, `audio_stream_error`
-
-## Git Workflow
-
-- **Branch from**: `master`
-- **Naming**: `feature/`, `fix/`, `refactor/`, `docs/` prefixes
-- **Commit format**: `type: description` (feat, fix, refactor, perf, test, docs)
-- **Before PR**: Run `pytest -m "not slow" -v` and type checks
-
-## Key Documentation
-
-- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md) - Test quality standards
-- [WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md) - WebSocket protocol
-- [FIRST_TIME_SETUP.md](FIRST_TIME_SETUP.md) - Environment setup guide
-
-## Performance Targets
-
-- Audio Processing: 36.6x real-time
-- Library Scanning: 740+ files/second
-- Query Response: < 50ms cached, < 200ms uncached
-- Frontend Render: < 16ms (60 FPS)
-- Memory: < 200MB idle, < 500MB at load
+- [TESTING_GUIDELINES.md](docs/development/TESTING_GUIDELINES.md)
+- [WEBSOCKET_API.md](auralis-web/backend/WEBSOCKET_API.md)
+- [FIRST_TIME_SETUP.md](FIRST_TIME_SETUP.md)
