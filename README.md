@@ -6,38 +6,48 @@ Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)]()
-[![Release](https://img.shields.io/badge/release-v1.2.0--beta.1-green.svg)](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.1)
+[![Release](https://img.shields.io/badge/release-v1.2.0--beta.3-green.svg)](https://github.com/matiaszanolli/Auralis/releases)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
 [![Frontend Tests](https://img.shields.io/badge/frontend%20tests-1084%20passing%2F1425%20total-orange.svg)]()
 [![Component Tests](https://img.shields.io/badge/component%20tests-450%2B%20new-brightgreen.svg)]()
 [![Status](https://img.shields.io/badge/Phase-A%20Complete-brightgreen.svg)]()
 
-## 📦 Current Version: 1.2.0-beta.1
+## 📦 Current Version: 1.2.0-beta.3
 
-**🎵 First Desktop Release with Binary Installers (December 2025)**
+**🎵 Production-Ready Desktop Release (February 2026)**
 
-This release includes **pre-built binaries** for all major platforms:
+This release focuses on **stability and reliability** with critical concurrency fixes:
 
 ### Downloads
 
 | Platform | Download | Notes |
 |----------|----------|-------|
-| **Linux** | [AppImage](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.1) | Universal, make executable and run |
-| **Linux** | [.deb](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.1) | Debian/Ubuntu: `sudo dpkg -i <file>` |
-| **Windows** | [.exe](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.1) | Run installer |
-| **macOS** | [.dmg](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.1) | Drag to Applications |
+| **Linux** | [AppImage](https://github.com/matiaszanolli/Auralis/releases) | Universal, make executable and run |
+| **Linux** | [.deb](https://github.com/matiaszanolli/Auralis/releases) | Debian/Ubuntu: `sudo dpkg -i <file>` |
+| **Windows** | [.exe](https://github.com/matiaszanolli/Auralis/releases) | Run installer |
+| **macOS** | [.dmg](https://github.com/matiaszanolli/Auralis/releases) | Drag to Applications |
 
 ### Highlights
 
-- ✅ **macOS Support** - First release with native macOS binaries (.dmg)
+- 🔒 **Database Concurrency Fix (CRITICAL)** - Inter-process locking prevents corruption (#2067)
+  - Multiple processes can now safely start simultaneously
+  - Migration aborts if backup fails (prevents data loss)
+  - Platform-specific file locking (fcntl/msvcrt)
+- ✅ **Seamless Audio Playback** - Equal-power crossfade between mastering chunks
+  - Eliminates audible artifacts at 30-second boundaries
+  - 3-second crossfade for smooth transitions
+- ✅ **Parallel DSP Processing** - Prevents spectral loss and phase cancellation
+  - Sub-bass control, EQ, and mastering use parallel processing
+  - Maintains audio quality across processing pipeline
 - ✅ **High-Performance Rust DSP** - 2-5x faster audio analysis via PyO3 bindings
   - HPSS (Harmonic/Percussive Separation), YIN pitch detection, Chroma analysis
   - 25D audio fingerprinting in ~500ms per track
 - ✅ **Improved Mastering Algorithm** - Energy-adaptive LUFS targeting
   - Content-aware processing adapts to source characteristics
   - 5 enhancement presets: Adaptive, Gentle, Warm, Bright, Punchy
-- ✅ **Enhanced Playback Mode** - Real-time audio enhancement during streaming
-- ✅ **Audio Streaming Stability** - Fixed position jumps, buffer underruns, and corruption
+- ✅ **Comprehensive Test Suite** - 850+ tests with concurrency coverage
+  - 6 new tests for database migration race conditions
+  - Multiprocessing tests for true parallel execution verification
 - ✅ **Automated CI/CD** - GitHub Actions builds for Linux, Windows, macOS
 
 📖 **[Release Notes](docs/releases/CHANGELOG.md)** | 🔗 **[Development Roadmap](DEVELOPMENT_ROADMAP_1_1_0.md)**
@@ -77,32 +87,32 @@ Auralis is a **local music player** with professional audio enhancement built-in
 
 ### Option 1: Download Binary (Recommended)
 
-Download the latest release from [GitHub Releases](https://github.com/matiaszanolli/Auralis/releases/tag/v1.2.0-beta.1):
+Download the latest release from [GitHub Releases](https://github.com/matiaszanolli/Auralis/releases):
 
 **Windows:**
 ```bash
-# 1. Download Auralis-Setup-1.2.0-beta.1.exe
+# 1. Download Auralis-Setup-1.2.0-beta.3.exe
 # 2. Run the installer
 # 3. Launch Auralis from Start Menu
 ```
 
 **Linux (AppImage):**
 ```bash
-# 1. Download Auralis-1.2.0-beta.1.AppImage
-chmod +x Auralis-1.2.0-beta.1.AppImage
-./Auralis-1.2.0-beta.1.AppImage
+# 1. Download Auralis-1.2.0-beta.3.AppImage
+chmod +x Auralis-1.2.0-beta.3.AppImage
+./Auralis-1.2.0-beta.3.AppImage
 ```
 
 **Linux (Debian/Ubuntu):**
 ```bash
-# 1. Download auralis_1.2.0-beta.1_amd64.deb
-sudo dpkg -i auralis_1.2.0-beta.1_amd64.deb
+# 1. Download auralis_1.2.0-beta.3_amd64.deb
+sudo dpkg -i auralis_1.2.0-beta.3_amd64.deb
 auralis
 ```
 
 **macOS:**
 ```bash
-# 1. Download Auralis-1.2.0-beta.1.dmg
+# 1. Download Auralis-1.2.0-beta.3.dmg
 # 2. Open the DMG and drag Auralis to Applications
 # 3. First launch: Right-click → Open (to bypass Gatekeeper)
 ```
@@ -351,12 +361,27 @@ npm run build
 
 ### ✅ Recently Completed
 
+**v1.2.0-beta.3** (February 2026):
+- [x] **CRITICAL FIX**: Database migration concurrency (#2067)
+  - Inter-process file locking prevents race conditions
+  - Fail-fast on backup failure (prevents data loss)
+  - Double-check pattern after lock acquisition
+  - 6 comprehensive concurrency tests
+- [x] Seamless audio playback with equal-power crossfade
+  - Eliminates artifacts at chunk boundaries
+  - 3-second overlap between 30-second chunks
+- [x] Parallel processing for audio DSP
+  - Sub-bass control, EQ, mastering use parallel processing
+  - Prevents spectral loss and phase cancellation
+- [x] 6 audit slash commands for code quality
+  - `/audit-search`, `/audit-security`, `/audit-regression`
+  - `/audit-concurrency`, `/audit-integration`, `/audit-incremental`
+
 **v1.2.0-beta.1** (December 2025):
 - [x] macOS binaries (.dmg) - First macOS release
 - [x] High-performance Rust DSP via PyO3 (2-5x faster)
 - [x] Energy-adaptive LUFS mastering algorithm
 - [x] Enhanced playback mode with real-time streaming
-- [x] Audio streaming stability fixes
 - [x] Automated CI/CD for all platforms
 
 **v1.1.x Series** (Oct-Dec 2025):
@@ -407,7 +432,7 @@ npm run build
 
 ---
 
-## 🐛 Known Issues (v1.2.0-beta.1)
+## 🐛 Known Issues (v1.2.0-beta.3)
 
 ### ⚠️ Current Limitations
 
@@ -422,6 +447,12 @@ npm run build
 
 ### ✅ Recently Fixed
 
+**v1.2.0-beta.3** (February 2026):
+- **Database migration race condition (CRITICAL)** - Inter-process locking prevents corruption
+- **Chunk boundary artifacts** - Equal-power crossfade for seamless playback
+- **Spectral loss in mastering** - Parallel processing preserves audio quality
+
+**v1.2.0-beta.1** (December 2025):
 - **Audio position jumps** - Buffer management improvements
 - **Buffer underruns** - Health monitoring prevents cascades
 - **Backward audio jumps** - Chunk overlap bug resolved
