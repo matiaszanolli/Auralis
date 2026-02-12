@@ -4,7 +4,7 @@
   "description": "Auralis Audio Mastering Desktop Application",
   "main": "main.js",
   "author": "Auralis Team",
-  "license": "GPLv3",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "homepage": "https://github.com/matiaszanolli/Auralis",
   "repository": {

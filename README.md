@@ -4,7 +4,7 @@
 
 Simple like iTunes. Smart like a mastering studio. No complicated settings.
 
-[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows%20%7C%20macOS-lightgrey.svg)]()
 [![Release](https://img.shields.io/badge/release-v1.2.0--beta.3-green.svg)](https://github.com/matiaszanolli/Auralis/releases)
 [![Backend Tests](https://img.shields.io/badge/backend%20tests-850%2B%20total-brightgreen.svg)]()
@@ -410,7 +410,7 @@ npm run build
 ## ❓ FAQ
 
 ### Q: Is Auralis free?
-**A:** Yes! Open source under GPL-3.0 license.
+**A:** Yes! Open source under AGPL-3.0 for personal, research, and open-source use. A commercial license is available for proprietary/closed-source use — see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md).
 
 ### Q: Does it work offline?
 **A:** Yes, 100% local. No internet required after installation.
@@ -480,13 +480,16 @@ We welcome contributions! Here's how:
 
 ## 📄 License
 
-This project is licensed under the **GPL-3.0 License** - see the [LICENSE](LICENSE) file for details.
+Auralis is dual-licensed:
 
-### What This Means
+- **Open Source:** [AGPL-3.0](LICENSE) — free for personal use, research, education, and open-source projects.
+- **Commercial:** For proprietary, embedded, or closed-source commercial use, a commercial license is required. See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) or contact contacto@matiaszanolli.com.
+
+### What This Means for Open-Source Users
 - ✅ Free to use, modify, and distribute
-- ✅ Can use in commercial projects
-- ✅ Must keep source code open if distributed
-- ✅ Must use same license for derivatives
+- ✅ Can use in open-source commercial projects
+- ✅ Must keep source code open if distributed or deployed as a network service
+- ✅ Must use same license (AGPL-3.0) for derivatives
 
 ---
 
