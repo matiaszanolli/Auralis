@@ -9,7 +9,9 @@ Handles database schema versioning and migrations
 """
 
 import logging
+import platform
 import shutil
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -20,7 +22,97 @@ from sqlalchemy.orm import sessionmaker
 from auralis.__version__ import __db_schema_version__
 from auralis.library.models import Base, SchemaVersion
 
+# Import platform-specific file locking
+if platform.system() == "Windows":
+    import msvcrt
+else:
+    import fcntl
+
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def migration_lock(db_path: str, timeout: float = 30.0):
+    """
+    Acquire an inter-process lock for database migration.
+
+    Uses platform-specific file locking to prevent concurrent migrations.
+
+    Args:
+        db_path: Path to database file
+        timeout: Maximum time to wait for lock in seconds
+
+    Yields:
+        None (lock is held during context)
+
+    Raises:
+        TimeoutError: If lock cannot be acquired within timeout
+        OSError: If lock file cannot be created
+    """
+    db_path_obj = Path(db_path)
+    lock_file = db_path_obj.parent / f".{db_path_obj.name}.migration.lock"
+
+    # Ensure directory exists
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
+
+    lock_fd = None
+    try:
+        # Open lock file
+        lock_fd = open(lock_file, 'w')
+
+        if platform.system() == "Windows":
+            # Windows: Use msvcrt.locking with retry loop
+            import time
+            start_time = time.time()
+            while True:
+                try:
+                    msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.time() - start_time >= timeout:
+                        raise TimeoutError(
+                            f"Could not acquire migration lock within {timeout}s. "
+                            "Another process may be migrating the database."
+                        )
+                    time.sleep(0.1)
+        else:
+            # Linux/macOS: Use fcntl.flock with timeout
+            import time
+            start_time = time.time()
+            while True:
+                try:
+                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except (IOError, OSError):
+                    if time.time() - start_time >= timeout:
+                        raise TimeoutError(
+                            f"Could not acquire migration lock within {timeout}s. "
+                            "Another process may be migrating the database."
+                        )
+                    time.sleep(0.1)
+
+        logger.debug(f"Acquired migration lock: {lock_file}")
+        yield
+
+    finally:
+        # Release lock and clean up
+        if lock_fd:
+            try:
+                if platform.system() == "Windows":
+                    msvcrt.locking(lock_fd.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+                lock_fd.close()
+                logger.debug(f"Released migration lock: {lock_file}")
+            except Exception as e:
+                logger.warning(f"Error releasing lock: {e}")
+
+            # Clean up lock file
+            try:
+                if lock_file.exists():
+                    lock_file.unlink()
+            except Exception as e:
+                logger.warning(f"Could not remove lock file {lock_file}: {e}")
 
 
 class MigrationManager:
@@ -269,12 +361,17 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
     """
     Check database version and migrate if needed.
 
+    Uses inter-process file locking to prevent concurrent migrations.
+
     Args:
         db_path: Path to database file
         auto_backup: Whether to automatically backup before migration
 
     Returns:
         True if database is ready (already up-to-date or successfully migrated)
+
+    Raises:
+        TimeoutError: If migration lock cannot be acquired
     """
     manager = MigrationManager(db_path)
 
@@ -282,7 +379,7 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
         current_version = manager.get_current_version()
         target_version = __db_schema_version__
 
-        # Already up-to-date
+        # Already up-to-date - no lock needed
         if current_version == target_version:
             logger.info(f"Database is up-to-date (v{current_version})")
             return True
@@ -295,27 +392,39 @@ def check_and_migrate_database(db_path: str, auto_backup: bool = True) -> bool:
             )
             return False
 
-        # Migration needed
+        # Migration needed - acquire inter-process lock
         logger.info(f"Database migration needed: v{current_version} → v{target_version}")
 
-        # Backup before migration
-        if auto_backup and current_version > 0:
-            try:
-                backup_path = backup_database(db_path)
-                logger.info(f"Created backup: {backup_path}")
-            except Exception as e:
-                logger.error(f"Failed to create backup: {e}")
-                logger.warning("Proceeding without backup...")
+        with migration_lock(db_path):
+            # Re-check version after acquiring lock (another process may have migrated)
+            current_version = manager.get_current_version()
+            if current_version == target_version:
+                logger.info(f"Database already migrated by another process (v{current_version})")
+                return True
 
-        # Perform migration
-        success = manager.migrate_to_latest()
+            # Backup before migration
+            if auto_backup and current_version > 0:
+                try:
+                    backup_path = backup_database(db_path)
+                    logger.info(f"Created backup: {backup_path}")
+                except Exception as e:
+                    logger.error(f"Failed to create backup: {e}")
+                    logger.error("❌ Aborting migration - backup failed")
+                    return False
 
-        if success:
-            logger.info("✅ Database migration completed successfully")
-        else:
-            logger.error("❌ Database migration failed")
+            # Perform migration
+            success = manager.migrate_to_latest()
 
-        return success
+            if success:
+                logger.info("✅ Database migration completed successfully")
+            else:
+                logger.error("❌ Database migration failed")
+
+            return success
+
+    except TimeoutError as e:
+        logger.error(f"❌ {e}")
+        return False
 
     except Exception as e:
         logger.error(f"❌ Error during migration check: {e}")

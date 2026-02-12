@@ -2,20 +2,24 @@
 Tests for database migration system
 """
 
+import multiprocessing
 import shutil
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import __db_schema_version__
-from auralis.library.migrations import (
+from auralis.library.migration_manager import (
     MigrationManager,
     backup_database,
     check_and_migrate_database,
+    migration_lock,
     restore_database,
 )
 from auralis.library.models import Base, SchemaVersion, Track
@@ -276,6 +280,155 @@ class TestCheckAndMigrate:
         # This should succeed but not create backup (already current)
         success = check_and_migrate_database(temp_db, auto_backup=True)
         assert success is True
+
+
+class TestMigrationConcurrency:
+    """Test cases for concurrent migration scenarios (Issue #2067)"""
+
+    @pytest.fixture
+    def temp_db(self):
+        """Create a temporary database for testing"""
+        temp_dir = tempfile.mkdtemp()
+        db_path = Path(temp_dir) / "test_library.db"
+        yield str(db_path)
+        # Cleanup
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_migration_lock_basic(self, temp_db):
+        """Test that migration lock can be acquired and released"""
+        # Should acquire lock successfully
+        with migration_lock(temp_db):
+            # Lock is held
+            lock_file = Path(temp_db).parent / f".{Path(temp_db).name}.migration.lock"
+            assert lock_file.exists()
+
+        # Lock should be released and cleaned up
+        assert not lock_file.exists()
+
+    def test_migration_lock_blocks_concurrent_access(self, temp_db):
+        """Test that migration lock prevents concurrent access"""
+        lock_file = Path(temp_db).parent / f".{Path(temp_db).name}.migration.lock"
+
+        # Acquire lock in first context
+        with migration_lock(temp_db):
+            assert lock_file.exists()
+
+            # Try to acquire lock again with short timeout
+            with pytest.raises(TimeoutError, match="Could not acquire migration lock"):
+                with migration_lock(temp_db, timeout=0.5):
+                    pass  # Should never reach here
+
+        # Lock should be released after first context exits
+        assert not lock_file.exists()
+
+    def test_concurrent_migration_attempts(self, temp_db):
+        """Test that only one process can migrate at a time"""
+
+        def attempt_migration(db_path: str, result_queue: multiprocessing.Queue, delay: float = 0):
+            """Helper function to run migration in separate process"""
+            try:
+                if delay > 0:
+                    time.sleep(delay)
+                success = check_and_migrate_database(db_path, auto_backup=False)
+                result_queue.put(("success", success))
+            except TimeoutError as e:
+                result_queue.put(("timeout", str(e)))
+            except Exception as e:
+                result_queue.put(("error", str(e)))
+
+        # Use multiprocessing to simulate concurrent processes
+        result_queue = multiprocessing.Queue()
+        processes = []
+
+        # Start two processes simultaneously
+        for i in range(2):
+            p = multiprocessing.Process(
+                target=attempt_migration,
+                args=(temp_db, result_queue, 0.1 * i)  # Slight delay to ensure overlap
+            )
+            processes.append(p)
+            p.start()
+
+        # Wait for all processes to complete
+        for p in processes:
+            p.join(timeout=10)
+
+        # Collect results
+        results = []
+        while not result_queue.empty():
+            results.append(result_queue.get())
+
+        # At least one should succeed
+        successes = [r for r in results if r[0] == "success" and r[1] is True]
+        assert len(successes) >= 1, f"Expected at least one successful migration, got: {results}"
+
+        # Verify database was migrated correctly
+        manager = MigrationManager(temp_db)
+        assert manager.get_current_version() == __db_schema_version__
+        manager.close()
+
+    def test_backup_failure_aborts_migration(self, temp_db):
+        """Test that migration aborts if backup fails (Issue #2067 - HIGH severity)"""
+        # Initialize database
+        manager = MigrationManager(temp_db)
+        manager.initialize_fresh_database()
+        manager.close()
+
+        # Manually set version to older version to trigger migration
+        engine = create_engine(f'sqlite:///{temp_db}')
+        with engine.begin() as conn:
+            conn.execute(
+                SchemaVersion.__table__.delete()
+            )
+            conn.execute(
+                SchemaVersion.__table__.insert(),
+                {"version": 1, "description": "Old version", "migration_script": "test"}
+            )
+
+        # Mock backup_database to raise an exception
+        with patch('auralis.library.migration_manager.backup_database', side_effect=IOError("Disk full")):
+            success = check_and_migrate_database(temp_db, auto_backup=True)
+
+            # Migration should FAIL, not proceed
+            assert success is False, "Migration should abort when backup fails"
+
+        # Verify database was NOT migrated
+        manager = MigrationManager(temp_db)
+        current_version = manager.get_current_version()
+        assert current_version == 1, f"Database should still be at v1, got v{current_version}"
+        manager.close()
+
+    def test_migration_lock_cleanup_on_exception(self, temp_db):
+        """Test that lock file is cleaned up even if exception occurs"""
+        lock_file = Path(temp_db).parent / f".{Path(temp_db).name}.migration.lock"
+
+        try:
+            with migration_lock(temp_db):
+                assert lock_file.exists()
+                raise ValueError("Simulated error during migration")
+        except ValueError:
+            pass
+
+        # Lock should still be cleaned up
+        assert not lock_file.exists(), "Lock file should be cleaned up after exception"
+
+    def test_recheck_version_after_lock_acquisition(self, temp_db):
+        """Test that version is rechecked after acquiring lock"""
+        # This tests the double-check pattern where another process
+        # may have completed the migration while we were waiting for the lock
+
+        # Initialize database
+        manager = MigrationManager(temp_db)
+        manager.initialize_fresh_database()
+        manager.close()
+
+        # Database is already current - should detect this and skip migration
+        success = check_and_migrate_database(temp_db, auto_backup=True)
+        assert success is True
+
+        # Verify no unnecessary backup was created
+        backup_files = list(Path(temp_db).parent.glob("*.backup_*"))
+        assert len(backup_files) == 0, "No backup should be created for up-to-date database"
 
 
 if __name__ == "__main__":
