@@ -22,7 +22,7 @@ export interface Track {
   artist: string;
   album?: string;
   duration: number;
-  coverUrl?: string;
+  artworkUrl?: string;  // Standardized field name (was coverUrl)
 }
 
 export type PresetName = 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';

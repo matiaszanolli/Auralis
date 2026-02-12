@@ -138,7 +138,7 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
                 'skip_count': self.skip_count,
                 'favorite': self.favorite,
                 'album': album_title,
-                'album_art': album_artwork,
+                'artwork_url': album_artwork,  # Standardized field name (was album_art)
                 'artists': artist_names,
                 'genres': genre_names,
                 'created_at': self.created_at.isoformat() if self.created_at else None,
