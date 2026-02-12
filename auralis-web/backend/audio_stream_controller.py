@@ -565,13 +565,16 @@ class AudioStreamController:
 
             duration = len(audio_data) / sample_rate
 
-            # Calculate chunks (same parameters as ChunkedProcessor)
-            chunk_duration = 15.0  # Match ChunkedProcessor.CHUNK_DURATION
-            chunk_interval = 10.0  # Match ChunkedProcessor.CHUNK_INTERVAL
+            # Calculate chunks (NO overlap for normal streaming - no crossfade applied)
+            chunk_duration = 15.0  # Chunk duration in seconds
             chunk_samples = int(chunk_duration * sample_rate)
-            interval_samples = int(chunk_interval * sample_rate)
 
-            total_chunks = max(1, int(np.ceil((len(audio_data) - chunk_samples) / interval_samples)) + 1)
+            # For normal path: chunk_interval = chunk_duration (no overlap)
+            # Unlike enhanced path which uses ChunkedProcessor with server-side crossfade,
+            # normal path sends chunks without processing, so overlap would cause duplication
+            interval_samples = chunk_samples  # No overlap
+
+            total_chunks = max(1, int(np.ceil(len(audio_data) / interval_samples)))
 
             logger.info(
                 f"Starting normal audio stream: track={track_id}, "
@@ -617,7 +620,7 @@ class AudioStreamController:
                         pcm_samples=chunk_audio,
                         chunk_index=chunk_idx,
                         total_chunks=total_chunks,
-                        crossfade_samples=int(5.0 * sample_rate),  # 5s overlap (match ChunkedProcessor)
+                        crossfade_samples=0,  # No overlap in normal path (no crossfade applied)
                     )
 
                     # Progress update
@@ -808,8 +811,10 @@ class AudioStreamController:
                     "frame_count": num_frames,
                     "samples": pcm_base64,
                     "sample_count": frame_samples.size,  # Total float32 values (frames × channels)
-                    # Crossfade is already applied server-side by extract_for_streaming()
-                    # Setting to 0 to prevent double-crossfading in frontend
+                    # Crossfade handling:
+                    # - Enhanced path: Crossfade applied server-side by ChunkedProcessor
+                    # - Normal path: No overlap, no crossfade needed
+                    # Always 0 to prevent frontend from applying crossfade
                     "crossfade_samples": 0,
                 },
             }
