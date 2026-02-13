@@ -25,6 +25,7 @@ Architecture:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 import math
 import os
@@ -276,12 +277,24 @@ def create_webm_streaming_router(
                     logger.info(f"❌ Cache MISS: Processing chunk {chunk_idx} on-demand for track {track_id}, preset {preset}")
 
                     # Use ChunkedAudioProcessor to handle enhancement with proper DSP
-                    processor = chunked_audio_processor_class(
-                        track_id=track_id,
-                        filepath=track.filepath,
-                        preset=preset,
-                        intensity=intensity
-                    )
+                    # Wrap instantiation in timeout to prevent hangs on corrupt/slow files (#2125)
+                    try:
+                        processor = await asyncio.wait_for(
+                            asyncio.to_thread(
+                                chunked_audio_processor_class,
+                                track_id=track_id,
+                                filepath=track.filepath,
+                                preset=preset,
+                                intensity=intensity
+                            ),
+                            timeout=30.0
+                        )
+                    except asyncio.TimeoutError:
+                        logger.error(f"Processor instantiation timed out for track {track_id} (30s)")
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Audio processor initialization timed out. File may be corrupt or on slow storage."
+                        )
 
                     # Get the WAV chunk path directly from the processor
                     # This applies enhancement via HybridProcessor if preset is not None

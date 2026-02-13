@@ -26,6 +26,7 @@ Features:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -411,13 +412,23 @@ class AudioStreamController:
             return
 
         try:
-            # Create processor for this track
-            processor: ChunkedAudioProcessor = self.chunked_processor_class(
-                track_id=track_id,
-                filepath=str(track.filepath),
-                preset=preset,
-                intensity=intensity,
-            )
+            # Create processor for this track with timeout (#2125)
+            try:
+                processor: ChunkedAudioProcessor = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self.chunked_processor_class,
+                        track_id=track_id,
+                        filepath=str(track.filepath),
+                        preset=preset,
+                        intensity=intensity,
+                    ),
+                    timeout=30.0
+                )
+            except asyncio.TimeoutError:
+                error_msg = "Audio processor initialization timed out. File may be corrupt or on slow storage."
+                logger.error(f"Processor instantiation timed out for track {track_id} (30s)")
+                await self._send_error(websocket, track_id, error_msg)
+                return
 
             # Ensure processor has loaded metadata
             assert processor.total_chunks is not None
@@ -987,13 +998,23 @@ class AudioStreamController:
             return
 
         try:
-            # Create processor for this track
-            processor: ChunkedAudioProcessor = self.chunked_processor_class(
-                track_id=track_id,
-                filepath=str(track.filepath),
-                preset=preset,
-                intensity=intensity,
-            )
+            # Create processor for this track with timeout (#2125)
+            try:
+                processor: ChunkedAudioProcessor = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self.chunked_processor_class,
+                        track_id=track_id,
+                        filepath=str(track.filepath),
+                        preset=preset,
+                        intensity=intensity,
+                    ),
+                    timeout=30.0
+                )
+            except asyncio.TimeoutError:
+                error_msg = "Audio processor initialization timed out during seek. File may be corrupt or on slow storage."
+                logger.error(f"Processor instantiation timed out for track {track_id} during seek (30s)")
+                await self._send_error(websocket, track_id, error_msg)
+                return
 
             # Ensure processor has loaded metadata
             assert processor.total_chunks is not None
