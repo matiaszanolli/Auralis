@@ -47,30 +47,12 @@ export interface PlayerStateMessage extends WebSocketMessage {
 }
 
 // Enhancement Messages
-export interface EnhancementToggledMessage extends WebSocketMessage {
-  type: 'enhancement_toggled';
+export interface EnhancementSettingsChangedMessage extends WebSocketMessage {
+  type: 'enhancement_settings_changed';
   data: {
     enabled: boolean;
     preset: string;
     intensity: number;
-  };
-}
-
-export interface EnhancementPresetChangedMessage extends WebSocketMessage {
-  type: 'enhancement_preset_changed';
-  data: {
-    preset: string;
-    enabled: boolean;
-    intensity: number;
-  };
-}
-
-export interface EnhancementIntensityChangedMessage extends WebSocketMessage {
-  type: 'enhancement_intensity_changed';
-  data: {
-    intensity: number;
-    enabled: boolean;
-    preset: string;
   };
 }
 
@@ -183,9 +165,7 @@ export interface AudioStreamErrorMessage extends WebSocketMessage {
 // Union type of all possible messages
 export type AuralisWebSocketMessage =
   | PlayerStateMessage
-  | EnhancementToggledMessage
-  | EnhancementPresetChangedMessage
-  | EnhancementIntensityChangedMessage
+  | EnhancementSettingsChangedMessage
   | LibraryUpdatedMessage
   | ScanProgressMessage
   | PlaylistCreatedMessage

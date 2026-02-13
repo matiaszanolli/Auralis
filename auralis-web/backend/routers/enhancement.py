@@ -159,7 +159,7 @@ def create_enhancement_router(
 
             # Broadcast to all clients
             await connection_manager.broadcast({
-                "type": "enhancement_toggled",
+                "type": "enhancement_settings_changed",
                 "data": {
                     "enabled": enabled,
                     "preset": enhancement_settings["preset"],
@@ -224,7 +224,7 @@ def create_enhancement_router(
 
             # Broadcast to all clients
             await connection_manager.broadcast({
-                "type": "enhancement_preset_changed",
+                "type": "enhancement_settings_changed",
                 "data": {
                     "preset": preset.lower(),
                     "enabled": enhancement_settings["enabled"],
@@ -279,7 +279,7 @@ def create_enhancement_router(
 
             # Broadcast to all clients
             await connection_manager.broadcast({
-                "type": "enhancement_intensity_changed",
+                "type": "enhancement_settings_changed",
                 "data": {
                     "intensity": intensity,
                     "enabled": enhancement_settings["enabled"],

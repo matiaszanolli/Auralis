@@ -245,19 +245,9 @@ export const mockWSMessages = {
   }),
 
   // Enhancement messages
-  enhancementToggled: (enabled: boolean, preset: string, intensity: number) => ({
-    type: 'enhancement_toggled',
+  enhancementSettingsChanged: (enabled: boolean, preset: string, intensity: number) => ({
+    type: 'enhancement_settings_changed',
     data: { enabled, preset, intensity },
-  }),
-
-  enhancementPresetChanged: (preset: string, enabled: boolean, intensity: number) => ({
-    type: 'enhancement_preset_changed',
-    data: { preset, enabled, intensity },
-  }),
-
-  enhancementIntensityChanged: (intensity: number, enabled: boolean, preset: string) => ({
-    type: 'enhancement_intensity_changed',
-    data: { intensity, enabled, preset },
   }),
 
   // Library messages

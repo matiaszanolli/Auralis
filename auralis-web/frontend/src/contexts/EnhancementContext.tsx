@@ -49,10 +49,9 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
 
   // Listen for WebSocket updates from backend
   useEffect(() => {
-    console.log('🎨 EnhancementContext: Setting up WebSocket subscriptions');
+    console.log('🎨 EnhancementContext: Setting up WebSocket subscription');
 
-    // Subscribe to enhancement_toggled
-    const unsubscribeToggled = subscribe('enhancement_toggled', (message: any) => {
+    const unsubscribe = subscribe('enhancement_settings_changed', (message: any) => {
       try {
         setSettings(prev => ({
           ...prev,
@@ -61,44 +60,13 @@ export const EnhancementProvider: React.FC<EnhancementProviderProps> = ({ childr
           intensity: message.data.intensity,
         }));
       } catch (error) {
-        console.error('Error handling enhancement_toggled:', error);
+        console.error('Error handling enhancement_settings_changed:', error);
       }
     });
 
-    // Subscribe to enhancement_preset_changed
-    const unsubscribePreset = subscribe('enhancement_preset_changed', (message: any) => {
-      try {
-        setSettings(prev => ({
-          ...prev,
-          preset: message.data.preset,
-          enabled: message.data.enabled,
-          intensity: message.data.intensity,
-        }));
-      } catch (error) {
-        console.error('Error handling enhancement_preset_changed:', error);
-      }
-    });
-
-    // Subscribe to enhancement_intensity_changed
-    const unsubscribeIntensity = subscribe('enhancement_intensity_changed', (message: any) => {
-      try {
-        setSettings(prev => ({
-          ...prev,
-          intensity: message.data.intensity,
-          enabled: message.data.enabled,
-          preset: message.data.preset,
-        }));
-      } catch (error) {
-        console.error('Error handling enhancement_intensity_changed:', error);
-      }
-    });
-
-    // Cleanup: unsubscribe from all message types
     return () => {
-      console.log('🎨 EnhancementContext: Cleaning up WebSocket subscriptions');
-      unsubscribeToggled();
-      unsubscribePreset();
-      unsubscribeIntensity();
+      console.log('🎨 EnhancementContext: Cleaning up WebSocket subscription');
+      unsubscribe();
     };
   }, [subscribe]);
 

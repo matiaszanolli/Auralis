@@ -340,11 +340,11 @@ describe.skip('WebSocket & Real-time Updates Integration Tests', () => {
       await waitFor(() => expect(result.current.isConnected).toBe(true));
 
       const handler = vi.fn();
-      const unsubscribe = result.current.subscribe('enhancement_toggled', handler);
+      const unsubscribe = result.current.subscribe('enhancement_settings_changed', handler);
 
       // Act - simulate enhancement toggle
       mockWS.simulateMessage({
-        type: 'enhancement_toggled',
+        type: 'enhancement_settings_changed',
         data: {
           enabled: true,
           preset: 'adaptive',
@@ -356,7 +356,7 @@ describe.skip('WebSocket & Real-time Updates Integration Tests', () => {
       await waitFor(() => {
         expect(handler).toHaveBeenCalledWith(
           expect.objectContaining({
-            type: 'enhancement_toggled',
+            type: 'enhancement_settings_changed',
             data: {
               enabled: true,
               preset: 'adaptive',
@@ -378,11 +378,11 @@ describe.skip('WebSocket & Real-time Updates Integration Tests', () => {
       await waitFor(() => expect(result.current.isConnected).toBe(true));
 
       const handler = vi.fn();
-      const unsubscribe = result.current.subscribe('enhancement_preset_changed', handler);
+      const unsubscribe = result.current.subscribe('enhancement_settings_changed', handler);
 
       // Act - simulate preset change
       mockWS.simulateMessage({
-        type: 'enhancement_preset_changed',
+        type: 'enhancement_settings_changed',
         data: {
           preset: 'punchy',
           enabled: true,
@@ -394,7 +394,7 @@ describe.skip('WebSocket & Real-time Updates Integration Tests', () => {
       await waitFor(() => {
         expect(handler).toHaveBeenCalledWith(
           expect.objectContaining({
-            type: 'enhancement_preset_changed',
+            type: 'enhancement_settings_changed',
             data: {
               preset: 'punchy',
               enabled: true,
@@ -416,11 +416,11 @@ describe.skip('WebSocket & Real-time Updates Integration Tests', () => {
       await waitFor(() => expect(result.current.isConnected).toBe(true));
 
       const handler = vi.fn();
-      const unsubscribe = result.current.subscribe('enhancement_intensity_changed', handler);
+      const unsubscribe = result.current.subscribe('enhancement_settings_changed', handler);
 
       // Act - simulate intensity change
       mockWS.simulateMessage({
-        type: 'enhancement_intensity_changed',
+        type: 'enhancement_settings_changed',
         data: {
           intensity: 0.5,
           enabled: true,
@@ -432,7 +432,7 @@ describe.skip('WebSocket & Real-time Updates Integration Tests', () => {
       await waitFor(() => {
         expect(handler).toHaveBeenCalledWith(
           expect.objectContaining({
-            type: 'enhancement_intensity_changed',
+            type: 'enhancement_settings_changed',
             data: {
               intensity: 0.5,
               enabled: true,
