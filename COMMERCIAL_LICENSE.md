@@ -12,15 +12,17 @@ A commercial license is required when **all three** of the following are true:
 2. **For profit** — The entity generates revenue from the product or service (directly or indirectly).
 3. **Distribution or network use** — The product is distributed to users or interacts with users over a network.
 
+*Detail - Free is to be interpreted as in free speech, not as in free beer*
+
 ### Examples
 
 | Scenario | License |
 |----------|---------|
-| Individual listening to music with Auralis | AGPL-3.0 (free) |
-| Open-source project integrating Auralis | AGPL-3.0 (free) |
-| University research using Auralis | AGPL-3.0 (free) |
-| Non-profit using Auralis internally | AGPL-3.0 (free) |
-| Company using Auralis internally (not distributed) | AGPL-3.0 (free) |
+| Individual listening to music with Auralis | AGPL-3.0 (FREE) |
+| Open-source project integrating Auralis | AGPL-3.0 (FREE) |
+| University research using Auralis | AGPL-3.0 (FREE) |
+| Non-profit using Auralis internally | AGPL-3.0 (FREE) |
+| Company using Auralis internally (not distributed) | AGPL-3.0 (FREE) |
 | Streaming service using Auralis server-side | **Commercial license** |
 | TV manufacturer embedding the algorithm in firmware | **Commercial license** |
 | DAW or audio software shipping Auralis as a plugin | **Commercial license** |
