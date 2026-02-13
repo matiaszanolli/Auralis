@@ -153,6 +153,9 @@ export function usePlayerStreaming({
   onGetPlayerStatus,
   debug = false,
 }: UsePlayerStreamingConfig): PlayerStreamingState {
+  // Convert drift threshold from milliseconds to seconds for comparison
+  const driftThresholdSeconds = driftThreshold / 1000;
+
   const log = useCallback((msg: string, data?: any) => {
     if (debug) {
       console.log(`[usePlayerStreaming] ${msg}`, data ?? '');
@@ -259,17 +262,17 @@ export function usePlayerStreaming({
 
       log('Position change from WebSocket', { serverPosition, localPosition, drift });
 
-      if (drift > driftThreshold) {
+      if (drift > driftThresholdSeconds) {
         log('Drift detected, correcting');
         onDriftDetected?.(drift, true);
 
         // Gradual correction via playback rate
-        if (drift > 1000) {
-          // Large drift: speed up/slow down playback
+        if (drift > 1) {
+          // Large drift (>1 second): speed up/slow down playback
           audioElement.playbackRate = drift > 0 ? 0.95 : 1.05;
           setTimeout(() => {
             audioElement.playbackRate = 1.0;
-          }, Math.min(drift * 1.5, 2000)); // Correction time proportional to drift
+          }, Math.min(drift * 1500, 2000)); // Correction time proportional to drift
         } else {
           // Small drift: just note it for next sync
           setState((prev) => ({
@@ -321,11 +324,11 @@ export function usePlayerStreaming({
           serverPosition: status.position,
           localTime,
           drift,
-          isDrifting: Math.abs(drift) > driftThreshold,
+          isDrifting: Math.abs(drift) > driftThresholdSeconds,
         });
 
         // Check if drift is significant
-        if (Math.abs(drift) > driftThreshold) {
+        if (Math.abs(drift) > driftThresholdSeconds) {
           log('Significant drift detected during sync', { drift });
           onDriftDetected?.(drift, false); // Not corrected yet, just detected
 

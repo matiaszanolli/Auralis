@@ -73,11 +73,22 @@ export function usePlaybackState(): PlaybackState {
         switch (message.type) {
           case 'player_state': {
             const msg = message as PlayerStateMessage;
+            // Map snake_case from backend to camelCase for frontend
+            const data = msg.data as any;
             return {
-              ...msg.data,
+              currentTrack: data.current_track ?? null,
+              isPlaying: data.is_playing ?? false,
+              volume: data.volume ?? 1.0,
+              position: data.position ?? 0,
+              duration: data.duration ?? 0,
+              queue: data.queue ?? [],
+              queueIndex: data.queue_index ?? -1,
+              gapless_enabled: data.gapless_enabled ?? true,
+              crossfade_enabled: data.crossfade_enabled ?? true,
+              crossfade_duration: data.crossfade_duration ?? 3.0,
               isLoading: false,
               error: null,
-            } as PlaybackState;
+            };
           }
 
           case 'playback_started': {
@@ -198,7 +209,9 @@ export function useCurrentTrack(): TrackInfo | null {
     (message) => {
       if (message.type === 'player_state') {
         const msg = message as PlayerStateMessage;
-        setTrack(msg.data.currentTrack);
+        // Backend sends current_track (snake_case)
+        const data = msg.data as any;
+        setTrack(data.current_track ?? null);
       } else if (message.type === 'track_loaded' || message.type === 'track_changed') {
         const msg = message as TrackLoadedMessage | TrackChangedMessage;
         if (msg.data.track) {
@@ -229,7 +242,9 @@ export function useIsPlaying(): boolean {
       switch (message.type) {
         case 'player_state': {
           const msg = message as PlayerStateMessage;
-          setIsPlaying(msg.data.isPlaying);
+          // Backend sends is_playing (snake_case)
+          const data = msg.data as any;
+          setIsPlaying(data.is_playing ?? false);
           break;
         }
         case 'playback_started':

@@ -56,6 +56,14 @@ export interface WebSocketMessage<T = any> {
 // Player State Messages
 // ============================================================================
 
+/**
+ * Player state data (frontend-facing camelCase representation).
+ *
+ * IMPORTANT: The backend sends snake_case fields (current_track, is_playing, queue_index).
+ * You must map snake_case → camelCase when consuming this data.
+ *
+ * See usePlayerStateSync.ts and usePlaybackState.ts for mapping examples.
+ */
 export interface PlayerStateData {
   currentTrack: TrackInfo | null;
   isPlaying: boolean;
