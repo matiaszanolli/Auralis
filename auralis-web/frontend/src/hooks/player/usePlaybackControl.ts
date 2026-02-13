@@ -87,7 +87,7 @@ export interface PlaybackControlActions {
 export function usePlaybackControl(): PlaybackControlActions {
   const api = useRestAPI();
   const playbackState = usePlaybackState();
-  const { sendMessage } = useWebSocketContext();
+  const { send } = useWebSocketContext();
 
   // Local loading state for this hook's operations
   const [isLoading, setIsLoading] = useState(false);
@@ -114,7 +114,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       }
 
       // Send WebSocket message for normal (unprocessed) audio playback
-      sendMessage({
+      send({
         type: 'play_normal',
         data: {
           track_id: trackId,
@@ -131,7 +131,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [sendMessage, playbackState.currentTrack]);
+  }, [send, playbackState.currentTrack]);
 
   /**
    * Pause - Pause playback
@@ -144,7 +144,7 @@ export function usePlaybackControl(): PlaybackControlActions {
 
     try {
       // Send WebSocket message to pause playback
-      sendMessage({
+      send({
         type: 'pause',
         data: {},
       });
@@ -158,7 +158,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [sendMessage]);
+  }, [send]);
 
   /**
    * Stop - Stop playback completely
@@ -171,7 +171,7 @@ export function usePlaybackControl(): PlaybackControlActions {
 
     try {
       // Send WebSocket message to stop playback
-      sendMessage({
+      send({
         type: 'stop',
         data: {},
       });
@@ -185,7 +185,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [sendMessage]);
+  }, [send]);
 
   /**
    * Seek - Seek to position in seconds
