@@ -132,20 +132,32 @@ def create_system_router(
                     # Handle enhanced audio playback request via WebSocket streaming
                     data = message.get("data", {})
                     track_id = data.get("track_id")
-                    preset = data.get("preset", "adaptive")
-                    intensity = data.get("intensity", 1.0)
+
+                    # Use stored enhancement settings as source of truth (fixes #2103)
+                    # This ensures REST API changes are respected
+                    enhancement_enabled = True
+                    preset = "adaptive"
+                    intensity = 1.0
+
+                    if get_enhancement_settings is not None:
+                        settings = get_enhancement_settings()
+                        enhancement_enabled = settings.get("enabled", True)
+                        preset = settings.get("preset", "adaptive")
+                        intensity = settings.get("intensity", 1.0)
+                        logger.info(
+                            f"Using stored enhancement settings: enabled={enhancement_enabled}, "
+                            f"preset={preset}, intensity={intensity}"
+                        )
+                    else:
+                        # Fallback to message data if settings not available
+                        preset = data.get("preset", "adaptive")
+                        intensity = data.get("intensity", 1.0)
+                        logger.warning("Enhancement settings not available, using message defaults")
 
                     logger.info(
                         f"Received play_enhanced: track_id={track_id}, "
                         f"preset={preset}, intensity={intensity}"
                     )
-
-                    # Check if enhancement is enabled (Phase 3.4: Fix toggle functionality)
-                    enhancement_enabled = True  # Default to enabled if settings not available
-                    if get_enhancement_settings is not None:
-                        settings = get_enhancement_settings()
-                        enhancement_enabled = settings.get("enabled", True)
-                        logger.info(f"Enhancement enabled check: {enhancement_enabled}")
 
                     if not enhancement_enabled:
                         # Enhancement is disabled - send error message to client
@@ -338,8 +350,14 @@ def create_system_router(
                     data = message.get("data", {})
                     track_id = data.get("track_id")
                     position = data.get("position", 0)  # Position in seconds
-                    preset = data.get("preset", "adaptive")
-                    intensity = data.get("intensity", 1.0)
+
+                    # Use stored enhancement settings (fixes #2103)
+                    preset = "adaptive"
+                    intensity = 1.0
+                    if get_enhancement_settings is not None:
+                        settings = get_enhancement_settings()
+                        preset = settings.get("preset", "adaptive")
+                        intensity = settings.get("intensity", 1.0)
 
                     logger.info(
                         f"Received seek: track_id={track_id}, "
