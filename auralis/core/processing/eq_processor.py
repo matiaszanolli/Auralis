@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 EQ Processor
 ~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Psychoacoustic EQ integration and processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -32,8 +30,8 @@ class EQProcessor:
         """
         self.psychoacoustic_eq = psychoacoustic_eq
 
-    def apply_psychoacoustic_eq(self, audio: np.ndarray, targets: Dict[str, Any],
-                                content_profile: Optional[Dict[str, Any]] = None) -> np.ndarray:
+    def apply_psychoacoustic_eq(self, audio: np.ndarray, targets: dict[str, Any],
+                                content_profile: dict[str, Any] | None = None) -> np.ndarray:
         """
         Apply psychoacoustic EQ adjustments based on adaptive targets and content analysis
 
@@ -61,8 +59,8 @@ class EQProcessor:
             debug(f"Psychoacoustic EQ failed, falling back to simple EQ: {e}")
             return self._apply_simple_eq_fallback(audio, targets)
 
-    def _targets_to_eq_curve(self, targets: Dict[str, Any],
-                            content_profile: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+    def _targets_to_eq_curve(self, targets: dict[str, Any],
+                            content_profile: dict[str, Any] | None = None) -> dict[str, float]:
         """
         Convert adaptive targets to EQ curve parameters with content awareness
 
@@ -100,8 +98,8 @@ class EQProcessor:
 
         return eq_curve
 
-    def _apply_content_adjustments(self, eq_curve: Dict[str, float],
-                                   content_profile: Dict[str, Any]) -> Dict[str, float]:
+    def _apply_content_adjustments(self, eq_curve: dict[str, float],
+                                   content_profile: dict[str, Any]) -> dict[str, float]:
         """
         Adjust EQ curve based on content analysis
 
@@ -148,8 +146,8 @@ class EQProcessor:
 
         return eq_curve
 
-    def _process_with_psychoacoustic_eq(self, audio: np.ndarray, eq_curve: Dict[str, float],
-                                       content_profile: Optional[Dict[str, Any]] = None) -> np.ndarray:
+    def _process_with_psychoacoustic_eq(self, audio: np.ndarray, eq_curve: dict[str, float],
+                                       content_profile: dict[str, Any] | None = None) -> np.ndarray:
         """
         Process audio using psychoacoustic EQ with content awareness
 
@@ -192,7 +190,7 @@ class EQProcessor:
 
         return processed_audio
 
-    def _eq_curve_to_array(self, eq_curve: Dict[str, float]) -> np.ndarray:
+    def _eq_curve_to_array(self, eq_curve: dict[str, float]) -> np.ndarray:
         """
         Convert EQ curve dictionary to array format expected by psychoacoustic EQ
 
@@ -235,7 +233,7 @@ class EQProcessor:
 
         return target_curve
 
-    def _apply_simple_eq_fallback(self, audio: np.ndarray, targets: Dict[str, Any]) -> np.ndarray:
+    def _apply_simple_eq_fallback(self, audio: np.ndarray, targets: dict[str, Any]) -> np.ndarray:
         """
         Fallback simple EQ implementation for safety
 

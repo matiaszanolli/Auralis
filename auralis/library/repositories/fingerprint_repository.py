@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Repository
 ~~~~~~~~~~~~~~~~~~~~~
@@ -10,9 +8,10 @@ Data access layer for track fingerprint operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
+from collections.abc import Callable
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from ...utils.logging import debug, error, info, warning
@@ -36,7 +35,7 @@ class FingerprintRepository:
         """Get a new database session"""
         return self.session_factory()
 
-    def add(self, track_id: int, fingerprint_data: Dict[str, float]) -> Optional[TrackFingerprint]:
+    def add(self, track_id: int, fingerprint_data: dict[str, float]) -> TrackFingerprint | None:
         """
         Add a fingerprint for a track
 
@@ -84,7 +83,7 @@ class FingerprintRepository:
             session.expunge_all()
             session.close()
 
-    def get_by_track_id(self, track_id: int) -> Optional[TrackFingerprint]:
+    def get_by_track_id(self, track_id: int) -> TrackFingerprint | None:
         """
         Get fingerprint by track ID
 
@@ -103,7 +102,7 @@ class FingerprintRepository:
         finally:
             session.close()
 
-    def update(self, track_id: int, fingerprint_data: Dict[str, float]) -> Optional[TrackFingerprint]:
+    def update(self, track_id: int, fingerprint_data: dict[str, float]) -> TrackFingerprint | None:
         """
         Update an existing fingerprint
 
@@ -180,7 +179,7 @@ class FingerprintRepository:
         finally:
             session.close()
 
-    def get_all(self, limit: Optional[int] = None, offset: int = 0) -> List[TrackFingerprint]:
+    def get_all(self, limit: int | None = None, offset: int = 0) -> list[TrackFingerprint]:
         """
         Get all fingerprints with pagination
 
@@ -221,8 +220,8 @@ class FingerprintRepository:
         dimension: str,
         min_value: float,
         max_value: float,
-        limit: Optional[int] = None
-    ) -> List[TrackFingerprint]:
+        limit: int | None = None
+    ) -> list[TrackFingerprint]:
         """
         Get fingerprints within a specific dimension range
 
@@ -262,9 +261,9 @@ class FingerprintRepository:
 
     def get_by_multi_dimension_range(
         self,
-        ranges: Dict[str, Tuple[float, float]],
-        limit: Optional[int] = None
-    ) -> List[TrackFingerprint]:
+        ranges: dict[str, tuple[float, float]],
+        limit: int | None = None
+    ) -> list[TrackFingerprint]:
         """
         Get fingerprints within multiple dimension ranges
 
@@ -326,7 +325,7 @@ class FingerprintRepository:
         finally:
             session.close()
 
-    def get_missing_fingerprints(self, limit: Optional[int] = None) -> List[Track]:
+    def get_missing_fingerprints(self, limit: int | None = None) -> list[Track]:
         """
         Get tracks that don't have fingerprints yet
 
@@ -365,7 +364,7 @@ class FingerprintRepository:
             session.expunge_all()
             session.close()
 
-    def claim_next_unfingerprinted_track(self) -> Optional[Track]:
+    def claim_next_unfingerprinted_track(self) -> Track | None:
         """
         Atomically claim the next unfingerprinted track for processing.
 
@@ -431,7 +430,7 @@ class FingerprintRepository:
                 debug(f"Track {track_id} claimed by worker")
                 return claimed_track
 
-            except Exception as claim_error:
+            except Exception:
                 # Another worker already claimed this track (UNIQUE constraint)
                 # Rollback and return None - next iteration will get a different track
                 session.rollback()
@@ -446,7 +445,7 @@ class FingerprintRepository:
             session.expunge_all()
             session.close()
 
-    def upsert(self, track_id: int, fingerprint_data: Dict[str, float]) -> Optional[TrackFingerprint]:
+    def upsert(self, track_id: int, fingerprint_data: dict[str, float]) -> TrackFingerprint | None:
         """
         Insert or update a fingerprint (upsert operation)
 
@@ -477,7 +476,7 @@ class FingerprintRepository:
                 cols = list(fingerprint_data.keys())
                 placeholders = ', '.join(['?'] * len(cols))
                 cols_str = ', '.join(cols)
-                vals: List[Any] = [fingerprint_data[col] for col in cols]
+                vals: list[Any] = [fingerprint_data[col] for col in cols]
 
                 # Use INSERT OR REPLACE (upsert) - much simpler than ORM
                 sql = f"INSERT OR REPLACE INTO track_fingerprints (track_id, {cols_str}) VALUES (?, {placeholders})"
@@ -510,7 +509,7 @@ class FingerprintRepository:
         harmonic_ratio: float, pitch_stability: float, chroma_energy: float,
         dynamic_range_variation: float, loudness_variation_std: float, peak_consistency: float,
         stereo_width: float, phase_correlation: float,
-    ) -> Optional[TrackFingerprint]:
+    ) -> TrackFingerprint | None:
         """
         Store fingerprint with automatic quantization (Phase 3A).
 
@@ -574,7 +573,7 @@ class FingerprintRepository:
             error(f"Failed to store fingerprint for track {track_id}: {e}")
             return None
 
-    def update_status(self, track_id: int, status: str, completed_at: Optional[str] = None) -> bool:
+    def update_status(self, track_id: int, status: str, completed_at: str | None = None) -> bool:
         """
         Update fingerprint processing status for a track.
 
@@ -619,7 +618,7 @@ class FingerprintRepository:
             error(f"Failed to update status for track {track_id}: {e}")
             return False
 
-    def get_fingerprint_status(self, track_id: int) -> Optional[Dict[str, Any]]:
+    def get_fingerprint_status(self, track_id: int) -> dict[str, Any] | None:
         """
         Get fingerprint status for a specific track.
 
@@ -650,7 +649,7 @@ class FingerprintRepository:
         finally:
             session.close()
 
-    def get_fingerprint_stats(self) -> Dict[str, int]:
+    def get_fingerprint_stats(self) -> dict[str, int]:
         """
         Get overall fingerprint statistics.
 
@@ -712,7 +711,7 @@ class FingerprintRepository:
 
             session.commit()
             return incomplete_count
-        except Exception as e:
+        except Exception:
             session.rollback()
             raise
         finally:

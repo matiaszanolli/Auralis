@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Constants
 ~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Single source of truth for all fingerprint-related constants.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 
 class FingerprintConstants:
@@ -34,7 +32,7 @@ class FingerprintConstants:
     CV_DEFAULT_SCALE = 1.0    # Standard coefficient of variation scaling
 
     @staticmethod
-    def validate_vector(vector: Any, expected_dims: Optional[int] = None) -> bool:
+    def validate_vector(vector: Any, expected_dims: int | None = None) -> bool:
         """
         Validate fingerprint vector dimensions.
 

@@ -15,7 +15,8 @@ Endpoints:
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -30,20 +31,20 @@ logger = logging.getLogger(__name__)
 
 class MetadataUpdateRequest(BaseModel):
     """Request model for metadata updates"""
-    title: Optional[str] = None
-    artist: Optional[str] = None
-    album: Optional[str] = None
-    albumartist: Optional[str] = None
-    year: Optional[int] = None
-    genre: Optional[str] = None
-    track: Optional[int] = None
-    disc: Optional[int] = None
-    comment: Optional[str] = None
-    bpm: Optional[int] = None
-    composer: Optional[str] = None
-    publisher: Optional[str] = None
-    lyrics: Optional[str] = None
-    copyright: Optional[str] = None
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    albumartist: str | None = None
+    year: int | None = None
+    genre: str | None = None
+    track: int | None = None
+    disc: int | None = None
+    comment: str | None = None
+    bpm: int | None = None
+    composer: str | None = None
+    publisher: str | None = None
+    lyrics: str | None = None
+    copyright: str | None = None
 
     class Config:
         extra = "forbid"  # Don't allow unknown fields
@@ -52,19 +53,19 @@ class MetadataUpdateRequest(BaseModel):
 class BatchMetadataUpdateRequest(BaseModel):
     """Request model for batch metadata updates"""
     track_id: int = Field(..., description="Track ID")
-    metadata: Dict[str, Any] = Field(..., description="Metadata fields to update")
+    metadata: dict[str, Any] = Field(..., description="Metadata fields to update")
 
 
 class BatchMetadataRequest(BaseModel):
     """Request model for batch update endpoint"""
-    updates: List[BatchMetadataUpdateRequest] = Field(..., description="List of updates")
+    updates: list[BatchMetadataUpdateRequest] = Field(..., description="List of updates")
     backup: bool = Field(True, description="Create backup before modification")
 
 
 def create_metadata_router(
     get_repository_factory: Callable[[], Any],
     broadcast_manager: Any,
-    metadata_editor: Optional[MetadataEditor] = None
+    metadata_editor: MetadataEditor | None = None
 ) -> APIRouter:
     """
     Factory function to create metadata router with dependencies.
@@ -89,7 +90,7 @@ def create_metadata_router(
         metadata_editor = MetadataEditor()
 
     @router.get("/api/metadata/tracks/{track_id}/fields")
-    async def get_editable_fields(track_id: int) -> Dict[str, Any]:
+    async def get_editable_fields(track_id: int) -> dict[str, Any]:
         """
         Get list of editable metadata fields for a track.
 
@@ -133,7 +134,7 @@ def create_metadata_router(
             raise HTTPException(status_code=500, detail=f"Failed to get editable fields: {e}")
 
     @router.get("/api/metadata/tracks/{track_id}")
-    async def get_track_metadata(track_id: int) -> Dict[str, Any]:
+    async def get_track_metadata(track_id: int) -> dict[str, Any]:
         """
         Get current metadata for a track.
 
@@ -173,7 +174,7 @@ def create_metadata_router(
             raise HTTPException(status_code=500, detail=f"Failed to get metadata: {e}")
 
     @router.put("/api/metadata/tracks/{track_id}")
-    async def update_track_metadata(track_id: int, request: MetadataUpdateRequest, backup: bool = True) -> Dict[str, Any]:
+    async def update_track_metadata(track_id: int, request: MetadataUpdateRequest, backup: bool = True) -> dict[str, Any]:
         """
         Update metadata for a track.
 
@@ -258,7 +259,7 @@ def create_metadata_router(
             raise HTTPException(status_code=500, detail=f"Failed to update metadata: {e}")
 
     @router.post("/api/metadata/batch")
-    async def batch_update_metadata(request: BatchMetadataRequest) -> Dict[str, Any]:
+    async def batch_update_metadata(request: BatchMetadataRequest) -> dict[str, Any]:
         """
         Batch update metadata for multiple tracks.
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Statistical Metric Utilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,6 @@ Consolidates repeated metric calculations across analyzers.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional
 
 import numpy as np
 
@@ -184,8 +181,8 @@ class MetricUtils:
     @staticmethod
     def normalize_with_zscore(
         values: np.ndarray,
-        mean: Optional[float] = None,
-        std: Optional[float] = None,
+        mean: float | None = None,
+        std: float | None = None,
         epsilon: float = SafeOperations.EPSILON
     ) -> np.ndarray:
         """
@@ -234,9 +231,9 @@ class MetricUtils:
     @staticmethod
     def robust_scale(
         values: np.ndarray,
-        q1: Optional[float] = None,
-        q2: Optional[float] = None,
-        q3: Optional[float] = None,
+        q1: float | None = None,
+        q2: float | None = None,
+        q3: float | None = None,
         epsilon: float = SafeOperations.EPSILON
     ) -> np.ndarray:
         """
@@ -468,8 +465,8 @@ class MetricUtils:
     @staticmethod
     def quantile_normalize(
         values: np.ndarray,
-        reference: Optional[np.ndarray] = None,
-        quantiles: Optional[np.ndarray] = None
+        reference: np.ndarray | None = None,
+        quantiles: np.ndarray | None = None
     ) -> np.ndarray:
         """
         Quantile normalization: Transform to match reference distribution.

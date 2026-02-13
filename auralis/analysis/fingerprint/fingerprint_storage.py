@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Storage Module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -16,10 +14,9 @@ using content-based hashing for cache keys.
 
 import hashlib
 import json
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 
 class FingerprintStorage:
@@ -68,7 +65,7 @@ class FingerprintStorage:
         return cache_key
 
     @staticmethod
-    def save(audio_path: Path, fingerprint: Dict[str, Any], targets: Dict[str, Any]) -> Path:
+    def save(audio_path: Path, fingerprint: dict[str, Any], targets: dict[str, Any]) -> Path:
         """
         Save fingerprint and mastering targets to cache.
 
@@ -118,7 +115,7 @@ class FingerprintStorage:
         return cache_path
 
     @staticmethod
-    def load(audio_path: Path) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+    def load(audio_path: Path) -> tuple[dict[str, Any], dict[str, Any]] | None:
         """
         Load fingerprint and targets from cache if valid.
 
@@ -145,7 +142,7 @@ class FingerprintStorage:
 
         try:
             # Load content
-            with open(cache_path, 'r', encoding='utf-8') as f:
+            with open(cache_path, encoding='utf-8') as f:
                 content = json.load(f)
 
             # Validate version
@@ -167,7 +164,7 @@ class FingerprintStorage:
 
             return (fingerprint, targets)
 
-        except (json.JSONDecodeError, IOError, KeyError) as e:
+        except (json.JSONDecodeError, OSError, KeyError) as e:
             # Corrupted or invalid cache file
             return None
 

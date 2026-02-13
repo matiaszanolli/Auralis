@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Audio Processing
 ~~~~~~~~~~~~~~~~
@@ -10,14 +8,13 @@ Audio validation and processing utilities
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Tuple
 
 import numpy as np
 
 from ..utils.logging import Code, ModuleError, debug, warning
 
 
-def validate_audio(audio_data: np.ndarray, sample_rate: int, file_type: str) -> Tuple[np.ndarray, int]:
+def validate_audio(audio_data: np.ndarray, sample_rate: int, file_type: str) -> tuple[np.ndarray, int]:
     """Validate loaded audio data"""
 
     # Check if audio is empty

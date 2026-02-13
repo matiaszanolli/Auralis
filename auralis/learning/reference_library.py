@@ -11,7 +11,6 @@ The goal: Match or exceed the standards set by the best in the industry.
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
 
 
 class MasteringEngineer(Enum):
@@ -74,17 +73,17 @@ class ReferenceTrack:
     year: int
     genre: Genre
     engineer: MasteringEngineer
-    file_path: Optional[Path] = None
+    file_path: Path | None = None
 
     # Measured characteristics (to be filled by analyzer)
-    target_lufs: Optional[float] = None
-    target_rms: Optional[float] = None
-    dynamic_range: Optional[float] = None
-    crest_factor: Optional[float] = None
+    target_lufs: float | None = None
+    target_rms: float | None = None
+    dynamic_range: float | None = None
+    crest_factor: float | None = None
 
     # Quality markers
     is_remaster: bool = False
-    remaster_year: Optional[int] = None
+    remaster_year: int | None = None
     bit_depth: int = 16
     sample_rate: int = 44100
 
@@ -96,7 +95,7 @@ class ReferenceTrack:
 # REFERENCE LIBRARY - Curated by Genre
 # =============================================================================
 
-REFERENCE_LIBRARY: Dict[Genre, List[ReferenceTrack]] = {
+REFERENCE_LIBRARY: dict[Genre, list[ReferenceTrack]] = {
 
     # =========================================================================
     # PROGRESSIVE ROCK - Steven Wilson Standard
@@ -282,7 +281,7 @@ REFERENCE_LIBRARY: Dict[Genre, List[ReferenceTrack]] = {
 # Quality Benchmarks by Genre
 # =============================================================================
 
-GENRE_QUALITY_BENCHMARKS: Dict[Genre, Dict[str, float]] = {
+GENRE_QUALITY_BENCHMARKS: dict[Genre, dict[str, float]] = {
     Genre.PROGRESSIVE_ROCK: {
         "target_lufs": -14.0,      # Moderate loudness, preserves dynamics
         "min_dynamic_range": 12.0,  # DR12+ expected
@@ -334,7 +333,7 @@ GENRE_QUALITY_BENCHMARKS: Dict[Genre, Dict[str, float]] = {
 # Engineer Profiles - What Makes Each Master Unique
 # =============================================================================
 
-ENGINEER_PROFILES: Dict[MasteringEngineer, Dict[str, str]] = {
+ENGINEER_PROFILES: dict[MasteringEngineer, dict[str, str]] = {
     MasteringEngineer.STEVEN_WILSON: {
         "philosophy": "Audiophile-quality remasters with dynamic range preservation",
         "signature": "Extended frequency response, transparent limiting, wide stereo",
@@ -387,22 +386,22 @@ ENGINEER_PROFILES: Dict[MasteringEngineer, Dict[str, str]] = {
 }
 
 
-def get_references_for_genre(genre: Genre) -> List[ReferenceTrack]:
+def get_references_for_genre(genre: Genre) -> list[ReferenceTrack]:
     """Get all reference tracks for a specific genre."""
     return REFERENCE_LIBRARY.get(genre, [])
 
 
-def get_quality_benchmark(genre: Genre) -> Dict[str, float]:
+def get_quality_benchmark(genre: Genre) -> dict[str, float]:
     """Get quality benchmarks for a specific genre."""
     return GENRE_QUALITY_BENCHMARKS.get(genre, {})
 
 
-def get_engineer_profile(engineer: MasteringEngineer) -> Dict[str, str]:
+def get_engineer_profile(engineer: MasteringEngineer) -> dict[str, str]:
     """Get mastering profile for a specific engineer."""
     return ENGINEER_PROFILES.get(engineer, {})
 
 
-def list_all_references() -> List[ReferenceTrack]:
+def list_all_references() -> list[ReferenceTrack]:
     """Get all reference tracks across all genres."""
     all_refs = []
     for genre_refs in REFERENCE_LIBRARY.values():
@@ -410,7 +409,7 @@ def list_all_references() -> List[ReferenceTrack]:
     return all_refs
 
 
-def get_high_priority_references() -> List[ReferenceTrack]:
+def get_high_priority_references() -> list[ReferenceTrack]:
     """
     Get highest priority references for learning optimal targets.
 

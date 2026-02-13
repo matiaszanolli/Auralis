@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Assessment Constants
 ~~~~~~~~~~~~~~~~~~~
@@ -13,7 +11,7 @@ for consistent evaluation against industry standards.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 
 class AssessmentConstants:
@@ -157,7 +155,7 @@ class AssessmentConstants:
     # ========== UTILITY METHODS ==========
 
     @classmethod
-    def get_standard_compliance_targets(cls, standard: str) -> Dict[str, Any]:
+    def get_standard_compliance_targets(cls, standard: str) -> dict[str, Any]:
         """Get target values for a specific standard"""
         standards = {
             'spotify': {

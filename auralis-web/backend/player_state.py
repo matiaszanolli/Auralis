@@ -10,7 +10,7 @@ This ensures consistency across WebSocket and REST endpoints.
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -32,7 +32,7 @@ class TrackInfo(BaseModel):
     album: str
     duration: float
     file_path: str
-    album_art: Optional[str] = None
+    album_art: str | None = None
     is_enhanced: bool = False
 
 
@@ -44,7 +44,7 @@ class PlayerState(BaseModel):
     is_paused: bool = False
 
     # Current track
-    current_track: Optional[TrackInfo] = None
+    current_track: TrackInfo | None = None
 
     # Playback position
     current_time: float = 0.0
@@ -55,7 +55,7 @@ class PlayerState(BaseModel):
     is_muted: bool = False
 
     # Queue management
-    queue: List[TrackInfo] = []
+    queue: list[TrackInfo] = []
     queue_index: int = 0
     queue_size: int = 0
 
@@ -68,10 +68,10 @@ class PlayerState(BaseModel):
     current_preset: str = "adaptive"
 
     # Real-time analysis (optional)
-    analysis: Optional[Dict[str, Any]] = None
+    analysis: dict[str, Any] | None = None
 
 
-def create_track_info(track: Any) -> Optional[TrackInfo]:
+def create_track_info(track: Any) -> TrackInfo | None:
     """
     Convert a Track model to TrackInfo DTO
 

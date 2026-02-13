@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Advanced Dynamics Processing
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ Intelligent compression, limiting, and dynamic range optimization
 Advanced dynamics processing with content-aware adaptation
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -28,7 +26,7 @@ from .dynamics import (
     EnvelopeFollower,
     LimiterSettings,
 )
-from .unified import rms, smooth_parameter_transition
+from .unified import smooth_parameter_transition
 
 # Re-export for backward compatibility
 __all__ = [
@@ -57,12 +55,12 @@ class DynamicsProcessor:
 
         # Initialize processing components
         if settings.enable_compressor and settings.compressor is not None:
-            self.compressor: Optional[AdaptiveCompressor] = AdaptiveCompressor(settings.compressor, settings.sample_rate)
+            self.compressor: AdaptiveCompressor | None = AdaptiveCompressor(settings.compressor, settings.sample_rate)
         else:
             self.compressor = None
 
         if settings.enable_limiter and settings.limiter is not None:
-            self.limiter: Optional[AdaptiveLimiter] = AdaptiveLimiter(settings.limiter, settings.sample_rate)
+            self.limiter: AdaptiveLimiter | None = AdaptiveLimiter(settings.limiter, settings.sample_rate)
         else:
             self.limiter = None
 
@@ -71,7 +69,7 @@ class DynamicsProcessor:
         self.gate_gain = 1.0
 
         # Adaptive state
-        self.content_history: list[Dict[str, Any]] = []
+        self.content_history: list[dict[str, Any]] = []
         threshold_db = settings.compressor.threshold_db if settings.compressor else -18.0
         ratio = settings.compressor.ratio if settings.compressor else 4.0
         self.adaptation_state = {
@@ -84,7 +82,7 @@ class DynamicsProcessor:
         debug(f"Dynamics processor initialized in {settings.mode.value} mode")
 
     def process(self, audio: np.ndarray,
-                content_info: Optional[Dict[str, Any]] = None) -> Tuple[np.ndarray, Dict[str, Any]]:
+                content_info: dict[str, Any] | None = None) -> tuple[np.ndarray, dict[str, Any]]:
         """
         Process audio through complete dynamics chain
 
@@ -126,7 +124,7 @@ class DynamicsProcessor:
 
         return processed_audio, processing_info
 
-    def _apply_gate(self, audio: np.ndarray) -> Tuple[np.ndarray, Dict[str, float]]:
+    def _apply_gate(self, audio: np.ndarray) -> tuple[np.ndarray, dict[str, float]]:
         """Apply noise gate"""
         level = np.sqrt(np.mean(audio ** 2))
 
@@ -151,7 +149,7 @@ class DynamicsProcessor:
 
         return gated_audio, gate_info
 
-    def _get_detection_mode(self, content_info: Optional[Dict[str, Any]]) -> str:
+    def _get_detection_mode(self, content_info: dict[str, Any] | None) -> str:
         """Determine optimal detection mode based on content"""
         if not content_info:
             return "rms"  # Default
@@ -165,7 +163,7 @@ class DynamicsProcessor:
         else:
             return "hybrid"  # Balanced approach
 
-    def _adapt_to_content(self, content_info: Dict[str, Any]) -> None:
+    def _adapt_to_content(self, content_info: dict[str, Any]) -> None:
         """Adapt dynamics settings based on content analysis and processing targets"""
         # Check if we have processing targets from AdaptiveTargetGenerator
         processing_targets = content_info.get('processing_targets', {})
@@ -248,7 +246,7 @@ class DynamicsProcessor:
             debug(f"Auto makeup gain: {auto_makeup_gain:.2f}dB (threshold={new_threshold:.1f}dB, ratio={new_ratio:.1f}:1)")
 
     def _update_adaptation_state(self, processed_audio: np.ndarray,
-                                content_info: Optional[Dict[str, Any]]) -> None:
+                                content_info: dict[str, Any] | None) -> None:
         """Update adaptation state with processed audio"""
         # Calculate current loudness metrics
         current_lufs = content_info.get('estimated_lufs', -14.0) if content_info else -14.0
@@ -262,7 +260,7 @@ class DynamicsProcessor:
             if len(self.content_history) > 10:  # Keep last 10 frames
                 self.content_history.pop(0)
 
-    def get_processing_info(self) -> Dict[str, Any]:
+    def get_processing_info(self) -> dict[str, Any]:
         """Get complete dynamics processing information"""
         info = {
             'mode': self.settings.mode.value,

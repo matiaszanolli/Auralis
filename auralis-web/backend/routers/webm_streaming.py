@@ -30,7 +30,8 @@ import logging
 import math
 import os
 import time
-from typing import Any, Callable, Optional, Tuple
+from typing import Any
+from collections.abc import Callable
 
 # Import WAV encoder (replacing WebM for browser compatibility)
 from encoding.wav_encoder import WAVEncoderError, encode_to_wav
@@ -67,7 +68,7 @@ def create_webm_streaming_router(
     chunked_audio_processor_class: Any,
     chunk_duration: int = 10,
     chunk_interval: int = 10,
-    get_repository_factory: Optional[Callable[[], Any]] = None
+    get_repository_factory: Callable[[], Any] | None = None
 ) -> APIRouter:
     """
     Factory function to create unified WebM streaming router with dependencies.
@@ -289,7 +290,7 @@ def create_webm_streaming_router(
                             ),
                             timeout=30.0
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.error(f"Processor instantiation timed out for track {track_id} (30s)")
                         raise HTTPException(
                             status_code=500,
@@ -312,7 +313,7 @@ def create_webm_streaming_router(
                                 # Get track duration for cache planning
                                 import mutagen
                                 audio_file = mutagen.File(track.filepath)  # type: ignore[attr-defined]
-                                track_duration: Optional[float] = audio_file.info.length if audio_file else None
+                                track_duration: float | None = audio_file.info.length if audio_file else None
 
                                 # Update position for cache tier detection
                                 await multi_tier_buffer.update_position(

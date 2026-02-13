@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auto Master Processor
 ~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Automatic mastering with genre-aware processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -37,8 +35,8 @@ class AutoMasterProcessor:
         self.profile = "balanced"  # balanced, warm, bright, punchy
 
         # Fingerprint and adaptive parameters
-        self.fingerprint: Optional[Dict] = None
-        self.adaptive_params: Optional[Dict] = None
+        self.fingerprint: dict | None = None
+        self.adaptive_params: dict | None = None
 
         # Fallback profile-based EQ parameters
         self.profiles = {
@@ -83,7 +81,7 @@ class AutoMasterProcessor:
         self.use_transient_enhancement = enabled
         info(f"Transient enhancement {'enabled' if enabled else 'disabled'}")
 
-    def set_fingerprint(self, fingerprint: Dict) -> None:
+    def set_fingerprint(self, fingerprint: dict) -> None:
         """
         Set 25D fingerprint for adaptive processing.
 
@@ -95,7 +93,7 @@ class AutoMasterProcessor:
         info(f"Auto-master fingerprint set: LUFS {fingerprint.get('lufs', 0):.1f}, "
              f"crest {fingerprint.get('crest_db', 0):.1f} dB")
 
-    def _generate_adaptive_parameters(self, fingerprint: Dict) -> Dict:
+    def _generate_adaptive_parameters(self, fingerprint: dict) -> dict:
         """
         Generate content-aware processing parameters from fingerprint.
 
@@ -197,7 +195,7 @@ class AutoMasterProcessor:
 
         return processed
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get auto-master statistics"""
         return {
             'enabled': self.enabled,

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Schema Models
 ~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Models for database schema version tracking
 """
 
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
 from sqlalchemy import Column, DateTime, Integer, Text
 
@@ -28,7 +26,7 @@ class SchemaVersion(Base):  # type: ignore[misc]
     description = Column(Text)
     migration_script = Column(Text)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert schema version to dictionary"""
         return {
             'id': self.id,

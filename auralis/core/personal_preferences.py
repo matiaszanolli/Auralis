@@ -13,7 +13,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -36,7 +36,7 @@ class PersonalPreferences:
     """
 
     # Per-profile adjustments (e.g., {"studio_bass": +0.3, "metal_treble": -0.2})
-    profile_adjustments: Dict[str, float] = field(default_factory=dict)
+    profile_adjustments: dict[str, float] = field(default_factory=dict)
 
     # Per-characteristic adjustments
     centroid_preference: float = 0.0  # -500 to +500 Hz adjustment
@@ -49,7 +49,7 @@ class PersonalPreferences:
 
     # Metadata for tracking
     version: str = "1.0"
-    created_at: Optional[str] = None
+    created_at: str | None = None
     samples_analyzed: int = 0
     average_satisfaction: float = 0.0
 
@@ -58,7 +58,7 @@ class PersonalPreferences:
         if self.created_at is None:
             self.created_at = datetime.now().isoformat()
 
-    def apply_to_parameters(self, base_params: Dict[str, Any]) -> Dict[str, Any]:
+    def apply_to_parameters(self, base_params: dict[str, Any]) -> dict[str, Any]:
         """Apply personal preferences to base model parameters.
 
         Args:
@@ -155,7 +155,7 @@ class PersonalPreferences:
         return "\n".join(lines)
 
     @staticmethod
-    def load_or_create(user_data_dir: Path) -> "PersonalPreferences":
+    def load_or_create(user_data_dir: Path) -> PersonalPreferences:
         """Load personal preferences or create defaults.
 
         Args:
@@ -178,7 +178,7 @@ class PersonalPreferences:
         # Default: no adjustments
         return PersonalPreferences()
 
-    def save(self, user_data_dir: Path, version: Optional[str] = None) -> None:
+    def save(self, user_data_dir: Path, version: str | None = None) -> None:
         """Save personal preferences with version.
 
         Args:
@@ -222,7 +222,7 @@ class PersonalPreferences:
         current_file = prefs_dir / "current.json"
         current_file.write_text(version_file.read_text())
 
-    def export_for_sharing(self) -> Dict[str, Any]:
+    def export_for_sharing(self) -> dict[str, Any]:
         """Export profile for optional sharing (anonymized).
 
         Returns:
@@ -242,7 +242,7 @@ class PersonalPreferences:
         }
 
     @staticmethod
-    def import_shared_profile(shared_data: Dict[str, Any]) -> "PersonalPreferences":
+    def import_shared_profile(shared_data: dict[str, Any]) -> PersonalPreferences:
         """Import a shared profile from another user.
 
         This creates a new profile based on someone else's shared preferences,

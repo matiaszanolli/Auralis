@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Memory Pool
 ~~~~~~~~~~~
@@ -12,7 +10,7 @@ High-performance memory pool for audio buffer reuse.
 
 import threading
 from collections import deque
-from typing import Any, Dict, Set, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -24,14 +22,14 @@ class MemoryPool:
 
     def __init__(self, pool_size_mb: int = 64) -> None:
         self.pool_size_bytes = pool_size_mb * 1024 * 1024
-        self.available_buffers: Dict[Tuple[int, ...], deque[Any]] = {}  # size -> deque of buffers
-        self.allocated_buffers: Set[int] = set()
+        self.available_buffers: dict[tuple[int, ...], deque[Any]] = {}  # size -> deque of buffers
+        self.allocated_buffers: set[int] = set()
         self.total_allocated = 0
         self.lock = threading.RLock()
 
         debug(f"Memory pool initialized: {pool_size_mb}MB")
 
-    def get_buffer(self, shape: Tuple[int, ...], dtype: Any = np.float32) -> np.ndarray:
+    def get_buffer(self, shape: tuple[int, ...], dtype: Any = np.float32) -> np.ndarray:
         """Get a buffer from the pool or allocate new one"""
         buffer_size = np.prod(shape) * np.dtype(dtype).itemsize
 
@@ -70,7 +68,7 @@ class MemoryPool:
                 if len(self.available_buffers[shape]) < 10:
                     self.available_buffers[shape].append(buffer)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get memory pool statistics"""
         with self.lock:
             return {

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 QueueController - Manages playlist queue and track navigation
 
@@ -10,7 +8,8 @@ Responsibilities:
 - Playlist loading
 """
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any
+from collections.abc import Callable
 
 from ..utils.logging import error, info, warning
 from .components import QueueManager
@@ -29,7 +28,7 @@ class QueueController:
     def __init__(
         self,
         get_repository_factory: Callable[[], Any],
-        library_manager: Optional[Any] = None
+        library_manager: Any | None = None
     ) -> None:
         """
         Initialize queue controller.
@@ -57,7 +56,7 @@ class QueueController:
 
     # Backward compatibility properties for old test code
     @property
-    def tracks(self) -> List[Dict[str, Any]]:
+    def tracks(self) -> list[dict[str, Any]]:
         """Get list of tracks in queue"""
         return self.queue.tracks  # type: ignore[no-any-return]
 
@@ -91,7 +90,7 @@ class QueueController:
         """Set repeat mode"""
         self.queue.repeat_enabled = value
 
-    def add_tracks(self, track_list: List[Dict[str, Any]]) -> None:
+    def add_tracks(self, track_list: list[dict[str, Any]]) -> None:
         """Add multiple tracks to queue"""
         for track_info in track_list:
             self.add_track(track_info)
@@ -100,7 +99,7 @@ class QueueController:
         """Clear all tracks from queue (backward compatibility alias)"""
         self.clear_queue()
 
-    def next_track(self) -> Optional[Dict[str, Any]]:
+    def next_track(self) -> dict[str, Any] | None:
         """
         Get next track from queue.
 
@@ -114,7 +113,7 @@ class QueueController:
             info("No next track in queue")
         return next_track  # type: ignore[no-any-return]
 
-    def previous_track(self) -> Optional[Dict[str, Any]]:
+    def previous_track(self) -> dict[str, Any] | None:
         """
         Get previous track from queue.
 
@@ -128,11 +127,11 @@ class QueueController:
             info("No previous track in queue")
         return prev_track  # type: ignore[no-any-return]
 
-    def get_current_track(self) -> Optional[Dict[str, Any]]:
+    def get_current_track(self) -> dict[str, Any] | None:
         """Get current track from queue"""
         return self.queue.get_current_track()  # type: ignore[no-any-return]
 
-    def peek_next_track(self) -> Optional[Dict[str, Any]]:
+    def peek_next_track(self) -> dict[str, Any] | None:
         """
         Peek at next track without advancing queue.
 
@@ -140,7 +139,7 @@ class QueueController:
         """
         return self.queue.peek_next()  # type: ignore[no-any-return]
 
-    def add_track(self, track_info: Dict[str, Any]) -> None:
+    def add_track(self, track_info: dict[str, Any]) -> None:
         """Add a track to the queue"""
         self.queue.add_track(track_info)
         info(f"Added to queue: {track_info.get('title', 'Unknown')}")
@@ -223,9 +222,9 @@ class QueueController:
         self.queue.clear()
         info("Queue cleared")
 
-    def get_queue_info(self) -> Dict[str, Any]:
+    def get_queue_info(self) -> dict[str, Any]:
         """Get detailed queue information"""
-        current: Optional[Dict[str, Any]] = self.get_current_track()
+        current: dict[str, Any] | None = self.get_current_track()
         return {
             'tracks': self.queue.tracks.copy(),
             'current_index': self.queue.current_index,
@@ -263,15 +262,15 @@ class QueueController:
         """Remove track at specified index"""
         return self.queue.remove_track(index)  # type: ignore[no-any-return]
 
-    def get_queue(self) -> List[Dict[str, Any]]:
+    def get_queue(self) -> list[dict[str, Any]]:
         """Get full queue as list"""
         return self.queue.get_queue()  # type: ignore[no-any-return]
 
-    def reorder_tracks(self, new_order: List[int]) -> bool:
+    def reorder_tracks(self, new_order: list[int]) -> bool:
         """Reorder tracks according to new index order"""
         return self.queue.reorder_tracks(new_order)  # type: ignore[no-any-return]
 
-    def set_queue(self, track_list: List[Union[str, Dict[str, Any]]], start_index: int = 0) -> None:
+    def set_queue(self, track_list: list[str | dict[str, Any]], start_index: int = 0) -> None:
         """Set queue with track list (for backward compatibility)"""
         # Clear existing queue
         self.queue.clear()

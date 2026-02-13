@@ -17,7 +17,6 @@ Enhances the BranchPredictor with audio-informed predictions:
 
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -43,7 +42,7 @@ class PresetAffinityScores:
     bright: float = 0.0
     punchy: float = 0.0
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         """Convert to dictionary."""
         return {
             'adaptive': self.adaptive,
@@ -53,7 +52,7 @@ class PresetAffinityScores:
             'punchy': self.punchy
         }
 
-    def get_top_preset(self) -> Tuple[str, float]:
+    def get_top_preset(self) -> tuple[str, float]:
         """Get preset with highest affinity."""
         scores = self.to_dict()
         top = max(scores.items(), key=lambda x: x[1])
@@ -70,13 +69,13 @@ class AudioContentAnalyzer:
 
     def __init__(self) -> None:
         """Initialize analyzer."""
-        self.analysis_cache: Dict[str, AudioFeatures] = {}  # Cache results
+        self.analysis_cache: dict[str, AudioFeatures] = {}  # Cache results
         self._cache_max_size: int = 100
 
     async def analyze_chunk_fast(
         self,
-        audio_data: Optional[np.ndarray] = None,
-        filepath: Optional[str] = None,
+        audio_data: np.ndarray | None = None,
+        filepath: str | None = None,
         chunk_idx: int = 0
     ) -> AudioFeatures:
         """
@@ -131,7 +130,7 @@ class AudioContentAnalyzer:
 
     async def _load_chunk_fast(
         self, filepath: str, chunk_idx: int
-    ) -> Optional[np.ndarray]:
+    ) -> np.ndarray | None:
         """
         Fast load of audio chunk (lightweight, no full processing).
 
@@ -296,7 +295,7 @@ class AudioContentPredictor:
     Enhances BranchPredictor with audio-content-aware predictions.
     """
 
-    def __init__(self, analyzer: Optional[AudioContentAnalyzer] = None) -> None:
+    def __init__(self, analyzer: AudioContentAnalyzer | None = None) -> None:
         """
         Initialize audio-content predictor.
 
@@ -319,8 +318,8 @@ class AudioContentPredictor:
 
     async def predict_preset_for_chunk(
         self,
-        audio_data: Optional[np.ndarray] = None,
-        filepath: Optional[str] = None,
+        audio_data: np.ndarray | None = None,
+        filepath: str | None = None,
         chunk_idx: int = 0
     ) -> PresetAffinityScores:
         """
@@ -395,7 +394,7 @@ class AudioContentPredictor:
         filepath: str,
         current_chunk: int,
         num_chunks: int = 3
-    ) -> Dict[int, PresetAffinityScores]:
+    ) -> dict[int, PresetAffinityScores]:
         """
         Predict preset affinities for upcoming chunks.
 
@@ -428,11 +427,11 @@ class AudioContentPredictor:
 
     def combine_with_user_prediction(
         self,
-        user_predictions: List[Tuple[str, float]],
+        user_predictions: list[tuple[str, float]],
         audio_scores: PresetAffinityScores,
         user_weight: float = 0.7,
         audio_weight: float = 0.3
-    ) -> List[Tuple[str, float]]:
+    ) -> list[tuple[str, float]]:
         """
         Combine user behavior predictions with audio content predictions.
 
@@ -476,7 +475,7 @@ class AudioContentPredictor:
 
 
 # Global instance
-audio_content_predictor: Optional[AudioContentPredictor] = None
+audio_content_predictor: AudioContentPredictor | None = None
 
 
 def get_audio_content_predictor() -> AudioContentPredictor:

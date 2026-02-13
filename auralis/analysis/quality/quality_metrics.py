@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Quality Metrics Orchestrator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Main quality assessment orchestrator using specialized assessors
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -45,7 +43,7 @@ class QualityScores:
     quality_category: str  # Excellent, Very Good, Good, Fair, Poor
 
     # Detailed metrics
-    detailed_metrics: Dict[str, Any]
+    detailed_metrics: dict[str, Any]
 
 
 class QualityMetrics:
@@ -193,7 +191,7 @@ class QualityMetrics:
                                 dynamic_score: float,
                                 stereo_score: float,
                                 distortion_score: float,
-                                loudness_score: float) -> List[str]:
+                                loudness_score: float) -> list[str]:
         """Identify specific quality issues based on sub-scores"""
         issues = []
 
@@ -210,7 +208,7 @@ class QualityMetrics:
 
         return issues
 
-    def compare_quality(self, audio1: np.ndarray, audio2: np.ndarray) -> Dict[str, Any]:
+    def compare_quality(self, audio1: np.ndarray, audio2: np.ndarray) -> dict[str, Any]:
         """
         Compare quality between two audio files
 

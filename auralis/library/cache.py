@@ -12,8 +12,9 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timedelta
-from functools import lru_cache, wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from functools import wraps
+from typing import Any
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +42,11 @@ class QueryCache:
         self.default_ttl = default_ttl
         # Store: {hash_key: (value, expiry, metadata)}
         # metadata = {'func': function_name, 'args': args_tuple, 'kwargs': kwargs_dict}
-        self._cache: Dict[str, Tuple[Any, Optional[datetime], Dict[str, Any]]] = {}
+        self._cache: dict[str, tuple[Any, datetime | None, dict[str, Any]]] = {}
         self._hits = 0
         self._misses = 0
 
-    def _make_key(self, func_name: str, args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> str:
+    def _make_key(self, func_name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
         """
         Create cache key from function name and arguments.
 
@@ -66,7 +67,7 @@ class QueryCache:
         key_str = json.dumps(key_data, sort_keys=True, default=str)
         return hashlib.md5(key_str.encode()).hexdigest()
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """
         Get value from cache.
 
@@ -91,7 +92,7 @@ class QueryCache:
         self._hits += 1
         return value
 
-    def set(self, key: str, value: Any, ttl: Optional[int] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def set(self, key: str, value: Any, ttl: int | None = None, metadata: dict[str, Any] | None = None) -> None:
         """
         Store value in cache.
 
@@ -154,7 +155,7 @@ class QueryCache:
             else:
                 logger.debug(f"🔍 No cache entries found for {patterns}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get cache statistics.
 
@@ -178,7 +179,7 @@ class QueryCache:
 _global_cache = QueryCache(max_size=256, default_ttl=300)  # 5-minute TTL
 
 
-def cached_query(ttl: Optional[int] = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+def cached_query(ttl: int | None = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator to cache query results.
 
@@ -240,7 +241,7 @@ def invalidate_cache(*patterns: str) -> None:
     _global_cache.invalidate(*patterns)
 
 
-def get_cache_stats() -> Dict[str, Any]:
+def get_cache_stats() -> dict[str, Any]:
     """
     Get cache statistics.
 

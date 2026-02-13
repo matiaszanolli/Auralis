@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Playlist Repository
 ~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,8 @@ Data access layer for playlist operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session, selectinload
 
@@ -34,7 +33,7 @@ class PlaylistRepository:
         """Get a new database session"""
         return self.session_factory()
 
-    def create(self, name: str, description: str = "", track_ids: Optional[List[int]] = None) -> Optional[Playlist]:
+    def create(self, name: str, description: str = "", track_ids: list[int] | None = None) -> Playlist | None:
         """
         Create a new playlist
 
@@ -76,7 +75,7 @@ class PlaylistRepository:
         finally:
             session.close()
 
-    def get_by_id(self, playlist_id: int) -> Optional[Playlist]:
+    def get_by_id(self, playlist_id: int) -> Playlist | None:
         """Get playlist by ID with eager loading"""
         session = self.get_session()
         try:
@@ -92,7 +91,7 @@ class PlaylistRepository:
         finally:
             session.close()
 
-    def get_all(self) -> List[Playlist]:
+    def get_all(self) -> list[Playlist]:
         """Get all playlists with eager loading"""
         session = self.get_session()
         try:
@@ -106,7 +105,7 @@ class PlaylistRepository:
         finally:
             session.close()
 
-    def update(self, playlist_id: int, update_data: Dict[str, Any]) -> bool:
+    def update(self, playlist_id: int, update_data: dict[str, Any]) -> bool:
         """
         Update playlist
 
@@ -167,7 +166,7 @@ class PlaylistRepository:
         finally:
             session.close()
 
-    def add_track(self, playlist_id: int, track_id: int, position: Optional[int] = None) -> bool:
+    def add_track(self, playlist_id: int, track_id: int, position: int | None = None) -> bool:
         """
         Add track to playlist at specific position
 

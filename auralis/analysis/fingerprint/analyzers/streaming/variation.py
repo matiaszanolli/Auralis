@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Streaming Variation Analyzer
 
@@ -22,7 +20,7 @@ Dependencies:
 
 import logging
 from collections import deque
-from typing import Deque, Dict, Optional
+from typing import Deque
 
 import numpy as np
 
@@ -166,7 +164,7 @@ class StreamingVariationAnalyzer:
         self.audio_buffer.clear()
         self.frame_count = 0
 
-    def update(self, frame: np.ndarray) -> Dict[str, float]:
+    def update(self, frame: np.ndarray) -> dict[str, float]:
         """Update analyzer with new audio frame.
 
         Args:
@@ -207,7 +205,7 @@ class StreamingVariationAnalyzer:
             logger.debug(f"Streaming variation update failed: {e}")
             return self.get_metrics()
 
-    def get_metrics(self) -> Dict[str, float]:
+    def get_metrics(self) -> dict[str, float]:
         """Get current variation metrics.
 
         Returns:
@@ -245,7 +243,7 @@ class StreamingVariationAnalyzer:
             'peak_consistency': peak_consistency
         }
 
-    def get_confidence(self) -> Dict[str, float]:
+    def get_confidence(self) -> dict[str, float]:
         """Get confidence scores for current metrics.
 
         Higher confidence = more data accumulated, more stable estimates.

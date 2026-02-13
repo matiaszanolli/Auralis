@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Audio Feature Extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,6 @@ Extract comprehensive audio features for ML genre classification
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List, Tuple
 
 import numpy as np
 
@@ -136,7 +133,7 @@ class FeatureExtractor:
 
         return float(bandwidth)
 
-    def _spectral_contrast(self, audio: np.ndarray, n_bands: int = 6) -> List[float]:
+    def _spectral_contrast(self, audio: np.ndarray, n_bands: int = 6) -> list[float]:
         """Calculate spectral contrast across frequency bands"""
         spectrum = np.fft.fft(audio[:4096])
         magnitude = np.abs(spectrum[:2049])
@@ -234,7 +231,7 @@ class FeatureExtractor:
 
         return 0.0
 
-    def _energy_distribution(self, audio: np.ndarray) -> Tuple[float, float, float]:
+    def _energy_distribution(self, audio: np.ndarray) -> tuple[float, float, float]:
         """Calculate energy distribution across frequency bands"""
         spectrum = np.fft.fft(audio[:4096])
         magnitude = np.abs(spectrum[:2049]) ** 2
@@ -251,7 +248,7 @@ class FeatureExtractor:
 
         return energy_low, energy_mid, energy_high
 
-    def _extract_mfcc(self, audio: np.ndarray) -> List[float]:
+    def _extract_mfcc(self, audio: np.ndarray) -> list[float]:
         """Extract MFCC features (simplified)"""
         spectrum = np.fft.fft(audio[:4096])
         magnitude = np.abs(spectrum[:2049])
@@ -274,7 +271,7 @@ class FeatureExtractor:
 
         return mfcc
 
-    def _extract_chroma(self, audio: np.ndarray) -> List[float]:
+    def _extract_chroma(self, audio: np.ndarray) -> list[float]:
         """Extract chroma features"""
         spectrum = np.fft.fft(audio[:4096])
         magnitude = np.abs(spectrum[:2049])
@@ -294,7 +291,7 @@ class FeatureExtractor:
 
         return chroma.tolist()
 
-    def _extract_tonnetz(self, audio: np.ndarray) -> List[float]:
+    def _extract_tonnetz(self, audio: np.ndarray) -> list[float]:
         """Extract tonnetz features"""
         chroma = np.array(self._extract_chroma(audio))
         tonnetz = np.zeros(6)
@@ -308,6 +305,6 @@ class FeatureExtractor:
 
         return tonnetz.tolist()
 
-    def _create_mel_filterbank(self, n_filters: int, n_fft: int) -> List[np.ndarray]:
+    def _create_mel_filterbank(self, n_filters: int, n_fft: int) -> list[np.ndarray]:
         """Create mel-scale filter bank using vectorized helper"""
         return create_mel_triangular_filters(n_filters, n_fft, self.sample_rate)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Batch Processor
 ~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ Batch processing of audio files for library scanning
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Tuple
+from typing import Any
 
 from ...utils.logging import debug, error
 from ..scan_models import ScanResult
@@ -47,7 +45,7 @@ class BatchProcessor:
         """Signal processor to stop"""
         self.should_stop = True
 
-    def process_file_batch(self, file_paths: List[str],
+    def process_file_batch(self, file_paths: list[str],
                           skip_existing: bool,
                           check_modifications: bool) -> ScanResult:
         """
@@ -92,7 +90,7 @@ class BatchProcessor:
 
     def process_single_file(self, file_path: str,
                            skip_existing: bool,
-                           check_modifications: bool) -> Tuple[str, Any]:
+                           check_modifications: bool) -> tuple[str, Any]:
         """
         Process a single audio file
 

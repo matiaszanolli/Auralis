@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Audio-Specific Metrics and Conversions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,6 @@ Audio-specific metrics for RMS, loudness, and dB conversions.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional
 
 import librosa
 import numpy as np
@@ -27,7 +24,7 @@ class AudioMetrics:
     @staticmethod
     def rms_to_db(
         rms: np.ndarray,
-        ref: Optional[float] = None
+        ref: float | None = None
     ) -> np.ndarray:
         """
         Convert RMS to dB using librosa standard.
@@ -47,7 +44,7 @@ class AudioMetrics:
     @staticmethod
     def loudness_variation(
         rms: np.ndarray,
-        ref: Optional[float] = None
+        ref: float | None = None
     ) -> float:
         """
         Calculate loudness variation (standard deviation of dB values).
@@ -68,7 +65,7 @@ class AudioMetrics:
     def silence_ratio(
         rms: np.ndarray,
         threshold_db: float = -40.0,
-        ref: Optional[float] = None
+        ref: float | None = None
     ) -> float:
         """
         Calculate ratio of silent frames.

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Settings Repository
 ~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,8 @@ Data access layer for user settings operations
 """
 
 import json
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
@@ -34,7 +33,7 @@ class SettingsRepository:
         """Get a new database session"""
         return self.session_factory()
 
-    def get_settings(self) -> Optional[UserSettings]:
+    def get_settings(self) -> UserSettings | None:
         """
         Get user settings (always returns the first/only settings record)
         Creates default settings if none exist
@@ -54,7 +53,7 @@ class SettingsRepository:
         finally:
             session.close()
 
-    def update_settings(self, updates: Dict[str, Any]) -> UserSettings:
+    def update_settings(self, updates: dict[str, Any]) -> UserSettings:
         """
         Update user settings with provided dictionary
 
@@ -120,7 +119,7 @@ class SettingsRepository:
         finally:
             session.close()
 
-    def update_scan_folders(self, folders: List[str]) -> UserSettings:
+    def update_scan_folders(self, folders: list[str]) -> UserSettings:
         """
         Update the list of scan folders
 

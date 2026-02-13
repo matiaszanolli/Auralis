@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 Spectrum-Based Processing Mapper
@@ -12,7 +11,7 @@ Presets act as anchor points rather than rigid configurations.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -31,7 +30,7 @@ class SpectrumMapper:
         """Initialize spectrum mapper with preset anchor points."""
         self.preset_anchors = get_preset_anchors()
 
-    def analyze_to_spectrum_position(self, content_profile: Dict[str, Any]) -> SpectrumPosition:
+    def analyze_to_spectrum_position(self, content_profile: dict[str, Any]) -> SpectrumPosition:
         """
         Convert content analysis to a position on the processing spectrum.
 
@@ -48,7 +47,7 @@ class SpectrumMapper:
 
         spectral_centroid = content_profile.get('spectral_centroid', 2000)
         energy_level = content_profile.get('energy_level', 'medium')
-        dynamic_range = content_profile.get('dynamic_range', 20.0)
+        content_profile.get('dynamic_range', 20.0)
 
         # Map to 0.0-1.0 scales
 
@@ -105,7 +104,7 @@ class SpectrumMapper:
 
     def _calculate_preset_weights(self,
                                   spectrum_position: SpectrumPosition,
-                                  user_preset_hint: str) -> Dict[str, float]:
+                                  user_preset_hint: str) -> dict[str, float]:
         """
         Calculate weighted influence of each preset based on distance.
 
@@ -149,7 +148,7 @@ class SpectrumMapper:
 
         return weights
 
-    def _interpolate_parameters(self, weights: Dict[str, float]) -> ProcessingParameters:
+    def _interpolate_parameters(self, weights: dict[str, float]) -> ProcessingParameters:
         """
         Interpolate processing parameters using weighted blend of presets.
 

@@ -12,8 +12,8 @@ import copy
 import logging
 import time
 from collections import defaultdict, deque
-from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Deque
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class PredictionAccuracy:
     was_correct: bool
     confidence: float
     context: str  # "cold_start", "warm_start", "audio_guided"
-    audio_features: Optional[Dict[str, float]] = None
+    audio_features: dict[str, float] | None = None
 
 
 class LearningSystem:
@@ -49,12 +49,12 @@ class LearningSystem:
         self.prediction_history: Deque[PredictionAccuracy] = deque(maxlen=max_history)
 
         # Accuracy tracking by different dimensions
-        self.accuracy_by_preset: Dict[str, List[bool]] = defaultdict(list)
-        self.accuracy_by_context: Dict[str, List[bool]] = defaultdict(list)
+        self.accuracy_by_preset: dict[str, list[bool]] = defaultdict(list)
+        self.accuracy_by_context: dict[str, list[bool]] = defaultdict(list)
 
         # For comparing user-only vs. audio-enhanced
-        self.user_only_outcomes: List[bool] = []
-        self.audio_enhanced_outcomes: List[bool] = []
+        self.user_only_outcomes: list[bool] = []
+        self.audio_enhanced_outcomes: list[bool] = []
 
         # Statistics
         self.total_predictions = 0
@@ -67,7 +67,7 @@ class LearningSystem:
         actual_preset: str,
         confidence: float,
         context: str,
-        audio_features: Optional[Dict[str, float]] = None,
+        audio_features: dict[str, float] | None = None,
     ) -> None:
         """
         Record a prediction and its outcome.
@@ -150,11 +150,11 @@ class LearningSystem:
             return 0.0
         return sum(self.audio_enhanced_outcomes) / len(self.audio_enhanced_outcomes)
 
-    def get_recent_predictions(self, count: int) -> List[PredictionAccuracy]:
+    def get_recent_predictions(self, count: int) -> list[PredictionAccuracy]:
         """Get N most recent predictions."""
         return list(self.prediction_history)[-count:]
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get comprehensive statistics."""
         return {
             "total_predictions": self.total_predictions,
@@ -218,7 +218,7 @@ class AdaptiveWeightTuner:
         self.min_samples_for_tuning = min_samples_for_tuning
 
         # Track tuning history
-        self.tuning_history: List[Tuple[float, float, float]] = []  # (timestamp, user_weight, audio_weight)
+        self.tuning_history: list[tuple[float, float, float]] = []  # (timestamp, user_weight, audio_weight)
         self.last_tuning_time = time.time()
 
     def update_weights(self, learning_system: LearningSystem) -> None:
@@ -248,7 +248,7 @@ class AdaptiveWeightTuner:
         # Calculate improvement threshold (5%)
         improvement_threshold = 0.05
 
-        old_user_weight = self.user_weight
+        self.user_weight
         old_audio_weight = self.audio_weight
 
         # If audio is significantly helping, increase its weight
@@ -290,11 +290,11 @@ class AdaptiveWeightTuner:
         self.tuning_history.append((time.time(), self.user_weight, self.audio_weight))
         self.last_tuning_time = time.time()
 
-    def get_weights(self) -> Tuple[float, float]:
+    def get_weights(self) -> tuple[float, float]:
         """Get current (user_weight, audio_weight) tuple."""
         return (self.user_weight, self.audio_weight)
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get tuning statistics."""
         return {
             "user_weight": self.user_weight,
@@ -313,7 +313,7 @@ class AffinityRuleLearner:
     observed outcomes.
     """
 
-    def __init__(self, default_rules: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, default_rules: dict[str, Any] | None = None) -> None:
         """
         Initialize affinity rule learner.
 
@@ -330,7 +330,7 @@ class AffinityRuleLearner:
         self.original_rules = copy.deepcopy(default_rules)
 
         # Track success rates for each (feature_condition, preset) pair
-        self.rule_success_rates: Dict[Tuple[str, str], List[bool]] = defaultdict(list)
+        self.rule_success_rates: dict[tuple[str, str], list[bool]] = defaultdict(list)
 
         # Tuning parameters
         self.min_samples_for_update = 20
@@ -338,7 +338,7 @@ class AffinityRuleLearner:
 
     def record_outcome(
         self,
-        audio_features: Dict[str, float],
+        audio_features: dict[str, float],
         predicted_preset: str,
         actual_preset: str,
     ) -> None:
@@ -359,7 +359,7 @@ class AffinityRuleLearner:
             key = (feature, predicted_preset)
             self.rule_success_rates[key].append(was_correct)
 
-    def _get_active_features(self, audio_features: Dict[str, float]) -> List[str]:
+    def _get_active_features(self, audio_features: dict[str, float]) -> list[str]:
         """Determine which feature conditions are active."""
         active = []
 
@@ -428,7 +428,7 @@ class AffinityRuleLearner:
         if updated_count > 0:
             logger.info(f"Updated {updated_count} affinity rules")
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get affinity rule learning statistics."""
         return {
             "total_rules": len(self.affinity_rules),
@@ -454,9 +454,9 @@ class AffinityRuleLearner:
 
 
 # Singleton instances (optional, for convenience)
-_learning_system_instance: Optional[LearningSystem] = None
-_weight_tuner_instance: Optional[AdaptiveWeightTuner] = None
-_affinity_learner_instance: Optional[AffinityRuleLearner] = None
+_learning_system_instance: LearningSystem | None = None
+_weight_tuner_instance: AdaptiveWeightTuner | None = None
+_affinity_learner_instance: AffinityRuleLearner | None = None
 
 
 def get_learning_system() -> LearningSystem:

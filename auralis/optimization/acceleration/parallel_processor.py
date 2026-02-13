@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Parallel Processor
 ~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,8 @@ Parallel processing framework for CPU-intensive operations.
 
 import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, List, Optional, cast
+from typing import cast
+from collections.abc import Callable
 
 import numpy as np
 
@@ -22,13 +21,13 @@ from auralis.utils.logging import debug
 class ParallelProcessor:
     """Parallel processing for CPU-intensive operations"""
 
-    def __init__(self, max_threads: Optional[int] = None) -> None:
+    def __init__(self, max_threads: int | None = None) -> None:
         self.max_threads = max_threads or min(4, mp.cpu_count())
         self.executor = ThreadPoolExecutor(max_workers=self.max_threads)
         debug(f"Parallel processor initialized with {self.max_threads} threads")
 
     def parallel_band_processing(self, audio: np.ndarray,
-                                band_filters: List[Callable[[np.ndarray], np.ndarray]],
+                                band_filters: list[Callable[[np.ndarray], np.ndarray]],
                                 band_gains: np.ndarray) -> np.ndarray:
         """Process frequency bands in parallel"""
         if len(band_filters) < 2:
@@ -56,7 +55,7 @@ class ParallelProcessor:
         return cast(np.ndarray, filtered * gain)
 
     def _sequential_band_processing(self, audio: np.ndarray,
-                                  band_filters: List[Callable[[np.ndarray], np.ndarray]],
+                                  band_filters: list[Callable[[np.ndarray], np.ndarray]],
                                   band_gains: np.ndarray) -> np.ndarray:
         """Sequential fallback for band processing"""
         result = np.zeros_like(audio)

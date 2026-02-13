@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Real-time DSP Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -18,7 +16,7 @@ ContentAnalysisFacade for reusability across processors.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -57,7 +55,7 @@ class RealtimeDSPPipeline:
         )
 
     def process_chunk(self, audio_chunk: np.ndarray,
-                     content_info: Optional[Dict[str, Any]] = None) -> np.ndarray:
+                     content_info: dict[str, Any] | None = None) -> np.ndarray:
         """
         Process audio chunk in real-time for streaming applications
 

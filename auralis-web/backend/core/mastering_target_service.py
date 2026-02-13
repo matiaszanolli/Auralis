@@ -20,9 +20,9 @@ import logging
 import threading
 import traceback
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
+from collections.abc import Callable
 
-import numpy as np
 import soundfile as sf
 from auralis.analysis.fingerprint import AudioFingerprintAnalyzer, FingerprintStorage
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
@@ -51,8 +51,8 @@ class MasteringTargetService:
 
     def __init__(
         self,
-        cache: Optional[Dict[str, Any]] = None,
-        get_fingerprints_repository: Optional[Callable[[], Any]] = None
+        cache: dict[str, Any] | None = None,
+        get_fingerprints_repository: Callable[[], Any] | None = None
     ):
         """
         Initialize mastering target service.
@@ -76,7 +76,7 @@ class MasteringTargetService:
     def load_fingerprint_from_database(
         self,
         track_id: int
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """
         Load fingerprint from database (Tier 1 - fastest).
 
@@ -147,7 +147,7 @@ class MasteringTargetService:
     def load_fingerprint_from_file(
         self,
         filepath: str
-    ) -> Optional[Tuple[Any, Optional[Dict[str, Any]]]]:
+    ) -> tuple[Any, dict[str, Any] | None] | None:
         """
         Load fingerprint from .25d file (Tier 2 - fast).
 
@@ -174,9 +174,9 @@ class MasteringTargetService:
     def extract_fingerprint_from_audio(
         self,
         filepath: str,
-        sample_rate: Optional[int] = None,
+        sample_rate: int | None = None,
         save_to_file: bool = True
-    ) -> Optional[Tuple[Any, Optional[Dict[str, Any]]]]:
+    ) -> tuple[Any, dict[str, Any] | None] | None:
         """
         Extract fingerprint from audio file (Tier 3 - slow).
 
@@ -265,7 +265,7 @@ class MasteringTargetService:
         filepath: str,
         extract_if_missing: bool = True,
         save_extracted: bool = True
-    ) -> Optional[Tuple[Any, Optional[Dict[str, Any]]]]:
+    ) -> tuple[Any, dict[str, Any] | None] | None:
         """
         Load fingerprint using 3-tier hierarchy.
 
@@ -333,7 +333,7 @@ class MasteringTargetService:
     def generate_targets_from_fingerprint(
         self,
         fingerprint: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate mastering targets from 25D fingerprint.
 
@@ -359,7 +359,7 @@ class MasteringTargetService:
         dynamics = fp_dict.get('dynamics', {})
 
         # Target loudness based on current LUFS
-        current_lufs = fp_dict.get('lufs', dynamics.get('lufs', -14.0))
+        fp_dict.get('lufs', dynamics.get('lufs', -14.0))
         target_lufs = -14.0  # Standard streaming loudness
 
         # Target crest factor (preserve dynamic range character)
@@ -430,7 +430,7 @@ class MasteringTargetService:
 
 
 # Global mastering target service instance (singleton pattern)
-_global_mastering_target_service: Optional[MasteringTargetService] = None
+_global_mastering_target_service: MasteringTargetService | None = None
 _service_lock = threading.Lock()
 
 

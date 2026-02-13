@@ -11,7 +11,7 @@ Goal: Learn from the best to match their standards.
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -22,7 +22,6 @@ from auralis.analysis.spectrum_analyzer import SpectrumAnalyzer
 from auralis.io.unified_loader import load_audio
 from auralis.learning.reference_library import (
     Genre,
-    MasteringEngineer,
     ReferenceTrack,
     get_high_priority_references,
     get_references_for_genre,
@@ -67,11 +66,11 @@ class MasteringProfile:
     side_energy: float  # dB, energy in side channel
 
     # Detailed frequency response (1/3 octave bands)
-    third_octave_response: Dict[float, float]  # center_freq_hz -> level_db
+    third_octave_response: dict[float, float]  # center_freq_hz -> level_db
 
     # Quality indicators
     has_clipping: bool
-    estimated_limiting_threshold: Optional[float]  # dBFS
+    estimated_limiting_threshold: float | None  # dBFS
 
     # Processing hints
     recommended_as_target: bool = True
@@ -182,7 +181,7 @@ class ReferenceAnalyzer:
         print(f"  ✓ Complete - LUFS: {integrated_lufs:.1f}, DR: {dynamic_range:.1f}")
         return profile
 
-    def _analyze_frequency_response(self, audio: np.ndarray, sr: int) -> Dict[str, Any]:
+    def _analyze_frequency_response(self, audio: np.ndarray, sr: int) -> dict[str, Any]:
         """Analyze frequency response characteristics."""
         # Convert to mono for frequency analysis
         if audio.ndim == 2:
@@ -245,7 +244,7 @@ class ReferenceAnalyzer:
             'third_octave_response': third_octave_response,
         }
 
-    def _analyze_stereo_field(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def _analyze_stereo_field(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """Analyze stereo field characteristics."""
         if audio.ndim != 2:
             return {
@@ -256,7 +255,7 @@ class ReferenceAnalyzer:
         left, right = audio[0], audio[1]
 
         # Mid-side conversion
-        mid = (left + right) / 2
+        (left + right) / 2
         side = (left - right) / 2
 
         # Stereo correlation
@@ -272,7 +271,7 @@ class ReferenceAnalyzer:
             'side_energy': float(side_energy),
         }
 
-    def _estimate_limiting_threshold(self, audio: np.ndarray) -> Optional[float]:
+    def _estimate_limiting_threshold(self, audio: np.ndarray) -> float | None:
         """
         Estimate the threshold at which limiting was applied.
 
@@ -294,7 +293,7 @@ class ReferenceAnalyzer:
 
         return None
 
-    def analyze_genre(self, genre: Genre, audio_base_path: Path) -> List[MasteringProfile]:
+    def analyze_genre(self, genre: Genre, audio_base_path: Path) -> list[MasteringProfile]:
         """
         Analyze all reference tracks for a specific genre.
 
@@ -328,7 +327,7 @@ class ReferenceAnalyzer:
 
         return profiles
 
-    def create_genre_target(self, profiles: List[MasteringProfile]) -> Dict[str, Any]:
+    def create_genre_target(self, profiles: list[MasteringProfile]) -> dict[str, Any]:
         """
         Create an average target profile for a genre based on multiple references.
 
@@ -363,7 +362,7 @@ class ReferenceAnalyzer:
             'target_stereo_width': np.mean([p.stereo_width for p in profiles]),
 
             # Reference engineers
-            'reference_engineers': list(set(p.engineer for p in profiles)),
+            'reference_engineers': list({p.engineer for p in profiles}),
         }
 
         # Average 1/3 octave response
@@ -376,7 +375,7 @@ class ReferenceAnalyzer:
 
         return target
 
-    def save_profiles(self, profiles: List[MasteringProfile], output_path: Path) -> None:
+    def save_profiles(self, profiles: list[MasteringProfile], output_path: Path) -> None:
         """Save mastering profiles to JSON file."""
         profiles_dict = [asdict(p) for p in profiles]
 
@@ -385,9 +384,9 @@ class ReferenceAnalyzer:
 
         print(f"Saved {len(profiles)} profiles to {output_path}")
 
-    def load_profiles(self, input_path: Path) -> List[MasteringProfile]:
+    def load_profiles(self, input_path: Path) -> list[MasteringProfile]:
         """Load mastering profiles from JSON file."""
-        with open(input_path, 'r') as f:
+        with open(input_path) as f:
             profiles_dict = json.load(f)
 
         profiles = [MasteringProfile(**p) for p in profiles_dict]
@@ -405,7 +404,7 @@ def main() -> None:
     print(f"=== ANALYZING {len(high_priority_refs)} HIGH-PRIORITY REFERENCES ===\n")
 
     # You would set this to your actual reference library path
-    audio_base_path = Path("/path/to/reference/library")
+    Path("/path/to/reference/library")
 
     profiles = []
     for ref in high_priority_refs:

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Adaptive Loudness Control
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -13,7 +11,6 @@ based on source loudness characteristics.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Tuple
 
 import numpy as np
 
@@ -41,7 +38,7 @@ class AdaptiveLoudnessControl:
         bass_pct: float = None,
         transient_density: float = None,
         peak_db: float = None
-    ) -> Tuple[float, str]:
+    ) -> tuple[float, str]:
         """
         Calculate adaptive makeup gain based on source LUFS, dynamic range, bass content, transients, and peak.
 
@@ -146,7 +143,7 @@ class AdaptiveLoudnessControl:
             )
 
     @staticmethod
-    def calculate_adaptive_peak_target(source_lufs: float) -> Tuple[float, float]:
+    def calculate_adaptive_peak_target(source_lufs: float) -> tuple[float, float]:
         """
         Calculate adaptive peak normalization target based on source LUFS.
 
@@ -181,7 +178,7 @@ class AdaptiveLoudnessControl:
         source_lufs: float,
         current_rms_db: float,
         rms_diff_from_target: float
-    ) -> Tuple[bool, float, str]:
+    ) -> tuple[bool, float, str]:
         """
         Determine if makeup gain should be applied based on source characteristics.
 

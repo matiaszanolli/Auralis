@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Adaptive Limiter
 ~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Advanced lookahead limiter with ISR and oversampling
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional, Tuple, cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -43,7 +41,7 @@ class AdaptiveLimiter:
 
         # Lookahead buffer (will be initialized on first use)
         self.lookahead_samples = int(settings.lookahead_ms * sample_rate / 1000)
-        self.lookahead_buffer: Optional[np.ndarray] = None
+        self.lookahead_buffer: np.ndarray | None = None
 
         # Gain smoothing
         self.gain_smoother = EnvelopeFollower(sample_rate, 0.1, settings.release_ms)
@@ -54,7 +52,7 @@ class AdaptiveLimiter:
 
         debug(f"Adaptive limiter initialized: {settings.threshold_db:.1f}dB threshold")
 
-    def process(self, audio: np.ndarray) -> Tuple[np.ndarray, Dict[str, float]]:
+    def process(self, audio: np.ndarray) -> tuple[np.ndarray, dict[str, float]]:
         """
         Process audio through limiter
 
@@ -77,7 +75,7 @@ class AdaptiveLimiter:
 
         return processed_audio, limit_info
 
-    def _process_core(self, audio: np.ndarray) -> Tuple[np.ndarray, Dict[str, float]]:
+    def _process_core(self, audio: np.ndarray) -> tuple[np.ndarray, dict[str, float]]:
         """Core limiting processing"""
         threshold_linear = 10 ** (self.settings.threshold_db / 20)
 
@@ -200,7 +198,7 @@ class AdaptiveLimiter:
         factor = self.settings.oversampling
         return audio_os[::factor]
 
-    def get_current_state(self) -> Dict[str, float]:
+    def get_current_state(self) -> dict[str, float]:
         """Get current limiter state"""
         return {
             'current_gain': self.current_gain,

@@ -14,8 +14,7 @@ eliminating ~150 lines of duplicate caching logic across 2 files.
 
 import logging
 import threading
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +54,10 @@ class ProcessorFactory:
     def __init__(self) -> None:
         """Initialize processor factory."""
         # Unified cache: (track_id, preset, intensity, config_hash) -> HybridProcessor
-        self._processor_cache: Dict[Tuple[int, str, float, str], Any] = {}
+        self._processor_cache: dict[tuple[int, str, float, str], Any] = {}
 
         # Active processors by track_id for monitoring
-        self._active_processors: Dict[int, Any] = {}
+        self._active_processors: dict[int, Any] = {}
 
         # Thread-safe lock for cache operations
         self._lock = threading.RLock()
@@ -71,7 +70,7 @@ class ProcessorFactory:
         preset: str,
         intensity: float,
         config_hash: str
-    ) -> Tuple[int, str, float, str]:
+    ) -> tuple[int, str, float, str]:
         """
         Generate cache key for processor.
 
@@ -86,7 +85,7 @@ class ProcessorFactory:
         """
         return (track_id, preset.lower(), intensity, config_hash)
 
-    def _get_config_hash(self, config: Optional[Any]) -> str:
+    def _get_config_hash(self, config: Any | None) -> str:
         """
         Get hash of config object for cache key.
 
@@ -107,8 +106,8 @@ class ProcessorFactory:
         track_id: int = 0,
         preset: str = "adaptive",
         intensity: float = 1.0,
-        config: Optional[Any] = None,
-        mastering_targets: Optional[Dict[str, Any]] = None
+        config: Any | None = None,
+        mastering_targets: dict[str, Any] | None = None
     ) -> Any:
         """
         Get cached processor or create new one.
@@ -178,7 +177,7 @@ class ProcessorFactory:
 
     def get_or_create_from_config(
         self,
-        config: Optional[Any] = None,
+        config: Any | None = None,
         mode: str = "adaptive"
     ) -> Any:
         """
@@ -255,8 +254,8 @@ class ProcessorFactory:
         track_id: int,
         preset: str,
         intensity: float,
-        mastering_targets: Dict[str, Any],
-        config: Optional[Any] = None
+        mastering_targets: dict[str, Any],
+        config: Any | None = None
     ) -> None:
         """
         Set mastering targets for an existing processor.
@@ -277,7 +276,7 @@ class ProcessorFactory:
                 processor.set_fixed_mastering_targets(mastering_targets)
                 logger.debug(f"Updated mastering targets for processor (track {track_id}, preset {preset})")
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """
         Get statistics about cached and active processors.
 
@@ -301,7 +300,7 @@ class ProcessorFactory:
             logger.info(f"Cleared {count} cached processor(s)")
 
     @property
-    def active_processors(self) -> Dict[int, Any]:
+    def active_processors(self) -> dict[int, Any]:
         """
         Get currently active processors for monitoring.
 
@@ -313,7 +312,7 @@ class ProcessorFactory:
 
 
 # Global processor factory instance (singleton pattern)
-_global_processor_factory: Optional[ProcessorFactory] = None
+_global_processor_factory: ProcessorFactory | None = None
 _factory_lock = threading.Lock()
 
 
@@ -356,7 +355,7 @@ def create_processor_factory() -> ProcessorFactory:
 
 def process_adaptive(
     target: Any,
-    config: Optional[Any] = None
+    config: Any | None = None
 ) -> Any:
     """
     Quick adaptive processing function (uses global factory).
@@ -380,7 +379,7 @@ def process_adaptive(
 def process_reference(
     target: Any,
     reference: Any,
-    config: Optional[Any] = None
+    config: Any | None = None
 ) -> Any:
     """
     Quick reference-based processing function (uses global factory).
@@ -404,8 +403,8 @@ def process_reference(
 
 def process_hybrid(
     target: Any,
-    reference: Optional[Any] = None,
-    config: Optional[Any] = None
+    reference: Any | None = None,
+    config: Any | None = None
 ) -> Any:
     """
     Quick hybrid processing function (uses global factory).

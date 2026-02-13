@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Advanced Spectrum Analysis
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9,11 +7,11 @@ Real-time and offline spectrum analysis with configurable parameters.
 DEPRECATED: Use BaseSpectrumAnalyzer instead. This module maintained for backward compatibility.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
-from .base_spectrum_analyzer import BaseSpectrumAnalyzer, SpectrumSettings
+from .base_spectrum_analyzer import BaseSpectrumAnalyzer
 from .fingerprint.common_metrics import AggregationUtils
 from .spectrum_operations import SpectrumOperations
 
@@ -24,7 +22,7 @@ class SpectrumAnalyzer(BaseSpectrumAnalyzer):
     Thin wrapper around BaseSpectrumAnalyzer for backward compatibility.
     """
 
-    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict[str, Any]:
+    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> dict[str, Any]:
         """
         Analyze a chunk of audio data
 
@@ -37,7 +35,7 @@ class SpectrumAnalyzer(BaseSpectrumAnalyzer):
         """
         return self._create_chunk_result(audio_chunk, channel, self.settings.sample_rate)
 
-    def analyze_file(self, audio_data: np.ndarray, sample_rate: Optional[int] = None) -> Dict[str, Any]:
+    def analyze_file(self, audio_data: np.ndarray, sample_rate: int | None = None) -> dict[str, Any]:
         """
         Analyze an entire audio file
 

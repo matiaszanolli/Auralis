@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Audio Loader
 ~~~~~~~~~~~~~~~~~~~~
@@ -12,15 +10,14 @@ Audio file loading and validation
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-from typing import Tuple
 
 import numpy as np
 import soundfile as sf
 
-from ..utils.logging import Code, debug, info
+from ..utils.logging import debug, info
 
 
-def load(file_path: str, file_type: str = "audio") -> Tuple[np.ndarray, int]:
+def load(file_path: str, file_type: str = "audio") -> tuple[np.ndarray, int]:
     """
     Load an audio file
 

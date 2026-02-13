@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Settings Models
 ~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Models for user settings and preferences
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from sqlalchemy import Boolean, Column, Float, Integer, String, Text
 
@@ -58,7 +56,7 @@ class UserSettings(Base, TimestampMixin):  # type: ignore[misc]
     enable_analytics = Column(Boolean, default=False)
     debug_mode = Column(Boolean, default=False)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert settings to dictionary"""
         import json
 

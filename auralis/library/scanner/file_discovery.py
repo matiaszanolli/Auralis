@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 File Discovery
 ~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Recursive directory scanning and audio file discovery
 """
 
 from pathlib import Path
-from typing import Generator
+from collections.abc import Generator
 
 from ...utils.logging import debug, error, warning
 from .config import AUDIO_EXTENSIONS, SKIP_DIRECTORIES
@@ -35,7 +33,7 @@ class FileDiscovery:
         """Signal discovery to stop"""
         self.should_stop = True
 
-    def discover_audio_files(self, directory: str, recursive: bool = True) -> Generator[str, None, None]:
+    def discover_audio_files(self, directory: str, recursive: bool = True) -> Generator[str]:
         """
         Discover audio files in directory
 

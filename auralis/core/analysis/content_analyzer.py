@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Content Analyzer
 ~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Enhanced content analysis for adaptive audio processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -73,7 +71,7 @@ class ContentAnalyzer:
         else:
             self.fingerprint_analyzer = None  # type: ignore[assignment]
 
-    def analyze_content(self, audio: np.ndarray) -> Dict[str, Any]:
+    def analyze_content(self, audio: np.ndarray) -> dict[str, Any]:
         """
         Analyze audio content for adaptive processing
 
@@ -175,7 +173,7 @@ class ContentAnalyzer:
 
         return content_profile
 
-    def analyze_input_level(self, audio: np.ndarray) -> Dict[str, Any]:
+    def analyze_input_level(self, audio: np.ndarray) -> dict[str, Any]:
         """
         Analyze input level characteristics to determine processing strategy.
         Based on Matchering analysis showing adaptive behavior:
@@ -270,7 +268,7 @@ class ContentAnalyzer:
             }
         }
 
-    def _classify_genre_advanced(self, audio: np.ndarray) -> Dict[str, Any]:
+    def _classify_genre_advanced(self, audio: np.ndarray) -> dict[str, Any]:
         """Advanced genre classification using ML or rule-based fallback"""
 
         if self.use_ml_classification and self.ml_classifier is not None:
@@ -285,7 +283,7 @@ class ContentAnalyzer:
         # Fall back to rule-based classification
         return self._classify_genre_rule_based(audio)
 
-    def _classify_genre_rule_based(self, audio: np.ndarray) -> Dict[str, Any]:
+    def _classify_genre_rule_based(self, audio: np.ndarray) -> dict[str, Any]:
         """Rule-based genre classification (fallback method)"""
 
         # Convert to mono for analysis
@@ -304,7 +302,7 @@ class ContentAnalyzer:
         return self._classify_genre(centroid, rolloff, zcr, tempo, crest_factor_db)
 
     def _classify_genre(self, centroid: float, rolloff: float, zcr: float,
-                       tempo: float, crest_factor_db: float) -> Dict[str, Any]:
+                       tempo: float, crest_factor_db: float) -> dict[str, Any]:
         """Simple genre classification based on audio features"""
 
         # Genre classification rules (simplified)

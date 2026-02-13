@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Dynamics Manager
 ~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Manages dynamics processing parameters and state
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ...dsp.advanced_dynamics import DynamicsMode, DynamicsProcessor
 from ...utils.logging import debug, info
@@ -21,9 +19,9 @@ class DynamicsManager:
 
     def __init__(self, dynamics_processor: DynamicsProcessor):
         self.dynamics_processor = dynamics_processor
-        self.last_dynamics_info: Optional[Dict[str, Any]] = None
+        self.last_dynamics_info: dict[str, Any] | None = None
 
-    def get_info(self) -> Dict[str, Any]:
+    def get_info(self) -> dict[str, Any]:
         """Get dynamics processing information"""
         dynamics_info = self.dynamics_processor.get_processing_info()
 

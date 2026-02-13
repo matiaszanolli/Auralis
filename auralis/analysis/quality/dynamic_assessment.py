@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Dynamic Range Assessment
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Assess audio dynamic range quality
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
 from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOperations
@@ -19,7 +17,7 @@ from auralis.analysis.quality_assessors.utilities.scoring_ops import ScoringOper
 class DynamicRangeAssessor(BaseAssessor):
     """Assess dynamic range quality"""
 
-    def assess(self, dynamic_result: Dict[str, Any]) -> float:  # type: ignore[override]
+    def assess(self, dynamic_result: dict[str, Any]) -> float:  # type: ignore[override]
         """
         Assess dynamic range quality (0-100)
 
@@ -58,7 +56,7 @@ class DynamicRangeAssessor(BaseAssessor):
 
         return float(total_score)
 
-    def detailed_analysis(self, dynamic_result: Dict[str, Any]) -> Dict[str, Any]:  # type: ignore[override]
+    def detailed_analysis(self, dynamic_result: dict[str, Any]) -> dict[str, Any]:  # type: ignore[override]
         """
         Perform detailed dynamic range analysis
 
@@ -87,7 +85,7 @@ class DynamicRangeAssessor(BaseAssessor):
             'crest_factor_score': cf_score
         }
 
-    def categorize_dynamics(self, dr_value: float) -> Dict[str, Any]:
+    def categorize_dynamics(self, dr_value: float) -> dict[str, Any]:
         """
         Categorize dynamic range characteristics
 

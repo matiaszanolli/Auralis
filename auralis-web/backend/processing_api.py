@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 Processing API Routes
@@ -14,7 +13,7 @@ FastAPI routes for audio processing functionality.
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/processing", tags=["audio-processing"])
 
 # Global processing engine (will be injected)
-_processing_engine: Optional[ProcessingEngine] = None
+_processing_engine: ProcessingEngine | None = None
 
 
 def set_processing_engine(engine: ProcessingEngine) -> None:
@@ -42,26 +41,26 @@ class ProcessingSettings(BaseModel):
     mode: str = "adaptive"  # "adaptive", "reference", "hybrid"
     output_format: str = "wav"  # "wav", "flac", "mp3"
     bit_depth: int = 16  # 16, 24, 32
-    sample_rate: Optional[int] = None  # None = keep original
+    sample_rate: int | None = None  # None = keep original
 
     # EQ settings
-    eq: Optional[Dict[str, Any]] = None
+    eq: dict[str, Any] | None = None
 
     # Dynamics settings
-    dynamics: Optional[Dict[str, Any]] = None
+    dynamics: dict[str, Any] | None = None
 
     # Level matching settings
-    levelMatching: Optional[Dict[str, Any]] = None
+    levelMatching: dict[str, Any] | None = None
 
     # Genre override
-    genre_override: Optional[str] = None
+    genre_override: str | None = None
 
 
 class ProcessRequest(BaseModel):
     """Request to process audio"""
     input_path: str
     settings: ProcessingSettings
-    reference_path: Optional[str] = None
+    reference_path: str | None = None
 
 
 class ProcessResponse(BaseModel):
@@ -76,8 +75,8 @@ class JobStatusResponse(BaseModel):
     job_id: str
     status: str
     progress: float
-    error_message: Optional[str] = None
-    result_data: Optional[Dict[str, Any]] = None
+    error_message: str | None = None
+    result_data: dict[str, Any] | None = None
 
 
 @router.post("/process", response_model=ProcessResponse)
@@ -223,7 +222,7 @@ async def download_result(job_id: str) -> FileResponse:
 
 
 @router.post("/job/{job_id}/cancel")
-async def cancel_job(job_id: str) -> Dict[str, Any]:
+async def cancel_job(job_id: str) -> dict[str, Any]:
     """Cancel a queued or processing job"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
@@ -240,7 +239,7 @@ async def cancel_job(job_id: str) -> Dict[str, Any]:
 
 
 @router.get("/jobs")
-async def list_jobs(status: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+async def list_jobs(status: str | None = None, limit: int = 50) -> dict[str, Any]:
     """List all processing jobs, optionally filtered by status"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
@@ -265,7 +264,7 @@ async def list_jobs(status: Optional[str] = None, limit: int = 50) -> Dict[str, 
 
 
 @router.get("/queue/status")
-async def get_queue_status() -> Dict[str, Any]:
+async def get_queue_status() -> dict[str, Any]:
     """Get current processing queue status"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")
@@ -274,7 +273,7 @@ async def get_queue_status() -> Dict[str, Any]:
 
 
 @router.get("/presets")
-async def get_processing_presets() -> Dict[str, Any]:
+async def get_processing_presets() -> dict[str, Any]:
     """Get available processing presets"""
     presets = {
         "adaptive": {
@@ -389,7 +388,7 @@ async def get_processing_presets() -> Dict[str, Any]:
 
 
 @router.delete("/jobs/cleanup")
-async def cleanup_old_jobs(max_age_hours: int = 24) -> Dict[str, Any]:
+async def cleanup_old_jobs(max_age_hours: int = 24) -> dict[str, Any]:
     """Clean up completed jobs older than specified hours"""
     if not _processing_engine:
         raise HTTPException(status_code=503, detail="Processing engine not available")

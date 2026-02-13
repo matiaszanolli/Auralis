@@ -23,7 +23,7 @@ Key Metrics:
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import librosa
 import numpy as np
@@ -78,7 +78,7 @@ class MasteringFingerprint:
     Indicates how widely distributed the frequency content is."""
 
     @classmethod
-    def from_audio_file(cls, file_path: str, sr: int = 44100) -> Optional["MasteringFingerprint"]:
+    def from_audio_file(cls, file_path: str, sr: int = 44100) -> MasteringFingerprint | None:
         """
         Extract fingerprint from an audio file.
 
@@ -131,7 +131,7 @@ class MasteringFingerprint:
             print(f"Error extracting fingerprint from {file_path}: {e}")
             return None
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         """Convert to dictionary for storage/comparison."""
         return asdict(self)
 
@@ -140,11 +140,11 @@ class MasteringFingerprint:
         return json.dumps(self.to_dict(), indent=2)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, float]) -> "MasteringFingerprint":
+    def from_dict(cls, data: dict[str, float]) -> MasteringFingerprint:
         """Create from dictionary."""
         return cls(**data)
 
-    def compare(self, other: "MasteringFingerprint") -> Dict[str, float]:
+    def compare(self, other: MasteringFingerprint) -> dict[str, float]:
         """
         Compare this fingerprint to another, returning the differences.
 
@@ -197,7 +197,7 @@ class MasteringFingerprint:
             return "professional"
 
 
-def analyze_album(album_dir: str, sr: int = 44100) -> Dict[str, Any]:
+def analyze_album(album_dir: str, sr: int = 44100) -> dict[str, Any]:
     """
     Analyze all audio files in a directory (album).
 
@@ -212,7 +212,7 @@ def analyze_album(album_dir: str, sr: int = 44100) -> Dict[str, Any]:
     audio_files = sorted(album_path.glob("*.flac")) + sorted(album_path.glob("*.wav"))
 
     fingerprints = {}
-    stats: Dict[str, List[float]] = {
+    stats: dict[str, list[float]] = {
         'loudness': [],
         'crest': [],
         'centroid': [],
@@ -249,7 +249,7 @@ def analyze_album(album_dir: str, sr: int = 44100) -> Dict[str, Any]:
     }
 
 
-def compare_albums(original_dir: str, remaster_dir: str, sr: int = 44100) -> Dict[str, Any]:
+def compare_albums(original_dir: str, remaster_dir: str, sr: int = 44100) -> dict[str, Any]:
     """
     Compare original and remastered versions of an album.
 

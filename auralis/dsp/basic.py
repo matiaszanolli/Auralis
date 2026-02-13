@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Basic DSP Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,6 @@ Basic audio processing utilities
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-from typing import Tuple
 
 import numpy as np
 
@@ -66,7 +63,7 @@ def amplify(audio: np.ndarray, gain_db: float) -> np.ndarray:
     return audio * gain_linear
 
 
-def mid_side_encode(stereo_audio: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def mid_side_encode(stereo_audio: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Convert stereo audio to mid-side encoding
 

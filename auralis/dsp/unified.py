@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Unified DSP System - Backward Compatibility Wrapper
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

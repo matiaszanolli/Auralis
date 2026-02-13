@@ -21,12 +21,13 @@ Endpoints:
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, cast
+from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from .dependencies import require_repository_factory
-from .errors import InternalServerError, NotFoundError, handle_query_error
+from .errors import NotFoundError, handle_query_error
 from .serializers import (
     serialize_album,
     serialize_albums,
@@ -41,8 +42,8 @@ router = APIRouter(tags=["library"])
 
 def create_library_router(
     get_repository_factory: Callable[[], Any],
-    get_library_manager: Optional[Callable[[], Any]] = None,
-    connection_manager: Optional[Any] = None
+    get_library_manager: Callable[[], Any] | None = None,
+    connection_manager: Any | None = None
 ) -> APIRouter:
     """
     Factory function to create library router with dependencies.
@@ -60,7 +61,7 @@ def create_library_router(
     """
 
     @router.get("/api/library/stats")
-    async def get_library_stats() -> Dict[str, Any]:
+    async def get_library_stats() -> dict[str, Any]:
         """
         Get library statistics.
 
@@ -73,7 +74,7 @@ def create_library_router(
         try:
             factory = require_repository_factory(get_repository_factory)
             stats = factory.stats.get_library_stats()
-            return cast(Dict[str, Any], stats)
+            return cast(dict[str, Any], stats)
         except HTTPException:
             raise
         except Exception as e:
@@ -83,9 +84,9 @@ def create_library_router(
     async def get_tracks(
         limit: int = 50,
         offset: int = 0,
-        search: Optional[str] = None,
+        search: str | None = None,
         order_by: str = 'created_at'
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get tracks from library with optional search and pagination.
 
@@ -130,7 +131,7 @@ def create_library_router(
             raise handle_query_error("get tracks", e)
 
     @router.get("/api/library/tracks/favorites")
-    async def get_favorite_tracks(limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    async def get_favorite_tracks(limit: int = 50, offset: int = 0) -> dict[str, Any]:
         """
         Get all favorite tracks with pagination.
 
@@ -162,7 +163,7 @@ def create_library_router(
             raise handle_query_error("get favorite tracks", e)
 
     @router.post("/api/library/tracks/{track_id}/favorite")
-    async def set_track_favorite(track_id: int) -> Dict[str, Any]:
+    async def set_track_favorite(track_id: int) -> dict[str, Any]:
         """
         Mark track as favorite.
 
@@ -186,7 +187,7 @@ def create_library_router(
             raise handle_query_error("set track favorite", e)
 
     @router.delete("/api/library/tracks/{track_id}/favorite")
-    async def remove_track_favorite(track_id: int) -> Dict[str, Any]:
+    async def remove_track_favorite(track_id: int) -> dict[str, Any]:
         """
         Remove track from favorites.
 
@@ -210,7 +211,7 @@ def create_library_router(
             raise handle_query_error("remove track favorite", e)
 
     @router.get("/api/library/tracks/{track_id}/lyrics")
-    async def get_track_lyrics(track_id: int) -> Dict[str, Any]:
+    async def get_track_lyrics(track_id: int) -> dict[str, Any]:
         """
         Get lyrics for a track.
 
@@ -300,7 +301,7 @@ def create_library_router(
         limit: int = 50,
         offset: int = 0,
         order_by: str = "name"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get paginated list of artists.
 
@@ -356,7 +357,7 @@ def create_library_router(
             raise handle_query_error("get artists", e)
 
     @router.get("/api/library/artists/{artist_id}")
-    async def get_artist(artist_id: int) -> Dict[str, Any]:
+    async def get_artist(artist_id: int) -> dict[str, Any]:
         """
         Get artist details by ID with albums and tracks.
 
@@ -382,7 +383,7 @@ def create_library_router(
             raise handle_query_error("get artist", e)
 
     @router.get("/api/library/albums")
-    async def get_albums() -> Dict[str, Any]:
+    async def get_albums() -> dict[str, Any]:
         """
         Get all albums.
 
@@ -405,7 +406,7 @@ def create_library_router(
             raise handle_query_error("get albums", e)
 
     @router.get("/api/library/albums/{album_id}")
-    async def get_album(album_id: int) -> Dict[str, Any]:
+    async def get_album(album_id: int) -> dict[str, Any]:
         """
         Get album details by ID with tracks.
 
@@ -432,10 +433,10 @@ def create_library_router(
 
     @router.post("/api/library/scan")
     async def scan_library(
-        directories: List[str],
+        directories: list[str],
         recursive: bool = True,
         skip_existing: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Scan directories for audio files and add them to the library.
 
@@ -470,7 +471,7 @@ def create_library_router(
             scanner = LibraryScanner(library_manager)
 
             # Define progress callback that broadcasts updates via WebSocket
-            async def progress_callback(event_data: Dict[str, Any]) -> None:
+            async def progress_callback(event_data: dict[str, Any]) -> None:
                 """
                 Broadcast scan progress to connected WebSocket clients.
 
@@ -542,7 +543,7 @@ def create_library_router(
             raise handle_query_error("scan library", e)
 
     @router.get("/api/library/fingerprints/status")
-    async def get_fingerprinting_status() -> Dict[str, Any]:
+    async def get_fingerprinting_status() -> dict[str, Any]:
         """
         Get fingerprinting progress for library.
 
@@ -589,7 +590,7 @@ def create_library_router(
             raise handle_query_error("get fingerprinting status", e)
 
     @router.get("/api/tracks/{track_id}/fingerprint")
-    async def get_track_fingerprint(track_id: int) -> Dict[str, Any]:
+    async def get_track_fingerprint(track_id: int) -> dict[str, Any]:
         """
         Get fingerprint for a specific track.
 

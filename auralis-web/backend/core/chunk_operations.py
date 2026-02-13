@@ -17,8 +17,6 @@ This utility eliminates ~300 lines of duplicate chunk handling code.
 """
 
 import logging
-from pathlib import Path
-from typing import Optional, Tuple
 
 import numpy as np
 
@@ -48,8 +46,8 @@ class ChunkOperations:
         chunk_interval: int = 10,
         overlap_duration: int = 5,
         with_context: bool = True,
-        total_duration: Optional[float] = None
-    ) -> Tuple[np.ndarray, float, float]:
+        total_duration: float | None = None
+    ) -> tuple[np.ndarray, float, float]:
         """
         Load a single chunk from audio file with optional context.
 
@@ -150,8 +148,8 @@ class ChunkOperations:
         chunk_duration: int = 15,
         chunk_interval: int = 10,
         overlap_duration: int = 5,
-        total_chunks: Optional[int] = None,
-        total_duration: Optional[float] = None
+        total_chunks: int | None = None,
+        total_duration: float | None = None
     ) -> np.ndarray:
         """
         Extract the correct segment from a processed chunk based on its position.
@@ -335,7 +333,7 @@ class ChunkOperations:
         chunk_index: int,
         chunk_duration: int = 15,
         chunk_interval: int = 10
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """
         Get time range for a chunk (without context).
 

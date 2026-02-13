@@ -7,7 +7,8 @@ Infrastructure endpoints for system monitoring and real-time communication.
 import asyncio
 import json
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any
+from collections.abc import Callable
 
 from audio_stream_controller import AudioStreamController
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -15,7 +16,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 logger = logging.getLogger(__name__)
 
 # Track active streaming tasks per WebSocket to allow cancellation
-_active_streaming_tasks: Dict[int, asyncio.Task] = {}
+_active_streaming_tasks: dict[int, asyncio.Task] = {}
 
 router = APIRouter(tags=["system"])
 
@@ -24,10 +25,10 @@ def create_system_router(
     manager: Any,
     get_processing_engine: Callable[..., Any],
     HAS_AURALIS: bool,
-    get_repository_factory: Optional[Callable[..., Any]] = None,
-    get_player_manager: Optional[Callable[..., Any]] = None,
-    get_state_manager: Optional[Callable[..., Any]] = None,
-    get_enhancement_settings: Optional[Callable[[], Dict[str, Any]]] = None,
+    get_repository_factory: Callable[..., Any] | None = None,
+    get_player_manager: Callable[..., Any] | None = None,
+    get_state_manager: Callable[..., Any] | None = None,
+    get_enhancement_settings: Callable[[], dict[str, Any]] | None = None,
 ) -> APIRouter:
     """
     Create system router with dependencies.
@@ -43,7 +44,7 @@ def create_system_router(
     """
 
     @router.get("/api/health")
-    async def health_check() -> Dict[str, Any]:
+    async def health_check() -> dict[str, Any]:
         """Health check endpoint"""
         return {
             "status": "healthy",
@@ -51,7 +52,7 @@ def create_system_router(
         }
 
     @router.get("/api/version")
-    async def get_version() -> Dict[str, Any]:
+    async def get_version() -> dict[str, Any]:
         """
         Get version information.
 
@@ -374,7 +375,7 @@ def create_system_router(
                             # Wait briefly for task to cancel
                             try:
                                 await asyncio.wait_for(asyncio.shield(old_task), timeout=0.1)
-                            except (asyncio.CancelledError, asyncio.TimeoutError):
+                            except (asyncio.CancelledError, TimeoutError):
                                 pass
 
                     # Send seek_started acknowledgment to client

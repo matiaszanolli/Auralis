@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Base Assessor
 ~~~~~~~~~~~~~
@@ -15,7 +13,7 @@ and dynamic range metrics.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -25,7 +23,7 @@ class BaseAssessor(ABC):
 
     def __init__(self) -> None:
         """Initialize base assessor"""
-        self._cached_analysis: Optional[Dict[str, Any]] = None
+        self._cached_analysis: dict[str, Any] | None = None
 
     @abstractmethod
     def assess(self, audio_data: np.ndarray, **kwargs: Any) -> float:
@@ -39,10 +37,9 @@ class BaseAssessor(ABC):
         Returns:
             Quality score (0-100, higher is better)
         """
-        pass
 
     @abstractmethod
-    def detailed_analysis(self, audio_data: np.ndarray, **kwargs: Any) -> Dict[str, Any]:
+    def detailed_analysis(self, audio_data: np.ndarray, **kwargs: Any) -> dict[str, Any]:
         """
         Perform detailed quality analysis
 
@@ -53,7 +50,6 @@ class BaseAssessor(ABC):
         Returns:
             Dictionary with detailed metrics and sub-scores
         """
-        pass
 
     def get_assessment_category(self) -> str:
         """
@@ -103,7 +99,7 @@ class BaseAssessor(ABC):
             return np.mean(audio_data, axis=1)  # type: ignore[no-any-return]
         return audio_data
 
-    def _get_stereo_channels(self, audio_data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def _get_stereo_channels(self, audio_data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Extract left and right channels from stereo audio
 
@@ -122,7 +118,7 @@ class BaseAssessor(ABC):
 
     def _validate_audio(self, audio_data: np.ndarray,
                        min_length: int = 44100,
-                       max_length: Optional[int] = None) -> bool:
+                       max_length: int | None = None) -> bool:
         """
         Validate audio data for analysis
 
@@ -183,7 +179,7 @@ class BaseAssessor(ABC):
 
     def _compute_spectrum(self, audio_data: np.ndarray,
                          sr: int = 44100,
-                         fft_size: int = 2048) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                         fft_size: int = 2048) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Compute frequency spectrum
 
@@ -217,8 +213,8 @@ class BaseAssessor(ABC):
         return frequencies, magnitude, magnitude_db
 
     def _interpolate_score(self, value: float,
-                          thresholds: List[float],
-                          scores: List[float]) -> float:
+                          thresholds: list[float],
+                          scores: list[float]) -> float:
         """
         Interpolate score based on thresholds
 

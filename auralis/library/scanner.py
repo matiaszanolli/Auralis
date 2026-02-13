@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Library Scanner (Backward Compatibility Wrapper)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

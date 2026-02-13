@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 User Preference Models
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,6 @@ Data models for user preference learning
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional
 
 
 @dataclass
@@ -20,11 +17,11 @@ class UserAction:
     """Record of user action/preference"""
     timestamp: datetime
     action_type: str  # 'adjustment', 'rating', 'preset_selection', 'correction'
-    audio_features: Dict[str, float]  # Audio characteristics when action occurred
-    parameters_before: Dict[str, float]  # Processing parameters before action
-    parameters_after: Dict[str, float]   # Processing parameters after action
-    user_rating: Optional[float] = None  # Optional 1-5 rating
-    genre: Optional[str] = None
+    audio_features: dict[str, float]  # Audio characteristics when action occurred
+    parameters_before: dict[str, float]  # Processing parameters before action
+    parameters_after: dict[str, float]   # Processing parameters after action
+    user_rating: float | None = None  # Optional 1-5 rating
+    genre: str | None = None
     confidence: float = 1.0  # Confidence in this preference data
 
 
@@ -41,11 +38,11 @@ class UserProfile:
     average_rating: float = 3.0
 
     # Genre preferences (normalized weights)
-    genre_preferences: Dict[str, float] = field(default_factory=dict)
+    genre_preferences: dict[str, float] = field(default_factory=dict)
 
     # Parameter preferences (bias adjustments)
-    eq_preferences: Dict[str, float] = field(default_factory=dict)
-    dynamics_preferences: Dict[str, float] = field(default_factory=dict)
+    eq_preferences: dict[str, float] = field(default_factory=dict)
+    dynamics_preferences: dict[str, float] = field(default_factory=dict)
 
     # Content-based preferences
     brightness_preference: float = 0.0  # -1 to 1 (darker to brighter)

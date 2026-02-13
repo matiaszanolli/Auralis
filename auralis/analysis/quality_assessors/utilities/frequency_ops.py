@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Frequency Operations
 ~~~~~~~~~~~~~~~~~~~~
@@ -13,7 +11,7 @@ to ensure consistency in frequency balance, weighting, and band analysis.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -88,7 +86,7 @@ class FrequencyOperations:
     @staticmethod
     def compute_frequency_bands(frequencies: np.ndarray,
                                magnitudes: np.ndarray,
-                               num_bands: int = 10) -> Dict[str, np.ndarray]:
+                               num_bands: int = 10) -> dict[str, np.ndarray]:
         """
         Divide frequency spectrum into logarithmic bands
 
@@ -133,7 +131,7 @@ class FrequencyOperations:
     @staticmethod
     def analyze_frequency_balance(audio: np.ndarray,
                                  sr: int = 44100,
-                                 num_bands: int = 3) -> Dict[str, float]:
+                                 num_bands: int = 3) -> dict[str, float]:
         """
         Analyze frequency balance (bass, mids, treble)
 
@@ -199,7 +197,7 @@ class FrequencyOperations:
     def detect_frequency_peaks(audio: np.ndarray,
                               sr: int = 44100,
                               threshold_db: float = 6.0,
-                              min_peak_width: int = 3) -> List[Dict[str, Any]]:
+                              min_peak_width: int = 3) -> list[dict[str, Any]]:
         """
         Detect prominent frequency peaks
 
@@ -316,8 +314,8 @@ class FrequencyOperations:
     @staticmethod
     def detect_frequency_anomalies(audio: np.ndarray,
                                   sr: int = 44100,
-                                 reference_audio: Optional[np.ndarray] = None,
-                                  threshold_db: float = 3.0) -> Dict[str, Any]:
+                                 reference_audio: np.ndarray | None = None,
+                                  threshold_db: float = 3.0) -> dict[str, Any]:
         """
         Detect frequency anomalies (unexpected peaks or valleys)
 

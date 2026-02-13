@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Continuous Space Processing Mode
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Generates optimal parameters from audio fingerprints.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -50,7 +48,7 @@ class ContinuousMode:
     for that specific position.
     """
 
-    def __init__(self, config: Any, content_analyzer: Any, fingerprint_analyzer: Any, recording_type_detector: Optional[Any] = None) -> None:
+    def __init__(self, config: Any, content_analyzer: Any, fingerprint_analyzer: Any, recording_type_detector: Any | None = None) -> None:
         """
         Initialize continuous space processor.
 
@@ -76,13 +74,13 @@ class ContinuousMode:
             self.recording_type_detector = RecordingTypeDetector()
 
         # Store last fingerprint and parameters for debugging/learning
-        self.last_fingerprint: Optional[Dict[str, Any]] = None
-        self.last_coordinates: Optional[Any] = None  # ProcessingCoordinates
-        self.last_parameters: Optional[ProcessingParameters] = None
-        self.last_recording_type: Optional[Any] = None
-        self.last_adaptive_params: Optional[Any] = None
+        self.last_fingerprint: dict[str, Any] | None = None
+        self.last_coordinates: Any | None = None  # ProcessingCoordinates
+        self.last_parameters: ProcessingParameters | None = None
+        self.last_recording_type: Any | None = None
+        self.last_adaptive_params: Any | None = None
 
-    def _convert_targets_to_parameters(self, targets: Dict[str, Any]) -> ProcessingParameters:
+    def _convert_targets_to_parameters(self, targets: dict[str, Any]) -> ProcessingParameters:
         """
         Convert dict-based mastering targets to ProcessingParameters object.
 
@@ -146,7 +144,7 @@ class ContinuousMode:
         )
 
     def process(self, target_audio: np.ndarray, eq_processor: Any,
-                fixed_params: Optional[Dict[str, Any]] = None) -> np.ndarray:
+                fixed_params: dict[str, Any] | None = None) -> np.ndarray:
         """
         Process audio using continuous parameter space.
 
@@ -352,7 +350,7 @@ class ContinuousMode:
 
         return audio
 
-    def _apply_compression(self, audio: np.ndarray, comp_params: Dict[str, Any]) -> np.ndarray:
+    def _apply_compression(self, audio: np.ndarray, comp_params: dict[str, Any]) -> np.ndarray:
         """Apply simple compression to reduce crest factor"""
 
         # Validate input - handle empty or very short audio gracefully
@@ -361,7 +359,7 @@ class ContinuousMode:
 
         return CompressionStrategies.apply_clip_blend_compression(audio, comp_params)
 
-    def _apply_expansion(self, audio: np.ndarray, exp_params: Dict[str, Any]) -> np.ndarray:
+    def _apply_expansion(self, audio: np.ndarray, exp_params: dict[str, Any]) -> np.ndarray:
         """Apply expansion to increase crest factor (de-mastering)"""
         return ExpansionStrategies.apply_rms_reduction_expansion(audio, exp_params)
 
@@ -446,7 +444,7 @@ class ContinuousMode:
         # changed the peak-to-RMS relationship. LUFS normalization is more
         # perceptually meaningful and is already applied in step 1.
         # Only apply peak limiting if absolutely necessary to prevent clipping.
-        target_peak_db = params.peak_target_db
+        params.peak_target_db
         current_peak_db = DBConversion.to_db(np.max(np.abs(audio)))
 
         if current_peak_db > 0.0:

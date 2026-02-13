@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Genre Repository
 ~~~~~~~~~~~~~~~~
@@ -11,7 +9,8 @@ Data access layer for genre operations
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -30,7 +29,7 @@ class GenreRepository:
         """Get a new database session"""
         return self.session_factory()
 
-    def get_by_id(self, genre_id: int) -> Optional[Genre]:
+    def get_by_id(self, genre_id: int) -> Genre | None:
         """
         Get genre by ID.
 
@@ -53,7 +52,7 @@ class GenreRepository:
         finally:
             session.close()
 
-    def get_by_name(self, name: str) -> Optional[Genre]:
+    def get_by_name(self, name: str) -> Genre | None:
         """
         Get genre by name.
 
@@ -76,7 +75,7 @@ class GenreRepository:
         finally:
             session.close()
 
-    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[List[Genre], int]:
+    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[list[Genre], int]:
         """
         Get all genres with pagination.
 
@@ -116,7 +115,7 @@ class GenreRepository:
         genre_id: int,
         limit: int = 50,
         offset: int = 0
-    ) -> tuple[List[Track], int]:
+    ) -> tuple[list[Track], int]:
         """
         Get all tracks for a genre with pagination.
 
@@ -154,7 +153,7 @@ class GenreRepository:
         finally:
             session.close()
 
-    def create(self, name: str, preferred_profile: Optional[str] = None, **kwargs: Any) -> Genre:
+    def create(self, name: str, preferred_profile: str | None = None, **kwargs: Any) -> Genre:
         """
         Create a new genre.
 
@@ -190,7 +189,7 @@ class GenreRepository:
         finally:
             session.close()
 
-    def update(self, genre_id: int, **fields: Any) -> Optional[Genre]:
+    def update(self, genre_id: int, **fields: Any) -> Genre | None:
         """
         Update genre fields.
 
@@ -255,7 +254,7 @@ class GenreRepository:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[List[Genre], int]:
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Genre], int]:
         """
         Search genres by name.
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Streaming Harmonic Analyzer - Rust DSP Backend
 
@@ -25,12 +23,11 @@ Dependencies:
 
 import logging
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Optional, cast
+from typing import Any
 
 import numpy as np
 
-from ...metrics import MetricUtils, SafeOperations, StabilityMetrics
+from ...metrics import MetricUtils, StabilityMetrics
 from ...utilities.base_streaming_analyzer import BaseStreamingAnalyzer
 from ...utilities.harmonic_ops import HarmonicOperations
 
@@ -164,7 +161,7 @@ class StreamingHarmonicAnalyzer(BaseStreamingAnalyzer):
         self.chunk_count = 0
         self.analysis_runs = 0
 
-    def update(self, frame: np.ndarray) -> Dict[str, float]:
+    def update(self, frame: np.ndarray) -> dict[str, float]:
         """Update analyzer with new audio frame.
 
         Args:
@@ -231,7 +228,7 @@ class StreamingHarmonicAnalyzer(BaseStreamingAnalyzer):
         except Exception as e:
             logger.debug(f"Chunk analysis failed: {e}")
 
-    def get_metrics(self) -> Dict[str, float]:
+    def get_metrics(self) -> dict[str, float]:
         """Get current harmonic metrics.
 
         Returns:
@@ -243,7 +240,7 @@ class StreamingHarmonicAnalyzer(BaseStreamingAnalyzer):
             'chroma_energy': float(np.clip(self.stats.get_chroma_energy(), 0, 1))
         }
 
-    def get_confidence(self) -> Dict[str, float]:
+    def get_confidence(self) -> dict[str, float]:
         """Get confidence scores for current metrics.
 
         Higher confidence = more chunks accumulated.

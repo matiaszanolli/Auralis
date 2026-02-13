@@ -24,11 +24,9 @@ Expected improvements:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import json
 import logging
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +49,7 @@ class TrackAnalysisCache:
     - Null-safety (tracks without analysis marked explicitly)
     """
 
-    def __init__(self, max_cached_tracks: int = 50, ttl_seconds: Optional[int] = None):
+    def __init__(self, max_cached_tracks: int = 50, ttl_seconds: int | None = None):
         """
         Initialize track analysis cache.
 
@@ -63,17 +61,17 @@ class TrackAnalysisCache:
         self.ttl_seconds = ttl_seconds
 
         # Track ID → analysis results
-        self._cache: Dict[int, Dict[str, Any]] = {}
+        self._cache: dict[int, dict[str, Any]] = {}
 
         # Track ID → last accessed time (for LRU eviction)
-        self._access_times: Dict[int, datetime] = {}
+        self._access_times: dict[int, datetime] = {}
 
         logger.info(
             f"TrackAnalysisCache initialized: "
             f"max_tracks={max_cached_tracks}, ttl={ttl_seconds}s"
         )
 
-    def get(self, track_id: int) -> Optional[Dict[str, Any]]:
+    def get(self, track_id: int) -> dict[str, Any] | None:
         """
         Get cached analysis for a track.
 
@@ -107,7 +105,7 @@ class TrackAnalysisCache:
         logger.debug(f"Cache hit for track {track_id}")
         return self._cache[track_id]
 
-    def put(self, track_id: int, analysis: Dict[str, Any]) -> None:
+    def put(self, track_id: int, analysis: dict[str, Any]) -> None:
         """
         Store analysis results for a track.
 
@@ -157,7 +155,7 @@ class TrackAnalysisCache:
 
         return True
 
-    def clear(self, track_id: Optional[int] = None) -> None:
+    def clear(self, track_id: int | None = None) -> None:
         """
         Clear cache entry(ies).
 
@@ -174,7 +172,7 @@ class TrackAnalysisCache:
                 del self._access_times[track_id]
                 logger.debug(f"Cleared cache for track {track_id}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get cache statistics.
 
@@ -222,7 +220,7 @@ class TrackAnalysisCache:
 
 
 # Global cache instance (initialized once)
-_track_analysis_cache: Optional[TrackAnalysisCache] = None
+_track_analysis_cache: TrackAnalysisCache | None = None
 
 
 def get_track_analysis_cache() -> TrackAnalysisCache:
@@ -245,7 +243,7 @@ def get_track_analysis_cache() -> TrackAnalysisCache:
     return _track_analysis_cache
 
 
-def init_track_analysis_cache(max_cached_tracks: int = 50, ttl_seconds: Optional[int] = 3600) -> None:
+def init_track_analysis_cache(max_cached_tracks: int = 50, ttl_seconds: int | None = 3600) -> None:
     """
     Initialize or reinitialize the global track analysis cache.
 

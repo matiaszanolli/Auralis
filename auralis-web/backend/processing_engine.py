@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 Processing Engine for Auralis Web Backend
@@ -13,23 +12,22 @@ Manages job queue, progress tracking, and result caching.
 """
 
 import asyncio
-import shutil
 import sys
 import tempfile
 import uuid
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 # Add parent directory to path for Auralis imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-import numpy as np
 
 from auralis.analysis.fingerprint.parameter_mapper import ParameterMapper
 from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import AdaptiveConfig, UnifiedConfig
+from auralis.core.unified_config import UnifiedConfig
 from auralis.io.processing import resample_audio
 from auralis.io.saver import save
 from auralis.io.unified_loader import load_audio
@@ -52,7 +50,7 @@ class ProcessingJob:
         job_id: str,
         input_path: str,
         output_path: str,
-        settings: Dict[str, Any],
+        settings: dict[str, Any],
         mode: str = "adaptive"
     ):
         self.job_id = job_id
@@ -63,14 +61,14 @@ class ProcessingJob:
 
         self.status = ProcessingStatus.QUEUED
         self.progress = 0.0
-        self.error_message: Optional[str] = None
-        self.result_data: Optional[Dict[str, Any]] = None
+        self.error_message: str | None = None
+        self.result_data: dict[str, Any] | None = None
 
         self.created_at = datetime.now()
-        self.started_at: Optional[datetime] = None
-        self.completed_at: Optional[datetime] = None
+        self.started_at: datetime | None = None
+        self.completed_at: datetime | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert job to dictionary for API responses"""
         return {
             "job_id": self.job_id,
@@ -94,13 +92,13 @@ class ProcessingEngine:
     """
 
     def __init__(self, max_concurrent_jobs: int = 2) -> None:
-        self.jobs: Dict[str, ProcessingJob] = {}
+        self.jobs: dict[str, ProcessingJob] = {}
         self.max_concurrent_jobs: int = max_concurrent_jobs
         self.active_jobs: int = 0
         self.job_queue: asyncio.Queue[ProcessingJob] = asyncio.Queue()
 
         # Processing components
-        self.processors: Dict[str, HybridProcessor] = {}
+        self.processors: dict[str, HybridProcessor] = {}
         self.parameter_mapper = ParameterMapper()
 
         # Temporary file management
@@ -108,21 +106,21 @@ class ProcessingEngine:
         self.temp_dir.mkdir(exist_ok=True)
 
         # Progress callbacks
-        self.progress_callbacks: Dict[str, Callable[..., Any]] = {}
+        self.progress_callbacks: dict[str, Callable[..., Any]] = {}
 
     def create_job(
         self,
         input_path: str,
-        settings: Dict[str, Any],
+        settings: dict[str, Any],
         mode: str = "adaptive",
-        reference_path: Optional[str] = None
+        reference_path: str | None = None
     ) -> ProcessingJob:
         """Create a new processing job"""
 
         job_id = str(uuid.uuid4())
 
         # Generate output path
-        input_file = Path(input_path)
+        Path(input_path)
         output_format = settings.get("output_format", "wav")
         output_path = str(self.temp_dir / f"{job_id}_processed.{output_format}")
 
@@ -147,7 +145,7 @@ class ProcessingEngine:
         await self.job_queue.put(job)
         return job.job_id
 
-    def get_job(self, job_id: str) -> Optional[ProcessingJob]:
+    def get_job(self, job_id: str) -> ProcessingJob | None:
         """Get job by ID"""
         return self.jobs.get(job_id)
 
@@ -165,7 +163,7 @@ class ProcessingEngine:
                 callback = self.progress_callbacks[job_id]
                 await callback(job_id, progress, message)
 
-    def _get_processor_cache_key(self, mode: str, config: 'UnifiedConfig') -> str:
+    def _get_processor_cache_key(self, mode: str, config: UnifiedConfig) -> str:
         """
         Generate a cache key for processor instance caching.
 
@@ -184,7 +182,7 @@ class ProcessingEngine:
         """
         # Create a simple key based on mode and key config params
         # Sample rate is critical, as are the key tuning parameters
-        key_parts: List[str] = [
+        key_parts: list[str] = [
             mode,
             str(config.sample_rate),  # type: ignore[attr-defined]
             config.processing_mode if hasattr(config, 'processing_mode') else 'unknown',
@@ -294,7 +292,7 @@ class ProcessingEngine:
 
         return config
 
-    def _apply_eq_to_config(self, config: UnifiedConfig, eq_params: Dict[str, Any]) -> None:
+    def _apply_eq_to_config(self, config: UnifiedConfig, eq_params: dict[str, Any]) -> None:
         """Apply generated EQ parameters to config"""
         if eq_params.get("enabled") and "gains" in eq_params:
             # Store EQ gains in adaptive config for HybridProcessor
@@ -302,7 +300,7 @@ class ProcessingEngine:
                 config.adaptive.eq_gains = {}  # type: ignore[attr-defined]
             config.adaptive.eq_gains = eq_params["gains"]  # type: ignore[attr-defined]
 
-    def _apply_dynamics_to_config(self, config: UnifiedConfig, dynamics_params: Dict[str, Any]) -> None:
+    def _apply_dynamics_to_config(self, config: UnifiedConfig, dynamics_params: dict[str, Any]) -> None:
         """Apply generated dynamics parameters to config"""
         if dynamics_params.get("enabled") and "standard" in dynamics_params:
             # Apply standard compressor settings
@@ -318,7 +316,7 @@ class ProcessingEngine:
                 "makeup_gain": comp.get("makeup_gain", 0.0)
             }
 
-    def _apply_level_to_config(self, config: UnifiedConfig, level_params: Dict[str, Any]) -> None:
+    def _apply_level_to_config(self, config: UnifiedConfig, level_params: dict[str, Any]) -> None:
         """Apply generated level parameters to config"""
         config.adaptive.target_lufs = level_params.get("target_lufs", -16.0)  # type: ignore[attr-defined]
         if "gain" in level_params:
@@ -326,7 +324,7 @@ class ProcessingEngine:
                 config.adaptive.gain = 0.0  # type: ignore[attr-defined]
             config.adaptive.gain = level_params["gain"]  # type: ignore[attr-defined]
 
-    def _apply_ui_eq_to_config(self, config: UnifiedConfig, eq_settings: Dict[str, Any]) -> None:
+    def _apply_ui_eq_to_config(self, config: UnifiedConfig, eq_settings: dict[str, Any]) -> None:
         """Apply manual UI EQ settings to config"""
         # This handles direct UI EQ input (31-band gains or parametric EQ)
         if "gains" in eq_settings:
@@ -334,7 +332,7 @@ class ProcessingEngine:
                 config.adaptive.eq_gains = {}  # type: ignore[attr-defined]
             config.adaptive.eq_gains = eq_settings["gains"]  # type: ignore[attr-defined]
 
-    def _apply_ui_dynamics_to_config(self, config: UnifiedConfig, dynamics_settings: Dict[str, Any]) -> None:
+    def _apply_ui_dynamics_to_config(self, config: UnifiedConfig, dynamics_settings: dict[str, Any]) -> None:
         """Apply manual UI dynamics settings to config"""
         if not hasattr(config.adaptive, "compressor"):
             config.adaptive.compressor = {}  # type: ignore[attr-defined]
@@ -398,7 +396,7 @@ class ProcessingEngine:
             bit_depth = job.settings.get("bit_depth", 16)
 
             # Determine subtype based on bit depth
-            subtype_map: Dict[int, str] = {16: 'PCM_16', 24: 'PCM_24', 32: 'PCM_32'}
+            subtype_map: dict[int, str] = {16: 'PCM_16', 24: 'PCM_24', 32: 'PCM_32'}
             subtype = subtype_map.get(bit_depth, 'PCM_16')
 
             save(
@@ -473,7 +471,7 @@ class ProcessingEngine:
             int: Number of jobs removed
         """
         now = datetime.now()
-        jobs_to_remove: List[str] = []
+        jobs_to_remove: list[str] = []
 
         for job_id, job in self.jobs.items():
             if job.status in [ProcessingStatus.COMPLETED, ProcessingStatus.FAILED, ProcessingStatus.CANCELLED]:
@@ -492,11 +490,11 @@ class ProcessingEngine:
 
         return len(jobs_to_remove)
 
-    def get_all_jobs(self) -> List[ProcessingJob]:
+    def get_all_jobs(self) -> list[ProcessingJob]:
         """Get all jobs"""
         return list(self.jobs.values())
 
-    def get_queue_status(self) -> Dict[str, Any]:
+    def get_queue_status(self) -> dict[str, Any]:
         """Get current queue status"""
         return {
             "total_jobs": len(self.jobs),

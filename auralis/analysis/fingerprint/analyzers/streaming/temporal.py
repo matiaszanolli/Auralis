@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Streaming Temporal Analyzer
 
@@ -25,12 +23,12 @@ Dependencies:
 
 import logging
 from collections import deque
-from typing import Any, Dict, Optional, cast
+from typing import Any, cast
 
 import librosa
 import numpy as np
 
-from ...metrics import MetricUtils, SafeOperations, StabilityMetrics
+from ...metrics import SafeOperations
 from ...utilities.base_streaming_analyzer import BaseStreamingAnalyzer
 from ...utilities.temporal_ops import TemporalOperations
 
@@ -92,7 +90,7 @@ class OnsetBuffer:
             logger.debug(f"Onset detection failed: {e}")
             return np.array([])
 
-    def get_audio(self) -> Optional[np.ndarray]:
+    def get_audio(self) -> np.ndarray | None:
         """Get current buffered audio."""
         if len(self.audio_buffer) > 0:
             return np.array(list(self.audio_buffer))
@@ -172,7 +170,7 @@ class StreamingTemporalAnalyzer(BaseStreamingAnalyzer):
         self.analysis_counter = 0
         self.analysis_runs = 0
 
-    def update(self, frame: np.ndarray) -> Dict[str, float]:
+    def update(self, frame: np.ndarray) -> dict[str, float]:
         """Update analyzer with new audio frame.
 
         Args:
@@ -236,7 +234,7 @@ class StreamingTemporalAnalyzer(BaseStreamingAnalyzer):
         except Exception as e:
             logger.debug(f"Analysis failed: {e}")
 
-    def get_metrics(self) -> Dict[str, float]:
+    def get_metrics(self) -> dict[str, float]:
         """Get current temporal metrics.
 
         Returns:
@@ -279,7 +277,7 @@ class StreamingTemporalAnalyzer(BaseStreamingAnalyzer):
             logger.debug(f"Silence ratio calculation failed: {e}")
             return 0.1
 
-    def get_confidence(self) -> Dict[str, float]:
+    def get_confidence(self) -> dict[str, float]:
         """Get confidence scores for current metrics.
 
         Higher confidence = more data accumulated, more analysis runs.

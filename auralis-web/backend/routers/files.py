@@ -17,7 +17,8 @@ import asyncio
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -44,7 +45,7 @@ class ScanRequest(BaseModel):
 def create_files_router(
     get_library_manager: Callable[[], Any],
     connection_manager: Any,
-    get_repository_factory: Optional[Callable[[], Any]] = None
+    get_repository_factory: Callable[[], Any] | None = None
 ) -> APIRouter:
     """
     Factory function to create files router with dependencies.
@@ -72,7 +73,7 @@ def create_files_router(
         return require_library_manager(get_library_manager)
 
     @router.post("/api/library/scan")
-    async def scan_directory(request: ScanRequest) -> Dict[str, Any]:
+    async def scan_directory(request: ScanRequest) -> dict[str, Any]:
         """
         Scan directory for audio files.
 
@@ -134,7 +135,7 @@ def create_files_router(
             raise HTTPException(status_code=500, detail=f"Failed to start scan: {e}")
 
     @router.post("/api/files/upload")
-    async def upload_files(files: List[UploadFile] = File(...)) -> Dict[str, Any]:
+    async def upload_files(files: list[UploadFile] = File(...)) -> dict[str, Any]:
         """
         Upload audio files for processing.
 
@@ -159,7 +160,7 @@ def create_files_router(
         if not HAS_LIBRARY:
             raise HTTPException(status_code=503, detail="Audio processing library not available")
 
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         supported_extensions = ('.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac')
 
         for file in files:
@@ -245,7 +246,7 @@ def create_files_router(
         return {"results": results}
 
     @router.get("/api/audio/formats")
-    async def get_supported_formats() -> Dict[str, Any]:
+    async def get_supported_formats() -> dict[str, Any]:
         """
         Get supported audio formats.
 

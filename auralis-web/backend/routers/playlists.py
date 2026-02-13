@@ -19,7 +19,8 @@ Endpoints:
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -34,18 +35,18 @@ class CreatePlaylistRequest(BaseModel):
     """Request model for creating a playlist"""
     name: str
     description: str = ""
-    track_ids: List[int] = []
+    track_ids: list[int] = []
 
 
 class UpdatePlaylistRequest(BaseModel):
     """Request model for updating a playlist"""
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
 
 
 class AddTracksRequest(BaseModel):
     """Request model for adding tracks to playlist"""
-    track_ids: List[int]
+    track_ids: list[int]
 
 
 def create_playlists_router(
@@ -67,7 +68,7 @@ def create_playlists_router(
     """
 
     @router.get("/api/playlists")
-    async def get_playlists() -> Dict[str, Any]:
+    async def get_playlists() -> dict[str, Any]:
         """
         Get all playlists.
 
@@ -91,7 +92,7 @@ def create_playlists_router(
             raise HTTPException(status_code=500, detail=f"Failed to get playlists: {e}")
 
     @router.get("/api/playlists/{playlist_id}")
-    async def get_playlist(playlist_id: int) -> Dict[str, Any]:
+    async def get_playlist(playlist_id: int) -> dict[str, Any]:
         """
         Get playlist by ID with all tracks.
 
@@ -114,7 +115,7 @@ def create_playlists_router(
             # Add full track details
             playlist_dict['tracks'] = [track.to_dict() for track in playlist.tracks]
 
-            return cast(Dict[str, Any], playlist_dict)
+            return cast(dict[str, Any], playlist_dict)
         except HTTPException:
             raise
         except Exception as e:
@@ -122,7 +123,7 @@ def create_playlists_router(
             raise HTTPException(status_code=500, detail=f"Failed to get playlist: {e}")
 
     @router.post("/api/playlists")
-    async def create_playlist(request: CreatePlaylistRequest) -> Dict[str, Any]:
+    async def create_playlist(request: CreatePlaylistRequest) -> dict[str, Any]:
         """
         Create a new playlist.
 
@@ -166,7 +167,7 @@ def create_playlists_router(
             raise HTTPException(status_code=500, detail=f"Failed to create playlist: {e}")
 
     @router.put("/api/playlists/{playlist_id}")
-    async def update_playlist(playlist_id: int, request: UpdatePlaylistRequest) -> Dict[str, Any]:
+    async def update_playlist(playlist_id: int, request: UpdatePlaylistRequest) -> dict[str, Any]:
         """
         Update playlist name or description.
 
@@ -214,7 +215,7 @@ def create_playlists_router(
             raise HTTPException(status_code=500, detail=f"Failed to update playlist: {e}")
 
     @router.delete("/api/playlists/{playlist_id}")
-    async def delete_playlist(playlist_id: int) -> Dict[str, Any]:
+    async def delete_playlist(playlist_id: int) -> dict[str, Any]:
         """
         Delete a playlist.
 
@@ -250,7 +251,7 @@ def create_playlists_router(
             raise HTTPException(status_code=500, detail=f"Failed to delete playlist: {e}")
 
     @router.post("/api/playlists/{playlist_id}/tracks")
-    async def add_tracks_to_playlist(playlist_id: int, request: AddTracksRequest) -> Dict[str, Any]:
+    async def add_tracks_to_playlist(playlist_id: int, request: AddTracksRequest) -> dict[str, Any]:
         """
         Add tracks to playlist.
 
@@ -294,7 +295,7 @@ def create_playlists_router(
             raise HTTPException(status_code=500, detail=f"Failed to add tracks: {e}")
 
     @router.delete("/api/playlists/{playlist_id}/tracks/{track_id}")
-    async def remove_track_from_playlist(playlist_id: int, track_id: int) -> Dict[str, Any]:
+    async def remove_track_from_playlist(playlist_id: int, track_id: int) -> dict[str, Any]:
         """
         Remove a track from playlist.
 
@@ -332,7 +333,7 @@ def create_playlists_router(
             raise HTTPException(status_code=500, detail=f"Failed to remove track: {e}")
 
     @router.delete("/api/playlists/{playlist_id}/tracks")
-    async def clear_playlist(playlist_id: int) -> Dict[str, Any]:
+    async def clear_playlist(playlist_id: int) -> dict[str, Any]:
         """
         Remove all tracks from playlist.
 

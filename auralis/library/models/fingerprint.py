@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Models
 ~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Models for 25D audio fingerprints and similarity graph
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from sqlalchemy import Column, Float, ForeignKey, Integer, LargeBinary
 from sqlalchemy.orm import relationship
@@ -88,7 +86,7 @@ class TrackFingerprint(Base, TimestampMixin):  # type: ignore[misc]
     # Relationship
     track = relationship("Track", backref="fingerprint", uselist=False)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert fingerprint to dictionary"""
         return {
             'id': self.id,
@@ -144,7 +142,7 @@ class TrackFingerprint(Base, TimestampMixin):  # type: ignore[misc]
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
 
-    def to_vector(self) -> List[Any]:
+    def to_vector(self) -> list[Any]:
         """Convert fingerprint to 25D vector for distance calculations.
 
         Returns:
@@ -205,7 +203,7 @@ class SimilarityGraph(Base, TimestampMixin):  # type: ignore[misc]
     track = relationship("Track", foreign_keys=[track_id], backref="similar_tracks")
     similar_track = relationship("Track", foreign_keys=[similar_track_id])
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert similarity edge to dictionary"""
         return {
             'id': self.id,

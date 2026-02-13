@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Audio Measurement
 ~~~~~~~~~~~~~~~~~
@@ -11,19 +9,17 @@ Provides AudioMeasurement and MeasurementUtilities classes.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Optional
 
 import numpy as np
 
 from ....dsp.basic import rms
 from ....utils.logging import debug
-from .db_conversion import DBConversion
 
 
 class AudioMeasurement:
     """Represents audio measurements (peak, RMS, crest factor)"""
 
-    def __init__(self, peak: float, rms_val: float, peak_db: Optional[float] = None, rms_db: Optional[float] = None) -> None:
+    def __init__(self, peak: float, rms_val: float, peak_db: float | None = None, rms_db: float | None = None) -> None:
         """
         Initialize audio measurement
 
@@ -39,7 +35,7 @@ class AudioMeasurement:
         self.rms_db: float = rms_db if rms_db is not None else (20 * np.log10(rms_val) if rms_val > 0 else -np.inf)
         self.crest: float = self.peak_db - self.rms_db
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         """Convert to dictionary"""
         return {
             'peak': self.peak,

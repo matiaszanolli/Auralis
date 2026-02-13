@@ -11,7 +11,8 @@ reducing boilerplate and improving consistency.
 import functools
 import logging
 import warnings
-from typing import Any, Callable, ParamSpec, TypeVar, cast
+from typing import Any, ParamSpec, TypeVar, cast
+from collections.abc import Callable
 
 from fastapi import HTTPException
 

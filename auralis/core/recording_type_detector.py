@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Recording Type Detector
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -18,12 +16,11 @@ Uses the reference data from three world-class masters:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional, Tuple
 
 import numpy as np
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
-from ..utils.logging import debug, info
+from ..utils.logging import debug
 
 
 class RecordingType(Enum):
@@ -99,7 +96,7 @@ class RecordingTypeDetector:
         self.fingerprint_analyzer = AudioFingerprintAnalyzer()
         self.confidence_threshold = 0.65  # Minimum confidence to classify
 
-    def detect(self, audio: np.ndarray, sr: int) -> Tuple[RecordingType, AdaptiveParameters]:
+    def detect(self, audio: np.ndarray, sr: int) -> tuple[RecordingType, AdaptiveParameters]:
         """
         Detect recording type and generate adaptive parameters.
 
@@ -126,7 +123,7 @@ class RecordingTypeDetector:
 
         return recording_type, params
 
-    def _classify(self, fingerprint: Dict[str, float]) -> Tuple[RecordingType, float]:
+    def _classify(self, fingerprint: dict[str, float]) -> tuple[RecordingType, float]:
         """
         Classify recording type from fingerprint features.
 
@@ -196,7 +193,7 @@ class RecordingTypeDetector:
 
         return min(score, 1.0)
 
-    def _score_metal(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: Optional[float] = None) -> float:
+    def _score_metal(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: float | None = None) -> float:
         """
         Score likelihood of metal recording.
 
@@ -228,7 +225,7 @@ class RecordingTypeDetector:
 
         return min(score, 1.0)
 
-    def _score_studio(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: Optional[float] = None) -> float:
+    def _score_studio(self, spectral_hz: float, bass_to_mid: float, stereo_width: float, crest_db: float | None = None) -> float:
         """
         Score likelihood of studio recording.
 
@@ -277,7 +274,7 @@ class RecordingTypeDetector:
     def _generate_parameters(
         self,
         recording_type: RecordingType,
-        fingerprint: Dict[str, float],
+        fingerprint: dict[str, float],
         confidence: float
     ) -> AdaptiveParameters:
         """
@@ -294,7 +291,7 @@ class RecordingTypeDetector:
         else:
             return self._parameters_default(confidence)
 
-    def _parameters_studio(self, fingerprint: Dict[str, float], confidence: float) -> AdaptiveParameters:
+    def _parameters_studio(self, fingerprint: dict[str, float], confidence: float) -> AdaptiveParameters:
         """
         Generate parameters for studio recording (Deep Purple philosophy).
 
@@ -333,7 +330,7 @@ class RecordingTypeDetector:
             confidence=confidence
         )
 
-    def _parameters_bootleg(self, fingerprint: Dict[str, float], confidence: float) -> AdaptiveParameters:
+    def _parameters_bootleg(self, fingerprint: dict[str, float], confidence: float) -> AdaptiveParameters:
         """
         Generate parameters for bootleg concert recording (Matchering philosophy).
 
@@ -370,7 +367,7 @@ class RecordingTypeDetector:
             confidence=confidence
         )
 
-    def _parameters_metal(self, fingerprint: Dict[str, float], confidence: float) -> AdaptiveParameters:
+    def _parameters_metal(self, fingerprint: dict[str, float], confidence: float) -> AdaptiveParameters:
         """
         Generate parameters for metal recording (Unique Matchering approach).
 

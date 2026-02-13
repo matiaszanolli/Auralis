@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Machine Learning Genre Classification System
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

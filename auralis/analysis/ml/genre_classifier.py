@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ML Genre Classifier
 ~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Machine learning-based genre classification using audio features
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -27,7 +25,7 @@ class MLGenreClassifier:
     Uses extracted audio features to classify music genres
     """
 
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(self, model_path: str | None = None):
         """
         Initialize genre classifier
 
@@ -46,7 +44,7 @@ class MLGenreClassifier:
 
         debug(f"ML Genre Classifier initialized with {len(self.genres)} genres")
 
-    def classify(self, audio: np.ndarray) -> Dict[str, Any]:
+    def classify(self, audio: np.ndarray) -> dict[str, Any]:
         """
         Classify audio genre using ML model
 
@@ -112,14 +110,14 @@ class MLGenreClassifier:
 
         return score
 
-    def _softmax(self, scores: List[float]) -> List[float]:
+    def _softmax(self, scores: list[float]) -> list[float]:
         """Apply softmax to convert scores to probabilities"""
         scores_array = np.array(scores)
         exp_scores = np.exp(scores_array - np.max(scores_array))  # Numerical stability
         probabilities = exp_scores / np.sum(exp_scores)
-        return cast(List[float], probabilities.tolist())
+        return cast(list[float], probabilities.tolist())
 
-    def _get_feature_importance(self, features: AudioFeatures, genre: str) -> Dict[str, float]:
+    def _get_feature_importance(self, features: AudioFeatures, genre: str) -> dict[str, float]:
         """Get feature importance for the classified genre"""
         weights = self.weights[genre]
 
@@ -139,7 +137,7 @@ class MLGenreClassifier:
 
         return importance
 
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """Get information about the classifier model"""
         return {
             "model_type": "Linear Feature-based Classifier",
@@ -157,7 +155,7 @@ class MLGenreClassifier:
         }
 
 
-def create_ml_genre_classifier(model_path: Optional[str] = None) -> MLGenreClassifier:
+def create_ml_genre_classifier(model_path: str | None = None) -> MLGenreClassifier:
     """
     Factory function to create ML genre classifier
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Hybrid Mode Processing
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Combines reference-based matching with adaptive intelligence
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional, Union, cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -40,7 +38,7 @@ class HybridMode:
         self.adaptive_processor = adaptive_processor
 
     def process(self, target_audio: np.ndarray,
-                reference_audio: Optional[np.ndarray],
+                reference_audio: np.ndarray | None,
                 eq_processor: Any) -> np.ndarray:
         """
         Process audio using hybrid approach
@@ -70,7 +68,7 @@ class HybridMode:
 
     def _apply_hybrid_processing(self, target_audio: np.ndarray,
                                 reference_audio: np.ndarray,
-                                content_profile: Dict[str, Any],
+                                content_profile: dict[str, Any],
                                 eq_processor: Any) -> np.ndarray:
         """
         Apply hybrid processing combining reference and adaptive approaches
@@ -90,7 +88,7 @@ class HybridMode:
         reference_matched = apply_reference_matching(target_audio, reference_audio)
 
         # Generate adaptive targets
-        targets = self.target_generator.generate_targets(content_profile)
+        self.target_generator.generate_targets(content_profile)
 
         # Apply adaptive enhancements with reduced intensity
         adaptation_strength = self.config.adaptive.adaptation_strength * 0.5  # Reduced for hybrid

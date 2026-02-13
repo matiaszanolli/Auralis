@@ -12,7 +12,8 @@ Phase B.1: Backend Endpoint Standardization
 
 import logging
 import time
-from typing import Any, Awaitable, Callable, Dict, List, Tuple
+from typing import Any
+from collections.abc import Awaitable, Callable
 
 from fastapi import HTTPException
 from fastapi.applications import FastAPI
@@ -134,7 +135,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: Any, requests_per_minute: int = 100) -> None:
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
-        self.request_log: Dict[str, List[Tuple[float, int]]] = {}  # {ip: [(timestamp, request_count)]}
+        self.request_log: dict[str, list[tuple[float, int]]] = {}  # {ip: [(timestamp, request_count)]}
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         client_ip = request.client.host if request.client else "unknown"

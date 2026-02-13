@@ -9,7 +9,7 @@ Coordinates with PlayerStateManager to keep single source of truth.
 """
 
 import logging
-from typing import Any, Dict, Protocol, cast
+from typing import Any, Protocol, cast
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class PlayerStateManager(Protocol):
 class ConnectionManager(Protocol):
     """Protocol for connection manager interface."""
 
-    async def broadcast(self, message: Dict[str, Any]) -> None:
+    async def broadcast(self, message: dict[str, Any]) -> None:
         """Broadcast message to connected clients."""
         ...
 
@@ -91,7 +91,7 @@ class PlaybackService:
         self.player_state_manager: PlayerStateManager = player_state_manager
         self.connection_manager: ConnectionManager = connection_manager
 
-    async def get_status(self) -> Dict[str, Any]:
+    async def get_status(self) -> dict[str, Any]:
         """
         Get current player status.
 
@@ -106,12 +106,12 @@ class PlaybackService:
 
         try:
             state = self.player_state_manager.get_state()
-            return cast(Dict[str, Any], state.model_dump())
+            return cast(dict[str, Any], state.model_dump())
         except Exception as e:
             logger.error(f"Failed to get player status: {e}")
             raise
 
-    async def play(self) -> Dict[str, Any]:
+    async def play(self) -> dict[str, Any]:
         """
         Start playback (updates single source of truth).
 
@@ -145,7 +145,7 @@ class PlaybackService:
             logger.error(f"Failed to start playback: {e}")
             raise
 
-    async def pause(self) -> Dict[str, Any]:
+    async def pause(self) -> dict[str, Any]:
         """
         Pause playback (updates single source of truth).
 
@@ -179,7 +179,7 @@ class PlaybackService:
             logger.error(f"Failed to pause playback: {e}")
             raise
 
-    async def stop(self) -> Dict[str, Any]:
+    async def stop(self) -> dict[str, Any]:
         """
         Stop playback and clear queue.
 
@@ -212,7 +212,7 @@ class PlaybackService:
             logger.error(f"Failed to stop playback: {e}")
             raise
 
-    async def seek(self, position: float) -> Dict[str, Any]:
+    async def seek(self, position: float) -> dict[str, Any]:
         """
         Seek to specific playback position.
 
@@ -252,7 +252,7 @@ class PlaybackService:
             logger.error(f"Failed to seek: {e}")
             raise
 
-    async def set_volume(self, volume: float) -> Dict[str, Any]:
+    async def set_volume(self, volume: float) -> dict[str, Any]:
         """
         Set playback volume.
 

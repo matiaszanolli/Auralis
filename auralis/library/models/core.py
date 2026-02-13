@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Core Database Models
 ~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Core models for tracks, albums, artists, genres, and playlists
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -79,7 +77,7 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
     genres = relationship("Genre", secondary=track_genre, back_populates="tracks")
     playlists = relationship("Playlist", secondary=track_playlist, back_populates="tracks")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert track to dictionary for API/GUI use.
 
@@ -144,7 +142,7 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
                 'created_at': self.created_at.isoformat() if self.created_at else None,
                 'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             }
-        except Exception as e:
+        except Exception:
             # Fallback for detached objects
             return {
                 'id': getattr(self, 'id', None),
@@ -185,7 +183,7 @@ class Album(Base, TimestampMixin):  # type: ignore[misc]
     artist = relationship("Artist", back_populates="albums")
     tracks = relationship("Track", back_populates="album")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert album to dictionary.
 
@@ -236,7 +234,7 @@ class Artist(Base, TimestampMixin):  # type: ignore[misc]
     albums = relationship("Album", back_populates="artist")
     tracks = relationship("Track", secondary=track_artist, back_populates="artists")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert artist to dictionary"""
         return {
             'id': self.id,
@@ -268,7 +266,7 @@ class Genre(Base, TimestampMixin):  # type: ignore[misc]
     # Relationships
     tracks = relationship("Track", secondary=track_genre, back_populates="genres")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert genre to dictionary"""
         return {
             'id': self.id,
@@ -300,7 +298,7 @@ class Playlist(Base, TimestampMixin):  # type: ignore[misc]
     # Relationships
     tracks = relationship("Track", secondary=track_playlist, back_populates="playlists")
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert playlist to dictionary"""
         return {
             'id': self.id,
@@ -348,12 +346,12 @@ class QueueState(Base, TimestampMixin):  # type: ignore[misc]
     # Timestamp for optimistic sync detection
     synced_at = Column(DateTime, default=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert queue state to dictionary"""
         import json
         try:
             parsed_track_ids = json.loads(self.track_ids) if self.track_ids else []  # type: ignore[arg-type]
-            track_ids: List[int] = parsed_track_ids if isinstance(parsed_track_ids, list) else []
+            track_ids: list[int] = parsed_track_ids if isinstance(parsed_track_ids, list) else []
         except (json.JSONDecodeError, TypeError):
             track_ids = []
 
@@ -369,7 +367,7 @@ class QueueState(Base, TimestampMixin):  # type: ignore[misc]
         }
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> 'QueueState':
+    def from_dict(data: dict[str, Any]) -> QueueState:
         """Create QueueState from dictionary"""
         import json
         state = QueueState()
@@ -408,18 +406,18 @@ class QueueHistory(Base, TimestampMixin):  # type: ignore[misc]
     # For 'shuffle': contains shuffle_mode info
     operation_metadata = Column(Text, default='{}')
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert history entry to dictionary"""
         import json
         try:
             parsed_snapshot = json.loads(self.state_snapshot) if self.state_snapshot else {}  # type: ignore[arg-type]
-            state_snapshot: Dict[str, Any] = parsed_snapshot if isinstance(parsed_snapshot, dict) else {}
+            state_snapshot: dict[str, Any] = parsed_snapshot if isinstance(parsed_snapshot, dict) else {}
         except (json.JSONDecodeError, TypeError):
             state_snapshot = {}
 
         try:
             parsed_metadata = json.loads(self.operation_metadata) if self.operation_metadata else {}  # type: ignore[arg-type]
-            operation_metadata: Dict[str, Any] = parsed_metadata if isinstance(parsed_metadata, dict) else {}
+            operation_metadata: dict[str, Any] = parsed_metadata if isinstance(parsed_metadata, dict) else {}
         except (json.JSONDecodeError, TypeError):
             operation_metadata = {}
 
@@ -434,7 +432,7 @@ class QueueHistory(Base, TimestampMixin):  # type: ignore[misc]
         }
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> 'QueueHistory':
+    def from_dict(data: dict[str, Any]) -> QueueHistory:
         """Create QueueHistory from dictionary"""
         import json
         entry = QueueHistory()
@@ -483,18 +481,18 @@ class QueueTemplate(Base, TimestampMixin):  # type: ignore[misc]
     # Last time this template was loaded
     last_loaded = Column(DateTime, nullable=True)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert template to dictionary"""
         import json
         try:
             parsed_track_ids = json.loads(self.track_ids) if self.track_ids else []  # type: ignore[arg-type]
-            track_ids: List[int] = parsed_track_ids if isinstance(parsed_track_ids, list) else []
+            track_ids: list[int] = parsed_track_ids if isinstance(parsed_track_ids, list) else []
         except (json.JSONDecodeError, TypeError):
             track_ids = []
 
         try:
             parsed_tags = json.loads(self.tags) if self.tags else []  # type: ignore[arg-type]
-            tags: List[str] = parsed_tags if isinstance(parsed_tags, list) else []
+            tags: list[str] = parsed_tags if isinstance(parsed_tags, list) else []
         except (json.JSONDecodeError, TypeError):
             tags = []
 
@@ -514,7 +512,7 @@ class QueueTemplate(Base, TimestampMixin):  # type: ignore[misc]
         }
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> 'QueueTemplate':
+    def from_dict(data: dict[str, Any]) -> QueueTemplate:
         """Create QueueTemplate from dictionary"""
         import json
         template = QueueTemplate()

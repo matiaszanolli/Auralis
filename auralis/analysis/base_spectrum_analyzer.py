@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Base Spectrum Analyzer
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -15,7 +13,7 @@ analyzer implementations (sequential, parallel, real-time, etc.).
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -41,7 +39,7 @@ class SpectrumSettings:
 class BaseSpectrumAnalyzer(ABC):
     """Abstract base class for spectrum analyzers"""
 
-    def __init__(self, settings: Optional[SpectrumSettings] = None) -> None:
+    def __init__(self, settings: SpectrumSettings | None = None) -> None:
         """
         Initialize base spectrum analyzer
 
@@ -58,7 +56,7 @@ class BaseSpectrumAnalyzer(ABC):
         )
 
         # Smoothing buffer for real-time analysis
-        self.smoothing_buffer: Optional[np.ndarray] = None
+        self.smoothing_buffer: np.ndarray | None = None
 
         # Window function
         self.window = SpectrumOperations.create_window(
@@ -73,7 +71,7 @@ class BaseSpectrumAnalyzer(ABC):
         )
 
     @abstractmethod
-    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict[str, Any]:
+    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> dict[str, Any]:
         """
         Analyze a chunk of audio data
 
@@ -91,10 +89,9 @@ class BaseSpectrumAnalyzer(ABC):
             - total_energy: Total spectral energy
             - settings: Analysis settings used
         """
-        pass
 
     @abstractmethod
-    def analyze_file(self, audio_data: np.ndarray, sample_rate: Optional[int] = None) -> Dict[str, Any]:
+    def analyze_file(self, audio_data: np.ndarray, sample_rate: int | None = None) -> dict[str, Any]:
         """
         Analyze an entire audio file
 
@@ -114,12 +111,11 @@ class BaseSpectrumAnalyzer(ABC):
             - analysis_duration: Duration analyzed in seconds
             - settings: Analysis settings used
         """
-        pass
 
     def _create_chunk_result(self,
                             audio_chunk: np.ndarray,
                             channel: int = 0,
-                            sample_rate: Optional[int] = None) -> Dict[str, Any]:
+                            sample_rate: int | None = None) -> dict[str, Any]:
         """
         Create analysis result for a single audio chunk
 
@@ -184,7 +180,7 @@ class BaseSpectrumAnalyzer(ABC):
             }
         }
 
-    def get_frequency_band_names(self) -> List[str]:
+    def get_frequency_band_names(self) -> list[str]:
         """
         Get human-readable frequency band names
 

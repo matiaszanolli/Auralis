@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Statistics Models
 ~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Models for library-wide statistics and analytics
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from sqlalchemy import Column, DateTime, Float, Integer
 
@@ -41,7 +39,7 @@ class LibraryStats(Base, TimestampMixin):  # type: ignore[misc]
     files_scanned = Column(Integer, default=0)
     new_files_found = Column(Integer, default=0)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert stats to dictionary"""
         return {
             'id': self.id,

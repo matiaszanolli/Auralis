@@ -14,7 +14,6 @@ Dependencies:
 """
 
 import logging
-from typing import Dict
 
 import numpy as np
 
@@ -33,7 +32,7 @@ class VariationAnalyzer(BaseAnalyzer):
         'peak_consistency': 0.7
     }
 
-    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
         Analyze dynamic variation features.
 

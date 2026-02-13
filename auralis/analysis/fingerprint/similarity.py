@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Similarity API
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,8 +8,7 @@ High-level API for finding similar tracks using fingerprint-based similarity
 :license: GPLv3, see LICENSE for more details.
 """
 
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -36,7 +33,7 @@ class SimilarityResult:
         self.distance = distance
         self.similarity_score = similarity_score
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return {
             'track_id': self.track_id,
@@ -71,7 +68,7 @@ class FingerprintSimilarity:
     def __init__(
         self,
         fingerprint_repository: Any,
-        weights: Optional[DimensionWeights] = None,
+        weights: DimensionWeights | None = None,
         use_robust_normalization: bool = True
     ) -> None:
         """
@@ -114,7 +111,7 @@ class FingerprintSimilarity:
         n: int = 10,
         use_prefilter: bool = True,
         prefilter_factor: int = 10
-    ) -> List[SimilarityResult]:
+    ) -> list[SimilarityResult]:
         """
         Find N most similar tracks to target track
 
@@ -176,7 +173,7 @@ class FingerprintSimilarity:
         info(f"Found {len(results)} similar tracks for track {track_id}")
         return results
 
-    def calculate_similarity(self, track_id1: int, track_id2: int) -> Optional[SimilarityResult]:
+    def calculate_similarity(self, track_id1: int, track_id2: int) -> SimilarityResult | None:
         """
         Calculate similarity between two specific tracks
 
@@ -214,7 +211,7 @@ class FingerprintSimilarity:
         track_id1: int,
         track_id2: int,
         top_n: int = 5
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get detailed explanation of why two tracks are similar/different
 
@@ -267,7 +264,7 @@ class FingerprintSimilarity:
         self,
         target_fp: Any,
         max_candidates: int = 100
-    ) -> List[Tuple[int, np.ndarray]]:
+    ) -> list[tuple[int, np.ndarray]]:
         """
         Pre-filter candidates using dimension ranges
 

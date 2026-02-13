@@ -15,7 +15,7 @@ Features:
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .mastering_profile import MasteringProfile
 
@@ -27,12 +27,12 @@ class ProfileVersion:
     version: str  # e.g., "1.0", "1.1", "2.0"
     profile: MasteringProfile
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    improved_from: Optional[str] = None  # Previous version (e.g., "1.0" if this is "1.1")
+    improved_from: str | None = None  # Previous version (e.g., "1.0" if this is "1.1")
     improvement_reason: str = ""  # Why this version improved
     training_source: str = ""  # Album/source that triggered improvement
     confidence_change: float = 0.0  # Change in confidence (e.g., +0.05)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             'version': self.version,
@@ -56,15 +56,15 @@ class ProfileVersionManager:
     4. Maintain history for auditing
     """
 
-    def __init__(self, history_dir: Optional[str] = None):
+    def __init__(self, history_dir: str | None = None):
         """
         Initialize version manager.
 
         Args:
             history_dir: Directory to persist version history (optional)
         """
-        self.histories: Dict[str, List[ProfileVersion]] = {}
-        self.current_versions: Dict[str, ProfileVersion] = {}
+        self.histories: dict[str, list[ProfileVersion]] = {}
+        self.current_versions: dict[str, ProfileVersion] = {}
         self.history_dir = history_dir
 
     def add_version(self, profile_id: str, version: ProfileVersion) -> None:
@@ -152,7 +152,7 @@ class ProfileVersionManager:
 
         return f"{major}.{minor}"
 
-    def get_version(self, profile_id: str, version: str) -> Optional[ProfileVersion]:
+    def get_version(self, profile_id: str, version: str) -> ProfileVersion | None:
         """
         Get a specific version of a profile.
 
@@ -172,21 +172,21 @@ class ProfileVersionManager:
 
         return None
 
-    def get_current_version(self, profile_id: str) -> Optional[ProfileVersion]:
+    def get_current_version(self, profile_id: str) -> ProfileVersion | None:
         """Get the current (latest) version of a profile."""
         return self.current_versions.get(profile_id)
 
-    def get_history(self, profile_id: str) -> List[ProfileVersion]:
+    def get_history(self, profile_id: str) -> list[ProfileVersion]:
         """Get complete version history for a profile."""
         return self.histories.get(profile_id, [])
 
-    def list_profiles(self) -> List[str]:
+    def list_profiles(self) -> list[str]:
         """List all profiles being versioned."""
         return list(self.current_versions.keys())
 
     def compare_versions(
         self, profile_id: str, version1: str, version2: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Compare two versions of a profile.
 
@@ -236,7 +236,7 @@ class ProfileVersionManager:
         Args:
             output_path: Path to save history file
         """
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             'version': '1.0',
             'exported_at': datetime.now().isoformat(),
             'profiles': {},
@@ -261,7 +261,7 @@ class ProfileVersionManager:
         Args:
             input_path: Path to history file
         """
-        with open(input_path, 'r') as f:
+        with open(input_path) as f:
             data = json.load(f)
 
         count = 0

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Content Analysis Framework
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -13,7 +11,7 @@ Comprehensive audio content analysis system for intelligent processing decisions
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 
@@ -51,9 +49,9 @@ class ContentProfile:
     features: ContentFeatures
     genre: GenreClassification
     mood: MoodAnalysis
-    quality_assessment: Dict[str, Any]
-    stereo_analysis: Dict[str, Any]
-    processing_recommendations: Dict[str, Any]
+    quality_assessment: dict[str, Any]
+    stereo_analysis: dict[str, Any]
+    processing_recommendations: dict[str, Any]
 
 
 class ContentAnalyzer:
@@ -201,11 +199,11 @@ class ContentAnalyzer:
     def _generate_processing_recommendations(self, features: ContentFeatures,
                                             genre: GenreClassification,
                                             mood: MoodAnalysis,
-                                            quality: Any) -> Dict[str, Any]:
+                                            quality: Any) -> dict[str, Any]:
         """Backward compatibility wrapper for recommendations"""
         return self.recommendation_engine.generate_recommendations(features, genre, mood, quality)
 
-    def _analyze_stereo_characteristics(self, stereo_audio: np.ndarray) -> Dict[str, Any]:
+    def _analyze_stereo_characteristics(self, stereo_audio: np.ndarray) -> dict[str, Any]:
         """Analyze stereo characteristics"""
         # Correlation analysis
         correlation = self.phase_analyzer.analyze_correlation(stereo_audio)

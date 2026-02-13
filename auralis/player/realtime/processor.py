@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Real-time Processor
 ~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ Main real-time audio processor orchestrator
 
 import time
 from threading import Lock
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -87,7 +85,7 @@ class RealtimeProcessor:
             if self.auto_master:
                 self.auto_master.set_profile(profile)
 
-    def set_fingerprint(self, fingerprint: Optional[Dict]) -> None:
+    def set_fingerprint(self, fingerprint: dict | None) -> None:
         """
         Set 25D fingerprint for adaptive processing.
 
@@ -153,7 +151,7 @@ class RealtimeProcessor:
 
         return processed
 
-    def get_processing_info(self) -> Dict[str, Any]:
+    def get_processing_info(self) -> dict[str, Any]:
         """Get comprehensive processing information"""
         with self.lock:
             info = {

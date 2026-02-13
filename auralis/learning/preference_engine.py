@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 User Preference Learning Framework
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -18,7 +16,7 @@ from collections import defaultdict, deque
 from dataclasses import asdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -29,18 +27,18 @@ from .components import PreferencePredictor, UserAction, UserProfile
 class PreferenceLearningEngine:
     """Main engine for learning user preferences"""
 
-    def __init__(self, storage_path: Optional[str] = None):
+    def __init__(self, storage_path: str | None = None):
         self.storage_path = Path(storage_path) if storage_path else Path.home() / ".auralis" / "preferences"
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
         # Active user profiles
-        self.user_profiles: Dict[str, UserProfile] = {}
+        self.user_profiles: dict[str, UserProfile] = {}
 
         # Preference predictors per user
-        self.predictors: Dict[str, PreferencePredictor] = {}
+        self.predictors: dict[str, PreferencePredictor] = {}
 
         # Action history for analysis
-        self.action_history: Dict[str, deque[Any]] = defaultdict(lambda: deque(maxlen=1000))
+        self.action_history: dict[str, deque[Any]] = defaultdict(lambda: deque(maxlen=1000))
 
         # Learning parameters
         self.min_actions_for_learning = 5
@@ -111,8 +109,8 @@ class PreferenceLearningEngine:
 
             debug(f"Recorded action for user {user_id}: {action.action_type}")
 
-    def _calculate_parameter_adjustments(self, before: Dict[str, float],
-                                       after: Dict[str, float]) -> Dict[str, float]:
+    def _calculate_parameter_adjustments(self, before: dict[str, float],
+                                       after: dict[str, float]) -> dict[str, float]:
         """Calculate the difference between before and after parameters"""
         adjustments = {}
 
@@ -124,7 +122,7 @@ class PreferenceLearningEngine:
         return adjustments
 
     def _update_preference_biases(self, profile: UserProfile, action: UserAction,
-                                adjustments: Dict[str, float]) -> None:
+                                adjustments: dict[str, float]) -> None:
         """Update user preference biases based on action"""
 
         # Update EQ preferences
@@ -156,7 +154,7 @@ class PreferenceLearningEngine:
         self._update_high_level_preferences(profile, adjustments)
 
     def _update_high_level_preferences(self, profile: UserProfile,
-                                     adjustments: Dict[str, float]) -> None:
+                                     adjustments: dict[str, float]) -> None:
         """Update high-level preference indicators"""
 
         # Brightness preference (based on treble adjustments)
@@ -210,8 +208,8 @@ class PreferenceLearningEngine:
             profile.confidence_score = min(base_confidence + rating_bonus, 1.0)
 
     def get_adaptive_parameters(self, user_id: str,
-                              audio_features: Dict[str, float],
-                              base_parameters: Dict[str, float]) -> Dict[str, float]:
+                              audio_features: dict[str, float],
+                              base_parameters: dict[str, float]) -> dict[str, float]:
         """Get parameters adapted to user preferences"""
 
         with self.lock:
@@ -237,7 +235,7 @@ class PreferenceLearningEngine:
             debug(f"Applied user preferences for {user_id} (confidence: {profile.confidence_score:.2f})")
             return adapted_params
 
-    def _apply_preference_biases(self, parameters: Dict[str, float], profile: UserProfile) -> None:
+    def _apply_preference_biases(self, parameters: dict[str, float], profile: UserProfile) -> None:
         """Apply learned preference biases to parameters"""
 
         # Apply EQ biases
@@ -250,8 +248,8 @@ class PreferenceLearningEngine:
             if param in parameters:
                 parameters[param] += bias * profile.confidence_score
 
-    def _apply_predictions(self, parameters: Dict[str, float],
-                         predictions: Dict[str, float], confidence: float) -> None:
+    def _apply_predictions(self, parameters: dict[str, float],
+                         predictions: dict[str, float], confidence: float) -> None:
         """Apply ML predictions with confidence weighting"""
 
         prediction_weight = confidence * 0.5  # Conservative weighting
@@ -260,7 +258,7 @@ class PreferenceLearningEngine:
             if param in parameters:
                 parameters[param] += prediction * prediction_weight
 
-    def get_user_insights(self, user_id: str) -> Dict[str, Any]:
+    def get_user_insights(self, user_id: str) -> dict[str, Any]:
         """Get insights about user preferences"""
 
         with self.lock:
@@ -324,7 +322,7 @@ class PreferenceLearningEngine:
             if not profile_file.exists():
                 return False
 
-            with open(profile_file, 'r') as f:
+            with open(profile_file) as f:
                 profile_data = json.load(f)
 
             # Convert back from JSON
@@ -356,7 +354,7 @@ class PreferenceLearningEngine:
                 )
                 self.action_history[user_id] = filtered_history
 
-    def get_learning_statistics(self) -> Dict[str, Any]:
+    def get_learning_statistics(self) -> dict[str, Any]:
         """Get overall learning system statistics"""
         with self.lock:
             stats = {
@@ -381,7 +379,7 @@ def smooth_update(current_value: float, new_value: float, learning_rate: float) 
     return (1 - learning_rate) * current_value + learning_rate * new_value
 
 
-def create_preference_engine(storage_path: Optional[str] = None) -> PreferenceLearningEngine:
+def create_preference_engine(storage_path: str | None = None) -> PreferenceLearningEngine:
     """
     Factory function to create preference learning engine
 

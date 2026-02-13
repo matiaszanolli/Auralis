@@ -9,7 +9,7 @@ dictionaries for JSON serialization, with fallback handling and validation.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ DEFAULT_PLAYLIST_FIELDS = {
 }
 
 
-def serialize_object(obj: Any, fallback_fields: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def serialize_object(obj: Any, fallback_fields: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Serialize a single object to a dictionary.
 
@@ -93,9 +93,9 @@ def serialize_object(obj: Any, fallback_fields: Optional[Dict[str, Any]] = None)
 
 
 def serialize_objects(
-    objects: List[Any],
-    fallback_fields: Optional[Dict[str, Any]] = None
-) -> List[Dict[str, Any]]:
+    objects: list[Any],
+    fallback_fields: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
     """
     Serialize a list of objects to dictionaries.
 
@@ -113,7 +113,7 @@ def serialize_objects(
     return [serialize_object(obj, fallback_fields) for obj in objects]
 
 
-def serialize_track(track: Any) -> Dict[str, Any]:
+def serialize_track(track: Any) -> dict[str, Any]:
     """
     Serialize a track object with default Track fields.
 
@@ -126,7 +126,7 @@ def serialize_track(track: Any) -> Dict[str, Any]:
     return serialize_object(track, DEFAULT_TRACK_FIELDS)
 
 
-def serialize_tracks(tracks: List[Any]) -> List[Dict[str, Any]]:
+def serialize_tracks(tracks: list[Any]) -> list[dict[str, Any]]:
     """
     Serialize a list of tracks with default Track fields.
 
@@ -139,7 +139,7 @@ def serialize_tracks(tracks: List[Any]) -> List[Dict[str, Any]]:
     return serialize_objects(tracks, DEFAULT_TRACK_FIELDS)
 
 
-def serialize_album(album: Any) -> Dict[str, Any]:
+def serialize_album(album: Any) -> dict[str, Any]:
     """
     Serialize an album object with duration calculation.
 
@@ -175,7 +175,7 @@ def serialize_album(album: Any) -> Dict[str, Any]:
     return album_dict
 
 
-def serialize_albums(albums: List[Any]) -> List[Dict[str, Any]]:
+def serialize_albums(albums: list[Any]) -> list[dict[str, Any]]:
     """
     Serialize a list of albums with duration calculation.
 
@@ -188,7 +188,7 @@ def serialize_albums(albums: List[Any]) -> List[Dict[str, Any]]:
     return [serialize_album(album) for album in albums]
 
 
-def serialize_artist(artist: Any) -> Dict[str, Any]:
+def serialize_artist(artist: Any) -> dict[str, Any]:
     """
     Serialize an artist object with default Artist fields.
 
@@ -209,7 +209,7 @@ def serialize_artist(artist: Any) -> Dict[str, Any]:
     return artist_dict
 
 
-def serialize_artists(artists: List[Any]) -> List[Dict[str, Any]]:
+def serialize_artists(artists: list[Any]) -> list[dict[str, Any]]:
     """
     Serialize a list of artists with default Artist fields.
 
@@ -222,7 +222,7 @@ def serialize_artists(artists: List[Any]) -> List[Dict[str, Any]]:
     return [serialize_artist(artist) for artist in artists]
 
 
-def serialize_playlist(playlist: Any) -> Dict[str, Any]:
+def serialize_playlist(playlist: Any) -> dict[str, Any]:
     """
     Serialize a playlist object with default Playlist fields.
 
@@ -241,7 +241,7 @@ def serialize_playlist(playlist: Any) -> Dict[str, Any]:
     return playlist_dict
 
 
-def serialize_playlists(playlists: List[Any]) -> List[Dict[str, Any]]:
+def serialize_playlists(playlists: list[Any]) -> list[dict[str, Any]]:
     """
     Serialize a list of playlists with default Playlist fields.
 

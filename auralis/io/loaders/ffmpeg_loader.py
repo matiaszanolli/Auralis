@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 FFmpeg Loader
 ~~~~~~~~~~~~~
@@ -14,7 +12,6 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, Tuple
 
 import numpy as np
 
@@ -35,7 +32,7 @@ def check_ffmpeg() -> bool:
         return False
 
 
-def load_with_ffmpeg(file_path: Path, temp_folder: Optional[str] = None) -> Tuple[np.ndarray, int]:
+def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[np.ndarray, int]:
     """Load audio using FFmpeg conversion to WAV"""
 
     # Check if FFmpeg is available

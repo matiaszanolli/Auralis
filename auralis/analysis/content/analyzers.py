@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Genre and Mood Analyzers
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,12 +9,11 @@ Genre classification and mood analysis for audio content
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
 from ..fingerprint.common_metrics import MetricUtils
-from .content_operations import ContentAnalysisOperations
 
 
 @dataclass
@@ -54,8 +51,8 @@ class GenreClassification:
     """Genre classification results"""
     primary_genre: str
     confidence: float
-    genre_scores: Dict[str, float]
-    features_used: List[str]
+    genre_scores: dict[str, float]
+    features_used: list[str]
 
 
 @dataclass
@@ -126,7 +123,7 @@ class GenreAnalyzer:
             features_used=list(set(all_features_used))
         )
 
-    def _create_genre_classification_rules(self) -> Dict[str, List[Dict[str, Any]]]:
+    def _create_genre_classification_rules(self) -> dict[str, list[dict[str, Any]]]:
         """Create rule-based genre classification system"""
         return {
             "classical": [
@@ -217,7 +214,7 @@ class MoodAnalyzer:
             acousticness=acousticness
         )
 
-    def _create_mood_parameters(self) -> Dict[str, Any]:
+    def _create_mood_parameters(self) -> dict[str, Any]:
         """Create mood analysis parameters"""
         return {
             "valence_weights": {

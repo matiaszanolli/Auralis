@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Interpolation Helpers
 ~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Vectorized interpolation and envelope creation utilities for DSP operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -123,7 +121,7 @@ def _apply_window_smoothing(envelope: np.ndarray, start_idx: int, end_idx: int,
     envelope[start_idx:end_idx + 1] *= window
 
 
-def create_triangular_filterbank(critical_bands: List[Any], sample_rate: int,
+def create_triangular_filterbank(critical_bands: list[Any], sample_rate: int,
                                  fft_size: int) -> np.ndarray:
     """
     Create a triangular filterbank for critical bands.
@@ -182,7 +180,7 @@ def create_triangular_filterbank(critical_bands: List[Any], sample_rate: int,
 
 
 def create_mel_triangular_filters(n_filters: int, n_fft: int,
-                                  sample_rate: int) -> List[np.ndarray]:
+                                  sample_rate: int) -> list[np.ndarray]:
     """
     Create triangular mel-scale filter bank.
 

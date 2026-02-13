@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Brick-Wall Limiter
 ~~~~~~~~~~~~~~~~~~
@@ -15,7 +13,6 @@ a true limiter only reduces gain when peaks occur.
 """
 
 from dataclasses import dataclass
-from typing import Tuple
 
 import numpy as np
 

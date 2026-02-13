@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Library Scanner
 ~~~~~~~~~~~~~~
@@ -11,7 +9,8 @@ Main scanner orchestrator
 """
 
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from ...utils.logging import info, warning
 from ..scan_models import ScanResult
@@ -36,7 +35,7 @@ class LibraryScanner:
     - Intelligent file filtering
     """
 
-    def __init__(self, library_manager: Any, fingerprint_queue: Optional[Any] = None) -> None:
+    def __init__(self, library_manager: Any, fingerprint_queue: Any | None = None) -> None:
         """
         Initialize scanner with library manager
 
@@ -45,8 +44,8 @@ class LibraryScanner:
             fingerprint_queue: Optional FingerprintExtractionQueue for background fingerprinting
         """
         self.library_manager: Any = library_manager
-        self.fingerprint_queue: Optional[Any] = fingerprint_queue
-        self.progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+        self.fingerprint_queue: Any | None = fingerprint_queue
+        self.progress_callback: Callable[[dict[str, Any]], None] | None = None
         self.should_stop: bool = False
 
         # Initialize components
@@ -63,7 +62,7 @@ class LibraryScanner:
             self.audio_analyzer
         )
 
-    def set_progress_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+    def set_progress_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Set callback for progress updates"""
         self.progress_callback = callback
 
@@ -73,7 +72,7 @@ class LibraryScanner:
         self.file_discovery.stop()
         self.batch_processor.stop()
 
-    def scan_directories(self, directories: List[str],
+    def scan_directories(self, directories: list[str],
                         recursive: bool = True,
                         skip_existing: bool = True,
                         check_modifications: bool = True,
@@ -98,12 +97,12 @@ class LibraryScanner:
 
         try:
             # Discover all audio files
-            all_files: List[str] = []
+            all_files: list[str] = []
             for directory in directories:
                 if self.should_stop:
                     break
 
-                files: List[str] = list(self.file_discovery.discover_audio_files(directory, recursive))
+                files: list[str] = list(self.file_discovery.discover_audio_files(directory, recursive))
                 all_files.extend(files)
                 result.directories_scanned += 1
 
@@ -125,7 +124,7 @@ class LibraryScanner:
                 if self.should_stop:
                     break  # type: ignore[unreachable]
 
-                batch: List[str] = all_files[i:i + batch_size]
+                batch: list[str] = all_files[i:i + batch_size]
                 batch_result: Any = self.batch_processor.process_file_batch(
                     batch, skip_existing, check_modifications
                 )
@@ -169,7 +168,7 @@ class LibraryScanner:
         """Scan a single directory"""
         return self.scan_directories([directory], **kwargs)
 
-    def scan_folder(self, folder_path: str, recursive: bool = True, **kwargs: Any) -> List[Dict[str, Any]]:
+    def scan_folder(self, folder_path: str, recursive: bool = True, **kwargs: Any) -> list[dict[str, Any]]:
         """
         Backward compatibility method for scanning a folder.
 
@@ -183,7 +182,7 @@ class LibraryScanner:
         """
         # Use FileDiscovery to find all audio files in the folder
         # This is compatible with the old test expectations
-        files: List[Dict[str, Any]] = []
+        files: list[dict[str, Any]] = []
 
         try:
             for filepath in self.file_discovery.discover_audio_files(folder_path, recursive):
@@ -192,7 +191,7 @@ class LibraryScanner:
 
                 if file_info:
                     # Convert AudioFileInfo to dict for backward compatibility
-                    file_dict: Dict[str, Any] = {
+                    file_dict: dict[str, Any] = {
                         'filepath': filepath,
                         'duration': file_info.duration,
                         'sample_rate': file_info.sample_rate,
@@ -209,7 +208,7 @@ class LibraryScanner:
 
         return files
 
-    def find_duplicates(self, directories: Optional[List[str]] = None) -> List[List[str]]:
+    def find_duplicates(self, directories: list[str] | None = None) -> list[list[str]]:
         """
         Find duplicate audio files based on content hash
 
@@ -230,7 +229,7 @@ class LibraryScanner:
         except Exception as e:
             warning(f"Failed to update library stats: {e}")
 
-    def _report_progress(self, progress_data: Dict[str, Any]) -> None:
+    def _report_progress(self, progress_data: dict[str, Any]) -> None:
         """Report progress to callback if set"""
         if self.progress_callback:
             try:
@@ -238,7 +237,7 @@ class LibraryScanner:
             except Exception as e:
                 warning(f"Progress callback failed: {e}")
 
-    async def _enqueue_fingerprints(self, track_records: List[Any]) -> None:
+    async def _enqueue_fingerprints(self, track_records: list[Any]) -> None:
         """
         Enqueue fingerprints for newly added tracks
 

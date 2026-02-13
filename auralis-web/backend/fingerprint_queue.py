@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Queue - Background Fingerprint Generation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -24,7 +22,8 @@ import logging
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Deque, Dict, Optional, Set
+from typing import Any, Deque
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -33,21 +32,21 @@ logger = logging.getLogger(__name__)
 class QueueStats:
     """Statistics for the fingerprint queue."""
     queued: int = 0
-    processing: Optional[int] = None
+    processing: int | None = None
     completed: int = 0
     failed: int = 0
-    started_at: Optional[datetime] = None
+    started_at: datetime | None = None
 
 
 @dataclass
 class FingerprintQueueState:
     """Internal state for the fingerprint queue."""
     queue: Deque[int] = field(default_factory=deque)
-    queued_set: Set[int] = field(default_factory=set)  # For O(1) dedup lookup
-    processing: Optional[int] = None
+    queued_set: set[int] = field(default_factory=set)  # For O(1) dedup lookup
+    processing: int | None = None
     completed: int = 0
     failed: int = 0
-    started_at: Optional[datetime] = None
+    started_at: datetime | None = None
 
 
 class FingerprintQueue:
@@ -74,7 +73,7 @@ class FingerprintQueue:
     def __init__(
         self,
         fingerprint_generator: Any,
-        get_track_filepath: Callable[[int], Optional[str]],
+        get_track_filepath: Callable[[int], str | None],
     ) -> None:
         """
         Initialize fingerprint queue.
@@ -86,7 +85,7 @@ class FingerprintQueue:
         self._generator = fingerprint_generator
         self._get_filepath = get_track_filepath
         self._state = FingerprintQueueState()
-        self._worker_task: Optional[asyncio.Task[None]] = None
+        self._worker_task: asyncio.Task[None] | None = None
         self._shutdown = False
         self._lock = asyncio.Lock()
 
@@ -117,7 +116,7 @@ class FingerprintQueue:
         logger.info(f"📋 Added track {track_id} to fingerprint queue (queue size: {len(self._state.queue)})")
         return True
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         Get current queue statistics.
 
@@ -221,10 +220,10 @@ class FingerprintQueue:
 
 
 # Global singleton instance (initialized by backend startup)
-_fingerprint_queue: Optional[FingerprintQueue] = None
+_fingerprint_queue: FingerprintQueue | None = None
 
 
-def get_fingerprint_queue() -> Optional[FingerprintQueue]:
+def get_fingerprint_queue() -> FingerprintQueue | None:
     """Get the global fingerprint queue instance."""
     return _fingerprint_queue
 

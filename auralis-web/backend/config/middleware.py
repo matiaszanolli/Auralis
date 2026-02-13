@@ -9,7 +9,8 @@ and security headers.
 """
 
 import logging
-from typing import Any, Callable, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

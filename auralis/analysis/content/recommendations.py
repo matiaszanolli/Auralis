@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Processing Recommendations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Generate processing recommendations based on content analysis
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from .analyzers import ContentFeatures, GenreClassification, MoodAnalysis
 
@@ -20,12 +18,11 @@ class RecommendationEngine:
 
     def __init__(self) -> None:
         """Initialize recommendation engine"""
-        pass
 
     def generate_recommendations(self, features: ContentFeatures,
                                 genre: GenreClassification,
                                 mood: MoodAnalysis,
-                                quality: Any) -> Dict[str, Any]:
+                                quality: Any) -> dict[str, Any]:
         """Generate processing recommendations based on analysis"""
 
         # Determine processing intensity based on genre and mood
@@ -36,14 +33,14 @@ class RecommendationEngine:
             processing_intensity = 0.8  # Aggressive
 
         # EQ suggestions based on spectral characteristics
-        eq_suggestions: Dict[str, str] = {}
+        eq_suggestions: dict[str, str] = {}
         if features.spectral_centroid < 1500:
             eq_suggestions["treble"] = "boost +2dB"
         elif features.spectral_centroid > 3500:
             eq_suggestions["treble"] = "cut -1dB"
 
         # Dynamics suggestions based on dynamic range
-        dynamics_suggestions: Dict[str, str] = {}
+        dynamics_suggestions: dict[str, str] = {}
         if features.dynamic_range_db > 25:
             dynamics_suggestions["compression"] = "light (2:1)"
         elif features.dynamic_range_db < 10:
@@ -52,7 +49,7 @@ class RecommendationEngine:
             dynamics_suggestions["compression"] = "moderate (3:1)"
 
         # Stereo suggestions based on genre
-        stereo_suggestions: Dict[str, str] = {}
+        stereo_suggestions: dict[str, str] = {}
         if genre.primary_genre == "classical":
             stereo_suggestions["width"] = "natural (0.8)"
         elif genre.primary_genre == "electronic":

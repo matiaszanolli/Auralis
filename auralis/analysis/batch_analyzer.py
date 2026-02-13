@@ -15,12 +15,10 @@ Features:
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
-import numpy as np
 
-from .mastering_fingerprint import MasteringFingerprint, analyze_album, compare_albums
+from .mastering_fingerprint import analyze_album
 from .mastering_profile import (
     DetectionRules,
     MasteringProfile,
@@ -47,20 +45,20 @@ class AlbumAnalysisResult:
     orig_spread: float
 
     # Remaster audio metrics (if available)
-    remaster_loudness: Optional[float] = None
-    remaster_crest: Optional[float] = None
-    remaster_centroid: Optional[float] = None
-    remaster_rolloff: Optional[float] = None
-    remaster_zcr: Optional[float] = None
-    remaster_spread: Optional[float] = None
+    remaster_loudness: float | None = None
+    remaster_crest: float | None = None
+    remaster_centroid: float | None = None
+    remaster_rolloff: float | None = None
+    remaster_zcr: float | None = None
+    remaster_spread: float | None = None
 
     # Calculated changes
-    loudness_change: Optional[float] = None
-    crest_change: Optional[float] = None
-    centroid_change: Optional[float] = None
-    rolloff_change: Optional[float] = None
-    zcr_change: Optional[float] = None
-    spread_change: Optional[float] = None
+    loudness_change: float | None = None
+    crest_change: float | None = None
+    centroid_change: float | None = None
+    rolloff_change: float | None = None
+    zcr_change: float | None = None
+    spread_change: float | None = None
 
     # Track count
     track_count: int = 0
@@ -85,7 +83,7 @@ class AlbumAnalysisResult:
         if self.remaster_spread is not None:
             self.spread_change = self.remaster_spread - self.orig_spread
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             'album_name': self.album_name,
@@ -136,8 +134,8 @@ class BatchAnalyzer:
     """
 
     def __init__(self) -> None:
-        self.analyses: Dict[str, AlbumAnalysisResult] = {}
-        self.profiles: Dict[str, MasteringProfile] = {}
+        self.analyses: dict[str, AlbumAnalysisResult] = {}
+        self.profiles: dict[str, MasteringProfile] = {}
         self.profile_db = MasteringProfileDatabase()
 
     def analyze_album_pair(
@@ -147,7 +145,7 @@ class BatchAnalyzer:
         release_type: str,
         genre: str,
         original_dir: str,
-        remaster_dir: Optional[str] = None,
+        remaster_dir: str | None = None,
         notes: str = "",
     ) -> AlbumAnalysisResult:
         """
@@ -351,7 +349,7 @@ class BatchAnalyzer:
     def export_profiles_yaml(self, output_path: str) -> None:
         """Export all built profiles to YAML file."""
         try:
-            import yaml
+            pass
         except ImportError:
             print("Warning: yaml not available, using JSON instead")
             return self.export_profiles_json(output_path)
@@ -391,11 +389,11 @@ class BatchAnalyzer:
 
         print(f"Exported {len(self.analyses)} analyses to {output_path}")
 
-    def list_analyses(self) -> List[AlbumAnalysisResult]:
+    def list_analyses(self) -> list[AlbumAnalysisResult]:
         """List all completed analyses."""
         return list(self.analyses.values())
 
-    def list_profiles(self) -> List[MasteringProfile]:
+    def list_profiles(self) -> list[MasteringProfile]:
         """List all built profiles."""
         return list(self.profiles.values())
 

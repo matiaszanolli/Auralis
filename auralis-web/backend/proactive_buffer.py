@@ -8,7 +8,7 @@ This enables instant preset switching with zero wait time.
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional, Set, Tuple, cast
+from typing import cast
 
 import numpy as np
 
@@ -23,7 +23,7 @@ async def buffer_presets_for_track(
     track_id: int,
     filepath: str,
     intensity: float = 1.0,
-    total_chunks: Optional[int] = None
+    total_chunks: int | None = None
 ) -> None:
     """
     Proactively buffer first 3 chunks for all presets in background.
@@ -66,7 +66,7 @@ async def buffer_presets_for_track(
                 for chunk_idx in range(chunks_to_buffer):
                     try:
                         # Check if already cached
-                        cache_key = f"{track_id}_{preset}_{intensity}_{chunk_idx}"
+                        f"{track_id}_{preset}_{intensity}_{chunk_idx}"
                         chunk_path = processor._get_chunk_path(chunk_idx)
 
                         if chunk_path.exists():
@@ -76,7 +76,7 @@ async def buffer_presets_for_track(
                         # Process chunk with thread-safe locking
                         logger.info(f"🔄 Buffering: {preset} chunk {chunk_idx}/{chunks_to_buffer-1}")
                         # process_chunk_safe now returns (path, audio_array) tuple
-                        chunk_path, audio_array = cast(Tuple[Path, np.ndarray], await processor.process_chunk_safe(chunk_idx))
+                        chunk_path, audio_array = cast(tuple[Path, np.ndarray], await processor.process_chunk_safe(chunk_idx))
                         logger.info(f"✅ Buffered: {preset} chunk {chunk_idx}")
 
                         # Small delay to avoid CPU saturation
@@ -99,7 +99,7 @@ async def buffer_presets_for_track(
         logger.error(f"Proactive buffering failed for track {track_id}: {e}", exc_info=True)
 
 
-def get_buffer_status(track_id: int, preset: str, intensity: float = 1.0) -> Set[int]:
+def get_buffer_status(track_id: int, preset: str, intensity: float = 1.0) -> set[int]:
     """
     Check which chunks are already buffered for a track/preset combination.
 

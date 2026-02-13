@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Core Audio Processor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -13,7 +11,7 @@ Refactored from Matchering 2.0 by Sergree and contributors
 """
 
 import warnings
-from typing import Any, List, Optional, Tuple, cast
+from typing import Any, cast
 
 from ..dsp.basic import channel_count, size
 from ..dsp.stages import main
@@ -31,9 +29,9 @@ def process(
     target: str,
     reference: str,
     results: Any,
-    config: Optional[UnifiedConfig] = None,
-    preview_target: Optional[Result] = None,
-    preview_result: Optional[Result] = None,
+    config: UnifiedConfig | None = None,
+    preview_target: Result | None = None,
+    preview_result: Result | None = None,
 ) -> None:
     """
     ⚠️ DEPRECATED: Process audio files with reference-based mastering
@@ -104,7 +102,7 @@ def process(
         raise RuntimeError("The result list is empty")
 
     # Get a temporary folder for converting audio files
-    temp_folder = config.temp_folder if config.temp_folder else get_temp_folder(results)
+    config.temp_folder if config.temp_folder else get_temp_folder(results)
 
     # Load both files and capture original target rate for output
     target_audio, target_sample_rate = load(target, "target")

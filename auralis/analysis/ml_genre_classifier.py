@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ML Genre Classifier - Backward Compatibility Wrapper
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

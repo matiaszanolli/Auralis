@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Audio Player
 ~~~~~~~~~~~~~~~~~~~~
@@ -21,12 +19,13 @@ Uses Facade pattern to maintain backward-compatible API.
 
 import threading
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 
 from ..analysis.fingerprint.fingerprint_service import FingerprintService
-from ..utils.logging import debug, error, info, warning
+from ..utils.logging import debug, info, warning
 from .audio_file_manager import AudioFileManager
 from .config import PlayerConfig
 from .gapless_playback_engine import GaplessPlaybackEngine
@@ -65,9 +64,9 @@ class AudioPlayer:
 
     def __init__(
         self,
-        config: Optional[PlayerConfig] = None,
-        get_repository_factory: Optional[Callable[[], Any]] = None,
-        library_manager: Optional[Any] = None
+        config: PlayerConfig | None = None,
+        get_repository_factory: Callable[[], Any] | None = None,
+        library_manager: Any | None = None
     ) -> None:
         """
         Initialize the enhanced audio player with components.
@@ -104,7 +103,7 @@ class AudioPlayer:
 
         # Fingerprinting service for adaptive mastering
         self.fingerprint_service = FingerprintService()
-        self._current_fingerprint: Optional[Dict] = None
+        self._current_fingerprint: dict | None = None
 
         # Control flags
         self.auto_advance = True
@@ -297,7 +296,7 @@ class AudioPlayer:
                 return True
         return False
 
-    def add_to_queue(self, track_info: Dict[str, Any]) -> None:
+    def add_to_queue(self, track_info: dict[str, Any]) -> None:
         """Add a track to the playback queue"""
         self.queue.add_track(track_info)
 
@@ -336,7 +335,7 @@ class AudioPlayer:
 
     # ========== Audio Output (delegates to AudioFileManager + Processor) ==========
 
-    def get_audio_chunk(self, chunk_size: Optional[int] = None) -> np.ndarray:
+    def get_audio_chunk(self, chunk_size: int | None = None) -> np.ndarray:
         """
         Get a chunk of processed audio for playback.
 
@@ -402,7 +401,7 @@ class AudioPlayer:
         self.integration.add_callback(callback)
         self.playback.add_callback(callback)
 
-    def _notify_callbacks(self, info: Optional[Dict[str, Any]] = None) -> None:
+    def _notify_callbacks(self, info: dict[str, Any] | None = None) -> None:
         """
         Notify all registered callbacks with current playback information.
 
@@ -414,7 +413,7 @@ class AudioPlayer:
             info = self.get_playback_info()
         self.integration._notify_callbacks(info)
 
-    def get_playback_info(self) -> Dict[str, Any]:
+    def get_playback_info(self) -> dict[str, Any]:
         """
         Get comprehensive playback information.
 
@@ -437,7 +436,7 @@ class AudioPlayer:
             'session': full_info['session'],
         }
 
-    def get_queue_info(self) -> Dict[str, Any]:
+    def get_queue_info(self) -> dict[str, Any]:
         """Get detailed queue information"""
         return self.queue.get_queue_info()
 
@@ -456,7 +455,7 @@ class AudioPlayer:
     # ========== Properties for backward compatibility ==========
 
     @property
-    def current_file(self) -> Optional[str]:
+    def current_file(self) -> str | None:
         """Get current audio file path"""
         return self.file_manager.current_file
 
@@ -471,7 +470,7 @@ class AudioPlayer:
         self.integration.current_track = value
 
     @property
-    def reference_file(self) -> Optional[str]:
+    def reference_file(self) -> str | None:
         """Get current reference file path"""
         return self.file_manager.reference_file
 

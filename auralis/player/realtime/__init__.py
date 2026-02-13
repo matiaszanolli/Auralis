@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Real-time Processing Components
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

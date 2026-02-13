@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Extraction Worker Pool
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -26,7 +24,8 @@ Worker Pool:
 
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from auralis.services.fingerprint_extractor import FingerprintExtractor
 from auralis.library.repositories.factory import RepositoryFactory
@@ -65,9 +64,9 @@ class FingerprintExtractionQueue:
     def __init__(self,
                  fingerprint_extractor: FingerprintExtractor,
                  get_repository_factory: Callable[[], RepositoryFactory],
-                 num_workers: Optional[int] = None,
+                 num_workers: int | None = None,
                  enable_adaptive_scaling: bool = True,
-                 max_workers: Optional[int] = None) -> None:
+                 max_workers: int | None = None) -> None:
         """
         Initialize fingerprint extraction worker pool.
 
@@ -98,11 +97,11 @@ class FingerprintExtractionQueue:
         self.max_workers_limit: int = max_workers
 
         # Worker threads (no job queue needed)
-        self.workers: List[threading.Thread] = []
+        self.workers: list[threading.Thread] = []
         self.should_stop: bool = False
 
         # Statistics (removed 'queued' since no queue)
-        self.stats: Dict[str, Any] = {
+        self.stats: dict[str, Any] = {
             'processing': 0,
             'completed': 0,
             'failed': 0,
@@ -122,7 +121,7 @@ class FingerprintExtractionQueue:
 
         # Adaptive resource monitoring
         self.enable_adaptive_scaling: bool = enable_adaptive_scaling
-        self.resource_monitor: Optional[AdaptiveResourceMonitor] = None
+        self.resource_monitor: AdaptiveResourceMonitor | None = None
         if enable_adaptive_scaling:
             # Create adaptive monitor with 75% RAM limit and dynamic worker bounds
             limits = ResourceLimits(
@@ -141,14 +140,14 @@ class FingerprintExtractionQueue:
             )
 
         # Progress callback
-        self.progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None
+        self.progress_callback: Callable[[dict[str, Any]], None] | None = None
 
     @property
     def num_workers(self) -> int:
         """Get current worker count (includes adaptive scaling adjustments)"""
         return self.current_num_workers
 
-    def set_progress_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+    def set_progress_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Set callback for progress updates"""
         self.progress_callback = callback
 
@@ -360,7 +359,7 @@ class FingerprintExtractionQueue:
             # Release semaphore to allow next worker to process
             self.processing_semaphore.release()
 
-    def _report_progress(self, progress_data: Dict[str, Any]) -> None:
+    def _report_progress(self, progress_data: dict[str, Any]) -> None:
         """Report progress to callback if set"""
         if self.progress_callback:
             try:
@@ -368,7 +367,7 @@ class FingerprintExtractionQueue:
             except Exception as e:
                 error(f"Progress callback error: {e}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get worker pool statistics"""
         with self.stats_lock:
             return self.stats.copy()
@@ -414,10 +413,10 @@ class FingerprintQueueManager:
         return True
 
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get queue statistics"""
         return self.queue.get_stats()
 
-    def set_progress_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+    def set_progress_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Set progress callback"""
         self.queue.set_progress_callback(callback)

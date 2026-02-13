@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Logging System
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ Logging and debug utilities
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 
 class Code:
@@ -39,11 +37,11 @@ class ModuleError(Exception):
 
 
 # Global log handler and level
-_log_handler: Optional[Callable[[str], None]] = None
+_log_handler: Callable[[str], None] | None = None
 _log_level: str = "INFO"
 
 
-def set_log_handler(handler: Optional[Callable[[str], None]]) -> None:
+def set_log_handler(handler: Callable[[str], None] | None) -> None:
     """Set the global log handler function"""
     global _log_handler
     _log_handler = handler

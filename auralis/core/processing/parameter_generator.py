@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Continuous Parameter Generator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,6 @@ Implements intelligent parameter selection based on audio characteristics.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Optional
 
 import numpy as np
 
@@ -34,7 +31,7 @@ class ContinuousParameterGenerator:
     def generate_parameters(
         self,
         coords: ProcessingCoordinates,
-        user_preference: Optional[PreferenceVector] = None
+        user_preference: PreferenceVector | None = None
     ) -> ProcessingParameters:
         """
         Generate all processing parameters from space coordinates.
@@ -107,7 +104,7 @@ class ContinuousParameterGenerator:
     def _calculate_target_lufs(
         self,
         coords: ProcessingCoordinates,
-        preference: Optional[PreferenceVector]
+        preference: PreferenceVector | None
     ) -> float:
         """
         Calculate target LUFS based on input energy and dynamic range.
@@ -177,7 +174,7 @@ class ContinuousParameterGenerator:
     def _calculate_peak_target(
         self,
         coords: ProcessingCoordinates,
-        preference: Optional[PreferenceVector]
+        preference: PreferenceVector | None
     ) -> float:
         """
         Calculate peak normalization target.
@@ -214,8 +211,8 @@ class ContinuousParameterGenerator:
     def _generate_eq_curve(
         self,
         coords: ProcessingCoordinates,
-        preference: Optional[PreferenceVector]
-    ) -> Dict[str, float]:
+        preference: PreferenceVector | None
+    ) -> dict[str, float]:
         """
         Generate frequency-specific EQ adjustments.
 
@@ -321,8 +318,8 @@ class ContinuousParameterGenerator:
     def _generate_compression(
         self,
         coords: ProcessingCoordinates,
-        preference: Optional[PreferenceVector]
-    ) -> Dict[str, float]:
+        preference: PreferenceVector | None
+    ) -> dict[str, float]:
         """
         Generate compression parameters.
 
@@ -380,8 +377,8 @@ class ContinuousParameterGenerator:
     def _generate_expansion(
         self,
         coords: ProcessingCoordinates,
-        preference: Optional[PreferenceVector]
-    ) -> Dict[str, float]:
+        preference: PreferenceVector | None
+    ) -> dict[str, float]:
         """
         Generate expansion parameters (de-mastering).
 
@@ -427,7 +424,7 @@ class ContinuousParameterGenerator:
     def _calculate_dynamics_blend(
         self,
         coords: ProcessingCoordinates,
-        preference: Optional[PreferenceVector]
+        preference: PreferenceVector | None
     ) -> float:
         """
         Calculate dynamics processing blend.
@@ -451,7 +448,7 @@ class ContinuousParameterGenerator:
 
         return float(np.clip(base_blend, 0.2, 0.9))
 
-    def _generate_limiter(self, coords: ProcessingCoordinates) -> Dict[str, float]:
+    def _generate_limiter(self, coords: ProcessingCoordinates) -> dict[str, float]:
         """
         Generate limiter parameters.
 
@@ -479,7 +476,7 @@ class ContinuousParameterGenerator:
     def _calculate_stereo_width(
         self,
         coords: ProcessingCoordinates,
-        preference: Optional[PreferenceVector]
+        preference: PreferenceVector | None
     ) -> float:
         """
         Calculate target stereo width.

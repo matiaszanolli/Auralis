@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Queue Template Repository
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,8 @@ Data access layer for queue template persistence and management
 
 import json
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
@@ -35,9 +34,9 @@ class QueueTemplateRepository:
         """Get a new database session"""
         return self.session_factory()
 
-    def create(self, name: str, track_ids: List[int], is_shuffled: bool = False,
-               repeat_mode: str = 'off', description: Optional[str] = None,
-               tags: Optional[List[str]] = None) -> QueueTemplate:
+    def create(self, name: str, track_ids: list[int], is_shuffled: bool = False,
+               repeat_mode: str = 'off', description: str | None = None,
+               tags: list[str] | None = None) -> QueueTemplate:
         """
         Create a new queue template
 
@@ -76,7 +75,7 @@ class QueueTemplateRepository:
         finally:
             session.close()
 
-    def get_by_id(self, template_id: int) -> Optional[QueueTemplate]:
+    def get_by_id(self, template_id: int) -> QueueTemplate | None:
         """
         Get template by ID
 
@@ -95,7 +94,7 @@ class QueueTemplateRepository:
         finally:
             session.close()
 
-    def get_all(self, sort_by: str = 'created_at', ascending: bool = False) -> List[QueueTemplate]:
+    def get_all(self, sort_by: str = 'created_at', ascending: bool = False) -> list[QueueTemplate]:
         """
         Get all templates with optional sorting
 
@@ -128,7 +127,7 @@ class QueueTemplateRepository:
         finally:
             session.close()
 
-    def get_favorites(self) -> List[QueueTemplate]:
+    def get_favorites(self) -> list[QueueTemplate]:
         """
         Get all favorite templates
 
@@ -144,7 +143,7 @@ class QueueTemplateRepository:
         finally:
             session.close()
 
-    def get_by_tag(self, tag: str) -> List[QueueTemplate]:
+    def get_by_tag(self, tag: str) -> list[QueueTemplate]:
         """
         Get templates by tag
 
@@ -171,7 +170,7 @@ class QueueTemplateRepository:
         finally:
             session.close()
 
-    def update(self, template_id: int, **kwargs: Any) -> Optional[QueueTemplate]:
+    def update(self, template_id: int, **kwargs: Any) -> QueueTemplate | None:
         """
         Update template fields
 
@@ -217,7 +216,7 @@ class QueueTemplateRepository:
         finally:
             session.close()
 
-    def toggle_favorite(self, template_id: int) -> Optional[QueueTemplate]:
+    def toggle_favorite(self, template_id: int) -> QueueTemplate | None:
         """
         Toggle favorite status for a template
 
@@ -243,7 +242,7 @@ class QueueTemplateRepository:
         finally:
             session.close()
 
-    def increment_load_count(self, template_id: int) -> Optional[QueueTemplate]:
+    def increment_load_count(self, template_id: int) -> QueueTemplate | None:
         """
         Increment the load count when template is loaded
 
@@ -309,7 +308,7 @@ class QueueTemplateRepository:
         finally:
             session.close()
 
-    def to_dict(self, template: QueueTemplate) -> Dict[str, Any]:
+    def to_dict(self, template: QueueTemplate) -> dict[str, Any]:
         """
         Convert QueueTemplate to dictionary
 
@@ -331,7 +330,7 @@ class QueueTemplateRepository:
             'last_loaded': None,
         }
 
-    def search(self, query: str) -> List[QueueTemplate]:
+    def search(self, query: str) -> list[QueueTemplate]:
         """
         Search templates by name or description
 
@@ -343,7 +342,7 @@ class QueueTemplateRepository:
         """
         session = self.get_session()
         try:
-            query_lower = query.lower()
+            query.lower()
             templates = session.query(QueueTemplate).filter(
                 (QueueTemplate.name.ilike(f'%{query}%')) |
                 (QueueTemplate.description.ilike(f'%{query}%'))

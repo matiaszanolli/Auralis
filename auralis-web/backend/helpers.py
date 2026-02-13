@@ -11,7 +11,8 @@ Phase B.1: Backend Endpoint Standardization
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, TypeVar
+from collections.abc import Callable
 
 from schemas import (
     BatchItemResult,
@@ -60,7 +61,7 @@ def create_pagination_meta(
 
 
 def create_paginated_response(
-    data: List[T],
+    data: list[T],
     limit: int,
     offset: int,
     total: int
@@ -120,7 +121,7 @@ def validate_pagination_params(
 
 async def execute_batch_operation(
     batch_request: BatchRequest,
-    handlers: Dict[str, Callable[..., Any]],
+    handlers: dict[str, Callable[..., Any]],
     atomic: bool = False
 ) -> BatchResponse:
     """
@@ -141,7 +142,7 @@ async def execute_batch_operation(
         }
         response = await execute_batch_operation(request, handlers)
     """
-    results: List[BatchItemResult] = []
+    results: list[BatchItemResult] = []
     successful = 0
     failed = 0
 
@@ -199,7 +200,7 @@ async def execute_batch_operation(
 
 async def execute_batch_operation_sync(
     batch_request: BatchRequest,
-    handlers: Dict[str, Callable[..., Any]],
+    handlers: dict[str, Callable[..., Any]],
     atomic: bool = False
 ) -> BatchResponse:
     """
@@ -214,7 +215,7 @@ async def execute_batch_operation_sync(
     Returns:
         BatchResponse: Results of batch operations
     """
-    results: List[BatchItemResult] = []
+    results: list[BatchItemResult] = []
     successful = 0
     failed = 0
 
@@ -225,7 +226,7 @@ async def execute_batch_operation_sync(
                 raise ValueError(f"Unknown action: {item.action}")
 
             # Execute the handler
-            result = handler(item.id, item.data or {})
+            handler(item.id, item.data or {})
 
             # Record success
             results.append(BatchItemResult(
@@ -271,10 +272,10 @@ async def execute_batch_operation_sync(
 # ============================================================================
 
 def paginate_list(
-    items: List[T],
+    items: list[T],
     limit: int,
     offset: int
-) -> tuple[List[T], int]:
+) -> tuple[list[T], int]:
     """
     Paginate a list of items.
 
@@ -292,9 +293,9 @@ def paginate_list(
 
 
 def apply_filters(
-    items: List[Dict[str, Any]],
-    filters: Dict[str, Any]
-) -> List[Dict[str, Any]]:
+    items: list[dict[str, Any]],
+    filters: dict[str, Any]
+) -> list[dict[str, Any]]:
     """
     Apply filters to a list of items.
 
@@ -324,10 +325,10 @@ def apply_filters(
 
 
 def apply_search(
-    items: List[Dict[str, Any]],
+    items: list[dict[str, Any]],
     query: str,
-    search_fields: List[str]
-) -> List[Dict[str, Any]]:
+    search_fields: list[str]
+) -> list[dict[str, Any]]:
     """
     Apply text search to a list of items.
 
@@ -365,7 +366,7 @@ def apply_search(
 
 def create_success_response(
     data: Any,
-    message: Optional[str] = None,
+    message: str | None = None,
 ) -> SuccessResponse[Any]:
     """
     Create a standardized success response.
@@ -447,7 +448,7 @@ def calculate_cache_hit_probability(
     return total_hits / max(1, total_requests)
 
 
-def format_cache_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
+def format_cache_stats(stats: dict[str, Any]) -> dict[str, Any]:
     """
     Format cache statistics for API response.
 
@@ -506,7 +507,7 @@ def estimate_cache_completion_time(
     cached_chunks: int,
     total_chunks: int,
     avg_processing_time_per_chunk: float = 0.3
-) -> Optional[float]:
+) -> float | None:
     """
     Estimate time to cache remaining chunks.
 
@@ -530,8 +531,8 @@ def create_cache_aware_response(
     data: Any,
     cache_source: str = "miss",
     processing_time_ms: float = 0.0,
-    message: Optional[str] = None,
-) -> Dict[str, Any]:
+    message: str | None = None,
+) -> dict[str, Any]:
     """
     Create a cache-aware response with timing information.
 

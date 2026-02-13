@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Estimation Operations
 ~~~~~~~~~~~~~~~~~~~~~
@@ -13,7 +11,6 @@ to ensure consistency and reduce code duplication.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, Tuple
 
 import numpy as np
 
@@ -22,8 +19,8 @@ class EstimationOperations:
     """Common signal estimation patterns"""
 
     @staticmethod
-    def estimate_thd(audio: np.ndarray, sr: Optional[int] = None,
-                     fundamental_idx: Optional[int] = None) -> float:
+    def estimate_thd(audio: np.ndarray, sr: int | None = None,
+                     fundamental_idx: int | None = None) -> float:
         """
         Estimate Total Harmonic Distortion
 
@@ -167,7 +164,7 @@ class EstimationOperations:
 
     @staticmethod
     def estimate_dynamic_range(audio: np.ndarray,
-                              sr: Optional[int] = None,
+                              sr: int | None = None,
                               frame_duration: float = 0.05) -> float:
         """
         Estimate dynamic range (peak-to-noise)
@@ -324,7 +321,7 @@ class EstimationOperations:
 
     @staticmethod
     def estimate_fundamental_frequency(audio: np.ndarray,
-                                      sr: int = 44100) -> Tuple[float, int]:
+                                      sr: int = 44100) -> tuple[float, int]:
         """
         Estimate fundamental frequency using FFT
 

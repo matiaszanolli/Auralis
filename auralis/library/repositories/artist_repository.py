@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Artist Repository
 ~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Data access layer for artist operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Callable, List, Optional
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
@@ -26,7 +24,7 @@ class ArtistRepository:
     def get_session(self) -> Session:
         return self.session_factory()
 
-    def get_by_id(self, artist_id: int) -> Optional[Artist]:
+    def get_by_id(self, artist_id: int) -> Artist | None:
         """Get artist by ID with relationships loaded"""
         session = self.get_session()
         try:
@@ -45,7 +43,7 @@ class ArtistRepository:
         finally:
             session.close()
 
-    def get_by_name(self, name: str) -> Optional[Artist]:
+    def get_by_name(self, name: str) -> Artist | None:
         """Get artist by name with relationships loaded"""
         session = self.get_session()
         try:
@@ -64,7 +62,7 @@ class ArtistRepository:
         finally:
             session.close()
 
-    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[List[Artist], int]:
+    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'name') -> tuple[list[Artist], int]:
         """Get all artists with pagination and relationships loaded
 
         Args:
@@ -124,7 +122,7 @@ class ArtistRepository:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[List[Artist], int]:
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Artist], int]:
         """Search artists by name with pagination
 
         Args:
@@ -166,7 +164,7 @@ class ArtistRepository:
         finally:
             session.close()
 
-    def get_all_artists(self) -> List[Artist]:
+    def get_all_artists(self) -> list[Artist]:
         """Get all artists without pagination (for batch operations)
 
         Returns:
@@ -183,7 +181,7 @@ class ArtistRepository:
         artist_id: int,
         artwork_url: str,
         artwork_source: str,
-        artwork_fetched_at: Optional[object] = None
+        artwork_fetched_at: object | None = None
     ) -> bool:
         """Update artist artwork information
 

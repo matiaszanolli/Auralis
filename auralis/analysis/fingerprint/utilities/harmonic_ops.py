@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Harmonic Analysis Utilities - Rust DSP Backend
 
@@ -17,7 +15,6 @@ Note: Uses Rust DSP backend (auralis_dsp) for all operations. Requires Rust libr
 """
 
 import logging
-from typing import Tuple
 
 import numpy as np
 
@@ -157,7 +154,7 @@ class HarmonicOperations:
             raise
 
     @staticmethod
-    def calculate_all(audio: np.ndarray, sr: int) -> Tuple[float, float, float]:
+    def calculate_all(audio: np.ndarray, sr: int) -> tuple[float, float, float]:
         """
         Calculate all three harmonic features in one call.
 

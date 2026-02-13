@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Unified Fingerprinting Service
 
@@ -18,7 +16,6 @@ Replaces:
 import logging
 import sqlite3
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 import numpy as np
 
@@ -40,7 +37,7 @@ class FingerprintService:
     Single interface for all fingerprint operations.
     """
 
-    def __init__(self, db_path: Optional[Path] = None, fingerprint_strategy: str = "sampling"):
+    def __init__(self, db_path: Path | None = None, fingerprint_strategy: str = "sampling"):
         """
         Initialize fingerprinting service.
 
@@ -55,7 +52,7 @@ class FingerprintService:
         self.fingerprint_strategy = fingerprint_strategy
         self.analyzer = AudioFingerprintAnalyzer(fingerprint_strategy=fingerprint_strategy)
 
-    def get_or_compute(self, audio_path: Path, audio: Optional[np.ndarray] = None, sr: Optional[int] = None) -> Optional[Dict]:
+    def get_or_compute(self, audio_path: Path, audio: np.ndarray | None = None, sr: int | None = None) -> dict | None:
         """
         Get fingerprint using 3-tier cache strategy, or compute new one.
 
@@ -104,7 +101,7 @@ class FingerprintService:
             logger.error(f"Fingerprint retrieval failed: {e}")
             return None
 
-    def _load_from_database(self, filepath: str) -> Optional[Dict]:
+    def _load_from_database(self, filepath: str) -> dict | None:
         """Load fingerprint from SQLite database."""
         try:
             if not self.db_path.exists():
@@ -165,7 +162,7 @@ class FingerprintService:
             logger.debug(f"Database fingerprint lookup failed: {e}")
             return None
 
-    def _load_from_file_cache(self, audio_path: Path) -> Optional[Dict]:
+    def _load_from_file_cache(self, audio_path: Path) -> dict | None:
         """Load fingerprint from .25d file cache."""
         try:
             cached_data = FingerprintStorage.load(audio_path)
@@ -180,9 +177,9 @@ class FingerprintService:
     def _compute_fingerprint(
         self,
         audio_path: Path,
-        audio: Optional[np.ndarray] = None,
-        sr: Optional[int] = None
-    ) -> Optional[Dict]:
+        audio: np.ndarray | None = None,
+        sr: int | None = None
+    ) -> dict | None:
         """Compute fingerprint using AudioFingerprintAnalyzer."""
         try:
             import librosa
@@ -206,7 +203,7 @@ class FingerprintService:
             logger.error(f"Fingerprint computation failed: {e}")
             return None
 
-    def _save_to_database(self, filepath: str, fingerprint: Dict) -> bool:
+    def _save_to_database(self, filepath: str, fingerprint: dict) -> bool:
         """Save fingerprint to SQLite database."""
         try:
             if not self.db_path.exists():

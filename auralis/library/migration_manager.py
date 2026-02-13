@@ -14,7 +14,6 @@ import shutil
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -83,7 +82,7 @@ def migration_lock(db_path: str, timeout: float = 30.0):
                 try:
                     fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                     break
-                except (IOError, OSError):
+                except OSError:
                     if time.time() - start_time >= timeout:
                         raise TimeoutError(
                             f"Could not acquire migration lock within {timeout}s. "
@@ -194,7 +193,7 @@ class MigrationManager:
 
         try:
             # Read migration SQL
-            with open(migration_path, 'r') as f:
+            with open(migration_path) as f:
                 sql = f.read()
 
             # Execute migration in a transaction
@@ -294,7 +293,7 @@ class MigrationManager:
         self.session.close()
 
 
-def backup_database(db_path: str, backup_dir: Optional[str] = None) -> str:
+def backup_database(db_path: str, backup_dir: str | None = None) -> str:
     """
     Create a backup of the database file.
 

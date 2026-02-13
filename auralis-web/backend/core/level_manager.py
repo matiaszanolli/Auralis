@@ -10,7 +10,7 @@ Prevents audible volume jumps during chunk transitions.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -38,21 +38,21 @@ class LevelManager:
         self.max_level_change_db = max_level_change_db
 
         # History tracking
-        self.rms_history: List[float] = []  # RMS levels of processed chunks (dB)
-        self.gain_history: List[float] = []  # Gain adjustments applied (dB)
+        self.rms_history: list[float] = []  # RMS levels of processed chunks (dB)
+        self.gain_history: list[float] = []  # Gain adjustments applied (dB)
 
     @property
-    def history(self) -> List[float]:
+    def history(self) -> list[float]:
         """Get RMS history for analysis and visualization."""
         return self.rms_history.copy()
 
     @property
-    def gain_adjustments(self) -> List[float]:
+    def gain_adjustments(self) -> list[float]:
         """Get gain adjustment history."""
         return self.gain_history.copy()
 
     @property
-    def current_rms(self) -> Optional[float]:
+    def current_rms(self) -> float | None:
         """Get the last recorded RMS level, or None if no history."""
         return self.rms_history[-1] if self.rms_history else None
 
@@ -86,7 +86,7 @@ class LevelManager:
         chunk: np.ndarray,
         chunk_index: int,
         apply_adjustment: bool = True
-    ) -> Tuple[np.ndarray, float, bool]:
+    ) -> tuple[np.ndarray, float, bool]:
         """
         Smooth level transitions between chunks.
 
@@ -189,7 +189,7 @@ class LevelManager:
         gain_linear = 10 ** (gain_db / 20)
         return audio * gain_linear
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """
         Get statistics about level history.
 

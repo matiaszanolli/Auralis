@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Base Analyzer Class for Fingerprint Analysis
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -14,7 +12,6 @@ Eliminates duplicate try/except blocks and default value handling across analyze
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
 
 import numpy as np
 
@@ -36,9 +33,9 @@ class BaseAnalyzer(ABC):
     """
 
     # Override in subclasses with default values for each feature
-    DEFAULT_FEATURES: Dict[str, float] = {}
+    DEFAULT_FEATURES: dict[str, float] = {}
 
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, name: str | None = None):
         """
         Initialize analyzer.
 
@@ -47,7 +44,7 @@ class BaseAnalyzer(ABC):
         """
         self.name = name or self.__class__.__name__
 
-    def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def analyze(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
         Analyze audio and extract features.
 
@@ -72,7 +69,7 @@ class BaseAnalyzer(ABC):
             return self.DEFAULT_FEATURES.copy()
 
     @abstractmethod
-    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
         Implement actual analysis logic.
 

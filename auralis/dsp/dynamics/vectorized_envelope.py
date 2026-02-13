@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Vectorized Envelope Follower
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -13,7 +11,6 @@ OPTIMIZATION: Replaces sample-by-sample loop with vectorized operations
 Expected speedup: 10-20x for long buffers
 """
 
-from typing import Optional
 
 import numpy as np
 from numba import jit

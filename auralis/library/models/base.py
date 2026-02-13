@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Database Base and Associations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ Base classes, association tables, and mixins for database models
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Table
 from sqlalchemy.orm import declarative_base
 
 # Create base for all models

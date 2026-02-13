@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Quantization Module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -23,7 +21,7 @@ Accuracy Guarantees:
 """
 
 import struct
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 
 class FingerprintQuantizer:
@@ -42,7 +40,7 @@ class FingerprintQuantizer:
     # Per-dimension normalization bounds (min, max for uint8 mapping)
     # Format: 'dimension_name': (min_value, max_value)
     # These bounds are chosen to minimize quantization error while handling extremes
-    DIMENSION_BOUNDS: Dict[str, Tuple[float, float]] = {
+    DIMENSION_BOUNDS: dict[str, tuple[float, float]] = {
         # Frequency Distribution (7D) - percentages 0-100
         'sub_bass_pct': (0.0, 100.0),
         'bass_pct': (0.0, 100.0),
@@ -96,7 +94,7 @@ class FingerprintQuantizer:
     ]
 
     @staticmethod
-    def quantize(fingerprint_dict: Dict[str, float]) -> bytes:
+    def quantize(fingerprint_dict: dict[str, float]) -> bytes:
         """
         Quantize 25D fingerprint to 25-byte binary blob.
 
@@ -131,7 +129,7 @@ class FingerprintQuantizer:
         return struct.pack('25B', *quantized)
 
     @staticmethod
-    def dequantize(quantized_bytes: bytes) -> Dict[str, float]:
+    def dequantize(quantized_bytes: bytes) -> dict[str, float]:
         """
         Dequantize 25-byte blob back to 25D float fingerprint.
 
@@ -163,7 +161,7 @@ class FingerprintQuantizer:
         return fingerprint_dict
 
     @staticmethod
-    def quantize_vector(vector: List[float]) -> bytes:
+    def quantize_vector(vector: list[float]) -> bytes:
         """
         Quantize 25D vector to 25-byte blob.
 
@@ -180,7 +178,7 @@ class FingerprintQuantizer:
         return FingerprintQuantizer.quantize(fingerprint_dict)
 
     @staticmethod
-    def dequantize_vector(quantized_bytes: bytes) -> List[float]:
+    def dequantize_vector(quantized_bytes: bytes) -> list[float]:
         """
         Dequantize 25-byte blob to 25D vector.
 
@@ -194,7 +192,7 @@ class FingerprintQuantizer:
         return [fingerprint_dict[dim] for dim in FingerprintQuantizer.DIMENSION_NAMES]
 
     @staticmethod
-    def calculate_quantization_error(original: List[float], dequantized: List[float]) -> Dict[str, Any]:
+    def calculate_quantization_error(original: list[float], dequantized: list[float]) -> dict[str, Any]:
         """
         Calculate quantization error statistics.
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Realtime Adaptive EQ Module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

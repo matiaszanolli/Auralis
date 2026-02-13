@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Audio Feature Definitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,6 @@ Data structures for audio features used in ML classification
 """
 
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -27,7 +24,7 @@ class AudioFeatures:
     spectral_centroid: float
     spectral_rolloff: float
     spectral_bandwidth: float
-    spectral_contrast: List[float]
+    spectral_contrast: list[float]
     spectral_flatness: float
 
     # Temporal features
@@ -45,11 +42,11 @@ class AudioFeatures:
     energy_high: float     # 4000+ Hz
 
     # Advanced features
-    mfcc: List[float]      # Mel-frequency cepstral coefficients
-    chroma: List[float]    # Chromagram features
-    tonnetz: List[float]   # Tonal centroid features
+    mfcc: list[float]      # Mel-frequency cepstral coefficients
+    chroma: list[float]    # Chromagram features
+    tonnetz: list[float]   # Tonal centroid features
 
-    def to_vector(self) -> List[float]:
+    def to_vector(self) -> list[float]:
         """
         Convert features to flat vector for ML processing
 
@@ -83,7 +80,7 @@ class AudioFeatures:
 
         return vector
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         """Get names of all features in vector form"""
         names = [
             'rms', 'peak', 'crest_factor_db', 'zero_crossing_rate',

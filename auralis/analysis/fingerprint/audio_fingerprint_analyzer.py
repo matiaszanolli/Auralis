@@ -22,7 +22,7 @@ Dependencies:
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 import numpy as np
 
@@ -66,7 +66,7 @@ class AudioFingerprintAnalyzer:
 
         logger.debug(f"AudioFingerprintAnalyzer initialized with strategy={fingerprint_strategy}")
 
-    def analyze(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def analyze(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
         Extract complete 25D audio fingerprint.
 
@@ -124,7 +124,7 @@ class AudioFingerprintAnalyzer:
                 audio_mono = audio
 
             # Initialize fingerprint dict
-            fingerprint: Dict[str, Any] = {}
+            fingerprint: dict[str, Any] = {}
 
             # OPTIMIZATION: Pre-compute FFT and RMS once, reuse for frequency/dynamics/variation
             fft = np.fft.rfft(audio_mono)
@@ -199,7 +199,7 @@ class AudioFingerprintAnalyzer:
 
     def _analyze_frequency_cached(self, audio: np.ndarray, sr: int,
                                    fft: np.ndarray, magnitude: np.ndarray,
-                                   freqs: np.ndarray) -> Dict[str, float]:
+                                   freqs: np.ndarray) -> dict[str, float]:
         """
         Analyze frequency distribution (7-band) using pre-computed FFT.
 
@@ -261,7 +261,7 @@ class AudioFingerprintAnalyzer:
 
     def _analyze_dynamics_cached(self, audio: np.ndarray, sr: int,
                                   fft: np.ndarray, magnitude: np.ndarray,
-                                  freqs: np.ndarray, rms: float) -> Dict[str, float]:
+                                  freqs: np.ndarray, rms: float) -> dict[str, float]:
         """
         Analyze dynamics (LUFS, crest factor, bass/mid ratio) using pre-computed values.
 
@@ -310,7 +310,7 @@ class AudioFingerprintAnalyzer:
                 'bass_mid_ratio': 0.0
             }
 
-    def _get_default_fingerprint(self) -> Dict[str, float]:
+    def _get_default_fingerprint(self) -> dict[str, float]:
         """
         Get default fingerprint on analysis failure.
 

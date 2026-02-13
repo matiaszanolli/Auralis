@@ -18,7 +18,8 @@ import asyncio
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 
@@ -34,12 +35,12 @@ CHUNK_DURATION = 10  # seconds per chunk (reduced from 30s for Phase 2)
 
 
 def create_enhancement_router(
-    get_enhancement_settings: Callable[[], Dict[str, Any]],
+    get_enhancement_settings: Callable[[], dict[str, Any]],
     connection_manager: Any,
-    get_processing_cache: Optional[Callable[[], Dict[str, Any]]] = None,
-    get_multi_tier_buffer: Optional[Callable[[], Any]] = None,
-    get_player_state_manager: Optional[Callable[[], Any]] = None,
-    get_processing_engine: Optional[Callable[[], Any]] = None
+    get_processing_cache: Callable[[], dict[str, Any]] | None = None,
+    get_multi_tier_buffer: Callable[[], Any] | None = None,
+    get_player_state_manager: Callable[[], Any] | None = None,
+    get_processing_engine: Callable[[], Any] | None = None
 ) -> APIRouter:
     """
     Factory function to create enhancement router with dependencies.
@@ -120,7 +121,7 @@ def create_enhancement_router(
             logger.error(f"❌ Background chunk pre-processing failed: {e}")
 
     @router.post("/api/player/enhancement/toggle")
-    async def toggle_enhancement(enabled: bool) -> Dict[str, Any]:
+    async def toggle_enhancement(enabled: bool) -> dict[str, Any]:
         """
         Enable or disable real-time audio enhancement.
 
@@ -177,7 +178,7 @@ def create_enhancement_router(
             raise HTTPException(status_code=500, detail=f"Failed to toggle enhancement: {e}")
 
     @router.post("/api/player/enhancement/preset")
-    async def set_enhancement_preset(preset: str) -> Dict[str, Any]:
+    async def set_enhancement_preset(preset: str) -> dict[str, Any]:
         """
         Change the enhancement preset.
 
@@ -242,7 +243,7 @@ def create_enhancement_router(
             raise HTTPException(status_code=500, detail=f"Failed to change preset: {e}")
 
     @router.post("/api/player/enhancement/intensity")
-    async def set_enhancement_intensity(intensity: float) -> Dict[str, Any]:
+    async def set_enhancement_intensity(intensity: float) -> dict[str, Any]:
         """
         Adjust the enhancement intensity.
 
@@ -297,7 +298,7 @@ def create_enhancement_router(
             raise HTTPException(status_code=500, detail=f"Failed to set intensity: {e}")
 
     @router.get("/api/player/enhancement/status")
-    async def get_enhancement_status() -> Dict[str, Any]:
+    async def get_enhancement_status() -> dict[str, Any]:
         """
         Get current enhancement settings.
 
@@ -307,7 +308,7 @@ def create_enhancement_router(
         return get_enhancement_settings()
 
     @router.get("/api/player/mastering/recommendation/{track_id}")
-    async def get_mastering_recommendation(track_id: int, filepath: Optional[str] = None, confidence_threshold: float = 0.4) -> Dict[str, Any]:
+    async def get_mastering_recommendation(track_id: int, filepath: str | None = None, confidence_threshold: float = 0.4) -> dict[str, Any]:
         """
         Get weighted mastering profile recommendation for a track (Priority 4).
 
@@ -390,7 +391,7 @@ def create_enhancement_router(
             raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
     @router.get("/api/processing/parameters")
-    async def get_processing_parameters() -> Dict[str, Any]:
+    async def get_processing_parameters() -> dict[str, Any]:
         """
         Get current processing parameters from the continuous space system.
         This shows what the auto-mastering engine is doing in real-time.
@@ -492,7 +493,7 @@ def create_enhancement_router(
             }
 
     @router.post("/api/player/enhancement/cache/clear")
-    async def clear_processing_cache() -> Dict[str, Any]:
+    async def clear_processing_cache() -> dict[str, Any]:
         """
         Clear the processing cache (all cached enhanced audio files).
         Useful when testing or when cache becomes stale.

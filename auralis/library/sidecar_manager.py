@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Sidecar Manager
 ~~~~~~~~~~~~~~
@@ -18,10 +16,10 @@ Sidecar files provide:
 
 import hashlib
 import json
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 from ..utils.logging import debug, error, info, warning
 from ..version import __version__
@@ -46,9 +44,8 @@ class SidecarManager:
 
     def __init__(self) -> None:
         """Initialize sidecar manager"""
-        pass
 
-    def get_sidecar_path(self, audio_path: Union[str, Path]) -> Path:
+    def get_sidecar_path(self, audio_path: str | Path) -> Path:
         """
         Get the sidecar file path for an audio file.
 
@@ -62,7 +59,7 @@ class SidecarManager:
             audio_path = Path(audio_path)
         return audio_path.with_suffix(audio_path.suffix + self.SIDECAR_EXTENSION)
 
-    def exists(self, audio_path: Union[str, Path]) -> bool:
+    def exists(self, audio_path: str | Path) -> bool:
         """
         Check if sidecar file exists.
 
@@ -75,7 +72,7 @@ class SidecarManager:
         sidecar_path = self.get_sidecar_path(audio_path)
         return sidecar_path.exists()
 
-    def is_valid(self, audio_path: Union[str, Path]) -> bool:
+    def is_valid(self, audio_path: str | Path) -> bool:
         """
         Validate sidecar file against audio file.
 
@@ -105,7 +102,7 @@ class SidecarManager:
 
         try:
             # Read sidecar file
-            with open(sidecar_path, 'r', encoding='utf-8') as f:
+            with open(sidecar_path, encoding='utf-8') as f:
                 data = json.load(f)
 
             # Check format version
@@ -145,7 +142,7 @@ class SidecarManager:
             error(f"Failed to validate sidecar file: {e}")
             return False
 
-    def read(self, audio_path: Union[str, Path]) -> Optional[Dict[str, Any]]:
+    def read(self, audio_path: str | Path) -> dict[str, Any] | None:
         """
         Read sidecar file.
 
@@ -158,8 +155,8 @@ class SidecarManager:
         sidecar_path = self.get_sidecar_path(audio_path)
 
         try:
-            with open(sidecar_path, 'r', encoding='utf-8') as f:
-                data: Dict[str, Any] = json.load(f)
+            with open(sidecar_path, encoding='utf-8') as f:
+                data: dict[str, Any] = json.load(f)
             debug(f"Read sidecar file: {sidecar_path}")
             return data
 
@@ -167,7 +164,7 @@ class SidecarManager:
             error(f"Failed to read sidecar file {sidecar_path}: {e}")
             return None
 
-    def write(self, audio_path: Union[str, Path], data: Dict[str, Any]) -> bool:
+    def write(self, audio_path: str | Path, data: dict[str, Any]) -> bool:
         """
         Write sidecar file.
 
@@ -236,7 +233,7 @@ class SidecarManager:
             error(f"Failed to delete sidecar file {sidecar_path}: {e}")
             return False
 
-    def get_fingerprint(self, audio_path: Path) -> Optional[Dict[str, float]]:
+    def get_fingerprint(self, audio_path: Path) -> dict[str, float] | None:
         """
         Extract fingerprint from sidecar file.
 
@@ -255,16 +252,16 @@ class SidecarManager:
         # Flatten nested structure if needed
         if isinstance(fingerprint, dict) and 'frequency' in fingerprint:
             # Nested format (from spec example)
-            flat: Dict[str, float] = {}
+            flat: dict[str, float] = {}
             for category in ['frequency', 'dynamics', 'temporal', 'spectral', 'harmonic', 'variation', 'stereo']:
                 if category in fingerprint:
                     flat.update(fingerprint[category])
             return flat
         else:
             # Already flat format
-            return cast(Dict[str, float], fingerprint)
+            return cast(dict[str, float], fingerprint)
 
-    def get_processing_cache(self, audio_path: Path) -> Optional[Dict[str, Any]]:
+    def get_processing_cache(self, audio_path: Path) -> dict[str, Any] | None:
         """
         Extract processing cache from sidecar file.
 
@@ -280,7 +277,7 @@ class SidecarManager:
 
         return data.get('processing_cache')
 
-    def update_processing_cache(self, audio_path: Path, cache_data: Dict[str, Any]) -> bool:
+    def update_processing_cache(self, audio_path: Path, cache_data: dict[str, Any]) -> bool:
         """
         Update processing cache in sidecar file.
 
@@ -303,7 +300,7 @@ class SidecarManager:
         # Write back
         return self.write(audio_path, existing)
 
-    def compute_checksum(self, audio_path: Path, algorithm: str = 'sha256') -> Optional[str]:
+    def compute_checksum(self, audio_path: Path, algorithm: str = 'sha256') -> str | None:
         """
         Compute checksum of audio file.
 
@@ -328,7 +325,7 @@ class SidecarManager:
             error(f"Failed to compute checksum for {audio_path}: {e}")
             return None
 
-    def bulk_generate(self, audio_paths: List[Union[str, Path]], progress_callback: Optional[Callable[[int, int], None]] = None) -> Dict[str, int]:
+    def bulk_generate(self, audio_paths: list[str | Path], progress_callback: Callable[[int, int], None] | None = None) -> dict[str, int]:
         """
         Generate .25d files for multiple audio files.
 
@@ -361,7 +358,7 @@ class SidecarManager:
 
         return stats
 
-    def bulk_delete(self, audio_paths: List[Union[str, Path]]) -> int:
+    def bulk_delete(self, audio_paths: list[str | Path]) -> int:
         """
         Delete .25d files for multiple audio files.
 

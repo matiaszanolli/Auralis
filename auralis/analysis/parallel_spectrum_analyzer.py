@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Parallel Spectrum Analysis
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ High-performance spectrum analysis with parallel FFT processing
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
@@ -43,7 +41,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
     Extends BaseSpectrumAnalyzer with parallel processing capabilities.
     """
 
-    def __init__(self, settings: Optional[ParallelSpectrumSettings] = None) -> None:
+    def __init__(self, settings: ParallelSpectrumSettings | None = None) -> None:
         # Ensure we have ParallelSpectrumSettings
         if settings is None:
             settings = ParallelSpectrumSettings()
@@ -84,7 +82,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
         freqs: np.ndarray = np.fft.rfftfreq(self.settings.fft_size, 1/self.settings.sample_rate)
 
         # Create masks for each band (vectorized)
-        self.band_masks: List[np.ndarray] = []
+        self.band_masks: list[np.ndarray] = []
         for i in range(len(self.frequency_bins) - 1):
             start_freq: float = self.frequency_bins[i]
             end_freq: float = self.frequency_bins[i + 1]
@@ -97,7 +95,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
 
         debug(f"Pre-computed {len(self.band_masks)} band masks for vectorized processing")
 
-    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> Dict[str, Any]:
+    def analyze_chunk(self, audio_chunk: np.ndarray, channel: int = 0) -> dict[str, Any]:
         """
         Analyze a single chunk of audio (for real-time processing)
 
@@ -110,7 +108,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
         """
         return self._create_chunk_result(audio_chunk, channel, self.settings.sample_rate)
 
-    def analyze_file(self, audio_data: np.ndarray, sample_rate: Optional[int] = None) -> Dict[str, Any]:
+    def analyze_file(self, audio_data: np.ndarray, sample_rate: int | None = None) -> dict[str, Any]:
         """
         Analyze an entire audio file with parallel FFT processing
 
@@ -192,9 +190,9 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
             }
         }
 
-    def _process_chunks_sequential(self, audio_data: np.ndarray, hop_size: int, num_chunks: int) -> List[Dict[str, Any]]:
+    def _process_chunks_sequential(self, audio_data: np.ndarray, hop_size: int, num_chunks: int) -> list[dict[str, Any]]:
         """Process chunks sequentially (fallback for small files)"""
-        chunk_results: List[Dict[str, Any]] = []
+        chunk_results: list[dict[str, Any]] = []
 
         for i in range(num_chunks):
             start_idx: int = i * hop_size
@@ -208,12 +206,12 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
                 fft_result: np.ndarray = np.fft.fft(windowed, self.settings.fft_size)
 
                 # Process to spectrum
-                result: Dict[str, Any] = self._process_fft_to_spectrum(fft_result)
+                result: dict[str, Any] = self._process_fft_to_spectrum(fft_result)
                 chunk_results.append(result)
 
         return chunk_results
 
-    def _process_fft_to_spectrum(self, fft_result: np.ndarray) -> Dict[str, Any]:
+    def _process_fft_to_spectrum(self, fft_result: np.ndarray) -> dict[str, Any]:
         """
         Process single FFT result to spectrum (vectorized with band masks)
 
@@ -310,7 +308,7 @@ class ParallelSpectrumAnalyzer(BaseSpectrumAnalyzer):
 
 
 # Factory function
-def create_parallel_spectrum_analyzer(settings: Optional[ParallelSpectrumSettings] = None) -> ParallelSpectrumAnalyzer:
+def create_parallel_spectrum_analyzer(settings: ParallelSpectrumSettings | None = None) -> ParallelSpectrumAnalyzer:
     """
     Create parallel spectrum analyzer instance
 

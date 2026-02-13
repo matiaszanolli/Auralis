@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Similarity Graph Repository
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,8 @@ Data access layer for similarity graph operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
+from collections.abc import Callable
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -74,7 +73,7 @@ class SimilarityGraphRepository:
         finally:
             session.close()
 
-    def add_edges(self, edges: List[Dict[str, Any]]) -> int:
+    def add_edges(self, edges: list[dict[str, Any]]) -> int:
         """
         Add multiple edges to the graph
 
@@ -138,8 +137,8 @@ class SimilarityGraphRepository:
     def get_neighbors(
         self,
         track_id: int,
-        limit: Optional[int] = None
-    ) -> List[SimilarityGraph]:
+        limit: int | None = None
+    ) -> list[SimilarityGraph]:
         """
         Get pre-computed neighbors from graph
 
@@ -165,7 +164,7 @@ class SimilarityGraphRepository:
         finally:
             session.close()
 
-    def get_stats(self) -> Optional[Tuple[int, int, int, float, float, float]]:
+    def get_stats(self) -> tuple[int, int, int, float, float, float] | None:
         """
         Get statistics about the similarity graph
 

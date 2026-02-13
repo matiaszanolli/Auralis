@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Repository Factory for Dependency Injection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Enables dependency injection across the application without global singletons.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
@@ -64,17 +62,17 @@ class RepositoryFactory:
         self.session_factory = session_factory
 
         # Lazy initialization caches for all repositories
-        self._track_repo: Optional[TrackRepository] = None
-        self._album_repo: Optional[AlbumRepository] = None
-        self._artist_repo: Optional[ArtistRepository] = None
-        self._genre_repo: Optional[GenreRepository] = None
-        self._playlist_repo: Optional[PlaylistRepository] = None
-        self._fingerprint_repo: Optional[FingerprintRepository] = None
-        self._stats_repo: Optional[StatsRepository] = None
-        self._settings_repo: Optional[SettingsRepository] = None
-        self._queue_repo: Optional[QueueRepository] = None
-        self._queue_history_repo: Optional[QueueHistoryRepository] = None
-        self._queue_template_repo: Optional[QueueTemplateRepository] = None
+        self._track_repo: TrackRepository | None = None
+        self._album_repo: AlbumRepository | None = None
+        self._artist_repo: ArtistRepository | None = None
+        self._genre_repo: GenreRepository | None = None
+        self._playlist_repo: PlaylistRepository | None = None
+        self._fingerprint_repo: FingerprintRepository | None = None
+        self._stats_repo: StatsRepository | None = None
+        self._settings_repo: SettingsRepository | None = None
+        self._queue_repo: QueueRepository | None = None
+        self._queue_history_repo: QueueHistoryRepository | None = None
+        self._queue_template_repo: QueueTemplateRepository | None = None
 
     @property
     def tracks(self) -> TrackRepository:

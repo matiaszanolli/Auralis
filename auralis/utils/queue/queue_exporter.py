@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Queue Exporter & Importer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -16,7 +14,7 @@ Supported Formats:
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+from typing import Any, Literal, cast
 
 from .m3u_handler import M3UHandler
 from .xspf_handler import XSPFHandler
@@ -31,7 +29,7 @@ class QueueExporter:
     DEFAULT_FORMAT = 'm3u'
 
     @staticmethod
-    def export(tracks: List[Dict[str, Any]],
+    def export(tracks: list[dict[str, Any]],
                format: Literal['m3u', 'xspf'] = 'm3u',
                **kwargs: Any) -> str:
         """
@@ -73,8 +71,8 @@ class QueueExporter:
             raise ValueError(f'Unsupported format: {format_lower}')
 
     @staticmethod
-    def export_to_file(tracks: List[Dict[str, Any]], filepath: str,
-                       format: Optional[str] = None, **kwargs: Any) -> Tuple[bool, str]:
+    def export_to_file(tracks: list[dict[str, Any]], filepath: str,
+                       format: str | None = None, **kwargs: Any) -> tuple[bool, str]:
         """
         Export queue to file
 
@@ -123,7 +121,7 @@ class QueueExporter:
             return False, error_msg
 
     @staticmethod
-    def import_from_string(content: str, format: Optional[str] = None) -> Tuple[List[str], List[str]]:
+    def import_from_string(content: str, format: str | None = None) -> tuple[list[str], list[str]]:
         """
         Import queue from string content
 
@@ -156,7 +154,7 @@ class QueueExporter:
             return [], [f'Unsupported format: {format_lower}']
 
     @staticmethod
-    def import_from_file(filepath: str, format: Optional[str] = None) -> Tuple[List[str], List[str]]:
+    def import_from_file(filepath: str, format: str | None = None) -> tuple[list[str], list[str]]:
         """
         Import queue from file
 
@@ -205,7 +203,7 @@ class QueueExporter:
             raise ValueError(f'Failed to import playlist: {str(e)}')
 
     @staticmethod
-    def validate(content: str, format: Optional[str] = None) -> Tuple[bool, List[str]]:
+    def validate(content: str, format: str | None = None) -> tuple[bool, list[str]]:
         """
         Validate playlist content
 

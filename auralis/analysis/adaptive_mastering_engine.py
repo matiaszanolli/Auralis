@@ -13,7 +13,7 @@ This replaces preset-based mastering with adaptive profile matching.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .mastering_fingerprint import MasteringFingerprint, analyze_album
 from .mastering_profile import (
@@ -46,12 +46,12 @@ class MasteringRecommendation:
     predicted_crest_change: float           # Predicted crest change (dB)
     predicted_centroid_change: float        # Predicted centroid change (Hz)
 
-    alternative_profiles: List[MasteringProfile] = field(default_factory=list)
+    alternative_profiles: list[MasteringProfile] = field(default_factory=list)
     reasoning: str = ""                     # Explanation for the recommendation
-    weighted_profiles: List[ProfileWeight] = field(default_factory=list)  # Blended profiles (if hybrid)
+    weighted_profiles: list[ProfileWeight] = field(default_factory=list)  # Blended profiles (if hybrid)
     created: str = field(default_factory=lambda: datetime.now().isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         result = {
             'primary_profile_id': self.primary_profile.profile_id,
@@ -249,7 +249,7 @@ class AdaptiveMasteringEngine:
 
         return rec
 
-    def _fallback_recommendation(self, fingerprint: Optional[MasteringFingerprint]) -> MasteringRecommendation:
+    def _fallback_recommendation(self, fingerprint: MasteringFingerprint | None) -> MasteringRecommendation:
         """Fallback when no profiles match."""
         # Default to quiet-reference profile for safety
         profile = self.profile_db.get_profile("quiet-reference-modernization-v1")
@@ -322,7 +322,7 @@ class AdaptiveMasteringEngine:
             return self._fallback_recommendation(None)
         return self.recommend(fingerprint)
 
-    def analyze_album_and_recommend(self, album_dir: str) -> Dict[str, MasteringRecommendation]:
+    def analyze_album_and_recommend(self, album_dir: str) -> dict[str, MasteringRecommendation]:
         """
         Analyze all tracks in an album and get recommendations.
 
@@ -350,7 +350,7 @@ class AdaptiveMasteringEngine:
         """Add a new profile to the engine."""
         self.profile_db.add_profile(profile)
 
-    def list_profiles(self) -> List[MasteringProfile]:
+    def list_profiles(self) -> list[MasteringProfile]:
         """List all available profiles."""
         return self.profile_db.list_profiles()
 
@@ -369,7 +369,7 @@ class AdaptiveMasteringEngine:
 
 # Example usage and testing
 if __name__ == "__main__":
-    import sys
+    pass
 
     print("Adaptive Mastering Engine Example")
     print("=" * 60)

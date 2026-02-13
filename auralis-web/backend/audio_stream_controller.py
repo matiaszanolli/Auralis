@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 Audio Stream Controller
@@ -32,7 +31,8 @@ import json
 import logging
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, cast
+from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 from cache.manager import StreamlinedCacheManager
@@ -59,7 +59,7 @@ class SimpleChunkCache:
         Args:
             max_chunks: Maximum number of chunks to keep in memory
         """
-        self.cache: OrderedDict[str, Tuple[np.ndarray, int]] = OrderedDict()
+        self.cache: OrderedDict[str, tuple[np.ndarray, int]] = OrderedDict()
         self.max_chunks: int = max_chunks
 
     def _make_key(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> str:
@@ -74,7 +74,7 @@ class SimpleChunkCache:
         chunk_idx: int,
         preset: str,
         intensity: float
-    ) -> Optional[Tuple[np.ndarray, int]]:
+    ) -> tuple[np.ndarray, int] | None:
         """
         Get chunk from cache.
 
@@ -128,9 +128,9 @@ class AudioStreamController:
 
     def __init__(
         self,
-        chunked_processor_class: Optional[Type[ChunkedAudioProcessor]] = None,
-        get_repository_factory: Optional[Callable[[], RepositoryFactory]] = None,
-        cache_manager: Optional[Union[StreamlinedCacheManager, SimpleChunkCache]] = None
+        chunked_processor_class: type[ChunkedAudioProcessor] | None = None,
+        get_repository_factory: Callable[[], RepositoryFactory] | None = None,
+        cache_manager: StreamlinedCacheManager | SimpleChunkCache | None = None
     ) -> None:
         """
         Initialize AudioStreamController.
@@ -140,15 +140,15 @@ class AudioStreamController:
             get_repository_factory: Callable that returns RepositoryFactory for track lookup
             cache_manager: Optional cache manager for chunk caching.
         """
-        self.chunked_processor_class: Optional[Type[ChunkedAudioProcessor]] = chunked_processor_class
-        self._get_repository_factory: Optional[Callable[[], RepositoryFactory]] = get_repository_factory
+        self.chunked_processor_class: type[ChunkedAudioProcessor] | None = chunked_processor_class
+        self._get_repository_factory: Callable[[], RepositoryFactory] | None = get_repository_factory
 
         # Use provided cache manager or fallback to SimpleChunkCache
-        self.cache_manager: Union[StreamlinedCacheManager, SimpleChunkCache] = cache_manager or SimpleChunkCache()
+        self.cache_manager: StreamlinedCacheManager | SimpleChunkCache = cache_manager or SimpleChunkCache()
         logger.info(f"AudioStreamController initialized with cache manager: {type(self.cache_manager).__name__}")
 
         # NEW (Phase 7.3): Fingerprint generator for on-demand generation
-        self.fingerprint_generator: Optional[FingerprintGenerator] = None
+        self.fingerprint_generator: FingerprintGenerator | None = None
         if self._get_repository_factory:
             try:
                 # Get session factory from the first repository factory call
@@ -164,7 +164,7 @@ class AudioStreamController:
             except Exception as e:
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
-        self.active_streams: Dict[int, Any] = {}  # track_id -> streaming task
+        self.active_streams: dict[int, Any] = {}  # track_id -> streaming task
 
     def _is_websocket_connected(self, websocket: WebSocket) -> bool:
         """
@@ -178,7 +178,7 @@ class AudioStreamController:
         except Exception:
             return False
 
-    async def _safe_send(self, websocket: WebSocket, message: Dict[str, Any]) -> bool:
+    async def _safe_send(self, websocket: WebSocket, message: dict[str, Any]) -> bool:
         """
         Safely send a message to WebSocket, handling disconnection gracefully.
 
@@ -209,7 +209,7 @@ class AudioStreamController:
         self,
         track_id: int,
         filepath: str,
-        websocket: Optional[WebSocket] = None
+        websocket: WebSocket | None = None
     ) -> bool:
         """
         Ensure fingerprint is available (cached or generated).
@@ -293,7 +293,7 @@ class AudioStreamController:
         self,
         track_id: int,
         filepath: str,
-        websocket: Optional[WebSocket] = None
+        websocket: WebSocket | None = None
     ) -> bool:
         """
         Non-blocking fingerprint check - queue generation instead of waiting.
@@ -371,7 +371,7 @@ class AudioStreamController:
         preset: str,
         intensity: float,
         websocket: WebSocket,
-        on_progress: Optional[Callable[[int, float, str], Any]] = None
+        on_progress: Callable[[int, float, str], Any] | None = None
     ) -> None:
         """
         Stream enhanced audio chunks to client via WebSocket.
@@ -424,7 +424,7 @@ class AudioStreamController:
                     ),
                     timeout=30.0
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 error_msg = "Audio processor initialization timed out. File may be corrupt or on slow storage."
                 logger.error(f"Processor instantiation timed out for track {track_id} (30s)")
                 await self._send_error(websocket, track_id, error_msg)
@@ -523,7 +523,7 @@ class AudioStreamController:
         self,
         track_id: int,
         websocket: WebSocket,
-        on_progress: Optional[Callable[[int, float, str], Any]] = None
+        on_progress: Callable[[int, float, str], Any] | None = None
     ) -> None:
         """
         Stream original (unprocessed) audio chunks to client via WebSocket.
@@ -672,7 +672,7 @@ class AudioStreamController:
         chunk_index: int,
         processor: ChunkedAudioProcessor,
         websocket: WebSocket,
-        on_progress: Optional[Callable[[int, float, str], Any]] = None,
+        on_progress: Callable[[int, float, str], Any] | None = None,
     ) -> None:
         """
         Process single chunk and stream PCM samples to client.
@@ -694,14 +694,14 @@ class AudioStreamController:
         )
 
         # Try to get from cache first
-        pcm_samples: Optional[np.ndarray] = None
-        sr: Optional[int] = None
+        pcm_samples: np.ndarray | None = None
+        sr: int | None = None
         cache_hit: bool = False
 
         try:
             # Handle union type: both cache managers have get() method
             if isinstance(self.cache_manager, SimpleChunkCache):
-                cached_result: Optional[Tuple[np.ndarray, int]] = self.cache_manager.get(
+                cached_result: tuple[np.ndarray, int] | None = self.cache_manager.get(
                     track_id=processor.track_id,
                     chunk_idx=chunk_index,
                     preset=processor.preset,
@@ -813,7 +813,7 @@ class AudioStreamController:
             pcm_bytes: bytes = frame_samples.tobytes()
             pcm_base64: str = base64.b64encode(pcm_bytes).decode("ascii")
 
-            message: Dict[str, Any] = {
+            message: dict[str, Any] = {
                 "type": "audio_chunk",
                 "data": {
                     "chunk_index": chunk_index,
@@ -853,7 +853,7 @@ class AudioStreamController:
         Returns:
             True if message was sent, False if WebSocket was disconnected.
         """
-        message: Dict[str, Any] = {
+        message: dict[str, Any] = {
             "type": "audio_stream_start",
             "data": {
                 "track_id": track_id,
@@ -883,7 +883,7 @@ class AudioStreamController:
         Returns:
             True if message was sent, False if WebSocket was disconnected.
         """
-        message: Dict[str, Any] = {
+        message: dict[str, Any] = {
             "type": "audio_stream_end",
             "data": {
                 "track_id": track_id,
@@ -903,7 +903,7 @@ class AudioStreamController:
         error_message: str
     ) -> None:
         """Send audio_stream_error message to client."""
-        message: Dict[str, Any] = {
+        message: dict[str, Any] = {
             "type": "audio_stream_error",
             "data": {
                 "track_id": track_id,
@@ -932,7 +932,7 @@ class AudioStreamController:
             status: Progress status (analyzing, complete, failed, error)
             message: Human-readable progress message
         """
-        progress_message: Dict[str, Any] = {
+        progress_message: dict[str, Any] = {
             "type": "fingerprint_progress",
             "data": {
                 "track_id": track_id,
@@ -953,7 +953,7 @@ class AudioStreamController:
         intensity: float,
         websocket: WebSocket,
         start_position: float,
-        on_progress: Optional[Callable[[int, float, str], Any]] = None
+        on_progress: Callable[[int, float, str], Any] | None = None
     ) -> None:
         """
         Stream enhanced audio chunks starting from a specific position (seek).
@@ -1010,7 +1010,7 @@ class AudioStreamController:
                     ),
                     timeout=30.0
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 error_msg = "Audio processor initialization timed out during seek. File may be corrupt or on slow storage."
                 logger.error(f"Processor instantiation timed out for track {track_id} during seek (30s)")
                 await self._send_error(websocket, track_id, error_msg)
@@ -1130,7 +1130,7 @@ class AudioStreamController:
         Returns:
             True if message was sent, False if WebSocket was disconnected.
         """
-        message: Dict[str, Any] = {
+        message: dict[str, Any] = {
             "type": "audio_stream_start",
             "data": {
                 "track_id": track_id,

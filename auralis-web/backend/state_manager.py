@@ -12,7 +12,7 @@ Single source of truth that broadcasts state changes via WebSocket.
 import asyncio
 import logging
 import threading
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from player_state import PlaybackState, PlayerState, TrackInfo, create_track_info
 
@@ -37,7 +37,7 @@ class PlayerStateManager:
         self.state: PlayerState = PlayerState()
         self.ws_manager: Any = websocket_manager
         self._lock: threading.Lock = threading.Lock()
-        self._position_update_task: Optional[asyncio.Task[Any]] = None
+        self._position_update_task: asyncio.Task[Any] | None = None
 
     def get_state(self) -> PlayerState:
         """Get current player state (thread-safe)"""
@@ -119,7 +119,7 @@ class PlayerStateManager:
             is_muted=(volume == 0)
         )
 
-    async def set_queue(self, tracks: List[TrackInfo], start_index: int = 0) -> None:
+    async def set_queue(self, tracks: list[TrackInfo], start_index: int = 0) -> None:
         """Set playback queue"""
         current_track = tracks[start_index] if tracks and 0 <= start_index < len(tracks) else None
         await self.update_state(
@@ -129,11 +129,11 @@ class PlayerStateManager:
             current_track=current_track
         )
 
-    async def next_track(self) -> Optional[TrackInfo]:
+    async def next_track(self) -> TrackInfo | None:
         """Move to next track in queue"""
         # Determine next track while holding lock (don't await inside lock)
-        new_index: Optional[int] = None
-        next_track: Optional[TrackInfo] = None
+        new_index: int | None = None
+        next_track: TrackInfo | None = None
         has_next: bool = False
 
         with self._lock:
@@ -158,16 +158,16 @@ class PlayerStateManager:
         )
         return next_track
 
-    async def previous_track(self) -> Optional[TrackInfo]:
+    async def previous_track(self) -> TrackInfo | None:
         """Move to previous track in queue"""
         # Determine action while holding lock (don't await inside lock)
         with self._lock:
             if self.state.current_time > 3.0:
                 # Restart current track if > 3 seconds
                 should_restart: bool = True
-                current_track_var: Optional[TrackInfo] = self.state.current_track
-                new_index_var: Optional[int] = None
-                prev_track_var: Optional[TrackInfo] = None
+                current_track_var: TrackInfo | None = self.state.current_track
+                new_index_var: int | None = None
+                prev_track_var: TrackInfo | None = None
             elif self.state.queue_index > 0:
                 should_restart = False
                 new_index_var = self.state.queue_index - 1

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Metadata Readers
 ~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Format-specific metadata reading functions
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .tag_mappings import TAG_MAPPINGS
 
@@ -19,7 +17,7 @@ class MetadataReaders:
     """Format-specific metadata readers"""
 
     @staticmethod
-    def read_mp3_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
+    def read_mp3_metadata(audio_file: Any) -> dict[str, str | None]:
         """
         Read metadata from MP3 file
 
@@ -44,7 +42,7 @@ class MetadataReaders:
         return metadata
 
     @staticmethod
-    def read_flac_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
+    def read_flac_metadata(audio_file: Any) -> dict[str, str | None]:
         """
         Read metadata from FLAC file
 
@@ -67,7 +65,7 @@ class MetadataReaders:
         return metadata
 
     @staticmethod
-    def read_mp4_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
+    def read_mp4_metadata(audio_file: Any) -> dict[str, str | None]:
         """
         Read metadata from MP4/M4A file
 
@@ -77,7 +75,7 @@ class MetadataReaders:
         Returns:
             Dictionary of metadata fields
         """
-        metadata: Dict[str, Optional[str]] = {}
+        metadata: dict[str, str | None] = {}
         tag_map = TAG_MAPPINGS['m4a']
 
         for field, tag_key in tag_map.items():
@@ -95,7 +93,7 @@ class MetadataReaders:
         return metadata
 
     @staticmethod
-    def read_ogg_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
+    def read_ogg_metadata(audio_file: Any) -> dict[str, str | None]:
         """
         Read metadata from OGG file
 
@@ -109,7 +107,7 @@ class MetadataReaders:
         return MetadataReaders.read_flac_metadata(audio_file)
 
     @staticmethod
-    def read_generic_metadata(audio_file: Any) -> Dict[str, Optional[str]]:
+    def read_generic_metadata(audio_file: Any) -> dict[str, str | None]:
         """
         Read metadata using generic method
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Metadata Editor
 ~~~~~~~~~~~~~~~
@@ -11,8 +9,7 @@ Audio file metadata editing orchestrator
 """
 
 import os
-from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 try:
     from mutagen import File as MutagenFile  # type: ignore[attr-defined]
@@ -24,7 +21,7 @@ except ImportError:
     MUTAGEN_AVAILABLE = False
     MutagenFile = None
 
-from ...utils.logging import debug, error, info, warning
+from ...utils.logging import debug, error, info
 from .backup import BackupManager
 from .models import MetadataUpdate
 from .readers import MetadataReaders
@@ -64,11 +61,11 @@ class MetadataEditor:
         self.writers = MetadataWriters()
         self.backup_manager = BackupManager()
 
-    def get_supported_formats(self) -> List[str]:
+    def get_supported_formats(self) -> list[str]:
         """Get list of supported audio formats"""
         return ['mp3', 'flac', 'm4a', 'aac', 'ogg', 'wav']
 
-    def get_editable_fields(self, filepath: str) -> List[str]:
+    def get_editable_fields(self, filepath: str) -> list[str]:
         """
         Get list of editable metadata fields for a file
 
@@ -82,7 +79,7 @@ class MetadataEditor:
         format_key = get_format_key(ext)
         return list(TAG_MAPPINGS.get(format_key, {}).keys())
 
-    def read_metadata(self, filepath: str) -> Dict[str, Any]:
+    def read_metadata(self, filepath: str) -> dict[str, Any]:
         """
         Read all metadata from an audio file
 
@@ -127,7 +124,7 @@ class MetadataEditor:
             error(f"Failed to read metadata from {filepath}: {e}")
             raise
 
-    def write_metadata(self, filepath: str, metadata: Dict[str, Any], backup: bool = True) -> bool:
+    def write_metadata(self, filepath: str, metadata: dict[str, Any], backup: bool = True) -> bool:
         """
         Write metadata to an audio file
 
@@ -182,7 +179,7 @@ class MetadataEditor:
                 self.backup_manager.restore_backup(filepath)
             raise
 
-    def batch_update(self, updates: List[MetadataUpdate]) -> Dict[str, Any]:
+    def batch_update(self, updates: list[MetadataUpdate]) -> dict[str, Any]:
         """
         Update metadata for multiple tracks
 
@@ -192,7 +189,7 @@ class MetadataEditor:
         Returns:
             Dictionary with success/failure counts and errors
         """
-        results: Dict[str, Any] = {
+        results: dict[str, Any] = {
             'success': 0,
             'failed': 0,
             'errors': []

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Genre Profiles
 ~~~~~~~~~~~~~
@@ -10,13 +8,12 @@ Genre-specific processing profiles and defaults
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict
 
 from ...utils.logging import debug
 from .settings import GenreProfile
 
 
-def create_default_genre_profiles() -> Dict[str, GenreProfile]:
+def create_default_genre_profiles() -> dict[str, GenreProfile]:
     """Create default genre processing profiles"""
     return {
         "rock": GenreProfile(
@@ -116,7 +113,7 @@ def get_default_genre_profile() -> GenreProfile:
     )
 
 
-def get_genre_profile(genre: str, profiles: Dict[str, GenreProfile]) -> GenreProfile:
+def get_genre_profile(genre: str, profiles: dict[str, GenreProfile]) -> GenreProfile:
     """Get processing profile for a specific genre with fallback"""
     genre_lower = genre.lower()
     if genre_lower in profiles:

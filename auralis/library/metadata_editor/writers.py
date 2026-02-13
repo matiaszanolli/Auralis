@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Metadata Writers
 ~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Format-specific metadata writing functions
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from .tag_mappings import TAG_MAPPINGS
 
@@ -35,7 +33,7 @@ class MetadataWriters:
     """Format-specific metadata writers"""
 
     @staticmethod
-    def write_mp3_metadata(audio_file: Any, metadata: Dict[str, Any]) -> None:
+    def write_mp3_metadata(audio_file: Any, metadata: dict[str, Any]) -> None:
         """
         Write metadata to MP3 file
 
@@ -47,7 +45,7 @@ class MetadataWriters:
         if audio_file.tags is None:
             audio_file.add_tags()
 
-        tag_map: Dict[str, str] = TAG_MAPPINGS['mp3']
+        tag_map: dict[str, str] = TAG_MAPPINGS['mp3']
 
         for field, value in metadata.items():
             if field not in tag_map:
@@ -81,7 +79,7 @@ class MetadataWriters:
                     audio_file['COMM::eng'] = COMM(encoding=3, lang='eng', desc='', text=str(value))  # type: ignore[no-untyped-call]
 
     @staticmethod
-    def write_flac_metadata(audio_file: Any, metadata: Dict[str, Any]) -> None:
+    def write_flac_metadata(audio_file: Any, metadata: dict[str, Any]) -> None:
         """
         Write metadata to FLAC file
 
@@ -89,7 +87,7 @@ class MetadataWriters:
             audio_file: Mutagen audio file object
             metadata: Dictionary of metadata fields to write
         """
-        tag_map: Dict[str, str] = TAG_MAPPINGS['flac']
+        tag_map: dict[str, str] = TAG_MAPPINGS['flac']
 
         for field, value in metadata.items():
             if field not in tag_map:
@@ -106,7 +104,7 @@ class MetadataWriters:
                 audio_file[tag_key] = str(value)
 
     @staticmethod
-    def write_mp4_metadata(audio_file: Any, metadata: Dict[str, Any]) -> None:
+    def write_mp4_metadata(audio_file: Any, metadata: dict[str, Any]) -> None:
         """
         Write metadata to MP4/M4A file
 
@@ -114,7 +112,7 @@ class MetadataWriters:
             audio_file: Mutagen audio file object
             metadata: Dictionary of metadata fields to write
         """
-        tag_map: Dict[str, str] = TAG_MAPPINGS['m4a']
+        tag_map: dict[str, str] = TAG_MAPPINGS['m4a']
 
         for field, value in metadata.items():
             if field not in tag_map:
@@ -139,7 +137,7 @@ class MetadataWriters:
                     audio_file[tag_key] = [str(value)]
 
     @staticmethod
-    def write_ogg_metadata(audio_file: Any, metadata: Dict[str, Any]) -> None:
+    def write_ogg_metadata(audio_file: Any, metadata: dict[str, Any]) -> None:
         """
         Write metadata to OGG file
 
@@ -151,7 +149,7 @@ class MetadataWriters:
         MetadataWriters.write_flac_metadata(audio_file, metadata)
 
     @staticmethod
-    def write_generic_metadata(audio_file: Any, metadata: Dict[str, Any]) -> None:
+    def write_generic_metadata(audio_file: Any, metadata: dict[str, Any]) -> None:
         """
         Write metadata using generic method
 

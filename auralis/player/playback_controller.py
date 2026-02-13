@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 PlaybackController - Manages playback state machine
 
@@ -11,7 +9,8 @@ Responsibilities:
 """
 
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from ..utils.logging import debug, info
 
@@ -36,13 +35,13 @@ class PlaybackController:
     def __init__(self) -> None:
         self.state = PlaybackState.STOPPED
         self.position = 0  # Position in samples
-        self.callbacks: List[Callable[[Optional[Dict[str, Any]]], None]] = []
+        self.callbacks: list[Callable[[dict[str, Any] | None], None]] = []
 
-    def add_callback(self, callback: Callable[[Optional[Dict[str, Any]]], None]) -> None:
+    def add_callback(self, callback: Callable[[dict[str, Any] | None], None]) -> None:
         """Register a callback for state changes"""
         self.callbacks.append(callback)
 
-    def _notify_callbacks(self, state_info: Optional[Dict[str, Any]] = None) -> None:
+    def _notify_callbacks(self, state_info: dict[str, Any] | None = None) -> None:
         """Notify all callbacks of state change"""
         for callback in self.callbacks:
             try:

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 IntegrationManager - Coordinates library, DSP, and callbacks
 
@@ -13,7 +11,8 @@ Responsibilities:
 
 import os
 import time
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 from ..library.models import Track
 from ..utils.logging import debug, error, info, warning
@@ -39,7 +38,7 @@ class IntegrationManager:
         queue: QueueController,
         processor: Any,  # RealtimeProcessor
         get_repository_factory: Callable[[], Any],
-        library_manager: Optional[Any] = None
+        library_manager: Any | None = None
     ):
         """
         Initialize integration manager.
@@ -59,11 +58,11 @@ class IntegrationManager:
         self.get_repository_factory = get_repository_factory
 
         # Library integration
-        self.current_track: Optional[Track] = None
+        self.current_track: Track | None = None
         self.auto_reference_selection = True
 
         # External callbacks (application-level)
-        self.callbacks: List[Callable[[Dict[str, Any]], None]] = []
+        self.callbacks: list[Callable[[dict[str, Any]], None]] = []
 
         # Statistics
         self.tracks_played = 0
@@ -87,11 +86,11 @@ class IntegrationManager:
             "Ensure get_repository_factory is properly configured during startup."
         )
 
-    def add_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+    def add_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Register callback for integration events"""
         self.callbacks.append(callback)
 
-    def _notify_callbacks(self, state_info: Dict[str, Any]) -> None:
+    def _notify_callbacks(self, state_info: dict[str, Any]) -> None:
         """Notify all callbacks"""
         for callback in self.callbacks:
             try:
@@ -99,7 +98,7 @@ class IntegrationManager:
             except Exception as e:
                 debug(f"Callback error: {e}")
 
-    def _on_playback_state_change(self, state_info: Optional[Dict[str, Any]]) -> None:
+    def _on_playback_state_change(self, state_info: dict[str, Any] | None) -> None:
         """Receive and propagate playback state changes"""
         # Initialize state_info if None
         if state_info is None:
@@ -205,7 +204,7 @@ class IntegrationManager:
             'profile': profile
         })
 
-    def get_playback_info(self) -> Dict[str, Any]:
+    def get_playback_info(self) -> dict[str, Any]:
         """Get comprehensive playback information"""
         queue_info = self.queue.get_queue_info()
 

@@ -9,7 +9,8 @@ Coordinates with AudioPlayer and PlayerStateManager for state synchronization.
 """
 
 import logging
-from typing import Any, Callable, Dict
+from typing import Any
+from collections.abc import Callable
 
 from config.globals import ConnectionManager
 from state_manager import PlayerStateManager
@@ -51,7 +52,7 @@ class NavigationService:
         self.connection_manager: ConnectionManager = connection_manager
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
 
-    async def next_track(self) -> Dict[str, Any]:
+    async def next_track(self) -> dict[str, Any]:
         """
         Skip to next track in queue.
 
@@ -72,7 +73,7 @@ class NavigationService:
                 if success:
                     # Update state if available
                     if self.player_state_manager and hasattr(self.audio_player, 'queue'):
-                        state = self.player_state_manager.get_state()
+                        self.player_state_manager.get_state()
                         if hasattr(self.audio_player.queue, 'current_index'):
                             # Broadcast track change
                             await self.connection_manager.broadcast({
@@ -93,7 +94,7 @@ class NavigationService:
             logger.error(f"Failed to skip to next track: {e}")
             raise
 
-    async def previous_track(self) -> Dict[str, Any]:
+    async def previous_track(self) -> dict[str, Any]:
         """
         Skip to previous track in queue.
 
@@ -114,7 +115,7 @@ class NavigationService:
                 if success:
                     # Update state if available
                     if self.player_state_manager and hasattr(self.audio_player, 'queue'):
-                        state = self.player_state_manager.get_state()
+                        self.player_state_manager.get_state()
                         if hasattr(self.audio_player.queue, 'current_index'):
                             # Broadcast track change
                             await self.connection_manager.broadcast({
@@ -135,7 +136,7 @@ class NavigationService:
             logger.error(f"Failed to skip to previous track: {e}")
             raise
 
-    async def jump_to_track(self, track_index: int) -> Dict[str, Any]:
+    async def jump_to_track(self, track_index: int) -> dict[str, Any]:
         """
         Jump to specific track in queue.
 

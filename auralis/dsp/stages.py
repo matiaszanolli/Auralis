@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis DSP Processing Stages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ Multi-stage audio processing pipeline
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-from typing import Any, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -23,7 +21,7 @@ from .utils.adaptive import (
     adaptive_gain_calculation,
     calculate_loudness_units,
 )
-from .utils.spectral import crest_factor, spectral_centroid
+from .utils.spectral import crest_factor
 
 
 def main(
@@ -33,7 +31,7 @@ def main(
     need_default: bool = True,
     need_no_limiter: bool = False,
     need_no_limiter_normalized: bool = False,
-) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
+) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]:
     """
     Main processing pipeline with full matching algorithms
 

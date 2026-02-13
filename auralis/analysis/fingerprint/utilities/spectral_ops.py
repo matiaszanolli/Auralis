@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Spectral Analysis Utilities
 
@@ -15,7 +13,6 @@ Features:
 """
 
 import logging
-from typing import Optional, Tuple, Union
 
 import librosa
 import numpy as np
@@ -30,7 +27,7 @@ class SpectralOperations:
     def calculate_spectral_centroid(
         audio: np.ndarray,
         sr: int,
-        magnitude: Optional[np.ndarray] = None
+        magnitude: np.ndarray | None = None
     ) -> float:
         """
         Calculate spectral centroid (center of mass of spectrum).
@@ -74,7 +71,7 @@ class SpectralOperations:
     def calculate_spectral_rolloff(
         audio: np.ndarray,
         sr: int,
-        magnitude: Optional[np.ndarray] = None
+        magnitude: np.ndarray | None = None
     ) -> float:
         """
         Calculate spectral rolloff (frequency below which 85% of energy is contained).
@@ -138,7 +135,7 @@ class SpectralOperations:
     @staticmethod
     def calculate_spectral_flatness(
         audio: np.ndarray,
-        magnitude: Optional[np.ndarray] = None
+        magnitude: np.ndarray | None = None
     ) -> float:
         """
         Calculate spectral flatness (noise-like vs tonal).
@@ -184,7 +181,7 @@ class SpectralOperations:
             return 0.3  # Default to tonal
 
     @staticmethod
-    def calculate_all(audio: np.ndarray, sr: int) -> Tuple[float, float, float]:
+    def calculate_all(audio: np.ndarray, sr: int) -> tuple[float, float, float]:
         """
         Calculate all three spectral features in one call with pre-computed STFT.
 

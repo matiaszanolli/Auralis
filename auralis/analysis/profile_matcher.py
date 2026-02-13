@@ -10,7 +10,7 @@ Never assumes based on genre labels - only uses audio analysis.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -33,7 +33,7 @@ class ProfileMatcher:
     - dio_holy_diver: Maximum loudness (-8.6 LUFS, 11.6 dB crest)
     """
 
-    def __init__(self, profiles_dir: Optional[Path] = None) -> None:
+    def __init__(self, profiles_dir: Path | None = None) -> None:
         """
         Initialize profile matcher.
 
@@ -49,7 +49,7 @@ class ProfileMatcher:
 
         logger.info(f"Loaded {len(self.profiles)} mastering profiles")
 
-    def _load_profiles(self) -> Dict[str, Any]:
+    def _load_profiles(self) -> dict[str, Any]:
         """Load all profile JSON files."""
         profiles = {}
 
@@ -66,7 +66,7 @@ class ProfileMatcher:
         for profile_key, filename in profile_files.items():
             filepath = self.profiles_dir / filename
             if filepath.exists():
-                with open(filepath, 'r') as f:
+                with open(filepath) as f:
                     profiles[profile_key] = json.load(f)
                 logger.debug(f"Loaded profile: {profile_key}")
             else:
@@ -74,13 +74,13 @@ class ProfileMatcher:
 
         return profiles
 
-    def get_profile(self, profile_key: str) -> Optional[Dict[str, Any]]:
+    def get_profile(self, profile_key: str) -> dict[str, Any] | None:
         """Get a specific profile by key."""
         return self.profiles.get(profile_key)
 
-    def generate_target(self, content_analysis: Dict[str, Any],
+    def generate_target(self, content_analysis: dict[str, Any],
                        preserve_character: bool = True,
-                       user_preference: Optional[str] = None) -> Dict[str, Any]:
+                       user_preference: str | None = None) -> dict[str, Any]:
         """
         Generate processing target based on content analysis.
 
@@ -99,7 +99,7 @@ class ProfileMatcher:
         # Get matched profile
         profile_key = content_analysis['profile_match']
         confidence = content_analysis['confidence']
-        profile: Optional[Dict[str, Any]] = self.get_profile(profile_key)
+        profile: dict[str, Any] | None = self.get_profile(profile_key)
 
         if profile is None:
             logger.warning(f"Profile {profile_key} not found, using default")
@@ -160,8 +160,8 @@ class ProfileMatcher:
             )
         }
 
-    def _apply_user_preference(self, preference: str, source_dynamic: Dict[str, Any],
-                              source_spectral: Dict[str, Any]) -> Tuple[str, Optional[Dict[str, Any]]]:
+    def _apply_user_preference(self, preference: str, source_dynamic: dict[str, Any],
+                              source_spectral: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
         """
         Apply user preference override.
 
@@ -185,8 +185,8 @@ class ProfileMatcher:
         return profile_key, self.get_profile(profile_key)
 
     def _adjust_for_character_preservation(self, target_lufs: float, target_crest: float,
-                                          source_dynamic: Dict[str, Any], source_spectral: Dict[str, Any],
-                                          profile_key: str) -> Tuple[float, float]:
+                                          source_dynamic: dict[str, Any], source_spectral: dict[str, Any],
+                                          profile_key: str) -> tuple[float, float]:
         """
         Adjust target to preserve source character.
 
@@ -224,7 +224,7 @@ class ProfileMatcher:
 
         return adjusted_lufs, adjusted_crest
 
-    def _calculate_processing_intensity(self, source_dynamic: Dict[str, Any], target_lufs: float,
+    def _calculate_processing_intensity(self, source_dynamic: dict[str, Any], target_lufs: float,
                                        target_crest: float, confidence: float) -> float:
         """
         Calculate how aggressive the processing should be.
@@ -264,7 +264,7 @@ class ProfileMatcher:
 
         return intensity
 
-    def _describe_adjustments(self, source_dynamic: Dict[str, Any], target_lufs: float,
+    def _describe_adjustments(self, source_dynamic: dict[str, Any], target_lufs: float,
                             target_crest: float, profile_key: str) -> str:
         """Generate human-readable description of adjustments."""
         source_lufs = source_dynamic['estimated_lufs']
@@ -304,11 +304,11 @@ class ProfileMatcher:
 
         return ", ".join(parts)
 
-    def get_all_profile_keys(self) -> List[str]:
+    def get_all_profile_keys(self) -> list[str]:
         """Get list of all available profile keys."""
         return list(self.profiles.keys())
 
-    def compare_to_profile(self, content_analysis: Dict[str, Any], profile_key: str) -> Dict[str, Any]:
+    def compare_to_profile(self, content_analysis: dict[str, Any], profile_key: str) -> dict[str, Any]:
         """
         Compare source audio to a specific profile.
 

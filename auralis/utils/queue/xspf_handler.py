@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 XSPF Playlist Format Handler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -19,7 +17,7 @@ XSPF Format:
 import logging
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 from xml.dom import minidom
 
 logger = logging.getLogger(__name__)
@@ -32,7 +30,7 @@ class XSPFHandler:
     XSPF_VERSION = '1'
 
     @staticmethod
-    def export(tracks: List[Dict[str, Any]], title: str = 'Queue') -> str:
+    def export(tracks: list[dict[str, Any]], title: str = 'Queue') -> str:
         """
         Export tracks to XSPF format
 
@@ -118,7 +116,7 @@ class XSPFHandler:
         return result
 
     @staticmethod
-    def import_from_string(content: str, base_path: str = '') -> Tuple[List[str], List[str]]:
+    def import_from_string(content: str, base_path: str = '') -> tuple[list[str], list[str]]:
         """
         Import XSPF format string and extract file paths
 
@@ -129,8 +127,8 @@ class XSPFHandler:
         Returns:
             Tuple of (filepaths, errors)
         """
-        filepaths: List[str] = []
-        errors: List[str] = []
+        filepaths: list[str] = []
+        errors: list[str] = []
 
         try:
             root = ET.fromstring(content)
@@ -172,7 +170,7 @@ class XSPFHandler:
         return filepaths, errors
 
     @staticmethod
-    def import_from_file(filepath: str) -> Tuple[List[str], List[str]]:
+    def import_from_file(filepath: str) -> tuple[list[str], list[str]]:
         """
         Import XSPF file and extract file paths
 
@@ -192,7 +190,7 @@ class XSPFHandler:
             if not file_path.exists():
                 raise FileNotFoundError(f'XSPF file not found: {filepath}')
 
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 content = f.read()
 
             # Use directory of XSPF file as base for relative paths
@@ -206,7 +204,7 @@ class XSPFHandler:
             raise ValueError(f'Failed to read XSPF file: {str(e)}')
 
     @staticmethod
-    def validate(content: str) -> Tuple[bool, List[str]]:
+    def validate(content: str) -> tuple[bool, list[str]]:
         """
         Validate XSPF content
 

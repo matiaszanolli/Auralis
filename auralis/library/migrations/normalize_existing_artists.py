@@ -17,7 +17,6 @@ Usage:
 
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -33,7 +32,7 @@ def get_database_path() -> Path:
     return Path.home() / '.auralis' / 'library.db'
 
 
-def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = False) -> Dict[str, any]:
+def normalize_existing_artists(db_path: Path | None = None, dry_run: bool = False) -> dict[str, any]:
     """
     Normalize existing artist data in the database.
 

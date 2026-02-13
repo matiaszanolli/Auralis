@@ -9,7 +9,7 @@ API endpoints for streamlined two-tier cache management and statistics.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from cache import StreamlinedCacheManager
 from fastapi import APIRouter, HTTPException
@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 
 class CacheStatsResponse(BaseModel):
     """Response model for cache statistics."""
-    tier1: Dict[str, Any]
-    tier2: Dict[str, Any]
-    overall: Dict[str, Any]
-    tracks: Dict[int, Dict[str, Any]]
+    tier1: dict[str, Any]
+    tier2: dict[str, Any]
+    overall: dict[str, Any]
+    tracks: dict[int, dict[str, Any]]
 
 
 class TrackCacheStatus(BaseModel):
@@ -38,7 +38,7 @@ class TrackCacheStatus(BaseModel):
 
 def create_streamlined_cache_router(
     cache_manager: StreamlinedCacheManager,
-    broadcast_manager: Optional[Any] = None
+    broadcast_manager: Any | None = None
 ) -> APIRouter:
     """
     Create streamlined cache management router.
@@ -105,7 +105,7 @@ def create_streamlined_cache_router(
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.post("/clear")
-    async def clear_cache() -> Dict[str, str]:
+    async def clear_cache() -> dict[str, str]:
         """
         Clear all caches (Tier 1 and Tier 2).
 
@@ -127,7 +127,7 @@ def create_streamlined_cache_router(
             raise HTTPException(status_code=500, detail=str(e))
 
     @router.get("/health")
-    async def cache_health() -> Dict[str, Any]:
+    async def cache_health() -> dict[str, Any]:
         """
         Get cache system health status.
 

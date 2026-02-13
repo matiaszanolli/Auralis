@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Content Analysis Facade
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -16,7 +14,7 @@ and provides a single entry point for all content analysis operations.
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -63,7 +61,7 @@ class ContentAnalysisFacade:
     def __init__(
         self,
         sample_rate: int = 44100,
-        config: Optional[Any] = None,
+        config: Any | None = None,
         use_ml_classification: bool = True,
         use_tempo_detection: bool = True,
         realtime_mode: bool = False
@@ -85,9 +83,9 @@ class ContentAnalysisFacade:
         self.realtime_mode = realtime_mode
         
         # Lazy initialization (only create when needed)
-        self._content_analyzer: Optional[Any] = None
-        self._target_generator: Optional[Any] = None
-        self._spectrum_mapper: Optional[Any] = None
+        self._content_analyzer: Any | None = None
+        self._target_generator: Any | None = None
+        self._spectrum_mapper: Any | None = None
         
         logger.debug(
             f"ContentAnalysisFacade initialized: "
@@ -145,7 +143,7 @@ class ContentAnalysisFacade:
         self,
         audio: np.ndarray,
         **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Full content analysis with all features.
         
@@ -170,7 +168,7 @@ class ContentAnalysisFacade:
     def analyze_quick(
         self,
         audio: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Quick analysis for real-time streaming.
         
@@ -238,7 +236,7 @@ class ContentAnalysisFacade:
         audio: np.ndarray,
         realtime: bool = False,
         **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adaptive analysis: quick if realtime=True, full otherwise.
         
@@ -266,7 +264,7 @@ class ContentAnalysisFacade:
 
 
 # Global facade instance (singleton pattern)
-_global_content_analysis_facade: Optional[ContentAnalysisFacade] = None
+_global_content_analysis_facade: ContentAnalysisFacade | None = None
 
 
 def get_content_analysis_facade(

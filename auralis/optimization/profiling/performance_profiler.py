@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Performance Profiler
 ~~~~~~~~~~~~~~~~~~~~
@@ -14,7 +12,8 @@ import threading
 import time
 from collections import defaultdict, deque
 from functools import wraps
-from typing import Any, Callable, Dict, List
+from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 
@@ -23,8 +22,8 @@ class PerformanceProfiler:
     """Performance profiling and monitoring"""
 
     def __init__(self) -> None:
-        self.timings: Dict[str, List[float]] = defaultdict(list)
-        self.counters: Dict[str, int] = defaultdict(int)
+        self.timings: dict[str, list[float]] = defaultdict(list)
+        self.counters: dict[str, int] = defaultdict(int)
         self.memory_usage: deque[float] = deque(maxlen=1000)
         self.lock = threading.RLock()
 
@@ -52,7 +51,7 @@ class PerformanceProfiler:
             return wrapper
         return decorator
 
-    def get_performance_report(self) -> Dict[str, Any]:
+    def get_performance_report(self) -> dict[str, Any]:
         """Generate performance report"""
         with self.lock:
             report = {}

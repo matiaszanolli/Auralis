@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Peak Management
 ~~~~~~~~~~~~~~~
@@ -11,7 +9,6 @@ Consolidates safety checks and peak normalization across pipelines.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional, Tuple
 
 import numpy as np
 
@@ -30,7 +27,7 @@ class SafetyLimiter:
     SOFT_CLIP_THRESHOLD = 0.89   # Linear amplitude threshold for soft_clip (~-1 dB)
 
     @staticmethod
-    def apply_if_needed(audio: np.ndarray) -> Tuple[np.ndarray, bool]:
+    def apply_if_needed(audio: np.ndarray) -> tuple[np.ndarray, bool]:
         """
         Apply soft clipping limiter if peak exceeds safety threshold.
 
@@ -68,7 +65,7 @@ class PeakNormalizer:
 
     @staticmethod
     def normalize_to_target(audio: np.ndarray, target_peak_db: float,
-                           preset_name: Optional[str] = None) -> Tuple[np.ndarray, float]:
+                           preset_name: str | None = None) -> tuple[np.ndarray, float]:
         """
         Normalize audio peak to target level.
 

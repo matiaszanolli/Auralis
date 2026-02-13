@@ -10,7 +10,6 @@ Provides utilities for normalizing and parsing artist names:
 
 import re
 import unicodedata
-from typing import List
 
 # Patterns that indicate featured/collaborative artists
 # Order matters - more specific patterns first
@@ -99,7 +98,7 @@ def normalize_artist_name(name: str) -> str:
     return normalized
 
 
-def parse_featured_artists(artist_string: str) -> List[str]:
+def parse_featured_artists(artist_string: str) -> list[str]:
     """
     Parse artist string to extract all artists (main + featured).
 

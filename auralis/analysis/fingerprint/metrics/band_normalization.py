@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Band Normalization Table
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -16,7 +14,8 @@ Each band definition specifies:
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 
@@ -45,16 +44,16 @@ class BandNormalizationTable:
         (26, 30, "6k-20k", "air_pct", -12, 12),
     ]
 
-    def __init__(self, band_definitions: Optional[List[Tuple[int, int, str, str, int, int]]] = None) -> None:
+    def __init__(self, band_definitions: list[tuple[int, int, str, str, int, int]] | None = None) -> None:
         """
         Initialize band normalization table.
 
         Args:
             band_definitions: List of band tuples or None for standard
         """
-        self.bands: List[Tuple[int, int, str, str, int, int]] = band_definitions if band_definitions is not None else self.STANDARD_BANDS
+        self.bands: list[tuple[int, int, str, str, int, int]] = band_definitions if band_definitions is not None else self.STANDARD_BANDS
 
-    def apply_to_fingerprint(self, fingerprint: Dict[str, Any], normalize_func: Callable[[float, float, float], float]) -> Dict[int, float]:
+    def apply_to_fingerprint(self, fingerprint: dict[str, Any], normalize_func: Callable[[float, float, float], float]) -> dict[int, float]:
         """
         Apply band normalization to fingerprint using vectorized operations.
 
@@ -65,7 +64,7 @@ class BandNormalizationTable:
         Returns:
             Dictionary mapping band index to gain in dB
         """
-        eq_gains: Dict[int, float] = {}
+        eq_gains: dict[int, float] = {}
 
         for band_start, band_end, freq_range, fp_key, min_db, max_db in self.bands:
             energy_value: float = float(fingerprint.get(fp_key, 0.1))
@@ -92,6 +91,6 @@ class BandNormalizationTable:
         Returns:
             Gain in dB
         """
-        value_clipped: Union[float, np.ndarray] = np.clip(value, 0.0, 1.0)
+        value_clipped: float | np.ndarray = np.clip(value, 0.0, 1.0)
         result: float = float(min_db + (value_clipped * (max_db - min_db)))
         return result

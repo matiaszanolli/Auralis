@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Genre Weights
 ~~~~~~~~~~~~~
@@ -10,12 +8,11 @@ Model weights and genre-specific adjustments for genre classification
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, List
 
 import numpy as np
 
 
-def initialize_genre_weights(genres: List[str]) -> Dict[str, Dict[str, float]]:
+def initialize_genre_weights(genres: list[str]) -> dict[str, dict[str, float]]:
     """
     Initialize model weights for genre classification
 
@@ -65,7 +62,7 @@ def initialize_genre_weights(genres: List[str]) -> Dict[str, Dict[str, float]]:
     return weights
 
 
-def _apply_genre_specific_weights(weights: Dict[str, Dict[str, float]]) -> None:
+def _apply_genre_specific_weights(weights: dict[str, dict[str, float]]) -> None:
     """
     Apply genre-specific weight adjustments
 

@@ -18,7 +18,6 @@ import logging
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
 
@@ -33,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 class WebMEncoderError(Exception):
     """Raised when WebM encoding fails."""
-    pass
 
 
 def encode_to_webm_opus(

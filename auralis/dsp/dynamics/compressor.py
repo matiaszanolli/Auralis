@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Adaptive Compressor
 ~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Content-aware compressor with multiple detection modes
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional, Tuple, Union, cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -47,7 +45,7 @@ class AdaptiveCompressor:
         self.gain_follower = EnvelopeFollower(sample_rate, settings.attack_ms, settings.release_ms)
 
         # Lookahead buffer (will be initialized on first use to match audio dimensions)
-        self.lookahead_buffer: Optional[np.ndarray] = None
+        self.lookahead_buffer: np.ndarray | None = None
         if settings.enable_lookahead:
             self.lookahead_samples = int(settings.lookahead_ms * sample_rate / 1000)
         else:
@@ -94,7 +92,7 @@ class AdaptiveCompressor:
             combined = 0.7 * rms_level + 0.3 * peak_level
             return float(combined)
 
-    def process(self, audio: np.ndarray, detection_mode: str = "rms") -> Tuple[np.ndarray, Dict[str, float]]:
+    def process(self, audio: np.ndarray, detection_mode: str = "rms") -> tuple[np.ndarray, dict[str, float]]:
         """
         Process audio through compressor
 
@@ -179,7 +177,7 @@ class AdaptiveCompressor:
 
         return cast(np.ndarray, delayed_audio[:audio_len])
 
-    def get_current_state(self) -> Dict[str, float]:
+    def get_current_state(self) -> dict[str, float]:
         """Get current compressor state"""
         return {
             'gain_reduction_db': self.gain_reduction,

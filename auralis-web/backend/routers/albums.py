@@ -9,7 +9,8 @@ REST API endpoints for album browsing and management
 """
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 
@@ -41,7 +42,7 @@ def create_albums_router(
     async def get_albums(
         limit: int = 50,
         offset: int = 0,
-        search: Optional[str] = None,
+        search: str | None = None,
         order_by: str = 'title'
     ) -> Any:
         """

@@ -15,12 +15,10 @@ This module bridges ContentAnalyzer with TrackAnalysisCache to provide:
 """
 
 import logging
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, cast
+from typing import Any, cast
 
 import numpy as np
 
-from auralis.analysis.fingerprint import AudioFingerprintAnalyzer
 from auralis.core.analysis.content_analyzer import ContentAnalyzer
 from auralis.io.unified_loader import load_audio
 
@@ -80,7 +78,7 @@ class AnalysisExtractor:
         track_id: int,
         filepath: str,
         force_recompute: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get cached track analysis or extract if not cached.
 
@@ -114,7 +112,7 @@ class AnalysisExtractor:
             cached = self.cache.get(track_id)
             if cached is not None:
                 logger.info(f"Using cached analysis for track {track_id}")
-                return cast(Dict[str, Any], cached)
+                return cast(dict[str, Any], cached)
 
         # Cache miss - extract analysis
         logger.info(f"Extracting analysis for track {track_id} (not cached)")
@@ -125,7 +123,7 @@ class AnalysisExtractor:
 
         return analysis
 
-    def get_cached_analysis(self, track_id: int) -> Optional[Dict[str, Any]]:
+    def get_cached_analysis(self, track_id: int) -> dict[str, Any] | None:
         """
         Get cached analysis without recomputing.
 
@@ -139,7 +137,7 @@ class AnalysisExtractor:
         Returns:
             Cached analysis or None if not cached
         """
-        return cast(Optional[Dict[str, Any]], self.cache.get(track_id))
+        return cast(dict[str, Any | None], self.cache.get(track_id))
 
     def prefetch_analysis(self, track_id: int, filepath: str) -> bool:
         """
@@ -165,7 +163,7 @@ class AnalysisExtractor:
             logger.error(f"Prefetch failed for track {track_id}: {e}")
             return False
 
-    def clear_cache(self, track_id: Optional[int] = None) -> None:
+    def clear_cache(self, track_id: int | None = None) -> None:
         """
         Clear cache entry(ies).
 
@@ -174,16 +172,16 @@ class AnalysisExtractor:
         """
         self.cache.clear(track_id)
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """
         Get cache statistics.
 
         Returns:
             Dictionary with cache statistics (size, count, memory usage)
         """
-        return cast(Dict[str, Any], self.cache.get_stats())
+        return cast(dict[str, Any], self.cache.get_stats())
 
-    def _extract_analysis(self, track_id: int, filepath: str) -> Dict[str, Any]:
+    def _extract_analysis(self, track_id: int, filepath: str) -> dict[str, Any]:
         """
         Extract track-level analysis from audio file.
 
@@ -287,9 +285,9 @@ class AnalysisExtractor:
 
     def _derive_mastering_targets(
         self,
-        fingerprint: Dict[str, float],
-        content_profile: Dict[str, Any]
-    ) -> Dict[str, float]:
+        fingerprint: dict[str, float],
+        content_profile: dict[str, Any]
+    ) -> dict[str, float]:
         """
         Derive adaptive mastering targets from fingerprint.
 
@@ -308,8 +306,8 @@ class AnalysisExtractor:
 
         # Extract key characteristics
         lufs = fingerprint.get('lufs', -18.0)
-        crest_db = fingerprint.get('crest_db', 6.0)
-        bass_ratio = fingerprint.get('bass_pct', 0.0) + fingerprint.get('low_mid_pct', 0.0)
+        fingerprint.get('crest_db', 6.0)
+        fingerprint.get('bass_pct', 0.0) + fingerprint.get('low_mid_pct', 0.0)
 
         # Basic adaptive targets (full logic would be in AdaptiveMasteringEngine)
         targets = {

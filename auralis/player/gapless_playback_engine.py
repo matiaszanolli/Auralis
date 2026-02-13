@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 GaplessPlaybackEngine - Handles prebuffering and seamless track transitions
 
@@ -11,8 +9,8 @@ Responsibilities:
 """
 
 import threading
-import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 
@@ -41,20 +39,20 @@ class GaplessPlaybackEngine:
         self.prebuffer_enabled = prebuffer_enabled
 
         # Prebuffer state
-        self.next_track_buffer: Optional[np.ndarray] = None
-        self.next_track_info: Optional[Dict[str, Any]] = None
-        self.next_track_sample_rate: Optional[int] = None
-        self.prebuffer_thread: Optional[threading.Thread] = None
+        self.next_track_buffer: np.ndarray | None = None
+        self.next_track_info: dict[str, Any] | None = None
+        self.next_track_sample_rate: int | None = None
+        self.prebuffer_thread: threading.Thread | None = None
 
         # Threading
         self.update_lock = threading.Lock()
-        self.prebuffer_callbacks: list[Callable[[Dict[str, Any]], None]] = []
+        self.prebuffer_callbacks: list[Callable[[dict[str, Any]], None]] = []
 
-    def add_prebuffer_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+    def add_prebuffer_callback(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Register callback when prebuffering completes"""
         self.prebuffer_callbacks.append(callback)
 
-    def _notify_prebuffer_callbacks(self, track_info: Dict[str, Any]) -> None:
+    def _notify_prebuffer_callbacks(self, track_info: dict[str, Any]) -> None:
         """Notify callbacks that prebuffering completed"""
         for callback in self.prebuffer_callbacks:
             try:
@@ -130,7 +128,7 @@ class GaplessPlaybackEngine:
             return (self.next_track_buffer is not None and
                     self.next_track_info is not None)
 
-    def get_prebuffered_track(self) -> tuple[Optional[np.ndarray], Optional[int]]:
+    def get_prebuffered_track(self) -> tuple[np.ndarray | None, int | None]:
         """
         Get prebuffered track data if available.
 

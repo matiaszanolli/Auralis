@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Performance Optimizer
 ~~~~~~~~~~~~~~~~~~~~
@@ -18,11 +16,12 @@ Main orchestrator for performance optimization system. Coordinates:
 """
 
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 
-from ..utils.logging import debug, info
+from ..utils.logging import info
 from .acceleration import ParallelProcessor, SIMDAccelerator
 from .caching import SmartCache
 
@@ -35,14 +34,14 @@ from .profiling import PerformanceProfiler
 class PerformanceOptimizer:
     """Main performance optimization system"""
 
-    def __init__(self, config: Optional[PerformanceConfig] = None) -> None:
+    def __init__(self, config: PerformanceConfig | None = None) -> None:
         self.config: PerformanceConfig = config or PerformanceConfig()
 
         # Initialize components
-        self.memory_pool: Optional[MemoryPool] = MemoryPool(self.config.memory_pool_size_mb) if self.config.enable_caching else None
-        self.cache: Optional[SmartCache] = SmartCache(self.config.cache_size_mb, self.config.cache_ttl_seconds) if self.config.enable_caching else None
-        self.simd: Optional[SIMDAccelerator] = SIMDAccelerator() if self.config.enable_simd else None
-        self.parallel: Optional[ParallelProcessor] = ParallelProcessor(self.config.max_threads) if self.config.enable_parallel else None
+        self.memory_pool: MemoryPool | None = MemoryPool(self.config.memory_pool_size_mb) if self.config.enable_caching else None
+        self.cache: SmartCache | None = SmartCache(self.config.cache_size_mb, self.config.cache_ttl_seconds) if self.config.enable_caching else None
+        self.simd: SIMDAccelerator | None = SIMDAccelerator() if self.config.enable_simd else None
+        self.parallel: ParallelProcessor | None = ParallelProcessor(self.config.max_threads) if self.config.enable_parallel else None
         self.profiler: PerformanceProfiler = PerformanceProfiler()
 
         # Optimization state
@@ -51,7 +50,7 @@ class PerformanceOptimizer:
 
         info(f"Performance optimizer initialized with config: {self.config}")
 
-    def cached_function(self, func_name: Optional[str] = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def cached_function(self, func_name: str | None = None) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Decorator for caching function results"""
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             actual_name: str = func_name or func.__name__
@@ -78,7 +77,7 @@ class PerformanceOptimizer:
             return wrapper
         return decorator
 
-    def optimized_fft(self, audio: np.ndarray, fft_size: Optional[int] = None) -> np.ndarray:
+    def optimized_fft(self, audio: np.ndarray, fft_size: int | None = None) -> np.ndarray:
         """Optimized FFT with caching and SIMD"""
         if self.simd and len(audio) >= self.config.vectorization_threshold:
             return self.simd.fast_fft(audio, fft_size)
@@ -92,7 +91,7 @@ class PerformanceOptimizer:
         else:
             return np.convolve(signal, kernel, mode='same')
 
-    def get_audio_buffer(self, shape: Tuple[int, ...], dtype: Any = np.float32) -> np.ndarray:
+    def get_audio_buffer(self, shape: tuple[int, ...], dtype: Any = np.float32) -> np.ndarray:
         """Get optimized audio buffer"""
         if self.memory_pool:
             return self.memory_pool.get_buffer(shape, dtype)
@@ -133,7 +132,7 @@ class PerformanceOptimizer:
         if self.cache:
             self.cache.clear_expired()
 
-    def get_optimization_stats(self) -> Dict[str, Any]:
+    def get_optimization_stats(self) -> dict[str, Any]:
         """Get comprehensive optimization statistics"""
         stats = {
             'config': {
@@ -163,10 +162,10 @@ class PerformanceOptimizer:
 
 
 # Global performance optimizer instance
-_global_optimizer: Optional[PerformanceOptimizer] = None
+_global_optimizer: PerformanceOptimizer | None = None
 
 
-def get_performance_optimizer(config: Optional[PerformanceConfig] = None) -> PerformanceOptimizer:
+def get_performance_optimizer(config: PerformanceConfig | None = None) -> PerformanceOptimizer:
     """Get global performance optimizer instance"""
     global _global_optimizer
     if _global_optimizer is None:
@@ -174,7 +173,7 @@ def get_performance_optimizer(config: Optional[PerformanceConfig] = None) -> Per
     return _global_optimizer
 
 
-def create_performance_optimizer(config: Optional[PerformanceConfig] = None) -> PerformanceOptimizer:
+def create_performance_optimizer(config: PerformanceConfig | None = None) -> PerformanceOptimizer:
     """Create new performance optimizer instance"""
     return PerformanceOptimizer(config)
 

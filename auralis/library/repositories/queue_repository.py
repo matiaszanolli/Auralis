@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Queue State Repository
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,8 @@ Data access layer for queue state persistence operations
 """
 
 import json
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
@@ -34,7 +33,7 @@ class QueueRepository:
         """Get a new database session"""
         return self.session_factory()
 
-    def get_queue_state(self) -> Optional[QueueState]:
+    def get_queue_state(self) -> QueueState | None:
         """
         Get current queue state (always returns the first/only queue_state record)
         Creates default queue state if none exist
@@ -57,7 +56,7 @@ class QueueRepository:
         finally:
             session.close()
 
-    def set_queue_state(self, track_ids: List[int], current_index: int = 0,
+    def set_queue_state(self, track_ids: list[int], current_index: int = 0,
                         is_shuffled: bool = False, repeat_mode: str = 'off') -> QueueState:
         """
         Update queue state with new configuration
@@ -100,7 +99,7 @@ class QueueRepository:
         finally:
             session.close()
 
-    def update_queue_state(self, updates: Dict[str, Any]) -> QueueState:
+    def update_queue_state(self, updates: dict[str, Any]) -> QueueState:
         """
         Update queue state with provided dictionary
 
@@ -183,7 +182,7 @@ class QueueRepository:
         finally:
             session.close()
 
-    def to_dict(self, queue_state: QueueState) -> Dict[str, Any]:
+    def to_dict(self, queue_state: QueueState) -> dict[str, Any]:
         """
         Convert QueueState to dictionary for API responses
 

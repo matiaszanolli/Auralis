@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Helper Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,6 @@ General utility functions
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-import os
 import tempfile
 from typing import Any
 

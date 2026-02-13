@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Normalizer
 ~~~~~~~~~~~~~~~~~~~~~
@@ -20,7 +18,7 @@ Without normalization, high-range dimensions dominate distance calculations.
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -37,7 +35,7 @@ class DimensionStats:
     std: float
     count: int  # Number of samples used to calculate stats
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return {
             'name': self.name,
@@ -49,7 +47,7 @@ class DimensionStats:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'DimensionStats':
+    def from_dict(cls, data: dict[str, Any]) -> DimensionStats:
         """Create from dictionary"""
         return cls(
             name=data['name'],
@@ -102,7 +100,7 @@ class FingerprintNormalizer:
         'stereo_width', 'phase_correlation',
     ]
 
-    def __init__(self, use_robust: bool = True, percentile_range: Tuple[float, float] = (5.0, 95.0)):
+    def __init__(self, use_robust: bool = True, percentile_range: tuple[float, float] = (5.0, 95.0)):
         """
         Initialize normalizer
 
@@ -112,7 +110,7 @@ class FingerprintNormalizer:
         """
         self.use_robust = use_robust
         self.percentile_range = percentile_range
-        self.stats: Dict[str, DimensionStats] = {}
+        self.stats: dict[str, DimensionStats] = {}
         self.fitted = False
 
     def fit(self, fingerprint_repository: Any, min_samples: int = 10) -> bool:
@@ -170,7 +168,7 @@ class FingerprintNormalizer:
         info("Normalization statistics calculated successfully")
         return True
 
-    def normalize(self, vector: List[float]) -> np.ndarray:
+    def normalize(self, vector: list[float]) -> np.ndarray:
         """
         Normalize a fingerprint vector to [0, 1] scale
 
@@ -210,7 +208,7 @@ class FingerprintNormalizer:
 
         return normalized
 
-    def normalize_batch(self, vectors: List[List[float]]) -> np.ndarray:
+    def normalize_batch(self, vectors: list[list[float]]) -> np.ndarray:
         """
         Normalize multiple fingerprint vectors
 
@@ -302,7 +300,7 @@ class FingerprintNormalizer:
             True if successful, False otherwise
         """
         try:
-            with open(filepath, 'r') as f:
+            with open(filepath) as f:
                 data = json.load(f)
 
             self.use_robust = data['use_robust']
@@ -320,7 +318,7 @@ class FingerprintNormalizer:
             error(f"Failed to load normalization statistics: {e}")
             return False
 
-    def get_stats_summary(self) -> Dict[str, Dict[str, float]]:
+    def get_stats_summary(self) -> dict[str, dict[str, float]]:
         """
         Get summary of normalization statistics
 

@@ -11,11 +11,10 @@ Phase B.2: Cache Integration and Monitoring
 """
 
 import logging
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -93,11 +92,11 @@ class CacheMonitor:
         self.tier1_memory_critical_percent: float = 0.95
 
         # Metrics history (keep last 100 measurements)
-        self.metrics_history: List[CacheMetrics] = []
+        self.metrics_history: list[CacheMetrics] = []
         self.max_history: int = 100
 
         # Alerts
-        self.active_alerts: Dict[str, CacheAlert] = {}
+        self.active_alerts: dict[str, CacheAlert] = {}
 
         logger.info("CacheMonitor initialized with default thresholds")
 
@@ -108,7 +107,7 @@ class CacheMonitor:
         Returns:
             CacheMetrics object with current state
         """
-        stats: Dict[str, Any] = self.cache_manager.get_stats()
+        stats: dict[str, Any] = self.cache_manager.get_stats()
 
         metrics: CacheMetrics = CacheMetrics(
             tier1_hit_rate=stats["tier1"].get("hit_rate", 0.0),
@@ -235,7 +234,7 @@ class CacheMonitor:
             self.active_alerts[alert_id].current_value = current_value
             self.active_alerts[alert_id].timestamp = datetime.utcnow()
 
-    def get_health_status(self) -> tuple[HealthStatus, List[CacheAlert]]:
+    def get_health_status(self) -> tuple[HealthStatus, list[CacheAlert]]:
         """
         Get overall cache health status.
 
@@ -258,7 +257,7 @@ class CacheMonitor:
 
         return HealthStatus.WARNING, active_alerts
 
-    def get_trend(self, metric_name: str, window: int = 10) -> Dict[str, Any]:
+    def get_trend(self, metric_name: str, window: int = 10) -> dict[str, Any]:
         """
         Get trend for a metric over the last N measurements.
 
@@ -272,7 +271,7 @@ class CacheMonitor:
         if not self.metrics_history:
             return {"value": 0, "trend": "none", "change": 0}
 
-        recent: List[CacheMetrics] = self.metrics_history[-window:]
+        recent: list[CacheMetrics] = self.metrics_history[-window:]
 
         if len(recent) < 2:
             return {"value": getattr(recent[0], metric_name, 0), "trend": "none", "change": 0}
@@ -300,7 +299,7 @@ class CacheMonitor:
             "window": len(recent)
         }
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """
         Get comprehensive cache system summary.
 
@@ -312,7 +311,7 @@ class CacheMonitor:
 
         latest: CacheMetrics = self.metrics_history[-1]
         health_status: HealthStatus
-        alerts: List[CacheAlert]
+        alerts: list[CacheAlert]
         health_status, alerts = self.get_health_status()
 
         return {

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Artists API Router
 ~~~~~~~~~~~~~~~~~~
@@ -10,9 +8,10 @@ REST API endpoints for artist browsing and management
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Callable, Optional, cast
+from typing import Any, cast
+from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from .dependencies import require_repository_factory, with_error_handling
@@ -26,9 +25,9 @@ class ArtistResponse(BaseModel):
     name: str
     album_count: int
     track_count: int
-    genres: Optional[list[str]] = None
-    artwork_url: Optional[str] = None  # Phase 2: Artist artwork
-    artwork_source: Optional[str] = None  # Source: 'musicbrainz', 'discogs', etc.
+    genres: list[str] | None = None
+    artwork_url: str | None = None  # Phase 2: Artist artwork
+    artwork_source: str | None = None  # Source: 'musicbrainz', 'discogs', etc.
 
 
 class ArtistsListResponse(BaseModel):
@@ -47,15 +46,15 @@ class TrackInArtist(BaseModel):
     album: str
     album_id: int
     duration: float
-    track_number: Optional[int] = None
-    disc_number: Optional[int] = None
+    track_number: int | None = None
+    disc_number: int | None = None
 
 
 class AlbumInArtist(BaseModel):
     """Album information in artist context"""
     id: int
     title: str
-    year: Optional[int] = None
+    year: int | None = None
     track_count: int
     total_duration: float
 
@@ -67,8 +66,8 @@ class ArtistDetailResponse(BaseModel):
     albums: list[AlbumInArtist]
     total_albums: int
     total_tracks: int
-    artwork_url: Optional[str] = None  # Phase 2: Artist artwork
-    artwork_source: Optional[str] = None  # Source: 'musicbrainz', 'discogs', etc.
+    artwork_url: str | None = None  # Phase 2: Artist artwork
+    artwork_source: str | None = None  # Source: 'musicbrainz', 'discogs', etc.
 
 
 class ArtistTracksResponse(BaseModel):
@@ -100,7 +99,7 @@ def create_artists_router(
     async def get_artists(
         limit: int = Query(50, ge=1, le=200, description="Number of artists to return"),
         offset: int = Query(0, ge=0, description="Number of artists to skip"),
-        search: Optional[str] = Query(None, description="Search query for artist name"),
+        search: str | None = Query(None, description="Search query for artist name"),
         order_by: str = Query('name', description="Sort by: name, album_count, track_count")
     ) -> ArtistsListResponse:
         """Get paginated list of artists

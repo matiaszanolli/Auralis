@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 Preset Anchor Definitions
@@ -11,12 +10,11 @@ Defines preset anchor points on the processing spectrum
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Tuple
 
 from .data_classes import ProcessingParameters, SpectrumPosition
 
 
-def get_preset_anchors() -> Dict[str, Tuple[SpectrumPosition, ProcessingParameters]]:
+def get_preset_anchors() -> dict[str, tuple[SpectrumPosition, ProcessingParameters]]:
     """
     Define presets as anchor points on the spectrum.
     Each preset has a position and corresponding parameters.

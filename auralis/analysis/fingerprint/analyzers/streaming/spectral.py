@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Streaming Spectral Analyzer
 
@@ -24,7 +22,7 @@ Dependencies:
 
 import logging
 from collections import deque
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import librosa
 import numpy as np
@@ -103,7 +101,7 @@ class StreamingSpectralAnalyzer:
     metrics represent stable estimates.
     """
 
-    def __init__(self, sr: int = 44100, n_fft: int = 2048, hop_length: Optional[int] = None,
+    def __init__(self, sr: int = 44100, n_fft: int = 2048, hop_length: int | None = None,
                  window_duration: float = 5.0) -> None:
         """Initialize streaming spectral analyzer.
 
@@ -138,7 +136,7 @@ class StreamingSpectralAnalyzer:
         self.spectral_moments.reset()
         self.frame_count = 0
 
-    def update(self, frame: np.ndarray) -> Dict[str, float]:
+    def update(self, frame: np.ndarray) -> dict[str, float]:
         """Update analyzer with new audio frame.
 
         Args:
@@ -183,7 +181,7 @@ class StreamingSpectralAnalyzer:
             logger.debug(f"Streaming spectral update failed: {e}")
             return self.get_metrics()
 
-    def get_metrics(self) -> Dict[str, float]:
+    def get_metrics(self) -> dict[str, float]:
         """Get current spectral metrics.
 
         Returns:
@@ -257,7 +255,7 @@ class StreamingSpectralAnalyzer:
             logger.debug(f"Rolling rolloff calculation failed: {e}")
             return 0.5
 
-    def get_confidence(self) -> Dict[str, float]:
+    def get_confidence(self) -> dict[str, float]:
         """Get confidence scores for current metrics.
 
         Higher confidence = more frames accumulated, more stable estimates.

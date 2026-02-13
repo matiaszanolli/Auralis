@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 Auralis Web Backend
@@ -15,10 +14,9 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import uvicorn
-from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -66,20 +64,18 @@ ProcessingEngine: Any = None
 ChunkedAudioProcessor: Any = None
 try:
     from chunked_processor import ChunkedAudioProcessor
-    from processing_engine import ProcessingEngine
 except ImportError:
     HAS_PROCESSING = False
     logger.warning("⚠️  Processing components not available")
 
 try:
-    from cache import StreamlinedCacheManager
-    from streamlined_worker import StreamlinedCacheWorker
+    pass
 except ImportError:
     HAS_STREAMLINED_CACHE = False
     logger.warning("⚠️  Streamlined cache not available")
 
 try:
-    from auralis.analysis.fingerprint import FingerprintSimilarity, KNNGraphBuilder
+    pass
 except ImportError:
     HAS_SIMILARITY = False
     logger.warning("⚠️  Similarity system not available")

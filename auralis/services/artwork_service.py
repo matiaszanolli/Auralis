@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Artwork Service
 ~~~~~~~~~~~~~~~
@@ -19,8 +17,7 @@ import json
 import logging
 import urllib.parse
 import urllib.request
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +34,8 @@ class ArtworkService:
 
     def __init__(
         self,
-        discogs_token: Optional[str] = None,
-        lastfm_api_key: Optional[str] = None,
+        discogs_token: str | None = None,
+        lastfm_api_key: str | None = None,
         timeout: int = 10
     ):
         """
@@ -56,7 +53,7 @@ class ArtworkService:
         # User agent for API requests (required by MusicBrainz)
         self.user_agent = "Auralis/1.2.0 (https://github.com/matiaszanolli/Auralis)"
 
-    def fetch_artist_artwork(self, artist_name: str) -> Optional[Dict[str, Any]]:
+    def fetch_artist_artwork(self, artist_name: str) -> dict[str, Any] | None:
         """
         Fetch artist artwork from available sources.
 
@@ -92,7 +89,7 @@ class ArtworkService:
         logger.warning(f"No artwork found for artist: {artist_name}")
         return None
 
-    def _fetch_from_musicbrainz(self, artist_name: str) -> Optional[Dict[str, Any]]:
+    def _fetch_from_musicbrainz(self, artist_name: str) -> dict[str, Any] | None:
         """
         Fetch artist artwork from MusicBrainz.
 
@@ -162,7 +159,7 @@ class ArtworkService:
             logger.debug(f"MusicBrainz fetch failed for {artist_name}: {e}")
             return None
 
-    def _fetch_from_discogs(self, artist_name: str) -> Optional[Dict[str, Any]]:
+    def _fetch_from_discogs(self, artist_name: str) -> dict[str, Any] | None:
         """
         Fetch artist artwork from Discogs API.
 
@@ -213,7 +210,7 @@ class ArtworkService:
             logger.debug(f"Discogs fetch failed for {artist_name}: {e}")
             return None
 
-    def _fetch_from_lastfm(self, artist_name: str) -> Optional[Dict[str, Any]]:
+    def _fetch_from_lastfm(self, artist_name: str) -> dict[str, Any] | None:
         """
         Fetch artist artwork from Last.fm API.
 
@@ -266,8 +263,8 @@ class ArtworkService:
     def fetch_album_artwork(
         self,
         album_title: str,
-        artist_name: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        artist_name: str | None = None
+    ) -> dict[str, Any] | None:
         """
         Fetch album artwork from available sources.
 

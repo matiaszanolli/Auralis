@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Artwork Extraction
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,16 +9,15 @@ Album artwork extraction and management for music library
 """
 
 import hashlib
-import os
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any
 
 from mutagen import File as MutagenFile  # type: ignore[attr-defined]
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3  # type: ignore[attr-defined]
 from mutagen.mp4 import MP4, MP4Cover
 
-from ..utils.logging import debug, error, info, warning
+from ..utils.logging import debug, error, info
 
 
 class ArtworkExtractor:
@@ -44,7 +41,7 @@ class ArtworkExtractor:
         self.artwork_dir = Path(artwork_directory)
         self.artwork_dir.mkdir(parents=True, exist_ok=True)
 
-    def extract_artwork(self, audio_filepath: str, album_id: int) -> Optional[str]:
+    def extract_artwork(self, audio_filepath: str, album_id: int) -> str | None:
         """
         Extract artwork from audio file and save to artwork directory
 
@@ -95,7 +92,7 @@ class ArtworkExtractor:
             debug(f"Failed to extract artwork from {audio_filepath}: {e}")
             return None
 
-    def _find_folder_artwork(self, audio_filepath: str, album_id: int) -> Optional[str]:
+    def _find_folder_artwork(self, audio_filepath: str, album_id: int) -> str | None:
         """
         Look for folder.jpg/folder.png or cover.jpg/cover.png in the album directory
 
@@ -159,7 +156,7 @@ class ArtworkExtractor:
 
         return None
 
-    def _extract_from_id3(self, audio_file: Any) -> Tuple[Optional[bytes], Optional[str]]:
+    def _extract_from_id3(self, audio_file: Any) -> tuple[bytes | None, str | None]:
         """Extract artwork from ID3 tags (MP3)"""
         try:
             tags = audio_file if isinstance(audio_file, ID3) else audio_file.tags
@@ -177,7 +174,7 @@ class ArtworkExtractor:
 
         return None, None
 
-    def _extract_from_mp4(self, audio_file: MP4) -> Tuple[Optional[bytes], Optional[str]]:
+    def _extract_from_mp4(self, audio_file: MP4) -> tuple[bytes | None, str | None]:
         """Extract artwork from MP4/M4A files"""
         try:
             if audio_file.tags and 'covr' in audio_file.tags:  # type: ignore[unreachable]
@@ -196,7 +193,7 @@ class ArtworkExtractor:
 
         return None, None
 
-    def _extract_from_flac(self, audio_file: FLAC) -> Tuple[Optional[bytes], Optional[str]]:
+    def _extract_from_flac(self, audio_file: FLAC) -> tuple[bytes | None, str | None]:
         """Extract artwork from FLAC files"""
         try:
             if audio_file.pictures:
@@ -208,7 +205,7 @@ class ArtworkExtractor:
 
         return None, None
 
-    def _extract_from_generic(self, audio_file: Any) -> Tuple[Optional[bytes], Optional[str]]:
+    def _extract_from_generic(self, audio_file: Any) -> tuple[bytes | None, str | None]:
         """Extract artwork from generic tag formats (OGG, etc.)"""
         try:
             tags = audio_file.tags
@@ -233,7 +230,7 @@ class ArtworkExtractor:
 
         return None, None
 
-    def _save_artwork(self, artwork_data: bytes, album_id: int, mime_type: Optional[str]) -> Optional[str]:
+    def _save_artwork(self, artwork_data: bytes, album_id: int, mime_type: str | None) -> str | None:
         """
         Save artwork data to file
 
@@ -269,7 +266,7 @@ class ArtworkExtractor:
             error(f"Failed to save artwork: {e}")
             return None
 
-    def get_artwork_path(self, album_id: int) -> Optional[str]:
+    def get_artwork_path(self, album_id: int) -> str | None:
         """
         Get artwork path for album ID
 

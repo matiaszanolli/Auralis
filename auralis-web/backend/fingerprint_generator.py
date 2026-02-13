@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Generator - On-Demand Fingerprint Generation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -19,8 +17,8 @@ import atexit
 import logging
 import os
 from concurrent.futures import ProcessPoolExecutor
-from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 import soundfile as sf
@@ -50,7 +48,7 @@ except ImportError:
 _FINGERPRINT_WORKERS = min(2, (os.cpu_count() or 4) // 2)
 
 # Module-level ProcessPoolExecutor (lazy initialized)
-_fingerprint_executor: Optional[ProcessPoolExecutor] = None
+_fingerprint_executor: ProcessPoolExecutor | None = None
 
 
 def _get_fingerprint_executor() -> ProcessPoolExecutor:
@@ -82,7 +80,7 @@ def _compute_fingerprint_in_process(
     audio_data: np.ndarray,
     sample_rate: int,
     channels: int
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Module-level function to compute fingerprint in a separate process.
 
@@ -143,7 +141,7 @@ class FingerprintGenerator:
         self,
         track_id: int,
         filepath: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get fingerprint from database, or generate via PyO3 Rust if missing.
 
@@ -198,7 +196,7 @@ class FingerprintGenerator:
         self,
         filepath: str,
         track_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Call PyO3 Rust fingerprinting function to generate fingerprint.
 
@@ -263,7 +261,7 @@ class FingerprintGenerator:
         except FileNotFoundError:
             logger.error(f"Audio file not found: {filepath}")
             return None
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"Fingerprint generation timeout (>{self.TIMEOUT}s) for track {track_id}")
             return None
         except RuntimeError as e:
@@ -276,7 +274,7 @@ class FingerprintGenerator:
             return None
 
     @staticmethod
-    def _record_to_dict(fp_record: Any) -> Dict[str, Any]:
+    def _record_to_dict(fp_record: Any) -> dict[str, Any]:
         """
         Convert TrackFingerprint database record to dictionary.
 

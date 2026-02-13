@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Distance Calculator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,11 +9,9 @@ Calculates weighted Euclidean distance between fingerprints for similarity ranki
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from ...utils.logging import debug, error, info, warning
 from .metrics import MetricUtils
 
 
@@ -117,13 +113,13 @@ class DimensionWeights:
         return np.asarray(weights / weights.sum(), dtype=np.float32)
 
     @classmethod
-    def equal_weights(cls) -> 'DimensionWeights':
+    def equal_weights(cls) -> DimensionWeights:
         """Create equal weights for all dimensions (1/25 each)"""
         weight = 1.0 / 25.0
         return cls(**{field: weight for field in cls.__dataclass_fields__})
 
     @classmethod
-    def frequency_focused(cls) -> 'DimensionWeights':
+    def frequency_focused(cls) -> DimensionWeights:
         """Create weights emphasizing frequency distribution"""
         weights = cls()
         # Double frequency weights
@@ -137,7 +133,7 @@ class DimensionWeights:
         return weights
 
     @classmethod
-    def dynamics_focused(cls) -> 'DimensionWeights':
+    def dynamics_focused(cls) -> DimensionWeights:
         """Create weights emphasizing dynamics"""
         weights = cls()
         # Double dynamics weights
@@ -164,7 +160,7 @@ class FingerprintDistance:
         distance = calculator.calculate(fp1_vector, fp2_vector)
     """
 
-    def __init__(self, weights: Optional[DimensionWeights] = None):
+    def __init__(self, weights: DimensionWeights | None = None):
         """
         Initialize distance calculator
 
@@ -227,9 +223,9 @@ class FingerprintDistance:
     def find_closest_n(
         self,
         target: np.ndarray,
-        candidates: List[Tuple[int, np.ndarray]],
+        candidates: list[tuple[int, np.ndarray]],
         n: int = 10
-    ) -> List[Tuple[int, float]]:
+    ) -> list[tuple[int, float]]:
         """
         Find N closest fingerprints to target
 
@@ -288,7 +284,7 @@ class FingerprintDistance:
         self,
         vector1: np.ndarray,
         vector2: np.ndarray
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Get contribution of each dimension to total distance
 

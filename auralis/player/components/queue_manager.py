@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Queue Manager
 ~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Track queue management for audio playback
 """
 
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class QueueManager:
@@ -19,26 +17,26 @@ class QueueManager:
 
     def __init__(self) -> None:
         """Initialize queue manager"""
-        self.tracks: List[Dict[str, Any]] = []
+        self.tracks: list[dict[str, Any]] = []
         self.current_index = -1
         self.shuffle_enabled = False
         self.repeat_enabled = False
 
-    def add_track(self, track_info: Dict[str, Any]) -> None:
+    def add_track(self, track_info: dict[str, Any]) -> None:
         """Add a track to the queue"""
         self.tracks.append(track_info)
 
-    def add_tracks(self, track_list: List[Dict[str, Any]]) -> None:
+    def add_tracks(self, track_list: list[dict[str, Any]]) -> None:
         """Add multiple tracks to the queue"""
         self.tracks.extend(track_list)
 
-    def get_current_track(self) -> Optional[Dict[str, Any]]:
+    def get_current_track(self) -> dict[str, Any] | None:
         """Get current track info"""
         if 0 <= self.current_index < len(self.tracks):
             return self.tracks[self.current_index]
         return None
 
-    def peek_next(self) -> Optional[Dict[str, Any]]:
+    def peek_next(self) -> dict[str, Any] | None:
         """
         Get the next track without moving the queue position.
         Used for pre-buffering in gapless playback.
@@ -58,7 +56,7 @@ class QueueManager:
         else:
             return None
 
-    def next_track(self) -> Optional[Dict[str, Any]]:
+    def next_track(self) -> dict[str, Any] | None:
         """Move to next track"""
         if not self.tracks:
             return None
@@ -72,7 +70,7 @@ class QueueManager:
 
         return self.get_current_track()
 
-    def previous_track(self) -> Optional[Dict[str, Any]]:
+    def previous_track(self) -> dict[str, Any] | None:
         """Move to previous track"""
         if not self.tracks:
             return None
@@ -116,7 +114,7 @@ class QueueManager:
             return True
         return False
 
-    def remove_tracks(self, indices: List[int]) -> int:
+    def remove_tracks(self, indices: list[int]) -> int:
         """
         Remove multiple tracks at specified indices
 
@@ -136,7 +134,7 @@ class QueueManager:
 
         return removed_count
 
-    def reorder_tracks(self, new_order: List[int]) -> bool:
+    def reorder_tracks(self, new_order: list[int]) -> bool:
         """
         Reorder tracks according to new index order
 
@@ -189,7 +187,7 @@ class QueueManager:
                     self.current_index = 0
                     break
 
-    def get_queue(self) -> List[Dict[str, Any]]:
+    def get_queue(self) -> list[dict[str, Any]]:
         """
         Get the entire queue
 
@@ -207,7 +205,7 @@ class QueueManager:
         """
         return len(self.tracks)
 
-    def set_track_by_index(self, index: int) -> Optional[Dict[str, Any]]:
+    def set_track_by_index(self, index: int) -> dict[str, Any] | None:
         """
         Set current track by index (jump to track in queue)
 

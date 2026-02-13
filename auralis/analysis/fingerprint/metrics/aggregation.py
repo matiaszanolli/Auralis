@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Aggregation Utilities
 ~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,6 @@ Methods for aggregating frame-level features to track-level features.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -64,8 +61,8 @@ class AggregationUtils:
     @staticmethod
     def aggregate_multiple(
         frame_values: np.ndarray,
-        methods: Optional[List[str]] = None
-    ) -> Dict[str, float]:
+        methods: list[str] | None = None
+    ) -> dict[str, float]:
         """
         Aggregate frame values using multiple methods.
 
@@ -78,7 +75,7 @@ class AggregationUtils:
         Returns:
             Dictionary with aggregation method as key
         """
-        method_list: List[str] = methods if methods is not None else ["median", "std"]
+        method_list: list[str] = methods if methods is not None else ["median", "std"]
 
         return {
             method: AggregationUtils.aggregate_frames_to_track(frame_values, method)

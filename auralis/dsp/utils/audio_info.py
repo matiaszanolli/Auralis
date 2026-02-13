@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Audio Information Utilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,6 @@ Basic audio information and manipulation functions
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Tuple
 
 import numpy as np
 
@@ -84,7 +81,7 @@ def mono_to_stereo(audio: np.ndarray) -> np.ndarray:
     return np.repeat(audio, repeats=2, axis=1)
 
 
-def count_max_peaks(audio: np.ndarray) -> Tuple[float, int]:
+def count_max_peaks(audio: np.ndarray) -> tuple[float, int]:
     """
     Count maximum peaks in audio signal
 

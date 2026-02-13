@@ -10,7 +10,7 @@ Encapsulates bit depth options, file naming, and I/O operations.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Literal
+from typing import Any
 
 import numpy as np
 
@@ -146,7 +146,7 @@ class WAVEncoder:
 
         except Exception as e:
             logger.error(f"Failed to save WAV chunk: {e}")
-            raise IOError(f"WAV encoding failed: {e}") from e
+            raise OSError(f"WAV encoding failed: {e}") from e
 
     def encode_and_save_from_path(
         self,
@@ -188,7 +188,7 @@ class WAVEncoder:
         self.encode_and_save(audio, sample_rate, chunk_path, subtype)
         return chunk_path
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """
         Get encoder statistics.
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Dynamics Settings
 ~~~~~~~~~~~~~~~~~
@@ -12,7 +10,6 @@ Configuration classes for dynamics processing
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class DynamicsMode(Enum):
@@ -59,10 +56,10 @@ class DynamicsSettings:
     gate_ratio: float = 10.0
 
     enable_compressor: bool = True
-    compressor: Optional[CompressorSettings] = None
+    compressor: CompressorSettings | None = None
 
     enable_limiter: bool = True
-    limiter: Optional[LimiterSettings] = None
+    limiter: LimiterSettings | None = None
 
     # Adaptive settings
     adaptation_speed: float = 0.1

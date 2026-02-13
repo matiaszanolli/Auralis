@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Preview Creator
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -12,14 +10,14 @@ Preview generation for A/B comparison
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
 from .logging import debug, info
 
 
-def create_preview(target: np.ndarray, result: np.ndarray, config: Any, preview_target: Optional[Any] = None, preview_result: Optional[Any] = None) -> None:
+def create_preview(target: np.ndarray, result: np.ndarray, config: Any, preview_target: Any | None = None, preview_result: Any | None = None) -> None:
     """
     Create preview files for A/B comparison
 

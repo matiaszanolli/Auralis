@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Full Audio Measurement
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,6 @@ Consolidates all measurement types (peak, RMS, crest, LUFS) in one place.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Optional
 
 import numpy as np
 
@@ -26,7 +23,7 @@ class FullAudioMeasurement:
     Consolidates all measurement types (peak, RMS, crest, LUFS) in one place.
     """
 
-    def __init__(self, audio: np.ndarray, sample_rate: Optional[int] = None, label: Optional[str] = None) -> None:
+    def __init__(self, audio: np.ndarray, sample_rate: int | None = None, label: str | None = None) -> None:
         """
         Initialize with comprehensive audio analysis.
 
@@ -35,20 +32,20 @@ class FullAudioMeasurement:
             sample_rate: Sample rate (optional, for LUFS calculation)
             label: Optional label for identification
         """
-        self.label: Optional[str] = label
+        self.label: str | None = label
         self.peak: float = np.max(np.abs(audio))
         self.peak_db: float = DBConversion.to_db(self.peak)
         self.rms: float = rms(audio)
         self.rms_db: float = DBConversion.to_db(self.rms)
         self.crest: float = self.peak_db - self.rms_db
-        self.lufs: Optional[float] = None
+        self.lufs: float | None = None
 
         if sample_rate:
             self.lufs = calculate_loudness_units(audio, sample_rate)
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         """Convert measurement to dictionary."""
-        data: Dict[str, float] = {
+        data: dict[str, float] = {
             'peak': self.peak,
             'peak_db': self.peak_db,
             'rms': self.rms,

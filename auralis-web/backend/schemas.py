@@ -13,7 +13,7 @@ Phase B.1: Backend Endpoint Standardization
 
 import datetime
 from enum import Enum
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -28,7 +28,7 @@ class SuccessResponse(BaseModel, Generic[T]):
     """Successful API response wrapper."""
     status: str = Field(default="success", description="Response status")
     data: T = Field(description="Response payload")
-    message: Optional[str] = Field(default=None, description="Optional message")
+    message: str | None = Field(default=None, description="Optional message")
     timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
 
     model_config = ConfigDict(json_schema_extra={
@@ -46,7 +46,7 @@ class ErrorResponse(BaseModel):
     status: str = Field(default="error", description="Response status")
     error: str = Field(description="Error type/code")
     message: str = Field(description="Human-readable error message")
-    details: Optional[Dict[str, Any]] = Field(default=None, description="Additional error details")
+    details: dict[str, Any] | None = Field(default=None, description="Additional error details")
     timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
 
     model_config = ConfigDict(json_schema_extra={
@@ -76,7 +76,7 @@ class PaginationParams(BaseModel):
 
 class CursorPaginationParams(BaseModel):
     """Cursor-based pagination parameters."""
-    cursor: Optional[str] = Field(default=None, description="Pagination cursor")
+    cursor: str | None = Field(default=None, description="Pagination cursor")
     limit: int = Field(default=50, ge=1, le=500, description="Items per page")
 
     model_config = ConfigDict(json_schema_extra={
@@ -105,7 +105,7 @@ class PaginationMeta(BaseModel):
 
 class CursorPaginationMeta(BaseModel):
     """Cursor-based pagination metadata."""
-    cursor: Optional[str] = Field(description="Next page cursor, null if no more items")
+    cursor: str | None = Field(description="Next page cursor, null if no more items")
     limit: int = Field(description="Items per page")
     has_more: bool = Field(description="Are there more items available")
 
@@ -121,7 +121,7 @@ class CursorPaginationMeta(BaseModel):
 class PaginatedResponse(BaseModel, Generic[T]):
     """Standard paginated response."""
     status: str = Field(default="success")
-    data: List[T] = Field(description="Page of items")
+    data: list[T] = Field(description="Page of items")
     pagination: PaginationMeta = Field(description="Pagination metadata")
     timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
 
@@ -149,7 +149,7 @@ class BatchItem(BaseModel):
     """Single item in a batch operation."""
     id: str = Field(description="Item identifier")
     action: str = Field(description="Operation type (e.g., 'add', 'remove', 'update')")
-    data: Optional[Dict[str, Any]] = Field(default=None, description="Item data")
+    data: dict[str, Any] | None = Field(default=None, description="Item data")
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -162,7 +162,7 @@ class BatchItem(BaseModel):
 
 class BatchRequest(BaseModel):
     """Batch operation request."""
-    items: List[BatchItem] = Field(description="Items to operate on")
+    items: list[BatchItem] = Field(description="Items to operate on")
     atomic: bool = Field(default=False, description="All-or-nothing execution")
 
     model_config = ConfigDict(json_schema_extra={
@@ -180,8 +180,8 @@ class BatchItemResult(BaseModel):
     """Result of a single batch item operation."""
     id: str = Field(description="Item identifier")
     status: str = Field(description="Operation status (success, error)")
-    message: Optional[str] = Field(default=None, description="Result message")
-    error: Optional[str] = Field(default=None, description="Error message if failed")
+    message: str | None = Field(default=None, description="Result message")
+    error: str | None = Field(default=None, description="Error message if failed")
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -195,7 +195,7 @@ class BatchItemResult(BaseModel):
 class BatchResponse(BaseModel):
     """Batch operation response."""
     status: str = Field(description="Overall batch status")
-    results: List[BatchItemResult] = Field(description="Results for each item")
+    results: list[BatchItemResult] = Field(description="Results for each item")
     successful: int = Field(description="Number of successful operations")
     failed: int = Field(description="Number of failed operations")
     timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
@@ -238,7 +238,7 @@ class VersionResponse(BaseModel):
     api_version: str = Field(description="API version")
     app_version: str = Field(description="Application version")
     backend_version: str = Field(description="Backend version")
-    components: Dict[str, str] = Field(description="Component versions")
+    components: dict[str, str] = Field(description="Component versions")
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -315,7 +315,7 @@ class AlbumBase(BaseModel):
 class SearchRequest(BaseModel):
     """Search request."""
     query: str = Field(min_length=1, description="Search query")
-    type: Optional[str] = Field(default=None, description="Search type (track, artist, album)")
+    type: str | None = Field(default=None, description="Search type (track, artist, album)")
     limit: int = Field(default=50, ge=1, le=500)
     offset: int = Field(default=0, ge=0)
 
@@ -331,7 +331,7 @@ class SearchRequest(BaseModel):
 
 class FilterRequest(BaseModel):
     """Filter request."""
-    filters: Dict[str, Any] = Field(description="Filter criteria")
+    filters: dict[str, Any] = Field(description="Filter criteria")
     limit: int = Field(default=50, ge=1, le=500)
     offset: int = Field(default=0, ge=0)
 
@@ -382,7 +382,7 @@ class ChunkCacheMetadata(BaseModel):
     """Metadata about a cached chunk."""
     track_id: int = Field(description="Track ID")
     chunk_index: int = Field(description="Chunk index")
-    preset: Optional[str] = Field(description="Preset name or 'original'")
+    preset: str | None = Field(description="Preset name or 'original'")
     intensity: float = Field(ge=0.0, le=1.0, description="Processing intensity")
     source: CacheSource = Field(description="Cache tier (tier1, tier2, miss)")
     timestamp: datetime.datetime = Field(description="Cache creation time")
@@ -409,7 +409,7 @@ class TrackCacheStatusResponse(BaseModel):
     cached_processed: int = Field(description="Cached processed chunks")
     completion_percent: float = Field(ge=0.0, le=100.0, description="Cache completion percentage")
     fully_cached: bool = Field(description="Is track fully cached")
-    estimated_cache_time_seconds: Optional[float] = Field(description="Time to cache remaining chunks")
+    estimated_cache_time_seconds: float | None = Field(description="Time to cache remaining chunks")
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -471,7 +471,7 @@ class CacheStatsResponse(BaseModel):
     tier1: CacheTierStats = Field(description="Tier 1 (hot) cache stats")
     tier2: CacheTierStats = Field(description="Tier 2 (warm) cache stats")
     overall: OverallCacheStats = Field(description="Overall cache stats")
-    tracks: Dict[int, TrackCacheStatusResponse] = Field(description="Per-track cache status")
+    tracks: dict[int, TrackCacheStatusResponse] = Field(description="Per-track cache status")
     timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
 
     model_config = ConfigDict(json_schema_extra={
@@ -552,7 +552,7 @@ class CacheAwareResponse(BaseModel, Generic[T]):
     cache_source: CacheSource = Field(description="Where data came from")
     cache_hit: bool = Field(description="Was this a cache hit")
     processing_time_ms: float = Field(description="Time to process/retrieve in milliseconds")
-    message: Optional[str] = Field(default=None, description="Optional message")
+    message: str | None = Field(default=None, description="Optional message")
     timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
 
     model_config = ConfigDict(json_schema_extra={

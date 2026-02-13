@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 K-Nearest Neighbors Graph Builder
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ Builds and maintains pre-computed similarity graph for fast queries
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -32,7 +30,7 @@ class GraphStats:
     max_distance: float
     build_time_seconds: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'total_tracks': self.total_tracks,
             'total_edges': self.total_edges,
@@ -188,7 +186,7 @@ class KNNGraphBuilder:
 
     def update_graph(
         self,
-        track_ids: List[int],
+        track_ids: list[int],
         k: int = 10
     ) -> int:
         """
@@ -243,8 +241,8 @@ class KNNGraphBuilder:
     def get_neighbors(
         self,
         track_id: int,
-        limit: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        limit: int | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get pre-computed neighbors from graph (fast query)
 
@@ -258,7 +256,7 @@ class KNNGraphBuilder:
         edges = self.graph_repo.get_neighbors(track_id, limit)
         return [edge.to_dict() for edge in edges]
 
-    def get_graph_stats(self) -> Optional[GraphStats]:
+    def get_graph_stats(self) -> GraphStats | None:
         """
         Get statistics about current graph
 

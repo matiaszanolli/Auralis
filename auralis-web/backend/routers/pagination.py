@@ -8,7 +8,7 @@ reducing boilerplate and ensuring consistency.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -62,7 +62,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
         total: int,
         limit: int,
         offset: int
-    ) -> 'PaginatedResponse[T]':
+    ) -> PaginatedResponse[T]:
         """
         Create a paginated response with automatic has_more calculation.
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Adaptive Strategy Selector for Fingerprint Analysis
 
@@ -29,7 +27,7 @@ Implementation follows Phase 7B validation findings:
 
 import logging
 from enum import Enum
-from typing import Any, Dict, Literal, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +64,7 @@ class AdaptiveStrategySelector:
         """
         self.default_mode = default_mode
         self.user_preference = StrategyPreference.AUTO
-        self.user_override: Optional[str] = None
+        self.user_override: str | None = None
 
         # Thresholds for strategy selection
         self.short_track_threshold_s = 60.0  # Below this = full-track
@@ -77,7 +75,7 @@ class AdaptiveStrategySelector:
     def select_strategy(
         self,
         audio_length_s: float,
-        mode: Optional[ProcessingMode] = None,
+        mode: ProcessingMode | None = None,
     ) -> str:
         """
         Select optimal strategy for fingerprint analysis.
@@ -149,7 +147,7 @@ class AdaptiveStrategySelector:
         else:
             self.user_override = None
 
-    def set_user_override(self, strategy: Optional[str]) -> None:
+    def set_user_override(self, strategy: str | None) -> None:
         """
         Force a specific strategy regardless of heuristics.
 
@@ -165,7 +163,7 @@ class AdaptiveStrategySelector:
 
         self.user_override = strategy
 
-    def get_strategy_info(self, audio_length_s: float) -> Dict[str, Any]:
+    def get_strategy_info(self, audio_length_s: float) -> dict[str, Any]:
         """
         Get detailed strategy selection information.
 
@@ -204,8 +202,8 @@ class AdaptiveStrategySelector:
 
     def configure_thresholds(
         self,
-        short_track_threshold_s: Optional[float] = None,
-        quality_preference_threshold_s: Optional[float] = None,
+        short_track_threshold_s: float | None = None,
+        quality_preference_threshold_s: float | None = None,
     ) -> None:
         """
         Configure strategy selection thresholds.

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 AudioFileManager - Handles audio file I/O operations
 
@@ -11,12 +9,12 @@ Responsibilities:
 """
 
 import os
-from typing import Optional, Tuple, cast
+from typing import cast
 
 import numpy as np
 
 from ..io.loader import load
-from ..utils.logging import debug, error, info, warning
+from ..utils.logging import error, info
 
 
 class AudioFileManager:
@@ -31,12 +29,12 @@ class AudioFileManager:
         self.sample_rate = sample_rate
 
         # Audio data
-        self.audio_data: Optional[np.ndarray] = None
-        self.current_file: Optional[str] = None
+        self.audio_data: np.ndarray | None = None
+        self.current_file: str | None = None
 
         # Reference audio
-        self.reference_data: Optional[np.ndarray] = None
-        self.reference_file: Optional[str] = None
+        self.reference_data: np.ndarray | None = None
+        self.reference_file: str | None = None
 
     def load_file(self, file_path: str) -> bool:
         """

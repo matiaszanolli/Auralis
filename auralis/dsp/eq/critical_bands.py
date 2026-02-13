@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Critical Band Calculations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,6 @@ Bark scale critical band definitions and frequency mapping
 """
 
 from dataclasses import dataclass
-from typing import List
 
 import numpy as np
 
@@ -27,7 +24,7 @@ class CriticalBand:
     weight: float  # Perceptual importance weight
 
 
-def create_critical_bands() -> List[CriticalBand]:
+def create_critical_bands() -> list[CriticalBand]:
     """
     Create critical bands based on Bark scale
 
@@ -128,7 +125,7 @@ def create_perceptual_weighting(sample_rate: int, fft_size: int) -> np.ndarray:
     return weights
 
 
-def create_frequency_mapping(critical_bands: List[CriticalBand],
+def create_frequency_mapping(critical_bands: list[CriticalBand],
                             sample_rate: int,
                             fft_size: int) -> np.ndarray:
     """

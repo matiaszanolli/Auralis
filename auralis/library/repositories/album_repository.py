@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Album Repository
 ~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Data access layer for album operations
 """
 
 from pathlib import Path
-from typing import Callable, List, Optional
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
@@ -32,7 +30,7 @@ class AlbumRepository:
     def get_session(self) -> Session:
         return self.session_factory()
 
-    def get_by_id(self, album_id: int) -> Optional[Album]:
+    def get_by_id(self, album_id: int) -> Album | None:
         """Get album by ID with relationships loaded"""
         session = self.get_session()
         try:
@@ -46,7 +44,7 @@ class AlbumRepository:
         finally:
             session.close()
 
-    def get_by_title(self, title: str) -> Optional[Album]:
+    def get_by_title(self, title: str) -> Album | None:
         """Get album by title with relationships loaded"""
         session = self.get_session()
         try:
@@ -60,7 +58,7 @@ class AlbumRepository:
         finally:
             session.close()
 
-    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[List[Album], int]:
+    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Album], int]:
         """
         Get all albums with pagination and total count
 
@@ -98,7 +96,7 @@ class AlbumRepository:
         finally:
             session.close()
 
-    def get_recent(self, limit: int = 50, offset: int = 0) -> List[Album]:
+    def get_recent(self, limit: int = 50, offset: int = 0) -> list[Album]:
         """Get recently added albums with pagination"""
         session = self.get_session()
         try:
@@ -114,7 +112,7 @@ class AlbumRepository:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> List[Album]:
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> list[Album]:
         """
         Search albums by title or artist name
 
@@ -153,7 +151,7 @@ class AlbumRepository:
         finally:
             session.close()
 
-    def extract_and_save_artwork(self, album_id: int) -> Optional[str]:
+    def extract_and_save_artwork(self, album_id: int) -> str | None:
         """
         Extract artwork from album's tracks and save it
 
@@ -241,7 +239,7 @@ class AlbumRepository:
         finally:
             session.close()
 
-    def update_artwork_path(self, album_id: int, artwork_path: str) -> Optional[Album]:
+    def update_artwork_path(self, album_id: int, artwork_path: str) -> Album | None:
         """
         Update album artwork path.
 
@@ -266,7 +264,7 @@ class AlbumRepository:
             session.refresh(album)
             session.expunge(album)
             return album
-        except Exception as e:
+        except Exception:
             session.rollback()
             raise
         finally:

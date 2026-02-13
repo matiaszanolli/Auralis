@@ -10,7 +10,7 @@ These are initialized during application startup and used throughout the backend
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import WebSocket
 
@@ -26,7 +26,7 @@ class ConnectionManager:
 
     def __init__(self) -> None:
         """Initialize connection manager with empty connections list."""
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket) -> None:
         """
@@ -52,7 +52,7 @@ class ConnectionManager:
         else:
             logger.debug("WebSocket disconnect called but connection not in list (already removed)")
 
-    async def broadcast(self, message: Dict[str, Any]) -> None:
+    async def broadcast(self, message: dict[str, Any]) -> None:
         """
         Broadcast message to all connected clients.
 
@@ -61,7 +61,7 @@ class ConnectionManager:
         Args:
             message: Dictionary message to broadcast (will be JSON encoded)
         """
-        stale_connections: List[WebSocket] = []
+        stale_connections: list[WebSocket] = []
         message_json = json.dumps(message)
 
         for connection in self.active_connections:
@@ -81,7 +81,7 @@ class ConnectionManager:
             logger.info(f"Removed {len(stale_connections)} stale connection(s). Active: {len(self.active_connections)}")
 
 
-def create_globals_dict() -> Dict[str, Any]:
+def create_globals_dict() -> dict[str, Any]:
     """
     Create and initialize the global state dictionary.
 

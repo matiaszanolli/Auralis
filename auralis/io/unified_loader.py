@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Unified Audio Loader
 ~~~~~~~~~~~~~~~~~~~~
@@ -14,7 +12,7 @@ Unified audio loading system combining Matchering and Auralis capabilities
 
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import soundfile as sf
@@ -39,13 +37,13 @@ FFMPEG_FORMATS = {'.mp3', '.m4a', '.aac', '.ogg', '.wma'}
 
 
 def load_audio(
-    file_path: Union[str, Path],
+    file_path: str | Path,
     file_type: str = "audio",
-    temp_folder: Optional[str] = None,
-    target_sample_rate: Optional[int] = None,
+    temp_folder: str | None = None,
+    target_sample_rate: int | None = None,
     force_stereo: bool = False,
     normalize_on_load: bool = False
-) -> Tuple[np.ndarray, int]:
+) -> tuple[np.ndarray, int]:
     """
     Load an audio file with format detection and conversion
 
@@ -122,7 +120,7 @@ def load_audio(
     return audio_data, sample_rate
 
 
-def get_audio_info(file_path: Union[str, Path]) -> Dict[str, Any]:
+def get_audio_info(file_path: str | Path) -> dict[str, Any]:
     """
     Get information about an audio file without fully loading it
 
@@ -165,7 +163,7 @@ def get_audio_info(file_path: Union[str, Path]) -> Dict[str, Any]:
     return info_dict
 
 
-def _get_info_with_soundfile(file_path: Path) -> Dict[str, Any]:
+def _get_info_with_soundfile(file_path: Path) -> dict[str, Any]:
     """Get audio info using soundfile"""
     info = sf.info(str(file_path))
 
@@ -179,7 +177,7 @@ def _get_info_with_soundfile(file_path: Path) -> Dict[str, Any]:
     }
 
 
-def _get_info_with_ffprobe(file_path: Path) -> Dict[str, Any]:
+def _get_info_with_ffprobe(file_path: Path) -> dict[str, Any]:
     """Get audio info using FFprobe"""
     if not check_ffmpeg():
         raise ModuleError(f"{Code.ERROR_FFMPEG_NOT_FOUND}: FFprobe required")
@@ -233,7 +231,7 @@ def _get_info_with_ffprobe(file_path: Path) -> Dict[str, Any]:
         raise ModuleError("Invalid FFprobe output")
 
 
-def batch_load_info(file_paths: List[Union[str, Path]]) -> List[Dict[str, Any]]:
+def batch_load_info(file_paths: list[str | Path]) -> list[dict[str, Any]]:
     """
     Get information for multiple audio files
 
@@ -259,21 +257,21 @@ def batch_load_info(file_paths: List[Union[str, Path]]) -> List[Dict[str, Any]]:
 
 
 # Convenience functions
-def load_target(file_path: Union[str, Path], **kwargs: Any) -> Tuple[np.ndarray, int]:
+def load_target(file_path: str | Path, **kwargs: Any) -> tuple[np.ndarray, int]:
     """Load target audio file"""
     return load_audio(file_path, file_type="target", **kwargs)
 
 
-def load_reference(file_path: Union[str, Path], **kwargs: Any) -> Tuple[np.ndarray, int]:
+def load_reference(file_path: str | Path, **kwargs: Any) -> tuple[np.ndarray, int]:
     """Load reference audio file"""
     return load_audio(file_path, file_type="reference", **kwargs)
 
 
-def is_audio_file(file_path: Union[str, Path]) -> bool:
+def is_audio_file(file_path: str | Path) -> bool:
     """Check if file is a supported audio format"""
     return Path(file_path).suffix.lower() in SUPPORTED_FORMATS
 
 
-def get_supported_formats() -> List[str]:
+def get_supported_formats() -> list[str]:
     """Get list of supported audio formats"""
     return list(SUPPORTED_FORMATS.keys())

@@ -16,8 +16,7 @@ eliminating ~400 lines of duplicate validation and processing logic.
 
 import asyncio
 import logging
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -105,12 +104,12 @@ class AudioProcessingPipeline:
 
     @staticmethod
     def select_processor(
-        preset: Optional[str],
+        preset: str | None,
         intensity: float,
         processor_factory: Any,
-        track_id: Optional[int] = None,
-        mastering_targets: Optional[Dict[str, Any]] = None
-    ) -> Optional[Any]:
+        track_id: int | None = None,
+        mastering_targets: dict[str, Any] | None = None
+    ) -> Any | None:
         """
         Select appropriate processor based on preset/intensity.
 
@@ -145,11 +144,11 @@ class AudioProcessingPipeline:
     @staticmethod
     def apply_enhancement(
         audio: np.ndarray,
-        processor: Optional[Any],
-        targets: Optional[Dict[str, Any]] = None,
+        processor: Any | None,
+        targets: dict[str, Any] | None = None,
         intensity: float = 1.0,
         fast_start: bool = False,
-        chunk_index: Optional[int] = None
+        chunk_index: int | None = None
     ) -> np.ndarray:
         """
         Apply enhancement processing to audio.
@@ -242,13 +241,13 @@ class AudioProcessingPipeline:
     def process_audio(
         cls,
         audio: np.ndarray,
-        preset: Optional[str] = None,
+        preset: str | None = None,
         intensity: float = 1.0,
-        processor_factory: Optional[Any] = None,
-        track_id: Optional[int] = None,
-        targets: Optional[Dict[str, Any]] = None,
+        processor_factory: Any | None = None,
+        track_id: int | None = None,
+        targets: dict[str, Any] | None = None,
         fast_start: bool = False,
-        chunk_index: Optional[int] = None,
+        chunk_index: int | None = None,
         allow_empty: bool = False
     ) -> np.ndarray:
         """
@@ -320,10 +319,10 @@ class AudioProcessingPipeline:
     async def process_audio_async(
         cls,
         audio: np.ndarray,
-        preset: Optional[str] = None,
+        preset: str | None = None,
         intensity: float = 1.0,
-        processor_factory: Optional[Any] = None,
-        processor_lock: Optional[asyncio.Lock] = None,
+        processor_factory: Any | None = None,
+        processor_lock: asyncio.Lock | None = None,
         **kwargs: Any
     ) -> np.ndarray:
         """
@@ -366,7 +365,6 @@ class AudioProcessingPipeline:
 
 class AudioValidationError(ValueError):
     """Custom exception for audio validation failures"""
-    pass
 
 
 def validate_audio_array(
@@ -374,7 +372,7 @@ def validate_audio_array(
     min_samples: int = MIN_SAMPLES,
     allow_empty: bool = False,
     allow_silence: bool = True
-) -> Tuple[bool, Optional[str]]:
+) -> tuple[bool, str | None]:
     """
     Standalone validation function for quick checks.
 

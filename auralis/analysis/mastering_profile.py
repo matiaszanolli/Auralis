@@ -16,8 +16,7 @@ the best matching mastering strategy, rather than using preset configurations.
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -39,8 +38,8 @@ class DetectionRules:
     crest_max: float     # Maximum crest factor in dB
     zcr_min: float       # Minimum zero crossing rate
     zcr_max: float       # Maximum zero crossing rate
-    centroid_min: Optional[float] = None  # Optional centroid bounds
-    centroid_max: Optional[float] = None
+    centroid_min: float | None = None  # Optional centroid bounds
+    centroid_max: float | None = None
 
     def matches(self, fingerprint: Any) -> bool:
         """Check if a fingerprint matches these rules."""
@@ -102,7 +101,7 @@ class ProcessingTargets:
     loudness_change_db: float      # Expected RMS change
     crest_change_db: float         # Expected crest factor change
     centroid_change_hz: float      # Expected centroid shift
-    target_loudness_db: Optional[float] = None  # Absolute target (if known)
+    target_loudness_db: float | None = None  # Absolute target (if known)
     description: str = ""          # Human-readable strategy description
 
 
@@ -123,7 +122,7 @@ class MasteringProfile:
     detection_rules: DetectionRules    # How to classify incoming audio
     processing_targets: ProcessingTargets  # What changes to make
 
-    source_albums: List[str] = field(default_factory=list)    # Training sources
+    source_albums: list[str] = field(default_factory=list)    # Training sources
     training_tracks: int = 0           # Number of tracks used to derive this
     confidence: float = 0.85           # Confidence level (0-1)
     version: str = "1.0"               # Version for tracking improvements
@@ -131,13 +130,13 @@ class MasteringProfile:
     updated: str = field(default_factory=lambda: datetime.now().isoformat())
 
     # Historical metadata
-    release_type: Optional[str] = None  # e.g., "live", "studio", "damaged", "reference"
-    genre_hint: Optional[str] = None    # e.g., "rock", "metal", "pop"
-    era_estimate: Optional[int] = None  # Estimated original recording year
+    release_type: str | None = None  # e.g., "live", "studio", "damaged", "reference"
+    genre_hint: str | None = None    # e.g., "rock", "metal", "pop"
+    era_estimate: int | None = None  # Estimated original recording year
 
     notes: str = ""                    # Additional context
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             'profile_id': self.profile_id,
@@ -165,7 +164,7 @@ class MasteringProfile:
             return json.dumps(data, indent=2)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "MasteringProfile":
+    def from_dict(cls, data: dict[str, Any]) -> MasteringProfile:
         """Create from dictionary."""
         dr = DetectionRules(**data['detection_rules'])
         pt = ProcessingTargets(**data['processing_targets'])
@@ -188,7 +187,7 @@ class MasteringProfile:
         )
 
     @classmethod
-    def from_yaml_str(cls, yaml_str: str) -> "MasteringProfile":
+    def from_yaml_str(cls, yaml_str: str) -> MasteringProfile:
         """Create from YAML string."""
         data = yaml.safe_load(yaml_str)
         return cls.from_dict(data)
@@ -206,8 +205,8 @@ class MasteringProfileDatabase:
     """
 
     def __init__(self) -> None:
-        self.profiles: Dict[str, MasteringProfile] = {}
-        self.profile_history: Dict[str, List[MasteringProfile]] = {}  # For versioning
+        self.profiles: dict[str, MasteringProfile] = {}
+        self.profile_history: dict[str, list[MasteringProfile]] = {}  # For versioning
 
     def add_profile(self, profile: MasteringProfile) -> None:
         """Add a profile to the database."""
@@ -217,7 +216,7 @@ class MasteringProfileDatabase:
         self.profiles[profile.profile_id] = profile
         print(f"Added profile: {profile.name} (v{profile.version})")
 
-    def rank_profiles(self, fingerprint: Any, top_k: int = 5) -> List[Tuple[MasteringProfile, float]]:
+    def rank_profiles(self, fingerprint: Any, top_k: int = 5) -> list[tuple[MasteringProfile, float]]:
         """
         Rank profiles by similarity to incoming fingerprint.
 
@@ -236,7 +235,7 @@ class MasteringProfileDatabase:
 
         return rankings[:top_k]
 
-    def find_best_profile(self, fingerprint: Any) -> Optional[Tuple[MasteringProfile, float]]:
+    def find_best_profile(self, fingerprint: Any) -> tuple[MasteringProfile, float] | None:
         """Find the single best matching profile."""
         rankings = self.rank_profiles(fingerprint, top_k=1)
         return rankings[0] if rankings else None
@@ -254,11 +253,11 @@ class MasteringProfileDatabase:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
     @classmethod
-    def from_yaml_file(cls, file_path: str) -> "MasteringProfileDatabase":
+    def from_yaml_file(cls, file_path: str) -> MasteringProfileDatabase:
         """Load profiles from a YAML file."""
         db = cls()
 
-        with open(file_path, 'r') as f:
+        with open(file_path) as f:
             data = yaml.safe_load(f)
 
         for profile_data in data.get('profiles', []):
@@ -267,11 +266,11 @@ class MasteringProfileDatabase:
 
         return db
 
-    def list_profiles(self) -> List[MasteringProfile]:
+    def list_profiles(self) -> list[MasteringProfile]:
         """Get all profiles sorted by ID."""
         return sorted(self.profiles.values(), key=lambda p: p.profile_id)
 
-    def get_profile(self, profile_id: str) -> Optional[MasteringProfile]:
+    def get_profile(self, profile_id: str) -> MasteringProfile | None:
         """Get a specific profile by ID."""
         return self.profiles.get(profile_id)
 

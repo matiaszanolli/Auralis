@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Parallel EQ Processing Module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Queue History Repository
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,8 @@ Data access layer for queue history and undo/redo operations
 """
 
 import json
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
@@ -37,8 +36,8 @@ class QueueHistoryRepository:
         """Get a new database session"""
         return self.session_factory()
 
-    def push_to_history(self, operation: str, state_before: Dict[str, Any],
-                        metadata: Optional[Dict[str, Any]] = None) -> QueueHistory:
+    def push_to_history(self, operation: str, state_before: dict[str, Any],
+                        metadata: dict[str, Any] | None = None) -> QueueHistory:
         """
         Record a queue state change to history for undo/redo
 
@@ -85,7 +84,7 @@ class QueueHistoryRepository:
         finally:
             session.close()
 
-    def get_history(self, limit: int = 20) -> List[QueueHistory]:
+    def get_history(self, limit: int = 20) -> list[QueueHistory]:
         """
         Get recent queue history entries (newest first)
 
@@ -111,7 +110,7 @@ class QueueHistoryRepository:
         finally:
             session.close()
 
-    def undo(self, queue_repository: Any) -> Optional[QueueState]:
+    def undo(self, queue_repository: Any) -> QueueState | None:
         """
         Undo the last queue operation by restoring previous state
 
@@ -157,11 +156,11 @@ class QueueHistoryRepository:
             session.delete(latest_history)
             session.commit()
 
-            return cast(Optional[QueueState], restored)
+            return cast(QueueState | None, restored)
         finally:
             session.close()
 
-    def redo(self, queue_repository: Any) -> Optional[QueueState]:
+    def redo(self, queue_repository: Any) -> QueueState | None:
         """
         Redo a previously undone queue operation
 
@@ -218,7 +217,7 @@ class QueueHistoryRepository:
         finally:
             session.close()
 
-    def to_dict(self, entry: QueueHistory) -> Dict[str, Any]:
+    def to_dict(self, entry: QueueHistory) -> dict[str, Any]:
         """
         Convert QueueHistory entry to dictionary
 

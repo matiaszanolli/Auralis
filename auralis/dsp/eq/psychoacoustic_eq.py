@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Psychoacoustic EQ Main Class
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,14 +9,13 @@ Main orchestrator for psychoacoustic EQ processing
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 import numpy as np
 
 from ...utils.logging import debug
 from ..unified import smooth_parameter_transition
 from .critical_bands import (
-    CriticalBand,
     create_critical_bands,
     create_frequency_mapping,
     create_perceptual_weighting,
@@ -81,7 +78,7 @@ class PsychoacousticEQ:
         # Processing state
         self.current_gains = np.ones(len(self.critical_bands))
         self.target_gains = np.ones(len(self.critical_bands))
-        self.processing_history: List[Dict[str, Any]] = []
+        self.processing_history: list[dict[str, Any]] = []
 
         # Pre-compute frequency mapping
         self.freq_to_band_map = create_frequency_mapping(
@@ -92,13 +89,13 @@ class PsychoacousticEQ:
 
         # Initialize vectorized EQ processor (1.7x speedup)
         if VECTORIZED_EQ_AVAILABLE:
-            self.vectorized_processor: Optional[Any] = VectorizedEQProcessor()
+            self.vectorized_processor: Any | None = VectorizedEQProcessor()
             debug(f"Psychoacoustic EQ initialized: {len(self.critical_bands)} critical bands (vectorized)")
         else:
             self.vectorized_processor = None
             debug(f"Psychoacoustic EQ initialized: {len(self.critical_bands)} critical bands (standard)")
 
-    def analyze_spectrum(self, audio_chunk: np.ndarray) -> Dict[str, np.ndarray]:
+    def analyze_spectrum(self, audio_chunk: np.ndarray) -> dict[str, np.ndarray]:
         """
         Analyze audio spectrum for adaptive EQ
 
@@ -162,9 +159,9 @@ class PsychoacousticEQ:
         return band_energies
 
     def calculate_adaptive_gains(self,
-                                spectrum_analysis: Dict[str, Any],
+                                spectrum_analysis: dict[str, Any],
                                 target_curve: np.ndarray,
-                                content_profile: Optional[Dict[str, Any]] = None) -> np.ndarray:
+                                content_profile: dict[str, Any] | None = None) -> np.ndarray:
         """
         Calculate adaptive EQ gains based on spectrum analysis
 
@@ -271,7 +268,7 @@ class PsychoacousticEQ:
     def process_realtime_chunk(self,
                               audio_chunk: np.ndarray,
                               target_curve: np.ndarray,
-                              content_profile: Optional[Dict[str, Any]] = None) -> np.ndarray:
+                              content_profile: dict[str, Any] | None = None) -> np.ndarray:
         """
         Process audio chunk with real-time adaptive EQ
 
@@ -301,8 +298,8 @@ class PsychoacousticEQ:
 
     def _update_history(self,
                        gains: np.ndarray,
-                       spectrum_analysis: Dict[str, Any],
-                       content_profile: Optional[Dict[str, Any]]) -> None:
+                       spectrum_analysis: dict[str, Any],
+                       content_profile: dict[str, Any] | None) -> None:
         """Update processing history for learning"""
         self.processing_history.append({
             'gains': gains.copy(),
@@ -314,7 +311,7 @@ class PsychoacousticEQ:
         if len(self.processing_history) > 100:
             self.processing_history.pop(0)
 
-    def get_current_response(self) -> Dict[str, Any]:
+    def get_current_response(self) -> dict[str, Any]:
         """
         Get current EQ response
 

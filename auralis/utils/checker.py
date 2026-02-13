@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Audio Checker
 ~~~~~~~~~~~~~~~~~~~~~
@@ -12,14 +10,14 @@ Audio validation and checking utilities
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-from typing import Any, Tuple
+from typing import Any
 
 import numpy as np
 
 from .logging import Code, ModuleError, debug
 
 
-def check(audio: np.ndarray, sample_rate: int, config: Any, file_type: str = "audio") -> Tuple[np.ndarray, int]:
+def check(audio: np.ndarray, sample_rate: int, config: Any, file_type: str = "audio") -> tuple[np.ndarray, int]:
     """
     Check and validate audio data
 
@@ -114,5 +112,5 @@ def check_file_permissions(filepath: str) -> bool:
 
     try:
         return os.path.isfile(filepath) and os.access(filepath, os.R_OK)
-    except (OSError, IOError):
+    except OSError:
         return False

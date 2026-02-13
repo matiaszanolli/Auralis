@@ -11,7 +11,7 @@ Automatically optimizes system parameters based on observed behavior.
 import asyncio
 import logging
 import time
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Protocol
 
 # Import actual implementations for type hints (not Protocols)
 from learning_system import AdaptiveWeightTuner, AffinityRuleLearner, LearningSystem
@@ -96,7 +96,7 @@ class SelfTuner:
 
         self.is_enabled: bool = True
         self.is_running: bool = False
-        self.tuning_task: Optional[asyncio.Task[None]] = None
+        self.tuning_task: asyncio.Task[None] | None = None
 
         self.tuning_cycle_count: int = 0
         self.last_tuning_time: float = 0.0
@@ -287,7 +287,7 @@ class SelfTuner:
         except Exception as e:
             logger.error(f"Error checking degradation: {e}")
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get self-tuner statistics."""
         seconds_since_last: float = (
             time.time() - self.last_tuning_time
@@ -310,7 +310,7 @@ class SelfTuner:
 
 
 # Singleton instance
-_self_tuner_instance: Optional[SelfTuner] = None
+_self_tuner_instance: SelfTuner | None = None
 
 
 def create_self_tuner(
@@ -336,7 +336,7 @@ def create_self_tuner(
     )
 
 
-def get_self_tuner() -> Optional[SelfTuner]:
+def get_self_tuner() -> SelfTuner | None:
     """Get global self-tuner instance."""
     return _self_tuner_instance
 

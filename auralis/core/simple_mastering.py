@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Simple Mastering Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -13,7 +11,6 @@ Uses existing DSP components without requiring full HybridProcessor setup.
 
 import time
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 import numpy as np
 import soundfile as sf
@@ -38,7 +35,7 @@ class SimpleMasteringPipeline:
     TARGET_LUFS = -11.0
 
     def __init__(self):
-        self._fingerprint_service: Optional[FingerprintService] = None
+        self._fingerprint_service: FingerprintService | None = None
 
     @property
     def fingerprint_service(self) -> FingerprintService:
@@ -54,7 +51,7 @@ class SimpleMasteringPipeline:
         intensity: float = 1.0,
         verbose: bool = True,
         time_metrics: bool = False
-    ) -> Dict:
+    ) -> dict:
         """
         Master an audio file with adaptive processing using chunked processing.
 
@@ -70,7 +67,7 @@ class SimpleMasteringPipeline:
         Returns:
             Dict with processing info
         """
-        timings: Dict[str, float] = {}
+        timings: dict[str, float] = {}
         total_start = time.perf_counter()
 
         input_path = Path(input_path)
@@ -261,18 +258,18 @@ class SimpleMasteringPipeline:
     def _process(
         self,
         audio: np.ndarray,
-        fp: Dict,
+        fp: dict,
         peak_db: float,
         intensity: float,
         sample_rate: int,
         verbose: bool
-    ) -> Tuple[np.ndarray, Dict]:
+    ) -> tuple[np.ndarray, dict]:
         """Core processing logic using all 25D fingerprint dimensions."""
 
         # Dynamics (3D)
         lufs = fp.get('lufs', -14.0)
         crest_db = fp.get('crest_db', 12.0)
-        bass_mid_ratio = fp.get('bass_mid_ratio', 0.0)
+        fp.get('bass_mid_ratio', 0.0)
 
         # Frequency (7D) - all bands
         sub_bass_pct = fp.get('sub_bass_pct', 0.05)
@@ -284,10 +281,10 @@ class SimpleMasteringPipeline:
         air_pct = fp.get('air_pct', 0.10)
 
         # Temporal (4D)
-        tempo_bpm = fp.get('tempo_bpm', 120.0)
-        rhythm_stability = fp.get('rhythm_stability', 0.5)
+        fp.get('tempo_bpm', 120.0)
+        fp.get('rhythm_stability', 0.5)
         transient_density = fp.get('transient_density', 0.5)
-        silence_ratio = fp.get('silence_ratio', 0.0)
+        fp.get('silence_ratio', 0.0)
 
         # Spectral (3D) - brightness indicators
         spectral_centroid = fp.get('spectral_centroid', 0.5)
@@ -297,11 +294,11 @@ class SimpleMasteringPipeline:
         # Harmonic (3D)
         harmonic_ratio = fp.get('harmonic_ratio', 0.5)
         pitch_stability = fp.get('pitch_stability', 0.5)
-        chroma_energy = fp.get('chroma_energy', 0.5)
+        fp.get('chroma_energy', 0.5)
 
         # Variation (3D)
         dynamic_range_variation = fp.get('dynamic_range_variation', 0.5)
-        loudness_variation_std = fp.get('loudness_variation_std', 0.0)
+        fp.get('loudness_variation_std', 0.0)
         peak_consistency = fp.get('peak_consistency', 0.5)
 
         # Stereo (2D)
@@ -634,7 +631,7 @@ class SimpleMasteringPipeline:
         audio: np.ndarray,
         current_db: float,
         target_db: float
-    ) -> Tuple[np.ndarray, float]:
+    ) -> tuple[np.ndarray, float]:
         """Surgical peak reduction via soft clipping."""
         if current_db <= target_db:
             return audio, current_db
@@ -689,7 +686,7 @@ class SimpleMasteringPipeline:
         spectral_centroid: float = 0.5,
         air_pct: float = 0.1,
         phase_correlation: float = 1.0
-    ) -> Tuple[np.ndarray, Optional[Dict]]:
+    ) -> tuple[np.ndarray, dict | None]:
         """
         Apply gentle adaptive stereo expansion with brightness preservation.
 
@@ -817,7 +814,7 @@ class SimpleMasteringPipeline:
         intensity: float,
         sample_rate: int,
         verbose: bool
-    ) -> Tuple[np.ndarray, Optional[Dict]]:
+    ) -> tuple[np.ndarray, dict | None]:
         """
         Apply adaptive bass enhancement using a low-shelf filter.
 
@@ -895,7 +892,7 @@ class SimpleMasteringPipeline:
         intensity: float,
         sample_rate: int,
         verbose: bool
-    ) -> Tuple[np.ndarray, Optional[Dict]]:
+    ) -> tuple[np.ndarray, dict | None]:
         """
         Apply adaptive sub-bass control (20-60Hz).
 
@@ -964,7 +961,7 @@ class SimpleMasteringPipeline:
         intensity: float,
         sample_rate: int,
         verbose: bool
-    ) -> Tuple[np.ndarray, Optional[Dict]]:
+    ) -> tuple[np.ndarray, dict | None]:
         """
         Apply adaptive mid-range warmth (200-2kHz body).
 
@@ -1024,7 +1021,7 @@ class SimpleMasteringPipeline:
         intensity: float,
         sample_rate: int,
         verbose: bool
-    ) -> Tuple[np.ndarray, Optional[Dict]]:
+    ) -> tuple[np.ndarray, dict | None]:
         """
         Apply adaptive presence enhancement for dull mixes (2-6kHz boost).
 
@@ -1097,7 +1094,7 @@ class SimpleMasteringPipeline:
         intensity: float,
         sample_rate: int,
         verbose: bool
-    ) -> Tuple[np.ndarray, Optional[Dict]]:
+    ) -> tuple[np.ndarray, dict | None]:
         """
         Apply adaptive air enhancement for dark mixes (6-20kHz sparkle).
 
@@ -1169,7 +1166,7 @@ class SimpleMasteringPipeline:
         return 20 * np.log10(peak) if peak > 0 else -96.0
 
     @staticmethod
-    def _print_fingerprint(fp: Dict) -> None:
+    def _print_fingerprint(fp: dict) -> None:
         """Print key fingerprint metrics organized by category."""
         print(f"\n📊 Fingerprint (25D):")
 
@@ -1273,7 +1270,7 @@ class SimpleMasteringPipeline:
         print(f"      DR Var: {dynamic_range_variation:.0%}  │  Loudness σ: {loudness_variation_std:.1f}  │  Peak Cons: {peak_consistency:.0%}")
 
     @staticmethod
-    def _print_time_metrics(timings: Dict[str, float], duration_sec: float) -> None:
+    def _print_time_metrics(timings: dict[str, float], duration_sec: float) -> None:
         """Print detailed timing breakdown (development only)."""
         print("\n⏱️  Time Metrics:")
         print("   ─────────────────────────────────────")

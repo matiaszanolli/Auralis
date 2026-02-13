@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 DSP Backend - Rust-Only Implementation
 
@@ -16,7 +14,7 @@ for optimal performance and is bundled in all distribution packages.
 """
 
 import logging
-from typing import Any, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -28,7 +26,7 @@ class DSPBackend:
 
     # Class-level flag, initialized on module load
     AVAILABLE: bool = False
-    _module: Optional[Any] = None
+    _module: Any | None = None
 
     @classmethod
     def initialize(cls) -> None:
@@ -50,7 +48,7 @@ class DSPBackend:
             raise RuntimeError(error_msg) from e
 
     @classmethod
-    def hpss(cls, audio: np.ndarray, **kwargs: Any) -> Tuple[np.ndarray, np.ndarray]:
+    def hpss(cls, audio: np.ndarray, **kwargs: Any) -> tuple[np.ndarray, np.ndarray]:
         """
         Harmonic/Percussive Source Separation (Rust implementation).
 

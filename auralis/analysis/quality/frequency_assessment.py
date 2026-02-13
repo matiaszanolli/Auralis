@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Frequency Response Assessment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Assess audio frequency response quality
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 
@@ -54,7 +52,7 @@ class FrequencyResponseAssessor(BaseAssessor):
 
         return reference
 
-    def assess(self, spectrum_result: Dict[str, Any]) -> float:  # type: ignore[override]
+    def assess(self, spectrum_result: dict[str, Any]) -> float:  # type: ignore[override]
         """
         Assess frequency response quality (0-100)
 
@@ -80,7 +78,7 @@ class FrequencyResponseAssessor(BaseAssessor):
 
         return float(score)
 
-    def detailed_analysis(self, spectrum_result: Dict[str, Any]) -> Dict[str, Any]:  # type: ignore[override]
+    def detailed_analysis(self, spectrum_result: dict[str, Any]) -> dict[str, Any]:  # type: ignore[override]
         """
         Perform detailed frequency response analysis
 
@@ -120,8 +118,8 @@ class FrequencyResponseAssessor(BaseAssessor):
 
         return weights
 
-    def identify_frequency_issues(self, spectrum_result: Dict[str, Any],
-                                 threshold_db: float = 6.0) -> Dict[str, Any]:
+    def identify_frequency_issues(self, spectrum_result: dict[str, Any],
+                                 threshold_db: float = 6.0) -> dict[str, Any]:
         """
         Identify specific frequency response issues
 
@@ -135,7 +133,7 @@ class FrequencyResponseAssessor(BaseAssessor):
         spectrum = np.array(spectrum_result['spectrum'])
         deviation = spectrum - self.reference_curve
 
-        issues: Dict[str, Any] = {
+        issues: dict[str, Any] = {
             'excessive_bass': False,
             'lacking_bass': False,
             'harsh_mids': False,

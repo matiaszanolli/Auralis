@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Low-Mid Transient Enhancer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -150,11 +148,11 @@ class LowMidTransientEnhancer:
                 # Calculate expansion envelope
                 relative_level = np.abs(low_mid_window) / rms_level
                 # Expand: boost ratio based on level difference from mean
-                expansion_factor = np.power(relative_level, 1.0 - intensity)
+                np.power(relative_level, 1.0 - intensity)
 
                 # Apply with crossfade for smoothness
-                fade_in = np.linspace(0, 1, min(20, end - start))
-                fade_out = np.linspace(1, 0, min(20, end - start))
+                np.linspace(0, 1, min(20, end - start))
+                np.linspace(1, 0, min(20, end - start))
 
                 # Boost the transient window in the output
                 if end - start > 0:

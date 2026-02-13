@@ -11,7 +11,7 @@ Allows code expecting SimpleChunkCache to work transparently with StreamlinedCac
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional, Protocol, Tuple
+from typing import Protocol
 
 import numpy as np
 
@@ -28,9 +28,9 @@ class CacheManager(Protocol):
         self,
         track_id: int,
         chunk_idx: int,
-        preset: Optional[str] = None,
+        preset: str | None = None,
         intensity: float = 1.0,
-    ) -> Tuple[Optional[Path], str]:
+    ) -> tuple[Path | None, str]:
         """Get chunk from cache."""
         ...
 
@@ -39,7 +39,7 @@ class CacheManager(Protocol):
         track_id: int,
         chunk_idx: int,
         chunk_path: Path,
-        preset: Optional[str] = None,
+        preset: str | None = None,
         intensity: float = 1.0,
         tier: str = "auto",
     ) -> bool:
@@ -69,7 +69,7 @@ class StreamlinedCacheAdapter:
             ValueError: If manager is not a valid CacheManager
         """
         self.manager: CacheManager = manager
-        self._temp_chunk_cache: Dict[str, Tuple[np.ndarray, int]] = {}  # Temporary in-memory cache for current session
+        self._temp_chunk_cache: dict[str, tuple[np.ndarray, int]] = {}  # Temporary in-memory cache for current session
 
     async def get(
         self,
@@ -77,7 +77,7 @@ class StreamlinedCacheAdapter:
         chunk_idx: int,
         preset: str,
         intensity: float
-    ) -> Optional[Tuple[np.ndarray, int]]:
+    ) -> tuple[np.ndarray, int] | None:
         """
         Get chunk from cache (SimpleChunkCache interface).
 

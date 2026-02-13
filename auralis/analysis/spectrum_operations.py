@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Spectrum Operations
 ~~~~~~~~~~~~~~~~~~~
@@ -13,12 +11,12 @@ functions used across sequential and parallel spectrum analyzers.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, cast
 
 import numpy as np
 from scipy import signal
 
-from .fingerprint.common_metrics import AggregationUtils, AudioMetrics, MetricUtils
+from .fingerprint.common_metrics import AggregationUtils, AudioMetrics
 
 
 class SpectrumOperations:
@@ -149,7 +147,7 @@ class SpectrumOperations:
     def compute_fft(audio_data: np.ndarray,
                    window: np.ndarray,
                    fft_size: int,
-                   channel: int = 0) -> Tuple[np.ndarray, int]:
+                   channel: int = 0) -> tuple[np.ndarray, int]:
         """
         Compute FFT for audio chunk
 
@@ -223,7 +221,7 @@ class SpectrumOperations:
 
     @staticmethod
     def apply_smoothing(current_spectrum: np.ndarray,
-                       previous_spectrum: Optional[np.ndarray],
+                       previous_spectrum: np.ndarray | None,
                        smoothing_factor: float = 0.8) -> np.ndarray:
         """
         Apply exponential smoothing to spectrum
@@ -299,7 +297,7 @@ class SpectrumOperations:
     @staticmethod
     def calculate_spectral_spread(frequency_bins: np.ndarray,
                                  spectrum: np.ndarray,
-                                 centroid: Optional[float] = None) -> float:
+                                 centroid: float | None = None) -> float:
         """
         Calculate spectral spread (standard deviation around centroid)
 
@@ -348,7 +346,7 @@ class SpectrumOperations:
         return float(np.clip(flatness, 0, 1))
 
     @staticmethod
-    def get_band_names(frequency_bins: np.ndarray) -> List[str]:
+    def get_band_names(frequency_bins: np.ndarray) -> list[str]:
         """
         Get human-readable frequency band names
 
@@ -367,7 +365,7 @@ class SpectrumOperations:
         return band_names
 
     @staticmethod
-    def aggregate_analysis_results(chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def aggregate_analysis_results(chunk_results: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Aggregate spectrum analysis results across multiple chunks
 

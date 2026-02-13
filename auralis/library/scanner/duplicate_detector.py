@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Duplicate Detector
 ~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Audio file duplicate detection based on content hashing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ...utils.logging import error
 
@@ -36,7 +34,7 @@ class DuplicateDetector:
         self.file_discovery = file_discovery
         self.audio_analyzer = audio_analyzer
 
-    def find_duplicates(self, directories: Optional[List[str]] = None) -> List[List[str]]:
+    def find_duplicates(self, directories: list[str] | None = None) -> list[list[str]]:
         """
         Find duplicate audio files based on content hash
 
@@ -48,7 +46,7 @@ class DuplicateDetector:
         """
         try:
             duplicates = []
-            hash_to_files: Dict[str, List[str]] = {}
+            hash_to_files: dict[str, list[str]] = {}
 
             if directories:
                 # Scan specific directories

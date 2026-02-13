@@ -21,8 +21,6 @@ Trade-off:
 
 import io
 import logging
-from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -31,10 +29,9 @@ logger = logging.getLogger(__name__)
 
 class WAVEncoderError(Exception):
     """Raised when WAV encoding fails"""
-    pass
 
 
-def encode_to_wav(audio: np.ndarray, sample_rate: int = 44100, output_path: Optional[str] = None) -> bytes:
+def encode_to_wav(audio: np.ndarray, sample_rate: int = 44100, output_path: str | None = None) -> bytes:
     """
     Encode audio to WAV format compatible with Web Audio API.
 

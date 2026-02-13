@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Content Analysis Operations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ genre classification, and mood analysis.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, List
+from typing import Any
 
 import numpy as np
 from scipy.fft import fft, fftfreq
@@ -39,7 +37,7 @@ class ContentAnalysisOperations:
         window_size = int(0.5 * sample_rate)  # 500ms windows
         hop_size = window_size // 2
 
-        rms_values_list: List[Any] = []
+        rms_values_list: list[Any] = []
         for i in range(0, len(audio) - window_size, hop_size):
             window = audio[i:i + window_size]
             rms_val = np.sqrt(np.mean(window ** 2))
@@ -269,7 +267,7 @@ class ContentAnalysisOperations:
         # Expected harmonic frequencies
         harmonics = [fundamental * i for i in range(1, 11)]  # First 10 harmonics
 
-        deviations: List[Any] = []
+        deviations: list[Any] = []
         for harmonic_freq in harmonics:
             if harmonic_freq < sample_rate / 2:
                 # Find closest frequency bin

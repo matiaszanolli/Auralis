@@ -14,7 +14,7 @@ Architecture:
     IncomingAudio → fingerprint extraction → engine recommendation → HybridProcessor config → process
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .adaptive_mastering_engine import AdaptiveMasteringEngine, MasteringRecommendation
 from .mastering_fingerprint import MasteringFingerprint
@@ -31,8 +31,8 @@ class AuralisAdaptiveMasteringBridge:
     def __init__(self) -> None:
         """Initialize bridge with adaptive mastering engine."""
         self.engine = AdaptiveMasteringEngine()
-        self.last_recommendation: Optional[MasteringRecommendation] = None
-        self.last_fingerprint: Optional[MasteringFingerprint] = None
+        self.last_recommendation: MasteringRecommendation | None = None
+        self.last_fingerprint: MasteringFingerprint | None = None
 
     def analyze_and_recommend(self, audio_file: str) -> MasteringRecommendation:
         """
@@ -60,7 +60,7 @@ class AuralisAdaptiveMasteringBridge:
 
     def recommendation_to_processor_config(
         self, recommendation: MasteringRecommendation
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Convert mastering recommendation to HybridProcessor configuration.
 
@@ -158,7 +158,7 @@ class AuralisAdaptiveMasteringBridge:
             return 'aggressive_compression'
 
     @staticmethod
-    def _get_eq_shelves(centroid_change_hz: float) -> Dict[str, Dict[str, float]]:
+    def _get_eq_shelves(centroid_change_hz: float) -> dict[str, dict[str, float]]:
         """Calculate EQ shelves from centroid change."""
         shelves = {}
 
@@ -179,9 +179,9 @@ class AuralisAdaptiveMasteringBridge:
         return shelves
 
     @staticmethod
-    def _get_processing_order(profile: MasteringProfile) -> List[str]:
+    def _get_processing_order(profile: MasteringProfile) -> list[str]:
         """Determine optimal processing order."""
-        order: List[str] = []
+        order: list[str] = []
 
         # Dynamics first (expander/compressor)
         if profile.processing_targets.crest_change_db != 0:
@@ -215,9 +215,9 @@ class AdaptiveMasteringPipeline:
     def __init__(self) -> None:
         """Initialize pipeline."""
         self.bridge = AuralisAdaptiveMasteringBridge()
-        self.last_config: Optional[Dict[str, Any]] = None
+        self.last_config: dict[str, Any] | None = None
 
-    def process_file(self, audio_file: str, output_file: Optional[str] = None) -> Dict[str, Any]:
+    def process_file(self, audio_file: str, output_file: str | None = None) -> dict[str, Any]:
         """
         Process audio file through adaptive mastering pipeline.
 
@@ -244,7 +244,7 @@ class AdaptiveMasteringPipeline:
             'summary': recommendation.summary(),
         }
 
-    def get_config(self) -> Optional[Dict[str, Any]]:
+    def get_config(self) -> dict[str, Any] | None:
         """Get last processor configuration."""
         return self.last_config
 

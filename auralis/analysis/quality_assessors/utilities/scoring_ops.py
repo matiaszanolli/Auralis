@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Scoring Operations
 ~~~~~~~~~~~~~~~~~~
@@ -13,7 +11,7 @@ to ensure consistency and reduce code duplication.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -48,8 +46,8 @@ class ScoringOperations:
         return float(np.clip(score, 0, 100))
 
     @staticmethod
-    def range_based_score(value: float, optimal_range: Tuple[float, float],
-                         acceptable_range: Tuple[float, float]) -> float:
+    def range_based_score(value: float, optimal_range: tuple[float, float],
+                         acceptable_range: tuple[float, float]) -> float:
         """
         Score based on optimal and acceptable ranges
 
@@ -146,7 +144,7 @@ class ScoringOperations:
         return float(weighted_sum / total_weight)
 
     @staticmethod
-    def percentile_score(value: float, percentiles: Dict[int, Tuple[float, float]]) -> float:
+    def percentile_score(value: float, percentiles: dict[int, tuple[float, float]]) -> float:
         """
         Score based on percentile distribution
 
@@ -195,7 +193,7 @@ class ScoringOperations:
         return float(last_score)
 
     @staticmethod
-    def band_score(value: float, bands: List[Tuple[float, float]]) -> float:
+    def band_score(value: float, bands: list[tuple[float, float]]) -> float:
         """
         Score using frequency bands
 
@@ -235,7 +233,7 @@ class ScoringOperations:
         return float(bands[-1][1])
 
     @staticmethod
-    def consistency_score(values: List[float], target: float,
+    def consistency_score(values: list[float], target: float,
                          tolerance: float = 0.1) -> float:
         """
         Score consistency of multiple values around target

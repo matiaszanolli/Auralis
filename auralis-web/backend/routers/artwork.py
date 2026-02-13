@@ -15,7 +15,8 @@ Endpoints:
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
@@ -89,7 +90,7 @@ def create_artwork_router(
             raise HTTPException(status_code=500, detail=f"Failed to get artwork: {e}")
 
     @router.post("/api/albums/{album_id}/artwork/extract")
-    async def extract_album_artwork(album_id: int) -> Dict[str, Any]:
+    async def extract_album_artwork(album_id: int) -> dict[str, Any]:
         """
         Extract artwork from album tracks.
 
@@ -139,7 +140,7 @@ def create_artwork_router(
             raise HTTPException(status_code=500, detail=f"Failed to extract artwork: {e}")
 
     @router.delete("/api/albums/{album_id}/artwork")
-    async def delete_album_artwork(album_id: int) -> Dict[str, Any]:
+    async def delete_album_artwork(album_id: int) -> dict[str, Any]:
         """
         Delete album artwork.
 
@@ -174,7 +175,7 @@ def create_artwork_router(
             raise HTTPException(status_code=500, detail=f"Failed to delete artwork: {e}")
 
     @router.post("/api/albums/{album_id}/artwork/download")
-    async def download_album_artwork(album_id: int) -> Dict[str, Any]:
+    async def download_album_artwork(album_id: int) -> dict[str, Any]:
         """
         Download album artwork from online sources.
 

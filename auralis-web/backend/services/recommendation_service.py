@@ -11,7 +11,7 @@ Performs background analysis of loaded tracks to suggest optimal audio profiles.
 import logging
 import os
 import sys
-from typing import Any, Dict, Optional, Protocol, cast
+from typing import Any, Protocol, cast
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class BroadcastManager(Protocol):
     """Protocol for broadcast manager interface."""
 
-    async def broadcast(self, message: Dict[str, Any]) -> None:
+    async def broadcast(self, message: dict[str, Any]) -> None:
         """Broadcast message to connected clients."""
         ...
 
@@ -49,7 +49,7 @@ class RecommendationService:
         track_id: int,
         track_path: str,
         confidence_threshold: float = 0.4
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate mastering recommendation for a track and broadcast via WebSocket.
 
@@ -86,7 +86,7 @@ class RecommendationService:
 
             if rec:
                 # Serialize and broadcast
-                rec_dict = cast(Dict[str, Any], rec.to_dict())
+                rec_dict = cast(dict[str, Any], rec.to_dict())
                 rec_dict['track_id'] = track_id
                 rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
 
@@ -112,7 +112,7 @@ class RecommendationService:
         track_id: int,
         track_path: str,
         confidence_threshold: float = 0.4
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get mastering recommendation for a track without broadcasting.
 
@@ -147,7 +147,7 @@ class RecommendationService:
             rec = processor.get_mastering_recommendation(confidence_threshold=confidence_threshold)
 
             if rec:
-                rec_dict = cast(Dict[str, Any], rec.to_dict())
+                rec_dict = cast(dict[str, Any], rec.to_dict())
                 rec_dict['track_id'] = track_id
                 rec_dict['is_hybrid'] = bool(rec_dict.get('weighted_profiles'))
                 return rec_dict

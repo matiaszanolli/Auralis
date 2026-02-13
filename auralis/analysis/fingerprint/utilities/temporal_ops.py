@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Temporal Analysis Utilities
 
@@ -17,7 +15,6 @@ Features:
 
 import logging
 import warnings
-from typing import Tuple
 
 import librosa
 import numpy as np
@@ -177,7 +174,7 @@ class TemporalOperations:
             return 0.1  # Default to low silence
 
     @staticmethod
-    def calculate_all(audio: np.ndarray, sr: int) -> Tuple[float, float, float, float]:
+    def calculate_all(audio: np.ndarray, sr: int) -> tuple[float, float, float, float]:
         """
         Calculate all four temporal features in one call with pre-computed envelopes.
 

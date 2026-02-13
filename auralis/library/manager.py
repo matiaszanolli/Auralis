@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Library Manager - Backward Compatibility Wrapper
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -14,11 +12,10 @@ DEPRECATED: Use repository classes directly for new code
 """
 
 import atexit
-import os
 import threading
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -26,7 +23,7 @@ from sqlalchemy.orm import sessionmaker
 from ..utils.logging import error, info, warning
 from .cache import cached_query, get_cache_stats, invalidate_cache
 from .migration_manager import check_and_migrate_database
-from .models import Album, Artist, Base, Genre, Playlist, Track
+from .models import Base, Playlist, Track
 from .repositories import (
     AlbumRepository,
     ArtistRepository,
@@ -72,7 +69,7 @@ class LibraryManager:
     - Scanning: scan_directories()
     """
 
-    def __init__(self, database_path: Optional[str] = None) -> None:
+    def __init__(self, database_path: str | None = None) -> None:
         """
         Initialize library manager (deprecated - use RepositoryFactory instead).
 
@@ -159,7 +156,7 @@ class LibraryManager:
         # Thread-safe locking for delete operations (prevents race conditions)
         self._delete_lock = threading.RLock()
         # Track IDs that have been successfully deleted (for race condition prevention)
-        self._deleted_track_ids: Set[int] = set()
+        self._deleted_track_ids: set[int] = set()
 
         # Clean up incomplete fingerprints from interrupted sessions (crash recovery)
         self._cleanup_incomplete_fingerprints()
@@ -267,7 +264,7 @@ class LibraryManager:
         return self.SessionLocal()
 
     # Track operations (delegate to TrackRepository)
-    def add_track(self, track_info: Dict[str, Any]) -> Optional[Track]:
+    def add_track(self, track_info: dict[str, Any]) -> Track | None:
         """
         Add a track to the library with file path validation
 
@@ -295,24 +292,24 @@ class LibraryManager:
             invalidate_cache('get_all_tracks', 'search_tracks', 'get_recent_tracks')
         return track
 
-    def get_track(self, track_id: int) -> Optional[Track]:
+    def get_track(self, track_id: int) -> Track | None:
         """Get track by ID"""
         return self.tracks.get_by_id(track_id)
 
-    def get_track_by_path(self, filepath: str) -> Optional[Track]:
+    def get_track_by_path(self, filepath: str) -> Track | None:
         """Get track by file path"""
         return self.tracks.get_by_path(filepath)
 
-    def get_track_by_filepath(self, filepath: str) -> Optional[Track]:
+    def get_track_by_filepath(self, filepath: str) -> Track | None:
         """Get track by file path (alias)"""
         return self.tracks.get_by_filepath(filepath)
 
-    def update_track_by_filepath(self, filepath: str, track_info: Dict[str, Any]) -> Optional[Track]:
+    def update_track_by_filepath(self, filepath: str, track_info: dict[str, Any]) -> Track | None:
         """Update track by filepath"""
         return self.tracks.update_by_filepath(filepath, track_info)
 
     @cached_query(ttl=60)
-    def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
+    def search_tracks(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Search tracks by title, artist, album, or genre
 
         Returns:
@@ -321,17 +318,17 @@ class LibraryManager:
         return self.tracks.search(query, limit, offset)
 
     @cached_query(ttl=300)
-    def get_tracks_by_genre(self, genre_name: str, limit: int = 100) -> List[Track]:
+    def get_tracks_by_genre(self, genre_name: str, limit: int = 100) -> list[Track]:
         """Get tracks by genre"""
         return self.tracks.get_by_genre(genre_name, limit)
 
     @cached_query(ttl=300)
-    def get_tracks_by_artist(self, artist_name: str, limit: int = 100) -> List[Track]:
+    def get_tracks_by_artist(self, artist_name: str, limit: int = 100) -> list[Track]:
         """Get tracks by artist"""
         return self.tracks.get_by_artist(artist_name, limit)
 
     @cached_query(ttl=180)
-    def get_recent_tracks(self, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
+    def get_recent_tracks(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get recently added tracks (cached for 3 minutes)
 
         Returns:
@@ -340,7 +337,7 @@ class LibraryManager:
         return self.tracks.get_recent(limit, offset)
 
     @cached_query(ttl=120)
-    def get_popular_tracks(self, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
+    def get_popular_tracks(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get most played tracks (cached for 2 minutes)
 
         Returns:
@@ -349,7 +346,7 @@ class LibraryManager:
         return self.tracks.get_popular(limit, offset)
 
     @cached_query(ttl=180)
-    def get_favorite_tracks(self, limit: int = 50, offset: int = 0) -> Tuple[List[Track], int]:
+    def get_favorite_tracks(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get favorite tracks (cached for 3 minutes)
 
         Returns:
@@ -358,7 +355,7 @@ class LibraryManager:
         return self.tracks.get_favorites(limit, offset)
 
     @cached_query(ttl=300)
-    def get_all_tracks(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> Tuple[List[Track], int]:
+    def get_all_tracks(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Track], int]:
         """Get all tracks with pagination (cached for 5 minutes)
 
         Args:
@@ -383,24 +380,24 @@ class LibraryManager:
         # Only invalidate favorite-related queries
         invalidate_cache('get_favorite_tracks')
 
-    def find_reference_tracks(self, track: Track, limit: int = 5) -> List[Track]:
+    def find_reference_tracks(self, track: Track, limit: int = 5) -> list[Track]:
         """Find similar tracks for reference"""
         return self.tracks.find_similar(track, limit)
 
     # Playlist operations (delegate to PlaylistRepository)
-    def create_playlist(self, name: str, description: str = "", track_ids: Optional[List[int]] = None) -> Optional[Playlist]:
+    def create_playlist(self, name: str, description: str = "", track_ids: list[int] | None = None) -> Playlist | None:
         """Create a new playlist"""
         return self.playlists.create(name, description, track_ids or [])
 
-    def get_playlist(self, playlist_id: int) -> Optional[Playlist]:
+    def get_playlist(self, playlist_id: int) -> Playlist | None:
         """Get playlist by ID"""
         return self.playlists.get_by_id(playlist_id)
 
-    def get_all_playlists(self) -> List[Playlist]:
+    def get_all_playlists(self) -> list[Playlist]:
         """Get all playlists"""
         return self.playlists.get_all()
 
-    def update_playlist(self, playlist_id: int, update_data: Dict[str, Any]) -> bool:
+    def update_playlist(self, playlist_id: int, update_data: dict[str, Any]) -> bool:
         """Update playlist"""
         return self.playlists.update(playlist_id, update_data)
 
@@ -421,12 +418,12 @@ class LibraryManager:
         return self.playlists.clear(playlist_id)
 
     # Statistics operations (delegate to StatsRepository)
-    def get_library_stats(self) -> Dict[str, Any]:
+    def get_library_stats(self) -> dict[str, Any]:
         """Get library statistics"""
         return self.stats.get_library_stats()
 
     # Scanner operations (delegate to Scanner)
-    def scan_directories(self, directories: List[str], **kwargs: Any) -> Any:
+    def scan_directories(self, directories: list[str], **kwargs: Any) -> Any:
         """Scan directories for audio files"""
         from .scanner import LibraryScanner
         scanner = LibraryScanner(self)
@@ -450,13 +447,13 @@ class LibraryManager:
             error(f"Failed to cleanup library: {e}")
 
     # Recommendations (could be moved to dedicated recommendation service)
-    def get_recommendations(self, track: Track, limit: int = 10) -> List[Track]:
+    def get_recommendations(self, track: Track, limit: int = 10) -> list[Track]:
         """Get track recommendations based on listening history"""
         # Simplified recommendation - just return similar tracks
         return self.tracks.find_similar(track, limit)
 
     # Cache management
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """
         Get cache statistics for performance monitoring.
 
@@ -519,7 +516,7 @@ class LibraryManager:
                 error(f"Failed to delete track {track_id}: {e}")
                 return False
 
-    def update_track(self, track_id: int, track_info: Dict[str, Any]) -> Optional[Track]:
+    def update_track(self, track_id: int, track_info: dict[str, Any]) -> Track | None:
         """
         Update a track and invalidate caches
 

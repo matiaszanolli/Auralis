@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Fingerprint Extractor
 ~~~~~~~~~~~~~~~~~~~~
@@ -10,15 +8,12 @@ Extracts 25D audio fingerprints during library scanning
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import gc
-import json
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 import aiohttp
-import numpy as np
 
 from ..analysis.fingerprint import AudioFingerprintAnalyzer
 from ..io.unified_loader import load_audio
@@ -35,7 +30,6 @@ FINGERPRINT_ENDPOINT = f"{RUST_SERVER_URL}/fingerprint"
 
 class CorruptedTrackError(Exception):
     """Exception raised when a track file is corrupted and will be deleted"""
-    pass
 
 
 class FingerprintExtractor:
@@ -74,7 +68,7 @@ class FingerprintExtractor:
         self.fingerprint_strategy = fingerprint_strategy
         self.sampling_interval = sampling_interval
         self.use_rust_server = use_rust_server
-        self._rust_server_available: Optional[bool] = None  # Cache availability check
+        self._rust_server_available: bool | None = None  # Cache availability check
 
         debug(f"FingerprintExtractor initialized with strategy={fingerprint_strategy}, use_rust_server={use_rust_server}")
 
@@ -103,7 +97,7 @@ class FingerprintExtractor:
         self._rust_server_available = available
         return available
 
-    async def _get_fingerprint_from_rust_server_async(self, track_id: int, filepath: str) -> Optional[Dict[str, Any]]:
+    async def _get_fingerprint_from_rust_server_async(self, track_id: int, filepath: str) -> dict[str, Any] | None:
         """
         Async version: Call Rust fingerprinting server to extract fingerprint using aiohttp
 
@@ -137,7 +131,7 @@ class FingerprintExtractor:
                         return None
 
                     data = await response.json()
-                    fingerprint: Dict[str, Any] = data.get("fingerprint", {})
+                    fingerprint: dict[str, Any] = data.get("fingerprint", {})
 
                     # Validate we got all 25 dimensions
                     if len(fingerprint) != 25:
@@ -149,14 +143,14 @@ class FingerprintExtractor:
 
         except CorruptedTrackError:
             raise  # Re-raise corruption errors to be handled at higher level
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             error(f"Timeout calling Rust fingerprint server for track {track_id}: {e}")
             return None
         except Exception as e:
             error(f"Failed to call Rust fingerprint server for track {track_id}: {e}")
             return None
 
-    def _get_fingerprint_from_rust_server_sync(self, track_id: int, filepath: str) -> Optional[Dict[str, Any]]:
+    def _get_fingerprint_from_rust_server_sync(self, track_id: int, filepath: str) -> dict[str, Any] | None:
         """
         Synchronous HTTP request to Rust fingerprinting server.
 
@@ -203,7 +197,7 @@ class FingerprintExtractor:
                 return None
 
             data = response.json()
-            fingerprint: Dict[str, Any] = data.get("fingerprint", {})
+            fingerprint: dict[str, Any] = data.get("fingerprint", {})
 
             # Validate we got all 25 dimensions
             if len(fingerprint) != 25:
@@ -237,7 +231,6 @@ class FingerprintExtractor:
             # Get database connection from the repository (it has the DB connection info)
             # Most repositories use the auralis library database
             import os
-            from pathlib import Path as PathlibPath
 
             # Determine database path - try to get it from the repository or use default
             db_path = os.path.expanduser("~/.auralis/library.db")
@@ -292,7 +285,7 @@ class FingerprintExtractor:
         import os
         import time
         try:
-            start_time = time.time()
+            time.time()
             filepath_obj = Path(filepath)
             fingerprint = None
             cached = False
@@ -403,7 +396,7 @@ class FingerprintExtractor:
             error(f"Error extracting fingerprint for track {track_id} ({filepath}): {e}")
             return False
 
-    async def _get_fingerprints_concurrent(self, track_ids_paths: List[Tuple[int, str]], batch_size: int = 5) -> Dict[int, Optional[Dict[str, Any]]]:
+    async def _get_fingerprints_concurrent(self, track_ids_paths: list[tuple[int, str]], batch_size: int = 5) -> dict[int, dict[str, Any] | None]:
         """
         Extract fingerprints concurrently for multiple tracks (Phase 3B: Request Pipelining).
 
@@ -426,7 +419,7 @@ class FingerprintExtractor:
             batch = track_ids_paths[i:i+batch_size]
 
             # Create concurrent tasks for this batch
-            async def fetch_fingerprint(track_id: int, filepath: str) -> Tuple[int, Optional[Dict[str, Any]]]:
+            async def fetch_fingerprint(track_id: int, filepath: str) -> tuple[int, dict[str, Any] | None]:
                 """Fetch single fingerprint with error handling."""
                 try:
                     return track_id, await self._get_fingerprint_from_rust_server_async(track_id, filepath)
@@ -451,7 +444,7 @@ class FingerprintExtractor:
 
         return results
 
-    async def extract_batch_concurrent(self, track_ids_paths: List[Tuple[int, str]], batch_size: int = 5) -> Dict[str, int]:
+    async def extract_batch_concurrent(self, track_ids_paths: list[tuple[int, str]], batch_size: int = 5) -> dict[str, int]:
         """
         Extract and store fingerprints concurrently for multiple tracks (Phase 3D).
 
@@ -519,7 +512,7 @@ class FingerprintExtractor:
 
         return stats
 
-    def extract_batch(self, track_ids_paths: List[Tuple[int, str]], max_failures: int = 10) -> Dict[str, int]:
+    def extract_batch(self, track_ids_paths: list[tuple[int, str]], max_failures: int = 10) -> dict[str, int]:
         """
         Extract fingerprints for multiple tracks in batch
 
@@ -565,7 +558,7 @@ class FingerprintExtractor:
         info(f"Batch fingerprint extraction complete: {stats}")
         return stats
 
-    def extract_missing_fingerprints(self, limit: Optional[int] = None) -> Dict[str, int]:
+    def extract_missing_fingerprints(self, limit: int | None = None) -> dict[str, int]:
         """
         Extract fingerprints for tracks that don't have them yet
 
@@ -603,7 +596,7 @@ class FingerprintExtractor:
         """
         return self.extract_and_store(track_id, filepath)
 
-    def get_fingerprint(self, track_id: int) -> Optional[Dict[str, Any]]:
+    def get_fingerprint(self, track_id: int) -> dict[str, Any] | None:
         """
         Get fingerprint for a track
 

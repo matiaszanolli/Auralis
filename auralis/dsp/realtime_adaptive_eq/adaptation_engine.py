@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Adaptation Engine
 ~~~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Real-time EQ adaptation engine based on content analysis
 """
 
 from collections import deque
-from typing import Any, Deque, Dict, Optional
+from typing import Any, Deque
 
 import numpy as np
 
@@ -32,8 +30,8 @@ class AdaptationEngine:
             'adaptation_speed': np.ones(26) * settings.adaptation_rate
         }
 
-    def analyze_and_adapt(self, spectrum_analysis: Dict[str, np.ndarray],
-                         content_info: Optional[Dict[str, Any]] = None) -> np.ndarray:
+    def analyze_and_adapt(self, spectrum_analysis: dict[str, np.ndarray],
+                         content_info: dict[str, Any] | None = None) -> np.ndarray:
         """
         Analyze audio content and generate adaptive EQ gains
 
@@ -58,8 +56,8 @@ class AdaptationEngine:
 
         return self.adaptation_state['current_gains']
 
-    def _calculate_target_gains(self, spectrum_analysis: Dict[str, np.ndarray],
-                               content_info: Optional[Dict[str, Any]]) -> np.ndarray:
+    def _calculate_target_gains(self, spectrum_analysis: dict[str, np.ndarray],
+                               content_info: dict[str, Any] | None) -> np.ndarray:
         """Calculate target EQ gains based on spectrum analysis"""
 
         band_energies = spectrum_analysis['band_energies']
@@ -113,7 +111,7 @@ class AdaptationEngine:
             return 0.8
 
     def _apply_content_adaptation(self, target_gains: np.ndarray,
-                                 content_info: Dict[str, Any]) -> np.ndarray:
+                                 content_info: dict[str, Any]) -> np.ndarray:
         """Apply content-aware adjustments to target gains"""
 
         adapted_gains = target_gains.copy()
@@ -214,7 +212,7 @@ class AdaptationEngine:
 
         self.adaptation_state['current_gains'] = current_gains
 
-    def get_adaptation_info(self) -> Dict[str, Any]:
+    def get_adaptation_info(self) -> dict[str, Any]:
         """Get information about current adaptation state"""
 
         return {

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Continuous Processing Space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,6 @@ Replaces discrete presets with intelligent parameter generation.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
 
 import numpy as np
 
@@ -30,7 +27,7 @@ class ProcessingCoordinates:
     spectral_balance: float  # 0.0 (dark/bass-heavy) to 1.0 (bright/treble-heavy)
     dynamic_range: float     # 0.0 (compressed/brick-walled) to 1.0 (dynamic/high crest)
     energy_level: float      # 0.0 (quiet/low LUFS) to 1.0 (loud/high LUFS)
-    fingerprint: Dict[str, float]  # Full 25D fingerprint for secondary parameters
+    fingerprint: dict[str, float]  # Full 25D fingerprint for secondary parameters
 
     def __str__(self) -> str:
         return (f"ProcessingCoordinates("
@@ -51,16 +48,16 @@ class ProcessingParameters:
     peak_target_db: float       # Peak normalization target (dBFS)
 
     # EQ parameters
-    eq_curve: Dict[str, float]  # Frequency-specific gains and frequencies
+    eq_curve: dict[str, float]  # Frequency-specific gains and frequencies
     eq_blend: float             # EQ application strength (0.0 to 1.0)
 
     # Dynamics processing
-    compression_params: Dict[str, float]  # Compression settings
-    expansion_params: Dict[str, float]    # Expansion settings (de-mastering)
+    compression_params: dict[str, float]  # Compression settings
+    expansion_params: dict[str, float]    # Expansion settings (de-mastering)
     dynamics_blend: float                 # Dynamics processing strength (0.0 to 1.0)
 
     # Limiting
-    limiter_params: Dict[str, float]      # Limiter settings
+    limiter_params: dict[str, float]      # Limiter settings
 
     # Stereo processing
     stereo_width_target: float            # Target stereo width (0.0 to 1.0)
@@ -100,7 +97,7 @@ class PreferenceVector:
     stereo_bias: float = 0.0
 
     @classmethod
-    def from_preset_name(cls, preset: str) -> 'PreferenceVector':
+    def from_preset_name(cls, preset: str) -> PreferenceVector:
         """
         Convert legacy preset names to preference vectors.
 
@@ -167,7 +164,7 @@ class ProcessingSpaceMapper:
     - Energy Level (quiet to loud)
     """
 
-    def map_fingerprint_to_space(self, fingerprint: Dict[str, float]) -> ProcessingCoordinates:
+    def map_fingerprint_to_space(self, fingerprint: dict[str, float]) -> ProcessingCoordinates:
         """
         Convert 25D fingerprint to 3D processing space position.
 
@@ -196,7 +193,7 @@ class ProcessingSpaceMapper:
             fingerprint=fingerprint
         )
 
-    def _calculate_spectral_balance(self, fp: Dict[str, float]) -> float:
+    def _calculate_spectral_balance(self, fp: dict[str, float]) -> float:
         """
         Calculate spectral balance from bass/mid/treble distribution.
 
@@ -235,7 +232,7 @@ class ProcessingSpaceMapper:
 
         return float(spectral_balance)
 
-    def _calculate_dynamic_range(self, fp: Dict[str, float]) -> float:
+    def _calculate_dynamic_range(self, fp: dict[str, float]) -> float:
         """
         Calculate dynamic range position from crest factor and variation.
 
@@ -269,7 +266,7 @@ class ProcessingSpaceMapper:
 
         return float(dynamic_range)
 
-    def _calculate_energy_level(self, fp: Dict[str, float]) -> float:
+    def _calculate_energy_level(self, fp: dict[str, float]) -> float:
         """
         Calculate energy level from LUFS loudness.
 

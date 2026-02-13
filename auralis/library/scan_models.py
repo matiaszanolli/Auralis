@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Scanner Models
 ~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ Data models for library scanning
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -26,7 +24,7 @@ class ScanResult:
     files_failed: int = 0
     scan_time: float = 0.0
     directories_scanned: int = 0
-    added_tracks: List[Any] = field(default_factory=list)  # List of Track objects added during scan
+    added_tracks: list[Any] = field(default_factory=list)  # List of Track objects added during scan
 
     def __str__(self) -> str:
         return (f"Scan Results: {self.files_found} found, {self.files_added} added, "
@@ -41,9 +39,9 @@ class AudioFileInfo:
     filename: str
     filesize: int
     modified_time: datetime
-    duration: Optional[float] = None
-    sample_rate: Optional[int] = None
-    channels: Optional[int] = None
-    format: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-    file_hash: Optional[str] = None
+    duration: float | None = None
+    sample_rate: int | None = None
+    channels: int | None = None
+    format: str | None = None
+    metadata: dict[str, Any] | None = None
+    file_hash: str | None = None

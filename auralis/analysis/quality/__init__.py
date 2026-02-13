@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Audio Quality Assessment System
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

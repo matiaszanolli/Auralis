@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Auralis Utilities
 ~~~~~~~~~~~~~~~~~
@@ -12,8 +10,5 @@ Utility functions and helpers
 Refactored from Matchering 2.0 by Sergree and contributors
 """
 
-from .checker import *
-from .helpers import *
-from .logging import *
 
 __all__ = []

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Normalization Step
 ~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,6 @@ Consolidates the measure-adjust-remeasure pattern.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Optional
 
 import numpy as np
 
@@ -27,7 +24,7 @@ class NormalizationStep:
     Consolidates the measure-adjust-remeasure pattern.
     """
 
-    def __init__(self, step_name: str, stage_label: Optional[str] = None) -> None:
+    def __init__(self, step_name: str, stage_label: str | None = None) -> None:
         """
         Initialize normalization step.
 
@@ -36,13 +33,13 @@ class NormalizationStep:
             stage_label: Optional pre-logging label (e.g., "Pre-Final")
         """
         self.step_name: str = step_name
-        self.stage_label: Optional[str] = stage_label
-        self.before_measurement: Optional[Dict[str, float]] = None
-        self.after_measurement: Optional[Dict[str, float]] = None
+        self.stage_label: str | None = stage_label
+        self.before_measurement: dict[str, float] | None = None
+        self.after_measurement: dict[str, float] | None = None
         self.gain_applied_db: float = 0.0
 
     def measure_before(self, audio: np.ndarray, use_lufs: bool = False,
-                      sample_rate: Optional[int] = None) -> Dict[str, float]:
+                      sample_rate: int | None = None) -> dict[str, float]:
         """
         Measure audio before adjustment.
 
@@ -100,7 +97,7 @@ class NormalizationStep:
         return audio
 
     def measure_after(self, audio: np.ndarray, use_lufs: bool = False,
-                     sample_rate: Optional[int] = None) -> Dict[str, float]:
+                     sample_rate: int | None = None) -> dict[str, float]:
         """
         Measure audio after adjustment.
 
@@ -118,7 +115,7 @@ class NormalizationStep:
         rms_db = DBConversion.to_db(rms_val)
         crest = peak_db - rms_db
 
-        measurement: Dict[str, float] = {
+        measurement: dict[str, float] = {
             'peak_db': peak_db,
             'rms_db': rms_db,
             'crest': crest,

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Mastering Preset Profiles
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,6 @@ Defines mastering preset configurations for different sonic characters.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 
 @dataclass
@@ -51,7 +48,7 @@ class PresetProfile:
     peak_target_db: float = -0.35  # Peak normalization target in dBFS (default -0.35 dB)
 
 
-def create_preset_profiles() -> Dict[str, PresetProfile]:
+def create_preset_profiles() -> dict[str, PresetProfile]:
     """
     Create all mastering preset profiles.
 
@@ -286,7 +283,7 @@ def create_preset_profiles() -> Dict[str, PresetProfile]:
     }
 
 
-def get_preset_profile(preset_name: str) -> Optional[PresetProfile]:
+def get_preset_profile(preset_name: str) -> PresetProfile | None:
     """
     Get a preset profile by name.
 
@@ -300,7 +297,7 @@ def get_preset_profile(preset_name: str) -> Optional[PresetProfile]:
     return profiles.get(preset_name.lower())
 
 
-def get_available_presets() -> List[str]:
+def get_available_presets() -> list[str]:
     """
     Get list of available preset names.
 

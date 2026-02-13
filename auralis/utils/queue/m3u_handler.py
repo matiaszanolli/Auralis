@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 M3U Playlist Format Handler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -17,7 +15,7 @@ M3U Format:
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +29,7 @@ class M3UHandler:
     EXT_ENCODING_PREFIX = '#EXT-X-ENCODING:'
 
     @staticmethod
-    def export(tracks: List[Dict[str, Any]], extended: bool = True) -> str:
+    def export(tracks: list[dict[str, Any]], extended: bool = True) -> str:
         """
         Export tracks to M3U format
 
@@ -81,7 +79,7 @@ class M3UHandler:
         return '\n'.join(lines)
 
     @staticmethod
-    def import_from_string(content: str, base_path: str = '') -> Tuple[List[str], List[str]]:
+    def import_from_string(content: str, base_path: str = '') -> tuple[list[str], list[str]]:
         """
         Import M3U format string and extract file paths
 
@@ -127,7 +125,7 @@ class M3UHandler:
         return filepaths, errors
 
     @staticmethod
-    def import_from_file(filepath: str) -> Tuple[List[str], List[str]]:
+    def import_from_file(filepath: str) -> tuple[list[str], list[str]]:
         """
         Import M3U file and extract file paths
 
@@ -147,7 +145,7 @@ class M3UHandler:
             if not file_path.exists():
                 raise FileNotFoundError(f'M3U file not found: {filepath}')
 
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 content = f.read()
 
             # Use directory of M3U file as base for relative paths
@@ -161,7 +159,7 @@ class M3UHandler:
             raise ValueError(f'Failed to read M3U file: {str(e)}')
 
     @staticmethod
-    def validate(content: str) -> Tuple[bool, List[str]]:
+    def validate(content: str) -> tuple[bool, list[str]]:
         """
         Validate M3U content
 

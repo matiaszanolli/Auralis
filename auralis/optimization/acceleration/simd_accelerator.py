@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 SIMD Accelerator
 ~~~~~~~~~~~~~~~~
@@ -10,7 +8,6 @@ SIMD-optimized operations for audio processing.
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Optional
 
 import numpy as np
 
@@ -19,7 +16,7 @@ class SIMDAccelerator:
     """SIMD acceleration for common audio operations"""
 
     @staticmethod
-    def fast_fft(audio: np.ndarray, fft_size: Optional[int] = None) -> np.ndarray:
+    def fast_fft(audio: np.ndarray, fft_size: int | None = None) -> np.ndarray:
         """Optimized FFT computation"""
         if fft_size is None:
             fft_size = len(audio)

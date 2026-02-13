@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Realtime Adaptive EQ
 ~~~~~~~~~~~~~~~~~~~~
@@ -12,7 +10,7 @@ Real-time adaptive EQ system with critical band analysis
 
 import time
 from collections import deque
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -54,7 +52,7 @@ class RealtimeAdaptiveEQ:
         if settings.enable_look_ahead:
             lookahead_ms = getattr(settings, 'lookahead_ms', 5.0)
             lookahead_samples = int(lookahead_ms * settings.sample_rate / 1000)
-            self.lookahead_buffer: Optional[deque[Any]] = deque(maxlen=lookahead_samples)
+            self.lookahead_buffer: deque[Any] | None = deque(maxlen=lookahead_samples)
         else:
             self.lookahead_buffer = None
 
@@ -70,7 +68,7 @@ class RealtimeAdaptiveEQ:
               f"{settings.target_latency_ms:.1f}ms target latency")
 
     def process_realtime(self, audio_chunk: np.ndarray,
-                        content_info: Optional[Dict[str, Any]] = None) -> np.ndarray:
+                        content_info: dict[str, Any] | None = None) -> np.ndarray:
         """
         Process audio chunk in real-time with adaptive EQ
 
@@ -104,7 +102,7 @@ class RealtimeAdaptiveEQ:
             return audio_chunk  # Return unprocessed audio on error
 
     def _process_fixed_chunk(self, audio_chunk: np.ndarray,
-                           content_info: Optional[Dict[str, Any]]) -> np.ndarray:
+                           content_info: dict[str, Any] | None) -> np.ndarray:
         """Process fixed-size audio chunk"""
 
         # Analyze spectrum
@@ -122,7 +120,7 @@ class RealtimeAdaptiveEQ:
         return processed_chunk
 
     def _handle_variable_chunk_size(self, audio_chunk: np.ndarray,
-                                   content_info: Optional[Dict[str, Any]]) -> np.ndarray:
+                                   content_info: dict[str, Any] | None) -> np.ndarray:
         """Handle variable chunk sizes by buffering"""
 
         self.input_buffer.append(audio_chunk)
@@ -183,7 +181,7 @@ class RealtimeAdaptiveEQ:
 
         debug(f"Updated adaptation parameters: {kwargs}")
 
-    def get_current_eq_curve(self) -> Dict[str, Any]:
+    def get_current_eq_curve(self) -> dict[str, Any]:
         """Get current EQ curve and adaptation state"""
 
         adaptation_info = self.adaptation_engine.get_adaptation_info()
@@ -198,7 +196,7 @@ class RealtimeAdaptiveEQ:
             ]
         }
 
-    def get_performance_stats(self) -> Dict[str, float]:
+    def get_performance_stats(self) -> dict[str, float]:
         """Get real-time performance statistics"""
 
         return self.performance_stats.copy()

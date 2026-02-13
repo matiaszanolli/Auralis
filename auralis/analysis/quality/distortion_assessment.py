@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Distortion Assessment
 ~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Assess audio distortion and noise levels
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 
@@ -71,7 +69,7 @@ class DistortionAssessor(BaseAssessor):
 
         return float(total_score)
 
-    def detailed_analysis(self, audio_data: np.ndarray) -> Dict[str, Any]:  # type: ignore[override]
+    def detailed_analysis(self, audio_data: np.ndarray) -> dict[str, Any]:  # type: ignore[override]
         """
         Perform detailed distortion analysis
 

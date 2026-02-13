@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Runtime Strategy Manager for Adaptive Sampling
 
@@ -22,7 +20,7 @@ Fallback Strategies:
 
 import logging
 from enum import Enum
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from auralis.analysis.fingerprint.confidence_scorer import ConfidenceScorer
 from auralis.analysis.fingerprint.feature_adaptive_sampler import (
@@ -70,12 +68,12 @@ class RuntimeStrategyManager:
 
     def select_and_execute_strategy(
         self,
-        audio_features: Dict[str, float],
+        audio_features: dict[str, float],
         audio_length_s: float,
-        processing_mode: Optional[ProcessingMode] = None,
-        sampled_features: Optional[Dict[str, float]] = None,
-        full_track_features: Optional[Dict[str, float]] = None,
-    ) -> Tuple[str, Dict[str, Any], ExecutionResult]:
+        processing_mode: ProcessingMode | None = None,
+        sampled_features: dict[str, float] | None = None,
+        full_track_features: dict[str, float] | None = None,
+    ) -> tuple[str, dict[str, Any], ExecutionResult]:
         """
         Select optimal strategy and execute with fallback if needed.
 
@@ -199,8 +197,8 @@ class RuntimeStrategyManager:
             }, ExecutionResult.SUCCESS
 
     def get_adaptive_sampling_params(
-        self, audio_features: Dict[str, float]
-    ) -> Tuple[str, float]:
+        self, audio_features: dict[str, float]
+    ) -> tuple[str, float]:
         """
         Get adaptive sampling parameters based on audio characteristics.
 
@@ -246,8 +244,8 @@ class RuntimeStrategyManager:
 
     def set_fallback_thresholds(
         self,
-        high_confidence: Optional[float] = None,
-        acceptable_confidence: Optional[float] = None,
+        high_confidence: float | None = None,
+        acceptable_confidence: float | None = None,
     ) -> None:
         """
         Configure fallback confidence thresholds.
@@ -267,7 +265,7 @@ class RuntimeStrategyManager:
             f"acceptable={self.confidence_scorer.acceptable_confidence_threshold}"
         )
 
-    def get_execution_stats(self) -> Dict[str, Any]:
+    def get_execution_stats(self) -> dict[str, Any]:
         """
         Get execution statistics.
 

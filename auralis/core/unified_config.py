@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Unified Configuration System (Backward Compatibility Wrapper)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

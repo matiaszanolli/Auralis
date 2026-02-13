@@ -12,7 +12,7 @@ import logging
 import resource
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import psutil
 
@@ -125,7 +125,7 @@ class MemoryPressureMonitor:
             timestamp=time.time()
         )
 
-    def get_recommended_cache_sizes(self) -> Tuple[float, float, float]:
+    def get_recommended_cache_sizes(self) -> tuple[float, float, float]:
         """
         Get recommended cache sizes based on current memory status.
 
@@ -165,7 +165,7 @@ class MemoryPressureMonitor:
         """
         return (time.time() - self.last_check_time) >= check_interval
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get memory monitoring statistics."""
         if not self.status_history:
             current = self.get_memory_status()
@@ -211,7 +211,7 @@ class DegradationManager:
         """
         self.memory_monitor: MemoryPressureMonitor = memory_monitor
         self.current_level: int = 0
-        self.degradation_history: list[Dict[str, Any]] = []
+        self.degradation_history: list[dict[str, Any]] = []
 
         # Track if worker is causing latency
         self.worker_latency_samples: list[float] = []
@@ -320,7 +320,7 @@ class DegradationManager:
             await buffer_manager.l3_cache.clear()
             logger.warning("Degradation level 3: Worker paused due to latency")
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get degradation statistics."""
         return {
             "current_level": self.current_level,
@@ -341,8 +341,8 @@ class DegradationManager:
 
 
 # Singleton instances
-_memory_monitor_instance: Optional[MemoryPressureMonitor] = None
-_degradation_manager_instance: Optional[DegradationManager] = None
+_memory_monitor_instance: MemoryPressureMonitor | None = None
+_degradation_manager_instance: DegradationManager | None = None
 
 
 def get_memory_monitor() -> MemoryPressureMonitor:

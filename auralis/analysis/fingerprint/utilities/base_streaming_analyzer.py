@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Base Streaming Analyzer
 
@@ -13,7 +11,6 @@ Designed to be flexible enough for different buffering strategies
 (buffer-based, chunk-based, or other) while providing shared utilities.
 """
 
-from typing import Dict
 
 import numpy as np
 
@@ -36,7 +33,7 @@ class BaseStreamingAnalyzer:
     frame_count: int
     analysis_runs: int
 
-    def get_confidence(self) -> Dict[str, float]:
+    def get_confidence(self) -> dict[str, float]:
         """Get confidence scores for metrics.
 
         Confidence increases with more analysis runs. After 5 analyses,
@@ -75,7 +72,7 @@ class BaseStreamingAnalyzer:
         """
         return self.analysis_runs
 
-    def get_metrics(self) -> Dict[str, float]:
+    def get_metrics(self) -> dict[str, float]:
         """Get current metric estimates.
 
         Subclasses must implement this to return their specific metrics.

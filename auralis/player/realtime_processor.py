@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Real-time Audio Processor (Backward Compatibility Wrapper)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

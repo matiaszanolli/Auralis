@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Adaptive Target Generator
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Generate adaptive processing targets based on content analysis
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ...utils.logging import debug
 from ..unified_config import GenreProfile, UnifiedConfig
@@ -19,7 +17,7 @@ from ..unified_config import GenreProfile, UnifiedConfig
 class AdaptiveTargetGenerator:
     """Generate adaptive processing targets based on content analysis"""
 
-    def __init__(self, config: UnifiedConfig, processor: Optional[Any] = None) -> None:
+    def __init__(self, config: UnifiedConfig, processor: Any | None = None) -> None:
         """
         Initialize adaptive target generator
 
@@ -30,7 +28,7 @@ class AdaptiveTargetGenerator:
         self.config = config
         self.processor = processor  # Reference to the main processor for preference access
 
-    def generate_targets(self, content_profile: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_targets(self, content_profile: dict[str, Any]) -> dict[str, Any]:
         """
         Generate adaptive processing targets
 
@@ -72,7 +70,7 @@ class AdaptiveTargetGenerator:
         return targets
 
     def _adapt_targets_to_content(self, genre_profile: GenreProfile,
-                                 content_profile: Dict[str, Any]) -> Dict[str, Any]:
+                                 content_profile: dict[str, Any]) -> dict[str, Any]:
         """Adapt generic genre targets to specific content characteristics"""
 
         # Start with genre profile
@@ -144,8 +142,8 @@ class AdaptiveTargetGenerator:
 
         return targets
 
-    def _apply_preset_overrides(self, targets: Dict[str, Any],
-                                preset_profile: Any, content_profile: Dict[str, Any]) -> Dict[str, Any]:
+    def _apply_preset_overrides(self, targets: dict[str, Any],
+                                preset_profile: Any, content_profile: dict[str, Any]) -> dict[str, Any]:
         """
         Apply preset-specific overrides to adaptive targets.
 
@@ -251,9 +249,9 @@ class AdaptiveTargetGenerator:
 
         return modified_targets
 
-    def _apply_fingerprint_enhancements(self, targets: Dict[str, Any],
-                                       fingerprint: Dict[str, float],
-                                       content_profile: Dict[str, Any]) -> Dict[str, Any]:
+    def _apply_fingerprint_enhancements(self, targets: dict[str, Any],
+                                       fingerprint: dict[str, float],
+                                       content_profile: dict[str, Any]) -> dict[str, Any]:
         """
         Apply intelligent enhancements based on 25D audio fingerprint.
 
@@ -301,7 +299,7 @@ class AdaptiveTargetGenerator:
         # 2. DYNAMICS-AWARE COMPRESSION (3D dynamics characteristics)
         lufs = fingerprint.get("lufs", -20.0)
         crest_db = fingerprint.get("crest_db", 15.0)
-        bass_mid_ratio = fingerprint.get("bass_mid_ratio", 0.0)
+        fingerprint.get("bass_mid_ratio", 0.0)
 
         # Adjust compression based on current dynamics
         if crest_db > 16.0:  # High dynamic range (classical, live recordings)
@@ -320,8 +318,8 @@ class AdaptiveTargetGenerator:
             debug(f"Quiet input ({lufs:.1f}LUFS) - boost target")
 
         # 3. TEMPORAL-AWARE PROCESSING (4D temporal characteristics)
-        tempo_bpm = fingerprint.get("tempo_bpm", 120.0)
-        rhythm_stability = fingerprint.get("rhythm_stability", 0.5)
+        fingerprint.get("tempo_bpm", 120.0)
+        fingerprint.get("rhythm_stability", 0.5)
         transient_density = fingerprint.get("transient_density", 0.5)
 
         # Adjust processing based on transient content
@@ -361,7 +359,7 @@ class AdaptiveTargetGenerator:
 
         # 6. VARIATION-AWARE ADJUSTMENTS (3D variation characteristics)
         loudness_variation = fingerprint.get("loudness_variation_std", 0.5)
-        dynamic_range_variation = fingerprint.get("dynamic_range_variation", 0.5)
+        fingerprint.get("dynamic_range_variation", 0.5)
 
         # If material has intentional loudness variation (dynamics), preserve it
         if loudness_variation > 0.7:
@@ -380,7 +378,7 @@ class AdaptiveTargetGenerator:
 
 
 def create_adaptive_target_generator(config: UnifiedConfig,
-                                     processor: Optional[Any] = None) -> AdaptiveTargetGenerator:
+                                     processor: Any | None = None) -> AdaptiveTargetGenerator:
     """
     Factory function to create adaptive target generator
 

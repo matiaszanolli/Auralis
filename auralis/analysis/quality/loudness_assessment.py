@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Loudness Assessment
 ~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Assess audio loudness quality and compliance
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from auralis.analysis.quality_assessors.base_assessor import BaseAssessor
 from auralis.analysis.quality_assessors.utilities.assessment_constants import (
@@ -66,7 +64,7 @@ class LoudnessAssessor(BaseAssessor):
 
         return float(total_score)
 
-    def detailed_analysis(self, loudness_result: Any) -> Dict[str, Any]:  # type: ignore[override]
+    def detailed_analysis(self, loudness_result: Any) -> dict[str, Any]:  # type: ignore[override]
         """
         Perform detailed loudness analysis
 
@@ -101,7 +99,7 @@ class LoudnessAssessor(BaseAssessor):
             )
         }
 
-    def check_standards_compliance(self, loudness_result: Any) -> Dict[str, Any]:
+    def check_standards_compliance(self, loudness_result: Any) -> dict[str, Any]:
         """
         Check compliance with various loudness standards
 
@@ -126,7 +124,7 @@ class LoudnessAssessor(BaseAssessor):
         return compliance
 
     def _check_compliance(self, standard: str, lufs: float, lra: float,
-                         peak: float, targets: Dict[str, Any]) -> Dict[str, Any]:
+                         peak: float, targets: dict[str, Any]) -> dict[str, Any]:
         """Check compliance with standard using target values"""
         target_lufs = targets.get('target_lufs')
         tolerance = targets.get('tolerance', 0.0)

@@ -9,7 +9,7 @@ the backend, reducing boilerplate and improving consistency.
 """
 
 import logging
-from typing import Any, NoReturn, Optional
+from typing import Any, NoReturn
 
 from fastapi import HTTPException
 
@@ -24,7 +24,7 @@ class ServiceUnavailableError(HTTPException):
 
 class NotFoundError(HTTPException):
     """Resource not found (404 Not Found)"""
-    def __init__(self, resource_type: str, resource_id: Optional[Any] = None) -> None:
+    def __init__(self, resource_type: str, resource_id: Any | None = None) -> None:
         if resource_id is not None:
             detail = f"{resource_type} {resource_id} not found"
         else:
@@ -40,7 +40,7 @@ class BadRequestError(HTTPException):
 
 class InternalServerError(HTTPException):
     """Internal server error (500 Internal Server Error)"""
-    def __init__(self, operation: str, error: Optional[Exception] = None) -> None:
+    def __init__(self, operation: str, error: Exception | None = None) -> None:
         if error:
             detail = f"Failed to {operation}: {str(error)}"
             logger.error(f"Internal error during {operation}: {error}", exc_info=True)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 EQ Filter Implementation
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ FFT-based EQ filter application with critical band processing
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, List
+from typing import Any
 
 import numpy as np
 from scipy.fft import fft, ifft
@@ -103,7 +101,7 @@ def apply_eq_mono(audio_mono: np.ndarray,
     return np.asarray(processed_audio[:len(audio_mono)], dtype=np.float32)
 
 
-def create_filter_bank(critical_bands: List[Any],
+def create_filter_bank(critical_bands: list[Any],
                       sample_rate: int,
                       fft_size: int) -> np.ndarray:
     """

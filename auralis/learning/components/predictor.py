@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Preference Predictor
 ~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ ML-based preference prediction
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -40,11 +38,11 @@ class PreferencePredictor:
             'compression_ratio': np.zeros(len(self.feature_weights))
         }
 
-        self.training_data: List[Tuple[Any, Dict[str, float]]] = []
+        self.training_data: list[tuple[Any, dict[str, float]]] = []
         self.is_trained: bool = False
 
-    def add_training_sample(self, audio_features: Dict[str, float],
-                          parameter_adjustments: Dict[str, float]) -> None:
+    def add_training_sample(self, audio_features: dict[str, float],
+                          parameter_adjustments: dict[str, float]) -> None:
         """Add training sample from user action"""
 
         # Convert features to array
@@ -90,7 +88,7 @@ class PreferencePredictor:
         self.is_trained = True
         debug("Preference model training complete")
 
-    def predict_adjustments(self, audio_features: Dict[str, float]) -> Dict[str, float]:
+    def predict_adjustments(self, audio_features: dict[str, float]) -> dict[str, float]:
         """Predict parameter adjustments based on audio features"""
         if not self.is_trained:
             return {}
@@ -114,7 +112,7 @@ class PreferencePredictor:
 
         return predictions
 
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, Any]:
         """Get model training information"""
         return {
             'is_trained': self.is_trained,

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Real-time EQ Manager
 ~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Manages real-time adaptive EQ parameters and state
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from ...dsp.realtime_adaptive_eq import RealtimeAdaptiveEQ
 from ...utils.logging import info
@@ -22,7 +20,7 @@ class RealtimeEQManager:
     def __init__(self, realtime_eq: RealtimeAdaptiveEQ):
         self.realtime_eq = realtime_eq
 
-    def get_info(self) -> Dict[str, Any]:
+    def get_info(self) -> dict[str, Any]:
         """Get real-time EQ status and performance information"""
         eq_curve = self.realtime_eq.get_current_eq_curve()
         performance = self.realtime_eq.get_performance_stats()

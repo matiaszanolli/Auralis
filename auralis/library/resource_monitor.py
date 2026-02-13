@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Adaptive Resource Monitor for Fingerprinting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -12,13 +10,13 @@ to maximize throughput while staying within safe memory limits.
 """
 
 import threading
-import time
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any
+from collections.abc import Callable
 
 import psutil
 
-from ..utils.logging import debug, error, info, warning
+from ..utils.logging import debug, error, info
 
 
 @dataclass
@@ -43,9 +41,9 @@ class AdaptiveResourceMonitor:
 
     def __init__(
         self,
-        limits: Optional[ResourceLimits] = None,
-        on_worker_count_change: Optional[Callable[[int], None]] = None,
-        on_semaphore_change: Optional[Callable[[int], None]] = None,
+        limits: ResourceLimits | None = None,
+        on_worker_count_change: Callable[[int], None] | None = None,
+        on_semaphore_change: Callable[[int], None] | None = None,
     ):
         """
         Initialize resource monitor.
@@ -63,7 +61,7 @@ class AdaptiveResourceMonitor:
         self.current_semaphore_size = 4  # Start conservative
 
         self._stop_event = threading.Event()
-        self._monitor_thread: Optional[threading.Thread] = None
+        self._monitor_thread: threading.Thread | None = None
         self._lock = threading.RLock()
 
         self._stats = {
@@ -203,7 +201,7 @@ class AdaptiveResourceMonitor:
         with self._lock:
             return self.current_semaphore_size
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get monitoring statistics"""
         with self._lock:
             return self._stats.copy()

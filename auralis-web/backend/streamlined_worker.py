@@ -16,9 +16,8 @@ Replaces complex multi-tier worker (373 lines) with simple predictive logic (~15
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
-from cache import CHUNK_DURATION, streamlined_cache_manager
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +43,10 @@ class StreamlinedCacheWorker:
         self.cache_manager = cache_manager
         self.library_manager = library_manager
         self.running = False
-        self._worker_task: Optional[asyncio.Task[None]] = None
+        self._worker_task: asyncio.Task[None] | None = None
 
         # Track what we're currently building
-        self._building_track_id: Optional[int] = None
+        self._building_track_id: int | None = None
         self._building_chunk_idx: int = 0
 
     async def start(self) -> None:
@@ -140,7 +139,7 @@ class StreamlinedCacheWorker:
             intensity: Processing intensity
         """
         # Collect chunk paths to warm Tier 1 after processing
-        tier1_chunks_to_warm: List[Tuple[int, Path, Optional[str]]] = []
+        tier1_chunks_to_warm: list[tuple[int, Path, str | None]] = []
 
         # Check if original chunk is cached
         original_path, tier = await self.cache_manager.get_chunk(
@@ -245,10 +244,10 @@ class StreamlinedCacheWorker:
         track: Any,
         track_id: int,
         chunk_idx: int,
-        preset: Optional[str],
+        preset: str | None,
         intensity: float,
         tier: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Process a single chunk and add to cache.
 
@@ -292,7 +291,7 @@ class StreamlinedCacheWorker:
                     processor.process_chunk_safe(chunk_idx),
                     timeout=timeout_seconds
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(
                     f"[{tier}] Timeout processing chunk {chunk_idx} "
                     f"(exceeded {timeout_seconds}s limit)"
@@ -337,7 +336,7 @@ class StreamlinedCacheWorker:
         self,
         track_id: int,
         chunk_idx: int,
-        preset: Optional[str],
+        preset: str | None,
         intensity: float
     ) -> bool:
         """
@@ -374,4 +373,4 @@ class StreamlinedCacheWorker:
 
 
 # Global instance (initialized in main.py)
-streamlined_worker: Optional[StreamlinedCacheWorker] = None
+streamlined_worker: StreamlinedCacheWorker | None = None

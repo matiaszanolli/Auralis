@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Compression and Expansion Strategies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,6 @@ Consolidates compression/expansion logic used across adaptive_mode and continuou
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict
 
 import numpy as np
 
@@ -77,7 +74,7 @@ class CompressionStrategies:
         return audio
 
     @staticmethod
-    def apply_clip_blend_compression(audio: np.ndarray, comp_params: Dict[str, float]) -> np.ndarray:
+    def apply_clip_blend_compression(audio: np.ndarray, comp_params: dict[str, float]) -> np.ndarray:
         """
         Apply compression using soft_clip() with blend formula.
         Used by continuous_mode - reduces crest through library soft clipping + blending.
@@ -180,7 +177,7 @@ class ExpansionStrategies:
         return audio
 
     @staticmethod
-    def apply_rms_reduction_expansion(audio: np.ndarray, exp_params: Dict[str, float]) -> np.ndarray:
+    def apply_rms_reduction_expansion(audio: np.ndarray, exp_params: dict[str, float]) -> np.ndarray:
         """
         Apply expansion by reducing RMS (used by continuous_mode).
         Increases crest factor through RMS reduction.

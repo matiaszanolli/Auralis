@@ -14,7 +14,6 @@ Dependencies:
 """
 
 import logging
-from typing import Dict
 
 import numpy as np
 
@@ -33,7 +32,7 @@ class SpectralAnalyzer(BaseAnalyzer):
         'spectral_flatness': 0.3
     }
 
-    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
         Analyze spectral features.
 

@@ -15,7 +15,6 @@ Dependencies:
 """
 
 import logging
-from typing import Dict
 
 import numpy as np
 
@@ -36,7 +35,7 @@ class HarmonicAnalyzer(BaseAnalyzer):
         'chroma_energy': 0.5
     }
 
-    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
         Analyze harmonic features.
 

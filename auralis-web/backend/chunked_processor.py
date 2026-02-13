@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 Chunked Audio Processor
@@ -18,9 +17,8 @@ import logging
 # Auralis imports
 import sys
 import tempfile
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, cast
 
 import numpy as np
 
@@ -48,8 +46,6 @@ from core.processor_factory import (
 
 from auralis.analysis.adaptive_mastering_engine import AdaptiveMasteringEngine
 from auralis.analysis.mastering_fingerprint import MasteringFingerprint
-from auralis.core.hybrid_processor import HybridProcessor
-from auralis.core.unified_config import UnifiedConfig
 from auralis.io.saver import save as save_audio
 from auralis.io.unified_loader import load_audio
 
@@ -60,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 # Global cache for last content profiles (used by visualizer API)
 # Maps preset name -> last_content_profile dict
-_last_content_profiles: Dict[str, Any] = {}
+_last_content_profiles: dict[str, Any] = {}
 
 # Chunk configuration
 CHUNK_DURATION = 15  # seconds - actual chunk length
@@ -87,7 +83,7 @@ class ChunkedAudioProcessor:
         filepath: str,
         preset: str = "adaptive",
         intensity: float = 1.0,
-        chunk_cache: Optional[Dict[str, Any]] = None
+        chunk_cache: dict[str, Any] | None = None
     ) -> None:
         """
         Initialize chunked audio processor.
@@ -109,10 +105,10 @@ class ChunkedAudioProcessor:
         self.file_signature = self._generate_file_signature()
 
         # Load audio metadata
-        self.sample_rate: Optional[int] = None
-        self.total_duration: Optional[float] = None
-        self.total_chunks: Optional[int] = None
-        self.channels: Optional[int] = None
+        self.sample_rate: int | None = None
+        self.total_duration: float | None = None
+        self.total_chunks: int | None = None
+        self.channels: int | None = None
         self._load_metadata()
 
         # Temp directory for chunks
@@ -182,9 +178,9 @@ class ChunkedAudioProcessor:
             self.processor = None  # type: ignore[unreachable]  # No processing for original audio
 
         # Processing state tracking for smooth transitions
-        self.chunk_rms_history: List[float] = []  # Track RMS levels of processed chunks
-        self.chunk_gain_history: List[float] = []  # Track gain adjustments applied
-        self.previous_chunk_tail: Optional[np.ndarray] = None  # Last samples of previous chunk for analysis
+        self.chunk_rms_history: list[float] = []  # Track RMS levels of processed chunks
+        self.chunk_gain_history: list[float] = []  # Track gain adjustments applied
+        self.previous_chunk_tail: np.ndarray | None = None  # Last samples of previous chunk for analysis
 
         logger.info(
             f"ChunkedAudioProcessor initialized: track_id={track_id}, "
@@ -193,7 +189,7 @@ class ChunkedAudioProcessor:
         )
 
     @property
-    def duration(self) -> Optional[float]:
+    def duration(self) -> float | None:
         """Get total duration (alias for total_duration for AudioStreamController compatibility)"""
         return self.total_duration
 
@@ -333,7 +329,7 @@ class ChunkedAudioProcessor:
         """
         return self._get_chunk_path(chunk_index)  # Uses WAVEncoder via _get_chunk_path()
 
-    def load_chunk(self, chunk_index: int, with_context: bool = True) -> Tuple[np.ndarray, float, float]:
+    def load_chunk(self, chunk_index: int, with_context: bool = True) -> tuple[np.ndarray, float, float]:
         """
         Load a single chunk from audio file with optional context.
 
@@ -579,7 +575,7 @@ class ChunkedAudioProcessor:
 
         return processed_chunk
 
-    def process_chunk(self, chunk_index: int, fast_start: bool = False) -> Tuple[str, np.ndarray]:
+    def process_chunk(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
         """
         Process a single chunk with Auralis HybridProcessor and save to WAV.
 
@@ -666,7 +662,7 @@ class ChunkedAudioProcessor:
         # Return both path (for caching) and audio array (for immediate streaming)
         return (str(chunk_path), extracted_chunk)
 
-    async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> Tuple[str, np.ndarray]:
+    async def process_chunk_safe(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
         """
         Process a single chunk with thread-safe locking (async version).
 
@@ -694,7 +690,7 @@ class ChunkedAudioProcessor:
             # File is now guaranteed to exist since process_chunk completed
             return (chunk_path, audio_array)
 
-    def process_chunk_synchronized(self, chunk_index: int, fast_start: bool = False) -> Tuple[str, np.ndarray]:
+    def process_chunk_synchronized(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
         """
         Process a single chunk synchronously with proper waiting.
 
@@ -717,7 +713,6 @@ class ChunkedAudioProcessor:
             # and expects the file to be on disk immediately. Instead, use run_until_complete
             # in a new thread to avoid blocking the event loop.
             import concurrent.futures
-            import threading
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(
@@ -741,7 +736,7 @@ class ChunkedAudioProcessor:
         """
         return f"fingerprint_{self.track_id}_{self.file_signature}"
 
-    def get_cached_fingerprint(self) -> Optional[Dict[str, Any]]:
+    def get_cached_fingerprint(self) -> dict[str, Any] | None:
         """
         Get cached track-level fingerprint if available.
 
@@ -754,7 +749,7 @@ class ChunkedAudioProcessor:
             return cached_value
         return None
 
-    def cache_fingerprint(self, fingerprint: Dict[str, Any]) -> None:
+    def cache_fingerprint(self, fingerprint: dict[str, Any]) -> None:
         """
         Cache track-level fingerprint for reuse across all chunks.
 
@@ -768,7 +763,7 @@ class ChunkedAudioProcessor:
         self.chunk_cache[cache_key] = fingerprint
         logger.info(f"Cached track-level fingerprint for track {self.track_id}")
 
-    def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Optional[Any]:
+    def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Any | None:
         """
         Get weighted mastering profile recommendation for this track (Priority 4).
 
@@ -876,7 +871,7 @@ class ChunkedAudioProcessor:
 
         # Concatenate chunks with proper crossfading
         logger.info("Concatenating all processed chunks with crossfading")
-        all_chunks: List[np.ndarray] = []
+        all_chunks: list[np.ndarray] = []
 
         for chunk_idx in range(self.total_chunks):
             chunk_path = self._get_chunk_path(chunk_idx)
@@ -1100,7 +1095,7 @@ def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overl
     return result
 
 
-def get_last_content_profile(preset: str) -> Optional[Dict[str, Any]]:
+def get_last_content_profile(preset: str) -> dict[str, Any] | None:
     """
     Get the last content profile for a given preset.
     Used by /api/processing/parameters endpoint to show real processing data.

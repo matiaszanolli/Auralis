@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Streaming Fingerprint Orchestrator
 
@@ -27,7 +25,6 @@ Dependencies:
 """
 
 import logging
-from typing import Dict, Optional
 
 import numpy as np
 
@@ -77,7 +74,7 @@ class StreamingFingerprint:
             self.harmonic.reset()
         self.frame_count = 0
 
-    def update(self, frame: np.ndarray) -> Dict[str, float]:
+    def update(self, frame: np.ndarray) -> dict[str, float]:
         """Update fingerprint with new audio frame.
 
         Args:
@@ -117,7 +114,7 @@ class StreamingFingerprint:
             logger.debug(f"Streaming fingerprint update failed: {e}")
             return self.get_fingerprint()
 
-    def get_fingerprint(self) -> Dict[str, float]:
+    def get_fingerprint(self) -> dict[str, float]:
         """Get current fingerprint without processing new frame.
 
         Returns:
@@ -140,7 +137,7 @@ class StreamingFingerprint:
 
         return fingerprint
 
-    def get_confidence(self) -> Dict[str, float]:
+    def get_confidence(self) -> dict[str, float]:
         """Get confidence scores for all metrics.
 
         Returns:
@@ -167,7 +164,7 @@ class StreamingFingerprint:
         """Get number of frames processed."""
         return self.frame_count
 
-    def get_component_status(self) -> Dict[str, Dict[str, int]]:
+    def get_component_status(self) -> dict[str, dict[str, int]]:
         """Get status of component analyzers.
 
         Returns:

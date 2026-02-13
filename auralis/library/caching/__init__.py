@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Caching Layer for Auralis Library
 

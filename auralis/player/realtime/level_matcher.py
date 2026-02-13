@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Real-time Level Matcher
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Real-time RMS level matching with reference audio
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
@@ -25,7 +23,7 @@ class RealtimeLevelMatcher:
     def __init__(self, config: PlayerConfig):
         self.config = config
         self.enabled = False
-        self.reference_rms: Optional[float] = None
+        self.reference_rms: float | None = None
         self.target_rms_alpha = 0.01  # Smoothing for RMS calculation
         self.current_target_rms = 0.0
 
@@ -37,7 +35,7 @@ class RealtimeLevelMatcher:
 
         debug("RealtimeLevelMatcher initialized")
 
-    def set_reference_audio(self, reference: Optional[np.ndarray]) -> bool:
+    def set_reference_audio(self, reference: np.ndarray | None) -> bool:
         """Set reference audio for level matching"""
         if reference is None:
             self.reference_rms = None
@@ -83,7 +81,7 @@ class RealtimeLevelMatcher:
 
         return processed
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get level matching statistics"""
         return {
             'enabled': self.enabled,

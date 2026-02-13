@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Metadata Extractor
 ~~~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Music metadata extraction from audio files
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     from mutagen import File as MutagenFile  # type: ignore[attr-defined]
@@ -50,7 +48,7 @@ class MetadataExtractor:
         'comment': ['COMM::eng', 'COMMENT', '\xa9cmt']
     }
 
-    def extract_metadata_from_file(self, file_path: str) -> Optional[Dict[str, Any]]:
+    def extract_metadata_from_file(self, file_path: str) -> dict[str, Any] | None:
         """
         Extract metadata from audio file
 
@@ -73,7 +71,7 @@ class MetadataExtractor:
 
         return None
 
-    def extract_metadata(self, audio_file: Any) -> Dict[str, Any]:
+    def extract_metadata(self, audio_file: Any) -> dict[str, Any]:
         """
         Extract metadata from mutagen audio file object
 
@@ -100,7 +98,7 @@ class MetadataExtractor:
 
         return metadata
 
-    def _normalize_field_value(self, field: str, value: Any) -> Optional[Any]:
+    def _normalize_field_value(self, field: str, value: Any) -> Any | None:
         """
         Normalize metadata field value to appropriate type
 
@@ -132,7 +130,7 @@ class MetadataExtractor:
         except (ValueError, TypeError):
             return None
 
-    def audio_info_to_track_info(self, audio_info: AudioFileInfo) -> Dict[str, Any]:
+    def audio_info_to_track_info(self, audio_info: AudioFileInfo) -> dict[str, Any]:
         """
         Convert AudioFileInfo to track_info dict for library manager
 
@@ -142,7 +140,7 @@ class MetadataExtractor:
         Returns:
             Dictionary in format expected by library manager
         """
-        track_info: Dict[str, Any] = {
+        track_info: dict[str, Any] = {
             'filepath': audio_info.filepath,
             'title': audio_info.filename,  # Default to filename
             'duration': audio_info.duration,

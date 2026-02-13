@@ -19,7 +19,6 @@ Performance Expectations:
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Tuple
 
 import numpy as np
 
@@ -33,7 +32,7 @@ logger = logging.getLogger(__name__)
 class SampledHarmonicAnalyzer(BaseAnalyzer):
     """Extract harmonic features using time-domain sampling strategy."""
 
-    DEFAULT_FEATURES: Dict[str, float] = {
+    DEFAULT_FEATURES: dict[str, float] = {
         'harmonic_ratio': 0.5,
         'pitch_stability': 0.7,
         'chroma_energy': 0.5
@@ -53,7 +52,7 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
         self.chunk_duration: float = chunk_duration
         self.interval_duration: float = interval_duration
 
-    def _extract_chunks(self, audio: np.ndarray, sr: int) -> Tuple[np.ndarray, np.ndarray]:
+    def _extract_chunks(self, audio: np.ndarray, sr: int) -> tuple[np.ndarray, np.ndarray]:
         """
         Extract analysis chunks from audio.
 
@@ -91,7 +90,7 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
         # Keep chunks as list instead of object array to preserve float dtypes
         return chunks, np.array(start_times)
 
-    def _analyze_impl(self, audio: np.ndarray, sr: int) -> Dict[str, float]:
+    def _analyze_impl(self, audio: np.ndarray, sr: int) -> dict[str, float]:
         """
         Analyze harmonic features using time-domain sampling with parallel chunk processing.
 
@@ -136,7 +135,7 @@ class SampledHarmonicAnalyzer(BaseAnalyzer):
             'chroma_energy': AggregationUtils.aggregate_frames_to_track(chroma_energies, method='mean')
         }
 
-    def _analyze_chunk(self, chunk: np.ndarray, sr: int, chunk_idx: int) -> Tuple[float, float, float]:
+    def _analyze_chunk(self, chunk: np.ndarray, sr: int, chunk_idx: int) -> tuple[float, float, float]:
         """
         Analyze single chunk (called in parallel).
 

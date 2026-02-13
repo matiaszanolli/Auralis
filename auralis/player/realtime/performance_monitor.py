@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Performance Monitor
 ~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,7 @@ Monitors processing performance and adapts quality
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -22,7 +20,7 @@ class PerformanceMonitor:
 
     def __init__(self, max_cpu_usage: float = 0.8):
         self.max_cpu_usage = max_cpu_usage
-        self.processing_times: List[float] = []
+        self.processing_times: list[float] = []
         self.max_history = 100
         self.performance_mode = False
         self.consecutive_overruns = 0
@@ -54,7 +52,7 @@ class PerformanceMonitor:
                 self.performance_mode = False
                 info("Exiting performance mode - CPU usage stable")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get performance statistics"""
         if not self.processing_times:
             return {

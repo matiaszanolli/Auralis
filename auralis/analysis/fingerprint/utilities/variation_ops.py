@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Variation Analysis Utilities
 
@@ -15,7 +13,7 @@ Features:
 """
 
 import logging
-from typing import Optional, Tuple, cast
+from typing import cast
 
 import librosa
 import numpy as np
@@ -67,10 +65,10 @@ class VariationOperations:
     def calculate_dynamic_range_variation(
         audio: np.ndarray,
         sr: int,
-        rms: Optional[np.ndarray] = None,
-        hop_length: Optional[int] = None,
-        frame_length: Optional[int] = None,
-        frame_peaks: Optional[np.ndarray] = None
+        rms: np.ndarray | None = None,
+        hop_length: int | None = None,
+        frame_length: int | None = None,
+        frame_peaks: np.ndarray | None = None
     ) -> float:
         """
         Calculate how much dynamic range changes over time.
@@ -124,7 +122,7 @@ class VariationOperations:
     def calculate_loudness_variation(
         audio: np.ndarray,
         sr: int,
-        rms: Optional[np.ndarray] = None
+        rms: np.ndarray | None = None
     ) -> float:
         """
         Calculate standard deviation of loudness over time.
@@ -163,7 +161,7 @@ class VariationOperations:
     def calculate_peak_consistency(
         audio: np.ndarray,
         sr: int,
-        frame_peaks: Optional[np.ndarray] = None
+        frame_peaks: np.ndarray | None = None
     ) -> float:
         """
         Calculate how consistent peaks are over time (OPTIMIZED).
@@ -197,7 +195,7 @@ class VariationOperations:
             return 0.7  # Default to reasonably consistent
 
     @staticmethod
-    def calculate_all(audio: np.ndarray, sr: int) -> Tuple[float, float, float]:
+    def calculate_all(audio: np.ndarray, sr: int) -> tuple[float, float, float]:
         """
         Calculate all three variation features in one call with pre-computed values.
 

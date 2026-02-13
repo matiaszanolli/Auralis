@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Dynamic Range Analysis
 ~~~~~~~~~~~~~~~~~~~~~
@@ -7,7 +5,7 @@ Dynamic Range Analysis
 Comprehensive dynamic range measurement and analysis tools.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 from scipy import signal
@@ -31,10 +29,10 @@ class DynamicRangeAnalyzer:
         self.gate_threshold = -70.0  # dBFS gating threshold
 
         # Crest factor analysis
-        self.crest_history: List[float] = []
+        self.crest_history: list[float] = []
         self.max_crest_history = 200  # Keep 10 seconds at 20Hz
 
-    def analyze_dynamic_range(self, audio_data: np.ndarray) -> Dict[str, Any]:
+    def analyze_dynamic_range(self, audio_data: np.ndarray) -> dict[str, Any]:
         """
         Comprehensive dynamic range analysis
 
@@ -156,7 +154,7 @@ class DynamicRangeAnalyzer:
         else:
             return 0.0
 
-    def _analyze_rms_variation(self, audio: np.ndarray) -> Dict[str, Any]:
+    def _analyze_rms_variation(self, audio: np.ndarray) -> dict[str, Any]:
         """Analyze RMS variation over time"""
         # Calculate RMS in sliding windows
         hop_size = self.rms_window_size // 2
@@ -201,7 +199,7 @@ class DynamicRangeAnalyzer:
             }
         }
 
-    def _analyze_peak_distribution(self, audio: np.ndarray) -> Dict[str, Any]:
+    def _analyze_peak_distribution(self, audio: np.ndarray) -> dict[str, Any]:
         """Analyze distribution of peak levels"""
         # Find peaks using scipy
         peaks, properties = signal.find_peaks(np.abs(audio), height=0.01, distance=100)
@@ -317,7 +315,7 @@ class DynamicRangeAnalyzer:
         else:
             return 0.01  # Default 10ms
 
-    def _analyze_envelope(self, audio: np.ndarray) -> Dict[str, Any]:
+    def _analyze_envelope(self, audio: np.ndarray) -> dict[str, Any]:
         """Analyze audio envelope characteristics"""
         # Calculate envelope using Hilbert transform
         # Flatten audio in case it's 2D
@@ -369,7 +367,7 @@ class DynamicRangeAnalyzer:
         else:
             return "Very Poor"
 
-    def _assess_loudness_war(self, crest_factor: float, dr_value: float) -> Dict[str, Any]:
+    def _assess_loudness_war(self, crest_factor: float, dr_value: float) -> dict[str, Any]:
         """Assess if audio shows signs of loudness war processing"""
         # Indicators of loudness war:
         # - Very low crest factor (< 6dB)
@@ -409,7 +407,7 @@ class DynamicRangeAnalyzer:
             'recommendations': self._get_dynamic_range_recommendations(crest_factor, dr_value)
         }
 
-    def _get_dynamic_range_recommendations(self, crest_factor: float, dr_value: float) -> List[str]:
+    def _get_dynamic_range_recommendations(self, crest_factor: float, dr_value: float) -> list[str]:
         """Get recommendations for improving dynamic range"""
         recommendations = []
 
@@ -427,7 +425,7 @@ class DynamicRangeAnalyzer:
 
         return recommendations
 
-    def get_crest_factor_history(self) -> List[float]:
+    def get_crest_factor_history(self) -> list[float]:
         """Get crest factor history for temporal analysis"""
         return self.crest_history.copy()
 

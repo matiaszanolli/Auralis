@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Audio Analyzer
 ~~~~~~~~~~~~~
@@ -13,7 +11,6 @@ Audio file analysis and information extraction
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import soundfile as sf
 
@@ -35,7 +32,7 @@ class AudioAnalyzer:
     - Content hash
     """
 
-    def extract_audio_info(self, file_path: str) -> Optional[AudioFileInfo]:
+    def extract_audio_info(self, file_path: str) -> AudioFileInfo | None:
         """
         Extract comprehensive audio file information
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Psychoacoustic EQ System - Backward Compatibility Wrapper
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

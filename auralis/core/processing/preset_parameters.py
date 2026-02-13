@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Adaptive Mastering Parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -18,7 +16,7 @@ Processing parameters are generated dynamically based on:
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class PresetParameters:
@@ -42,7 +40,7 @@ class PresetParameters:
     }
 
     @staticmethod
-    def get_preset(preset_name: str = "adaptive") -> Dict[str, Any]:
+    def get_preset(preset_name: str = "adaptive") -> dict[str, Any]:
         """
         Get adaptive processing parameters.
 
@@ -80,7 +78,7 @@ class PresetParameters:
         return not preset.get("requires_analysis", False)
 
     @staticmethod
-    def export_presets_to_json(output_path: Optional[str] = None) -> str:
+    def export_presets_to_json(output_path: str | None = None) -> str:
         """
         Export all presets to JSON for external use/validation.
 
@@ -98,7 +96,7 @@ class PresetParameters:
         return json_data
 
     @staticmethod
-    def list_presets() -> Dict[str, str]:
+    def list_presets() -> dict[str, str]:
         """
         List all available presets with descriptions.
 
@@ -111,7 +109,7 @@ class PresetParameters:
         }
 
 
-def get_preset_parameters(preset_name: str) -> Dict[str, Any]:
+def get_preset_parameters(preset_name: str) -> dict[str, Any]:
     """
     Convenience function to get preset parameters.
 

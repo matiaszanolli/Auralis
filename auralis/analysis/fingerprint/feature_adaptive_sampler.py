@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Feature-Level Adaptive Sampling for Fingerprint Extraction
 
@@ -23,7 +21,7 @@ Phase 7B Validation:
 
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -60,8 +58,8 @@ class FeatureAdaptiveSampler:
         logger.debug("FeatureAdaptiveSampler initialized")
 
     def select_sampling_strategy(
-        self, audio_features: Dict[str, float]
-    ) -> Tuple[SamplingStrategy, float, str]:
+        self, audio_features: dict[str, float]
+    ) -> tuple[SamplingStrategy, float, str]:
         """
         Select feature-optimized sampling strategy based on audio characteristics.
 
@@ -121,8 +119,8 @@ class FeatureAdaptiveSampler:
         return strategy, interval, reasoning
 
     def should_use_adaptive_intervals(
-        self, chunk_features: List[Any], stability_threshold: float = 0.80
-    ) -> Tuple[bool, Dict[str, Any]]:
+        self, chunk_features: list[Any], stability_threshold: float = 0.80
+    ) -> tuple[bool, dict[str, Any]]:
         """
         Determine if adaptive interval sampling should be used based on
         feature stability across chunks.
@@ -209,9 +207,9 @@ class FeatureAdaptiveSampler:
 
     def configure_thresholds(
         self,
-        harmonic_threshold: Optional[float] = None,
-        percussive_threshold: Optional[float] = None,
-        energy_threshold: Optional[float] = None,
+        harmonic_threshold: float | None = None,
+        percussive_threshold: float | None = None,
+        energy_threshold: float | None = None,
     ) -> None:
         """
         Configure energy thresholds for strategy selection.
@@ -235,10 +233,10 @@ class FeatureAdaptiveSampler:
 
     def configure_intervals(
         self,
-        standard_s: Optional[float] = None,
-        cqt_s: Optional[float] = None,
-        temporal_s: Optional[float] = None,
-        extended_s: Optional[float] = None,
+        standard_s: float | None = None,
+        cqt_s: float | None = None,
+        temporal_s: float | None = None,
+        extended_s: float | None = None,
     ) -> None:
         """
         Configure sampling intervals for different strategies.

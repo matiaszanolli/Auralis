@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Track Repository
 ~~~~~~~~~~~~~~~
@@ -10,7 +8,8 @@ Data access layer for track operations
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
@@ -23,7 +22,7 @@ from ..utils.artist_normalizer import normalize_artist_name
 class TrackRepository:
     """Repository for track database operations"""
 
-    def __init__(self, session_factory: Callable[[], Session], album_repository: Optional[Any] = None) -> None:
+    def __init__(self, session_factory: Callable[[], Session], album_repository: Any | None = None) -> None:
         """
         Initialize track repository
 
@@ -38,7 +37,7 @@ class TrackRepository:
         """Get a new database session"""
         return self.session_factory()
 
-    def add(self, track_info: Dict[str, Any]) -> Optional[Track]:
+    def add(self, track_info: dict[str, Any]) -> Track | None:
         """
         Add a track to the library
 
@@ -87,7 +86,6 @@ class TrackRepository:
 
             # Get or create album
             album = None
-            album_is_new = False
             if track_info.get('album'):
                 album_filter = Album.title == track_info['album']
                 if artists:
@@ -100,7 +98,6 @@ class TrackRepository:
                         year=track_info.get('year')
                     )
                     session.add(album)
-                    album_is_new = True
 
             # Get or create genres
             genres = []
@@ -166,7 +163,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_by_id(self, track_id: int) -> Optional[Track]:
+    def get_by_id(self, track_id: int) -> Track | None:
         """Get track by ID with relationships loaded"""
         session = self.get_session()
         try:
@@ -180,7 +177,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_by_path(self, filepath: str) -> Optional[Track]:
+    def get_by_path(self, filepath: str) -> Track | None:
         """Get track by file path with relationships loaded"""
         session = self.get_session()
         try:
@@ -194,11 +191,11 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_by_filepath(self, filepath: str) -> Optional[Track]:
+    def get_by_filepath(self, filepath: str) -> Track | None:
         """Alias for get_by_path for backward compatibility"""
         return self.get_by_path(filepath)
 
-    def update_by_filepath(self, filepath: str, track_info: Dict[str, Any]) -> Optional[Track]:
+    def update_by_filepath(self, filepath: str, track_info: dict[str, Any]) -> Track | None:
         """
         Update track by filepath
 
@@ -250,7 +247,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+    def search(self, query: str, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """
         Search tracks by title, artist, album, or genre
 
@@ -285,7 +282,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_by_genre(self, genre_name: str, limit: int = 100) -> List[Track]:
+    def get_by_genre(self, genre_name: str, limit: int = 100) -> list[Track]:
         """Get tracks by genre"""
         session = self.get_session()
         try:
@@ -296,7 +293,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_by_artist(self, artist_name: str, limit: int = 100) -> List[Track]:
+    def get_by_artist(self, artist_name: str, limit: int = 100) -> list[Track]:
         """Get tracks by artist"""
         from sqlalchemy.orm import joinedload
         session = self.get_session()
@@ -318,7 +315,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_recent(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+    def get_recent(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get recently added tracks with relationships loaded
 
         Args:
@@ -349,7 +346,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_popular(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+    def get_popular(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get most played tracks with relationships loaded
 
         Args:
@@ -380,7 +377,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_favorites(self, limit: int = 50, offset: int = 0) -> tuple[List[Track], int]:
+    def get_favorites(self, limit: int = 50, offset: int = 0) -> tuple[list[Track], int]:
         """Get favorite tracks with relationships loaded
 
         Args:
@@ -412,7 +409,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[List[Track], int]:
+    def get_all(self, limit: int = 50, offset: int = 0, order_by: str = 'title') -> tuple[list[Track], int]:
         """Get all tracks with pagination and total count
 
         Args:
@@ -476,7 +473,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def find_similar(self, track: Track, limit: int = 5) -> List[Track]:
+    def find_similar(self, track: Track, limit: int = 5) -> list[Track]:
         """
         Find similar tracks based on audio characteristics
 
@@ -515,7 +512,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def _update_artists(self, session: Session, track: Track, artist_names: List[str]) -> None:
+    def _update_artists(self, session: Session, track: Track, artist_names: list[str]) -> None:
         """Update track artists using normalized name matching"""
         track.artists = []
         for artist_name in artist_names:
@@ -529,7 +526,7 @@ class TrackRepository:
                 session.add(artist)
             track.artists.append(artist)
 
-    def _update_genres(self, session: Session, track: Track, genre_names: List[str]) -> None:
+    def _update_genres(self, session: Session, track: Track, genre_names: list[str]) -> None:
         """Update track genres"""
         track.genres = []
         for genre_name in genre_names:
@@ -565,7 +562,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def update(self, track_id: int, track_info: Dict[str, Any]) -> Optional[Track]:
+    def update(self, track_id: int, track_info: dict[str, Any]) -> Track | None:
         """
         Update a track by ID
 
@@ -620,7 +617,7 @@ class TrackRepository:
         finally:
             session.close()
 
-    def update_metadata(self, track_id: int, **fields: Any) -> Optional[Track]:
+    def update_metadata(self, track_id: int, **fields: Any) -> Track | None:
         """
         Update track metadata fields.
 

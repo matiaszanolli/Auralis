@@ -19,14 +19,14 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
 
 
-def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
+def setup_startup_handlers(app: FastAPI, deps: dict[str, Any]) -> None:
     """
     Register startup and shutdown event handlers with FastAPI app.
 
@@ -47,7 +47,7 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
     HAS_STREAMLINED_CACHE: bool = deps.get('HAS_STREAMLINED_CACHE', False)
     HAS_SIMILARITY: bool = deps.get('HAS_SIMILARITY', False)
     manager: Any = deps.get('manager')
-    globals_dict: Dict[str, Any] = deps.get('globals', {})
+    globals_dict: dict[str, Any] = deps.get('globals', {})
 
     @app.on_event("startup")
     async def startup_event() -> None:
@@ -203,7 +203,7 @@ def setup_startup_handlers(app: FastAPI, deps: Dict[str, Any]) -> None:
                     )
 
                     # Helper to get track filepath
-                    def get_track_filepath(track_id: int) -> Optional[str]:
+                    def get_track_filepath(track_id: int) -> str | None:
                         try:
                             factory = globals_dict.get('repository_factory')
                             if factory:

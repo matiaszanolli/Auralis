@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Adaptive Mode Processing
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,14 +8,12 @@ Spectrum-based adaptive processing without reference tracks
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
 from ...dsp.basic import amplify, rms
-from ...dsp.dynamics.soft_clipper import soft_clip
 from ...dsp.unified import (
-    adjust_stereo_width,
     calculate_loudness_units,
     stereo_width_analysis,
 )
@@ -27,7 +23,6 @@ from .base import (
     CompressionStrategies,
     DBConversion,
     ExpansionStrategies,
-    MeasurementUtilities,
     NormalizationStep,
     PeakNormalizer,
     ProcessingLogger,
@@ -216,7 +211,7 @@ class AdaptiveMode:
             spectrum_params.expansion_amount
         )
 
-    def _apply_stereo_width(self, audio: np.ndarray, targets: Dict[str, Any],
+    def _apply_stereo_width(self, audio: np.ndarray, targets: dict[str, Any],
                            spectrum_position: Any) -> np.ndarray:
         """Apply stereo width adjustment with safety checks"""
 
@@ -243,7 +238,6 @@ class AdaptiveMode:
 
     def _apply_final_normalization(self, audio: np.ndarray, spectrum_params: Any) -> np.ndarray:
         """Apply final gain boost and peak normalization using LUFS-based adaptive control"""
-        from ..config.preset_profiles import get_preset_profile
 
         # Step 0: Calculate source LUFS and crest factor for adaptive loudness control
         source_lufs = calculate_loudness_units(audio, self.config.internal_sample_rate)
@@ -334,6 +328,6 @@ class AdaptiveMode:
 
         return audio
 
-    def get_last_content_profile(self) -> Optional[Dict[str, Any]]:
+    def get_last_content_profile(self) -> dict[str, Any] | None:
         """Get the last analyzed content profile"""
         return self.last_content_profile

@@ -9,7 +9,8 @@ Handles dependency injection for each router via lambdas.
 """
 
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any
+from collections.abc import Callable
 
 from fastapi import APIRouter, FastAPI
 from routers.albums import create_albums_router
@@ -30,7 +31,7 @@ from routers.system import create_system_router
 logger = logging.getLogger(__name__)
 
 
-def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
+def setup_routers(app: FastAPI, deps: dict[str, Any]) -> None:
     """
     Register all routers with FastAPI application.
 
@@ -54,12 +55,12 @@ def setup_routers(app: FastAPI, deps: Dict[str, Any]) -> None:
     HAS_STREAMLINED_CACHE: bool = deps.get('HAS_STREAMLINED_CACHE', False)
     HAS_SIMILARITY: bool = deps.get('HAS_SIMILARITY', False)
     manager: Any = deps.get('manager')
-    enhancement_settings: Dict[str, Any] = deps.get('enhancement_settings', {})
-    processing_cache: Dict[str, Any] = deps.get('processing_cache', {})
+    enhancement_settings: dict[str, Any] = deps.get('enhancement_settings', {})
+    processing_cache: dict[str, Any] = deps.get('processing_cache', {})
     chunked_audio_processor_class: Any = deps.get('chunked_audio_processor_class')
     create_track_info_fn: Any = deps.get('create_track_info_fn')
     buffer_presets_fn: Any = deps.get('buffer_presets_fn')
-    globals_dict: Dict[str, Any] = deps.get('globals', {})
+    globals_dict: dict[str, Any] = deps.get('globals', {})
 
     # Helper to safely get global components
     def get_component(key: str) -> Callable[[], Any]:

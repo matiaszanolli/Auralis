@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Similarity API Router
 ~~~~~~~~~~~~~~~~~~~~
@@ -11,9 +9,10 @@ REST API endpoints for fingerprint-based music similarity
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from auralis.analysis.fingerprint import (
@@ -33,12 +32,12 @@ class SimilarTrack(BaseModel):
     track_id: int = Field(..., description="ID of the similar track")
     distance: float = Field(..., description="Fingerprint distance (lower = more similar)")
     similarity_score: float = Field(..., ge=0.0, le=1.0, description="Similarity score 0-1 (higher = more similar)")
-    rank: Optional[int] = Field(None, description="Rank in similarity (1=most similar)")
+    rank: int | None = Field(None, description="Rank in similarity (1=most similar)")
 
     # Optional track details
-    title: Optional[str] = None
-    artist: Optional[str] = None
-    album: Optional[str] = None
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
 
 
 class SimilarityExplanation(BaseModel):
@@ -47,7 +46,7 @@ class SimilarityExplanation(BaseModel):
     track_id2: int
     distance: float
     similarity_score: float
-    top_differences: List[Dict[str, float]]
+    top_differences: list[dict[str, float]]
 
 
 class GraphStatsResponse(BaseModel):
@@ -58,7 +57,7 @@ class GraphStatsResponse(BaseModel):
     avg_distance: float
     min_distance: float
     max_distance: float
-    build_time_seconds: Optional[float] = None
+    build_time_seconds: float | None = None
 
 
 def create_similarity_router(
@@ -79,13 +78,13 @@ def create_similarity_router(
     """
     router = APIRouter(prefix="/api/similarity", tags=["similarity"])
 
-    @router.get("/tracks/{track_id}/similar", response_model=List[SimilarTrack])
+    @router.get("/tracks/{track_id}/similar", response_model=list[SimilarTrack])
     async def get_similar_tracks(
         track_id: int,
         limit: int = Query(10, ge=1, le=100, description="Number of similar tracks to return"),
         use_graph: bool = Query(True, description="Use pre-computed graph if available"),
         include_details: bool = Query(False, description="Include track title/artist/album")
-    ) -> List[SimilarTrack]:
+    ) -> list[SimilarTrack]:
         """
         Get similar tracks to a given track
 
@@ -165,7 +164,7 @@ def create_similarity_router(
                         detail="Similarity system not initialized. Please wait for initialization."
                     )
 
-                similarity_results: List[SimilarityResult] = similarity.find_similar(track_id, n=limit)
+                similarity_results: list[SimilarityResult] = similarity.find_similar(track_id, n=limit)
 
                 for i, result in enumerate(similarity_results, start=1):  # type: ignore[assignment]
                     similar_track_model: SimilarTrack = SimilarTrack(
@@ -290,7 +289,7 @@ def create_similarity_router(
     @router.post("/fit")
     async def fit_similarity_system(
         min_samples: int = Query(10, ge=5, description="Minimum fingerprints required to fit")
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Fit the similarity system with current fingerprints
 
@@ -378,8 +377,8 @@ def create_similarity_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error building graph: {str(e)}")
 
-    @router.get("/graph/stats", response_model=Optional[GraphStatsResponse])
-    async def get_graph_stats() -> Optional[GraphStatsResponse]:
+    @router.get("/graph/stats", response_model=GraphStatsResponse | None)
+    async def get_graph_stats() -> GraphStatsResponse | None:
         """
         Get statistics about current similarity graph
 
@@ -401,7 +400,7 @@ def create_similarity_router(
             raise HTTPException(status_code=500, detail=f"Error getting graph stats: {str(e)}")
 
     @router.delete("/graph")
-    async def clear_similarity_graph() -> Dict[str, Any]:
+    async def clear_similarity_graph() -> dict[str, Any]:
         """
         Clear the similarity graph
 
@@ -421,7 +420,7 @@ def create_similarity_router(
             raise HTTPException(status_code=500, detail=f"Error clearing graph: {str(e)}")
 
     @router.get("/fingerprint-queue/status")
-    async def get_fingerprint_queue_status() -> Dict[str, Any]:
+    async def get_fingerprint_queue_status() -> dict[str, Any]:
         """
         Get status of the on-demand fingerprint generation queue.
 
@@ -457,7 +456,7 @@ def create_similarity_router(
             }
 
     @router.post("/fingerprint-queue/enqueue/{track_id}")
-    async def enqueue_fingerprint(track_id: int) -> Dict[str, Any]:
+    async def enqueue_fingerprint(track_id: int) -> dict[str, Any]:
         """
         Manually enqueue a track for fingerprint generation.
 
@@ -508,7 +507,7 @@ def create_similarity_router(
     @router.post("/fingerprint-queue/enqueue-all")
     async def enqueue_all_missing_fingerprints(
         limit: int = Query(None, ge=1, le=10000, description="Maximum tracks to enqueue (default: all)")
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enqueue all tracks that don't have fingerprints for background processing.
 
@@ -580,7 +579,7 @@ def create_similarity_router(
             raise HTTPException(status_code=500, detail=f"Error enqueueing tracks: {str(e)}")
 
     @router.get("/fingerprint-stats")
-    async def get_fingerprint_stats() -> Dict[str, Any]:
+    async def get_fingerprint_stats() -> dict[str, Any]:
         """
         Get overall fingerprint statistics for the library.
 

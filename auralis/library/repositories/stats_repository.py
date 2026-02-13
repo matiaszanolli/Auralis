@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Statistics Repository
 ~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,8 @@ Data access layer for library statistics
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Any, Callable, Dict
+from typing import Any
+from collections.abc import Callable
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -27,7 +26,7 @@ class StatsRepository:
     def get_session(self) -> Session:
         return self.session_factory()
 
-    def get_library_stats(self) -> Dict[str, Any]:
+    def get_library_stats(self) -> dict[str, Any]:
         """
         Get comprehensive library statistics
 

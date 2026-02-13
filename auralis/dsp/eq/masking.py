@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Psychoacoustic Masking Calculations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,7 +8,6 @@ Masking threshold calculations based on psychoacoustic models
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import List
 
 import numpy as np
 
@@ -22,7 +19,7 @@ class MaskingThresholdCalculator:
 
     def calculate_masking(self,
                          magnitude_spectrum: np.ndarray,
-                         critical_bands: List[CriticalBand],
+                         critical_bands: list[CriticalBand],
                          sample_rate: int = 44100) -> np.ndarray:
         """
         Calculate masking thresholds for each critical band
@@ -63,7 +60,7 @@ class MaskingThresholdCalculator:
 
     def calculate_simultaneous_masking(self,
                                       magnitude_spectrum: np.ndarray,
-                                      critical_bands: List[CriticalBand]) -> np.ndarray:
+                                      critical_bands: list[CriticalBand]) -> np.ndarray:
         """
         Calculate simultaneous masking (frequency-domain masking)
 
@@ -82,8 +79,8 @@ class MaskingThresholdCalculator:
         return self.calculate_masking(magnitude_spectrum, critical_bands)
 
     def calculate_temporal_masking(self,
-                                   magnitude_history: List[np.ndarray],
-                                   critical_bands: List[CriticalBand]) -> np.ndarray:
+                                   magnitude_history: list[np.ndarray],
+                                   critical_bands: list[CriticalBand]) -> np.ndarray:
         """
         Calculate temporal masking (time-domain masking)
 

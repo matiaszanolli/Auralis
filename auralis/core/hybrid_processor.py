@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Hybrid Audio Processor
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -12,8 +10,7 @@ Unified processor supporting both reference-based and adaptive mastering
 Main processing engine that bridges Matchering and Auralis systems
 """
 
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -125,19 +122,19 @@ class HybridProcessor:
         )
 
         # Shared state (backwards compatibility)
-        self.current_user_id: Optional[str] = None
+        self.current_user_id: str | None = None
 
         # Initialize performance optimizer (optimizations applied once at module level)
         self.performance_optimizer = get_performance_optimizer()
 
         # Processing state
-        self.current_targets: Optional[Dict[str, Any]] = None
-        self.processing_history: List[Any] = []
-        self.last_content_profile: Dict[str, Any] = {}
+        self.current_targets: dict[str, Any] | None = None
+        self.processing_history: list[Any] = []
+        self.last_content_profile: dict[str, Any] = {}
 
         debug(f"Hybrid processor initialized in {config.adaptive.mode} mode with psychoacoustic EQ")
 
-    def set_fixed_mastering_targets(self, targets: Optional[Dict[str, Any]]) -> None:
+    def set_fixed_mastering_targets(self, targets: dict[str, Any] | None) -> None:
         """
         Set fixed mastering targets to use for all chunks (Beta.9 optimization)
 
@@ -170,12 +167,12 @@ class HybridProcessor:
 
     def process(
         self,
-        target: Union[str, np.ndarray],
-        reference: Optional[Union[str, np.ndarray]] = None,
-        results: Optional[Union[str, List[str], Result, List[Result]]] = None,
-        preview_target: Optional[Result] = None,
-        preview_result: Optional[Result] = None
-    ) -> Optional[np.ndarray]:
+        target: str | np.ndarray,
+        reference: str | np.ndarray | None = None,
+        results: str | list[str] | Result | list[Result] | None = None,
+        preview_target: Result | None = None,
+        preview_result: Result | None = None
+    ) -> np.ndarray | None:
         """
         Main processing function supporting both reference and adaptive modes
 
@@ -234,7 +231,7 @@ class HybridProcessor:
             raise ValueError(f"Invalid processing mode: {self.config.adaptive.mode}")
 
     def _process_reference_mode(self, target_audio: np.ndarray,
-                               reference: Union[str, np.ndarray],
+                               reference: str | np.ndarray,
                                results: Any) -> np.ndarray:
         """Process using traditional reference-based matching"""
         info("Processing in reference mode")
@@ -296,7 +293,7 @@ class HybridProcessor:
         return processed
 
     def _process_hybrid_mode(self, target_audio: np.ndarray,
-                            reference: Optional[Union[str, np.ndarray]],
+                            reference: str | np.ndarray | None,
                             results: Any) -> np.ndarray:
         """Process using hybrid approach combining reference and adaptive"""
         info("Processing in hybrid mode")
@@ -319,7 +316,7 @@ class HybridProcessor:
         return processed
 
     def process_realtime_chunk(self, audio_chunk: np.ndarray,
-                              content_info: Optional[Dict[str, Any]] = None) -> np.ndarray:
+                              content_info: dict[str, Any] | None = None) -> np.ndarray:
         """
         Process audio chunk in real-time for streaming applications
 
@@ -341,7 +338,7 @@ class HybridProcessor:
 
     # Delegation methods for component managers
 
-    def get_realtime_eq_info(self) -> Dict[str, Any]:
+    def get_realtime_eq_info(self) -> dict[str, Any]:
         """Get real-time EQ status and performance information"""
         return self.realtime_eq_manager.get_info()
 
@@ -353,7 +350,7 @@ class HybridProcessor:
         """Reset real-time EQ state"""
         self.realtime_eq_manager.reset()
 
-    def get_dynamics_info(self) -> Dict[str, Any]:
+    def get_dynamics_info(self) -> dict[str, Any]:
         """Get dynamics processing information"""
         return self.dynamics_manager.get_info()
 
@@ -371,8 +368,8 @@ class HybridProcessor:
         self.preference_manager.set_user(user_id)
 
     def record_user_feedback(self, rating: float,
-                           parameters_before: Optional[Dict[str, float]] = None,
-                           parameters_after: Optional[Dict[str, float]] = None) -> None:
+                           parameters_before: dict[str, float] | None = None,
+                           parameters_after: dict[str, float] | None = None) -> None:
         """Record user feedback for learning"""
         self.preference_manager.record_feedback(rating, parameters_before, parameters_after)
 
@@ -381,19 +378,19 @@ class HybridProcessor:
         """Record user parameter adjustment for learning"""
         self.preference_manager.record_adjustment(parameter_name, old_value, new_value)
 
-    def get_user_insights(self, user_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_user_insights(self, user_id: str | None = None) -> dict[str, Any]:
         """Get user preference insights"""
         return self.preference_manager.get_insights(user_id)
 
-    def save_user_preferences(self, user_id: Optional[str] = None) -> bool:
+    def save_user_preferences(self, user_id: str | None = None) -> bool:
         """Save user preferences to storage"""
         return self.preference_manager.save_preferences(user_id)
 
-    def get_performance_stats(self) -> Dict[str, Any]:
+    def get_performance_stats(self) -> dict[str, Any]:
         """Get performance optimization statistics"""
         return self.performance_optimizer.get_optimization_stats()
 
-    def get_processing_info(self) -> Dict[str, Any]:
+    def get_processing_info(self) -> dict[str, Any]:
         """Get information about current processing configuration"""
         return {
             "mode": self.config.adaptive.mode,
@@ -448,10 +445,10 @@ _apply_module_optimizations()
 
 # Module-level processor cache for convenience functions
 # Caches HybridProcessor instances to avoid expensive re-initialization
-_processor_cache: Dict[str, HybridProcessor] = {}
+_processor_cache: dict[str, HybridProcessor] = {}
 
 
-def _get_or_create_processor(config: Optional[UnifiedConfig], mode: str) -> HybridProcessor:
+def _get_or_create_processor(config: UnifiedConfig | None, mode: str) -> HybridProcessor:
     """
     Get or create a cached HybridProcessor instance
 
@@ -477,8 +474,8 @@ def _get_or_create_processor(config: Optional[UnifiedConfig], mode: str) -> Hybr
     return _processor_cache[cache_key]
 
 
-def process_adaptive(target: Union[str, np.ndarray],
-                    config: Optional[UnifiedConfig] = None) -> np.ndarray:
+def process_adaptive(target: str | np.ndarray,
+                    config: UnifiedConfig | None = None) -> np.ndarray:
     """
     Quick adaptive processing function (cached)
 
@@ -491,9 +488,9 @@ def process_adaptive(target: Union[str, np.ndarray],
     return result
 
 
-def process_reference(target: Union[str, np.ndarray],
-                     reference: Union[str, np.ndarray],
-                     config: Optional[UnifiedConfig] = None) -> np.ndarray:
+def process_reference(target: str | np.ndarray,
+                     reference: str | np.ndarray,
+                     config: UnifiedConfig | None = None) -> np.ndarray:
     """
     Quick reference-based processing function (cached)
 
@@ -506,9 +503,9 @@ def process_reference(target: Union[str, np.ndarray],
     return result
 
 
-def process_hybrid(target: Union[str, np.ndarray],
-                  reference: Optional[Union[str, np.ndarray]] = None,
-                  config: Optional[UnifiedConfig] = None) -> np.ndarray:
+def process_hybrid(target: str | np.ndarray,
+                  reference: str | np.ndarray | None = None,
+                  config: UnifiedConfig | None = None) -> np.ndarray:
     """
     Quick hybrid processing function (cached)
 

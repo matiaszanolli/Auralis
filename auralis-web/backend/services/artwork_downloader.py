@@ -14,11 +14,9 @@ Features:
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import hashlib
 import logging
 from pathlib import Path
-from typing import Optional, Tuple
 
 import aiohttp
 
@@ -55,7 +53,7 @@ class ArtworkDownloader:
         artist: str,
         album: str,
         album_id: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Download artwork for an album from online sources.
 
@@ -92,7 +90,7 @@ class ArtworkDownloader:
         artist: str,
         album: str,
         album_id: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Try to download artwork from MusicBrainz Cover Art Archive.
 
@@ -149,7 +147,7 @@ class ArtworkDownloader:
         artist: str,
         album: str,
         album_id: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Try to download artwork from iTunes Search API.
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Parallel EQ Processor
 ~~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Multi-threaded parallel processing for psychoacoustic EQ
 """
 
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, List, Optional, Tuple, cast
+from typing import cast
 
 import numpy as np
 from scipy.fft import fft, ifft
@@ -27,11 +25,11 @@ class ParallelEQProcessor:
     Processes frequency bands in parallel for 2-3x speedup over sequential processing
     """
 
-    def __init__(self, config: Optional[ParallelEQConfig] = None):
+    def __init__(self, config: ParallelEQConfig | None = None):
         self.config = config or ParallelEQConfig()
 
         # Define band groups for batch processing
-        self.band_groups: Optional[List[List[int]]]
+        self.band_groups: list[list[int]] | None
         if self.config.use_band_grouping:
             self.band_groups = [
                 list(range(*self.config.bass_bands)),
@@ -161,8 +159,8 @@ class ParallelEQProcessor:
     def _process_bands_parallel(
         self,
         spectrum: np.ndarray,
-        band_masks: List[np.ndarray],
-        gains_linear: List[float],
+        band_masks: list[np.ndarray],
+        gains_linear: list[float],
         fft_size: int
     ) -> np.ndarray:
         """
@@ -206,8 +204,8 @@ class ParallelEQProcessor:
     def _process_band_groups_parallel(
         self,
         spectrum: np.ndarray,
-        band_masks: List[np.ndarray],
-        gains_linear: List[float],
+        band_masks: list[np.ndarray],
+        gains_linear: list[float],
         fft_size: int
     ) -> np.ndarray:
         """
@@ -253,9 +251,9 @@ class ParallelEQProcessor:
     def _process_band_group(
         self,
         spectrum: np.ndarray,
-        band_masks: List[np.ndarray],
-        gains_linear: List[float],
-        band_indices: List[int],
+        band_masks: list[np.ndarray],
+        gains_linear: list[float],
+        band_indices: list[int],
         fft_size: int
     ) -> np.ndarray:
         """
@@ -292,7 +290,7 @@ class ParallelEQProcessor:
         gain_linear: float,
         band_idx: int,
         fft_size: int
-    ) -> Tuple[int, np.ndarray]:
+    ) -> tuple[int, np.ndarray]:
         """
         Apply gain to a single frequency band
 

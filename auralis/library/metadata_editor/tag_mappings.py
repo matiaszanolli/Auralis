@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Tag Mappings Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -10,17 +8,16 @@ Format-specific metadata tag mappings
 :license: GPLv3, see LICENSE for more details.
 """
 
-from typing import Dict, Set
 
 # Standard metadata fields (common across all formats)
-STANDARD_FIELDS: Set[str] = {
+STANDARD_FIELDS: set[str] = {
     'title', 'artist', 'album', 'albumartist', 'year',
     'genre', 'track', 'disc', 'comment', 'bpm', 'composer',
     'publisher', 'lyrics', 'copyright'
 }
 
 # Format-specific tag mappings
-TAG_MAPPINGS: Dict[str, Dict[str, str]] = {
+TAG_MAPPINGS: dict[str, dict[str, str]] = {
     'mp3': {
         'title': 'TIT2',
         'artist': 'TPE1',
@@ -91,7 +88,7 @@ TAG_MAPPINGS: Dict[str, Dict[str, str]] = {
 }
 
 # Extension to format key mapping
-EXTENSION_FORMAT_MAP: Dict[str, str] = {
+EXTENSION_FORMAT_MAP: dict[str, str] = {
     'mp3': 'mp3',
     'flac': 'flac',
     'm4a': 'm4a',

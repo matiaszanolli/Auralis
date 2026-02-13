@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Metadata Models
 ~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Data structures for metadata editing
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -19,5 +17,5 @@ class MetadataUpdate:
     """Represents a metadata update operation"""
     track_id: int
     filepath: str
-    updates: Dict[str, Any]
+    updates: dict[str, Any]
     backup: bool = True

@@ -10,7 +10,6 @@ Centralizes chunk calculation logic to prevent duplication and ensure consistenc
 """
 
 import logging
-from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ class ChunkBoundaryManager:
         self,
         chunk_index: int,
         with_context: bool = True
-    ) -> Tuple[float, float, float, float]:
+    ) -> tuple[float, float, float, float]:
         """
         Get chunk boundaries in seconds.
 
@@ -89,7 +88,7 @@ class ChunkBoundaryManager:
         self,
         chunk_index: int,
         with_context: bool = True
-    ) -> Tuple[int, int, int, int]:
+    ) -> tuple[int, int, int, int]:
         """
         Get chunk boundaries in samples.
 
@@ -114,7 +113,7 @@ class ChunkBoundaryManager:
             int(trim_end * self.sample_rate)
         )
 
-    def calculate_context_trim_samples(self, chunk_index: int) -> Tuple[int, int]:
+    def calculate_context_trim_samples(self, chunk_index: int) -> tuple[int, int]:
         """
         Calculate samples to trim from context at start and end.
 
@@ -144,7 +143,7 @@ class ChunkBoundaryManager:
         self,
         chunk_index: int,
         full_processed_samples: int
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """
         Calculate segment boundaries for extracting final output from processed chunk.
 
@@ -159,7 +158,7 @@ class ChunkBoundaryManager:
             Tuple of (segment_start, segment_end) in samples
         """
         is_last = self.is_last_chunk(chunk_index)
-        overlap_samples = self.get_overlap_samples()
+        self.get_overlap_samples()
         context_samples = int(CONTEXT_DURATION * self.sample_rate)
 
         # Start point in processed chunk (skip leading context)

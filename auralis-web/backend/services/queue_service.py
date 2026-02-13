@@ -9,7 +9,8 @@ Coordinates with AudioPlayer and PlayerStateManager to keep queue state synchron
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, cast
+from typing import Any, Protocol, cast
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class QueueManager(Protocol):
     """Protocol for queue manager interface."""
 
-    def get_queue(self) -> List[Any]:
+    def get_queue(self) -> list[Any]:
         """Get current queue."""
         ...
 
@@ -25,7 +26,7 @@ class QueueManager(Protocol):
         """Get queue size."""
         ...
 
-    def set_queue(self, queue: List[Any], index: int) -> None:
+    def set_queue(self, queue: list[Any], index: int) -> None:
         """Set queue with start index."""
         ...
 
@@ -37,7 +38,7 @@ class QueueManager(Protocol):
         """Remove track at index."""
         ...
 
-    def reorder_tracks(self, new_order: List[int]) -> bool:
+    def reorder_tracks(self, new_order: list[int]) -> bool:
         """Reorder tracks."""
         ...
 
@@ -111,7 +112,7 @@ class QueueService:
         self.connection_manager: Any = connection_manager
         self.create_track_info_fn: Callable[[Any], Any] = create_track_info_fn
 
-    async def get_queue_info(self) -> Dict[str, Any]:
+    async def get_queue_info(self) -> dict[str, Any]:
         """
         Get current playback queue info.
 
@@ -128,7 +129,7 @@ class QueueService:
             if hasattr(self.audio_player, 'queue'):
                 queue_obj = self.audio_player.queue
                 if hasattr(queue_obj, 'get_queue_info'):
-                    return cast(Dict[str, Any], queue_obj.get_queue_info())
+                    return cast(dict[str, Any], queue_obj.get_queue_info())
                 else:
                     return {
                         "tracks": list(queue_obj.queue),  # type: ignore[attr-defined]
@@ -141,7 +142,7 @@ class QueueService:
             logger.error(f"Failed to get queue info: {e}")
             raise
 
-    async def set_queue(self, track_ids: List[int], start_index: int = 0) -> Dict[str, Any]:
+    async def set_queue(self, track_ids: list[int], start_index: int = 0) -> dict[str, Any]:
         """
         Set the playback queue from track IDs (updates single source of truth).
 
@@ -211,7 +212,7 @@ class QueueService:
             logger.error(f"Failed to set queue: {e}")
             raise
 
-    async def add_track_to_queue(self, track_id: int, position: Optional[int] = None) -> Dict[str, Any]:
+    async def add_track_to_queue(self, track_id: int, position: int | None = None) -> dict[str, Any]:
         """
         Add a track to queue at specific position.
 
@@ -274,7 +275,7 @@ class QueueService:
             logger.error(f"Failed to add track to queue: {e}")
             raise
 
-    async def remove_track_from_queue(self, index: int) -> Dict[str, Any]:
+    async def remove_track_from_queue(self, index: int) -> dict[str, Any]:
         """
         Remove track from queue at specified index.
 
@@ -327,7 +328,7 @@ class QueueService:
             logger.error(f"Failed to remove from queue: {e}")
             raise
 
-    async def reorder_queue(self, new_order: List[int]) -> Dict[str, Any]:
+    async def reorder_queue(self, new_order: list[int]) -> dict[str, Any]:
         """
         Reorder the playback queue.
 
@@ -385,7 +386,7 @@ class QueueService:
             logger.error(f"Failed to reorder queue: {e}")
             raise
 
-    async def move_track_in_queue(self, from_index: int, to_index: int) -> Dict[str, Any]:
+    async def move_track_in_queue(self, from_index: int, to_index: int) -> dict[str, Any]:
         """
         Move a track within the queue (drag-and-drop).
 
@@ -443,7 +444,7 @@ class QueueService:
             logger.error(f"Failed to move track in queue: {e}")
             raise
 
-    async def shuffle_queue(self) -> Dict[str, Any]:
+    async def shuffle_queue(self) -> dict[str, Any]:
         """
         Shuffle the playback queue (keeps current track in place).
 
@@ -484,7 +485,7 @@ class QueueService:
             logger.error(f"Failed to shuffle queue: {e}")
             raise
 
-    async def clear_queue(self) -> Dict[str, Any]:
+    async def clear_queue(self) -> dict[str, Any]:
         """
         Clear the entire playback queue.
 

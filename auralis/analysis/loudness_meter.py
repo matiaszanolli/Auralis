@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 LUFS Loudness Measurement
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -8,7 +6,7 @@ ITU-R BS.1770-4 compliant loudness measurement implementation.
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 import numpy as np
 from scipy import signal
@@ -43,8 +41,8 @@ class LoudnessMeter:
         self.momentary_blocks = 4   # 400ms worth of blocks
 
         # Storage for measurements
-        self.block_buffer: List[float] = []
-        self.gated_blocks: List[float] = []
+        self.block_buffer: list[float] = []
+        self.gated_blocks: list[float] = []
 
         # True peak measurement
         self.true_peak_buffer_size = 4
@@ -82,8 +80,8 @@ class LoudnessMeter:
         self.rlb_filter_a = np.array([1, a1, a2]) / a0
 
         # Initialize filter states
-        self.pre_filter_zi: Optional[Any] = None
-        self.rlb_filter_zi: Optional[Any] = None
+        self.pre_filter_zi: Any | None = None
+        self.rlb_filter_zi: Any | None = None
 
     def _init_true_peak_filter(self) -> None:
         """Initialize 4x oversampling filter for true peak measurement"""
@@ -175,7 +173,7 @@ class LoudnessMeter:
 
         return float(lufs)
 
-    def measure_chunk(self, audio_chunk: np.ndarray) -> Dict[str, Any]:
+    def measure_chunk(self, audio_chunk: np.ndarray) -> dict[str, Any]:
         """
         Measure LUFS for an audio chunk
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Confidence Scoring for Adaptive Strategy Selection
 
@@ -20,7 +18,7 @@ Feature Scoring:
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any
 
 import numpy as np
 
@@ -51,9 +49,9 @@ class ConfidenceScorer:
 
     def score_features(
         self,
-        sampled_features: Dict[str, float],
-        full_track_features: Dict[str, float],
-    ) -> Tuple[float, Dict[str, Any]]:
+        sampled_features: dict[str, float],
+        full_track_features: dict[str, float],
+    ) -> tuple[float, dict[str, Any]]:
         """
         Compute overall confidence score by comparing sampled vs full-track features.
 
@@ -96,8 +94,8 @@ class ConfidenceScorer:
         return overall_score, details
 
     def _score_temporal_features(
-        self, sampled: Dict[str, float], full_track: Dict[str, float]
-    ) -> Dict[str, Any]:
+        self, sampled: dict[str, float], full_track: dict[str, float]
+    ) -> dict[str, Any]:
         """Score temporal feature stability (centroid, spread, flux)."""
         score = self._compute_feature_similarity(
             sampled, full_track, ["temporal_centroid", "spectral_centroid_time"]
@@ -110,8 +108,8 @@ class ConfidenceScorer:
         }
 
     def _score_spectral_features(
-        self, sampled: Dict[str, float], full_track: Dict[str, float]
-    ) -> Dict[str, Any]:
+        self, sampled: dict[str, float], full_track: dict[str, float]
+    ) -> dict[str, Any]:
         """Score spectral feature stability (centroid, bandwidth, contrast)."""
         score = self._compute_feature_similarity(
             sampled, full_track, ["spectral_centroid", "spectral_bandwidth", "spectral_contrast"]
@@ -124,8 +122,8 @@ class ConfidenceScorer:
         }
 
     def _score_harmonic_features(
-        self, sampled: Dict[str, float], full_track: Dict[str, float]
-    ) -> Dict[str, Any]:
+        self, sampled: dict[str, float], full_track: dict[str, float]
+    ) -> dict[str, Any]:
         """Score harmonic feature stability (CQT, pitch)."""
         score = self._compute_feature_similarity(
             sampled, full_track, ["cqt_energy", "pitch_mean", "pitch_stability"]
@@ -138,8 +136,8 @@ class ConfidenceScorer:
         }
 
     def _score_percussive_features(
-        self, sampled: Dict[str, float], full_track: Dict[str, float]
-    ) -> Dict[str, Any]:
+        self, sampled: dict[str, float], full_track: dict[str, float]
+    ) -> dict[str, Any]:
         """Score percussive feature stability (HPSS, dynamics)."""
         score = self._compute_feature_similarity(
             sampled, full_track, ["percussive_energy", "dynamic_range", "rms_energy"]
@@ -152,7 +150,7 @@ class ConfidenceScorer:
         }
 
     def _compute_feature_similarity(
-        self, sampled: Dict[str, Any], full_track: Dict[str, Any], feature_names: List[str]
+        self, sampled: dict[str, Any], full_track: dict[str, Any], feature_names: list[str]
     ) -> float:
         """
         Compute similarity between sampled and full-track features.
@@ -192,9 +190,9 @@ class ConfidenceScorer:
 
     def score_chunk_variance(
         self,
-        sampled_chunks: List[Dict[str, float]],
-        full_track_features: Dict[str, float],
-    ) -> Tuple[float, Dict[str, Any]]:
+        sampled_chunks: list[dict[str, float]],
+        full_track_features: dict[str, float],
+    ) -> tuple[float, dict[str, Any]]:
         """
         Assess confidence based on chunk-to-chunk variance in sampled analysis.
 
@@ -226,7 +224,7 @@ class ConfidenceScorer:
         # Score based on consistency (lower CV = higher consistency = higher confidence)
         # CV > 0.5 = high variance = low confidence
         # CV < 0.1 = low variance = high confidence
-        avg_cv: Optional[float] = None
+        avg_cv: float | None = None
         if variations:
             avg_cv = float(np.mean(variations))
             # Convert CV to confidence: score = max(0, 1 - (cv * 2))
@@ -263,8 +261,8 @@ class ConfidenceScorer:
 
     def configure_thresholds(
         self,
-        high_confidence: Optional[float] = None,
-        acceptable_confidence: Optional[float] = None,
+        high_confidence: float | None = None,
+        acceptable_confidence: float | None = None,
     ) -> None:
         """
         Configure confidence thresholds.

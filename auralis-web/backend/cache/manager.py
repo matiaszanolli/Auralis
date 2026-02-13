@@ -18,7 +18,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class CachedChunk:
     """Represents a cached audio chunk."""
     track_id: int
     chunk_idx: int
-    preset: Optional[str]  # None for original, preset name for processed
+    preset: str | None  # None for original, preset name for processed
     intensity: float
     chunk_path: Path
     timestamp: float = field(default_factory=time.time)
@@ -69,8 +69,8 @@ class TrackCacheStatus:
     """Track-level cache status."""
     track_id: int
     total_chunks: int
-    cached_chunks_original: Set[int] = field(default_factory=set)
-    cached_chunks_processed: Set[int] = field(default_factory=set)
+    cached_chunks_original: set[int] = field(default_factory=set)
+    cached_chunks_processed: set[int] = field(default_factory=set)
     cache_complete: bool = False
     cache_start_time: float = field(default_factory=time.time)
 
@@ -104,18 +104,18 @@ class StreamlinedCacheManager:
 
     def __init__(self) -> None:
         # Cache storage: key -> CachedChunk
-        self.tier1_cache: Dict[str, CachedChunk] = {}
-        self.tier2_cache: Dict[str, CachedChunk] = {}
+        self.tier1_cache: dict[str, CachedChunk] = {}
+        self.tier2_cache: dict[str, CachedChunk] = {}
 
         # Track cache status
-        self.track_status: Dict[int, TrackCacheStatus] = {}
+        self.track_status: dict[int, TrackCacheStatus] = {}
 
         # NEW (Priority 4): Mastering recommendations cache
         # Maps track_id -> serialized MasteringRecommendation dict
-        self.mastering_recommendations: Dict[int, Dict[str, Any]] = {}
+        self.mastering_recommendations: dict[int, dict[str, Any]] = {}
 
         # Playback state
-        self.current_track_id: Optional[int] = None
+        self.current_track_id: int | None = None
         self.current_position: float = 0.0
         self.current_preset: str = "adaptive"
         self.intensity: float = 1.0
@@ -148,7 +148,7 @@ class StreamlinedCacheManager:
         position: float,
         preset: str = "adaptive",
         intensity: float = 1.0,
-        track_duration: Optional[float] = None
+        track_duration: float | None = None
     ) -> None:
         """
         Update current playback position.
@@ -193,9 +193,9 @@ class StreamlinedCacheManager:
         self,
         track_id: int,
         chunk_idx: int,
-        preset: Optional[str] = None,
+        preset: str | None = None,
         intensity: float = 1.0
-    ) -> Tuple[Optional[Path], str]:
+    ) -> tuple[Path | None, str]:
         """
         Get chunk from cache.
 
@@ -237,7 +237,7 @@ class StreamlinedCacheManager:
         track_id: int,
         chunk_idx: int,
         chunk_path: Path,
-        preset: Optional[str] = None,
+        preset: str | None = None,
         intensity: float = 1.0,
         tier: str = "auto"
     ) -> bool:
@@ -326,7 +326,7 @@ class StreamlinedCacheManager:
             return
 
         # Find oldest track
-        track_ids = set(chunk.track_id for chunk in self.tier2_cache.values())
+        track_ids = {chunk.track_id for chunk in self.tier2_cache.values()}
         if not track_ids:
             return
 
@@ -377,7 +377,7 @@ class StreamlinedCacheManager:
             self.track_status[track_id].cached_chunks_processed.clear()
             self.track_status[track_id].cache_complete = False
 
-    def get_track_cache_status(self, track_id: int) -> Optional[TrackCacheStatus]:
+    def get_track_cache_status(self, track_id: int) -> TrackCacheStatus | None:
         """Get cache status for a track."""
         return self.track_status.get(track_id)
 
@@ -386,7 +386,7 @@ class StreamlinedCacheManager:
         status = self.track_status.get(track_id)
         return status.cache_complete if status else False
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         tier1_size_mb = len(self.tier1_cache) * CHUNK_SIZE_MB
         tier2_size_mb = len(self.tier2_cache) * CHUNK_SIZE_MB
@@ -408,7 +408,7 @@ class StreamlinedCacheManager:
                 "hits": self.tier2_hits,
                 "misses": self.tier2_misses,
                 "hit_rate": self.tier2_hits / max(1, total_requests) if total_requests > 0 else 0.0,
-                "tracks_cached": len(set(c.track_id for c in self.tier2_cache.values()))
+                "tracks_cached": len({c.track_id for c in self.tier2_cache.values()})
             },
             "overall": {
                 "total_chunks": len(self.tier1_cache) + len(self.tier2_cache),
@@ -432,7 +432,7 @@ class StreamlinedCacheManager:
     async def warm_tier1_immediately(
         self,
         track_id: int,
-        chunk_paths: List[Tuple[int, Path, Optional[str]]],
+        chunk_paths: list[tuple[int, Path, str | None]],
         intensity: float = 1.0
     ) -> int:
         """
@@ -472,12 +472,12 @@ class StreamlinedCacheManager:
                 loaded_count += 1
 
             if loaded_count > 0:
-                preset_str = "original/processed" if len(chunk_paths) > 1 else "original"
+                "original/processed" if len(chunk_paths) > 1 else "original"
                 logger.info(f"✅ Tier 1 warmed: {loaded_count} chunks for track {track_id}")
 
             return loaded_count
 
-    def set_mastering_recommendation(self, track_id: int, recommendation: Dict[str, Any]) -> None:
+    def set_mastering_recommendation(self, track_id: int, recommendation: dict[str, Any]) -> None:
         """
         Cache a mastering recommendation for a track (Priority 4).
 
@@ -493,7 +493,7 @@ class StreamlinedCacheManager:
             f"blended={'yes' if recommendation.get('weighted_profiles') else 'no'}"
         )
 
-    def get_mastering_recommendation(self, track_id: int) -> Optional[Dict[str, Any]]:
+    def get_mastering_recommendation(self, track_id: int) -> dict[str, Any] | None:
         """
         Retrieve cached mastering recommendation for a track (Priority 4).
 

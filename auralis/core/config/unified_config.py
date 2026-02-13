@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Unified Configuration
 ~~~~~~~~~~~~~~~~~~~~
@@ -11,7 +9,7 @@ Main configuration class for audio processing
 """
 
 import math
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 from ...utils.logging import debug
 from .genre_profiles import create_default_genre_profiles, get_genre_profile
@@ -28,7 +26,7 @@ class UnifiedConfig:
         self,
         # Core audio settings (from original Matchering)
         internal_sample_rate: int = 44100,
-        processing_sample_rate: Optional[int] = 48000,  # Downsample to this rate for faster processing (optional)
+        processing_sample_rate: int | None = 48000,  # Downsample to this rate for faster processing (optional)
         max_length: float = 15 * 60,  # 15 minutes
         max_piece_size: float = 15,  # 15 seconds
         threshold: float = 0.98,  # Peak threshold
@@ -52,12 +50,12 @@ class UnifiedConfig:
         preview_fade_coefficient: float = 8,
 
         # System settings
-        temp_folder: Optional[str] = None,
-        limiter: Optional[LimiterConfig] = None,
+        temp_folder: str | None = None,
+        limiter: LimiterConfig | None = None,
 
         # New adaptive settings
-        adaptive: Optional[AdaptiveConfig] = None,
-        genre_profiles: Optional[Dict[str, GenreProfile]] = None,
+        adaptive: AdaptiveConfig | None = None,
+        genre_profiles: dict[str, GenreProfile] | None = None,
     ):
         # Validate and set core audio settings
         assert internal_sample_rate > 0 and isinstance(internal_sample_rate, int)
@@ -206,7 +204,7 @@ class UnifiedConfig:
         """Check if using hybrid processing"""
         return self.adaptive.mode == "hybrid"
 
-    def get_preset_profile(self) -> Optional[PresetProfile]:
+    def get_preset_profile(self) -> PresetProfile | None:
         """
         Get the current mastering preset profile.
 
@@ -266,7 +264,7 @@ class UnifiedConfig:
         """Check if using full-track fingerprinting."""
         return self.fingerprint_strategy == "full-track"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary for serialization"""
         return {
             "internal_sample_rate": self.internal_sample_rate,
@@ -284,7 +282,7 @@ class UnifiedConfig:
         }
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "UnifiedConfig":
+    def from_dict(cls, config_dict: dict[str, Any]) -> UnifiedConfig:
         """Create configuration from dictionary"""
         # Extract adaptive settings
         adaptive_settings = {}

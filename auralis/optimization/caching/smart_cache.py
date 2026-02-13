@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Smart Cache
 ~~~~~~~~~~~
@@ -15,7 +13,7 @@ import pickle
 import threading
 import time
 from collections import OrderedDict
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
 
 from auralis.utils.logging import debug
 
@@ -27,8 +25,8 @@ class SmartCache:
         self.max_size_bytes: int = max_size_mb * 1024 * 1024
         self.ttl_seconds: int = ttl_seconds
         self.cache: OrderedDict[str, Any] = OrderedDict()
-        self.access_times: Dict[str, float] = {}
-        self.sizes: Dict[str, int] = {}
+        self.access_times: dict[str, float] = {}
+        self.sizes: dict[str, int] = {}
         self.current_size: int = 0
         self.lock: threading.RLock = threading.RLock()
 
@@ -38,14 +36,14 @@ class SmartCache:
 
         debug(f"Smart cache initialized: {max_size_mb}MB, TTL: {ttl_seconds}s")
 
-    def _generate_key(self, func_name: str, args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> str:
+    def _generate_key(self, func_name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
         """Generate cache key from function arguments"""
         # Create a stable hash from arguments
         key_data = (func_name, args, sorted(kwargs.items()))
         key_str = str(key_data).encode('utf-8')
         return hashlib.md5(key_str).hexdigest()
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get item from cache"""
         with self.lock:
             current_time = time.time()
@@ -117,7 +115,7 @@ class SmartCache:
             for key in expired_keys:
                 self._remove_item(key)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics"""
         with self.lock:
             total_requests = self.hits + self.misses

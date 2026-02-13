@@ -17,7 +17,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +77,13 @@ class WSMessage:
     correlation_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: datetime = field(default_factory=datetime.utcnow)
     priority: MessagePriority = MessagePriority.NORMAL
-    payload: Optional[Dict[str, Any]] = None
+    payload: dict[str, Any] | None = None
     response_required: bool = False
     timeout_seconds: float = 30.0
     retry_count: int = 0
     max_retries: int = 3
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert message to dictionary for JSON serialization."""
         return {
             "type": self.type.value,
@@ -97,7 +98,7 @@ class WSMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WSMessage":
+    def from_dict(cls, data: dict[str, Any]) -> WSMessage:
         """Create message from dictionary."""
         return cls(
             type=MessageType(data["type"]),
@@ -122,8 +123,8 @@ class ConnectionInfo:
     bytes_sent: int = 0
     bytes_received: int = 0
     state: str = "connected"
-    client_version: Optional[str] = None
-    subscriptions: List[str] = field(default_factory=list)
+    client_version: str | None = None
+    subscriptions: list[str] = field(default_factory=list)
 
     def is_active(self, timeout_seconds: int = 120) -> bool:
         """Check if connection is active (within timeout)."""
@@ -146,7 +147,7 @@ class RateLimiter:
             messages_per_minute: Maximum messages per minute per priority level
         """
         self.messages_per_minute = messages_per_minute
-        self.request_log: Dict[str, List[float]] = {}
+        self.request_log: dict[str, list[float]] = {}
 
         # Different limits for different priorities
         self.priority_multipliers = {
@@ -192,7 +193,7 @@ class RateLimiter:
         self.request_log[connection_id].append(now)
         return True
 
-    def get_stats(self, connection_id: str) -> Dict[str, Any]:
+    def get_stats(self, connection_id: str) -> dict[str, Any]:
         """Get rate limiter statistics for a connection."""
         now = time.time()
         minute_ago = now - 60
@@ -227,8 +228,8 @@ class HeartbeatManager:
         """
         self.interval_seconds = interval_seconds
         self.timeout_seconds = timeout_seconds
-        self.last_heartbeat: Dict[str, datetime] = {}
-        self.pending_pongs: Dict[str, datetime] = {}
+        self.last_heartbeat: dict[str, datetime] = {}
+        self.pending_pongs: dict[str, datetime] = {}
 
     def mark_ping(self, connection_id: str) -> None:
         """Mark when ping was sent."""
@@ -289,10 +290,10 @@ class WebSocketProtocol:
             heartbeat_interval: Heartbeat interval in seconds
             heartbeat_timeout: Heartbeat timeout in seconds
         """
-        self.connections: Dict[str, ConnectionInfo] = {}
-        self.message_queue: Dict[str, List[WSMessage]] = {}
-        self.pending_responses: Dict[str, Dict[str, Any]] = {}
-        self.message_handlers: Dict[MessageType, List[Callable[..., Any]]] = {}
+        self.connections: dict[str, ConnectionInfo] = {}
+        self.message_queue: dict[str, list[WSMessage]] = {}
+        self.pending_responses: dict[str, dict[str, Any]] = {}
+        self.message_handlers: dict[MessageType, list[Callable[..., Any]]] = {}
         self.max_message_queue = max_message_queue
 
         self.rate_limiter = RateLimiter(rate_limit_per_minute)
@@ -314,7 +315,7 @@ class WebSocketProtocol:
         self.message_handlers[message_type].append(handler)
         logger.debug(f"Registered handler for {message_type.value}")
 
-    async def handle_message(self, message: WSMessage) -> Optional[WSMessage]:
+    async def handle_message(self, message: WSMessage) -> WSMessage | None:
         """
         Handle an incoming message.
 
@@ -353,15 +354,15 @@ class WebSocketProtocol:
 
         return None
 
-    def get_connection_info(self, connection_id: str) -> Optional[ConnectionInfo]:
+    def get_connection_info(self, connection_id: str) -> ConnectionInfo | None:
         """Get information about a connection."""
         return self.connections.get(connection_id)
 
-    def get_all_connections(self) -> List[ConnectionInfo]:
+    def get_all_connections(self) -> list[ConnectionInfo]:
         """Get all active connections."""
         return list(self.connections.values())
 
-    def get_connection_stats(self, connection_id: str) -> Optional[Dict[str, Any]]:
+    def get_connection_stats(self, connection_id: str) -> dict[str, Any] | None:
         """Get detailed statistics for a connection."""
         conn = self.connections.get(connection_id)
         if not conn:
