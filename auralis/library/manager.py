@@ -13,6 +13,7 @@ has been refactored into repository modules under auralis/library/repositories/
 DEPRECATED: Use repository classes directly for new code
 """
 
+import atexit
 import os
 import threading
 import warnings
@@ -163,7 +164,77 @@ class LibraryManager:
         # Clean up incomplete fingerprints from interrupted sessions (crash recovery)
         self._cleanup_incomplete_fingerprints()
 
+        # Register cleanup handler for graceful shutdown (#2066)
+        atexit.register(self.shutdown)
+
         info(f"Auralis Library Manager initialized: {database_path}")
+
+    def shutdown(self) -> None:
+        """
+        Gracefully shutdown LibraryManager and release all database resources.
+
+        Performs critical cleanup operations:
+        1. WAL checkpoint (TRUNCATE) - flush WAL to main database file
+        2. PRAGMA optimize - save query planner statistics
+        3. Connection pool disposal - close all open connections
+
+        This prevents:
+        - WAL file corruption
+        - Database lockfiles left behind
+        - Uncommitted transactions lost
+
+        Automatically called via atexit on normal shutdown.
+        Can also be called manually for explicit cleanup.
+
+        Fixes #2066 - No resource cleanup on LibraryManager shutdown
+        """
+        if not hasattr(self, 'engine') or self.engine is None:
+            return  # Already shut down or never initialized
+
+        try:
+            info("🛑 Shutting down LibraryManager...")
+
+            # 1. Checkpoint WAL to ensure all data is in main database file
+            with self.engine.connect() as conn:
+                try:
+                    # TRUNCATE mode: checkpoint and delete WAL/SHM files
+                    result = conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    checkpoint_result = result.fetchone()
+                    if checkpoint_result:
+                        info(f"WAL checkpoint completed: {checkpoint_result}")
+                except Exception as e:
+                    error(f"WAL checkpoint failed: {e}")
+
+                # 2. Optimize query planner statistics
+                try:
+                    conn.execute("PRAGMA optimize")
+                    info("Query planner optimized")
+                except Exception as e:
+                    error(f"PRAGMA optimize failed: {e}")
+
+            # 3. Dispose connection pool (closes all connections)
+            self.engine.dispose()
+            info("Connection pool disposed")
+
+            # Mark as shut down
+            self.engine = None
+
+            info("✅ LibraryManager shutdown complete")
+
+        except Exception as e:
+            error(f"Error during LibraryManager shutdown: {e}")
+
+    def __del__(self) -> None:
+        """
+        Destructor - cleanup when object is garbage collected.
+
+        Fallback cleanup in case atexit handler doesn't run or
+        object is destroyed before application exit.
+        """
+        try:
+            self.shutdown()
+        except Exception:
+            pass  # Suppress errors during garbage collection
 
     def _cleanup_incomplete_fingerprints(self) -> None:
         """
