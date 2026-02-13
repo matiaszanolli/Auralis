@@ -19,6 +19,7 @@ Uses Facade pattern to maintain backward-compatible API.
 :license: GPLv3, see LICENSE for more details.
 """
 
+import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -107,6 +108,7 @@ class AudioPlayer:
 
         # Control flags
         self.auto_advance = True
+        self._auto_advancing = threading.Event()
 
         info("Enhanced AudioPlayer initialized (refactored architecture, RepositoryFactory support enabled, fingerprinting enabled)")
 
@@ -360,27 +362,28 @@ class AudioPlayer:
         # Update position
         self.playback.position += len(chunk)
 
-        # Check for end of track
+        # Check for end of track — use atomic flag to prevent concurrent auto-advance
         if self.playback.position >= self.file_manager.get_total_samples():
             if self.auto_advance and not self.queue.is_queue_empty():
-                # Auto-advance in background
-                import threading
-                threading.Thread(
-                    target=self._auto_advance_delayed,
-                    daemon=True
-                ).start()
+                if not self._auto_advancing.is_set():
+                    self._auto_advancing.set()
+                    threading.Thread(
+                        target=self._auto_advance_next,
+                        daemon=True
+                    ).start()
 
         # Apply advanced real-time processing
         processed_chunk = self.processor.process_chunk(chunk)
 
         return processed_chunk
 
-    def _auto_advance_delayed(self) -> None:
-        """Delayed auto-advance to next track (background thread)"""
-        import time
-        time.sleep(0.1)  # Small delay to avoid race conditions
-        if self.playback.is_playing():
-            self.next_track()
+    def _auto_advance_next(self) -> None:
+        """Auto-advance to next track (background thread, runs at most once)"""
+        try:
+            if self.playback.is_playing():
+                self.next_track()
+        finally:
+            self._auto_advancing.clear()
 
     # ========== Effects Control (delegates to IntegrationManager) ==========
 
