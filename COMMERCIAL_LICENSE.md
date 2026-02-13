@@ -66,6 +66,7 @@ A commercial license is required when **all three** of the following are true:
 ### Notes
 
 - All tiers are **annual**, renewable.
+- Research use for all developers is **always** free. 
 - A **30-day evaluation period** is granted at no cost for any tier.
 - "Revenue" refers to the entity's total annual revenue, not revenue attributable to Auralis specifically.
 
