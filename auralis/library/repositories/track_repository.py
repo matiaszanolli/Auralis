@@ -657,9 +657,14 @@ class TrackRepository:
         finally:
             session.close()
 
-    def cleanup_missing_files(self) -> int:
+    def cleanup_missing_files(self, batch_size: int = 1000) -> int:
         """
         Remove tracks with missing audio files from the database.
+
+        Processes in batches to keep memory bounded regardless of library size.
+
+        Args:
+            batch_size: Number of tracks to load per batch
 
         Returns:
             Number of tracks removed
@@ -671,15 +676,34 @@ class TrackRepository:
 
         session = self.get_session()
         try:
-            tracks = session.query(Track).all()
             removed_count = 0
+            offset = 0
 
-            for track in tracks:
-                if not os.path.exists(track.filepath):
-                    session.delete(track)
-                    removed_count += 1
+            while True:
+                rows = (
+                    session.query(Track.id, Track.filepath)
+                    .order_by(Track.id)
+                    .offset(offset)
+                    .limit(batch_size)
+                    .all()
+                )
+                if not rows:
+                    break
 
-            session.commit()
+                missing_ids = [
+                    row.id for row in rows
+                    if not os.path.exists(row.filepath)
+                ]
+
+                if missing_ids:
+                    session.query(Track).filter(
+                        Track.id.in_(missing_ids)
+                    ).delete(synchronize_session=False)
+                    session.commit()
+                    removed_count += len(missing_ids)
+
+                offset += batch_size
+
             debug(f"Removed {removed_count} tracks with missing files")
             return removed_count
         except Exception as e:
