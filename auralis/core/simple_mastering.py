@@ -905,10 +905,10 @@ class SimpleMasteringPipeline:
         if sub_bass_pct < 0.08:
             return audio, None  # Sub-bass is fine or already handled by bass enhancement
 
-        # Smooth cosine curve for rumble reduction
-        # 8-15% sub-bass: gradual increase in reduction
-        curve_position = np.clip((sub_bass_pct - 0.08) / 0.07, 0.0, 1.0)  # 0.0 at 8%, 1.0 at 15%
-        rumble_factor = 0.5 * (1.0 - np.cos(np.pi * curve_position))
+        # Smooth curve for rumble reduction
+        rumble_factor = SmoothCurveUtilities.ramp_to_s_curve(
+            sub_bass_pct, 0.08, 0.15
+        )
 
         # Calculate reduction amount (gentle)
         max_reduction_db = -2.0 * intensity  # Max -2dB reduction
@@ -917,29 +917,16 @@ class SimpleMasteringPipeline:
         if abs(reduction_db) < 0.3:
             return audio, None
 
-        # PARALLEL PROCESSING: Extract sub-bass, reduce it, add difference back
-        # This gives PRECISE dB control (e.g., -2 dB means exactly -2 dB reduction)
-        cutoff_freq = 60.0  # Sub-bass upper limit
-        nyquist = sample_rate / 2
-        normalized_freq = min(0.99, max(0.01, cutoff_freq / nyquist))
-
-        # Extract sub-bass band with LP filter
-        sos_lp = butter(2, normalized_freq, btype='low', output='sos')
-        sub_bass_band = sosfilt(sos_lp, audio, axis=1)
-
-        # Calculate precise reduction gain
-        reduction_gain = 10 ** (reduction_db / 20)  # e.g., -2 dB → 0.794
-
-        # Calculate the reduction difference
-        # diff = sub_bass_attenuated - sub_bass_original = sub_bass * (gain - 1)
-        # Since gain < 1 (reduction), diff is negative (subtracts energy)
-        diff = sub_bass_band * (reduction_gain - 1.0)
-
-        # Add difference to original (parallel processing pattern)
-        processed = audio + diff
+        # Apply parallel low-shelf reduction (negative boost)
+        processed = ParallelEQUtilities.apply_low_shelf_boost(
+            audio,
+            boost_db=reduction_db,  # Negative value for reduction
+            freq_hz=self.config.SUB_BASS_CUTOFF_HZ,
+            sample_rate=sample_rate
+        )
 
         if verbose:
-            print(f"   Sub-bass tighten: {reduction_db:.1f} dB @ <60Hz")
+            print(f"   Sub-bass tighten: {reduction_db:.1f} dB @ <{self.config.SUB_BASS_CUTOFF_HZ:.0f}Hz")
 
         return processed, {
             'stage': 'sub_bass_control',
@@ -967,13 +954,14 @@ class SimpleMasteringPipeline:
         # Combine low-mid and mid for overall body content
         body_content = (low_mid_pct + mid_pct) / 2.0
 
-        # Smooth cosine curve: boost from 0% to 25% body content
+        # Smooth curve: boost from 0% to 25% body content
         if body_content >= 0.25:
             return audio, None  # Already has good body
 
-        # Smooth S-curve
-        curve_position = body_content / 0.25  # 0.0 at 0%, 1.0 at 25%
-        body_factor = 0.5 * (1.0 + np.cos(np.pi * curve_position))  # 1.0 → 0.0
+        # Inverted S-curve (1.0 at 0%, 0.0 at 25%)
+        body_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(
+            body_content, 0.0, 0.25
+        )
 
         # Calculate boost
         max_boost_db = 1.5 * intensity  # Gentler than presence
@@ -982,24 +970,17 @@ class SimpleMasteringPipeline:
         if boost_db < 0.3:
             return audio, None
 
-        # Apply gentle boost at 200-2kHz (body zone)
-        # Using PARALLEL processing to avoid phase cancellation at crossover
-        nyquist = sample_rate / 2
-
-        # Extract mid band only (don't split - keep original intact)
-        low_cutoff = 200.0 / nyquist
-        high_cutoff = min(2000.0 / nyquist, 0.99)
-        sos_bp = butter(2, [low_cutoff, high_cutoff], btype='band', output='sos')
-        mid_band = sosfilt(sos_bp, audio, axis=1)
-
-        # Add boosted mid frequencies ON TOP of original (parallel processing)
-        # This avoids phase cancellation from BP+BS recombination
-        boost_linear = 10 ** (boost_db / 20)
-        boost_diff = boost_linear - 1.0
-        processed = audio + mid_band * boost_diff
+        # Apply parallel bandpass boost at 200-2kHz (body zone)
+        processed = ParallelEQUtilities.apply_bandpass_boost(
+            audio,
+            boost_db=boost_db,
+            low_hz=self.config.MID_BODY_LOW_HZ,
+            high_hz=self.config.MID_BODY_HIGH_HZ,
+            sample_rate=sample_rate
+        )
 
         if verbose:
-            print(f"   Mid warmth: +{boost_db:.1f} dB @ 200-2kHz")
+            print(f"   Mid warmth: +{boost_db:.1f} dB @ {self.config.MID_BODY_LOW_HZ:.0f}-{self.config.MID_BODY_HIGH_HZ:.0f}Hz")
 
         return processed, {
             'stage': 'mid_warmth',
@@ -1038,15 +1019,14 @@ class SimpleMasteringPipeline:
         # Combine presence and upper-mid to get overall 2-6kHz content
         presence_content = (presence_pct + upper_mid_pct) / 2.0
 
-        # Smooth cosine curve: boost from 0% to 30% presence, fade out smoothly
-        # No boost at 30%+, full potential boost at 0%, smooth transition between
+        # Smooth curve: boost from 0% to 30% presence
         if presence_content >= 0.30:
             return audio, None  # Already has good presence
 
-        # Smooth S-curve using cosine for natural transition
-        # Maps 0.0-0.30 to 1.0-0.0 smoothly
-        curve_position = presence_content / 0.30  # 0.0 at 0%, 1.0 at 30%
-        presence_factor = 0.5 * (1.0 + np.cos(np.pi * curve_position))  # 1.0 → 0.0
+        # Inverted S-curve (1.0 at 0%, 0.0 at 30%)
+        presence_factor = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(
+            presence_content, 0.0, 0.30
+        )
 
         # Calculate boost based on smooth presence deficiency curve
         max_boost_db = 2.0 * intensity
@@ -1055,24 +1035,17 @@ class SimpleMasteringPipeline:
         if boost_db < 0.3:
             return audio, None  # Too small to matter
 
-        # Boost presence band (2-8kHz) centered around 4kHz
-        # Using PARALLEL processing to avoid phase cancellation at crossover
-        nyquist = sample_rate / 2
-
-        # Extract presence band only (don't split - keep original intact)
-        low_cutoff = 2000.0 / nyquist
-        high_cutoff = min(8000.0 / nyquist, 0.99)
-        sos_bp = butter(2, [low_cutoff, high_cutoff], btype='band', output='sos')
-        presence_band = sosfilt(sos_bp, audio, axis=1)
-
-        # Add boosted presence ON TOP of original (parallel processing)
-        # This avoids phase cancellation from BP+BS recombination
-        boost_linear = 10 ** (boost_db / 20)
-        boost_diff = boost_linear - 1.0
-        processed = audio + presence_band * boost_diff
+        # Apply parallel bandpass boost at presence range (2-8kHz)
+        processed = ParallelEQUtilities.apply_bandpass_boost(
+            audio,
+            boost_db=boost_db,
+            low_hz=self.config.PRESENCE_LOW_HZ,
+            high_hz=self.config.PRESENCE_HIGH_HZ,
+            sample_rate=sample_rate
+        )
 
         if verbose:
-            print(f"   Presence enhance: +{boost_db:.1f} dB @ 2-6kHz")
+            print(f"   Presence enhance: +{boost_db:.1f} dB @ {self.config.PRESENCE_LOW_HZ:.0f}-{self.config.PRESENCE_HIGH_HZ:.0f}Hz")
 
         return processed, {
             'stage': 'presence_enhance',
@@ -1117,9 +1090,10 @@ class SimpleMasteringPipeline:
         if darkness_factor < 0.4:
             return audio, None  # Already bright
 
-        # Smooth cosine curve from 0.4 (no boost) to 1.0 (full boost)
-        curve_position = (darkness_factor - 0.4) / 0.6  # 0.0 at 0.4, 1.0 at 1.0
-        air_factor = 0.5 * (1.0 - np.cos(np.pi * curve_position))  # 0.0 → 1.0 smoothly
+        # Smooth S-curve from 0.4 to 1.0
+        air_factor = SmoothCurveUtilities.ramp_to_s_curve(
+            darkness_factor, 0.4, 1.0
+        )
 
         # Calculate boost based on smooth darkness curve
         max_boost_db = 1.5 * intensity
@@ -1128,24 +1102,16 @@ class SimpleMasteringPipeline:
         if boost_db < 0.3:
             return audio, None  # Too small to matter
 
-        # Design a high-shelf filter at 8kHz
-        # Using PARALLEL processing to avoid phase cancellation at crossover
-        shelf_freq = 8000.0
-        nyquist = sample_rate / 2
-        normalized_freq = min(0.99, max(0.01, shelf_freq / nyquist))
-
-        # Extract high frequencies only (don't split - keep original intact)
-        sos_hp = butter(2, normalized_freq, btype='high', output='sos')
-        high_band = sosfilt(sos_hp, audio, axis=1)
-
-        # Add boosted highs ON TOP of original (parallel processing)
-        # This avoids phase cancellation from HP+LP recombination
-        boost_linear = 10 ** (boost_db / 20)
-        boost_diff = boost_linear - 1.0
-        processed = audio + high_band * boost_diff
+        # Apply parallel high-shelf boost above 8kHz
+        processed = ParallelEQUtilities.apply_high_shelf_boost(
+            audio,
+            boost_db=boost_db,
+            freq_hz=self.config.AIR_SHELF_HZ,
+            sample_rate=sample_rate
+        )
 
         if verbose:
-            print(f"   Air enhance: +{boost_db:.1f} dB above 8kHz")
+            print(f"   Air enhance: +{boost_db:.1f} dB above {self.config.AIR_SHELF_HZ:.0f}Hz")
 
         return processed, {
             'stage': 'air_enhance',
