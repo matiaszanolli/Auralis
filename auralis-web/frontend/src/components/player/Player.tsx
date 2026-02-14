@@ -45,7 +45,7 @@ import {
   nextTrack,
   previousTrack,
 } from '@/store/slices/queueSlice';
-import { setCurrentTrack } from '@/store/slices/playerSlice';
+import { setCurrentTrack, setVolume } from '@/store/slices/playerSlice';
 
 /**
  * Player Component
@@ -203,9 +203,14 @@ const Player: React.FC = () => {
 
   const handleVolumeChange = async (vol: number) => {
     try {
-      // Volume is 0-1 range in WebSocket, 0-100 in UI
+      // Volume is 0-1 range in WebSocket/AudioEngine, 0-100 in Redux/Backend
       setStreamingVolume(vol);
-      console.log('[Player] Volume changed:', vol);
+
+      // Persist volume to Redux (convert 0-1 to 0-100)
+      const volumeForRedux = Math.round(vol * 100);
+      dispatch(setVolume(volumeForRedux));
+
+      console.log('[Player] Volume changed:', vol, '(Redux:', volumeForRedux, ')');
     } catch (err) {
       console.error('[Player] Volume command error:', err);
     }
@@ -240,7 +245,7 @@ const Player: React.FC = () => {
 
   // Note: usePlayerDisplay not used - TimeDisplay component handles formatting
 
-  // Extract volume from Redux state (0-1 range, convert to 0-100 for components)
+  // Extract volume from Redux state (0-100 range)
   const volume = useMemo(() => {
     return state.volume ?? 50;
   }, [state.volume, isStreaming]);
