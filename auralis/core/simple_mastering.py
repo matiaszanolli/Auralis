@@ -22,7 +22,9 @@ from ..dsp.dynamics.soft_clipper import soft_clip
 from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ..dsp.utils.stereo import adjust_stereo_width_multiband
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
+from .mastering_config import SimpleMasteringConfig
 from .processing.base import ExpansionStrategies
+from .utils import FingerprintUnpacker, SmoothCurveUtilities
 
 
 class SimpleMasteringPipeline:
@@ -32,11 +34,9 @@ class SimpleMasteringPipeline:
     Uses fingerprint-driven adaptive parameters without full HybridProcessor.
     """
 
-    # Target loudness
-    TARGET_LUFS = -11.0
-
-    def __init__(self):
+    def __init__(self, config: SimpleMasteringConfig | None = None):
         self._fingerprint_service: FingerprintService | None = None
+        self.config = config or SimpleMasteringConfig()
 
     @property
     def fingerprint_service(self) -> FingerprintService:
@@ -116,11 +116,10 @@ class SimpleMasteringPipeline:
         # Equal-power crossfade between chunks for seamless transitions.
         # Adjacent chunks both process the overlap region, then we blend
         # with cosine curves to maintain perceived loudness through the join.
-        CROSSFADE_DURATION = 3.0  # seconds
-        crossfade_samples = int(sr * CROSSFADE_DURATION)
+        crossfade_samples = int(sr * self.config.CROSSFADE_DURATION_SEC)
 
         # Process and write in streaming mode
-        chunk_size = sr * 30  # 30 seconds per chunk (core region)
+        chunk_size = sr * self.config.CHUNK_DURATION_SEC
         info = {'stages': []}
 
         with sf.SoundFile(str(input_path)) as audio_file:
@@ -226,7 +225,7 @@ class SimpleMasteringPipeline:
                     chunks_processed += 1
                     read_pos += core_samples
 
-                    if verbose and chunks_processed % 5 == 0:
+                    if verbose and chunks_processed % self.config.PROGRESS_REPORT_INTERVAL_CHUNKS == 0:
                         progress = (chunks_processed / total_chunks) * 100
                         print(f"   Progress: {progress:.0f}% ({chunks_processed}/{total_chunks} chunks)")
 
@@ -267,44 +266,29 @@ class SimpleMasteringPipeline:
     ) -> tuple[np.ndarray, dict]:
         """Core processing logic using all 25D fingerprint dimensions."""
 
-        # Dynamics (3D)
-        lufs = fp.get('lufs', -14.0)
-        crest_db = fp.get('crest_db', 12.0)
-        fp.get('bass_mid_ratio', 0.0)
+        # Unpack fingerprint using type-safe unpacker
+        unpacker = FingerprintUnpacker.from_dict(fp)
 
-        # Frequency (7D) - all bands
-        sub_bass_pct = fp.get('sub_bass_pct', 0.05)
-        bass_pct = fp.get('bass_pct', 0.15)
-        low_mid_pct = fp.get('low_mid_pct', 0.10)
-        mid_pct = fp.get('mid_pct', 0.20)
-        upper_mid_pct = fp.get('upper_mid_pct', 0.25)
-        presence_pct = fp.get('presence_pct', 0.15)
-        air_pct = fp.get('air_pct', 0.10)
-
-        # Temporal (4D)
-        fp.get('tempo_bpm', 120.0)
-        fp.get('rhythm_stability', 0.5)
-        transient_density = fp.get('transient_density', 0.5)
-        fp.get('silence_ratio', 0.0)
-
-        # Spectral (3D) - brightness indicators
-        spectral_centroid = fp.get('spectral_centroid', 0.5)
-        spectral_rolloff = fp.get('spectral_rolloff', 0.5)
-        spectral_flatness = fp.get('spectral_flatness', 0.5)
-
-        # Harmonic (3D)
-        harmonic_ratio = fp.get('harmonic_ratio', 0.5)
-        pitch_stability = fp.get('pitch_stability', 0.5)
-        fp.get('chroma_energy', 0.5)
-
-        # Variation (3D)
-        dynamic_range_variation = fp.get('dynamic_range_variation', 0.5)
-        fp.get('loudness_variation_std', 0.0)
-        peak_consistency = fp.get('peak_consistency', 0.5)
-
-        # Stereo (2D)
-        stereo_width = fp.get('stereo_width', 0.5)
-        phase_correlation = fp.get('phase_correlation', 1.0)
+        # Extract commonly used dimensions for readability
+        lufs = unpacker.lufs
+        crest_db = unpacker.crest_db
+        bass_pct = unpacker.bass_pct
+        sub_bass_pct = unpacker.sub_bass_pct
+        low_mid_pct = unpacker.low_mid_pct
+        mid_pct = unpacker.mid_pct
+        upper_mid_pct = unpacker.upper_mid_pct
+        presence_pct = unpacker.presence_pct
+        air_pct = unpacker.air_pct
+        transient_density = unpacker.transient_density
+        spectral_centroid = unpacker.spectral_centroid
+        spectral_rolloff = unpacker.spectral_rolloff
+        spectral_flatness = unpacker.spectral_flatness
+        harmonic_ratio = unpacker.harmonic_ratio
+        pitch_stability = unpacker.pitch_stability
+        dynamic_range_variation = unpacker.dynamic_range_variation
+        peak_consistency = unpacker.peak_consistency
+        stereo_width = unpacker.stereo_width
+        phase_correlation = unpacker.phase_correlation
 
         info = {'stages': []}
         processed = audio.copy()
@@ -318,19 +302,18 @@ class SimpleMasteringPipeline:
         # STAGE 1: Gentle peak reduction for clipping prevention only
         # Only intervene when peak is dangerously close to or above 0 dBFS
         # Uses smooth S-curve to avoid filtering effect - just prevents actual clipping
-        if peak_db > -0.5:
+        if peak_db > self.config.PEAK_REDUCTION_THRESHOLD_DB:
             # Smooth curve: gentle near threshold, stronger for severe clipping
-            # clip_severity: 0 at -0.5 dB, 1 at +2 dB
-            clip_severity = np.clip((peak_db + 0.5) / 2.5, 0.0, 1.0)
-            # S-curve for smooth transition (cosine)
-            smooth_factor = 0.5 * (1.0 - np.cos(np.pi * clip_severity))
+            # clip_severity: 0 at threshold, 1 at threshold + range
+            smooth_factor = SmoothCurveUtilities.ramp_to_s_curve(
+                peak_db,
+                self.config.PEAK_REDUCTION_THRESHOLD_DB,
+                self.config.PEAK_REDUCTION_THRESHOLD_DB + self.config.PEAK_CLIP_SEVERITY_RANGE_DB
+            )
 
-            # Target: -0.5 to -2.0 dB based on severity (much gentler than old -3.0 floor)
-            # peak at -0.5 → target -0.5 (no change)
-            # peak at 0 → target ~-0.6 (gentle 0.6 dB reduction)
-            # peak at +1 → target ~-1.5 (1.5 dB reduction from 0 dBFS)
-            # peak at +2 → target -2.0 (max reduction)
-            target_peak = -0.5 - smooth_factor * 1.5
+            # Target: threshold to max_target based on severity
+            peak_range = abs(self.config.MAX_TARGET_PEAK_REDUCTION_DB - self.config.PEAK_REDUCTION_THRESHOLD_DB)
+            target_peak = self.config.PEAK_REDUCTION_THRESHOLD_DB - smooth_factor * peak_range
 
             if verbose:
                 print(f"   Peak reduction: {peak_db:.1f} → {target_peak:.1f} dB")
@@ -339,22 +322,25 @@ class SimpleMasteringPipeline:
             info['stages'].append({'stage': 'peak_reduction', 'target': target_peak, 'result': peak_db})
 
         # STAGE 2: Handle based on 2D Loudness-War Restraint Principle
-        if lufs > -12.0 and crest_db < 13.0:
+        if lufs > self.config.COMPRESSED_LOUD_THRESHOLD_LUFS and crest_db < self.config.MODERATE_COMPRESSED_MIN_CREST:
             # Compressed loud material - use RMS reduction expansion (not peak enhancement)
             # Peak enhancement boosts all peaks including bass, causing muddiness
             # RMS reduction increases crest factor without inflating low-frequency transients
 
-            if crest_db < 8.0:
-                # Hyper-compressed (crest < 8 dB): skip expansion entirely
+            if crest_db < self.config.HYPER_COMPRESSED_THRESHOLD_CREST:
+                # Hyper-compressed: skip expansion entirely
                 # This material is intentionally brick-walled, respect the artistic choice
                 if verbose:
                     print(f"   Hyper-compressed (LUFS {lufs:.1f}, crest {crest_db:.1f}) → skip expansion")
                 info['stages'].append({'stage': 'skip_expansion', 'reason': 'hyper_compressed'})
             else:
-                # Moderately compressed (8-13 dB): gentle RMS reduction expansion
-                # Target: restore ~2 dB of crest factor via RMS reduction
-                target_crest_increase = min(2.0, 13.0 - crest_db)  # Cap at 2 dB
-                expansion_amount = 0.5  # Conservative application
+                # Moderately compressed: gentle RMS reduction expansion
+                # Target: restore crest factor via RMS reduction
+                target_crest_increase = min(
+                    self.config.MAX_TARGET_CREST_INCREASE_DB,
+                    self.config.MODERATE_COMPRESSED_MIN_CREST - crest_db
+                )
+                expansion_amount = self.config.RMS_EXPANSION_AMOUNT
 
                 if verbose:
                     print(f"   Compressed loud (LUFS {lufs:.1f}, crest {crest_db:.1f}) → RMS expansion +{target_crest_increase:.1f} dB")
@@ -378,19 +364,23 @@ class SimpleMasteringPipeline:
             # Pre-EQ headroom: attenuate before spectral boosts to prevent limiter from
             # clipping HF transients. The output normalization will restore level.
             # This preserves spectral balance better than post-EQ limiting.
-            pre_eq_headroom_db = -2.0  # Reserve 2 dB for EQ boosts
+            pre_eq_headroom_db = self.config.PRE_EQ_HEADROOM_DB
             pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
             processed = processed * pre_eq_gain
 
             # Spectral enhancements (presence & air) for all paths
             processed, presence_info = self._apply_presence_enhancement(
-                processed, presence_pct, upper_mid_pct, effective_intensity * 0.7, sample_rate, verbose
+                processed, presence_pct, upper_mid_pct,
+                effective_intensity * self.config.COMPRESSED_LOUD_INTENSITY_FACTOR,
+                sample_rate, verbose
             )
             if presence_info:
                 info['stages'].append(presence_info)
 
             processed, air_info = self._apply_air_enhancement(
-                processed, air_pct, spectral_rolloff, effective_intensity * 0.7, sample_rate, verbose
+                processed, air_pct, spectral_rolloff,
+                effective_intensity * self.config.COMPRESSED_LOUD_INTENSITY_FACTOR,
+                sample_rate, verbose
             )
             if air_info:
                 info['stages'].append(air_info)
@@ -401,7 +391,7 @@ class SimpleMasteringPipeline:
             # Mark for unified output normalization
             needs_output_normalize = True
 
-        elif lufs > -12.0:
+        elif lufs > self.config.COMPRESSED_LOUD_THRESHOLD_LUFS:
             # Dynamic loud → pass-through with optional stereo expansion
             if verbose:
                 print(f"   Dynamic loud → preserving original")
@@ -417,19 +407,23 @@ class SimpleMasteringPipeline:
 
             # Pre-EQ headroom: attenuate before spectral boosts to prevent limiter from
             # clipping HF transients. The output normalization will restore level.
-            pre_eq_headroom_db = -2.0  # Reserve 2 dB for EQ boosts
+            pre_eq_headroom_db = self.config.PRE_EQ_HEADROOM_DB
             pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
             processed = processed * pre_eq_gain
 
             # Spectral enhancements (presence & air) - even for well-mastered tracks
             processed, presence_info = self._apply_presence_enhancement(
-                processed, presence_pct, upper_mid_pct, effective_intensity * 0.5, sample_rate, verbose
+                processed, presence_pct, upper_mid_pct,
+                effective_intensity * self.config.DYNAMIC_LOUD_INTENSITY_FACTOR,
+                sample_rate, verbose
             )
             if presence_info:
                 info['stages'].append(presence_info)
 
             processed, air_info = self._apply_air_enhancement(
-                processed, air_pct, spectral_rolloff, effective_intensity * 0.5, sample_rate, verbose
+                processed, air_pct, spectral_rolloff,
+                effective_intensity * self.config.DYNAMIC_LOUD_INTENSITY_FACTOR,
+                sample_rate, verbose
             )
             if air_info:
                 info['stages'].append(air_info)
