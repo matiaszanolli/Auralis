@@ -32,6 +32,42 @@ def check_ffmpeg() -> bool:
         return False
 
 
+def _get_duration_with_ffprobe(file_path: Path) -> float | None:
+    """Get audio duration using ffprobe"""
+    try:
+        import json
+
+        ffprobe_cmd = [
+            'ffprobe',
+            '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_format',
+            str(file_path)
+        ]
+
+        result = subprocess.run(
+            ffprobe_cmd,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            warning(f"ffprobe failed to get duration: {result.stderr}")
+            return None
+
+        probe_data = json.loads(result.stdout)
+        duration = probe_data.get('format', {}).get('duration')
+
+        if duration:
+            return float(duration)
+        return None
+
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, ValueError, Exception) as e:
+        warning(f"Could not get duration from ffprobe: {e}")
+        return None
+
+
 def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[np.ndarray, int]:
     """Load audio using FFmpeg conversion to WAV"""
 
@@ -47,6 +83,9 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
     file_path_str = str(file_path)
     if "://" in file_path_str:
         raise ModuleError(f"{Code.ERROR_UNSUPPORTED_FORMAT}: URL/protocol inputs are not allowed ({file_path_str})")
+
+    # Get expected duration from original file using ffprobe
+    expected_duration = _get_duration_with_ffprobe(file_path)
 
     # Create temporary WAV file
     if temp_folder:
@@ -83,6 +122,24 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
 
         # Load the converted WAV file
         audio_data, sample_rate = load_with_soundfile(temp_wav)
+
+        # Validate duration against original file metadata
+        if expected_duration is not None:
+            actual_duration = len(audio_data) / sample_rate
+            duration_percentage = (actual_duration / expected_duration) * 100
+
+            if duration_percentage < 10:
+                # Severely truncated - raise error
+                raise ModuleError(
+                    f"{Code.ERROR_TRUNCATED_FILE}: File is severely truncated "
+                    f"({duration_percentage:.1f}% complete, expected {expected_duration:.2f}s, got {actual_duration:.2f}s)"
+                )
+            elif duration_percentage < 90:
+                # Moderately truncated - log warning
+                warning(
+                    f"{Code.WARNING_TRUNCATED_FILE}: File appears truncated "
+                    f"({duration_percentage:.1f}% complete, expected {expected_duration:.2f}s, got {actual_duration:.2f}s)"
+                )
 
         return audio_data, sample_rate
 

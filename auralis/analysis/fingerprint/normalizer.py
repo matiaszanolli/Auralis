@@ -15,6 +15,8 @@ Without normalization, high-range dimensions dominate distance calculations.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass
 from pathlib import Path

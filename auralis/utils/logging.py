@@ -27,6 +27,10 @@ class Code:
     ERROR_FFMPEG_NOT_FOUND = "FFmpeg not found"
     ERROR_FFMPEG_CONVERSION = "FFmpeg conversion error"
     ERROR_FFMPEG_TIMEOUT = "FFmpeg conversion timeout"
+    ERROR_TRUNCATED_FILE = "Truncated audio file"
+    WARNING_TRUNCATED_FILE = "Audio file may be truncated"
+    ERROR_EMPTY_FILE = "Empty file"
+    ERROR_UNSUPPORTED_FORMAT = "Unsupported format"
 
 
 class ModuleError(Exception):

@@ -8,6 +8,8 @@ Calculates weighted Euclidean distance between fingerprints for similarity ranki
 :license: GPLv3, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 import numpy as np

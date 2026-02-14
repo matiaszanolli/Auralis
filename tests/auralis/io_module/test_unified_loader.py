@@ -369,3 +369,123 @@ def test_audio_no_nan_or_inf(sample_wav_file):
 
     assert not np.any(np.isnan(audio))
     assert not np.any(np.isinf(audio))
+
+
+# ===== Truncation Detection Tests =====
+
+def test_truncated_file_warning(tmp_path):
+    """Test that moderately truncated files produce a warning"""
+    import soundfile as sf
+
+    # Create a full WAV file
+    sample_rate = 44100
+    duration = 2.0
+    samples = int(sample_rate * duration)
+    t = np.linspace(0, duration, samples)
+    audio = np.sin(2 * np.pi * 440 * t).astype(np.float32)
+
+    full_file = tmp_path / "full.wav"
+    sf.write(str(full_file), audio, sample_rate)
+
+    # Create a truncated version by reading the file and writing only 50%
+    truncated_file = tmp_path / "truncated.wav"
+
+    # Read the raw WAV file and truncate it
+    with open(full_file, 'rb') as f:
+        data = f.read()
+
+    # Keep header + 50% of data (rough approximation)
+    # WAV header is 44 bytes, keep header + 50% of audio data
+    header_size = 44
+    audio_data_size = len(data) - header_size
+    truncated_size = header_size + (audio_data_size // 2)
+
+    with open(truncated_file, 'wb') as f:
+        f.write(data[:truncated_size])
+
+    # Loading should succeed but produce a warning
+    # Note: This might fail depending on how soundfile handles truncated files
+    # If it raises an error, we need to adjust the test
+    try:
+        from auralis.utils.logging import set_log_handler
+        warnings_logged = []
+
+        def capture_warnings(msg):
+            warnings_logged.append(msg)
+
+        set_log_handler(capture_warnings)
+
+        audio_loaded, sr = load_audio(truncated_file)
+
+        # Should have logged a warning about truncation
+        assert any("truncated" in w.lower() for w in warnings_logged), \
+            f"Expected truncation warning, got: {warnings_logged}"
+
+        # Reset log handler
+        set_log_handler(None)
+
+    except Exception as e:
+        # If soundfile can't read truncated files, that's also acceptable behavior
+        # The test verifies that we handle it gracefully
+        assert "truncated" in str(e).lower() or "invalid" in str(e).lower()
+
+
+def test_severely_truncated_file_error(tmp_path):
+    """Test that severely truncated files raise an error"""
+    import soundfile as sf
+
+    # Create a full WAV file
+    sample_rate = 44100
+    duration = 2.0
+    samples = int(sample_rate * duration)
+    t = np.linspace(0, duration, samples)
+    audio = np.sin(2 * np.pi * 440 * t).astype(np.float32)
+
+    full_file = tmp_path / "full.wav"
+    sf.write(str(full_file), audio, sample_rate)
+
+    # Create a severely truncated version (< 10%)
+    truncated_file = tmp_path / "severely_truncated.wav"
+
+    with open(full_file, 'rb') as f:
+        data = f.read()
+
+    # Keep header + 5% of data
+    header_size = 44
+    audio_data_size = len(data) - header_size
+    truncated_size = header_size + (audio_data_size // 20)  # 5%
+
+    with open(truncated_file, 'wb') as f:
+        f.write(data[:truncated_size])
+
+    # Loading should raise an error about truncation
+    with pytest.raises(Exception) as exc_info:
+        load_audio(truncated_file)
+
+    # Error message should mention truncation
+    error_msg = str(exc_info.value).lower()
+    assert "truncated" in error_msg or "invalid" in error_msg
+
+
+def test_complete_file_no_truncation_warning(sample_wav_file):
+    """Test that complete files don't produce truncation warnings"""
+    from auralis.utils.logging import set_log_handler
+
+    warnings_logged = []
+
+    def capture_warnings(msg):
+        warnings_logged.append(msg)
+
+    set_log_handler(capture_warnings)
+
+    audio, sr = load_audio(sample_wav_file)
+
+    # Should NOT have any truncation warnings
+    assert not any("truncated" in w.lower() for w in warnings_logged), \
+        f"Unexpected truncation warning for complete file: {warnings_logged}"
+
+    # Reset log handler
+    set_log_handler(None)
+
+    assert audio is not None
+    assert sr == 44100

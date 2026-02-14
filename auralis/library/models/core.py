@@ -8,6 +8,8 @@ Core models for tracks, albums, artists, genres, and playlists
 :license: GPLv3, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any
 
