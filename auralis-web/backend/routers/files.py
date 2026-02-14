@@ -21,8 +21,9 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
+from path_security import PathValidationError, validate_scan_path
 from .dependencies import require_library_manager, require_repository_factory
 
 # Import only if available
@@ -38,8 +39,31 @@ router = APIRouter(tags=["files"])
 
 
 class ScanRequest(BaseModel):
-    """Request model for directory scanning"""
+    """
+    Request model for directory scanning.
+
+    Security: Validates path to prevent directory traversal (fixes #2069).
+    """
     directory: str
+
+    @field_validator('directory')
+    @classmethod
+    def validate_directory_path(cls, v: str) -> str:
+        """
+        Validate directory path for security.
+
+        Prevents path traversal and restricts scanning to allowed directories.
+
+        Raises:
+            ValueError: If path validation fails
+        """
+        try:
+            # Validate path using security utility
+            validated_path = validate_scan_path(v)
+            # Return as string for API compatibility
+            return str(validated_path)
+        except PathValidationError as e:
+            raise ValueError(str(e))
 
 
 def create_files_router(
@@ -79,14 +103,22 @@ def create_files_router(
 
         Starts a background scan task and broadcasts progress/completion via WebSocket.
 
+        Security: Path validation prevents directory traversal (fixes #2069).
+        Only directories within allowed base paths can be scanned.
+
         Args:
-            request: ScanRequest with directory path
+            request: ScanRequest with validated directory path
 
         Returns:
             dict: Scan status message
 
         Raises:
-            HTTPException: If library manager not available or scan fails
+            HTTPException:
+                - 400: Invalid directory path (traversal attempt, outside allowed dirs)
+                - 403: Directory not readable
+                - 404: Directory does not exist
+                - 503: Library manager/scanner not available
+                - 500: Scan startup failure
         """
         library_manager = get_library_manager()
         if not library_manager:
@@ -95,7 +127,11 @@ def create_files_router(
         if not HAS_LIBRARY:
             raise HTTPException(status_code=503, detail="Library scanner not available")
 
+        # Path is already validated by ScanRequest.validate_directory_path
+        # If we reach here, the path is safe
         directory = request.directory
+
+        logger.info(f"Starting scan of validated directory: {directory}")
 
         try:
             scanner = LibraryScanner(library_manager)
