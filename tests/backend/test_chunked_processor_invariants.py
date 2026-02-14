@@ -466,7 +466,11 @@ def test_cache_key_includes_file_signature(processor):
 
     If a track file is modified, old cached chunks must not be served.
     """
-    cache_key = processor._get_cache_key(0)
+    # Phase 5.1 update: Use ChunkCacheManager API
+    from core.chunk_cache_manager import ChunkCacheManager
+    cache_key = ChunkCacheManager.get_chunk_cache_key(
+        processor.track_id, processor.file_signature, processor.preset, processor.intensity, 0
+    )
 
     # Cache key should include file signature
     assert processor.file_signature in cache_key, (
@@ -481,7 +485,11 @@ def test_cache_key_includes_all_processing_parameters(processor):
 
     Different presets/intensities must have different cache keys.
     """
-    cache_key = processor._get_cache_key(0)
+    # Phase 5.1 update: Use ChunkCacheManager API
+    from core.chunk_cache_manager import ChunkCacheManager
+    cache_key = ChunkCacheManager.get_chunk_cache_key(
+        processor.track_id, processor.file_signature, processor.preset, processor.intensity, 0
+    )
 
     # Should include track_id, preset, intensity, chunk_index
     assert str(processor.track_id) in cache_key, "Cache key must include track_id"
@@ -494,16 +502,19 @@ def test_cached_chunks_are_reused(processor):
     """
     INVARIANT: Processing the same chunk twice should use cache.
     """
-    # Process chunk 0 first time
-    path1 = processor.process_chunk(0)
+    # Process chunk 0 first time (returns tuple of (path, audio_array))
+    path1, _ = processor.process_chunk(0)
 
     # Process chunk 0 second time (should use cache)
-    path2 = processor.process_chunk(0)
+    path2, _ = processor.process_chunk(0)
 
     assert path1 == path2, "Should return same path from cache"
 
-    # Verify cache was actually used (not just same path)
-    cache_key = processor._get_cache_key(0)
+    # Verify cache was actually used (Phase 5.1: Use ChunkCacheManager API)
+    from core.chunk_cache_manager import ChunkCacheManager
+    cache_key = ChunkCacheManager.get_chunk_cache_key(
+        processor.track_id, processor.file_signature, processor.preset, processor.intensity, 0
+    )
     assert cache_key in processor.chunk_cache, "Chunk should be in cache"
 
 

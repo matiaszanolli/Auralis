@@ -34,12 +34,15 @@ from core.audio_processing_pipeline import AudioProcessingPipeline
 
 # Core modules (new modular architecture)
 from core.chunk_boundaries import ChunkBoundaryManager
+from core.chunk_cache_manager import ChunkCacheManager  # Phase 5.1: Cache management
 from core.chunk_operations import ChunkOperations  # Phase 3: Unified chunk operations
 from core.encoding import WAVEncoder
+from core.file_signature import FileSignatureService  # Phase 5.1: File signature generation
 from core.level_manager import LevelManager
 from core.mastering_target_service import (
     MasteringTargetService,  # Phase 4: Unified fingerprint/target management
 )
+from core.processing_lock_manager import ProcessingLockManager  # Phase 5.2: Lock management
 from core.processor_factory import (
     ProcessorFactory,  # Phase 2: Replaced ProcessorManager
 )
@@ -101,8 +104,8 @@ class ChunkedAudioProcessor:
         self.intensity = intensity
         self.chunk_cache = chunk_cache if chunk_cache is not None else {}
 
-        # Generate file signature for cache integrity
-        self.file_signature = self._generate_file_signature()
+        # Generate file signature for cache integrity (Phase 5.1: Using FileSignatureService)
+        self.file_signature = FileSignatureService.generate(filepath)
 
         # Load audio metadata
         self.sample_rate: int | None = None
@@ -115,7 +118,7 @@ class ChunkedAudioProcessor:
         self.chunk_dir = Path(tempfile.gettempdir()) / "auralis_chunks"
         self.chunk_dir.mkdir(exist_ok=True)
 
-        # Initialize new modular architecture (Phase 3.5, updated Phase 2)
+        # Initialize new modular architecture (Phase 3.5, updated Phase 2, Phase 5.1)
         # These dependencies replace monolithic logic in process_chunk()
         # Type: ignore for untyped core modules (ChunkBoundaryManager, LevelManager, WAVEncoder, ProcessorFactory)
         # Metadata was loaded in _load_metadata(), so both should be non-None by this point
@@ -126,6 +129,8 @@ class ChunkedAudioProcessor:
         self._wav_encoder: Any = WAVEncoder(chunk_dir=self.chunk_dir, default_subtype='PCM_16')
         self._processor_factory: Any = ProcessorFactory()  # Phase 2: Unified processor factory
         self._mastering_target_service: Any = MasteringTargetService()  # Phase 4: Unified fingerprint/target management
+        self._cache_manager: Any = ChunkCacheManager(self.chunk_cache)  # Phase 5.1: Cache management
+        self._lock_manager: Any = ProcessingLockManager()  # Phase 5.2: Lock management
 
         # CRITICAL: Async lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
@@ -198,29 +203,8 @@ class ChunkedAudioProcessor:
         """Get chunk duration in seconds for crossfade calculations"""
         return CHUNK_DURATION
 
-    def _generate_file_signature(self) -> str:
-        """
-        Generate a unique signature for the audio file based on metadata.
-
-        This ensures cached chunks are invalidated if the file changes.
-        Uses modification time and file size for fast computation.
-
-        Returns:
-            Hex string signature (first 8 chars of hash)
-        """
-        import hashlib
-        import os
-
-        try:
-            stat = os.stat(self.filepath)
-            # Combine mtime and size for unique signature
-            signature_input = f"{stat.st_mtime}_{stat.st_size}_{self.filepath}"
-            signature = hashlib.md5(signature_input.encode()).hexdigest()[:8]
-            return signature
-        except Exception as e:
-            logger.warning(f"Failed to generate file signature: {e}, using fallback")
-            # Fallback: use filepath hash only
-            return hashlib.md5(self.filepath.encode()).hexdigest()[:8]
+    # REMOVED (Phase 5.1 refactoring): _generate_file_signature()
+    # Now handled by FileSignatureService.generate()
 
     def _load_metadata(self) -> None:
         """Load audio file metadata without loading full audio"""
@@ -295,14 +279,8 @@ class ChunkedAudioProcessor:
             logger.debug("Will continue without adaptive mastering (fallback to basic processing)")
             self.adaptive_mastering_engine = None
 
-    def _get_cache_key(self, chunk_index: int) -> str:
-        """
-        Generate cache key for chunk with file signature.
-
-        Includes track_id, file_signature, preset, intensity, and chunk_index.
-        This ensures chunks cannot be misassigned to different tracks or file versions.
-        """
-        return f"{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_chunk_{chunk_index}"
+    # REMOVED (Phase 5.1 refactoring): _get_cache_key()
+    # Now handled by ChunkCacheManager.get_chunk_cache_key()
 
     def _get_chunk_path(self, chunk_index: int) -> Path:
         """
@@ -417,52 +395,8 @@ class ChunkedAudioProcessor:
 
         return cast(np.ndarray, chunk_adjusted)
 
-    def _trim_context(self, audio_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
-        """
-        Trim context from audio chunk to keep only the actual chunk content.
-
-        Delegates to ChunkBoundaryManager (Phase 3.5 refactoring).
-        This method consolidates the duplicate context trimming logic that was
-        previously implemented in two places (process_chunk and process_chunk_synchronized).
-
-        Args:
-            audio_chunk: Audio chunk with context (potentially padded)
-            chunk_index: Index of the chunk being processed
-
-        Returns:
-            Audio chunk with context trimmed
-        """
-        assert self.sample_rate is not None
-        # Get trim amounts from ChunkBoundaryManager
-        trim_result = self._boundary_manager.calculate_context_trim_samples(
-            chunk_index=chunk_index
-        )
-        trim_start_samples, trim_end_samples = trim_result
-
-        # Safety: Ensure we have enough samples to trim
-        chunk_length = len(audio_chunk)
-        max_trim_samples = chunk_length // 4  # Never trim more than 1/4 of the chunk
-
-        # Trim start context if not first chunk
-        if trim_start_samples > 0:
-            actual_trim_start = min(trim_start_samples, max_trim_samples)
-            if chunk_length > actual_trim_start:
-                audio_chunk = audio_chunk[actual_trim_start:]
-                logger.debug(f"Chunk {chunk_index}: trimmed {actual_trim_start/self.sample_rate:.2f}s from start")
-            else:
-                logger.warning(f"Chunk {chunk_index} too short to trim start context ({chunk_length} < {actual_trim_start}). Keeping as-is.")
-
-        # Trim end context if not last chunk
-        if trim_end_samples > 0:
-            chunk_length = len(audio_chunk)  # Update after potential start trim
-            actual_trim_end = min(trim_end_samples, max_trim_samples)
-            if chunk_length > actual_trim_end:
-                audio_chunk = audio_chunk[:-actual_trim_end]
-                logger.debug(f"Chunk {chunk_index}: trimmed {actual_trim_end/self.sample_rate:.2f}s from end")
-            else:
-                logger.warning(f"Chunk {chunk_index} too short to trim end context ({chunk_length} < {actual_trim_end}). Keeping as-is.")
-
-        return audio_chunk
+    # REMOVED (Phase 5.1 refactoring): _trim_context()
+    # Now handled by ChunkBoundaryManager.trim_context()
 
     def _process_chunk_with_hybrid_processor(self, audio_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
         """
@@ -559,8 +493,8 @@ class ChunkedAudioProcessor:
             allow_empty=False  # Don't allow empty chunks
         )
 
-        # Trim context (keep only the actual chunk)
-        processed_chunk = self._trim_context(cast(np.ndarray, processed_chunk), chunk_index)
+        # Trim context (keep only the actual chunk) (Phase 5.1: Using ChunkBoundaryManager)
+        processed_chunk = self._boundary_manager.trim_context(cast(np.ndarray, processed_chunk), chunk_index)
 
         # Validate chunk is not empty before smooth transitions
         if len(processed_chunk) == 0:
@@ -589,11 +523,13 @@ class ChunkedAudioProcessor:
         Returns:
             Tuple of (path_to_chunk_file, processed_audio_array)
         """
-        # Check cache first
-        cache_key = self._get_cache_key(chunk_index)
-        cached_path = self.chunk_cache.get(cache_key)
+        # Check cache first (Phase 5.1: Using ChunkCacheManager)
+        cache_key = ChunkCacheManager.get_chunk_cache_key(
+            self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
+        )
+        cached_path = self._cache_manager.get_cached_chunk_path(cache_key)
 
-        if cached_path and Path(cached_path).exists():
+        if cached_path is not None:
             assert self.total_chunks is not None
             logger.info(f"Serving cached chunk {chunk_index}/{self.total_chunks}")
             # Load from disk only if cached (for subsequent requests)
@@ -635,15 +571,24 @@ class ChunkedAudioProcessor:
         # Process chunk using shared core logic
         processed_chunk = self._process_chunk_core(chunk_index, fast_start)
 
-        # CRITICAL: Extract the correct segment for this chunk to handle overlaps
+        # CRITICAL: Extract the correct segment for this chunk to handle overlaps (Phase 5.1: Using ChunkOperations)
         # - Chunk 0: full CHUNK_DURATION (15s)
         # - Regular chunks: skip overlap (5s), extract CHUNK_INTERVAL (10s)
         # Without this, chunks would overlap and cause audio jumps during playback
-        extracted_chunk = self._extract_chunk_segment(processed_chunk, chunk_index)
+        assert self.sample_rate is not None and self.total_chunks is not None and self.total_duration is not None
+        extracted_chunk = ChunkOperations.extract_chunk_segment(
+            processed_chunk=processed_chunk,
+            chunk_index=chunk_index,
+            sample_rate=self.sample_rate,
+            chunk_duration=CHUNK_DURATION,
+            chunk_interval=CHUNK_INTERVAL,
+            overlap_duration=OVERLAP_DURATION,
+            total_chunks=self.total_chunks,
+            total_duration=self.total_duration
+        )
 
         # Save chunk using WAVEncoder (Phase 3.5 refactoring)
         # NOTE: Saved for durability/caching, but we return the array directly to avoid disk I/O
-        assert self.sample_rate is not None
         chunk_path = self._wav_encoder.encode_and_save_from_path(
             audio=extracted_chunk,
             sample_rate=self.sample_rate,
@@ -655,8 +600,8 @@ class ChunkedAudioProcessor:
             subtype='PCM_16'
         )
 
-        # Cache the path
-        self.chunk_cache[cache_key] = str(chunk_path)
+        # Cache the path (Phase 5.1: Using ChunkCacheManager)
+        self._cache_manager.cache_chunk_path(cache_key, chunk_path)
 
         logger.info(f"Chunk {chunk_index} processed and saved to {chunk_path}")
         # Return both path (for caching) and audio array (for immediate streaming)
@@ -727,41 +672,14 @@ class ChunkedAudioProcessor:
             finally:
                 loop.close()
 
-    def _get_track_fingerprint_cache_key(self) -> str:
-        """
-        Get cache key for track-level fingerprint.
+    # REMOVED (Phase 5.1 refactoring): _get_track_fingerprint_cache_key()
+    # Now handled by ChunkCacheManager.get_fingerprint_cache_key()
 
-        Fingerprints are track-specific, not chunk-specific, so we cache them
-        once per track to avoid expensive recomputation for every chunk.
-        """
-        return f"fingerprint_{self.track_id}_{self.file_signature}"
+    # REMOVED (Phase 5.1 refactoring): get_cached_fingerprint()
+    # Now handled by ChunkCacheManager.get_cached_fingerprint()
 
-    def get_cached_fingerprint(self) -> dict[str, Any] | None:
-        """
-        Get cached track-level fingerprint if available.
-
-        Returns:
-            dict: Cached fingerprint or None if not cached
-        """
-        cache_key = self._get_track_fingerprint_cache_key()
-        cached_value = self.chunk_cache.get(cache_key)
-        if isinstance(cached_value, dict):
-            return cached_value
-        return None
-
-    def cache_fingerprint(self, fingerprint: dict[str, Any]) -> None:
-        """
-        Cache track-level fingerprint for reuse across all chunks.
-
-        This avoids expensive fingerprint analysis (especially librosa tempo detection)
-        for every chunk, reducing processing time by ~0.5-1s per chunk.
-
-        Args:
-            fingerprint: Complete 25D fingerprint dictionary
-        """
-        cache_key = self._get_track_fingerprint_cache_key()
-        self.chunk_cache[cache_key] = fingerprint
-        logger.info(f"Cached track-level fingerprint for track {self.track_id}")
+    # REMOVED (Phase 5.1 refactoring): cache_fingerprint()
+    # Now handled by ChunkCacheManager.cache_fingerprint()
 
     def get_mastering_recommendation(self, confidence_threshold: float = 0.4) -> Any | None:
         """
@@ -834,9 +752,11 @@ class ChunkedAudioProcessor:
 
         for chunk_idx in range(1, self.total_chunks):
             try:
-                # Check if already cached
-                cache_key = self._get_cache_key(chunk_idx)
-                if cache_key in self.chunk_cache:
+                # Check if already cached (Phase 5.1: Using ChunkCacheManager)
+                cache_key = ChunkCacheManager.get_chunk_cache_key(
+                    self.track_id, self.file_signature, self.preset, self.intensity, chunk_idx
+                )
+                if self._cache_manager.get_cached_chunk_path(cache_key) is not None:
                     continue
 
                 # Process chunk with thread-safe locking
@@ -901,80 +821,8 @@ class ChunkedAudioProcessor:
 
         return str(full_path)
 
-    def _extract_chunk_segment(self, processed_chunk: np.ndarray, chunk_index: int) -> np.ndarray:
-        """
-        Extract the correct segment from a processed chunk based on its position.
-
-        Handles first chunk, last chunk, and middle chunks differently to ensure:
-        - No duplicate audio at boundaries
-        - Proper handling of overlap regions
-        - Correct duration for the final segment
-
-        Args:
-            processed_chunk: Full processed chunk (may include overlap/context)
-            chunk_index: Index of this chunk
-
-        Returns:
-            Extracted segment ready for WAV encoding
-        """
-        assert self.sample_rate is not None and self.total_chunks is not None and self.total_duration is not None
-        is_last = chunk_index == self.total_chunks - 1
-        overlap_samples = int(OVERLAP_DURATION * self.sample_rate)
-
-        if chunk_index == 0:
-            # First chunk: extract exactly CHUNK_DURATION seconds (or full duration if shorter)
-            expected_samples = int(CHUNK_DURATION * self.sample_rate)
-            extracted = processed_chunk[:expected_samples]
-            logger.debug(f"✅ Chunk 0: extracted [0:{expected_samples}] samples ({expected_samples/self.sample_rate:.2f}s)")
-
-        elif is_last:
-            # Last chunk: skip the overlap, extract remaining duration
-            # Use CHUNK_INTERVAL (10s) for chunk position, not CHUNK_DURATION (15s)
-            chunk_start_time = chunk_index * CHUNK_INTERVAL
-            remaining_duration = max(0, self.total_duration - chunk_start_time)
-            expected_samples = int(remaining_duration * self.sample_rate)
-            # Skip the overlap region to avoid duplicate audio
-            extracted = processed_chunk[overlap_samples:overlap_samples + expected_samples]
-            logger.debug(f"✅ Chunk {chunk_index} (last): starts {chunk_start_time:.1f}s, remaining {remaining_duration:.1f}s, {expected_samples} samples")
-
-        else:
-            # Regular chunk: skip the overlap, extract CHUNK_INTERVAL seconds (NOT CHUNK_DURATION!)
-            # The loaded chunk is only CHUNK_DURATION (15s), and we skip OVERLAP_DURATION (5s),
-            # so we can only extract CHUNK_INTERVAL (10s) = CHUNK_DURATION - OVERLAP_DURATION
-            expected_samples = int(CHUNK_INTERVAL * self.sample_rate)
-            # Skip the overlap region to avoid duplicate audio
-            extracted = processed_chunk[overlap_samples:overlap_samples + expected_samples]
-            logger.debug(f"✅ Chunk {chunk_index}: skipped {overlap_samples} overlap, extracted {expected_samples} samples ({expected_samples/self.sample_rate:.2f}s)")
-
-        # Verify and pad/trim if needed (edge case handling)
-        current_samples = len(extracted)
-        if is_last:
-            chunk_start_time = chunk_index * CHUNK_INTERVAL
-            remaining_duration = max(0, self.total_duration - chunk_start_time)
-            expected_for_validation = int(remaining_duration * self.sample_rate)
-        elif chunk_index == 0:
-            # First chunk: CHUNK_DURATION (15s)
-            expected_for_validation = int(CHUNK_DURATION * self.sample_rate)
-        else:
-            # Regular chunks: CHUNK_INTERVAL (10s)
-            expected_for_validation = int(CHUNK_INTERVAL * self.sample_rate)
-
-        if current_samples < expected_for_validation:
-            # Pad with silence if too short (edge case, shouldn't happen normally)
-            padding_needed = expected_for_validation - current_samples
-            num_channels = extracted.shape[1] if extracted.ndim > 1 else 1
-            padding = np.zeros((padding_needed, num_channels), dtype=np.float32)
-            if extracted.ndim == 1:
-                extracted = extracted[:, np.newaxis]  # Ensure 2D
-                padding = padding.reshape(-1, num_channels)
-            extracted = np.vstack([extracted, padding]) if extracted.ndim > 1 else np.concatenate([extracted, padding])
-            logger.warning(f"⚠️ Chunk {chunk_index} was {padding_needed} samples short, padded with silence")
-        elif current_samples > expected_for_validation:
-            # Trim if too long (shouldn't happen with the new logic, but be safe)
-            extracted = extracted[:expected_for_validation]
-            logger.warning(f"⚠️ Chunk {chunk_index} was {current_samples - expected_for_validation} samples too long, trimmed")
-
-        return extracted
+    # REMOVED (Phase 5.1 refactoring): _extract_chunk_segment()
+    # Now handled by ChunkOperations.extract_chunk_segment()
 
     def get_wav_chunk_path(self, chunk_index: int) -> str:
         """
@@ -990,14 +838,15 @@ class ChunkedAudioProcessor:
         Returns:
             Path to WAV chunk file
         """
-        assert self.sample_rate is not None
-        # Check cache first
-        cache_key = f"{self.track_id}_{self.file_signature}_{self.preset}_{self.intensity}_wav_{chunk_index}"
-        if cache_key in self.chunk_cache:
-            cached_path = Path(self.chunk_cache[cache_key])
-            if cached_path.exists():
-                logger.info(f"Serving cached WAV chunk {chunk_index}")
-                return str(cached_path)
+        assert self.sample_rate is not None and self.total_chunks is not None and self.total_duration is not None
+        # Check cache first (Phase 5.1: Using ChunkCacheManager)
+        cache_key = ChunkCacheManager.get_wav_cache_key(
+            self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
+        )
+        cached_path = self._cache_manager.get_cached_chunk_path(cache_key)
+        if cached_path is not None:
+            logger.info(f"Serving cached WAV chunk {chunk_index}")
+            return str(cached_path)
 
         # Get WAV output path
         wav_chunk_path = self._get_wav_chunk_path(chunk_index)
@@ -1005,7 +854,7 @@ class ChunkedAudioProcessor:
         # Check if already exists on disk
         if wav_chunk_path.exists():
             logger.info(f"WAV chunk {chunk_index} already exists on disk")
-            self.chunk_cache[cache_key] = str(wav_chunk_path)
+            self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
             return str(wav_chunk_path)
 
         logger.info(f"Processing chunk {chunk_index} directly to WAV")
@@ -1013,8 +862,17 @@ class ChunkedAudioProcessor:
         # Use shared core processing logic (eliminates duplicate code)
         processed_chunk = self._process_chunk_core(chunk_index, fast_start=False)
 
-        # Extract the correct segment for this chunk
-        extracted_chunk = self._extract_chunk_segment(processed_chunk, chunk_index)
+        # Extract the correct segment for this chunk (Phase 5.1: Using ChunkOperations)
+        extracted_chunk = ChunkOperations.extract_chunk_segment(
+            processed_chunk=processed_chunk,
+            chunk_index=chunk_index,
+            sample_rate=self.sample_rate,
+            chunk_duration=CHUNK_DURATION,
+            chunk_interval=CHUNK_INTERVAL,
+            overlap_duration=OVERLAP_DURATION,
+            total_chunks=self.total_chunks,
+            total_duration=self.total_duration
+        )
 
         # Encode directly to WAV (Web Audio API compatible)
         try:
@@ -1030,8 +888,8 @@ class ChunkedAudioProcessor:
             logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
             raise RuntimeError(f"Failed to encode chunk to WAV: {e}")
 
-        # Cache the path
-        self.chunk_cache[cache_key] = str(wav_chunk_path)
+        # Cache the path (Phase 5.1: Using ChunkCacheManager)
+        self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
 
         # Store last_content_profile globally for visualizer API access
         # This allows the /api/processing/parameters endpoint to show real processing data

@@ -185,6 +185,78 @@ class ChunkBoundaryManager:
 
         return segment_start, segment_end
 
+    def trim_context(
+        self,
+        audio_chunk: "np.ndarray",  # type: ignore[name-defined]
+        chunk_index: int,
+        max_trim_fraction: float = 0.25
+    ) -> "np.ndarray":  # type: ignore[name-defined]
+        """
+        Trim context padding from processed audio chunk.
+
+        Uses calculate_context_trim_samples() to get trim amounts,
+        then safely trims start/end with validation to prevent
+        over-trimming that would result in empty audio.
+
+        Args:
+            audio_chunk: Audio chunk with context padding (processed)
+            chunk_index: Index of the chunk being processed
+            max_trim_fraction: Never trim more than this fraction of chunk (default 0.25)
+
+        Returns:
+            Audio chunk with context trimmed to actual content
+
+        Examples:
+            >>> import numpy as np
+            >>> manager = ChunkBoundaryManager(total_duration=60.0, sample_rate=44100)
+            >>> # Chunk with 5s context on each side (15s chunk + 10s context = 25s)
+            >>> audio = np.zeros((25 * 44100, 2))
+            >>> trimmed = manager.trim_context(audio, chunk_index=1)
+            >>> len(trimmed)  # Should be ~15s worth of samples
+            661500
+        """
+        import numpy as np
+
+        # Get trim amounts from boundary calculation
+        trim_start_samples, trim_end_samples = self.calculate_context_trim_samples(chunk_index)
+
+        # Safety: Ensure we have enough samples to trim
+        chunk_length = len(audio_chunk)
+        max_trim_samples = int(chunk_length * max_trim_fraction)
+
+        # Trim start context if not first chunk
+        if trim_start_samples > 0:
+            actual_trim_start = min(trim_start_samples, max_trim_samples)
+            if chunk_length > actual_trim_start:
+                audio_chunk = audio_chunk[actual_trim_start:]
+                logger.debug(
+                    f"Chunk {chunk_index}: trimmed {actual_trim_start/self.sample_rate:.2f}s "
+                    f"from start"
+                )
+            else:
+                logger.warning(
+                    f"Chunk {chunk_index} too short to trim start context "
+                    f"({chunk_length} < {actual_trim_start}). Keeping as-is."
+                )
+
+        # Trim end context if not last chunk
+        if trim_end_samples > 0:
+            chunk_length = len(audio_chunk)  # Update after potential start trim
+            actual_trim_end = min(trim_end_samples, max_trim_samples)
+            if chunk_length > actual_trim_end:
+                audio_chunk = audio_chunk[:-actual_trim_end]
+                logger.debug(
+                    f"Chunk {chunk_index}: trimmed {actual_trim_end/self.sample_rate:.2f}s "
+                    f"from end"
+                )
+            else:
+                logger.warning(
+                    f"Chunk {chunk_index} too short to trim end context "
+                    f"({chunk_length} < {actual_trim_end}). Keeping as-is."
+                )
+
+        return audio_chunk
+
     def log_chunk_info(self, chunk_index: int) -> None:
         """Log information about chunk boundaries for debugging."""
         load_start, load_end, chunk_start, chunk_end = self.get_chunk_boundaries(chunk_index)
