@@ -206,10 +206,21 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       buffer.initialize(message.data.sample_rate, message.data.channels);
       pcmBufferRef.current = buffer;
 
-      // Create or reuse AudioContext
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext ||
-          (window as any).webkitAudioContext)();
+      // Create AudioContext with the SAME sample rate as the streaming audio
+      // This is critical - if AudioContext runs at 48000Hz but audio is 44100Hz,
+      // playback will be ~9% faster with raised pitch.
+      const sourceSampleRate = message.data.sample_rate;
+      if (!audioContextRef.current || audioContextRef.current.sampleRate !== sourceSampleRate) {
+        // Close existing context if sample rate differs
+        if (audioContextRef.current) {
+          console.log('[usePlayNormal] Closing AudioContext (sample rate mismatch)',
+            audioContextRef.current.sampleRate, '→', sourceSampleRate);
+          audioContextRef.current.close();
+        }
+        // Create new AudioContext with matching sample rate
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        audioContextRef.current = new AudioContextClass({ sampleRate: sourceSampleRate });
+        console.log('[usePlayNormal] Created AudioContext with sample rate:', sourceSampleRate);
       }
 
       // Initialize AudioPlaybackEngine
