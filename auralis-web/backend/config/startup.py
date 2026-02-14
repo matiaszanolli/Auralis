@@ -26,6 +26,100 @@ from fastapi import FastAPI
 logger = logging.getLogger(__name__)
 
 
+async def _background_auto_scan(
+    music_source_dir: Path,
+    library_manager: Any,
+    fingerprint_queue: Any | None,
+    connection_manager: Any
+) -> None:
+    """
+    Run library scan in background without blocking server startup.
+
+    Broadcasts progress updates via WebSocket to all connected clients.
+
+    Args:
+        music_source_dir: Directory to scan
+        library_manager: LibraryManager instance
+        fingerprint_queue: Optional fingerprint extraction queue
+        connection_manager: WebSocket ConnectionManager for progress updates
+    """
+    try:
+        from auralis.library.scanner import LibraryScanner
+
+        logger.info(f"🔍 Starting background auto-scan of {music_source_dir}...")
+
+        # Broadcast scan start notification
+        await connection_manager.broadcast({
+            "type": "library_scan_started",
+            "directory": str(music_source_dir)
+        })
+
+        # Create scanner with progress callback
+        scanner = LibraryScanner(
+            library_manager,
+            fingerprint_queue=fingerprint_queue
+        )
+
+        # Set up progress callback to broadcast updates
+        async def progress_callback(progress_data: dict[str, Any]) -> None:
+            """Broadcast scan progress to all connected clients"""
+            await connection_manager.broadcast({
+                "type": "library_scan_progress",
+                **progress_data
+            })
+
+        # Wrap synchronous callback for async context
+        def sync_progress_callback(progress_data: dict[str, Any]) -> None:
+            """Synchronous wrapper that schedules async broadcast"""
+            asyncio.create_task(progress_callback(progress_data))
+
+        scanner.set_progress_callback(sync_progress_callback)
+
+        # Run scan in thread pool to avoid blocking event loop
+        scan_result = await asyncio.to_thread(
+            scanner.scan_directories,
+            [str(music_source_dir)],
+            recursive=True,
+            skip_existing=True
+        )
+
+        # Log and broadcast results
+        if scan_result and scan_result.files_added > 0:
+            logger.info(f"✅ Background auto-scan complete: {scan_result.files_added} files added")
+            await connection_manager.broadcast({
+                "type": "library_scan_completed",
+                "files_added": scan_result.files_added,
+                "files_found": scan_result.files_found,
+                "files_processed": scan_result.files_processed,
+                "files_skipped": scan_result.files_skipped,
+                "files_failed": scan_result.files_failed
+            })
+        elif scan_result:
+            logger.info(f"✅ ~/Music already scanned: {scan_result.files_found} total files")
+            await connection_manager.broadcast({
+                "type": "library_scan_completed",
+                "files_added": 0,
+                "files_found": scan_result.files_found,
+                "files_processed": scan_result.files_processed,
+                "files_skipped": scan_result.files_skipped,
+                "files_failed": scan_result.files_failed
+            })
+        else:
+            logger.info("ℹ️  No new files to scan in ~/Music")
+            await connection_manager.broadcast({
+                "type": "library_scan_completed",
+                "files_added": 0,
+                "files_found": 0
+            })
+
+    except Exception as scan_e:
+        logger.warning(f"⚠️  Background auto-scan failed: {scan_e}")
+        await connection_manager.broadcast({
+            "type": "library_scan_error",
+            "error": str(scan_e)
+        })
+
+
 def setup_startup_handlers(app: FastAPI, deps: dict[str, Any]) -> None:
     """
     Register startup and shutdown event handlers with FastAPI app.
@@ -136,28 +230,18 @@ def setup_startup_handlers(app: FastAPI, deps: dict[str, Any]) -> None:
                     logger.warning(f"⚠️  Failed to initialize fingerprinting system: {fp_e}")
                     fingerprint_queue = None
 
-                # Auto-scan default music directory on startup
-                try:
-                    music_source_dir = Path.home() / "Music"
-                    if music_source_dir.exists() and music_source_dir != music_dir:
-                        logger.info(f"🔍 Starting auto-scan of {music_source_dir}...")
-                        scanner = LibraryScanner(
-                            globals_dict['library_manager'],
-                            fingerprint_queue=globals_dict.get('fingerprint_queue')
-                        )
-                        scan_result = scanner.scan_directories(
-                            [str(music_source_dir)],
-                            recursive=True,
-                            skip_existing=True
-                        )
-                        if scan_result and scan_result.files_added > 0:
-                            logger.info(f"✅ Auto-scanned ~/Music: {scan_result.files_added} files added")
-                        elif scan_result:
-                            logger.info(f"✅ ~/Music already scanned: {scan_result.files_found} total files")
-                        else:
-                            logger.info("ℹ️  No new files to scan in ~/Music")
-                except Exception as scan_e:
-                    logger.warning(f"⚠️  Failed to auto-scan ~/Music: {scan_e}")
+                # Schedule auto-scan as background task (non-blocking)
+                music_source_dir = Path.home() / "Music"
+                if music_source_dir.exists() and music_source_dir != music_dir:
+                    logger.info(f"🔍 Scheduling background auto-scan of {music_source_dir}...")
+                    asyncio.create_task(_background_auto_scan(
+                        music_source_dir=music_source_dir,
+                        library_manager=globals_dict['library_manager'],
+                        fingerprint_queue=globals_dict.get('fingerprint_queue'),
+                        connection_manager=manager
+                    ))
+                else:
+                    logger.info("ℹ️  No music directory to auto-scan")
 
                 # Initialize settings repository
                 globals_dict['settings_repository'] = SettingsRepository(
