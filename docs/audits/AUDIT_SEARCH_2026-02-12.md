@@ -1,500 +1,392 @@
-# Comprehensive Auralis Audit — 2026-02-12
+# Comprehensive Auralis Audit — 2026-02-12 (Revision 2)
 
 ## Executive Summary
 
-**Total findings: 31** — 4 CRITICAL, 10 HIGH, 11 MEDIUM, 6 LOW
+**Total findings: 45** — 6 CRITICAL, 15 HIGH, 17 MEDIUM, 7 LOW
 
-| Severity | Count | Key themes |
-|----------|-------|------------|
-| CRITICAL | 4 | Player race condition, OOM on cleanup, DB shutdown corruption, migration race |
-| HIGH | 10 | No authentication, path traversal, detached ORM instances, symlink loops, FFmpeg leak |
-| MEDIUM | 11 | SQL injection risk, unbounded caches, event loop bypass, secret key in VCS |
-| LOW | 6 | CORS config, rate limiting, SQLite PRAGMA, response inconsistency |
+This revision adds **14 NEW findings** from deep exploration of audio integrity, DSP pipeline correctness, player state management, security hardening, and error handling. The 31 original findings are referenced as existing issues.
 
-**Most impactful:** The combination of no authentication (H01) with path traversal (H02) allows any network client to scan arbitrary directories. The player race condition (C01) can cause audible skips in production.
+| Severity | Original | New | Total | Key themes |
+|----------|----------|-----|-------|------------|
+| CRITICAL | 4 | 2 | 6 | + DSP in-place modification, NaN propagation |
+| HIGH | 10 | 5 | 15 | + Gapless sample rate, seek race, truncated audio, WebSocket validation |
+| MEDIUM | 11 | 6 | 17 | + Crossfade boundary, dtype promotion, queue reorder, memory |
+| LOW | 6 | 1 | 7 | + pickle for size estimation |
+
+**Most impactful NEW findings:**
+1. **S-C01**: `CompressionStrategies` modifies audio arrays in-place without `.copy()`, violating the project's core invariant. Any caller reusing the input array gets corrupted data.
+2. **S-C02**: `HybridProcessor` checks for silence (all zeros) but not NaN/Inf values. A single NaN from a failed filter stage propagates through the entire pipeline, producing silent corrupted output.
+3. **S-H01**: Gapless transition sets new sample rate without converting position, causing ~0.4s skip at every track boundary when sample rates differ.
 
 ---
 
-## Findings
+## New Findings (14)
 
 ### CRITICAL
 
-### C01: Race Condition in Player Auto-Advance
+### S-C01: In-Place Audio Modification in CompressionStrategies Violates Copy Invariant
 - **Severity**: CRITICAL
-- **Dimension**: Concurrency / Player State
-- **Location**: `auralis/player/enhanced_audio_player.py:364-383`
+- **Dimension**: Audio Integrity
+- **Location**: `auralis/core/processing/base/compression_expansion.py:54-62`
 - **Status**: NEW
-- **Description**: When playback reaches end-of-track, a background thread is spawned without any guard against concurrent invocation. The check at line 364 (`position >= total_samples`) is not atomic with the thread spawn. Multiple threads can enter `_auto_advance_delayed` simultaneously. The `time.sleep(0.1)` at line 381 is not a real synchronization mechanism.
+- **Description**: `apply_soft_knee_compression()` modifies the input `audio` array directly via `audio[over_threshold] = ...` without calling `.copy()` first. This violates the project's critical invariant: "Never modify in-place." Any caller that retains a reference to the original array gets corrupted data.
 - **Evidence**:
 ```python
-# Line 364-371
-if self.playback.position >= self.file_manager.get_total_samples():
-    if self.auto_advance and not self.queue.is_queue_empty():
-        import threading
-        threading.Thread(
-            target=self._auto_advance_delayed,
-            daemon=True
-        ).start()
+# compression_expansion.py:54-62
+audio_abs = np.abs(audio)
+over_threshold = audio_abs > clip_threshold_linear
+if np.any(over_threshold):
+    compressed_excess = excess / compression_ratio
+    new_amplitude = clip_threshold_linear + compressed_excess
+    audio[over_threshold] = np.sign(audio[over_threshold]) * new_amplitude  # IN-PLACE!
 ```
-- **Impact**: Track skipping, queue corruption, wrong track loaded. Silent failure — user hears glitched audio with no error.
-- **Related**: C04 (another unguarded concurrent pattern)
-- **Suggested Fix**: Use an atomic flag (`threading.Event` or `_auto_advance_in_progress`) to ensure only one auto-advance thread runs at a time.
+The same pattern appears in `apply_peak_enhancement_expansion()` at lines 150-165.
+- **Impact**: Audio data corruption when the same buffer is used in multiple processing paths. Breaks adaptive processing where the original signal is compared to the processed result. Silent — no error raised.
+- **Related**: CLAUDE.md invariant: `output = audio.copy()  # Never modify in-place`
+- **Suggested Fix**: Add `audio = audio.copy()` as the first line in both `apply_soft_knee_compression()` and `apply_peak_enhancement_expansion()`.
 
 ---
 
-### C02: cleanup_missing_files Loads Entire Library Into Memory
+### S-C02: NaN/Inf Values Unchecked in HybridProcessor Pipeline
 - **Severity**: CRITICAL
-- **Dimension**: Library / Performance
-- **Location**: `auralis/library/repositories/track_repository.py:660-690`
+- **Dimension**: Audio Integrity / DSP Pipeline
+- **Location**: `auralis/core/hybrid_processor.py:219-231`
 - **Status**: NEW
-- **Description**: `session.query(Track).all()` at line 674 loads every track object (with all columns and eager relationships) into memory. For a library with 50k+ tracks, this causes OOM. Additionally, deleting tracks in a loop with cascade can hit SQLite busy timeouts.
+- **Description**: `HybridProcessor.process()` checks for silence (all zeros) at line 220 but does not check for NaN or Inf values. If any DSP stage produces NaN (e.g., from an unstable IIR filter, division by zero in dynamics processing, or a corrupted input file), the NaN propagates through all subsequent stages including the brick wall limiter, producing silent corrupted output.
 - **Evidence**:
 ```python
-# Line 674
-tracks = session.query(Track).all()  # Loads ALL tracks into memory
-for track in tracks:
-    if not os.path.exists(track.filepath):
-        session.delete(track)
+# hybrid_processor.py:219-221
+if np.allclose(target_audio, 0.0, atol=1e-10):  # Checks silence
+    return target_audio.copy()
+# NO check for NaN or Inf!
+# Processing continues with potentially corrupted data...
 ```
-- **Impact**: OOM crash on large libraries. SQLite lock contention during mass delete.
-- **Suggested Fix**: Process in chunks of 1000 using `.offset().limit()`. Only select `id` and `filepath` columns. Batch delete with `filter(Track.id.in_(ids)).delete()`.
-
----
-
-### C03: No Resource Cleanup on LibraryManager Shutdown
-- **Severity**: CRITICAL
-- **Dimension**: Library / Data Integrity
-- **Location**: `auralis/library/manager.py` (class-level)
-- **Status**: NEW
-- **Description**: `LibraryManager` has no `shutdown()` or `__del__` method. When the application exits, SQLite connections are not properly closed, WAL journal is not checkpointed, and the connection pool is not disposed. This can leave the WAL file in an incomplete state.
-- **Evidence**: The class initializes `self.engine = create_engine(...)` but has no corresponding cleanup. No `atexit` handler registered.
-- **Impact**: WAL corruption on unclean shutdown. Database lockfile left behind. Potential data loss of uncommitted WAL transactions.
-- **Suggested Fix**: Add `shutdown()` method that runs `PRAGMA wal_checkpoint(TRUNCATE)` and `engine.dispose()`. Register via `atexit.register()`.
-
----
-
-### C04: Migration Race Condition — No Process-Level Lock
-- **Severity**: CRITICAL
-- **Dimension**: Library / Data Integrity
-- **Location**: `auralis/library/migration_manager.py:268-326`
-- **Status**: NEW
-- **Description**: `check_and_migrate_database()` has no inter-process locking. If two processes (e.g., backend + scanner) start simultaneously, both can read version, decide migration is needed, and attempt it concurrently. Additionally, at line 308, migration proceeds even if backup creation fails.
-- **Evidence**:
-```python
-# Line 302-308
-if auto_backup and current_version > 0:
-    try:
-        backup_path = backup_database(db_path)
-    except Exception as e:
-        logger.warning("Proceeding without backup...")  # Proceeds anyway!
-```
-- **Impact**: Database corruption, schema inconsistency, data loss during parallel startup.
-- **Suggested Fix**: Use `fcntl.flock()` on a migration lock file. Fail if backup creation fails.
+The same gap exists in `simple_mastering.py` — no NaN/Inf check between processing stages (bass enhance, presence boost, dynamics, safety limiter). A NaN from one stage cascades through crossfading in the chunked processor.
+- **Impact**: Silent audio corruption. NaN values produce silence in most audio outputs but corrupt crossfade calculations, producing clicks/pops at chunk boundaries. No error is raised — the user hears degraded audio with no diagnostic.
+- **Suggested Fix**: Add `if np.any(~np.isfinite(target_audio)): raise ValueError("NaN/Inf detected in audio")` before processing and after each stage (or at minimum, after the full pipeline).
 
 ---
 
 ### HIGH
 
-### H01: No Authentication on Any Endpoint
+### S-H01: Gapless Transition Does Not Convert Position on Sample Rate Change
 - **Severity**: HIGH
-- **Dimension**: Security
-- **Location**: `auralis-web/backend/routers/*.py` (all 18 routers)
+- **Dimension**: Player State / Audio Integrity
+- **Location**: `auralis/player/gapless_playback_engine.py:170-185`
 - **Status**: NEW
-- **Description**: Zero authentication or authorization checks exist on any API endpoint. All routes accept unauthenticated requests. No 401/403 HTTP exceptions anywhere in the router code. Any network client can access all library data, modify metadata, trigger processing, and scan directories.
-- **Evidence**: `grep -r "HTTPException.*401\|HTTPException.*403" auralis-web/backend --include="*.py"` returns 0 matches.
-- **Impact**: Full access to library, metadata, processing, and file system scanning for any network client. Combined with H02, this allows arbitrary directory reconnaissance.
-- **Suggested Fix**: Implement authentication middleware (JWT or session-based). Apply to all routes via FastAPI dependency injection.
-
----
-
-### H02: Path Traversal in Directory Scanning Endpoint
-- **Severity**: HIGH
-- **Dimension**: Security
-- **Location**: `auralis-web/backend/routers/files.py:74-134`
-- **Status**: NEW
-- **Description**: The `/api/library/scan` endpoint accepts a `directory` field from user input with no validation. The directory path is passed directly to `LibraryScanner.scan_single_directory()`. An attacker can scan `/../../../etc/` or any accessible path.
+- **Description**: `advance_with_prebuffer()` sets `self.file_manager.sample_rate = sample_rate` for the new track but does not reset `self.playback.position` to 0. After transition, `position` still holds the sample count from the previous track, interpreted against the new sample rate.
 - **Evidence**:
 ```python
-class ScanRequest(BaseModel):
-    directory: str  # No validation
-
-@router.post("/api/library/scan")
-async def scan_directory(request: ScanRequest) -> Dict[str, Any]:
-    directory = request.directory  # Directly used
+# gapless_playback_engine.py:174-178
+with self.update_lock:
+    self.file_manager.audio_data = audio_data
+    self.file_manager.sample_rate = sample_rate  # Changed!
+    self.file_manager.current_file = file_path
+    # self.playback.position NOT reset!
 ```
-- **Impact**: Arbitrary directory enumeration. Information disclosure of file system structure.
-- **Related**: H01 (no auth makes this exploitable by anyone on the network)
-- **Suggested Fix**: Validate against an allowlist of scan-permitted directories. At minimum, resolve path and ensure it's within user's home directory.
+The caller (`enhanced_audio_player.py:next_track()`) is responsible for resetting position, but there's a window where `get_audio_chunk()` reads the stale position against the new sample rate.
+- **Impact**: At track transitions between 44.1kHz and 48kHz content, position is misinterpreted by ~8.8%. Audio skips or repeats at the transition point.
+- **Suggested Fix**: Reset `self.playback.position = 0` inside the `update_lock` block in `advance_with_prebuffer()`.
 
 ---
 
-### H03: Detached Instance Errors in 13+ Repository Methods
-- **Severity**: HIGH
-- **Dimension**: Library / Data Access
-- **Location**: `auralis/library/repositories/track_repository.py:169-181`, `auralis/library/repositories/album_repository.py:101-115` (and 11+ more methods)
-- **Status**: NEW
-- **Description**: Repository methods return SQLAlchemy ORM objects after closing the session in `finally`. Accessing relationships (`.artists`, `.album`, `.tracks`) after return triggers `DetachedInstanceError`. Despite `joinedload()` being used, the session is closed before the caller accesses the returned objects.
-- **Evidence**:
-```python
-def get_by_id(self, track_id: int) -> Optional[Track]:
-    session = self.get_session()
-    try:
-        return session.query(Track).options(joinedload(Track.artists)).first()
-    finally:
-        session.close()  # Session closed, returned object is detached
-```
-- **Impact**: Runtime exceptions when accessing related objects. Affects any code path that reads track.artists, album.tracks, etc.
-- **Suggested Fix**: Call `session.expunge(obj)` before closing session to detach objects with their loaded relationships.
-
----
-
-### H04: No Symlink Infinite Loop Protection in Scanner
-- **Severity**: HIGH
-- **Dimension**: Library / Reliability
-- **Location**: `auralis/library/scanner/file_discovery.py:38-84`
-- **Status**: NEW
-- **Description**: `pathlib.Path.rglob()` at line 63 follows symlinks by default. If a symlink points to a parent directory (e.g., `/music/link -> /music`), the scanner enters an infinite loop.
-- **Evidence**:
-```python
-if recursive:
-    pattern_method = directory_path.rglob  # Follows symlinks
-for ext in AUDIO_EXTENSIONS:
-    for file_path in pattern_method(f"*{ext}"):  # Can loop forever
-```
-- **Impact**: Scanner hangs indefinitely. Application becomes unresponsive.
-- **Suggested Fix**: Track visited inodes `(st_dev, st_ino)` to detect cycles. Add max depth limit.
-
----
-
-### H05: N+1 Query Pattern in find_similar
-- **Severity**: HIGH
-- **Dimension**: Library / Performance
-- **Location**: `auralis/library/repositories/track_repository.py:479-516`
-- **Status**: NEW
-- **Description**: The `find_similar()` method queries tracks without eager loading relationships, then accesses `.artists`, `.album`, and `.genres` in a loop, generating N+1 queries.
-- **Impact**: For a result set of 50 tracks, this generates 150+ additional queries. Severe latency on the similarity endpoint.
-- **Suggested Fix**: Add `.options(joinedload(Track.artists), joinedload(Track.album), joinedload(Track.genres))` to the query.
-
----
-
-### H06: Missing Input Validation in TrackRepository.add()
-- **Severity**: HIGH
-- **Dimension**: Library / Data Integrity
-- **Location**: `auralis/library/repositories/track_repository.py:41-160`
-- **Status**: NEW
-- **Description**: `add()` accepts a `Dict[str, Any]` with no validation of field types, ranges, or lengths. Duration can be negative, sample_rate can be zero, artist names can be 10k+ characters.
-- **Impact**: Database bloat, invalid metadata, potential resource exhaustion. Corrupt entries that break downstream queries.
-- **Suggested Fix**: Validate numeric ranges (duration > 0, sample_rate in [8000..384000], channels in [1,2,4,6,8]), text lengths (title < 500 chars, artist < 200 chars).
-
----
-
-### H07: FFmpeg Process Not Terminated on Timeout
-- **Severity**: HIGH
-- **Dimension**: Error Handling / I/O
-- **Location**: `auralis/io/loaders/ffmpeg_loader.py:77-85`
-- **Status**: NEW
-- **Description**: `subprocess.run()` with `timeout=300` raises `TimeoutExpired`, but the finally block deletes temporary files while FFmpeg may still be writing to them. No explicit process termination on timeout.
-- **Impact**: Corrupted temporary files. File descriptor leaks. Next load of the same file gets incomplete data.
-- **Suggested Fix**: Use `subprocess.Popen` with explicit `.kill()` and `.wait()` on timeout. Add delay before temp file cleanup.
-
----
-
-### H08: Gapless Playback Thread Not Cleaned Up
+### S-H02: Position Read-Modify-Write Race in get_audio_chunk
 - **Severity**: HIGH
 - **Dimension**: Concurrency / Player State
-- **Location**: `auralis/player/gapless_playback_engine.py:80-86`
+- **Location**: `auralis/player/enhanced_audio_player.py:356-362`
 - **Status**: NEW
-- **Description**: Prebuffer thread is created as `daemon=True` and will be killed mid-operation on shutdown. If killed while holding file handles, descriptors leak. No guard against multiple concurrent prebuffer threads.
+- **Description**: `get_audio_chunk()` reads `self.playback.position`, uses it to fetch audio, then increments it — without any lock. A concurrent `seek()` call can update `position` between the read and the increment, causing the increment to overwrite the seek target.
 - **Evidence**:
 ```python
-self.prebuffer_thread = threading.Thread(
-    target=self._prebuffer_worker,
-    daemon=True,  # Killed on exit
-    name="GaplessPlayback-Prebuffer"
+# enhanced_audio_player.py:356-362
+chunk = self.file_manager.get_audio_chunk(
+    self.playback.position,      # Read
+    chunk_size
 )
+self.playback.position += len(chunk)  # Modify — overwrites any concurrent seek()
 ```
-- **Impact**: File descriptor exhaustion over time. On Windows, file locks prevent deletion. Multiple threads possible on rapid queue changes.
-- **Suggested Fix**: Check `is_alive()` before creating new thread. Use non-daemon thread with explicit join on shutdown.
+- **Impact**: When user seeks during playback, the seek position is immediately overwritten by the playback thread's position increment. Audio jumps back to pre-seek position. Reproduces consistently with any seek during active playback.
+- **Related**: Existing #2064 covers auto-advance race, but this is a separate race in the seek path
+- **Suggested Fix**: Protect the read-modify-write sequence with the existing RLock or use `position` as an atomic variable.
 
 ---
 
-### H09: WebSocket Stream Loop TOCTOU
+### S-H03: Seek Does Not Invalidate Gapless Prebuffer
 - **Severity**: HIGH
-- **Dimension**: Concurrency / Backend API
-- **Location**: `auralis-web/backend/audio_stream_controller.py:461-489`
+- **Dimension**: Player State
+- **Location**: `auralis/player/enhanced_audio_player.py:131-148`
 - **Status**: NEW
-- **Description**: The streaming loop checks `_is_websocket_connected()` at the top of each iteration, but the connection can drop between the check and the actual send inside `_process_and_stream_chunk()`. Failed mid-stream sends waste CPU processing audio that won't be delivered.
-- **Impact**: Wasted CPU on audio processing after disconnect. Chunk data accumulates in send buffer. Active stream not cleaned up.
-- **Suggested Fix**: Check connection state inside `_process_and_stream_chunk()` before each send. Add `finally` block to clean up `active_streams`.
-
----
-
-### H10: Lock Contention in Parallel Processor Window Cache
-- **Severity**: HIGH
-- **Dimension**: Concurrency / Performance
-- **Location**: `auralis/optimization/parallel_processor.py:60-71`
-- **Status**: NEW
-- **Description**: The window cache `get_window()` holds a `threading.Lock` while computing `np.hanning(size)`. For large FFT sizes (8192+), this blocks all other parallel threads from accessing the cache.
+- **Description**: `seek()` updates the playback position but does not call `self.gapless.invalidate_prebuffer()`. If the user seeks backward while near the end of a track, the prebuffered next track remains queued and can trigger auto-advance prematurely.
 - **Evidence**:
 ```python
-with self.lock:
-    if size not in self.window_cache:
-        self.window_cache[size] = np.hanning(size)  # Blocks all threads
+# enhanced_audio_player.py:131-148
+def seek(self, position_seconds: float) -> bool:
+    if not self.file_manager.is_loaded():
+        return False
+    max_samples = self.file_manager.get_total_samples()
+    position_samples = int(position_seconds * self.file_manager.sample_rate)
+    return self.playback.seek(position_samples, max_samples)
+    # No call to self.gapless.invalidate_prebuffer()!
 ```
-- **Impact**: Serializes parallel processing, defeating the purpose of parallelization. 8+ threads bottleneck on single lock holder.
-- **Suggested Fix**: Compute window outside the lock, then lock only for cache insertion (double-check pattern).
+- **Impact**: Seeking backward near end-of-track causes unexpected advance to next track. User intent to re-listen is violated.
+- **Suggested Fix**: Add `self.gapless.invalidate_prebuffer()` after a successful seek, then restart prebuffering.
+
+---
+
+### S-H04: Truncated Audio Files Pass Validation Silently
+- **Severity**: HIGH
+- **Dimension**: Error Handling / Audio Integrity
+- **Location**: `auralis/io/unified_loader.py:73-94`
+- **Status**: NEW
+- **Description**: The loader validates `file_size == 0` but does not validate that the loaded audio data matches the expected frame count from the file header. When `soundfile` loads a truncated file, it returns partial audio without raising an error. The downstream pipeline processes this partial data as if it were complete.
+- **Evidence**:
+```python
+# unified_loader.py:73-94
+file_size = file_path.stat().st_size
+if file_size == 0:
+    raise ModuleError(...)  # Only catches empty files
+
+audio_data, sample_rate = load_with_soundfile(file_path)
+# NO validation: audio_data.shape[0] could be << expected frames
+audio_data, sample_rate = validate_audio(audio_data, sample_rate, file_type)
+```
+- **Impact**: Truncated files produce incomplete audio that processes without error. Users hear cut-off tracks with no warning. Crossfade calculations at the truncated end may produce artifacts.
+- **Suggested Fix**: Compare loaded frame count against `sf.info(file_path).frames`. Warn if significantly shorter than expected.
+
+---
+
+### S-H05: Unvalidated WebSocket Message Content and Size
+- **Severity**: HIGH
+- **Dimension**: Security / Backend API
+- **Location**: `auralis-web/backend/routers/system.py:101-137`
+- **Status**: NEW
+- **Description**: The WebSocket handler receives text messages with no size limit and no schema validation. `json.loads(data)` parses arbitrary JSON. Message types are checked with `message.get("type")` but unrecognized types are silently ignored. User-provided data in `processing_settings_update` is broadcast to all clients without validation.
+- **Evidence**:
+```python
+# system.py:101-119
+data = await websocket.receive_text()  # No size limit
+message = json.loads(data)  # No schema validation
+
+if message.get("type") == "processing_settings_update":
+    settings = message.get("data", {})  # Unvalidated
+    await manager.broadcast({
+        "type": "processing_settings_applied",
+        "data": settings  # Echoed to ALL clients
+    })
+```
+- **Impact**: (1) DoS via large/deeply-nested JSON messages causing memory exhaustion. (2) Data injection: malicious client sends crafted settings that are broadcast to other clients. (3) No rate limiting per message.
+- **Suggested Fix**: Add message size limit (e.g., 64KB). Validate message structure with a Pydantic model. Rate limit per connection.
 
 ---
 
 ### MEDIUM
 
-### M01: SQL Injection Risk in Fingerprint Repository Column Names
+### S-M01: Missing Zero-Length Boundary Check in Mastering Crossfade
 - **Severity**: MEDIUM
-- **Dimension**: Security / Library
-- **Location**: `auralis/library/repositories/fingerprint_repository.py:477-483`
+- **Dimension**: Audio Integrity
+- **Location**: `auralis/core/simple_mastering.py:194-201`
 - **Status**: NEW
-- **Description**: Column names from `fingerprint_data` dict keys are interpolated directly into SQL. While values are parameterized, column names are not. An attacker controlling dict keys could inject SQL.
+- **Description**: The crossfade logic computes `head_len = min(prev_tail.shape[1], processed_chunk.shape[1])` without checking that `head_len > 0`. When `prev_tail` has 0 columns (which occurs when a chunk is exactly `core_samples` long with no overlap), `np.linspace(0, π/2, 0)` produces an empty array, and the crossfade produces empty output, losing samples.
 - **Evidence**:
 ```python
-cols_str = ', '.join(cols)  # Dict keys, unvalidated
-sql = f"INSERT OR REPLACE INTO track_fingerprints (track_id, {cols_str}) VALUES (?, {placeholders})"
+# simple_mastering.py:194-201
+head_len = min(prev_tail.shape[1], processed_chunk.shape[1])
+# No check: head_len could be 0!
+t = np.linspace(0.0, np.pi / 2, head_len)
+fade_in = np.sin(t) ** 2
 ```
-- **Impact**: SQL injection if fingerprint_data keys come from untrusted input. Currently low risk (keys are internal), but violates defense-in-depth.
-- **Suggested Fix**: Validate column names against a whitelist of known fingerprint dimensions.
+- **Impact**: Sample loss at chunk boundaries when chunk size exactly equals core_samples. Violates `len(output) == len(input)` invariant on edge cases.
+- **Suggested Fix**: Add `if head_len == 0:` guard — skip crossfade and concatenate directly.
 
 ---
 
-### M02: Hardcoded Secret Key Committed to Git
+### S-M02: dtype Promotion float32→float64 in Parallel EQ Processing
 - **Severity**: MEDIUM
-- **Dimension**: Security
-- **Location**: `.env:6`
+- **Dimension**: Audio Integrity / Performance
+- **Location**: `auralis/core/simple_mastering.py:869-876` (and 4 similar EQ methods)
 - **Status**: NEW
-- **Description**: The `.env` file is tracked in git (`git ls-files .env` returns it) despite being in `.gitignore`. It contains a hardcoded secret key: `MATCHERING_SECRET_KEY=uCG4Pr9mS2hKzVnfYtN8wL3xQjE5RbAd` along with database credentials.
-- **Impact**: Secret key and credentials exposed in version history. Even if removed now, they persist in git history.
-- **Suggested Fix**: `git rm --cached .env`. Rotate the secret key. Use environment variables or a secrets manager.
-
----
-
-### M03: process_chunk_synchronized Bypasses Async Lock
-- **Severity**: MEDIUM
-- **Dimension**: Concurrency
-- **Location**: `auralis-web/backend/chunked_processor.py:714-733`
-- **Status**: NEW
-- **Description**: `process_chunk_synchronized()` creates a new event loop via `asyncio.run()` in a separate thread. This new event loop has its own lock context — the `_processor_lock` from the main event loop does NOT protect against concurrent access from this path.
+- **Description**: The parallel EQ pattern uses `sosfilt()` which returns float64 regardless of input dtype. The result `audio + band * (boost_linear - 1.0)` promotes the entire output to float64, doubling memory usage. Downstream code assumes float32.
 - **Evidence**:
 ```python
-with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-    future = executor.submit(
-        lambda: asyncio.run(self.process_chunk_safe(chunk_index, fast_start))
-    )  # New event loop = new lock instance context
+# simple_mastering.py:869-876
+sos_lp = butter(2, normalized_freq, btype='low', output='sos')
+low_band = sosfilt(sos_lp, audio, axis=1)  # Returns float64!
+processed = audio + low_band * boost_diff  # float32 + float64 = float64
 ```
-- **Impact**: Concurrent processor access between sync and async code paths, potentially corrupting DSP state.
-- **Suggested Fix**: Use `threading.RLock` instead of `asyncio.Lock` for cross-context safety.
+This pattern repeats in `_apply_mid_presence_balance`, `_apply_presence_enhancement`, `_apply_air_enhancement`, and `_apply_bass_management`.
+- **Impact**: 2x memory usage throughout the processing chain. Potential dtype mismatches with downstream code expecting float32. No errors raised but performance degradation on large files.
+- **Suggested Fix**: Cast filter output: `low_band = sosfilt(sos_lp, audio, axis=1).astype(audio.dtype)`
 
 ---
 
-### M04: Unbounded deleted_track_ids Set
+### S-M03: Queue reorder_tracks Doesn't Handle Missing Current Track
 - **Severity**: MEDIUM
-- **Dimension**: Library / Memory
-- **Location**: `auralis/library/manager.py:158-162`
+- **Dimension**: Player State
+- **Location**: `auralis/player/components/queue_manager.py:154-168`
 - **Status**: NEW
-- **Description**: `_deleted_track_ids` set grows without bound as tracks are deleted. After millions of deletions, this leaks significant memory. On restart, the set resets, so previously deleted IDs are no longer tracked.
-- **Impact**: Memory leak proportional to number of deletions over application lifetime.
-- **Suggested Fix**: Cap set size (e.g., 10k entries) with LRU eviction, or eliminate the set by checking the database directly.
+- **Description**: `reorder_tracks()` searches for the current track by ID after reordering. If the search fails (track ID not found — which shouldn't happen with valid `new_order` but could with race conditions), `current_index` retains its old value, now pointing to a different track.
+- **Evidence**:
+```python
+# queue_manager.py:162-166
+if current_track_id is not None:
+    for i, track in enumerate(self.tracks):
+        if track.get('id') == current_track_id:
+            self.current_index = i
+            break
+    # If no match: current_index stays at old value → points to WRONG track
+```
+- **Impact**: After reorder, playback may jump to a different track than intended. The user hears the wrong track without any error indication.
+- **Suggested Fix**: Add `else:` clause after the `for` loop to set `current_index = 0` as fallback.
 
 ---
 
-### M05: Hardcoded Database Path in FingerprintRepository
+### S-M04: Scanner Loads All Discovered File Paths Into Memory
 - **Severity**: MEDIUM
-- **Dimension**: Library / Architecture
-- **Location**: `auralis/library/repositories/fingerprint_repository.py:471-472`
+- **Dimension**: Performance / Memory
+- **Location**: `auralis/library/scanner/scanner.py` (file discovery phase)
 - **Status**: NEW
-- **Description**: Three methods bypass the ORM session factory and hardcode `Path.home() / '.auralis' / 'library.db'` with raw `sqlite3.connect()`. This breaks test isolation, custom db paths, and multi-instance deployments.
-- **Impact**: Tests cannot use in-memory databases. Custom database paths are ignored for fingerprint operations.
-- **Suggested Fix**: Pass `db_path` from LibraryManager to FingerprintRepository at construction time.
+- **Description**: The scanner discovers all audio files via `rglob()` and stores all paths in a list before processing begins. For large music libraries (100k+ files), this list consumes significant memory. There is no streaming/chunked discovery.
+- **Impact**: Memory spike during scan of large directories. Combined with metadata loading, can cause OOM on resource-constrained systems.
+- **Suggested Fix**: Process files in batches as they're discovered rather than collecting all paths first.
 
 ---
 
-### M06: No Migration Script Validation
+### S-M05: HybridProcessor Cache Grows Unbounded
 - **Severity**: MEDIUM
-- **Dimension**: Library / Safety
-- **Location**: `auralis/library/migration_manager.py:103-129`
+- **Dimension**: Performance / Memory
+- **Location**: `auralis/core/hybrid_processor.py:446-474`
 - **Status**: NEW
-- **Description**: Migration scripts are read from disk and executed without validation. No check for destructive operations (DROP TABLE, TRUNCATE). No pre-migration dry run.
-- **Impact**: Accidental data destruction from malformed migration scripts. No rollback on partial failure.
-- **Suggested Fix**: Validate SQL statements before execution. Reject scripts containing destructive keywords without explicit override.
+- **Description**: `_processor_cache` dictionary stores processor instances keyed by configuration hash. No maximum size or TTL eviction. A long-running backend server processing tracks with varying configurations accumulates instances indefinitely.
+- **Impact**: Memory leak proportional to unique configuration combinations. Each processor instance holds DSP state, filter caches, and analysis buffers.
+- **Suggested Fix**: Add LRU eviction with max size (e.g., 10 entries) using `functools.lru_cache` or manual eviction.
 
 ---
 
-### M07: Chunk Cache Not Bounded by Memory
-- **Severity**: MEDIUM
-- **Dimension**: Backend / Performance
-- **Location**: `auralis-web/backend/audio_stream_controller.py:47-115`
-- **Status**: NEW
-- **Description**: `SimpleChunkCache` limits by count (max 50 chunks) but not by memory. Each chunk can be 10-50MB of audio data. 50 chunks * 50MB = 2.5GB potential memory usage.
-- **Impact**: Memory exhaustion on systems with limited RAM. No backpressure mechanism.
-- **Suggested Fix**: Track `audio.nbytes` per cached chunk. Evict when total exceeds a configured memory limit.
-
----
-
-### M08: WebSocket Error Recovery Incomplete
-- **Severity**: MEDIUM
-- **Dimension**: Backend / Error Handling
-- **Location**: `auralis-web/backend/audio_stream_controller.py:479-489`
-- **Status**: NEW
-- **Description**: When chunk processing fails mid-stream, the handler sends an error message and returns immediately. No resource cleanup (processor state, cached chunks). Client has no recovery information.
-- **Impact**: Stale processor state. Client in undefined state (partial stream received).
-- **Suggested Fix**: Clean up processor and cache on error. Include recovery position in error message.
-
----
-
-### M09: SQLite Connection Pool Misconfigured
-- **Severity**: MEDIUM
-- **Dimension**: Library / Concurrency
-- **Location**: `auralis/library/manager.py:114-121`
-- **Status**: NEW
-- **Description**: `pool_size=32, max_overflow=32` creates up to 64 connection objects, but SQLite only allows one writer at a time. 63 threads will block on write contention. The 60-second timeout means hung requests.
-- **Impact**: Apparent deadlocks under load. Write operations timeout after 60 seconds.
-- **Suggested Fix**: Use `StaticPool` (single connection) or reduce pool size with WAL mode's reader concurrency.
-
----
-
-### M10: Filepath Exposure in API Responses
+### S-M06: Frontend Error Handler innerHTML with Unescaped Error Message
 - **Severity**: MEDIUM
 - **Dimension**: Security
-- **Location**: `auralis-web/backend/routers/metadata.py:121`
+- **Location**: `auralis-web/frontend/src/main.tsx:51`, `auralis-web/frontend/src/index.tsx:51`
 - **Status**: NEW
-- **Description**: The metadata endpoint returns `track.filepath` in the response body, exposing the full server-side file path to the client.
-- **Impact**: Information disclosure of server file system structure. Aids path traversal attacks.
-- **Suggested Fix**: Remove `filepath` from API responses. Use track ID for all client-facing references.
-
----
-
-### M11: No React Error Boundaries
-- **Severity**: MEDIUM
-- **Dimension**: Frontend / Reliability
-- **Location**: `auralis-web/frontend/src/index.tsx`
-- **Status**: NEW
-- **Description**: The app renders without any React Error Boundary component. A rendering error in any component crashes the entire application. The only catch is the top-level async IIFE try/catch which only handles initialization errors, not runtime rendering errors.
-- **Impact**: Any uncaught rendering error crashes the entire UI. User must manually reload.
-- **Suggested Fix**: Add `<ErrorBoundary>` wrapper around `<App />` with a recovery UI.
+- **Description**: The initialization error handler writes to `document.documentElement.innerHTML` with the error `msg` variable interpolated without HTML escaping. The stack trace IS escaped (`stack.replace(/</g, '&lt;')`), but the message is not.
+- **Evidence**:
+```typescript
+// main.tsx:51
+document.documentElement.innerHTML = '...<p style="...">' + msg + '</p>...'
+// msg is NOT escaped — stack IS escaped via .replace()
+```
+- **Impact**: If an error message contains HTML (e.g., from a malicious URL or crafted fetch error like `"Error: <img src=x onerror=alert(1)>"`), it executes as JavaScript during app initialization failure.
+- **Related**: Existing #2094 covers backend `main.py` fallback page — this is the frontend equivalent
+- **Suggested Fix**: Apply the same `replace(/</g, '&lt;').replace(/>/g, '&gt;')` escaping to `msg`.
 
 ---
 
 ### LOW
 
-### L01: CORS Wildcard Methods and Headers
+### S-L01: pickle.dumps() Used for Cache Size Estimation
 - **Severity**: LOW
-- **Dimension**: Security
-- **Location**: `auralis-web/backend/config/middleware.py:76-77`
+- **Dimension**: Security / Code Quality
+- **Location**: `auralis/optimization/caching/smart_cache.py:71`
 - **Status**: NEW
-- **Description**: `allow_methods=["*"]` and `allow_headers=["*"]` with `allow_credentials=True`. Per CORS spec, wildcard headers with credentials is technically invalid (browsers may handle inconsistently).
-- **Impact**: Minor security hygiene issue. Allows unexpected HTTP methods.
-- **Suggested Fix**: Explicitly list allowed methods and headers.
+- **Description**: `pickle.dumps(value)` is used to estimate the byte size of cached objects. While this doesn't deserialize untrusted data (only serializes), the `pickle` module is generally discouraged due to its association with code execution risks. If the cache is ever persisted to disk and reloaded, this creates an RCE vector.
+- **Evidence**:
+```python
+# smart_cache.py:71-73
+try:
+    size = len(pickle.dumps(value))
+except:
+    size = 1024  # Default estimate
+```
+- **Impact**: Low current risk (serialization only). Establishes a pattern that could become dangerous if caching is extended to disk persistence.
+- **Suggested Fix**: Replace with `sys.getsizeof(value)` for approximate size, or `value.nbytes` for NumPy arrays.
 
 ---
 
-### L02: No Rate Limiting on Processing Endpoints
-- **Severity**: LOW
-- **Dimension**: Security / Performance
-- **Location**: All routers (no rate limiting middleware found)
-- **Status**: NEW
-- **Description**: CPU-intensive endpoints like `/api/similarity/fit` and `/api/similarity/graph/build` can be called repeatedly without throttling.
-- **Impact**: CPU exhaustion via repeated requests. Denial of service for other users.
-- **Suggested Fix**: Add per-endpoint rate limiting middleware (e.g., `slowapi`).
+## Existing Findings (31) — Previously Filed
 
----
+All 31 findings from the original audit are already tracked as GitHub issues:
 
-### L03: Missing busy_timeout PRAGMA for SQLite
-- **Severity**: LOW
-- **Dimension**: Library / Configuration
-- **Location**: `auralis/library/manager.py:124-142`
-- **Status**: NEW
-- **Description**: SQLite pragma setup does not include `PRAGMA busy_timeout`. While `connect_args={'timeout': 60}` is set, the SQL-level busy_timeout should also be configured for consistency.
-- **Impact**: Inconsistent timeout behavior between Python-level and SQLite-level.
-- **Suggested Fix**: Add `cursor.execute("PRAGMA busy_timeout=60000")` to pragma setup.
-
----
-
-### L04: Error Response Format Inconsistency
-- **Severity**: LOW
-- **Dimension**: Backend / API
-- **Location**: Multiple routers
-- **Status**: NEW
-- **Description**: Some endpoints return `{"error": "..."}`, others `{"message": "..."}`, others use FastAPI default `{"detail": "..."}`. Frontend must check multiple fields.
-- **Impact**: Inconsistent client-side error handling. Increased maintenance burden.
-- **Suggested Fix**: Standardize on FastAPI's `{"detail": "..."}` format via custom exception handler.
-
----
-
-### L05: Fingerprint Generator Silent Failure
-- **Severity**: LOW
-- **Dimension**: Backend / Error Handling
-- **Location**: `auralis-web/backend/audio_stream_controller.py:150-164`
-- **Status**: NEW
-- **Description**: FingerprintGenerator initialization failure is logged as a warning but not surfaced to the user. Audio streams proceed with degraded quality (no fingerprint-optimized mastering) without notification.
-- **Impact**: Users unaware of suboptimal audio quality. No diagnostic information exposed.
-- **Suggested Fix**: Store error state. Include fingerprint availability in stream metadata sent to client.
-
----
-
-### L06: Unsafe HTML Interpolation in Fallback Page
-- **Severity**: LOW
-- **Dimension**: Security
-- **Location**: `auralis-web/backend/main.py:184-194`
-- **Status**: NEW
-- **Description**: `frontend_path` is interpolated into HTML without escaping. While currently internally derived (low risk), the pattern is dangerous if the source changes.
-- **Impact**: Potential HTML injection if path becomes user-controllable in the future.
-- **Suggested Fix**: Use `html.escape()` on the path value.
+| ID | Severity | Title | Issue |
+|----|----------|-------|-------|
+| C01 | CRITICAL | Race condition in player auto-advance | #2064 |
+| C02 | CRITICAL | cleanup_missing_files loads entire library into memory | #2066 |
+| C03 | CRITICAL | No resource cleanup on LibraryManager shutdown | #2066 |
+| C04 | CRITICAL | Migration race condition — no process-level lock | #2064 |
+| H01 | HIGH | No authentication on any endpoint | #2069 |
+| H02 | HIGH | Path traversal in directory scanning | #2069 |
+| H03 | HIGH | DetachedInstanceError in 13+ repository methods | #2070 |
+| H04 | HIGH | Scanner follows symlinks without cycle detection | #2071 |
+| H05 | HIGH | N+1 query pattern in find_similar | #2072 |
+| H06 | HIGH | Missing input validation in TrackRepository.add() | #2073 |
+| H07 | HIGH | FFmpeg process not terminated on timeout | #2074 |
+| H08 | HIGH | Gapless playback thread not cleaned up | #2075 |
+| H09 | HIGH | WebSocket stream loop TOCTOU | #2076 |
+| H10 | HIGH | Lock contention in parallel processor window cache | #2077 |
+| M01 | MEDIUM | SQL injection risk in fingerprint column names | #2078 |
+| M02 | MEDIUM | Secret key committed to git in .env | #2079 |
+| M03 | MEDIUM | process_chunk_synchronized bypasses async lock | #2080 |
+| M04 | MEDIUM | Unbounded deleted_track_ids set | #2081 |
+| M05 | MEDIUM | Hardcoded db_path in FingerprintRepository | #2082 |
+| M06 | MEDIUM | No validation of migration scripts | #2083 |
+| M07 | MEDIUM | Chunk cache not bounded by memory | #2084 |
+| M08 | MEDIUM | WebSocket error recovery incomplete | #2085 |
+| M09 | MEDIUM | SQLite connection pool misconfigured | #2086 |
+| M10 | MEDIUM | Filepath exposure in API responses | #2088 |
+| M11 | MEDIUM | No React error boundaries | #2088 |
+| L01 | LOW | CORS wildcard methods and headers | #2091 |
+| L02 | LOW | No rate limiting on processing endpoints | #2091 |
+| L03 | LOW | Missing busy_timeout PRAGMA for SQLite | #2091 |
+| L04 | LOW | Error response format inconsistency | #2092 |
+| L05 | LOW | FingerprintGenerator silent failure | #2093 |
+| L06 | LOW | Unsafe HTML interpolation in fallback page | #2094 |
 
 ---
 
 ## Relationships
 
-### Cluster 1: Authentication + Path Traversal
-H01 (no auth) + H02 (path traversal) + M10 (filepath exposure) form a chain: any network client can scan arbitrary directories AND learn server-side file paths from metadata responses.
+### Cluster 1: Audio Integrity Chain (NEW)
+S-C01 (in-place modification) → S-C02 (NaN propagation) → S-M02 (dtype promotion). A corrupted input from S-C01 can produce NaN values that S-C02 doesn't catch, amplified by S-M02's dtype promotion. The entire DSP output chain is vulnerable.
 
-### Cluster 2: Database Integrity
-C02 (OOM cleanup) + C03 (no shutdown cleanup) + C04 (migration race) + M09 (pool misconfigured) all threaten database stability. A crash from C02 during cleanup, combined with C03's lack of WAL checkpoint, could corrupt the database. C04 makes recovery dangerous.
+### Cluster 2: Player State Races (NEW + EXISTING)
+S-H02 (seek race) + S-H01 (gapless sample rate) + S-H03 (prebuffer invalidation) + existing #2064 (auto-advance race). All four affect position tracking in the player. A seek during gapless transition can corrupt position via S-H02, which then triggers incorrect auto-advance via #2064.
 
-### Cluster 3: Concurrency in Audio Pipeline
-C01 (auto-advance race) + H08 (gapless thread) + H10 (lock contention) + M03 (lock bypass) all affect audio pipeline correctness. The auto-advance race causes track skips, while M03's lock bypass can corrupt DSP state mid-chunk.
+### Cluster 3: Authentication + Security (EXISTING + NEW)
+Existing H01/H02 (no auth + path traversal) + S-H05 (WebSocket validation) + S-M06 (innerHTML XSS). The lack of authentication makes S-H05's unvalidated WebSocket messages exploitable by any network client.
 
-### Cluster 4: Repository Pattern Issues
-H03 (detached instances) + H05 (N+1 queries) + H06 (no validation) + M05 (hardcoded db path) are all repository-layer issues sharing a root cause: the session management pattern (open/use/close in each method) doesn't properly detach objects.
+### Cluster 4: Memory Pressure (NEW + EXISTING)
+S-M04 (scanner memory) + S-M05 (processor cache) + existing M04 (deleted_track_ids) + existing M07 (chunk cache). Four unbounded data structures that can collectively cause OOM on long-running instances.
 
 ---
 
-## Prioritized Fix Order
+## Prioritized Fix Order (New Findings Only)
 
-1. **C01** — Player race condition. Audible artifact in production. Fix: atomic flag. ~1hr.
-2. **H01 + H02** — Auth + path traversal. Security exposure. Fix: auth middleware + path validation. ~4hr.
-3. **C03** — Shutdown cleanup. Data loss risk. Fix: `shutdown()` + `atexit`. ~1hr.
-4. **C04** — Migration lock. Corruption risk. Fix: `fcntl.flock()`. ~2hr.
-5. **H03** — Detached instances. Runtime exceptions. Fix: `session.expunge()` in 13 methods. ~3hr.
-6. **C02** — Cleanup OOM. Production crash. Fix: chunked query. ~1hr.
-7. **M02** — Secret in VCS. Fix: `git rm --cached .env`, rotate key. ~30min.
-8. **H04** — Symlink loops. Scanner hang. Fix: inode tracking. ~2hr.
-9. **M03** — Lock bypass. DSP corruption. Fix: use `threading.RLock`. ~1hr.
-10. **H07-H10** — Remaining HIGH issues. ~8hr total.
-11. **M01-M11** — MEDIUM issues. ~12hr total.
-12. **L01-L06** — LOW issues. Opportunistic.
+1. **S-C01** — In-place modification. Core invariant violation. Fix: add `.copy()`. ~15min.
+2. **S-C02** — NaN propagation. Silent corruption. Fix: add `np.isfinite()` check. ~30min.
+3. **S-H02** — Seek race. User-facing bug. Fix: lock around position read-modify. ~1hr.
+4. **S-H01** — Gapless sample rate. Audio skip. Fix: reset position in lock block. ~30min.
+5. **S-H03** — Prebuffer invalidation. Fix: call invalidate in seek(). ~15min.
+6. **S-H04** — Truncated audio. Fix: validate frame count. ~30min.
+7. **S-H05** — WebSocket validation. Security. Fix: schema + size limit. ~2hr.
+8. **S-M06** — XSS in error handler. Fix: escape msg variable. ~15min.
+9. **S-M01** — Crossfade boundary. Fix: guard head_len==0. ~15min.
+10. **S-M02** — dtype promotion. Fix: cast to input dtype. ~30min.
+11. **S-M03-M05** — Memory/state fixes. ~2hr total.
+12. **S-L01** — pickle replacement. ~15min.
 
 ---
 
 ## Cross-Cutting Recommendations
 
-### 1. Authentication Layer
-Add a single authentication middleware before any router. Even basic API key auth would close H01, H02, and M10.
+### 1. Audio Data Validation Layer
+Add a centralized `validate_audio_buffer(audio)` function that checks: (a) `isinstance(audio, np.ndarray)`, (b) `audio.dtype in [np.float32, np.float64]`, (c) `np.all(np.isfinite(audio))`, (d) `len(audio) > 0`. Call it at pipeline entry and exit. This fixes S-C02, S-H04, S-M01.
 
-### 2. Repository Session Management
-Refactor the repository base class to either (a) use scoped sessions that live longer than a single method call, or (b) systematically `expunge` all returned objects. This fixes H03 and prevents future detached instance bugs.
+### 2. Copy-Before-Modify Enforcement
+All DSP functions should begin with `audio = audio.copy()`. Enforce via code review checklist or a decorator that automatically copies the first array argument. This fixes S-C01 and prevents future regressions.
 
-### 3. Database Lifecycle
-Add `LibraryManager.shutdown()` with WAL checkpoint. Register with `atexit`. Add process-level lock for migrations. This fixes C03, C04, and improves M09.
+### 3. Player State Locking
+Wrap all position read-modify-write sequences in the existing RLock. Consider making `position` a property with a lock guard. This fixes S-H01, S-H02, S-H03.
 
-### 4. Audio Pipeline Synchronization
-Replace the `time.sleep(0.1)` pattern with proper synchronization primitives. Use `threading.RLock` (not `asyncio.Lock`) for cross-context safety. This fixes C01, M03, and H10.
+### 4. WebSocket Security Hardening
+Add message size limits, schema validation (Pydantic), and per-connection rate limiting to all WebSocket handlers. This fixes S-H05 and complements existing H01.
 
-### 5. Input Validation
-Add Pydantic validators on all API request models (path fields, numeric ranges). Add column name whitelists for dynamic SQL. This fixes H02, H06, M01.
+### 5. Memory Bounds on All Caches
+Every cache/buffer in the system should have both a count limit AND a byte limit. Use `functools.lru_cache` or manual eviction. This addresses S-M04, S-M05, and existing M04/M07.
