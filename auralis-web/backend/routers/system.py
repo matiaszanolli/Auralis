@@ -208,6 +208,8 @@ def create_system_router(
 
                     # Define streaming coroutine
                     async def stream_audio():
+                        # Capture task identity to prevent orphaned task race (fixes #2164)
+                        my_task = asyncio.current_task()
                         try:
                             from chunked_processor import ChunkedAudioProcessor
 
@@ -260,8 +262,9 @@ def create_system_router(
                             except Exception:
                                 pass  # WebSocket may be closed
                         finally:
-                            # Clean up task reference
-                            if ws_id in _active_streaming_tasks:
+                            # Only delete our own task reference (fixes #2164 - orphaned task race)
+                            # If a new task has replaced us, don't delete its reference
+                            if _active_streaming_tasks.get(ws_id) is my_task:
                                 del _active_streaming_tasks[ws_id]
 
                     # Start streaming in background task (non-blocking)
@@ -287,6 +290,8 @@ def create_system_router(
 
                     # Define streaming coroutine
                     async def stream_normal():
+                        # Capture task identity to prevent orphaned task race (fixes #2164)
+                        my_task = asyncio.current_task()
                         try:
                             controller = AudioStreamController(
                                 chunked_processor_class=None,
@@ -316,8 +321,9 @@ def create_system_router(
                             except Exception:
                                 pass  # WebSocket may be closed
                         finally:
-                            # Clean up task reference
-                            if ws_id in _active_streaming_tasks:
+                            # Only delete our own task reference (fixes #2164 - orphaned task race)
+                            # If a new task has replaced us, don't delete its reference
+                            if _active_streaming_tasks.get(ws_id) is my_task:
                                 del _active_streaming_tasks[ws_id]
 
                     # Start streaming in background task (non-blocking)
@@ -409,6 +415,8 @@ def create_system_router(
 
                     # Define streaming coroutine with seek position
                     async def stream_from_position():
+                        # Capture task identity to prevent orphaned task race (fixes #2164)
+                        my_task = asyncio.current_task()
                         try:
                             from chunked_processor import ChunkedAudioProcessor
 
@@ -442,7 +450,9 @@ def create_system_router(
                             except Exception:
                                 pass
                         finally:
-                            if ws_id in _active_streaming_tasks:
+                            # Only delete our own task reference (fixes #2164 - orphaned task race)
+                            # If a new task has replaced us, don't delete its reference
+                            if _active_streaming_tasks.get(ws_id) is my_task:
                                 del _active_streaming_tasks[ws_id]
 
                     # Start seek streaming in background
