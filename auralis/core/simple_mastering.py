@@ -21,6 +21,7 @@ from ..dsp.basic import amplify, normalize
 from ..dsp.dynamics.soft_clipper import soft_clip
 from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ..dsp.utils.stereo import adjust_stereo_width_multiband
+from ..utils.audio_validation import sanitize_audio, validate_audio_finite
 from .processing.base import ExpansionStrategies
 
 
@@ -308,6 +309,9 @@ class SimpleMasteringPipeline:
         info = {'stages': []}
         processed = audio.copy()
 
+        # Validate input audio for NaN/Inf (fail fast on corrupted input)
+        processed = validate_audio_finite(processed, context="simple mastering input", repair=False)
+
         # Adaptive intensity based on dynamics + loudness
         effective_intensity = self._calculate_intensity(intensity, lufs, crest_db)
 
@@ -588,6 +592,9 @@ class SimpleMasteringPipeline:
                     gain_db = 20 * np.log10(output_target / current_peak)
                     print(f"   Output normalize: +{gain_db:.1f} dB → {output_target*100:.0f}% peak")
                 info['stages'].append({'stage': 'output_normalize', 'target_peak': output_target})
+
+        # Validate output for NaN/Inf (graceful handling for production resilience)
+        processed = sanitize_audio(processed, context="simple mastering output")
 
         info['effective_intensity'] = effective_intensity
         return processed, info

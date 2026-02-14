@@ -22,6 +22,7 @@ from ..dsp.realtime_adaptive_eq import create_realtime_adaptive_eq
 from ..io.results import Result
 from ..learning.preference_engine import create_preference_engine
 from ..optimization.performance_optimizer import get_performance_optimizer
+from ..utils.audio_validation import sanitize_audio, validate_audio_finite
 from ..utils.logging import debug, info
 from .analysis import AdaptiveTargetGenerator, ContentAnalyzer
 from .analysis.spectrum_mapper import SpectrumMapper
@@ -220,6 +221,10 @@ class HybridProcessor:
         if np.allclose(target_audio, 0.0, atol=1e-10):
             return target_audio.copy()
 
+        # Validate input audio for NaN/Inf (fail fast on corrupted input)
+        target_audio = validate_audio_finite(target_audio, context="input audio", repair=False)
+        debug("Input audio validated: no NaN/Inf detected")
+
         # Process based on mode
         if self.config.is_reference_mode() and reference is not None:
             return self._process_reference_mode(target_audio, reference, results)
@@ -243,7 +248,12 @@ class HybridProcessor:
             reference_audio = reference
 
         # Delegate to reference matching
-        return apply_reference_matching(target_audio, reference_audio)
+        processed = apply_reference_matching(target_audio, reference_audio)
+
+        # Validate output for NaN/Inf (graceful handling for production resilience)
+        processed = sanitize_audio(processed, context="reference mode output")
+
+        return processed
 
     def _process_adaptive_mode(self, target_audio: np.ndarray, results: Any) -> np.ndarray:
         """
@@ -290,6 +300,9 @@ class HybridProcessor:
         # Ensures output never clips and stays within safe range
         processed = self.brick_wall_limiter.process(processed)
 
+        # Validate output for NaN/Inf (graceful handling for production resilience)
+        processed = sanitize_audio(processed, context="adaptive mode output")
+
         return processed
 
     def _process_hybrid_mode(self, target_audio: np.ndarray,
@@ -313,6 +326,9 @@ class HybridProcessor:
         # Ensures output never clips and stays within safe range
         processed = self.brick_wall_limiter.process(processed)
 
+        # Validate output for NaN/Inf (graceful handling for production resilience)
+        processed = sanitize_audio(processed, context="hybrid mode output")
+
         return processed
 
     def process_realtime_chunk(self, audio_chunk: np.ndarray,
@@ -328,7 +344,17 @@ class HybridProcessor:
             Processed audio chunk with minimal latency
         """
         debug("Processing real-time audio chunk")
-        return self.realtime_processor.process_chunk(audio_chunk, content_info)
+
+        # Validate input chunk for NaN/Inf
+        audio_chunk = validate_audio_finite(audio_chunk, context="realtime chunk input", repair=False)
+
+        # Process chunk
+        processed_chunk = self.realtime_processor.process_chunk(audio_chunk, content_info)
+
+        # Validate output for NaN/Inf (graceful handling for streaming)
+        processed_chunk = sanitize_audio(processed_chunk, context="realtime chunk output")
+
+        return processed_chunk
 
     def _load_audio_placeholder(self, file_path: str) -> np.ndarray:
         """Placeholder for audio loading - will be replaced with unified I/O"""

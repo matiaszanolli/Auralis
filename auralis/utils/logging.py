@@ -31,6 +31,8 @@ class Code:
     WARNING_TRUNCATED_FILE = "Audio file may be truncated"
     ERROR_EMPTY_FILE = "Empty file"
     ERROR_UNSUPPORTED_FORMAT = "Unsupported format"
+    ERROR_NAN_DETECTED = "NaN or Inf values detected in audio"
+    WARNING_NAN_DETECTED = "NaN or Inf values detected and repaired"
 
 
 class ModuleError(Exception):
