@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from .base_spectrum_analyzer import BaseSpectrumAnalyzer
+from .base_spectrum_analyzer import BaseSpectrumAnalyzer, SpectrumSettings
 from .fingerprint.common_metrics import AggregationUtils
 from .spectrum_operations import SpectrumOperations
 
