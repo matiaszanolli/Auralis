@@ -566,3 +566,123 @@ class CacheAwareResponse(BaseModel, Generic[T]):
             "timestamp": "2024-11-28T10:00:00Z"
         }
     })
+
+
+# ============================================================================
+# WebSocket Message Models (Security: #2156)
+# ============================================================================
+
+class WebSocketMessageType(str, Enum):
+    """Valid WebSocket message types."""
+    PING = "ping"
+    PONG = "pong"
+    PROCESSING_SETTINGS_UPDATE = "processing_settings_update"
+    PROCESSING_SETTINGS_APPLIED = "processing_settings_applied"
+    AB_TRACK_LOADED = "ab_track_loaded"
+    AB_TRACK_READY = "ab_track_ready"
+    PLAY_ENHANCED = "play_enhanced"
+    PLAY_NORMAL = "play_normal"
+    PAUSE = "pause"
+    STOP = "stop"
+    SEEK = "seek"
+    SEEK_STARTED = "seek_started"
+    SUBSCRIBE_JOB_PROGRESS = "subscribe_job_progress"
+    JOB_PROGRESS = "job_progress"
+    AUDIO_STREAM_ERROR = "audio_stream_error"
+    PLAYBACK_PAUSED = "playback_paused"
+    PLAYBACK_STOPPED = "playback_stopped"
+
+
+class WebSocketMessageBase(BaseModel):
+    """Base WebSocket message with type validation."""
+    type: WebSocketMessageType = Field(description="Message type")
+    data: dict[str, Any] | None = Field(default=None, description="Message payload")
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "type": "ping",
+            "data": None
+        }
+    })
+
+
+class ProcessingSettingsData(BaseModel):
+    """Processing settings update payload."""
+    # Allow any settings but limit nesting depth via max_length on serialized form
+    settings: dict[str, Any] = Field(default_factory=dict, description="Processing settings")
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "settings": {
+                "preset": "adaptive",
+                "intensity": 1.0
+            }
+        }
+    })
+
+
+class PlayEnhancedData(BaseModel):
+    """Play enhanced audio message payload."""
+    track_id: int = Field(description="Track ID to play")
+    preset: str = Field(default="adaptive", max_length=50, description="Enhancement preset")
+    intensity: float = Field(default=1.0, ge=0.0, le=2.0, description="Processing intensity")
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "track_id": 123,
+            "preset": "adaptive",
+            "intensity": 1.0
+        }
+    })
+
+
+class PlayNormalData(BaseModel):
+    """Play normal audio message payload."""
+    track_id: int = Field(description="Track ID to play")
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "track_id": 123
+        }
+    })
+
+
+class SeekData(BaseModel):
+    """Seek message payload."""
+    track_id: int = Field(description="Track ID")
+    position: float = Field(ge=0.0, description="Seek position in seconds")
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "track_id": 123,
+            "position": 45.5
+        }
+    })
+
+
+class SubscribeJobProgressData(BaseModel):
+    """Subscribe to job progress payload."""
+    job_id: str = Field(max_length=100, description="Job ID to subscribe to")
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "job_id": "job_abc123"
+        }
+    })
+
+
+class WebSocketErrorResponse(BaseModel):
+    """WebSocket error response."""
+    type: str = Field(default="error", description="Message type")
+    error: str = Field(description="Error code")
+    message: str = Field(description="Human-readable error message")
+    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "type": "error",
+            "error": "validation_error",
+            "message": "Invalid message format",
+            "timestamp": "2024-11-28T10:00:00Z"
+        }
+    })

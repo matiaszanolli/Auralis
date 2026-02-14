@@ -12,11 +12,19 @@ from collections.abc import Callable
 
 from audio_stream_controller import AudioStreamController
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from websocket_security import (
+    WebSocketRateLimiter,
+    validate_and_parse_message,
+    send_error_response,
+)
 
 logger = logging.getLogger(__name__)
 
 # Track active streaming tasks per WebSocket to allow cancellation
 _active_streaming_tasks: dict[int, asyncio.Task] = {}
+
+# Global rate limiter for all WebSocket connections (fixes #2156)
+_rate_limiter = WebSocketRateLimiter(max_messages_per_second=10)
 
 router = APIRouter(tags=["system"])
 
@@ -101,7 +109,19 @@ def create_system_router(
             while True:
                 # Wait for messages from client
                 data = await websocket.receive_text()
-                message = json.loads(data)
+
+                # Security: Check rate limit (fixes #2156)
+                allowed, error_msg = _rate_limiter.check_rate_limit(websocket)
+                if not allowed:
+                    logger.warning(f"Rate limit exceeded for WebSocket {id(websocket)}: {error_msg}")
+                    await send_error_response(websocket, "rate_limit_exceeded", error_msg)
+                    continue
+
+                # Security: Validate message size and structure (fixes #2156)
+                message, error = await validate_and_parse_message(data, websocket)
+                if error or not message:
+                    # Error already sent to client by validate_and_parse_message
+                    continue
 
                 # Handle different message types
                 if message.get("type") == "ping":
@@ -465,6 +485,9 @@ def create_system_router(
                     logger.info(f"Cancelling streaming task on disconnect for ws {ws_id}")
                     task.cancel()
                 del _active_streaming_tasks[ws_id]
+
+            # Clean up rate limiter (fixes #2156)
+            _rate_limiter.cleanup(websocket)
 
             # Remove from connection manager
             manager.disconnect(websocket)
