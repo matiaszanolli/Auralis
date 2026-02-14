@@ -164,7 +164,7 @@ class MasteringProfile:
             return json.dumps(data, indent=2)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> MasteringProfile:
+    def from_dict(cls, data: dict[str, Any]) -> 'MasteringProfile':
         """Create from dictionary."""
         dr = DetectionRules(**data['detection_rules'])
         pt = ProcessingTargets(**data['processing_targets'])
@@ -187,7 +187,7 @@ class MasteringProfile:
         )
 
     @classmethod
-    def from_yaml_str(cls, yaml_str: str) -> MasteringProfile:
+    def from_yaml_str(cls, yaml_str: str) -> 'MasteringProfile':
         """Create from YAML string."""
         data = yaml.safe_load(yaml_str)
         return cls.from_dict(data)
@@ -253,7 +253,7 @@ class MasteringProfileDatabase:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
     @classmethod
-    def from_yaml_file(cls, file_path: str) -> MasteringProfileDatabase:
+    def from_yaml_file(cls, file_path: str) -> 'MasteringProfileDatabase':
         """Load profiles from a YAML file."""
         db = cls()
 

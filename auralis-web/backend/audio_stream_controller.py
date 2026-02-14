@@ -36,7 +36,7 @@ from collections.abc import Callable
 
 import numpy as np
 from cache.manager import StreamlinedCacheManager
-from chunked_processor import ChunkedAudioProcessor
+from chunked_processor import ChunkedAudioProcessor, apply_crossfade_between_chunks
 from fastapi import WebSocket
 from fingerprint_generator import FingerprintGenerator
 
@@ -165,6 +165,9 @@ class AudioStreamController:
                 logger.warning(f"Failed to initialize FingerprintGenerator: {e}, proceeding without on-demand fingerprint generation")
 
         self.active_streams: dict[int, Any] = {}  # track_id -> streaming task
+
+        # Store previous chunk tails for crossfading (track_id -> tail samples)
+        self._chunk_tails: dict[int, np.ndarray] = {}
 
     def _is_websocket_connected(self, websocket: WebSocket) -> bool:
         """
@@ -518,6 +521,9 @@ class AudioStreamController:
                 # Only try to send error if WebSocket is still connected
                 if self._is_websocket_connected(websocket):
                     await self._send_error(websocket, track_id, str(e))
+        finally:
+            # Clean up chunk tail storage for this track
+            self._chunk_tails.pop(track_id, None)
 
     async def stream_normal_audio(
         self,
@@ -678,6 +684,7 @@ class AudioStreamController:
         Process single chunk and stream PCM samples to client.
 
         Implements caching to avoid reprocessing chunks with same parameters.
+        Applies server-side crossfade to smooth chunk boundaries.
 
         Args:
             chunk_index: Index of chunk to process (0-based)
@@ -754,18 +761,86 @@ class AudioStreamController:
             assert processor.total_chunks is not None, "total_chunks must be set"
             assert processor.sample_rate is not None, "sample_rate must be set"
 
+            # Apply server-side crossfade to smooth chunk boundaries
+            # Use short crossfade (200ms) to prevent clicks without creating artifacts
+            crossfade_duration_ms = 200  # milliseconds
+            crossfade_samples = int(crossfade_duration_ms * processor.sample_rate / 1000)
+
+            # Apply crossfade if not the first chunk
+            if chunk_index > 0 and processor.track_id in self._chunk_tails:
+                prev_tail = self._chunk_tails[processor.track_id]
+                pcm_samples = self._apply_boundary_crossfade(
+                    prev_tail, pcm_samples, crossfade_samples
+                )
+                logger.debug(
+                    f"Applied {crossfade_duration_ms}ms crossfade between chunks "
+                    f"{chunk_index-1} and {chunk_index}"
+                )
+
+            # Store tail for next chunk (last N samples) if not the last chunk
+            if chunk_index < processor.total_chunks - 1:
+                tail_samples = min(crossfade_samples, len(pcm_samples))
+                self._chunk_tails[processor.track_id] = pcm_samples[-tail_samples:].copy()
+            else:
+                # Last chunk - clean up tail storage
+                self._chunk_tails.pop(processor.track_id, None)
+
             await self._send_pcm_chunk(
                 websocket,
                 pcm_samples=pcm_samples,
                 chunk_index=chunk_index,
                 total_chunks=processor.total_chunks,
-                crossfade_samples=int(
-                    processor.chunk_duration * processor.sample_rate
-                ),  # Overlap duration
+                crossfade_samples=crossfade_samples,
             )
         except Exception as e:
             logger.error(f"Failed to stream chunk {chunk_index}: {e}")
             raise
+
+    def _apply_boundary_crossfade(
+        self, prev_tail: np.ndarray, current_chunk: np.ndarray, crossfade_samples: int
+    ) -> np.ndarray:
+        """
+        Apply crossfade at chunk boundary to prevent clicks.
+
+        Takes the tail of the previous chunk and the head of the current chunk,
+        applies equal-power crossfade, and returns the current chunk with
+        crossfaded beginning.
+
+        Args:
+            prev_tail: Last N samples from previous chunk
+            current_chunk: Current chunk audio
+            crossfade_samples: Number of samples to crossfade
+
+        Returns:
+            Current chunk with crossfaded beginning
+        """
+        # Ensure we don't crossfade more than available
+        actual_crossfade = min(crossfade_samples, len(prev_tail), len(current_chunk))
+
+        if actual_crossfade <= 0:
+            return current_chunk
+
+        # Get crossfade regions
+        tail_region = prev_tail[-actual_crossfade:]
+        head_region = current_chunk[:actual_crossfade]
+
+        # Create equal-power fade curves (smoother than linear)
+        fade_out = np.cos(np.linspace(0, np.pi / 2, actual_crossfade)) ** 2
+        fade_in = np.sin(np.linspace(0, np.pi / 2, actual_crossfade)) ** 2
+
+        # Handle stereo
+        if tail_region.ndim == 2:
+            fade_out = fade_out[:, np.newaxis]
+            fade_in = fade_in[:, np.newaxis]
+
+        # Apply crossfade
+        crossfaded = tail_region * fade_out + head_region * fade_in
+
+        # Replace beginning of current chunk with crossfaded region
+        result = current_chunk.copy()
+        result[:actual_crossfade] = crossfaded
+
+        return result
 
     async def _send_pcm_chunk(
         self,
@@ -822,11 +897,10 @@ class AudioStreamController:
                     "frame_count": num_frames,
                     "samples": pcm_base64,
                     "sample_count": frame_samples.size,  # Total float32 values (frames × channels)
-                    # Crossfade handling:
-                    # - Enhanced path: Crossfade applied server-side by ChunkedProcessor
-                    # - Normal path: No overlap, no crossfade needed
-                    # Always 0 to prevent frontend from applying crossfade
-                    "crossfade_samples": 0,
+                    # Crossfade is applied server-side in _process_and_stream_chunk
+                    # to prevent audible clicks at chunk boundaries.
+                    # Frontend receives pre-crossfaded audio, so no client-side crossfade needed.
+                    "crossfade_samples": crossfade_samples,  # For monitoring/debugging
                 },
             }
 
