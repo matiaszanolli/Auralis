@@ -8,6 +8,8 @@ Main configuration class for audio processing
 :license: GPLv3, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
 import math
 from typing import Any, Literal
 

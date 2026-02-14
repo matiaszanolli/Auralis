@@ -64,6 +64,11 @@ def apply_eq_mono(audio_mono: np.ndarray,
     """
     Apply EQ to mono audio using FFT processing
 
+    Note: No windowing is applied for EQ processing. Windowing is used for spectral
+    analysis to reduce leakage, but for filtering/EQ it creates amplitude modulation
+    artifacts. For chunked processing, overlap-add with windowing should be handled
+    at the chunk level, not here.
+
     Args:
         audio_mono: Mono audio data
         gains: Gain values in dB for each critical band
@@ -73,12 +78,8 @@ def apply_eq_mono(audio_mono: np.ndarray,
     Returns:
         Processed mono audio
     """
-    # Apply Hanning window to reduce spectral leakage
-    window = np.hanning(fft_size)
-    windowed_audio = audio_mono[:fft_size] * window
-
-    # Transform to frequency domain
-    spectrum = fft(windowed_audio)
+    # Transform to frequency domain (no windowing for EQ)
+    spectrum = fft(audio_mono[:fft_size])
 
     # Apply gains to each critical band
     for i, gain_db in enumerate(gains):
@@ -94,9 +95,6 @@ def apply_eq_mono(audio_mono: np.ndarray,
 
     # Transform back to time domain
     processed_audio = np.real(ifft(spectrum))
-
-    # Apply window compensation
-    processed_audio *= window
 
     return np.asarray(processed_audio[:len(audio_mono)], dtype=np.float32)
 

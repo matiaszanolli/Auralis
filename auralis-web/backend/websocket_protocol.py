@@ -11,6 +11,8 @@ Phase B.3: WebSocket Enhancement
 :license: GPLv3, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
 import logging
 import time
 import uuid

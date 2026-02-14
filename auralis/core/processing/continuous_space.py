@@ -9,6 +9,8 @@ Replaces discrete presets with intelligent parameter generation.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 import numpy as np
