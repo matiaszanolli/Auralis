@@ -84,6 +84,7 @@ coverage.json
 htmlcov/
 htmlcov_*/
 /tmp/
+test-results/
 
 # Mutation testing artifacts
 .mutmut-cache/
