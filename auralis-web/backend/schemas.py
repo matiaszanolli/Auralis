@@ -660,6 +660,21 @@ class SeekData(BaseModel):
     })
 
 
+class ScanRequest(BaseModel):
+    """Library scan request."""
+    directories: list[str] = Field(description="List of directory paths to scan")
+    recursive: bool = Field(default=True, description="Whether to scan subdirectories")
+    skip_existing: bool = Field(default=True, description="Skip files already in library")
+
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "directories": ["/home/user/Music"],
+            "recursive": True,
+            "skip_existing": True
+        }
+    })
+
+
 class SubscribeJobProgressData(BaseModel):
     """Subscribe to job progress payload."""
     job_id: str = Field(max_length=100, description="Job ID to subscribe to")

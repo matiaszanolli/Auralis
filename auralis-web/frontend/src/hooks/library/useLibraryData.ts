@@ -270,7 +270,7 @@ export const useLibraryData = ({
       const response = await fetch('/api/library/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ directory: folderPath })
+        body: JSON.stringify({ directories: [folderPath] })
       });
 
       if (response.ok) {

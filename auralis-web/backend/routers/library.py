@@ -28,6 +28,7 @@ from fastapi import APIRouter, HTTPException
 
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
+from .schemas import ScanRequest
 from .serializers import (
     serialize_album,
     serialize_albums,
@@ -432,11 +433,7 @@ def create_library_router(
             raise handle_query_error("get album", e)
 
     @router.post("/api/library/scan")
-    async def scan_library(
-        directories: list[str],
-        recursive: bool = True,
-        skip_existing: bool = True
-    ) -> dict[str, Any]:
+    async def scan_library(request: ScanRequest) -> dict[str, Any]:
         """
         Scan directories for audio files and add them to the library.
 
@@ -444,9 +441,10 @@ def create_library_router(
         into the library. Progress updates are sent via WebSocket (see WEBSOCKET_API.md).
 
         Args:
-            directories: List of directory paths to scan
-            recursive: Whether to scan subdirectories (default: True)
-            skip_existing: Skip files already in library (default: True)
+            request: Scan request containing:
+                - directories: List of directory paths to scan
+                - recursive: Whether to scan subdirectories (default: True)
+                - skip_existing: Skip files already in library (default: True)
 
         Returns:
             dict: Scan result with statistics:
@@ -496,9 +494,9 @@ def create_library_router(
             # If not, this will gracefully fall back to scanning without live progress
             try:
                 result = scanner.scan_directories(
-                    directories=directories,
-                    recursive=recursive,
-                    skip_existing=skip_existing,
+                    directories=request.directories,
+                    recursive=request.recursive,
+                    skip_existing=request.skip_existing,
                     check_modifications=True,
                     progress_callback=progress_callback  # type: ignore[call-arg]
                 )
@@ -506,9 +504,9 @@ def create_library_router(
                 # Fallback if scanner doesn't support progress_callback parameter
                 logger.warning("LibraryScanner does not support progress_callback, scanning without live progress")
                 result = scanner.scan_directories(
-                    directories=directories,
-                    recursive=recursive,
-                    skip_existing=skip_existing,
+                    directories=request.directories,
+                    recursive=request.recursive,
+                    skip_existing=request.skip_existing,
                     check_modifications=True
                 )
 
