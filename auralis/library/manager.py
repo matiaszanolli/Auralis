@@ -155,8 +155,6 @@ class LibraryManager:
 
         # Thread-safe locking for delete operations (prevents race conditions)
         self._delete_lock = threading.RLock()
-        # Track IDs that have been successfully deleted (for race condition prevention)
-        self._deleted_track_ids: set[int] = set()
 
         # Clean up incomplete fingerprints from interrupted sessions (crash recovery)
         self._cleanup_incomplete_fingerprints()
@@ -493,18 +491,12 @@ class LibraryManager:
             - Preserves cache invalidation after successful deletion
         """
         with self._delete_lock:
-            # Check if this track has already been deleted by another thread
-            if track_id in self._deleted_track_ids:
-                return False
-
             # Use repository for database operation (repositories handle sessions)
+            # The DB itself prevents double-deletion - if track doesn't exist, returns False
             try:
                 success = self.tracks.delete(track_id)
 
                 if success:
-                    # Mark this track as deleted to prevent any issues
-                    self._deleted_track_ids.add(track_id)
-
                     # Invalidate queries that might include the deleted track
                     invalidate_cache('get_all_tracks', 'get_track', 'search_tracks',
                                      'get_favorite_tracks', 'get_recent_tracks', 'get_popular_tracks')
