@@ -36,6 +36,9 @@ class CompressionStrategies:
         Returns:
             Compressed audio array
         """
+        # Never modify input array in-place
+        audio = audio.copy()
+
         before = MeasurementUtilities.measure_audio(audio)
 
         # Calculate target crest reduction based on compression amount
@@ -135,6 +138,9 @@ class ExpansionStrategies:
         Returns:
             Expanded audio array
         """
+        # Never modify input array in-place
+        audio = audio.copy()
+
         before = MeasurementUtilities.measure_audio(audio)
 
         # Calculate target crest expansion
