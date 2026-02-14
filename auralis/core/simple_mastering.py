@@ -22,6 +22,7 @@ from ..dsp.dynamics.soft_clipper import soft_clip
 from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ..dsp.utils.stereo import adjust_stereo_width_multiband
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
+from .dsp import ParallelEQUtilities
 from .mastering_config import SimpleMasteringConfig
 from .processing.base import ExpansionStrategies
 from .utils import FingerprintUnpacker, SmoothCurveUtilities
@@ -860,24 +861,16 @@ class SimpleMasteringPipeline:
         if boost_db < 0.5:
             return audio, None  # Too small to matter
 
-        # Design a gentle low-shelf filter at 100Hz
-        # Using PARALLEL processing to avoid phase cancellation at crossover
-        shelf_freq = 100.0
-        nyquist = sample_rate / 2
-        normalized_freq = min(0.99, max(0.01, shelf_freq / nyquist))
-
-        # Extract low frequencies only (don't split - keep original intact)
-        sos_lp = butter(2, normalized_freq, btype='low', output='sos')
-        low_band = sosfilt(sos_lp, audio, axis=1)
-
-        # Add boosted low frequencies ON TOP of original (parallel processing)
-        # This avoids phase cancellation from HP+LP recombination
-        boost_linear = 10 ** (boost_db / 20)
-        boost_diff = boost_linear - 1.0  # How much extra gain to add
-        processed = audio + low_band * boost_diff
+        # Apply parallel low-shelf boost using utility
+        processed = ParallelEQUtilities.apply_low_shelf_boost(
+            audio,
+            boost_db=boost_db,
+            freq_hz=self.config.BASS_SHELF_HZ,
+            sample_rate=sample_rate
+        )
 
         if verbose:
-            print(f"   Bass enhance: +{boost_db:.1f} dB below 100Hz")
+            print(f"   Bass enhance: +{boost_db:.1f} dB below {self.config.BASS_SHELF_HZ:.0f}Hz")
 
         return processed, {
             'stage': 'bass_enhance',
