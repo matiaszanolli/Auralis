@@ -136,7 +136,8 @@ class GaplessPlaybackEngine:
             (audio_data, sample_rate) or (None, None) if not ready
         """
         with self.update_lock:
-            if self.has_prebuffered_track():
+            if (self.next_track_buffer is not None and
+                    self.next_track_info is not None):
                 audio = self.next_track_buffer
                 sr = self.next_track_sample_rate
                 return audio, sr
