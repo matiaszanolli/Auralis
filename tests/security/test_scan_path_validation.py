@@ -34,6 +34,7 @@ from path_security import (
     get_allowed_directories,
     is_safe_filename,
     sanitize_path_for_response,
+    validate_file_path,
     validate_scan_path,
 )
 
@@ -353,6 +354,70 @@ class TestScanRequestValidation:
             # Should accept valid path
             request = ScanRequest(directory=str(test_dir))
             assert request.directory == str(test_dir.resolve())
+
+
+@pytest.mark.security
+class TestFilePathValidation:
+    """Test validate_file_path for mastering endpoint (#2229)."""
+
+    def test_reject_path_traversal(self):
+        """SECURITY: Reject ../ traversal in file paths."""
+        traversal_paths = [
+            "../../etc/passwd",
+            "../../../etc/shadow",
+            "music/../../etc/passwd",
+        ]
+        for path in traversal_paths:
+            with pytest.raises(PathValidationError) as exc_info:
+                validate_file_path(path)
+            assert "traversal" in str(exc_info.value).lower()
+
+    def test_reject_paths_outside_allowed_dirs(self, tmp_path):
+        """SECURITY: Reject files outside allowed directories."""
+        # Create a file in a non-allowed location
+        outside_file = tmp_path / "outside" / "secret.txt"
+        outside_file.parent.mkdir()
+        outside_file.write_text("secret")
+
+        allowed = [tmp_path / "music"]
+        (tmp_path / "music").mkdir()
+
+        with pytest.raises(PathValidationError) as exc_info:
+            validate_file_path(str(outside_file), allowed_base_dirs=allowed)
+        assert "outside allowed directories" in str(exc_info.value).lower()
+
+    def test_accept_valid_file_in_allowed_dir(self, tmp_path):
+        """Valid files within allowed directories should be accepted."""
+        music_dir = tmp_path / "music"
+        music_dir.mkdir()
+        audio_file = music_dir / "song.mp3"
+        audio_file.write_bytes(b"\x00" * 100)
+
+        result = validate_file_path(str(audio_file), allowed_base_dirs=[tmp_path])
+        assert result == audio_file.resolve()
+
+    def test_reject_nonexistent_file(self, tmp_path):
+        """SECURITY: Reject non-existent files."""
+        fake_file = tmp_path / "nonexistent.mp3"
+
+        with pytest.raises(PathValidationError) as exc_info:
+            validate_file_path(str(fake_file), allowed_base_dirs=[tmp_path])
+        assert "does not exist" in str(exc_info.value).lower()
+
+    def test_reject_directory_as_file(self, tmp_path):
+        """SECURITY: Reject directories when file expected."""
+        test_dir = tmp_path / "music"
+        test_dir.mkdir()
+
+        with pytest.raises(PathValidationError) as exc_info:
+            validate_file_path(str(test_dir), allowed_base_dirs=[tmp_path])
+        assert "not a file" in str(exc_info.value).lower()
+
+    def test_reject_empty_path(self):
+        """SECURITY: Reject empty file path."""
+        with pytest.raises(PathValidationError) as exc_info:
+            validate_file_path("")
+        assert "cannot be empty" in str(exc_info.value).lower()
 
 
 if __name__ == "__main__":

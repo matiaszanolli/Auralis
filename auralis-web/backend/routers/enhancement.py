@@ -23,6 +23,8 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 
+from path_security import PathValidationError, validate_file_path
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["enhancement"])
 
@@ -344,21 +346,11 @@ def create_enhancement_router(
         if not filepath:
             raise HTTPException(status_code=400, detail="filepath parameter required")
 
-        # Validate and normalize the provided filepath to avoid unsafe paths
+        # Validate filepath against allowed library directories
         try:
-            raw_path = Path(filepath)
-            # Disallow absolute paths
-            if raw_path.is_absolute():
-                raise ValueError("Absolute paths are not allowed")
-            # Resolve against the current working directory and prevent traversal
-            base_dir = Path.cwd()
-            normalized_path = (base_dir / raw_path).resolve()
-            try:
-                normalized_path.relative_to(base_dir)
-            except ValueError:
-                raise ValueError("Path traversal outside base directory is not allowed")
-        except ValueError as ve:
-            raise HTTPException(status_code=400, detail=f"Invalid filepath: {ve}")
+            normalized_path = validate_file_path(filepath)
+        except PathValidationError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid filepath: {e}")
 
         try:
             import os
