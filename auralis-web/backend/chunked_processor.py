@@ -42,7 +42,6 @@ from core.level_manager import LevelManager
 from core.mastering_target_service import (
     MasteringTargetService,  # Phase 4: Unified fingerprint/target management
 )
-from core.processing_lock_manager import ProcessingLockManager  # Phase 5.2: Lock management
 from core.processor_factory import (
     ProcessorFactory,  # Phase 2: Replaced ProcessorManager
 )
@@ -130,8 +129,6 @@ class ChunkedAudioProcessor:
         self._processor_factory: Any = ProcessorFactory()  # Phase 2: Unified processor factory
         self._mastering_target_service: Any = MasteringTargetService()  # Phase 4: Unified fingerprint/target management
         self._cache_manager: Any = ChunkCacheManager(self.chunk_cache)  # Phase 5.1: Cache management
-        self._lock_manager: Any = ProcessingLockManager()  # Phase 5.2: Lock management
-
         # CRITICAL: Async lock for processor thread-safety
         # Prevents concurrent calls to processor.process() from corrupting state
         # (envelope followers, gain reduction tracking, etc.)

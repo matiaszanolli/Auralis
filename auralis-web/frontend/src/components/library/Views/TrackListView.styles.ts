@@ -8,6 +8,13 @@ export const ListViewContainer = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
 }));
 
+export const VirtualScrollContainer = styled(Box)({
+  overflowY: 'auto',
+  // Fill available vertical space; 260px accounts for app bar + header + padding
+  height: 'calc(100vh - 260px)',
+  minHeight: '300px',
+});
+
 export const TrackItemWrapper = styled(Box)({
   animation: 'fadeInLeft 0.5s ease-out forwards',
   '&:not(:last-child)': {

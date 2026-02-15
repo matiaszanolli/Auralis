@@ -15,7 +15,7 @@ import datetime
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ============================================================================
 # Generic Response Wrappers
@@ -665,6 +665,21 @@ class ScanRequest(BaseModel):
     directories: list[str] = Field(description="List of directory paths to scan")
     recursive: bool = Field(default=True, description="Whether to scan subdirectories")
     skip_existing: bool = Field(default=True, description="Skip files already in library")
+
+    @field_validator('directories')
+    @classmethod
+    def validate_directory_paths(cls, v: list[str]) -> list[str]:
+        """Validate all directory paths to prevent path traversal."""
+        from path_security import PathValidationError, validate_scan_path
+
+        validated = []
+        for path in v:
+            try:
+                validated_path = validate_scan_path(path)
+                validated.append(str(validated_path))
+            except PathValidationError as e:
+                raise ValueError(f"Invalid directory path '{path}': {e}")
+        return validated
 
     model_config = ConfigDict(json_schema_extra={
         "example": {

@@ -145,12 +145,12 @@ export const TrackListView: React.FC<TrackListViewProps> = ({
       isPlaying={isPlaying}
       selectedTracks={selectedTracks}
       isSelected={isSelected}
-      loadMoreRef={observerTarget}
       onToggleSelect={onToggleSelect}
       onTrackPlay={onTrackPlay}
       onPause={onPause}
       onEditMetadata={onEditMetadata}
       onFindSimilar={onFindSimilar}
+      onLoadMore={onLoadMore}
     />
   );
 };
