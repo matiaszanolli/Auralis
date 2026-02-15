@@ -65,6 +65,7 @@ class PlaylistRepository:
             # Access tracks to ensure they're loaded before session closes
             _ = playlist.tracks
 
+            session.expunge(playlist)
             info(f"Created playlist: {name}")
             return playlist
 

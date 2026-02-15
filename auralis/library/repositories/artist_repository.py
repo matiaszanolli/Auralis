@@ -10,9 +10,9 @@ Data access layer for artist operations
 
 from collections.abc import Callable
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
-from ..models import Artist
+from ..models import Album, Artist, Track
 
 
 class ArtistRepository:
@@ -28,10 +28,7 @@ class ArtistRepository:
         """Get artist by ID with relationships loaded"""
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-
-            from ..models import Album, Track
-            return (
+            artist = (
                 session.query(Artist)
                 .options(
                     joinedload(Artist.tracks).joinedload(Track.genres),
@@ -40,6 +37,9 @@ class ArtistRepository:
                 .filter(Artist.id == artist_id)
                 .first()
             )
+            if artist:
+                session.expunge(artist)
+            return artist
         finally:
             session.close()
 
@@ -47,10 +47,7 @@ class ArtistRepository:
         """Get artist by name with relationships loaded"""
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-
-            from ..models import Track
-            return (
+            artist = (
                 session.query(Artist)
                 .options(
                     joinedload(Artist.tracks).joinedload(Track.genres),
@@ -59,6 +56,9 @@ class ArtistRepository:
                 .filter(Artist.name == name)
                 .first()
             )
+            if artist:
+                session.expunge(artist)
+            return artist
         finally:
             session.close()
 
@@ -76,9 +76,6 @@ class ArtistRepository:
         session = self.get_session()
         try:
             from sqlalchemy import desc, func
-            from sqlalchemy.orm import joinedload
-
-            from ..models import Track
 
             # Get total count
             total = session.query(Artist).count()
@@ -109,7 +106,7 @@ class ArtistRepository:
             artists = (
                 session.query(Artist)
                 .options(
-                    joinedload(Artist.tracks).joinedload(Track.genres),  # Load track genres
+                    joinedload(Artist.tracks).joinedload(Track.genres),
                     joinedload(Artist.albums)
                 )
                 .order_by(order_column)
@@ -118,6 +115,8 @@ class ArtistRepository:
                 .all()
             )
 
+            for artist in artists:
+                session.expunge(artist)
             return artists, total
         finally:
             session.close()
@@ -135,10 +134,6 @@ class ArtistRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-
-            from ..models import Track
-
             # Get total count of matching artists
             total = (
                 session.query(Artist)
@@ -160,6 +155,8 @@ class ArtistRepository:
                 .all()
             )
 
+            for artist in artists:
+                session.expunge(artist)
             return artists, total
         finally:
             session.close()
@@ -172,7 +169,10 @@ class ArtistRepository:
         """
         session = self.get_session()
         try:
-            return session.query(Artist).all()
+            artists = session.query(Artist).all()
+            for artist in artists:
+                session.expunge(artist)
+            return artists
         finally:
             session.close()
 

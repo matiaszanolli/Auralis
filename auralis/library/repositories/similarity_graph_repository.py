@@ -160,7 +160,10 @@ class SimilarityGraphRepository:
             if limit:
                 query = query.limit(limit)
 
-            return query.all()
+            edges = query.all()
+            for edge in edges:
+                session.expunge(edge)
+            return edges
         finally:
             session.close()
 

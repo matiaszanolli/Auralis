@@ -52,6 +52,7 @@ class QueueRepository:
                 session.commit()
                 session.refresh(queue_state)
 
+            session.expunge(queue_state)
             return queue_state
         finally:
             session.close()
@@ -95,6 +96,7 @@ class QueueRepository:
 
             session.commit()
             session.refresh(queue_state)
+            session.expunge(queue_state)
             return queue_state
         finally:
             session.close()
@@ -152,6 +154,7 @@ class QueueRepository:
 
             session.commit()
             session.refresh(queue_state)
+            session.expunge(queue_state)
             return queue_state
         finally:
             session.close()
@@ -178,6 +181,7 @@ class QueueRepository:
 
             session.commit()
             session.refresh(queue_state)
+            session.expunge(queue_state)
             return queue_state
         finally:
             session.close()

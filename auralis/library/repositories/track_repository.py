@@ -12,7 +12,7 @@ from typing import Any
 from collections.abc import Callable
 
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ...utils.logging import debug, error, info, warning
 from ..models import Album, Artist, Genre, Track
@@ -50,8 +50,11 @@ class TrackRepository:
         session = self.get_session()
         try:
             # Check if track already exists
-            existing = session.query(Track).filter(Track.filepath == track_info['filepath']).first()
+            existing = session.query(Track).options(
+                joinedload(Track.artists), joinedload(Track.album)
+            ).filter(Track.filepath == track_info['filepath']).first()
             if existing:
+                session.expunge(existing)
                 warning(f"Track already exists: {track_info['filepath']}")
                 return existing
 
@@ -154,6 +157,14 @@ class TrackRepository:
                 except Exception as artwork_error:
                     warning(f"Failed to extract artwork for album {album.title}: {artwork_error}")
 
+            # Re-query with eager loading before detaching from session
+            track = (
+                session.query(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .filter(Track.id == track.id)
+                .first()
+            )
+            session.expunge(track)
             return track
 
         except Exception as e:
@@ -167,13 +178,15 @@ class TrackRepository:
         """Get track by ID with relationships loaded"""
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-            return (
+            track = (
                 session.query(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
                 .filter(Track.id == track_id)
                 .first()
             )
+            if track:
+                session.expunge(track)
+            return track
         finally:
             session.close()
 
@@ -181,13 +194,15 @@ class TrackRepository:
         """Get track by file path with relationships loaded"""
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-            return (
+            track = (
                 session.query(Track)
                 .options(joinedload(Track.artists), joinedload(Track.album))
                 .filter(Track.filepath == filepath)
                 .first()
             )
+            if track:
+                session.expunge(track)
+            return track
         finally:
             session.close()
 
@@ -237,7 +252,15 @@ class TrackRepository:
                 track.album = album
 
             session.commit()
+            # Re-query with eager loading before detaching from session
+            track = (
+                session.query(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .filter(Track.filepath == filepath)
+                .first()
+            )
             info(f"Updated track: {track.title}")
+            session.expunge(track)
             return track
 
         except Exception as e:
@@ -264,13 +287,20 @@ class TrackRepository:
             search_term = f"%{query}%"
 
             # Build query with outer joins to include tracks without artists/albums
-            query_obj = session.query(Track).join(Track.artists, isouter=True).join(Track.album, isouter=True).filter(
-                or_(
-                    Track.title.ilike(search_term),
-                    Artist.name.ilike(search_term),
-                    Album.title.ilike(search_term)
+            query_obj = (
+                session.query(Track)
+                .join(Track.artists, isouter=True)
+                .join(Track.album, isouter=True)
+                .options(selectinload(Track.artists), selectinload(Track.album))
+                .filter(
+                    or_(
+                        Track.title.ilike(search_term),
+                        Artist.name.ilike(search_term),
+                        Album.title.ilike(search_term)
+                    )
                 )
-            ).distinct()  # Use distinct to avoid duplicate results from joins
+                .distinct()
+            )
 
             # Get total count
             total = query_obj.count()
@@ -278,6 +308,8 @@ class TrackRepository:
             # Get paginated results
             results = query_obj.limit(limit).offset(offset).all()
 
+            for track in results:
+                session.expunge(track)
             return results, total
         finally:
             session.close()
@@ -286,16 +318,22 @@ class TrackRepository:
         """Get tracks by genre"""
         session = self.get_session()
         try:
-            genre = session.query(Genre).filter(Genre.name == genre_name).first()
-            if not genre:
-                return []
-            return genre.tracks[:limit]  # type: ignore[no-any-return]
+            tracks = (
+                session.query(Track)
+                .join(Track.genres)
+                .options(selectinload(Track.artists), selectinload(Track.album))
+                .filter(Genre.name == genre_name)
+                .limit(limit)
+                .all()
+            )
+            for track in tracks:
+                session.expunge(track)
+            return tracks
         finally:
             session.close()
 
     def get_by_artist(self, artist_name: str, limit: int = 100) -> list[Track]:
         """Get tracks by artist"""
-        from sqlalchemy.orm import joinedload
         session = self.get_session()
         try:
             # Use eager loading to load relationships before session closes
@@ -327,8 +365,6 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-
             # Build query
             query = (
                 session.query(Track)
@@ -342,6 +378,8 @@ class TrackRepository:
             # Get paginated results
             results = query.limit(limit).offset(offset).all()
 
+            for track in results:
+                session.expunge(track)
             return results, total
         finally:
             session.close()
@@ -358,8 +396,6 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-
             # Build query
             query = (
                 session.query(Track)
@@ -373,6 +409,8 @@ class TrackRepository:
             # Get paginated results
             results = query.limit(limit).offset(offset).all()
 
+            for track in results:
+                session.expunge(track)
             return results, total
         finally:
             session.close()
@@ -389,8 +427,6 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-
             # Build query
             query = (
                 session.query(Track)
@@ -405,6 +441,8 @@ class TrackRepository:
             # Get paginated results
             results = query.limit(limit).offset(offset).all()
 
+            for track in results:
+                session.expunge(track)
             return results, total
         finally:
             session.close()
@@ -422,8 +460,6 @@ class TrackRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-
             # Get total count
             total = session.query(Track).count()
 
@@ -438,6 +474,8 @@ class TrackRepository:
                 .all()
             )
 
+            for track in tracks:
+                session.expunge(track)
             return tracks, total
         finally:
             session.close()
@@ -493,22 +531,31 @@ class TrackRepository:
             # Find tracks by same artist
             if track.artists:
                 for artist in track.artists:
-                    artist_tracks = session.query(Track).filter(
-                        Track.artists.contains(artist),
-                        Track.id != track.id
-                    ).limit(limit).all()
+                    artist_tracks = (
+                        session.query(Track)
+                        .options(selectinload(Track.artists), selectinload(Track.album))
+                        .filter(Track.artists.contains(artist), Track.id != track.id)
+                        .limit(limit)
+                        .all()
+                    )
                     similar_tracks.extend(artist_tracks)
 
             # Find tracks in same genre
             if track.genres and len(similar_tracks) < limit:
                 for genre in track.genres:
-                    genre_tracks = session.query(Track).filter(
-                        Track.genres.contains(genre),
-                        Track.id != track.id
-                    ).limit(limit - len(similar_tracks)).all()
+                    genre_tracks = (
+                        session.query(Track)
+                        .options(selectinload(Track.artists), selectinload(Track.album))
+                        .filter(Track.genres.contains(genre), Track.id != track.id)
+                        .limit(limit - len(similar_tracks))
+                        .all()
+                    )
                     similar_tracks.extend(genre_tracks)
 
-            return similar_tracks[:limit]
+            result = similar_tracks[:limit]
+            for t in set(result):
+                session.expunge(t)
+            return result
         finally:
             session.close()
 
@@ -607,8 +654,15 @@ class TrackRepository:
                     track.album = album
 
             session.commit()
-            session.refresh(track)
+            # Re-query with eager loading before detaching from session
+            track = (
+                session.query(Track)
+                .options(joinedload(Track.artists), joinedload(Track.album))
+                .filter(Track.id == track_id)
+                .first()
+            )
             debug(f"Updated track: {track.title}")
+            session.expunge(track)
             return track
         except Exception as e:
             session.rollback()

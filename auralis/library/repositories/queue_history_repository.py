@@ -80,6 +80,7 @@ class QueueHistoryRepository:
             # Cleanup old history if exceeding limit
             self._cleanup_old_history(session, cast(int, queue_state.id))
 
+            session.expunge(history_entry)
             return history_entry
         finally:
             session.close()
@@ -106,6 +107,8 @@ class QueueHistoryRepository:
                 .limit(limit) \
                 .all()
 
+            for entry in entries:
+                session.expunge(entry)
             return entries
         finally:
             session.close()

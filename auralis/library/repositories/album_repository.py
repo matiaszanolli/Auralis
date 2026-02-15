@@ -11,7 +11,7 @@ Data access layer for album operations
 from pathlib import Path
 from collections.abc import Callable
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..artwork import create_artwork_extractor
 from ..models import Album
@@ -34,13 +34,15 @@ class AlbumRepository:
         """Get album by ID with relationships loaded"""
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-            return (
+            album = (
                 session.query(Album)
                 .options(joinedload(Album.artist), joinedload(Album.tracks))
                 .filter(Album.id == album_id)
                 .first()
             )
+            if album:
+                session.expunge(album)
+            return album
         finally:
             session.close()
 
@@ -48,13 +50,15 @@ class AlbumRepository:
         """Get album by title with relationships loaded"""
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-            return (
+            album = (
                 session.query(Album)
                 .options(joinedload(Album.artist), joinedload(Album.tracks))
                 .filter(Album.title == title)
                 .first()
             )
+            if album:
+                session.expunge(album)
+            return album
         finally:
             session.close()
 
@@ -72,8 +76,6 @@ class AlbumRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-
             # Get total count
             total = session.query(Album).count()
 
@@ -88,7 +90,6 @@ class AlbumRepository:
                 .all()
             )
 
-            # Expunge from session to detach while keeping loaded data
             for album in albums:
                 session.expunge(album)
 
@@ -100,8 +101,7 @@ class AlbumRepository:
         """Get recently added albums with pagination"""
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
-            return (
+            albums = (
                 session.query(Album)
                 .options(joinedload(Album.artist), joinedload(Album.tracks))
                 .order_by(Album.created_at.desc())
@@ -109,6 +109,9 @@ class AlbumRepository:
                 .offset(offset)
                 .all()
             )
+            for album in albums:
+                session.expunge(album)
+            return albums
         finally:
             session.close()
 
@@ -127,7 +130,6 @@ class AlbumRepository:
         session = self.get_session()
         try:
             from sqlalchemy import or_
-            from sqlalchemy.orm import joinedload
 
             from ..models import Artist
 
@@ -135,7 +137,7 @@ class AlbumRepository:
             results = (
                 session.query(Album)
                 .join(Album.artist, isouter=True)
-                .options(joinedload(Album.artist), joinedload(Album.tracks))
+                .options(selectinload(Album.artist), selectinload(Album.tracks))
                 .filter(
                     or_(
                         Album.title.ilike(search_term),
@@ -147,6 +149,8 @@ class AlbumRepository:
                 .all()
             )
 
+            for album in results:
+                session.expunge(album)
             return results
         finally:
             session.close()
@@ -163,7 +167,6 @@ class AlbumRepository:
         """
         session = self.get_session()
         try:
-            from sqlalchemy.orm import joinedload
             album = (
                 session.query(Album)
                 .options(joinedload(Album.tracks))

@@ -98,6 +98,8 @@ class FingerprintRepository:
             fingerprint = session.query(TrackFingerprint).filter(
                 TrackFingerprint.track_id == track_id
             ).first()
+            if fingerprint:
+                session.expunge(fingerprint)
             return fingerprint
         finally:
             session.close()
@@ -197,7 +199,10 @@ class FingerprintRepository:
             if limit:
                 query = query.limit(limit).offset(offset)
 
-            return query.all()
+            fingerprints = query.all()
+            for fp in fingerprints:
+                session.expunge(fp)
+            return fingerprints
 
         finally:
             session.close()
@@ -254,7 +259,10 @@ class FingerprintRepository:
             if limit:
                 query = query.limit(limit)
 
-            return query.all()
+            fingerprints = query.all()
+            for fp in fingerprints:
+                session.expunge(fp)
+            return fingerprints
 
         finally:
             session.close()
@@ -301,7 +309,10 @@ class FingerprintRepository:
             if limit:
                 query = query.limit(limit)
 
-            return query.all()
+            fingerprints = query.all()
+            for fp in fingerprints:
+                session.expunge(fp)
+            return fingerprints
 
         finally:
             session.close()

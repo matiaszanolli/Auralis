@@ -71,6 +71,7 @@ class QueueTemplateRepository:
             session.add(template)
             session.commit()
             session.refresh(template)
+            session.expunge(template)
             return template
         finally:
             session.close()
@@ -90,6 +91,8 @@ class QueueTemplateRepository:
             template = session.query(QueueTemplate).filter(
                 QueueTemplate.id == template_id
             ).first()
+            if template:
+                session.expunge(template)
             return template
         finally:
             session.close()
@@ -123,6 +126,8 @@ class QueueTemplateRepository:
                 query = query.order_by(QueueTemplate.created_at.desc() if not ascending else QueueTemplate.created_at.asc())
 
             templates = query.all()
+            for template in templates:
+                session.expunge(template)
             return templates
         finally:
             session.close()
@@ -139,6 +144,8 @@ class QueueTemplateRepository:
             templates = session.query(QueueTemplate).filter(
                 QueueTemplate.is_favorite == True
             ).order_by(QueueTemplate.created_at.desc()).all()
+            for template in templates:
+                session.expunge(template)
             return templates
         finally:
             session.close()
@@ -166,6 +173,8 @@ class QueueTemplateRepository:
                 except (json.JSONDecodeError, TypeError):
                     pass
 
+            for template in matching:
+                session.expunge(template)
             return matching
         finally:
             session.close()
@@ -212,6 +221,7 @@ class QueueTemplateRepository:
 
             session.commit()
             session.refresh(template)
+            session.expunge(template)
             return template
         finally:
             session.close()
@@ -238,6 +248,7 @@ class QueueTemplateRepository:
             template.is_favorite = not template.is_favorite  # type: ignore[assignment]
             session.commit()
             session.refresh(template)
+            session.expunge(template)
             return template
         finally:
             session.close()
@@ -265,6 +276,7 @@ class QueueTemplateRepository:
             template.last_loaded = datetime.utcnow()  # type: ignore[assignment]
             session.commit()
             session.refresh(template)
+            session.expunge(template)
             return template
         finally:
             session.close()
@@ -347,6 +359,8 @@ class QueueTemplateRepository:
                 (QueueTemplate.name.ilike(f'%{query}%')) |
                 (QueueTemplate.description.ilike(f'%{query}%'))
             ).all()
+            for template in templates:
+                session.expunge(template)
             return templates
         finally:
             session.close()

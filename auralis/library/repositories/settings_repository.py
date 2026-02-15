@@ -49,6 +49,7 @@ class SettingsRepository:
                 session.commit()
                 session.refresh(settings)
 
+            session.expunge(settings)
             return settings
         finally:
             session.close()
@@ -94,6 +95,7 @@ class SettingsRepository:
 
             session.commit()
             session.refresh(settings)
+            session.expunge(settings)
             return settings
         finally:
             session.close()
@@ -115,6 +117,7 @@ class SettingsRepository:
             session.add(settings)
             session.commit()
             session.refresh(settings)
+            session.expunge(settings)
             return settings
         finally:
             session.close()
