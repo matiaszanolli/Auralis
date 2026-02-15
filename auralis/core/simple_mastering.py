@@ -23,6 +23,7 @@ from ..dsp.utils.adaptive_loudness import AdaptiveLoudnessControl
 from ..dsp.utils.stereo import adjust_stereo_width_multiband
 from ..utils.audio_validation import sanitize_audio, validate_audio_finite
 from .dsp import ParallelEQUtilities
+from .mastering_branches import MaterialClassifier
 from .mastering_config import SimpleMasteringConfig
 from .processing.base import ExpansionStrategies
 from .utils import FingerprintUnpacker, SmoothCurveUtilities
@@ -270,27 +271,6 @@ class SimpleMasteringPipeline:
         # Unpack fingerprint using type-safe unpacker
         unpacker = FingerprintUnpacker.from_dict(fp)
 
-        # Extract commonly used dimensions for readability
-        lufs = unpacker.lufs
-        crest_db = unpacker.crest_db
-        bass_pct = unpacker.bass_pct
-        sub_bass_pct = unpacker.sub_bass_pct
-        low_mid_pct = unpacker.low_mid_pct
-        mid_pct = unpacker.mid_pct
-        upper_mid_pct = unpacker.upper_mid_pct
-        presence_pct = unpacker.presence_pct
-        air_pct = unpacker.air_pct
-        transient_density = unpacker.transient_density
-        spectral_centroid = unpacker.spectral_centroid
-        spectral_rolloff = unpacker.spectral_rolloff
-        spectral_flatness = unpacker.spectral_flatness
-        harmonic_ratio = unpacker.harmonic_ratio
-        pitch_stability = unpacker.pitch_stability
-        dynamic_range_variation = unpacker.dynamic_range_variation
-        peak_consistency = unpacker.peak_consistency
-        stereo_width = unpacker.stereo_width
-        phase_correlation = unpacker.phase_correlation
-
         info = {'stages': []}
         processed = audio.copy()
 
@@ -298,7 +278,7 @@ class SimpleMasteringPipeline:
         processed = validate_audio_finite(processed, context="simple mastering input", repair=False)
 
         # Adaptive intensity based on dynamics + loudness
-        effective_intensity = self._calculate_intensity(intensity, lufs, crest_db)
+        effective_intensity = self._calculate_intensity(intensity, unpacker.lufs, unpacker.crest_db)
 
         # STAGE 1: Gentle peak reduction for clipping prevention only
         # Only intervene when peak is dangerously close to or above 0 dBFS
@@ -322,256 +302,21 @@ class SimpleMasteringPipeline:
             processed, peak_db = self._reduce_peaks(processed, peak_db, target_peak)
             info['stages'].append({'stage': 'peak_reduction', 'target': target_peak, 'result': peak_db})
 
-        # STAGE 2: Handle based on 2D Loudness-War Restraint Principle
-        if lufs > self.config.COMPRESSED_LOUD_THRESHOLD_LUFS and crest_db < self.config.MODERATE_COMPRESSED_MIN_CREST:
-            # Compressed loud material - use RMS reduction expansion (not peak enhancement)
-            # Peak enhancement boosts all peaks including bass, causing muddiness
-            # RMS reduction increases crest factor without inflating low-frequency transients
+        # STAGE 2: Classify material and dispatch to appropriate processing branch
+        material_type = MaterialClassifier.classify(unpacker.lufs, unpacker.crest_db, self.config)
+        branch = MaterialClassifier.get_branch(material_type, self)
 
-            if crest_db < self.config.HYPER_COMPRESSED_THRESHOLD_CREST:
-                # Hyper-compressed: skip expansion entirely
-                # This material is intentionally brick-walled, respect the artistic choice
-                if verbose:
-                    print(f"   Hyper-compressed (LUFS {lufs:.1f}, crest {crest_db:.1f}) → skip expansion")
-                info['stages'].append({'stage': 'skip_expansion', 'reason': 'hyper_compressed'})
-            else:
-                # Moderately compressed: gentle RMS reduction expansion
-                # Target: restore crest factor via RMS reduction
-                target_crest_increase = min(
-                    self.config.MAX_TARGET_CREST_INCREASE_DB,
-                    self.config.MODERATE_COMPRESSED_MIN_CREST - crest_db
-                )
-                expansion_amount = self.config.RMS_EXPANSION_AMOUNT
+        if verbose:
+            print(f"   Material type: {material_type}")
 
-                if verbose:
-                    print(f"   Compressed loud (LUFS {lufs:.1f}, crest {crest_db:.1f}) → RMS expansion +{target_crest_increase:.1f} dB")
+        # Delegate to branch-specific processing
+        processed, branch_info = branch.apply(
+            processed, unpacker, peak_db, effective_intensity, sample_rate, self.config, verbose
+        )
 
-                # Apply RMS reduction expansion (reduces level, increases crest without bass pump)
-                exp_params = {
-                    'target_crest_increase': target_crest_increase,
-                    'amount': expansion_amount
-                }
-                processed = ExpansionStrategies.apply_rms_reduction_expansion(processed, exp_params)
-                info['stages'].append({'stage': 'rms_expansion', 'target_crest': target_crest_increase})
-
-            # Stereo expansion for narrow mixes (brightness-aware)
-            processed, width_info = self._apply_stereo_expansion(
-                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct,
-                spectral_centroid, air_pct, phase_correlation
-            )
-            if width_info:
-                info['stages'].append(width_info)
-
-            # Pre-EQ headroom: attenuate before spectral boosts to prevent limiter from
-            # clipping HF transients. The output normalization will restore level.
-            # This preserves spectral balance better than post-EQ limiting.
-            pre_eq_headroom_db = self.config.PRE_EQ_HEADROOM_DB
-            pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
-            processed = processed * pre_eq_gain
-
-            # Spectral enhancements (presence & air) for all paths
-            processed, presence_info = self._apply_presence_enhancement(
-                processed, presence_pct, upper_mid_pct,
-                effective_intensity * self.config.COMPRESSED_LOUD_INTENSITY_FACTOR,
-                sample_rate, verbose
-            )
-            if presence_info:
-                info['stages'].append(presence_info)
-
-            processed, air_info = self._apply_air_enhancement(
-                processed, air_pct, spectral_rolloff,
-                effective_intensity * self.config.COMPRESSED_LOUD_INTENSITY_FACTOR,
-                sample_rate, verbose
-            )
-            if air_info:
-                info['stages'].append(air_info)
-
-            # Safety peak limit after enhancements (only catches outliers now)
-            processed = self._apply_safety_limiter(processed, verbose)
-
-            # Mark for unified output normalization
-            needs_output_normalize = True
-
-        elif lufs > self.config.COMPRESSED_LOUD_THRESHOLD_LUFS:
-            # Dynamic loud → pass-through with optional stereo expansion
-            if verbose:
-                print(f"   Dynamic loud → preserving original")
-            info['stages'].append({'stage': 'passthrough'})
-
-            # Stereo expansion for narrow mixes (brightness-aware)
-            processed, width_info = self._apply_stereo_expansion(
-                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct,
-                spectral_centroid, air_pct, phase_correlation
-            )
-            if width_info:
-                info['stages'].append(width_info)
-
-            # Pre-EQ headroom: attenuate before spectral boosts to prevent limiter from
-            # clipping HF transients. The output normalization will restore level.
-            pre_eq_headroom_db = self.config.PRE_EQ_HEADROOM_DB
-            pre_eq_gain = 10 ** (pre_eq_headroom_db / 20)
-            processed = processed * pre_eq_gain
-
-            # Spectral enhancements (presence & air) - even for well-mastered tracks
-            processed, presence_info = self._apply_presence_enhancement(
-                processed, presence_pct, upper_mid_pct,
-                effective_intensity * self.config.DYNAMIC_LOUD_INTENSITY_FACTOR,
-                sample_rate, verbose
-            )
-            if presence_info:
-                info['stages'].append(presence_info)
-
-            processed, air_info = self._apply_air_enhancement(
-                processed, air_pct, spectral_rolloff,
-                effective_intensity * self.config.DYNAMIC_LOUD_INTENSITY_FACTOR,
-                sample_rate, verbose
-            )
-            if air_info:
-                info['stages'].append(air_info)
-
-            # Safety peak limit after enhancements (only catches outliers now)
-            processed = self._apply_safety_limiter(processed, verbose)
-
-            # Mark for unified output normalization
-            needs_output_normalize = True
-
-        else:
-            # Quiet material → full processing
-            needs_output_normalize = False  # Quiet branch has its own normalization
-            makeup_gain, _ = AdaptiveLoudnessControl.calculate_adaptive_gain(
-                lufs, effective_intensity, crest_db, bass_pct, transient_density, peak_db
-            )
-
-            # Apply makeup gain with modest safety margin for headroom
-            # After peak reduction, we have room - don't over-compensate
-            makeup_gain = max(0.0, makeup_gain - 0.5)
-            if makeup_gain > 0.0:
-                if verbose:
-                    print(f"   Makeup gain: +{makeup_gain:.1f} dB")
-                processed = amplify(processed, makeup_gain)
-                info['stages'].append({'stage': 'makeup_gain', 'gain_db': makeup_gain})
-
-            # Bass enhancement for tracks lacking low-end
-            # Applied before soft clipping so any peaks get handled gracefully
-            processed, bass_info = self._apply_bass_enhancement(
-                processed, bass_pct, effective_intensity, sample_rate, verbose
-            )
-            if bass_info:
-                info['stages'].append(bass_info)
-
-            # Sub-bass control - tighten rumble or add sub-harmonics
-            processed, sub_bass_info = self._apply_sub_bass_control(
-                processed, sub_bass_pct, bass_pct, effective_intensity, sample_rate, verbose
-            )
-            if sub_bass_info:
-                info['stages'].append(sub_bass_info)
-
-            # Mid-range warmth for thin mixes (200-2kHz body)
-            processed, warmth_info = self._apply_mid_warmth(
-                processed, low_mid_pct, mid_pct, effective_intensity, sample_rate, verbose
-            )
-            if warmth_info:
-                info['stages'].append(warmth_info)
-
-            # Presence enhancement for dull mixes (2-6kHz boost)
-            processed, presence_info = self._apply_presence_enhancement(
-                processed, presence_pct, upper_mid_pct, effective_intensity, sample_rate, verbose
-            )
-            if presence_info:
-                info['stages'].append(presence_info)
-
-            # Air enhancement for dark mixes (6-20kHz sparkle)
-            processed, air_info = self._apply_air_enhancement(
-                processed, air_pct, spectral_rolloff, effective_intensity, sample_rate, verbose
-            )
-            if air_info:
-                info['stages'].append(air_info)
-
-            # Soft clipping with multi-dimensional awareness
-            loudness_factor = max(0.0, min(1.0, (-11.0 - lufs) / 9.0))
-            threshold_db = -2.0 + (1.5 * (1.0 - loudness_factor))
-            ceiling = 0.92 + (0.07 * loudness_factor)
-
-            # Harmonic preservation - gentler clipping for tonal/harmonic content
-            # High harmonic_ratio + pitch_stability = vocals, classical, melodic content
-            harmonic_preservation = (harmonic_ratio * 0.7 + pitch_stability * 0.3)
-            if harmonic_preservation > 0.6:
-                # Smooth S-curve: 0.6-1.0 increases gentleness
-                harmonic_factor = SmoothCurveUtilities.ramp_to_s_curve(
-                    harmonic_preservation, 0.6, 1.0
-                )
-                threshold_db += 0.5 * harmonic_factor  # Raise threshold (less clipping)
-                ceiling += 0.03 * harmonic_factor  # Higher ceiling
-                if verbose:
-                    print(f"   🎼 Harmonic preservation ({harmonic_preservation:.2f})")
-
-            # Variation awareness - gentler on inconsistent material
-            # High dynamic_range_variation or low peak_consistency = needs gentle touch
-            variation_metric = dynamic_range_variation * 0.6 + (1.0 - peak_consistency) * 0.4
-            if variation_metric > 0.5:
-                # Smooth S-curve: 0.5-1.0 increases gentleness
-                variation_factor = SmoothCurveUtilities.ramp_to_s_curve(
-                    variation_metric, 0.5, 1.0
-                )
-                threshold_db += 0.4 * variation_factor  # Gentler clipping for varied material
-                if verbose:
-                    print(f"   📊 Variation preservation ({variation_metric:.2f})")
-
-            # Spectral flatness awareness - noisy/percussive vs tonal
-            # High flatness (noisy) = less aggressive processing
-            if spectral_flatness > 0.6:
-                # Smooth S-curve: 0.6-1.0 reduces processing
-                flatness_factor = SmoothCurveUtilities.ramp_to_s_curve(
-                    spectral_flatness, 0.6, 1.0
-                )
-                threshold_db += 0.3 * flatness_factor  # Gentler on noisy material
-                if verbose:
-                    print(f"   🔊 Noise-aware processing ({spectral_flatness:.2f})")
-
-            # Gentle bass-aware adjustments using smooth S-curve
-            # bass_intensity: 0.0 at 20% bass → 1.0 at 70% bass
-            bass_intensity = SmoothCurveUtilities.ramp_to_s_curve(
-                bass_pct, 0.20, 0.70
-            )
-
-            # Gentler adjustments to preserve dynamics
-            # At 60% bass: bass_intensity ≈ 0.65
-            threshold_db -= 1.5 * bass_intensity  # Up to -1.5 dB headroom (was -3.0)
-            ceiling -= 0.05 * bass_intensity  # Ceiling from 0.92 down to 0.87 (was 0.80)
-
-            threshold_linear = 10 ** (threshold_db / 20.0)
-
-            if verbose:
-                print(f"   Soft clip: {threshold_db:.1f} dB, ceiling {ceiling*100:.0f}%")
-
-            processed = soft_clip(processed, threshold=threshold_linear, ceiling=ceiling)
-            info['stages'].append({'stage': 'soft_clip', 'threshold_db': threshold_db})
-
-            # Stereo expansion for narrow mixes (brightness-aware)
-            processed, width_info = self._apply_stereo_expansion(
-                processed, stereo_width, effective_intensity, sample_rate, verbose, bass_pct,
-                spectral_centroid, air_pct, phase_correlation
-            )
-            if width_info:
-                info['stages'].append(width_info)
-
-            # Final normalization
-            target_peak, _ = AdaptiveLoudnessControl.calculate_adaptive_peak_target(lufs)
-            adapted_peak = max(0.80, min(0.95, target_peak - (0.05 * loudness_factor)))
-
-            # Smooth bass-aware peak reduction using continuous curve
-            # Starts affecting at 10%, full effect at 40%+
-            if bass_pct > 0.10:
-                smooth_factor = SmoothCurveUtilities.ramp_to_s_curve(
-                    bass_pct, 0.10, 0.40
-                )
-                adapted_peak -= 0.025 * smooth_factor
-
-            if verbose:
-                print(f"   Normalize: {adapted_peak*100:.0f}% peak")
-
-            processed = normalize(processed, adapted_peak)
-            info['stages'].append({'stage': 'normalize', 'target_peak': adapted_peak})
+        # Merge branch stages into main info
+        info['stages'].extend(branch_info.get('stages', []))
+        needs_output_normalize = branch_info.get('needs_output_normalize', False)
 
         # STAGE 3: Unified output normalization for loud material
         # Always normalize to compensate for pre-EQ headroom and RMS expansion

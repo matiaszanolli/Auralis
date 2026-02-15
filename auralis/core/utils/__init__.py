@@ -10,8 +10,10 @@ Utility modules for core audio processing.
 
 from .fingerprint_unpacker import FingerprintUnpacker
 from .smooth_curves import SmoothCurveUtilities
+from .stage_recorder import StageRecorder
 
 __all__ = [
     'FingerprintUnpacker',
     'SmoothCurveUtilities',
+    'StageRecorder',
 ]
