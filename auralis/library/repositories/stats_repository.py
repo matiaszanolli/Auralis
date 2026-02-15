@@ -54,6 +54,28 @@ class StatsRepository:
             stats['average_dr'] = float(avg_dr) if avg_dr else None
             stats['average_lufs'] = float(avg_lufs) if avg_lufs else None
 
+            # Derived fields expected by frontend
+            stats['avg_dr_rating'] = stats['average_dr']
+            stats['avg_lufs'] = stats['average_lufs']
+
+            # Format total duration as human-readable string
+            total_secs = int(stats['total_duration'])
+            if total_secs >= 86400:
+                days = total_secs // 86400
+                hours = (total_secs % 86400) // 3600
+                stats['total_duration_formatted'] = f"{days}d {hours}h" if hours else f"{days}d"
+            elif total_secs >= 3600:
+                hours = total_secs // 3600
+                mins = (total_secs % 3600) // 60
+                stats['total_duration_formatted'] = f"{hours} hours" if not mins else f"{hours}h {mins}m"
+            elif total_secs >= 60:
+                stats['total_duration_formatted'] = f"{total_secs // 60} minutes"
+            else:
+                stats['total_duration_formatted'] = f"{total_secs} seconds"
+
+            # Convert filesize bytes to GB
+            stats['total_filesize_gb'] = round(stats['total_filesize'] / (1024 ** 3), 2)
+
             return stats
 
         finally:

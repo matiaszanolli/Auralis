@@ -204,8 +204,18 @@ export const mockLibraryStats = {
   total_tracks: 100,
   total_albums: 10,
   total_artists: 5,
+  total_genres: 8,
+  total_playlists: 3,
   total_duration: 36000,
-  last_scanned: new Date().toISOString(),
+  total_duration_formatted: '10 hours',
+  total_filesize: 5000000000,
+  total_filesize_gb: 4.66,
+  total_plays: 250,
+  favorite_count: 12,
+  average_dr: 10.5,
+  average_lufs: -14.2,
+  avg_dr_rating: 10.5,
+  avg_lufs: -14.2,
 }
 
 export const mockScanProgress = {

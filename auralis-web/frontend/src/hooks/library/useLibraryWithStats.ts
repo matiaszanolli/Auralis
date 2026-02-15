@@ -72,9 +72,12 @@ export interface LibraryStats {
   total_duration_formatted: string;
   total_filesize: number;
   total_filesize_gb: number;
+  total_plays: number;
+  favorite_count: number;
   avg_dr_rating?: number;
   avg_lufs?: number;
-  avg_mastering_quality?: number;
+  average_dr?: number;
+  average_lufs?: number;
 }
 
 export interface UseLibraryWithStatsOptions {
