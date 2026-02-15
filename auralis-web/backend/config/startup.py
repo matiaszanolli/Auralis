@@ -1,7 +1,7 @@
 """
-Application Startup and Shutdown Event Handlers
+Application Lifespan Manager
 
-Manages component initialization on application startup:
+Manages component initialization and cleanup via FastAPI lifespan context manager:
 - LibraryManager setup
 - Settings repository initialization
 - Audio player creation
@@ -18,6 +18,8 @@ import asyncio
 import logging
 import shutil
 import tempfile
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -119,12 +121,11 @@ async def _background_auto_scan(
         })
 
 
-def setup_startup_handlers(app: FastAPI, deps: dict[str, Any]) -> None:
+def create_lifespan(deps: dict[str, Any]):
     """
-    Register startup and shutdown event handlers with FastAPI app.
+    Create a lifespan context manager for FastAPI application.
 
     Args:
-        app: FastAPI application instance
         deps: Dictionary of dependencies (globals dict to populate):
             - HAS_AURALIS: bool
             - HAS_PROCESSING: bool
@@ -132,6 +133,9 @@ def setup_startup_handlers(app: FastAPI, deps: dict[str, Any]) -> None:
             - HAS_SIMILARITY: bool
             - manager: ConnectionManager
             - globals: Dict to populate with component instances
+
+    Returns:
+        An async context manager suitable for FastAPI's lifespan parameter
     """
 
     # Extract dependencies
@@ -142,9 +146,9 @@ def setup_startup_handlers(app: FastAPI, deps: dict[str, Any]) -> None:
     manager: Any = deps.get('manager')
     globals_dict: dict[str, Any] = deps.get('globals', {})
 
-    @app.on_event("startup")
-    async def startup_event() -> None:
-        """Initialize Auralis components on startup"""
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # === Startup ===
 
         # Clear processing cache on startup to avoid serving stale processed audio
         if 'processing_cache' in globals_dict:
@@ -391,9 +395,9 @@ def setup_startup_handlers(app: FastAPI, deps: dict[str, Any]) -> None:
             elif not globals_dict.get('library_manager'):
                 logger.warning("⚠️  Library manager not available - streamlined cache disabled")
 
-    @app.on_event("shutdown")
-    async def shutdown_event() -> None:
-        """Clean up resources on shutdown"""
+        yield
+
+        # === Shutdown ===
         try:
             # Stop on-demand fingerprint queue (Phase 7.4)
             if 'ondemand_fingerprint_queue' in globals_dict and globals_dict['ondemand_fingerprint_queue']:
@@ -419,3 +423,5 @@ def setup_startup_handlers(app: FastAPI, deps: dict[str, Any]) -> None:
             logger.info("✅ Application shutdown complete")
         except Exception as e:
             logger.error(f"Error during shutdown: {e}")
+
+    return lifespan

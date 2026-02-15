@@ -11,11 +11,11 @@ Handles app creation, middleware setup, startup events, and router registration.
 from .app import create_app
 from .middleware import setup_middleware
 from .routes import setup_routers
-from .startup import setup_startup_handlers
+from .startup import create_lifespan
 
 __all__ = [
     'create_app',
     'setup_middleware',
-    'setup_startup_handlers',
+    'create_lifespan',
     'setup_routers',
 ]

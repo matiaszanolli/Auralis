@@ -47,7 +47,7 @@ from config.app import create_app
 from config.globals import ConnectionManager
 from config.middleware import setup_middleware
 from config.routes import setup_routers
-from config.startup import setup_startup_handlers
+from config.startup import create_lifespan
 
 # Import state management
 from player_state import create_track_info
@@ -79,12 +79,6 @@ try:
 except ImportError:
     HAS_SIMILARITY = False
     logger.warning("⚠️  Similarity system not available")
-
-# Create FastAPI application
-app = create_app()
-
-# Setup middleware
-setup_middleware(app)
 
 # Create global state dictionary with all dependencies
 manager = ConnectionManager()
@@ -124,8 +118,14 @@ deps = {
     'buffer_presets_fn': buffer_presets_for_track,
 }
 
-# Setup startup/shutdown handlers (populates globals_dict during startup)
-setup_startup_handlers(app, deps)
+# Create lifespan context manager for startup/shutdown (populates globals_dict)
+lifespan = create_lifespan(deps)
+
+# Create FastAPI application with lifespan
+app = create_app(lifespan=lifespan)
+
+# Setup middleware
+setup_middleware(app)
 
 # Setup routers (registers all routes with app)
 setup_routers(app, deps)
