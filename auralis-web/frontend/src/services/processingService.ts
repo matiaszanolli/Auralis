@@ -99,8 +99,8 @@ class ProcessingService {
   private jobCallbacks: Map<string, (job: ProcessingJob) => void> = new Map();
 
   constructor() {
-    this.baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8765';
-    this.wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:8765/ws';
+    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8765';
+    this.wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8765/ws';
   }
 
   /**
