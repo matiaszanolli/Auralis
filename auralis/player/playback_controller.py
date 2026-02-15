@@ -8,6 +8,7 @@ Responsibilities:
 - Callback notifications for state changes
 """
 
+import threading
 from enum import Enum
 from typing import Any
 from collections.abc import Callable
@@ -30,9 +31,12 @@ class PlaybackController:
 
     Decoupled from audio I/O, file loading, and queue management.
     Only responsible for state machine and playback timeline.
+
+    All state access is protected by an RLock for thread safety.
     """
 
     def __init__(self) -> None:
+        self._lock = threading.RLock()
         self.state = PlaybackState.STOPPED
         self.position = 0  # Position in samples
         self.callbacks: list[Callable[[dict[str, Any] | None], None]] = []
@@ -56,17 +60,18 @@ class PlaybackController:
         Returns:
             bool: True if state changed, False if already playing
         """
-        if self.state == PlaybackState.PAUSED:
-            self.state = PlaybackState.PLAYING
-            info("Playback resumed")
-        elif self.state == PlaybackState.STOPPED:
-            self.state = PlaybackState.PLAYING
-            info("Playback started")
-        else:
-            return False
+        with self._lock:
+            if self.state == PlaybackState.PAUSED:
+                self.state = PlaybackState.PLAYING
+                info("Playback resumed")
+            elif self.state == PlaybackState.STOPPED:
+                self.state = PlaybackState.PLAYING
+                info("Playback started")
+            else:
+                return False
 
-        self._notify_callbacks({"state": self.state.value, "action": "play"})
-        return True
+            self._notify_callbacks({"state": self.state.value, "action": "play"})
+            return True
 
     def pause(self) -> bool:
         """
@@ -75,12 +80,13 @@ class PlaybackController:
         Returns:
             bool: True if paused, False if not playing
         """
-        if self.state == PlaybackState.PLAYING:
-            self.state = PlaybackState.PAUSED
-            info("Playback paused")
-            self._notify_callbacks({"state": self.state.value, "action": "pause"})
-            return True
-        return False
+        with self._lock:
+            if self.state == PlaybackState.PLAYING:
+                self.state = PlaybackState.PAUSED
+                info("Playback paused")
+                self._notify_callbacks({"state": self.state.value, "action": "pause"})
+                return True
+            return False
 
     def stop(self) -> bool:
         """
@@ -89,13 +95,14 @@ class PlaybackController:
         Returns:
             bool: True if stopped, False if already stopped
         """
-        if self.state in [PlaybackState.PLAYING, PlaybackState.PAUSED]:
-            self.state = PlaybackState.STOPPED
-            self.position = 0
-            info("Playback stopped")
-            self._notify_callbacks({"state": self.state.value, "action": "stop"})
-            return True
-        return False
+        with self._lock:
+            if self.state in [PlaybackState.PLAYING, PlaybackState.PAUSED]:
+                self.state = PlaybackState.STOPPED
+                self.position = 0
+                info("Playback stopped")
+                self._notify_callbacks({"state": self.state.value, "action": "stop"})
+                return True
+            return False
 
     def seek(self, position_samples: int, max_samples: int) -> bool:
         """
@@ -108,36 +115,42 @@ class PlaybackController:
         Returns:
             bool: True if seek succeeded
         """
-        # Clamp to valid range
-        position_samples = max(0, min(position_samples, max_samples))
-        self.position = position_samples
+        with self._lock:
+            # Clamp to valid range
+            position_samples = max(0, min(position_samples, max_samples))
+            self.position = position_samples
 
-        debug(f"Seeked to sample {position_samples}")
-        self._notify_callbacks({
-            "state": self.state.value,
-            "action": "seek",
-            "position_samples": position_samples
-        })
-        return True
+            debug(f"Seeked to sample {position_samples}")
+            self._notify_callbacks({
+                "state": self.state.value,
+                "action": "seek",
+                "position_samples": position_samples
+            })
+            return True
 
     def set_loading(self) -> None:
         """Set state to LOADING"""
-        self.state = PlaybackState.LOADING
-        self._notify_callbacks({"state": self.state.value, "action": "loading"})
+        with self._lock:
+            self.state = PlaybackState.LOADING
+            self._notify_callbacks({"state": self.state.value, "action": "loading"})
 
     def set_error(self) -> None:
         """Set state to ERROR"""
-        self.state = PlaybackState.ERROR
-        self._notify_callbacks({"state": self.state.value, "action": "error"})
+        with self._lock:
+            self.state = PlaybackState.ERROR
+            self._notify_callbacks({"state": self.state.value, "action": "error"})
 
     def is_playing(self) -> bool:
         """Check if currently playing"""
-        return self.state == PlaybackState.PLAYING
+        with self._lock:
+            return self.state == PlaybackState.PLAYING
 
     def is_stopped(self) -> bool:
         """Check if stopped"""
-        return self.state == PlaybackState.STOPPED
+        with self._lock:
+            return self.state == PlaybackState.STOPPED
 
     def is_paused(self) -> bool:
         """Check if paused"""
-        return self.state == PlaybackState.PAUSED
+        with self._lock:
+            return self.state == PlaybackState.PAUSED
