@@ -96,7 +96,8 @@ class PlaybackController:
             bool: True if stopped, False if already stopped
         """
         with self._lock:
-            if self.state in [PlaybackState.PLAYING, PlaybackState.PAUSED]:
+            if self.state in [PlaybackState.PLAYING, PlaybackState.PAUSED,
+                              PlaybackState.LOADING]:
                 self.state = PlaybackState.STOPPED
                 self.position = 0
                 info("Playback stopped")

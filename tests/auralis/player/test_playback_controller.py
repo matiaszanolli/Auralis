@@ -1,10 +1,12 @@
 """
-Tests for PlaybackController thread safety (#2198)
+Tests for PlaybackController thread safety and state machine
 
 Covers:
-- Concurrent state transitions produce no invalid states
-- Position reads are consistent during concurrent seeks
+- Concurrent state transitions produce no invalid states (#2198)
+- Position reads are consistent during concurrent seeks (#2198)
 - State transition validation (valid and invalid paths)
+- LOADING→STOPPED transition for post-load reset (#2199)
+- State setter removal: no bypass of state machine (#2199)
 """
 
 import threading
@@ -126,3 +128,41 @@ class TestPlaybackControllerStateTransitions:
         controller.play()
         assert not controller.play()
         assert controller.is_playing()
+
+    def test_loading_to_stopped(self):
+        """stop() works from LOADING state (post-load reset, #2199)."""
+        controller = PlaybackController()
+        controller.set_loading()
+        assert controller.state == PlaybackState.LOADING
+        assert controller.stop()
+        assert controller.is_stopped()
+        assert controller.position == 0
+
+    def test_stop_from_loading_fires_callback(self):
+        """Callbacks fire when transitioning LOADING→STOPPED (#2199)."""
+        controller = PlaybackController()
+        events = []
+        controller.add_callback(lambda info: events.append(info))
+        controller.set_loading()
+        controller.stop()
+        actions = [e.get("action") for e in events]
+        assert "loading" in actions
+        assert "stop" in actions
+
+
+class TestStateMachineBypass:
+    """Verify state setter is removed from AudioPlayer (#2199)."""
+
+    def test_audio_player_has_no_state_setter(self):
+        """AudioPlayer.state should be read-only (no setter bypass)."""
+        from auralis.player.enhanced_audio_player import AudioPlayer
+
+        # The property should not have a setter (fset is None)
+        state_prop = type.__dict__  # avoid triggering descriptor
+        for cls in AudioPlayer.__mro__:
+            if 'state' in cls.__dict__:
+                prop = cls.__dict__['state']
+                if isinstance(prop, property):
+                    assert prop.fset is None, \
+                        "AudioPlayer.state setter should be removed"
+                break

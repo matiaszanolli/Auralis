@@ -152,11 +152,6 @@ class AudioPlayer:
         """Get current playback state"""
         return self.playback.state
 
-    @state.setter
-    def state(self, value: PlaybackState) -> None:
-        """Set playback state (for compatibility)"""
-        self.playback.state = value
-
     def is_playing(self) -> bool:
         """Check if currently playing"""
         return self.playback.is_playing()
@@ -176,9 +171,7 @@ class AudioPlayer:
         self.playback.set_loading()
 
         if self.file_manager.load_file(file_path):
-            # Explicitly set state to STOPPED (stop() doesn't work when state is LOADING)
-            self.playback.state = PlaybackState.STOPPED
-            self.playback.position = 0
+            self.playback.stop()
 
             # Load fingerprint for adaptive mastering (non-blocking, cache-backed)
             self._load_fingerprint_for_file(file_path)
