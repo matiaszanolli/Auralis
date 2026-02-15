@@ -105,6 +105,23 @@ class PlaybackController:
                 return True
             return False
 
+    def read_and_advance_position(self, advance_by: int) -> int:
+        """Atomically read current position and advance by given amount.
+
+        Prevents a concurrent seek() from being overwritten by a stale
+        read-modify-write in the playback loop (#2153).
+
+        Args:
+            advance_by: Number of samples to advance
+
+        Returns:
+            int: The position before advancing (use as chunk read offset)
+        """
+        with self._lock:
+            pos = self.position
+            self.position += advance_by
+            return pos
+
     def seek(self, position_samples: int, max_samples: int) -> bool:
         """
         Seek to a position (in samples).

@@ -345,17 +345,14 @@ class AudioPlayer:
         if not self.file_manager.is_loaded() or not self.playback.is_playing():
             return np.zeros((chunk_size, 2), dtype=np.float32)
 
-        # Get raw audio chunk
-        chunk = self.file_manager.get_audio_chunk(
-            self.playback.position,
-            chunk_size
-        )
+        # Atomically read position and advance to prevent seek race (#2153)
+        pos = self.playback.read_and_advance_position(chunk_size)
 
-        # Update position
-        self.playback.position += len(chunk)
+        # Get raw audio chunk using the captured position
+        chunk = self.file_manager.get_audio_chunk(pos, chunk_size)
 
         # Check for end of track — use atomic flag to prevent concurrent auto-advance
-        if self.playback.position >= self.file_manager.get_total_samples():
+        if pos + chunk_size >= self.file_manager.get_total_samples():
             if self.auto_advance and not self.queue.is_queue_empty():
                 if not self._auto_advancing.is_set():
                     self._auto_advancing.set()

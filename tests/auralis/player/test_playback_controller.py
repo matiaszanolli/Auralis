@@ -18,6 +18,97 @@ from auralis.player.playback_controller import PlaybackController, PlaybackState
 VALID_STATES = {s for s in PlaybackState}
 
 
+class TestSeekDuringPlaybackRace:
+    """Regression tests for seek-during-playback position race (#2153)."""
+
+    def test_seek_during_advance_preserves_seek_target(self):
+        """read_and_advance_position must not overwrite a concurrent seek.
+
+        Simulates the exact race: one thread continuously advances position
+        (as the playback loop does), while another thread seeks.  After all
+        threads join, the final position must reflect the *last* seek, not
+        a stale advance.
+        """
+        controller = PlaybackController()
+        controller.play()
+        max_samples = 441000
+        chunk_size = 4096
+        seek_target = 220500  # midpoint
+        barrier = threading.Barrier(2)
+
+        def advancer():
+            """Simulates the playback loop calling read_and_advance_position."""
+            barrier.wait()
+            for _ in range(100):
+                controller.read_and_advance_position(chunk_size)
+
+        def seeker():
+            """Simulates user seeking during playback."""
+            barrier.wait()
+            for _ in range(100):
+                controller.seek(seek_target, max_samples)
+
+        t_advance = threading.Thread(target=advancer)
+        t_seek = threading.Thread(target=seeker)
+        t_advance.start()
+        t_seek.start()
+        t_advance.join(timeout=10.0)
+        t_seek.join(timeout=10.0)
+
+        # After both finish, do one final seek and verify it sticks
+        controller.seek(seek_target, max_samples)
+        assert controller.position == seek_target, (
+            f"Final seek was overwritten: expected {seek_target}, "
+            f"got {controller.position}"
+        )
+
+    def test_concurrent_seek_and_advance_no_position_corruption(self):
+        """Stress test: position must always be non-negative and bounded."""
+        controller = PlaybackController()
+        controller.play()
+        max_samples = 441000
+        chunk_size = 4096
+        observed_positions: list[int] = []
+        lock = threading.Lock()
+        barrier = threading.Barrier(6)
+
+        def advancer():
+            barrier.wait()
+            for _ in range(200):
+                pos = controller.read_and_advance_position(chunk_size)
+                with lock:
+                    observed_positions.append(pos)
+
+        def seeker(worker_id):
+            barrier.wait()
+            for i in range(200):
+                target = (worker_id * 50000 + i * 441) % max_samples
+                controller.seek(target, max_samples)
+                with lock:
+                    observed_positions.append(controller.position)
+
+        threads = [threading.Thread(target=advancer) for _ in range(2)]
+        threads += [threading.Thread(target=seeker, args=(i,)) for i in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=10.0)
+
+        for pos in observed_positions:
+            assert pos >= 0, f"Negative position: {pos}"
+
+    def test_read_and_advance_returns_pre_advance_position(self):
+        """read_and_advance_position returns position before advancing."""
+        controller = PlaybackController()
+        controller.play()
+        controller.seek(1000, 441000)
+
+        pos = controller.read_and_advance_position(4096)
+
+        assert pos == 1000, f"Expected pre-advance position 1000, got {pos}"
+        assert controller.position == 1000 + 4096
+
+
 class TestPlaybackControllerThreadSafety:
     """Thread safety tests for #2198."""
 
