@@ -496,9 +496,10 @@ class SimpleMasteringPipeline:
             # High harmonic_ratio + pitch_stability = vocals, classical, melodic content
             harmonic_preservation = (harmonic_ratio * 0.7 + pitch_stability * 0.3)
             if harmonic_preservation > 0.6:
-                # Smooth curve: 0.6-1.0 increases gentleness
-                curve_pos = (harmonic_preservation - 0.6) / 0.4
-                harmonic_factor = 0.5 * (1.0 - np.cos(np.pi * curve_pos))
+                # Smooth S-curve: 0.6-1.0 increases gentleness
+                harmonic_factor = SmoothCurveUtilities.ramp_to_s_curve(
+                    harmonic_preservation, 0.6, 1.0
+                )
                 threshold_db += 0.5 * harmonic_factor  # Raise threshold (less clipping)
                 ceiling += 0.03 * harmonic_factor  # Higher ceiling
                 if verbose:
@@ -508,9 +509,10 @@ class SimpleMasteringPipeline:
             # High dynamic_range_variation or low peak_consistency = needs gentle touch
             variation_metric = dynamic_range_variation * 0.6 + (1.0 - peak_consistency) * 0.4
             if variation_metric > 0.5:
-                # Smooth curve: 0.5-1.0 increases gentleness
-                curve_pos = (variation_metric - 0.5) / 0.5
-                variation_factor = 0.5 * (1.0 - np.cos(np.pi * curve_pos))
+                # Smooth S-curve: 0.5-1.0 increases gentleness
+                variation_factor = SmoothCurveUtilities.ramp_to_s_curve(
+                    variation_metric, 0.5, 1.0
+                )
                 threshold_db += 0.4 * variation_factor  # Gentler clipping for varied material
                 if verbose:
                     print(f"   📊 Variation preservation ({variation_metric:.2f})")
@@ -518,20 +520,19 @@ class SimpleMasteringPipeline:
             # Spectral flatness awareness - noisy/percussive vs tonal
             # High flatness (noisy) = less aggressive processing
             if spectral_flatness > 0.6:
-                # Smooth curve: 0.6-1.0 reduces processing
-                curve_pos = (spectral_flatness - 0.6) / 0.4
-                flatness_factor = 0.5 * (1.0 - np.cos(np.pi * curve_pos))
+                # Smooth S-curve: 0.6-1.0 reduces processing
+                flatness_factor = SmoothCurveUtilities.ramp_to_s_curve(
+                    spectral_flatness, 0.6, 1.0
+                )
                 threshold_db += 0.3 * flatness_factor  # Gentler on noisy material
                 if verbose:
                     print(f"   🔊 Noise-aware processing ({spectral_flatness:.2f})")
 
-            # Gentle bass-aware adjustments using smooth curve
-            # Previous exponential curve was too aggressive - crushing dynamics
-            #
-            # bass_x: normalized 0.0 at 20% bass → 1.0 at 70% bass
-            bass_x = np.clip((bass_pct - 0.20) / 0.50, 0.0, 1.0)
-            # Smooth S-curve using cosine for gradual onset
-            bass_intensity = 0.5 * (1.0 - np.cos(np.pi * bass_x))
+            # Gentle bass-aware adjustments using smooth S-curve
+            # bass_intensity: 0.0 at 20% bass → 1.0 at 70% bass
+            bass_intensity = SmoothCurveUtilities.ramp_to_s_curve(
+                bass_pct, 0.20, 0.70
+            )
 
             # Gentler adjustments to preserve dynamics
             # At 60% bass: bass_intensity ≈ 0.65
@@ -561,9 +562,9 @@ class SimpleMasteringPipeline:
             # Smooth bass-aware peak reduction using continuous curve
             # Starts affecting at 10%, full effect at 40%+
             if bass_pct > 0.10:
-                bass_peak_factor = np.clip((bass_pct - 0.10) / 0.30, 0.0, 1.0)
-                # Cosine curve for smooth onset
-                smooth_factor = 0.5 * (1.0 - np.cos(np.pi * bass_peak_factor))
+                smooth_factor = SmoothCurveUtilities.ramp_to_s_curve(
+                    bass_pct, 0.10, 0.40
+                )
                 adapted_peak -= 0.025 * smooth_factor
 
             if verbose:
@@ -735,8 +736,9 @@ class SimpleMasteringPipeline:
 
         # Phase correlation factor: 0.3-0.7 fades in smoothly, 0.7+ = full
         if phase_correlation < 0.7:
-            phase_factor = (phase_correlation - 0.3) / 0.4  # 0.0 at 0.3, 1.0 at 0.7
-            phase_factor = 0.5 * (1.0 - np.cos(np.pi * phase_factor))  # S-curve
+            phase_factor = SmoothCurveUtilities.ramp_to_s_curve(
+                phase_correlation, 0.3, 0.7
+            )
         else:
             phase_factor = 1.0
 
@@ -746,9 +748,9 @@ class SimpleMasteringPipeline:
 
         if current_width < 0.15:
             # Extremely narrow: smooth ramp up from 0% to 15%
-            # 0% width = 0.0 factor, 15% width = 0.3 factor
-            width_curve = current_width / 0.15  # 0.0 → 1.0
-            width_curve = 0.5 * (1.0 - np.cos(np.pi * width_curve))  # Smooth S-curve
+            width_curve = SmoothCurveUtilities.ramp_to_s_curve(
+                current_width, 0.0, 0.15
+            )
             narrowness_factor = 0.3 * width_curve  # Scale to max 0.3
         elif current_width < 0.30:
             # Sweet spot: 15-30% width, peak expansion potential
@@ -759,19 +761,21 @@ class SimpleMasteringPipeline:
             narrowness_factor = 0.6 * np.exp(-(width_offset**2) / (2 * 0.05**2))
         else:
             # Moderate width: 30-40%, smooth fade out
-            fade_curve = (0.40 - current_width) / 0.10  # 1.0 at 30%, 0.0 at 40%
-            fade_curve = np.clip(fade_curve, 0.0, 1.0)
-            fade_curve = 0.5 * (1.0 + np.cos(np.pi * (1.0 - fade_curve)))  # Smooth fade
+            # Inverted S-curve (1.0 at 0.30, 0.0 at 0.40)
+            fade_curve = 1.0 - SmoothCurveUtilities.ramp_to_s_curve(
+                current_width, 0.30, 0.40
+            )
             narrowness_factor = 0.3 * fade_curve
 
         # 3. Brightness preservation curve - reduce expansion for bright tracks
         # High spectral centroid or air content = already bright, be gentle
         brightness_metric = max(spectral_centroid, air_pct * 2.0)  # 0-1
 
-        # Smooth curve: 0.6-1.0 brightness reduces expansion smoothly
+        # Smooth S-curve: 0.6-1.0 brightness reduces expansion
         if brightness_metric > 0.6:
-            brightness_curve = (brightness_metric - 0.6) / 0.4  # 0.0 at 0.6, 1.0 at 1.0
-            brightness_curve = 0.5 * (1.0 - np.cos(np.pi * brightness_curve))  # S-curve
+            brightness_curve = SmoothCurveUtilities.ramp_to_s_curve(
+                brightness_metric, 0.6, 1.0
+            )
             brightness_factor = 1.0 - (0.5 * brightness_curve)  # 1.0 → 0.5 smoothly
             if verbose:
                 print(f"   💡 Brightness preservation ({brightness_metric:.2f}, factor: {brightness_factor:.2f})")
