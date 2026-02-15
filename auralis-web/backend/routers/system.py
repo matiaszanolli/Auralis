@@ -171,9 +171,25 @@ def create_system_router(
                         )
                     else:
                         # Fallback to message data if settings not available
-                        preset = data.get("preset", "adaptive")
+                        # Validate preset (fixes #2112)
+                        VALID_PRESETS = ["adaptive", "gentle", "warm", "bright", "punchy"]
+                        preset = data.get("preset", "adaptive").lower()
+                        if preset not in VALID_PRESETS:
+                            logger.warning(f"Invalid preset '{preset}' in play_enhanced, using 'adaptive'")
+                            await send_error_response(
+                                websocket,
+                                "invalid_preset",
+                                f"Invalid preset '{preset}'. Must be one of: {', '.join(VALID_PRESETS)}"
+                            )
+                            continue
+
+                        # Validate intensity (fixes #2112)
                         intensity = data.get("intensity", 1.0)
-                        logger.warning("Enhancement settings not available, using message defaults")
+                        if not isinstance(intensity, (int, float)) or not (0.0 <= intensity <= 1.0):
+                            logger.warning(f"Invalid intensity '{intensity}' in play_enhanced, clamping to 0.0-1.0")
+                            intensity = max(0.0, min(1.0, float(intensity))) if isinstance(intensity, (int, float)) else 1.0
+
+                        logger.warning("Enhancement settings not available, using validated message data")
 
                     logger.info(
                         f"Received play_enhanced: track_id={track_id}, "

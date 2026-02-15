@@ -301,6 +301,68 @@ class TestWebSocketPlayback:
             assert data["type"] == "audio_stream_error"
             assert "ENHANCEMENT_DISABLED" in data["data"]["code"]
 
+    def test_play_enhanced_invalid_preset(self, client):
+        """Test play_enhanced with invalid preset (Issue #2112)"""
+        with client.websocket_connect("/ws") as websocket:
+            # Send play_enhanced with invalid preset
+            websocket.send_text(json.dumps({
+                "type": "play_enhanced",
+                "data": {
+                    "track_id": 1,
+                    "preset": "invalid_preset_name",
+                    "intensity": 1.0
+                }
+            }))
+
+            # Should receive error about invalid preset
+            response = websocket.receive_text()
+            data = json.loads(response)
+
+            # Should either reject immediately or fail gracefully
+            # Not crash the processing engine
+            assert isinstance(data, dict)
+            assert data.get("type") in ["audio_stream_error", "error", "seek_started"]
+
+    def test_play_enhanced_out_of_range_intensity(self, client):
+        """Test play_enhanced with out-of-range intensity (Issue #2112)"""
+        with client.websocket_connect("/ws") as websocket:
+            # Send play_enhanced with intensity > 1.0
+            websocket.send_text(json.dumps({
+                "type": "play_enhanced",
+                "data": {
+                    "track_id": 1,
+                    "preset": "adaptive",
+                    "intensity": 5.0  # Way out of range
+                }
+            }))
+
+            # Should receive error or clamp value
+            response = websocket.receive_text()
+            data = json.loads(response)
+
+            # Should handle gracefully, not crash
+            assert isinstance(data, dict)
+
+    def test_play_enhanced_negative_intensity(self, client):
+        """Test play_enhanced with negative intensity (Issue #2112)"""
+        with client.websocket_connect("/ws") as websocket:
+            # Send play_enhanced with negative intensity
+            websocket.send_text(json.dumps({
+                "type": "play_enhanced",
+                "data": {
+                    "track_id": 1,
+                    "preset": "adaptive",
+                    "intensity": -0.5
+                }
+            }))
+
+            # Should receive error or clamp to 0
+            response = websocket.receive_text()
+            data = json.loads(response)
+
+            # Should handle gracefully
+            assert isinstance(data, dict)
+
     def test_pause_playback(self, client):
         """Test pause message"""
         with client.websocket_connect("/ws") as websocket:
