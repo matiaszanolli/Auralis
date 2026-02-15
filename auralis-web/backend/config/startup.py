@@ -63,9 +63,20 @@ async def _background_auto_scan(
         # Set up progress callback to broadcast updates
         async def progress_callback(progress_data: dict[str, Any]) -> None:
             """Broadcast scan progress to all connected clients"""
+            total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
+            processed = progress_data.get('processed', 0)
+            progress_frac = progress_data.get('progress', 0)
+            percentage = round(progress_frac * 100) if progress_frac else (
+                round(processed / total * 100) if total > 0 else 0
+            )
             await connection_manager.broadcast({
-                "type": "library_scan_progress",
-                **progress_data
+                "type": "scan_progress",
+                "data": {
+                    "current": processed,
+                    "total": total,
+                    "percentage": percentage,
+                    "current_file": progress_data.get('directory'),
+                }
             })
 
         # Wrap synchronous callback for async context
@@ -86,31 +97,19 @@ async def _background_auto_scan(
         # Log and broadcast results
         if scan_result and scan_result.files_added > 0:
             logger.info(f"✅ Background auto-scan complete: {scan_result.files_added} files added")
-            await connection_manager.broadcast({
-                "type": "library_scan_completed",
-                "files_added": scan_result.files_added,
-                "files_found": scan_result.files_found,
-                "files_processed": scan_result.files_processed,
-                "files_skipped": scan_result.files_skipped,
-                "files_failed": scan_result.files_failed
-            })
         elif scan_result:
             logger.info(f"✅ ~/Music already scanned: {scan_result.files_found} total files")
-            await connection_manager.broadcast({
-                "type": "library_scan_completed",
-                "files_added": 0,
-                "files_found": scan_result.files_found,
-                "files_processed": scan_result.files_processed,
-                "files_skipped": scan_result.files_skipped,
-                "files_failed": scan_result.files_failed
-            })
         else:
             logger.info("ℹ️  No new files to scan in ~/Music")
-            await connection_manager.broadcast({
-                "type": "library_scan_completed",
-                "files_added": 0,
-                "files_found": 0
-            })
+
+        await connection_manager.broadcast({
+            "type": "scan_complete",
+            "data": {
+                "files_processed": scan_result.files_processed if scan_result else 0,
+                "tracks_added": scan_result.files_added if scan_result else 0,
+                "duration": scan_result.scan_time if scan_result else 0,
+            }
+        })
 
     except Exception as scan_e:
         logger.warning(f"⚠️  Background auto-scan failed: {scan_e}")

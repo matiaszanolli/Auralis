@@ -185,13 +185,13 @@ export const mockWSMessages = {
     },
   }),
 
-  scanProgress: (filesScanned: number, filesFound: number, currentFile: string) => ({
-    type: 'scan_progress',
+  scanProgress: (current: number, total: number, currentFile?: string) => ({
+    type: 'scan_progress' as const,
     data: {
-      files_scanned: filesScanned,
-      files_found: filesFound,
+      current,
+      total,
+      percentage: total > 0 ? Math.round((current / total) * 100) : 0,
       current_file: currentFile,
-      timestamp: new Date().toISOString(),
     },
   }),
 

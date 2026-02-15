@@ -92,18 +92,25 @@ async def test_background_scan_broadcasts_websocket_events():
 
         # Simulate progress updates
         for i in range(3):
+            progress = (i + 1) / 3
             await manager.broadcast({
-                "type": "library_scan_progress",
-                "stage": "processing",
-                "progress": (i + 1) / 3
+                "type": "scan_progress",
+                "data": {
+                    "current": int(500 * progress),
+                    "total": 500,
+                    "percentage": round(progress * 100),
+                }
             })
             await asyncio.sleep(0.01)
 
         # Broadcast completion
         await manager.broadcast({
-            "type": "library_scan_completed",
-            "files_added": 100,
-            "files_found": 500
+            "type": "scan_complete",
+            "data": {
+                "files_processed": 500,
+                "tracks_added": 100,
+                "duration": 1.5,
+            }
         })
 
     await simulated_background_scan()
@@ -115,13 +122,13 @@ async def test_background_scan_broadcasts_websocket_events():
     assert broadcast_events[0]["type"] == "library_scan_started"
 
     # Check progress events
-    progress_events = [e for e in broadcast_events if e["type"] == "library_scan_progress"]
+    progress_events = [e for e in broadcast_events if e["type"] == "scan_progress"]
     assert len(progress_events) == 3
 
     # Check completion event
-    completed = [e for e in broadcast_events if e["type"] == "library_scan_completed"]
+    completed = [e for e in broadcast_events if e["type"] == "scan_complete"]
     assert len(completed) == 1
-    assert completed[0]["files_added"] == 100
+    assert completed[0]["data"]["tracks_added"] == 100
 
 
 @pytest.mark.asyncio

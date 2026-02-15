@@ -70,7 +70,8 @@ export interface ScanProgressMessage extends WebSocketMessage {
   data: {
     current: number;
     total: number;
-    status: string;
+    percentage: number;
+    current_file?: string;
   };
 }
 

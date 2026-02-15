@@ -688,7 +688,7 @@ describe.skip('WebSocket & Real-time Updates Integration Tests', () => {
 
       mockWS.simulateMessage({
         type: 'scan_progress',
-        data: { current: 50, total: 100, status: 'scanning' },
+        data: { current: 50, total: 100, percentage: 50 },
       });
 
       // Wait a moment for messages to be processed

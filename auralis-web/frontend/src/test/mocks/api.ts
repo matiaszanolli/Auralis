@@ -209,9 +209,8 @@ export const mockLibraryStats = {
 }
 
 export const mockScanProgress = {
-  status: 'scanning',
-  files_scanned: 50,
-  files_found: 100,
+  current: 50,
+  total: 100,
+  percentage: 50,
   current_file: '/path/to/current.mp3',
-  errors: [],
 }

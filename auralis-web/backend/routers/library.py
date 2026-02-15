@@ -467,12 +467,36 @@ def create_library_router(
 
             library_manager = get_library_manager()
 
-            # Create scanner with progress callback
             scanner = LibraryScanner(library_manager)
 
-            # Run scan in a thread to avoid blocking the event loop.
-            # Note: async progress_callback cannot be called from a thread,
-            # so we run without live progress. Final result is broadcast below.
+            # Set up progress callback that bridges sync scanner → async broadcast.
+            # asyncio.to_thread runs the scanner in a worker thread, so we use
+            # loop.call_soon_threadsafe to schedule the async broadcast safely.
+            if connection_manager:
+                loop = asyncio.get_running_loop()
+
+                def _progress_callback(progress_data: dict[str, Any]) -> None:
+                    total = progress_data.get('total_found', 0) or progress_data.get('processed', 0)
+                    processed = progress_data.get('processed', 0)
+                    progress_frac = progress_data.get('progress', 0)
+                    percentage = round(progress_frac * 100) if progress_frac else (
+                        round(processed / total * 100) if total > 0 else 0
+                    )
+                    asyncio.run_coroutine_threadsafe(
+                        connection_manager.broadcast({
+                            "type": "scan_progress",
+                            "data": {
+                                "current": processed,
+                                "total": total,
+                                "percentage": percentage,
+                                "current_file": progress_data.get('directory'),
+                            }
+                        }),
+                        loop,
+                    )
+
+                scanner.set_progress_callback(_progress_callback)
+
             result = await asyncio.to_thread(
                 scanner.scan_directories,
                 directories=request.directories,
@@ -484,15 +508,11 @@ def create_library_router(
             # Broadcast final scan result to all clients
             if connection_manager:
                 await connection_manager.broadcast({
-                    "type": "library_scan_complete",
+                    "type": "scan_complete",
                     "data": {
-                        "files_found": result.files_found,
-                        "files_added": result.files_added,
-                        "files_updated": result.files_updated,
-                        "files_skipped": result.files_skipped,
-                        "files_failed": result.files_failed,
-                        "scan_time": result.scan_time,
-                        "directories_scanned": result.directories_scanned
+                        "files_processed": result.files_processed,
+                        "tracks_added": result.files_added,
+                        "duration": result.scan_time,
                     }
                 })
 
