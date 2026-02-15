@@ -400,8 +400,8 @@ def create_webm_streaming_router(
         """
         from auralis.io.unified_loader import load_audio
 
-        # Load audio chunk
-        audio, sr = load_audio(filepath)
+        # Load audio (file I/O — run in thread to avoid blocking event loop)
+        audio, sr = await asyncio.to_thread(load_audio, filepath)
 
         # Calculate chunk boundaries using chunk_interval for start position
         # With 10s chunks and 10s interval: chunk 0 starts at 0s, chunk 1 at 10s, chunk 2 at 20s, etc.
@@ -430,7 +430,7 @@ def create_webm_streaming_router(
 
         # Encode directly to WAV
         try:
-            wav_bytes = encode_to_wav(chunk_audio, sr)
+            wav_bytes = await asyncio.to_thread(encode_to_wav, chunk_audio, sr)
             logger.info(f"Original chunk {chunk_idx} encoded to WAV: {len(wav_bytes)} bytes")
             return wav_bytes
 

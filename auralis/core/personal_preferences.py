@@ -155,7 +155,7 @@ class PersonalPreferences:
         return "\n".join(lines)
 
     @staticmethod
-    def load_or_create(user_data_dir: Path) -> PersonalPreferences:
+    def load_or_create(user_data_dir: Path) -> 'PersonalPreferences':
         """Load personal preferences or create defaults.
 
         Args:
@@ -242,7 +242,7 @@ class PersonalPreferences:
         }
 
     @staticmethod
-    def import_shared_profile(shared_data: dict[str, Any]) -> PersonalPreferences:
+    def import_shared_profile(shared_data: dict[str, Any]) -> 'PersonalPreferences':
         """Import a shared profile from another user.
 
         This creates a new profile based on someone else's shared preferences,

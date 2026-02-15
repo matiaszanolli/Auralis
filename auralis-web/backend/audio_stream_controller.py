@@ -571,7 +571,9 @@ class AudioStreamController:
 
         try:
             # Load audio file metadata
-            audio_data, sample_rate = sf.read(str(track.filepath), dtype=np.float32)
+            audio_data, sample_rate = await asyncio.to_thread(
+                sf.read, str(track.filepath), dtype='float32'
+            )
 
             # Handle mono/stereo
             if audio_data.ndim == 1:

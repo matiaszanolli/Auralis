@@ -14,6 +14,7 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from typing import Any
 from collections.abc import Callable
@@ -111,11 +112,12 @@ def create_metadata_router(
             if not track:
                 raise HTTPException(status_code=404, detail="Track not found")
 
-            # Get editable fields for this file format
-            editable_fields = metadata_editor.get_editable_fields(str(track.filepath))
+            # Get editable fields for this file format (file I/O — run in thread)
+            filepath_str = str(track.filepath)
+            editable_fields = await asyncio.to_thread(metadata_editor.get_editable_fields, filepath_str)
 
-            # Get current metadata
-            current_metadata = metadata_editor.read_metadata(str(track.filepath))
+            # Get current metadata (file I/O — run in thread)
+            current_metadata = await asyncio.to_thread(metadata_editor.read_metadata, filepath_str)
 
             return {
                 "track_id": track_id,

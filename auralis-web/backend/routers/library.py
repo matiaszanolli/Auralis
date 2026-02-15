@@ -20,6 +20,7 @@ Endpoints:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 from typing import Any, cast
 from collections.abc import Callable
@@ -245,7 +246,7 @@ def create_library_router(
             # If no lyrics in database, try to extract from file
             try:
                 import mutagen
-                audio_file = mutagen.File(track.filepath)  # type: ignore[attr-defined]
+                audio_file = await asyncio.to_thread(mutagen.File, track.filepath)  # type: ignore[attr-defined]
 
                 lyrics_text = None
 
@@ -469,47 +470,16 @@ def create_library_router(
             # Create scanner with progress callback
             scanner = LibraryScanner(library_manager)
 
-            # Define progress callback that broadcasts updates via WebSocket
-            async def progress_callback(event_data: dict[str, Any]) -> None:
-                """
-                Broadcast scan progress to connected WebSocket clients.
-
-                Args:
-                    event_data: Progress event data with keys:
-                        - status: Current status (scanning, importing, etc.)
-                        - files_found: Number of files found so far
-                        - files_processed: Number of files processed
-                        - files_added: Number of files added
-                        - current_file: Current file being processed
-                        - error: Error message if any
-                """
-                if connection_manager:
-                    await connection_manager.broadcast({
-                        "type": "library_scan_progress",
-                        "data": event_data
-                    })
-                    logger.debug(f"Broadcast scan progress: {event_data.get('status')}")
-
-            # Run scan with progress callback
-            # Note: The scanner.scan_directories should support an optional progress_callback parameter
-            # If not, this will gracefully fall back to scanning without live progress
-            try:
-                result = scanner.scan_directories(
-                    directories=request.directories,
-                    recursive=request.recursive,
-                    skip_existing=request.skip_existing,
-                    check_modifications=True,
-                    progress_callback=progress_callback  # type: ignore[call-arg]
-                )
-            except TypeError:
-                # Fallback if scanner doesn't support progress_callback parameter
-                logger.warning("LibraryScanner does not support progress_callback, scanning without live progress")
-                result = scanner.scan_directories(
-                    directories=request.directories,
-                    recursive=request.recursive,
-                    skip_existing=request.skip_existing,
-                    check_modifications=True
-                )
+            # Run scan in a thread to avoid blocking the event loop.
+            # Note: async progress_callback cannot be called from a thread,
+            # so we run without live progress. Final result is broadcast below.
+            result = await asyncio.to_thread(
+                scanner.scan_directories,
+                directories=request.directories,
+                recursive=request.recursive,
+                skip_existing=request.skip_existing,
+                check_modifications=True,
+            )
 
             # Broadcast final scan result to all clients
             if connection_manager:

@@ -82,17 +82,18 @@ def create_enhancement_router(
             logger.info(f"🎯 Pre-processing chunks {chunks_to_process} for track {track_id} (current chunk: {current_chunk_idx})")
 
             # Get audio duration to avoid processing non-existent chunks
-            info = sf.info(filepath)
+            info = await asyncio.to_thread(sf.info, filepath)
             total_duration = info.duration
             total_chunks = int(total_duration / CHUNK_DURATION) + 1
 
-            # Create processor
-            processor = ChunkedAudioProcessor(
+            # Create processor (may perform file I/O — run in thread)
+            processor = await asyncio.to_thread(
+                ChunkedAudioProcessor,
                 track_id=track_id,
                 filepath=filepath,
                 preset=preset,
                 intensity=intensity,
-                chunk_cache={}
+                chunk_cache={},
             )
 
             # Process each chunk

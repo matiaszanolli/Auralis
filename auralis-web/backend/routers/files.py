@@ -139,7 +139,7 @@ def create_files_router(
             # Start scan in background
             async def scan_worker() -> None:
                 try:
-                    result = scanner.scan_single_directory(directory, recursive=True)
+                    result = await asyncio.to_thread(scanner.scan_single_directory, directory, recursive=True)
 
                     # Broadcast scan completion to all connected clients
                     await connection_manager.broadcast({
