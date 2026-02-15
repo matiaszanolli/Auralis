@@ -99,23 +99,24 @@ class LibraryManager:
             error("Database migration failed!")
             raise Exception("Failed to migrate database to current version")
 
-        # CRITICAL: Configure SQLite for safe, frequent fingerprint writes
+        # Configure SQLite for safe, frequent fingerprint writes
         # WAL mode + synchronous=NORMAL enables fast writes with durability guarantees
-        # AGGRESSIVE: Longer timeout for higher contention with 32 workers
         connect_args = {
-            'timeout': 60,  # Increased from 30s (2x workers = 2x timeout)
+            'timeout': 15,  # 15s busy timeout (WAL makes contention rare)
             'check_same_thread': False,
         }
 
-        # AGGRESSIVE: Increase connection pool size to support 32 concurrent workers
-        # Each worker may need its own connection during database operations
+        # SQLite allows only one writer at a time. With WAL mode, readers don't
+        # block writers (and vice versa), so a small pool is sufficient even under
+        # heavy concurrent load. Sessions are short-lived (session-per-method),
+        # so connections are returned quickly. (#2086)
         self.engine = create_engine(
             f"sqlite:///{database_path}",
             echo=False,
             connect_args=connect_args,
             pool_pre_ping=True,  # Verify connections before use
-            pool_size=32,  # Match number of workers (was 5 default)
-            max_overflow=32,  # Allow up to 32 additional connections if needed
+            pool_size=5,  # Sufficient for SQLite with WAL concurrent readers
+            max_overflow=5,  # Up to 10 total connections
         )
 
         # Configure SQLite pragmas for reliable fingerprinting persistence
@@ -128,9 +129,8 @@ class LibraryManager:
             # Set synchronous to NORMAL (safer than OFF, faster than FULL)
             # Ensures fingerprints are durably written to WAL before returning
             cursor.execute("PRAGMA synchronous=NORMAL")
-            # AGGRESSIVE: Increase cache size to 256MB for 4x faster queries
-            # With 32 workers all querying database, larger cache reduces disk I/O
-            cursor.execute("PRAGMA cache_size=-262144")  # 256MB cache (4x from 64MB)
+            # 64MB page cache per connection (reasonable for up to 10 connections)
+            cursor.execute("PRAGMA cache_size=-65536")  # 64MB cache per connection
             # Optimize for frequent writes
             cursor.execute("PRAGMA temp_store=MEMORY")
             # Foreign key enforcement for data integrity
