@@ -145,6 +145,7 @@ class AudioStreamController:
 
         # Use provided cache manager or fallback to SimpleChunkCache
         self.cache_manager: StreamlinedCacheManager | SimpleChunkCache = cache_manager or SimpleChunkCache()
+        self._stream_type: str | None = None  # Set by public streaming methods ("enhanced" or "normal")
         logger.info(f"AudioStreamController initialized with cache manager: {type(self.cache_manager).__name__}")
 
         # NEW (Phase 7.3): Fingerprint generator for on-demand generation
@@ -390,6 +391,8 @@ class AudioStreamController:
             ValueError: If track not found or processor unavailable
             Exception: If processing or streaming fails
         """
+        self._stream_type = "enhanced"
+
         if not self.chunked_processor_class:
             raise ValueError("ChunkedProcessor not available")
 
@@ -546,6 +549,8 @@ class AudioStreamController:
             ValueError: If track not found or file unavailable
             Exception: If loading or streaming fails
         """
+        self._stream_type = "normal"
+
         import soundfile as sf
 
         if not self._get_repository_factory:
@@ -903,6 +908,7 @@ class AudioStreamController:
                     # to prevent audible clicks at chunk boundaries.
                     # Frontend receives pre-crossfaded audio, so no client-side crossfade needed.
                     "crossfade_samples": crossfade_samples,  # For monitoring/debugging
+                    "stream_type": self._stream_type,
                 },
             }
 
@@ -940,6 +946,7 @@ class AudioStreamController:
                 "total_chunks": total_chunks,
                 "chunk_duration": chunk_duration,
                 "total_duration": total_duration,
+                "stream_type": self._stream_type,
             },
         }
         if await self._safe_send(websocket, message):
@@ -965,6 +972,7 @@ class AudioStreamController:
                 "track_id": track_id,
                 "total_samples": total_samples,
                 "duration": duration,
+                "stream_type": self._stream_type,
             },
         }
         if await self._safe_send(websocket, message):
@@ -985,6 +993,7 @@ class AudioStreamController:
                 "track_id": track_id,
                 "error": error_message,
                 "code": "STREAMING_ERROR",
+                "stream_type": self._stream_type,
             },
         }
         try:
@@ -1014,6 +1023,7 @@ class AudioStreamController:
                 "track_id": track_id,
                 "status": status,
                 "message": message,
+                "stream_type": self._stream_type,
             },
         }
         try:
@@ -1049,6 +1059,8 @@ class AudioStreamController:
             ValueError: If track not found or processor unavailable
             Exception: If processing or streaming fails
         """
+        self._stream_type = "enhanced"
+
         if not self.chunked_processor_class:
             raise ValueError("ChunkedProcessor not available")
 
@@ -1222,6 +1234,7 @@ class AudioStreamController:
                 "start_chunk": start_chunk,
                 "seek_position": seek_position,
                 "seek_offset": seek_offset,
+                "stream_type": self._stream_type,
             },
         }
         if await self._safe_send(websocket, message):

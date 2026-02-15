@@ -79,7 +79,10 @@ class AlbumRepository:
             # Get total count
             total = session.query(Album).count()
 
-            # Get albums for current page
+            # Get albums for current page (whitelist to prevent arbitrary attribute access)
+            VALID_ORDER_COLUMNS = {'title', 'year', 'created_at'}
+            if order_by not in VALID_ORDER_COLUMNS:
+                order_by = 'title'
             order_column = getattr(Album, order_by, Album.title)
             albums = (
                 session.query(Album)

@@ -118,6 +118,7 @@ export interface AudioStreamStartMessage extends WebSocketMessage {
     total_chunks: number;
     chunk_duration: number;
     total_duration: number;
+    stream_type?: 'enhanced' | 'normal';
   };
 }
 
@@ -136,6 +137,7 @@ export interface AudioChunkMessage extends WebSocketMessage {
     samples: string; // Base64-encoded float32 PCM samples
     sample_count: number; // Number of samples in this frame
     crossfade_samples: number; // Overlap duration at chunk boundary (only for first frame)
+    stream_type?: 'enhanced' | 'normal';
   };
 }
 
@@ -148,6 +150,7 @@ export interface AudioStreamEndMessage extends WebSocketMessage {
     track_id: number;
     total_samples: number;
     duration: number;
+    stream_type?: 'enhanced' | 'normal';
   };
 }
 
@@ -160,6 +163,7 @@ export interface AudioStreamErrorMessage extends WebSocketMessage {
     track_id: number;
     error: string;
     code: string;
+    stream_type?: 'enhanced' | 'normal';
   };
 }
 

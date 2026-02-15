@@ -206,7 +206,8 @@ def create_system_router(
                                     "data": {
                                         "track_id": track_id,
                                         "error": "Auto-mastering is currently disabled. Enable it in the enhancement panel to use this feature.",
-                                        "code": "ENHANCEMENT_DISABLED"
+                                        "code": "ENHANCEMENT_DISABLED",
+                                        "stream_type": "enhanced",
                                     }
                                 })
                             )
@@ -256,7 +257,8 @@ def create_system_router(
                                         "data": {
                                             "track_id": track_id,
                                             "error": "Audio processing not available",
-                                            "code": "PROCESSOR_UNAVAILABLE"
+                                            "code": "PROCESSOR_UNAVAILABLE",
+                                            "stream_type": "enhanced",
                                         }
                                     })
                                 )
@@ -271,7 +273,8 @@ def create_system_router(
                                         "data": {
                                             "track_id": track_id,
                                             "error": str(e),
-                                            "code": "STREAMING_ERROR"
+                                            "code": "STREAMING_ERROR",
+                                            "stream_type": "enhanced",
                                         }
                                     })
                                 )
@@ -330,7 +333,8 @@ def create_system_router(
                                         "data": {
                                             "track_id": track_id,
                                             "error": str(e),
-                                            "code": "STREAMING_ERROR"
+                                            "code": "STREAMING_ERROR",
+                                            "stream_type": "normal",
                                         }
                                     })
                                 )
@@ -459,7 +463,8 @@ def create_system_router(
                                         "data": {
                                             "track_id": track_id,
                                             "error": str(e),
-                                            "code": "SEEK_ERROR"
+                                            "code": "SEEK_ERROR",
+                                            "stream_type": "enhanced",
                                         }
                                     })
                                 )

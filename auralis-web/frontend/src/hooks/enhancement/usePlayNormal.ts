@@ -195,6 +195,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
    */
   const handleStreamStart = useCallback((message: AudioStreamStartMessage) => {
     try {
+      // Only process messages intended for this hook (#2104)
+      if (message.data.stream_type && message.data.stream_type !== 'normal') return;
+
       console.log('[usePlayNormal] Stream started:', {
         trackId: message.data.track_id,
         chunks: message.data.total_chunks,
@@ -299,6 +302,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
    */
   const handleChunk = useCallback((message: AudioChunkMessage) => {
     try {
+      // Only process messages intended for this hook (#2104)
+      if (message.data.stream_type && message.data.stream_type !== 'normal') return;
+
       // If stream not yet initialized, queue the chunk instead of dropping it
       if (!pcmBufferRef.current || !streamingMetadataRef.current) {
         console.log('[usePlayNormal] Queuing chunk until stream initialized:', {
@@ -358,6 +364,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
    * Handle audio_stream_end message from backend
    */
   const handleStreamEnd = useCallback((message: AudioStreamEndMessage) => {
+    // Only process messages intended for this hook (#2104)
+    if (message.data.stream_type && message.data.stream_type !== 'normal') return;
+
     console.log('[usePlayNormal] Stream ended:', {
       trackId: message.data.track_id,
       totalSamples: message.data.total_samples,
@@ -372,6 +381,9 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
    * Handle audio_stream_error message from backend
    */
   const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
+    // Only process messages intended for this hook (#2104)
+    if (message.data.stream_type && message.data.stream_type !== 'normal') return;
+
     const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
     console.error('[usePlayNormal]', errorMsg);
     dispatch(setStreamingError(errorMsg));

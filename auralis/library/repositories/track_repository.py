@@ -463,7 +463,10 @@ class TrackRepository:
             # Get total count
             total = session.query(Track).count()
 
-            # Get tracks for current page
+            # Get tracks for current page (whitelist to prevent arbitrary attribute access)
+            VALID_ORDER_COLUMNS = {'title', 'created_at', 'play_count', 'duration', 'year', 'last_played'}
+            if order_by not in VALID_ORDER_COLUMNS:
+                order_by = 'title'
             order_column = getattr(Track, order_by, Track.title)
             tracks = (
                 session.query(Track)

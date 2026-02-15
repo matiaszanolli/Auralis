@@ -231,6 +231,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    */
   const handleStreamStart = useCallback((message: AudioStreamStartMessage) => {
     try {
+      // Only process messages intended for this hook (#2104)
+      if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
+
       // Check if this is a seek operation
       const isSeek = (message.data as any).is_seek === true;
       const seekPosition = (message.data as any).seek_position || 0;
@@ -353,6 +356,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    */
   const handleChunk = useCallback((message: AudioChunkMessage) => {
     try {
+      // Only process messages intended for this hook (#2104)
+      if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
+
       const incomingChunkIndex = message.data?.chunk_index ?? 0;
 
       // If stream not yet initialized, queue the chunk instead of dropping it
@@ -438,6 +444,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    * Handle audio_stream_end message from backend
    */
   const handleStreamEnd = useCallback((message: AudioStreamEndMessage) => {
+    // Only process messages intended for this hook (#2104)
+    if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
+
     console.log('[usePlayEnhanced] Stream ended:', {
       trackId: message.data.track_id,
       totalSamples: message.data.total_samples,
@@ -452,6 +461,9 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    * Handle audio_stream_error message from backend
    */
   const handleStreamError = useCallback((message: AudioStreamErrorMessage) => {
+    // Only process messages intended for this hook (#2104)
+    if (message.data.stream_type && message.data.stream_type !== 'enhanced') return;
+
     const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
     console.error('[usePlayEnhanced]', errorMsg);
     dispatch(setStreamingError(errorMsg));

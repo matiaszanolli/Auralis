@@ -92,7 +92,10 @@ class GenreRepository:
             # Get total count
             total = session.query(Genre).count()
 
-            # Get genres for current page
+            # Get genres for current page (whitelist to prevent arbitrary attribute access)
+            VALID_ORDER_COLUMNS = {'name', 'created_at'}
+            if order_by not in VALID_ORDER_COLUMNS:
+                order_by = 'name'
             order_column = getattr(Genre, order_by, Genre.name)
             genres = (
                 session.query(Genre)
