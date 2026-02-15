@@ -26,9 +26,10 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException
 
+from schemas import ScanRequest
+
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
-from .schemas import ScanRequest
 from .serializers import (
     serialize_album,
     serialize_albums,
