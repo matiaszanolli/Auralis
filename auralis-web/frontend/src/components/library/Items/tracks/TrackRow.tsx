@@ -45,7 +45,7 @@ interface TrackRowProps {
   onDelete?: (trackId: number) => void;
 }
 
-export const TrackRow: React.FC<TrackRowProps> = ({
+const TrackRowComponent: React.FC<TrackRowProps> = ({
   track,
   index,
   isPlaying = false,
@@ -176,5 +176,24 @@ export const TrackRow: React.FC<TrackRowProps> = ({
     </>
   );
 };
+
+/**
+ * Memoized TrackRow component with custom comparator
+ * Only re-renders when critical props change: track.id, isPlaying, isCurrent, isAnyPlaying, index
+ * Prevents O(n) re-renders when parent re-renders
+ */
+export const TrackRow = React.memo<TrackRowProps>(
+  TrackRowComponent,
+  (prev, next) => {
+    // Only re-render if these critical props change
+    return (
+      prev.track.id === next.track.id &&
+      prev.isPlaying === next.isPlaying &&
+      prev.isCurrent === next.isCurrent &&
+      prev.isAnyPlaying === next.isAnyPlaying &&
+      prev.index === next.index
+    );
+  }
+);
 
 export default TrackRow;

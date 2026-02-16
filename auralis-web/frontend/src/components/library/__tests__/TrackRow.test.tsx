@@ -14,7 +14,7 @@ import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
-import TrackRow from '../TrackRow';
+import TrackRow from '../Items/tracks/TrackRow';
 import { useTrackSelection } from '@/hooks/library/useTrackSelection';
 
 // Mock hooks and components

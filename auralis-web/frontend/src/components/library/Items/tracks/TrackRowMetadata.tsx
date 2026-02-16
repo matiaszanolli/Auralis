@@ -14,7 +14,7 @@ interface TrackRowMetadataProps {
  *
  * Displays track metadata in a structured layout.
  */
-export const TrackRowMetadata: React.FC<TrackRowMetadataProps> = ({
+const TrackRowMetadataComponent: React.FC<TrackRowMetadataProps> = ({
   title,
   artist,
   album,
@@ -40,5 +40,22 @@ export const TrackRowMetadata: React.FC<TrackRowMetadataProps> = ({
     </>
   );
 };
+
+/**
+ * Memoized TrackRowMetadata with custom comparator
+ * Only re-renders when title, artist, album, duration, or isCurrent change
+ */
+export const TrackRowMetadata = React.memo<TrackRowMetadataProps>(
+  TrackRowMetadataComponent,
+  (prev, next) => {
+    return (
+      prev.title === next.title &&
+      prev.artist === next.artist &&
+      prev.album === next.album &&
+      prev.duration === next.duration &&
+      prev.isCurrent === next.isCurrent
+    );
+  }
+);
 
 export default TrackRowMetadata;

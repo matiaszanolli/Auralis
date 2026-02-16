@@ -13,7 +13,7 @@ interface TrackRowPlayButtonProps {
  *
  * Shows play icon normally, pause when track is current and playing.
  */
-export const TrackRowPlayButton: React.FC<TrackRowPlayButtonProps> = ({
+const TrackRowPlayButtonComponent: React.FC<TrackRowPlayButtonProps> = ({
   isCurrent,
   isPlaying,
   onClick,
@@ -24,5 +24,20 @@ export const TrackRowPlayButton: React.FC<TrackRowPlayButtonProps> = ({
     </PlayButton>
   );
 };
+
+/**
+ * Memoized TrackRowPlayButton with custom comparator
+ * Only re-renders when isCurrent or isPlaying change
+ * onClick is excluded as it's recreated on parent render but doesn't affect button state
+ */
+export const TrackRowPlayButton = React.memo<TrackRowPlayButtonProps>(
+  TrackRowPlayButtonComponent,
+  (prev, next) => {
+    return (
+      prev.isCurrent === next.isCurrent &&
+      prev.isPlaying === next.isPlaying
+    );
+  }
+);
 
 export default TrackRowPlayButton;
