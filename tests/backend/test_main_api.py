@@ -450,16 +450,25 @@ class TestPlayerEndpoints:
             assert data["volume"] == 80
 
     def test_load_track(self, client):
-        """Test loading a track"""
+        """Test loading a track (security: requires database-backed track_id)"""
         mock_player = Mock()
         mock_player.add_to_queue = Mock()
         mock_player.load_current_track.return_value = True
 
-        with patch.dict('main.globals_dict', {'audio_player': mock_player}):
-            response = client.post("/api/player/load?track_path=/test/song.mp3")
+        # Mock library manager to return a valid track
+        mock_track = Mock()
+        mock_track.id = 1
+        mock_track.filepath = "/test/song.mp3"
+
+        mock_library = Mock()
+        mock_library.tracks.get_by_id.return_value = mock_track
+
+        with patch.dict('main.globals_dict', {'audio_player': mock_player, 'library_manager': mock_library}):
+            response = client.post("/api/player/load", json={"track_id": 1})
 
             assert response.status_code == 200
             mock_player.add_to_queue.assert_called_once()
+            mock_library.tracks.get_by_id.assert_called_once_with(1)
 
     def test_play_audio(self, client):
         """Test starting playback"""

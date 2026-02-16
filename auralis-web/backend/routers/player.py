@@ -70,6 +70,11 @@ class AddTrackToQueueRequest(BaseModel):
     position: int | None = None  # None = append to end
 
 
+class LoadTrackRequest(BaseModel):
+    """Request model for loading a track"""
+    track_id: int
+
+
 def create_player_router(
     get_library_manager: Callable[[], Any],
     get_audio_player: Callable[[], Any],
@@ -157,32 +162,37 @@ def create_player_router(
             raise HTTPException(status_code=500, detail=f"Failed to get player status: {e}")
 
     @router.post("/api/player/load", response_model=None)
-    async def load_track(track_path: str, track_id: int | None = None, background_tasks: BackgroundTasks = None) -> dict[str, Any]:
+    async def load_track(request: LoadTrackRequest, background_tasks: BackgroundTasks = None) -> dict[str, Any]:
         """
-        Load a track into the player.
+        Load a track into the player (database-backed, prevents path traversal).
 
         Also generates and broadcasts mastering profile recommendation (Priority 4) in background.
 
         Args:
-            track_path: Path to audio file
-            track_id: Optional track database ID (used for mastering recommendation)
+            request: LoadTrackRequest with track_id (required for security - validates file path)
             background_tasks: FastAPI background tasks
 
         Returns:
             dict: Success message
 
         Raises:
-            HTTPException: If audio player not available or load fails
+            HTTPException: If track not found, audio player not available, or load fails
         """
         audio_player = get_audio_player()
         if not audio_player:
             raise HTTPException(status_code=503, detail="Audio player not available")
 
+        # Security: Query track from database to validate file path
+        library_manager = get_library_manager()
+        track = library_manager.tracks.get_by_id(request.track_id)
+        if not track:
+            raise HTTPException(status_code=404, detail=f"Track {request.track_id} not found in library")
+
         try:
-            # Add to queue with track info dict
+            # Add to queue with track info dict (using validated filepath from database)
             track_info = {
-                'filepath': track_path,
-                'id': track_id
+                'filepath': track.filepath,  # Security: Use validated path from database
+                'id': track.id
             }
             audio_player.add_to_queue(track_info)
             success = audio_player.load_current_track() if hasattr(audio_player, 'load_current_track') else True
@@ -191,23 +201,25 @@ def create_player_router(
                 # Broadcast to all connected clients
                 await connection_manager.broadcast({
                     "type": "track_loaded",
-                    "data": {"track_path": track_path}
+                    "data": {"track_path": track.filepath}
                 })
 
                 # Generate mastering recommendation in background (Priority 4)
-                if track_id is not None and background_tasks:
+                if background_tasks:
                     service = get_recommendation_service()
                     background_tasks.add_task(
                         service.generate_and_broadcast_recommendation,
-                        track_id=track_id,
-                        track_path=track_path
+                        track_id=track.id,
+                        track_path=track.filepath
                     )
-                    logger.info(f"🎯 Scheduled mastering recommendation generation for track {track_id}")
+                    logger.info(f"🎯 Scheduled mastering recommendation generation for track {track.id}")
 
-                return {"message": "Track loaded successfully", "track_path": track_path}
+                return {"message": "Track loaded successfully", "track_path": track.filepath}
             else:
                 raise HTTPException(status_code=400, detail="Failed to load track")
 
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to load track: {e}")
 
@@ -312,22 +324,30 @@ def create_player_router(
             raise HTTPException(status_code=500, detail=f"Failed to set queue: {e}")
 
     @router.post("/api/player/queue/add", response_model=None)
-    async def add_to_queue(track_path: str) -> dict[str, Any]:
-        """Add track to playback queue."""
+    async def add_to_queue(request: AddTrackToQueueRequest) -> dict[str, Any]:
+        """Add track to playback queue (database-backed, prevents path traversal)."""
         audio_player = get_audio_player()
         if not audio_player:
             raise HTTPException(status_code=503, detail="Audio player not available")
 
+        # Security: Query track from database to validate file path
+        library_manager = get_library_manager()
+        track = library_manager.tracks.get_by_id(request.track_id)
+        if not track:
+            raise HTTPException(status_code=404, detail=f"Track {request.track_id} not found in library")
+
         try:
-            track_info = {"filepath": track_path}
+            track_info = {"filepath": track.filepath, "id": track.id}  # Security: Use validated path from database
             audio_player.add_to_queue(track_info)
 
             await connection_manager.broadcast({
                 "type": "queue_updated",
-                "data": {"action": "added", "track_path": track_path}
+                "data": {"action": "added", "track_path": track.filepath}
             })
 
-            return {"message": "Track added to queue", "track_path": track_path}
+            return {"message": "Track added to queue", "track_path": track.filepath}
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to add to queue: {e}")
 
