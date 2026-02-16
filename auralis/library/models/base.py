@@ -11,10 +11,13 @@ Base classes, association tables, and mixins for database models
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Table
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
+
 
 # Create base for all models
-Base = declarative_base()
+class Base(DeclarativeBase):
+    """Base class for all database models."""
+    pass
 
 
 # Association tables for many-to-many relationships
