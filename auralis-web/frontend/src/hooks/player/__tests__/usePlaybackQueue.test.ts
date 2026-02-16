@@ -724,4 +724,380 @@ describe('usePlaybackQueue', () => {
       expect(result.current.repeatMode).toBe('all');
     });
   });
+
+  // =========================================================================
+  // CALLBACK STABILITY (Issue #2137)
+  // =========================================================================
+
+  describe('Callback Stability', () => {
+    it('should maintain stable setQueue reference when state changes', async () => {
+      const mockPost = vi.fn().mockResolvedValue({});
+      const mockGet = vi.fn().mockResolvedValue({
+        tracks: [],
+        currentIndex: 0,
+        isShuffled: false,
+        repeatMode: 'off',
+        lastUpdated: Date.now(),
+      });
+
+      vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
+        get: mockGet,
+        post: mockPost,
+        put: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+        patch: vi.fn().mockResolvedValue({}),
+        clearError: vi.fn(),
+        isLoading: false,
+        error: null,
+      } as any);
+
+      const { result, rerender } = renderHook(() => usePlaybackQueue());
+
+      // Wait for initial mount
+      await waitFor(() => {
+        expect(result.current.queue).toEqual([]);
+      });
+
+      // Capture initial callback reference
+      const initialSetQueue = result.current.setQueue;
+
+      // Simulate state change via WebSocket (trigger re-render)
+      act(() => {
+        // Simulate a queue_changed event by directly calling setState through the hook
+        // In reality this would come through the WebSocket subscription
+        result.current.setQueue(mockTracks);
+      });
+
+      await waitFor(() => {
+        expect(result.current.queue.length).toBeGreaterThan(0);
+      });
+
+      // Force re-render
+      rerender();
+
+      // Callback reference should remain stable
+      expect(result.current.setQueue).toBe(initialSetQueue);
+    });
+
+    it('should maintain stable clearQueue reference when state changes', async () => {
+      const mockPost = vi.fn().mockResolvedValue({});
+
+      vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          tracks: mockTracks,
+          currentIndex: 0,
+          isShuffled: false,
+          repeatMode: 'off',
+          lastUpdated: Date.now(),
+        }),
+        post: mockPost,
+        put: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+        patch: vi.fn().mockResolvedValue({}),
+        clearError: vi.fn(),
+        isLoading: false,
+        error: null,
+      } as any);
+
+      const { result, rerender } = renderHook(() => usePlaybackQueue());
+
+      await waitFor(() => {
+        expect(result.current.queue.length).toBe(mockTracks.length);
+      });
+
+      // Capture initial callback reference
+      const initialClearQueue = result.current.clearQueue;
+
+      // Change state
+      act(() => {
+        result.current.toggleShuffle();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isShuffled).toBe(true);
+      });
+
+      // Force re-render
+      rerender();
+
+      // Callback reference should remain stable
+      expect(result.current.clearQueue).toBe(initialClearQueue);
+    });
+
+    it('should maintain stable toggleShuffle reference when state changes', async () => {
+      const mockPost = vi.fn().mockResolvedValue({});
+
+      vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          tracks: mockTracks,
+          currentIndex: 0,
+          isShuffled: false,
+          repeatMode: 'off',
+          lastUpdated: Date.now(),
+        }),
+        post: mockPost,
+        put: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+        patch: vi.fn().mockResolvedValue({}),
+        clearError: vi.fn(),
+        isLoading: false,
+        error: null,
+      } as any);
+
+      const { result, rerender } = renderHook(() => usePlaybackQueue());
+
+      await waitFor(() => {
+        expect(result.current.queue.length).toBe(mockTracks.length);
+      });
+
+      // Capture initial callback reference
+      const initialToggleShuffle = result.current.toggleShuffle;
+
+      // Change repeat mode (different state property)
+      act(() => {
+        result.current.setRepeatMode('all');
+      });
+
+      await waitFor(() => {
+        expect(result.current.repeatMode).toBe('all');
+      });
+
+      // Force re-render
+      rerender();
+
+      // Callback reference should remain stable
+      expect(result.current.toggleShuffle).toBe(initialToggleShuffle);
+    });
+
+    it('should maintain stable setRepeatMode reference when state changes', async () => {
+      const mockPost = vi.fn().mockResolvedValue({});
+
+      vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          tracks: mockTracks,
+          currentIndex: 0,
+          isShuffled: false,
+          repeatMode: 'off',
+          lastUpdated: Date.now(),
+        }),
+        post: mockPost,
+        put: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+        patch: vi.fn().mockResolvedValue({}),
+        clearError: vi.fn(),
+        isLoading: false,
+        error: null,
+      } as any);
+
+      const { result, rerender } = renderHook(() => usePlaybackQueue());
+
+      await waitFor(() => {
+        expect(result.current.queue.length).toBe(mockTracks.length);
+      });
+
+      // Capture initial callback reference
+      const initialSetRepeatMode = result.current.setRepeatMode;
+
+      // Change shuffle state
+      act(() => {
+        result.current.toggleShuffle();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isShuffled).toBe(true);
+      });
+
+      // Force re-render
+      rerender();
+
+      // Callback reference should remain stable
+      expect(result.current.setRepeatMode).toBe(initialSetRepeatMode);
+    });
+  });
+
+  // =========================================================================
+  // OPTIMISTIC ROLLBACK
+  // =========================================================================
+
+  describe('Optimistic Rollback with useRef', () => {
+    it('should rollback setQueue on API failure using latest state from ref', async () => {
+      const mockPost = vi.fn().mockRejectedValue(new Error('API Error'));
+
+      vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          tracks: mockTracks,
+          currentIndex: 1,
+          isShuffled: true,
+          repeatMode: 'all',
+          lastUpdated: Date.now(),
+        }),
+        post: mockPost,
+        put: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+        patch: vi.fn().mockResolvedValue({}),
+        clearError: vi.fn(),
+        isLoading: false,
+        error: null,
+      } as any);
+
+      const { result } = renderHook(() => usePlaybackQueue());
+
+      await waitFor(() => {
+        expect(result.current.queue).toEqual(mockTracks);
+      });
+
+      const originalQueue = result.current.queue;
+      const originalIndex = result.current.currentIndex;
+      const originalShuffle = result.current.isShuffled;
+      const originalRepeat = result.current.repeatMode;
+
+      // Try to set new queue (will fail)
+      await act(async () => {
+        try {
+          await result.current.setQueue([mockTracks[0]], 0);
+        } catch (err) {
+          // Expected to fail
+        }
+      });
+
+      // Should rollback to original state
+      expect(result.current.queue).toEqual(originalQueue);
+      expect(result.current.currentIndex).toBe(originalIndex);
+      expect(result.current.isShuffled).toBe(originalShuffle);
+      expect(result.current.repeatMode).toBe(originalRepeat);
+      expect(result.current.error).toBeDefined();
+    });
+
+    it('should rollback toggleShuffle on API failure using latest state from ref', async () => {
+      const mockPost = vi.fn().mockRejectedValue(new Error('API Error'));
+
+      vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          tracks: mockTracks,
+          currentIndex: 0,
+          isShuffled: false,
+          repeatMode: 'off',
+          lastUpdated: Date.now(),
+        }),
+        post: mockPost,
+        put: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+        patch: vi.fn().mockResolvedValue({}),
+        clearError: vi.fn(),
+        isLoading: false,
+        error: null,
+      } as any);
+
+      const { result } = renderHook(() => usePlaybackQueue());
+
+      await waitFor(() => {
+        expect(result.current.queue).toEqual(mockTracks);
+      });
+
+      const originalShuffle = result.current.isShuffled;
+
+      // Try to toggle shuffle (will fail)
+      await act(async () => {
+        try {
+          await result.current.toggleShuffle();
+        } catch (err) {
+          // Expected to fail
+        }
+      });
+
+      // Should rollback to original state
+      expect(result.current.isShuffled).toBe(originalShuffle);
+      expect(result.current.error).toBeDefined();
+    });
+
+    it('should rollback setRepeatMode on API failure using latest state from ref', async () => {
+      const mockPost = vi.fn().mockRejectedValue(new Error('API Error'));
+
+      vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          tracks: mockTracks,
+          currentIndex: 0,
+          isShuffled: false,
+          repeatMode: 'off',
+          lastUpdated: Date.now(),
+        }),
+        post: mockPost,
+        put: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+        patch: vi.fn().mockResolvedValue({}),
+        clearError: vi.fn(),
+        isLoading: false,
+        error: null,
+      } as any);
+
+      const { result } = renderHook(() => usePlaybackQueue());
+
+      await waitFor(() => {
+        expect(result.current.queue).toEqual(mockTracks);
+      });
+
+      const originalRepeatMode = result.current.repeatMode;
+
+      // Try to set repeat mode (will fail)
+      await act(async () => {
+        try {
+          await result.current.setRepeatMode('all');
+        } catch (err) {
+          // Expected to fail
+        }
+      });
+
+      // Should rollback to original state
+      expect(result.current.repeatMode).toBe(originalRepeatMode);
+      expect(result.current.error).toBeDefined();
+    });
+
+    it('should rollback clearQueue on API failure using latest state from ref', async () => {
+      const mockPost = vi.fn().mockRejectedValue(new Error('API Error'));
+
+      vi.spyOn(useRestAPIModule, 'useRestAPI').mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          tracks: mockTracks,
+          currentIndex: 1,
+          isShuffled: true,
+          repeatMode: 'all',
+          lastUpdated: Date.now(),
+        }),
+        post: mockPost,
+        put: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+        patch: vi.fn().mockResolvedValue({}),
+        clearError: vi.fn(),
+        isLoading: false,
+        error: null,
+      } as any);
+
+      const { result } = renderHook(() => usePlaybackQueue());
+
+      await waitFor(() => {
+        expect(result.current.queue).toEqual(mockTracks);
+      });
+
+      const originalQueue = result.current.queue;
+      const originalIndex = result.current.currentIndex;
+      const originalShuffle = result.current.isShuffled;
+      const originalRepeat = result.current.repeatMode;
+
+      // Try to clear queue (will fail)
+      await act(async () => {
+        try {
+          await result.current.clearQueue();
+        } catch (err) {
+          // Expected to fail
+        }
+      });
+
+      // Should rollback to original state
+      expect(result.current.queue).toEqual(originalQueue);
+      expect(result.current.currentIndex).toBe(originalIndex);
+      expect(result.current.isShuffled).toBe(originalShuffle);
+      expect(result.current.repeatMode).toBe(originalRepeat);
+      expect(result.current.error).toBeDefined();
+    });
+  });
 });

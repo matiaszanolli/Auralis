@@ -40,7 +40,7 @@
  * @module hooks/player/usePlaybackQueue
  */
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { useWebSocketSubscription } from '@/hooks/websocket/useWebSocketSubscription';
 import type { Track } from '@/types/domain';
@@ -161,6 +161,13 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   const [error, setError] = useState<ApiError | null>(null);
 
   /**
+   * Ref to track latest state without causing callback recreation
+   * Used for optimistic rollback in callbacks
+   */
+  const stateRef = useRef<QueueState>(state);
+  stateRef.current = state;
+
+  /**
    * Subscribe to real-time queue updates via WebSocket
    */
   useWebSocketSubscription(
@@ -238,14 +245,14 @@ export function usePlaybackQueue(): PlaybackQueueActions {
       setIsLoading(true);
       setError(null);
 
-      // Optimistic update
-      const previousState = state;
+      // Optimistic update - use ref to get latest state without dependency
+      const previousState = stateRef.current;
 
       setState({
         tracks,
         currentIndex: startIndex,
-        isShuffled: state.isShuffled,
-        repeatMode: state.repeatMode,
+        isShuffled: stateRef.current.isShuffled,
+        repeatMode: stateRef.current.repeatMode,
         lastUpdated: Date.now(),
       });
 
@@ -271,7 +278,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [api, state]
+    [api]
   );
 
   /**
@@ -413,10 +420,9 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     setIsLoading(true);
     setError(null);
 
-    const newShuffle = !state.isShuffled;
-
-    // Optimistic update
-    const previousState = state;
+    // Use ref to get latest state without dependency
+    const newShuffle = !stateRef.current.isShuffled;
+    const previousState = stateRef.current;
 
     setState((prevState) => ({
       ...prevState,
@@ -444,7 +450,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     } finally {
       setIsLoading(false);
     }
-  }, [api, state.isShuffled]);
+  }, [api]);
 
   /**
    * Set repeat mode
@@ -468,8 +474,8 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         throw apiError;
       }
 
-      // Optimistic update
-      const previousState = state;
+      // Optimistic update - use ref to get latest state without dependency
+      const previousState = stateRef.current;
 
       setState((prevState) => ({
         ...prevState,
@@ -498,7 +504,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [api, state]
+    [api]
   );
 
   /**
@@ -510,14 +516,14 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     setIsLoading(true);
     setError(null);
 
-    // Optimistic update
-    const previousState = state;
+    // Optimistic update - use ref to get latest state without dependency
+    const previousState = stateRef.current;
 
     setState({
       tracks: [],
       currentIndex: 0,
-      isShuffled: state.isShuffled,
-      repeatMode: state.repeatMode,
+      isShuffled: stateRef.current.isShuffled,
+      repeatMode: stateRef.current.repeatMode,
       lastUpdated: Date.now(),
     });
 
@@ -539,7 +545,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     } finally {
       setIsLoading(false);
     }
-  }, [api, state]);
+  }, [api]);
 
   /**
    * Clear error state
