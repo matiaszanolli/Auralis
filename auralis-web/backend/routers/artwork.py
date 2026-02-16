@@ -52,7 +52,7 @@ def create_artwork_router(
     @router.get("/api/albums/{album_id}/artwork")
     async def get_album_artwork(album_id: int) -> FileResponse:
         """
-        Get album artwork file.
+        Get album artwork file (with path traversal protection).
 
         Args:
             album_id: Album ID
@@ -61,7 +61,8 @@ def create_artwork_router(
             FileResponse: Artwork image file
 
         Raises:
-            HTTPException: If library manager/factory not available, album/artwork not found
+            HTTPException: If library manager/factory not available, album/artwork not found,
+                         or path validation fails
         """
         try:
             repos = get_repos()
@@ -71,12 +72,42 @@ def create_artwork_router(
             if not album:
                 raise HTTPException(status_code=404, detail="Album not found")
 
-            if not album.artwork_path or not Path(album.artwork_path).exists():
+            if not album.artwork_path:
                 raise HTTPException(status_code=404, detail="Artwork not found")
 
-            # Return artwork file
+            # Security: Validate artwork path is within allowed directory
+            # Define allowed artwork directory
+            artwork_dir = Path.home() / ".auralis" / "artwork"
+            artwork_dir.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+
+            # Resolve allowed directory (handles symlinks in base path)
+            allowed_dir = artwork_dir.resolve()
+
+            # Resolve artwork path (handles symlinks and relative paths)
+            # Use strict=False to resolve path even if file doesn't exist (for security validation)
+            try:
+                requested_path = Path(album.artwork_path).resolve(strict=False)
+            except (OSError, RuntimeError) as e:
+                logger.warning(f"Invalid artwork path for album {album_id}: {album.artwork_path} - {e}")
+                raise HTTPException(status_code=403, detail="Access denied: invalid path")
+
+            # Security: Check that resolved path is within allowed directory
+            # This MUST happen before existence check to prevent path traversal
+            # Use is_relative_to() for safe path comparison (prevents traversal attacks)
+            if not requested_path.is_relative_to(allowed_dir):
+                logger.warning(
+                    f"Path traversal attempt blocked for album {album_id}: "
+                    f"requested={requested_path}, allowed_dir={allowed_dir}"
+                )
+                raise HTTPException(status_code=403, detail="Access denied: path outside artwork directory")
+
+            # Additional check: file must exist (after security validation)
+            if not requested_path.exists():
+                raise HTTPException(status_code=404, detail="Artwork not found")
+
+            # Return artwork file with validated path
             return FileResponse(
-                album.artwork_path,
+                str(requested_path),  # Use validated absolute path
                 media_type="image/jpeg",
                 headers={
                     "Cache-Control": "public, max-age=31536000",  # Cache for 1 year
