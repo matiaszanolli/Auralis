@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException
 
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
-from .serializers import serialize_tracks
+from .serializers import serialize_albums, serialize_tracks
 
 logger = logging.getLogger(__name__)
 
@@ -78,42 +78,8 @@ def create_albums_router(
                 albums, total = repos.albums.get_all(limit=limit, offset=offset, order_by=order_by)
                 has_more = (offset + len(albums)) < total
 
-            # Convert to dicts for JSON serialization
-            albums_data = []
-            for album in albums:
-                if hasattr(album, 'to_dict'):
-                    album_dict = album.to_dict()
-                    # Calculate total_duration from tracks
-                    if hasattr(album, 'tracks') and album.tracks:
-                        total_duration = sum(
-                            track.duration for track in album.tracks
-                            if track.duration is not None
-                        )
-                        album_dict['total_duration'] = total_duration
-                    else:
-                        album_dict['total_duration'] = 0
-                    albums_data.append(album_dict)
-                else:
-                    # Calculate total_duration
-                    total_duration = 0
-                    if hasattr(album, 'tracks') and album.tracks:
-                        total_duration = sum(
-                            track.duration for track in album.tracks
-                            if track.duration is not None
-                        )
-
-                    albums_data.append({
-                        'id': getattr(album, 'id', None),
-                        'title': getattr(album, 'title', 'Unknown Album'),
-                        'artist': getattr(album.artist, 'name', 'Unknown Artist') if hasattr(album, 'artist') and album.artist else 'Unknown Artist',
-                        'year': getattr(album, 'year', None),
-                        'artwork_path': getattr(album, 'artwork_path', None),
-                        'track_count': len(album.tracks) if hasattr(album, 'tracks') else 0,
-                        'total_duration': total_duration
-                    })
-
             return {
-                "albums": albums_data,
+                "albums": serialize_albums(albums),
                 "total": total,
                 "offset": offset,
                 "limit": limit,

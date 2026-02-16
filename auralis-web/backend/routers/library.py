@@ -386,22 +386,51 @@ def create_library_router(
             raise handle_query_error("get artist", e)
 
     @router.get("/api/library/albums")
-    async def get_albums() -> dict[str, Any]:
+    async def get_albums(
+        limit: int = 50,
+        offset: int = 0,
+        search: str | None = None,
+        order_by: str = 'title'
+    ) -> dict[str, Any]:
         """
-        Get all albums.
+        Get albums from library with optional search and pagination.
+
+        Args:
+            limit: Maximum number of albums to return (default: 50)
+            offset: Number of albums to skip (default: 0)
+            search: Optional search query (searches title and artist)
+            order_by: Column to order by (default: 'title', options: 'title', 'year', 'created_at')
 
         Returns:
-            dict: List of albums
+            dict: List of albums with pagination info including:
+                - albums: List of album objects
+                - total: Total number of albums in library
+                - limit: Requested limit
+                - offset: Current offset
+                - has_more: Boolean indicating if more albums are available
 
         Raises:
             HTTPException: If library manager/factory not available or query fails
         """
         try:
             repos = require_repository_factory(get_repository_factory)
-            albums, total = repos.albums.get_all()
+
+            # Get albums with pagination
+            if search:
+                albums = repos.albums.search(search, limit=limit, offset=offset)
+                # For search, we don't have total count yet, so estimate
+                total = len(albums) + offset
+                has_more = len(albums) >= limit
+            else:
+                albums, total = repos.albums.get_all(limit=limit, offset=offset, order_by=order_by)
+                has_more = (offset + len(albums)) < total
+
             return {
                 "albums": serialize_albums(albums),
-                "total": total
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "has_more": has_more
             }
         except HTTPException:
             raise
