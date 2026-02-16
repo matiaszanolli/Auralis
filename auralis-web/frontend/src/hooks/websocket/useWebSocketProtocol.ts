@@ -52,45 +52,42 @@ export function useWebSocketProtocol(options: UseWebSocketProtocolOptions = {}) 
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const clientRef = useRef(getWebSocketProtocol());
+  const unsubConnectionRef = useRef<(() => void) | null>(null);
+  const unsubErrorRef = useRef<(() => void) | null>(null);
 
   // Initialize and connect
   useEffect(() => {
     if (autoConnect) {
-      (async () => {
-        try {
-          const client = initializeWebSocketProtocol(url);
-          clientRef.current = client;
+      const client = initializeWebSocketProtocol(url);
+      clientRef.current = client;
 
-          // Set up connection handler
-          const unsubscribeConnection = client.onConnectionChange((isConnected) => {
-            setConnected(isConnected);
-            onConnectionChange?.(isConnected);
-          });
+      // Set up connection handler
+      unsubConnectionRef.current = client.onConnectionChange((isConnected) => {
+        setConnected(isConnected);
+        onConnectionChange?.(isConnected);
+      });
 
-          // Set up error handler
-          const unsubscribeError = client.onError((err) => {
-            setError(err);
-            onError?.(err);
-          });
+      // Set up error handler
+      unsubErrorRef.current = client.onError((err) => {
+        setError(err);
+        onError?.(err);
+      });
 
-          // Connect
-          await client.connect();
-
-          // Clean up handlers on unmount
-          return () => {
-            unsubscribeConnection();
-            unsubscribeError();
-          };
-        } catch (err) {
-          const error = err instanceof Error ? err : new Error(String(err));
-          setError(error);
-          onError?.(error);
-        }
-      })();
+      // Connect asynchronously
+      client.connect().catch((err) => {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        onError?.(error);
+      });
     }
 
+    // Cleanup: unsubscribe event handlers on unmount
     return () => {
-      // Don't disconnect on unmount - keep connection alive
+      unsubConnectionRef.current?.();
+      unsubErrorRef.current?.();
+      unsubConnectionRef.current = null;
+      unsubErrorRef.current = null;
+      // Don't disconnect - keep connection alive for other components
     };
   }, [autoConnect, url, onConnectionChange, onError]);
 
