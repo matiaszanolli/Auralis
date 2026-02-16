@@ -13,7 +13,7 @@
  *   );
  */
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import type { WebSocketMessage, WebSocketMessageType } from '../../types/websocket';
 
 // Global WebSocket connection (should be managed by WebSocketContext)
@@ -56,6 +56,7 @@ export function useWebSocketSubscription(
 ): () => void {
   // Memoize the callback to prevent re-subscribing unnecessarily
   const memoizedCallback = useCallback(callback, [callback]);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const manager = getWebSocketManager();
@@ -68,17 +69,18 @@ export function useWebSocketSubscription(
 
     // Subscribe to messages
     const unsubscribe = manager.subscribe(messageTypes, memoizedCallback);
+    unsubscribeRef.current = unsubscribe;
 
     // Unsubscribe on unmount
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      unsubscribeRef.current = null;
+    };
   }, [messageTypes, memoizedCallback]);
 
   // Return a way to manually unsubscribe (rarely used)
   return () => {
-    const manager = getWebSocketManager();
-    if (manager) {
-      manager.subscribe(messageTypes, memoizedCallback);
-    }
+    unsubscribeRef.current?.();
   };
 }
 
