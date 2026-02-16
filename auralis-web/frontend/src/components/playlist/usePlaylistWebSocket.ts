@@ -13,11 +13,8 @@ interface UsePlaylistWebSocketProps {
  *
  * Subscribes to real-time playlist events:
  * - playlist_created
- * - playlist_updated
+ * - playlist_updated (with actions: renamed, track_added, track_removed, reordered, cleared)
  * - playlist_deleted
- * - playlist_tracks_added
- * - playlist_track_removed
- * - playlist_cleared
  *
  * Automatically cleans up subscriptions on unmount.
  */
@@ -37,10 +34,19 @@ export const usePlaylistWebSocket = ({
       onPlaylistCreated();
     });
 
-    // Subscribe to playlist_updated
+    // Subscribe to playlist_updated (handles all update actions)
     const unsubscribeUpdated = subscribe('playlist_updated', (message: any) => {
       try {
-        onPlaylistUpdated(message.data.playlist_id, message.data.updates);
+        const { playlist_id, action } = message.data;
+
+        // For rename action, call onPlaylistUpdated callback
+        if (action === 'renamed') {
+          onPlaylistUpdated(playlist_id, { action });
+        }
+        // For track operations (add/remove/clear/reorder), trigger full refresh
+        else if (action === 'track_added' || action === 'track_removed' || action === 'cleared' || action === 'reordered') {
+          onPlaylistsRefresh();
+        }
       } catch (err) {
         console.error('Error handling playlist_updated:', err);
       }
@@ -55,30 +61,12 @@ export const usePlaylistWebSocket = ({
       }
     });
 
-    // Subscribe to playlist_tracks_added
-    const unsubscribeTracksAdded = subscribe('playlist_tracks_added', () => {
-      onPlaylistsRefresh();
-    });
-
-    // Subscribe to playlist_track_removed
-    const unsubscribeTrackRemoved = subscribe('playlist_track_removed', () => {
-      onPlaylistsRefresh();
-    });
-
-    // Subscribe to playlist_cleared
-    const unsubscribeCleared = subscribe('playlist_cleared', () => {
-      onPlaylistsRefresh();
-    });
-
     // Cleanup: unsubscribe from all message types
     return () => {
       console.log('📝 PlaylistList: Cleaning up WebSocket subscriptions');
       unsubscribeCreated();
       unsubscribeUpdated();
       unsubscribeDeleted();
-      unsubscribeTracksAdded();
-      unsubscribeTrackRemoved();
-      unsubscribeCleared();
     };
   }, [subscribe, onPlaylistCreated, onPlaylistUpdated, onPlaylistDeleted, onPlaylistsRefresh]);
 };

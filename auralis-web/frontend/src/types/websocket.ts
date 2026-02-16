@@ -228,7 +228,7 @@ export interface PlaylistUpdatedMessage extends WebSocketMessage {
   type: 'playlist_updated';
   data: {
     playlist_id: number;
-    action: 'renamed' | 'track_added' | 'track_removed' | 'reordered';
+    action: 'renamed' | 'track_added' | 'track_removed' | 'reordered' | 'cleared';
   };
 }
 

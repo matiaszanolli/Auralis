@@ -203,7 +203,7 @@ def create_playlists_router(
                 "type": "playlist_updated",
                 "data": {
                     "playlist_id": playlist_id,
-                    "updates": update_data
+                    "action": "renamed"
                 }
             })
 
@@ -277,10 +277,10 @@ def create_playlists_router(
 
             # Broadcast playlist updated event
             await connection_manager.broadcast({
-                "type": "playlist_tracks_added",
+                "type": "playlist_updated",
                 "data": {
                     "playlist_id": playlist_id,
-                    "added_count": added_count
+                    "action": "track_added"
                 }
             })
 
@@ -318,10 +318,10 @@ def create_playlists_router(
 
             # Broadcast playlist updated event
             await connection_manager.broadcast({
-                "type": "playlist_track_removed",
+                "type": "playlist_updated",
                 "data": {
                     "playlist_id": playlist_id,
-                    "track_id": track_id
+                    "action": "track_removed"
                 }
             })
 
@@ -355,9 +355,10 @@ def create_playlists_router(
 
             # Broadcast playlist cleared event
             await connection_manager.broadcast({
-                "type": "playlist_cleared",
+                "type": "playlist_updated",
                 "data": {
-                    "playlist_id": playlist_id
+                    "playlist_id": playlist_id,
+                    "action": "cleared"
                 }
             })
 
