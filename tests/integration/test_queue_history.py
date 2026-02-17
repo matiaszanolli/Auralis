@@ -10,6 +10,7 @@ Tests verify:
 - History limit (20 entries) is enforced
 - History persists across application restarts
 - History operations integrate with QueueRepository
+- Undo is atomic: queue-state restore and history deletion in one transaction (#2239)
 """
 
 import json
@@ -401,6 +402,162 @@ class TestQueueHistoryUtilities:
         assert dict_repr['operation'] == 'unknown'
         assert dict_repr['state_snapshot'] == {}
         assert dict_repr['operation_metadata'] == {}
+
+
+class TestUndoAtomicity:
+    """
+    Undo must be atomic: queue restore + history deletion in one transaction.
+
+    Issue #2239: the old code used two separate sessions/commits.  A crash
+    between them would leave the history entry unreachable but also intact,
+    meaning the same undo could be replayed after a restart.
+
+    The fix performs both writes in a single session.commit().  We simulate
+    the 'crash between commits' by monkeypatching session.delete() to raise
+    after the queue state has been updated but before the history entry is
+    removed, then assert the database is still consistent.
+    """
+
+    def test_undo_queue_state_and_history_deleted_atomically(
+        self, queue_history_repo, queue_repo
+    ):
+        """
+        Both queue-state update and history deletion must commit together.
+
+        Verify by checking that after a successful undo:
+        - queue_state reflects the snapshot
+        - history entry is gone
+        No gaps, no partial state.
+        """
+        initial = [1, 2, 3]
+        queue_repo.set_queue_state(track_ids=initial, current_index=0)
+
+        snapshot = {
+            'track_ids': initial,
+            'current_index': 0,
+            'is_shuffled': False,
+            'repeat_mode': 'off',
+        }
+        queue_history_repo.push_to_history('set', snapshot)
+
+        # Change the queue so there's something to undo
+        queue_repo.set_queue_state(track_ids=[9, 8, 7], current_index=2)
+
+        # Perform undo
+        restored = queue_history_repo.undo()
+
+        # Queue state restored
+        assert restored is not None
+        import json
+        assert json.loads(restored.track_ids) == initial
+        assert restored.current_index == 0
+
+        # History entry gone in the same commit
+        assert queue_history_repo.get_history_count() == 0, (
+            "History entry must be deleted in the same transaction as the "
+            "queue-state restore (issue #2239)."
+        )
+
+    def test_simulated_crash_leaves_consistent_state(
+        self, queue_history_repo, queue_repo
+    ):
+        """
+        Simulate a crash after queue update but before history deletion.
+
+        In the old two-session design this was possible: session A would
+        commit the queue-state restore, then crash, leaving the history
+        entry present with the queue already rolled-back.
+
+        With the fix both writes are in one transaction, so the only
+        possible outcomes are:
+        (a) both committed (success), or
+        (b) both rolled back (crash before commit).
+
+        We test outcome (b): patch session.commit() to raise on the first
+        call, then verify neither the queue nor the history changed.
+        """
+        original_tracks = [10, 20, 30]
+        queue_repo.set_queue_state(track_ids=original_tracks, current_index=0)
+
+        snapshot = {
+            'track_ids': [1, 2, 3],
+            'current_index': 0,
+            'is_shuffled': False,
+            'repeat_mode': 'off',
+        }
+        queue_history_repo.push_to_history('set', snapshot)
+
+        # Pre-crash state
+        history_count_before = queue_history_repo.get_history_count()
+        assert history_count_before == 1
+
+        # Patch the session factory so the first commit() in undo() raises
+        original_factory = queue_history_repo.session_factory
+        import json as _json
+
+        class BoomOnCommit:
+            """Wraps a real session; raises on the first commit() call."""
+            def __init__(self, real_session):
+                self._s = real_session
+                self._committed = False
+
+            def __getattr__(self, name):
+                return getattr(self._s, name)
+
+            def commit(self):
+                if not self._committed:
+                    self._committed = True
+                    self._s.rollback()   # roll back the pending work
+                    raise RuntimeError("simulated crash before commit")
+                return self._s.commit()
+
+        def crashing_factory():
+            return BoomOnCommit(original_factory())
+
+        queue_history_repo.session_factory = crashing_factory
+        try:
+            with pytest.raises(RuntimeError, match="simulated crash"):
+                queue_history_repo.undo()
+        finally:
+            queue_history_repo.session_factory = original_factory
+
+        # After the simulated crash:
+        # - history entry must still be present (was rolled back)
+        # - queue state must be unchanged (was rolled back)
+        assert queue_history_repo.get_history_count() == 1, (
+            "History entry must still exist after a rolled-back undo "
+            "(issue #2239): the undo should be replayable."
+        )
+        current = queue_repo.get_queue_state()
+        assert _json.loads(current.track_ids) == original_tracks, (
+            "Queue state must be unchanged after a rolled-back undo "
+            "(issue #2239)."
+        )
+
+    def test_undo_called_without_queue_repository_argument(
+        self, queue_history_repo, queue_repo
+    ):
+        """
+        undo() must work when called without the queue_repository argument
+        (the parameter is now unused and defaults to None).
+        """
+        initial = [5, 6, 7]
+        queue_repo.set_queue_state(track_ids=initial, current_index=0)
+        snapshot = {
+            'track_ids': initial,
+            'current_index': 0,
+            'is_shuffled': False,
+            'repeat_mode': 'off',
+        }
+        queue_history_repo.push_to_history('set', snapshot)
+        queue_repo.set_queue_state(track_ids=[99], current_index=0)
+
+        # No argument — must not raise
+        restored = queue_history_repo.undo()
+
+        assert restored is not None
+        import json
+        assert json.loads(restored.track_ids) == initial
 
 
 class TestQueueHistoryIntegration:

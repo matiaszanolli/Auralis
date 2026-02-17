@@ -113,12 +113,18 @@ class QueueHistoryRepository:
         finally:
             session.close()
 
-    def undo(self, queue_repository: Any) -> QueueState | None:
+    def undo(self, queue_repository: Any = None) -> QueueState | None:
         """
-        Undo the last queue operation by restoring previous state
+        Undo the last queue operation by restoring previous state.
+
+        Both the queue-state update and the history-entry deletion are
+        performed in the same session and committed in a single transaction,
+        so a process crash between the two writes can never leave the history
+        in an inconsistent 'already-applied but not yet removed' state
+        (issue #2239).
 
         Args:
-            queue_repository: QueueRepository instance to update queue state
+            queue_repository: Unused; kept for backwards-compatible signature.
 
         Returns:
             Restored QueueState, or None if no history available
@@ -141,25 +147,26 @@ class QueueHistoryRepository:
             if not latest_history:
                 return None
 
-            # Parse the snapshot and restore it
+            # Parse the snapshot
             try:
                 state_snapshot = json.loads(latest_history.state_snapshot)  # type: ignore[arg-type]
             except json.JSONDecodeError:
                 raise ValueError(f"Corrupted history entry {latest_history.id}: invalid JSON")
 
-            # Use queue_repository to restore state
-            restored = queue_repository.set_queue_state(
-                track_ids=state_snapshot.get('track_ids', []),
-                current_index=state_snapshot.get('current_index', 0),
-                is_shuffled=state_snapshot.get('is_shuffled', False),
-                repeat_mode=state_snapshot.get('repeat_mode', 'off')
-            )
+            # Apply the snapshot directly in this session so the queue-state
+            # update and the history deletion are committed atomically (issue #2239).
+            queue_state.track_ids = json.dumps(state_snapshot.get('track_ids', []))  # type: ignore[assignment]
+            queue_state.current_index = state_snapshot.get('current_index', 0)  # type: ignore[assignment]
+            queue_state.is_shuffled = state_snapshot.get('is_shuffled', False)  # type: ignore[assignment]
+            queue_state.repeat_mode = state_snapshot.get('repeat_mode', 'off')  # type: ignore[assignment]
 
-            # Remove the history entry after using it (undo consumes the history)
+            # Delete the history entry — both changes land in one commit
             session.delete(latest_history)
             session.commit()
 
-            return cast(QueueState | None, restored)
+            session.refresh(queue_state)
+            session.expunge(queue_state)
+            return cast(QueueState | None, queue_state)
         finally:
             session.close()
 
