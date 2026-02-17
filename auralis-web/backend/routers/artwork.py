@@ -149,12 +149,13 @@ def create_artwork_router(
             # Convert filesystem path to API URL
             artwork_url = f"/api/albums/{album_id}/artwork"
 
-            # Broadcast artwork extracted event
+            # Broadcast artwork updated event
             await connection_manager.broadcast({
-                "type": "artwork_extracted",
+                "type": "artwork_updated",
                 "data": {
+                    "action": "extracted",
                     "album_id": album_id,
-                    "artwork_path": artwork_url  # Send URL, not filesystem path
+                    "artwork_path": artwork_url
                 }
             })
 
@@ -191,10 +192,10 @@ def create_artwork_router(
             if not success:
                 raise HTTPException(status_code=404, detail="Artwork not found")
 
-            # Broadcast artwork deleted event
+            # Broadcast artwork updated event
             await connection_manager.broadcast({
-                "type": "artwork_deleted",
-                "data": {"album_id": album_id}
+                "type": "artwork_updated",
+                "data": {"action": "deleted", "album_id": album_id}
             })
 
             return {"message": "Artwork deleted successfully", "album_id": album_id}
@@ -257,14 +258,13 @@ def create_artwork_router(
             # Convert filesystem path to API URL
             artwork_url = f"/api/albums/{album_id}/artwork"
 
-            # Broadcast artwork downloaded event
+            # Broadcast artwork updated event
             await connection_manager.broadcast({
-                "type": "artwork_downloaded",
+                "type": "artwork_updated",
                 "data": {
+                    "action": "downloaded",
                     "album_id": album_id,
-                    "artwork_path": artwork_url,  # Send URL, not filesystem path
-                    "artist": artist_name,
-                    "album": album_name
+                    "artwork_path": artwork_url
                 }
             })
 

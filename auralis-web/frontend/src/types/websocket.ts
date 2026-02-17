@@ -281,9 +281,9 @@ export interface MasteringRecommendationMessage extends WebSocketMessage {
 export interface ArtworkUpdatedMessage extends WebSocketMessage {
   type: 'artwork_updated';
   data: {
-    type: 'album' | 'track';
-    id: number;
-    artwork_path: string;
+    action: 'extracted' | 'downloaded' | 'deleted';
+    album_id: number;
+    artwork_path?: string; // absent for 'deleted'
   };
 }
 
