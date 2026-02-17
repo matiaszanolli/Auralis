@@ -217,10 +217,9 @@ export const usePlayerAPI = () => {
   // Seek to position
   const seek = useCallback(async (position: number) => {
     try {
-      const response = await fetch(`/api/player/seek`, {
+      // Backend expects position as a query parameter, not a request body (fixes #2253)
+      const response = await fetch(`/api/player/seek?position=${position}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ position })
       });
 
       if (response.ok) {

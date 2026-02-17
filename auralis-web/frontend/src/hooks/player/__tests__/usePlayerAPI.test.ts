@@ -155,13 +155,16 @@ describe('usePlayerAPI', () => {
     const seekPosition = 60
     await result.current.seek(seekPosition)
 
+    // Position must be sent as a query parameter, not a request body (fixes #2253)
     expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/player/seek'),
-      expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining(String(seekPosition)),
-      })
+      expect.stringContaining(`/api/player/seek?position=${seekPosition}`),
+      expect.objectContaining({ method: 'POST' })
     )
+    // Must NOT send a JSON body
+    const seekCall = vi.mocked(fetch).mock.calls.find(
+      ([url]) => typeof url === 'string' && url.includes('/api/player/seek')
+    )
+    expect(seekCall?.[1]?.body).toBeUndefined()
   })
 
   it('sets volume', async () => {
@@ -177,12 +180,10 @@ describe('usePlayerAPI', () => {
     const newVolume = 50
     await result.current.setVolume(newVolume)
 
+    // Volume is already sent as a query parameter in the implementation
     expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/player/volume'),
-      expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining(String(newVolume)),
-      })
+      expect.stringContaining(`/api/player/volume?volume=${newVolume}`),
+      expect.objectContaining({ method: 'POST' })
     )
   })
 
