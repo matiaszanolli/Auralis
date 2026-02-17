@@ -32,18 +32,20 @@ def apply_eq_gains(audio_chunk: np.ndarray,
     Returns:
         EQ-processed audio
     """
-    if len(audio_chunk) < fft_size:
+    original_len = len(audio_chunk)
+
+    if original_len < fft_size:
         # Pad with zeros for processing
         padded = np.zeros((fft_size, audio_chunk.shape[1] if audio_chunk.ndim == 2 else 1))
         if audio_chunk.ndim == 2:
-            padded[:len(audio_chunk), :] = audio_chunk
+            padded[:original_len, :] = audio_chunk
         else:
-            padded[:len(audio_chunk), 0] = audio_chunk
+            padded[:original_len, 0] = audio_chunk
         audio_chunk = padded.squeeze()
 
     # Process each channel
     if audio_chunk.ndim == 1:
-        return apply_eq_mono(audio_chunk, gains, freq_to_band_map, fft_size)
+        return apply_eq_mono(audio_chunk, gains, freq_to_band_map, fft_size)[:original_len]
     else:
         processed_channels = []
         for channel in range(audio_chunk.shape[1]):
@@ -54,7 +56,7 @@ def apply_eq_gains(audio_chunk: np.ndarray,
                 fft_size
             )
             processed_channels.append(processed_channel)
-        return np.column_stack(processed_channels)
+        return np.column_stack(processed_channels)[:original_len]
 
 
 def apply_eq_mono(audio_mono: np.ndarray,
