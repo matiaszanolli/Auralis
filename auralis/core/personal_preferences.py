@@ -9,11 +9,71 @@ Philosophy:
   Base Model + Personal Preferences = Truly Personalized Mastering
 """
 
+import contextlib
 import json
+import os
+import tempfile
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# ---------------------------------------------------------------------------
+# Cross-platform file locking helpers
+# ---------------------------------------------------------------------------
+try:
+    import fcntl as _fcntl
+
+    @contextlib.contextmanager
+    def _exclusive_lock(lock_path: Path):
+        """Acquire an exclusive advisory lock via fcntl.flock."""
+        lock_path.touch(exist_ok=True)
+        with open(lock_path, 'r') as _lf:
+            _fcntl.flock(_lf, _fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                _fcntl.flock(_lf, _fcntl.LOCK_UN)
+
+except ImportError:
+    try:
+        import msvcrt as _msvcrt
+
+        @contextlib.contextmanager
+        def _exclusive_lock(lock_path: Path):
+            """Acquire an exclusive lock via msvcrt (Windows)."""
+            lock_path.touch(exist_ok=True)
+            with open(lock_path, 'r') as _lf:
+                _msvcrt.locking(_lf.fileno(), _msvcrt.LK_NBLCK, 1)
+                try:
+                    yield
+                finally:
+                    _msvcrt.locking(_lf.fileno(), _msvcrt.LK_UNLCK, 1)
+
+    except ImportError:
+        @contextlib.contextmanager
+        def _exclusive_lock(lock_path: Path):  # type: ignore[misc]
+            """No-op fallback when neither fcntl nor msvcrt is available."""
+            yield
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    """Write *content* to *path* atomically via a temp file + os.replace().
+
+    Guarantees that concurrent readers always see either the old complete
+    file or the new complete file — never a partial write.
+    """
+    dir_ = path.parent
+    fd, tmp = tempfile.mkstemp(dir=dir_, prefix=f".{path.name}.tmp")
+    try:
+        with os.fdopen(fd, 'w') as fh:
+            fh.write(content)
+        os.replace(tmp, path)
+    except Exception:
+        # Clean up the temp file if anything went wrong
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
 
 
 @dataclass
@@ -212,15 +272,17 @@ class PersonalPreferences:
         self.version = version
         self.created_at = datetime.now().isoformat()
 
-        # Versioned file
-        version_file = prefs_dir / f"personal_{version}.json"
-        version_file.write_text(
-            json.dumps(asdict(self), indent=2)
-        )
+        lock_file = prefs_dir / ".preferences.lock"
+        content = json.dumps(asdict(self), indent=2)
 
-        # Current pointer
-        current_file = prefs_dir / "current.json"
-        current_file.write_text(version_file.read_text())
+        with _exclusive_lock(lock_file):
+            # Versioned snapshot
+            version_file = prefs_dir / f"personal_{version}.json"
+            _atomic_write(version_file, content)
+
+            # Current pointer — reuse the same serialised content (no re-read)
+            current_file = prefs_dir / "current.json"
+            _atomic_write(current_file, content)
 
     def export_for_sharing(self) -> dict[str, Any]:
         """Export profile for optional sharing (anonymized).
