@@ -109,6 +109,19 @@ export interface UseLibraryQueryResult<T> {
 }
 
 /**
+ * Canonical backend endpoint for each query type (issue #2379).
+ *
+ * - tracks → /api/library/tracks  (library router)
+ * - albums → /api/albums          (albums router — NOT /api/library/albums)
+ * - artists → /api/artists        (artists router — NOT /api/library/artists)
+ */
+const QUERY_TYPE_ENDPOINT: Record<LibraryQueryType, string> = {
+  tracks: '/api/library/tracks',
+  albums: '/api/albums',
+  artists: '/api/artists',
+};
+
+/**
  * Hook for querying library (tracks, albums, artists)
  *
  * @param queryType Type of query: 'tracks', 'albums', or 'artists'
@@ -180,7 +193,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
     const endpoint = options.endpoint;
     if (endpoint) return endpoint;
 
-    const baseUrl = `/api/library/${queryType}`;
+    const baseUrl = QUERY_TYPE_ENDPOINT[queryType];
     const params = new URLSearchParams();
 
     params.append('limit', String(limit || 50));

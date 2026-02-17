@@ -675,6 +675,9 @@ describe('useLibraryQuery', () => {
     });
 
     it('should fetch albums with correct endpoint', async () => {
+      // Albums use the dedicated /api/albums route, not /api/library/albums
+      // (issue #2379: /api/library/albums belongs to the library router but
+      //  /api/albums is the canonical albums-router endpoint)
       const mockGet = vi.fn().mockResolvedValue({
         items: [mockAlbum],
         total: 1,
@@ -698,10 +701,14 @@ describe('useLibraryQuery', () => {
       });
 
       const callUrl = mockGet.mock.calls[0][0];
-      expect(callUrl).toContain('/api/library/albums');
+      expect(callUrl).toContain('/api/albums');
+      expect(callUrl).not.toContain('/api/library/albums');
     });
 
     it('should fetch artists with correct endpoint', async () => {
+      // Artists use the dedicated /api/artists route, not /api/library/artists
+      // (issue #2379: /api/library/artists belongs to the library router but
+      //  /api/artists is the canonical artists-router endpoint)
       const mockGet = vi.fn().mockResolvedValue({
         items: [mockArtist],
         total: 1,
@@ -725,7 +732,8 @@ describe('useLibraryQuery', () => {
       });
 
       const callUrl = mockGet.mock.calls[0][0];
-      expect(callUrl).toContain('/api/library/artists');
+      expect(callUrl).toContain('/api/artists');
+      expect(callUrl).not.toContain('/api/library/artists');
     });
   });
 
