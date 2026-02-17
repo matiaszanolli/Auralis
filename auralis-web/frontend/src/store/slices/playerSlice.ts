@@ -86,88 +86,138 @@ const playerSlice = createSlice({
     /**
      * Set playing state
      */
-    setIsPlaying(state, action: PayloadAction<boolean>) {
-      state.isPlaying = action.payload;
-      state.lastUpdated = Date.now();
+    setIsPlaying: {
+      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
+        state.isPlaying = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(isPlaying: boolean) {
+        return { payload: isPlaying, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set current track
      */
-    setCurrentTrack(state, action: PayloadAction<Track | null>) {
-      state.currentTrack = action.payload;
-      if (action.payload) {
-        state.duration = action.payload.duration;
-        state.currentTime = 0;
-      }
-      state.lastUpdated = Date.now();
+    setCurrentTrack: {
+      reducer(state, action: PayloadAction<Track | null, string, { timestamp: number }>) {
+        state.currentTrack = action.payload;
+        if (action.payload) {
+          state.duration = action.payload.duration;
+          state.currentTime = 0;
+        }
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(track: Track | null) {
+        return { payload: track, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set current playback time
      */
-    setCurrentTime(state, action: PayloadAction<number>) {
-      state.currentTime = Math.min(action.payload, state.duration);
-      state.lastUpdated = Date.now();
+    setCurrentTime: {
+      reducer(state, action: PayloadAction<number, string, { timestamp: number }>) {
+        state.currentTime = Math.min(action.payload, state.duration);
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(time: number) {
+        return { payload: time, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set total duration
      */
-    setDuration(state, action: PayloadAction<number>) {
-      state.duration = action.payload;
-      state.lastUpdated = Date.now();
+    setDuration: {
+      reducer(state, action: PayloadAction<number, string, { timestamp: number }>) {
+        state.duration = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(duration: number) {
+        return { payload: duration, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set volume (0-100)
      */
-    setVolume(state, action: PayloadAction<number>) {
-      state.volume = Math.max(0, Math.min(100, action.payload));
-      if (state.volume > 0) {
-        state.isMuted = false;
-      }
-      state.lastUpdated = Date.now();
+    setVolume: {
+      reducer(state, action: PayloadAction<number, string, { timestamp: number }>) {
+        state.volume = Math.max(0, Math.min(100, action.payload));
+        if (state.volume > 0) {
+          state.isMuted = false;
+        }
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(volume: number) {
+        return { payload: volume, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Toggle mute
      */
-    toggleMute(state) {
-      state.isMuted = !state.isMuted;
-      state.lastUpdated = Date.now();
+    toggleMute: {
+      reducer(state, action: PayloadAction<undefined, string, { timestamp: number }>) {
+        state.isMuted = !state.isMuted;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set mute state
      */
-    setMuted(state, action: PayloadAction<boolean>) {
-      state.isMuted = action.payload;
-      state.lastUpdated = Date.now();
+    setMuted: {
+      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
+        state.isMuted = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(isMuted: boolean) {
+        return { payload: isMuted, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set audio preset
      */
-    setPreset(state, action: PayloadAction<PresetName>) {
-      state.preset = action.payload;
-      state.lastUpdated = Date.now();
+    setPreset: {
+      reducer(state, action: PayloadAction<PresetName, string, { timestamp: number }>) {
+        state.preset = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(preset: PresetName) {
+        return { payload: preset, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set loading state
      */
-    setIsLoading(state, action: PayloadAction<boolean>) {
-      state.isLoading = action.payload;
-      state.lastUpdated = Date.now();
+    setIsLoading: {
+      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
+        state.isLoading = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(isLoading: boolean) {
+        return { payload: isLoading, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set error message
      */
-    setError(state, action: PayloadAction<string | null>) {
-      state.error = action.payload;
-      state.lastUpdated = Date.now();
+    setError: {
+      reducer(state, action: PayloadAction<string | null, string, { timestamp: number }>) {
+        state.error = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(error: string | null) {
+        return { payload: error, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
@@ -180,12 +230,21 @@ const playerSlice = createSlice({
     /**
      * Update entire playback state (for WebSocket sync)
      */
-    updatePlaybackState(
-      state,
-      action: PayloadAction<Partial<Omit<PlayerState, 'lastUpdated'>>>
-    ) {
-      Object.assign(state, action.payload);
-      state.lastUpdated = Date.now();
+    updatePlaybackState: {
+      reducer(
+        state,
+        action: PayloadAction<
+          Partial<Omit<PlayerState, 'lastUpdated'>>,
+          string,
+          { timestamp: number }
+        >
+      ) {
+        Object.assign(state, action.payload);
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(playbackState: Partial<Omit<PlayerState, 'lastUpdated'>>) {
+        return { payload: playbackState, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
@@ -202,80 +261,130 @@ const playerSlice = createSlice({
     /**
      * Start enhanced audio streaming
      */
-    startStreaming(
-      state,
-      action: PayloadAction<{
+    startStreaming: {
+      reducer(
+        state,
+        action: PayloadAction<
+          {
+            trackId: number;
+            totalChunks: number;
+            intensity: number;
+          },
+          string,
+          { timestamp: number }
+        >
+      ) {
+        state.streaming.state = 'buffering';
+        state.streaming.trackId = action.payload.trackId;
+        state.streaming.totalChunks = action.payload.totalChunks;
+        state.streaming.intensity = action.payload.intensity;
+        state.streaming.processedChunks = 0;
+        state.streaming.progress = 0;
+        state.streaming.bufferedSamples = 0;
+        state.streaming.error = null;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(params: {
         trackId: number;
         totalChunks: number;
         intensity: number;
-      }>
-    ) {
-      state.streaming.state = 'buffering';
-      state.streaming.trackId = action.payload.trackId;
-      state.streaming.totalChunks = action.payload.totalChunks;
-      state.streaming.intensity = action.payload.intensity;
-      state.streaming.processedChunks = 0;
-      state.streaming.progress = 0;
-      state.streaming.bufferedSamples = 0;
-      state.streaming.error = null;
-      state.lastUpdated = Date.now();
+      }) {
+        return { payload: params, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Update streaming chunk progress
      */
-    updateStreamingProgress(
-      state,
-      action: PayloadAction<{
+    updateStreamingProgress: {
+      reducer(
+        state,
+        action: PayloadAction<
+          {
+            processedChunks: number;
+            bufferedSamples: number;
+            progress: number;
+          },
+          string,
+          { timestamp: number }
+        >
+      ) {
+        state.streaming.processedChunks = action.payload.processedChunks;
+        state.streaming.bufferedSamples = action.payload.bufferedSamples;
+        state.streaming.progress = action.payload.progress;
+        if (state.streaming.state === 'buffering' && action.payload.bufferedSamples > 0) {
+          state.streaming.state = 'streaming';
+        }
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(params: {
         processedChunks: number;
         bufferedSamples: number;
         progress: number;
-      }>
-    ) {
-      state.streaming.processedChunks = action.payload.processedChunks;
-      state.streaming.bufferedSamples = action.payload.bufferedSamples;
-      state.streaming.progress = action.payload.progress;
-      if (state.streaming.state === 'buffering' && action.payload.bufferedSamples > 0) {
-        state.streaming.state = 'streaming';
-      }
-      state.lastUpdated = Date.now();
+      }) {
+        return { payload: params, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Mark streaming as complete
      */
-    completeStreaming(state) {
-      state.streaming.state = 'complete';
-      state.streaming.progress = 100;
-      state.lastUpdated = Date.now();
+    completeStreaming: {
+      reducer(state, action: PayloadAction<undefined, string, { timestamp: number }>) {
+        state.streaming.state = 'complete';
+        state.streaming.progress = 100;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set streaming error
      */
-    setStreamingError(state, action: PayloadAction<string>) {
-      state.streaming.state = 'error';
-      state.streaming.error = action.payload;
-      state.lastUpdated = Date.now();
+    setStreamingError: {
+      reducer(state, action: PayloadAction<string, string, { timestamp: number }>) {
+        state.streaming.state = 'error';
+        state.streaming.error = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(error: string) {
+        return { payload: error, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Reset streaming state
      */
-    resetStreaming(state) {
-      state.streaming = initialStreamingInfo;
-      state.lastUpdated = Date.now();
+    resetStreaming: {
+      reducer(state, action: PayloadAction<undefined, string, { timestamp: number }>) {
+        state.streaming = initialStreamingInfo;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Update entire streaming info (for WebSocket sync)
      */
-    updateStreamingInfo(
-      state,
-      action: PayloadAction<Partial<Omit<StreamingInfo, 'error'>>>
-    ) {
-      Object.assign(state.streaming, action.payload);
-      state.lastUpdated = Date.now();
+    updateStreamingInfo: {
+      reducer(
+        state,
+        action: PayloadAction<
+          Partial<Omit<StreamingInfo, 'error'>>,
+          string,
+          { timestamp: number }
+        >
+      ) {
+        Object.assign(state.streaming, action.payload);
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(streamingInfo: Partial<Omit<StreamingInfo, 'error'>>) {
+        return { payload: streamingInfo, meta: { timestamp: Date.now() } };
+      },
     },
   },
 });

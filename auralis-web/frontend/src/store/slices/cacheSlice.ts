@@ -39,36 +39,55 @@ const cacheSlice = createSlice({
     /**
      * Set cache statistics
      */
-    setCacheStats(state, action: PayloadAction<CacheStats>) {
-      state.stats = action.payload;
-      state.lastUpdate = Date.now();
+    setCacheStats: {
+      reducer(state, action: PayloadAction<CacheStats, string, { timestamp: number }>) {
+        state.stats = action.payload;
+        state.lastUpdate = action.meta.timestamp;
+      },
+      prepare(stats: CacheStats) {
+        return { payload: stats, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set cache health
      */
-    setCacheHealth(state, action: PayloadAction<CacheHealth>) {
-      state.health = action.payload;
-      state.lastUpdate = Date.now();
+    setCacheHealth: {
+      reducer(state, action: PayloadAction<CacheHealth, string, { timestamp: number }>) {
+        state.health = action.payload;
+        state.lastUpdate = action.meta.timestamp;
+      },
+      prepare(health: CacheHealth) {
+        return { payload: health, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Update both stats and health
      */
-    updateCache(
-      state,
-      action: PayloadAction<{
-        stats?: CacheStats;
-        health?: CacheHealth;
-      }>
-    ) {
-      if (action.payload.stats) {
-        state.stats = action.payload.stats;
-      }
-      if (action.payload.health) {
-        state.health = action.payload.health;
-      }
-      state.lastUpdate = Date.now();
+    updateCache: {
+      reducer(
+        state,
+        action: PayloadAction<
+          {
+            stats?: CacheStats;
+            health?: CacheHealth;
+          },
+          string,
+          { timestamp: number }
+        >
+      ) {
+        if (action.payload.stats) {
+          state.stats = action.payload.stats;
+        }
+        if (action.payload.health) {
+          state.health = action.payload.health;
+        }
+        state.lastUpdate = action.meta.timestamp;
+      },
+      prepare(params: { stats?: CacheStats; health?: CacheHealth }) {
+        return { payload: params, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
@@ -95,22 +114,27 @@ const cacheSlice = createSlice({
     /**
      * Clear cache (local state after API call)
      */
-    clearCacheLocal(state) {
-      state.stats = {
-        ...initialState.stats,
-        tier1: { chunks: 0, size_mb: 0, hits: 0, misses: 0, hit_rate: 0 },
-        tier2: { chunks: 0, size_mb: 0, hits: 0, misses: 0, hit_rate: 0 },
-        overall: {
-          total_chunks: 0,
-          total_size_mb: 0,
-          total_hits: 0,
-          total_misses: 0,
-          overall_hit_rate: 0,
-          tracks_cached: 0,
-        },
-        tracks: {},
-      } as CacheStats;
-      state.lastUpdate = Date.now();
+    clearCacheLocal: {
+      reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        state.stats = {
+          ...initialState.stats,
+          tier1: { chunks: 0, size_mb: 0, hits: 0, misses: 0, hit_rate: 0 },
+          tier2: { chunks: 0, size_mb: 0, hits: 0, misses: 0, hit_rate: 0 },
+          overall: {
+            total_chunks: 0,
+            total_size_mb: 0,
+            total_hits: 0,
+            total_misses: 0,
+            overall_hit_rate: 0,
+            tracks_cached: 0,
+          },
+          tracks: {},
+        } as CacheStats;
+        state.lastUpdate = action.meta.timestamp;
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**

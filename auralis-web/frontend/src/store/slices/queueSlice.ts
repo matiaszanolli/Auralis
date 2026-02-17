@@ -39,124 +39,179 @@ const queueSlice = createSlice({
     /**
      * Add track to queue
      */
-    addTrack(state, action: PayloadAction<Track>) {
-      state.tracks.push(action.payload);
-      state.lastUpdated = Date.now();
+    addTrack: {
+      reducer(state, action: PayloadAction<Track, string, { timestamp: number }>) {
+        state.tracks.push(action.payload);
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(track: Track) {
+        return { payload: track, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Add multiple tracks to queue
      */
-    addTracks(state, action: PayloadAction<Track[]>) {
-      state.tracks.push(...action.payload);
-      state.lastUpdated = Date.now();
+    addTracks: {
+      reducer(state, action: PayloadAction<Track[], string, { timestamp: number }>) {
+        state.tracks.push(...action.payload);
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(tracks: Track[]) {
+        return { payload: tracks, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Remove track from queue by index
      */
-    removeTrack(state, action: PayloadAction<number>) {
-      const index = action.payload;
-      if (index >= 0 && index < state.tracks.length) {
-        state.tracks.splice(index, 1);
-        // Adjust currentIndex if needed
-        if (index < state.currentIndex) {
-          state.currentIndex = Math.max(0, state.currentIndex - 1);
-        } else if (index === state.currentIndex && state.currentIndex >= state.tracks.length) {
-          state.currentIndex = Math.max(0, state.currentIndex - 1);
+    removeTrack: {
+      reducer(state, action: PayloadAction<number, string, { timestamp: number }>) {
+        const index = action.payload;
+        if (index >= 0 && index < state.tracks.length) {
+          state.tracks.splice(index, 1);
+          // Adjust currentIndex if needed
+          if (index < state.currentIndex) {
+            state.currentIndex = Math.max(0, state.currentIndex - 1);
+          } else if (index === state.currentIndex && state.currentIndex >= state.tracks.length) {
+            state.currentIndex = Math.max(0, state.currentIndex - 1);
+          }
+          state.lastUpdated = action.meta.timestamp;
         }
-        state.lastUpdated = Date.now();
-      }
+      },
+      prepare(index: number) {
+        return { payload: index, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Reorder track in queue
      */
-    reorderTrack(
-      state,
-      action: PayloadAction<{ fromIndex: number; toIndex: number }>
-    ) {
-      const { fromIndex, toIndex } = action.payload;
-      if (fromIndex === toIndex) return;
+    reorderTrack: {
+      reducer(
+        state,
+        action: PayloadAction<{ fromIndex: number; toIndex: number }, string, { timestamp: number }>
+      ) {
+        const { fromIndex, toIndex } = action.payload;
+        if (fromIndex === toIndex) return;
 
-      const [movedTrack] = state.tracks.splice(fromIndex, 1);
-      state.tracks.splice(toIndex, 0, movedTrack);
+        const [movedTrack] = state.tracks.splice(fromIndex, 1);
+        state.tracks.splice(toIndex, 0, movedTrack);
 
-      // Update currentIndex
-      if (state.currentIndex === fromIndex) {
-        state.currentIndex = toIndex;
-      } else if (fromIndex < state.currentIndex && toIndex >= state.currentIndex) {
-        state.currentIndex = Math.max(0, state.currentIndex - 1);
-      } else if (fromIndex > state.currentIndex && toIndex <= state.currentIndex) {
-        state.currentIndex = Math.min(state.tracks.length - 1, state.currentIndex + 1);
-      }
+        // Update currentIndex
+        if (state.currentIndex === fromIndex) {
+          state.currentIndex = toIndex;
+        } else if (fromIndex < state.currentIndex && toIndex >= state.currentIndex) {
+          state.currentIndex = Math.max(0, state.currentIndex - 1);
+        } else if (fromIndex > state.currentIndex && toIndex <= state.currentIndex) {
+          state.currentIndex = Math.min(state.tracks.length - 1, state.currentIndex + 1);
+        }
 
-      state.lastUpdated = Date.now();
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(payload: { fromIndex: number; toIndex: number }) {
+        return { payload, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Clear entire queue
      */
-    clearQueue(state) {
-      state.tracks = [];
-      state.currentIndex = 0;
-      state.lastUpdated = Date.now();
+    clearQueue: {
+      reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        state.tracks = [];
+        state.currentIndex = 0;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set entire queue
      */
-    setQueue(state, action: PayloadAction<Track[]>) {
-      state.tracks = action.payload;
-      state.currentIndex = Math.min(state.currentIndex, state.tracks.length - 1);
-      state.lastUpdated = Date.now();
+    setQueue: {
+      reducer(state, action: PayloadAction<Track[], string, { timestamp: number }>) {
+        state.tracks = action.payload;
+        state.currentIndex = Math.min(state.currentIndex, state.tracks.length - 1);
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(tracks: Track[]) {
+        return { payload: tracks, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set current queue index
      */
-    setCurrentIndex(state, action: PayloadAction<number>) {
-      const index = action.payload;
-      if (index >= 0 && index < state.tracks.length) {
-        state.currentIndex = index;
-        state.lastUpdated = Date.now();
-      }
+    setCurrentIndex: {
+      reducer(state, action: PayloadAction<number, string, { timestamp: number }>) {
+        const index = action.payload;
+        if (index >= 0 && index < state.tracks.length) {
+          state.currentIndex = index;
+          state.lastUpdated = action.meta.timestamp;
+        }
+      },
+      prepare(index: number) {
+        return { payload: index, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Go to next track
      */
-    nextTrack(state) {
-      if (state.currentIndex < state.tracks.length - 1) {
-        state.currentIndex += 1;
-        state.lastUpdated = Date.now();
-      }
+    nextTrack: {
+      reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        if (state.currentIndex < state.tracks.length - 1) {
+          state.currentIndex += 1;
+          state.lastUpdated = action.meta.timestamp;
+        }
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Go to previous track
      */
-    previousTrack(state) {
-      if (state.currentIndex > 0) {
-        state.currentIndex -= 1;
-        state.lastUpdated = Date.now();
-      }
+    previousTrack: {
+      reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        if (state.currentIndex > 0) {
+          state.currentIndex -= 1;
+          state.lastUpdated = action.meta.timestamp;
+        }
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set loading state
      */
-    setIsLoading(state, action: PayloadAction<boolean>) {
-      state.isLoading = action.payload;
-      state.lastUpdated = Date.now();
+    setIsLoading: {
+      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
+        state.isLoading = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(isLoading: boolean) {
+        return { payload: isLoading, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set error message
      */
-    setError(state, action: PayloadAction<string | null>) {
-      state.error = action.payload;
-      state.lastUpdated = Date.now();
+    setError: {
+      reducer(state, action: PayloadAction<string | null, string, { timestamp: number }>) {
+        state.error = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(error: string | null) {
+        return { payload: error, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**

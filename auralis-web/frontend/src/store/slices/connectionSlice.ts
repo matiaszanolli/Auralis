@@ -45,53 +45,78 @@ const connectionSlice = createSlice({
     /**
      * Set WebSocket connection status
      */
-    setWSConnected(state, action: PayloadAction<boolean>) {
-      state.wsConnected = action.payload;
-      if (action.payload) {
-        // Connected: reset reconnect attempts
-        state.reconnectAttempts = 0;
-        state.lastError = null;
-      }
-      state.lastUpdated = Date.now();
+    setWSConnected: {
+      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
+        state.wsConnected = action.payload;
+        if (action.payload) {
+          // Connected: reset reconnect attempts
+          state.reconnectAttempts = 0;
+          state.lastError = null;
+        }
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(isConnected: boolean) {
+        return { payload: isConnected, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set API connection status
      */
-    setAPIConnected(state, action: PayloadAction<boolean>) {
-      state.apiConnected = action.payload;
-      if (action.payload) {
-        state.lastError = null;
-      }
-      state.lastUpdated = Date.now();
+    setAPIConnected: {
+      reducer(state, action: PayloadAction<boolean, string, { timestamp: number }>) {
+        state.apiConnected = action.payload;
+        if (action.payload) {
+          state.lastError = null;
+        }
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(isConnected: boolean) {
+        return { payload: isConnected, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Set network latency
      */
-    setLatency(state, action: PayloadAction<number>) {
-      state.latency = action.payload;
-      state.lastUpdated = Date.now();
+    setLatency: {
+      reducer(state, action: PayloadAction<number, string, { timestamp: number }>) {
+        state.latency = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(latency: number) {
+        return { payload: latency, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Increment reconnect attempts
      */
-    incrementReconnectAttempts(state) {
-      state.reconnectAttempts = Math.min(
-        state.reconnectAttempts + 1,
-        state.maxReconnectAttempts
-      );
-      state.lastReconnectTime = Date.now();
-      state.lastUpdated = Date.now();
+    incrementReconnectAttempts: {
+      reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        state.reconnectAttempts = Math.min(
+          state.reconnectAttempts + 1,
+          state.maxReconnectAttempts
+        );
+        state.lastReconnectTime = action.meta.timestamp;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
      * Reset reconnect attempts
      */
-    resetReconnectAttempts(state) {
-      state.reconnectAttempts = 0;
-      state.lastUpdated = Date.now();
+    resetReconnectAttempts: {
+      reducer(state, action: PayloadAction<void, string, { timestamp: number }>) {
+        state.reconnectAttempts = 0;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare() {
+        return { payload: undefined, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
@@ -104,9 +129,14 @@ const connectionSlice = createSlice({
     /**
      * Set error message
      */
-    setError(state, action: PayloadAction<string | null>) {
-      state.lastError = action.payload;
-      state.lastUpdated = Date.now();
+    setError: {
+      reducer(state, action: PayloadAction<string | null, string, { timestamp: number }>) {
+        state.lastError = action.payload;
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(error: string | null) {
+        return { payload: error, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
@@ -119,12 +149,21 @@ const connectionSlice = createSlice({
     /**
      * Update entire connection state
      */
-    updateConnectionState(
-      state,
-      action: PayloadAction<Partial<Omit<ConnectionState, 'lastUpdated'>>>
-    ) {
-      Object.assign(state, action.payload);
-      state.lastUpdated = Date.now();
+    updateConnectionState: {
+      reducer(
+        state,
+        action: PayloadAction<
+          Partial<Omit<ConnectionState, 'lastUpdated'>>,
+          string,
+          { timestamp: number }
+        >
+      ) {
+        Object.assign(state, action.payload);
+        state.lastUpdated = action.meta.timestamp;
+      },
+      prepare(connectionState: Partial<Omit<ConnectionState, 'lastUpdated'>>) {
+        return { payload: connectionState, meta: { timestamp: Date.now() } };
+      },
     },
 
     /**
