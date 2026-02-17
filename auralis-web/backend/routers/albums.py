@@ -222,12 +222,12 @@ def create_albums_router(
 
             # Extract all 25 dimensions from fingerprints
             dimensions = [
-                'sub_bass', 'bass', 'low_mid', 'mid', 'upper_mid', 'presence', 'air',
+                'sub_bass_pct', 'bass_pct', 'low_mid_pct', 'mid_pct', 'upper_mid_pct', 'presence_pct', 'air_pct',
                 'lufs', 'crest_db', 'bass_mid_ratio',
                 'tempo_bpm', 'rhythm_stability', 'transient_density', 'silence_ratio',
                 'spectral_centroid', 'spectral_rolloff', 'spectral_flatness',
                 'harmonic_ratio', 'pitch_stability', 'chroma_energy',
-                'dynamic_range_variation', 'loudness_variation', 'peak_consistency',
+                'dynamic_range_variation', 'loudness_variation_std', 'peak_consistency',
                 'stereo_width', 'phase_correlation'
             ]
 
