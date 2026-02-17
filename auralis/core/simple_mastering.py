@@ -194,22 +194,34 @@ class SimpleMasteringPipeline:
                     elif prev_tail is not None:
                         # Crossfade head of this chunk with previous tail
                         head_len = min(prev_tail.shape[1], processed_chunk.shape[1])
-                        head = processed_chunk[:, :head_len]
 
-                        # Equal-power crossfade (cosine curves maintain loudness)
-                        t = np.linspace(0.0, np.pi / 2, head_len)
-                        fade_in = np.sin(t) ** 2
-                        fade_out = np.cos(t) ** 2
-                        crossfaded = prev_tail[:, :head_len] * fade_out + head * fade_in
-
-                        if is_last:
-                            body = processed_chunk[:, head_len:]
-                            write_region = np.concatenate([crossfaded, body], axis=1)
-                            prev_tail = None
+                        if head_len == 0:
+                            # Empty overlap tail — skip crossfade, concatenate directly
+                            # (fixes #2157: np.linspace(..., 0) produces empty array
+                            # and silently drops samples at the chunk boundary)
+                            if is_last:
+                                write_region = processed_chunk
+                                prev_tail = None
+                            else:
+                                write_region = processed_chunk[:, :core_samples]
+                                prev_tail = processed_chunk[:, core_samples:].copy()
                         else:
-                            body = processed_chunk[:, head_len:core_samples]
-                            write_region = np.concatenate([crossfaded, body], axis=1)
-                            prev_tail = processed_chunk[:, core_samples:].copy()
+                            head = processed_chunk[:, :head_len]
+
+                            # Equal-power crossfade (cosine curves maintain loudness)
+                            t = np.linspace(0.0, np.pi / 2, head_len)
+                            fade_in = np.sin(t) ** 2
+                            fade_out = np.cos(t) ** 2
+                            crossfaded = prev_tail[:, :head_len] * fade_out + head * fade_in
+
+                            if is_last:
+                                body = processed_chunk[:, head_len:]
+                                write_region = np.concatenate([crossfaded, body], axis=1)
+                                prev_tail = None
+                            else:
+                                body = processed_chunk[:, head_len:core_samples]
+                                write_region = np.concatenate([crossfaded, body], axis=1)
+                                prev_tail = processed_chunk[:, core_samples:].copy()
                     else:
                         # No previous tail (safety fallback)
                         if is_last:
