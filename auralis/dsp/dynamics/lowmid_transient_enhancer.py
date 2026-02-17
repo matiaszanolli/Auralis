@@ -145,19 +145,30 @@ class LowMidTransientEnhancer:
             rms_level = np.sqrt(np.mean(low_mid_window ** 2))
 
             if rms_level > 1e-6:  # Avoid division by very small numbers
-                # Calculate expansion envelope
+                # Calculate expansion envelope (level-dependent gain)
                 relative_level = np.abs(low_mid_window) / rms_level
-                # Expand: boost ratio based on level difference from mean
-                np.power(relative_level, 1.0 - intensity)
+                expansion_env = np.power(relative_level, 1.0 - intensity)
 
-                # Apply with crossfade for smoothness
-                np.linspace(0, 1, min(20, end - start))
-                np.linspace(1, 0, min(20, end - start))
+                window_len = end - start
+                if window_len > 0:
+                    # Crossfade ramps for smooth attack/release at window edges
+                    ramp_len = min(20, window_len)
+                    fade_in = np.linspace(0, 1, ramp_len)
+                    fade_out = np.linspace(1, 0, ramp_len)
 
-                # Boost the transient window in the output
-                if end - start > 0:
-                    boost_amount = (expansion_ratio - 1.0) * intensity
-                    output[start:end] += boost_amount * low_mid[start:end]
+                    # Build blend envelope: ramp up at start, ramp down at end
+                    blend = np.ones(window_len)
+                    blend[:ramp_len] = np.minimum(blend[:ramp_len], fade_in)
+                    blend[window_len - ramp_len:] = np.minimum(
+                        blend[window_len - ramp_len:], fade_out
+                    )
+
+                    # Apply shaped expansion with smooth blend
+                    output[start:end] += (
+                        low_mid[start:end]
+                        * (expansion_env * expansion_ratio - 1.0)
+                        * blend
+                    )
 
         # Prevent clipping
         max_val = np.max(np.abs(output))
