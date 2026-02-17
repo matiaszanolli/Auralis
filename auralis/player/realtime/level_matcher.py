@@ -66,9 +66,13 @@ class RealtimeLevelMatcher:
         # Calculate gain needed
         gain = self.current_target_rms / current_rms
 
-        # Apply gain smoothing
+        # Apply gain smoothing — returns a per-sample 1-D ramp (issue #2209)
         self.gain_smoother.set_target(gain)
-        smooth_gain = self.gain_smoother.process(len(audio))
+        smooth_gain = self.gain_smoother.process(len(audio))  # shape (num_samples,)
+
+        # Broadcast ramp over channels: (samples,) → (samples, 1) for 2-D audio
+        if audio.ndim > 1:
+            smooth_gain = smooth_gain[:, np.newaxis]
 
         # Apply gain with soft limiting to prevent clipping
         processed = audio * smooth_gain
