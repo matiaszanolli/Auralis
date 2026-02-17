@@ -10,6 +10,17 @@ use pyo3::types::{PyModule, PyDict};
 use numpy::{PyArray1, PyArray2, ToPyArray, IntoPyArray};
 use crate::{hpss, yin, chroma, tempo, envelope, compressor, limiter, fingerprint_compute, biquad_filter, onset_detector, chunk_processor};
 
+/// Extract a human-readable message from a Rust panic payload (issue #2225).
+fn format_panic(e: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(s) = e.downcast_ref::<&str>() {
+        (*s).to_string()
+    } else if let Some(s) = e.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "unknown panic".to_string()
+    }
+}
+
 /// PyO3 module initialization
 /// Exposes all DSP functions to Python
 #[pymodule]
@@ -99,8 +110,16 @@ fn hpss_wrapper(
         config.kernel_p = kp;
     }
 
-    // Call Rust HPSS function
-    let (harmonic, percussive) = hpss::hpss(&audio_vec, &config);
+    // Call Rust HPSS function — catch panics so NaN/Inf/degenerate input
+    // raises a Python RuntimeError instead of crashing the process (issue #2225).
+    let (harmonic, percussive) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        hpss::hpss(&audio_vec, &config)
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in hpss: {}", format_panic(e)),
+        )
+    })?;
 
     // Convert results back to numpy arrays
     let harmonic_py = harmonic.into_pyarray_bound(py).unbind();
@@ -143,8 +162,16 @@ fn yin_wrapper(
         )
     })?;
 
-    // Call Rust YIN function
-    let f0 = yin::yin(&audio_vec, sr, fmin, fmax);
+    // Call Rust YIN function — catch panics so NaN/Inf/empty input
+    // raises a Python RuntimeError instead of crashing the process (issue #2225).
+    let f0 = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        yin::yin(&audio_vec, sr, fmin, fmax)
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in yin: {}", format_panic(e)),
+        )
+    })?;
 
     // Convert result to numpy array
     let f0_py = f0.into_pyarray_bound(py).unbind();
@@ -183,8 +210,16 @@ fn chroma_cqt_wrapper(
         )
     })?;
 
-    // Call Rust chroma_cqt function
-    let chroma = chroma::chroma_cqt(&audio_vec, sr);
+    // Call Rust chroma_cqt function — catch panics so NaN/Inf/degenerate input
+    // raises a Python RuntimeError instead of crashing the process (issue #2225).
+    let chroma = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        chroma::chroma_cqt(&audio_vec, sr)
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in chroma_cqt: {}", format_panic(e)),
+        )
+    })?;
 
     // Convert result to numpy array
     let chroma_py = chroma.into_pyarray_bound(py).unbind();
@@ -250,8 +285,15 @@ fn detect_tempo_wrapper(
         config.max_bpm = max;
     }
 
-    // Call Rust tempo detection function
-    let estimated_tempo = tempo::detect_tempo(&audio_vec, sr, &config);
+    // Call Rust tempo detection function — catch panics (issue #2225).
+    let estimated_tempo = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        tempo::detect_tempo(&audio_vec, sr, &config)
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in detect_tempo: {}", format_panic(e)),
+        )
+    })?;
 
     Ok(estimated_tempo)
 }
@@ -292,8 +334,15 @@ fn envelope_follow_wrapper(
         )
     })?;
 
-    // Call Rust envelope follower function
-    let envelope = envelope::envelope_follow(&levels_vec, sample_rate, attack_ms, release_ms);
+    // Call Rust envelope follower function — catch panics (issue #2225).
+    let envelope = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        envelope::envelope_follow(&levels_vec, sample_rate, attack_ms, release_ms)
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in envelope_follow: {}", format_panic(e)),
+        )
+    })?;
 
     // Convert result to numpy array
     let envelope_py = envelope.into_pyarray_bound(py).unbind();
@@ -386,8 +435,15 @@ fn compress_wrapper(
         lookahead_ms,
     };
 
-    // Call Rust compressor function
-    let (compressed, info) = compressor::compress(&audio_vec, &config, mode);
+    // Call Rust compressor function — catch panics (issue #2225).
+    let (compressed, info) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        compressor::compress(&audio_vec, &config, mode)
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in compress: {}", format_panic(e)),
+        )
+    })?;
 
     // Convert result to numpy array
     let compressed_py = compressed.into_pyarray_bound(py).unbind();
@@ -470,8 +526,15 @@ fn limit_wrapper(
         oversampling,
     };
 
-    // Call Rust limiter function
-    let (limited, info) = limiter::limit(&audio_vec, &config);
+    // Call Rust limiter function — catch panics (issue #2225).
+    let (limited, info) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        limiter::limit(&audio_vec, &config)
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in limit: {}", format_panic(e)),
+        )
+    })?;
 
     // Convert result to numpy array
     let limited_py = limited.into_pyarray_bound(py).unbind();
@@ -544,11 +607,18 @@ fn compute_fingerprint_wrapper(
         ));
     }
 
-    // Call Rust fingerprint computation
-    let fingerprint = fingerprint_compute::compute_complete_fingerprint(&audio_vec, sample_rate, channels)
-        .map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
-        })?;
+    // Call Rust fingerprint computation — catch panics (issue #2225).
+    let fingerprint = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        fingerprint_compute::compute_complete_fingerprint(&audio_vec, sample_rate, channels)
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in compute_fingerprint: {}", format_panic(e)),
+        )
+    })?
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+    })?;
 
     // Convert fingerprint to Python dict
     let dict = PyDict::new_bound(py);
@@ -631,8 +701,15 @@ fn apply_multiband_eq_wrapper(
         num_channels,
     );
 
-    // Process
-    let output = eq.process_stereo(&audio_array.view());
+    // Process — catch panics (issue #2225).
+    let output = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        eq.process_stereo(&audio_array.view())
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in apply_multiband_eq: {}", format_panic(e)),
+        )
+    })?;
 
     Ok(output.into_pyarray_bound(py).unbind())
 }
@@ -662,9 +739,16 @@ fn detect_onsets_wrapper(
     })?;
     let audio_array = ndarray::Array1::from(audio_vec);
 
-    // Detect onsets
+    // Detect onsets — catch panics (issue #2225).
     let detector = onset_detector::OnsetDetector::new(sr as f64, 2048, hop_length);
-    let result = detector.detect(&audio_array.view());
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        detector.detect(&audio_array.view())
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in detect_onsets: {}", format_panic(e)),
+        )
+    })?;
 
     // Convert to Python dict
     let dict = PyDict::new_bound(py);
@@ -712,8 +796,15 @@ fn process_chunks_wrapper(
 
     let mut processor = chunk_processor::ChunkProcessor::new(config);
 
-    // Process with identity function (just for demonstration)
-    let output = processor.process_chunks(&audio_array.view(), |chunk| chunk.to_owned());
+    // Process with identity function — catch panics (issue #2225).
+    let output = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        processor.process_chunks(&audio_array.view(), |chunk| chunk.to_owned())
+    }))
+    .map_err(|e| {
+        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+            format!("Rust DSP panic in process_chunks: {}", format_panic(e)),
+        )
+    })?;
 
     // Collect stats
     let dict = PyDict::new_bound(py);
