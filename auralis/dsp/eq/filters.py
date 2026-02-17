@@ -35,8 +35,9 @@ def apply_eq_gains(audio_chunk: np.ndarray,
     original_len = len(audio_chunk)
 
     if original_len < fft_size:
-        # Pad with zeros for processing
-        padded = np.zeros((fft_size, audio_chunk.shape[1] if audio_chunk.ndim == 2 else 1))
+        # Pad with zeros for processing; preserve dtype so float32 isn't promoted.
+        padded = np.zeros((fft_size, audio_chunk.shape[1] if audio_chunk.ndim == 2 else 1),
+                          dtype=audio_chunk.dtype)
         if audio_chunk.ndim == 2:
             padded[:original_len, :] = audio_chunk
         else:
@@ -98,7 +99,7 @@ def apply_eq_mono(audio_mono: np.ndarray,
     # Transform back to time domain
     processed_audio = np.real(ifft(spectrum))
 
-    return np.asarray(processed_audio[:len(audio_mono)], dtype=np.float32)
+    return np.asarray(processed_audio[:len(audio_mono)], dtype=audio_mono.dtype)
 
 
 def create_filter_bank(critical_bands: list[Any],

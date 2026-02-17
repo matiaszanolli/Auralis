@@ -438,6 +438,86 @@ class TestEQCurrentAPI:
         self.tearDown()
 
 
+class TestApplyEQGainsDtypePreservation:
+    """Verify apply_eq_gains/apply_eq_mono preserve input dtype (issue #2200).
+
+    The fix: apply_eq_mono returned dtype=np.float32 unconditionally, silently
+    truncating float64 inputs. Both the return cast and the zero-padding inside
+    apply_eq_gains now use audio.dtype instead of a hardcoded dtype.
+    """
+
+    def _make_gains_and_map(self, num_bands: int = 8, fft_size: int = 512):
+        """Create minimal gains / freq_to_band_map for filter testing."""
+        gains = np.zeros(num_bands)
+        # Spread fft_size//2+1 positive bins evenly across num_bands
+        bins = fft_size // 2 + 1
+        freq_to_band_map = np.minimum(
+            (np.arange(bins) * num_bands // bins),
+            num_bands - 1
+        )
+        return gains, freq_to_band_map
+
+    def test_float32_input_returns_float32_mono(self):
+        from auralis.dsp.eq.filters import apply_eq_gains
+        fft_size = 512
+        gains, ftbm = self._make_gains_and_map(fft_size=fft_size)
+        audio = np.random.randn(fft_size).astype(np.float32)
+        out = apply_eq_gains(audio, gains, ftbm, fft_size)
+        assert out.dtype == np.float32, f"Expected float32, got {out.dtype}"
+
+    def test_float64_input_returns_float64_mono(self):
+        from auralis.dsp.eq.filters import apply_eq_gains
+        fft_size = 512
+        gains, ftbm = self._make_gains_and_map(fft_size=fft_size)
+        audio = np.random.randn(fft_size).astype(np.float64)
+        out = apply_eq_gains(audio, gains, ftbm, fft_size)
+        assert out.dtype == np.float64, f"Expected float64, got {out.dtype}"
+
+    def test_float32_input_returns_float32_stereo(self):
+        from auralis.dsp.eq.filters import apply_eq_gains
+        fft_size = 512
+        gains, ftbm = self._make_gains_and_map(fft_size=fft_size)
+        audio = np.random.randn(fft_size, 2).astype(np.float32)
+        out = apply_eq_gains(audio, gains, ftbm, fft_size)
+        assert out.dtype == np.float32, f"Expected float32, got {out.dtype}"
+
+    def test_float64_input_returns_float64_stereo(self):
+        from auralis.dsp.eq.filters import apply_eq_gains
+        fft_size = 512
+        gains, ftbm = self._make_gains_and_map(fft_size=fft_size)
+        audio = np.random.randn(fft_size, 2).astype(np.float64)
+        out = apply_eq_gains(audio, gains, ftbm, fft_size)
+        assert out.dtype == np.float64, f"Expected float64, got {out.dtype}"
+
+    def test_float32_short_chunk_padded_returns_float32(self):
+        """Padded path (input shorter than fft_size) must also preserve dtype."""
+        from auralis.dsp.eq.filters import apply_eq_gains
+        fft_size = 512
+        gains, ftbm = self._make_gains_and_map(fft_size=fft_size)
+        audio = np.random.randn(128).astype(np.float32)  # shorter than fft_size
+        out = apply_eq_gains(audio, gains, ftbm, fft_size)
+        assert out.dtype == np.float32, f"Expected float32 (padded path), got {out.dtype}"
+
+    def test_float64_short_chunk_padded_returns_float64(self):
+        from auralis.dsp.eq.filters import apply_eq_gains
+        fft_size = 512
+        gains, ftbm = self._make_gains_and_map(fft_size=fft_size)
+        audio = np.random.randn(128).astype(np.float64)
+        out = apply_eq_gains(audio, gains, ftbm, fft_size)
+        assert out.dtype == np.float64, f"Expected float64 (padded path), got {out.dtype}"
+
+    def test_no_precision_loss_float64_round_trip(self):
+        """Float64 audio through flat-gain EQ should introduce negligible error."""
+        from auralis.dsp.eq.filters import apply_eq_gains
+        fft_size = 512
+        gains, ftbm = self._make_gains_and_map(fft_size=fft_size)
+        audio = np.random.randn(fft_size).astype(np.float64)
+        out = apply_eq_gains(audio, gains, ftbm, fft_size)
+        # Flat gains (0 dB everywhere) should return audio very close to input
+        np.testing.assert_allclose(out, audio, rtol=1e-6,
+                                   err_msg="Float64 precision lost through EQ")
+
+
 if __name__ == '__main__':
     import pytest
     pytest.main([__file__, '-v'])
