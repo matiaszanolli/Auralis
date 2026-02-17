@@ -271,7 +271,7 @@ def create_library_router(
                     elif hasattr(audio_file, '__getitem__'):
                         try:
                             lyrics_text = audio_file.get('\xa9lyr', [None])[0]
-                        except:
+                        except Exception:
                             pass
 
                 if lyrics_text:
