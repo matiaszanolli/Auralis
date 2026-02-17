@@ -26,10 +26,13 @@
  */
 
 import { useCallback, useState, useRef } from 'react';
+import { useDispatch } from 'react-redux';
 import { useRestAPI } from '@/hooks/api/useRestAPI';
 import { usePlaybackState } from '@/hooks/player/usePlaybackState';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { setIsPlaying } from '@/store/slices/playerSlice';
 import type { ApiError } from '@/types/api';
+import type { AppDispatch } from '@/store';
 
 /**
  * Return type for usePlaybackControl hook
@@ -88,6 +91,7 @@ export function usePlaybackControl(): PlaybackControlActions {
   const api = useRestAPI();
   const playbackState = usePlaybackState();
   const { send } = useWebSocketContext();
+  const dispatch = useDispatch<AppDispatch>();
 
   // Local loading state for this hook's operations
   const [isLoading, setIsLoading] = useState(false);
@@ -143,7 +147,10 @@ export function usePlaybackControl(): PlaybackControlActions {
     executingCommand.current = 'pause';
 
     try {
-      // Send WebSocket message to pause playback
+      // Update Redux state immediately so playback engines can respond
+      dispatch(setIsPlaying(false));
+
+      // Send WebSocket message to pause backend streaming
       send({
         type: 'pause',
         data: {},
@@ -158,7 +165,7 @@ export function usePlaybackControl(): PlaybackControlActions {
       setIsLoading(false);
       executingCommand.current = null;
     }
-  }, [send]);
+  }, [send, dispatch]);
 
   /**
    * Stop - Stop playback completely
@@ -170,7 +177,10 @@ export function usePlaybackControl(): PlaybackControlActions {
     executingCommand.current = 'stop';
 
     try {
-      // Send WebSocket message to stop playback
+      // Update Redux state immediately so playback engines can respond
+      dispatch(setIsPlaying(false));
+
+      // Send WebSocket message to stop backend streaming
       send({
         type: 'stop',
         data: {},

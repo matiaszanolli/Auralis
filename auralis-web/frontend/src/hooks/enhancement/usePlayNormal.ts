@@ -52,6 +52,7 @@ import {
   setStreamingError,
   resetStreaming,
   selectStreaming,
+  selectIsPlaying,
   setCurrentTrack,
 } from '@/store/slices/playerSlice';
 import {
@@ -144,6 +145,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
   const dispatch = useDispatch();
   const wsContext = useWebSocketContext();
   const streamingState = useSelector(selectStreaming);
+  const isPlaying = useSelector(selectIsPlaying);
 
   // Internal service references
   const pcmBufferRef = useRef<PCMStreamBuffer | null>(null);
@@ -525,6 +527,27 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       stopPlayback();
     };
   }, [stopPlayback]);
+
+  /**
+   * Watch Redux isPlaying state and control AudioPlaybackEngine accordingly.
+   * This allows usePlaybackControl.pause()/stop() to stop the engine immediately
+   * without waiting for buffered audio to drain (issue #2252).
+   */
+  useEffect(() => {
+    if (!playbackEngineRef.current) return;
+
+    if (isPlaying) {
+      // Resume playback if paused
+      if (isPaused) {
+        playbackEngineRef.current.resumePlayback();
+        setIsPaused(false);
+      }
+    } else {
+      // Pause playback immediately when isPlaying becomes false
+      playbackEngineRef.current.pausePlayback();
+      setIsPaused(true);
+    }
+  }, [isPlaying, isPaused]);
 
   return {
     playNormal,
