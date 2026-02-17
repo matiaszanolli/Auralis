@@ -170,9 +170,13 @@ class SimpleMasteringPipeline:
                     if chunk.ndim == 1:
                         chunk = np.stack([chunk, chunk]).T
 
-                    # Convert to (channels, samples) for processing
-                    if chunk.shape[0] > chunk.shape[1]:
-                        chunk = chunk.T
+                    # Convert to (channels, samples) for processing.
+                    # soundfile always yields (samples, channels), as does the
+                    # mono→stereo path above, so we always need to transpose here.
+                    # The old heuristic `shape[0] > shape[1]` silently failed for
+                    # square arrays like (2, 2) — 2-sample stereo — because 2 > 2
+                    # is False (issue #2292).
+                    chunk = chunk.T
 
                     # Process chunk (includes overlap tail for crossfading)
                     processed_chunk, chunk_info = self._process(
@@ -230,9 +234,10 @@ class SimpleMasteringPipeline:
                             write_region = processed_chunk[:, :core_samples]
                             prev_tail = processed_chunk[:, core_samples:].copy()
 
-                    # Convert back to (samples, channels) for writing
-                    if write_region.shape[0] < write_region.shape[1]:
-                        write_region = write_region.T
+                    # Convert back to (samples, channels) for writing.
+                    # write_region is always (channels, samples) after processing,
+                    # so unconditional transpose is correct here too (issue #2292).
+                    write_region = write_region.T
 
                     output_file.write(write_region)
 
