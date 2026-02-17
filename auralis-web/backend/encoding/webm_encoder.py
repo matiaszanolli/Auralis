@@ -14,6 +14,7 @@ Key Features:
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 import subprocess
 import tempfile
@@ -34,7 +35,7 @@ class WebMEncoderError(Exception):
     """Raised when WebM encoding fails."""
 
 
-def encode_to_webm_opus(
+async def encode_to_webm_opus(
     audio: np.ndarray,
     sample_rate: int,
     bitrate: int = 192,
@@ -45,8 +46,11 @@ def encode_to_webm_opus(
     """
     Encode numpy audio array to WebM with Opus codec.
 
-    This function converts processed audio chunks to WebM format for MSE streaming.
-    It uses ffmpeg with libopus for fast, high-quality encoding.
+    This coroutine converts processed audio chunks to WebM format for MSE
+    streaming without blocking the event loop.  File I/O is offloaded via
+    ``asyncio.to_thread``; ffmpeg is driven via
+    ``asyncio.create_subprocess_exec`` so other requests continue to be
+    served during the (typically 0.1-0.2 s) encoding window (issue #2221).
 
     Args:
         audio: Audio data as numpy array
@@ -78,7 +82,7 @@ def encode_to_webm_opus(
     Example:
         >>> import numpy as np
         >>> audio = np.random.randn(44100 * 30, 2)  # 30 seconds stereo
-        >>> webm_bytes = encode_to_webm_opus(audio, 44100)
+        >>> webm_bytes = await encode_to_webm_opus(audio, 44100)
         >>> len(webm_bytes)  # ~720 KB for 30s @ 192kbps
         737280
 
@@ -141,13 +145,13 @@ def encode_to_webm_opus(
     temp_webm = None
 
     try:
-        # Write audio to temporary WAV file
+        # Write audio to temporary WAV file (offloaded — avoids blocking event loop)
         temp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
         temp_wav.close()  # Close so sf.write can open it
 
         logger.debug(f"Writing temporary WAV: {temp_wav.name}")
         # Use 24-bit PCM for better quality (preserve more precision from float32)
-        sf.write(temp_wav.name, audio, sample_rate, subtype='PCM_24')
+        await asyncio.to_thread(sf.write, temp_wav.name, audio, sample_rate, subtype='PCM_24')
 
         # Create temporary WebM output file
         temp_webm = tempfile.NamedTemporaryFile(suffix='.webm', delete=False)
@@ -171,26 +175,35 @@ def encode_to_webm_opus(
 
         logger.debug(f"Encoding to WebM: {' '.join(cmd)}")
 
-        # Run ffmpeg
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30  # 30 second timeout
-        )
+        # Run ffmpeg without blocking the event loop (issue #2221)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _stdout, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=30)
+        except asyncio.TimeoutError:
+            proc.kill()
+            try:
+                await proc.communicate()  # drain pipes to avoid resource leaks
+            except Exception:
+                pass  # ignore errors during cleanup
+            raise WebMEncoderError("ffmpeg encoding timed out after 30 seconds")
 
-        if result.returncode != 0:
-            error_msg = f"ffmpeg encoding failed (code {result.returncode})"
-            if result.stderr:
-                error_msg += f"\nStderr: {result.stderr[-500:]}"  # Last 500 chars
+        if proc.returncode != 0:
+            error_msg = f"ffmpeg encoding failed (code {proc.returncode})"
+            if stderr_bytes:
+                stderr_text = stderr_bytes.decode('utf-8', errors='replace')
+                error_msg += f"\nStderr: {stderr_text[-500:]}"  # Last 500 chars
             raise WebMEncoderError(error_msg)
 
-        # Read WebM bytes
+        # Read WebM bytes (offloaded — avoids blocking event loop)
         webm_path = Path(temp_webm.name)
         if not webm_path.exists():
             raise WebMEncoderError("WebM output file not created")
 
-        webm_bytes = webm_path.read_bytes()
+        webm_bytes = await asyncio.to_thread(webm_path.read_bytes)
 
         if len(webm_bytes) == 0:
             raise WebMEncoderError("WebM output file is empty")
@@ -205,13 +218,13 @@ def encode_to_webm_opus(
 
         return webm_bytes
 
-    except subprocess.TimeoutExpired:
-        raise WebMEncoderError("ffmpeg encoding timed out after 30 seconds")
-
     except FileNotFoundError:
         raise WebMEncoderError(
             "ffmpeg not found. Install ffmpeg: sudo apt-get install ffmpeg"
         )
+
+    except WebMEncoderError:
+        raise
 
     except Exception as e:
         logger.error(f"WebM encoding failed: {e}")
@@ -235,6 +248,9 @@ def encode_to_webm_opus(
 def check_ffmpeg_available() -> bool:
     """
     Check if ffmpeg is installed and supports Opus encoding.
+
+    This is a synchronous utility intended for startup capability checks only,
+    not for use inside async request handlers.
 
     Returns:
         bool: True if ffmpeg with libopus is available
