@@ -279,23 +279,30 @@ def create_player_router(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to seek: {e}")
 
-    # @router.get("/api/player/volume", response_model=None)
-    # async def get_volume() -> Dict[str, Any]:
-    #     """DEPRECATED: Volume now managed by usePlayEnhanced hook."""
-    #     raise HTTPException(
-    #         status_code=410,
-    #         detail="Endpoint deprecated. Volume control now via WebSocket streaming."
-    #     )
-    #     # Legacy implementation removed - volume now via usePlayEnhanced.setVolume()
+    @router.post("/api/player/volume", response_model=None)
+    async def set_volume(volume: float) -> dict[str, Any]:
+        """
+        Set playback volume.
 
-    # @router.post("/api/player/volume", response_model=None)
-    # async def set_volume(volume: float) -> Dict[str, Any]:
-    #     """DEPRECATED: Use usePlayEnhanced.setVolume() instead."""
-    #     raise HTTPException(
-    #         status_code=410,
-    #         detail="Endpoint deprecated. Volume control now via WebSocket streaming."
-    #     )
-    #     # Legacy implementation removed - volume now via usePlayEnhanced.setVolume()
+        Args:
+            volume: Volume level (0-100, converted to 0.0-1.0 internally)
+
+        Returns:
+            dict: Success message and new volume
+
+        Raises:
+            HTTPException: If player service unavailable or volume out of range
+        """
+        try:
+            service = get_playback_service()
+            # Convert 0-100 to 0.0-1.0 for service layer
+            normalized_volume = max(0.0, min(100.0, volume)) / 100.0
+            result = await service.set_volume(normalized_volume)
+            return result
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to set volume: {e}")
 
     # ============================================================================
     # QUEUE ENDPOINTS

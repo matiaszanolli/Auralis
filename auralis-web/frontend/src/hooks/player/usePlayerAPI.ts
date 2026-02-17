@@ -237,10 +237,10 @@ export const usePlayerAPI = () => {
   // Set volume
   const setVolume = useCallback(async (volume: number) => {
     try {
-      const response = await fetch(`/api/player/volume`, {
+      // Backend expects volume as query parameter
+      const response = await fetch(`/api/player/volume?volume=${volume}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volume })
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (response.ok) {
