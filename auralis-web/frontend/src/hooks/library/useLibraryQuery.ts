@@ -274,13 +274,8 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
 
     const nextOffset = offset + limit;
 
-    // Create new URL with updated offset
-    const newUrl = `/api/library/${queryType}?limit=${limit}&offset=${nextOffset}${
-      options.search ? `&search=${encodeURIComponent(options.search)}` : ''
-    }${options.orderBy ? `&order_by=${options.orderBy}` : ''}`;
-
     try {
-      const response = await api.get<LibraryQueryResponse<T>>(newUrl);
+      const response = await api.get<LibraryQueryResponse<T>>(buildEndpoint(nextOffset));
 
       if (response) {
         const items = extractItemsFromResponse(response, queryType);
@@ -299,7 +294,7 @@ export function useLibraryQuery<T extends Track | Album | Artist = Track>(
       // Always clear the fetching flag
       isFetchingMoreRef.current = false;
     }
-  }, [api, offset, limit, hasMore, isLoading, queryType, options.search, options.orderBy, extractItemsFromResponse]);
+  }, [api, offset, limit, hasMore, isLoading, buildEndpoint, extractItemsFromResponse]);
 
   /**
    * Refetch - Reset and fetch from beginning
