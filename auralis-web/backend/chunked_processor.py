@@ -13,6 +13,7 @@ Applies crossfade between chunks to avoid audible jumps.
 
 import asyncio
 import logging
+import threading
 
 # Auralis imports
 import sys
@@ -133,6 +134,10 @@ class ChunkedAudioProcessor:
         # Prevents concurrent calls to processor.process() from corrupting state
         # (envelope followers, gain reduction tracking, etc.)
         self._processor_lock = asyncio.Lock()
+        # Sync lock for get_wav_chunk_path() which runs in thread-pool context.
+        # Serialises the cache-check → process → cache-write cycle so that two
+        # concurrent requests for the same chunk never both miss and process it.
+        self._sync_cache_lock = threading.Lock()
 
         # NEW (Beta.9): Load cached fingerprint from .25d file
         # This enables fast processing by skipping per-chunk analysis
@@ -800,57 +805,61 @@ class ChunkedAudioProcessor:
             Path to WAV chunk file
         """
         assert self.sample_rate is not None and self.total_chunks is not None and self.total_duration is not None
-        # Check cache first (Phase 5.1: Using ChunkCacheManager)
-        cache_key = ChunkCacheManager.get_wav_cache_key(
-            self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
-        )
-        cached_path = self._cache_manager.get_cached_chunk_path(cache_key)
-        if cached_path is not None:
-            logger.info(f"Serving cached WAV chunk {chunk_index}")
-            return str(cached_path)
+        # _sync_cache_lock serialises the full check→process→cache cycle so that
+        # two concurrent thread-pool calls for the same chunk cannot both miss the
+        # cache, both process the chunk, and produce conflicting results.
+        with self._sync_cache_lock:
+            # Check cache first (Phase 5.1: Using ChunkCacheManager)
+            cache_key = ChunkCacheManager.get_wav_cache_key(
+                self.track_id, self.file_signature, self.preset, self.intensity, chunk_index
+            )
+            cached_path = self._cache_manager.get_cached_chunk_path(cache_key)
+            if cached_path is not None:
+                logger.info(f"Serving cached WAV chunk {chunk_index}")
+                return str(cached_path)
 
-        # Get WAV output path
-        wav_chunk_path = self._get_wav_chunk_path(chunk_index)
+            # Get WAV output path
+            wav_chunk_path = self._get_wav_chunk_path(chunk_index)
 
-        # Check if already exists on disk
-        if wav_chunk_path.exists():
-            logger.info(f"WAV chunk {chunk_index} already exists on disk")
+            # Check if already exists on disk
+            if wav_chunk_path.exists():
+                logger.info(f"WAV chunk {chunk_index} already exists on disk")
+                self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
+                return str(wav_chunk_path)
+
+            logger.info(f"Processing chunk {chunk_index} directly to WAV")
+
+            # Use shared core processing logic (eliminates duplicate code)
+            processed_chunk = self._process_chunk_core(chunk_index, fast_start=False)
+
+            # Extract the correct segment for this chunk (Phase 5.1: Using ChunkOperations)
+            extracted_chunk = ChunkOperations.extract_chunk_segment(
+                processed_chunk=processed_chunk,
+                chunk_index=chunk_index,
+                sample_rate=self.sample_rate,
+                chunk_duration=CHUNK_DURATION,
+                chunk_interval=CHUNK_INTERVAL,
+                overlap_duration=OVERLAP_DURATION,
+                total_chunks=self.total_chunks,
+                total_duration=self.total_duration
+            )
+
+            # Encode directly to WAV (Web Audio API compatible)
+            try:
+                from encoding.wav_encoder import WAVEncoderError, encode_to_wav
+
+                wav_bytes = encode_to_wav(extracted_chunk, self.sample_rate)
+
+                # Write WAV file
+                wav_chunk_path.write_bytes(wav_bytes)
+                logger.info(f"Chunk {chunk_index} encoded to WAV: {len(wav_bytes)} bytes")
+
+            except WAVEncoderError as e:
+                logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
+                raise RuntimeError(f"Failed to encode chunk to WAV: {e}")
+
+            # Cache the path (Phase 5.1: Using ChunkCacheManager)
             self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
-            return str(wav_chunk_path)
-
-        logger.info(f"Processing chunk {chunk_index} directly to WAV")
-
-        # Use shared core processing logic (eliminates duplicate code)
-        processed_chunk = self._process_chunk_core(chunk_index, fast_start=False)
-
-        # Extract the correct segment for this chunk (Phase 5.1: Using ChunkOperations)
-        extracted_chunk = ChunkOperations.extract_chunk_segment(
-            processed_chunk=processed_chunk,
-            chunk_index=chunk_index,
-            sample_rate=self.sample_rate,
-            chunk_duration=CHUNK_DURATION,
-            chunk_interval=CHUNK_INTERVAL,
-            overlap_duration=OVERLAP_DURATION,
-            total_chunks=self.total_chunks,
-            total_duration=self.total_duration
-        )
-
-        # Encode directly to WAV (Web Audio API compatible)
-        try:
-            from encoding.wav_encoder import WAVEncoderError, encode_to_wav
-
-            wav_bytes = encode_to_wav(extracted_chunk, self.sample_rate)
-
-            # Write WAV file
-            wav_chunk_path.write_bytes(wav_bytes)
-            logger.info(f"Chunk {chunk_index} encoded to WAV: {len(wav_bytes)} bytes")
-
-        except WAVEncoderError as e:
-            logger.error(f"WAV encoding failed for chunk {chunk_index}: {e}")
-            raise RuntimeError(f"Failed to encode chunk to WAV: {e}")
-
-        # Cache the path (Phase 5.1: Using ChunkCacheManager)
-        self._cache_manager.cache_chunk_path(cache_key, wav_chunk_path)
 
         # Store last_content_profile globally for visualizer API access
         # This allows the /api/processing/parameters endpoint to show real processing data
