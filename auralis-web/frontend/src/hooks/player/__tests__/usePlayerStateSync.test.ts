@@ -372,7 +372,7 @@ describe('usePlayerStateSync – volume', () => {
 
   it('does not dispatch when field is absent', () => {
     firePlayerState({ is_playing: false });
-    expect(store.getState().player.volume).toBe(70); // initial default
+    expect(store.getState().player.volume).toBe(80); // initial default (issue #2251)
   });
 });
 

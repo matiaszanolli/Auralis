@@ -96,7 +96,7 @@ export const mockTrack = {
   artist: 'Test Artist',
   album: 'Test Album',
   duration: 240,
-  coverUrl: 'https://example.com/cover.jpg',
+  artworkUrl: 'https://example.com/cover.jpg',
 };
 
 /**
