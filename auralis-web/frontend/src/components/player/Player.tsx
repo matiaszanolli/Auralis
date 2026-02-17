@@ -19,7 +19,7 @@
  * ```
  */
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { tokens } from '@/design-system';
 
@@ -114,7 +114,7 @@ const Player: React.FC = () => {
   };
 
   // Next track: Stop current stream, update queue index, start new stream
-  const handleNext = async () => {
+  const handleNext = useCallback(async () => {
     try {
       // Check if we have more tracks in the queue
       if (currentQueueIndex >= queueTracks.length - 1) {
@@ -141,10 +141,10 @@ const Player: React.FC = () => {
     } catch (err) {
       console.error('[Player] Next command error:', err);
     }
-  };
+  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced]);
 
   // Previous track: Stop current stream, update queue index, start new stream
-  const handlePrevious = async () => {
+  const handlePrevious = useCallback(async () => {
     try {
       // Check if we have previous tracks in the queue
       if (currentQueueIndex <= 0) {
@@ -171,7 +171,7 @@ const Player: React.FC = () => {
     } catch (err) {
       console.error('[Player] Previous command error:', err);
     }
-  };
+  }, [currentQueueIndex, queueTracks, stopPlayback, dispatch, playEnhanced]);
 
   // Unified Play/Pause toggle handler
   // Handles three states: not streaming → start, streaming → pause, paused → resume
@@ -241,7 +241,7 @@ const Player: React.FC = () => {
       console.log('[Player] Track ended, auto-advancing to next track');
       handleNext();
     }
-  }, [streamingState, wsCurrentTime, trackDuration, currentQueueIndex, queueTracks.length]);
+  }, [streamingState, wsCurrentTime, trackDuration, currentQueueIndex, queueTracks.length, handleNext]);
 
   // Note: usePlayerDisplay not used - TimeDisplay component handles formatting
 
