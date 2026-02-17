@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
 from auralis.__version__ import __db_schema_version__
@@ -125,7 +125,22 @@ class MigrationManager:
             db_path: Path to SQLite database file
         """
         self.db_path = Path(db_path)
-        self.engine = create_engine(f'sqlite:///{self.db_path}')
+        self.engine = create_engine(
+            f'sqlite:///{self.db_path}',
+            connect_args={
+                'timeout': 15,          # 15s busy timeout matches LibraryManager
+                'check_same_thread': False,
+            },
+        )
+
+        @event.listens_for(self.engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
         Session = sessionmaker(bind=self.engine)
         self.session = Session()
         self.migrations_dir = Path(__file__).parent / "migrations"
