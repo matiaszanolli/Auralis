@@ -215,6 +215,9 @@ def create_system_router(
                             logger.error(f"Failed to send enhancement disabled error: {e}")
                         continue  # Skip to next message
 
+                    # Clean up completed tasks to prevent memory leak (fixes #2321)
+                    _active_streaming_tasks = {k: v for k, v in _active_streaming_tasks.items() if not v.done()}
+
                     # Cancel any existing streaming task for this websocket
                     ws_id = id(websocket)
                     if ws_id in _active_streaming_tasks:
@@ -298,6 +301,9 @@ def create_system_router(
                     track_id = data.get("track_id")
 
                     logger.info(f"Received play_normal: track_id={track_id}")
+
+                    # Clean up completed tasks to prevent memory leak (fixes #2321)
+                    _active_streaming_tasks = {k: v for k, v in _active_streaming_tasks.items() if not v.done()}
 
                     # Cancel any existing streaming task for this websocket
                     ws_id = id(websocket)
@@ -410,6 +416,9 @@ def create_system_router(
                         f"Received seek: track_id={track_id}, "
                         f"position={position}s, preset={preset}"
                     )
+
+                    # Clean up completed tasks to prevent memory leak (fixes #2321)
+                    _active_streaming_tasks = {k: v for k, v in _active_streaming_tasks.items() if not v.done()}
 
                     # Cancel any existing streaming task for this websocket
                     ws_id = id(websocket)
