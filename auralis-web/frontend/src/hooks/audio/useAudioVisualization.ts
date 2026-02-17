@@ -46,6 +46,12 @@ const TREBLE_HIGH = 20000;
 // Smoothing factor (higher = smoother, slower response)
 const SMOOTHING = 0.85;
 
+// State update throttle: cap at ~30fps (one update per 33ms)
+const MIN_UPDATE_INTERVAL_MS = 1000 / 30;
+
+// Minimum per-channel delta to trigger a state update (skip noise)
+const DELTA_THRESHOLD = 0.005;
+
 // Default values when no audio
 const DEFAULT_DATA: AudioVisualizationData = {
   bass: 0,
@@ -137,6 +143,11 @@ export function useAudioVisualization(enabled: boolean = true): AudioVisualizati
   const analyserRef = useRef<AnalyserNode | null>(null);
   const frequencyDataRef = useRef<Uint8Array | null>(null);
 
+  // Throttle: timestamp of the last setData call
+  const lastUpdateTimeRef = useRef(0);
+  // Last values emitted to state — skip updates when delta is below threshold
+  const lastEmittedRef = useRef({ bass: 0, mid: 0, treble: 0, loudness: 0, peak: 0 });
+
   // Initialize analyser when audio context becomes available
   useEffect(() => {
     if (!enabled || !isAudioActive) {
@@ -207,15 +218,34 @@ export function useAudioVisualization(enabled: boolean = true): AudioVisualizati
     smoothed.loudness = smoothed.loudness * SMOOTHING + rawLoudness * (1 - SMOOTHING);
     smoothed.peak = smoothed.peak * 0.7 + rawPeak * 0.3; // Faster decay for peaks
 
-    // Update state (throttled to ~30fps to reduce re-renders)
-    setData({
-      bass: smoothed.bass,
-      mid: smoothed.mid,
-      treble: smoothed.treble,
-      loudness: smoothed.loudness,
-      peak: smoothed.peak,
-      isActive: true,
-    });
+    // Throttle state updates to ~30fps and skip if values haven't changed meaningfully
+    const now = performance.now();
+    if (now - lastUpdateTimeRef.current >= MIN_UPDATE_INTERVAL_MS) {
+      const last = lastEmittedRef.current;
+      const maxDelta = Math.max(
+        Math.abs(smoothed.bass - last.bass),
+        Math.abs(smoothed.mid - last.mid),
+        Math.abs(smoothed.treble - last.treble),
+        Math.abs(smoothed.loudness - last.loudness),
+        Math.abs(smoothed.peak - last.peak),
+      );
+      if (maxDelta >= DELTA_THRESHOLD) {
+        lastUpdateTimeRef.current = now;
+        last.bass = smoothed.bass;
+        last.mid = smoothed.mid;
+        last.treble = smoothed.treble;
+        last.loudness = smoothed.loudness;
+        last.peak = smoothed.peak;
+        setData({
+          bass: smoothed.bass,
+          mid: smoothed.mid,
+          treble: smoothed.treble,
+          loudness: smoothed.loudness,
+          peak: smoothed.peak,
+          isActive: true,
+        });
+      }
+    }
 
     animationFrameRef.current = requestAnimationFrame(updateVisualization);
   }, [isAudioActive]);
