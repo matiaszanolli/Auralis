@@ -118,6 +118,21 @@ class SimpleChunkCache:
         """Clear all cached chunks."""
         self.cache.clear()
 
+    def invalidate_chunk(self, track_id: int, chunk_idx: int, preset: str, intensity: float) -> None:
+        """Remove a specific chunk from cache after a processing failure.
+
+        Prevents a stale/corrupt cache entry from causing repeated failures on retry.
+
+        Args:
+            track_id: Track ID the chunk belongs to
+            chunk_idx: Index of the failed chunk
+            preset: Processing preset used
+            intensity: Processing intensity used
+        """
+        key = self._make_key(track_id, chunk_idx, preset, intensity)
+        if self.cache.pop(key, None) is not None:
+            logger.debug(f"Invalidated stale cache entry: chunk {chunk_idx} of track {track_id}")
+
 
 class AudioStreamController:
     """
@@ -502,10 +517,26 @@ class AudioStreamController:
                         f"Failed to process chunk {chunk_idx}: {chunk_error}",
                         exc_info=True
                     )
+                    # Compute recovery position: start of the failed chunk (issue #2085)
+                    recovery_position: float = chunk_idx * processor.chunk_duration
+                    # Evict any stale cache entry for the failed chunk so a retry
+                    # processes it fresh rather than replaying corrupt data (issue #2085)
+                    if isinstance(self.cache_manager, SimpleChunkCache):
+                        self.cache_manager.invalidate_chunk(
+                            track_id=track_id,
+                            chunk_idx=chunk_idx,
+                            preset=preset,
+                            intensity=intensity,
+                        )
+                    # Proactively remove crossfade tail; the outer finally also does
+                    # this, but being explicit ensures it happens before the error
+                    # message is sent (issue #2085)
+                    self._chunk_tails.pop(track_id, None)
                     await self._send_error(
                         websocket,
                         track_id,
                         f"Failed to process chunk {chunk_idx}: {chunk_error}",
+                        recovery_position=recovery_position,
                     )
                     return
 
@@ -658,10 +689,13 @@ class AudioStreamController:
 
                 except Exception as chunk_error:
                     logger.error(f"Failed to stream chunk {chunk_idx}: {chunk_error}", exc_info=True)
+                    # Recovery position: start of the failed chunk (issue #2085)
+                    normal_recovery_position: float = chunk_idx * chunk_duration
                     await self._send_error(
                         websocket,
                         track_id,
                         f"Failed to stream chunk {chunk_idx}: {chunk_error}",
+                        recovery_position=normal_recovery_position,
                     )
                     return
 
@@ -1020,18 +1054,27 @@ class AudioStreamController:
         self,
         websocket: WebSocket,
         track_id: int,
-        error_message: str
+        error_message: str,
+        recovery_position: float | None = None,
     ) -> None:
-        """Send audio_stream_error message to client."""
-        message: dict[str, Any] = {
-            "type": "audio_stream_error",
-            "data": {
-                "track_id": track_id,
-                "error": error_message,
-                "code": "STREAMING_ERROR",
-                "stream_type": self._stream_type,
-            },
+        """Send audio_stream_error message to client.
+
+        Args:
+            websocket: WebSocket connection to send the error to
+            track_id: ID of the track that failed
+            error_message: Human-readable error description
+            recovery_position: Seconds into the track from which the client may
+                seek/retry (set when a specific chunk fails, issue #2085).
+        """
+        data: dict[str, Any] = {
+            "track_id": track_id,
+            "error": error_message,
+            "code": "STREAMING_ERROR",
+            "stream_type": self._stream_type,
         }
+        if recovery_position is not None:
+            data["recovery_position"] = recovery_position
+        message: dict[str, Any] = {"type": "audio_stream_error", "data": data}
         try:
             await websocket.send_text(json.dumps(message))
         except Exception as e:
