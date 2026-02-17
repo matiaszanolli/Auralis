@@ -14,6 +14,7 @@ Endpoints:
 """
 
 import logging
+import mimetypes
 from pathlib import Path
 from typing import Any
 from collections.abc import Callable
@@ -105,10 +106,15 @@ def create_artwork_router(
             if not requested_path.exists():
                 raise HTTPException(status_code=404, detail="Artwork not found")
 
+            # Detect MIME type from file extension; fall back to image/jpeg
+            media_type, _ = mimetypes.guess_type(str(requested_path))
+            if not media_type or not media_type.startswith("image/"):
+                media_type = "image/jpeg"
+
             # Return artwork file with validated path
             return FileResponse(
                 str(requested_path),  # Use validated absolute path
-                media_type="image/jpeg",
+                media_type=media_type,
                 headers={
                     "Cache-Control": "public, max-age=31536000",  # Cache for 1 year
                 }
