@@ -44,6 +44,10 @@ from auralis.library.repositories.factory import RepositoryFactory
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of encoded frames queued ahead of the WebSocket sender.
+# Limits Python-heap memory when the client is slower than the encoder.
+_SEND_QUEUE_MAXSIZE: int = 4
+
 
 class SimpleChunkCache:
     """Simple in-memory cache for processed audio chunks."""
@@ -887,36 +891,68 @@ class AudioStreamController:
         total_samples: int = len(pcm_samples)
         num_frames: int = (total_samples + samples_per_frame - 1) // samples_per_frame
 
-        for frame_idx in range(num_frames):
-            start_idx: int = frame_idx * samples_per_frame
-            end_idx: int = min(start_idx + samples_per_frame, total_samples)
-            frame_samples: np.ndarray = pcm_samples[start_idx:end_idx]
+        # Bounded producer/consumer: limits Python-heap accumulation when the
+        # client is slower than the encoder (backpressure for issue #2122).
+        # The producer encodes one frame at a time and blocks at queue.put()
+        # once _SEND_QUEUE_MAXSIZE frames are queued.  The consumer sends via
+        # _safe_send() which handles disconnects; on disconnect it signals the
+        # producer to stop so we don't keep encoding into a dead stream.
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(
+            maxsize=_SEND_QUEUE_MAXSIZE
+        )
+        abort_event: asyncio.Event = asyncio.Event()
 
-            pcm_bytes: bytes = frame_samples.tobytes()
-            pcm_base64: str = base64.b64encode(pcm_bytes).decode("ascii")
+        async def _producer() -> None:
+            try:
+                for frame_idx in range(num_frames):
+                    if abort_event.is_set():
+                        break
+                    start_idx: int = frame_idx * samples_per_frame
+                    end_idx: int = min(start_idx + samples_per_frame, total_samples)
+                    frame_samples: np.ndarray = pcm_samples[start_idx:end_idx]
 
-            message: dict[str, Any] = {
-                "type": "audio_chunk",
-                "data": {
-                    "chunk_index": chunk_index,
-                    "chunk_count": total_chunks,
-                    "frame_index": frame_idx,
-                    "frame_count": num_frames,
-                    "samples": pcm_base64,
-                    "sample_count": frame_samples.size,  # Total float32 values (frames × channels)
-                    # Crossfade is applied server-side in _process_and_stream_chunk
-                    # to prevent audible clicks at chunk boundaries.
-                    # Frontend receives pre-crossfaded audio, so no client-side crossfade needed.
-                    "crossfade_samples": crossfade_samples,  # For monitoring/debugging
-                    "stream_type": self._stream_type,
-                },
-            }
+                    pcm_bytes: bytes = frame_samples.tobytes()
+                    pcm_base64: str = base64.b64encode(pcm_bytes).decode("ascii")
 
-            await websocket.send_text(json.dumps(message))
-            logger.debug(
-                f"Streamed chunk {chunk_index} frame {frame_idx}/{num_frames}: "
-                f"{len(frame_samples)} samples ({len(pcm_base64) / 1024:.1f}KB base64)"
-            )
+                    message: dict[str, Any] = {
+                        "type": "audio_chunk",
+                        "data": {
+                            "chunk_index": chunk_index,
+                            "chunk_count": total_chunks,
+                            "frame_index": frame_idx,
+                            "frame_count": num_frames,
+                            "samples": pcm_base64,
+                            "sample_count": frame_samples.size,
+                            # Crossfade is applied server-side in _process_and_stream_chunk
+                            # to prevent audible clicks at chunk boundaries.
+                            # Frontend receives pre-crossfaded audio, so no client-side crossfade needed.
+                            "crossfade_samples": crossfade_samples,  # For monitoring/debugging
+                            "stream_type": self._stream_type,
+                        },
+                    }
+                    await queue.put(message)
+            finally:
+                await queue.put(None)  # sentinel — always sent so consumer can exit
+
+        async def _consumer() -> None:
+            while True:
+                message = await queue.get()
+                if message is None:
+                    break
+                sent: bool = await self._safe_send(websocket, message)
+                if not sent:
+                    # Client disconnected — stop the producer and drain the queue
+                    abort_event.set()
+                    while not queue.empty():
+                        queue.get_nowait()
+                    break
+                frame_idx = message["data"]["frame_index"]
+                logger.debug(
+                    f"Streamed chunk {chunk_index} frame {frame_idx}/{num_frames}: "
+                    f"{message['data']['sample_count']} samples"
+                )
+
+        await asyncio.gather(_producer(), _consumer())
 
     async def _send_stream_start(
         self,

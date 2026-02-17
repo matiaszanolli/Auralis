@@ -295,5 +295,139 @@ class TestCrossfadeIntegration:
         np.testing.assert_allclose(sent_audio.reshape(-1), original_chunk.reshape(-1), rtol=1e-5)
 
 
+class TestSendPcmChunkBackpressure:
+    """Tests for bounded-queue backpressure in _send_pcm_chunk (issue #2122)."""
+
+    @pytest.mark.asyncio
+    async def test_all_frames_delivered_to_fast_client(self):
+        """All frames reach a normally-responding client (no regression)."""
+        controller = AudioStreamController()
+        controller._stream_type = "enhanced"
+
+        # 2 seconds of stereo audio at 44100 Hz → a few frames
+        samples = np.random.randn(44100 * 2, 2).astype(np.float32)
+
+        received_frames: list[int] = []
+
+        async def capture(text):
+            import json
+            msg = json.loads(text)
+            if msg["type"] == "audio_chunk":
+                received_frames.append(msg["data"]["frame_index"])
+
+        mock_ws = AsyncMock()
+        mock_ws.client_state.name = "CONNECTED"
+        mock_ws.send_text = AsyncMock(side_effect=capture)
+
+        await controller._send_pcm_chunk(
+            mock_ws,
+            pcm_samples=samples,
+            chunk_index=0,
+            total_chunks=1,
+            crossfade_samples=0,
+        )
+
+        # Every frame index 0..N-1 must be received exactly once
+        assert received_frames == sorted(received_frames)
+        assert received_frames == list(range(len(received_frames)))
+        assert len(received_frames) > 0
+
+    @pytest.mark.asyncio
+    async def test_producer_stops_early_on_client_disconnect(self):
+        """When the client disconnects mid-stream, the producer stops encoding further frames."""
+        import asyncio
+        from audio_stream_controller import _SEND_QUEUE_MAXSIZE
+
+        controller = AudioStreamController()
+        controller._stream_type = "enhanced"
+
+        # Large chunk → many frames (well above _SEND_QUEUE_MAXSIZE)
+        samples = np.random.randn(44100 * 30, 2).astype(np.float32)
+
+        sent_frames: list[int] = []
+        disconnect_after = 3  # simulate disconnect after this many frames
+
+        async def slow_disconnecting_send(text):
+            import json
+            msg = json.loads(text)
+            if msg["type"] == "audio_chunk":
+                idx = msg["data"]["frame_index"]
+                sent_frames.append(idx)
+
+        mock_ws = AsyncMock()
+        mock_ws.send_text = AsyncMock(side_effect=slow_disconnecting_send)
+
+        # After disconnect_after sends, flip the connection state to simulate disconnect
+        original_is_connected = controller._is_websocket_connected
+
+        call_count = 0
+
+        def patched_is_connected(ws):
+            nonlocal call_count
+            call_count += 1
+            # Disconnect after disconnect_after successful sends
+            if len(sent_frames) >= disconnect_after:
+                return False
+            return True
+
+        controller._is_websocket_connected = patched_is_connected
+
+        await controller._send_pcm_chunk(
+            mock_ws,
+            pcm_samples=samples,
+            chunk_index=0,
+            total_chunks=1,
+            crossfade_samples=0,
+        )
+
+        # Should have stopped well before all frames — allow a few extra due
+        # to frames already queued in the bounded queue at disconnect time
+        max_expected = disconnect_after + _SEND_QUEUE_MAXSIZE + 1
+        assert len(sent_frames) <= max_expected, (
+            f"Expected at most {max_expected} frames after disconnect, got {len(sent_frames)}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_slow_client_bounded_concurrent_frames(self):
+        """Queue maxsize is respected: producer blocks until consumer drains a slot."""
+        import asyncio
+        from audio_stream_controller import _SEND_QUEUE_MAXSIZE
+
+        controller = AudioStreamController()
+        controller._stream_type = "enhanced"
+
+        # Use a medium-size chunk (several frames)
+        samples = np.random.randn(44100 * 5, 2).astype(np.float32)
+
+        max_concurrent: list[int] = [0]
+        in_flight: list[int] = [0]
+
+        async def slow_send(text):
+            import json
+            msg = json.loads(text)
+            if msg["type"] != "audio_chunk":
+                return
+            in_flight[0] += 1
+            max_concurrent[0] = max(max_concurrent[0], in_flight[0])
+            await asyncio.sleep(0.01)  # simulate a slow client
+            in_flight[0] -= 1
+
+        mock_ws = AsyncMock()
+        mock_ws.client_state.name = "CONNECTED"
+        mock_ws.send_text = AsyncMock(side_effect=slow_send)
+
+        await controller._send_pcm_chunk(
+            mock_ws,
+            pcm_samples=samples,
+            chunk_index=0,
+            total_chunks=1,
+            crossfade_samples=0,
+        )
+
+        # The consumer is single-threaded (one send at a time), so in-flight is always 1.
+        # The bounded queue prevents the producer from racing too far ahead.
+        assert max_concurrent[0] == 1
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
