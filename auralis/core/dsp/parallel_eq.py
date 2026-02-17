@@ -90,10 +90,13 @@ class ParallelEQUtilities:
 
         # Extract low-frequency band
         # Handle both mono (samples,) and stereo (channels, samples)
+        # Cast to audio.dtype immediately: sosfilt() always returns float64
+        # regardless of input dtype, which doubles memory and promotes the
+        # entire output when mixed with a float32 signal (issue #2158).
         if audio.ndim == 1:
-            band = sosfilt(sos_filter, audio)
+            band = sosfilt(sos_filter, audio).astype(audio.dtype)
         else:
-            band = sosfilt(sos_filter, audio, axis=1)
+            band = sosfilt(sos_filter, audio, axis=1).astype(audio.dtype)
 
         # Calculate parallel boost amount
         # boost_linear = 1.0 means no change
@@ -102,8 +105,11 @@ class ParallelEQUtilities:
         boost_linear = 10 ** (boost_db / 20)
         boost_diff = boost_linear - 1.0
 
-        # Add boosted band to original (parallel processing)
-        return audio + band * boost_diff
+        # Add boosted band to original (parallel processing).
+        # Final astype() preserves dtype across NumPy versions: in NumPy ≥ 2.0
+        # (NEP-50) Python float scalars are treated as float64, so the multiply
+        # would otherwise promote band back to float64 before the add.
+        return (audio + band * boost_diff).astype(audio.dtype)
 
     @staticmethod
     def apply_high_shelf_boost(
@@ -156,18 +162,18 @@ class ParallelEQUtilities:
         # Create high-pass filter
         sos_filter = butter(order, normalized_freq, btype='high', output='sos')
 
-        # Extract high-frequency band
+        # Extract high-frequency band; cast for dtype preservation (issue #2158).
         if audio.ndim == 1:
-            band = sosfilt(sos_filter, audio)
+            band = sosfilt(sos_filter, audio).astype(audio.dtype)
         else:
-            band = sosfilt(sos_filter, audio, axis=1)
+            band = sosfilt(sos_filter, audio, axis=1).astype(audio.dtype)
 
         # Calculate parallel boost amount
         boost_linear = 10 ** (boost_db / 20)
         boost_diff = boost_linear - 1.0
 
-        # Add boosted band to original (parallel processing)
-        return audio + band * boost_diff
+        # Add boosted band to original (parallel processing).
+        return (audio + band * boost_diff).astype(audio.dtype)
 
     @staticmethod
     def apply_bandpass_boost(
@@ -233,15 +239,15 @@ class ParallelEQUtilities:
         # Create bandpass filter
         sos_filter = butter(order, [low_norm, high_norm], btype='band', output='sos')
 
-        # Extract mid-range band
+        # Extract mid-range band; cast for dtype preservation (issue #2158).
         if audio.ndim == 1:
-            band = sosfilt(sos_filter, audio)
+            band = sosfilt(sos_filter, audio).astype(audio.dtype)
         else:
-            band = sosfilt(sos_filter, audio, axis=1)
+            band = sosfilt(sos_filter, audio, axis=1).astype(audio.dtype)
 
         # Calculate parallel boost amount
         boost_linear = 10 ** (boost_db / 20)
         boost_diff = boost_linear - 1.0
 
-        # Add boosted band to original (parallel processing)
-        return audio + band * boost_diff
+        # Add boosted band to original (parallel processing).
+        return (audio + band * boost_diff).astype(audio.dtype)
