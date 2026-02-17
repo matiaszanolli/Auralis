@@ -108,6 +108,9 @@ class ProcessingEngine:
         # Progress callbacks
         self.progress_callbacks: dict[str, Callable[..., Any]] = {}
 
+        # Per-job asyncio Tasks so cancel_job() can stop them (fixes #2217)
+        self._tasks: dict[str, asyncio.Task[None]] = {}
+
     def create_job(
         self,
         input_path: str,
@@ -349,6 +352,9 @@ class ProcessingEngine:
         """
         Process a single job using the HybridProcessor
         """
+        # Guard: if cancel_job() fired before the worker started this job, skip it.
+        if job.status == ProcessingStatus.CANCELLED:
+            return
 
         try:
             job.status = ProcessingStatus.PROCESSING
@@ -427,6 +433,14 @@ class ProcessingEngine:
             job.status = ProcessingStatus.COMPLETED
             job.completed_at = datetime.now()
 
+        except asyncio.CancelledError:
+            # task.cancel() was called — mark cancelled and re-raise so asyncio
+            # correctly records the task as cancelled (fixes #2217).
+            if job.status == ProcessingStatus.PROCESSING:
+                job.status = ProcessingStatus.CANCELLED
+                job.completed_at = datetime.now()
+            raise
+
         except Exception as e:
             job.status = ProcessingStatus.FAILED
             job.error_message = str(e)
@@ -448,15 +462,31 @@ class ProcessingEngine:
                 while self.active_jobs >= self.max_concurrent_jobs:
                     await asyncio.sleep(0.5)
 
-                # Process the job
-                await self.process_job(job)
+                # Wrap in a Task so cancel_job() can call task.cancel() (fixes #2217)
+                task = asyncio.create_task(self.process_job(job))
+                self._tasks[job.job_id] = task
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    # If the job was deliberately cancelled, swallow the error and
+                    # keep the worker running.  If the worker itself is being shut
+                    # down (job.status != CANCELLED), re-raise.
+                    if job.status != ProcessingStatus.CANCELLED:
+                        raise
+                finally:
+                    self._tasks.pop(job.job_id, None)
 
             except Exception as e:
                 print(f"Worker error: {e}")
                 await asyncio.sleep(1)
 
     def cancel_job(self, job_id: str) -> bool:
-        """Cancel a job"""
+        """Cancel a job.
+
+        For QUEUED jobs: marks the status so process_job() skips it.
+        For PROCESSING jobs: cancels the asyncio Task, which injects
+        CancelledError at the next await point (fixes #2217).
+        """
         job = self.jobs.get(job_id)
         if not job:
             return False
@@ -464,6 +494,12 @@ class ProcessingEngine:
         if job.status in [ProcessingStatus.QUEUED, ProcessingStatus.PROCESSING]:
             job.status = ProcessingStatus.CANCELLED
             job.completed_at = datetime.now()
+            # Signal the running task to stop (no-op for QUEUED jobs that
+            # haven't been picked up yet — the early-return guard in
+            # process_job() handles that case).
+            task = self._tasks.get(job_id)
+            if task and not task.done():
+                task.cancel()
             return True
 
         return False
