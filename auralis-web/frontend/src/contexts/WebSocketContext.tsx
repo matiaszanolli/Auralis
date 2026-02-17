@@ -238,6 +238,14 @@ const singletonSubscriptions: Map<string, Set<MessageHandler>> = new Map();
 const singletonGlobalHandlers: Set<MessageHandler> = new Set();
 
 /**
+ * Last active streaming command (play_enhanced / play_normal) sent while connected.
+ * Stored as a singleton so it survives provider remounts (React.StrictMode).
+ * Re-issued after every reconnect to restore audio stream (issue #2385).
+ * Cleared when the client sends an explicit stop or pause.
+ */
+let singletonLastStreamCommand: any = null;
+
+/**
  * Reset all WebSocket singletons - ONLY FOR TESTING
  * This must be called between tests to prevent memory leaks from accumulated
  * subscriptions and connections.
@@ -255,6 +263,9 @@ export function resetWebSocketSingletons(): void {
 
   // Reset ref count
   singletonRefCount = 0;
+
+  // Clear last stream command
+  singletonLastStreamCommand = null;
 
   // Clear all subscriptions
   singletonSubscriptions.clear();
@@ -380,10 +391,18 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
           setConnectionStatus('connected');
         }
 
-        // Send queued messages
+        // Send queued messages (commands sent while disconnected)
         while (messageQueueRef.current.length > 0) {
           const message = messageQueueRef.current.shift();
           manager.send(JSON.stringify(message));
+        }
+
+        // Re-issue the last active stream command after reconnect (issue #2385).
+        // Only re-issues commands that were sent while connected (not queued ones,
+        // which are already flushed above). Cleared by explicit stop/pause.
+        if (singletonLastStreamCommand) {
+          console.log(`🔄 Reconnected - re-issuing stream command: ${singletonLastStreamCommand.type}`);
+          manager.send(JSON.stringify(singletonLastStreamCommand));
         }
       });
 
@@ -477,10 +496,23 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
    */
   const send = useCallback((message: any) => {
     if (wsManagerRef.current?.isConnected()) {
+      // Track last active streaming command for reconnect resume (issue #2385).
+      // Only track when connected: queued commands are replayed from the queue on
+      // reconnect and must not be re-issued a second time via this mechanism.
+      if (message?.type === 'play_enhanced' || message?.type === 'play_normal') {
+        singletonLastStreamCommand = message;
+      } else if (message?.type === 'stop' || message?.type === 'pause') {
+        singletonLastStreamCommand = null;
+      }
       wsManagerRef.current.send(JSON.stringify(message));
     } else {
       // Queue message for sending when connected
       console.warn('WebSocket not connected, queueing message');
+      // An explicit stop/pause while disconnected cancels any pending stream resume
+      // so that reconnect does not silently restart stopped/paused playback (issue #2385).
+      if (message?.type === 'stop' || message?.type === 'pause') {
+        singletonLastStreamCommand = null;
+      }
       messageQueueRef.current.push(message);
     }
   }, []);
