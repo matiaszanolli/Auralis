@@ -23,6 +23,17 @@ class ContentAnalysisOperations:
     """Shared operations for content analysis and feature extraction"""
 
     @staticmethod
+    def _to_mono(audio: np.ndarray) -> np.ndarray:
+        """Convert multi-channel audio to mono by averaging channels.
+
+        For stereo (N, 2) or any (N, C) layout, averages over axis=1.
+        For 1D arrays the input is returned unchanged.
+        """
+        if audio.ndim == 2:
+            return np.mean(audio, axis=1)
+        return audio
+
+    @staticmethod
     def calculate_dynamic_range(audio: np.ndarray, sample_rate: int = 44100) -> float:
         """
         Calculate dynamic range in dB
@@ -68,6 +79,7 @@ class ContentAnalysisOperations:
         Returns:
             Spectral spread in Hz
         """
+        audio = ContentAnalysisOperations._to_mono(audio)
         fft_result = fft(audio[:8192])  # Use first 8192 samples
         magnitude = np.abs(fft_result[:4096])
         freqs = fftfreq(8192, 1/sample_rate)[:4096]
@@ -91,6 +103,7 @@ class ContentAnalysisOperations:
         Returns:
             Average spectral flux
         """
+        audio = ContentAnalysisOperations._to_mono(audio)
         window_size = 2048
         hop_size = 1024
 
@@ -126,6 +139,7 @@ class ContentAnalysisOperations:
         Returns:
             Attack time in milliseconds
         """
+        audio = ContentAnalysisOperations._to_mono(audio)
         # Simple onset detection and attack time estimation
         energy = energy_profile(audio, window_size=512)
 
@@ -186,6 +200,7 @@ class ContentAnalysisOperations:
         Returns:
             Fundamental frequency in Hz
         """
+        audio = ContentAnalysisOperations._to_mono(audio)
         # Use middle section of audio
         start = len(audio) // 4
         end = 3 * len(audio) // 4
@@ -225,6 +240,7 @@ class ContentAnalysisOperations:
         Returns:
             Harmonic ratio (0-1)
         """
+        audio = ContentAnalysisOperations._to_mono(audio)
         fft_result = fft(audio[:8192])
         magnitude = np.abs(fft_result[:4096])
 
@@ -255,6 +271,7 @@ class ContentAnalysisOperations:
         Returns:
             Inharmonicity value (0-1)
         """
+        audio = ContentAnalysisOperations._to_mono(audio)
         fundamental = ContentAnalysisOperations.estimate_fundamental_frequency(audio, sample_rate)
 
         if fundamental == 0:
@@ -372,6 +389,7 @@ class ContentAnalysisOperations:
         Returns:
             Onset strength array
         """
+        audio = ContentAnalysisOperations._to_mono(audio)
         window_size = 1024
         hop_size = 512
 
