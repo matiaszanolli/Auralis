@@ -253,20 +253,15 @@ export function useRestAPI() {
     setError(null);
   }, []);
 
-  // Memoize return object to prevent unnecessary re-renders
-  return useMemo(
-    () => ({
-      get,
-      post,
-      put,
-      patch,
-      delete: delete_,
-      clearError,
-      isLoading,
-      error,
-    }),
-    [get, post, put, patch, delete_, clearError, isLoading, error]
+  // Memoize only the stable method references — isLoading/error are excluded from
+  // deps so that state changes during a request don't recreate the object and
+  // trigger downstream effects that depend on the api reference.
+  const stableMethods = useMemo(
+    () => ({ get, post, put, patch, delete: delete_, clearError }),
+    [get, post, put, patch, delete_, clearError]
   );
+
+  return { ...stableMethods, isLoading, error };
 }
 
 /**
@@ -274,7 +269,7 @@ export function useRestAPI() {
  * Useful for loading initial data.
  */
 export function useQuery<T = any>(endpoint: string, skip: boolean = false) {
-  const api = useRestAPI();
+  const { get } = useRestAPI();
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(!skip);
   const [error, setError] = useState<ApiError | null>(null);
@@ -285,18 +280,18 @@ export function useQuery<T = any>(endpoint: string, skip: boolean = false) {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const result = await api.get<T>(endpoint);
+        const result = await get<T>(endpoint);
         setData(result);
         setError(null);
       } catch (err) {
-        setError(api.error);
+        setError(err as ApiError);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchData();
-  }, [endpoint, skip, api]);
+  }, [endpoint, skip, get]);
 
   return { data, isLoading, error };
 }
@@ -306,7 +301,7 @@ export function useQuery<T = any>(endpoint: string, skip: boolean = false) {
  * Returns a function to trigger the request.
  */
 export function useMutation<T = any>(endpoint: string, method: 'POST' | 'PUT' | 'DELETE' = 'POST') {
-  const api = useRestAPI();
+  const { post, put, delete: apiDelete } = useRestAPI();
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
@@ -318,11 +313,11 @@ export function useMutation<T = any>(endpoint: string, method: 'POST' | 'PUT' | 
         let result: T;
 
         if (method === 'POST') {
-          result = await api.post<T>(endpoint, payload);
+          result = await post<T>(endpoint, payload);
         } else if (method === 'PUT') {
-          result = await api.put<T>(endpoint, payload);
+          result = await put<T>(endpoint, payload);
         } else {
-          await api.delete(endpoint);
+          await apiDelete(endpoint);
           result = null as T;
         }
 
@@ -330,13 +325,14 @@ export function useMutation<T = any>(endpoint: string, method: 'POST' | 'PUT' | 
         setError(null);
         return result;
       } catch (err) {
-        setError(api.error);
-        throw api.error;
+        const apiError = err as ApiError;
+        setError(apiError);
+        throw apiError;
       } finally {
         setIsLoading(false);
       }
     },
-    [api, endpoint, method]
+    [post, put, apiDelete, endpoint, method]
   );
 
   return { mutate, data, isLoading, error };
