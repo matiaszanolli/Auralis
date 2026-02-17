@@ -2,18 +2,20 @@
 Files Router
 ~~~~~~~~~~~~
 
-Handles file operations: directory scanning, file uploads, and supported format queries.
+Handles file operations: file uploads and supported format queries.
 
 Endpoints:
-- POST /api/library/scan - Scan directory for audio files
 - POST /api/files/upload - Upload audio files
 - GET /api/audio/formats - Get supported audio formats
+
+Note: POST /api/library/scan is handled exclusively by routers/library.py
+which supports multiple directories, recursive scanning, and progress callbacks
+via WebSocket (fixes #2123).
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3, see LICENSE for more details.
 """
 
-import asyncio
 import logging
 import tempfile
 from pathlib import Path
@@ -21,49 +23,18 @@ from typing import Any
 from collections.abc import Callable
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from pydantic import BaseModel, field_validator
 
-from path_security import PathValidationError, validate_scan_path
 from .dependencies import require_library_manager, require_repository_factory
 
 # Import only if available
 try:
     from auralis.io.unified_loader import load_audio
-    from auralis.library.scanner import LibraryScanner
     HAS_LIBRARY = True
 except ImportError:
     HAS_LIBRARY = False
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["files"])
-
-
-class ScanRequest(BaseModel):
-    """
-    Request model for directory scanning.
-
-    Security: Validates path to prevent directory traversal (fixes #2069).
-    """
-    directory: str
-
-    @field_validator('directory')
-    @classmethod
-    def validate_directory_path(cls, v: str) -> str:
-        """
-        Validate directory path for security.
-
-        Prevents path traversal and restricts scanning to allowed directories.
-
-        Raises:
-            ValueError: If path validation fails
-        """
-        try:
-            # Validate path using security utility
-            validated_path = validate_scan_path(v)
-            # Return as string for API compatibility
-            return str(validated_path)
-        except PathValidationError as e:
-            raise ValueError(str(e))
 
 
 def create_files_router(
@@ -83,8 +54,8 @@ def create_files_router(
         APIRouter: Configured router instance
 
     Note:
-        Uses LibraryManager for scanning operations as LibraryScanner is tightly coupled to it.
         File upload uses library_manager.add_track() for backward compatibility.
+        Directory scanning is handled by routers/library.py (fixes #2123).
     """
 
     def get_repos() -> Any:
@@ -95,80 +66,6 @@ def create_files_router(
             except (TypeError, AttributeError):
                 pass
         return require_library_manager(get_library_manager)
-
-    @router.post("/api/library/scan")
-    async def scan_directory(request: ScanRequest) -> dict[str, Any]:
-        """
-        Scan directory for audio files.
-
-        Starts a background scan task and broadcasts progress/completion via WebSocket.
-
-        Security: Path validation prevents directory traversal (fixes #2069).
-        Only directories within allowed base paths can be scanned.
-
-        Args:
-            request: ScanRequest with validated directory path
-
-        Returns:
-            dict: Scan status message
-
-        Raises:
-            HTTPException:
-                - 400: Invalid directory path (traversal attempt, outside allowed dirs)
-                - 403: Directory not readable
-                - 404: Directory does not exist
-                - 503: Library manager/scanner not available
-                - 500: Scan startup failure
-        """
-        library_manager = get_library_manager()
-        if not library_manager:
-            raise HTTPException(status_code=503, detail="Library manager not available")
-
-        if not HAS_LIBRARY:
-            raise HTTPException(status_code=503, detail="Library scanner not available")
-
-        # Path is already validated by ScanRequest.validate_directory_path
-        # If we reach here, the path is safe
-        directory = request.directory
-
-        logger.info(f"Starting scan of validated directory: {directory}")
-
-        try:
-            scanner = LibraryScanner(library_manager)
-
-            # Start scan in background
-            async def scan_worker() -> None:
-                try:
-                    result = await asyncio.to_thread(scanner.scan_single_directory, directory, recursive=True)
-
-                    # Broadcast scan completion to all connected clients
-                    await connection_manager.broadcast({
-                        "type": "scan_complete",
-                        "data": {
-                            "directory": directory,
-                            "files_found": result.files_found,
-                            "files_added": result.files_added,
-                            "files_updated": result.files_updated,
-                            "files_failed": result.files_failed,
-                            "scan_time": result.scan_time
-                        }
-                    })
-
-                except Exception as e:
-                    logger.error(f"Scan worker error: {e}")
-                    await connection_manager.broadcast({
-                        "type": "scan_error",
-                        "data": {"directory": directory, "error": str(e)}
-                    })
-
-            # Start the scan
-            asyncio.create_task(scan_worker())
-
-            return {"message": f"Scan of {directory} started", "status": "scanning"}
-
-        except Exception as e:
-            logger.error(f"Failed to start scan: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to start scan: {e}")
 
     @router.post("/api/files/upload")
     async def upload_files(files: list[UploadFile] = File(...)) -> dict[str, Any]:
