@@ -51,7 +51,7 @@ import {
   completeStreaming,
   setStreamingError,
   resetStreaming,
-  selectStreaming,
+  selectEnhancedStreaming,
   selectIsPlaying,
   setCurrentTrack,
 } from '@/store/slices/playerSlice';
@@ -168,7 +168,7 @@ export interface UsePlayEnhancedReturn {
 export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
   const dispatch = useDispatch();
   const wsContext = useWebSocketContext();
-  const streamingState = useSelector(selectStreaming);
+  const streamingState = useSelector(selectEnhancedStreaming);
   const isPlaying = useSelector(selectIsPlaying);
 
   // Internal service references
@@ -310,6 +310,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Update Redux state
       dispatch(
         startStreaming({
+          streamType: 'enhanced',
           trackId: message.data.track_id,
           totalChunks: message.data.total_chunks,
           intensity: 1.0, // Will be set by caller
@@ -410,6 +411,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       // Update Redux
       dispatch(
         updateStreamingProgress({
+          streamType: 'enhanced',
           processedChunks: streamingMetadataRef.current.processedChunks,
           bufferedSamples,
           progress: Math.min(progress, 100),
@@ -438,7 +440,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     } catch (error) {
       const errorMsg = `Failed to process audio chunk: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayEnhanced]', errorMsg);
-      dispatch(setStreamingError(errorMsg));
+      dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
     }
   }, [dispatch]);
 
@@ -456,7 +458,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     });
 
     // Mark as complete in Redux
-    dispatch(completeStreaming());
+    dispatch(completeStreaming('enhanced'));
   }, [dispatch]);
 
   /**
@@ -468,7 +470,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
     const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
     console.error('[usePlayEnhanced]', errorMsg);
-    dispatch(setStreamingError(errorMsg));
+    dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
     cleanupStreaming();
   }, [dispatch, cleanupStreaming]);
 
@@ -508,7 +510,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
         lastReceivedChunkIndexRef.current = -1;
 
         // Reset streaming state
-        dispatch(resetStreaming());
+        dispatch(resetStreaming('enhanced'));
 
         // Reset fingerprint status
         setFingerprintStatus('idle');
@@ -547,6 +549,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
 
         // Set buffering state immediately for instant user feedback
         dispatch(startStreaming({
+          streamType: 'enhanced',
           trackId,
           totalChunks: 0, // Will be updated when stream starts
           intensity,
@@ -571,7 +574,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       } catch (error) {
         const errorMsg = `Failed to start enhanced playback: ${error instanceof Error ? error.message : String(error)}`;
         console.error('[usePlayEnhanced]', errorMsg);
-        dispatch(setStreamingError(errorMsg));
+        dispatch(setStreamingError({ streamType: 'enhanced', error: errorMsg }));
       }
     },
     [wsContext, dispatch]
@@ -582,7 +585,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
    */
   const stopPlayback = useCallback(() => {
     playbackEngineRef.current?.stopPlayback();
-    dispatch(resetStreaming());
+    dispatch(resetStreaming('enhanced'));
     cleanupStreaming();
     setCurrentTime(0);
     setIsPaused(false);
@@ -729,7 +732,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
       setFingerprintMessage(null);
 
       // Reset Redux streaming state
-      dispatch(resetStreaming());
+      dispatch(resetStreaming('enhanced'));
     }
   }, [wsContext.isConnected, dispatch]);
 
@@ -755,7 +758,7 @@ export const usePlayEnhanced = (): UsePlayEnhancedReturn => {
     return () => {
       // Only stop playback engine, don't call full stopPlayback which cleans up subscriptions
       playbackEngineRef.current?.stopPlayback();
-      dispatch(resetStreaming());
+      dispatch(resetStreaming('enhanced'));
     };
   }, [dispatch]);
 

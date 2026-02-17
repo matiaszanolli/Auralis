@@ -342,7 +342,7 @@ describe('usePlayEnhanced – audio_stream_start', () => {
   it('dispatches startStreaming with correct track_id and total_chunks', () => {
     fireHandler('audio_stream_start', makeStreamStartMsg({ track_id: 7, total_chunks: 20 }));
 
-    const streamingState = store.getState().player.streaming;
+    const streamingState = store.getState().player.streaming.enhanced;
     expect(streamingState.trackId).toBe(7);
     expect(streamingState.totalChunks).toBe(20);
   });
@@ -351,7 +351,7 @@ describe('usePlayEnhanced – audio_stream_start', () => {
     fireHandler('audio_stream_start', makeStreamStartMsg({ stream_type: 'normal' }));
 
     expect(vi.mocked(PCMStreamBuffer)).not.toHaveBeenCalled();
-    expect(store.getState().player.streaming.state).toBe('idle');
+    expect(store.getState().player.streaming.enhanced.state).toBe('idle');
   });
 
   it('passes through when stream_type is absent (no filter applied)', () => {
@@ -460,7 +460,7 @@ describe('usePlayEnhanced – audio_chunk', () => {
 
     fireHandler('audio_chunk', makeChunkMsg({ chunk_index: 0 }));
 
-    const streamingState = store.getState().player.streaming;
+    const streamingState = store.getState().player.streaming.enhanced;
     expect(streamingState.processedChunks).toBe(1);
     expect(streamingState.bufferedSamples).toBe(1000);
     expect(streamingState.progress).toBeGreaterThan(0);
@@ -546,15 +546,15 @@ describe('usePlayEnhanced – audio_stream_end', () => {
   it('dispatches completeStreaming when stream ends', () => {
     fireHandler('audio_stream_end', makeStreamEndMsg());
 
-    expect(store.getState().player.streaming.state).toBe('complete');
-    expect(store.getState().player.streaming.progress).toBe(100);
+    expect(store.getState().player.streaming.enhanced.state).toBe('complete');
+    expect(store.getState().player.streaming.enhanced.progress).toBe(100);
   });
 
   it('ignores end message with stream_type other than "enhanced"', () => {
     fireHandler('audio_stream_end', makeStreamEndMsg({ stream_type: 'normal' }));
 
     // State stays at 'buffering' (set by startStreaming), not 'complete'
-    expect(store.getState().player.streaming.state).toBe('buffering');
+    expect(store.getState().player.streaming.enhanced.state).toBe('buffering');
   });
 
   it('passes through when stream_type is absent', () => {
@@ -562,7 +562,7 @@ describe('usePlayEnhanced – audio_stream_end', () => {
     delete (msg.data as any).stream_type;
     fireHandler('audio_stream_end', msg);
 
-    expect(store.getState().player.streaming.state).toBe('complete');
+    expect(store.getState().player.streaming.enhanced.state).toBe('complete');
   });
 });
 
@@ -588,7 +588,7 @@ describe('usePlayEnhanced – audio_stream_error', () => {
   it('dispatches setStreamingError with error message and code', () => {
     fireHandler('audio_stream_error', makeStreamErrorMsg({ error: 'Encode failed', code: 'ENC_ERR' }));
 
-    const streamingState = store.getState().player.streaming;
+    const streamingState = store.getState().player.streaming.enhanced;
     expect(streamingState.state).toBe('error');
     expect(streamingState.error).toContain('Encode failed');
     expect(streamingState.error).toContain('ENC_ERR');
@@ -957,16 +957,16 @@ describe('usePlayEnhanced – playEnhanced', () => {
     // Put the store in error state to prove resetStreaming runs before startStreaming
     const { setStreamingError } = await import('@/store/slices/playerSlice');
     act(() => {
-      store.dispatch(setStreamingError('previous error'));
+      store.dispatch(setStreamingError({ streamType: 'enhanced', error: 'previous error' }));
     });
-    expect(store.getState().player.streaming.state).toBe('error');
+    expect(store.getState().player.streaming.enhanced.state).toBe('error');
 
     await act(async () => {
       await result.current.playEnhanced(2, 'adaptive', 1.0);
     });
 
     // resetStreaming + startStreaming → ends up in 'buffering'
-    expect(store.getState().player.streaming.state).toBe('buffering');
+    expect(store.getState().player.streaming.enhanced.state).toBe('buffering');
   });
 
   it('sends play_enhanced message to WebSocket', async () => {

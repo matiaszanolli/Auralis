@@ -51,7 +51,7 @@ import {
   completeStreaming,
   setStreamingError,
   resetStreaming,
-  selectStreaming,
+  selectNormalStreaming,
   selectIsPlaying,
   setCurrentTrack,
 } from '@/store/slices/playerSlice';
@@ -144,7 +144,7 @@ export interface UsePlayNormalReturn {
 export const usePlayNormal = (): UsePlayNormalReturn => {
   const dispatch = useDispatch();
   const wsContext = useWebSocketContext();
-  const streamingState = useSelector(selectStreaming);
+  const streamingState = useSelector(selectNormalStreaming);
   const isPlaying = useSelector(selectIsPlaying);
 
   // Internal service references
@@ -260,6 +260,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       // Update Redux state
       dispatch(
         startStreaming({
+          streamType: 'normal',
           trackId: message.data.track_id,
           totalChunks: message.data.total_chunks,
           intensity: 1.0, // Original audio (no processing)
@@ -295,7 +296,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     } catch (error) {
       const errorMsg = `Failed to initialize streaming: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayNormal]', errorMsg);
-      dispatch(setStreamingError(errorMsg));
+      dispatch(setStreamingError({ streamType: 'normal', error: errorMsg }));
     }
   }, [dispatch]);
 
@@ -336,6 +337,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       // Update Redux
       dispatch(
         updateStreamingProgress({
+          streamType: 'normal',
           processedChunks: streamingMetadataRef.current.processedChunks,
           bufferedSamples,
           progress: Math.min(progress, 100),
@@ -358,7 +360,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     } catch (error) {
       const errorMsg = `Failed to process audio chunk: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[usePlayNormal]', errorMsg);
-      dispatch(setStreamingError(errorMsg));
+      dispatch(setStreamingError({ streamType: 'normal', error: errorMsg }));
     }
   }, [dispatch]);
 
@@ -376,7 +378,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
     });
 
     // Mark as complete in Redux
-    dispatch(completeStreaming());
+    dispatch(completeStreaming('normal'));
   }, [dispatch]);
 
   /**
@@ -388,7 +390,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
     const errorMsg = `Streaming error: ${message.data.error} (${message.data.code})`;
     console.error('[usePlayNormal]', errorMsg);
-    dispatch(setStreamingError(errorMsg));
+    dispatch(setStreamingError({ streamType: 'normal', error: errorMsg }));
     cleanupStreaming();
   }, [dispatch, cleanupStreaming]);
 
@@ -411,7 +413,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         streamingMetadataRef.current = null;
 
         // Reset streaming state
-        dispatch(resetStreaming());
+        dispatch(resetStreaming('normal'));
 
         // Check WebSocket connection before proceeding
         if (!wsContext.isConnected) {
@@ -465,7 +467,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
       } catch (error) {
         const errorMsg = `Failed to start normal playback: ${error instanceof Error ? error.message : String(error)}`;
         console.error('[usePlayNormal]', errorMsg);
-        dispatch(setStreamingError(errorMsg));
+        dispatch(setStreamingError({ streamType: 'normal', error: errorMsg }));
         cleanupStreaming();
       }
     },
@@ -477,7 +479,7 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
    */
   const stopPlayback = useCallback(() => {
     playbackEngineRef.current?.stopPlayback();
-    dispatch(resetStreaming());
+    dispatch(resetStreaming('normal'));
     cleanupStreaming();
     setCurrentTime(0);
     setIsPaused(false);

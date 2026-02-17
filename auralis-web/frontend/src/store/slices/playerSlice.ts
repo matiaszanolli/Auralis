@@ -29,6 +29,8 @@ export type PresetName = 'adaptive' | 'gentle' | 'warm' | 'bright' | 'punchy';
 
 export type StreamingState = 'idle' | 'buffering' | 'streaming' | 'error' | 'complete';
 
+export type StreamType = 'normal' | 'enhanced';
+
 export interface StreamingInfo {
   state: StreamingState;
   trackId: number | null;
@@ -51,7 +53,10 @@ export interface PlayerState {
   isLoading: boolean;
   error: string | null;
   lastUpdated: number;
-  streaming: StreamingInfo;
+  streaming: {
+    normal: StreamingInfo;
+    enhanced: StreamingInfo;
+  };
 }
 
 const initialStreamingInfo: StreamingInfo = {
@@ -76,7 +81,10 @@ const initialState: PlayerState = {
   isLoading: false,
   error: null,
   lastUpdated: 0,
-  streaming: initialStreamingInfo,
+  streaming: {
+    normal: initialStreamingInfo,
+    enhanced: initialStreamingInfo,
+  },
 };
 
 const playerSlice = createSlice({
@@ -259,13 +267,14 @@ const playerSlice = createSlice({
     // ========================================================================
 
     /**
-     * Start enhanced audio streaming
+     * Start audio streaming (normal or enhanced)
      */
     startStreaming: {
       reducer(
         state,
         action: PayloadAction<
           {
+            streamType: StreamType;
             trackId: number;
             totalChunks: number;
             intensity: number;
@@ -274,17 +283,19 @@ const playerSlice = createSlice({
           { timestamp: number }
         >
       ) {
-        state.streaming.state = 'buffering';
-        state.streaming.trackId = action.payload.trackId;
-        state.streaming.totalChunks = action.payload.totalChunks;
-        state.streaming.intensity = action.payload.intensity;
-        state.streaming.processedChunks = 0;
-        state.streaming.progress = 0;
-        state.streaming.bufferedSamples = 0;
-        state.streaming.error = null;
+        const s = state.streaming[action.payload.streamType];
+        s.state = 'buffering';
+        s.trackId = action.payload.trackId;
+        s.totalChunks = action.payload.totalChunks;
+        s.intensity = action.payload.intensity;
+        s.processedChunks = 0;
+        s.progress = 0;
+        s.bufferedSamples = 0;
+        s.error = null;
         state.lastUpdated = action.meta.timestamp;
       },
       prepare(params: {
+        streamType: StreamType;
         trackId: number;
         totalChunks: number;
         intensity: number;
@@ -301,6 +312,7 @@ const playerSlice = createSlice({
         state,
         action: PayloadAction<
           {
+            streamType: StreamType;
             processedChunks: number;
             bufferedSamples: number;
             progress: number;
@@ -309,15 +321,17 @@ const playerSlice = createSlice({
           { timestamp: number }
         >
       ) {
-        state.streaming.processedChunks = action.payload.processedChunks;
-        state.streaming.bufferedSamples = action.payload.bufferedSamples;
-        state.streaming.progress = action.payload.progress;
-        if (state.streaming.state === 'buffering' && action.payload.bufferedSamples > 0) {
-          state.streaming.state = 'streaming';
+        const s = state.streaming[action.payload.streamType];
+        s.processedChunks = action.payload.processedChunks;
+        s.bufferedSamples = action.payload.bufferedSamples;
+        s.progress = action.payload.progress;
+        if (s.state === 'buffering' && action.payload.bufferedSamples > 0) {
+          s.state = 'streaming';
         }
         state.lastUpdated = action.meta.timestamp;
       },
       prepare(params: {
+        streamType: StreamType;
         processedChunks: number;
         bufferedSamples: number;
         progress: number;
@@ -330,13 +344,14 @@ const playerSlice = createSlice({
      * Mark streaming as complete
      */
     completeStreaming: {
-      reducer(state, action: PayloadAction<undefined, string, { timestamp: number }>) {
-        state.streaming.state = 'complete';
-        state.streaming.progress = 100;
+      reducer(state, action: PayloadAction<{ streamType: StreamType }, string, { timestamp: number }>) {
+        const s = state.streaming[action.payload.streamType];
+        s.state = 'complete';
+        s.progress = 100;
         state.lastUpdated = action.meta.timestamp;
       },
-      prepare() {
-        return { payload: undefined, meta: { timestamp: Date.now() } };
+      prepare(streamType: StreamType) {
+        return { payload: { streamType }, meta: { timestamp: Date.now() } };
       },
     },
 
@@ -344,13 +359,14 @@ const playerSlice = createSlice({
      * Set streaming error
      */
     setStreamingError: {
-      reducer(state, action: PayloadAction<string, string, { timestamp: number }>) {
-        state.streaming.state = 'error';
-        state.streaming.error = action.payload;
+      reducer(state, action: PayloadAction<{ streamType: StreamType; error: string }, string, { timestamp: number }>) {
+        const s = state.streaming[action.payload.streamType];
+        s.state = 'error';
+        s.error = action.payload.error;
         state.lastUpdated = action.meta.timestamp;
       },
-      prepare(error: string) {
-        return { payload: error, meta: { timestamp: Date.now() } };
+      prepare(params: { streamType: StreamType; error: string }) {
+        return { payload: params, meta: { timestamp: Date.now() } };
       },
     },
 
@@ -358,12 +374,12 @@ const playerSlice = createSlice({
      * Reset streaming state
      */
     resetStreaming: {
-      reducer(state, action: PayloadAction<undefined, string, { timestamp: number }>) {
-        state.streaming = initialStreamingInfo;
+      reducer(state, action: PayloadAction<{ streamType: StreamType }, string, { timestamp: number }>) {
+        state.streaming[action.payload.streamType] = { ...initialStreamingInfo };
         state.lastUpdated = action.meta.timestamp;
       },
-      prepare() {
-        return { payload: undefined, meta: { timestamp: Date.now() } };
+      prepare(streamType: StreamType) {
+        return { payload: { streamType }, meta: { timestamp: Date.now() } };
       },
     },
 
@@ -374,16 +390,17 @@ const playerSlice = createSlice({
       reducer(
         state,
         action: PayloadAction<
-          Partial<Omit<StreamingInfo, 'error'>>,
+          { streamType: StreamType } & Partial<Omit<StreamingInfo, 'error'>>,
           string,
           { timestamp: number }
         >
       ) {
-        Object.assign(state.streaming, action.payload);
+        const { streamType, ...updates } = action.payload;
+        Object.assign(state.streaming[streamType], updates);
         state.lastUpdated = action.meta.timestamp;
       },
-      prepare(streamingInfo: Partial<Omit<StreamingInfo, 'error'>>) {
-        return { payload: streamingInfo, meta: { timestamp: Date.now() } };
+      prepare(params: { streamType: StreamType } & Partial<Omit<StreamingInfo, 'error'>>) {
+        return { payload: params, meta: { timestamp: Date.now() } };
       },
     },
   },
@@ -424,14 +441,24 @@ export const selectError = (state: { player: PlayerState }) => state.player.erro
 export const selectPlayerState = (state: { player: PlayerState }) => state.player;
 
 // Streaming selectors (Phase 2.2)
+// Top-level selector returns both sub-states
 export const selectStreaming = (state: { player: PlayerState }) => state.player.streaming;
-export const selectStreamingState = (state: { player: PlayerState }) => state.player.streaming.state;
-export const selectStreamingProgress = (state: { player: PlayerState }) => state.player.streaming.progress;
-export const selectStreamingTrackId = (state: { player: PlayerState }) => state.player.streaming.trackId;
-export const selectStreamingIntensity = (state: { player: PlayerState }) => state.player.streaming.intensity;
-export const selectBufferedSamples = (state: { player: PlayerState }) => state.player.streaming.bufferedSamples;
-export const selectStreamingError = (state: { player: PlayerState }) => state.player.streaming.error;
-export const selectIsStreaming = (state: { player: PlayerState }) =>
-  state.player.streaming.state === 'streaming' || state.player.streaming.state === 'buffering';
+// Type-specific selectors for A/B comparison hooks
+export const selectNormalStreaming = (state: { player: PlayerState }) => state.player.streaming.normal;
+export const selectEnhancedStreaming = (state: { player: PlayerState }) => state.player.streaming.enhanced;
+// Convenience selectors for the enhanced (primary) stream
+export const selectStreamingState = (state: { player: PlayerState }) => state.player.streaming.enhanced.state;
+export const selectStreamingProgress = (state: { player: PlayerState }) => state.player.streaming.enhanced.progress;
+export const selectStreamingTrackId = (state: { player: PlayerState }) => state.player.streaming.enhanced.trackId;
+export const selectStreamingIntensity = (state: { player: PlayerState }) => state.player.streaming.enhanced.intensity;
+export const selectBufferedSamples = (state: { player: PlayerState }) => state.player.streaming.enhanced.bufferedSamples;
+export const selectStreamingError = (state: { player: PlayerState }) => state.player.streaming.enhanced.error;
+export const selectIsStreaming = (state: { player: PlayerState }) => {
+  const { normal, enhanced } = state.player.streaming;
+  return (
+    normal.state === 'streaming' || normal.state === 'buffering' ||
+    enhanced.state === 'streaming' || enhanced.state === 'buffering'
+  );
+};
 
 export default playerSlice.reducer;
