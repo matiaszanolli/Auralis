@@ -12,7 +12,7 @@
  * - Mock data fallback for development
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/shared/Toast';
 
 export interface Track {
@@ -64,6 +64,7 @@ export const useLibraryData = ({
   const [hasMore, setHasMore] = useState(true);
   const [totalTracks, setTotalTracks] = useState(0);
   const [offset, setOffset] = useState(0);
+  const offsetRef = useRef(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [scanning, setScanning] = useState(false);
 
@@ -136,13 +137,15 @@ export const useLibraryData = ({
   const fetchTracks = useCallback(async (resetPagination = true) => {
     setLoading(true);
     if (resetPagination) {
+      offsetRef.current = 0;
       setOffset(0);
       setTracks([]);
     }
 
     try {
       const limit = 50;
-      const currentOffset = resetPagination ? 0 : offset;
+      // Read offset from ref so this callback never closes over stale state
+      const currentOffset = resetPagination ? 0 : offsetRef.current;
 
       // Determine which endpoint to use based on view
       // Use relative URLs to leverage Vite proxy (avoids CORS issues)
@@ -197,7 +200,7 @@ export const useLibraryData = ({
     } finally {
       setLoading(false);
     }
-  }, [view, offset, success, error, info, loadMockData]);
+  }, [view, success, error, info, loadMockData]);
 
   // Load more tracks (for infinite scroll)
   const loadMore = useCallback(async () => {
@@ -208,7 +211,8 @@ export const useLibraryData = ({
     setIsLoadingMore(true);
     try {
       const limit = 50;
-      const newOffset = offset + limit;
+      const newOffset = offsetRef.current + limit;
+      offsetRef.current = newOffset;
       setOffset(newOffset);
 
       // Use relative URLs to leverage Vite proxy (avoids CORS issues)
@@ -239,7 +243,7 @@ export const useLibraryData = ({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMore, offset, view]);
+  }, [isLoadingMore, hasMore, view]);
 
   // Handle folder scan
   const handleScanFolder = useCallback(async () => {
@@ -290,12 +294,13 @@ export const useLibraryData = ({
     }
   }, [isElectron, fetchTracks]);
 
-  // Auto-load on mount or when view changes
+  // Auto-load on mount or when view/autoLoad changes.
+  // fetchTracks is safe to include now that offset is held in a ref (not closure).
   useEffect(() => {
     if (autoLoad) {
       fetchTracks();
     }
-  }, [view]); // Only depend on view, not fetchTracks (to avoid infinite loop)
+  }, [view, autoLoad, fetchTracks]);
 
   return {
     // State
