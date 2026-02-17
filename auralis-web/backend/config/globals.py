@@ -64,7 +64,7 @@ class ConnectionManager:
         stale_connections: list[WebSocket] = []
         message_json = json.dumps(message)
 
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):  # snapshot: disconnect() may modify during await
             try:
                 await connection.send_text(message_json)
             except Exception as e:
