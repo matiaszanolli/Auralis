@@ -510,10 +510,10 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
 
   /**
    * Update playback time periodically
+   * Note: Always create the interval on mount; the callback safely handles
+   * a null ref via optional chaining until the engine is created on stream start.
    */
   useEffect(() => {
-    if (!playbackEngineRef.current) return;
-
     const interval = setInterval(() => {
       setCurrentTime(playbackEngineRef.current?.getCurrentPlaybackTime() || 0);
     }, 100); // Update 10x per second
