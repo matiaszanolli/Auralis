@@ -81,10 +81,17 @@ async def _background_auto_scan(
                 }
             })
 
-        # Wrap synchronous callback for async context
+        # Capture the event loop before entering the thread pool.
+        # asyncio.create_task() cannot be called from a background thread
+        # (raises RuntimeError: no running event loop).  Use call_soon_threadsafe()
+        # to schedule the coroutine creation back on the event loop (fixes #2189).
+        loop = asyncio.get_running_loop()
+
         def sync_progress_callback(progress_data: dict[str, Any]) -> None:
-            """Synchronous wrapper that schedules async broadcast"""
-            asyncio.create_task(progress_callback(progress_data))
+            """Synchronous wrapper that schedules async broadcast from worker thread."""
+            loop.call_soon_threadsafe(
+                loop.create_task, progress_callback(progress_data)
+            )
 
         scanner.set_progress_callback(sync_progress_callback)
 
