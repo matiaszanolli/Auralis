@@ -11,6 +11,7 @@ Handles database schema versioning and migrations
 import logging
 import platform
 import shutil
+import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -336,8 +337,15 @@ def backup_database(db_path: str, backup_dir: str | None = None) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_file = backup_path / f"{db_path_obj.stem}.backup_{timestamp}{db_path_obj.suffix}"
 
-    # Copy database file
-    shutil.copy2(db_path_obj, backup_file)
+    # Use sqlite3.Connection.backup() (SQLite Online Backup API) instead of
+    # shutil.copy2().  shutil.copy2 copies only the .db file and silently
+    # misses pages that are committed but not yet checkpointed into the main
+    # file (i.e. data sitting in the -wal file).  sqlite3.backup() reads
+    # through both the main file and the WAL, producing a fully consistent
+    # point-in-time snapshot of all committed data.
+    with sqlite3.connect(str(db_path_obj)) as src:
+        with sqlite3.connect(str(backup_file)) as dst:
+            src.backup(dst)
 
     logger.info(f"✅ Database backed up to: {backup_file}")
     return str(backup_file)

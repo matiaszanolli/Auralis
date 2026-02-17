@@ -236,6 +236,73 @@ class TestDatabaseBackup:
         with pytest.raises(FileNotFoundError):
             backup_database("/nonexistent/database.db")
 
+    def test_backup_captures_wal_data(self):
+        """backup_database() captures committed data that lives in the WAL file.
+
+        shutil.copy2() of the .db file misses pages committed after the last
+        checkpoint.  sqlite3.Connection.backup() (SQLite Online Backup API)
+        reads through both the main file and the WAL, so all committed data is
+        present in the backup regardless of checkpoint state.
+        """
+        import sqlite3 as _sqlite3
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "wal_test.db"
+            backup_dir = Path(tmp) / "backups"
+            backup_dir.mkdir()
+
+            # Build a WAL-mode DB and disable auto-checkpoint so the write is
+            # guaranteed to stay in the WAL file (never flushed to the main DB).
+            with _sqlite3.connect(str(db_path)) as conn:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA wal_autocheckpoint=0")  # disable auto-checkpoint
+                conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, value TEXT)")
+                conn.execute("INSERT INTO items VALUES (1, 'only_in_wal')")
+                conn.commit()
+
+            # WAL file must exist and be non-empty to confirm the write is there.
+            wal_file = Path(str(db_path) + "-wal")
+            assert wal_file.exists() and wal_file.stat().st_size > 0, (
+                "WAL file should be non-empty (auto-checkpoint disabled)"
+            )
+
+            # Take the backup — old shutil.copy2 would miss the WAL data.
+            backup_path = backup_database(str(db_path), backup_dir=str(backup_dir))
+
+            # Backup DB must contain the committed row.
+            with _sqlite3.connect(backup_path) as bk:
+                rows = bk.execute("SELECT value FROM items WHERE id=1").fetchall()
+            assert rows == [("only_in_wal",)], (
+                "Backup is missing data that was committed but not checkpointed"
+            )
+
+    def test_restore_from_wal_backup_is_complete(self):
+        """Round-trip: write → backup (WAL-safe) → restore → all data present."""
+        import sqlite3 as _sqlite3
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "src.db"
+            restore_target = Path(tmp) / "restored.db"
+
+            # Create source DB in WAL mode, insert data, leave in WAL.
+            with _sqlite3.connect(str(db_path)) as conn:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA wal_autocheckpoint=0")
+                conn.execute("CREATE TABLE kv (k TEXT PRIMARY KEY, v TEXT)")
+                conn.executemany(
+                    "INSERT INTO kv VALUES (?, ?)",
+                    [(f"key{i}", f"val{i}") for i in range(20)]
+                )
+                conn.commit()
+
+            backup_path = backup_database(str(db_path), backup_dir=tmp)
+            success = restore_database(backup_path, str(restore_target))
+            assert success is True
+
+            with _sqlite3.connect(str(restore_target)) as conn:
+                rows = conn.execute("SELECT COUNT(*) FROM kv").fetchone()
+            assert rows[0] == 20, "Restored DB is missing rows that were only in the WAL"
+
 
 class TestCheckAndMigrate:
     """Test cases for check_and_migrate_database"""
