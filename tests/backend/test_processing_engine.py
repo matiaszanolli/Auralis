@@ -330,5 +330,79 @@ class TestEdgeCases:
         assert status["total_jobs"] == 0
 
 
+class TestJobDictBoundedMemory:
+    """Tests for automatic TTL-based eviction of completed jobs (issue #2216)"""
+
+    def test_completed_job_ttl_parameter_stored(self):
+        """completed_job_ttl_hours constructor param is persisted on the engine"""
+        engine = ProcessingEngine(max_concurrent_jobs=1, completed_job_ttl_hours=0.5)
+        assert engine.completed_job_ttl_hours == 0.5
+
+    def test_default_ttl_is_one_hour(self):
+        """Default TTL is 1 hour when not specified"""
+        engine = ProcessingEngine()
+        assert engine.completed_job_ttl_hours == 1.0
+
+    def test_jobs_dict_stays_bounded_after_many_completions(self, temp_audio_file):
+        """Completed jobs are evicted so the dict does not grow without bound"""
+        from datetime import datetime, timedelta
+
+        engine = ProcessingEngine(max_concurrent_jobs=2, completed_job_ttl_hours=0.0)
+
+        # Simulate 100 completed jobs whose completed_at is in the past
+        for _ in range(100):
+            job = engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={"mode": "adaptive"},
+            )
+            job.status = ProcessingStatus.COMPLETED
+            job.completed_at = datetime.now() - timedelta(seconds=1)
+
+        assert len(engine.jobs) == 100
+
+        removed = engine.cleanup_old_jobs(max_age_hours=0.0)
+
+        assert removed == 100
+        assert len(engine.jobs) == 0
+
+    def test_active_jobs_are_not_evicted(self, temp_audio_file):
+        """QUEUED and PROCESSING jobs must never be removed by cleanup"""
+        engine = ProcessingEngine(max_concurrent_jobs=2, completed_job_ttl_hours=0.0)
+
+        queued_job = engine.create_job(
+            input_path=str(temp_audio_file),
+            settings={"mode": "adaptive"},
+        )
+        processing_job = engine.create_job(
+            input_path=str(temp_audio_file),
+            settings={"mode": "adaptive"},
+        )
+        processing_job.status = ProcessingStatus.PROCESSING
+
+        engine.cleanup_old_jobs(max_age_hours=0.0)
+
+        assert queued_job.job_id in engine.jobs
+        assert processing_job.job_id in engine.jobs
+
+    def test_progress_callbacks_cleaned_up_with_job(self, temp_audio_file):
+        """Evicting a job also removes its progress callback to prevent leaks"""
+        from datetime import datetime, timedelta
+
+        engine = ProcessingEngine(max_concurrent_jobs=1, completed_job_ttl_hours=0.0)
+
+        job = engine.create_job(
+            input_path=str(temp_audio_file),
+            settings={"mode": "adaptive"},
+        )
+        engine.register_progress_callback(job.job_id, lambda *_: None)
+        job.status = ProcessingStatus.COMPLETED
+        job.completed_at = datetime.now() - timedelta(seconds=1)
+
+        engine.cleanup_old_jobs(max_age_hours=0.0)
+
+        assert job.job_id not in engine.jobs
+        assert job.job_id not in engine.progress_callbacks
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

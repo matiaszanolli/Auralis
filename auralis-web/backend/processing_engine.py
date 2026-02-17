@@ -91,9 +91,10 @@ class ProcessingEngine:
     adaptive mastering using the HybridProcessor
     """
 
-    def __init__(self, max_concurrent_jobs: int = 2) -> None:
+    def __init__(self, max_concurrent_jobs: int = 2, completed_job_ttl_hours: float = 1.0) -> None:
         self.jobs: dict[str, ProcessingJob] = {}
         self.max_concurrent_jobs: int = max_concurrent_jobs
+        self.completed_job_ttl_hours: float = completed_job_ttl_hours
         self.active_jobs: int = 0
         self.job_queue: asyncio.Queue[ProcessingJob] = asyncio.Queue()
 
@@ -475,6 +476,7 @@ class ProcessingEngine:
                         raise
                 finally:
                     self._tasks.pop(job.job_id, None)
+                    self.cleanup_old_jobs(self.completed_job_ttl_hours)
 
             except Exception as e:
                 print(f"Worker error: {e}")
