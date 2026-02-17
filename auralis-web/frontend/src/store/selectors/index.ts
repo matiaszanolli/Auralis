@@ -332,15 +332,102 @@ export const makeSelectAppSnapshot = () => selectAppSnapshot;
 // Performance Monitoring
 // ============================================================================
 
-export function getSelectorStats(): {
+export interface SelectorMetrics {
+  name: string;
+  calls: number;
   cacheHits: number;
   cacheMisses: number;
-  averageRecomputeTime: number;
-} {
-  return {
-    cacheHits: 0,
-    cacheMisses: 0,
-    averageRecomputeTime: 0,
+  totalTime: number;
+  averageTime: number;
+  lastComputeTime: number;
+}
+
+export class SelectorPerformanceTracker {
+  private metrics: Map<string, SelectorMetrics> = new Map();
+
+  recordCall(name: string, computeTime: number, hit: boolean): void {
+    let metric = this.metrics.get(name);
+    if (!metric) {
+      metric = { name, calls: 0, cacheHits: 0, cacheMisses: 0, totalTime: 0, averageTime: 0, lastComputeTime: 0 };
+      this.metrics.set(name, metric);
+    }
+    metric.calls++;
+    if (hit) { metric.cacheHits++; } else { metric.cacheMisses++; }
+    metric.totalTime += computeTime;
+    metric.averageTime = metric.totalTime / metric.calls;
+    metric.lastComputeTime = computeTime;
+  }
+
+  getMetrics(name?: string): SelectorMetrics | SelectorMetrics[] {
+    if (name) return this.metrics.get(name) || { name, calls: 0, cacheHits: 0, cacheMisses: 0, totalTime: 0, averageTime: 0, lastComputeTime: 0 };
+    return Array.from(this.metrics.values());
+  }
+
+  getCacheHitRate(name?: string): number {
+    if (name) {
+      const m = this.metrics.get(name);
+      return (m && m.calls > 0) ? (m.cacheHits / m.calls) * 100 : 0;
+    }
+    const all = Array.from(this.metrics.values());
+    const calls = all.reduce((s, m) => s + m.calls, 0);
+    const hits = all.reduce((s, m) => s + m.cacheHits, 0);
+    return calls > 0 ? (hits / calls) * 100 : 0;
+  }
+
+  reset(name?: string): void {
+    if (name) { this.metrics.delete(name); } else { this.metrics.clear(); }
+  }
+
+  report(): string {
+    const metrics = Array.from(this.metrics.values());
+    if (metrics.length === 0) return 'No selector metrics recorded';
+    let out = '📊 Selector Performance Report\n================================\n\n';
+    for (const m of metrics) {
+      const rate = m.calls > 0 ? ((m.cacheHits / m.calls) * 100).toFixed(1) : '0.0';
+      out += `${m.name}:\n  Calls: ${m.calls}\n  Cache Hit Rate: ${rate}%\n  Avg Time: ${m.averageTime.toFixed(3)}ms\n\n`;
+    }
+    out += `Overall Cache Hit Rate: ${this.getCacheHitRate().toFixed(1)}%`;
+    return out;
+  }
+}
+
+export const selectorPerformance = new SelectorPerformanceTracker();
+
+/**
+ * Create a memoized selector with performance tracking.
+ * Prefer using createSelector from @reduxjs/toolkit for new selectors.
+ * This factory is retained for backwards compatibility with performance/index.ts.
+ */
+export function createMemoizedSelector<T>(
+  name: string,
+  selectInputs: (state: RootState) => any[],
+  computeFn: (...args: any[]) => T
+): (state: RootState) => T {
+  let lastInputs: any[] | undefined;
+  let resultCache: T | undefined;
+
+  return (state: RootState): T => {
+    const startTime = performance.now();
+    const inputs = selectInputs(state);
+
+    let inputsChanged = !lastInputs || lastInputs.length !== inputs.length;
+    if (!inputsChanged) {
+      for (let i = 0; i < inputs.length; i++) {
+        if (lastInputs![i] !== inputs[i]) { inputsChanged = true; break; }
+      }
+    }
+
+    let result: T;
+    if (!inputsChanged && resultCache !== undefined) {
+      result = resultCache;
+      selectorPerformance.recordCall(name, performance.now() - startTime, true);
+    } else {
+      result = computeFn(...inputs);
+      resultCache = result;
+      lastInputs = inputs;
+      selectorPerformance.recordCall(name, performance.now() - startTime, false);
+    }
+    return result;
   };
 }
 
@@ -356,4 +443,30 @@ export const selectors = {
   playback: makeSelectPlaybackState,
   queueState: makeSelectQueueState,
   appSnapshot: makeSelectAppSnapshot,
+};
+
+/**
+ * Grouped optimized selectors (all backed by Reselect createSelector).
+ * Drop-in replacement for the former advanced.ts optimizedSelectors.
+ */
+export const optimizedSelectors = {
+  player: {
+    selectPlaybackProgress,
+    selectFormattedTime,
+    selectPlaybackState,
+  },
+  queue: {
+    selectCurrentTrack: selectCurrentQueueTrack,
+    selectRemainingTime,
+    selectQueueStats,
+    selectQueueState,
+  },
+  cache: {
+    selectCacheMetrics,
+    selectCacheHealth: selectCacheHealthDerived,
+  },
+  connection: {
+    selectConnectionStatus,
+  },
+  appSnapshot: selectAppSnapshot,
 };

@@ -12,7 +12,7 @@
  */
 
 // Internal imports for use in functions below
-import { selectorPerformance } from '../store/selectors/advanced';
+import { selectorPerformance } from '../store/selectors';
 import { renderMetricsStore } from './useRenderProfiler';
 import { bundleAnalyzer } from './bundleAnalyzer';
 
@@ -91,9 +91,9 @@ export {
   connectionSelectors,
   selectAppSnapshot,
   optimizedSelectors,
-} from '../store/selectors/advanced';
+} from '../store/selectors';
 
-export type { SelectorMetrics } from '../store/selectors/advanced';
+export type { SelectorMetrics } from '../store/selectors';
 
 // ============================================================================
 // Performance Monitoring
