@@ -330,6 +330,74 @@ class TestEdgeCases:
         assert status["total_jobs"] == 0
 
 
+class TestQueueBackpressure:
+    """Tests for bounded queue and semaphore-based concurrency (issue #2332)"""
+
+    def test_max_queue_size_default(self):
+        """Default max_queue_size is 20"""
+        engine = ProcessingEngine()
+        assert engine.max_queue_size == 20
+        assert engine.job_queue.maxsize == 20
+
+    def test_max_queue_size_configurable(self):
+        """max_queue_size constructor parameter is stored and applied"""
+        engine = ProcessingEngine(max_queue_size=5)
+        assert engine.max_queue_size == 5
+        assert engine.job_queue.maxsize == 5
+
+    @pytest.mark.asyncio
+    async def test_submit_job_raises_queue_full_when_at_capacity(self, temp_audio_file):
+        """submit_job raises asyncio.QueueFull when maxsize is exceeded"""
+        engine = ProcessingEngine(max_queue_size=3)
+
+        # Fill the queue to capacity
+        for _ in range(3):
+            job = engine.create_job(
+                input_path=str(temp_audio_file),
+                settings={"mode": "adaptive"},
+            )
+            await engine.submit_job(job)
+
+        assert engine.job_queue.full()
+
+        # One more submit must raise QueueFull
+        overflow_job = engine.create_job(
+            input_path=str(temp_audio_file),
+            settings={"mode": "adaptive"},
+        )
+        with pytest.raises(asyncio.QueueFull):
+            await engine.submit_job(overflow_job)
+
+    @pytest.mark.asyncio
+    async def test_queue_full_removes_job_from_jobs_dict(self, temp_audio_file):
+        """When submit_job raises QueueFull the job is cleaned from self.jobs"""
+        engine = ProcessingEngine(max_queue_size=1)
+
+        first_job = engine.create_job(
+            input_path=str(temp_audio_file),
+            settings={"mode": "adaptive"},
+        )
+        await engine.submit_job(first_job)
+
+        overflow_job = engine.create_job(
+            input_path=str(temp_audio_file),
+            settings={"mode": "adaptive"},
+        )
+        with pytest.raises(asyncio.QueueFull):
+            await engine.submit_job(overflow_job)
+
+        # Overflow job must not remain in the dict
+        assert overflow_job.job_id not in engine.jobs
+
+    def test_get_queue_status_exposes_max_queue_size_and_full_flag(self, engine):
+        """get_queue_status includes max_queue_size and queue_full fields"""
+        status = engine.get_queue_status()
+        assert "max_queue_size" in status
+        assert "queue_full" in status
+        assert status["max_queue_size"] == engine.max_queue_size
+        assert status["queue_full"] is False
+
+
 class TestJobDictBoundedMemory:
     """Tests for automatic TTL-based eviction of completed jobs (issue #2216)"""
 

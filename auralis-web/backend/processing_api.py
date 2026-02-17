@@ -10,6 +10,7 @@ FastAPI routes for audio processing functionality.
 :license: GPLv3, see LICENSE for more details.
 """
 
+import asyncio
 import logging
 import tempfile
 from pathlib import Path
@@ -102,7 +103,13 @@ async def process_audio(request: ProcessRequest) -> ProcessResponse:
         )
 
         # Submit to queue
-        job_id = await _processing_engine.submit_job(job)
+        try:
+            job_id = await _processing_engine.submit_job(job)
+        except asyncio.QueueFull:
+            raise HTTPException(
+                status_code=503,
+                detail="Processing queue is full, please try again later",
+            )
 
         logger.info(f"Processing job {job_id} submitted for {request.input_path}")
 
@@ -112,6 +119,8 @@ async def process_audio(request: ProcessRequest) -> ProcessResponse:
             message="Processing job submitted successfully"
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to submit processing job: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -154,7 +163,13 @@ async def upload_and_process(
             mode=processing_settings.mode
         )
 
-        job_id = await _processing_engine.submit_job(job)
+        try:
+            job_id = await _processing_engine.submit_job(job)
+        except asyncio.QueueFull:
+            raise HTTPException(
+                status_code=503,
+                detail="Processing queue is full, please try again later",
+            )
 
         return ProcessResponse(
             job_id=job_id,
@@ -162,6 +177,8 @@ async def upload_and_process(
             message=f"File {file.filename} uploaded and queued for processing"
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to upload and process: {e}")
         raise HTTPException(status_code=500, detail=str(e))

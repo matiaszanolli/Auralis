@@ -386,6 +386,48 @@ class TestPresetApplication:
             assert "dynamics" in settings
 
 
+class TestQueueBackpressureAPI:
+    """Tests for 503 responses when the processing queue is full (issue #2332)"""
+
+    def test_process_returns_503_when_queue_full(self, client, mock_engine, tmp_path):
+        """POST /api/processing/process returns 503 when submit_job raises QueueFull"""
+        import asyncio
+
+        mock_engine.submit_job = AsyncMock(side_effect=asyncio.QueueFull())
+
+        audio_file = tmp_path / "audio.wav"
+        audio_file.write_bytes(b"RIFF" + b"\x00" * 40)
+        mock_engine.create_job.return_value = mock_engine.get_job.return_value
+
+        # Simulate a valid process request pointing at the real temp file
+        response = client.post(
+            "/api/processing/process",
+            json={"input_path": str(audio_file), "settings": {"mode": "adaptive"}},
+        )
+
+        assert response.status_code == 503
+        assert "queue" in response.json()["detail"].lower()
+
+    def test_upload_and_process_returns_503_when_queue_full(self, client, mock_engine):
+        """POST /api/processing/upload-and-process returns 503 when queue is full"""
+        import asyncio
+
+        mock_engine.submit_job = AsyncMock(side_effect=asyncio.QueueFull())
+
+        audio_data = b"RIFF" + b"\x00" * 40
+        files = {"file": ("test.wav", io.BytesIO(audio_data), "audio/wav")}
+        data = {"settings": json.dumps({"mode": "adaptive"})}
+
+        response = client.post(
+            "/api/processing/upload-and-process",
+            files=files,
+            data=data,
+        )
+
+        assert response.status_code == 503
+        assert "queue" in response.json()["detail"].lower()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

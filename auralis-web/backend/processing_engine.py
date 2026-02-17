@@ -91,12 +91,21 @@ class ProcessingEngine:
     adaptive mastering using the HybridProcessor
     """
 
-    def __init__(self, max_concurrent_jobs: int = 2, completed_job_ttl_hours: float = 1.0) -> None:
+    def __init__(
+        self,
+        max_concurrent_jobs: int = 2,
+        max_queue_size: int = 20,
+        completed_job_ttl_hours: float = 1.0,
+    ) -> None:
         self.jobs: dict[str, ProcessingJob] = {}
         self.max_concurrent_jobs: int = max_concurrent_jobs
+        self.max_queue_size: int = max_queue_size
         self.completed_job_ttl_hours: float = completed_job_ttl_hours
         self.active_jobs: int = 0
-        self.job_queue: asyncio.Queue[ProcessingJob] = asyncio.Queue()
+        self.job_queue: asyncio.Queue[ProcessingJob] = asyncio.Queue(maxsize=max_queue_size)
+
+        # Semaphore replaces the busy-wait loop in start_worker (fixes #2332)
+        self._concurrency_semaphore: asyncio.Semaphore = asyncio.Semaphore(max_concurrent_jobs)
 
         # Processing components
         self.processors: dict[str, HybridProcessor] = {}
@@ -145,8 +154,18 @@ class ProcessingEngine:
         return job
 
     async def submit_job(self, job: ProcessingJob) -> str:
-        """Submit a job to the processing queue"""
-        await self.job_queue.put(job)
+        """Submit a job to the processing queue.
+
+        Raises:
+            asyncio.QueueFull: when the queue is at capacity (callers should
+                translate this to an HTTP 503 response).
+        """
+        try:
+            self.job_queue.put_nowait(job)
+        except asyncio.QueueFull:
+            # Remove the pre-registered job entry so it doesn't linger
+            self.jobs.pop(job.job_id, None)
+            raise
         return job.job_id
 
     def get_job(self, job_id: str) -> ProcessingJob | None:
@@ -459,9 +478,8 @@ class ProcessingEngine:
                 # Wait for a job
                 job = await self.job_queue.get()
 
-                # Check if we can process (max concurrent jobs)
-                while self.active_jobs >= self.max_concurrent_jobs:
-                    await asyncio.sleep(0.5)
+                # Block until a concurrency slot is free (replaces busy-wait, fixes #2332)
+                await self._concurrency_semaphore.acquire()
 
                 # Wrap in a Task so cancel_job() can call task.cancel() (fixes #2217)
                 task = asyncio.create_task(self.process_job(job))
@@ -476,6 +494,7 @@ class ProcessingEngine:
                         raise
                 finally:
                     self._tasks.pop(job.job_id, None)
+                    self._concurrency_semaphore.release()
                     self.cleanup_old_jobs(self.completed_job_ttl_hours)
 
             except Exception as e:
@@ -545,4 +564,6 @@ class ProcessingEngine:
             "completed": len([j for j in self.jobs.values() if j.status == ProcessingStatus.COMPLETED]),
             "failed": len([j for j in self.jobs.values() if j.status == ProcessingStatus.FAILED]),
             "max_concurrent": self.max_concurrent_jobs,
+            "max_queue_size": self.max_queue_size,
+            "queue_full": self.job_queue.full(),
         }
