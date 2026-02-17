@@ -7,9 +7,11 @@ Covers:
 - State transition validation (valid and invalid paths)
 - LOADING→STOPPED transition for post-load reset (#2199)
 - State setter removal: no bypass of state machine (#2199)
+- Callbacks execute outside lock scope (#2291)
 """
 
 import threading
+import time
 
 import pytest
 
@@ -239,6 +241,175 @@ class TestPlaybackControllerStateTransitions:
         actions = [e.get("action") for e in events]
         assert "loading" in actions
         assert "stop" in actions
+
+
+class TestCallbackOutsideLock:
+    """
+    Callbacks must execute OUTSIDE the RLock (issue #2291).
+
+    With the old code, _notify_callbacks() was called while the lock was
+    held.  A slow callback would block every concurrent state transition
+    for its full duration.  The fix: snapshot state inside the lock,
+    release the lock, then call callbacks.
+    """
+
+    SLOW_DELAY = 0.15  # 150 ms — safely above scheduling noise
+
+    def test_slow_callback_does_not_block_concurrent_state_transition(self):
+        """
+        A slow callback on play() must not block a concurrent pause().
+
+        Old behaviour (bug): pause() blocks for ~SLOW_DELAY because it
+        cannot acquire the lock until the slow callback finishes.
+        New behaviour (fix): pause() completes immediately because the
+        lock is released before callbacks are invoked.
+        """
+        controller = PlaybackController()
+        callback_started = threading.Event()
+
+        def slow_callback(info):
+            if info.get("action") == "play":
+                callback_started.set()
+                time.sleep(self.SLOW_DELAY)
+
+        controller.add_callback(slow_callback)
+
+        pause_elapsed: list[float] = []
+
+        def thread_b():
+            callback_started.wait(timeout=2.0)
+            t0 = time.monotonic()
+            controller.pause()
+            pause_elapsed.append(time.monotonic() - t0)
+
+        t_a = threading.Thread(target=controller.play)
+        t_b = threading.Thread(target=thread_b)
+        t_a.start()
+        t_b.start()
+        t_a.join(timeout=2.0)
+        t_b.join(timeout=2.0)
+
+        assert pause_elapsed, "thread_b never called pause()"
+        assert pause_elapsed[0] < self.SLOW_DELAY * 0.5, (
+            f"pause() took {pause_elapsed[0]:.3f}s while slow play() callback "
+            f"was running.  Expected < {self.SLOW_DELAY * 0.5:.3f}s — "
+            f"callbacks must not hold the lock (issue #2291)."
+        )
+
+    def test_state_visible_before_callback_completes(self):
+        """
+        The new state must be visible to other threads immediately after
+        the state method returns, not after the callbacks finish.
+
+        A background thread reads controller.state concurrently during a
+        slow callback.  The state must already reflect the transition.
+        """
+        controller = PlaybackController()
+        callback_started = threading.Event()
+        state_during_callback: list[str] = []
+
+        def slow_callback(info):
+            if info.get("action") == "play":
+                callback_started.set()
+                time.sleep(self.SLOW_DELAY)
+
+        controller.add_callback(slow_callback)
+
+        def reader():
+            callback_started.wait(timeout=2.0)
+            state_during_callback.append(controller.state.value)
+
+        t_play = threading.Thread(target=controller.play)
+        t_reader = threading.Thread(target=reader)
+        t_play.start()
+        t_reader.start()
+        t_play.join(timeout=2.0)
+        t_reader.join(timeout=2.0)
+
+        assert state_during_callback, "reader thread never ran"
+        assert state_during_callback[0] == "playing", (
+            f"Expected state='playing' during callback, got {state_during_callback[0]!r}. "
+            f"State must be updated before callbacks fire (issue #2291)."
+        )
+
+    def test_callback_receives_correct_state_snapshot(self):
+        """
+        The state_info dict passed to callbacks must reflect the state
+        at the moment of transition, not some later state.
+        """
+        controller = PlaybackController()
+        received: list[dict] = []
+        controller.add_callback(received.append)
+
+        controller.play()
+        controller.pause()
+        controller.stop()
+
+        actions = [e["action"] for e in received]
+        assert actions == ["play", "pause", "stop"], (
+            f"Expected callbacks in order [play, pause, stop], got {actions}"
+        )
+        assert received[0]["state"] == "playing"
+        assert received[1]["state"] == "paused"
+        assert received[2]["state"] == "stopped"
+
+    def test_callback_can_call_is_playing_without_deadlock(self):
+        """
+        A callback that reads state (is_playing, is_paused) must not
+        deadlock.  With the old code this was safe only because RLock
+        allows re-entry from the same thread; with the fix (callbacks
+        outside lock) it is safe regardless of which thread dispatches.
+        """
+        controller = PlaybackController()
+        results: list[bool] = []
+
+        def callback(info):
+            results.append(controller.is_playing())
+
+        controller.add_callback(callback)
+        controller.play()
+
+        assert results, "Callback was never invoked"
+        assert results[0] is True, (
+            f"is_playing() returned {results[0]!r} inside callback after play(). "
+            "Expected True (issue #2291)."
+        )
+
+    def test_no_callback_fired_on_no_op_transitions(self):
+        """
+        Callbacks must NOT fire for no-op transitions (e.g. pause() from
+        STOPPED, stop() from STOPPED, play() from PLAYING).
+        """
+        controller = PlaybackController()
+        events: list[dict] = []
+        controller.add_callback(events.append)
+
+        # No-ops: should not fire
+        controller.pause()        # STOPPED → noop
+        controller.stop()         # STOPPED → noop
+        controller.play()         # STOPPED → PLAYING (fires)
+        controller.play()         # PLAYING → noop
+
+        assert len(events) == 1, (
+            f"Expected exactly 1 callback event (the play()), got {len(events)}: {events}"
+        )
+        assert events[0]["action"] == "play"
+
+    def test_rapid_state_changes_all_callbacks_fired(self):
+        """Every state change must trigger exactly one callback."""
+        controller = PlaybackController()
+        events: list[dict] = []
+        controller.add_callback(events.append)
+
+        controller.play()         # 1: play
+        controller.pause()        # 2: pause
+        controller.play()         # 3: play (resume)
+        controller.stop()         # 4: stop
+
+        actions = [e["action"] for e in events]
+        assert actions == ["play", "pause", "play", "stop"], (
+            f"Expected [play, pause, play, stop], got {actions}"
+        )
 
 
 class TestStateMachineBypass:

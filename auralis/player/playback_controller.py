@@ -45,11 +45,15 @@ class PlaybackController:
         """Register a callback for state changes"""
         self.callbacks.append(callback)
 
-    def _notify_callbacks(self, state_info: dict[str, Any] | None = None) -> None:
-        """Notify all callbacks of state change"""
+    def _notify_callbacks(self, state_info: dict[str, Any]) -> None:
+        """Notify all callbacks of state change.
+
+        Must be called OUTSIDE the lock so that callbacks can themselves
+        read or transition player state without deadlocking (issue #2291).
+        """
         for callback in self.callbacks:
             try:
-                callback(state_info or {"state": self.state.value})
+                callback(state_info)
             except Exception as e:
                 debug(f"Callback error: {e}")
 
@@ -69,9 +73,11 @@ class PlaybackController:
                 info("Playback started")
             else:
                 return False
+            # Snapshot inside lock, notify outside (issue #2291)
+            state_info = {"state": self.state.value, "action": "play"}
 
-            self._notify_callbacks({"state": self.state.value, "action": "play"})
-            return True
+        self._notify_callbacks(state_info)
+        return True
 
     def pause(self) -> bool:
         """
@@ -84,9 +90,13 @@ class PlaybackController:
             if self.state == PlaybackState.PLAYING:
                 self.state = PlaybackState.PAUSED
                 info("Playback paused")
-                self._notify_callbacks({"state": self.state.value, "action": "pause"})
-                return True
-            return False
+                # Snapshot inside lock, notify outside (issue #2291)
+                state_info = {"state": self.state.value, "action": "pause"}
+            else:
+                return False
+
+        self._notify_callbacks(state_info)
+        return True
 
     def stop(self) -> bool:
         """
@@ -101,9 +111,13 @@ class PlaybackController:
                 self.state = PlaybackState.STOPPED
                 self.position = 0
                 info("Playback stopped")
-                self._notify_callbacks({"state": self.state.value, "action": "stop"})
-                return True
-            return False
+                # Snapshot inside lock, notify outside (issue #2291)
+                state_info = {"state": self.state.value, "action": "stop"}
+            else:
+                return False
+
+        self._notify_callbacks(state_info)
+        return True
 
     def read_and_advance_position(self, advance_by: int) -> int:
         """Atomically read current position and advance by given amount.
@@ -137,26 +151,32 @@ class PlaybackController:
             # Clamp to valid range
             position_samples = max(0, min(position_samples, max_samples))
             self.position = position_samples
-
             debug(f"Seeked to sample {position_samples}")
-            self._notify_callbacks({
+            # Snapshot inside lock, notify outside (issue #2291)
+            state_info = {
                 "state": self.state.value,
                 "action": "seek",
-                "position_samples": position_samples
-            })
-            return True
+                "position_samples": position_samples,
+            }
+
+        self._notify_callbacks(state_info)
+        return True
 
     def set_loading(self) -> None:
         """Set state to LOADING"""
         with self._lock:
             self.state = PlaybackState.LOADING
-            self._notify_callbacks({"state": self.state.value, "action": "loading"})
+            # Snapshot inside lock, notify outside (issue #2291)
+            state_info = {"state": self.state.value, "action": "loading"}
+        self._notify_callbacks(state_info)
 
     def set_error(self) -> None:
         """Set state to ERROR"""
         with self._lock:
             self.state = PlaybackState.ERROR
-            self._notify_callbacks({"state": self.state.value, "action": "error"})
+            # Snapshot inside lock, notify outside (issue #2291)
+            state_info = {"state": self.state.value, "action": "error"}
+        self._notify_callbacks(state_info)
 
     def is_playing(self) -> bool:
         """Check if currently playing"""
