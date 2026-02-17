@@ -19,6 +19,7 @@ import playerReducer from './slices/playerSlice';
 import queueReducer from './slices/queueSlice';
 import cacheReducer from './slices/cacheSlice';
 import connectionReducer from './slices/connectionSlice';
+import { createErrorTrackingMiddleware } from './middleware/errorTrackingMiddleware';
 
 /**
  * Configure Redux store with all slices
@@ -37,7 +38,7 @@ export const store = configureStore({
         ignoredActions: ['connection/setError', 'cache/setError'],
         ignoredPaths: ['connection.lastError', 'cache.error'],
       },
-    }),
+    }).concat(createErrorTrackingMiddleware({ logToConsole: true })),
   devTools: process.env.NODE_ENV !== 'production',
 });
 
