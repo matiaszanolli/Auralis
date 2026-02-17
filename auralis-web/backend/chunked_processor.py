@@ -891,9 +891,10 @@ def apply_crossfade_between_chunks(chunk1: np.ndarray, chunk2: np.ndarray, overl
     chunk1_tail = chunk1[-actual_overlap:]
     chunk2_head = chunk2[:actual_overlap]
 
-    # Create fade curves
-    fade_out = np.linspace(1.0, 0.0, actual_overlap)
-    fade_in = np.linspace(0.0, 1.0, actual_overlap)
+    # Create equal-power fade curves (sin²/cos²) to avoid energy dip at midpoint (fixes #2080)
+    t = np.linspace(0.0, np.pi / 2, actual_overlap)
+    fade_out = np.cos(t) ** 2
+    fade_in = np.sin(t) ** 2
 
     # Handle stereo
     if chunk1_tail.ndim == 2:
