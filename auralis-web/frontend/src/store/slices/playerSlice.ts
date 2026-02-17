@@ -75,7 +75,7 @@ const initialState: PlayerState = {
   currentTrack: null,
   currentTime: 0,
   duration: 0,
-  volume: 70,
+  volume: 80,  // matches backend PlayerState default (issue #2251)
   isMuted: false,
   preset: 'adaptive',
   isLoading: false,

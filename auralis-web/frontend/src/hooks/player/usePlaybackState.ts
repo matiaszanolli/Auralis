@@ -37,7 +37,7 @@ export interface PlaybackState {
 const INITIAL_STATE: PlaybackState = {
   currentTrack: null,
   isPlaying: false,
-  volume: 1.0,
+  volume: 80,  // 0-100 scale, matches backend PlayerState default (issue #2251)
   position: 0,
   duration: 0,
   queue: [],
@@ -78,7 +78,7 @@ export function usePlaybackState(): PlaybackState {
             return {
               currentTrack: data.current_track ?? null,
               isPlaying: data.is_playing ?? false,
-              volume: data.volume ?? 1.0,
+              volume: data.volume ?? 80,  // 0-100 scale, matches backend default (issue #2251)
               position: data.position ?? 0,
               duration: data.duration ?? 0,
               queue: data.queue ?? [],
@@ -266,7 +266,7 @@ export function useIsPlaying(): boolean {
  * Useful for volume control.
  */
 export function useVolume(): number {
-  const [volume, setVolume] = useState(1.0);
+  const [volume, setVolume] = useState(80);  // 0-100 scale, matches backend default (issue #2251)
 
   useWebSocketSubscription(
     ['player_state', 'volume_changed'],
