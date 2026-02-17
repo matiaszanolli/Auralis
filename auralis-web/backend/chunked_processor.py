@@ -632,43 +632,6 @@ class ChunkedAudioProcessor:
             # File is now guaranteed to exist since process_chunk completed
             return (chunk_path, audio_array)
 
-    def process_chunk_synchronized(self, chunk_index: int, fast_start: bool = False) -> tuple[str, np.ndarray]:
-        """
-        Process a single chunk synchronously with proper waiting.
-
-        This method is for use in synchronous contexts (e.g., get_full_processed_audio_path).
-        Ensures that the chunk is fully processed and saved to disk before returning.
-
-        Args:
-            chunk_index: Index of chunk to process
-            fast_start: If True, skip expensive fingerprint analysis for faster initial buffering
-
-        Returns:
-            Tuple of (path_to_chunk_file, processed_audio_array)
-        """
-        # CRITICAL: We must wait for chunk processing to complete BEFORE returning.
-        # Even in async context, we need to block here because the caller
-        # (get_full_processed_audio_path) expects the chunk file to exist on disk.
-        try:
-            loop = asyncio.get_running_loop()
-            # In async context: We cannot use create_task because the caller is synchronous
-            # and expects the file to be on disk immediately. Instead, use run_until_complete
-            # in a new thread to avoid blocking the event loop.
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(
-                    lambda: asyncio.run(self.process_chunk_safe(chunk_index, fast_start))
-                )
-                return future.result()
-        except RuntimeError:
-            # No event loop running, create one and wait
-            loop = asyncio.new_event_loop()
-            try:
-                return loop.run_until_complete(self.process_chunk_safe(chunk_index, fast_start))
-            finally:
-                loop.close()
-
     # REMOVED (Phase 5.1 refactoring): _get_track_fingerprint_cache_key()
     # Now handled by ChunkCacheManager.get_fingerprint_cache_key()
 
@@ -767,7 +730,7 @@ class ChunkedAudioProcessor:
 
         logger.info("Background chunk processing complete")
 
-    def get_full_processed_audio_path(self) -> str:
+    async def get_full_processed_audio_path(self) -> str:
         """
         Concatenate all processed chunks into a single file.
 
@@ -781,10 +744,11 @@ class ChunkedAudioProcessor:
         if full_path.exists():
             return str(full_path)
 
-        # Ensure all chunks are processed with thread-safe locking
-        # Use fast-start for first chunk to reduce initial buffering time
+        # Ensure all chunks are processed sequentially (fixes #2318).
+        # Calling process_chunk_safe() directly avoids the nested-event-loop
+        # antipattern that process_chunk_synchronized() created via asyncio.run().
         for chunk_idx in range(self.total_chunks):
-            self.process_chunk_synchronized(chunk_idx, fast_start=(chunk_idx == 0))
+            await self.process_chunk_safe(chunk_idx, fast_start=(chunk_idx == 0))
 
         # Concatenate chunks with proper crossfading
         logger.info("Concatenating all processed chunks with crossfading")
