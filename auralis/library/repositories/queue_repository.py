@@ -33,6 +33,19 @@ class QueueRepository:
         """Get a new database session"""
         return self.session_factory()
 
+    @staticmethod
+    def _validate_index(current_index: int, track_ids: list[int]) -> None:
+        """Raise ValueError if current_index is out of bounds for track_ids."""
+        if not track_ids:
+            if current_index != 0:
+                raise ValueError(
+                    f"current_index must be 0 for an empty queue, got {current_index}"
+                )
+        elif current_index < 0 or current_index >= len(track_ids):
+            raise ValueError(
+                f"current_index {current_index} out of bounds for queue of size {len(track_ids)}"
+            )
+
     def get_queue_state(self) -> QueueState | None:
         """
         Get current queue state (always returns the first/only queue_state record)
@@ -77,8 +90,7 @@ class QueueRepository:
         if repeat_mode not in ('off', 'all', 'one'):
             raise ValueError(f"Invalid repeat_mode: {repeat_mode}")
 
-        if current_index < 0 or current_index > len(track_ids):
-            raise ValueError(f"current_index {current_index} out of bounds for queue of size {len(track_ids)}")
+        self._validate_index(current_index, track_ids)
 
         session = self.get_session()
         try:
@@ -137,8 +149,7 @@ class QueueRepository:
             # Validate and update current_index
             if 'current_index' in updates:
                 current_index = updates['current_index']
-                if current_index < 0 or current_index > len(track_ids):
-                    raise ValueError(f"current_index {current_index} out of bounds for queue of size {len(track_ids)}")
+                self._validate_index(current_index, track_ids)
                 queue_state.current_index = current_index
 
             # Validate and update repeat_mode
