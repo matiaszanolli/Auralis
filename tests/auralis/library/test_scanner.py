@@ -359,6 +359,83 @@ class TestLibraryScannerComprehensive:
 
         self.tearDown()
 
+class TestFileDiscoverySymlinkSafety:
+    """Tests for symlink cycle detection and depth limiting in FileDiscovery"""
+
+    def test_circular_symlink_does_not_hang(self):
+        """Scanner must complete when a symlink points back to a parent directory"""
+        import threading
+        from auralis.library.scanner.file_discovery import FileDiscovery
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Create circular symlink: <tmp>/loop -> <tmp>
+            link_path = os.path.join(tmp_dir, "loop")
+            os.symlink(tmp_dir, link_path)
+
+            discovery = FileDiscovery()
+            completed = threading.Event()
+
+            def run():
+                list(discovery.discover_audio_files(tmp_dir, recursive=True))
+                completed.set()
+
+            thread = threading.Thread(target=run, daemon=True)
+            thread.start()
+            finished = completed.wait(timeout=5.0)
+
+            assert finished, "Scanner hung on circular symlink — did not complete within 5 s"
+
+    def test_max_depth_limit_stops_excessive_recursion(self):
+        """Scanner must stop at MAX_SCAN_DEPTH and not recurse into deeper directories"""
+        from auralis.library.scanner.file_discovery import FileDiscovery, MAX_SCAN_DEPTH
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Build a directory chain 10 levels past the limit
+            depth_to_create = MAX_SCAN_DEPTH + 10
+            current = tmp_dir
+            for i in range(depth_to_create):
+                current = os.path.join(current, f"d{i}")
+                os.mkdir(current)
+
+            # Place an audio file at the very bottom (beyond the limit)
+            deep_file = os.path.join(current, "deep.flac")
+            open(deep_file, "wb").close()
+
+            discovery = FileDiscovery()
+            found = list(discovery.discover_audio_files(tmp_dir, recursive=True))
+
+            # The deep file must not be returned — depth guard cut traversal short
+            assert deep_file not in found, (
+                f"Scanner should not have reached depth {depth_to_create} "
+                f"(limit is {MAX_SCAN_DEPTH})"
+            )
+
+    def test_normal_symlink_to_non_circular_target_works(self):
+        """A symlink pointing to a non-ancestor directory must still be followed"""
+        import threading
+        from auralis.library.scanner.file_discovery import FileDiscovery
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Real audio dir
+            real_music = os.path.join(tmp_dir, "real_music")
+            os.makedirs(real_music)
+            open(os.path.join(real_music, "song.flac"), "wb").close()
+
+            # Symlink pointing at real_music (not circular)
+            link_path = os.path.join(tmp_dir, "linked_music")
+            os.symlink(real_music, link_path)
+
+            discovery = FileDiscovery()
+            found = list(discovery.discover_audio_files(tmp_dir, recursive=True))
+
+            # song.flac should appear exactly once (real_music reached directly;
+            # linked_music resolves to the same inode so it is skipped as duplicate)
+            flac_files = [f for f in found if f.endswith("song.flac")]
+            assert len(flac_files) == 1, (
+                f"Expected 1 result for song.flac, got {len(flac_files)}: {flac_files}"
+            )
+
+
 if __name__ == '__main__':
     import pytest
     pytest.main([__file__])

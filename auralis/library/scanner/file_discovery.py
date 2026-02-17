@@ -8,11 +8,15 @@ Recursive directory scanning and audio file discovery
 :license: GPLv3, see LICENSE for more details.
 """
 
+import os
 from pathlib import Path
 from collections.abc import Generator
 
 from ...utils.logging import debug, error, warning
 from .config import AUDIO_EXTENSIONS, SKIP_DIRECTORIES
+
+# Maximum directory nesting depth to traverse (guards against very deep trees)
+MAX_SCAN_DEPTH = 50
 
 
 class FileDiscovery:
@@ -20,7 +24,7 @@ class FileDiscovery:
     Discovers audio files in directories
 
     Handles:
-    - Recursive directory traversal
+    - Recursive directory traversal with symlink cycle detection
     - File type filtering
     - Path exclusion (hidden dirs, system dirs)
     - Permission error handling
@@ -56,29 +60,82 @@ class FileDiscovery:
 
             debug(f"Scanning directory: {directory}")
 
-            # Use appropriate scanning method
             if recursive:
-                pattern_method = directory_path.rglob
+                try:
+                    root_stat = directory_path.stat()
+                    visited_inodes: set[tuple[int, int]] = {(root_stat.st_dev, root_stat.st_ino)}
+                except OSError:
+                    visited_inodes = set()
+                yield from self._walk_directory(directory_path, visited_inodes, depth=0)
             else:
-                pattern_method = directory_path.glob
-
-            # Find all audio files
-            for ext in AUDIO_EXTENSIONS:
-                for file_path in pattern_method(f"*{ext}"):
-                    if self.should_stop:
-                        break
-
-                    # Skip if in excluded directory
-                    if self.should_skip_path(file_path):
-                        continue
-
-                    # Verify it's actually a file
-                    if file_path.is_file():
-                        yield str(file_path)
+                for ext in AUDIO_EXTENSIONS:
+                    for file_path in directory_path.glob(f"*{ext}"):
+                        if self.should_stop:
+                            return
+                        if not self.should_skip_path(file_path) and file_path.is_file():
+                            yield str(file_path)
 
         except PermissionError:
             warning(f"Permission denied accessing directory: {directory}")
         except Exception as e:
+            error(f"Error scanning directory {directory}: {e}")
+
+    def _walk_directory(
+        self,
+        directory: Path,
+        visited_inodes: set[tuple[int, int]],
+        depth: int,
+    ) -> Generator[str]:
+        """
+        Recursively walk directory, yielding audio file paths.
+
+        Tracks visited directory inodes so that circular symlinks are detected
+        and skipped with a warning rather than causing an infinite loop.
+        A globally-shared visited set also prevents the same physical directory
+        from being emitted twice when multiple symlinks point to it.
+        """
+        if depth > MAX_SCAN_DEPTH:
+            warning(f"Max scan depth ({MAX_SCAN_DEPTH}) exceeded at: {directory}")
+            return
+
+        try:
+            with os.scandir(directory) as it:
+                for entry in it:
+                    if self.should_stop:
+                        return
+
+                    entry_path = Path(entry.path)
+
+                    if entry.is_dir(follow_symlinks=True):
+                        # Skip excluded or hidden directory names before stat
+                        if entry.name in SKIP_DIRECTORIES:
+                            continue
+                        if entry.name.startswith('.') and len(entry.name) > 1:
+                            continue
+
+                        try:
+                            real_stat = entry_path.stat()
+                            inode_key = (real_stat.st_dev, real_stat.st_ino)
+                        except OSError:
+                            continue
+
+                        if inode_key in visited_inodes:
+                            if entry.is_symlink():
+                                warning(f"Circular symlink detected, skipping: {entry_path}")
+                            continue
+
+                        visited_inodes.add(inode_key)
+                        yield from self._walk_directory(entry_path, visited_inodes, depth + 1)
+
+                    elif entry.is_file(follow_symlinks=True):
+                        if entry_path.suffix.lower() not in AUDIO_EXTENSIONS:
+                            continue
+                        if not self.should_skip_path(entry_path):
+                            yield str(entry_path)
+
+        except PermissionError:
+            warning(f"Permission denied accessing directory: {directory}")
+        except OSError as e:
             error(f"Error scanning directory {directory}: {e}")
 
     def should_skip_path(self, file_path: Path) -> bool:
