@@ -1,22 +1,5 @@
 import { useState, useEffect } from 'react';
-
-interface LibraryStats {
-  total_tracks: number;
-  total_artists: number;
-  total_albums: number;
-  total_genres: number;
-  total_playlists: number;
-  total_duration: number;
-  total_duration_formatted: string;
-  total_filesize: number;
-  total_filesize_gb: number;
-  total_plays: number;
-  favorite_count: number;
-  avg_dr_rating?: number;
-  avg_lufs?: number;
-  average_dr?: number;
-  average_lufs?: number;
-}
+import type { LibraryStats } from '@/types/domain';
 
 interface UseLibraryStatsReturn {
   stats: LibraryStats | null;

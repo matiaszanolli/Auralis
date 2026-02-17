@@ -130,14 +130,7 @@ export interface LibraryScanResponse {
   progress: number; // 0-100
 }
 
-export interface LibraryStatsResponse {
-  total_tracks: number;
-  total_albums: number;
-  total_artists: number;
-  total_size_mb: number;
-  average_bitrate: number;
-  supported_formats: string[];
-}
+export type { LibraryStats as LibraryStatsResponse } from './domain';
 
 // ============================================================================
 // Metadata API

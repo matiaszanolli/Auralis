@@ -233,12 +233,20 @@ export interface AudioFingerprint {
 
 export interface LibraryStats {
   total_tracks: number;
-  total_albums: number;
   total_artists: number;
-  total_size_mb: number;
-  average_bitrate: number;
-  supported_formats: string[];
-  total_duration_seconds: number;
+  total_albums: number;
+  total_genres: number;
+  total_playlists: number;
+  total_duration: number;
+  total_duration_formatted: string;
+  total_filesize: number;
+  total_filesize_gb: number;
+  total_plays: number;
+  favorite_count: number;
+  average_dr?: number | null;
+  average_lufs?: number | null;
+  avg_dr_rating?: number | null;
+  avg_lufs?: number | null;
 }
 
 // ============================================================================
