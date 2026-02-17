@@ -1,10 +1,15 @@
 """
 Test background library scan during startup
 
+Tests the actual _background_auto_scan() function (not simulated patterns).
 Validates that:
-1. Server accepts requests within 5 seconds of startup
-2. Auto-scan runs in background without blocking
-3. Scan progress is communicated via WebSocket
+1. Scan runs in background without blocking server startup
+2. Scan progress is broadcast via WebSocket
+3. Errors are caught and broadcast, not silently swallowed
+4. asyncio.to_thread() is used for the blocking scan call
+
+Related: #2193 (tests were simulating patterns instead of testing production code)
+         #2189 (asyncio.create_task from thread — fixed, verified by test_scan_progress_thread_safe.py)
 
 :copyright: (C) 2024 Auralis Team
 :license: GPLv3
@@ -12,192 +17,224 @@ Validates that:
 
 import asyncio
 import sys
-import tempfile
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "backend"))
 
+from config.startup import _background_auto_scan
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _make_connection_manager() -> MagicMock:
+    manager = MagicMock()
+    manager.broadcast = AsyncMock()
+    return manager
+
+
+def _make_scanner(
+    progress_calls: list[dict] | None = None,
+    raise_exception: Exception | None = None,
+) -> MagicMock:
+    """
+    Build a LibraryScanner mock whose scan_directories() fires the registered
+    progress callback once per entry in progress_calls, then returns a result.
+    Optionally raises an exception to test error handling.
+    """
+    scanner = MagicMock()
+    _callback: list = []
+
+    def set_cb(cb):
+        _callback.append(cb)
+
+    scanner.set_progress_callback.side_effect = set_cb
+
+    def run_scan(directories, recursive=True, skip_existing=True):
+        if raise_exception:
+            raise raise_exception
+
+        for data in (progress_calls or []):
+            if _callback:
+                _callback[0](data)
+
+        result = MagicMock()
+        result.files_added = len(progress_calls or [])
+        result.files_found = len(progress_calls or [])
+        result.files_processed = len(progress_calls or [])
+        result.scan_time = 0.01
+        return result
+
+    scanner.scan_directories.side_effect = run_scan
+    return scanner
+
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_background_scan_does_not_block():
     """
-    Verify background scan pattern doesn't block the caller.
+    _background_auto_scan() must be schedulable as a background task that
+    completes asynchronously without blocking the caller.
 
-    This simulates the startup pattern where asyncio.create_task() is used
-    to schedule the scan without blocking.
+    Previously, tests simulated their own scan coroutine. This test calls the
+    real function and verifies that asyncio.create_task() returns immediately
+    while the scan completes in the background (fixes #2193).
     """
-    scan_completed = False
-    task_scheduled = False
+    manager = _make_connection_manager()
 
-    async def slow_scan():
-        """Simulates a slow scan operation"""
-        nonlocal scan_completed
-        await asyncio.sleep(0.2)  # Simulate 200ms scan
-        scan_completed = True
+    # Slow scanner — takes 100 ms
+    scanner = _make_scanner()
+    real_scan = scanner.scan_directories.side_effect
 
-    async def startup_with_background_scan():
-        """Simulates the startup event that schedules a background scan"""
-        nonlocal task_scheduled
-        # Schedule the scan without awaiting (non-blocking)
-        asyncio.create_task(slow_scan())
-        task_scheduled = True
-        # Startup completes immediately
+    def slow_scan(directories, recursive=True, skip_existing=True):
+        import time as _time
+        _time.sleep(0.1)
+        return real_scan(directories, recursive=recursive, skip_existing=skip_existing)
 
-    # Measure startup time
-    start_time = time.time()
-    await startup_with_background_scan()
-    startup_duration = time.time() - start_time
+    scanner.scan_directories.side_effect = slow_scan
 
-    # Assert startup was immediate (< 0.05s)
-    assert startup_duration < 0.05, f"Startup took {startup_duration:.2f}s, expected < 0.05s"
-    assert task_scheduled, "Task should be scheduled"
-    assert not scan_completed, "Scan should not be completed yet (runs in background)"
+    with patch("auralis.library.scanner.LibraryScanner", return_value=scanner):
+        start = time.monotonic()
+        # Schedule as a background task (as startup.py does)
+        task = asyncio.create_task(
+            _background_auto_scan(
+                music_source_dir=Path("/fake/music"),
+                library_manager=MagicMock(),
+                fingerprint_queue=None,
+                connection_manager=manager,
+            )
+        )
+        scheduling_duration = time.monotonic() - start
 
-    # Wait for scan to complete
-    await asyncio.sleep(0.3)
-    assert scan_completed, "Scan should complete in background"
+        # create_task returns almost immediately
+        assert scheduling_duration < 0.05, (
+            f"Scheduling took {scheduling_duration:.3f}s — scan must not block caller"
+        )
+
+        # Let the background task finish
+        await task
+
+    # Verify the scan actually ran
+    scanner.scan_directories.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_background_scan_broadcasts_websocket_events():
     """
-    Verify scan broadcasts progress via WebSocket.
+    _background_auto_scan() must broadcast library_scan_started, scan_progress
+    (once per progress callback), and scan_complete via the connection manager.
 
-    Tests the pattern used in _background_auto_scan where:
-    1. Scan start is broadcast
-    2. Progress updates are broadcast during scan
-    3. Completion is broadcast with results
+    Previously, tests used a local simulated_background_scan() that never
+    exercised the real code path (fixes #2193).
     """
-    broadcast_events = []
+    manager = _make_connection_manager()
+    progress_data = [
+        {"processed": 5,   "total_found": 20, "progress": 0.25},
+        {"processed": 10,  "total_found": 20, "progress": 0.50},
+        {"processed": 20,  "total_found": 20, "progress": 1.00},
+    ]
+    scanner = _make_scanner(progress_data)
 
-    # Mock connection manager
-    class MockConnectionManager:
-        async def broadcast(self, message):
-            broadcast_events.append(message)
+    with patch("auralis.library.scanner.LibraryScanner", return_value=scanner):
+        await _background_auto_scan(
+            music_source_dir=Path("/fake/music"),
+            library_manager=MagicMock(),
+            fingerprint_queue=None,
+            connection_manager=manager,
+        )
 
-    manager = MockConnectionManager()
+    # Allow any call_soon_threadsafe-scheduled tasks to flush
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
 
-    # Simulate the background scan broadcasting pattern
-    async def simulated_background_scan():
-        # Broadcast start
-        await manager.broadcast({
-            "type": "library_scan_started",
-            "directory": "/home/test/Music"
-        })
+    all_calls = [c.args[0] for c in manager.broadcast.call_args_list]
+    event_types = [c.get("type") for c in all_calls]
 
-        # Simulate progress updates
-        for i in range(3):
-            progress = (i + 1) / 3
-            await manager.broadcast({
-                "type": "scan_progress",
-                "data": {
-                    "current": int(500 * progress),
-                    "total": 500,
-                    "percentage": round(progress * 100),
-                }
-            })
-            await asyncio.sleep(0.01)
+    assert "library_scan_started" in event_types, "scan_started must be broadcast"
+    assert "scan_complete" in event_types, "scan_complete must be broadcast"
 
-        # Broadcast completion
-        await manager.broadcast({
-            "type": "scan_complete",
-            "data": {
-                "files_processed": 500,
-                "tracks_added": 100,
-                "duration": 1.5,
-            }
-        })
+    progress_events = [c for c in all_calls if c.get("type") == "scan_progress"]
+    assert len(progress_events) == 3, (
+        f"Expected 3 scan_progress events, got {len(progress_events)}"
+    )
 
-    await simulated_background_scan()
-
-    # Verify events
-    assert len(broadcast_events) == 5  # start + 3 progress + complete
-
-    # Check start event
-    assert broadcast_events[0]["type"] == "library_scan_started"
-
-    # Check progress events
-    progress_events = [e for e in broadcast_events if e["type"] == "scan_progress"]
-    assert len(progress_events) == 3
-
-    # Check completion event
-    completed = [e for e in broadcast_events if e["type"] == "scan_complete"]
-    assert len(completed) == 1
-    assert completed[0]["data"]["tracks_added"] == 100
+    # Verify scan_complete includes result data
+    complete = next(c for c in all_calls if c.get("type") == "scan_complete")
+    assert "data" in complete
+    assert "tracks_added" in complete["data"]
 
 
 @pytest.mark.asyncio
 async def test_background_scan_error_handling():
     """
-    Verify scan errors are caught and broadcast via WebSocket.
+    Exceptions from scan_directories must be caught and broadcast as a
+    library_scan_error message — the function must not propagate exceptions.
 
-    Tests the error handling pattern in _background_auto_scan.
+    Previously, tests used a local simulated_scan_with_error() that never
+    tested the real try/except in _background_auto_scan (fixes #2193).
     """
-    broadcast_events = []
+    manager = _make_connection_manager()
+    scanner = _make_scanner(raise_exception=RuntimeError("disk full"))
 
-    class MockConnectionManager:
-        async def broadcast(self, message):
-            broadcast_events.append(message)
+    with patch("auralis.library.scanner.LibraryScanner", return_value=scanner):
+        # Must complete without raising
+        await _background_auto_scan(
+            music_source_dir=Path("/fake/music"),
+            library_manager=MagicMock(),
+            fingerprint_queue=None,
+            connection_manager=manager,
+        )
 
-    manager = MockConnectionManager()
+    all_calls = [c.args[0] for c in manager.broadcast.call_args_list]
+    error_events = [c for c in all_calls if c.get("type") == "library_scan_error"]
 
-    # Simulate background scan with error
-    async def simulated_scan_with_error():
-        try:
-            await manager.broadcast({
-                "type": "library_scan_started",
-                "directory": "/home/test/Music"
-            })
-
-            # Simulate error during scan
-            raise Exception("Scan failed: permission denied")
-
-        except Exception as e:
-            # Error should be caught and broadcast
-            await manager.broadcast({
-                "type": "library_scan_error",
-                "error": str(e)
-            })
-
-    await simulated_scan_with_error()
-
-    # Verify error event was broadcast
-    error_events = [e for e in broadcast_events if e["type"] == "library_scan_error"]
-    assert len(error_events) == 1, "Expected one error event"
-    assert "Scan failed" in error_events[0]["error"]
+    assert len(error_events) == 1, (
+        f"Expected exactly one library_scan_error event, got {len(error_events)}"
+    )
+    assert "disk full" in error_events[0]["error"], (
+        "Error message must be included in the broadcast"
+    )
 
 
 @pytest.mark.asyncio
-async def test_asyncio_to_thread_pattern():
+async def test_asyncio_to_thread_used_for_scan():
     """
-    Verify asyncio.to_thread is used for CPU-bound operations.
+    scan_directories() must be called via asyncio.to_thread(), not directly,
+    to avoid blocking the event loop.
 
-    This tests the pattern where synchronous blocking operations
-    (like file scanning) are offloaded to a thread pool.
+    Previously, tests called asyncio.to_thread() themselves and verified the
+    pattern in isolation instead of verifying the production call (fixes #2193).
     """
-    thread_pool_used = False
-    result_value = None
+    manager = _make_connection_manager()
+    scanner = _make_scanner()
 
-    def blocking_operation():
-        """Simulates a blocking CPU-bound operation"""
-        import time
-        time.sleep(0.01)  # Simulate blocking work
-        return {"files_scanned": 100}
+    thread_funcs: list[object] = []
+    real_to_thread = asyncio.to_thread
 
-    async def async_wrapper_using_to_thread():
-        """Simulates using asyncio.to_thread for blocking work"""
-        nonlocal thread_pool_used, result_value
-        # This is the pattern used in _background_auto_scan
-        result_value = await asyncio.to_thread(blocking_operation)
-        thread_pool_used = True
+    async def spy_to_thread(func, *args, **kwargs):
+        thread_funcs.append(func)
+        return await real_to_thread(func, *args, **kwargs)
 
-    # Run the async wrapper
-    await async_wrapper_using_to_thread()
+    with (
+        patch("auralis.library.scanner.LibraryScanner", return_value=scanner),
+        patch("asyncio.to_thread", side_effect=spy_to_thread),
+    ):
+        await _background_auto_scan(
+            music_source_dir=Path("/fake/music"),
+            library_manager=MagicMock(),
+            fingerprint_queue=None,
+            connection_manager=manager,
+        )
 
-    assert thread_pool_used, "Thread pool should be used"
-    assert result_value == {"files_scanned": 100}, "Result should be returned from thread"
+    assert scanner.scan_directories in thread_funcs, (
+        "scanner.scan_directories must be called via asyncio.to_thread() "
+        "to avoid blocking the event loop (fixes #2193)"
+    )
