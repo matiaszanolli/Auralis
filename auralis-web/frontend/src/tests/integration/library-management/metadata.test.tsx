@@ -319,7 +319,7 @@ const BatchMetadataForm: React.FC<BatchMetadataFormProps> = ({ trackIds, onSave,
 // Test Suite
 // ==========================================
 
-describe.skip('Metadata API Integration Tests', () => {
+describe('Metadata API Integration Tests', () => {
   // SKIPPED: Large integration test (876 lines). Run separately with increased heap.
   // Reset handlers after each test
   afterEach(() => {

@@ -27,11 +27,7 @@ import { screen, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 
-// PlayerBarV2 component does not exist yet - tests are skipped
-// import { PlayerBarV2 } from '@/components/player-bar-v2/PlayerBarV2';
-
-// Placeholder component for type checking - actual component TBD
-const PlayerBarV2 = (_props: any) => null;
+import { PlayerBarV2 } from '@/components/player-bar-v2/PlayerBarV2';
 
 // Mock track data
 const mockTrack = {
@@ -71,7 +67,7 @@ const createMockHandlers = () => ({
 });
 
 // Skip entire suite - PlayerBarV2 component not yet implemented
-describe.skip('PlayerBarV2 Integration Tests', () => {
+describe('PlayerBarV2 Integration Tests', () => {
   let mockHandlers: ReturnType<typeof createMockHandlers>;
 
   beforeEach(() => {

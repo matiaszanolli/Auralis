@@ -15,10 +15,14 @@
  * Total: 20 tests
  */
 
+// Unmock WebSocketContext so these integration tests use the real implementation.
+// The global setup.ts mocks it to prevent accidental connections in unit tests.
+vi.unmock('@/contexts/WebSocketContext');
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { WebSocketProvider, useWebSocketContext } from '@/contexts/WebSocketContext';
+import { WebSocketProvider, useWebSocketContext, resetWebSocketSingletons } from '@/contexts/WebSocketContext';
 import { MockWebSocket, createMockWebSocket, CONNECTING, OPEN, CLOSING, CLOSED } from '@/test/mocks/websocket';
 
 // Test wrapper component
@@ -28,8 +32,7 @@ const createWrapper = (url = 'ws://localhost:8765/ws') => {
   );
 };
 
-describe.skip('WebSocket & Real-time Updates Integration Tests', () => {
-  // SKIPPED: Memory-intensive test (706 lines). Run separately with increased heap.
+describe('WebSocket & Real-time Updates Integration Tests', () => {
   let mockWS: MockWebSocket;
   let WebSocketMock: any;
 
@@ -49,7 +52,8 @@ describe.skip('WebSocket & Real-time Updates Integration Tests', () => {
   });
 
   afterEach(() => {
-    // Clean up
+    // Reset singleton before unstubbing globals so close() goes through the mock
+    resetWebSocketSingletons();
     vi.clearAllMocks();
     vi.unstubAllGlobals();
   });

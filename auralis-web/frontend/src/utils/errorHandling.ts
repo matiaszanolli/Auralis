@@ -274,6 +274,12 @@ export class WebSocketManager {
     }
     this.stopHeartbeat();
     if (this.ws) {
+      // Null out onclose before closing to prevent reconnection attempts
+      // triggered by the close event — intentional disconnects should not reconnect
+      this.ws.onclose = null;
+      this.ws.onopen = null;
+      this.ws.onerror = null;
+      this.ws.onmessage = null;
       this.ws.close();
     }
   }

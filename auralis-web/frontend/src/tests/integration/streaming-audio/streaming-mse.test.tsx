@@ -438,8 +438,7 @@ class TestMSEPlayer {
 // TESTS
 // ============================================================
 
-describe.skip('Streaming & MSE Integration Tests', () => {
-  // SKIPPED: Memory-intensive integration test. Run separately with: NODE_OPTIONS="--max-old-space-size=4096" npm test -- this-file.test.tsx
+describe('Streaming & MSE Integration Tests', () => {
   let player: TestMSEPlayer;
 
   beforeEach(() => {
