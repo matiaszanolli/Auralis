@@ -38,7 +38,7 @@ export const createMockTrack = (overrides?: Partial<any>) => ({
   artist: `Artist ${Math.random()}`,
   album: 'Album',
   duration: Math.floor(Math.random() * 300) + 60,
-  coverUrl: 'https://example.com/cover.jpg',
+  artworkUrl: 'https://example.com/cover.jpg',
   ...overrides,
 });
 

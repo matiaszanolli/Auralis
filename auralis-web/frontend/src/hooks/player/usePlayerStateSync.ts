@@ -67,7 +67,7 @@ export function usePlayerStateSync() {
               artist: state.current_track.artist,
               album: state.current_track.album || '',
               duration: state.current_track.duration || 0,
-              coverUrl: state.current_track.album_art,
+              artworkUrl: state.current_track.album_art,
             })
           );
         } else if (state.current_track === null) {
@@ -116,7 +116,7 @@ export function usePlayerStateSync() {
             artist: t.artist,
             album: t.album || '',
             duration: t.duration || 0,
-            coverUrl: t.album_art,
+            artworkUrl: t.album_art,
           }));
           dispatch(setQueue(tracks));
         }

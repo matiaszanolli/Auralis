@@ -113,10 +113,7 @@ const expectedReduxTrack = {
   artist: 'Led Zeppelin',
   album: 'Led Zeppelin IV',
   duration: 482,
-  // NOTE: playerSlice.Track uses `artworkUrl` (standardized name).
-  // The hook currently maps album_art → coverUrl; this test documents
-  // the existing behaviour so any rename regression will be caught here.
-  coverUrl: 'https://example.com/art.jpg',
+  artworkUrl: 'https://example.com/art.jpg',
 };
 
 // ============================================================================
@@ -190,10 +187,10 @@ describe('usePlayerStateSync – current_track', () => {
     expect(store.getState().player.currentTrack).toEqual(expectedReduxTrack);
   });
 
-  it('maps album_art to coverUrl', () => {
+  it('maps album_art to artworkUrl', () => {
     firePlayerState({ current_track: { ...backendTrack, album_art: 'https://cdn.example.com/cover.png' } });
 
-    expect(store.getState().player.currentTrack?.coverUrl).toBe('https://cdn.example.com/cover.png');
+    expect(store.getState().player.currentTrack?.artworkUrl).toBe('https://cdn.example.com/cover.png');
   });
 
   it('defaults album to empty string when missing', () => {
@@ -484,16 +481,16 @@ describe('usePlayerStateSync – queue', () => {
       artist: 'Artist A',
       album: 'Album A',
       duration: 180,
-      coverUrl: 'https://example.com/1.jpg',
+      artworkUrl: 'https://example.com/1.jpg',
     });
   });
 
-  it('maps album_art to coverUrl for each queue track', () => {
+  it('maps album_art to artworkUrl for each queue track', () => {
     firePlayerState({ queue: backendQueueTracks });
 
     const { tracks } = store.getState().queue;
-    expect(tracks[0].coverUrl).toBe('https://example.com/1.jpg');
-    expect(tracks[1].coverUrl).toBe('https://example.com/2.jpg');
+    expect(tracks[0].artworkUrl).toBe('https://example.com/1.jpg');
+    expect(tracks[1].artworkUrl).toBe('https://example.com/2.jpg');
   });
 
   it('defaults album to empty string for queue tracks when missing', () => {
