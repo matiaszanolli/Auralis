@@ -112,7 +112,7 @@ export async function addTrackToPlaylist(
   playlistId: number,
   trackId: number
 ): Promise<void> {
-  await post(ENDPOINTS.ADD_PLAYLIST_TRACK(playlistId), { track_id: trackId });
+  await post(ENDPOINTS.ADD_PLAYLIST_TRACK(playlistId), { track_ids: [trackId] });
 }
 
 /**
