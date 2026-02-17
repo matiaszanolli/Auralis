@@ -153,7 +153,7 @@ const INITIAL_STATE: QueueState = {
  * ```
  */
 export function usePlaybackQueue(): PlaybackQueueActions {
-  const api = useRestAPI();
+  const { get, post, put, delete: apiDelete } = useRestAPI();
 
   // Local state
   const [state, setState] = useState<QueueState>(INITIAL_STATE);
@@ -213,7 +213,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
   useEffect(() => {
     const fetchInitialQueue = async () => {
       try {
-        const response = await api.get<QueueState>('/api/player/queue');
+        const response = await get<QueueState>('/api/player/queue');
 
         if (response) {
           setState({
@@ -231,7 +231,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     };
 
     fetchInitialQueue();
-  }, [api]);
+  }, [get]);
 
   /**
    * Set entire queue with optional start index
@@ -258,7 +258,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
       try {
         // Send to backend
-        await api.post('/api/player/queue', {
+        await post('/api/player/queue', {
           tracks: tracks.map((t) => t.id),
           start_index: startIndex,
         });
@@ -278,7 +278,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [api]
+    [post]
   );
 
   /**
@@ -295,7 +295,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
       try {
         // Add to backend
-        await api.post('/api/player/queue/add', {
+        await post('/api/player/queue/add', {
           track_id: track.id,
           position: position !== undefined ? position : undefined,
         });
@@ -312,7 +312,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [api]
+    [post]
   );
 
   /**
@@ -328,7 +328,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
       try {
         // Remove from backend
-        await api.delete(`/api/player/queue/${index}`);
+        await apiDelete(`/api/player/queue/${index}`);
 
         // Server will broadcast confirmation via WebSocket
       } catch (err) {
@@ -342,7 +342,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [api]
+    [apiDelete]
   );
 
   /**
@@ -359,7 +359,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
       try {
         // Reorder in backend
-        await api.put('/api/player/queue/reorder', {
+        await put('/api/player/queue/reorder', {
           from_index: fromIndex,
           to_index: toIndex,
         });
@@ -376,7 +376,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [api]
+    [put]
   );
 
   /**
@@ -392,7 +392,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
       try {
         // Reorder in backend
-        await api.put('/api/player/queue/reorder', {
+        await put('/api/player/queue/reorder', {
           new_order: newOrder,
         });
 
@@ -408,7 +408,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [api]
+    [put]
   );
 
   /**
@@ -432,7 +432,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
     try {
       // Send to backend
-      await api.post('/api/player/queue/shuffle', undefined, {
+      await post('/api/player/queue/shuffle', undefined, {
         enabled: newShuffle,
       });
 
@@ -450,7 +450,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     } finally {
       setIsLoading(false);
     }
-  }, [api]);
+  }, [post]);
 
   /**
    * Set repeat mode
@@ -485,7 +485,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
       try {
         // Send to backend
-        await api.post('/api/player/queue/repeat', undefined, {
+        await post('/api/player/queue/repeat', undefined, {
           mode,
         });
 
@@ -504,7 +504,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
         setIsLoading(false);
       }
     },
-    [api]
+    [post]
   );
 
   /**
@@ -529,7 +529,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
 
     try {
       // Send to backend
-      await api.post('/api/player/queue/clear');
+      await post('/api/player/queue/clear');
 
       // Server will broadcast confirmation via WebSocket
     } catch (err) {
@@ -545,7 +545,7 @@ export function usePlaybackQueue(): PlaybackQueueActions {
     } finally {
       setIsLoading(false);
     }
-  }, [api]);
+  }, [post]);
 
   /**
    * Clear error state
