@@ -11,7 +11,7 @@ import type { Artist } from '@/types/domain';
  * Transform a single artist from API response to domain model
  *
  * Backend contract (snake_case):
- * - artwork_path (string | null)
+ * - artwork_url (string | null)  — issue #2110: was incorrectly artwork_path
  * - track_count (number)
  * - album_count (number)
  * - date_added (string | undefined)
@@ -26,7 +26,7 @@ export function transformArtist(apiArtist: ArtistApiResponse): Artist {
   return {
     id: apiArtist.id,
     name: apiArtist.name,
-    artworkUrl: apiArtist.artwork_path ?? undefined, // snake → camel, null → undefined
+    artworkUrl: apiArtist.artwork_url ?? undefined, // snake → camel, null → undefined
     trackCount: apiArtist.track_count, // snake → camel
     albumCount: apiArtist.album_count, // snake → camel
     dateAdded: apiArtist.date_added ?? undefined, // snake → camel, null → undefined

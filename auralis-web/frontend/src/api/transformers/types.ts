@@ -37,7 +37,7 @@ export interface AlbumsApiResponse {
 export interface ArtistApiResponse {
   id: number;
   name: string;
-  artwork_path: string | null;
+  artwork_url: string | null; // Backend field name (issue #2110: was incorrectly artwork_path)
   track_count: number; // snake_case
   album_count: number; // snake_case
   date_added?: string;

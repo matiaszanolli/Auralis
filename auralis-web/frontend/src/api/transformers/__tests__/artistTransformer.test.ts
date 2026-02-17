@@ -13,7 +13,7 @@ describe('artistTransformer', () => {
       const apiArtist: ArtistApiResponse = {
         id: 1,
         name: 'Slayer',
-        artwork_path: '/artists/slayer.jpg',
+        artwork_url: '/artists/slayer.jpg',
         track_count: 120,
         album_count: 12,
         date_added: '2023-01-15T10:30:00Z',
@@ -37,7 +37,7 @@ describe('artistTransformer', () => {
       const apiArtist: ArtistApiResponse = {
         id: 2,
         name: 'Unknown Artist',
-        artwork_path: null,
+        artwork_url: null,
         track_count: 5,
         album_count: 1,
         date_added: null,
@@ -56,7 +56,7 @@ describe('artistTransformer', () => {
       const apiArtist: ArtistApiResponse = {
         id: 3,
         name: 'New Artist',
-        artwork_path: '/new.jpg',
+        artwork_url: '/new.jpg',
         track_count: 0,
         album_count: 0,
         date_added: '2024-12-01T00:00:00Z',
@@ -72,7 +72,7 @@ describe('artistTransformer', () => {
       const apiArtist: ArtistApiResponse = {
         id: 4,
         name: 'Metallica',
-        artwork_path: '/metallica.jpg',
+        artwork_url: '/metallica.jpg',
         track_count: 150,
         album_count: 10,
         date_added: null,
@@ -88,7 +88,7 @@ describe('artistTransformer', () => {
       const apiArtist: ArtistApiResponse = {
         id: 5,
         name: 'Test Artist',
-        artwork_path: null,
+        artwork_url: null,
         track_count: 1,
         album_count: 1,
         date_added: null,
@@ -110,7 +110,7 @@ describe('artistTransformer', () => {
         {
           id: 1,
           name: 'Artist 1',
-          artwork_path: '/art1.jpg',
+          artwork_url: '/art1.jpg',
           track_count: 50,
           album_count: 5,
           date_added: '2023-01-01T00:00:00Z',
@@ -118,7 +118,7 @@ describe('artistTransformer', () => {
         {
           id: 2,
           name: 'Artist 2',
-          artwork_path: null,
+          artwork_url: null,
           track_count: 20,
           album_count: 2,
           date_added: null,
@@ -143,7 +143,7 @@ describe('artistTransformer', () => {
         {
           id: 1,
           name: 'Solo Artist',
-          artwork_path: '/solo.jpg',
+          artwork_url: '/solo.jpg',
           track_count: 10,
           album_count: 1,
           date_added: '2023-01-01T00:00:00Z',
@@ -164,7 +164,7 @@ describe('artistTransformer', () => {
           {
             id: 1,
             name: 'Artist 1',
-            artwork_path: '/art1.jpg',
+            artwork_url: '/art1.jpg',
             track_count: 50,
             album_count: 5,
             date_added: '2023-01-01T00:00:00Z',
@@ -222,7 +222,7 @@ describe('artistTransformer', () => {
           {
             id: 1,
             name: 'Test',
-            artwork_path: null,
+            artwork_url: null,
             track_count: 1,
             album_count: 1,
             date_added: null,
@@ -243,11 +243,11 @@ describe('artistTransformer', () => {
   });
 
   describe('field name conversions', () => {
-    it('should convert artwork_path to artworkUrl', () => {
+    it('should convert artwork_url (backend) to artworkUrl (domain)', () => {
       const apiArtist: ArtistApiResponse = {
         id: 1,
         name: 'Test',
-        artwork_path: '/test.jpg',
+        artwork_url: '/test.jpg',
         track_count: 1,
         album_count: 1,
         date_added: null,
@@ -256,14 +256,14 @@ describe('artistTransformer', () => {
       const result = transformArtist(apiArtist);
 
       expect(result.artworkUrl).toBe('/test.jpg');
-      expect(result).not.toHaveProperty('artwork_path');
+      expect(result).not.toHaveProperty('artwork_url');
     });
 
     it('should convert track_count to trackCount', () => {
       const apiArtist: ArtistApiResponse = {
         id: 1,
         name: 'Test',
-        artwork_path: null,
+        artwork_url: null,
         track_count: 99,
         album_count: 1,
         date_added: null,
@@ -279,7 +279,7 @@ describe('artistTransformer', () => {
       const apiArtist: ArtistApiResponse = {
         id: 1,
         name: 'Test',
-        artwork_path: null,
+        artwork_url: null,
         track_count: 1,
         album_count: 15,
         date_added: null,
@@ -295,7 +295,7 @@ describe('artistTransformer', () => {
       const apiArtist: ArtistApiResponse = {
         id: 1,
         name: 'Test',
-        artwork_path: null,
+        artwork_url: null,
         track_count: 1,
         album_count: 1,
         date_added: '2023-12-25T12:00:00Z',
@@ -313,7 +313,7 @@ describe('artistTransformer', () => {
       const apiArtist: ArtistApiResponse = {
         id: 1,
         name: 'Test Artist',
-        artwork_path: '/test.jpg',
+        artwork_url: '/test.jpg',
         track_count: 50,
         album_count: 5,
         date_added: '2023-01-01T00:00:00Z',
@@ -330,7 +330,7 @@ describe('artistTransformer', () => {
         {
           id: 1,
           name: 'Test',
-          artwork_path: null,
+          artwork_url: null,
           track_count: 1,
           album_count: 1,
           date_added: null,

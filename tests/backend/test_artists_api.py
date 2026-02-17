@@ -28,9 +28,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "auralis-web" / "ba
 @pytest.fixture
 def mock_artist():
     """Create a mock artist object"""
-    artist = Mock(spec=['id', 'name', 'albums', 'tracks'])
+    artist = Mock(spec=['id', 'name', 'albums', 'tracks', 'artwork_url', 'artwork_source'])
     artist.id = 1
     artist.name = "Test Artist"
+    artist.artwork_url = None
+    artist.artwork_source = None
 
     # Mock albums without circular references
     album1 = Mock(spec=['id', 'title', 'year', 'tracks'])
@@ -179,6 +181,43 @@ class TestGetArtists:
             assert data["artists"][0]["track_count"] == 2
             assert data["has_more"] == False
 
+    def test_get_artists_artwork_url_in_response(self, client, mock_artist):
+        """Test that artwork_url is included in artist response (issue #2110)"""
+        mock_artist.artwork_url = "https://coverartarchive.org/release/abc/front.jpg"
+        mock_artist.artwork_source = "musicbrainz"
+
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_all.return_value = ([mock_artist], 1)
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
+            response = client.get("/api/artists")
+
+            assert response.status_code == 200
+            data = response.json()
+
+            artist = data["artists"][0]
+            assert "artwork_url" in artist
+            assert artist["artwork_url"] == "https://coverartarchive.org/release/abc/front.jpg"
+            assert artist["artwork_source"] == "musicbrainz"
+
+    def test_get_artists_artwork_url_null_when_unset(self, client, mock_artist):
+        """Test that artwork_url is null (not missing) when artist has no artwork"""
+        mock_artist.artwork_url = None
+        mock_artist.artwork_source = None
+
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_all.return_value = ([mock_artist], 1)
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
+            response = client.get("/api/artists")
+
+            assert response.status_code == 200
+            data = response.json()
+
+            artist = data["artists"][0]
+            assert "artwork_url" in artist
+            assert artist["artwork_url"] is None
+
     def test_get_artists_with_genres(self, client, mock_artist):
         """Test that artists include genre information"""
         # Mock repository_factory (Phase 6B: artists router uses RepositoryFactory)
@@ -237,6 +276,24 @@ class TestGetArtistById:
             assert data["total_albums"] == 2
             assert data["total_tracks"] == 2
             assert len(data["albums"]) == 2
+
+    def test_get_artist_artwork_url_in_detail_response(self, client, mock_artist):
+        """Test that artwork_url is included in artist detail response (issue #2110)"""
+        mock_artist.artwork_url = "https://example.com/artist.jpg"
+        mock_artist.artwork_source = "discogs"
+
+        mock_repo_factory = Mock()
+        mock_repo_factory.artists.get_by_id.return_value = mock_artist
+
+        with patch.dict('main.globals_dict', {'repository_factory': mock_repo_factory}):
+            response = client.get("/api/artists/1")
+
+            assert response.status_code == 200
+            data = response.json()
+
+            assert "artwork_url" in data
+            assert data["artwork_url"] == "https://example.com/artist.jpg"
+            assert data["artwork_source"] == "discogs"
 
     def test_get_artist_albums_sorted(self, client, mock_artist):
         """Test that artist's albums are sorted by year"""

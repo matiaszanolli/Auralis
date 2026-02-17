@@ -139,7 +139,9 @@ def create_artists_router(
                 name=cast(str, artist.name),
                 album_count=len(artist.albums) if artist.albums else 0,
                 track_count=len(artist.tracks) if artist.tracks else 0,
-                genres=genres_list
+                genres=genres_list,
+                artwork_url=artist.artwork_url,
+                artwork_source=artist.artwork_source,
             ))
 
         has_more = (offset + limit) < total
@@ -188,7 +190,9 @@ def create_artists_router(
             artist_name=cast(str, artist.name),
             albums=albums,
             total_albums=len(albums),
-            total_tracks=len(artist.tracks) if artist.tracks else 0
+            total_tracks=len(artist.tracks) if artist.tracks else 0,
+            artwork_url=artist.artwork_url,
+            artwork_source=artist.artwork_source,
         )
 
     @router.get("/api/artists/{artist_id}/tracks", response_model=ArtistTracksResponse)
