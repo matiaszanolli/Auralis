@@ -287,6 +287,70 @@ describe('StandardizedAPIClient', () => {
     client.clearCache();
     expect(client.getCacheStats().size).toBe(0);
   });
+
+  it('should keep cache size bounded at maxCacheSize entries after many unique calls', async () => {
+    const MAX = 200;
+    const boundedClient = new StandardizedAPIClient({ ...mockConfig, maxCacheSize: MAX });
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockSuccessResponse)
+    });
+    global.fetch = mockFetch;
+
+    // Make 500 unique GET requests
+    for (let i = 0; i < 500; i++) {
+      await boundedClient.get(`/api/track/${i}`);
+    }
+
+    expect(boundedClient.getCacheStats().size).toBeLessThanOrEqual(MAX);
+  });
+
+  it('should evict the oldest entry when cache is full', async () => {
+    const MAX = 3;
+    const smallClient = new StandardizedAPIClient({ ...mockConfig, maxCacheSize: MAX });
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockSuccessResponse)
+    });
+    global.fetch = mockFetch;
+
+    // Fill to capacity
+    await smallClient.get('/api/a');
+    await smallClient.get('/api/b');
+    await smallClient.get('/api/c');
+    expect(smallClient.getCacheStats().size).toBe(3);
+
+    // One more entry — should evict /api/a (oldest)
+    await smallClient.get('/api/d');
+    expect(smallClient.getCacheStats().size).toBe(3);
+
+    // /api/a is gone: next GET should hit the network, not the cache
+    await smallClient.get('/api/a');
+    // Without LRU eviction there would be 3 network calls (a, b, c, d) then a cache hit.
+    // With LRU eviction /api/a was evicted, so the 5th call re-fetches it → 5 total.
+    expect(mockFetch).toHaveBeenCalledTimes(5);
+  });
+
+  it('should delete stale entries eagerly on read', async () => {
+    const expiredClient = new StandardizedAPIClient({ ...mockConfig, cacheTTL: 1 });
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue(mockSuccessResponse)
+    });
+    global.fetch = mockFetch;
+
+    await expiredClient.get('/api/stale');
+    expect(expiredClient.getCacheStats().size).toBe(1);
+
+    // Wait for TTL to expire
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    // Second GET — cache miss, stale entry removed
+    await expiredClient.get('/api/stale');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // After the stale read-delete + re-set, still just 1 entry
+    expect(expiredClient.getCacheStats().size).toBe(1);
+  });
 });
 
 // ============================================================================

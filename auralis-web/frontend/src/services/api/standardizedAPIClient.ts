@@ -153,6 +153,7 @@ export interface APIClientConfig {
   retryDelay?: number;
   cacheResponses?: boolean;
   cacheTTL?: number;
+  maxCacheSize?: number;
 }
 
 /**
@@ -203,6 +204,7 @@ export class StandardizedAPIClient {
   private retryDelay: number;
   private responseCache: Map<string, { data: any; timestamp: number }>;
   private cacheTTL: number;
+  private maxCacheSize: number;
 
   constructor(config: APIClientConfig) {
     this.baseURL = config.baseURL;
@@ -210,6 +212,7 @@ export class StandardizedAPIClient {
     this.retryAttempts = config.retryAttempts ?? 3;
     this.retryDelay = config.retryDelay ?? 1000;
     this.cacheTTL = config.cacheTTL ?? 60000; // 60 second default
+    this.maxCacheSize = config.maxCacheSize ?? 200;
     this.responseCache = new Map();
   }
 
@@ -234,6 +237,8 @@ export class StandardizedAPIClient {
           console.debug(`[API Cache HIT] ${endpoint}`);
           return cachedResponse.data;
         }
+        // Stale entry — remove eagerly so it doesn't occupy a slot
+        this.responseCache.delete(url);
       }
     }
 
@@ -259,8 +264,15 @@ export class StandardizedAPIClient {
 
         const data = await response.json();
 
-        // Cache successful responses
+        // Cache successful responses with LRU eviction
         if (method === 'GET' && shouldCache && response.ok) {
+          // Evict oldest entry (Map preserves insertion order) when at capacity
+          if (this.responseCache.size >= this.maxCacheSize) {
+            const oldestKey = this.responseCache.keys().next().value;
+            if (oldestKey !== undefined) {
+              this.responseCache.delete(oldestKey);
+            }
+          }
           this.responseCache.set(url, {
             data,
             timestamp: Date.now()
@@ -356,10 +368,11 @@ export class StandardizedAPIClient {
   /**
    * Get cache statistics
    */
-  getCacheStats(): { size: number; entries: number } {
+  getCacheStats(): { size: number; entries: number; maxSize: number } {
     return {
       size: this.responseCache.size,
-      entries: this.responseCache.size
+      entries: this.responseCache.size,
+      maxSize: this.maxCacheSize,
     };
   }
 }
