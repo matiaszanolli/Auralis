@@ -48,14 +48,6 @@ export interface APICacheStats {
   cachedRequests: number;
 }
 
-export interface CacheHealth {
-  healthy: boolean;
-  tier1Size: number;
-  tier2Size: number;
-  totalSize: number;
-  tier1HitRate: number;
-  overallHitRate: number;
-}
 
 // ============================================================================
 // Main API Hook
@@ -85,6 +77,17 @@ export function useStandardizedAPI<T = any>(
     error: null
   });
 
+  // Destructure primitives so inline option objects don't cause dependency churn
+  const method = options?.method ?? 'GET';
+  const timeout = options?.timeout;
+  const cache = options?.cache ?? true;
+  const autoFetch = options?.autoFetch !== false;
+
+  // Keep body in a ref — updated every render so fetch always sees the latest
+  // value, but changes to body don't recreate the callback
+  const bodyRef = useRef(options?.body);
+  bodyRef.current = options?.body;
+
   // Initialize API client
   useEffect(() => {
     if (!apiClient.current) {
@@ -100,18 +103,18 @@ export function useStandardizedAPI<T = any>(
 
     try {
       const requestOptions: RequestOptions = {
-        method: options?.method ?? 'GET',
-        timeout: options?.timeout,
-        cache: options?.cache ?? true
+        method,
+        timeout,
+        cache
       };
 
       let response: SuccessResponse<T> | ErrorResponse;
 
-      if (options?.method === 'POST') {
-        response = await apiClient.current.post<T>(endpoint, options.body, requestOptions);
-      } else if (options?.method === 'PUT') {
-        response = await apiClient.current.put<T>(endpoint, options.body, requestOptions);
-      } else if (options?.method === 'DELETE') {
+      if (method === 'POST') {
+        response = await apiClient.current.post<T>(endpoint, bodyRef.current, requestOptions);
+      } else if (method === 'PUT') {
+        response = await apiClient.current.put<T>(endpoint, bodyRef.current, requestOptions);
+      } else if (method === 'DELETE') {
         response = await apiClient.current.delete<T>(endpoint, requestOptions);
       } else {
         response = await apiClient.current.get<T>(endpoint, requestOptions);
@@ -143,14 +146,16 @@ export function useStandardizedAPI<T = any>(
         processingTimeMs: undefined
       });
     }
-  }, [endpoint, options]);
+  }, [endpoint, method, timeout, cache]); // primitives only — no object references
 
-  // Auto-fetch on mount or when dependencies change
+  // Auto-fetch on mount or when dependencies change.
+  // Spread options.deps so individual values are compared, not the array reference.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (options?.autoFetch !== false) {
+    if (autoFetch) {
       fetch();
     }
-  }, [fetch, options?.deps]);
+  }, [fetch, ...(options?.deps ?? [])]);
 
   return {
     ...state,
