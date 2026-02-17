@@ -8,7 +8,7 @@ Models for database schema version tracking
 :license: GPLv3, see LICENSE for more details.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import Column, DateTime, Integer, Text
@@ -22,7 +22,7 @@ class SchemaVersion(Base):  # type: ignore[misc]
 
     id = Column(Integer, primary_key=True)
     version = Column(Integer, nullable=False, unique=True)
-    applied_at = Column(DateTime, default=datetime.utcnow)
+    applied_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     description = Column(Text)
     migration_script = Column(Text)
 

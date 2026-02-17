@@ -9,7 +9,7 @@ Data access layer for queue template persistence and management
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from collections.abc import Callable
 
@@ -273,7 +273,7 @@ class QueueTemplateRepository:
                 return None
 
             template.load_count += 1  # type: ignore[assignment]
-            template.last_loaded = datetime.utcnow()  # type: ignore[assignment]
+            template.last_loaded = datetime.now(timezone.utc)  # type: ignore[assignment]
             session.commit()
             session.refresh(template)
             session.expunge(template)

@@ -10,7 +10,7 @@ Core models for tracks, albums, artists, genres, and playlists
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import (
@@ -346,7 +346,7 @@ class QueueState(Base, TimestampMixin):  # type: ignore[misc]
     repeat_mode = Column(String, default='off', nullable=False)
 
     # Timestamp for optimistic sync detection
-    synced_at = Column(DateTime, default=datetime.utcnow)
+    synced_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self) -> dict[str, Any]:
         """Convert queue state to dictionary"""

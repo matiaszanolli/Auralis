@@ -12,7 +12,7 @@ Phase B.2: Cache Integration and Monitoring
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
@@ -35,18 +35,18 @@ class CacheAlert:
     metric: str
     current_value: float
     threshold: float
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def is_active(self) -> bool:
         """Check if alert is still active (within last 5 minutes)."""
-        elapsed = datetime.utcnow() - self.timestamp
+        elapsed = datetime.now(timezone.utc) - self.timestamp
         return elapsed < timedelta(minutes=5)
 
 
 @dataclass
 class CacheMetrics:
     """Point-in-time cache metrics."""
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     tier1_hit_rate: float = 0.0
     tier2_hit_rate: float = 0.0
     overall_hit_rate: float = 0.0
@@ -232,7 +232,7 @@ class CacheMonitor:
         else:
             # Update existing alert
             self.active_alerts[alert_id].current_value = current_value
-            self.active_alerts[alert_id].timestamp = datetime.utcnow()
+            self.active_alerts[alert_id].timestamp = datetime.now(timezone.utc)
 
     def get_health_status(self) -> tuple[HealthStatus, list[CacheAlert]]:
         """

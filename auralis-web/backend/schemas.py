@@ -29,7 +29,7 @@ class SuccessResponse(BaseModel, Generic[T]):
     status: str = Field(default="success", description="Response status")
     data: T = Field(description="Response payload")
     message: str | None = Field(default=None, description="Optional message")
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -47,7 +47,7 @@ class ErrorResponse(BaseModel):
     error: str = Field(description="Error type/code")
     message: str = Field(description="Human-readable error message")
     details: dict[str, Any] | None = Field(default=None, description="Additional error details")
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -123,7 +123,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
     status: str = Field(default="success")
     data: list[T] = Field(description="Page of items")
     pagination: PaginationMeta = Field(description="Pagination metadata")
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -198,7 +198,7 @@ class BatchResponse(BaseModel):
     results: list[BatchItemResult] = Field(description="Results for each item")
     successful: int = Field(description="Number of successful operations")
     failed: int = Field(description="Number of failed operations")
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -222,7 +222,7 @@ class HealthCheckResponse(BaseModel):
     """Health check response."""
     status: str = Field(description="Service status")
     version: str = Field(description="API version")
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -472,7 +472,7 @@ class CacheStatsResponse(BaseModel):
     tier2: CacheTierStats = Field(description="Tier 2 (warm) cache stats")
     overall: OverallCacheStats = Field(description="Overall cache stats")
     tracks: dict[int, TrackCacheStatusResponse] = Field(description="Per-track cache status")
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -527,7 +527,7 @@ class CacheHealthResponse(BaseModel):
     memory_healthy: bool = Field(description="Is total memory usage healthy")
     tier1_hit_rate: float = Field(ge=0.0, le=1.0, description="Tier 1 hit rate")
     overall_hit_rate: float = Field(ge=0.0, le=1.0, description="Overall hit rate")
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -553,7 +553,7 @@ class CacheAwareResponse(BaseModel, Generic[T]):
     cache_hit: bool = Field(description="Was this a cache hit")
     processing_time_ms: float = Field(description="Time to process/retrieve in milliseconds")
     message: str | None = Field(default=None, description="Optional message")
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {
@@ -706,7 +706,7 @@ class WebSocketErrorResponse(BaseModel):
     type: str = Field(default="error", description="Message type")
     error: str = Field(description="Error code")
     message: str = Field(description="Human-readable error message")
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    timestamp: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     model_config = ConfigDict(json_schema_extra={
         "example": {

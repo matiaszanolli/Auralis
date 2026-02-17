@@ -16,7 +16,7 @@ Usage:
 import argparse
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from auralis.library.manager import LibraryManager
@@ -85,7 +85,7 @@ def fetch_artwork_for_all_artists(
                     artist_id=artist.id,
                     artwork_url=result['artwork_url'],
                     artwork_source=result['source'],
-                    artwork_fetched_at=datetime.utcnow()
+                    artwork_fetched_at=datetime.now(timezone.utc)
                 )
 
                 if success:

@@ -16,7 +16,7 @@ Sidecar files provide:
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 from collections.abc import Callable
@@ -193,7 +193,7 @@ class SidecarManager:
             sidecar_data = {
                 'format_version': self.FORMAT_VERSION,
                 'auralis_version': self.AURALIS_VERSION,
-                'generated_at': datetime.utcnow().isoformat() + 'Z',
+                'generated_at': datetime.now(timezone.utc).isoformat(),
                 'audio_file': audio_meta,
                 'fingerprint': data.get('fingerprint', {}),
                 'processing_cache': data.get('processing_cache', {}),

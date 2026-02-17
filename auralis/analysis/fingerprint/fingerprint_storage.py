@@ -14,7 +14,7 @@ using content-based hashing for cache keys.
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -101,7 +101,7 @@ class FingerprintStorage:
             "version": FingerprintStorage.VERSION,
             "source_file": str(audio_path.resolve()),  # Store original path for reference
             "cache_key": cache_key,
-            "extracted_at": datetime.utcnow().isoformat() + "Z",
+            "extracted_at": datetime.now(timezone.utc).isoformat(),
             "duration_seconds": duration,
             "sample_rate": sample_rate,
             "fingerprint": fingerprint_clean,

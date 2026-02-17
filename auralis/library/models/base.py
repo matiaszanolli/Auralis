@@ -8,7 +8,7 @@ Base classes, association tables, and mixins for database models
 :license: GPLv3, see LICENSE for more details.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Table
 from sqlalchemy.orm import DeclarativeBase
@@ -42,5 +42,5 @@ track_playlist = Table(
 
 class TimestampMixin:
     """Mixin to add creation and modification timestamps."""
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

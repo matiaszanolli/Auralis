@@ -17,7 +17,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 from collections.abc import Callable
@@ -77,7 +77,7 @@ class WSMessage:
     """WebSocket message envelope."""
     type: MessageType
     correlation_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     priority: MessagePriority = MessagePriority.NORMAL
     payload: dict[str, Any] | None = None
     response_required: bool = False
@@ -105,7 +105,7 @@ class WSMessage:
         return cls(
             type=MessageType(data["type"]),
             correlation_id=data.get("correlation_id", str(uuid.uuid4())),
-            timestamp=datetime.fromisoformat(data.get("timestamp", datetime.utcnow().isoformat())),
+            timestamp=datetime.fromisoformat(data.get("timestamp", datetime.now(timezone.utc).isoformat())),
             priority=MessagePriority(data.get("priority", "normal")),
             payload=data.get("payload", {}),
             response_required=data.get("response_required", False),
@@ -119,8 +119,8 @@ class WSMessage:
 class ConnectionInfo:
     """Information about a WebSocket connection."""
     connection_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    connected_at: datetime = field(default_factory=datetime.utcnow)
-    last_activity: datetime = field(default_factory=datetime.utcnow)
+    connected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_activity: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     message_count: int = 0
     bytes_sent: int = 0
     bytes_received: int = 0
@@ -130,12 +130,12 @@ class ConnectionInfo:
 
     def is_active(self, timeout_seconds: int = 120) -> bool:
         """Check if connection is active (within timeout)."""
-        elapsed = datetime.utcnow() - self.last_activity
+        elapsed = datetime.now(timezone.utc) - self.last_activity
         return elapsed < timedelta(seconds=timeout_seconds)
 
     def mark_activity(self) -> None:
         """Update last activity timestamp."""
-        self.last_activity = datetime.utcnow()
+        self.last_activity = datetime.now(timezone.utc)
 
 
 class RateLimiter:
@@ -235,8 +235,8 @@ class HeartbeatManager:
 
     def mark_ping(self, connection_id: str) -> None:
         """Mark when ping was sent."""
-        self.last_heartbeat[connection_id] = datetime.utcnow()
-        self.pending_pongs[connection_id] = datetime.utcnow()
+        self.last_heartbeat[connection_id] = datetime.now(timezone.utc)
+        self.pending_pongs[connection_id] = datetime.now(timezone.utc)
 
     def mark_pong(self, connection_id: str) -> bool:
         """
@@ -248,7 +248,7 @@ class HeartbeatManager:
         if connection_id not in self.pending_pongs:
             return False
 
-        elapsed = (datetime.utcnow() - self.pending_pongs[connection_id]).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - self.pending_pongs[connection_id]).total_seconds()
         del self.pending_pongs[connection_id]
 
         return elapsed < self.timeout_seconds
@@ -258,7 +258,7 @@ class HeartbeatManager:
         if connection_id not in self.last_heartbeat:
             return False
 
-        elapsed = (datetime.utcnow() - self.last_heartbeat[connection_id]).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - self.last_heartbeat[connection_id]).total_seconds()
         return elapsed < (self.interval_seconds * 2)  # Allow 2 intervals before timeout
 
     def is_stale(self, connection_id: str) -> bool:
@@ -266,7 +266,7 @@ class HeartbeatManager:
         if connection_id not in self.pending_pongs:
             return False
 
-        elapsed = (datetime.utcnow() - self.pending_pongs[connection_id]).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - self.pending_pongs[connection_id]).total_seconds()
         return elapsed > self.timeout_seconds
 
 
@@ -379,7 +379,7 @@ class WebSocketProtocol:
             "bytes_received": conn.bytes_received,
             "state": conn.state,
             "is_active": conn.is_active(),
-            "uptime_seconds": (datetime.utcnow() - conn.connected_at).total_seconds(),
+            "uptime_seconds": (datetime.now(timezone.utc) - conn.connected_at).total_seconds(),
             "rate_limiter": self.rate_limiter.get_stats(connection_id),
             "subscriptions": conn.subscriptions
         }

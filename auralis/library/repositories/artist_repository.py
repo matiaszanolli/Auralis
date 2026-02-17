@@ -194,7 +194,7 @@ class ArtistRepository:
         Returns:
             True if update successful, False if artist not found or update failed
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         session = self.get_session()
         try:
@@ -204,7 +204,7 @@ class ArtistRepository:
 
             artist.artwork_url = artwork_url
             artist.artwork_source = artwork_source
-            artist.artwork_fetched_at = artwork_fetched_at or datetime.utcnow()
+            artist.artwork_fetched_at = artwork_fetched_at or datetime.now(timezone.utc)
 
             session.commit()
             return True
