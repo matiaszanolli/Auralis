@@ -32,8 +32,16 @@ def check_ffmpeg() -> bool:
         return False
 
 
-def _get_duration_with_ffprobe(file_path: Path) -> float | None:
-    """Get audio duration using ffprobe"""
+def _probe_audio(file_path: Path) -> dict:
+    """
+    Probe audio file with ffprobe.
+
+    Returns a dict with keys:
+        duration    float | None  – total duration in seconds
+        sample_rate int  | None  – native sample rate (Hz)
+        channels    int  | None  – number of channels
+    """
+    result_dict: dict = {'duration': None, 'sample_rate': None, 'channels': None}
     try:
         import json
 
@@ -42,6 +50,7 @@ def _get_duration_with_ffprobe(file_path: Path) -> float | None:
             '-v', 'quiet',
             '-print_format', 'json',
             '-show_format',
+            '-show_streams',
             str(file_path)
         ]
 
@@ -53,19 +62,29 @@ def _get_duration_with_ffprobe(file_path: Path) -> float | None:
         )
 
         if result.returncode != 0:
-            warning(f"ffprobe failed to get duration: {result.stderr}")
-            return None
+            warning(f"ffprobe failed: {result.stderr}")
+            return result_dict
 
         probe_data = json.loads(result.stdout)
-        duration = probe_data.get('format', {}).get('duration')
 
+        duration = probe_data.get('format', {}).get('duration')
         if duration:
-            return float(duration)
-        return None
+            result_dict['duration'] = float(duration)
+
+        for stream in probe_data.get('streams', []):
+            if stream.get('codec_type') == 'audio':
+                sr = stream.get('sample_rate')
+                ch = stream.get('channels')
+                if sr:
+                    result_dict['sample_rate'] = int(sr)
+                if ch:
+                    result_dict['channels'] = int(ch)
+                break
 
     except (subprocess.TimeoutExpired, json.JSONDecodeError, ValueError, Exception) as e:
-        warning(f"Could not get duration from ffprobe: {e}")
-        return None
+        warning(f"Could not probe audio with ffprobe: {e}")
+
+    return result_dict
 
 
 def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[np.ndarray, int]:
@@ -84,8 +103,13 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
     if "://" in file_path_str:
         raise ModuleError(f"{Code.ERROR_UNSUPPORTED_FORMAT}: URL/protocol inputs are not allowed ({file_path_str})")
 
-    # Get expected duration from original file using ffprobe
-    expected_duration = _get_duration_with_ffprobe(file_path)
+    # Probe source format: duration, sample rate, and channel count
+    probe = _probe_audio(file_path)
+    expected_duration = probe['duration']
+    source_sample_rate = probe['sample_rate'] or 44100
+    source_channels = probe['channels'] or 2
+    if probe['sample_rate'] is None or probe['channels'] is None:
+        warning(f"Could not probe sample rate/channels for {file_path}; defaulting to {source_sample_rate} Hz / {source_channels} ch")
 
     # Create temporary WAV file
     if temp_folder:
@@ -103,12 +127,13 @@ def load_with_ffmpeg(file_path: Path, temp_folder: str | None = None) -> tuple[n
         ffmpeg_cmd = [
             'ffmpeg',
             '-i', file_path_str,
-            '-acodec', 'pcm_s16le',  # 16-bit PCM
-            '-ar', '44100',          # 44.1 kHz
-            '-ac', '2',              # Stereo
-            '-y',                    # Overwrite output
+            '-acodec', 'pcm_s16le',            # 16-bit PCM
+            '-ar', str(source_sample_rate),    # Preserve native sample rate
+            '-ac', str(source_channels),       # Preserve native channel count
+            '-y',                              # Overwrite output
             str(temp_wav)
         ]
+        debug(f"FFmpeg: converting at {source_sample_rate} Hz, {source_channels} ch")
 
         result = subprocess.run(
             ffmpeg_cmd,
