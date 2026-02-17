@@ -161,7 +161,7 @@ export const useLibraryData = ({
         const transformedTracks = (data.tracks || []).map((track: any) => ({
           ...track,
           artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists[0] : track.artist || 'Unknown Artist',
-          albumArt: track.album_art || track.albumArt, // Map album_art from backend to albumArt
+          albumArt: track.artwork_url || track.album_art || track.albumArt, // artwork_url is current name (issue #2386)
         }));
 
         // Update state with pagination info
@@ -228,7 +228,7 @@ export const useLibraryData = ({
         const transformedTracks = (data.tracks || []).map((track: any) => ({
           ...track,
           artist: Array.isArray(track.artists) && track.artists.length > 0 ? track.artists[0] : track.artist || 'Unknown Artist',
-          albumArt: track.album_art || track.albumArt, // Map album_art from backend to albumArt
+          albumArt: track.artwork_url || track.album_art || track.albumArt, // artwork_url is current name (issue #2386)
         }));
 
         // Append new tracks
