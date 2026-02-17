@@ -357,8 +357,8 @@ class ProcessingEngine:
 
             await self._notify_progress(job.job_id, 0.0, "Loading audio file...")
 
-            # Load input audio
-            audio, sample_rate = load_audio(job.input_path)
+            # Load input audio — disk-bound; offload to thread (fixes #2319)
+            audio, sample_rate = await asyncio.to_thread(load_audio, job.input_path)
 
             await self._notify_progress(job.job_id, 20.0, "Analyzing audio content...")
 
@@ -370,24 +370,26 @@ class ProcessingEngine:
 
             await self._notify_progress(job.job_id, 40.0, "Processing audio...")
 
-            # Process audio
+            # Process audio — CPU-bound; offload to thread (fixes #2319)
             if job.mode == "reference" or job.mode == "hybrid":
                 # Load reference audio if needed
                 reference_path = job.settings.get("reference_path")
                 if reference_path and Path(reference_path).exists():
-                    reference_audio, reference_sr = load_audio(reference_path)
-                    # Resample reference if needed
+                    reference_audio, reference_sr = await asyncio.to_thread(
+                        load_audio, reference_path
+                    )
+                    # Resample reference if needed — CPU-bound; offload to thread
                     if reference_sr != sample_rate:
-                        reference_audio = resample_audio(
-                            reference_audio, reference_sr, sample_rate
+                        reference_audio = await asyncio.to_thread(
+                            resample_audio, reference_audio, reference_sr, sample_rate
                         )
-                    result = processor.process(audio, reference_audio)
+                    result = await asyncio.to_thread(processor.process, audio, reference_audio)
                 else:
                     # Fall back to adaptive mode if no reference
-                    result = processor.process(audio)
+                    result = await asyncio.to_thread(processor.process, audio)
             else:
                 # Adaptive mode
-                result = processor.process(audio)
+                result = await asyncio.to_thread(processor.process, audio)
 
             await self._notify_progress(job.job_id, 80.0, "Saving processed audio...")
 
@@ -399,11 +401,13 @@ class ProcessingEngine:
             subtype_map: dict[int, str] = {16: 'PCM_16', 24: 'PCM_24', 32: 'PCM_32'}
             subtype = subtype_map.get(bit_depth, 'PCM_16')
 
-            save(
+            # Disk-bound write; offload to thread (fixes #2319)
+            await asyncio.to_thread(
+                save,
                 file_path=job.output_path,
                 audio_data=result.audio,  # type: ignore[union-attr]
                 sample_rate=sample_rate,
-                subtype=subtype
+                subtype=subtype,
             )
 
             await self._notify_progress(job.job_id, 100.0, "Processing complete!")
