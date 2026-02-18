@@ -202,7 +202,7 @@ class FingerprintExtractionQueue:
             worker = threading.Thread(
                 target=self._worker_loop,
                 args=(i,),
-                daemon=False,
+                daemon=True,   # daemon=True: process exits cleanly even without stop() (#2247)
                 name=f"FingerprintWorker-{i}"
             )
             worker.start()
