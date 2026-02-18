@@ -82,3 +82,119 @@ class TestGetPrebufferedTrackDeadlock:
         audio, sr = engine.get_prebuffered_track()
         assert audio is None
         assert sr is None
+
+
+# ============================================================================
+# Position reset on gapless transition (issue #2283)
+# ============================================================================
+
+class TestGaplessTransitionPositionReset:
+    """AudioPlayer.next_track() must reset position to 0 after any gapless advance.
+
+    Before the fix, advance_with_prebuffer() set file_manager.audio_data for the
+    new track but never called playback.stop() (which resets position).  Stale
+    positions from the previous track caused get_audio_chunk() to read past the
+    end of the new (often shorter) track, producing silence.
+
+    The fix adds playback.seek(0, total_samples) in AudioPlayer.next_track()
+    after advance_with_prebuffer() returns True, covering both the gapless
+    (prebuffer) and fallback paths.
+    """
+
+    @pytest.fixture
+    def player(self):
+        """AudioPlayer with real PlaybackController/AudioFileManager; rest mocked."""
+        from unittest.mock import MagicMock, patch
+
+        import numpy as np
+
+        from auralis.player.enhanced_audio_player import AudioPlayer
+
+        with (
+            patch("auralis.player.enhanced_audio_player.QueueController"),
+            patch("auralis.player.enhanced_audio_player.GaplessPlaybackEngine"),
+            patch("auralis.player.enhanced_audio_player.IntegrationManager"),
+            patch("auralis.player.enhanced_audio_player.FingerprintService"),
+            patch("auralis.player.enhanced_audio_player.RealtimeProcessor"),
+        ):
+            p = AudioPlayer(get_repository_factory=MagicMock())
+
+        # Load a "previous track" (441000 samples ≈ 10 s at 44.1 kHz)
+        p.file_manager.audio_data = np.zeros(441000, dtype=np.float32)
+        return p
+
+    def _make_advance(self, player, new_samples: int = 882000):
+        """Return a fake advance_with_prebuffer that installs new audio data."""
+        import numpy as np
+
+        def fake_advance(was_playing):
+            player.file_manager.audio_data = np.zeros(new_samples, dtype=np.float32)
+            return True
+
+        return fake_advance
+
+    def test_position_resets_to_zero_after_gapless_transition(self, player):
+        """Stale end-of-track position is zeroed by next_track() (#2283)."""
+        # Simulate player near the end of the previous track
+        player.playback.seek(440000, 441000)
+        assert player.playback.position == 440000
+
+        player.gapless.advance_with_prebuffer.side_effect = self._make_advance(player)
+
+        player.next_track()
+
+        assert player.playback.position == 0, (
+            f"Expected position=0 after gapless transition, got {player.playback.position}"
+        )
+
+    def test_position_resets_when_was_playing(self, player):
+        """Position resets even when playback was active during the transition."""
+        player.playback.play()
+        player.playback.seek(400000, 441000)
+        assert player.playback.is_playing()
+
+        player.gapless.advance_with_prebuffer.side_effect = self._make_advance(player)
+
+        player.next_track()
+
+        assert player.playback.position == 0, (
+            f"position={player.playback.position} after transition while playing"
+        )
+
+    def test_position_resets_when_was_paused(self, player):
+        """Position resets even when player was paused at transition time."""
+        player.playback.seek(300000, 441000)
+
+        player.gapless.advance_with_prebuffer.side_effect = self._make_advance(player)
+
+        player.next_track()
+
+        assert player.playback.position == 0
+
+    def test_position_unchanged_when_no_next_track(self, player):
+        """If advance_with_prebuffer returns False, position must be preserved."""
+        player.playback.seek(400000, 441000)
+        player.gapless.advance_with_prebuffer.return_value = False
+
+        player.next_track()
+
+        assert player.playback.position == 400000
+
+    def test_position_in_bounds_of_new_shorter_track(self, player):
+        """Reset position is bounded to the new (shorter) track's sample count."""
+        import numpy as np
+
+        # Previous track is 441000 samples; new track is only 220500
+        new_audio = np.zeros(220500, dtype=np.float32)
+
+        def fake_advance(was_playing):
+            player.file_manager.audio_data = new_audio
+            return True
+
+        player.playback.seek(440000, 441000)
+        player.gapless.advance_with_prebuffer.side_effect = fake_advance
+
+        player.next_track()
+
+        assert player.playback.position == 0
+        assert player.playback.position <= len(new_audio)

@@ -271,6 +271,13 @@ class AudioPlayer:
         if self.gapless.advance_with_prebuffer(was_playing):
             self.integration.record_track_completion()
 
+            # Reset position to 0 for the incoming track (#2283).
+            # Both the gapless (prebuffer) and fallback paths inside
+            # advance_with_prebuffer() bypass AudioPlayer.load_file(), so
+            # the playback.stop() that normally resets position is never
+            # called.  seek(0, ...) is the lock-safe way to do this.
+            self.playback.seek(0, self.file_manager.get_total_samples())
+
             if was_playing:
                 self.playback.play()
 
