@@ -113,7 +113,6 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
             return {
                 'id': self.id,
                 'title': self.title,
-                'filepath': self.filepath,
                 'duration': self.duration,
                 'sample_rate': self.sample_rate,
                 'bit_depth': self.bit_depth,
@@ -149,7 +148,6 @@ class Track(Base, TimestampMixin):  # type: ignore[misc]
             return {
                 'id': getattr(self, 'id', None),
                 'title': getattr(self, 'title', 'Unknown'),
-                'filepath': getattr(self, 'filepath', ''),
                 'duration': getattr(self, 'duration', 0),
                 'sample_rate': getattr(self, 'sample_rate', 0),
                 'channels': getattr(self, 'channels', 0),

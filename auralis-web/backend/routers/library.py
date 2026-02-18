@@ -25,7 +25,7 @@ import logging
 from typing import Any, cast
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from schemas import ScanRequest
 
@@ -85,8 +85,8 @@ def create_library_router(
 
     @router.get("/api/library/tracks")
     async def get_tracks(
-        limit: int = 50,
-        offset: int = 0,
+        limit: int = Query(50, ge=1, le=200),
+        offset: int = Query(0, ge=0),
         search: str | None = None,
         order_by: str = 'created_at'
     ) -> dict[str, Any]:
@@ -134,7 +134,7 @@ def create_library_router(
             raise handle_query_error("get tracks", e)
 
     @router.get("/api/library/tracks/favorites")
-    async def get_favorite_tracks(limit: int = 50, offset: int = 0) -> dict[str, Any]:
+    async def get_favorite_tracks(limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)) -> dict[str, Any]:
         """
         Get all favorite tracks with pagination.
 
@@ -301,8 +301,8 @@ def create_library_router(
 
     @router.get("/api/library/artists")
     async def get_artists(
-        limit: int = 50,
-        offset: int = 0,
+        limit: int = Query(50, ge=1, le=200),
+        offset: int = Query(0, ge=0),
         order_by: str = "name"
     ) -> dict[str, Any]:
         """
@@ -387,8 +387,8 @@ def create_library_router(
 
     @router.get("/api/library/albums")
     async def get_albums(
-        limit: int = 50,
-        offset: int = 0,
+        limit: int = Query(50, ge=1, le=200),
+        offset: int = Query(0, ge=0),
         search: str | None = None,
         order_by: str = 'title'
     ) -> dict[str, Any]:

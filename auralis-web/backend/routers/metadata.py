@@ -121,7 +121,6 @@ def create_metadata_router(
 
             return {
                 "track_id": track_id,
-                "filepath": track.filepath,
                 "format": track.format,
                 "editable_fields": editable_fields,
                 "current_metadata": current_metadata
@@ -162,7 +161,6 @@ def create_metadata_router(
 
             return {
                 "track_id": track_id,
-                "filepath": track.filepath,
                 "format": track.format,
                 "metadata": metadata
             }

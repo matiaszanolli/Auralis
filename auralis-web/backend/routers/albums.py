@@ -12,7 +12,7 @@ import logging
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from .dependencies import require_repository_factory
 from .errors import NotFoundError, handle_query_error
@@ -40,8 +40,8 @@ def create_albums_router(
 
     @router.get("/api/albums")
     async def get_albums(
-        limit: int = 50,
-        offset: int = 0,
+        limit: int = Query(50, ge=1, le=200),
+        offset: int = Query(0, ge=0),
         search: str | None = None,
         order_by: str = 'title'
     ) -> Any:

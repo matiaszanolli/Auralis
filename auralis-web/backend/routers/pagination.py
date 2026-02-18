@@ -8,6 +8,8 @@ reducing boilerplate and ensuring consistency.
 :license: GPLv3, see LICENSE for more details.
 """
 
+from __future__ import annotations
+
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field

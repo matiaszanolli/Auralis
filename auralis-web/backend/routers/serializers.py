@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_TRACK_FIELDS = {
     'id': None,
     'title': 'Unknown',
-    'filepath': '',
     'duration': 0,
     'format': 'Unknown'
 }
