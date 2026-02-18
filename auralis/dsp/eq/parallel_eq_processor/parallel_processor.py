@@ -123,10 +123,8 @@ class ParallelEQProcessor:
                 audio_mono, gains, freq_to_band_map, fft_size
             )
 
-        # Apply window and transform
-        window = np.hanning(fft_size)
-        windowed_audio = audio_mono[:fft_size] * window
-        spectrum = fft(windowed_audio)
+        # No windowing for direct frequency-domain EQ — see VectorizedEQProcessor
+        spectrum = fft(audio_mono[:fft_size])
 
         # Pre-compute band masks and gains for all bands (vectorized)
         band_masks = []
@@ -150,9 +148,6 @@ class ParallelEQProcessor:
 
         # Transform back to time domain
         processed_audio = np.real(ifft(spectrum))
-
-        # Apply window compensation
-        processed_audio *= window
 
         return cast(np.ndarray, processed_audio[:len(audio_mono)])
 
@@ -336,12 +331,8 @@ class ParallelEQProcessor:
         Returns:
             Processed mono audio
         """
-        # Apply window
-        window = np.hanning(fft_size)
-        windowed_audio = audio_mono[:fft_size] * window
-
-        # Transform to frequency domain
-        spectrum = fft(windowed_audio)
+        # No windowing for direct frequency-domain EQ — see VectorizedEQProcessor
+        spectrum = fft(audio_mono[:fft_size])
 
         # Apply gains sequentially
         for i, gain_db in enumerate(gains):
@@ -359,8 +350,5 @@ class ParallelEQProcessor:
 
         # Transform back
         processed_audio = np.real(ifft(spectrum))
-
-        # Apply window compensation
-        processed_audio *= window
 
         return cast(np.ndarray, processed_audio[:len(audio_mono)])

@@ -15,7 +15,7 @@ import type { ApiResponse, ApiError } from '../../types/api';
 import { ApiErrorHandler } from '../../types/api';
 
 // Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8765';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8765';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 /**
