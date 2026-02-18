@@ -288,8 +288,10 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         }
       }
 
-      // Start playback immediately when stream begins
-      if (buffer.getAvailableSamples() >= message.data.sample_rate) {
+      // Start playback immediately when stream begins (if pending chunks filled enough buffer).
+      // Use the same channel-aware threshold as handleChunk: sampleRate * channels * 2 (issue #2268).
+      const minBufferSamples = message.data.sample_rate * message.data.channels * 2;
+      if (buffer.getAvailableSamples() >= minBufferSamples) {
         engine.startPlayback();
         setIsPaused(false);
       }
@@ -344,9 +346,12 @@ export const usePlayNormal = (): UsePlayNormalReturn => {
         })
       );
 
-      // Auto-start playback when sufficient buffer accumulated
+      // Auto-start playback when sufficient buffer accumulated.
+      // Mirror usePlayEnhanced: require sampleRate * channels * 2 samples (2 seconds of
+      // stereo audio) to avoid underruns on stereo content (issue #2268).
       const engine = playbackEngineRef.current;
-      if (engine && !engine.isPlaying() && bufferedSamples >= streamingMetadataRef.current.sampleRate * 1) {
+      const minBufferSamples = streamingMetadataRef.current.sampleRate * streamingMetadataRef.current.channels * 2;
+      if (engine && !engine.isPlaying() && bufferedSamples >= minBufferSamples) {
         engine.startPlayback();
         setIsPaused(false);
       }
